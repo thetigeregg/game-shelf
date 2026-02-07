@@ -1,0 +1,7 @@
+{
+  "name": "GameShelf",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}

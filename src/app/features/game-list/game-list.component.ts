@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
-import { PopoverController } from '@ionic/angular';
+import { PopoverController, ToastController } from '@ionic/angular';
 import { BehaviorSubject, Observable, combineLatest, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListFilters, ListType } from '../../core/models/game.models';
@@ -20,6 +20,7 @@ export class GameListComponent implements OnChanges {
   games$: Observable<GameEntry[]> = of([]);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly popoverController = inject(PopoverController);
+  private readonly toastController = inject(ToastController);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
   private readonly searchQuery$ = new BehaviorSubject<string>('');
 
@@ -46,7 +47,9 @@ export class GameListComponent implements OnChanges {
   }
 
   async moveGame(game: GameEntry): Promise<void> {
-    await this.gameShelfService.moveGame(game.externalId, this.getOtherListType());
+    const targetList = this.getOtherListType();
+    await this.gameShelfService.moveGame(game.externalId, targetList);
+    await this.presentToast(`Moved to ${this.getListLabel(targetList)}.`);
   }
 
   async removeGame(game: GameEntry): Promise<void> {
@@ -85,6 +88,10 @@ export class GameListComponent implements OnChanges {
 
   private getOtherListType(): ListType {
     return this.listType === 'collection' ? 'wishlist' : 'collection';
+  }
+
+  private getListLabel(listType: ListType): string {
+    return listType === 'collection' ? 'Collection' : 'Wishlist';
   }
 
   private normalizeFilters(filters: GameListFilters): GameListFilters {
@@ -163,5 +170,16 @@ export class GameListComponent implements OnChanges {
     }
 
     return releaseDate.slice(0, 10);
+  }
+
+  private async presentToast(message: string): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 1600,
+      position: 'bottom',
+      color: 'primary',
+    });
+
+    await toast.present();
   }
 }

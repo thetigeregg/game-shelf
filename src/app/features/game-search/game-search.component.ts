@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
-import { AlertController } from '@ionic/angular';
+import { AlertController, ToastController } from '@ionic/angular';
 import { Subject, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { GameCatalogResult, ListType } from '../../core/models/game.models';
@@ -25,6 +25,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
   private readonly addingExternalIds = new Set<string>();
   private readonly gameShelfService = inject(GameShelfService);
   private readonly alertController = inject(AlertController);
+  private readonly toastController = inject(ToastController);
 
   ngOnInit(): void {
     this.searchTerms$
@@ -98,6 +99,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
         },
         this.listType
       );
+      await this.presentToast(`Added to ${this.getListLabel()}.`);
     } finally {
       this.addingExternalIds.delete(result.externalId);
     }
@@ -191,5 +193,20 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     }
 
     return [];
+  }
+
+  private getListLabel(): string {
+    return this.listType === 'collection' ? 'Collection' : 'Wishlist';
+  }
+
+  private async presentToast(message: string): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 1600,
+      position: 'bottom',
+      color: 'success',
+    });
+
+    await toast.present();
   }
 }

@@ -1,0 +1,4 @@
+name = "game-shelf-igdb-proxy"
+main = "src/index.mjs"
+compatibility_date = "2026-02-07"
+workers_dev = true

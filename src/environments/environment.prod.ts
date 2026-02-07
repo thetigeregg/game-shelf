@@ -1,3 +1,4 @@
 export const environment = {
-  production: true
+  production: true,
+  gameApiBaseUrl: 'https://your-worker-subdomain.workers.dev',
 };

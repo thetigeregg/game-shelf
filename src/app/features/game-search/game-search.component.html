@@ -1,0 +1,42 @@
+<ion-searchbar
+  placeholder="Search games to add"
+  [value]="query"
+  [debounce]="0"
+  (ionInput)="onSearchChange($any($event).detail.value)"
+></ion-searchbar>
+
+<ion-list *ngIf="isLoading || hasSearched || errorMessage.length > 0">
+  <ion-item *ngIf="isLoading" lines="none">
+    <ion-spinner name="dots" slot="start"></ion-spinner>
+    <ion-label>Searching games...</ion-label>
+  </ion-item>
+
+  <ion-item *ngIf="errorMessage.length > 0" color="danger" lines="none">
+    <ion-label>{{ errorMessage }}</ion-label>
+  </ion-item>
+
+  <ion-item *ngIf="!isLoading && hasSearched && results.length === 0 && errorMessage.length === 0" lines="none">
+    <ion-label>No games found.</ion-label>
+  </ion-item>
+
+  <ion-item *ngFor="let result of results; trackBy: trackByExternalId">
+    <ion-thumbnail slot="start" class="game-thumbnail">
+      <img [src]="result.coverUrl || 'assets/icon/favicon.png'" [alt]="result.title" (error)="onImageError($event)" />
+    </ion-thumbnail>
+
+    <ion-label>
+      <h2>{{ result.title }}</h2>
+      <p>{{ result.platform || 'Unknown platform' }} • {{ result.releaseYear || 'Unknown year' }}</p>
+    </ion-label>
+
+    <ion-button
+      slot="end"
+      fill="outline"
+      size="small"
+      [disabled]="isAdding(result.externalId)"
+      (click)="addGame(result)"
+    >
+      {{ isAdding(result.externalId) ? 'Adding...' : 'Add' }}
+    </ion-button>
+  </ion-item>
+</ion-list>

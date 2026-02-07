@@ -1,0 +1,25 @@
+<ion-list *ngIf="games$ | async as games">
+  <ion-item *ngFor="let game of games; trackBy: trackByExternalId">
+    <ion-thumbnail slot="start" class="game-thumbnail">
+      <img [src]="game.coverUrl || 'assets/icon/favicon.png'" [alt]="game.title" (error)="onImageError($event)" />
+    </ion-thumbnail>
+
+    <ion-label>
+      <h2>{{ game.title }}</h2>
+      <p>{{ game.platform || 'Unknown platform' }} • {{ game.releaseYear || 'Unknown year' }}</p>
+    </ion-label>
+
+    <ion-buttons slot="end">
+      <ion-button fill="clear" size="small" (click)="moveGame(game)">
+        Move to {{ getOtherListLabel() }}
+      </ion-button>
+      <ion-button fill="clear" color="danger" size="small" (click)="removeGame(game)">
+        Delete
+      </ion-button>
+    </ion-buttons>
+  </ion-item>
+
+  <ion-item *ngIf="games.length === 0" lines="none">
+    <ion-label color="medium">No games yet.</ion-label>
+  </ion-item>
+</ion-list>

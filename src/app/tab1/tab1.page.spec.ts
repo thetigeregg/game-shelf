@@ -1,9 +1,13 @@
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { IonicModule } from '@ionic/angular';
-
-import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
-
 import { Tab1Page } from './tab1.page';
+
+@Component({ selector: 'app-game-search', template: '' })
+class GameSearchStubComponent {}
+
+@Component({ selector: 'app-game-list', template: '' })
+class GameListStubComponent {}
 
 describe('Tab1Page', () => {
   let component: Tab1Page;
@@ -11,8 +15,8 @@ describe('Tab1Page', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [Tab1Page],
-      imports: [IonicModule.forRoot(), ExploreContainerComponentModule]
+      declarations: [Tab1Page, GameSearchStubComponent, GameListStubComponent],
+      imports: [IonicModule.forRoot()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Tab1Page);
@@ -20,7 +24,9 @@ describe('Tab1Page', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it('should create collection page with collection list type', () => {
     expect(component).toBeTruthy();
+    expect(component.listType).toBe('collection');
+    expect(fixture.nativeElement.textContent).toContain('Collection');
   });
 });

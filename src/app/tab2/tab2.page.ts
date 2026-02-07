@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ListType } from '../core/models/game.models';
 
 @Component({
   selector: 'app-tab2',
@@ -7,7 +8,5 @@ import { Component } from '@angular/core';
   standalone: false,
 })
 export class Tab2Page {
-
-  constructor() {}
-
+  readonly listType: ListType = 'wishlist';
 }

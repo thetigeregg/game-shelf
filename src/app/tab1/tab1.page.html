@@ -10,6 +10,9 @@
   <ion-toolbar>
     <ion-title>Collection</ion-title>
     <ion-buttons slot="end">
+      <ion-button aria-label="Add game" (click)="openAddGameModal()">
+        <ion-icon slot="icon-only" name="add"></ion-icon>
+      </ion-button>
       <ion-menu-button [menu]="menuId"></ion-menu-button>
     </ion-buttons>
   </ion-toolbar>
@@ -20,15 +23,40 @@
     <ion-toolbar>
       <ion-title size="large">Collection</ion-title>
       <ion-buttons slot="end">
+        <ion-button aria-label="Add game" (click)="openAddGameModal()">
+          <ion-icon slot="icon-only" name="add"></ion-icon>
+        </ion-button>
         <ion-menu-button [menu]="menuId"></ion-menu-button>
       </ion-buttons>
     </ion-toolbar>
   </ion-header>
 
-  <app-game-search [listType]="listType"></app-game-search>
+  <ion-searchbar
+    placeholder="Search collection"
+    [value]="listSearchQuery"
+    (ionInput)="onListSearchChange($any($event).detail.value)"
+  ></ion-searchbar>
+
   <app-game-list
     [listType]="listType"
     [filters]="filters"
+    [searchQuery]="listSearchQuery"
     (platformOptionsChange)="onPlatformOptionsChange($event)"
   ></app-game-list>
 </ion-content>
+
+<ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Add Game</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeAddGameModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <app-game-search [listType]="listType"></app-game-search>
+    </ion-content>
+  </ng-template>
+</ion-modal>

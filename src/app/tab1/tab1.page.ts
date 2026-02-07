@@ -14,6 +14,8 @@ export class Tab1Page {
 
   filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   platformOptions: string[] = [];
+  listSearchQuery = '';
+  isAddGameModalOpen = false;
 
   onFiltersChange(filters: GameListFilters): void {
     this.filters = { ...filters };
@@ -28,5 +30,17 @@ export class Tab1Page {
         platform: 'all',
       };
     }
+  }
+
+  onListSearchChange(value: string | null | undefined): void {
+    this.listSearchQuery = (value ?? '').replace(/^\s+/, '');
+  }
+
+  openAddGameModal(): void {
+    this.isAddGameModalOpen = true;
+  }
+
+  closeAddGameModal(): void {
+    this.isAddGameModalOpen = false;
   }
 }

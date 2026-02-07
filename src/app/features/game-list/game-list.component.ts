@@ -13,11 +13,13 @@ import { GameShelfService } from '../../core/services/game-shelf.service';
 export class GameListComponent implements OnChanges {
   @Input({ required: true }) listType!: ListType;
   @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
+  @Input() searchQuery = '';
   @Output() platformOptionsChange = new EventEmitter<string[]>();
 
   games$: Observable<GameEntry[]> = of([]);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
+  private readonly searchQuery$ = new BehaviorSubject<string>('');
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['listType']?.currentValue) {
@@ -27,13 +29,17 @@ export class GameListComponent implements OnChanges {
         })
       );
 
-      this.games$ = combineLatest([allGames$, this.filters$]).pipe(
-        map(([games, filters]) => this.applyFiltersAndSort(games, filters))
+      this.games$ = combineLatest([allGames$, this.filters$, this.searchQuery$]).pipe(
+        map(([games, filters, searchQuery]) => this.applyFiltersAndSort(games, filters, searchQuery))
       );
     }
 
     if (changes['filters']?.currentValue) {
       this.filters$.next(this.normalizeFilters(this.filters));
+    }
+
+    if (changes['searchQuery']) {
+      this.searchQuery$.next((this.searchQuery ?? '').trim());
     }
   }
 
@@ -80,12 +86,16 @@ export class GameListComponent implements OnChanges {
     )].sort((a, b) => a.localeCompare(b));
   }
 
-  private applyFiltersAndSort(games: GameEntry[], filters: GameListFilters): GameEntry[] {
-    const filtered = games.filter(game => this.matchesFilters(game, filters));
+  private applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
+    const filtered = games.filter(game => this.matchesFilters(game, filters, searchQuery));
     return this.sortGames(filtered, filters);
   }
 
-  private matchesFilters(game: GameEntry, filters: GameListFilters): boolean {
+  private matchesFilters(game: GameEntry, filters: GameListFilters, searchQuery: string): boolean {
+    if (searchQuery.length > 0 && !game.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+
     if (filters.platform !== 'all' && game.platform !== filters.platform) {
       return false;
     }

@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { MenuController } from '@ionic/angular';
 import { DEFAULT_GAME_LIST_FILTERS, GameListFilters, ListType } from '../core/models/game.models';
 
 @Component({
@@ -16,6 +17,7 @@ export class Tab1Page {
   platformOptions: string[] = [];
   listSearchQuery = '';
   isAddGameModalOpen = false;
+  private readonly menuController = inject(MenuController);
 
   onFiltersChange(filters: GameListFilters): void {
     this.filters = { ...filters };
@@ -42,5 +44,9 @@ export class Tab1Page {
 
   closeAddGameModal(): void {
     this.isAddGameModalOpen = false;
+  }
+
+  async openFiltersMenu(): Promise<void> {
+    await this.menuController.open(this.menuId);
   }
 }

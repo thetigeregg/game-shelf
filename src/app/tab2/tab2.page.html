@@ -13,7 +13,9 @@
       <ion-button aria-label="Add game" (click)="openAddGameModal()">
         <ion-icon slot="icon-only" name="add"></ion-icon>
       </ion-button>
-      <ion-menu-button [menu]="menuId"></ion-menu-button>
+      <ion-button aria-label="Open filters" (click)="openFiltersMenu()">
+        <ion-icon slot="icon-only" name="filter"></ion-icon>
+      </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
@@ -26,7 +28,9 @@
         <ion-button aria-label="Add game" (click)="openAddGameModal()">
           <ion-icon slot="icon-only" name="add"></ion-icon>
         </ion-button>
-        <ion-menu-button [menu]="menuId"></ion-menu-button>
+        <ion-button aria-label="Open filters" (click)="openFiltersMenu()">
+          <ion-icon slot="icon-only" name="filter"></ion-icon>
+        </ion-button>
       </ion-buttons>
     </ion-toolbar>
   </ion-header>

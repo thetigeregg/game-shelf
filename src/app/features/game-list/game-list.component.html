@@ -9,14 +9,29 @@
       <p>{{ game.platform || 'Unknown platform' }} • {{ game.releaseYear || 'Unknown year' }}</p>
     </ion-label>
 
-    <ion-buttons slot="end">
-      <ion-button fill="clear" size="small" (click)="moveGame(game)">
-        Move to {{ getOtherListLabel() }}
-      </ion-button>
-      <ion-button fill="clear" color="danger" size="small" (click)="removeGame(game)">
-        Delete
-      </ion-button>
-    </ion-buttons>
+    <ion-button
+      slot="end"
+      fill="clear"
+      aria-label="Game actions"
+      [id]="getActionsTriggerId(game)"
+    >
+      <ion-icon name="menu" slot="icon-only"></ion-icon>
+    </ion-button>
+
+    <ion-popover [trigger]="getActionsTriggerId(game)" triggerAction="click">
+      <ng-template>
+        <ion-content>
+          <ion-list lines="none">
+            <ion-item button detail="false" (click)="moveGameFromPopover(game)">
+              Move to {{ getOtherListLabel() }}
+            </ion-item>
+            <ion-item button detail="false" color="danger" (click)="removeGameFromPopover(game)">
+              Delete
+            </ion-item>
+          </ion-list>
+        </ion-content>
+      </ng-template>
+    </ion-popover>
   </ion-item>
 
   <ion-item *ngIf="games.length === 0" lines="none">

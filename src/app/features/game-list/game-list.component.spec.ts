@@ -67,15 +67,13 @@ describe('GameListComponent', () => {
     expect(textContent).toContain('Super Mario Odyssey');
     expect(textContent).toContain('Nintendo Switch');
     expect(textContent).toContain('2017');
-    expect(textContent).toContain('Move to Wishlist');
+    expect(fixture.nativeElement.querySelectorAll('ion-popover').length).toBeGreaterThan(0);
   });
 
   it('shows alternate move label for wishlist list', () => {
     component.listType = 'wishlist';
     fixture.detectChanges();
-
-    const textContent = fixture.nativeElement.textContent;
-    expect(textContent).toContain('Move to Collection');
+    expect(component.getOtherListLabel()).toBe('Collection');
   });
 
   it('moves and removes a game from row actions', async () => {

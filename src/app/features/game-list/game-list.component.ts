@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { PopoverController } from '@ionic/angular';
 import { BehaviorSubject, Observable, combineLatest, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListFilters, ListType } from '../../core/models/game.models';
@@ -18,6 +19,7 @@ export class GameListComponent implements OnChanges {
 
   games$: Observable<GameEntry[]> = of([]);
   private readonly gameShelfService = inject(GameShelfService);
+  private readonly popoverController = inject(PopoverController);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
   private readonly searchQuery$ = new BehaviorSubject<string>('');
 
@@ -51,6 +53,16 @@ export class GameListComponent implements OnChanges {
     await this.gameShelfService.removeGame(game.externalId);
   }
 
+  async moveGameFromPopover(game: GameEntry): Promise<void> {
+    await this.moveGame(game);
+    await this.popoverController.dismiss();
+  }
+
+  async removeGameFromPopover(game: GameEntry): Promise<void> {
+    await this.removeGame(game);
+    await this.popoverController.dismiss();
+  }
+
   getOtherListLabel(): string {
     return this.listType === 'collection' ? 'Wishlist' : 'Collection';
   }
@@ -65,6 +77,10 @@ export class GameListComponent implements OnChanges {
     if (target instanceof HTMLImageElement) {
       target.src = 'assets/icon/favicon.png';
     }
+  }
+
+  getActionsTriggerId(game: GameEntry): string {
+    return `game-actions-trigger-${game.externalId}`;
   }
 
   private getOtherListType(): ListType {

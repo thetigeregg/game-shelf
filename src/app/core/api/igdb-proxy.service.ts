@@ -31,12 +31,33 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
+    const platforms = this.normalizePlatforms(result);
+
     return {
       externalId: String(result.externalId ?? '').trim(),
       title: String(result.title ?? '').trim() || 'Unknown title',
       coverUrl: typeof result.coverUrl === 'string' && result.coverUrl.length > 0 ? result.coverUrl : null,
-      platform: typeof result.platform === 'string' && result.platform.length > 0 ? result.platform : null,
+      platforms,
+      platform: platforms.length === 1 ? platforms[0] : null,
       releaseYear: Number.isInteger(result.releaseYear) ? result.releaseYear : null,
     };
+  }
+
+  private normalizePlatforms(result: GameCatalogResult): string[] {
+    const fromArray = Array.isArray(result.platforms)
+      ? result.platforms
+          .map(platform => typeof platform === 'string' ? platform.trim() : '')
+          .filter(platform => platform.length > 0)
+      : [];
+
+    if (fromArray.length > 0) {
+      return [...new Set(fromArray)];
+    }
+
+    if (typeof result.platform === 'string' && result.platform.trim().length > 0) {
+      return [result.platform.trim()];
+    }
+
+    return [];
   }
 }

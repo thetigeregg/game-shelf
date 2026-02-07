@@ -12,6 +12,7 @@ describe('DexieGameRepository', () => {
     externalId: '101',
     title: 'Super Mario Bros.',
     coverUrl: 'https://example.com/mario.jpg',
+    platforms: ['NES'],
     platform: 'NES',
     releaseYear: 1985,
   };

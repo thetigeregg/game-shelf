@@ -4,6 +4,7 @@ export interface GameCatalogResult {
   externalId: string;
   title: string;
   coverUrl: string | null;
+  platforms: string[];
   platform: string | null;
   releaseYear: number | null;
 }

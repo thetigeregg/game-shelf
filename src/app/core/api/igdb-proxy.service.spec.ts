@@ -37,6 +37,7 @@ describe('IgdbProxyService', () => {
         externalId: '100',
         title: 'Super Mario Odyssey',
         coverUrl: null,
+        platforms: ['Nintendo Switch'],
         platform: 'Nintendo Switch',
         releaseYear: 2017,
       });
@@ -54,6 +55,7 @@ describe('IgdbProxyService', () => {
           externalId: '100',
           title: 'Super Mario Odyssey',
           coverUrl: '',
+          platforms: ['Nintendo Switch'],
           platform: 'Nintendo Switch',
           releaseYear: 2017,
         },

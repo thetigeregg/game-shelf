@@ -61,7 +61,13 @@ export function buildCoverUrl(imageId) {
 }
 
 export function normalizeIgdbGame(game) {
-  const firstPlatform = Array.isArray(game.platforms) && game.platforms.length > 0 ? game.platforms[0] : null;
+  const platforms = Array.isArray(game.platforms)
+    ? [...new Set(
+      game.platforms
+        .map(platform => typeof platform?.name === 'string' ? platform.name.trim() : '')
+        .filter(name => name.length > 0)
+    )]
+    : [];
   const releaseYear = Number.isFinite(game.first_release_date)
     ? new Date(game.first_release_date * 1000).getUTCFullYear()
     : null;
@@ -70,9 +76,8 @@ export function normalizeIgdbGame(game) {
     externalId: String(game.id ?? '').trim(),
     title: typeof game.name === 'string' && game.name.trim().length > 0 ? game.name.trim() : 'Unknown title',
     coverUrl: buildCoverUrl(game.cover?.image_id ?? null),
-    platform: typeof firstPlatform?.name === 'string' && firstPlatform.name.trim().length > 0
-      ? firstPlatform.name.trim()
-      : null,
+    platforms,
+    platform: platforms.length === 1 ? platforms[0] : null,
     releaseYear,
   };
 }

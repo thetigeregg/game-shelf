@@ -26,7 +26,7 @@
 
     <ion-label>
       <h2>{{ result.title }}</h2>
-      <p>{{ result.platform || 'Unknown platform' }} • {{ result.releaseYear || 'Unknown year' }}</p>
+      <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
     </ion-label>
 
     <ion-button

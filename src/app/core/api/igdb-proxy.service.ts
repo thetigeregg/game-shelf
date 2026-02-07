@@ -39,6 +39,7 @@ export class IgdbProxyService implements GameSearchApi {
       coverUrl: typeof result.coverUrl === 'string' && result.coverUrl.length > 0 ? result.coverUrl : null,
       platforms,
       platform: platforms.length === 1 ? platforms[0] : null,
+      releaseDate: this.normalizeReleaseDate(result.releaseDate),
       releaseYear: Number.isInteger(result.releaseYear) ? result.releaseYear : null,
     };
   }
@@ -59,5 +60,14 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return [];
+  }
+
+  private normalizeReleaseDate(releaseDate: string | null | undefined): string | null {
+    if (typeof releaseDate !== 'string' || releaseDate.trim().length === 0) {
+      return null;
+    }
+
+    const timestamp = Date.parse(releaseDate);
+    return Number.isNaN(timestamp) ? null : new Date(timestamp).toISOString();
   }
 }

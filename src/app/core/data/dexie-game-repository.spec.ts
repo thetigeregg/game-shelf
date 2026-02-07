@@ -14,6 +14,7 @@ describe('DexieGameRepository', () => {
     coverUrl: 'https://example.com/mario.jpg',
     platforms: ['NES'],
     platform: 'NES',
+    releaseDate: '1985-09-13T00:00:00.000Z',
     releaseYear: 1985,
   };
 

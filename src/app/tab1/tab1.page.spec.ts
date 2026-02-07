@@ -9,13 +9,16 @@ class GameSearchStubComponent {}
 @Component({ selector: 'app-game-list', template: '' })
 class GameListStubComponent {}
 
+@Component({ selector: 'app-game-filters-menu', template: '' })
+class GameFiltersMenuStubComponent {}
+
 describe('Tab1Page', () => {
   let component: Tab1Page;
   let fixture: ComponentFixture<Tab1Page>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [Tab1Page, GameSearchStubComponent, GameListStubComponent],
+      declarations: [Tab1Page, GameSearchStubComponent, GameListStubComponent, GameFiltersMenuStubComponent],
       imports: [IonicModule.forRoot()],
     }).compileComponents();
 

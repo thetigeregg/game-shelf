@@ -39,6 +39,7 @@ describe('IgdbProxyService', () => {
         coverUrl: null,
         platforms: ['Nintendo Switch'],
         platform: 'Nintendo Switch',
+        releaseDate: '2017-10-27T00:00:00.000Z',
         releaseYear: 2017,
       });
       done();
@@ -57,6 +58,7 @@ describe('IgdbProxyService', () => {
           coverUrl: '',
           platforms: ['Nintendo Switch'],
           platform: 'Nintendo Switch',
+          releaseDate: '2017-10-27T00:00:00.000Z',
           releaseYear: 2017,
         },
       ],

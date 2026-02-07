@@ -18,7 +18,20 @@ describe('GameListComponent', () => {
       title: 'Super Mario Odyssey',
       coverUrl: 'https://example.com/cover.jpg',
       platform: 'Nintendo Switch',
+      releaseDate: '2017-10-27T00:00:00.000Z',
       releaseYear: 2017,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+    {
+      id: 2,
+      externalId: '102',
+      title: 'Halo Infinite',
+      coverUrl: 'https://example.com/halo.jpg',
+      platform: 'Xbox Series X',
+      releaseDate: '2021-12-08T00:00:00.000Z',
+      releaseYear: 2021,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -74,5 +87,21 @@ describe('GameListComponent', () => {
 
     expect(gameShelfService.moveGame).toHaveBeenCalledWith('101', 'wishlist');
     expect(gameShelfService.removeGame).toHaveBeenCalledWith('101');
+  });
+
+  it('filters by platform and sorts by release date descending', () => {
+    component.listType = 'collection';
+    component.filters = {
+      sortField: 'releaseDate',
+      sortDirection: 'desc',
+      platform: 'Nintendo Switch',
+      releaseDateFrom: null,
+      releaseDateTo: null,
+    };
+    fixture.detectChanges();
+
+    const textContent = fixture.nativeElement.textContent;
+    expect(textContent).toContain('Super Mario Odyssey');
+    expect(textContent).not.toContain('Halo Infinite');
   });
 });

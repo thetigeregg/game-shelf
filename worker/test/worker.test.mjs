@@ -50,6 +50,7 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
     platforms: ['Nintendo Switch'],
     platform: 'Nintendo Switch',
+    releaseDate: '2017-10-20T00:00:00.000Z',
     releaseYear: 2017,
   });
 });
@@ -94,6 +95,7 @@ test('returns normalized search results for valid query', async () => {
   assert.equal(payload.items[0].externalId, '99');
   assert.equal(payload.items[0].title, 'Mario Kart 8 Deluxe');
   assert.deepEqual(payload.items[0].platforms, ['Nintendo Switch']);
+  assert.equal(payload.items[0].releaseDate, '2017-03-03T00:00:00.000Z');
 });
 
 test('reuses cached token between requests', async () => {

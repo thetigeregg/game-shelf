@@ -51,6 +51,7 @@ describe('GameShelfService', () => {
       coverUrl: null,
       platforms: ['Switch'],
       platform: 'Switch',
+      releaseDate: '2017-04-28T00:00:00.000Z',
       releaseYear: 2017,
     };
 
@@ -71,7 +72,7 @@ describe('GameShelfService', () => {
   });
 
   it('returns API search results for valid queries', async () => {
-    const expected = [{ externalId: '1', title: 'Mario', coverUrl: null, platforms: [], platform: null, releaseYear: null }];
+    const expected = [{ externalId: '1', title: 'Mario', coverUrl: null, platforms: [], platform: null, releaseDate: null, releaseYear: null }];
     searchApi.searchGames.and.returnValue(of(expected));
 
     const result = await firstValueFrom(service.searchGames('mario'));

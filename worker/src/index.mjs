@@ -71,6 +71,9 @@ export function normalizeIgdbGame(game) {
   const releaseYear = Number.isFinite(game.first_release_date)
     ? new Date(game.first_release_date * 1000).getUTCFullYear()
     : null;
+  const releaseDate = Number.isFinite(game.first_release_date)
+    ? new Date(game.first_release_date * 1000).toISOString()
+    : null;
 
   return {
     externalId: String(game.id ?? '').trim(),
@@ -78,6 +81,7 @@ export function normalizeIgdbGame(game) {
     coverUrl: buildCoverUrl(game.cover?.image_id ?? null),
     platforms,
     platform: platforms.length === 1 ? platforms[0] : null,
+    releaseDate,
     releaseYear,
   };
 }

@@ -1,0 +1,110 @@
+import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
+import { DEFAULT_GAME_LIST_FILTERS, GameListFilters } from '../../core/models/game.models';
+
+type SortOption = 'title:asc' | 'title:desc' | 'releaseDate:asc' | 'releaseDate:desc';
+
+@Component({
+  selector: 'app-game-filters-menu',
+  templateUrl: './game-filters-menu.component.html',
+  styleUrls: ['./game-filters-menu.component.scss'],
+  standalone: false,
+})
+export class GameFiltersMenuComponent implements OnChanges {
+  @Input({ required: true }) menuId!: string;
+  @Input({ required: true }) contentId!: string;
+  @Input() platformOptions: string[] = [];
+  @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
+
+  @Output() filtersChange = new EventEmitter<GameListFilters>();
+
+  draftFilters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
+  sortOption: SortOption = 'title:asc';
+
+  ngOnChanges(): void {
+    this.draftFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      ...this.filters,
+    };
+    this.sortOption = `${this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
+  }
+
+  updateFilters(): void {
+    this.filtersChange.emit({ ...this.draftFilters });
+  }
+
+  resetFilters(): void {
+    this.draftFilters = { ...DEFAULT_GAME_LIST_FILTERS };
+    this.sortOption = 'title:asc';
+    this.updateFilters();
+  }
+
+  onSortOptionChange(value: SortOption | string): void {
+    if (!this.isSortOption(value)) {
+      return;
+    }
+
+    const [sortField, sortDirection] = value.split(':') as [GameListFilters['sortField'], GameListFilters['sortDirection']];
+    this.sortOption = value;
+    this.draftFilters = {
+      ...this.draftFilters,
+      sortField,
+      sortDirection,
+    };
+    this.updateFilters();
+  }
+
+  onReleaseDateFromChange(value: string | string[] | null | undefined): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      releaseDateFrom: this.toDateOnly(value),
+    };
+    this.updateFilters();
+  }
+
+  onReleaseDateToChange(value: string | string[] | null | undefined): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      releaseDateTo: this.toDateOnly(value),
+    };
+    this.updateFilters();
+  }
+
+  clearReleaseDateFrom(): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      releaseDateFrom: null,
+    };
+    this.updateFilters();
+  }
+
+  clearReleaseDateTo(): void {
+    this.draftFilters = {
+      ...this.draftFilters,
+      releaseDateTo: null,
+    };
+    this.updateFilters();
+  }
+
+  get releaseDateFromDatetimeId(): string {
+    return `${this.menuId}-release-date-from`;
+  }
+
+  get releaseDateToDatetimeId(): string {
+    return `${this.menuId}-release-date-to`;
+  }
+
+  private toDateOnly(value: string | string[] | null | undefined): string | null {
+    if (typeof value !== 'string' || value.length < 10) {
+      return null;
+    }
+
+    return value.slice(0, 10);
+  }
+
+  private isSortOption(value: string): value is SortOption {
+    return value === 'title:asc'
+      || value === 'title:desc'
+      || value === 'releaseDate:asc'
+      || value === 'releaseDate:desc';
+  }
+}

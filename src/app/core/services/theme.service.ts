@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 
 const STORAGE_KEY = 'game-shelf-primary-color';
 const DEFAULT_PRIMARY_COLOR = '#3880ff';
+const PRIMARY_CONTRAST_COLOR = '#ffffff';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
@@ -30,7 +31,7 @@ export class ThemeService {
     const rgb = this.hexToRgb(normalizedColor);
     const shade = this.adjustColor(normalizedColor, -0.1);
     const tint = this.adjustColor(normalizedColor, 0.1);
-    const contrast = this.getContrastColor(rgb.r, rgb.g, rgb.b);
+    const contrast = PRIMARY_CONTRAST_COLOR;
     const contrastRgb = this.hexToRgb(contrast);
     const rootStyle = document.documentElement.style;
 
@@ -106,8 +107,4 @@ export class ThemeService {
     return `#${nextR}${nextG}${nextB}`;
   }
 
-  private getContrastColor(red: number, green: number, blue: number): string {
-    const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-    return luminance > 0.6 ? '#000000' : '#ffffff';
-  }
 }

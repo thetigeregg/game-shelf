@@ -38,7 +38,7 @@
 
 ion-header ion-toolbar {
   --background: var(--ion-color-primary);
-  --color: #ffffff;
+  --color: var(--ion-color-primary-contrast);
   --border-color: var(--ion-color-primary-shade);
   --opacity: 1;
   background: var(--ion-color-primary);
@@ -48,19 +48,19 @@ ion-header ion-toolbar ion-title,
 ion-header ion-toolbar ion-button,
 ion-header ion-toolbar ion-icon,
 ion-header ion-toolbar ion-back-button {
-  color: #ffffff;
+  color: var(--ion-color-primary-contrast);
 }
 
 ion-header ion-toolbar ion-button,
 ion-header ion-toolbar ion-back-button {
-  --color: #ffffff;
+  --color: var(--ion-color-primary-contrast);
 }
 
 ion-header ion-toolbar .page-subtitle {
-  color: #ffffff;
+  color: var(--ion-color-primary-contrast);
   opacity: 0.9;
 }
 
 ion-fab-button {
-  --color: #ffffff;
+  --color: var(--ion-color-primary-contrast);
 }

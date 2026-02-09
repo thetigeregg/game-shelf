@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
-import { AlertController, PopoverController, ToastController } from '@ionic/angular';
+import { AlertController, IonItemSliding, PopoverController, ToastController } from '@ionic/angular';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import {
@@ -443,6 +443,10 @@ export class GameListComponent implements OnChanges {
     if (trigger instanceof HTMLElement) {
       trigger.click();
     }
+  }
+
+  onRowActionsPopoverDismiss(slidingItem: IonItemSliding): void {
+    void slidingItem?.close();
   }
 
   async refreshSelectedGameMetadataFromPopover(): Promise<void> {

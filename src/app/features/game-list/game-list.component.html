@@ -39,7 +39,7 @@
 </ng-container>
 
 <ng-template #gameRowTemplate let-game>
-  <ion-item-sliding [disabled]="selectionModeActive">
+  <ion-item-sliding #slidingItem [disabled]="selectionModeActive">
     <ion-item
       lines="full"
       button
@@ -95,7 +95,12 @@
     </ion-item-options>
   </ion-item-sliding>
 
-  <ion-popover *ngIf="!selectionModeActive" [trigger]="getActionsTriggerId(game)" triggerAction="click">
+  <ion-popover
+    *ngIf="!selectionModeActive"
+    [trigger]="getActionsTriggerId(game)"
+    triggerAction="click"
+    (didDismiss)="onRowActionsPopoverDismiss(slidingItem)"
+  >
     <ng-template>
       <ion-content>
         <ion-list lines="none">

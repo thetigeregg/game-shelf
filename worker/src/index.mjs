@@ -2,6 +2,7 @@ const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
 const MAX_THE_GAMES_DB_LOOKUPS = 10;
+const MAX_BOX_ART_RESULTS = 30;
 
 const tokenCache = {
   accessToken: null,
@@ -37,6 +38,10 @@ function normalizeSearchQuery(url) {
 function normalizeGameIdFromPath(pathname) {
   const match = pathname.match(/^\/v1\/games\/(\d+)$/);
   return match ? match[1] : null;
+}
+
+function isBoxArtSearchPath(pathname) {
+  return pathname === '/v1/images/boxart/search';
 }
 
 function isRateLimited(ipAddress, nowMs) {
@@ -137,6 +142,10 @@ function getTheGamesDbGameTitle(game) {
   return game?.game_title ?? game?.name ?? game?.title ?? '';
 }
 
+function getTheGamesDbGameId(game) {
+  return String(game?.id ?? '').trim();
+}
+
 function levenshteinDistance(left, right) {
   const leftLength = left.length;
   const rightLength = right.length;
@@ -213,32 +222,26 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   return score;
 }
 
-function findBestTheGamesDbBoxArt(payload, expectedTitle) {
+function findTheGamesDbBoxArtCandidates(payload, expectedTitle) {
   const root = payload?.data;
   const includeRoot = payload?.include;
 
   const games = Array.isArray(root?.games) ? root.games : [];
 
   if (games.length === 0) {
-    return null;
+    return [];
   }
 
   const rankedGames = games
     .map(game => ({
-      game,
+      gameId: getTheGamesDbGameId(game),
       score: getTitleSimilarityScore(expectedTitle, getTheGamesDbGameTitle(game)),
     }))
-    .filter(entry => Number.isFinite(entry.score))
+    .filter(entry => entry.gameId.length > 0 && Number.isFinite(entry.score))
     .sort((left, right) => right.score - left.score);
 
   if (rankedGames.length === 0) {
-    return null;
-  }
-
-  const gameId = String(rankedGames[0].game?.id ?? '');
-
-  if (!gameId) {
-    return null;
+    return [];
   }
 
   const boxartRoot = includeRoot?.boxart;
@@ -247,42 +250,50 @@ function findBestTheGamesDbBoxArt(payload, expectedTitle) {
     || boxartRoot?.base_url?.medium
     || null;
 
-  const dataByGame = boxartRoot?.data ?? {};
-  const candidates = Array.isArray(dataByGame[gameId]) ? dataByGame[gameId] : [];
-
-  if (candidates.length === 0) {
-    return null;
+  if (!baseUrl) {
+    return [];
   }
 
-  const scored = candidates
-    .map(candidate => {
+  const dataByGame = boxartRoot?.data ?? {};
+  const scoredByUrl = new Map();
+
+  rankedGames.forEach((gameEntry, gameIndex) => {
+    const candidates = Array.isArray(dataByGame[gameEntry.gameId]) ? dataByGame[gameEntry.gameId] : [];
+
+    candidates.forEach(candidate => {
       const imageType = typeof candidate?.type === 'string' ? candidate.type.toLowerCase() : '';
       const imageSide = typeof candidate?.side === 'string' ? candidate.side.toLowerCase() : '';
       const filename = candidate?.filename ?? candidate?.thumb ?? null;
       const url = normalizeTheGamesDbUrl(filename, baseUrl);
 
       if (!url || !imageType.includes('boxart')) {
-        return null;
+        return;
       }
 
-      let score = 0;
-
-      score += 2;
+      let score = gameEntry.score;
+      score += Math.max(0, rankedGames.length - gameIndex);
 
       if (imageSide === 'front') {
-        score += 1;
+        score += 10;
       }
 
-      return { url, score };
-    })
-    .filter(Boolean);
+      const existingScore = scoredByUrl.get(url);
 
-  if (scored.length === 0) {
-    return null;
-  }
+      if (typeof existingScore !== 'number' || score > existingScore) {
+        scoredByUrl.set(url, score);
+      }
+    });
+  });
 
-  scored.sort((left, right) => right.score - left.score);
-  return scored[0].url;
+  return [...scoredByUrl.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(entry => entry[0])
+    .slice(0, MAX_BOX_ART_RESULTS);
+}
+
+function findBestTheGamesDbBoxArt(payload, expectedTitle) {
+  const candidates = findTheGamesDbBoxArtCandidates(payload, expectedTitle);
+  return candidates[0] ?? null;
 }
 
 async function fetchTheGamesDbBoxArt(item, env, fetchImpl) {
@@ -320,6 +331,28 @@ async function fetchTheGamesDbBoxArt(item, env, fetchImpl) {
     theGamesDbCoverCache.set(cacheKey, null);
     return null;
   }
+}
+
+async function searchTheGamesDbBoxArtCandidates(title, env, fetchImpl) {
+  const apiKey = getTheGamesDbApiKey(env);
+
+  if (!apiKey) {
+    throw new Error('Missing TheGamesDB API key');
+  }
+
+  const searchUrl = new URL('https://api.thegamesdb.net/v1.1/Games/ByGameName');
+  searchUrl.searchParams.set('apikey', apiKey);
+  searchUrl.searchParams.set('name', title);
+  searchUrl.searchParams.set('include', 'boxart');
+
+  const response = await fetchImpl(searchUrl.toString(), { method: 'GET' });
+
+  if (!response.ok) {
+    throw new Error('TheGamesDB request failed');
+  }
+
+  const payload = await response.json();
+  return findTheGamesDbBoxArtCandidates(payload, title);
 }
 
 async function applyPrimaryBoxArt(items, env, fetchImpl) {
@@ -450,14 +483,15 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const url = new URL(request.url);
 
   const gameId = normalizeGameIdFromPath(url.pathname);
-  const isSearchPath = url.pathname === '/v1/games/search';
+  const isGameSearchPath = url.pathname === '/v1/games/search';
   const isGameByIdPath = gameId !== null;
+  const isBoxArtSearchRoute = isBoxArtSearchPath(url.pathname);
 
-  if (!isSearchPath && !isGameByIdPath) {
+  if (!isGameSearchPath && !isGameByIdPath && !isBoxArtSearchRoute) {
     return jsonResponse({ error: 'Not found' }, 404);
   }
 
-  if (isSearchPath) {
+  if (isGameSearchPath || isBoxArtSearchRoute) {
     const query = normalizeSearchQuery(url);
 
     if (query.length < 2) {
@@ -473,9 +507,15 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   }
 
   try {
+    if (isBoxArtSearchRoute) {
+      const query = normalizeSearchQuery(url);
+      const items = await searchTheGamesDbBoxArtCandidates(query, env, fetchImpl);
+      return jsonResponse({ items }, 200);
+    }
+
     const token = await fetchAppToken(env, fetchImpl, nowMs);
 
-    if (isSearchPath) {
+    if (isGameSearchPath) {
       const query = normalizeSearchQuery(url);
 
       const items = await searchIgdb(query, env, token, fetchImpl);

@@ -122,4 +122,50 @@ describe('IgdbProxyService', () => {
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
   });
+
+  it('searches box art results and normalizes URLs', done => {
+    service.searchBoxArtByTitle('mario').subscribe(results => {
+      expect(results).toEqual([
+        'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
+        'https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg',
+      ]);
+      done();
+    });
+
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/images/boxart/search`
+        && request.params.get('q') === 'mario';
+    });
+
+    req.flush({
+      items: [
+        'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
+        '   https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg   ',
+        'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
+        '/relative/path.jpg',
+      ],
+    });
+  });
+
+  it('returns empty box art results for short queries without HTTP call', done => {
+    service.searchBoxArtByTitle('m').subscribe(results => {
+      expect(results).toEqual([]);
+      done();
+    });
+
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/images/boxart/search`);
+  });
+
+  it('maps box art search failure to user-safe error', done => {
+    service.searchBoxArtByTitle('mario').subscribe({
+      next: () => fail('Expected an error response'),
+      error: err => {
+        expect(err.message).toBe('Unable to load box art results.');
+        done();
+      },
+    });
+
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/images/boxart/search?q=mario`);
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+  });
 });

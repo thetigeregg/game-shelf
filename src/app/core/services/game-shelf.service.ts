@@ -55,9 +55,35 @@ export class GameShelfService {
     const resolvedPlatform = this.resolvePlatform(existing.platform, refreshed.platforms, refreshed.platform);
 
     const updated = await this.repository.upsertFromCatalog(
-      { ...refreshed, platform: resolvedPlatform },
+      {
+        ...refreshed,
+        platform: resolvedPlatform,
+        coverUrl: existing.coverUrl,
+        coverSource: existing.coverSource,
+      },
       existing.listType,
     );
+
+    this.listRefresh$.next();
+    return updated;
+  }
+
+  searchBoxArtByTitle(query: string): Observable<string[]> {
+    const normalized = query.trim();
+
+    if (normalized.length < 2) {
+      return of([]);
+    }
+
+    return this.searchApi.searchBoxArtByTitle(normalized);
+  }
+
+  async updateGameCover(externalId: string, coverUrl: string): Promise<GameEntry> {
+    const updated = await this.repository.updateCover(externalId, coverUrl, 'thegamesdb');
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
 
     this.listRefresh$.next();
     return updated;

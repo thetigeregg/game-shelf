@@ -70,4 +70,17 @@ describe('DexieGameRepository', () => {
 
     expect(collection.map(game => game.title)).toEqual(['Animal Crossing', 'Zelda']);
   });
+
+  it('updates cover art for an existing entry', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    const updated = await repository.updateCover('101', 'https://example.com/custom-cover.jpg', 'thegamesdb');
+
+    expect(updated?.coverUrl).toBe('https://example.com/custom-cover.jpg');
+    expect(updated?.coverSource).toBe('thegamesdb');
+
+    const existing = await repository.exists('101');
+    expect(existing?.coverUrl).toBe('https://example.com/custom-cover.jpg');
+    expect(existing?.coverSource).toBe('thegamesdb');
+  });
 });

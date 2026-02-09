@@ -46,12 +46,16 @@ describe('GameListComponent', () => {
       'moveGame',
       'removeGame',
       'refreshGameMetadata',
+      'searchBoxArtByTitle',
+      'updateGameCover',
     ]);
 
     gameShelfService.watchList.and.returnValue(of(games));
     gameShelfService.moveGame.and.resolveTo();
     gameShelfService.removeGame.and.resolveTo();
     gameShelfService.refreshGameMetadata.and.resolveTo(games[0]);
+    gameShelfService.searchBoxArtByTitle.and.returnValue(of(['https://example.com/new-cover.jpg']));
+    gameShelfService.updateGameCover.and.resolveTo({ ...games[0], coverUrl: 'https://example.com/new-cover.jpg', coverSource: 'thegamesdb' });
 
     await TestBed.configureTestingModule({
       declarations: [GameListComponent],
@@ -99,6 +103,28 @@ describe('GameListComponent', () => {
     await component.refreshSelectedGameMetadata();
 
     expect(gameShelfService.refreshGameMetadata).toHaveBeenCalledWith('101');
+  });
+
+  it('searches box art with selected game title when picker is opened', async () => {
+    component.listType = 'collection';
+    component.openGameDetail(games[0]);
+    fixture.detectChanges();
+
+    await component.openImagePickerFromPopover();
+
+    expect(component.imagePickerQuery).toBe('Super Mario Odyssey');
+    expect(gameShelfService.searchBoxArtByTitle).toHaveBeenCalledWith('Super Mario Odyssey');
+    expect(component.isImagePickerModalOpen).toBeTrue();
+  });
+
+  it('applies selected image via update cover service', async () => {
+    component.listType = 'collection';
+    component.openGameDetail(games[0]);
+    fixture.detectChanges();
+
+    await component.applySelectedImage('https://example.com/new-cover.jpg');
+
+    expect(gameShelfService.updateGameCover).toHaveBeenCalledWith('101', 'https://example.com/new-cover.jpg');
   });
 
   it('filters by platform and sorts by release date descending', () => {

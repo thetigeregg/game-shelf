@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { GameCatalogResult, GameEntry, ListType } from '../models/game.models';
+import { CoverSource, GameCatalogResult, GameEntry, ListType } from '../models/game.models';
 
 export interface GameRepository {
   listByType(listType: ListType): Promise<GameEntry[]>;
@@ -7,6 +7,7 @@ export interface GameRepository {
   moveToList(externalId: string, targetList: ListType): Promise<void>;
   remove(externalId: string): Promise<void>;
   exists(externalId: string): Promise<GameEntry | undefined>;
+  updateCover(externalId: string, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined>;
 }
 
 export const GAME_REPOSITORY = new InjectionToken<GameRepository>('GAME_REPOSITORY');

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb } from './app-db';
 import { GameRepository } from './game-repository';
-import { GameCatalogResult, GameEntry, ListType } from '../models/game.models';
+import { CoverSource, GameCatalogResult, GameEntry, ListType } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -69,5 +69,23 @@ export class DexieGameRepository implements GameRepository {
 
   async exists(externalId: string): Promise<GameEntry | undefined> {
     return this.db.games.where('externalId').equals(externalId).first();
+  }
+
+  async updateCover(externalId: string, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined> {
+    const existing = await this.exists(externalId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      coverUrl,
+      coverSource,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.db.games.put(updated);
+    return updated;
   }
 }

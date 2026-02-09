@@ -3,6 +3,7 @@
 ## Endpoints
 - `GET /v1/games/search?q=<term>` returns `{ "items": GameCatalogResult[] }`.
 - `GET /v1/games/:id` returns `{ "item": GameCatalogResult }`.
+- `GET /v1/images/boxart/search?q=<term>` returns `{ "items": string[] }`.
 
 Search flow:
 - IGDB provides game metadata and fallback cover.

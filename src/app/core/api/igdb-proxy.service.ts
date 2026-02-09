@@ -14,10 +14,15 @@ interface GameByIdResponse {
   item: GameCatalogResult;
 }
 
+interface BoxArtSearchResponse {
+  items: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
   private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
+  private readonly boxArtSearchUrl = `${environment.gameApiBaseUrl}/v1/images/boxart/search`;
   private readonly httpClient = inject(HttpClient);
 
   searchGames(query: string): Observable<GameCatalogResult[]> {
@@ -53,6 +58,21 @@ export class IgdbProxyService implements GameSearchApi {
         return this.normalizeResult(response.item);
       }),
       catchError(() => throwError(() => new Error('Unable to refresh game metadata.')))
+    );
+  }
+
+  searchBoxArtByTitle(query: string): Observable<string[]> {
+    const normalized = query.trim();
+
+    if (normalized.length < 2) {
+      return of([]);
+    }
+
+    const params = new HttpParams().set('q', normalized);
+
+    return this.httpClient.get<BoxArtSearchResponse>(this.boxArtSearchUrl, { params }).pipe(
+      map(response => this.normalizeBoxArtResults(response.items)),
+      catchError(() => throwError(() => new Error('Unable to load box art results.')))
     );
   }
 
@@ -104,5 +124,18 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return 'none';
+  }
+
+  private normalizeBoxArtResults(items: string[] | null | undefined): string[] {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return [...new Set(
+      items
+        .filter(item => typeof item === 'string')
+        .map(item => item.trim())
+        .filter(item => item.startsWith('http://') || item.startsWith('https://'))
+    )];
   }
 }

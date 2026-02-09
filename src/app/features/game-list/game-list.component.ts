@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { PopoverController, ToastController } from '@ionic/angular';
-import { BehaviorSubject, Observable, combineLatest, of } from 'rxjs';
+import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListFilters, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
@@ -19,7 +19,12 @@ export class GameListComponent implements OnChanges {
 
   games$: Observable<GameEntry[]> = of([]);
   isGameDetailModalOpen = false;
+  isImagePickerModalOpen = false;
   selectedGame: GameEntry | null = null;
+  imagePickerQuery = '';
+  imagePickerResults: string[] = [];
+  isImagePickerLoading = false;
+  imagePickerError: string | null = null;
   private readonly gameShelfService = inject(GameShelfService);
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
@@ -75,11 +80,14 @@ export class GameListComponent implements OnChanges {
   openGameDetail(game: GameEntry): void {
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.resetImagePickerState();
   }
 
   closeGameDetailModal(): void {
     this.isGameDetailModalOpen = false;
+    this.isImagePickerModalOpen = false;
     this.selectedGame = null;
+    this.resetImagePickerState();
   }
 
   getDetailActionsTriggerId(): string {
@@ -111,6 +119,11 @@ export class GameListComponent implements OnChanges {
     await this.popoverController.dismiss();
   }
 
+  async openImagePickerFromPopover(): Promise<void> {
+    await this.popoverController.dismiss();
+    await this.openImagePickerModal();
+  }
+
   async refreshSelectedGameMetadata(): Promise<void> {
     if (!this.selectedGame) {
       return;
@@ -122,6 +135,52 @@ export class GameListComponent implements OnChanges {
       await this.presentToast('Game metadata refreshed.');
     } catch {
       await this.presentToast('Unable to refresh game metadata.', 'danger');
+    }
+  }
+
+  closeImagePickerModal(): void {
+    this.isImagePickerModalOpen = false;
+  }
+
+  async runImagePickerSearch(): Promise<void> {
+    const normalized = this.imagePickerQuery.trim();
+
+    if (normalized.length < 2) {
+      this.imagePickerResults = [];
+      this.imagePickerError = null;
+      return;
+    }
+
+    this.isImagePickerLoading = true;
+    this.imagePickerError = null;
+
+    try {
+      this.imagePickerResults = await firstValueFrom(this.gameShelfService.searchBoxArtByTitle(normalized));
+    } catch {
+      this.imagePickerResults = [];
+      this.imagePickerError = 'Unable to load box art results.';
+    } finally {
+      this.isImagePickerLoading = false;
+    }
+  }
+
+  onImagePickerQueryChange(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: string }>;
+    this.imagePickerQuery = (customEvent.detail?.value ?? '').replace(/^\s+/, '');
+  }
+
+  async applySelectedImage(url: string): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.updateGameCover(this.selectedGame.externalId, url);
+      this.selectedGame = updated;
+      this.closeImagePickerModal();
+      await this.presentToast('Game image updated.');
+    } catch {
+      await this.presentToast('Unable to update game image.', 'danger');
     }
   }
 
@@ -234,5 +293,24 @@ export class GameListComponent implements OnChanges {
     });
 
     await toast.present();
+  }
+
+  private async openImagePickerModal(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    this.imagePickerQuery = this.selectedGame.title;
+    this.imagePickerResults = [];
+    this.imagePickerError = null;
+    this.isImagePickerModalOpen = true;
+    await this.runImagePickerSearch();
+  }
+
+  private resetImagePickerState(): void {
+    this.imagePickerQuery = '';
+    this.imagePickerResults = [];
+    this.imagePickerError = null;
+    this.isImagePickerLoading = false;
   }
 }

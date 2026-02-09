@@ -17,9 +17,10 @@ describe('GameShelfService', () => {
       'moveToList',
       'remove',
       'exists',
+      'updateCover',
     ]);
 
-    searchApi = jasmine.createSpyObj<GameSearchApi>('GameSearchApi', ['searchGames', 'getGameById']);
+    searchApi = jasmine.createSpyObj<GameSearchApi>('GameSearchApi', ['searchGames', 'getGameById', 'searchBoxArtByTitle']);
 
     TestBed.configureTestingModule({
       providers: [
@@ -89,8 +90,8 @@ describe('GameShelfService', () => {
       id: 10,
       externalId: '123',
       title: 'Old Title',
-      coverUrl: null,
-      coverSource: 'none' as const,
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb' as const,
       platform: 'Nintendo Switch',
       releaseDate: null,
       releaseYear: null,
@@ -113,8 +114,8 @@ describe('GameShelfService', () => {
     const updatedEntry: GameEntry = {
       ...existingEntry,
       title: refreshedCatalog.title,
-      coverUrl: refreshedCatalog.coverUrl,
-      coverSource: refreshedCatalog.coverSource,
+      coverUrl: existingEntry.coverUrl,
+      coverSource: existingEntry.coverSource,
       platform: 'Nintendo Switch',
       releaseDate: refreshedCatalog.releaseDate,
       releaseYear: refreshedCatalog.releaseYear,
@@ -131,10 +132,48 @@ describe('GameShelfService', () => {
       jasmine.objectContaining({
         externalId: '123',
         title: 'Updated Title',
+        coverUrl: 'https://example.com/current-cover.jpg',
+        coverSource: 'thegamesdb',
         platform: 'Nintendo Switch',
       }),
       'wishlist',
     );
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('returns empty box art results for short queries', async () => {
+    const results = await firstValueFrom(service.searchBoxArtByTitle('m'));
+    expect(results).toEqual([]);
+    expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
+  });
+
+  it('delegates box art title search for valid query', async () => {
+    searchApi.searchBoxArtByTitle.and.returnValue(of(['https://example.com/cover.jpg']));
+    const results = await firstValueFrom(service.searchBoxArtByTitle('mario'));
+    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario');
+    expect(results).toEqual(['https://example.com/cover.jpg']);
+  });
+
+  it('updates game cover using dedicated repository method', async () => {
+    const updatedEntry: GameEntry = {
+      id: 10,
+      externalId: '123',
+      title: 'Old Title',
+      coverUrl: 'https://example.com/new-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Nintendo Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    };
+
+    repository.updateCover.and.resolveTo(updatedEntry);
+
+    const result = await service.updateGameCover('123', 'https://example.com/new-cover.jpg');
+
+    expect(repository.updateCover).toHaveBeenCalledWith('123', 'https://example.com/new-cover.jpg', 'thegamesdb');
     expect(result).toEqual(updatedEntry);
   });
 });

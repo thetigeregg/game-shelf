@@ -307,3 +307,59 @@ test('returns 404 when IGDB id endpoint has no matching game', async () => {
   const payload = await response.json();
   assert.equal(payload.error, 'Game not found.');
 });
+
+test('returns 2D box art candidates for box art search endpoint', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    theGamesDbBody: {
+      data: {
+        games: [
+          { id: 7001, game_title: 'Super Mario Odyssey' },
+          { id: 7002, game_title: 'Mario Party' },
+        ],
+      },
+      include: {
+        boxart: {
+          base_url: { original: 'https://cdn.thegamesdb.net/images/original' },
+          data: {
+            7001: [
+              { type: 'boxart', side: 'front', filename: '/box/front/odyssey.jpg' },
+              { type: 'boxart', side: 'back', filename: '/box/back/odyssey.jpg' },
+            ],
+            7002: [
+              { type: 'boxart', side: 'front', filename: '/box/front/mario-party.jpg' },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/images/boxart/search?q=super%20mario'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(Array.isArray(payload.items), true);
+  assert.equal(payload.items.length > 0, true);
+  assert.equal(payload.items[0], 'https://cdn.thegamesdb.net/images/original/box/front/odyssey.jpg');
+  assert.equal(calls.token, 0);
+  assert.equal(calls.igdb, 0);
+  assert.equal(calls.theGamesDb, 1);
+});
+
+test('returns 400 for short box art query', async () => {
+  resetCaches();
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/images/boxart/search?q=m'),
+    env,
+    async () => new Response('{}', { status: 200 }),
+  );
+
+  assert.equal(response.status, 400);
+});

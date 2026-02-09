@@ -65,6 +65,9 @@
             <ion-item button detail="false" (click)="refreshSelectedGameMetadataFromPopover()">
               Refresh metadata
             </ion-item>
+            <ion-item button detail="false" (click)="openImagePickerFromPopover()">
+              Update image
+            </ion-item>
           </ion-list>
         </ion-content>
       </ng-template>
@@ -95,6 +98,53 @@
           </ion-label>
         </ion-item>
       </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isImagePickerModalOpen" (didDismiss)="closeImagePickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Update Box Art</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeImagePickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <ion-item lines="none">
+        <ion-searchbar
+          [value]="imagePickerQuery"
+          placeholder="Search box art"
+          show-clear-button="focus"
+          (ionInput)="onImagePickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button slot="end" (click)="runImagePickerSearch()">Search</ion-button>
+      </ion-item>
+
+      <div class="picker-state" *ngIf="isImagePickerLoading">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+
+      <p class="picker-state ion-text-center" *ngIf="!isImagePickerLoading && imagePickerError">
+        {{ imagePickerError }}
+      </p>
+
+      <p class="picker-state ion-text-center" *ngIf="!isImagePickerLoading && !imagePickerError && imagePickerResults.length === 0">
+        No 2D box art found.
+      </p>
+
+      <ion-grid *ngIf="!isImagePickerLoading && imagePickerResults.length > 0">
+        <ion-row>
+          <ion-col size="4" size-md="3" *ngFor="let imageUrl of imagePickerResults">
+            <ion-button fill="clear" class="box-art-option" (click)="applySelectedImage(imageUrl)">
+              <img [src]="imageUrl" alt="Box art option" />
+            </ion-button>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
     </ion-content>
   </ng-template>
 </ion-modal>

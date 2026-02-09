@@ -14,6 +14,10 @@ ion-item ion-label {
   z-index: 2;
 }
 
+ion-item.game-row-selected {
+  --background: rgba(var(--ion-color-primary-rgb), 0.14);
+}
+
 .game-art {
   width: 64px;
   min-width: 64px;

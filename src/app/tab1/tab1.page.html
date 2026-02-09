@@ -8,22 +8,39 @@
   (filtersChange)="onFiltersChange($event)"
 ></app-game-filters-menu>
 
-<ion-header [translucent]="true">
+<ion-header [translucent]="true" [class.selection-mode-header]="isSelectionMode">
   <ion-toolbar>
-    <ion-title>
+    <ion-buttons slot="start" *ngIf="isSelectionMode">
+      <ion-button aria-label="Exit selection mode" (click)="clearSelectionMode()">
+        <ion-icon slot="icon-only" name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+
+    <ion-title *ngIf="!isSelectionMode">
       <div class="page-title">Collection</div>
       <div class="page-subtitle">{{ getDisplayedGamesLabel() }}</div>
     </ion-title>
+    <ion-title *ngIf="isSelectionMode">{{ getSelectionHeaderLabel() }}</ion-title>
+
     <ion-buttons slot="end">
-      <ion-button aria-label="Open filters" (click)="openFiltersMenu()">
+      <ion-button *ngIf="!isSelectionMode" aria-label="Open filters" (click)="openFiltersMenu()">
         <ion-icon slot="icon-only" name="filter"></ion-icon>
       </ion-button>
-      <ion-button aria-label="Open collection actions" [id]="headerActionsTriggerId">
+      <ion-button *ngIf="!isSelectionMode" aria-label="Open collection actions" [id]="headerActionsTriggerId">
+        <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
+      </ion-button>
+      <ion-button *ngIf="isSelectionMode" aria-label="Select all games" (click)="toggleSelectAll()">
+        <ion-icon slot="icon-only" [name]="allDisplayedSelected ? 'checkbox' : 'square-outline'"></ion-icon>
+      </ion-button>
+      <ion-button *ngIf="isSelectionMode" aria-label="Delete selected games" (click)="deleteSelectedGames()">
+        <ion-icon slot="icon-only" name="trash"></ion-icon>
+      </ion-button>
+      <ion-button *ngIf="isSelectionMode" aria-label="Open bulk actions" (click)="openBulkActionsPopover($event)">
         <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-  <ion-toolbar>
+  <ion-toolbar *ngIf="!isSelectionMode">
     <ion-searchbar
       class="list-header-searchbar"
       placeholder="Search collection"
@@ -34,6 +51,31 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" [id]="contentId">
+  <ion-popover
+    [isOpen]="isBulkActionsPopoverOpen"
+    [arrow]="false"
+    [event]="bulkActionsPopoverEvent"
+    side="bottom"
+    alignment="end"
+    (didDismiss)="closeBulkActionsPopover()"
+  >
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none">
+          <ion-item button detail="false" (click)="moveSelectedGamesFromPopover()">
+            Move to Wishlist
+          </ion-item>
+          <ion-item button detail="false" (click)="setTagsForSelectedGamesFromPopover()">
+            Set tags
+          </ion-item>
+          <ion-item button detail="false" (click)="setStatusForSelectedGamesFromPopover()">
+            Set status
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+
   <ion-popover [trigger]="headerActionsTriggerId" triggerAction="click">
     <ng-template>
       <ion-content>
@@ -73,6 +115,7 @@
     (genreOptionsChange)="onGenreOptionsChange($event)"
     (tagOptionsChange)="onTagOptionsChange($event)"
     (displayedGamesChange)="onDisplayedGamesChange($event)"
+    (selectionStateChange)="onSelectionStateChange($event)"
   ></app-game-list>
 
   <ion-fab slot="fixed" vertical="bottom" horizontal="end">

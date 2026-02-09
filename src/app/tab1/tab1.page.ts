@@ -2,7 +2,7 @@ import { Component, ViewChild, inject } from '@angular/core';
 import { MenuController, PopoverController, ToastController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
-import { GameListComponent } from '../features/game-list/game-list.component';
+import { GameListComponent, GameListSelectionState } from '../features/game-list/game-list.component';
 
 @Component({
   selector: 'app-tab1',
@@ -36,6 +36,11 @@ export class Tab1Page {
   listSearchQuery = '';
   groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
+  isSelectionMode = false;
+  selectedGamesCount = 0;
+  allDisplayedSelected = false;
+  isBulkActionsPopoverOpen = false;
+  bulkActionsPopoverEvent: Event | undefined = undefined;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   private readonly menuController = inject(MenuController);
   private readonly popoverController = inject(PopoverController);
@@ -124,6 +129,16 @@ export class Tab1Page {
     this.displayedGames = [...games];
   }
 
+  onSelectionStateChange(state: GameListSelectionState): void {
+    this.isSelectionMode = state.active;
+    this.selectedGamesCount = state.selectedCount;
+    this.allDisplayedSelected = state.allDisplayedSelected;
+
+    if (!state.active) {
+      this.closeBulkActionsPopover();
+    }
+  }
+
   openAddGameModal(): void {
     this.isAddGameModalOpen = true;
   }
@@ -157,6 +172,47 @@ export class Tab1Page {
   async openTagsFromPopover(): Promise<void> {
     await this.popoverController.dismiss();
     await this.router.navigateByUrl('/tags');
+  }
+
+  getSelectionHeaderLabel(): string {
+    return this.selectedGamesCount === 1 ? '1 selected' : `${this.selectedGamesCount} selected`;
+  }
+
+  async clearSelectionMode(): Promise<void> {
+    this.gameListComponent?.clearSelectionMode();
+  }
+
+  async toggleSelectAll(): Promise<void> {
+    this.gameListComponent?.toggleSelectAllDisplayed();
+  }
+
+  async deleteSelectedGames(): Promise<void> {
+    await this.gameListComponent?.deleteSelectedGames();
+  }
+
+  async moveSelectedGamesFromPopover(): Promise<void> {
+    this.closeBulkActionsPopover();
+    await this.gameListComponent?.moveSelectedGamesToOtherList();
+  }
+
+  async setTagsForSelectedGamesFromPopover(): Promise<void> {
+    this.closeBulkActionsPopover();
+    await this.gameListComponent?.setTagsForSelectedGames();
+  }
+
+  async setStatusForSelectedGamesFromPopover(): Promise<void> {
+    this.closeBulkActionsPopover();
+    await this.gameListComponent?.setStatusForSelectedGames();
+  }
+
+  openBulkActionsPopover(event: Event): void {
+    this.bulkActionsPopoverEvent = event;
+    this.isBulkActionsPopoverOpen = true;
+  }
+
+  closeBulkActionsPopover(): void {
+    this.isBulkActionsPopoverOpen = false;
+    this.bulkActionsPopoverEvent = undefined;
   }
 
   onGroupByChange(value: GameGroupByField | null | undefined): void {

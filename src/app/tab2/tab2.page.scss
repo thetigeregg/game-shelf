@@ -23,3 +23,8 @@ ion-fab {
 ion-header ion-button {
   --opacity: 1;
 }
+
+ion-header.selection-mode-header ion-toolbar {
+  --background: var(--ion-color-primary-shade);
+  --color: var(--ion-color-primary-contrast);
+}

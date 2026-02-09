@@ -39,8 +39,20 @@
 </ng-container>
 
 <ng-template #gameRowTemplate let-game>
-  <ion-item-sliding>
-    <ion-item lines="full" button detail="false" (click)="openGameDetail(game)">
+  <ion-item-sliding [disabled]="selectionModeActive">
+    <ion-item
+      lines="full"
+      button
+      detail="false"
+      [class.game-row-selected]="isGameSelected(game.externalId)"
+      (click)="onGameRowClick(game)"
+      (touchstart)="onRowPressStart(game)"
+      (touchend)="onRowPressEnd()"
+      (touchcancel)="onRowPressEnd()"
+      (mousedown)="onRowPressStart(game)"
+      (mouseup)="onRowPressEnd()"
+      (mouseleave)="onRowPressEnd()"
+    >
       <ion-icon
         *ngIf="getStatusIconName(game) as statusIconName"
         class="status-icon"
@@ -69,7 +81,7 @@
       </ion-label>
     </ion-item>
 
-    <ion-item-options side="end">
+    <ion-item-options side="end" *ngIf="!selectionModeActive">
       <ion-item-option
         [id]="getActionsTriggerId(game)"
         (click)="onActionsButtonClick($event)"

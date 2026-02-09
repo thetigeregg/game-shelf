@@ -39,7 +39,7 @@
 </ng-container>
 
 <ng-template #gameRowTemplate let-game>
-  <ion-item button detail="false" (click)="openGameDetail(game)">
+  <ion-item lines="full" button detail="false" (click)="openGameDetail(game)">
     <div slot="start" class="game-art">
       <img [src]="game.coverUrl || 'assets/icon/favicon.png'" [alt]="game.title" (error)="onImageError($event)" />
     </div>

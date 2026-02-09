@@ -135,8 +135,19 @@ export class GameListComponent implements OnChanges {
   }
 
   async removeGameFromPopover(game: GameEntry): Promise<void> {
-    await this.removeGame(game);
     await this.popoverController.dismiss();
+
+    const confirmed = await this.confirmDelete({
+      header: 'Delete Game',
+      message: `Delete ${game.title}?`,
+      confirmText: 'Delete',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    await this.removeGame(game);
   }
 
   async openTagsForGameFromPopover(game: GameEntry): Promise<void> {
@@ -212,6 +223,16 @@ export class GameListComponent implements OnChanges {
     const selectedIds = [...this.selectedExternalIds];
 
     if (selectedIds.length === 0) {
+      return;
+    }
+
+    const confirmed = await this.confirmDelete({
+      header: 'Delete Selected Games',
+      message: `Delete ${selectedIds.length} selected game${selectedIds.length === 1 ? '' : 's'}?`,
+      confirmText: 'Delete',
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -1203,5 +1224,27 @@ export class GameListComponent implements OnChanges {
     }
 
     return null;
+  }
+
+  private async confirmDelete(options: { header: string; message: string; confirmText: string }): Promise<boolean> {
+    const alert = await this.alertController.create({
+      header: options.header,
+      message: options.message,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: options.confirmText,
+          role: 'confirm',
+          cssClass: 'alert-button-danger',
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    return role === 'confirm';
   }
 }

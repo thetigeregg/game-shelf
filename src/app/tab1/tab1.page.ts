@@ -22,6 +22,7 @@ export class Tab1Page {
     { value: 'releaseYear', label: 'Release Year' },
   ];
   readonly listType: ListType = 'collection';
+  readonly preferenceStorageKey = 'game-shelf:preferences:collection';
   readonly menuId = 'collection-filters-menu';
   readonly contentId = 'collection-content';
   readonly headerActionsTriggerId = 'collection-header-actions';
@@ -38,8 +39,17 @@ export class Tab1Page {
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
 
+  constructor() {
+    this.restorePreferences();
+  }
+
   onFiltersChange(filters: GameListFilters): void {
-    this.filters = { ...filters };
+    this.filters = {
+      ...filters,
+      sortField: this.isValidSortField(filters.sortField) ? filters.sortField : DEFAULT_GAME_LIST_FILTERS.sortField,
+      sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',
+    };
+    this.persistPreferences();
   }
 
   onPlatformOptionsChange(platformOptions: string[]): void {
@@ -99,6 +109,7 @@ export class Tab1Page {
   onGroupByChange(value: GameGroupByField | null | undefined): void {
     const validValues = this.groupByOptions.map(option => option.value);
     this.groupBy = value && validValues.includes(value) ? value : 'none';
+    this.persistPreferences();
   }
 
   getDisplayedGamesLabel(): string {
@@ -114,5 +125,51 @@ export class Tab1Page {
     });
 
     await toast.present();
+  }
+
+  private restorePreferences(): void {
+    try {
+      const raw = localStorage.getItem(this.preferenceStorageKey);
+
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Partial<{
+        sortField: GameListFilters['sortField'];
+        sortDirection: GameListFilters['sortDirection'];
+        groupBy: GameGroupByField;
+      }>;
+
+      const sortField = this.isValidSortField(parsed.sortField) ? parsed.sortField : DEFAULT_GAME_LIST_FILTERS.sortField;
+      const sortDirection = parsed.sortDirection === 'desc' ? 'desc' : 'asc';
+      const validGroupByValues = this.groupByOptions.map(option => option.value);
+      const groupBy = parsed.groupBy && validGroupByValues.includes(parsed.groupBy) ? parsed.groupBy : 'none';
+
+      this.filters = {
+        ...this.filters,
+        sortField,
+        sortDirection,
+      };
+      this.groupBy = groupBy;
+    } catch {
+      // Ignore invalid or unavailable storage and keep defaults.
+    }
+  }
+
+  private persistPreferences(): void {
+    try {
+      localStorage.setItem(this.preferenceStorageKey, JSON.stringify({
+        sortField: this.filters.sortField,
+        sortDirection: this.filters.sortDirection,
+        groupBy: this.groupBy,
+      }));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  private isValidSortField(value: unknown): value is GameListFilters['sortField'] {
+    return value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform';
   }
 }

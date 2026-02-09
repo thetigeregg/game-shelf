@@ -35,3 +35,32 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import "@ionic/angular/css/palettes/dark.system.css";
+
+ion-header ion-toolbar {
+  --background: var(--ion-color-primary);
+  --color: #ffffff;
+  --border-color: var(--ion-color-primary-shade);
+  --opacity: 1;
+  background: var(--ion-color-primary);
+}
+
+ion-header ion-toolbar ion-title,
+ion-header ion-toolbar ion-button,
+ion-header ion-toolbar ion-icon,
+ion-header ion-toolbar ion-back-button {
+  color: #ffffff;
+}
+
+ion-header ion-toolbar ion-button,
+ion-header ion-toolbar ion-back-button {
+  --color: #ffffff;
+}
+
+ion-header ion-toolbar .page-subtitle {
+  color: #ffffff;
+  opacity: 0.9;
+}
+
+ion-fab-button {
+  --color: #ffffff;
+}

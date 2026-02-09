@@ -15,7 +15,6 @@ export class Tab2Page {
   readonly menuId = 'wishlist-filters-menu';
   readonly contentId = 'wishlist-content';
   readonly headerActionsTriggerId = 'wishlist-header-actions';
-  readonly headerActionsTriggerIdCondensed = 'wishlist-header-actions-condensed';
 
   filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   platformOptions: string[] = [];

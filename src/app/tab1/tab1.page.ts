@@ -15,7 +15,6 @@ export class Tab1Page {
   readonly menuId = 'collection-filters-menu';
   readonly contentId = 'collection-content';
   readonly headerActionsTriggerId = 'collection-header-actions';
-  readonly headerActionsTriggerIdCondensed = 'collection-header-actions-condensed';
 
   filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   platformOptions: string[] = [];

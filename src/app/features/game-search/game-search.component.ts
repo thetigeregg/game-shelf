@@ -1,6 +1,6 @@
 import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
 import { AlertController, ToastController } from '@ionic/angular';
-import { Subject, of } from 'rxjs';
+import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { GameCatalogResult, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
@@ -92,9 +92,11 @@ export class GameSearchComponent implements OnInit, OnDestroy {
         return;
       }
 
+      const resolvedForAdd = await this.resolveCoverForAdd(result, platform);
+
       await this.gameShelfService.addGame(
         {
-          ...result,
+          ...resolvedForAdd,
           platform,
         },
         this.listType
@@ -209,6 +211,25 @@ export class GameSearchComponent implements OnInit, OnDestroy {
 
   private getListLabel(): string {
     return this.listType === 'collection' ? 'Collection' : 'Wishlist';
+  }
+
+  private async resolveCoverForAdd(result: GameCatalogResult, platform: string | null): Promise<GameCatalogResult> {
+    try {
+      const candidates = await firstValueFrom(this.gameShelfService.searchBoxArtByTitle(result.title, platform));
+      const boxArtUrl = candidates[0];
+
+      if (!boxArtUrl) {
+        return result;
+      }
+
+      return {
+        ...result,
+        coverUrl: boxArtUrl,
+        coverSource: 'thegamesdb',
+      };
+    } catch {
+      return result;
+    }
   }
 
   private async presentToast(message: string): Promise<void> {

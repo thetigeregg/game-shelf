@@ -19,6 +19,7 @@ function createFetchStub({
     token: 0,
     igdb: 0,
     theGamesDb: 0,
+    theGamesDbUrls: [],
   };
 
   const stub = async (url) => {
@@ -41,6 +42,7 @@ function createFetchStub({
 
     if (normalizedUrl.startsWith('https://api.thegamesdb.net/v1.1/Games/ByGameName')) {
       calls.theGamesDb += 1;
+      calls.theGamesDbUrls.push(normalizedUrl);
 
       if (theGamesDbStatus !== 200) {
         return new Response(JSON.stringify({ error: 'thegamesdb_failed' }), { status: theGamesDbStatus });
@@ -88,10 +90,10 @@ test('returns 400 for short query', async () => {
   assert.equal(response.status, 400);
 });
 
-test('uses TheGamesDB boxart as primary cover image when available', async () => {
+test('returns IGDB metadata without TheGamesDB lookup during game search', async () => {
   resetCaches();
 
-  const { stub } = createFetchStub({
+  const { stub, calls } = createFetchStub({
     igdbBody: [
       {
         id: 99,
@@ -101,21 +103,6 @@ test('uses TheGamesDB boxart as primary cover image when available', async () =>
         platforms: [{ name: 'Nintendo Switch' }],
       },
     ],
-    theGamesDbBody: {
-      data: {
-        games: [{ id: 1001, game_title: 'Mario Kart 8 Deluxe' }],
-      },
-      include: {
-        boxart: {
-          base_url: { original: 'https://cdn.thegamesdb.net/images/original' },
-          data: {
-            1001: [
-              { type: 'boxart', side: 'front', filename: '/box/front/mario-kart-8-deluxe.jpg' },
-            ],
-          },
-        },
-      },
-    },
   });
 
   const response = await handleRequest(
@@ -131,94 +118,9 @@ test('uses TheGamesDB boxart as primary cover image when available', async () =>
   assert.equal(payload.items[0].externalId, '99');
   assert.equal(payload.items[0].title, 'Mario Kart 8 Deluxe');
   assert.deepEqual(payload.items[0].platforms, ['Nintendo Switch']);
-  assert.equal(payload.items[0].coverUrl, 'https://cdn.thegamesdb.net/images/original/box/front/mario-kart-8-deluxe.jpg');
-  assert.equal(payload.items[0].coverSource, 'thegamesdb');
-});
-
-test('prefers the closest TheGamesDB title match instead of the first result', async () => {
-  resetCaches();
-
-  const { stub } = createFetchStub({
-    igdbBody: [
-      {
-        id: 501,
-        name: 'Epic Mickey',
-        first_release_date: 1286150400,
-        cover: { image_id: 'epicmickey-igdb' },
-        platforms: [{ name: 'Wii' }],
-      },
-    ],
-    theGamesDbBody: {
-      data: {
-        games: [
-          { id: 3001, game_title: 'Epic Mickey: Rebrushed' },
-          { id: 3002, game_title: 'Epic Mickey' },
-        ],
-      },
-      include: {
-        boxart: {
-          base_url: { original: 'https://cdn.thegamesdb.net/images/original' },
-          data: {
-            3001: [{ type: 'boxart', side: 'front', filename: '/box/front/epic-mickey-rebrushed.jpg' }],
-            3002: [{ type: 'boxart', side: 'front', filename: '/box/front/epic-mickey.jpg' }],
-          },
-        },
-      },
-    },
-  });
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/games/search?q=epic%20mickey'),
-    env,
-    stub,
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.equal(payload.items[0].coverUrl, 'https://cdn.thegamesdb.net/images/original/box/front/epic-mickey.jpg');
-  assert.equal(payload.items[0].coverSource, 'thegamesdb');
-});
-
-test('falls back to IGDB cover when TheGamesDB has no boxart', async () => {
-  resetCaches();
-
-  const { stub } = createFetchStub({
-    igdbBody: [
-      {
-        id: 100,
-        name: 'Metroid Prime',
-        first_release_date: 1044057600,
-        cover: { image_id: 'metroid123' },
-        platforms: [{ name: 'GameCube' }],
-      },
-    ],
-    theGamesDbBody: {
-      data: {
-        games: [{ id: 2002, game_title: 'Metroid Prime' }],
-      },
-      include: {
-        boxart: {
-          base_url: { original: 'https://cdn.thegamesdb.net/images/original' },
-          data: {
-            2002: [
-              { type: 'screenshot', side: 'front', filename: '/screenshots/metroid-prime.jpg' },
-            ],
-          },
-        },
-      },
-    },
-  });
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/games/search?q=metroid'),
-    env,
-    stub,
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.equal(payload.items[0].coverUrl, 'https://images.igdb.com/igdb/image/upload/t_cover_big/metroid123.jpg');
+  assert.equal(payload.items[0].coverUrl, 'https://images.igdb.com/igdb/image/upload/t_cover_big/xyz987.jpg');
   assert.equal(payload.items[0].coverSource, 'igdb');
+  assert.equal(calls.theGamesDb, 0);
 });
 
 test('reuses cached token between requests', async () => {
@@ -253,7 +155,7 @@ test('maps upstream errors to safe 502 response', async () => {
 test('returns normalized game metadata for IGDB id endpoint', async () => {
   resetCaches();
 
-  const { stub } = createFetchStub({
+  const { stub, calls } = createFetchStub({
     igdbBody: [
       {
         id: 321,
@@ -263,19 +165,6 @@ test('returns normalized game metadata for IGDB id endpoint', async () => {
         platforms: [{ name: 'SNES' }],
       },
     ],
-    theGamesDbBody: {
-      data: {
-        games: [{ id: 999, game_title: 'Super Metroid' }],
-      },
-      include: {
-        boxart: {
-          base_url: { original: 'https://cdn.thegamesdb.net/images/original' },
-          data: {
-            999: [{ type: 'boxart', side: 'front', filename: '/box/front/super-metroid.jpg' }],
-          },
-        },
-      },
-    },
   });
 
   const response = await handleRequest(
@@ -288,8 +177,9 @@ test('returns normalized game metadata for IGDB id endpoint', async () => {
   const payload = await response.json();
   assert.equal(payload.item.externalId, '321');
   assert.equal(payload.item.title, 'Super Metroid');
-  assert.equal(payload.item.coverSource, 'thegamesdb');
-  assert.equal(payload.item.coverUrl, 'https://cdn.thegamesdb.net/images/original/box/front/super-metroid.jpg');
+  assert.equal(payload.item.coverSource, 'igdb');
+  assert.equal(payload.item.coverUrl, 'https://images.igdb.com/igdb/image/upload/t_cover_big/supermetroid-cover.jpg');
+  assert.equal(calls.theGamesDb, 0);
 });
 
 test('returns 404 when IGDB id endpoint has no matching game', async () => {
@@ -337,7 +227,7 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
   });
 
   const response = await handleRequest(
-    new Request('https://worker.example/v1/images/boxart/search?q=super%20mario'),
+    new Request('https://worker.example/v1/images/boxart/search?q=super%20mario&platform=nintendo%20switch'),
     env,
     stub,
   );
@@ -347,6 +237,7 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
   assert.equal(Array.isArray(payload.items), true);
   assert.equal(payload.items.length > 0, true);
   assert.equal(payload.items[0], 'https://cdn.thegamesdb.net/images/original/box/front/odyssey.jpg');
+  assert.equal(calls.theGamesDbUrls[0].includes('filter%5Bplatform%5D=nintendo+switch'), true);
   assert.equal(calls.token, 0);
   assert.equal(calls.igdb, 0);
   assert.equal(calls.theGamesDb, 1);

@@ -61,14 +61,19 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
-  searchBoxArtByTitle(query: string): Observable<string[]> {
+  searchBoxArtByTitle(query: string, platform?: string | null): Observable<string[]> {
     const normalized = query.trim();
 
     if (normalized.length < 2) {
       return of([]);
     }
 
-    const params = new HttpParams().set('q', normalized);
+    let params = new HttpParams().set('q', normalized);
+    const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
+
+    if (normalizedPlatform.length > 0) {
+      params = params.set('platform', normalizedPlatform);
+    }
 
     return this.httpClient.get<BoxArtSearchResponse>(this.boxArtSearchUrl, { params }).pipe(
       map(response => this.normalizeBoxArtResults(response.items)),

@@ -147,6 +147,27 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('includes platform in box art search query params when provided', done => {
+    service.searchBoxArtByTitle('mario', 'Nintendo Switch').subscribe(results => {
+      expect(results).toEqual([
+        'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
+      ]);
+      done();
+    });
+
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/images/boxart/search`
+        && request.params.get('q') === 'mario'
+        && request.params.get('platform') === 'Nintendo Switch';
+    });
+
+    req.flush({
+      items: [
+        'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
+      ],
+    });
+  });
+
   it('returns empty box art results for short queries without HTTP call', done => {
     service.searchBoxArtByTitle('m').subscribe(results => {
       expect(results).toEqual([]);

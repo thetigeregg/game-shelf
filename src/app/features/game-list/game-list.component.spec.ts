@@ -113,7 +113,7 @@ describe('GameListComponent', () => {
     await component.openImagePickerFromPopover();
 
     expect(component.imagePickerQuery).toBe('Super Mario Odyssey');
-    expect(gameShelfService.searchBoxArtByTitle).toHaveBeenCalledWith('Super Mario Odyssey');
+    expect(gameShelfService.searchBoxArtByTitle).toHaveBeenCalledWith('Super Mario Odyssey', 'Nintendo Switch');
     expect(component.isImagePickerModalOpen).toBeTrue();
   });
 

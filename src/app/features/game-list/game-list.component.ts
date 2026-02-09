@@ -159,7 +159,9 @@ export class GameListComponent implements OnChanges {
     this.imagePickerError = null;
 
     try {
-      this.imagePickerResults = await firstValueFrom(this.gameShelfService.searchBoxArtByTitle(normalized));
+      this.imagePickerResults = await firstValueFrom(
+        this.gameShelfService.searchBoxArtByTitle(normalized, this.selectedGame?.platform ?? null)
+      );
     } catch {
       this.imagePickerResults = [];
       this.imagePickerError = 'Unable to load box art results.';

@@ -1,7 +1,6 @@
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
-const MAX_THE_GAMES_DB_LOOKUPS = 10;
 const MAX_BOX_ART_RESULTS = 30;
 
 const tokenCache = {
@@ -10,13 +9,11 @@ const tokenCache = {
 };
 
 const rateLimitCache = new Map();
-const theGamesDbCoverCache = new Map();
 
 export function resetCaches() {
   tokenCache.accessToken = null;
   tokenCache.expiresAt = 0;
   rateLimitCache.clear();
-  theGamesDbCoverCache.clear();
 }
 
 function jsonResponse(body, status = 200) {
@@ -33,6 +30,10 @@ function jsonResponse(body, status = 200) {
 
 function normalizeSearchQuery(url) {
   return (url.searchParams.get('q') ?? '').trim();
+}
+
+function normalizePlatformQuery(url) {
+  return (url.searchParams.get('platform') ?? '').trim();
 }
 
 function normalizeGameIdFromPath(pathname) {
@@ -106,11 +107,6 @@ function getTheGamesDbApiKey(env) {
     : null;
 }
 
-function buildTheGamesDbCacheKey(item) {
-  const platform = typeof item.platform === 'string' ? item.platform.toLowerCase() : '';
-  return `${item.title.toLowerCase()}::${platform}`;
-}
-
 function normalizeTheGamesDbUrl(filename, baseUrl) {
   if (typeof filename !== 'string' || filename.length === 0) {
     return null;
@@ -144,6 +140,28 @@ function getTheGamesDbGameTitle(game) {
 
 function getTheGamesDbGameId(game) {
   return String(game?.id ?? '').trim();
+}
+
+function normalizePlatformForMatch(platform) {
+  return String(platform ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getTheGamesDbPlatformText(game) {
+  const candidates = [
+    game?.platform,
+    game?.platform_name,
+    game?.platformName,
+    game?.system,
+    game?.system_name,
+  ];
+
+  return candidates
+    .filter(value => typeof value === 'string' && value.trim().length > 0)
+    .join(' ');
 }
 
 function levenshteinDistance(left, right) {
@@ -222,9 +240,10 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   return score;
 }
 
-function findTheGamesDbBoxArtCandidates(payload, expectedTitle) {
+function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatform = null) {
   const root = payload?.data;
   const includeRoot = payload?.include;
+  const normalizedPreferredPlatform = normalizePlatformForMatch(preferredPlatform);
 
   const games = Array.isArray(root?.games) ? root.games : [];
 
@@ -236,6 +255,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle) {
     .map(game => ({
       gameId: getTheGamesDbGameId(game),
       score: getTitleSimilarityScore(expectedTitle, getTheGamesDbGameTitle(game)),
+      platformText: getTheGamesDbPlatformText(game),
     }))
     .filter(entry => entry.gameId.length > 0 && Number.isFinite(entry.score))
     .sort((left, right) => right.score - left.score);
@@ -277,6 +297,14 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle) {
         score += 10;
       }
 
+      if (normalizedPreferredPlatform.length > 0) {
+        const normalizedGamePlatform = normalizePlatformForMatch(gameEntry.platformText);
+
+        if (normalizedGamePlatform.includes(normalizedPreferredPlatform)) {
+          score += 20;
+        }
+      }
+
       const existingScore = scoredByUrl.get(url);
 
       if (typeof existingScore !== 'number' || score > existingScore) {
@@ -291,49 +319,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle) {
     .slice(0, MAX_BOX_ART_RESULTS);
 }
 
-function findBestTheGamesDbBoxArt(payload, expectedTitle) {
-  const candidates = findTheGamesDbBoxArtCandidates(payload, expectedTitle);
-  return candidates[0] ?? null;
-}
-
-async function fetchTheGamesDbBoxArt(item, env, fetchImpl) {
-  const apiKey = getTheGamesDbApiKey(env);
-
-  if (!apiKey) {
-    return null;
-  }
-
-  const cacheKey = buildTheGamesDbCacheKey(item);
-
-  if (theGamesDbCoverCache.has(cacheKey)) {
-    return theGamesDbCoverCache.get(cacheKey);
-  }
-
-  const searchUrl = new URL('https://api.thegamesdb.net/v1.1/Games/ByGameName');
-  searchUrl.searchParams.set('apikey', apiKey);
-  searchUrl.searchParams.set('name', item.title);
-  searchUrl.searchParams.set('include', 'boxart');
-
-  try {
-    const response = await fetchImpl(searchUrl.toString(), { method: 'GET' });
-
-    if (!response.ok) {
-      theGamesDbCoverCache.set(cacheKey, null);
-      return null;
-    }
-
-    const payload = await response.json();
-    const boxArtUrl = findBestTheGamesDbBoxArt(payload, item.title);
-    theGamesDbCoverCache.set(cacheKey, boxArtUrl);
-
-    return boxArtUrl;
-  } catch {
-    theGamesDbCoverCache.set(cacheKey, null);
-    return null;
-  }
-}
-
-async function searchTheGamesDbBoxArtCandidates(title, env, fetchImpl) {
+async function fetchTheGamesDbBoxArtPayload(title, platform, env, fetchImpl) {
   const apiKey = getTheGamesDbApiKey(env);
 
   if (!apiKey) {
@@ -344,6 +330,11 @@ async function searchTheGamesDbBoxArtCandidates(title, env, fetchImpl) {
   searchUrl.searchParams.set('apikey', apiKey);
   searchUrl.searchParams.set('name', title);
   searchUrl.searchParams.set('include', 'boxart');
+  const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
+
+  if (normalizedPlatform.length > 0) {
+    searchUrl.searchParams.set('filter[platform]', normalizedPlatform);
+  }
 
   const response = await fetchImpl(searchUrl.toString(), { method: 'GET' });
 
@@ -351,34 +342,20 @@ async function searchTheGamesDbBoxArtCandidates(title, env, fetchImpl) {
     throw new Error('TheGamesDB request failed');
   }
 
-  const payload = await response.json();
-  return findTheGamesDbBoxArtCandidates(payload, title);
+  return response.json();
 }
 
-async function applyPrimaryBoxArt(items, env, fetchImpl) {
-  if (items.length === 0) {
-    return items;
+async function searchTheGamesDbBoxArtCandidates(title, platform, env, fetchImpl) {
+  const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
+  const payload = await fetchTheGamesDbBoxArtPayload(title, normalizedPlatform, env, fetchImpl);
+  let candidates = findTheGamesDbBoxArtCandidates(payload, title, normalizedPlatform);
+
+  if (candidates.length === 0 && normalizedPlatform.length > 0) {
+    const fallbackPayload = await fetchTheGamesDbBoxArtPayload(title, null, env, fetchImpl);
+    candidates = findTheGamesDbBoxArtCandidates(fallbackPayload, title, null);
   }
 
-  const enrichedItems = await Promise.all(items.map(async (item, index) => {
-    if (index >= MAX_THE_GAMES_DB_LOOKUPS) {
-      return item;
-    }
-
-    const boxArtUrl = await fetchTheGamesDbBoxArt(item, env, fetchImpl);
-
-    if (!boxArtUrl) {
-      return item;
-    }
-
-    return {
-      ...item,
-      coverUrl: boxArtUrl,
-      coverSource: 'thegamesdb',
-    };
-  }));
-
-  return enrichedItems;
+  return candidates;
 }
 
 async function fetchAppToken(env, fetchImpl, nowMs) {
@@ -509,7 +486,8 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   try {
     if (isBoxArtSearchRoute) {
       const query = normalizeSearchQuery(url);
-      const items = await searchTheGamesDbBoxArtCandidates(query, env, fetchImpl);
+      const platform = normalizePlatformQuery(url);
+      const items = await searchTheGamesDbBoxArtCandidates(query, platform, env, fetchImpl);
       return jsonResponse({ items }, 200);
     }
 
@@ -519,8 +497,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       const query = normalizeSearchQuery(url);
 
       const items = await searchIgdb(query, env, token, fetchImpl);
-      const enrichedItems = await applyPrimaryBoxArt(items, env, fetchImpl);
-      return jsonResponse({ items: enrichedItems }, 200);
+      return jsonResponse({ items }, 200);
     }
 
     const item = await fetchIgdbById(gameId, env, token, fetchImpl);
@@ -529,8 +506,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       return jsonResponse({ error: 'Game not found.' }, 404);
     }
 
-    const [enrichedItem] = await applyPrimaryBoxArt([item], env, fetchImpl);
-    return jsonResponse({ item: enrichedItem ?? item }, 200);
+    return jsonResponse({ item }, 200);
   } catch {
     return jsonResponse({ error: 'Unable to fetch game data.' }, 502);
   }

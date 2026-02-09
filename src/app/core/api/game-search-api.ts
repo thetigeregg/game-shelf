@@ -5,7 +5,7 @@ import { GameCatalogResult } from '../models/game.models';
 export interface GameSearchApi {
   searchGames(query: string): Observable<GameCatalogResult[]>;
   getGameById(externalId: string): Observable<GameCatalogResult>;
-  searchBoxArtByTitle(query: string): Observable<string[]>;
+  searchBoxArtByTitle(query: string, platform?: string | null): Observable<string[]>;
 }
 
 export const GAME_SEARCH_API = new InjectionToken<GameSearchApi>('GAME_SEARCH_API');

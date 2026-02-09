@@ -150,7 +150,14 @@ describe('GameShelfService', () => {
   it('delegates box art title search for valid query', async () => {
     searchApi.searchBoxArtByTitle.and.returnValue(of(['https://example.com/cover.jpg']));
     const results = await firstValueFrom(service.searchBoxArtByTitle('mario'));
-    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario');
+    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', undefined);
+    expect(results).toEqual(['https://example.com/cover.jpg']);
+  });
+
+  it('delegates box art title search with platform for valid query', async () => {
+    searchApi.searchBoxArtByTitle.and.returnValue(of(['https://example.com/cover.jpg']));
+    const results = await firstValueFrom(service.searchBoxArtByTitle('mario', 'Nintendo Switch'));
+    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', 'Nintendo Switch');
     expect(results).toEqual(['https://example.com/cover.jpg']);
   });
 

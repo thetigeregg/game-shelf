@@ -79,6 +79,7 @@
           [ngModel]="draftFilters.tags"
           (ngModelChange)="onTagSelectionChange($event)"
         >
+          <ion-select-option [value]="noneTagFilterValue">None</ion-select-option>
           <ion-select-option *ngFor="let tag of tagOptions" [value]="tag">
             {{ tag }}
           </ion-select-option>

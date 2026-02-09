@@ -11,6 +11,7 @@ import { GameListComponent } from '../features/game-list/game-list.component';
   standalone: false,
 })
 export class Tab1Page {
+  readonly noneTagFilterValue = '__none__';
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
     { value: 'platform', label: 'Platform' },
@@ -104,7 +105,7 @@ export class Tab1Page {
 
   onTagOptionsChange(tagOptions: string[]): void {
     this.tagOptions = tagOptions;
-    const normalizedSelection = this.filters.tags.filter(tag => tagOptions.includes(tag));
+    const normalizedSelection = this.filters.tags.filter(tag => tag === this.noneTagFilterValue || tagOptions.includes(tag));
 
     if (normalizedSelection.length !== this.filters.tags.length) {
       this.filters = {

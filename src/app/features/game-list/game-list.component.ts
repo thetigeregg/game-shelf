@@ -33,6 +33,7 @@ interface GroupedGamesView {
   standalone: false,
 })
 export class GameListComponent implements OnChanges {
+  readonly noneTagFilterValue = '__none__';
   readonly statusOptions: { value: GameStatus; label: string }[] = [
     { value: 'playing', label: 'Playing' },
     { value: 'wantToPlay', label: 'Want to Play' },
@@ -376,6 +377,8 @@ export class GameListComponent implements OnChanges {
           .filter(tag => tag.length > 0)
       )]
       : [];
+    const hasNoneTagFilter = normalizedTags.includes(this.noneTagFilterValue);
+    const normalizedTagNames = normalizedTags.filter(tag => tag !== this.noneTagFilterValue);
 
     return {
       ...DEFAULT_GAME_LIST_FILTERS,
@@ -383,7 +386,7 @@ export class GameListComponent implements OnChanges {
       platform: normalizedPlatforms,
       genres: normalizedGenres,
       statuses: normalizedStatuses,
-      tags: normalizedTags,
+      tags: hasNoneTagFilter ? [this.noneTagFilterValue, ...normalizedTagNames] : normalizedTagNames,
     };
   }
 
@@ -613,13 +616,18 @@ export class GameListComponent implements OnChanges {
     }
 
     if (filters.tags.length > 0) {
+      const matchesNoneTagFilter = filters.tags.includes(this.noneTagFilterValue);
+      const selectedTagNames = filters.tags.filter(tag => tag !== this.noneTagFilterValue);
       const gameTagNames = Array.isArray(game.tags)
         ? game.tags
           .map(tag => (typeof tag?.name === 'string' ? tag.name.trim() : ''))
           .filter(tagName => tagName.length > 0)
         : [];
 
-      if (!filters.tags.some(selectedTag => gameTagNames.includes(selectedTag))) {
+      const matchesSelectedTag = selectedTagNames.some(selectedTag => gameTagNames.includes(selectedTag));
+      const matchesNoTags = matchesNoneTagFilter && gameTagNames.length === 0;
+
+      if (!matchesSelectedTag && !matchesNoTags) {
         return false;
       }
     }

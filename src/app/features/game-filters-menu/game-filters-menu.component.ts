@@ -18,6 +18,7 @@ type SortOption =
   standalone: false,
 })
 export class GameFiltersMenuComponent implements OnChanges {
+  readonly noneTagFilterValue = '__none__';
   readonly statusOptions: GameStatusFilterOption[] = ['none', 'playing', 'wantToPlay', 'completed', 'dropped', 'replay'];
 
   @Input({ required: true }) menuId!: string;
@@ -87,7 +88,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      tags: normalized,
+      tags: this.normalizeTagSelection(normalized),
     };
     this.updateFilters();
   }
@@ -188,6 +189,17 @@ export class GameFiltersMenuComponent implements OnChanges {
         || status === 'replay'
       )
     )];
+  }
+
+  private normalizeTagSelection(values: string[]): string[] {
+    const hasNone = values.includes(this.noneTagFilterValue);
+    const tagNames = values.filter(value => value !== this.noneTagFilterValue);
+
+    if (!hasNone) {
+      return tagNames;
+    }
+
+    return [this.noneTagFilterValue, ...tagNames];
   }
 
   private isSortOption(value: string): value is SortOption {

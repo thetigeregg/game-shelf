@@ -11,6 +11,7 @@ const env = {
 function createFetchStub({
   igdbStatus = 200,
   igdbBody = [],
+  igdbResponses = null,
   tokenStatus = 200,
   theGamesDbStatus = 200,
   theGamesDbBody = null,
@@ -18,11 +19,12 @@ function createFetchStub({
   const calls = {
     token: 0,
     igdb: 0,
+    igdbBodies: [],
     theGamesDb: 0,
     theGamesDbUrls: [],
   };
 
-  const stub = async (url) => {
+  const stub = async (url, options = {}) => {
     const normalizedUrl = String(url);
 
     if (normalizedUrl.startsWith('https://id.twitch.tv/oauth2/token')) {
@@ -37,6 +39,16 @@ function createFetchStub({
 
     if (normalizedUrl === 'https://api.igdb.com/v4/games') {
       calls.igdb += 1;
+      calls.igdbBodies.push(typeof options.body === 'string' ? options.body : '');
+
+      if (Array.isArray(igdbResponses) && igdbResponses.length > 0) {
+        const responseConfig = igdbResponses[calls.igdb - 1] ?? igdbResponses[igdbResponses.length - 1];
+        return new Response(
+          JSON.stringify(responseConfig?.body ?? []),
+          { status: responseConfig?.status ?? 200 },
+        );
+      }
+
       return new Response(JSON.stringify(igdbBody), { status: igdbStatus });
     }
 
@@ -121,6 +133,90 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(payload.items[0].coverUrl, 'https://images.igdb.com/igdb/image/upload/t_cover_big/xyz987.jpg');
   assert.equal(payload.items[0].coverSource, 'igdb');
   assert.equal(calls.theGamesDb, 0);
+  assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
+  assert.equal(calls.igdbBodies[0].includes('fields id,name,first_release_date,cover.image_id,platforms.name,total_rating_count,category,parent_game;'), true);
+});
+
+test('demotes remakes/remasters below their original game when both are in results', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({
+    igdbBody: [
+      {
+        id: 201,
+        name: 'Epic Mickey: Rebrushed',
+        first_release_date: 1725321600,
+        cover: { image_id: 'remake-cover' },
+        platforms: [{ name: 'Nintendo Switch' }],
+        total_rating_count: 99,
+        category: 8,
+        version_parent: 200,
+      },
+      {
+        id: 200,
+        name: 'Epic Mickey',
+        first_release_date: 1286150400,
+        cover: { image_id: 'original-cover' },
+        platforms: [{ name: 'Wii' }],
+        total_rating_count: 10,
+        category: 0,
+      },
+    ],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=epic%20mickey'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.items.length, 2);
+  assert.equal(payload.items[0].externalId, '200');
+  assert.equal(payload.items[0].title, 'Epic Mickey');
+  assert.equal(payload.items[1].externalId, '201');
+  assert.equal(payload.items[1].title, 'Epic Mickey: Rebrushed');
+});
+
+test('falls back to reduced IGDB fields when first search variant fails', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbResponses: [
+      { status: 400, body: { message: 'Invalid field "total_rating_count"' } },
+      {
+        status: 200,
+        body: [
+          {
+            id: 500,
+            name: 'The Legend of Zelda',
+            first_release_date: 522547200,
+            cover: { image_id: 'zelda-cover' },
+            platforms: [{ name: 'NES' }],
+            follows: 777,
+            category: 0,
+          },
+        ],
+      },
+    ],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=zelda'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.igdb, 2);
+  assert.equal(calls.igdbBodies[0].includes('sort '), false);
+  assert.equal(calls.igdbBodies[1].includes('sort '), false);
+
+  const payload = await response.json();
+  assert.equal(payload.items.length, 1);
+  assert.equal(payload.items[0].externalId, '500');
+  assert.equal(payload.items[0].title, 'The Legend of Zelda');
 });
 
 test('reuses cached token between requests', async () => {

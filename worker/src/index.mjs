@@ -2,6 +2,8 @@ const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
 const MAX_BOX_ART_RESULTS = 30;
+const IGDB_CATEGORY_REMAKE = 8;
+const IGDB_CATEGORY_REMASTER = 9;
 
 const tokenCache = {
   accessToken: null,
@@ -9,11 +11,17 @@ const tokenCache = {
 };
 
 const rateLimitCache = new Map();
+const igdbSearchVariantCache = {
+  preferredVariantIndex: 0,
+  disabledVariants: new Set(),
+};
 
 export function resetCaches() {
   tokenCache.accessToken = null;
   tokenCache.expiresAt = 0;
   rateLimitCache.clear();
+  igdbSearchVariantCache.preferredVariantIndex = 0;
+  igdbSearchVariantCache.disabledVariants.clear();
 }
 
 function jsonResponse(body, status = 200) {
@@ -39,6 +47,110 @@ function normalizePlatformQuery(url) {
 function normalizeGameIdFromPath(pathname) {
   const match = pathname.match(/^\/v1\/games\/(\d+)$/);
   return match ? match[1] : null;
+}
+
+function normalizeIgdbReferenceId(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const nestedId = value.id;
+
+    if (typeof nestedId === 'number' && Number.isFinite(nestedId)) {
+      return String(Math.trunc(nestedId));
+    }
+  }
+
+  return null;
+}
+
+function normalizeIgdbRankScore(game) {
+  const candidates = [
+    game?.total_rating_count,
+    game?.follows,
+    game?.rating_count,
+    game?.hypes,
+    game?.aggregated_rating_count,
+  ];
+
+  for (const value of candidates) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return Number.NEGATIVE_INFINITY;
+}
+
+function isRemakeOrRemaster(category) {
+  const normalized = typeof category === 'number' ? category : Number.NaN;
+  return normalized === IGDB_CATEGORY_REMAKE || normalized === IGDB_CATEGORY_REMASTER;
+}
+
+function getOriginalGameId(game) {
+  const parentGame = normalizeIgdbReferenceId(game?.parent_game);
+
+  if (parentGame) {
+    return parentGame;
+  }
+
+  return normalizeIgdbReferenceId(game?.version_parent);
+}
+
+function sortIgdbSearchResults(games) {
+  if (!Array.isArray(games) || games.length <= 1) {
+    return Array.isArray(games) ? games : [];
+  }
+
+  const indexed = games.map((game, index) => ({
+    game,
+    index,
+    id: normalizeIgdbReferenceId(game?.id),
+    rankScore: normalizeIgdbRankScore(game),
+    originalId: getOriginalGameId(game),
+    isRemakeOrRemaster: isRemakeOrRemaster(game?.category),
+  }));
+
+  const idSet = new Set(indexed.map(entry => entry.id).filter(Boolean));
+
+  indexed.sort((left, right) => {
+    if (left.rankScore !== right.rankScore) {
+      return right.rankScore - left.rankScore;
+    }
+
+    return left.index - right.index;
+  });
+
+  const byId = new Map(indexed.map((entry, index) => [entry.id, index]));
+
+  indexed.forEach(entry => {
+    if (!entry.isRemakeOrRemaster || !entry.originalId || !idSet.has(entry.originalId)) {
+      return;
+    }
+
+    let remakeIndex = byId.get(entry.id);
+    let originalIndex = byId.get(entry.originalId);
+
+    if (typeof remakeIndex !== 'number' || typeof originalIndex !== 'number' || remakeIndex > originalIndex) {
+      return;
+    }
+
+    const [remakeEntry] = indexed.splice(remakeIndex, 1);
+    originalIndex = byId.get(entry.originalId);
+
+    if (typeof originalIndex !== 'number') {
+      return;
+    }
+
+    indexed.splice(originalIndex + 1, 0, remakeEntry);
+    byId.clear();
+    indexed.forEach((item, index) => {
+      byId.set(item.id, index);
+    });
+  });
+
+  return indexed.map(entry => entry.game);
 }
 
 function isBoxArtSearchPath(pathname) {
@@ -394,28 +506,113 @@ async function fetchAppToken(env, fetchImpl, nowMs) {
 }
 
 async function searchIgdb(query, env, token, fetchImpl) {
-  const body = [
-    `search "${escapeQuery(query)}";`,
-    'fields id,name,first_release_date,cover.image_id,platforms.name;',
-    'limit 25;',
-  ].join(' ');
-
-  const response = await fetchImpl('https://api.igdb.com/v4/games', {
-    method: 'POST',
-    headers: {
-      'Client-ID': env.TWITCH_CLIENT_ID,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
+  const queryVariants = [
+    {
+      fields: 'id,name,first_release_date,cover.image_id,platforms.name,total_rating_count,category,parent_game',
+      sort: null,
     },
-    body,
-  });
+    {
+      fields: 'id,name,first_release_date,cover.image_id,platforms.name,follows,category,parent_game',
+      sort: null,
+    },
+    {
+      fields: 'id,name,first_release_date,cover.image_id,platforms.name,category,parent_game',
+      sort: null,
+    },
+  ];
+  const requestHeaders = {
+    'Client-ID': env.TWITCH_CLIENT_ID,
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'text/plain',
+  };
 
-  if (!response.ok) {
-    throw new Error('IGDB request failed');
+  if (igdbSearchVariantCache.disabledVariants.size >= queryVariants.length) {
+    igdbSearchVariantCache.disabledVariants.clear();
+    igdbSearchVariantCache.preferredVariantIndex = 0;
   }
 
-  const data = await response.json();
-  return Array.isArray(data) ? data.map(normalizeIgdbGame) : [];
+  const variantIndexes = queryVariants
+    .map((_, index) => index)
+    .filter(index => !igdbSearchVariantCache.disabledVariants.has(index));
+  const preferredIndexPosition = variantIndexes.indexOf(igdbSearchVariantCache.preferredVariantIndex);
+
+  if (preferredIndexPosition > 0) {
+    variantIndexes.splice(preferredIndexPosition, 1);
+    variantIndexes.unshift(igdbSearchVariantCache.preferredVariantIndex);
+  }
+
+  for (let attempt = 0; attempt < variantIndexes.length; attempt += 1) {
+    const variantIndex = variantIndexes[attempt];
+    const variant = queryVariants[variantIndex];
+    const bodyParts = [
+      `search "${escapeQuery(query)}";`,
+      `fields ${variant.fields};`,
+    ];
+
+    if (variant.sort) {
+      bodyParts.push(`sort ${variant.sort};`);
+    }
+
+    bodyParts.push(
+      'limit 25;',
+    );
+
+    const body = bodyParts.join(' ');
+    const response = await fetchImpl('https://api.igdb.com/v4/games', {
+      method: 'POST',
+      headers: requestHeaders,
+      body,
+    });
+
+    if (!response.ok) {
+      let payloadSnippet = '';
+
+      try {
+        payloadSnippet = (await response.text()).slice(0, 300);
+      } catch {
+        payloadSnippet = '';
+      }
+
+      console.warn('[igdb] search_variant_failed', {
+        attempt: attempt + 1,
+        variantIndex: variantIndex + 1,
+        status: response.status,
+        payload: payloadSnippet,
+        sort: variant.sort,
+      });
+
+      if (response.status === 400 && payloadSnippet.toLowerCase().includes('invalid field')) {
+        igdbSearchVariantCache.disabledVariants.add(variantIndex);
+      }
+
+      continue;
+    }
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      console.warn('[igdb] search_variant_invalid_json', {
+        attempt: attempt + 1,
+        variantIndex: variantIndex + 1,
+      });
+      continue;
+    }
+
+    if (!Array.isArray(data)) {
+      console.warn('[igdb] search_variant_invalid_payload', {
+        attempt: attempt + 1,
+        variantIndex: variantIndex + 1,
+      });
+      continue;
+    }
+
+    igdbSearchVariantCache.preferredVariantIndex = variantIndex;
+    return sortIgdbSearchResults(data).map(normalizeIgdbGame);
+  }
+
+  throw new Error('IGDB request failed');
 }
 
 async function fetchIgdbById(gameId, env, token, fetchImpl) {
@@ -507,7 +704,8 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
     }
 
     return jsonResponse({ item }, 200);
-  } catch {
+  } catch (error) {
+    console.error('[worker] request_failed', error);
     return jsonResponse({ error: 'Unable to fetch game data.' }, 502);
   }
 }

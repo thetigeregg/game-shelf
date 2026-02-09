@@ -29,13 +29,13 @@
         <ion-icon slot="icon-only" name="filter"></ion-icon>
       </ion-button>
       <ion-button *ngIf="!isSelectionMode" aria-label="Open collection actions" [id]="headerActionsTriggerId">
-        <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
+        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
       </ion-button>
       <ion-button *ngIf="isSelectionMode" aria-label="Select all games" (click)="toggleSelectAll()">
         <ion-icon slot="icon-only" [name]="allDisplayedSelected ? 'checkbox' : 'square-outline'"></ion-icon>
       </ion-button>
       <ion-button *ngIf="isSelectionMode" aria-label="Open bulk actions" (click)="openBulkActionsPopover($event)">
-        <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
+        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>

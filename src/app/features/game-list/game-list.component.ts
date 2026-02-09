@@ -42,6 +42,7 @@ export interface GameListSelectionState {
 })
 export class GameListComponent implements OnChanges {
   readonly noneTagFilterValue = '__none__';
+  readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
   readonly statusOptions: { value: GameStatus; label: string }[] = [
     { value: 'playing', label: 'Playing' },
     { value: 'wantToPlay', label: 'Want to Play' },
@@ -508,6 +509,36 @@ export class GameListComponent implements OnChanges {
     }
   }
 
+  async onSelectedGameRatingChange(value: GameRating | number | null | undefined): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    const normalized = this.normalizeRating(value);
+
+    try {
+      const updated = await this.gameShelfService.setGameRating(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, normalized);
+      this.selectedGame = updated;
+      await this.presentToast('Game rating updated.');
+    } catch {
+      await this.presentToast('Unable to update game rating.', 'danger');
+    }
+  }
+
+  async clearSelectedGameRating(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.setGameRating(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, null);
+      this.selectedGame = updated;
+      await this.presentToast('Game rating cleared.');
+    } catch {
+      await this.presentToast('Unable to clear game rating.', 'danger');
+    }
+  }
+
   async refreshSelectedGameMetadata(): Promise<void> {
     if (!this.selectedGame) {
       return;
@@ -586,6 +617,18 @@ export class GameListComponent implements OnChanges {
     }
 
     return new Date(timestamp).toLocaleDateString();
+  }
+
+  formatMetadataList(values: string[] | undefined): string {
+    if (!Array.isArray(values)) {
+      return 'Unknown';
+    }
+
+    const normalized = values
+      .map(value => (typeof value === 'string' ? value.trim() : ''))
+      .filter(value => value.length > 0);
+
+    return normalized.length > 0 ? normalized.join(', ') : 'Unknown';
   }
 
   getTagTextColor(color: string): string {

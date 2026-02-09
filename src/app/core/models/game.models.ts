@@ -1,6 +1,7 @@
 export type ListType = 'collection' | 'wishlist';
 export type CoverSource = 'thegamesdb' | 'igdb' | 'none';
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'replay' | 'wantToPlay';
+export type GameStatusFilterOption = GameStatus | 'none';
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -73,6 +74,7 @@ export interface GameListFilters {
   sortDirection: SortDirection;
   platform: string[];
   genres: string[];
+  statuses: GameStatusFilterOption[];
   tags: string[];
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
@@ -83,6 +85,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   sortDirection: 'asc',
   platform: [],
   genres: [],
+  statuses: [],
   tags: [],
   releaseDateFrom: null,
   releaseDateTo: null,

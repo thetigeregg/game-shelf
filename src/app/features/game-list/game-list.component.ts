@@ -7,6 +7,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
+  GameStatusFilterOption,
   GameStatus,
   ListType,
   Tag
@@ -356,6 +357,18 @@ export class GameListComponent implements OnChanges {
           .filter(genre => genre.length > 0)
       )]
       : [];
+    const normalizedStatuses = Array.isArray(filters.statuses)
+      ? [...new Set(
+        filters.statuses.filter(status =>
+          status === 'none'
+          || status === 'playing'
+          || status === 'wantToPlay'
+          || status === 'completed'
+          || status === 'dropped'
+          || status === 'replay'
+        )
+      )]
+      : [];
     const normalizedTags = Array.isArray(filters.tags)
       ? [...new Set(
         filters.tags
@@ -369,6 +382,7 @@ export class GameListComponent implements OnChanges {
       ...filters,
       platform: normalizedPlatforms,
       genres: normalizedGenres,
+      statuses: normalizedStatuses,
       tags: normalizedTags,
     };
   }
@@ -584,6 +598,16 @@ export class GameListComponent implements OnChanges {
         : [];
 
       if (!filters.genres.some(selectedGenre => gameGenres.includes(selectedGenre))) {
+        return false;
+      }
+    }
+
+    if (filters.statuses.length > 0) {
+      const gameStatus = this.normalizeStatus(game.status);
+      const matchesNone = gameStatus === null && filters.statuses.includes('none');
+      const matchesStatus = gameStatus !== null && filters.statuses.includes(gameStatus as GameStatusFilterOption);
+
+      if (!matchesNone && !matchesStatus) {
         return false;
       }
     }

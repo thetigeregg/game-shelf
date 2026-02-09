@@ -52,6 +52,16 @@ export class Tab1Page {
     const normalizedGenres = Array.isArray(filters.genres)
       ? filters.genres.filter(genre => typeof genre === 'string' && genre.trim().length > 0)
       : [];
+    const normalizedStatuses = Array.isArray(filters.statuses)
+      ? filters.statuses.filter(status =>
+        status === 'none'
+        || status === 'playing'
+        || status === 'wantToPlay'
+        || status === 'completed'
+        || status === 'dropped'
+        || status === 'replay'
+      )
+      : [];
     const normalizedTags = Array.isArray(filters.tags)
       ? filters.tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0)
       : [];
@@ -60,6 +70,7 @@ export class Tab1Page {
       ...filters,
       platform: normalizedPlatforms,
       genres: normalizedGenres,
+      statuses: normalizedStatuses,
       tags: normalizedTags,
       sortField: this.isValidSortField(filters.sortField) ? filters.sortField : DEFAULT_GAME_LIST_FILTERS.sortField,
       sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',

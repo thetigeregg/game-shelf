@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
-import { DEFAULT_GAME_LIST_FILTERS, GameListFilters } from '../../core/models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameListFilters, GameStatusFilterOption } from '../../core/models/game.models';
 
 type SortOption =
   | 'title:asc'
@@ -18,6 +18,8 @@ type SortOption =
   standalone: false,
 })
 export class GameFiltersMenuComponent implements OnChanges {
+  readonly statusOptions: GameStatusFilterOption[] = ['none', 'playing', 'wantToPlay', 'completed', 'dropped', 'replay'];
+
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
   @Input() platformOptions: string[] = [];
@@ -90,6 +92,15 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.updateFilters();
   }
 
+  onStatusSelectionChange(value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined): void {
+    const normalized = this.normalizeStatusSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      statuses: normalized,
+    };
+    this.updateFilters();
+  }
+
   onReleaseDateFromChange(value: string | string[] | null | undefined): void {
     this.draftFilters = {
       ...this.draftFilters,
@@ -114,6 +125,30 @@ export class GameFiltersMenuComponent implements OnChanges {
     return `${this.menuId}-release-date-to`;
   }
 
+  getStatusLabel(status: GameStatusFilterOption): string {
+    if (status === 'none') {
+      return 'None';
+    }
+
+    if (status === 'playing') {
+      return 'Playing';
+    }
+
+    if (status === 'wantToPlay') {
+      return 'Want to Play';
+    }
+
+    if (status === 'completed') {
+      return 'Completed';
+    }
+
+    if (status === 'dropped') {
+      return 'Dropped';
+    }
+
+    return 'Replay';
+  }
+
   private toDateOnly(value: string | string[] | null | undefined): string | null {
     if (typeof value !== 'string' || value.length < 10) {
       return null;
@@ -133,6 +168,25 @@ export class GameFiltersMenuComponent implements OnChanges {
       normalizedValues
         .map(platform => platform.trim())
         .filter(platform => platform.length > 0)
+    )];
+  }
+
+  private normalizeStatusSelection(value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined): GameStatusFilterOption[] {
+    const normalizedValues = Array.isArray(value)
+      ? value
+      : value
+        ? [value]
+        : [];
+
+    return [...new Set(
+      normalizedValues.filter(status =>
+        status === 'none'
+        || status === 'playing'
+        || status === 'wantToPlay'
+        || status === 'completed'
+        || status === 'dropped'
+        || status === 'replay'
+      )
     )];
   }
 

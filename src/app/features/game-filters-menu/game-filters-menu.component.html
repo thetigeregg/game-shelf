@@ -57,6 +57,21 @@
 
       <ion-item>
         <ion-select
+          label="Status"
+          labelPlacement="stacked"
+          placeholder="All statuses"
+          [multiple]="true"
+          [ngModel]="draftFilters.statuses"
+          (ngModelChange)="onStatusSelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let status of statusOptions" [value]="status">
+            {{ getStatusLabel(status) }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
           label="Tags"
           labelPlacement="stacked"
           placeholder="All tags"

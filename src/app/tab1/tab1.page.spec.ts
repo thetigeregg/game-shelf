@@ -17,6 +17,7 @@ class GameListStubComponent {
   @Input() groupBy?: string;
   @Output() platformOptionsChange = new EventEmitter<string[]>();
   @Output() genreOptionsChange = new EventEmitter<string[]>();
+  @Output() statusOptionsChange = new EventEmitter<string[]>();
   @Output() tagOptionsChange = new EventEmitter<string[]>();
   @Output() displayedGamesChange = new EventEmitter<unknown[]>();
 }
@@ -27,6 +28,7 @@ class GameFiltersMenuStubComponent {
   @Input() contentId?: string;
   @Input() platformOptions?: string[];
   @Input() genreOptions?: string[];
+  @Input() statusOptions?: string[];
   @Input() tagOptions?: string[];
   @Input() filters?: unknown;
   @Output() filtersChange = new EventEmitter<unknown>();

@@ -142,6 +142,7 @@ describe('GameListComponent', () => {
       sortDirection: 'desc',
       platform: ['Nintendo Switch'],
       genres: [],
+      statuses: [],
       tags: [],
       releaseDateFrom: null,
       releaseDateTo: null,

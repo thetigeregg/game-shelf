@@ -382,11 +382,15 @@ export class GameListComponent implements OnChanges {
     }
 
     if (status === 'wantToPlay') {
-      return '#87ceeb';
+      return '#2196f3';
     }
 
     if (status === 'paused') {
       return '#8b5a2b';
+    }
+
+    if (status === 'replay') {
+      return '#7e57c2';
     }
 
     return 'var(--ion-color-medium)';

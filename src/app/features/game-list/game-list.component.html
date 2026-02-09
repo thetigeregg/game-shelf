@@ -6,7 +6,6 @@
 
     <ion-label>
       <h2>{{ game.title }}</h2>
-      <ion-badge *ngIf="getCoverSourceLabel(game) as coverSourceLabel" color="tertiary">{{ coverSourceLabel }}</ion-badge>
       <p>{{ game.platform || 'Unknown platform' }} • {{ game.releaseYear || 'Unknown year' }}</p>
     </ion-label>
 

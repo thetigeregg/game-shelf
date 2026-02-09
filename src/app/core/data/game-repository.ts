@@ -5,12 +5,12 @@ export interface GameRepository {
   listByType(listType: ListType): Promise<GameEntry[]>;
   listAll(): Promise<GameEntry[]>;
   upsertFromCatalog(result: GameCatalogResult, targetList: ListType): Promise<GameEntry>;
-  moveToList(externalId: string, targetList: ListType): Promise<void>;
-  remove(externalId: string): Promise<void>;
-  exists(externalId: string): Promise<GameEntry | undefined>;
-  updateCover(externalId: string, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined>;
-  setGameStatus(externalId: string, status: GameStatus | null): Promise<GameEntry | undefined>;
-  setGameTags(externalId: string, tagIds: number[]): Promise<GameEntry | undefined>;
+  moveToList(igdbGameId: string, platformIgdbId: number, targetList: ListType): Promise<void>;
+  remove(igdbGameId: string, platformIgdbId: number): Promise<void>;
+  exists(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined>;
+  updateCover(igdbGameId: string, platformIgdbId: number, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined>;
+  setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry | undefined>;
+  setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry | undefined>;
   listTags(): Promise<Tag[]>;
   upsertTag(tag: { id?: number; name: string; color: string }): Promise<Tag>;
   deleteTag(tagId: number): Promise<void>;

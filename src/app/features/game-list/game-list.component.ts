@@ -69,7 +69,7 @@ export class GameListComponent implements OnChanges {
   isImagePickerLoading = false;
   imagePickerError: string | null = null;
   selectionModeActive = false;
-  selectedExternalIds = new Set<string>();
+  selectedGameKeys = new Set<string>();
   private displayedGames: GameEntry[] = [];
   private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
   private longPressTriggeredExternalId: string | null = null;
@@ -121,12 +121,12 @@ export class GameListComponent implements OnChanges {
 
   async moveGame(game: GameEntry): Promise<void> {
     const targetList = this.getOtherListType();
-    await this.gameShelfService.moveGame(game.externalId, targetList);
+    await this.gameShelfService.moveGame(game.igdbGameId, game.platformIgdbId, targetList);
     await this.presentToast(`Moved to ${this.getListLabel(targetList)}.`);
   }
 
   async removeGame(game: GameEntry): Promise<void> {
-    await this.gameShelfService.removeGame(game.externalId);
+    await this.gameShelfService.removeGame(game.igdbGameId, game.platformIgdbId);
   }
 
   async moveGameFromPopover(game: GameEntry): Promise<void> {
@@ -165,13 +165,13 @@ export class GameListComponent implements OnChanges {
   }
 
   onGameRowClick(game: GameEntry): void {
-    if (this.longPressTriggeredExternalId === game.externalId) {
+    if (this.longPressTriggeredExternalId === this.getGameKey(game)) {
       this.longPressTriggeredExternalId = null;
       return;
     }
 
     if (this.selectionModeActive) {
-      this.toggleGameSelection(game.externalId);
+      this.toggleGameSelection(this.getGameKey(game));
       return;
     }
 
@@ -181,8 +181,9 @@ export class GameListComponent implements OnChanges {
   onRowPressStart(game: GameEntry): void {
     this.clearLongPressTimer();
     this.longPressTimerId = setTimeout(() => {
-      this.longPressTriggeredExternalId = game.externalId;
-      this.enterSelectionModeWithGame(game.externalId);
+      const gameKey = this.getGameKey(game);
+      this.longPressTriggeredExternalId = gameKey;
+      this.enterSelectionModeWithGame(gameKey);
     }, 450);
   }
 
@@ -190,17 +191,17 @@ export class GameListComponent implements OnChanges {
     this.clearLongPressTimer();
   }
 
-  isGameSelected(externalId: string): boolean {
-    return this.selectedExternalIds.has(externalId);
+  isGameSelected(gameKey: string): boolean {
+    return this.selectedGameKeys.has(gameKey);
   }
 
   isAllDisplayedSelected(): boolean {
-    return this.displayedGames.length > 0 && this.selectedExternalIds.size === this.displayedGames.length;
+    return this.displayedGames.length > 0 && this.selectedGameKeys.size === this.displayedGames.length;
   }
 
   clearSelectionMode(): void {
     this.selectionModeActive = false;
-    this.selectedExternalIds.clear();
+    this.selectedGameKeys.clear();
     this.emitSelectionState();
   }
 
@@ -214,21 +215,21 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    this.selectedExternalIds = new Set(this.displayedGames.map(game => game.externalId));
+    this.selectedGameKeys = new Set(this.displayedGames.map(game => this.getGameKey(game)));
     this.selectionModeActive = true;
     this.emitSelectionState();
   }
 
   async deleteSelectedGames(): Promise<void> {
-    const selectedIds = [...this.selectedExternalIds];
+    const selectedGames = this.getSelectedGames();
 
-    if (selectedIds.length === 0) {
+    if (selectedGames.length === 0) {
       return;
     }
 
     const confirmed = await this.confirmDelete({
       header: 'Delete Selected Games',
-      message: `Delete ${selectedIds.length} selected game${selectedIds.length === 1 ? '' : 's'}?`,
+      message: `Delete ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}?`,
       confirmText: 'Delete',
     });
 
@@ -236,35 +237,35 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    await Promise.all(selectedIds.map(externalId => this.gameShelfService.removeGame(externalId)));
+    await Promise.all(selectedGames.map(game => this.gameShelfService.removeGame(game.igdbGameId, game.platformIgdbId)));
     this.clearSelectionMode();
-    await this.presentToast(`${selectedIds.length} game${selectedIds.length === 1 ? '' : 's'} deleted.`);
+    await this.presentToast(`${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'} deleted.`);
   }
 
   async moveSelectedGamesToOtherList(): Promise<void> {
-    const selectedIds = [...this.selectedExternalIds];
+    const selectedGames = this.getSelectedGames();
     const targetList = this.getOtherListType();
 
-    if (selectedIds.length === 0) {
+    if (selectedGames.length === 0) {
       return;
     }
 
-    await Promise.all(selectedIds.map(externalId => this.gameShelfService.moveGame(externalId, targetList)));
+    await Promise.all(selectedGames.map(game => this.gameShelfService.moveGame(game.igdbGameId, game.platformIgdbId, targetList)));
     this.clearSelectionMode();
-    await this.presentToast(`Moved ${selectedIds.length} game${selectedIds.length === 1 ? '' : 's'} to ${this.getListLabel(targetList)}.`);
+    await this.presentToast(`Moved ${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'} to ${this.getListLabel(targetList)}.`);
   }
 
   async setStatusForSelectedGames(): Promise<void> {
-    const selectedIds = [...this.selectedExternalIds];
+    const selectedGames = this.getSelectedGames();
 
-    if (selectedIds.length === 0) {
+    if (selectedGames.length === 0) {
       return;
     }
 
     let nextStatus: GameStatus | null = null;
     const alert = await this.alertController.create({
       header: 'Set Status',
-      message: `Apply status to ${selectedIds.length} selected game${selectedIds.length === 1 ? '' : 's'}.`,
+      message: `Apply status to ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}.`,
       inputs: this.statusOptions.map(option => ({
         type: 'radio' as const,
         label: option.label,
@@ -297,15 +298,15 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    await Promise.all(selectedIds.map(externalId => this.gameShelfService.setGameStatus(externalId, nextStatus)));
+    await Promise.all(selectedGames.map(game => this.gameShelfService.setGameStatus(game.igdbGameId, game.platformIgdbId, nextStatus)));
     this.clearSelectionMode();
     await this.presentToast('Status updated.');
   }
 
   async setTagsForSelectedGames(): Promise<void> {
-    const selectedIds = [...this.selectedExternalIds];
+    const selectedGames = this.getSelectedGames();
 
-    if (selectedIds.length === 0) {
+    if (selectedGames.length === 0) {
       return;
     }
 
@@ -319,7 +320,7 @@ export class GameListComponent implements OnChanges {
     let nextTagIds: number[] = [];
     const alert = await this.alertController.create({
       header: 'Set Tags',
-      message: `Apply tags to ${selectedIds.length} selected game${selectedIds.length === 1 ? '' : 's'}.`,
+      message: `Apply tags to ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}.`,
       inputs: tags.map(tag => this.buildTagInput(tag, [])),
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -340,7 +341,7 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    await Promise.all(selectedIds.map(externalId => this.gameShelfService.setGameTags(externalId, nextTagIds)));
+    await Promise.all(selectedGames.map(game => this.gameShelfService.setGameTags(game.igdbGameId, game.platformIgdbId, nextTagIds)));
     this.clearSelectionMode();
     await this.presentToast('Tags updated.');
   }
@@ -363,7 +364,7 @@ export class GameListComponent implements OnChanges {
   }
 
   trackByExternalId(_: number, game: GameEntry): string {
-    return game.externalId;
+    return this.getGameKey(game);
   }
 
   onImageError(event: Event): void {
@@ -375,7 +376,7 @@ export class GameListComponent implements OnChanges {
   }
 
   getActionsTriggerId(game: GameEntry): string {
-    return `game-actions-trigger-${game.externalId}`;
+    return `game-actions-trigger-${this.getGameKey(game).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   }
 
   onActionsButtonClick(event: Event): void {
@@ -418,7 +419,7 @@ export class GameListComponent implements OnChanges {
     const normalized = this.normalizeStatus(value);
 
     try {
-      const updated = await this.gameShelfService.setGameStatus(this.selectedGame.externalId, normalized);
+      const updated = await this.gameShelfService.setGameStatus(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, normalized);
       this.selectedGame = updated;
       await this.presentToast('Game status updated.');
     } catch {
@@ -432,7 +433,7 @@ export class GameListComponent implements OnChanges {
     }
 
     try {
-      const updated = await this.gameShelfService.setGameStatus(this.selectedGame.externalId, null);
+      const updated = await this.gameShelfService.setGameStatus(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, null);
       this.selectedGame = updated;
       await this.presentToast('Game status cleared.');
     } catch {
@@ -446,7 +447,7 @@ export class GameListComponent implements OnChanges {
     }
 
     try {
-      const updated = await this.gameShelfService.refreshGameMetadata(this.selectedGame.externalId);
+      const updated = await this.gameShelfService.refreshGameMetadata(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId);
       this.selectedGame = updated;
       await this.presentToast('Game metadata refreshed.');
     } catch {
@@ -497,7 +498,7 @@ export class GameListComponent implements OnChanges {
     }
 
     try {
-      const updated = await this.gameShelfService.updateGameCover(this.selectedGame.externalId, url);
+      const updated = await this.gameShelfService.updateGameCover(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, url);
       this.selectedGame = updated;
       this.closeImagePickerModal();
       await this.presentToast('Game image updated.');
@@ -603,24 +604,28 @@ export class GameListComponent implements OnChanges {
     return 'var(--ion-color-medium)';
   }
 
+  getGameKey(game: GameEntry): string {
+    return `${game.igdbGameId}::${game.platformIgdbId}`;
+  }
+
   private getOtherListType(): ListType {
     return this.listType === 'collection' ? 'wishlist' : 'collection';
   }
 
-  private enterSelectionModeWithGame(externalId: string): void {
+  private enterSelectionModeWithGame(gameKey: string): void {
     this.selectionModeActive = true;
-    this.selectedExternalIds.add(externalId);
+    this.selectedGameKeys.add(gameKey);
     this.emitSelectionState();
   }
 
-  private toggleGameSelection(externalId: string): void {
-    if (this.selectedExternalIds.has(externalId)) {
-      this.selectedExternalIds.delete(externalId);
+  private toggleGameSelection(gameKey: string): void {
+    if (this.selectedGameKeys.has(gameKey)) {
+      this.selectedGameKeys.delete(gameKey);
     } else {
-      this.selectedExternalIds.add(externalId);
+      this.selectedGameKeys.add(gameKey);
     }
 
-    if (this.selectedExternalIds.size === 0) {
+    if (this.selectedGameKeys.size === 0) {
       this.selectionModeActive = false;
     }
 
@@ -632,14 +637,14 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    const displayedIds = new Set(this.displayedGames.map(game => game.externalId));
-    this.selectedExternalIds.forEach(externalId => {
-      if (!displayedIds.has(externalId)) {
-        this.selectedExternalIds.delete(externalId);
+    const displayedIds = new Set(this.displayedGames.map(game => this.getGameKey(game)));
+    this.selectedGameKeys.forEach(gameKey => {
+      if (!displayedIds.has(gameKey)) {
+        this.selectedGameKeys.delete(gameKey);
       }
     });
 
-    if (this.selectedExternalIds.size === 0) {
+    if (this.selectedGameKeys.size === 0) {
       this.selectionModeActive = false;
     }
   }
@@ -647,7 +652,7 @@ export class GameListComponent implements OnChanges {
   private emitSelectionState(): void {
     this.selectionStateChange.emit({
       active: this.selectionModeActive,
-      selectedCount: this.selectedExternalIds.size,
+      selectedCount: this.selectedGameKeys.size,
       allDisplayedSelected: this.isAllDisplayedSelected(),
     });
   }
@@ -657,6 +662,11 @@ export class GameListComponent implements OnChanges {
       clearTimeout(this.longPressTimerId);
       this.longPressTimerId = null;
     }
+  }
+
+  private getSelectedGames(): GameEntry[] {
+    const selectedKeys = this.selectedGameKeys;
+    return this.displayedGames.filter(game => selectedKeys.has(this.getGameKey(game)));
   }
 
   private getListLabel(listType: ListType): string {
@@ -1110,9 +1120,9 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    const updated = await this.gameShelfService.setGameTags(game.externalId, nextTagIds);
+    const updated = await this.gameShelfService.setGameTags(game.igdbGameId, game.platformIgdbId, nextTagIds);
 
-    if (this.selectedGame?.externalId === updated.externalId) {
+    if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
       this.selectedGame = updated;
     }
 
@@ -1206,9 +1216,9 @@ export class GameListComponent implements OnChanges {
     }
 
     try {
-      const updated = await this.gameShelfService.setGameStatus(game.externalId, nextStatus);
+      const updated = await this.gameShelfService.setGameStatus(game.igdbGameId, game.platformIgdbId, nextStatus);
 
-      if (this.selectedGame?.externalId === updated.externalId) {
+      if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
         this.selectedGame = updated;
       }
 

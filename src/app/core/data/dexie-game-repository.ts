@@ -17,12 +17,15 @@ export class DexieGameRepository implements GameRepository {
 
   async upsertFromCatalog(result: GameCatalogResult, targetList: ListType): Promise<GameEntry> {
     const now = new Date().toISOString();
-    const existing = await this.exists(result.externalId);
+    const normalizedGameId = this.normalizeGameId(result.igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(result.platformIgdbId);
+    const normalizedPlatformName = this.normalizePlatformName(result.platform);
+    const existing = await this.exists(normalizedGameId, normalizedPlatformIgdbId);
 
     if (existing?.id !== undefined) {
       const updated: GameEntry = {
         ...existing,
-        externalId: result.externalId,
+        igdbGameId: normalizedGameId,
         title: result.title,
         coverUrl: result.coverUrl,
         coverSource: result.coverSource,
@@ -30,8 +33,8 @@ export class DexieGameRepository implements GameRepository {
         franchises: this.normalizeTextList(result.franchises),
         genres: this.normalizeTextList(result.genres),
         publishers: this.normalizeTextList(result.publishers),
-        platform: result.platform,
-        platformIgdbId: result.platformIgdbId ?? null,
+        platform: normalizedPlatformName,
+        platformIgdbId: normalizedPlatformIgdbId,
         tagIds: this.normalizeTagIds(existing.tagIds),
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
@@ -45,7 +48,7 @@ export class DexieGameRepository implements GameRepository {
     }
 
     const created: GameEntry = {
-      externalId: result.externalId,
+      igdbGameId: normalizedGameId,
       title: result.title,
       coverUrl: result.coverUrl,
       coverSource: result.coverSource,
@@ -53,8 +56,8 @@ export class DexieGameRepository implements GameRepository {
       franchises: this.normalizeTextList(result.franchises),
       genres: this.normalizeTextList(result.genres),
       publishers: this.normalizeTextList(result.publishers),
-      platform: result.platform,
-      platformIgdbId: result.platformIgdbId ?? null,
+      platform: normalizedPlatformName,
+      platformIgdbId: normalizedPlatformIgdbId,
       tagIds: [],
       releaseDate: result.releaseDate,
       releaseYear: result.releaseYear,
@@ -68,8 +71,8 @@ export class DexieGameRepository implements GameRepository {
     return { ...created, id };
   }
 
-  async moveToList(externalId: string, targetList: ListType): Promise<void> {
-    const existing = await this.exists(externalId);
+  async moveToList(igdbGameId: string, platformIgdbId: number, targetList: ListType): Promise<void> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
       return;
@@ -81,16 +84,22 @@ export class DexieGameRepository implements GameRepository {
     });
   }
 
-  async remove(externalId: string): Promise<void> {
-    await this.db.games.where('externalId').equals(externalId).delete();
+  async remove(igdbGameId: string, platformIgdbId: number): Promise<void> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return;
+    }
+
+    await this.db.games.delete(existing.id);
   }
 
-  async exists(externalId: string): Promise<GameEntry | undefined> {
-    return this.db.games.where('externalId').equals(externalId).first();
+  async exists(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined> {
+    return this.db.games.where('[igdbGameId+platformIgdbId]').equals([igdbGameId, platformIgdbId]).first();
   }
 
-  async updateCover(externalId: string, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined> {
-    const existing = await this.exists(externalId);
+  async updateCover(igdbGameId: string, platformIgdbId: number, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
       return undefined;
@@ -107,8 +116,8 @@ export class DexieGameRepository implements GameRepository {
     return updated;
   }
 
-  async setGameStatus(externalId: string, status: GameStatus | null): Promise<GameEntry | undefined> {
-    const existing = await this.exists(externalId);
+  async setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
       return undefined;
@@ -124,8 +133,8 @@ export class DexieGameRepository implements GameRepository {
     return updated;
   }
 
-  async setGameTags(externalId: string, tagIds: number[]): Promise<GameEntry | undefined> {
-    const existing = await this.exists(externalId);
+  async setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
       return undefined;
@@ -239,5 +248,33 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return null;
+  }
+
+  private normalizeGameId(value: string): string {
+    const normalized = String(value ?? '').trim();
+
+    if (normalized.length === 0) {
+      throw new Error('IGDB game id is required.');
+    }
+
+    return normalized;
+  }
+
+  private normalizePlatformIgdbId(value: number | null | undefined): number {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+      throw new Error('IGDB platform id is required.');
+    }
+
+    return value;
+  }
+
+  private normalizePlatformName(value: string | null | undefined): string {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      throw new Error('Platform is required.');
+    }
+
+    return normalized;
   }
 }

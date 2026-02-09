@@ -44,7 +44,7 @@
       lines="full"
       button
       detail="false"
-      [class.game-row-selected]="isGameSelected(game.externalId)"
+      [class.game-row-selected]="isGameSelected(getGameKey(game))"
       (click)="onGameRowClick(game)"
       (touchstart)="onRowPressStart(game)"
       (touchend)="onRowPressEnd()"

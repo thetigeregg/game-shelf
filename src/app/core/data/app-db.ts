@@ -22,5 +22,28 @@ export class AppDb extends Dexie {
       games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
       tags: '++id,&name,createdAt,updatedAt',
     });
+
+    this.version(4).stores({
+      games: '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+    }).upgrade(tx => {
+      return tx.table('games').toCollection().modify((game: Record<string, unknown>) => {
+        const rawExternalId = String(game['externalId'] ?? '').trim();
+        const separatorIndex = rawExternalId.indexOf('::');
+        const parsedGameId = separatorIndex > 0 ? rawExternalId.slice(0, separatorIndex) : rawExternalId;
+        const parsedPlatformFromExternal = separatorIndex > 0
+          ? Number.parseInt(rawExternalId.slice(separatorIndex + 2), 10)
+          : Number.NaN;
+        const existingPlatformIgdbId = Number.parseInt(String(game['platformIgdbId'] ?? ''), 10);
+        const normalizedPlatformIgdbId = Number.isInteger(existingPlatformIgdbId) && existingPlatformIgdbId > 0
+          ? existingPlatformIgdbId
+          : (Number.isInteger(parsedPlatformFromExternal) && parsedPlatformFromExternal > 0 ? parsedPlatformFromExternal : 0);
+
+        game['igdbGameId'] = parsedGameId;
+        game['platformIgdbId'] = normalizedPlatformIgdbId;
+        game['platform'] = String(game['platform'] ?? '').trim() || 'Unknown platform';
+        delete game['externalId'];
+      });
+    });
   }
 }

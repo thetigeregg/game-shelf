@@ -4,7 +4,7 @@ import { GameCatalogPlatformOption, GameCatalogResult } from '../models/game.mod
 
 export interface GameSearchApi {
   searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]>;
-  getGameById(externalId: string): Observable<GameCatalogResult>;
+  getGameById(igdbGameId: string): Observable<GameCatalogResult>;
   listPlatforms(): Observable<GameCatalogPlatformOption[]>;
   searchBoxArtByTitle(query: string, platform?: string | null, platformIgdbId?: number | null): Observable<string[]>;
 }

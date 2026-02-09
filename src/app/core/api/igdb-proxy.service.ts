@@ -59,8 +59,8 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
-  getGameById(externalId: string): Observable<GameCatalogResult> {
-    const normalizedId = externalId.trim();
+  getGameById(igdbGameId: string): Observable<GameCatalogResult> {
+    const normalizedId = igdbGameId.trim();
 
     if (!/^\d+$/.test(normalizedId)) {
       return throwError(() => new Error('Unable to refresh game metadata.'));
@@ -109,11 +109,12 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
+    const payload = result as GameCatalogResult & { externalId?: string };
     const platformOptions = this.normalizePlatformOptions(result);
     const platforms = [...new Set(platformOptions.map(platform => platform.name))];
 
     return {
-      externalId: String(result.externalId ?? '').trim(),
+      igdbGameId: String(payload.igdbGameId ?? payload.externalId ?? '').trim(),
       title: String(result.title ?? '').trim() || 'Unknown title',
       coverUrl: typeof result.coverUrl === 'string' && result.coverUrl.length > 0 ? result.coverUrl : null,
       coverSource: this.normalizeCoverSource(result.coverSource),

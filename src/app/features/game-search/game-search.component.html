@@ -53,10 +53,10 @@
       slot="end"
       fill="outline"
       size="small"
-      [disabled]="isAdding(result.externalId)"
+      [disabled]="isAdding(result.igdbGameId)"
       (click)="addGame(result)"
     >
-      {{ isAdding(result.externalId) ? 'Adding...' : 'Add' }}
+      {{ isAdding(result.igdbGameId) ? 'Adding...' : 'Add' }}
     </ion-button>
   </ion-item>
 </ion-list>

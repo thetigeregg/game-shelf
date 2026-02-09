@@ -27,7 +27,7 @@ export interface GameTag {
 }
 
 export interface GameCatalogResult {
-  externalId: string;
+  igdbGameId: string;
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
@@ -45,7 +45,7 @@ export interface GameCatalogResult {
 
 export interface GameEntry {
   id?: number;
-  externalId: string;
+  igdbGameId: string;
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
@@ -53,8 +53,8 @@ export interface GameEntry {
   franchises?: string[];
   genres?: string[];
   publishers?: string[];
-  platform: string | null;
-  platformIgdbId?: number | null;
+  platform: string;
+  platformIgdbId: number;
   tagIds?: number[];
   tags?: GameTag[];
   releaseDate: string | null;

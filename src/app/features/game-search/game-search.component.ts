@@ -6,8 +6,8 @@ import { GameCatalogPlatformOption, GameCatalogResult, ListType } from '../../co
 import { GameShelfService } from '../../core/services/game-shelf.service';
 
 interface SelectedPlatform {
-  id: number | null;
-  name: string | null;
+  id: number;
+  name: string;
 }
 
 @Component({
@@ -104,11 +104,11 @@ export class GameSearchComponent implements OnInit, OnDestroy {
   }
 
   async addGame(result: GameCatalogResult): Promise<void> {
-    if (this.isAdding(result.externalId)) {
+    if (this.isAdding(result.igdbGameId)) {
       return;
     }
 
-    this.addingExternalIds.add(result.externalId);
+    this.addingExternalIds.add(result.igdbGameId);
 
     try {
       const platformSelection = await this.resolvePlatformSelection(result);
@@ -117,7 +117,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const existingEntry = await this.gameShelfService.findGameByIdentity(result.externalId, platformSelection.id);
+      const existingEntry = await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformSelection.id);
 
       if (existingEntry) {
         await this.presentDuplicateAlert(result.title, platformSelection.name);
@@ -129,6 +129,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
       await this.gameShelfService.addGame(
         {
           ...resolvedForAdd,
+          igdbGameId: result.igdbGameId,
           platform: platformSelection.name,
           platformIgdbId: platformSelection.id,
         },
@@ -136,7 +137,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
       );
       await this.presentToast(`Added to ${this.getListLabel()}.`);
     } finally {
-      this.addingExternalIds.delete(result.externalId);
+      this.addingExternalIds.delete(result.igdbGameId);
     }
   }
 
@@ -145,7 +146,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
   }
 
   trackByExternalId(_: number, result: GameCatalogResult): string {
-    return result.externalId;
+    return result.igdbGameId;
   }
 
   onImageError(event: Event): void {
@@ -186,7 +187,8 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     const platforms = this.getPlatformOptions(result);
 
     if (platforms.length === 0) {
-      return { id: null, name: null };
+      await this.presentPlatformRequiredAlert(result.title);
+      return undefined;
     }
 
     if (platforms.length === 1) {
@@ -232,31 +234,22 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     return platforms[selectedIndex];
   }
 
-  private getPlatformOptions(result: GameCatalogResult): GameCatalogPlatformOption[] {
+  private getPlatformOptions(result: GameCatalogResult): SelectedPlatform[] {
     if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
       return result.platformOptions
         .map(option => {
           const name = typeof option?.name === 'string' ? option.name.trim() : '';
-          const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
-            ? option.id
-            : null;
+          const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0 ? option.id : null;
           return { id, name };
         })
-        .filter(option => option.name.length > 0)
+        .filter(option => option.name.length > 0 && option.id !== null)
         .filter((option, index, items) => {
           return items.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
-        });
-    }
-
-    if (Array.isArray(result.platforms) && result.platforms.length > 0) {
-      return result.platforms
-        .map(platform => typeof platform === 'string' ? platform.trim() : '')
-        .filter(platform => platform.length > 0)
-        .map(platform => ({ id: null, name: platform }));
-    }
-
-    if (typeof result.platform === 'string' && result.platform.trim().length > 0) {
-      return [{ id: null, name: result.platform.trim() }];
+        })
+        .map(option => ({
+          id: option.id as number,
+          name: option.name,
+        }));
     }
 
     return [];
@@ -320,11 +313,21 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     });
   }
 
-  private async presentDuplicateAlert(title: string, platformName: string | null): Promise<void> {
+  private async presentDuplicateAlert(title: string, platformName: string): Promise<void> {
     const platformSuffix = platformName ? ` on ${platformName}` : '';
     const alert = await this.alertController.create({
       header: 'Duplicate Game',
       message: `${title}${platformSuffix} is already in your game shelf.`,
+      buttons: ['OK'],
+    });
+
+    await alert.present();
+  }
+
+  private async presentPlatformRequiredAlert(title: string): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Platform Required',
+      message: `A valid IGDB platform is required to add ${title}.`,
       buttons: ['OK'],
     });
 

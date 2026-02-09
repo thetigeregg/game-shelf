@@ -53,13 +53,14 @@ export class GameShelfService {
   }
 
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
-    const normalizedGameId = this.normalizeGameId(result.externalId);
+    const normalizedGameId = this.normalizeGameId(result.igdbGameId);
     const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(result.platformIgdbId);
-    const storedExternalId = this.buildStoredExternalId(normalizedGameId, normalizedPlatformIgdbId);
+    const normalizedPlatform = this.normalizePlatform(result.platform);
     const entry = await this.repository.upsertFromCatalog(
       {
         ...result,
-        externalId: storedExternalId,
+        igdbGameId: normalizedGameId,
+        platform: normalizedPlatform,
         platformIgdbId: normalizedPlatformIgdbId,
       },
       listType,
@@ -68,39 +69,33 @@ export class GameShelfService {
     return entry;
   }
 
-  async findGameByIdentity(gameExternalId: string, platformIgdbId: number | null | undefined): Promise<GameEntry | undefined> {
-    const normalizedGameId = this.normalizeGameId(gameExternalId);
+  async findGameByIdentity(igdbGameId: string, platformIgdbId: number | null | undefined): Promise<GameEntry | undefined> {
+    const normalizedGameId = this.normalizeGameId(igdbGameId);
     const normalizedPlatform = this.normalizePlatformIgdbId(platformIgdbId);
-    const games = await this.repository.listAll();
-
-    return games.find(game => {
-      return this.getGameIdFromStoredExternalId(game.externalId) === normalizedGameId
-        && this.normalizePlatformIgdbId(game.platformIgdbId) === normalizedPlatform;
-    });
+    return this.repository.exists(normalizedGameId, normalizedPlatform);
   }
 
-  async moveGame(externalId: string, targetList: ListType): Promise<void> {
-    await this.repository.moveToList(externalId, targetList);
+  async moveGame(igdbGameId: string, platformIgdbId: number, targetList: ListType): Promise<void> {
+    await this.repository.moveToList(igdbGameId, platformIgdbId, targetList);
     this.listRefresh$.next();
   }
 
-  async removeGame(externalId: string): Promise<void> {
-    await this.repository.remove(externalId);
+  async removeGame(igdbGameId: string, platformIgdbId: number): Promise<void> {
+    await this.repository.remove(igdbGameId, platformIgdbId);
     this.listRefresh$.next();
   }
 
-  async refreshGameMetadata(externalId: string): Promise<GameEntry> {
-    const existing = await this.repository.exists(externalId);
+  async refreshGameMetadata(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
+    const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
     if (!existing) {
       throw new Error('Game entry no longer exists.');
     }
 
-    const igdbGameId = this.getGameIdFromStoredExternalId(externalId);
     const refreshed = await firstValueFrom(this.searchApi.getGameById(igdbGameId));
     const resolvedPlatform = this.resolvePlatformSelection(
       existing.platform,
-      existing.platformIgdbId ?? null,
+      existing.platformIgdbId,
       refreshed.platforms,
       refreshed.platformOptions,
       refreshed.platform,
@@ -110,7 +105,7 @@ export class GameShelfService {
     const updated = await this.repository.upsertFromCatalog(
       {
         ...refreshed,
-        externalId: existing.externalId,
+        igdbGameId: existing.igdbGameId,
         platform: resolvedPlatform.platform,
         platformIgdbId: resolvedPlatform.platformIgdbId,
         coverUrl: existing.coverUrl,
@@ -133,8 +128,8 @@ export class GameShelfService {
     return this.searchApi.searchBoxArtByTitle(normalized, platform, platformIgdbId);
   }
 
-  async updateGameCover(externalId: string, coverUrl: string): Promise<GameEntry> {
-    const updated = await this.repository.updateCover(externalId, coverUrl, 'thegamesdb');
+  async updateGameCover(igdbGameId: string, platformIgdbId: number, coverUrl: string): Promise<GameEntry> {
+    const updated = await this.repository.updateCover(igdbGameId, platformIgdbId, coverUrl, 'thegamesdb');
 
     if (!updated) {
       throw new Error('Game entry no longer exists.');
@@ -144,8 +139,8 @@ export class GameShelfService {
     return updated;
   }
 
-  async setGameTags(externalId: string, tagIds: number[]): Promise<GameEntry> {
-    const updated = await this.repository.setGameTags(externalId, tagIds);
+  async setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry> {
+    const updated = await this.repository.setGameTags(igdbGameId, platformIgdbId, tagIds);
 
     if (!updated) {
       throw new Error('Game entry no longer exists.');
@@ -157,8 +152,8 @@ export class GameShelfService {
     return this.attachTags([updated], tags)[0];
   }
 
-  async setGameStatus(externalId: string, status: GameStatus | null): Promise<GameEntry> {
-    const updated = await this.repository.setGameStatus(externalId, status);
+  async setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry> {
+    const updated = await this.repository.setGameStatus(igdbGameId, platformIgdbId, status);
 
     if (!updated) {
       throw new Error('Game entry no longer exists.');
@@ -206,20 +201,20 @@ export class GameShelfService {
   }
 
   private resolvePlatformSelection(
-    currentPlatform: string | null,
-    currentPlatformIgdbId: number | null,
+    currentPlatform: string,
+    currentPlatformIgdbId: number,
     availablePlatforms: string[],
     platformOptions: { id: number | null; name: string }[] | undefined,
     refreshedPlatform: string | null,
     refreshedPlatformIgdbId: number | null,
-  ): { platform: string | null; platformIgdbId: number | null } {
+  ): { platform: string; platformIgdbId: number } {
     const normalizedOptions = this.normalizePlatformOptions(availablePlatforms, platformOptions);
 
     if (refreshedPlatform) {
       const match = normalizedOptions.find(option => option.name === refreshedPlatform);
       return {
         platform: refreshedPlatform,
-        platformIgdbId: match?.id ?? refreshedPlatformIgdbId ?? null,
+        platformIgdbId: match?.id ?? refreshedPlatformIgdbId ?? currentPlatformIgdbId,
       };
     }
 
@@ -227,11 +222,11 @@ export class GameShelfService {
       const match = normalizedOptions.find(option => option.name === currentPlatform);
       return {
         platform: currentPlatform,
-        platformIgdbId: match?.id ?? currentPlatformIgdbId ?? null,
+        platformIgdbId: match?.id ?? currentPlatformIgdbId,
       };
     }
 
-    if (currentPlatformIgdbId !== null) {
+    if (currentPlatformIgdbId > 0) {
       const match = normalizedOptions.find(option => option.id === currentPlatformIgdbId);
 
       if (match) {
@@ -243,8 +238,8 @@ export class GameShelfService {
     }
 
     return {
-      platform: currentPlatform ?? null,
-      platformIgdbId: currentPlatformIgdbId ?? null,
+      platform: currentPlatform,
+      platformIgdbId: currentPlatformIgdbId,
     };
   }
 
@@ -341,26 +336,31 @@ export class GameShelfService {
     return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : '#3880ff';
   }
 
-  private buildStoredExternalId(gameExternalId: string, platformIgdbId: number | null): string {
-    return `${gameExternalId}::${platformIgdbId ?? 'none'}`;
-  }
+  private normalizeGameId(value: string): string {
+    const normalized = String(value ?? '').trim();
 
-  private getGameIdFromStoredExternalId(storedExternalId: string): string {
-    const normalized = this.normalizeGameId(storedExternalId);
-    const separatorIndex = normalized.indexOf('::');
-
-    if (separatorIndex <= 0) {
-      return normalized;
+    if (normalized.length === 0) {
+      throw new Error('IGDB game id is required.');
     }
 
-    return normalized.slice(0, separatorIndex);
+    return normalized;
   }
 
-  private normalizeGameId(value: string): string {
-    return String(value ?? '').trim();
+  private normalizePlatformIgdbId(value: number | null | undefined): number {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+      throw new Error('IGDB platform id is required.');
+    }
+
+    return value;
   }
 
-  private normalizePlatformIgdbId(value: number | null | undefined): number | null {
-    return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+  private normalizePlatform(value: string | null | undefined): string {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      throw new Error('Platform is required.');
+    }
+
+    return normalized;
   }
 }

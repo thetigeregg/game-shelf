@@ -114,10 +114,6 @@ export class GameListComponent implements OnChanges {
     event.stopPropagation();
   }
 
-  getGameListLabel(game: GameEntry): string {
-    return game.listType === 'collection' ? 'Collection' : 'Wishlist';
-  }
-
   formatDate(value: string | null): string {
     if (!value) {
       return 'Unknown';

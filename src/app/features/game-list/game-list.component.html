@@ -6,7 +6,8 @@
 
     <ion-label>
       <h2>{{ game.title }}</h2>
-      <p>{{ game.platform || 'Unknown platform' }} • {{ game.releaseYear || 'Unknown year' }}</p>
+      <p>{{ game.releaseYear || 'Unknown year' }}</p>
+      <p>{{ game.platform || 'Unknown platform' }}</p>
       <div class="game-tags" *ngIf="game.tags && game.tags.length > 0">
         <ion-badge
           *ngFor="let tag of game.tags"

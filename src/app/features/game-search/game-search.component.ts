@@ -135,6 +135,18 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     return `${platforms.length} platforms`;
   }
 
+  getCoverSourceLabel(result: GameCatalogResult): string | null {
+    if (result.coverSource === 'thegamesdb') {
+      return '2D Box Art';
+    }
+
+    if (result.coverSource === 'igdb') {
+      return 'IGDB Cover';
+    }
+
+    return null;
+  }
+
   private async resolvePlatformSelection(result: GameCatalogResult): Promise<string | null | undefined> {
     const platforms = this.getPlatformOptions(result);
 

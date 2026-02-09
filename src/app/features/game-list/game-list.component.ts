@@ -70,6 +70,18 @@ export class GameListComponent implements OnChanges {
     return this.listType === 'collection' ? 'Wishlist' : 'Collection';
   }
 
+  getCoverSourceLabel(game: GameEntry): string | null {
+    if (game.coverSource === 'thegamesdb') {
+      return '2D Box Art';
+    }
+
+    if (game.coverSource === 'igdb') {
+      return 'IGDB Cover';
+    }
+
+    return null;
+  }
+
   trackByExternalId(_: number, game: GameEntry): string {
     return game.externalId;
   }

@@ -49,6 +49,7 @@ describe('GameShelfService', () => {
       externalId: '123',
       title: 'Mario Kart',
       coverUrl: null,
+      coverSource: 'none',
       platforms: ['Switch'],
       platform: 'Switch',
       releaseDate: '2017-04-28T00:00:00.000Z',
@@ -72,7 +73,7 @@ describe('GameShelfService', () => {
   });
 
   it('returns API search results for valid queries', async () => {
-    const expected = [{ externalId: '1', title: 'Mario', coverUrl: null, platforms: [], platform: null, releaseDate: null, releaseYear: null }];
+    const expected = [{ externalId: '1', title: 'Mario', coverUrl: null, coverSource: 'none', platforms: [], platform: null, releaseDate: null, releaseYear: null }];
     searchApi.searchGames.and.returnValue(of(expected));
 
     const result = await firstValueFrom(service.searchGames('mario'));

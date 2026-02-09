@@ -26,6 +26,7 @@
 
     <ion-label>
       <h2>{{ result.title }}</h2>
+      <ion-badge *ngIf="getCoverSourceLabel(result) as coverSourceLabel" color="tertiary">{{ coverSourceLabel }}</ion-badge>
       <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
     </ion-label>
 

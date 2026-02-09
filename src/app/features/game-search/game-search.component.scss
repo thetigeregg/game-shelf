@@ -8,6 +8,10 @@ ion-item h2 {
   font-weight: 600;
 }
 
+ion-item ion-badge {
+  margin-top: 6px;
+}
+
 ion-item p {
   margin-top: 4px;
   color: var(--ion-color-medium);

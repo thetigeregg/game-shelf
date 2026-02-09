@@ -1,6 +1,7 @@
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
+const MAX_THE_GAMES_DB_LOOKUPS = 10;
 
 const tokenCache = {
   accessToken: null,
@@ -8,11 +9,13 @@ const tokenCache = {
 };
 
 const rateLimitCache = new Map();
+const theGamesDbCoverCache = new Map();
 
 export function resetCaches() {
   tokenCache.accessToken = null;
   tokenCache.expiresAt = 0;
   rateLimitCache.clear();
+  theGamesDbCoverCache.clear();
 }
 
 function jsonResponse(body, status = 200) {
@@ -79,11 +82,265 @@ export function normalizeIgdbGame(game) {
     externalId: String(game.id ?? '').trim(),
     title: typeof game.name === 'string' && game.name.trim().length > 0 ? game.name.trim() : 'Unknown title',
     coverUrl: buildCoverUrl(game.cover?.image_id ?? null),
+    coverSource: game.cover?.image_id ? 'igdb' : 'none',
     platforms,
     platform: platforms.length === 1 ? platforms[0] : null,
     releaseDate,
     releaseYear,
   };
+}
+
+function getTheGamesDbApiKey(env) {
+  return typeof env.THEGAMESDB_API_KEY === 'string' && env.THEGAMESDB_API_KEY.trim().length > 0
+    ? env.THEGAMESDB_API_KEY.trim()
+    : null;
+}
+
+function buildTheGamesDbCacheKey(item) {
+  const platform = typeof item.platform === 'string' ? item.platform.toLowerCase() : '';
+  return `${item.title.toLowerCase()}::${platform}`;
+}
+
+function normalizeTheGamesDbUrl(filename, baseUrl) {
+  if (typeof filename !== 'string' || filename.length === 0) {
+    return null;
+  }
+
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
+  }
+
+  const normalizedBase = typeof baseUrl === 'string' ? baseUrl.replace(/\/+$/, '') : '';
+
+  if (!normalizedBase) {
+    return null;
+  }
+
+  const normalizedFilename = filename.startsWith('/') ? filename : `/${filename}`;
+  return `${normalizedBase}${normalizedFilename}`;
+}
+
+function normalizeTitleForMatch(title) {
+  return String(title ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getTheGamesDbGameTitle(game) {
+  return game?.game_title ?? game?.name ?? game?.title ?? '';
+}
+
+function levenshteinDistance(left, right) {
+  const leftLength = left.length;
+  const rightLength = right.length;
+
+  if (leftLength === 0) {
+    return rightLength;
+  }
+
+  if (rightLength === 0) {
+    return leftLength;
+  }
+
+  const matrix = Array.from({ length: leftLength + 1 }, () => Array(rightLength + 1).fill(0));
+
+  for (let i = 0; i <= leftLength; i += 1) {
+    matrix[i][0] = i;
+  }
+
+  for (let j = 0; j <= rightLength; j += 1) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= leftLength; i += 1) {
+    for (let j = 1; j <= rightLength; j += 1) {
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  return matrix[leftLength][rightLength];
+}
+
+function getTitleSimilarityScore(expectedTitle, candidateTitle) {
+  const expected = normalizeTitleForMatch(expectedTitle);
+  const candidate = normalizeTitleForMatch(candidateTitle);
+
+  if (!expected || !candidate) {
+    return -1;
+  }
+
+  let score = 0;
+
+  if (expected === candidate) {
+    score += 100;
+  }
+
+  if (expected.includes(candidate) || candidate.includes(expected)) {
+    score += 25;
+  }
+
+  const expectedTokens = expected.split(' ').filter(Boolean);
+  const candidateTokens = candidate.split(' ').filter(Boolean);
+  const expectedTokenSet = new Set(expectedTokens);
+  const candidateTokenSet = new Set(candidateTokens);
+  const intersectionCount = [...expectedTokenSet].filter(token => candidateTokenSet.has(token)).length;
+  const unionCount = new Set([...expectedTokenSet, ...candidateTokenSet]).size;
+
+  if (unionCount > 0) {
+    score += (intersectionCount / unionCount) * 40;
+  }
+
+  const distance = levenshteinDistance(expected, candidate);
+  const maxLength = Math.max(expected.length, candidate.length);
+
+  if (maxLength > 0) {
+    score += (1 - distance / maxLength) * 30;
+  }
+
+  return score;
+}
+
+function findBestTheGamesDbBoxArt(payload, expectedTitle) {
+  const root = payload?.data;
+  const includeRoot = payload?.include;
+
+  const games = Array.isArray(root?.games) ? root.games : [];
+
+  if (games.length === 0) {
+    return null;
+  }
+
+  const rankedGames = games
+    .map(game => ({
+      game,
+      score: getTitleSimilarityScore(expectedTitle, getTheGamesDbGameTitle(game)),
+    }))
+    .filter(entry => Number.isFinite(entry.score))
+    .sort((left, right) => right.score - left.score);
+
+  if (rankedGames.length === 0) {
+    return null;
+  }
+
+  const gameId = String(rankedGames[0].game?.id ?? '');
+
+  if (!gameId) {
+    return null;
+  }
+
+  const boxartRoot = includeRoot?.boxart;
+  const baseUrl = boxartRoot?.base_url?.original
+    || boxartRoot?.base_url?.large
+    || boxartRoot?.base_url?.medium
+    || null;
+
+  const dataByGame = boxartRoot?.data ?? {};
+  const candidates = Array.isArray(dataByGame[gameId]) ? dataByGame[gameId] : [];
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const scored = candidates
+    .map(candidate => {
+      const imageType = typeof candidate?.type === 'string' ? candidate.type.toLowerCase() : '';
+      const imageSide = typeof candidate?.side === 'string' ? candidate.side.toLowerCase() : '';
+      const filename = candidate?.filename ?? candidate?.thumb ?? null;
+      const url = normalizeTheGamesDbUrl(filename, baseUrl);
+
+      if (!url || !imageType.includes('boxart')) {
+        return null;
+      }
+
+      let score = 0;
+
+      score += 2;
+
+      if (imageSide === 'front') {
+        score += 1;
+      }
+
+      return { url, score };
+    })
+    .filter(Boolean);
+
+  if (scored.length === 0) {
+    return null;
+  }
+
+  scored.sort((left, right) => right.score - left.score);
+  return scored[0].url;
+}
+
+async function fetchTheGamesDbBoxArt(item, env, fetchImpl) {
+  const apiKey = getTheGamesDbApiKey(env);
+
+  if (!apiKey) {
+    return null;
+  }
+
+  const cacheKey = buildTheGamesDbCacheKey(item);
+
+  if (theGamesDbCoverCache.has(cacheKey)) {
+    return theGamesDbCoverCache.get(cacheKey);
+  }
+
+  const searchUrl = new URL('https://api.thegamesdb.net/v1.1/Games/ByGameName');
+  searchUrl.searchParams.set('apikey', apiKey);
+  searchUrl.searchParams.set('name', item.title);
+  searchUrl.searchParams.set('include', 'boxart');
+
+  try {
+    const response = await fetchImpl(searchUrl.toString(), { method: 'GET' });
+
+    if (!response.ok) {
+      theGamesDbCoverCache.set(cacheKey, null);
+      return null;
+    }
+
+    const payload = await response.json();
+    const boxArtUrl = findBestTheGamesDbBoxArt(payload, item.title);
+    theGamesDbCoverCache.set(cacheKey, boxArtUrl);
+
+    return boxArtUrl;
+  } catch {
+    theGamesDbCoverCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+async function applyPrimaryBoxArt(items, env, fetchImpl) {
+  if (items.length === 0) {
+    return items;
+  }
+
+  const enrichedItems = await Promise.all(items.map(async (item, index) => {
+    if (index >= MAX_THE_GAMES_DB_LOOKUPS) {
+      return item;
+    }
+
+    const boxArtUrl = await fetchTheGamesDbBoxArt(item, env, fetchImpl);
+
+    if (!boxArtUrl) {
+      return item;
+    }
+
+    return {
+      ...item,
+      coverUrl: boxArtUrl,
+      coverSource: 'thegamesdb',
+    };
+  }));
+
+  return enrichedItems;
 }
 
 async function fetchAppToken(env, fetchImpl, nowMs) {
@@ -177,7 +434,8 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   try {
     const token = await fetchAppToken(env, fetchImpl, nowMs);
     const items = await searchIgdb(query, env, token, fetchImpl);
-    return jsonResponse({ items }, 200);
+    const enrichedItems = await applyPrimaryBoxArt(items, env, fetchImpl);
+    return jsonResponse({ items: enrichedItems }, 200);
   } catch {
     return jsonResponse({ error: 'Unable to fetch game data.' }, 502);
   }

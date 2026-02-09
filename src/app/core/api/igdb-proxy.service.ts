@@ -37,6 +37,7 @@ export class IgdbProxyService implements GameSearchApi {
       externalId: String(result.externalId ?? '').trim(),
       title: String(result.title ?? '').trim() || 'Unknown title',
       coverUrl: typeof result.coverUrl === 'string' && result.coverUrl.length > 0 ? result.coverUrl : null,
+      coverSource: this.normalizeCoverSource(result.coverSource),
       platforms,
       platform: platforms.length === 1 ? platforms[0] : null,
       releaseDate: this.normalizeReleaseDate(result.releaseDate),
@@ -69,5 +70,13 @@ export class IgdbProxyService implements GameSearchApi {
 
     const timestamp = Date.parse(releaseDate);
     return Number.isNaN(timestamp) ? null : new Date(timestamp).toISOString();
+  }
+
+  private normalizeCoverSource(coverSource: string | null | undefined): 'thegamesdb' | 'igdb' | 'none' {
+    if (coverSource === 'thegamesdb' || coverSource === 'igdb' || coverSource === 'none') {
+      return coverSource;
+    }
+
+    return 'none';
   }
 }

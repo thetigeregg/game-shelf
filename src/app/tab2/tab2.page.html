@@ -25,6 +25,7 @@
   </ion-toolbar>
   <ion-toolbar>
     <ion-searchbar
+      class="list-header-searchbar"
       placeholder="Search wishlist"
       [value]="listSearchQuery"
       (ionInput)="onListSearchChange($any($event).detail.value)"

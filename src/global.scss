@@ -61,6 +61,13 @@ ion-header ion-toolbar .page-subtitle {
   opacity: 0.9;
 }
 
+.list-header-searchbar {
+  --color: var(--ion-color-primary-contrast);
+  --clear-button-color: var(--ion-color-primary-contrast);
+  --icon-color: var(--ion-color-primary-contrast);
+  --placeholder-color: var(--ion-color-primary-contrast);
+}
+
 ion-fab-button {
   --color: var(--ion-color-primary-contrast);
 }

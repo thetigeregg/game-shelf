@@ -436,6 +436,15 @@ export class GameListComponent implements OnChanges {
     event.stopPropagation();
   }
 
+  onActionsOptionSwipe(game: GameEntry): void {
+    const triggerId = this.getActionsTriggerId(game);
+    const trigger = document.getElementById(triggerId);
+
+    if (trigger instanceof HTMLElement) {
+      trigger.click();
+    }
+  }
+
   async refreshSelectedGameMetadataFromPopover(): Promise<void> {
     await this.refreshSelectedGameMetadata();
     await this.popoverController.dismiss();

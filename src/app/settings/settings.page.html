@@ -1,0 +1,42 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/collection"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Settings</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Settings</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <ion-list inset="true">
+    <ion-item>
+      <ion-label>Primary Theme Color</ion-label>
+      <ion-select
+        interface="popover"
+        [value]="selectedColor"
+        (ionChange)="onPresetColorChange($any($event).detail.value)"
+      >
+        <ion-select-option *ngFor="let preset of presets" [value]="preset.value">
+          {{ preset.label }}
+        </ion-select-option>
+        <ion-select-option value="custom">Custom</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
+      <ion-label>Custom Color</ion-label>
+      <input
+        class="color-input"
+        type="color"
+        [value]="customColor"
+        (change)="onCustomColorChange($any($event.target).value)"
+      />
+    </ion-item>
+  </ion-list>
+</ion-content>

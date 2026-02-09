@@ -16,6 +16,7 @@ export class GameListComponent implements OnChanges {
   @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   @Input() searchQuery = '';
   @Output() platformOptionsChange = new EventEmitter<string[]>();
+  @Output() displayedGamesChange = new EventEmitter<GameEntry[]>();
 
   games$: Observable<GameEntry[]> = of([]);
   isGameDetailModalOpen = false;
@@ -40,7 +41,10 @@ export class GameListComponent implements OnChanges {
       );
 
       this.games$ = combineLatest([allGames$, this.filters$, this.searchQuery$]).pipe(
-        map(([games, filters, searchQuery]) => this.applyFiltersAndSort(games, filters, searchQuery))
+        map(([games, filters, searchQuery]) => this.applyFiltersAndSort(games, filters, searchQuery)),
+        tap(games => {
+          this.displayedGamesChange.emit(games);
+        })
       );
     }
 

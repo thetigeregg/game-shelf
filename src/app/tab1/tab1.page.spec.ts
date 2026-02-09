@@ -1,16 +1,31 @@
-import { Component } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { IonicModule } from '@ionic/angular';
+import { RouterTestingModule } from '@angular/router/testing';
 import { Tab1Page } from './tab1.page';
 
 @Component({ selector: 'app-game-search', template: '' })
-class GameSearchStubComponent {}
+class GameSearchStubComponent {
+  @Input() listType?: string;
+}
 
 @Component({ selector: 'app-game-list', template: '' })
-class GameListStubComponent {}
+class GameListStubComponent {
+  @Input() listType?: string;
+  @Input() filters?: unknown;
+  @Input() searchQuery?: string;
+  @Output() platformOptionsChange = new EventEmitter<string[]>();
+  @Output() displayedGamesChange = new EventEmitter<unknown[]>();
+}
 
 @Component({ selector: 'app-game-filters-menu', template: '' })
-class GameFiltersMenuStubComponent {}
+class GameFiltersMenuStubComponent {
+  @Input() menuId?: string;
+  @Input() contentId?: string;
+  @Input() platformOptions?: string[];
+  @Input() filters?: unknown;
+  @Output() filtersChange = new EventEmitter<unknown>();
+}
 
 describe('Tab1Page', () => {
   let component: Tab1Page;
@@ -19,7 +34,7 @@ describe('Tab1Page', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       declarations: [Tab1Page, GameSearchStubComponent, GameListStubComponent, GameFiltersMenuStubComponent],
-      imports: [IonicModule.forRoot()],
+      imports: [IonicModule.forRoot(), RouterTestingModule],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Tab1Page);

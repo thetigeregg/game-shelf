@@ -8,13 +8,16 @@
 
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>Collection</ion-title>
+    <ion-title>
+      <div class="page-title">Collection</div>
+      <div class="page-subtitle">{{ getDisplayedGamesLabel() }}</div>
+    </ion-title>
     <ion-buttons slot="end">
-      <ion-button aria-label="Add game" (click)="openAddGameModal()">
-        <ion-icon slot="icon-only" name="add"></ion-icon>
-      </ion-button>
       <ion-button aria-label="Open filters" (click)="openFiltersMenu()">
         <ion-icon slot="icon-only" name="filter"></ion-icon>
+      </ion-button>
+      <ion-button aria-label="Open collection actions" [id]="headerActionsTriggerId">
+        <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
@@ -23,17 +26,50 @@
 <ion-content [fullscreen]="true" [id]="contentId">
   <ion-header collapse="condense">
     <ion-toolbar>
-      <ion-title size="large">Collection</ion-title>
+      <ion-title size="large">
+        <div class="page-title">Collection</div>
+        <div class="page-subtitle">{{ getDisplayedGamesLabel() }}</div>
+      </ion-title>
       <ion-buttons slot="end">
-        <ion-button aria-label="Add game" (click)="openAddGameModal()">
-          <ion-icon slot="icon-only" name="add"></ion-icon>
-        </ion-button>
         <ion-button aria-label="Open filters" (click)="openFiltersMenu()">
           <ion-icon slot="icon-only" name="filter"></ion-icon>
+        </ion-button>
+        <ion-button aria-label="Open collection actions" [id]="headerActionsTriggerIdCondensed">
+          <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
         </ion-button>
       </ion-buttons>
     </ion-toolbar>
   </ion-header>
+
+  <ion-popover [trigger]="headerActionsTriggerId" triggerAction="click">
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none">
+          <ion-item button detail="false" (click)="pickRandomGameFromPopover()">
+            Pick random game
+          </ion-item>
+          <ion-item button detail="false" (click)="openSettingsFromPopover()">
+            Settings
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+
+  <ion-popover [trigger]="headerActionsTriggerIdCondensed" triggerAction="click">
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none">
+          <ion-item button detail="false" (click)="pickRandomGameFromPopover()">
+            Pick random game
+          </ion-item>
+          <ion-item button detail="false" (click)="openSettingsFromPopover()">
+            Settings
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
 
   <ion-searchbar
     placeholder="Search collection"
@@ -46,7 +82,14 @@
     [filters]="filters"
     [searchQuery]="listSearchQuery"
     (platformOptionsChange)="onPlatformOptionsChange($event)"
+    (displayedGamesChange)="onDisplayedGamesChange($event)"
   ></app-game-list>
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button aria-label="Add game" (click)="openAddGameModal()">
+      <ion-icon name="add"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
 </ion-content>
 
 <ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">

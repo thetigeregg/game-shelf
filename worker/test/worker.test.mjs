@@ -12,6 +12,8 @@ function createFetchStub({
   igdbStatus = 200,
   igdbBody = [],
   igdbResponses = null,
+  igdbPlatformsStatus = 200,
+  igdbPlatformsBody = [],
   tokenStatus = 200,
   theGamesDbStatus = 200,
   theGamesDbBody = null,
@@ -20,6 +22,8 @@ function createFetchStub({
     token: 0,
     igdb: 0,
     igdbBodies: [],
+    igdbPlatforms: 0,
+    igdbPlatformBodies: [],
     theGamesDb: 0,
     theGamesDbUrls: [],
   };
@@ -50,6 +54,12 @@ function createFetchStub({
       }
 
       return new Response(JSON.stringify(igdbBody), { status: igdbStatus });
+    }
+
+    if (normalizedUrl === 'https://api.igdb.com/v4/platforms') {
+      calls.igdbPlatforms += 1;
+      calls.igdbPlatformBodies.push(typeof options.body === 'string' ? options.body : '');
+      return new Response(JSON.stringify(igdbPlatformsBody), { status: igdbPlatformsStatus });
     }
 
     if (normalizedUrl.startsWith('https://api.thegamesdb.net/v1.1/Games/ByGameName')) {
@@ -139,6 +149,24 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(calls.theGamesDb, 0);
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
   assert.equal(calls.igdbBodies[0].includes('fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,category,parent_game;'), true);
+});
+
+test('applies platform filter to IGDB game search when platformIgdbId is provided', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbBody: [],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=mario&platformIgdbId=130'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.igdb, 1);
+  assert.equal(calls.igdbBodies[0].includes('where platforms = (130);'), true);
 });
 
 test('demotes remakes/remasters below their original game when both are in results', async () => {
@@ -234,6 +262,44 @@ test('reuses cached token between requests', async () => {
 
   assert.equal(calls.token, 1);
   assert.equal(calls.igdb, 2);
+});
+
+test('returns IGDB platform filters and caches the platform response', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbPlatformsBody: [
+      { id: 130, name: 'Nintendo Switch' },
+      { id: 6, name: 'PC (Microsoft Windows)' },
+    ],
+  });
+  const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
+
+  const first = await handleRequest(
+    new Request('https://worker.example/v1/platforms'),
+    env,
+    stub,
+    now,
+  );
+
+  const second = await handleRequest(
+    new Request('https://worker.example/v1/platforms'),
+    env,
+    stub,
+    now,
+  );
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(calls.token, 1);
+  assert.equal(calls.igdbPlatforms, 1);
+  assert.equal(calls.igdbPlatformBodies[0].includes('fields id,name;'), true);
+
+  const payload = await first.json();
+  assert.deepEqual(payload.items, [
+    { id: 130, name: 'Nintendo Switch' },
+    { id: 6, name: 'PC (Microsoft Windows)' },
+  ]);
 });
 
 test('maps upstream errors to safe 502 response', async () => {

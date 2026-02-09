@@ -3,7 +3,7 @@ import { Observable, Subject, firstValueFrom, from, of } from 'rxjs';
 import { switchMap, startWith } from 'rxjs/operators';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
-import { GameCatalogResult, GameEntry, ListType } from '../models/game.models';
+import { GameCatalogPlatformOption, GameCatalogResult, GameEntry, ListType } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
@@ -18,14 +18,18 @@ export class GameShelfService {
     );
   }
 
-  searchGames(query: string): Observable<GameCatalogResult[]> {
+  searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]> {
     const normalized = query.trim();
 
     if (normalized.length < 2) {
       return of([]);
     }
 
-    return this.searchApi.searchGames(normalized);
+    return this.searchApi.searchGames(normalized, platformIgdbId);
+  }
+
+  listSearchPlatforms(): Observable<GameCatalogPlatformOption[]> {
+    return this.searchApi.listPlatforms();
   }
 
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {

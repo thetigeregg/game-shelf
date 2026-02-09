@@ -1,8 +1,9 @@
 # Game Shelf IGDB + TheGamesDB Proxy Worker
 
 ## Endpoints
-- `GET /v1/games/search?q=<term>` returns `{ "items": GameCatalogResult[] }`.
+- `GET /v1/games/search?q=<term>&platformIgdbId=<id>` returns `{ "items": GameCatalogResult[] }`.
 - `GET /v1/games/:id` returns `{ "item": GameCatalogResult }`.
+- `GET /v1/platforms` returns `{ "items": [{ "id": number, "name": string }] }`.
 - `GET /v1/images/boxart/search?q=<term>&platformIgdbId=<id>` returns `{ "items": string[] }`.
 
 Search flow:
@@ -18,6 +19,9 @@ Required secrets:
 - `TWITCH_CLIENT_ID`
 - `TWITCH_CLIENT_SECRET`
 - `THEGAMESDB_API_KEY`
+
+Optional dev-only logging:
+- `DEBUG_HTTP_LOGS=true` logs outgoing HTTP request/response details (with sensitive query params redacted).
 
 ## Deploy
 1. Create Worker secrets:

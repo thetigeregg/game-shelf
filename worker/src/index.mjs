@@ -4,6 +4,7 @@ const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
 const MAX_BOX_ART_RESULTS = 30;
+const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
 
@@ -17,6 +18,10 @@ const igdbSearchVariantCache = {
   preferredVariantIndex: 0,
   disabledVariants: new Set(),
 };
+const igdbPlatformCache = {
+  items: null,
+  expiresAt: 0,
+};
 
 export function resetCaches() {
   tokenCache.accessToken = null;
@@ -24,6 +29,8 @@ export function resetCaches() {
   rateLimitCache.clear();
   igdbSearchVariantCache.preferredVariantIndex = 0;
   igdbSearchVariantCache.disabledVariants.clear();
+  igdbPlatformCache.items = null;
+  igdbPlatformCache.expiresAt = 0;
 }
 
 function jsonResponse(body, status = 200) {
@@ -74,6 +81,83 @@ function resolveTheGamesDbPlatformId(igdbPlatformId) {
 
   const mapped = IGDB_TO_THEGAMESDB_PLATFORM_ID.get(igdbPlatformId);
   return Number.isInteger(mapped) && mapped > 0 ? mapped : null;
+}
+
+function getMappedIgdbPlatformIds() {
+  return [...IGDB_TO_THEGAMESDB_PLATFORM_ID.keys()]
+    .filter(id => Number.isInteger(id) && id > 0)
+    .sort((left, right) => left - right);
+}
+
+function isSensitiveUrl(urlString) {
+  return urlString.startsWith('https://id.twitch.tv/oauth2/token');
+}
+
+function sanitizeUrlForLogs(urlInput) {
+  try {
+    const parsed = new URL(String(urlInput));
+    const sensitiveKeys = ['client_secret', 'apikey', 'client_id'];
+
+    sensitiveKeys.forEach(key => {
+      if (parsed.searchParams.has(key)) {
+        parsed.searchParams.set(key, '***');
+      }
+    });
+
+    return parsed.toString();
+  } catch {
+    return String(urlInput);
+  }
+}
+
+function buildBodyPreview(body) {
+  return typeof body === 'string' && body.length > 0 ? body.slice(0, 300) : undefined;
+}
+
+function shouldLogHttp(env, requestUrl) {
+  if (typeof env.DEBUG_HTTP_LOGS === 'string') {
+    return env.DEBUG_HTTP_LOGS.toLowerCase() === 'true';
+  }
+
+  const hostname = requestUrl.hostname.toLowerCase();
+  return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
+function createLoggedFetch(fetchImpl, debugHttpEnabled) {
+  if (!debugHttpEnabled) {
+    return fetchImpl;
+  }
+
+  return async (url, options = {}) => {
+    const method = typeof options?.method === 'string' && options.method.length > 0 ? options.method : 'GET';
+    const sanitizedUrl = sanitizeUrlForLogs(url);
+
+    console.info('[http] request', {
+      method,
+      url: sanitizedUrl,
+      body: buildBodyPreview(options?.body),
+    });
+
+    const response = await fetchImpl(url, options);
+    let responsePreview;
+
+    if (!isSensitiveUrl(String(url))) {
+      try {
+        responsePreview = (await response.clone().text()).slice(0, 300);
+      } catch {
+        responsePreview = undefined;
+      }
+    }
+
+    console.info('[http] response', {
+      method,
+      url: sanitizedUrl,
+      status: response.status,
+      body: responsePreview,
+    });
+
+    return response;
+  };
 }
 
 function normalizeIgdbReferenceId(value) {
@@ -591,7 +675,65 @@ async function fetchAppToken(env, fetchImpl, nowMs) {
   return tokenCache.accessToken;
 }
 
-async function searchIgdb(query, env, token, fetchImpl) {
+async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
+  if (Array.isArray(igdbPlatformCache.items) && igdbPlatformCache.expiresAt > nowMs) {
+    return igdbPlatformCache.items;
+  }
+
+  const platformIds = getMappedIgdbPlatformIds();
+
+  if (platformIds.length === 0) {
+    igdbPlatformCache.items = [];
+    igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+    return [];
+  }
+
+  const body = [
+    `where id = (${platformIds.join(',')});`,
+    'fields id,name;',
+    `limit ${platformIds.length};`,
+  ].join(' ');
+
+  const response = await fetchImpl('https://api.igdb.com/v4/platforms', {
+    method: 'POST',
+    headers: {
+      'Client-ID': env.TWITCH_CLIENT_ID,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'text/plain',
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    throw new Error('IGDB platform request failed');
+  }
+
+  const payload = await response.json();
+
+  if (!Array.isArray(payload)) {
+    igdbPlatformCache.items = [];
+    igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+    return [];
+  }
+
+  const items = payload
+    .map(item => ({
+      id: Number.isInteger(item?.id) && item.id > 0 ? item.id : null,
+      name: typeof item?.name === 'string' ? item.name.trim() : '',
+    }))
+    .filter(item => item.id !== null && item.name.length > 0)
+    .filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+
+  igdbPlatformCache.items = items;
+  igdbPlatformCache.expiresAt = nowMs + PLATFORM_CACHE_TTL_MS;
+  return items;
+}
+
+async function searchIgdb(query, platformIgdbId, env, token, fetchImpl) {
+  const normalizedPlatformIgdbId = Number.isInteger(platformIgdbId) && platformIgdbId > 0
+    ? platformIgdbId
+    : null;
   const queryVariants = [
     {
       fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,category,parent_game',
@@ -634,6 +776,10 @@ async function searchIgdb(query, env, token, fetchImpl) {
       `search "${escapeQuery(query)}";`,
       `fields ${variant.fields};`,
     ];
+
+    if (normalizedPlatformIgdbId !== null) {
+      bodyParts.push(`where platforms = (${normalizedPlatformIgdbId});`);
+    }
 
     if (variant.sort) {
       bodyParts.push(`sort ${variant.sort};`);
@@ -744,10 +890,13 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
   const gameId = normalizeGameIdFromPath(url.pathname);
   const isGameSearchPath = url.pathname === '/v1/games/search';
+  const isPlatformListPath = url.pathname === '/v1/platforms';
   const isGameByIdPath = gameId !== null;
   const isBoxArtSearchRoute = isBoxArtSearchPath(url.pathname);
+  const debugHttp = shouldLogHttp(env, url);
+  const loggedFetch = createLoggedFetch(fetchImpl, debugHttp);
 
-  if (!isGameSearchPath && !isGameByIdPath && !isBoxArtSearchRoute) {
+  if (!isGameSearchPath && !isPlatformListPath && !isGameByIdPath && !isBoxArtSearchRoute) {
     return jsonResponse({ error: 'Not found' }, 404);
   }
 
@@ -771,20 +920,26 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       const query = normalizeSearchQuery(url);
       const platform = normalizePlatformQuery(url);
       const platformIgdbId = normalizePlatformIgdbIdQuery(url);
-      const items = await searchTheGamesDbBoxArtCandidates(query, platform, platformIgdbId, env, fetchImpl);
+      const items = await searchTheGamesDbBoxArtCandidates(query, platform, platformIgdbId, env, loggedFetch);
       return jsonResponse({ items }, 200);
     }
 
-    const token = await fetchAppToken(env, fetchImpl, nowMs);
+    const token = await fetchAppToken(env, loggedFetch, nowMs);
+
+    if (isPlatformListPath) {
+      const items = await listIgdbPlatforms(env, token, loggedFetch, nowMs);
+      return jsonResponse({ items }, 200);
+    }
 
     if (isGameSearchPath) {
       const query = normalizeSearchQuery(url);
+      const platformIgdbId = normalizePlatformIgdbIdQuery(url);
 
-      const items = await searchIgdb(query, env, token, fetchImpl);
+      const items = await searchIgdb(query, platformIgdbId, env, token, loggedFetch);
       return jsonResponse({ items }, 200);
     }
 
-    const item = await fetchIgdbById(gameId, env, token, fetchImpl);
+    const item = await fetchIgdbById(gameId, env, token, loggedFetch);
 
     if (!item) {
       return jsonResponse({ error: 'Game not found.' }, 404);

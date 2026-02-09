@@ -69,6 +69,34 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('includes IGDB platform id in search query params when provided', done => {
+    service.searchGames('mario', 130).subscribe(results => {
+      expect(results.length).toBe(1);
+      done();
+    });
+
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/games/search`
+        && request.params.get('q') === 'mario'
+        && request.params.get('platformIgdbId') === '130';
+    });
+
+    req.flush({
+      items: [
+        {
+          externalId: '100',
+          title: 'Super Mario Odyssey',
+          coverUrl: '',
+          coverSource: 'none',
+          platforms: ['Nintendo Switch'],
+          platform: 'Nintendo Switch',
+          releaseDate: '2017-10-27T00:00:00.000Z',
+          releaseYear: 2017,
+        },
+      ],
+    });
+  });
+
   it('maps HTTP failure to user-safe error', done => {
     service.searchGames('mario').subscribe({
       next: () => fail('Expected an error response'),
@@ -128,6 +156,26 @@ describe('IgdbProxyService', () => {
 
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+  });
+
+  it('loads platform filters and normalizes response', done => {
+    service.listPlatforms().subscribe(result => {
+      expect(result).toEqual([
+        { id: 6, name: 'PC (Microsoft Windows)' },
+        { id: 130, name: 'Nintendo Switch' },
+      ]);
+      done();
+    });
+
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/platforms`);
+    req.flush({
+      items: [
+        { id: 130, name: ' Nintendo Switch ' },
+        { id: null, name: 'Broken' },
+        { id: 130, name: 'Nintendo Switch' },
+        { id: 6, name: 'PC (Microsoft Windows)' },
+      ],
+    });
   });
 
   it('searches box art results and normalizes URLs', done => {

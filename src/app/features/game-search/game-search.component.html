@@ -1,3 +1,22 @@
+<ion-item lines="none">
+  <ion-select
+    label="Platform Filter (IGDB)"
+    labelPlacement="stacked"
+    interface="popover"
+    [value]="selectedSearchPlatformIgdbId === null ? '' : selectedSearchPlatformIgdbId"
+    (ionChange)="onSearchPlatformChange($any($event).detail.value)"
+  >
+    <ion-select-option value="">All platforms</ion-select-option>
+    <ion-select-option *ngFor="let platform of searchPlatforms" [value]="platform.id">
+      {{ platform.name }}
+    </ion-select-option>
+  </ion-select>
+</ion-item>
+
+<ion-item *ngIf="platformErrorMessage.length > 0" color="warning" lines="none">
+  <ion-label>{{ platformErrorMessage }}</ion-label>
+</ion-item>
+
 <ion-searchbar
   placeholder="Search games to add"
   [value]="query"

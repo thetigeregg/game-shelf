@@ -20,7 +20,7 @@ describe('GameShelfService', () => {
       'updateCover',
     ]);
 
-    searchApi = jasmine.createSpyObj<GameSearchApi>('GameSearchApi', ['searchGames', 'getGameById', 'searchBoxArtByTitle']);
+    searchApi = jasmine.createSpyObj<GameSearchApi>('GameSearchApi', ['searchGames', 'getGameById', 'listPlatforms', 'searchBoxArtByTitle']);
 
     TestBed.configureTestingModule({
       providers: [
@@ -84,6 +84,24 @@ describe('GameShelfService', () => {
     const result = await firstValueFrom(service.searchGames('mario'));
 
     expect(result).toEqual(expected);
+    expect(searchApi.searchGames).toHaveBeenCalledWith('mario', undefined);
+  });
+
+  it('delegates platform-filtered search queries', async () => {
+    searchApi.searchGames.and.returnValue(of([]));
+
+    await firstValueFrom(service.searchGames('mario', 130));
+
+    expect(searchApi.searchGames).toHaveBeenCalledWith('mario', 130);
+  });
+
+  it('delegates search platform list retrieval', async () => {
+    searchApi.listPlatforms.and.returnValue(of([{ id: 130, name: 'Nintendo Switch' }]));
+
+    const result = await firstValueFrom(service.listSearchPlatforms());
+
+    expect(searchApi.listPlatforms).toHaveBeenCalled();
+    expect(result).toEqual([{ id: 130, name: 'Nintendo Switch' }]);
   });
 
   it('refreshes game metadata by IGDB id and keeps list placement', async () => {

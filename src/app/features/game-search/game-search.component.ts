@@ -21,11 +21,14 @@ export class GameSearchComponent implements OnInit, OnDestroy {
 
   query = '';
   results: GameCatalogResult[] = [];
+  searchPlatforms: GameCatalogPlatformOption[] = [];
+  selectedSearchPlatformIgdbId: number | null = null;
   isLoading = false;
   hasSearched = false;
   errorMessage = '';
+  platformErrorMessage = '';
 
-  private readonly searchTerms$ = new Subject<string>();
+  private readonly searchState$ = new Subject<{ query: string; platformIgdbId: number | null }>();
   private readonly destroy$ = new Subject<void>();
   private readonly addingExternalIds = new Set<string>();
   private readonly gameShelfService = inject(GameShelfService);
@@ -33,10 +36,12 @@ export class GameSearchComponent implements OnInit, OnDestroy {
   private readonly toastController = inject(ToastController);
 
   ngOnInit(): void {
-    this.searchTerms$
+    this.loadSearchPlatforms();
+
+    this.searchState$
       .pipe(
-        tap(term => {
-          const normalized = term.trim();
+        tap(state => {
+          const normalized = state.query.trim();
           this.errorMessage = '';
           this.hasSearched = normalized.length >= 2;
 
@@ -46,9 +51,11 @@ export class GameSearchComponent implements OnInit, OnDestroy {
           }
         }),
         debounceTime(300),
-        distinctUntilChanged(),
-        switchMap(term => {
-          const normalized = term.trim();
+        distinctUntilChanged((left, right) => {
+          return left.query.trim() === right.query.trim() && left.platformIgdbId === right.platformIgdbId;
+        }),
+        switchMap(state => {
+          const normalized = state.query.trim();
 
           if (normalized.length < 2) {
             return of([] as GameCatalogResult[]);
@@ -56,7 +63,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
 
           this.isLoading = true;
 
-          return this.gameShelfService.searchGames(normalized).pipe(
+          return this.gameShelfService.searchGames(normalized, state.platformIgdbId).pipe(
             catchError(() => {
               this.errorMessage = 'Search failed. Please try again.';
               return of([] as GameCatalogResult[]);
@@ -80,7 +87,20 @@ export class GameSearchComponent implements OnInit, OnDestroy {
 
   onSearchChange(value: string | null | undefined): void {
     this.query = value ?? '';
-    this.searchTerms$.next(this.query);
+    this.emitSearchState();
+  }
+
+  onSearchPlatformChange(value: string | number | null | undefined): void {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      this.selectedSearchPlatformIgdbId = value;
+    } else if (typeof value === 'string' && /^\d+$/.test(value)) {
+      const parsed = Number.parseInt(value, 10);
+      this.selectedSearchPlatformIgdbId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    } else {
+      this.selectedSearchPlatformIgdbId = null;
+    }
+
+    this.emitSearchState();
   }
 
   async addGame(result: GameCatalogResult): Promise<void> {
@@ -269,5 +289,27 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     });
 
     await toast.present();
+  }
+
+  private loadSearchPlatforms(): void {
+    this.gameShelfService.listSearchPlatforms()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: platforms => {
+          this.searchPlatforms = platforms;
+          this.platformErrorMessage = '';
+        },
+        error: () => {
+          this.searchPlatforms = [];
+          this.platformErrorMessage = 'Unable to load platform filters.';
+        },
+      });
+  }
+
+  private emitSearchState(): void {
+    this.searchState$.next({
+      query: this.query,
+      platformIgdbId: this.selectedSearchPlatformIgdbId,
+    });
   }
 }

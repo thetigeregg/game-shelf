@@ -14,6 +14,10 @@ interface GameByIdResponse {
   item: GameCatalogResult;
 }
 
+interface PlatformListResponse {
+  items: GameCatalogPlatformOption[];
+}
+
 interface BoxArtSearchResponse {
   items: string[];
 }
@@ -22,21 +26,36 @@ interface BoxArtSearchResponse {
 export class IgdbProxyService implements GameSearchApi {
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
   private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
+  private readonly platformListUrl = `${environment.gameApiBaseUrl}/v1/platforms`;
   private readonly boxArtSearchUrl = `${environment.gameApiBaseUrl}/v1/images/boxart/search`;
   private readonly httpClient = inject(HttpClient);
 
-  searchGames(query: string): Observable<GameCatalogResult[]> {
+  searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]> {
     const normalized = query.trim();
 
     if (normalized.length < 2) {
       return of([]);
     }
 
-    const params = new HttpParams().set('q', normalized);
+    let params = new HttpParams().set('q', normalized);
+    const normalizedPlatformIgdbId = typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
+      ? platformIgdbId
+      : null;
+
+    if (normalizedPlatformIgdbId !== null) {
+      params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
+    }
 
     return this.httpClient.get<SearchResponse>(this.searchUrl, { params }).pipe(
       map(response => (response.items ?? []).map(item => this.normalizeResult(item))),
       catchError(() => throwError(() => new Error('Unable to load game search results.')))
+    );
+  }
+
+  listPlatforms(): Observable<GameCatalogPlatformOption[]> {
+    return this.httpClient.get<PlatformListResponse>(this.platformListUrl).pipe(
+      map(response => this.normalizePlatformList(response.items)),
+      catchError(() => throwError(() => new Error('Unable to load platform filters.')))
     );
   }
 
@@ -183,5 +202,28 @@ export class IgdbProxyService implements GameSearchApi {
         .map(item => item.trim())
         .filter(item => item.startsWith('http://') || item.startsWith('https://'))
     )];
+  }
+
+  private normalizePlatformList(items: GameCatalogPlatformOption[] | null | undefined): GameCatalogPlatformOption[] {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    const normalized = items
+      .map(option => {
+        const name = typeof option?.name === 'string' ? option.name.trim() : '';
+        const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+          ? option.id
+          : null;
+
+        return { id, name };
+      })
+      .filter(option => option.id !== null && option.name.length > 0) as { id: number; name: string }[];
+
+    return normalized
+      .filter((option, index, all) => {
+        return all.findIndex(candidate => candidate.id === option.id) === index;
+      })
+      .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
   }
 }

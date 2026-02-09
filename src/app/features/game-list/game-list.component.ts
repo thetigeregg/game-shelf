@@ -18,6 +18,8 @@ export class GameListComponent implements OnChanges {
   @Output() platformOptionsChange = new EventEmitter<string[]>();
 
   games$: Observable<GameEntry[]> = of([]);
+  isGameDetailModalOpen = false;
+  selectedGame: GameEntry | null = null;
   private readonly gameShelfService = inject(GameShelfService);
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
@@ -70,6 +72,16 @@ export class GameListComponent implements OnChanges {
     return this.listType === 'collection' ? 'Wishlist' : 'Collection';
   }
 
+  openGameDetail(game: GameEntry): void {
+    this.selectedGame = game;
+    this.isGameDetailModalOpen = true;
+  }
+
+  closeGameDetailModal(): void {
+    this.isGameDetailModalOpen = false;
+    this.selectedGame = null;
+  }
+
   getCoverSourceLabel(game: GameEntry): string | null {
     if (game.coverSource === 'thegamesdb') {
       return '2D Box Art';
@@ -96,6 +108,28 @@ export class GameListComponent implements OnChanges {
 
   getActionsTriggerId(game: GameEntry): string {
     return `game-actions-trigger-${game.externalId}`;
+  }
+
+  onActionsButtonClick(event: Event): void {
+    event.stopPropagation();
+  }
+
+  getGameListLabel(game: GameEntry): string {
+    return game.listType === 'collection' ? 'Collection' : 'Wishlist';
+  }
+
+  formatDate(value: string | null): string {
+    if (!value) {
+      return 'Unknown';
+    }
+
+    const timestamp = Date.parse(value);
+
+    if (Number.isNaN(timestamp)) {
+      return value;
+    }
+
+    return new Date(timestamp).toLocaleDateString();
   }
 
   private getOtherListType(): ListType {

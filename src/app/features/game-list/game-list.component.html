@@ -9,10 +9,17 @@
     </ion-item>
   </ion-list>
 
-  <ion-accordion-group *ngIf="groupedView.grouped && groupedView.totalCount > 0" [multiple]="true">
+  <ion-accordion-group
+    *ngIf="groupedView.grouped && groupedView.totalCount > 0"
+    [multiple]="true"
+    [value]="getExpandedGroupValues(groupedView.sections)"
+  >
     <ion-accordion *ngFor="let section of groupedView.sections" [value]="section.key">
-      <ion-item slot="header">
-        <ion-label>{{ section.title }} ({{ section.games.length }})</ion-label>
+      <ion-item slot="header" color="light">
+        <ion-label>
+          <div class="group-header-title">{{ section.title }}</div>
+          <div class="group-header-subtitle">{{ getGroupCountLabel(section.games.length) }}</div>
+        </ion-label>
       </ion-item>
       <div slot="content">
         <ion-list>

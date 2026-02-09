@@ -74,3 +74,15 @@ ion-item p {
   object-fit: contain;
   border-radius: 8px;
 }
+
+.group-header-title {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.group-header-subtitle {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--ion-color-medium);
+  line-height: 1.2;
+}

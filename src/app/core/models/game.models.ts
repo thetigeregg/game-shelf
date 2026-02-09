@@ -1,6 +1,6 @@
 export type ListType = 'collection' | 'wishlist';
 export type CoverSource = 'thegamesdb' | 'igdb' | 'none';
-export type GameStatus = 'completed' | 'dropped' | 'playing' | 'replay' | 'wantToPlay';
+export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 export type GameStatusFilterOption = GameStatus | 'none';
 
 export interface GameCatalogPlatformOption {

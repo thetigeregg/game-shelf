@@ -40,6 +40,14 @@
 
 <ng-template #gameRowTemplate let-game>
   <ion-item lines="full" button detail="false" (click)="openGameDetail(game)">
+    <ion-icon
+      *ngIf="getStatusIconName(game) as statusIconName"
+      class="status-icon"
+      [name]="statusIconName"
+      [style.color]="getStatusIconColor(game)"
+      aria-hidden="true"
+    ></ion-icon>
+
     <div slot="start" class="game-art">
       <img [src]="game.coverUrl || 'assets/icon/favicon.png'" [alt]="game.title" (error)="onImageError($event)" />
     </div>

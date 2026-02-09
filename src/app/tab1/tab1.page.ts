@@ -59,6 +59,7 @@ export class Tab1Page {
         || status === 'playing'
         || status === 'wantToPlay'
         || status === 'completed'
+        || status === 'paused'
         || status === 'dropped'
         || status === 'replay'
       )

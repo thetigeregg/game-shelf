@@ -19,7 +19,7 @@ type SortOption =
 })
 export class GameFiltersMenuComponent implements OnChanges {
   readonly noneTagFilterValue = '__none__';
-  readonly statusOptions: GameStatusFilterOption[] = ['none', 'playing', 'wantToPlay', 'completed', 'dropped', 'replay'];
+  readonly statusOptions: GameStatusFilterOption[] = ['none', 'playing', 'wantToPlay', 'completed', 'paused', 'dropped', 'replay'];
 
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
@@ -143,6 +143,10 @@ export class GameFiltersMenuComponent implements OnChanges {
       return 'Completed';
     }
 
+    if (status === 'paused') {
+      return 'Paused';
+    }
+
     if (status === 'dropped') {
       return 'Dropped';
     }
@@ -185,6 +189,7 @@ export class GameFiltersMenuComponent implements OnChanges {
         || status === 'playing'
         || status === 'wantToPlay'
         || status === 'completed'
+        || status === 'paused'
         || status === 'dropped'
         || status === 'replay'
       )

@@ -38,6 +38,7 @@ export class GameListComponent implements OnChanges {
     { value: 'playing', label: 'Playing' },
     { value: 'wantToPlay', label: 'Want to Play' },
     { value: 'completed', label: 'Completed' },
+    { value: 'paused', label: 'Paused' },
     { value: 'dropped', label: 'Dropped' },
     { value: 'replay', label: 'Replay' },
   ];
@@ -335,6 +336,62 @@ export class GameListComponent implements OnChanges {
     return count === 1 ? '1 game' : `${count} games`;
   }
 
+  getStatusIconName(game: GameEntry): string | null {
+    const status = this.normalizeStatus(game.status);
+
+    if (status === 'playing') {
+      return 'play';
+    }
+
+    if (status === 'dropped') {
+      return 'trash';
+    }
+
+    if (status === 'completed') {
+      return 'trophy';
+    }
+
+    if (status === 'wantToPlay') {
+      return 'bookmark';
+    }
+
+    if (status === 'paused') {
+      return 'pause';
+    }
+
+    if (status === 'replay') {
+      return 'refresh';
+    }
+
+    return null;
+  }
+
+  getStatusIconColor(game: GameEntry): string {
+    const status = this.normalizeStatus(game.status);
+
+    if (status === 'playing') {
+      return '#2dd36f';
+    }
+
+    if (status === 'dropped') {
+      return '#7f8c8d';
+    }
+
+    if (status === 'completed') {
+      return '#d4af37';
+    }
+
+    if (status === 'wantToPlay') {
+      return '#87ceeb';
+    }
+
+    if (status === 'paused') {
+      return '#8b5a2b';
+    }
+
+    return 'var(--ion-color-medium)';
+  }
+
   private getOtherListType(): ListType {
     return this.listType === 'collection' ? 'wishlist' : 'collection';
   }
@@ -365,6 +422,7 @@ export class GameListComponent implements OnChanges {
           || status === 'playing'
           || status === 'wantToPlay'
           || status === 'completed'
+          || status === 'paused'
           || status === 'dropped'
           || status === 'replay'
         )
@@ -898,7 +956,7 @@ export class GameListComponent implements OnChanges {
   }
 
   private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {
-    if (value === 'playing' || value === 'wantToPlay' || value === 'completed' || value === 'dropped' || value === 'replay') {
+    if (value === 'playing' || value === 'wantToPlay' || value === 'completed' || value === 'paused' || value === 'dropped' || value === 'replay') {
       return value;
     }
 

@@ -7,6 +7,7 @@ import {
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
+  GameRating,
   GameStatus,
   GameTag,
   ListType,
@@ -154,6 +155,18 @@ export class GameShelfService {
 
   async setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry> {
     const updated = await this.repository.setGameStatus(igdbGameId, platformIgdbId, status);
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const tags = await this.repository.listTags();
+    this.listRefresh$.next();
+    return this.attachTags([updated], tags)[0];
+  }
+
+  async setGameRating(igdbGameId: string, platformIgdbId: number, rating: GameRating | null): Promise<GameEntry> {
+    const updated = await this.repository.setGameRating(igdbGameId, platformIgdbId, this.normalizeRating(rating));
 
     if (!updated) {
       throw new Error('Game entry no longer exists.');
@@ -362,5 +375,13 @@ export class GameShelfService {
     }
 
     return normalized;
+  }
+
+  private normalizeRating(value: GameRating | null | undefined): GameRating | null {
+    if (value === 1 || value === 2 || value === 3 || value === 4 || value === 5) {
+      return value;
+    }
+
+    return null;
   }
 }

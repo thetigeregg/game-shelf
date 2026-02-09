@@ -7,6 +7,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
+  GameRating,
   GameStatusFilterOption,
   GameStatus,
   ListType,
@@ -63,7 +64,11 @@ export class GameListComponent implements OnChanges {
   groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
   isGameDetailModalOpen = false;
   isImagePickerModalOpen = false;
+  isRatingModalOpen = false;
   selectedGame: GameEntry | null = null;
+  ratingTargetGame: GameEntry | null = null;
+  ratingDraft: GameRating = 3;
+  clearRatingOnSave = false;
   imagePickerQuery = '';
   imagePickerResults: string[] = [];
   isImagePickerLoading = false;
@@ -158,6 +163,11 @@ export class GameListComponent implements OnChanges {
   async openStatusForGameFromPopover(game: GameEntry): Promise<void> {
     await this.popoverController.dismiss();
     await this.openStatusPicker(game);
+  }
+
+  async openRatingForGameFromPopover(game: GameEntry): Promise<void> {
+    await this.popoverController.dismiss();
+    await this.openRatingPicker(game);
   }
 
   getOtherListLabel(): string {
@@ -357,6 +367,49 @@ export class GameListComponent implements OnChanges {
     this.isImagePickerModalOpen = false;
     this.selectedGame = null;
     this.resetImagePickerState();
+  }
+
+  closeRatingModal(): void {
+    this.isRatingModalOpen = false;
+    this.ratingTargetGame = null;
+    this.ratingDraft = 3;
+    this.clearRatingOnSave = false;
+  }
+
+  onRatingRangeChange(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: number | null }>;
+    const normalized = this.normalizeRating(customEvent.detail?.value);
+
+    if (normalized !== null) {
+      this.ratingDraft = normalized;
+      this.clearRatingOnSave = false;
+    }
+  }
+
+  markRatingForClear(): void {
+    this.clearRatingOnSave = true;
+  }
+
+  async saveRatingFromModal(): Promise<void> {
+    if (!this.ratingTargetGame) {
+      return;
+    }
+
+    const target = this.ratingTargetGame;
+    const nextRating = this.clearRatingOnSave ? null : this.ratingDraft;
+
+    try {
+      const updated = await this.gameShelfService.setGameRating(target.igdbGameId, target.platformIgdbId, nextRating);
+
+      if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
+        this.selectedGame = updated;
+      }
+
+      await this.presentToast('Game rating updated.');
+      this.closeRatingModal();
+    } catch {
+      await this.presentToast('Unable to update game rating.', 'danger');
+    }
   }
 
   getDetailActionsTriggerId(): string {
@@ -602,6 +655,10 @@ export class GameListComponent implements OnChanges {
     }
 
     return 'var(--ion-color-medium)';
+  }
+
+  getRating(game: GameEntry): GameRating | null {
+    return this.normalizeRating(game.rating);
   }
 
   getGameKey(game: GameEntry): string {
@@ -1234,6 +1291,24 @@ export class GameListComponent implements OnChanges {
     }
 
     return null;
+  }
+
+  private normalizeRating(value: number | string | GameRating | null | undefined): GameRating | null {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+
+    if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
+      return numeric;
+    }
+
+    return null;
+  }
+
+  private async openRatingPicker(game: GameEntry): Promise<void> {
+    const currentRating = this.normalizeRating(game.rating);
+    this.ratingTargetGame = game;
+    this.ratingDraft = currentRating ?? 3;
+    this.clearRatingOnSave = false;
+    this.isRatingModalOpen = true;
   }
 
   private async confirmDelete(options: { header: string; message: string; confirmText: string }): Promise<boolean> {

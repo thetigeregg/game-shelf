@@ -60,6 +60,10 @@
         [style.color]="getStatusIconColor(game)"
         aria-hidden="true"
       ></ion-icon>
+      <div *ngIf="getRating(game) as rating" class="rating-indicator">
+        <ion-icon name="star" aria-hidden="true"></ion-icon>
+        <span>{{ rating }}</span>
+      </div>
 
       <div slot="start" class="game-art">
         <img [src]="game.coverUrl || 'assets/icon/favicon.png'" [alt]="game.title" (error)="onImageError($event)" />
@@ -97,6 +101,9 @@
         <ion-list lines="none">
           <ion-item button detail="false" (click)="openStatusForGameFromPopover(game)">
             Set status
+          </ion-item>
+          <ion-item button detail="false" (click)="openRatingForGameFromPopover(game)">
+            Set rating
           </ion-item>
           <ion-item button detail="false" (click)="openTagsForGameFromPopover(game)">
             Tags
@@ -248,6 +255,47 @@
           </ion-col>
         </ion-row>
       </ion-grid>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isRatingModalOpen" (didDismiss)="closeRatingModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Set Rating</ion-title>
+        <ion-buttons slot="start">
+          <ion-button color="danger" fill="clear" (click)="markRatingForClear()">Clear</ion-button>
+        </ion-buttons>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeRatingModal()">Cancel</ion-button>
+          <ion-button (click)="saveRatingFromModal()">Save</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <ion-text color="medium">
+        <p>Choose a rating for {{ ratingTargetGame?.title || 'this game' }}.</p>
+      </ion-text>
+
+      <ion-range
+        min="1"
+        max="5"
+        step="1"
+        [value]="ratingDraft"
+        [snaps]="true"
+        [ticks]="true"
+        [pin]="true"
+        (ionChange)="onRatingRangeChange($event)"
+      >
+        <ion-icon slot="start" name="star-outline" aria-hidden="true"></ion-icon>
+        <ion-icon slot="end" name="star" aria-hidden="true"></ion-icon>
+      </ion-range>
+
+      <ion-note color="danger" *ngIf="clearRatingOnSave">
+        Rating will be cleared when saved.
+      </ion-note>
     </ion-content>
   </ng-template>
 </ion-modal>

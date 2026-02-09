@@ -2,6 +2,7 @@ export type ListType = 'collection' | 'wishlist';
 export type CoverSource = 'thegamesdb' | 'igdb' | 'none';
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 export type GameStatusFilterOption = GameStatus | 'none';
+export type GameRating = 1 | 2 | 3 | 4 | 5;
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -60,6 +61,7 @@ export interface GameEntry {
   releaseDate: string | null;
   releaseYear: number | null;
   status?: GameStatus | null;
+  rating?: GameRating | null;
   listType: ListType;
   createdAt: string;
   updatedAt: string;

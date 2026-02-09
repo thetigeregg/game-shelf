@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { CoverSource, GameCatalogResult, GameEntry, GameStatus, ListType, Tag } from '../models/game.models';
+import { CoverSource, GameCatalogResult, GameEntry, GameRating, GameStatus, ListType, Tag } from '../models/game.models';
 
 export interface GameRepository {
   listByType(listType: ListType): Promise<GameEntry[]>;
@@ -10,6 +10,7 @@ export interface GameRepository {
   exists(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined>;
   updateCover(igdbGameId: string, platformIgdbId: number, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined>;
   setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry | undefined>;
+  setGameRating(igdbGameId: string, platformIgdbId: number, rating: GameRating | null): Promise<GameEntry | undefined>;
   setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry | undefined>;
   listTags(): Promise<Tag[]>;
   upsertTag(tag: { id?: number; name: string; color: string }): Promise<Tag>;

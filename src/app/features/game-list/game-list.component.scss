@@ -3,7 +3,7 @@ ion-item {
 }
 
 ion-item ion-label {
-  padding-right: 20px;
+  padding-right: 48px;
 }
 
 .status-icon {
@@ -12,6 +12,23 @@ ion-item ion-label {
   right: 12px;
   font-size: 1rem;
   z-index: 2;
+}
+
+.rating-indicator {
+  position: absolute;
+  top: 30px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 2;
+  color: #d4af37;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.rating-indicator ion-icon {
+  font-size: 0.85rem;
 }
 
 ion-item.game-row-selected {

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb } from './app-db';
 import { GameRepository } from './game-repository';
-import { CoverSource, GameCatalogResult, GameEntry, GameStatus, ListType, Tag } from '../models/game.models';
+import { CoverSource, GameCatalogResult, GameEntry, GameRating, GameStatus, ListType, Tag } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -39,6 +39,7 @@ export class DexieGameRepository implements GameRepository {
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
         status: this.normalizeStatus(existing.status),
+        rating: this.normalizeRating(existing.rating),
         listType: targetList,
         updatedAt: now,
       };
@@ -62,6 +63,7 @@ export class DexieGameRepository implements GameRepository {
       releaseDate: result.releaseDate,
       releaseYear: result.releaseYear,
       status: null,
+      rating: null,
       listType: targetList,
       createdAt: now,
       updatedAt: now,
@@ -126,6 +128,23 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       status: this.normalizeStatus(status),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.db.games.put(updated);
+    return updated;
+  }
+
+  async setGameRating(igdbGameId: string, platformIgdbId: number, rating: GameRating | null): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      rating: this.normalizeRating(rating),
       updatedAt: new Date().toISOString(),
     };
 
@@ -244,6 +263,14 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeStatus(value: GameStatus | null | undefined): GameStatus | null {
     if (value === 'completed' || value === 'dropped' || value === 'playing' || value === 'paused' || value === 'replay' || value === 'wantToPlay') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private normalizeRating(value: GameRating | null | undefined): GameRating | null {
+    if (value === 1 || value === 2 || value === 3 || value === 4 || value === 5) {
       return value;
     }
 

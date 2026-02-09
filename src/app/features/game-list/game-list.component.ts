@@ -364,7 +364,7 @@ export class GameListComponent implements OnChanges {
   }
 
   trackByExternalId(_: number, game: GameEntry): string {
-    return this.getGameKey(game);
+    return `${game.igdbGameId}::${game.platformIgdbId}`;
   }
 
   onImageError(event: Event): void {

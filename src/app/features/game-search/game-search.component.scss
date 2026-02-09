@@ -1,5 +1,17 @@
-.game-thumbnail {
-  --size: 52px;
+.game-art {
+  width: 64px;
+  min-width: 64px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-art img {
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+  border-radius: 6px;
 }
 
 ion-item h2 {

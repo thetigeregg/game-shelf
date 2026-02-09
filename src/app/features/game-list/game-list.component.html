@@ -1,8 +1,8 @@
 <ion-list *ngIf="games$ | async as games">
   <ion-item *ngFor="let game of games; trackBy: trackByExternalId">
-    <ion-thumbnail slot="start" class="game-thumbnail">
+    <div slot="start" class="game-art">
       <img [src]="game.coverUrl || 'assets/icon/favicon.png'" [alt]="game.title" (error)="onImageError($event)" />
-    </ion-thumbnail>
+    </div>
 
     <ion-label>
       <h2>{{ game.title }}</h2>

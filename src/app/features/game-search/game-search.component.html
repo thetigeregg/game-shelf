@@ -20,9 +20,9 @@
   </ion-item>
 
   <ion-item *ngFor="let result of results; trackBy: trackByExternalId">
-    <ion-thumbnail slot="start" class="game-thumbnail">
+    <div slot="start" class="game-art">
       <img [src]="result.coverUrl || 'assets/icon/favicon.png'" [alt]="result.title" (error)="onImageError($event)" />
-    </ion-thumbnail>
+    </div>
 
     <ion-label>
       <h2>{{ result.title }}</h2>

@@ -54,6 +54,7 @@ describe('GameShelfService', () => {
       coverSource: 'none',
       platforms: ['Switch'],
       platform: 'Switch',
+      platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
       releaseYear: 2017,
     };
@@ -93,6 +94,7 @@ describe('GameShelfService', () => {
       coverUrl: 'https://example.com/current-cover.jpg',
       coverSource: 'thegamesdb' as const,
       platform: 'Nintendo Switch',
+      platformIgdbId: 130,
       releaseDate: null,
       releaseYear: null,
       listType: 'wishlist' as const,
@@ -107,6 +109,7 @@ describe('GameShelfService', () => {
       coverSource: 'igdb' as const,
       platforms: ['Nintendo Switch', 'PC'],
       platform: null,
+      platformIgdbId: null,
       releaseDate: '2026-01-02T00:00:00.000Z',
       releaseYear: 2026,
     };
@@ -117,6 +120,7 @@ describe('GameShelfService', () => {
       coverUrl: existingEntry.coverUrl,
       coverSource: existingEntry.coverSource,
       platform: 'Nintendo Switch',
+      platformIgdbId: 130,
       releaseDate: refreshedCatalog.releaseDate,
       releaseYear: refreshedCatalog.releaseYear,
     };
@@ -135,6 +139,7 @@ describe('GameShelfService', () => {
         coverUrl: 'https://example.com/current-cover.jpg',
         coverSource: 'thegamesdb',
         platform: 'Nintendo Switch',
+        platformIgdbId: 130,
       }),
       'wishlist',
     );

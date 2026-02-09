@@ -103,6 +103,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
         {
           ...resolvedForAdd,
           platform: platformSelection.name,
+          platformIgdbId: platformSelection.id,
         },
         this.listType
       );

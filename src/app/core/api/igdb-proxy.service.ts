@@ -101,6 +101,7 @@ export class IgdbProxyService implements GameSearchApi {
       platforms,
       platformOptions,
       platform: platforms.length === 1 ? platforms[0] : null,
+      platformIgdbId: this.resolvePlatformIgdbId(result, platformOptions),
       releaseDate: this.normalizeReleaseDate(result.releaseDate),
       releaseYear: Number.isInteger(result.releaseYear) ? result.releaseYear : null,
     };
@@ -149,6 +150,18 @@ export class IgdbProxyService implements GameSearchApi {
 
     const timestamp = Date.parse(releaseDate);
     return Number.isNaN(timestamp) ? null : new Date(timestamp).toISOString();
+  }
+
+  private resolvePlatformIgdbId(result: GameCatalogResult, platformOptions: GameCatalogPlatformOption[]): number | null {
+    if (typeof result.platformIgdbId === 'number' && Number.isInteger(result.platformIgdbId) && result.platformIgdbId > 0) {
+      return result.platformIgdbId;
+    }
+
+    if (platformOptions.length === 1) {
+      return platformOptions[0].id ?? null;
+    }
+
+    return null;
   }
 
   private normalizeCoverSource(coverSource: string | null | undefined): 'thegamesdb' | 'igdb' | 'none' {

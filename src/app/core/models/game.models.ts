@@ -14,6 +14,7 @@ export interface GameCatalogResult {
   platforms: string[];
   platformOptions?: GameCatalogPlatformOption[];
   platform: string | null;
+  platformIgdbId?: number | null;
   releaseDate: string | null;
   releaseYear: number | null;
 }
@@ -25,6 +26,7 @@ export interface GameEntry {
   coverUrl: string | null;
   coverSource: CoverSource;
   platform: string | null;
+  platformIgdbId?: number | null;
   releaseDate: string | null;
   releaseYear: number | null;
   listType: ListType;

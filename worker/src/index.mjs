@@ -245,6 +245,7 @@ export function normalizeIgdbGame(game) {
     platforms,
     platformOptions,
     platform: platforms.length === 1 ? platforms[0] : null,
+    platformIgdbId: platformOptions.length === 1 ? platformOptions[0].id : null,
     releaseDate,
     releaseYear,
   };

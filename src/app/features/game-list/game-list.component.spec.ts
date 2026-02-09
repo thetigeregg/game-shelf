@@ -19,6 +19,7 @@ describe('GameListComponent', () => {
       coverUrl: 'https://example.com/cover.jpg',
       coverSource: 'thegamesdb',
       platform: 'Nintendo Switch',
+      platformIgdbId: 130,
       releaseDate: '2017-10-27T00:00:00.000Z',
       releaseYear: 2017,
       listType: 'collection',
@@ -32,6 +33,7 @@ describe('GameListComponent', () => {
       coverUrl: 'https://example.com/halo.jpg',
       coverSource: 'igdb',
       platform: 'Xbox Series X',
+      platformIgdbId: 169,
       releaseDate: '2021-12-08T00:00:00.000Z',
       releaseYear: 2021,
       listType: 'collection',
@@ -113,7 +115,7 @@ describe('GameListComponent', () => {
     await component.openImagePickerFromPopover();
 
     expect(component.imagePickerQuery).toBe('Super Mario Odyssey');
-    expect(gameShelfService.searchBoxArtByTitle).toHaveBeenCalledWith('Super Mario Odyssey', 'Nintendo Switch');
+    expect(gameShelfService.searchBoxArtByTitle).toHaveBeenCalledWith('Super Mario Odyssey', 'Nintendo Switch', 130);
     expect(component.isImagePickerModalOpen).toBeTrue();
   });
 

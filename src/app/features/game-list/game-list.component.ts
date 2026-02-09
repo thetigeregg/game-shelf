@@ -160,7 +160,11 @@ export class GameListComponent implements OnChanges {
 
     try {
       this.imagePickerResults = await firstValueFrom(
-        this.gameShelfService.searchBoxArtByTitle(normalized, this.selectedGame?.platform ?? null)
+        this.gameShelfService.searchBoxArtByTitle(
+          normalized,
+          this.selectedGame?.platform ?? null,
+          this.selectedGame?.platformIgdbId ?? null,
+        )
       );
     } catch {
       this.imagePickerResults = [];

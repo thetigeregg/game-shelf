@@ -52,12 +52,20 @@ export class GameShelfService {
     }
 
     const refreshed = await firstValueFrom(this.searchApi.getGameById(externalId));
-    const resolvedPlatform = this.resolvePlatform(existing.platform, refreshed.platforms, refreshed.platform);
+    const resolvedPlatform = this.resolvePlatformSelection(
+      existing.platform,
+      existing.platformIgdbId ?? null,
+      refreshed.platforms,
+      refreshed.platformOptions,
+      refreshed.platform,
+      refreshed.platformIgdbId ?? null,
+    );
 
     const updated = await this.repository.upsertFromCatalog(
       {
         ...refreshed,
-        platform: resolvedPlatform,
+        platform: resolvedPlatform.platform,
+        platformIgdbId: resolvedPlatform.platformIgdbId,
         coverUrl: existing.coverUrl,
         coverSource: existing.coverSource,
       },
@@ -89,19 +97,65 @@ export class GameShelfService {
     return updated;
   }
 
-  private resolvePlatform(
+  private resolvePlatformSelection(
     currentPlatform: string | null,
+    currentPlatformIgdbId: number | null,
     availablePlatforms: string[],
+    platformOptions: { id: number | null; name: string }[] | undefined,
     refreshedPlatform: string | null,
-  ): string | null {
+    refreshedPlatformIgdbId: number | null,
+  ): { platform: string | null; platformIgdbId: number | null } {
+    const normalizedOptions = this.normalizePlatformOptions(availablePlatforms, platformOptions);
+
     if (refreshedPlatform) {
-      return refreshedPlatform;
+      const match = normalizedOptions.find(option => option.name === refreshedPlatform);
+      return {
+        platform: refreshedPlatform,
+        platformIgdbId: match?.id ?? refreshedPlatformIgdbId ?? null,
+      };
     }
 
     if (currentPlatform && availablePlatforms.includes(currentPlatform)) {
-      return currentPlatform;
+      const match = normalizedOptions.find(option => option.name === currentPlatform);
+      return {
+        platform: currentPlatform,
+        platformIgdbId: match?.id ?? currentPlatformIgdbId ?? null,
+      };
     }
 
-    return currentPlatform ?? null;
+    if (currentPlatformIgdbId !== null) {
+      const match = normalizedOptions.find(option => option.id === currentPlatformIgdbId);
+
+      if (match) {
+        return {
+          platform: match.name,
+          platformIgdbId: currentPlatformIgdbId,
+        };
+      }
+    }
+
+    return {
+      platform: currentPlatform ?? null,
+      platformIgdbId: currentPlatformIgdbId ?? null,
+    };
+  }
+
+  private normalizePlatformOptions(
+    availablePlatforms: string[],
+    platformOptions: { id: number | null; name: string }[] | undefined,
+  ): { id: number | null; name: string }[] {
+    if (Array.isArray(platformOptions) && platformOptions.length > 0) {
+      return platformOptions
+        .map(option => ({
+          id: typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0 ? option.id : null,
+          name: option.name,
+        }))
+        .filter(option => typeof option.name === 'string' && option.name.length > 0);
+    }
+
+    return availablePlatforms.map(platform => ({
+      id: null,
+      name: platform,
+    }));
   }
 }

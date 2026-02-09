@@ -83,4 +83,11 @@ describe('DexieGameRepository', () => {
     expect(existing?.coverUrl).toBe('https://example.com/custom-cover.jpg');
     expect(existing?.coverSource).toBe('thegamesdb');
   });
+
+  it('persists selected IGDB platform id with entries', async () => {
+    await repository.upsertFromCatalog({ ...mario, platformIgdbId: 130 }, 'collection');
+
+    const stored = await repository.exists(mario.externalId);
+    expect(stored?.platformIgdbId).toBe(130);
+  });
 });

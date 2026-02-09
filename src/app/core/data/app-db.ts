@@ -12,5 +12,9 @@ export class AppDb extends Dexie {
     this.version(1).stores({
       games: '++id,&externalId,listType,title,createdAt,updatedAt',
     });
+
+    this.version(2).stores({
+      games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
+    });
   }
 }

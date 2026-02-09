@@ -41,6 +41,7 @@ describe('IgdbProxyService', () => {
         platforms: ['Nintendo Switch'],
         platformOptions: [{ id: null, name: 'Nintendo Switch' }],
         platform: 'Nintendo Switch',
+        platformIgdbId: null,
         releaseDate: '2017-10-27T00:00:00.000Z',
         releaseYear: 2017,
       });
@@ -94,6 +95,7 @@ describe('IgdbProxyService', () => {
           { id: null, name: 'Wii U' },
         ],
         platform: null,
+        platformIgdbId: null,
         releaseDate: '2017-10-27T00:00:00.000Z',
         releaseYear: 2017,
       });

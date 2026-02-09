@@ -92,3 +92,13 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   releaseDateFrom: null,
   releaseDateTo: null,
 };
+
+export interface GameListView {
+  id?: number;
+  name: string;
+  listType: ListType;
+  filters: GameListFilters;
+  groupBy: GameGroupByField;
+  createdAt: string;
+  updatedAt: string;
+}

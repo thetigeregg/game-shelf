@@ -1,8 +1,9 @@
 import { Component, ViewChild, inject } from '@angular/core';
 import { MenuController, PopoverController, ToastController } from '@ionic/angular';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
 import { GameListComponent, GameListSelectionState } from '../features/game-list/game-list.component';
+import { GameShelfService } from '../core/services/game-shelf.service';
 
 @Component({
   selector: 'app-tab2',
@@ -46,9 +47,14 @@ export class Tab2Page {
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly gameShelfService = inject(GameShelfService);
 
   constructor() {
     this.restorePreferences();
+    this.route.queryParamMap.subscribe(params => {
+      void this.applyViewFromQueryParam(params.get('applyView'));
+    });
   }
 
   onFiltersChange(filters: GameListFilters): void {
@@ -174,6 +180,17 @@ export class Tab2Page {
     await this.router.navigateByUrl('/tags');
   }
 
+  async openViewsFromPopover(): Promise<void> {
+    await this.popoverController.dismiss();
+    await this.router.navigate(['/views'], {
+      state: {
+        listType: this.listType,
+        filters: this.filters,
+        groupBy: this.groupBy,
+      },
+    });
+  }
+
   getSelectionHeaderLabel(): string {
     return this.selectedGamesCount === 1 ? '1 selected' : `${this.selectedGamesCount} selected`;
   }
@@ -280,5 +297,35 @@ export class Tab2Page {
 
   private isValidSortField(value: unknown): value is GameListFilters['sortField'] {
     return value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform';
+  }
+
+  private async applyViewFromQueryParam(rawViewId: string | null): Promise<void> {
+    const parsed = Number.parseInt(String(rawViewId ?? ''), 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return;
+    }
+
+    try {
+      const view = await this.gameShelfService.getView(parsed);
+
+      if (!view || view.listType !== this.listType) {
+        return;
+      }
+
+      this.filters = {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        ...view.filters,
+      };
+      this.groupBy = view.groupBy;
+      this.persistPreferences();
+    } finally {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { applyView: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
   }
 }

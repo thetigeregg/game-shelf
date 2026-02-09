@@ -1,7 +1,19 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb } from './app-db';
 import { GameRepository } from './game-repository';
-import { CoverSource, GameCatalogResult, GameEntry, GameRating, GameStatus, ListType, Tag } from '../models/game.models';
+import {
+  CoverSource,
+  DEFAULT_GAME_LIST_FILTERS,
+  GameCatalogResult,
+  GameEntry,
+  GameGroupByField,
+  GameListFilters,
+  GameListView,
+  GameRating,
+  GameStatus,
+  ListType,
+  Tag
+} from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -237,6 +249,54 @@ export class DexieGameRepository implements GameRepository {
     });
   }
 
+  async listViews(listType: ListType): Promise<GameListView[]> {
+    return this.db.views
+      .where('listType')
+      .equals(listType)
+      .sortBy('name');
+  }
+
+  async getView(viewId: number): Promise<GameListView | undefined> {
+    return this.db.views.get(viewId);
+  }
+
+  async createView(view: { name: string; listType: ListType; filters: GameListFilters; groupBy: GameGroupByField }): Promise<GameListView> {
+    const now = new Date().toISOString();
+    const created: GameListView = {
+      name: this.normalizeViewName(view.name),
+      listType: view.listType,
+      filters: this.normalizeViewFilters(view.filters),
+      groupBy: this.normalizeGroupBy(view.groupBy),
+      createdAt: now,
+      updatedAt: now,
+    };
+    const id = await this.db.views.add(created);
+    return { ...created, id };
+  }
+
+  async updateView(viewId: number, updates: { name?: string; filters?: GameListFilters; groupBy?: GameGroupByField }): Promise<GameListView | undefined> {
+    const existing = await this.db.views.get(viewId);
+
+    if (!existing) {
+      return undefined;
+    }
+
+    const updated: GameListView = {
+      ...existing,
+      name: updates.name !== undefined ? this.normalizeViewName(updates.name) : existing.name,
+      filters: updates.filters !== undefined ? this.normalizeViewFilters(updates.filters) : this.normalizeViewFilters(existing.filters),
+      groupBy: updates.groupBy !== undefined ? this.normalizeGroupBy(updates.groupBy) : this.normalizeGroupBy(existing.groupBy),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.db.views.put(updated);
+    return updated;
+  }
+
+  async deleteView(viewId: number): Promise<void> {
+    await this.db.views.delete(viewId);
+  }
+
   private normalizeTagIds(tagIds: number[] | undefined): number[] {
     if (!Array.isArray(tagIds)) {
       return [];
@@ -303,5 +363,77 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return normalized;
+  }
+
+  private normalizeViewName(value: string): string {
+    const normalized = String(value ?? '').trim();
+
+    if (normalized.length === 0) {
+      throw new Error('View name is required.');
+    }
+
+    return normalized;
+  }
+
+  private normalizeGroupBy(value: GameGroupByField | null | undefined): GameGroupByField {
+    if (
+      value === 'none'
+      || value === 'platform'
+      || value === 'developer'
+      || value === 'franchise'
+      || value === 'tag'
+      || value === 'genre'
+      || value === 'publisher'
+      || value === 'releaseYear'
+    ) {
+      return value;
+    }
+
+    return 'none';
+  }
+
+  private normalizeViewFilters(value: GameListFilters | null | undefined): GameListFilters {
+    const source = value ?? DEFAULT_GAME_LIST_FILTERS;
+    const sortField = source.sortField === 'title' || source.sortField === 'releaseDate' || source.sortField === 'createdAt' || source.sortField === 'platform'
+      ? source.sortField
+      : 'title';
+    const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
+    const platform = Array.isArray(source.platform)
+      ? [...new Set(source.platform.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
+      : [];
+    const genres = Array.isArray(source.genres)
+      ? [...new Set(source.genres.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
+      : [];
+    const statuses = Array.isArray(source.statuses)
+      ? [...new Set(source.statuses.filter(status =>
+        status === 'none'
+        || status === 'playing'
+        || status === 'wantToPlay'
+        || status === 'completed'
+        || status === 'paused'
+        || status === 'dropped'
+        || status === 'replay'
+      ))]
+      : [];
+    const tags = Array.isArray(source.tags)
+      ? [...new Set(source.tags.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
+      : [];
+    const releaseDateFrom = typeof source.releaseDateFrom === 'string' && source.releaseDateFrom.length >= 10
+      ? source.releaseDateFrom.slice(0, 10)
+      : null;
+    const releaseDateTo = typeof source.releaseDateTo === 'string' && source.releaseDateTo.length >= 10
+      ? source.releaseDateTo.slice(0, 10)
+      : null;
+
+    return {
+      sortField,
+      sortDirection,
+      platform,
+      genres,
+      statuses,
+      tags,
+      releaseDateFrom,
+      releaseDateTo,
+    };
   }
 }

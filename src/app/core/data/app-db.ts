@@ -1,11 +1,12 @@
 import Dexie, { Table } from 'dexie';
 import { Injectable } from '@angular/core';
-import { GameEntry, Tag } from '../models/game.models';
+import { GameEntry, GameListView, Tag } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class AppDb extends Dexie {
   games!: Table<GameEntry, number>;
   tags!: Table<Tag, number>;
+  views!: Table<GameListView, number>;
 
   constructor() {
     super('game-shelf-db');
@@ -44,6 +45,12 @@ export class AppDb extends Dexie {
         game['platform'] = String(game['platform'] ?? '').trim() || 'Unknown platform';
         delete game['externalId'];
       });
+    });
+
+    this.version(5).stores({
+      games: '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
     });
   }
 }

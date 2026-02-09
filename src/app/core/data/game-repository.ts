@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { CoverSource, GameCatalogResult, GameEntry, GameRating, GameStatus, ListType, Tag } from '../models/game.models';
+import { CoverSource, GameCatalogResult, GameEntry, GameGroupByField, GameListFilters, GameListView, GameRating, GameStatus, ListType, Tag } from '../models/game.models';
 
 export interface GameRepository {
   listByType(listType: ListType): Promise<GameEntry[]>;
@@ -15,6 +15,11 @@ export interface GameRepository {
   listTags(): Promise<Tag[]>;
   upsertTag(tag: { id?: number; name: string; color: string }): Promise<Tag>;
   deleteTag(tagId: number): Promise<void>;
+  listViews(listType: ListType): Promise<GameListView[]>;
+  getView(viewId: number): Promise<GameListView | undefined>;
+  createView(view: { name: string; listType: ListType; filters: GameListFilters; groupBy: GameGroupByField }): Promise<GameListView>;
+  updateView(viewId: number, updates: { name?: string; filters?: GameListFilters; groupBy?: GameGroupByField }): Promise<GameListView | undefined>;
+  deleteView(viewId: number): Promise<void>;
 }
 
 export const GAME_REPOSITORY = new InjectionToken<GameRepository>('GAME_REPOSITORY');

@@ -11,6 +11,10 @@ const routes: Routes = [
     loadChildren: () => import('./tags/tags.module').then(m => m.TagsPageModule)
   },
   {
+    path: 'views',
+    loadChildren: () => import('./views/views.module').then(m => m.ViewsPageModule)
+  },
+  {
     path: '',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule)
   },

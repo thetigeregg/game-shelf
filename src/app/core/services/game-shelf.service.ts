@@ -7,6 +7,9 @@ import {
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
+  GameGroupByField,
+  GameListFilters,
+  GameListView,
   GameRating,
   GameStatus,
   GameTag,
@@ -32,6 +35,13 @@ export class GameShelfService {
     return this.listRefresh$.pipe(
       startWith(undefined),
       switchMap(() => from(this.loadTagSummaries()))
+    );
+  }
+
+  watchViews(listType: ListType): Observable<GameListView[]> {
+    return this.listRefresh$.pipe(
+      startWith(undefined),
+      switchMap(() => from(this.repository.listViews(listType)))
     );
   }
 
@@ -210,6 +220,48 @@ export class GameShelfService {
 
   async deleteTag(tagId: number): Promise<void> {
     await this.repository.deleteTag(tagId);
+    this.listRefresh$.next();
+  }
+
+  async getView(viewId: number): Promise<GameListView | undefined> {
+    return this.repository.getView(viewId);
+  }
+
+  async createView(name: string, listType: ListType, filters: GameListFilters, groupBy: GameGroupByField): Promise<GameListView> {
+    const created = await this.repository.createView({
+      name: name.trim(),
+      listType,
+      filters,
+      groupBy,
+    });
+    this.listRefresh$.next();
+    return created;
+  }
+
+  async renameView(viewId: number, name: string): Promise<GameListView> {
+    const updated = await this.repository.updateView(viewId, { name: name.trim() });
+
+    if (!updated) {
+      throw new Error('View no longer exists.');
+    }
+
+    this.listRefresh$.next();
+    return updated;
+  }
+
+  async updateViewConfiguration(viewId: number, filters: GameListFilters, groupBy: GameGroupByField): Promise<GameListView> {
+    const updated = await this.repository.updateView(viewId, { filters, groupBy });
+
+    if (!updated) {
+      throw new Error('View no longer exists.');
+    }
+
+    this.listRefresh$.next();
+    return updated;
+  }
+
+  async deleteView(viewId: number): Promise<void> {
+    await this.repository.deleteView(viewId);
     this.listRefresh$.next();
   }
 

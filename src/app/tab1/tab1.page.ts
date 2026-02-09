@@ -44,8 +44,13 @@ export class Tab1Page {
   }
 
   onFiltersChange(filters: GameListFilters): void {
+    const normalizedPlatforms = Array.isArray(filters.platform)
+      ? filters.platform.filter(platform => typeof platform === 'string' && platform.trim().length > 0)
+      : [];
+
     this.filters = {
       ...filters,
+      platform: normalizedPlatforms,
       sortField: this.isValidSortField(filters.sortField) ? filters.sortField : DEFAULT_GAME_LIST_FILTERS.sortField,
       sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',
     };
@@ -54,11 +59,12 @@ export class Tab1Page {
 
   onPlatformOptionsChange(platformOptions: string[]): void {
     this.platformOptions = platformOptions;
+    const normalizedSelection = this.filters.platform.filter(platform => platformOptions.includes(platform));
 
-    if (this.filters.platform !== 'all' && !platformOptions.includes(this.filters.platform)) {
+    if (normalizedSelection.length !== this.filters.platform.length) {
       this.filters = {
         ...this.filters,
-        platform: 'all',
+        platform: normalizedSelection,
       };
     }
   }

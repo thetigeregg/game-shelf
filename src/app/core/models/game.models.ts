@@ -69,7 +69,7 @@ export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' |
 export interface GameListFilters {
   sortField: GameSortField;
   sortDirection: SortDirection;
-  platform: string | 'all';
+  platform: string[];
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
 }
@@ -77,7 +77,7 @@ export interface GameListFilters {
 export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   sortField: 'title',
   sortDirection: 'asc',
-  platform: 'all',
+  platform: [],
   releaseDateFrom: null,
   releaseDateTo: null,
 };

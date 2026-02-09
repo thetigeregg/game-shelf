@@ -26,8 +26,14 @@
       </ion-item>
 
       <ion-item>
-        <ion-select label="Platform" labelPlacement="stacked" [(ngModel)]="draftFilters.platform" (ionChange)="updateFilters()">
-          <ion-select-option value="all">All platforms</ion-select-option>
+        <ion-select
+          label="Platform"
+          labelPlacement="stacked"
+          placeholder="All platforms"
+          [multiple]="true"
+          [ngModel]="draftFilters.platform"
+          (ngModelChange)="onPlatformSelectionChange($event)"
+        >
           <ion-select-option *ngFor="let platform of platformOptions" [value]="platform">
             {{ platform }}
           </ion-select-option>
@@ -37,22 +43,20 @@
       <ion-item>
         <ion-label>Release date from</ion-label>
         <ion-datetime-button slot="end" [datetime]="releaseDateFromDatetimeId"></ion-datetime-button>
-        <ion-button
-          slot="end"
-          fill="clear"
-          size="small"
-          [disabled]="!draftFilters.releaseDateFrom"
-          (click)="clearReleaseDateFrom()"
-        >
-          Clear
-        </ion-button>
       </ion-item>
       <ion-modal [keepContentsMounted]="true">
         <ng-template>
+          <ion-header>
+            <ion-toolbar>
+              <ion-title>Release date from</ion-title>
+            </ion-toolbar>
+          </ion-header>
           <ion-datetime
             [id]="releaseDateFromDatetimeId"
             presentation="date"
-            [value]="draftFilters.releaseDateFrom"
+            [showClearButton]="true"
+            [showDefaultButtons]="true"
+            [value]="draftFilters.releaseDateFrom || undefined"
             (ionChange)="onReleaseDateFromChange($event.detail.value)"
           ></ion-datetime>
         </ng-template>
@@ -61,22 +65,20 @@
       <ion-item>
         <ion-label>Release date to</ion-label>
         <ion-datetime-button slot="end" [datetime]="releaseDateToDatetimeId"></ion-datetime-button>
-        <ion-button
-          slot="end"
-          fill="clear"
-          size="small"
-          [disabled]="!draftFilters.releaseDateTo"
-          (click)="clearReleaseDateTo()"
-        >
-          Clear
-        </ion-button>
       </ion-item>
       <ion-modal [keepContentsMounted]="true">
         <ng-template>
+          <ion-header>
+            <ion-toolbar>
+              <ion-title>Release date to</ion-title>
+            </ion-toolbar>
+          </ion-header>
           <ion-datetime
             [id]="releaseDateToDatetimeId"
             presentation="date"
-            [value]="draftFilters.releaseDateTo"
+            [showClearButton]="true"
+            [showDefaultButtons]="true"
+            [value]="draftFilters.releaseDateTo || undefined"
             (ionChange)="onReleaseDateToChange($event.detail.value)"
           ></ion-datetime>
         </ng-template>

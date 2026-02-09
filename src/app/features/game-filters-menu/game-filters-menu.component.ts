@@ -61,6 +61,15 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.updateFilters();
   }
 
+  onPlatformSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizePlatformSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      platform: normalized,
+    };
+    this.updateFilters();
+  }
+
   onReleaseDateFromChange(value: string | string[] | null | undefined): void {
     this.draftFilters = {
       ...this.draftFilters,
@@ -73,22 +82,6 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       releaseDateTo: this.toDateOnly(value),
-    };
-    this.updateFilters();
-  }
-
-  clearReleaseDateFrom(): void {
-    this.draftFilters = {
-      ...this.draftFilters,
-      releaseDateFrom: null,
-    };
-    this.updateFilters();
-  }
-
-  clearReleaseDateTo(): void {
-    this.draftFilters = {
-      ...this.draftFilters,
-      releaseDateTo: null,
     };
     this.updateFilters();
   }
@@ -107,6 +100,20 @@ export class GameFiltersMenuComponent implements OnChanges {
     }
 
     return value.slice(0, 10);
+  }
+
+  private normalizePlatformSelection(value: string[] | string | null | undefined): string[] {
+    const normalizedValues = Array.isArray(value)
+      ? value
+      : typeof value === 'string'
+        ? [value]
+        : [];
+
+    return [...new Set(
+      normalizedValues
+        .map(platform => platform.trim())
+        .filter(platform => platform.length > 0)
+    )];
   }
 
   private isSortOption(value: string): value is SortOption {

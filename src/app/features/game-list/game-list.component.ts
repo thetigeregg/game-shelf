@@ -294,9 +294,18 @@ export class GameListComponent implements OnChanges {
   }
 
   private normalizeFilters(filters: GameListFilters): GameListFilters {
+    const normalizedPlatforms = Array.isArray(filters.platform)
+      ? [...new Set(
+        filters.platform
+          .map(platform => (typeof platform === 'string' ? platform.trim() : ''))
+          .filter(platform => platform.length > 0)
+      )]
+      : [];
+
     return {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...filters,
+      platform: normalizedPlatforms,
     };
   }
 
@@ -463,7 +472,7 @@ export class GameListComponent implements OnChanges {
       return false;
     }
 
-    if (filters.platform !== 'all' && game.platform !== filters.platform) {
+    if (filters.platform.length > 0 && !filters.platform.includes(game.platform ?? '')) {
       return false;
     }
 

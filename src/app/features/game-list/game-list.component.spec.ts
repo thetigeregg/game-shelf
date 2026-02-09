@@ -138,7 +138,7 @@ describe('GameListComponent', () => {
     component.filters = {
       sortField: 'releaseDate',
       sortDirection: 'desc',
-      platform: 'Nintendo Switch',
+      platform: ['Nintendo Switch'],
       releaseDateFrom: null,
       releaseDateTo: null,
     };

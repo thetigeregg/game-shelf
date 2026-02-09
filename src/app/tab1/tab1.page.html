@@ -23,6 +23,13 @@
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar
+      placeholder="Search collection"
+      [value]="listSearchQuery"
+      (ionInput)="onListSearchChange($any($event).detail.value)"
+    ></ion-searchbar>
+  </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" [id]="contentId">
@@ -55,12 +62,6 @@
       </ion-content>
     </ng-template>
   </ion-popover>
-
-  <ion-searchbar
-    placeholder="Search collection"
-    [value]="listSearchQuery"
-    (ionInput)="onListSearchChange($any($event).detail.value)"
-  ></ion-searchbar>
 
   <app-game-list
     [listType]="listType"

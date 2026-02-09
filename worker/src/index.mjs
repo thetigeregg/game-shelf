@@ -4,6 +4,7 @@ const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
 const MAX_BOX_ART_RESULTS = 30;
+const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
 const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
@@ -111,7 +112,7 @@ function sanitizeUrlForLogs(urlInput) {
 }
 
 function buildBodyPreview(body) {
-  return typeof body === 'string' && body.length > 0 ? body.slice(0, 300) : undefined;
+  return typeof body === 'string' && body.length > 0 ? body : undefined;
 }
 
 function shouldLogHttp(env, requestUrl) {
@@ -143,7 +144,7 @@ function createLoggedFetch(fetchImpl, debugHttpEnabled) {
 
     if (!isSensitiveUrl(String(url))) {
       try {
-        responsePreview = (await response.clone().text()).slice(0, 300);
+        responsePreview = await response.clone().text();
       } catch {
         responsePreview = undefined;
       }
@@ -511,6 +512,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
   const root = payload?.data;
   const includeRoot = payload?.include;
   const normalizedPreferredPlatform = normalizePlatformForMatch(preferredPlatform);
+  const normalizedExpectedTitle = normalizeTitleForMatch(expectedTitle);
 
   const games = Array.isArray(root?.games) ? root.games : [];
 
@@ -519,13 +521,45 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
   }
 
   const rankedGames = games
-    .map(game => ({
-      gameId: getTheGamesDbGameId(game),
-      score: getTitleSimilarityScore(expectedTitle, getTheGamesDbGameTitle(game)),
-      platformText: getTheGamesDbPlatformText(game),
-    }))
+    .map(game => {
+      const gameTitle = getTheGamesDbGameTitle(game);
+      const normalizedTitle = normalizeTitleForMatch(gameTitle);
+      const countryId = getTheGamesDbCountryId(game);
+      const regionPreferenceScore = getTheGamesDbRegionPreferenceScoreFromIds({ countryId });
+
+      return {
+        gameId: getTheGamesDbGameId(game),
+        score: getTitleSimilarityScore(expectedTitle, gameTitle),
+        normalizedTitle,
+        regionPreferenceScore,
+        countryId,
+        regionId: getTheGamesDbRegionId(game),
+        platformText: getTheGamesDbPlatformText(game),
+      };
+    })
     .filter(entry => entry.gameId.length > 0 && Number.isFinite(entry.score))
-    .sort((left, right) => right.score - left.score);
+    .sort((left, right) => {
+      const byScore = right.score - left.score;
+
+      if (byScore !== 0) {
+        return byScore;
+      }
+
+      const sameNormalizedTitle = left.normalizedTitle.length > 0
+        && left.normalizedTitle === right.normalizedTitle;
+      const matchesExpected = left.normalizedTitle.length > 0
+        && left.normalizedTitle === normalizedExpectedTitle;
+
+      if (sameNormalizedTitle && matchesExpected) {
+        const byRegionPreference = right.regionPreferenceScore - left.regionPreferenceScore;
+
+        if (byRegionPreference !== 0) {
+          return byRegionPreference;
+        }
+      }
+
+      return 0;
+    });
 
   if (rankedGames.length === 0) {
     return [];
@@ -557,20 +591,27 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
         return;
       }
 
-      let score = gameEntry.score;
-      score += Math.max(0, rankedGames.length - gameIndex);
+      // Keep title similarity as the dominant ranking signal.
+      // Region/platform/image-side preferences are secondary tie-breakers.
+      const titleRankScore = Math.max(0, rankedGames.length - gameIndex);
+      const majorScore = (gameEntry.score * 100000) + (titleRankScore * 1000);
+      let minorScore = 0;
 
       if (imageSide === 'front') {
-        score += 10;
+        minorScore += 10;
       }
+
+      minorScore += getTheGamesDbRegionPreferenceScore(candidate, gameEntry);
 
       if (normalizedPreferredPlatform.length > 0) {
         const normalizedGamePlatform = normalizePlatformForMatch(gameEntry.platformText);
 
         if (normalizedGamePlatform.includes(normalizedPreferredPlatform)) {
-          score += 20;
+          minorScore += 20;
         }
       }
+
+      const score = majorScore + minorScore;
 
       const existingScore = scoredByUrl.get(url);
 
@@ -584,6 +625,33 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
     .sort((left, right) => right[1] - left[1])
     .map(entry => entry[0])
     .slice(0, MAX_BOX_ART_RESULTS);
+}
+
+function getTheGamesDbRegionPreferenceScore(candidate, gameEntry) {
+  void candidate;
+  return getTheGamesDbRegionPreferenceScoreFromIds(gameEntry);
+}
+
+function getTheGamesDbRegionPreferenceScoreFromIds(gameEntry) {
+  const countryId = Number.isInteger(gameEntry?.countryId) && gameEntry.countryId > 0
+    ? gameEntry.countryId
+    : null;
+
+  if (countryId !== null && THE_GAMES_DB_PREFERRED_COUNTRY_IDS.has(countryId)) {
+    return 40;
+  }
+
+  return 0;
+}
+
+function getTheGamesDbRegionId(game) {
+  const value = Number.parseInt(String(game?.region_id ?? ''), 10);
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function getTheGamesDbCountryId(game) {
+  const value = Number.parseInt(String(game?.country_id ?? ''), 10);
+  return Number.isInteger(value) && value > 0 ? value : null;
 }
 
 async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fetchImpl) {
@@ -613,7 +681,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
       let payloadSnippet = '';
 
       try {
-        payloadSnippet = (await response.text()).slice(0, 300);
+        payloadSnippet = await response.text();
       } catch {
         payloadSnippet = '';
       }
@@ -833,7 +901,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl) {
       let payloadSnippet = '';
 
       try {
-        payloadSnippet = (await response.text()).slice(0, 300);
+        payloadSnippet = await response.text();
       } catch {
         payloadSnippet = '';
       }

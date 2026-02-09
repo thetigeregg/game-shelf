@@ -21,6 +21,8 @@ export class GameFiltersMenuComponent implements OnChanges {
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
   @Input() platformOptions: string[] = [];
+  @Input() genreOptions: string[] = [];
+  @Input() tagOptions: string[] = [];
   @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
 
   @Output() filtersChange = new EventEmitter<GameListFilters>();
@@ -62,10 +64,28 @@ export class GameFiltersMenuComponent implements OnChanges {
   }
 
   onPlatformSelectionChange(value: string[] | string | null | undefined): void {
-    const normalized = this.normalizePlatformSelection(value);
+    const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
       platform: normalized,
+    };
+    this.updateFilters();
+  }
+
+  onGenreSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      genres: normalized,
+    };
+    this.updateFilters();
+  }
+
+  onTagSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      tags: normalized,
     };
     this.updateFilters();
   }
@@ -102,7 +122,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     return value.slice(0, 10);
   }
 
-  private normalizePlatformSelection(value: string[] | string | null | undefined): string[] {
+  private normalizeSelection(value: string[] | string | null | undefined): string[] {
     const normalizedValues = Array.isArray(value)
       ? value
       : typeof value === 'string'

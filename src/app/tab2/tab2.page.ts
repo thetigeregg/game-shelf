@@ -29,6 +29,8 @@ export class Tab2Page {
 
   filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   platformOptions: string[] = [];
+  genreOptions: string[] = [];
+  tagOptions: string[] = [];
   displayedGames: GameEntry[] = [];
   listSearchQuery = '';
   groupBy: GameGroupByField = 'none';
@@ -47,10 +49,18 @@ export class Tab2Page {
     const normalizedPlatforms = Array.isArray(filters.platform)
       ? filters.platform.filter(platform => typeof platform === 'string' && platform.trim().length > 0)
       : [];
+    const normalizedGenres = Array.isArray(filters.genres)
+      ? filters.genres.filter(genre => typeof genre === 'string' && genre.trim().length > 0)
+      : [];
+    const normalizedTags = Array.isArray(filters.tags)
+      ? filters.tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0)
+      : [];
 
     this.filters = {
       ...filters,
       platform: normalizedPlatforms,
+      genres: normalizedGenres,
+      tags: normalizedTags,
       sortField: this.isValidSortField(filters.sortField) ? filters.sortField : DEFAULT_GAME_LIST_FILTERS.sortField,
       sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',
     };
@@ -65,6 +75,30 @@ export class Tab2Page {
       this.filters = {
         ...this.filters,
         platform: normalizedSelection,
+      };
+    }
+  }
+
+  onGenreOptionsChange(genreOptions: string[]): void {
+    this.genreOptions = genreOptions;
+    const normalizedSelection = this.filters.genres.filter(genre => genreOptions.includes(genre));
+
+    if (normalizedSelection.length !== this.filters.genres.length) {
+      this.filters = {
+        ...this.filters,
+        genres: normalizedSelection,
+      };
+    }
+  }
+
+  onTagOptionsChange(tagOptions: string[]): void {
+    this.tagOptions = tagOptions;
+    const normalizedSelection = this.filters.tags.filter(tag => tagOptions.includes(tag));
+
+    if (normalizedSelection.length !== this.filters.tags.length) {
+      this.filters = {
+        ...this.filters,
+        tags: normalizedSelection,
       };
     }
   }

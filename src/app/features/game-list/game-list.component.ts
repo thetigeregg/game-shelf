@@ -36,6 +36,8 @@ export class GameListComponent implements OnChanges {
   @Input() searchQuery = '';
   @Input() groupBy: GameGroupByField = 'none';
   @Output() platformOptionsChange = new EventEmitter<string[]>();
+  @Output() genreOptionsChange = new EventEmitter<string[]>();
+  @Output() tagOptionsChange = new EventEmitter<string[]>();
   @Output() displayedGamesChange = new EventEmitter<GameEntry[]>();
 
   games$: Observable<GameEntry[]> = of([]);
@@ -60,6 +62,8 @@ export class GameListComponent implements OnChanges {
       const allGames$ = this.gameShelfService.watchList(this.listType).pipe(
         tap(games => {
           this.platformOptionsChange.emit(this.extractPlatforms(games));
+          this.genreOptionsChange.emit(this.extractGenres(games));
+          this.tagOptionsChange.emit(this.extractTags(games));
         })
       );
 
@@ -301,11 +305,27 @@ export class GameListComponent implements OnChanges {
           .filter(platform => platform.length > 0)
       )]
       : [];
+    const normalizedGenres = Array.isArray(filters.genres)
+      ? [...new Set(
+        filters.genres
+          .map(genre => (typeof genre === 'string' ? genre.trim() : ''))
+          .filter(genre => genre.length > 0)
+      )]
+      : [];
+    const normalizedTags = Array.isArray(filters.tags)
+      ? [...new Set(
+        filters.tags
+          .map(tag => (typeof tag === 'string' ? tag.trim() : ''))
+          .filter(tag => tag.length > 0)
+      )]
+      : [];
 
     return {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...filters,
       platform: normalizedPlatforms,
+      genres: normalizedGenres,
+      tags: normalizedTags,
     };
   }
 
@@ -315,6 +335,42 @@ export class GameListComponent implements OnChanges {
         .map(game => game.platform?.trim() ?? '')
         .filter(platform => platform.length > 0)
     )].sort((a, b) => a.localeCompare(b));
+  }
+
+  private extractGenres(games: GameEntry[]): string[] {
+    const genreSet = new Set<string>();
+
+    games.forEach((game: GameEntry) => {
+      const genres = Array.isArray(game.genres) ? game.genres : [];
+
+      genres.forEach((genre: string) => {
+        const normalized = typeof genre === 'string' ? genre.trim() : '';
+
+        if (normalized.length > 0) {
+          genreSet.add(normalized);
+        }
+      });
+    });
+
+    return Array.from(genreSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }
+
+  private extractTags(games: GameEntry[]): string[] {
+    const tagSet = new Set<string>();
+
+    games.forEach((game: GameEntry) => {
+      const tags = Array.isArray(game.tags) ? game.tags : [];
+
+      tags.forEach(tag => {
+        const normalized = typeof tag?.name === 'string' ? tag.name.trim() : '';
+
+        if (normalized.length > 0) {
+          tagSet.add(normalized);
+        }
+      });
+    });
+
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }
 
   private applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
@@ -474,6 +530,30 @@ export class GameListComponent implements OnChanges {
 
     if (filters.platform.length > 0 && !filters.platform.includes(game.platform ?? '')) {
       return false;
+    }
+
+    if (filters.genres.length > 0) {
+      const gameGenres = Array.isArray(game.genres)
+        ? game.genres
+          .map(genre => (typeof genre === 'string' ? genre.trim() : ''))
+          .filter(genre => genre.length > 0)
+        : [];
+
+      if (!filters.genres.some(selectedGenre => gameGenres.includes(selectedGenre))) {
+        return false;
+      }
+    }
+
+    if (filters.tags.length > 0) {
+      const gameTagNames = Array.isArray(game.tags)
+        ? game.tags
+          .map(tag => (typeof tag?.name === 'string' ? tag.name.trim() : ''))
+          .filter(tagName => tagName.length > 0)
+        : [];
+
+      if (!filters.tags.some(selectedTag => gameTagNames.includes(selectedTag))) {
+        return false;
+      }
     }
 
     const gameDate = this.getDateOnly(game.releaseDate);

@@ -70,6 +70,8 @@ export interface GameListFilters {
   sortField: GameSortField;
   sortDirection: SortDirection;
   platform: string[];
+  genres: string[];
+  tags: string[];
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
 }
@@ -78,6 +80,8 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   sortField: 'title',
   sortDirection: 'asc',
   platform: [],
+  genres: [],
+  tags: [],
   releaseDateFrom: null,
   releaseDateTo: null,
 };

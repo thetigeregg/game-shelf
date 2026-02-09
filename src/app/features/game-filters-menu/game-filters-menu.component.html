@@ -41,6 +41,36 @@
       </ion-item>
 
       <ion-item>
+        <ion-select
+          label="Genre"
+          labelPlacement="stacked"
+          placeholder="All genres"
+          [multiple]="true"
+          [ngModel]="draftFilters.genres"
+          (ngModelChange)="onGenreSelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let genre of genreOptions" [value]="genre">
+            {{ genre }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
+          label="Tags"
+          labelPlacement="stacked"
+          placeholder="All tags"
+          [multiple]="true"
+          [ngModel]="draftFilters.tags"
+          (ngModelChange)="onTagSelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let tag of tagOptions" [value]="tag">
+            {{ tag }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
         <ion-label>Release date from</ion-label>
         <ion-datetime-button slot="end" [datetime]="releaseDateFromDatetimeId"></ion-datetime-button>
       </ion-item>

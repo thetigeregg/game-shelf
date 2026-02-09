@@ -7,6 +7,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
+  GameRatingFilterOption,
   GameRating,
   GameStatusFilterOption,
   GameStatus,
@@ -778,6 +779,18 @@ export class GameListComponent implements OnChanges {
           .filter(tag => tag.length > 0)
       )]
       : [];
+    const normalizedRatings = Array.isArray(filters.ratings)
+      ? [...new Set(
+        filters.ratings.filter(rating =>
+          rating === 'none'
+          || rating === 1
+          || rating === 2
+          || rating === 3
+          || rating === 4
+          || rating === 5
+        )
+      )]
+      : [];
     const hasNoneTagFilter = normalizedTags.includes(this.noneTagFilterValue);
     const normalizedTagNames = normalizedTags.filter(tag => tag !== this.noneTagFilterValue);
 
@@ -788,6 +801,7 @@ export class GameListComponent implements OnChanges {
       genres: normalizedGenres,
       statuses: normalizedStatuses,
       tags: hasNoneTagFilter ? [this.noneTagFilterValue, ...normalizedTagNames] : normalizedTagNames,
+      ratings: normalizedRatings,
     };
   }
 
@@ -1029,6 +1043,16 @@ export class GameListComponent implements OnChanges {
       const matchesNoTags = matchesNoneTagFilter && gameTagNames.length === 0;
 
       if (!matchesSelectedTag && !matchesNoTags) {
+        return false;
+      }
+    }
+
+    if (filters.ratings.length > 0) {
+      const gameRating = this.normalizeRating(game.rating);
+      const matchesNone = gameRating === null && filters.ratings.includes('none');
+      const matchesRating = gameRating !== null && filters.ratings.includes(gameRating as GameRatingFilterOption);
+
+      if (!matchesNone && !matchesRating) {
         return false;
       }
     }

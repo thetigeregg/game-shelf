@@ -3,6 +3,7 @@ export type CoverSource = 'thegamesdb' | 'igdb' | 'none';
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 export type GameStatusFilterOption = GameStatus | 'none';
 export type GameRating = 1 | 2 | 3 | 4 | 5;
+export type GameRatingFilterOption = GameRating | 'none';
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -78,6 +79,7 @@ export interface GameListFilters {
   genres: string[];
   statuses: GameStatusFilterOption[];
   tags: string[];
+  ratings: GameRatingFilterOption[];
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
 }
@@ -89,6 +91,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   genres: [],
   statuses: [],
   tags: [],
+  ratings: [],
   releaseDateFrom: null,
   releaseDateTo: null,
 };

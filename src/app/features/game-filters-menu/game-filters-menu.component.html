@@ -100,6 +100,21 @@
       </ion-item>
 
       <ion-item>
+        <ion-select
+          label="Rating"
+          labelPlacement="stacked"
+          placeholder="All ratings"
+          [multiple]="true"
+          [ngModel]="draftFilters.ratings"
+          (ngModelChange)="onRatingSelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let rating of ratingOptions" [value]="rating">
+            {{ getRatingLabel(rating) }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
         <ion-label>Release date from</ion-label>
         <ion-datetime-button slot="end" [datetime]="releaseDateFromDatetimeId"></ion-datetime-button>
       </ion-item>

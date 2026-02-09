@@ -1,5 +1,11 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
-import { DEFAULT_GAME_LIST_FILTERS, GameGroupByField, GameListFilters, GameStatusFilterOption } from '../../core/models/game.models';
+import {
+  DEFAULT_GAME_LIST_FILTERS,
+  GameGroupByField,
+  GameListFilters,
+  GameRatingFilterOption,
+  GameStatusFilterOption
+} from '../../core/models/game.models';
 
 type SortOption =
   | 'title:asc'
@@ -20,6 +26,7 @@ type SortOption =
 export class GameFiltersMenuComponent implements OnChanges {
   readonly noneTagFilterValue = '__none__';
   readonly statusOptions: GameStatusFilterOption[] = ['none', 'playing', 'wantToPlay', 'completed', 'paused', 'dropped', 'replay'];
+  readonly ratingOptions: GameRatingFilterOption[] = ['none', 1, 2, 3, 4, 5];
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
     { value: 'platform', label: 'Platform' },
@@ -120,6 +127,15 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.updateFilters();
   }
 
+  onRatingSelectionChange(value: GameRatingFilterOption[] | GameRatingFilterOption | null | undefined): void {
+    const normalized = this.normalizeRatingSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      ratings: normalized,
+    };
+    this.updateFilters();
+  }
+
   onReleaseDateFromChange(value: string | string[] | null | undefined): void {
     this.draftFilters = {
       ...this.draftFilters,
@@ -172,6 +188,14 @@ export class GameFiltersMenuComponent implements OnChanges {
     return 'Replay';
   }
 
+  getRatingLabel(rating: GameRatingFilterOption): string {
+    if (rating === 'none') {
+      return 'None';
+    }
+
+    return `${rating}`;
+  }
+
   private toDateOnly(value: string | string[] | null | undefined): string | null {
     if (typeof value !== 'string' || value.length < 10) {
       return null;
@@ -210,6 +234,25 @@ export class GameFiltersMenuComponent implements OnChanges {
         || status === 'paused'
         || status === 'dropped'
         || status === 'replay'
+      )
+    )];
+  }
+
+  private normalizeRatingSelection(value: GameRatingFilterOption[] | GameRatingFilterOption | null | undefined): GameRatingFilterOption[] {
+    const normalizedValues = Array.isArray(value)
+      ? value
+      : value !== null && value !== undefined
+        ? [value]
+        : [];
+
+    return [...new Set(
+      normalizedValues.filter(rating =>
+        rating === 'none'
+        || rating === 1
+        || rating === 2
+        || rating === 3
+        || rating === 4
+        || rating === 5
       )
     )];
   }

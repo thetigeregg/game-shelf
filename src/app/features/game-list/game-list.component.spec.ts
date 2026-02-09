@@ -144,6 +144,7 @@ describe('GameListComponent', () => {
       genres: [],
       statuses: [],
       tags: [],
+      ratings: [],
       releaseDateFrom: null,
       releaseDateTo: null,
     };

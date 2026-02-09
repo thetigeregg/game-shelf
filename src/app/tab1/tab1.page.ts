@@ -78,6 +78,16 @@ export class Tab1Page {
     const normalizedTags = Array.isArray(filters.tags)
       ? filters.tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0)
       : [];
+    const normalizedRatings = Array.isArray(filters.ratings)
+      ? filters.ratings.filter(rating =>
+        rating === 'none'
+        || rating === 1
+        || rating === 2
+        || rating === 3
+        || rating === 4
+        || rating === 5
+      )
+      : [];
 
     this.filters = {
       ...filters,
@@ -85,6 +95,7 @@ export class Tab1Page {
       genres: normalizedGenres,
       statuses: normalizedStatuses,
       tags: normalizedTags,
+      ratings: normalizedRatings,
       sortField: this.isValidSortField(filters.sortField) ? filters.sortField : DEFAULT_GAME_LIST_FILTERS.sortField,
       sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',
     };

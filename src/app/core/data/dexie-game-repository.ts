@@ -418,6 +418,16 @@ export class DexieGameRepository implements GameRepository {
     const tags = Array.isArray(source.tags)
       ? [...new Set(source.tags.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
       : [];
+    const ratings = Array.isArray(source.ratings)
+      ? [...new Set(source.ratings.filter(rating =>
+        rating === 'none'
+        || rating === 1
+        || rating === 2
+        || rating === 3
+        || rating === 4
+        || rating === 5
+      ))]
+      : [];
     const releaseDateFrom = typeof source.releaseDateFrom === 'string' && source.releaseDateFrom.length >= 10
       ? source.releaseDateFrom.slice(0, 10)
       : null;
@@ -432,6 +442,7 @@ export class DexieGameRepository implements GameRepository {
       genres,
       statuses,
       tags,
+      ratings,
       releaseDateFrom,
       releaseDateTo,
     };

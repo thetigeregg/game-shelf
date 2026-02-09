@@ -1,7 +1,15 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { DEFAULT_GAME_LIST_FILTERS, GameListFilters } from '../../core/models/game.models';
 
-type SortOption = 'title:asc' | 'title:desc' | 'releaseDate:asc' | 'releaseDate:desc';
+type SortOption =
+  | 'title:asc'
+  | 'title:desc'
+  | 'releaseDate:asc'
+  | 'releaseDate:desc'
+  | 'createdAt:asc'
+  | 'createdAt:desc'
+  | 'platform:asc'
+  | 'platform:desc';
 
 @Component({
   selector: 'app-game-filters-menu',
@@ -105,6 +113,10 @@ export class GameFiltersMenuComponent implements OnChanges {
     return value === 'title:asc'
       || value === 'title:desc'
       || value === 'releaseDate:asc'
-      || value === 'releaseDate:desc';
+      || value === 'releaseDate:desc'
+      || value === 'createdAt:asc'
+      || value === 'createdAt:desc'
+      || value === 'platform:asc'
+      || value === 'platform:desc';
   }
 }

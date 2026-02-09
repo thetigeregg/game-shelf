@@ -62,7 +62,7 @@ export interface GameEntry {
   updatedAt: string;
 }
 
-export type GameSortField = 'title' | 'releaseDate';
+export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';
 export type SortDirection = 'asc' | 'desc';
 export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' | 'tag' | 'genre' | 'publisher' | 'releaseYear';
 

@@ -14,10 +14,14 @@
     <ion-list lines="full">
       <ion-item>
         <ion-select label="Sort" labelPlacement="stacked" [ngModel]="sortOption" (ngModelChange)="onSortOptionChange($event)">
-          <ion-select-option value="title:asc">Game title ↑</ion-select-option>
-          <ion-select-option value="title:desc">Game title ↓</ion-select-option>
+          <ion-select-option value="title:asc">Title ↑</ion-select-option>
+          <ion-select-option value="title:desc">Title ↓</ion-select-option>
+          <ion-select-option value="platform:asc">Platform ↑</ion-select-option>
+          <ion-select-option value="platform:desc">Platform ↓</ion-select-option>
           <ion-select-option value="releaseDate:asc">Release date ↑</ion-select-option>
           <ion-select-option value="releaseDate:desc">Release date ↓</ion-select-option>
+          <ion-select-option value="createdAt:asc">Date added ↑</ion-select-option>
+          <ion-select-option value="createdAt:desc">Date added ↓</ion-select-option>
         </ion-select>
       </ion-item>
 

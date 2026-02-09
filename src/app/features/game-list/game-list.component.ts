@@ -454,6 +454,39 @@ export class GameListComponent implements OnChanges {
       return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
     }
 
+    if (sortField === 'platform') {
+      const leftPlatform = left.platform?.trim() || 'Unknown platform';
+      const rightPlatform = right.platform?.trim() || 'Unknown platform';
+      const platformCompare = leftPlatform.localeCompare(rightPlatform, undefined, { sensitivity: 'base' });
+
+      if (platformCompare !== 0) {
+        return platformCompare;
+      }
+
+      return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+    }
+
+    if (sortField === 'createdAt') {
+      const leftCreatedAt = Date.parse(left.createdAt);
+      const rightCreatedAt = Date.parse(right.createdAt);
+      const leftValid = Number.isNaN(leftCreatedAt) ? null : leftCreatedAt;
+      const rightValid = Number.isNaN(rightCreatedAt) ? null : rightCreatedAt;
+
+      if (leftValid !== null && rightValid !== null && leftValid !== rightValid) {
+        return leftValid - rightValid;
+      }
+
+      if (leftValid !== null && rightValid === null) {
+        return -1;
+      }
+
+      if (leftValid === null && rightValid !== null) {
+        return 1;
+      }
+
+      return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+    }
+
     const leftDate = this.getDateOnly(left.releaseDate);
     const rightDate = this.getDateOnly(right.releaseDate);
 

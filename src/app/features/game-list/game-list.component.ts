@@ -352,12 +352,14 @@ export class GameListComponent implements OnChanges {
   }
 
   private getGroupTitlesForGame(game: GameEntry, groupBy: GameGroupByField): string[] {
+    const noGroupLabel = this.getNoGroupLabel(groupBy);
+
     if (groupBy === 'platform') {
-      return [game.platform?.trim() || 'Unknown platform'];
+      return [game.platform?.trim() || noGroupLabel];
     }
 
     if (groupBy === 'releaseYear') {
-      return [game.releaseYear ? String(game.releaseYear) : 'Unknown year'];
+      return [game.releaseYear ? String(game.releaseYear) : noGroupLabel];
     }
 
     if (groupBy === 'tag') {
@@ -365,23 +367,23 @@ export class GameListComponent implements OnChanges {
         .map(tag => tag.name.trim())
         .filter(name => name.length > 0);
 
-      return tagNames.length > 0 ? [...new Set(tagNames)] : ['No tags'];
+      return tagNames.length > 0 ? [...new Set(tagNames)] : [noGroupLabel];
     }
 
     if (groupBy === 'developer') {
-      return this.getMetadataGroupValues(game.developers, 'Unknown developer');
+      return this.getMetadataGroupValues(game.developers, noGroupLabel);
     }
 
     if (groupBy === 'franchise') {
-      return this.getMetadataGroupValues(game.franchises, 'Unknown franchise');
+      return this.getMetadataGroupValues(game.franchises, noGroupLabel);
     }
 
     if (groupBy === 'genre') {
-      return this.getMetadataGroupValues(game.genres, 'Unknown genre');
+      return this.getMetadataGroupValues(game.genres, noGroupLabel);
     }
 
     if (groupBy === 'publisher') {
-      return this.getMetadataGroupValues(game.publishers, 'Unknown publisher');
+      return this.getMetadataGroupValues(game.publishers, noGroupLabel);
     }
 
     return ['All Games'];
@@ -402,15 +404,17 @@ export class GameListComponent implements OnChanges {
   }
 
   private compareGroupTitles(left: string, right: string, groupBy: GameGroupByField): number {
+    const noGroupLabel = this.getNoGroupLabel(groupBy);
+
+    if (left === noGroupLabel && right !== noGroupLabel) {
+      return -1;
+    }
+
+    if (right === noGroupLabel && left !== noGroupLabel) {
+      return 1;
+    }
+
     if (groupBy === 'releaseYear') {
-      if (left === 'Unknown year' && right !== 'Unknown year') {
-        return 1;
-      }
-
-      if (right === 'Unknown year' && left !== 'Unknown year') {
-        return -1;
-      }
-
       const leftYear = Number.parseInt(left, 10);
       const rightYear = Number.parseInt(right, 10);
 
@@ -420,6 +424,38 @@ export class GameListComponent implements OnChanges {
     }
 
     return left.localeCompare(right, undefined, { sensitivity: 'base' });
+  }
+
+  private getNoGroupLabel(groupBy: GameGroupByField): string {
+    if (groupBy === 'platform') {
+      return '[No Platform]';
+    }
+
+    if (groupBy === 'developer') {
+      return '[No Developer]';
+    }
+
+    if (groupBy === 'franchise') {
+      return '[No Franchise]';
+    }
+
+    if (groupBy === 'tag') {
+      return '[No Tag]';
+    }
+
+    if (groupBy === 'genre') {
+      return '[No Genre]';
+    }
+
+    if (groupBy === 'publisher') {
+      return '[No Publisher]';
+    }
+
+    if (groupBy === 'releaseYear') {
+      return '[No Release Year]';
+    }
+
+    return '[No Group]';
   }
 
   private matchesFilters(game: GameEntry, filters: GameListFilters, searchQuery: string): boolean {

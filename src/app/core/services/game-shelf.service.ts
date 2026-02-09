@@ -53,9 +53,30 @@ export class GameShelfService {
   }
 
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
-    const entry = await this.repository.upsertFromCatalog(result, listType);
+    const normalizedGameId = this.normalizeGameId(result.externalId);
+    const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(result.platformIgdbId);
+    const storedExternalId = this.buildStoredExternalId(normalizedGameId, normalizedPlatformIgdbId);
+    const entry = await this.repository.upsertFromCatalog(
+      {
+        ...result,
+        externalId: storedExternalId,
+        platformIgdbId: normalizedPlatformIgdbId,
+      },
+      listType,
+    );
     this.listRefresh$.next();
     return entry;
+  }
+
+  async findGameByIdentity(gameExternalId: string, platformIgdbId: number | null | undefined): Promise<GameEntry | undefined> {
+    const normalizedGameId = this.normalizeGameId(gameExternalId);
+    const normalizedPlatform = this.normalizePlatformIgdbId(platformIgdbId);
+    const games = await this.repository.listAll();
+
+    return games.find(game => {
+      return this.getGameIdFromStoredExternalId(game.externalId) === normalizedGameId
+        && this.normalizePlatformIgdbId(game.platformIgdbId) === normalizedPlatform;
+    });
   }
 
   async moveGame(externalId: string, targetList: ListType): Promise<void> {
@@ -75,7 +96,8 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
-    const refreshed = await firstValueFrom(this.searchApi.getGameById(externalId));
+    const igdbGameId = this.getGameIdFromStoredExternalId(externalId);
+    const refreshed = await firstValueFrom(this.searchApi.getGameById(igdbGameId));
     const resolvedPlatform = this.resolvePlatformSelection(
       existing.platform,
       existing.platformIgdbId ?? null,
@@ -88,6 +110,7 @@ export class GameShelfService {
     const updated = await this.repository.upsertFromCatalog(
       {
         ...refreshed,
+        externalId: existing.externalId,
         platform: resolvedPlatform.platform,
         platformIgdbId: resolvedPlatform.platformIgdbId,
         coverUrl: existing.coverUrl,
@@ -316,5 +339,28 @@ export class GameShelfService {
   private normalizeTagColor(value: string): string {
     const normalized = value.trim();
     return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : '#3880ff';
+  }
+
+  private buildStoredExternalId(gameExternalId: string, platformIgdbId: number | null): string {
+    return `${gameExternalId}::${platformIgdbId ?? 'none'}`;
+  }
+
+  private getGameIdFromStoredExternalId(storedExternalId: string): string {
+    const normalized = this.normalizeGameId(storedExternalId);
+    const separatorIndex = normalized.indexOf('::');
+
+    if (separatorIndex <= 0) {
+      return normalized;
+    }
+
+    return normalized.slice(0, separatorIndex);
+  }
+
+  private normalizeGameId(value: string): string {
+    return String(value ?? '').trim();
+  }
+
+  private normalizePlatformIgdbId(value: number | null | undefined): number | null {
+    return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
   }
 }

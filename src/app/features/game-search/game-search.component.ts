@@ -117,6 +117,13 @@ export class GameSearchComponent implements OnInit, OnDestroy {
         return;
       }
 
+      const existingEntry = await this.gameShelfService.findGameByIdentity(result.externalId, platformSelection.id);
+
+      if (existingEntry) {
+        await this.presentDuplicateAlert(result.title, platformSelection.name);
+        return;
+      }
+
       const resolvedForAdd = await this.resolveCoverForAdd(result, platformSelection);
 
       await this.gameShelfService.addGame(
@@ -311,5 +318,16 @@ export class GameSearchComponent implements OnInit, OnDestroy {
       query: this.query,
       platformIgdbId: this.selectedSearchPlatformIgdbId,
     });
+  }
+
+  private async presentDuplicateAlert(title: string, platformName: string | null): Promise<void> {
+    const platformSuffix = platformName ? ` on ${platformName}` : '';
+    const alert = await this.alertController.create({
+      header: 'Duplicate Game',
+      message: `${title}${platformSuffix} is already in your game shelf.`,
+      buttons: ['OK'],
+    });
+
+    await alert.present();
   }
 }

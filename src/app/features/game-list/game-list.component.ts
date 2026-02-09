@@ -551,7 +551,7 @@ export class GameListComponent implements OnChanges {
     }
 
     if (status === 'dropped') {
-      return 'trash';
+      return 'trash-bin';
     }
 
     if (status === 'completed') {

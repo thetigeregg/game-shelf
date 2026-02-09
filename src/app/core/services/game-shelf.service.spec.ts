@@ -150,14 +150,21 @@ describe('GameShelfService', () => {
   it('delegates box art title search for valid query', async () => {
     searchApi.searchBoxArtByTitle.and.returnValue(of(['https://example.com/cover.jpg']));
     const results = await firstValueFrom(service.searchBoxArtByTitle('mario'));
-    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', undefined);
+    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', undefined, undefined);
     expect(results).toEqual(['https://example.com/cover.jpg']);
   });
 
   it('delegates box art title search with platform for valid query', async () => {
     searchApi.searchBoxArtByTitle.and.returnValue(of(['https://example.com/cover.jpg']));
     const results = await firstValueFrom(service.searchBoxArtByTitle('mario', 'Nintendo Switch'));
-    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', 'Nintendo Switch');
+    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', 'Nintendo Switch', undefined);
+    expect(results).toEqual(['https://example.com/cover.jpg']);
+  });
+
+  it('delegates box art title search with IGDB platform id for valid query', async () => {
+    searchApi.searchBoxArtByTitle.and.returnValue(of(['https://example.com/cover.jpg']));
+    const results = await firstValueFrom(service.searchBoxArtByTitle('mario', 'Nintendo Switch', 130));
+    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', 'Nintendo Switch', 130);
     expect(results).toEqual(['https://example.com/cover.jpg']);
   });
 

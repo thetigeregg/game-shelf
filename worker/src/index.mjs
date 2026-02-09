@@ -1,3 +1,5 @@
+import { IGDB_TO_THEGAMESDB_PLATFORM_ID } from './platform-id-map.mjs';
+
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
@@ -44,9 +46,34 @@ function normalizePlatformQuery(url) {
   return (url.searchParams.get('platform') ?? '').trim();
 }
 
+function normalizePlatformIgdbIdQuery(url) {
+  const raw = (url.searchParams.get('platformIgdbId') ?? '').trim();
+
+  if (!/^\d+$/.test(raw)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function normalizeGameIdFromPath(pathname) {
   const match = pathname.match(/^\/v1\/games\/(\d+)$/);
   return match ? match[1] : null;
+}
+
+function resolveTheGamesDbPlatformId(igdbPlatformId) {
+  if (!Number.isInteger(igdbPlatformId) || igdbPlatformId <= 0) {
+    return null;
+  }
+
+  const mapped = IGDB_TO_THEGAMESDB_PLATFORM_ID.get(igdbPlatformId);
+  return Number.isInteger(mapped) && mapped > 0 ? mapped : null;
 }
 
 function normalizeIgdbReferenceId(value) {
@@ -187,13 +214,22 @@ export function buildCoverUrl(imageId) {
 }
 
 export function normalizeIgdbGame(game) {
-  const platforms = Array.isArray(game.platforms)
-    ? [...new Set(
-      game.platforms
-        .map(platform => typeof platform?.name === 'string' ? platform.name.trim() : '')
-        .filter(name => name.length > 0)
-    )]
+  const platformOptions = Array.isArray(game.platforms)
+    ? game.platforms
+      .map(platform => {
+        const name = typeof platform?.name === 'string' ? platform.name.trim() : '';
+        const id = Number.isFinite(platform?.id) ? Math.trunc(platform.id) : null;
+        return {
+          id: Number.isInteger(id) && id > 0 ? id : null,
+          name,
+        };
+      })
+      .filter(platform => platform.name.length > 0)
+      .filter((platform, index, items) => {
+        return items.findIndex(candidate => candidate.id === platform.id && candidate.name === platform.name) === index;
+      })
     : [];
+  const platforms = [...new Set(platformOptions.map(platform => platform.name))];
   const releaseYear = Number.isFinite(game.first_release_date)
     ? new Date(game.first_release_date * 1000).getUTCFullYear()
     : null;
@@ -207,6 +243,7 @@ export function normalizeIgdbGame(game) {
     coverUrl: buildCoverUrl(game.cover?.image_id ?? null),
     coverSource: game.cover?.image_id ? 'igdb' : 'none',
     platforms,
+    platformOptions,
     platform: platforms.length === 1 ? platforms[0] : null,
     releaseDate,
     releaseYear,
@@ -431,40 +468,88 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
     .slice(0, MAX_BOX_ART_RESULTS);
 }
 
-async function fetchTheGamesDbBoxArtPayload(title, platform, env, fetchImpl) {
+async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fetchImpl) {
   const apiKey = getTheGamesDbApiKey(env);
+  const normalizedPlatformId = Number.isInteger(theGamesDbPlatformId) && theGamesDbPlatformId > 0
+    ? theGamesDbPlatformId
+    : null;
 
   if (!apiKey) {
-    throw new Error('Missing TheGamesDB API key');
+    console.warn('[thegamesdb] missing_api_key');
+    return null;
   }
 
   const searchUrl = new URL('https://api.thegamesdb.net/v1.1/Games/ByGameName');
   searchUrl.searchParams.set('apikey', apiKey);
   searchUrl.searchParams.set('name', title);
   searchUrl.searchParams.set('include', 'boxart');
-  const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
 
-  if (normalizedPlatform.length > 0) {
-    searchUrl.searchParams.set('filter[platform]', normalizedPlatform);
+  if (normalizedPlatformId !== null) {
+    searchUrl.searchParams.set('filter[platform]', String(normalizedPlatformId));
   }
 
-  const response = await fetchImpl(searchUrl.toString(), { method: 'GET' });
+  try {
+    const response = await fetchImpl(searchUrl.toString(), { method: 'GET' });
 
-  if (!response.ok) {
-    throw new Error('TheGamesDB request failed');
+    if (!response.ok) {
+      let payloadSnippet = '';
+
+      try {
+        payloadSnippet = (await response.text()).slice(0, 300);
+      } catch {
+        payloadSnippet = '';
+      }
+
+      console.warn('[thegamesdb] request_failed', {
+        status: response.status,
+        title,
+        hasPlatformFilter: normalizedPlatformId !== null,
+        payload: payloadSnippet,
+      });
+      return null;
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      console.warn('[thegamesdb] invalid_json', {
+        title,
+        hasPlatformFilter: normalizedPlatformId !== null,
+      });
+      return null;
+    }
+  } catch (error) {
+    console.warn('[thegamesdb] request_exception', {
+      title,
+      hasPlatformFilter: normalizedPlatformId !== null,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
   }
-
-  return response.json();
 }
 
-async function searchTheGamesDbBoxArtCandidates(title, platform, env, fetchImpl) {
+async function searchTheGamesDbBoxArtCandidates(title, platform, platformIgdbId, env, fetchImpl) {
   const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
-  const payload = await fetchTheGamesDbBoxArtPayload(title, normalizedPlatform, env, fetchImpl);
-  let candidates = findTheGamesDbBoxArtCandidates(payload, title, normalizedPlatform);
+  const normalizedPlatformIgdbId = Number.isInteger(platformIgdbId) && platformIgdbId > 0
+    ? platformIgdbId
+    : null;
+  const mappedPlatformId = normalizedPlatformIgdbId !== null
+    ? resolveTheGamesDbPlatformId(normalizedPlatformIgdbId)
+    : null;
 
-  if (candidates.length === 0 && normalizedPlatform.length > 0) {
+  if (normalizedPlatformIgdbId !== null && mappedPlatformId === null) {
+    console.warn('[thegamesdb] missing_platform_mapping', {
+      igdbPlatformId: normalizedPlatformIgdbId,
+      platform: normalizedPlatform || null,
+    });
+  }
+
+  const payload = await fetchTheGamesDbBoxArtPayload(title, mappedPlatformId, env, fetchImpl);
+  let candidates = payload ? findTheGamesDbBoxArtCandidates(payload, title, normalizedPlatform) : [];
+
+  if (candidates.length === 0 && mappedPlatformId !== null) {
     const fallbackPayload = await fetchTheGamesDbBoxArtPayload(title, null, env, fetchImpl);
-    candidates = findTheGamesDbBoxArtCandidates(fallbackPayload, title, null);
+    candidates = fallbackPayload ? findTheGamesDbBoxArtCandidates(fallbackPayload, title, null) : [];
   }
 
   return candidates;
@@ -508,15 +593,15 @@ async function fetchAppToken(env, fetchImpl, nowMs) {
 async function searchIgdb(query, env, token, fetchImpl) {
   const queryVariants = [
     {
-      fields: 'id,name,first_release_date,cover.image_id,platforms.name,total_rating_count,category,parent_game',
+      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,category,parent_game',
       sort: null,
     },
     {
-      fields: 'id,name,first_release_date,cover.image_id,platforms.name,follows,category,parent_game',
+      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,follows,category,parent_game',
       sort: null,
     },
     {
-      fields: 'id,name,first_release_date,cover.image_id,platforms.name,category,parent_game',
+      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,category,parent_game',
       sort: null,
     },
   ];
@@ -618,7 +703,7 @@ async function searchIgdb(query, env, token, fetchImpl) {
 async function fetchIgdbById(gameId, env, token, fetchImpl) {
   const body = [
     `where id = ${gameId};`,
-    'fields id,name,first_release_date,cover.image_id,platforms.name;',
+    'fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name;',
     'limit 1;',
   ].join(' ');
 
@@ -684,7 +769,8 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
     if (isBoxArtSearchRoute) {
       const query = normalizeSearchQuery(url);
       const platform = normalizePlatformQuery(url);
-      const items = await searchTheGamesDbBoxArtCandidates(query, platform, env, fetchImpl);
+      const platformIgdbId = normalizePlatformIgdbIdQuery(url);
+      const items = await searchTheGamesDbBoxArtCandidates(query, platform, platformIgdbId, env, fetchImpl);
       return jsonResponse({ items }, 200);
     }
 

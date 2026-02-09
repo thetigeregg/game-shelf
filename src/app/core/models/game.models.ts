@@ -1,12 +1,18 @@
 export type ListType = 'collection' | 'wishlist';
 export type CoverSource = 'thegamesdb' | 'igdb' | 'none';
 
+export interface GameCatalogPlatformOption {
+  id: number | null;
+  name: string;
+}
+
 export interface GameCatalogResult {
   externalId: string;
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
   platforms: string[];
+  platformOptions?: GameCatalogPlatformOption[];
   platform: string | null;
   releaseDate: string | null;
   releaseYear: number | null;

@@ -39,6 +39,7 @@ describe('IgdbProxyService', () => {
         coverUrl: null,
         coverSource: 'none',
         platforms: ['Nintendo Switch'],
+        platformOptions: [{ id: null, name: 'Nintendo Switch' }],
         platform: 'Nintendo Switch',
         releaseDate: '2017-10-27T00:00:00.000Z',
         releaseYear: 2017,
@@ -88,6 +89,10 @@ describe('IgdbProxyService', () => {
         coverUrl: 'https://example.com/cover.jpg',
         coverSource: 'thegamesdb',
         platforms: ['Nintendo Switch', 'Wii U'],
+        platformOptions: [
+          { id: null, name: 'Nintendo Switch' },
+          { id: null, name: 'Wii U' },
+        ],
         platform: null,
         releaseDate: '2017-10-27T00:00:00.000Z',
         releaseYear: 2017,
@@ -148,7 +153,7 @@ describe('IgdbProxyService', () => {
   });
 
   it('includes platform in box art search query params when provided', done => {
-    service.searchBoxArtByTitle('mario', 'Nintendo Switch').subscribe(results => {
+    service.searchBoxArtByTitle('mario', 'Nintendo Switch', 130).subscribe(results => {
       expect(results).toEqual([
         'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
       ]);
@@ -158,7 +163,8 @@ describe('IgdbProxyService', () => {
     const req = httpMock.expectOne(request => {
       return request.url === `${environment.gameApiBaseUrl}/v1/images/boxart/search`
         && request.params.get('q') === 'mario'
-        && request.params.get('platform') === 'Nintendo Switch';
+        && request.params.get('platform') === 'Nintendo Switch'
+        && request.params.get('platformIgdbId') === '130';
     });
 
     req.flush({

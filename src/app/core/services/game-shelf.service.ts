@@ -68,14 +68,14 @@ export class GameShelfService {
     return updated;
   }
 
-  searchBoxArtByTitle(query: string, platform?: string | null): Observable<string[]> {
+  searchBoxArtByTitle(query: string, platform?: string | null, platformIgdbId?: number | null): Observable<string[]> {
     const normalized = query.trim();
 
     if (normalized.length < 2) {
       return of([]);
     }
 
-    return this.searchApi.searchBoxArtByTitle(normalized, platform);
+    return this.searchApi.searchBoxArtByTitle(normalized, platform, platformIgdbId);
   }
 
   async updateGameCover(externalId: string, coverUrl: string): Promise<GameEntry> {

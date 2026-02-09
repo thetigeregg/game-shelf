@@ -2,8 +2,13 @@ import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
 import { AlertController, ToastController } from '@ionic/angular';
 import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
-import { GameCatalogResult, ListType } from '../../core/models/game.models';
+import { GameCatalogPlatformOption, GameCatalogResult, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
+
+interface SelectedPlatform {
+  id: number | null;
+  name: string | null;
+}
 
 @Component({
   selector: 'app-game-search',
@@ -86,18 +91,18 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     this.addingExternalIds.add(result.externalId);
 
     try {
-      const platform = await this.resolvePlatformSelection(result);
+      const platformSelection = await this.resolvePlatformSelection(result);
 
-      if (platform === undefined) {
+      if (platformSelection === undefined) {
         return;
       }
 
-      const resolvedForAdd = await this.resolveCoverForAdd(result, platform);
+      const resolvedForAdd = await this.resolveCoverForAdd(result, platformSelection);
 
       await this.gameShelfService.addGame(
         {
           ...resolvedForAdd,
-          platform,
+          platform: platformSelection.name,
         },
         this.listType
       );
@@ -131,7 +136,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     }
 
     if (platforms.length === 1) {
-      return platforms[0];
+      return platforms[0].name;
     }
 
     return `${platforms.length} platforms`;
@@ -149,26 +154,26 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  private async resolvePlatformSelection(result: GameCatalogResult): Promise<string | null | undefined> {
+  private async resolvePlatformSelection(result: GameCatalogResult): Promise<SelectedPlatform | undefined> {
     const platforms = this.getPlatformOptions(result);
 
     if (platforms.length === 0) {
-      return null;
+      return { id: null, name: null };
     }
 
     if (platforms.length === 1) {
       return platforms[0];
     }
 
-    let selectedPlatform = platforms[0];
+    let selectedIndex = 0;
     const alert = await this.alertController.create({
       header: 'Choose platform',
       message: `Select a platform for ${result.title}.`,
-      inputs: platforms.map(platform => ({
+      inputs: platforms.map((platform, index) => ({
         type: 'radio',
-        label: platform,
-        value: platform,
-        checked: platform === selectedPlatform,
+        label: platform.name,
+        value: String(index),
+        checked: index === selectedIndex,
       })),
       buttons: [
         {
@@ -179,8 +184,10 @@ export class GameSearchComponent implements OnInit, OnDestroy {
           text: 'Add',
           role: 'confirm',
           handler: (value: string) => {
-            if (typeof value === 'string' && value.length > 0) {
-              selectedPlatform = value;
+            const parsed = Number.parseInt(value, 10);
+
+            if (Number.isInteger(parsed) && parsed >= 0 && parsed < platforms.length) {
+              selectedIndex = parsed;
             }
           },
         },
@@ -194,16 +201,34 @@ export class GameSearchComponent implements OnInit, OnDestroy {
       return undefined;
     }
 
-    return selectedPlatform;
+    return platforms[selectedIndex];
   }
 
-  private getPlatformOptions(result: GameCatalogResult): string[] {
+  private getPlatformOptions(result: GameCatalogResult): GameCatalogPlatformOption[] {
+    if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
+      return result.platformOptions
+        .map(option => {
+          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+            ? option.id
+            : null;
+          return { id, name };
+        })
+        .filter(option => option.name.length > 0)
+        .filter((option, index, items) => {
+          return items.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
+        });
+    }
+
     if (Array.isArray(result.platforms) && result.platforms.length > 0) {
-      return result.platforms;
+      return result.platforms
+        .map(platform => typeof platform === 'string' ? platform.trim() : '')
+        .filter(platform => platform.length > 0)
+        .map(platform => ({ id: null, name: platform }));
     }
 
     if (typeof result.platform === 'string' && result.platform.trim().length > 0) {
-      return [result.platform.trim()];
+      return [{ id: null, name: result.platform.trim() }];
     }
 
     return [];
@@ -213,9 +238,11 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     return this.listType === 'collection' ? 'Collection' : 'Wishlist';
   }
 
-  private async resolveCoverForAdd(result: GameCatalogResult, platform: string | null): Promise<GameCatalogResult> {
+  private async resolveCoverForAdd(result: GameCatalogResult, platform: SelectedPlatform): Promise<GameCatalogResult> {
     try {
-      const candidates = await firstValueFrom(this.gameShelfService.searchBoxArtByTitle(result.title, platform));
+      const candidates = await firstValueFrom(
+        this.gameShelfService.searchBoxArtByTitle(result.title, platform.name, platform.id)
+      );
       const boxArtUrl = candidates[0];
 
       if (!boxArtUrl) {

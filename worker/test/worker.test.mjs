@@ -84,6 +84,7 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
     coverSource: 'igdb',
     platforms: ['Nintendo Switch'],
+    platformOptions: [{ id: null, name: 'Nintendo Switch' }],
     platform: 'Nintendo Switch',
     releaseDate: '2017-10-20T00:00:00.000Z',
     releaseYear: 2017,
@@ -112,7 +113,7 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
         name: 'Mario Kart 8 Deluxe',
         first_release_date: 1488499200,
         cover: { image_id: 'xyz987' },
-        platforms: [{ name: 'Nintendo Switch' }],
+        platforms: [{ id: 130, name: 'Nintendo Switch' }],
       },
     ],
   });
@@ -130,11 +131,12 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(payload.items[0].externalId, '99');
   assert.equal(payload.items[0].title, 'Mario Kart 8 Deluxe');
   assert.deepEqual(payload.items[0].platforms, ['Nintendo Switch']);
+  assert.deepEqual(payload.items[0].platformOptions, [{ id: 130, name: 'Nintendo Switch' }]);
   assert.equal(payload.items[0].coverUrl, 'https://images.igdb.com/igdb/image/upload/t_cover_big/xyz987.jpg');
   assert.equal(payload.items[0].coverSource, 'igdb');
   assert.equal(calls.theGamesDb, 0);
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
-  assert.equal(calls.igdbBodies[0].includes('fields id,name,first_release_date,cover.image_id,platforms.name,total_rating_count,category,parent_game;'), true);
+  assert.equal(calls.igdbBodies[0].includes('fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,category,parent_game;'), true);
 });
 
 test('demotes remakes/remasters below their original game when both are in results', async () => {
@@ -147,7 +149,7 @@ test('demotes remakes/remasters below their original game when both are in resul
         name: 'Epic Mickey: Rebrushed',
         first_release_date: 1725321600,
         cover: { image_id: 'remake-cover' },
-        platforms: [{ name: 'Nintendo Switch' }],
+        platforms: [{ id: 130, name: 'Nintendo Switch' }],
         total_rating_count: 99,
         category: 8,
         version_parent: 200,
@@ -157,7 +159,7 @@ test('demotes remakes/remasters below their original game when both are in resul
         name: 'Epic Mickey',
         first_release_date: 1286150400,
         cover: { image_id: 'original-cover' },
-        platforms: [{ name: 'Wii' }],
+        platforms: [{ id: 6, name: 'Wii' }],
         total_rating_count: 10,
         category: 0,
       },
@@ -193,7 +195,7 @@ test('falls back to reduced IGDB fields when first search variant fails', async 
             name: 'The Legend of Zelda',
             first_release_date: 522547200,
             cover: { image_id: 'zelda-cover' },
-            platforms: [{ name: 'NES' }],
+            platforms: [{ id: 18, name: 'NES' }],
             follows: 777,
             category: 0,
           },
@@ -258,7 +260,7 @@ test('returns normalized game metadata for IGDB id endpoint', async () => {
         name: 'Super Metroid',
         first_release_date: 775353600,
         cover: { image_id: 'supermetroid-cover' },
-        platforms: [{ name: 'SNES' }],
+        platforms: [{ id: 19, name: 'SNES' }],
       },
     ],
   });
@@ -323,7 +325,7 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
   });
 
   const response = await handleRequest(
-    new Request('https://worker.example/v1/images/boxart/search?q=super%20mario&platform=nintendo%20switch'),
+    new Request('https://worker.example/v1/images/boxart/search?q=super%20mario&platform=nintendo%20switch&platformIgdbId=130'),
     env,
     stub,
   );
@@ -333,7 +335,7 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
   assert.equal(Array.isArray(payload.items), true);
   assert.equal(payload.items.length > 0, true);
   assert.equal(payload.items[0], 'https://cdn.thegamesdb.net/images/original/box/front/odyssey.jpg');
-  assert.equal(calls.theGamesDbUrls[0].includes('filter%5Bplatform%5D=nintendo+switch'), true);
+  assert.equal(calls.theGamesDbUrls[0].includes('filter%5Bplatform%5D=4971'), true);
   assert.equal(calls.token, 0);
   assert.equal(calls.igdb, 0);
   assert.equal(calls.theGamesDb, 1);
@@ -349,4 +351,24 @@ test('returns 400 for short box art query', async () => {
   );
 
   assert.equal(response.status, 400);
+});
+
+test('returns empty box art results instead of 502 when TheGamesDB fails', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    theGamesDbStatus: 500,
+    theGamesDbBody: { error: 'thegamesdb_failed' },
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/images/boxart/search?q=metroid'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload, { items: [] });
+  assert.equal(calls.theGamesDb, 1);
 });

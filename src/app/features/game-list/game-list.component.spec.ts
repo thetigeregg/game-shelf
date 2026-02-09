@@ -50,6 +50,7 @@ describe('GameListComponent', () => {
       'refreshGameMetadata',
       'searchBoxArtByTitle',
       'updateGameCover',
+      'setGameStatus',
       'listTags',
       'setGameTags',
     ]);
@@ -60,6 +61,7 @@ describe('GameListComponent', () => {
     gameShelfService.refreshGameMetadata.and.resolveTo(games[0]);
     gameShelfService.searchBoxArtByTitle.and.returnValue(of(['https://example.com/new-cover.jpg']));
     gameShelfService.updateGameCover.and.resolveTo({ ...games[0], coverUrl: 'https://example.com/new-cover.jpg', coverSource: 'thegamesdb' });
+    gameShelfService.setGameStatus.and.resolveTo(games[0]);
     gameShelfService.listTags.and.resolveTo([]);
     gameShelfService.setGameTags.and.resolveTo(games[0]);
 

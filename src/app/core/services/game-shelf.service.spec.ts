@@ -19,6 +19,7 @@ describe('GameShelfService', () => {
       'remove',
       'exists',
       'updateCover',
+      'setGameStatus',
       'setGameTags',
       'listTags',
       'upsertTag',

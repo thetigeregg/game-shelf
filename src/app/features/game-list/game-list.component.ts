@@ -7,6 +7,7 @@ import {
   GameEntry,
   GameGroupByField,
   GameListFilters,
+  GameStatus,
   ListType,
   Tag
 } from '../../core/models/game.models';
@@ -31,6 +32,13 @@ interface GroupedGamesView {
   standalone: false,
 })
 export class GameListComponent implements OnChanges {
+  readonly statusOptions: { value: GameStatus; label: string }[] = [
+    { value: 'playing', label: 'Playing' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'dropped', label: 'Dropped' },
+    { value: 'replay', label: 'Replay' },
+  ];
+
   @Input({ required: true }) listType!: ListType;
   @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   @Input() searchQuery = '';
@@ -117,6 +125,11 @@ export class GameListComponent implements OnChanges {
     await this.openTagsPicker(game);
   }
 
+  async openStatusForGameFromPopover(game: GameEntry): Promise<void> {
+    await this.popoverController.dismiss();
+    await this.openStatusPicker(game);
+  }
+
   getOtherListLabel(): string {
     return this.listType === 'collection' ? 'Wishlist' : 'Collection';
   }
@@ -184,6 +197,36 @@ export class GameListComponent implements OnChanges {
     }
 
     await this.openTagsPicker(this.selectedGame);
+  }
+
+  async onSelectedGameStatusChange(value: GameStatus | null | undefined): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    const normalized = this.normalizeStatus(value);
+
+    try {
+      const updated = await this.gameShelfService.setGameStatus(this.selectedGame.externalId, normalized);
+      this.selectedGame = updated;
+      await this.presentToast('Game status updated.');
+    } catch {
+      await this.presentToast('Unable to update game status.', 'danger');
+    }
+  }
+
+  async clearSelectedGameStatus(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.setGameStatus(this.selectedGame.externalId, null);
+      this.selectedGame = updated;
+      await this.presentToast('Game status cleared.');
+    } catch {
+      await this.presentToast('Unable to clear game status.', 'danger');
+    }
   }
 
   async refreshSelectedGameMetadata(): Promise<void> {
@@ -709,7 +752,7 @@ export class GameListComponent implements OnChanges {
     await alert.present();
     const { role } = await alert.onDidDismiss();
 
-    if (role !== 'confirm') {
+    if (role !== 'confirm' && role !== 'destructive') {
       return;
     }
 
@@ -762,5 +805,70 @@ export class GameListComponent implements OnChanges {
     this.imagePickerResults = [];
     this.imagePickerError = null;
     this.isImagePickerLoading = false;
+  }
+
+  private async openStatusPicker(game: GameEntry): Promise<void> {
+    const currentStatus = this.normalizeStatus(game.status);
+    let nextStatus = currentStatus;
+
+    const alert = await this.alertController.create({
+      header: 'Set Status',
+      message: `Choose a status for ${game.title}.`,
+      inputs: [
+        ...this.statusOptions.map(option => ({
+          type: 'radio' as const,
+          label: option.label,
+          value: option.value,
+          checked: currentStatus === option.value,
+        })),
+      ],
+      buttons: [
+        {
+          text: 'Clear',
+          role: 'destructive',
+          handler: () => {
+            nextStatus = null;
+          },
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: 'Save',
+          role: 'confirm',
+          handler: (value: string | null | undefined) => {
+            nextStatus = this.normalizeStatus(value);
+          },
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.setGameStatus(game.externalId, nextStatus);
+
+      if (this.selectedGame?.externalId === updated.externalId) {
+        this.selectedGame = updated;
+      }
+
+      await this.presentToast('Game status updated.');
+    } catch {
+      await this.presentToast('Unable to update game status.', 'danger');
+    }
+  }
+
+  private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {
+    if (value === 'playing' || value === 'completed' || value === 'dropped' || value === 'replay') {
+      return value;
+    }
+
+    return null;
   }
 }

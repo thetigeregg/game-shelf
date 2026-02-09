@@ -7,6 +7,7 @@ import {
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
+  GameStatus,
   GameTag,
   ListType,
   Tag,
@@ -130,6 +131,18 @@ export class GameShelfService {
     const tags = await this.repository.listTags();
     this.listRefresh$.next();
 
+    return this.attachTags([updated], tags)[0];
+  }
+
+  async setGameStatus(externalId: string, status: GameStatus | null): Promise<GameEntry> {
+    const updated = await this.repository.setGameStatus(externalId, status);
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const tags = await this.repository.listTags();
+    this.listRefresh$.next();
     return this.attachTags([updated], tags)[0];
   }
 

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb } from './app-db';
 import { GameRepository } from './game-repository';
-import { CoverSource, GameCatalogResult, GameEntry, ListType, Tag } from '../models/game.models';
+import { CoverSource, GameCatalogResult, GameEntry, GameStatus, ListType, Tag } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -35,6 +35,7 @@ export class DexieGameRepository implements GameRepository {
         tagIds: this.normalizeTagIds(existing.tagIds),
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
+        status: this.normalizeStatus(existing.status),
         listType: targetList,
         updatedAt: now,
       };
@@ -57,6 +58,7 @@ export class DexieGameRepository implements GameRepository {
       tagIds: [],
       releaseDate: result.releaseDate,
       releaseYear: result.releaseYear,
+      status: null,
       listType: targetList,
       createdAt: now,
       updatedAt: now,
@@ -98,6 +100,23 @@ export class DexieGameRepository implements GameRepository {
       ...existing,
       coverUrl,
       coverSource,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.db.games.put(updated);
+    return updated;
+  }
+
+  async setGameStatus(externalId: string, status: GameStatus | null): Promise<GameEntry | undefined> {
+    const existing = await this.exists(externalId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      status: this.normalizeStatus(status),
       updatedAt: new Date().toISOString(),
     };
 
@@ -212,5 +231,13 @@ export class DexieGameRepository implements GameRepository {
         .map(value => (typeof value === 'string' ? value.trim() : ''))
         .filter(value => value.length > 0)
     )];
+  }
+
+  private normalizeStatus(value: GameStatus | null | undefined): GameStatus | null {
+    if (value === 'completed' || value === 'dropped' || value === 'playing' || value === 'replay') {
+      return value;
+    }
+
+    return null;
   }
 }

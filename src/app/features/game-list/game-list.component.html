@@ -73,6 +73,9 @@
       <ng-template>
         <ion-content>
           <ion-list lines="none">
+            <ion-item button detail="false" (click)="openStatusForGameFromPopover(game)">
+              Set status
+            </ion-item>
             <ion-item button detail="false" (click)="openTagsForGameFromPopover(game)">
               Tags
             </ion-item>
@@ -136,6 +139,30 @@
             <h2>Title</h2>
             <p>{{ game.title }}</p>
           </ion-label>
+        </ion-item>
+        <ion-item>
+          <ion-select
+            label="Status"
+            labelPlacement="stacked"
+            placeholder="Select status"
+            [value]="game.status || undefined"
+            (ionChange)="onSelectedGameStatusChange($any($event).detail.value)"
+          >
+            <ion-select-option *ngFor="let option of statusOptions" [value]="option.value">
+              {{ option.label }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-item lines="none">
+          <ion-button
+            expand="block"
+            fill="outline"
+            color="medium"
+            [disabled]="!game.status"
+            (click)="clearSelectedGameStatus()"
+          >
+            Clear status
+          </ion-button>
         </ion-item>
         <ion-item>
           <ion-label>

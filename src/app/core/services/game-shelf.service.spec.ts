@@ -2,6 +2,7 @@ import { firstValueFrom, of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
+import { GameCatalogResult, GameEntry } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
 
 describe('GameShelfService', () => {
@@ -18,7 +19,7 @@ describe('GameShelfService', () => {
       'exists',
     ]);
 
-    searchApi = jasmine.createSpyObj<GameSearchApi>('GameSearchApi', ['searchGames']);
+    searchApi = jasmine.createSpyObj<GameSearchApi>('GameSearchApi', ['searchGames', 'getGameById']);
 
     TestBed.configureTestingModule({
       providers: [
@@ -45,7 +46,7 @@ describe('GameShelfService', () => {
   });
 
   it('delegates add/move/remove actions to repository', async () => {
-    const mario = {
+    const mario: GameCatalogResult = {
       externalId: '123',
       title: 'Mario Kart',
       coverUrl: null,
@@ -61,7 +62,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    });
+    } as GameEntry);
 
     await service.addGame(mario, 'collection');
     await service.moveGame('123', 'wishlist');
@@ -73,11 +74,67 @@ describe('GameShelfService', () => {
   });
 
   it('returns API search results for valid queries', async () => {
-    const expected = [{ externalId: '1', title: 'Mario', coverUrl: null, coverSource: 'none', platforms: [], platform: null, releaseDate: null, releaseYear: null }];
+    const expected: GameCatalogResult[] = [
+      { externalId: '1', title: 'Mario', coverUrl: null, coverSource: 'none', platforms: [], platform: null, releaseDate: null, releaseYear: null },
+    ];
     searchApi.searchGames.and.returnValue(of(expected));
 
     const result = await firstValueFrom(service.searchGames('mario'));
 
     expect(result).toEqual(expected);
+  });
+
+  it('refreshes game metadata by IGDB id and keeps list placement', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      externalId: '123',
+      title: 'Old Title',
+      coverUrl: null,
+      coverSource: 'none' as const,
+      platform: 'Nintendo Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'wishlist' as const,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const refreshedCatalog: GameCatalogResult = {
+      externalId: '123',
+      title: 'Updated Title',
+      coverUrl: 'https://example.com/updated.jpg',
+      coverSource: 'igdb' as const,
+      platforms: ['Nintendo Switch', 'PC'],
+      platform: null,
+      releaseDate: '2026-01-02T00:00:00.000Z',
+      releaseYear: 2026,
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      title: refreshedCatalog.title,
+      coverUrl: refreshedCatalog.coverUrl,
+      coverSource: refreshedCatalog.coverSource,
+      platform: 'Nintendo Switch',
+      releaseDate: refreshedCatalog.releaseDate,
+      releaseYear: refreshedCatalog.releaseYear,
+    };
+
+    repository.exists.and.resolveTo(existingEntry);
+    searchApi.getGameById.and.returnValue(of(refreshedCatalog));
+    repository.upsertFromCatalog.and.resolveTo(updatedEntry);
+
+    const result = await service.refreshGameMetadata('123');
+
+    expect(searchApi.getGameById).toHaveBeenCalledWith('123');
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        externalId: '123',
+        title: 'Updated Title',
+        platform: 'Nintendo Switch',
+      }),
+      'wishlist',
+    );
+    expect(result).toEqual(updatedEntry);
   });
 });

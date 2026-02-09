@@ -79,4 +79,47 @@ describe('IgdbProxyService', () => {
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=mario`);
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
   });
+
+  it('loads a game by IGDB id and normalizes the payload', done => {
+    service.getGameById('100').subscribe(result => {
+      expect(result).toEqual({
+        externalId: '100',
+        title: 'Super Mario Odyssey',
+        coverUrl: 'https://example.com/cover.jpg',
+        coverSource: 'thegamesdb',
+        platforms: ['Nintendo Switch', 'Wii U'],
+        platform: null,
+        releaseDate: '2017-10-27T00:00:00.000Z',
+        releaseYear: 2017,
+      });
+      done();
+    });
+
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);
+    req.flush({
+      item: {
+        externalId: '100',
+        title: 'Super Mario Odyssey',
+        coverUrl: 'https://example.com/cover.jpg',
+        coverSource: 'thegamesdb',
+        platforms: ['Nintendo Switch', 'Wii U'],
+        platform: null,
+        releaseDate: '2017-10-27T00:00:00.000Z',
+        releaseYear: 2017,
+      },
+    });
+  });
+
+  it('maps refresh endpoint failure to user-safe error', done => {
+    service.getGameById('100').subscribe({
+      next: () => fail('Expected an error response'),
+      error: err => {
+        expect(err.message).toBe('Unable to refresh game metadata.');
+        done();
+      },
+    });
+
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+  });
 });

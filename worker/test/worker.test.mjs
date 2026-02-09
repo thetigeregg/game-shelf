@@ -249,3 +249,61 @@ test('maps upstream errors to safe 502 response', async () => {
   const payload = await response.json();
   assert.equal(payload.error, 'Unable to fetch game data.');
 });
+
+test('returns normalized game metadata for IGDB id endpoint', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({
+    igdbBody: [
+      {
+        id: 321,
+        name: 'Super Metroid',
+        first_release_date: 775353600,
+        cover: { image_id: 'supermetroid-cover' },
+        platforms: [{ name: 'SNES' }],
+      },
+    ],
+    theGamesDbBody: {
+      data: {
+        games: [{ id: 999, game_title: 'Super Metroid' }],
+      },
+      include: {
+        boxart: {
+          base_url: { original: 'https://cdn.thegamesdb.net/images/original' },
+          data: {
+            999: [{ type: 'boxart', side: 'front', filename: '/box/front/super-metroid.jpg' }],
+          },
+        },
+      },
+    },
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/321'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.item.externalId, '321');
+  assert.equal(payload.item.title, 'Super Metroid');
+  assert.equal(payload.item.coverSource, 'thegamesdb');
+  assert.equal(payload.item.coverUrl, 'https://cdn.thegamesdb.net/images/original/box/front/super-metroid.jpg');
+});
+
+test('returns 404 when IGDB id endpoint has no matching game', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({ igdbBody: [] });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/999999'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 404);
+  const payload = await response.json();
+  assert.equal(payload.error, 'Game not found.');
+});

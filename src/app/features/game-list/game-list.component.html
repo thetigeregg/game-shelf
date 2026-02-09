@@ -46,10 +46,29 @@
       <ion-toolbar>
         <ion-title>{{ selectedGame?.title || 'Game Details' }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button
+            fill="clear"
+            aria-label="Game detail actions"
+            [id]="getDetailActionsTriggerId()"
+          >
+            <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
+          </ion-button>
           <ion-button (click)="closeGameDetailModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
+
+    <ion-popover [trigger]="getDetailActionsTriggerId()" triggerAction="click">
+      <ng-template>
+        <ion-content>
+          <ion-list lines="none">
+            <ion-item button detail="false" (click)="refreshSelectedGameMetadataFromPopover()">
+              Refresh metadata
+            </ion-item>
+          </ion-list>
+        </ion-content>
+      </ng-template>
+    </ion-popover>
 
     <ion-content *ngIf="selectedGame as game">
       <div class="detail-cover">

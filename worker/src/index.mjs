@@ -34,6 +34,11 @@ function normalizeSearchQuery(url) {
   return (url.searchParams.get('q') ?? '').trim();
 }
 
+function normalizeGameIdFromPath(pathname) {
+  const match = pathname.match(/^\/v1\/games\/(\d+)$/);
+  return match ? match[1] : null;
+}
+
 function isRateLimited(ipAddress, nowMs) {
   const key = ipAddress || 'unknown';
   const entry = rateLimitCache.get(key);
@@ -403,6 +408,36 @@ async function searchIgdb(query, env, token, fetchImpl) {
   return Array.isArray(data) ? data.map(normalizeIgdbGame) : [];
 }
 
+async function fetchIgdbById(gameId, env, token, fetchImpl) {
+  const body = [
+    `where id = ${gameId};`,
+    'fields id,name,first_release_date,cover.image_id,platforms.name;',
+    'limit 1;',
+  ].join(' ');
+
+  const response = await fetchImpl('https://api.igdb.com/v4/games', {
+    method: 'POST',
+    headers: {
+      'Client-ID': env.TWITCH_CLIENT_ID,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'text/plain',
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    throw new Error('IGDB request failed');
+  }
+
+  const data = await response.json();
+
+  if (!Array.isArray(data) || data.length === 0) {
+    return null;
+  }
+
+  return normalizeIgdbGame(data[0]);
+}
+
 export async function handleRequest(request, env, fetchImpl = fetch, now = () => Date.now()) {
   if (request.method === 'OPTIONS') {
     return jsonResponse({}, 204);
@@ -414,14 +449,20 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
   const url = new URL(request.url);
 
-  if (url.pathname !== '/v1/games/search') {
+  const gameId = normalizeGameIdFromPath(url.pathname);
+  const isSearchPath = url.pathname === '/v1/games/search';
+  const isGameByIdPath = gameId !== null;
+
+  if (!isSearchPath && !isGameByIdPath) {
     return jsonResponse({ error: 'Not found' }, 404);
   }
 
-  const query = normalizeSearchQuery(url);
+  if (isSearchPath) {
+    const query = normalizeSearchQuery(url);
 
-  if (query.length < 2) {
-    return jsonResponse({ error: 'Query must be at least 2 characters.' }, 400);
+    if (query.length < 2) {
+      return jsonResponse({ error: 'Query must be at least 2 characters.' }, 400);
+    }
   }
 
   const nowMs = now();
@@ -433,9 +474,23 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
   try {
     const token = await fetchAppToken(env, fetchImpl, nowMs);
-    const items = await searchIgdb(query, env, token, fetchImpl);
-    const enrichedItems = await applyPrimaryBoxArt(items, env, fetchImpl);
-    return jsonResponse({ items: enrichedItems }, 200);
+
+    if (isSearchPath) {
+      const query = normalizeSearchQuery(url);
+
+      const items = await searchIgdb(query, env, token, fetchImpl);
+      const enrichedItems = await applyPrimaryBoxArt(items, env, fetchImpl);
+      return jsonResponse({ items: enrichedItems }, 200);
+    }
+
+    const item = await fetchIgdbById(gameId, env, token, fetchImpl);
+
+    if (!item) {
+      return jsonResponse({ error: 'Game not found.' }, 404);
+    }
+
+    const [enrichedItem] = await applyPrimaryBoxArt([item], env, fetchImpl);
+    return jsonResponse({ item: enrichedItem ?? item }, 200);
   } catch {
     return jsonResponse({ error: 'Unable to fetch game data.' }, 502);
   }

@@ -10,9 +10,14 @@ interface SearchResponse {
   items: GameCatalogResult[];
 }
 
+interface GameByIdResponse {
+  item: GameCatalogResult;
+}
+
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
+  private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
   private readonly httpClient = inject(HttpClient);
 
   searchGames(query: string): Observable<GameCatalogResult[]> {
@@ -27,6 +32,27 @@ export class IgdbProxyService implements GameSearchApi {
     return this.httpClient.get<SearchResponse>(this.searchUrl, { params }).pipe(
       map(response => (response.items ?? []).map(item => this.normalizeResult(item))),
       catchError(() => throwError(() => new Error('Unable to load game search results.')))
+    );
+  }
+
+  getGameById(externalId: string): Observable<GameCatalogResult> {
+    const normalizedId = externalId.trim();
+
+    if (!/^\d+$/.test(normalizedId)) {
+      return throwError(() => new Error('Unable to refresh game metadata.'));
+    }
+
+    const url = `${this.gameByIdBaseUrl}/${encodeURIComponent(normalizedId)}`;
+
+    return this.httpClient.get<GameByIdResponse>(url).pipe(
+      map(response => {
+        if (!response?.item) {
+          throw new Error('Missing game payload');
+        }
+
+        return this.normalizeResult(response.item);
+      }),
+      catchError(() => throwError(() => new Error('Unable to refresh game metadata.')))
     );
   }
 

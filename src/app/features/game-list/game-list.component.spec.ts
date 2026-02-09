@@ -45,11 +45,13 @@ describe('GameListComponent', () => {
       'watchList',
       'moveGame',
       'removeGame',
+      'refreshGameMetadata',
     ]);
 
     gameShelfService.watchList.and.returnValue(of(games));
     gameShelfService.moveGame.and.resolveTo();
     gameShelfService.removeGame.and.resolveTo();
+    gameShelfService.refreshGameMetadata.and.resolveTo(games[0]);
 
     await TestBed.configureTestingModule({
       declarations: [GameListComponent],
@@ -87,6 +89,16 @@ describe('GameListComponent', () => {
 
     expect(gameShelfService.moveGame).toHaveBeenCalledWith('101', 'wishlist');
     expect(gameShelfService.removeGame).toHaveBeenCalledWith('101');
+  });
+
+  it('refreshes selected game metadata from detail actions', async () => {
+    component.listType = 'collection';
+    component.openGameDetail(games[0]);
+    fixture.detectChanges();
+
+    await component.refreshSelectedGameMetadata();
+
+    expect(gameShelfService.refreshGameMetadata).toHaveBeenCalledWith('101');
   });
 
   it('filters by platform and sorts by release date descending', () => {

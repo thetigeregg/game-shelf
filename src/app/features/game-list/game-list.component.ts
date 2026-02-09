@@ -82,6 +82,10 @@ export class GameListComponent implements OnChanges {
     this.selectedGame = null;
   }
 
+  getDetailActionsTriggerId(): string {
+    return `game-detail-actions-trigger-${this.listType}`;
+  }
+
   trackByExternalId(_: number, game: GameEntry): string {
     return game.externalId;
   }
@@ -100,6 +104,25 @@ export class GameListComponent implements OnChanges {
 
   onActionsButtonClick(event: Event): void {
     event.stopPropagation();
+  }
+
+  async refreshSelectedGameMetadataFromPopover(): Promise<void> {
+    await this.refreshSelectedGameMetadata();
+    await this.popoverController.dismiss();
+  }
+
+  async refreshSelectedGameMetadata(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.refreshGameMetadata(this.selectedGame.externalId);
+      this.selectedGame = updated;
+      await this.presentToast('Game metadata refreshed.');
+    } catch {
+      await this.presentToast('Unable to refresh game metadata.', 'danger');
+    }
   }
 
   formatDate(value: string | null): string {
@@ -202,12 +225,12 @@ export class GameListComponent implements OnChanges {
     return releaseDate.slice(0, 10);
   }
 
-  private async presentToast(message: string): Promise<void> {
+  private async presentToast(message: string, color: 'primary' | 'danger' = 'primary'): Promise<void> {
     const toast = await this.toastController.create({
       message,
       duration: 1600,
       position: 'bottom',
-      color: 'primary',
+      color,
     });
 
     await toast.present();

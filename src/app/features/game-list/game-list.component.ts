@@ -334,7 +334,7 @@ export class GameListComponent implements OnChanges {
       games
         .map(game => game.platform?.trim() ?? '')
         .filter(platform => platform.length > 0)
-    )].sort((a, b) => a.localeCompare(b));
+    )].sort((a, b) => this.compareTitles(a, b));
   }
 
   private extractGenres(games: GameEntry[]): string[] {
@@ -352,7 +352,7 @@ export class GameListComponent implements OnChanges {
       });
     });
 
-    return Array.from(genreSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    return Array.from(genreSet).sort((a, b) => this.compareTitles(a, b));
   }
 
   private extractTags(games: GameEntry[]): string[] {
@@ -370,7 +370,7 @@ export class GameListComponent implements OnChanges {
       });
     });
 
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    return Array.from(tagSet).sort((a, b) => this.compareTitles(a, b));
   }
 
   private applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
@@ -488,7 +488,7 @@ export class GameListComponent implements OnChanges {
       }
     }
 
-    return left.localeCompare(right, undefined, { sensitivity: 'base' });
+    return this.compareTitles(left, right);
   }
 
   private getNoGroupLabel(groupBy: GameGroupByField): string {
@@ -576,7 +576,7 @@ export class GameListComponent implements OnChanges {
 
   private compareGames(left: GameEntry, right: GameEntry, sortField: GameListFilters['sortField']): number {
     if (sortField === 'title') {
-      return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+      return this.compareTitles(left.title, right.title);
     }
 
     if (sortField === 'platform') {
@@ -588,7 +588,7 @@ export class GameListComponent implements OnChanges {
         return platformCompare;
       }
 
-      return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+      return this.compareTitles(left.title, right.title);
     }
 
     if (sortField === 'createdAt') {
@@ -609,7 +609,7 @@ export class GameListComponent implements OnChanges {
         return 1;
       }
 
-      return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+      return this.compareTitles(left.title, right.title);
     }
 
     const leftDate = this.getDateOnly(left.releaseDate);
@@ -627,7 +627,24 @@ export class GameListComponent implements OnChanges {
       return 1;
     }
 
-    return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+    return this.compareTitles(left.title, right.title);
+  }
+
+  private compareTitles(leftTitle: string, rightTitle: string): number {
+    const normalizedLeft = this.normalizeTitleForSort(leftTitle);
+    const normalizedRight = this.normalizeTitleForSort(rightTitle);
+    const normalizedCompare = normalizedLeft.localeCompare(normalizedRight, undefined, { sensitivity: 'base' });
+
+    if (normalizedCompare !== 0) {
+      return normalizedCompare;
+    }
+
+    return leftTitle.localeCompare(rightTitle, undefined, { sensitivity: 'base' });
+  }
+
+  private normalizeTitleForSort(title: string): string {
+    const normalized = typeof title === 'string' ? title.trim() : '';
+    return normalized.replace(/^(?:the|a)\s+/i, '');
   }
 
   private getDateOnly(releaseDate: string | null): string | null {

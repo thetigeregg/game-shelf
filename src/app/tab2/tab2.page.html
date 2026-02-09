@@ -32,9 +32,6 @@
       <ion-button *ngIf="isSelectionMode" aria-label="Select all games" (click)="toggleSelectAll()">
         <ion-icon slot="icon-only" [name]="allDisplayedSelected ? 'checkbox' : 'square-outline'"></ion-icon>
       </ion-button>
-      <ion-button *ngIf="isSelectionMode" aria-label="Delete selected games" (click)="deleteSelectedGames()">
-        <ion-icon slot="icon-only" name="trash"></ion-icon>
-      </ion-button>
       <ion-button *ngIf="isSelectionMode" aria-label="Open bulk actions" (click)="openBulkActionsPopover($event)">
         <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
       </ion-button>
@@ -70,6 +67,9 @@
           </ion-item>
           <ion-item button detail="false" (click)="setStatusForSelectedGamesFromPopover()">
             Set status
+          </ion-item>
+          <ion-item button detail="false" color="danger" (click)="deleteSelectedGames()">
+            Delete
           </ion-item>
         </ion-list>
       </ion-content>

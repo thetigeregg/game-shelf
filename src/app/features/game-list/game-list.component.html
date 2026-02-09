@@ -91,7 +91,7 @@
     </ion-item-options>
   </ion-item-sliding>
 
-  <ion-popover [trigger]="getActionsTriggerId(game)" triggerAction="click">
+  <ion-popover *ngIf="!selectionModeActive" [trigger]="getActionsTriggerId(game)" triggerAction="click">
     <ng-template>
       <ion-content>
         <ion-list lines="none">

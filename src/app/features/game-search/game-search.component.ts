@@ -285,7 +285,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
       message,
       duration: 1600,
       position: 'bottom',
-      color: 'success',
+      color: 'primary',
     });
 
     await toast.present();

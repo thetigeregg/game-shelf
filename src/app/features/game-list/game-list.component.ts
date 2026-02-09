@@ -313,7 +313,7 @@ export class GameListComponent implements OnChanges {
     const tags = await this.gameShelfService.listTags();
 
     if (tags.length === 0) {
-      await this.presentToast('Create a tag first from the Tags page.', 'primary');
+      await this.presentToast('Create a tag first from the Tags page.');
       return;
     }
 
@@ -1089,7 +1089,7 @@ export class GameListComponent implements OnChanges {
     const tags = await this.gameShelfService.listTags();
 
     if (tags.length === 0) {
-      await this.presentToast('Create a tag first from the Tags page.', 'primary');
+      await this.presentToast('Create a tag first from the Tags page.');
       return;
     }
 

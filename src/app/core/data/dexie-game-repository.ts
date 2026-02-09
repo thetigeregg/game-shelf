@@ -26,6 +26,10 @@ export class DexieGameRepository implements GameRepository {
         title: result.title,
         coverUrl: result.coverUrl,
         coverSource: result.coverSource,
+        developers: this.normalizeTextList(result.developers),
+        franchises: this.normalizeTextList(result.franchises),
+        genres: this.normalizeTextList(result.genres),
+        publishers: this.normalizeTextList(result.publishers),
         platform: result.platform,
         platformIgdbId: result.platformIgdbId ?? null,
         tagIds: this.normalizeTagIds(existing.tagIds),
@@ -44,6 +48,10 @@ export class DexieGameRepository implements GameRepository {
       title: result.title,
       coverUrl: result.coverUrl,
       coverSource: result.coverSource,
+      developers: this.normalizeTextList(result.developers),
+      franchises: this.normalizeTextList(result.franchises),
+      genres: this.normalizeTextList(result.genres),
+      publishers: this.normalizeTextList(result.publishers),
       platform: result.platform,
       platformIgdbId: result.platformIgdbId ?? null,
       tagIds: [],
@@ -191,6 +199,18 @@ export class DexieGameRepository implements GameRepository {
       tagIds
         .filter(id => Number.isInteger(id) && id > 0)
         .map(id => Math.trunc(id))
+    )];
+  }
+
+  private normalizeTextList(values: string[] | undefined): string[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return [...new Set(
+      values
+        .map(value => (typeof value === 'string' ? value.trim() : ''))
+        .filter(value => value.length > 0)
     )];
   }
 }

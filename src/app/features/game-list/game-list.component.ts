@@ -2,8 +2,27 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, injec
 import { AlertController, PopoverController, ToastController } from '@ionic/angular';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
-import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListFilters, ListType, Tag } from '../../core/models/game.models';
+import {
+  DEFAULT_GAME_LIST_FILTERS,
+  GameEntry,
+  GameGroupByField,
+  GameListFilters,
+  ListType,
+  Tag
+} from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
+
+interface GameGroupSection {
+  key: string;
+  title: string;
+  games: GameEntry[];
+}
+
+interface GroupedGamesView {
+  grouped: boolean;
+  sections: GameGroupSection[];
+  totalCount: number;
+}
 
 @Component({
   selector: 'app-game-list',
@@ -15,10 +34,12 @@ export class GameListComponent implements OnChanges {
   @Input({ required: true }) listType!: ListType;
   @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   @Input() searchQuery = '';
+  @Input() groupBy: GameGroupByField = 'none';
   @Output() platformOptionsChange = new EventEmitter<string[]>();
   @Output() displayedGamesChange = new EventEmitter<GameEntry[]>();
 
   games$: Observable<GameEntry[]> = of([]);
+  groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
   isGameDetailModalOpen = false;
   isImagePickerModalOpen = false;
   selectedGame: GameEntry | null = null;
@@ -32,6 +53,7 @@ export class GameListComponent implements OnChanges {
   private readonly toastController = inject(ToastController);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
   private readonly searchQuery$ = new BehaviorSubject<string>('');
+  private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['listType']?.currentValue) {
@@ -47,6 +69,10 @@ export class GameListComponent implements OnChanges {
           this.displayedGamesChange.emit(games);
         })
       );
+
+      this.groupedView$ = combineLatest([this.games$, this.groupBy$]).pipe(
+        map(([games, groupBy]) => this.buildGroupedView(games, groupBy))
+      );
     }
 
     if (changes['filters']?.currentValue) {
@@ -55,6 +81,10 @@ export class GameListComponent implements OnChanges {
 
     if (changes['searchQuery']) {
       this.searchQuery$.next((this.searchQuery ?? '').trim());
+    }
+
+    if (changes['groupBy']) {
+      this.groupBy$.next(this.groupBy ?? 'none');
     }
   }
 
@@ -273,6 +303,115 @@ export class GameListComponent implements OnChanges {
   private applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
     const filtered = games.filter(game => this.matchesFilters(game, filters, searchQuery));
     return this.sortGames(filtered, filters);
+  }
+
+  private buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {
+    if (groupBy === 'none') {
+      return {
+        grouped: false,
+        sections: [{ key: 'none', title: 'All Games', games }],
+        totalCount: games.length,
+      };
+    }
+
+    const sectionsMap = new Map<string, GameEntry[]>();
+
+    games.forEach(game => {
+      this.getGroupTitlesForGame(game, groupBy).forEach(title => {
+        const normalized = title.trim();
+
+        if (!sectionsMap.has(normalized)) {
+          sectionsMap.set(normalized, []);
+        }
+
+        sectionsMap.get(normalized)?.push(game);
+      });
+    });
+
+    const sortedSections = [...sectionsMap.entries()]
+      .sort(([left], [right]) => this.compareGroupTitles(left, right, groupBy))
+      .map(([title, groupedGames]) => ({
+        key: `${groupBy}-${title}`,
+        title,
+        games: groupedGames,
+      }));
+
+    return {
+      grouped: true,
+      sections: sortedSections,
+      totalCount: games.length,
+    };
+  }
+
+  private getGroupTitlesForGame(game: GameEntry, groupBy: GameGroupByField): string[] {
+    if (groupBy === 'platform') {
+      return [game.platform?.trim() || 'Unknown platform'];
+    }
+
+    if (groupBy === 'releaseYear') {
+      return [game.releaseYear ? String(game.releaseYear) : 'Unknown year'];
+    }
+
+    if (groupBy === 'tag') {
+      const tagNames = (game.tags ?? [])
+        .map(tag => tag.name.trim())
+        .filter(name => name.length > 0);
+
+      return tagNames.length > 0 ? [...new Set(tagNames)] : ['No tags'];
+    }
+
+    if (groupBy === 'developer') {
+      return this.getMetadataGroupValues(game.developers, 'Unknown developer');
+    }
+
+    if (groupBy === 'franchise') {
+      return this.getMetadataGroupValues(game.franchises, 'Unknown franchise');
+    }
+
+    if (groupBy === 'genre') {
+      return this.getMetadataGroupValues(game.genres, 'Unknown genre');
+    }
+
+    if (groupBy === 'publisher') {
+      return this.getMetadataGroupValues(game.publishers, 'Unknown publisher');
+    }
+
+    return ['All Games'];
+  }
+
+  private getMetadataGroupValues(values: string[] | undefined, fallback: string): string[] {
+    if (!Array.isArray(values)) {
+      return [fallback];
+    }
+
+    const normalizedValues = [...new Set(
+      values
+        .map(value => (typeof value === 'string' ? value.trim() : ''))
+        .filter(value => value.length > 0)
+    )];
+
+    return normalizedValues.length > 0 ? normalizedValues : [fallback];
+  }
+
+  private compareGroupTitles(left: string, right: string, groupBy: GameGroupByField): number {
+    if (groupBy === 'releaseYear') {
+      if (left === 'Unknown year' && right !== 'Unknown year') {
+        return 1;
+      }
+
+      if (right === 'Unknown year' && left !== 'Unknown year') {
+        return -1;
+      }
+
+      const leftYear = Number.parseInt(left, 10);
+      const rightYear = Number.parseInt(right, 10);
+
+      if (!Number.isNaN(leftYear) && !Number.isNaN(rightYear) && leftYear !== rightYear) {
+        return rightYear - leftYear;
+      }
+    }
+
+    return left.localeCompare(right, undefined, { sensitivity: 'base' });
   }
 
   private matchesFilters(game: GameEntry, filters: GameListFilters, searchQuery: string): boolean {

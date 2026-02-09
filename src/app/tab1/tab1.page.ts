@@ -1,7 +1,7 @@
 import { Component, ViewChild, inject } from '@angular/core';
 import { MenuController, PopoverController, ToastController } from '@ionic/angular';
 import { Router } from '@angular/router';
-import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListFilters, ListType } from '../core/models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
 import { GameListComponent } from '../features/game-list/game-list.component';
 
 @Component({
@@ -11,6 +11,16 @@ import { GameListComponent } from '../features/game-list/game-list.component';
   standalone: false,
 })
 export class Tab1Page {
+  readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
+    { value: 'none', label: 'None' },
+    { value: 'platform', label: 'Platform' },
+    { value: 'developer', label: 'Developer' },
+    { value: 'franchise', label: 'Franchise' },
+    { value: 'tag', label: 'Tag' },
+    { value: 'genre', label: 'Genre' },
+    { value: 'publisher', label: 'Publisher' },
+    { value: 'releaseYear', label: 'Release Year' },
+  ];
   readonly listType: ListType = 'collection';
   readonly menuId = 'collection-filters-menu';
   readonly contentId = 'collection-content';
@@ -20,6 +30,7 @@ export class Tab1Page {
   platformOptions: string[] = [];
   displayedGames: GameEntry[] = [];
   listSearchQuery = '';
+  groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   private readonly menuController = inject(MenuController);
@@ -83,6 +94,11 @@ export class Tab1Page {
   async openTagsFromPopover(): Promise<void> {
     await this.popoverController.dismiss();
     await this.router.navigateByUrl('/tags');
+  }
+
+  onGroupByChange(value: GameGroupByField | null | undefined): void {
+    const validValues = this.groupByOptions.map(option => option.value);
+    this.groupBy = value && validValues.includes(value) ? value : 'none';
   }
 
   getDisplayedGamesLabel(): string {

@@ -117,6 +117,10 @@ export class IgdbProxyService implements GameSearchApi {
       title: String(result.title ?? '').trim() || 'Unknown title',
       coverUrl: typeof result.coverUrl === 'string' && result.coverUrl.length > 0 ? result.coverUrl : null,
       coverSource: this.normalizeCoverSource(result.coverSource),
+      developers: this.normalizeTextList(result.developers),
+      franchises: this.normalizeTextList(result.franchises),
+      genres: this.normalizeTextList(result.genres),
+      publishers: this.normalizeTextList(result.publishers),
       platforms,
       platformOptions,
       platform: platforms.length === 1 ? platforms[0] : null,
@@ -225,5 +229,18 @@ export class IgdbProxyService implements GameSearchApi {
         return all.findIndex(candidate => candidate.id === option.id) === index;
       })
       .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+  }
+
+  private normalizeTextList(values: string[] | null | undefined): string[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return [...new Set(
+      values
+        .filter(value => typeof value === 'string')
+        .map(value => value.trim())
+        .filter(value => value.length > 0)
+    )];
   }
 }

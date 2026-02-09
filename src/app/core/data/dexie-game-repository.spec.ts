@@ -99,7 +99,7 @@ describe('DexieGameRepository', () => {
     await repository.setGameTags('101', [multiplayer.id!, backlog.id!]);
 
     const stored = await repository.exists('101');
-    expect(stored?.tagIds).toEqual([multiplayer.id, backlog.id]);
+    expect(stored?.tagIds).toEqual([multiplayer.id!, backlog.id!]);
   });
 
   it('removes deleted tags from all games', async () => {
@@ -111,6 +111,6 @@ describe('DexieGameRepository', () => {
     await repository.deleteTag(coop.id!);
 
     const stored = await repository.exists('101');
-    expect(stored?.tagIds).toEqual([rpg.id]);
+    expect(stored?.tagIds).toEqual([rpg.id!]);
   });
 });

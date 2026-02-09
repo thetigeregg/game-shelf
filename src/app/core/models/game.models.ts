@@ -29,6 +29,10 @@ export interface GameCatalogResult {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  developers?: string[];
+  franchises?: string[];
+  genres?: string[];
+  publishers?: string[];
   platforms: string[];
   platformOptions?: GameCatalogPlatformOption[];
   platform: string | null;
@@ -43,6 +47,10 @@ export interface GameEntry {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  developers?: string[];
+  franchises?: string[];
+  genres?: string[];
+  publishers?: string[];
   platform: string | null;
   platformIgdbId?: number | null;
   tagIds?: number[];
@@ -56,6 +64,7 @@ export interface GameEntry {
 
 export type GameSortField = 'title' | 'releaseDate';
 export type SortDirection = 'asc' | 'desc';
+export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' | 'tag' | 'genre' | 'publisher' | 'releaseYear';
 
 export interface GameListFilters {
   sortField: GameSortField;

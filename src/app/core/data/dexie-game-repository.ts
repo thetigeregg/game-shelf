@@ -234,7 +234,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeStatus(value: GameStatus | null | undefined): GameStatus | null {
-    if (value === 'completed' || value === 'dropped' || value === 'playing' || value === 'replay') {
+    if (value === 'completed' || value === 'dropped' || value === 'playing' || value === 'replay' || value === 'wantToPlay') {
       return value;
     }
 

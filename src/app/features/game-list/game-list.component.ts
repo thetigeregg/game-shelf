@@ -34,6 +34,7 @@ interface GroupedGamesView {
 export class GameListComponent implements OnChanges {
   readonly statusOptions: { value: GameStatus; label: string }[] = [
     { value: 'playing', label: 'Playing' },
+    { value: 'wantToPlay', label: 'Want to Play' },
     { value: 'completed', label: 'Completed' },
     { value: 'dropped', label: 'Dropped' },
     { value: 'replay', label: 'Replay' },
@@ -865,7 +866,7 @@ export class GameListComponent implements OnChanges {
   }
 
   private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {
-    if (value === 'playing' || value === 'completed' || value === 'dropped' || value === 'replay') {
+    if (value === 'playing' || value === 'wantToPlay' || value === 'completed' || value === 'dropped' || value === 'replay') {
       return value;
     }
 

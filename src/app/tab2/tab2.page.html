@@ -5,7 +5,9 @@
   [genreOptions]="genreOptions"
   [tagOptions]="tagOptions"
   [filters]="filters"
+  [groupBy]="groupBy"
   (filtersChange)="onFiltersChange($event)"
+  (groupByChange)="onGroupByChange($event)"
 ></app-game-filters-menu>
 
 <ion-header [translucent]="true" [class.selection-mode-header]="isSelectionMode">
@@ -80,18 +82,6 @@
     <ng-template>
       <ion-content>
         <ion-list lines="none">
-          <ion-item>
-            <ion-label>Group by</ion-label>
-            <ion-select
-              [value]="groupBy"
-              interface="popover"
-              (ionChange)="onGroupByChange($any($event).detail.value)"
-            >
-              <ion-select-option *ngFor="let option of groupByOptions" [value]="option.value">
-                {{ option.label }}
-              </ion-select-option>
-            </ion-select>
-          </ion-item>
           <ion-item button detail="false" (click)="openTagsFromPopover()">
             Tags
           </ion-item>

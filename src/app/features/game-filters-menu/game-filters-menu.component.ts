@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
-import { DEFAULT_GAME_LIST_FILTERS, GameListFilters, GameStatusFilterOption } from '../../core/models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameGroupByField, GameListFilters, GameStatusFilterOption } from '../../core/models/game.models';
 
 type SortOption =
   | 'title:asc'
@@ -20,6 +20,16 @@ type SortOption =
 export class GameFiltersMenuComponent implements OnChanges {
   readonly noneTagFilterValue = '__none__';
   readonly statusOptions: GameStatusFilterOption[] = ['none', 'playing', 'wantToPlay', 'completed', 'paused', 'dropped', 'replay'];
+  readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
+    { value: 'none', label: 'None' },
+    { value: 'platform', label: 'Platform' },
+    { value: 'developer', label: 'Developer' },
+    { value: 'franchise', label: 'Franchise' },
+    { value: 'tag', label: 'Tag' },
+    { value: 'genre', label: 'Genre' },
+    { value: 'publisher', label: 'Publisher' },
+    { value: 'releaseYear', label: 'Release Year' },
+  ];
 
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
@@ -27,8 +37,10 @@ export class GameFiltersMenuComponent implements OnChanges {
   @Input() genreOptions: string[] = [];
   @Input() tagOptions: string[] = [];
   @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
+  @Input() groupBy: GameGroupByField = 'none';
 
   @Output() filtersChange = new EventEmitter<GameListFilters>();
+  @Output() groupByChange = new EventEmitter<GameGroupByField>();
 
   draftFilters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   sortOption: SortOption = 'title:asc';
@@ -64,6 +76,12 @@ export class GameFiltersMenuComponent implements OnChanges {
       sortDirection,
     };
     this.updateFilters();
+  }
+
+  onGroupBySelectionChange(value: GameGroupByField | null | undefined): void {
+    const validValues = this.groupByOptions.map(option => option.value);
+    const normalized = value && validValues.includes(value) ? value : 'none';
+    this.groupByChange.emit(normalized);
   }
 
   onPlatformSelectionChange(value: string[] | string | null | undefined): void {

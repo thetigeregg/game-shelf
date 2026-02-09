@@ -31,7 +31,9 @@ class GameFiltersMenuStubComponent {
   @Input() statusOptions?: string[];
   @Input() tagOptions?: string[];
   @Input() filters?: unknown;
+  @Input() groupBy?: string;
   @Output() filtersChange = new EventEmitter<unknown>();
+  @Output() groupByChange = new EventEmitter<string>();
 }
 
 describe('Tab2Page', () => {

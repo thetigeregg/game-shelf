@@ -27,6 +27,19 @@
 
       <ion-item>
         <ion-select
+          label="Group by"
+          labelPlacement="stacked"
+          [ngModel]="groupBy"
+          (ngModelChange)="onGroupBySelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let option of groupByOptions" [value]="option.value">
+            {{ option.label }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
           label="Platform"
           labelPlacement="stacked"
           placeholder="All platforms"

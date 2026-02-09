@@ -7,6 +7,15 @@
     <ion-label>
       <h2>{{ game.title }}</h2>
       <p>{{ game.platform || 'Unknown platform' }} • {{ game.releaseYear || 'Unknown year' }}</p>
+      <div class="game-tags" *ngIf="game.tags && game.tags.length > 0">
+        <ion-badge
+          *ngFor="let tag of game.tags"
+          [style.--background]="tag.color"
+          [style.color]="getTagTextColor(tag.color)"
+        >
+          {{ tag.name }}
+        </ion-badge>
+      </div>
     </ion-label>
 
     <ion-button
@@ -23,6 +32,9 @@
       <ng-template>
         <ion-content>
           <ion-list lines="none">
+            <ion-item button detail="false" (click)="openTagsForGameFromPopover(game)">
+              Tags
+            </ion-item>
             <ion-item button detail="false" (click)="moveGameFromPopover(game)">
               Move to {{ getOtherListLabel() }}
             </ion-item>
@@ -62,6 +74,9 @@
       <ng-template>
         <ion-content>
           <ion-list lines="none">
+            <ion-item button detail="false" (click)="openSelectedGameTagsFromPopover()">
+              Tags
+            </ion-item>
             <ion-item button detail="false" (click)="refreshSelectedGameMetadataFromPopover()">
               Refresh metadata
             </ion-item>
@@ -96,6 +111,9 @@
             <h2>Release Date</h2>
             <p>{{ formatDate(game.releaseDate) }}</p>
           </ion-label>
+        </ion-item>
+        <ion-item lines="none">
+          <ion-button expand="block" (click)="openSelectedGameTagsFromDetail()">Tags</ion-button>
         </ion-item>
       </ion-list>
     </ion-content>

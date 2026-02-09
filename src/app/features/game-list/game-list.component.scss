@@ -42,6 +42,17 @@ ion-item p {
   color: var(--ion-color-medium);
 }
 
+.game-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.game-tags ion-badge {
+  font-size: 0.68rem;
+}
+
 .picker-state {
   margin: 12px 0;
   display: flex;

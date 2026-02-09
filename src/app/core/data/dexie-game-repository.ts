@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb } from './app-db';
 import { GameRepository } from './game-repository';
-import { CoverSource, GameCatalogResult, GameEntry, ListType } from '../models/game.models';
+import { CoverSource, GameCatalogResult, GameEntry, ListType, Tag } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -9,6 +9,10 @@ export class DexieGameRepository implements GameRepository {
 
   async listByType(listType: ListType): Promise<GameEntry[]> {
     return this.db.games.where('listType').equals(listType).sortBy('title');
+  }
+
+  async listAll(): Promise<GameEntry[]> {
+    return this.db.games.toArray();
   }
 
   async upsertFromCatalog(result: GameCatalogResult, targetList: ListType): Promise<GameEntry> {
@@ -24,6 +28,7 @@ export class DexieGameRepository implements GameRepository {
         coverSource: result.coverSource,
         platform: result.platform,
         platformIgdbId: result.platformIgdbId ?? null,
+        tagIds: this.normalizeTagIds(existing.tagIds),
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
         listType: targetList,
@@ -41,6 +46,7 @@ export class DexieGameRepository implements GameRepository {
       coverSource: result.coverSource,
       platform: result.platform,
       platformIgdbId: result.platformIgdbId ?? null,
+      tagIds: [],
       releaseDate: result.releaseDate,
       releaseYear: result.releaseYear,
       listType: targetList,
@@ -89,5 +95,102 @@ export class DexieGameRepository implements GameRepository {
 
     await this.db.games.put(updated);
     return updated;
+  }
+
+  async setGameTags(externalId: string, tagIds: number[]): Promise<GameEntry | undefined> {
+    const existing = await this.exists(externalId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      tagIds: this.normalizeTagIds(tagIds),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.db.games.put(updated);
+    return updated;
+  }
+
+  async listTags(): Promise<Tag[]> {
+    return this.db.tags.orderBy('name').toArray();
+  }
+
+  async upsertTag(tag: { id?: number; name: string; color: string }): Promise<Tag> {
+    const normalizedName = tag.name.trim();
+    const now = new Date().toISOString();
+    const existingByName = await this.db.tags.where('name').equalsIgnoreCase(normalizedName).first();
+
+    if (existingByName?.id !== undefined && existingByName.id !== tag.id) {
+      const updatedByName: Tag = {
+        ...existingByName,
+        color: tag.color,
+        updatedAt: now,
+      };
+
+      await this.db.tags.put(updatedByName);
+      return updatedByName;
+    }
+
+    if (tag.id !== undefined) {
+      const existingById = await this.db.tags.get(tag.id);
+
+      if (existingById) {
+        const updatedById: Tag = {
+          ...existingById,
+          name: normalizedName,
+          color: tag.color,
+          updatedAt: now,
+        };
+
+        await this.db.tags.put(updatedById);
+        return updatedById;
+      }
+    }
+
+    const created: Tag = {
+      name: normalizedName,
+      color: tag.color,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const createdId = await this.db.tags.add(created);
+    return { ...created, id: createdId };
+  }
+
+  async deleteTag(tagId: number): Promise<void> {
+    await this.db.transaction('rw', this.db.tags, this.db.games, async () => {
+      await this.db.tags.delete(tagId);
+
+      const games = await this.db.games.toArray();
+
+      await Promise.all(games.map(async game => {
+        const currentTagIds = this.normalizeTagIds(game.tagIds);
+        const nextTagIds = currentTagIds.filter(id => id !== tagId);
+
+        if (nextTagIds.length === currentTagIds.length || game.id === undefined) {
+          return;
+        }
+
+        await this.db.games.update(game.id, {
+          tagIds: nextTagIds,
+          updatedAt: new Date().toISOString(),
+        });
+      }));
+    });
+  }
+
+  private normalizeTagIds(tagIds: number[] | undefined): number[] {
+    if (!Array.isArray(tagIds)) {
+      return [];
+    }
+
+    return [...new Set(
+      tagIds
+        .filter(id => Number.isInteger(id) && id > 0)
+        .map(id => Math.trunc(id))
+    )];
   }
 }

@@ -1,10 +1,11 @@
 import Dexie, { Table } from 'dexie';
 import { Injectable } from '@angular/core';
-import { GameEntry } from '../models/game.models';
+import { GameEntry, Tag } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class AppDb extends Dexie {
   games!: Table<GameEntry, number>;
+  tags!: Table<Tag, number>;
 
   constructor() {
     super('game-shelf-db');
@@ -15,6 +16,11 @@ export class AppDb extends Dexie {
 
     this.version(2).stores({
       games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
+    });
+
+    this.version(3).stores({
+      games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
     });
   }
 }

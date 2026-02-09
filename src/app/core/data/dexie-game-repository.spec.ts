@@ -90,4 +90,27 @@ describe('DexieGameRepository', () => {
     const stored = await repository.exists(mario.externalId);
     expect(stored?.platformIgdbId).toBe(130);
   });
+
+  it('creates tags and assigns them to a game', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+    const multiplayer = await repository.upsertTag({ name: 'Multiplayer', color: '#ff0000' });
+    const backlog = await repository.upsertTag({ name: 'Backlog', color: '#00ff00' });
+
+    await repository.setGameTags('101', [multiplayer.id!, backlog.id!]);
+
+    const stored = await repository.exists('101');
+    expect(stored?.tagIds).toEqual([multiplayer.id, backlog.id]);
+  });
+
+  it('removes deleted tags from all games', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+    const coop = await repository.upsertTag({ name: 'Co-op', color: '#123456' });
+    const rpg = await repository.upsertTag({ name: 'RPG', color: '#654321' });
+
+    await repository.setGameTags('101', [coop.id!, rpg.id!]);
+    await repository.deleteTag(coop.id!);
+
+    const stored = await repository.exists('101');
+    expect(stored?.tagIds).toEqual([rpg.id]);
+  });
 });

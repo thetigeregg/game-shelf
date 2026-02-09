@@ -50,6 +50,8 @@ describe('GameListComponent', () => {
       'refreshGameMetadata',
       'searchBoxArtByTitle',
       'updateGameCover',
+      'listTags',
+      'setGameTags',
     ]);
 
     gameShelfService.watchList.and.returnValue(of(games));
@@ -58,6 +60,8 @@ describe('GameListComponent', () => {
     gameShelfService.refreshGameMetadata.and.resolveTo(games[0]);
     gameShelfService.searchBoxArtByTitle.and.returnValue(of(['https://example.com/new-cover.jpg']));
     gameShelfService.updateGameCover.and.resolveTo({ ...games[0], coverUrl: 'https://example.com/new-cover.jpg', coverSource: 'thegamesdb' });
+    gameShelfService.listTags.and.resolveTo([]);
+    gameShelfService.setGameTags.and.resolveTo(games[0]);
 
     await TestBed.configureTestingModule({
       declarations: [GameListComponent],

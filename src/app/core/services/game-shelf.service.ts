@@ -3,7 +3,15 @@ import { Observable, Subject, firstValueFrom, from, of } from 'rxjs';
 import { switchMap, startWith } from 'rxjs/operators';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
-import { GameCatalogPlatformOption, GameCatalogResult, GameEntry, ListType } from '../models/game.models';
+import {
+  GameCatalogPlatformOption,
+  GameCatalogResult,
+  GameEntry,
+  GameTag,
+  ListType,
+  Tag,
+  TagSummary
+} from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
@@ -14,8 +22,19 @@ export class GameShelfService {
   watchList(listType: ListType): Observable<GameEntry[]> {
     return this.listRefresh$.pipe(
       startWith(undefined),
-      switchMap(() => from(this.repository.listByType(listType)))
+      switchMap(() => from(this.loadGamesWithTags(listType)))
     );
+  }
+
+  watchTags(): Observable<TagSummary[]> {
+    return this.listRefresh$.pipe(
+      startWith(undefined),
+      switchMap(() => from(this.loadTagSummaries()))
+    );
+  }
+
+  async listTags(): Promise<Tag[]> {
+    return this.repository.listTags();
   }
 
   searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]> {
@@ -101,6 +120,55 @@ export class GameShelfService {
     return updated;
   }
 
+  async setGameTags(externalId: string, tagIds: number[]): Promise<GameEntry> {
+    const updated = await this.repository.setGameTags(externalId, tagIds);
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const tags = await this.repository.listTags();
+    this.listRefresh$.next();
+
+    return this.attachTags([updated], tags)[0];
+  }
+
+  async createTag(name: string, color: string): Promise<Tag> {
+    const normalizedName = name.trim();
+
+    if (normalizedName.length === 0) {
+      throw new Error('Tag name is required.');
+    }
+
+    const created = await this.repository.upsertTag({
+      name: normalizedName,
+      color: this.normalizeTagColor(color),
+    });
+    this.listRefresh$.next();
+    return created;
+  }
+
+  async updateTag(tagId: number, name: string, color: string): Promise<Tag> {
+    const normalizedName = name.trim();
+
+    if (normalizedName.length === 0) {
+      throw new Error('Tag name is required.');
+    }
+
+    const updated = await this.repository.upsertTag({
+      id: tagId,
+      name: normalizedName,
+      color: this.normalizeTagColor(color),
+    });
+    this.listRefresh$.next();
+    return updated;
+  }
+
+  async deleteTag(tagId: number): Promise<void> {
+    await this.repository.deleteTag(tagId);
+    this.listRefresh$.next();
+  }
+
   private resolvePlatformSelection(
     currentPlatform: string | null,
     currentPlatformIgdbId: number | null,
@@ -161,5 +229,79 @@ export class GameShelfService {
       id: null,
       name: platform,
     }));
+  }
+
+  private attachTags(games: GameEntry[], tags: Tag[]): GameEntry[] {
+    const tagsById = new Map<number, GameTag>();
+
+    tags.forEach(tag => {
+      if (typeof tag.id !== 'number' || !Number.isInteger(tag.id) || tag.id <= 0) {
+        return;
+      }
+
+      tagsById.set(tag.id, {
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+      });
+    });
+
+    return games.map(game => {
+      const gameTagIds = this.normalizeTagIds(game.tagIds);
+      const gameTags = gameTagIds
+        .map(tagId => tagsById.get(tagId))
+        .filter((tag): tag is GameTag => Boolean(tag));
+
+      return {
+        ...game,
+        tagIds: gameTagIds,
+        tags: gameTags,
+      };
+    });
+  }
+
+  private async loadGamesWithTags(listType: ListType): Promise<GameEntry[]> {
+    const [games, tags] = await Promise.all([
+      this.repository.listByType(listType),
+      this.repository.listTags(),
+    ]);
+
+    return this.attachTags(games, tags);
+  }
+
+  private async loadTagSummaries(): Promise<TagSummary[]> {
+    const [tags, games] = await Promise.all([
+      this.repository.listTags(),
+      this.repository.listAll(),
+    ]);
+    const usageCountByTag = new Map<number, number>();
+
+    games.forEach(game => {
+      this.normalizeTagIds(game.tagIds).forEach(tagId => {
+        usageCountByTag.set(tagId, (usageCountByTag.get(tagId) ?? 0) + 1);
+      });
+    });
+
+    return tags.map(tag => ({
+      ...tag,
+      gameCount: tag.id ? usageCountByTag.get(tag.id) ?? 0 : 0,
+    }));
+  }
+
+  private normalizeTagIds(tagIds: number[] | undefined): number[] {
+    if (!Array.isArray(tagIds)) {
+      return [];
+    }
+
+    return [...new Set(
+      tagIds
+        .filter(tagId => Number.isInteger(tagId) && tagId > 0)
+        .map(tagId => Math.trunc(tagId))
+    )];
+  }
+
+  private normalizeTagColor(value: string): string {
+    const normalized = value.trim();
+    return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : '#3880ff';
   }
 }

@@ -13,11 +13,16 @@ describe('GameShelfService', () => {
   beforeEach(() => {
     repository = jasmine.createSpyObj<GameRepository>('GameRepository', [
       'listByType',
+      'listAll',
       'upsertFromCatalog',
       'moveToList',
       'remove',
       'exists',
       'updateCover',
+      'setGameTags',
+      'listTags',
+      'upsertTag',
+      'deleteTag',
     ]);
 
     searchApi = jasmine.createSpyObj<GameSearchApi>('GameSearchApi', ['searchGames', 'getGameById', 'listPlatforms', 'searchBoxArtByTitle']);

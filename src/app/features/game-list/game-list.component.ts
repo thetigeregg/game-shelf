@@ -1,8 +1,8 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
-import { PopoverController, ToastController } from '@ionic/angular';
+import { AlertController, PopoverController, ToastController } from '@ionic/angular';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
-import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListFilters, ListType } from '../../core/models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameListFilters, ListType, Tag } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 
 @Component({
@@ -28,6 +28,7 @@ export class GameListComponent implements OnChanges {
   imagePickerError: string | null = null;
   private readonly gameShelfService = inject(GameShelfService);
   private readonly popoverController = inject(PopoverController);
+  private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
   private readonly searchQuery$ = new BehaviorSubject<string>('');
@@ -75,6 +76,11 @@ export class GameListComponent implements OnChanges {
   async removeGameFromPopover(game: GameEntry): Promise<void> {
     await this.removeGame(game);
     await this.popoverController.dismiss();
+  }
+
+  async openTagsForGameFromPopover(game: GameEntry): Promise<void> {
+    await this.popoverController.dismiss();
+    await this.openTagsPicker(game);
   }
 
   getOtherListLabel(): string {
@@ -126,6 +132,24 @@ export class GameListComponent implements OnChanges {
   async openImagePickerFromPopover(): Promise<void> {
     await this.popoverController.dismiss();
     await this.openImagePickerModal();
+  }
+
+  async openSelectedGameTagsFromPopover(): Promise<void> {
+    await this.popoverController.dismiss();
+
+    if (!this.selectedGame) {
+      return;
+    }
+
+    await this.openTagsPicker(this.selectedGame);
+  }
+
+  async openSelectedGameTagsFromDetail(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    await this.openTagsPicker(this.selectedGame);
   }
 
   async refreshSelectedGameMetadata(): Promise<void> {
@@ -206,6 +230,21 @@ export class GameListComponent implements OnChanges {
     }
 
     return new Date(timestamp).toLocaleDateString();
+  }
+
+  getTagTextColor(color: string): string {
+    const normalized = color.trim();
+
+    if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+      return '#ffffff';
+    }
+
+    const red = Number.parseInt(normalized.slice(1, 3), 16);
+    const green = Number.parseInt(normalized.slice(3, 5), 16);
+    const blue = Number.parseInt(normalized.slice(5, 7), 16);
+    const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+    return luminance > 0.6 ? '#000000' : '#ffffff';
   }
 
   private getOtherListType(): ListType {
@@ -315,6 +354,85 @@ export class GameListComponent implements OnChanges {
     this.imagePickerError = null;
     this.isImagePickerModalOpen = true;
     await this.runImagePickerSearch();
+  }
+
+  private async openTagsPicker(game: GameEntry): Promise<void> {
+    const tags = await this.gameShelfService.listTags();
+
+    if (tags.length === 0) {
+      await this.presentToast('Create a tag first from the Tags page.', 'primary');
+      return;
+    }
+
+    let nextTagIds = this.normalizeTagIds(game.tagIds);
+    const alert = await this.alertController.create({
+      header: 'Game Tags',
+      message: `Select tags for ${game.title}.`,
+      inputs: tags.map(tag => this.buildTagInput(tag, nextTagIds)),
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: 'Save',
+          role: 'confirm',
+          handler: (value: string[] | string | null | undefined) => {
+            nextTagIds = this.parseTagSelection(value);
+          },
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    const updated = await this.gameShelfService.setGameTags(game.externalId, nextTagIds);
+
+    if (this.selectedGame?.externalId === updated.externalId) {
+      this.selectedGame = updated;
+    }
+
+    await this.presentToast('Tags updated.');
+  }
+
+  private buildTagInput(tag: Tag, selectedTagIds: number[]): { type: 'checkbox'; label: string; value: string; checked: boolean } {
+    const tagId = typeof tag.id === 'number' && Number.isInteger(tag.id) && tag.id > 0 ? tag.id : -1;
+
+    return {
+      type: 'checkbox',
+      label: tag.name,
+      value: String(tagId),
+      checked: selectedTagIds.includes(tagId),
+    };
+  }
+
+  private parseTagSelection(value: string[] | string | null | undefined): number[] {
+    if (Array.isArray(value)) {
+      return this.normalizeTagIds(value.map(entry => Number.parseInt(entry, 10)));
+    }
+
+    if (typeof value === 'string') {
+      return this.normalizeTagIds([Number.parseInt(value, 10)]);
+    }
+
+    return [];
+  }
+
+  private normalizeTagIds(tagIds: number[] | undefined): number[] {
+    if (!Array.isArray(tagIds)) {
+      return [];
+    }
+
+    return [...new Set(
+      tagIds
+        .filter(tagId => Number.isInteger(tagId) && tagId > 0)
+        .map(tagId => Math.trunc(tagId))
+    )];
   }
 
   private resetImagePickerState(): void {

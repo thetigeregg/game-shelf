@@ -80,6 +80,11 @@ export class Tab1Page {
     await this.router.navigateByUrl('/settings');
   }
 
+  async openTagsFromPopover(): Promise<void> {
+    await this.popoverController.dismiss();
+    await this.router.navigateByUrl('/tags');
+  }
+
   getDisplayedGamesLabel(): string {
     return this.displayedGames.length === 1 ? '1 game' : `${this.displayedGames.length} games`;
   }

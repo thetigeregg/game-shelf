@@ -6,6 +6,24 @@ export interface GameCatalogPlatformOption {
   name: string;
 }
 
+export interface Tag {
+  id?: number;
+  name: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TagSummary extends Tag {
+  gameCount: number;
+}
+
+export interface GameTag {
+  id: number;
+  name: string;
+  color: string;
+}
+
 export interface GameCatalogResult {
   externalId: string;
   title: string;
@@ -27,6 +45,8 @@ export interface GameEntry {
   coverSource: CoverSource;
   platform: string | null;
   platformIgdbId?: number | null;
+  tagIds?: number[];
+  tags?: GameTag[];
   releaseDate: string | null;
   releaseYear: number | null;
   listType: ListType;

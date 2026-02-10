@@ -51,6 +51,13 @@ export class IgdbProxyService implements GameSearchApi {
       map(response => (response.items ?? []).map(item => this.normalizeResult(item))),
       catchError((error: unknown) => {
         if (error instanceof HttpErrorResponse && error.status === 429) {
+          const retryAfterMs = this.parseRetryAfterMs(error);
+
+          if (retryAfterMs !== null) {
+            const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+            return throwError(() => new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`));
+          }
+
           return throwError(() => new Error('Rate limit exceeded. Please wait and try again.'));
         }
 
@@ -285,5 +292,27 @@ export class IgdbProxyService implements GameSearchApi {
     } catch {
       return [];
     }
+  }
+
+  private parseRetryAfterMs(error: HttpErrorResponse): number | null {
+    const value = error.headers?.get('Retry-After');
+
+    if (!value) {
+      return null;
+    }
+
+    const seconds = Number.parseInt(value, 10);
+
+    if (Number.isInteger(seconds) && seconds >= 0) {
+      return seconds * 1000;
+    }
+
+    const dateMs = Date.parse(value);
+
+    if (Number.isNaN(dateMs)) {
+      return null;
+    }
+
+    return Math.max(0, dateMs - Date.now());
   }
 }

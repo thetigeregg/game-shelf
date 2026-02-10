@@ -153,7 +153,8 @@ export class SettingsPage {
   private static readonly MGC_RESOLVE_MIN_INTERVAL_MS = 350;
   private static readonly MGC_RESOLVE_MAX_INTERVAL_MS = 1600;
   private static readonly MGC_RESOLVE_MAX_ATTEMPTS = 3;
-  private static readonly MGC_RESOLVE_RETRY_BASE_DELAY_MS = 1500;
+  private static readonly MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS = 8000;
+  private static readonly MGC_RATE_LIMIT_MAX_COOLDOWN_MS = 60000;
 
   readonly presets: ThemePreset[] = [
     { label: 'Ionic Blue', value: '#3880ff' },
@@ -1220,10 +1221,9 @@ export class SettingsPage {
         return;
       }
 
-      const retryDelay = SettingsPage.MGC_RESOLVE_RETRY_BASE_DELAY_MS * attempt;
-      row.statusDetail = `Rate limited. Retrying in ${Math.ceil(retryDelay / 1000)}s...`;
+      const retryDelay = this.resolveRateLimitRetryDelayMs(row.statusDetail, attempt);
       this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
-      await this.delay(retryDelay);
+      await this.waitWithRetryCountdown(row, retryDelay);
       attempt += 1;
     }
   }
@@ -1295,6 +1295,22 @@ export class SettingsPage {
 
   private isRateLimitStatusDetail(detail: string): boolean {
     return detail.toLowerCase().includes('rate limit');
+  }
+
+  private resolveRateLimitRetryDelayMs(statusDetail: string, attempt: number): number {
+    const retryAfterMatch = statusDetail.match(/retry after\s+(\d+)\s*s/i);
+
+    if (retryAfterMatch) {
+      const seconds = Number.parseInt(retryAfterMatch[1], 10);
+
+      if (Number.isInteger(seconds) && seconds > 0) {
+        return Math.min(seconds * 1000, SettingsPage.MGC_RATE_LIMIT_MAX_COOLDOWN_MS);
+      }
+    }
+
+    const scaled = SettingsPage.MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS * attempt;
+    const exponentialScaled = SettingsPage.MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS * Math.pow(2, Math.max(attempt - 1, 0));
+    return Math.min(Math.max(scaled, exponentialScaled), SettingsPage.MGC_RATE_LIMIT_MAX_COOLDOWN_MS);
   }
 
   private async resolveCatalogForRow(
@@ -1529,6 +1545,18 @@ export class SettingsPage {
     await new Promise<void>(resolve => {
       window.setTimeout(resolve, ms);
     });
+  }
+
+  private async waitWithRetryCountdown(row: MgcImportRow, totalMs: number): Promise<void> {
+    let remainingMs = totalMs;
+
+    while (remainingMs > 0) {
+      const secondsLeft = Math.max(1, Math.ceil(remainingMs / 1000));
+      row.statusDetail = `Rate limited. Retrying in ${secondsLeft}s...`;
+      const stepMs = Math.min(1000, remainingMs);
+      await this.delay(stepMs);
+      remainingMs -= stepMs;
+    }
   }
 
   private async buildExportCsv(): Promise<string> {

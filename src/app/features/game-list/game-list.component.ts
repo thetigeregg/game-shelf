@@ -540,6 +540,28 @@ export class GameListComponent implements OnChanges {
         await this.openImagePickerModal();
     }
 
+    async deleteSelectedGameFromPopover(): Promise<void> {
+        await this.popoverController.dismiss();
+
+        if (!this.selectedGame) {
+            return;
+        }
+
+        const target = this.selectedGame;
+        const confirmed = await this.confirmDelete({
+            header: 'Delete Game',
+            message: `Delete ${target.title}?`,
+            confirmText: 'Delete',
+        });
+
+        if (!confirmed) {
+            return;
+        }
+
+        await this.removeGame(target);
+        this.closeGameDetailModal();
+    }
+
     async openSelectedGameTagsFromPopover(): Promise<void> {
         await this.popoverController.dismiss();
 

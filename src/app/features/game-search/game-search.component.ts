@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton } from '@ionic/angular/standalone';
@@ -19,9 +19,13 @@ interface SelectedPlatform {
     standalone: true,
     imports: [CommonModule, IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton],
 })
-export class GameSearchComponent implements OnInit, OnDestroy {
+export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     @Input({ required: true }) listType!: ListType;
+    @Input() actionMode: 'add' | 'select' = 'add';
+    @Input() initialQuery = '';
+    @Input() initialPlatformIgdbId: number | null = null;
     @Output() gameAdded = new EventEmitter<void>();
+    @Output() matchSelected = new EventEmitter<GameCatalogResult>();
 
     query = '';
     results: GameCatalogResult[] = [];
@@ -35,6 +39,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
     private readonly searchState$ = new Subject<{ query: string; platformIgdbId: number | null }>();
     private readonly destroy$ = new Subject<void>();
     private readonly addingExternalIds = new Set<string>();
+    private searchReady = false;
     private readonly gameShelfService = inject(GameShelfService);
     private readonly alertController = inject(AlertController);
     private readonly toastController = inject(ToastController);
@@ -82,6 +87,15 @@ export class GameSearchComponent implements OnInit, OnDestroy {
             .subscribe(results => {
                 this.results = results;
             });
+
+        this.searchReady = true;
+        this.applyInitialSearchInputs();
+    }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        if (changes['initialQuery'] || changes['initialPlatformIgdbId']) {
+            this.applyInitialSearchInputs();
+        }
     }
 
     ngOnDestroy(): void {
@@ -129,14 +143,20 @@ export class GameSearchComponent implements OnInit, OnDestroy {
             }
 
             const resolvedForAdd = await this.resolveCoverForAdd(result, platformSelection);
+            const resolvedCatalog: GameCatalogResult = {
+                ...resolvedForAdd,
+                igdbGameId: result.igdbGameId,
+                platform: platformSelection.name,
+                platformIgdbId: platformSelection.id,
+            };
+
+            if (this.actionMode === 'select') {
+                this.matchSelected.emit(resolvedCatalog);
+                return;
+            }
 
             await this.gameShelfService.addGame(
-                {
-                    ...resolvedForAdd,
-                    igdbGameId: result.igdbGameId,
-                    platform: platformSelection.name,
-                    platformIgdbId: platformSelection.id,
-                },
+                resolvedCatalog,
                 this.listType
             );
             await this.presentToast(`Added to ${this.getListLabel()}.`);
@@ -186,6 +206,14 @@ export class GameSearchComponent implements OnInit, OnDestroy {
         }
 
         return null;
+    }
+
+    getActionLabel(externalId: string): string {
+        if (this.actionMode === 'select') {
+            return this.isAdding(externalId) ? 'Selecting...' : 'Select';
+        }
+
+        return 'Add';
     }
 
     private async resolvePlatformSelection(result: GameCatalogResult): Promise<SelectedPlatform | undefined> {
@@ -316,6 +344,17 @@ export class GameSearchComponent implements OnInit, OnDestroy {
             query: this.query,
             platformIgdbId: this.selectedSearchPlatformIgdbId,
         });
+    }
+
+    private applyInitialSearchInputs(): void {
+        this.query = this.initialQuery ?? '';
+        this.selectedSearchPlatformIgdbId = typeof this.initialPlatformIgdbId === 'number' && Number.isInteger(this.initialPlatformIgdbId) && this.initialPlatformIgdbId > 0
+            ? this.initialPlatformIgdbId
+            : null;
+
+        if (this.searchReady) {
+            this.emitSearchState();
+        }
     }
 
     private async presentDuplicateAlert(title: string, platformName: string): Promise<void> {

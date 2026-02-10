@@ -432,6 +432,138 @@ describe('GameShelfService', () => {
     await expect(service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg')).rejects.toThrowError('Game entry no longer exists.');
   });
 
+  it('rematches game identity and preserves user fields', async () => {
+    const current: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Match',
+      coverUrl: 'https://example.com/custom.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      tagIds: [1, 2],
+      releaseDate: '2020-01-01T00:00:00.000Z',
+      releaseYear: 2020,
+      status: 'playing',
+      rating: 4,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const replacement: GameCatalogResult = {
+      igdbGameId: '456',
+      title: 'Correct Match',
+      coverUrl: 'https://images.igdb.com/cover.jpg',
+      coverSource: 'igdb',
+      platforms: ['Nintendo Switch'],
+      platformOptions: [{ id: 130, name: 'Nintendo Switch' }],
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      releaseDate: '2021-01-01T00:00:00.000Z',
+      releaseYear: 2021,
+    };
+
+    const upserted: GameEntry = {
+      ...current,
+      id: 11,
+      igdbGameId: '456',
+      title: 'Correct Match',
+      coverUrl: 'https://images.igdb.com/cover.jpg',
+      coverSource: 'igdb',
+      status: null,
+      rating: null,
+      tagIds: [],
+    };
+
+    repository.exists.mockResolvedValue(current);
+    repository.upsertFromCatalog.mockResolvedValue(upserted);
+    repository.setGameStatus.mockResolvedValue({ ...upserted, status: 'playing' });
+    repository.setGameRating.mockResolvedValue({ ...upserted, status: 'playing', rating: 4 });
+    repository.setGameTags.mockResolvedValue({ ...upserted, status: 'playing', rating: 4, tagIds: [1, 2] });
+    repository.listTags.mockResolvedValue([
+      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
+      { id: 2, name: 'Favorite', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+    ]);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+
+    const result = await service.rematchGame('123', 130, replacement);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        igdbGameId: '456',
+        platformIgdbId: 130,
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+      }),
+      'collection',
+    );
+    expect(repository.remove).toHaveBeenCalledWith('123', 130);
+    expect(repository.setGameStatus).toHaveBeenCalledWith('456', 130, 'playing');
+    expect(repository.setGameRating).toHaveBeenCalledWith('456', 130, 4);
+    expect(repository.setGameTags).toHaveBeenCalledWith('456', 130, [1, 2]);
+    expect(result.tags?.map(tag => tag.name)).toEqual(['Backlog', 'Favorite']);
+  });
+
+  it('does not remove entry during rematch when identity is unchanged', async () => {
+    const current: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      tagIds: [],
+      releaseDate: null,
+      releaseYear: null,
+      status: null,
+      rating: null,
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x',
+    };
+
+    const replacement: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platforms: ['Nintendo Switch'],
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      releaseDate: null,
+      releaseYear: null,
+    };
+
+    repository.exists.mockResolvedValue(current);
+    repository.upsertFromCatalog.mockResolvedValue(current);
+    repository.listTags.mockResolvedValue([]);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+
+    await service.rematchGame('123', 130, replacement);
+
+    expect(repository.remove).not.toHaveBeenCalled();
+  });
+
+  it('throws when rematching a missing game entry', async () => {
+    repository.exists.mockResolvedValue(undefined);
+
+    await expect(service.rematchGame('123', 130, {
+      igdbGameId: '456',
+      title: 'Replacement',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platforms: ['Nintendo Switch'],
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      releaseDate: null,
+      releaseYear: null,
+    })).rejects.toThrowError('Game entry no longer exists.');
+  });
+
   it('normalizes identity in findGameByIdentity', async () => {
     const existing = { id: 1 } as GameEntry;
     repository.exists.mockResolvedValue(existing);

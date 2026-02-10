@@ -56,7 +56,7 @@
       [disabled]="isAdding(result.igdbGameId)"
       (click)="addGame(result)"
     >
-      Add
+      {{ getActionLabel(result.igdbGameId) }}
     </ion-button>
   </ion-item>
 </ion-list>

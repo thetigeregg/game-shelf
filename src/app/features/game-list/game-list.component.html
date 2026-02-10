@@ -159,6 +159,9 @@
             <ion-item button detail="false" (click)="openImagePickerFromPopover()">
               Update image
             </ion-item>
+            <ion-item button detail="false" (click)="openFixMatchFromPopover()">
+              Fix game match
+            </ion-item>
             <ion-item button detail="false" color="danger" (click)="deleteSelectedGameFromPopover()">
               Delete
             </ion-item>
@@ -285,6 +288,28 @@
           </ion-item>
         </ion-list>
       </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isFixMatchModalOpen" (didDismiss)="closeFixMatchModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Fix Game Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeFixMatchModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <app-game-search
+        [listType]="listType"
+        actionMode="select"
+        [initialQuery]="fixMatchInitialQuery"
+        [initialPlatformIgdbId]="fixMatchInitialPlatformIgdbId"
+        (matchSelected)="onFixMatchSelected($event)"
+      ></app-game-search>
     </ion-content>
   </ng-template>
 </ion-modal>

@@ -100,6 +100,76 @@ export class GameShelfService {
     this.listRefresh$.next();
   }
 
+  async rematchGame(
+    currentIgdbGameId: string,
+    currentPlatformIgdbId: number,
+    replacement: GameCatalogResult,
+  ): Promise<GameEntry> {
+    const current = await this.repository.exists(currentIgdbGameId, currentPlatformIgdbId);
+
+    if (!current) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const normalizedGameId = this.normalizeGameId(replacement.igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(replacement.platformIgdbId);
+    const normalizedPlatform = this.normalizePlatform(replacement.platform);
+    const normalizedReplacement: GameCatalogResult = {
+      ...replacement,
+      igdbGameId: normalizedGameId,
+      platform: normalizedPlatform,
+      platformIgdbId: normalizedPlatformIgdbId,
+      // Reset manual metadata so it can be regenerated from the selected match.
+      hltbMainHours: null,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+    };
+
+    const updated = await this.repository.upsertFromCatalog(
+      normalizedReplacement,
+      current.listType,
+    );
+
+    const replacementIsDifferentIdentity = current.igdbGameId !== normalizedGameId
+      || current.platformIgdbId !== normalizedPlatformIgdbId;
+
+    if (replacementIsDifferentIdentity) {
+      await this.repository.remove(current.igdbGameId, current.platformIgdbId);
+    }
+
+    let withStatus = updated;
+    let withRating = withStatus;
+    let withTags = withRating;
+
+    if (current.status !== null && current.status !== undefined) {
+      const next = await this.repository.setGameStatus(withStatus.igdbGameId, withStatus.platformIgdbId, current.status);
+      if (next) {
+        withStatus = next;
+      }
+    }
+
+    if (current.rating !== null && current.rating !== undefined) {
+      const next = await this.repository.setGameRating(withStatus.igdbGameId, withStatus.platformIgdbId, current.rating);
+      if (next) {
+        withRating = next;
+      }
+    }
+
+    const tagIds = this.normalizeTagIds(current.tagIds);
+    if (tagIds.length > 0) {
+      const next = await this.repository.setGameTags(withRating.igdbGameId, withRating.platformIgdbId, tagIds);
+      if (next) {
+        withTags = next;
+      }
+    }
+
+    this.listRefresh$.next();
+    void this.enrichCatalogWithCompletionTimesInBackground(normalizedReplacement, current.listType);
+
+    const tags = await this.repository.listTags();
+    return this.attachTags([withTags], tags)[0];
+  }
+
   async refreshGameMetadata(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 

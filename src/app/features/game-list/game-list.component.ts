@@ -34,6 +34,7 @@ import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from '
 import { map, tap } from 'rxjs/operators';
 import {
     DEFAULT_GAME_LIST_FILTERS,
+    GameCatalogResult,
     GameEntry,
     GameGroupByField,
     GameListFilters,
@@ -46,6 +47,7 @@ import {
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
+import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, starOutline, play, trashBin, trophy, bookmark, pause, refresh } from "ionicons/icons";
 
@@ -103,6 +105,7 @@ export interface GameListSelectionState {
         IonText,
         IonRange,
         IonNote,
+        GameSearchComponent,
     ],
 })
 export class GameListComponent implements OnChanges {
@@ -131,6 +134,7 @@ export class GameListComponent implements OnChanges {
     groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
     isGameDetailModalOpen = false;
     isImagePickerModalOpen = false;
+    isFixMatchModalOpen = false;
     isRatingModalOpen = false;
     selectedGame: GameEntry | null = null;
     ratingTargetGame: GameEntry | null = null;
@@ -140,6 +144,8 @@ export class GameListComponent implements OnChanges {
     imagePickerResults: string[] = [];
     isImagePickerLoading = false;
     imagePickerError: string | null = null;
+    fixMatchInitialQuery = '';
+    fixMatchInitialPlatformIgdbId: number | null = null;
     selectionModeActive = false;
     isRowActionsPopoverOpen = false;
     rowActionsPopoverEvent: Event | undefined = undefined;
@@ -540,6 +546,11 @@ export class GameListComponent implements OnChanges {
         await this.openImagePickerModal();
     }
 
+    async openFixMatchFromPopover(): Promise<void> {
+        this.openFixMatchModal();
+        await this.popoverController.dismiss();
+    }
+
     async deleteSelectedGameFromPopover(): Promise<void> {
         await this.popoverController.dismiss();
 
@@ -560,6 +571,42 @@ export class GameListComponent implements OnChanges {
 
         await this.removeGame(target);
         this.closeGameDetailModal();
+    }
+
+    openFixMatchModal(): void {
+        if (!this.selectedGame) {
+            return;
+        }
+
+        this.fixMatchInitialQuery = this.selectedGame.title;
+        this.fixMatchInitialPlatformIgdbId = this.selectedGame.platformIgdbId;
+        this.isFixMatchModalOpen = true;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    closeFixMatchModal(): void {
+        this.isFixMatchModalOpen = false;
+        this.fixMatchInitialQuery = '';
+        this.fixMatchInitialPlatformIgdbId = null;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    async onFixMatchSelected(result: GameCatalogResult): Promise<void> {
+        if (!this.selectedGame) {
+            this.closeFixMatchModal();
+            return;
+        }
+
+        const current = this.selectedGame;
+
+        try {
+            const updated = await this.gameShelfService.rematchGame(current.igdbGameId, current.platformIgdbId, result);
+            this.selectedGame = updated;
+            this.closeFixMatchModal();
+            await this.presentToast('Game match updated.');
+        } catch {
+            await this.presentToast('Unable to update game match.', 'danger');
+        }
     }
 
     async openSelectedGameTagsFromPopover(): Promise<void> {

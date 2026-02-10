@@ -12,7 +12,6 @@
   <ion-accordion-group
     *ngIf="groupedView.grouped && groupedView.totalCount > 0"
     [multiple]="true"
-    [value]="getExpandedGroupValues(groupedView.sections)"
   >
     <ion-accordion *ngFor="let section of groupedView.sections" [value]="section.key">
       <ion-item slot="header" color="light">

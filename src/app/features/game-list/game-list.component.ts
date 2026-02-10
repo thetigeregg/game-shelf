@@ -717,11 +717,6 @@ export class GameListComponent implements OnChanges {
         return luminance > 0.6 ? '#000000' : '#ffffff';
     }
 
-    getExpandedGroupValues(sections: GameGroupSection[]): string[] {
-        const firstSection = sections[0];
-        return firstSection ? [firstSection.key] : [];
-    }
-
     getGroupCountLabel(count: number): string {
         return count === 1 ? '1 game' : `${count} games`;
     }

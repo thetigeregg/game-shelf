@@ -1,7 +1,7 @@
 import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { MenuController, ToastController } from '@ionic/angular/standalone';
 import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal } from "@ionic/angular/standalone";
 import { ActivatedRoute, Router } from '@angular/router';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
@@ -55,7 +55,6 @@ export class Tab2Page {
     readonly preferenceStorageKey = 'game-shelf:preferences:wishlist';
     readonly menuId = 'wishlist-filters-menu';
     readonly contentId = 'wishlist-content';
-    readonly headerActionsTriggerId = 'wishlist-header-actions';
 
     filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
     platformOptions: string[] = [];
@@ -70,9 +69,10 @@ export class Tab2Page {
     allDisplayedSelected = false;
     isBulkActionsPopoverOpen = false;
     bulkActionsPopoverEvent: Event | undefined = undefined;
+    isHeaderActionsPopoverOpen = false;
+    headerActionsPopoverEvent: Event | undefined = undefined;
     @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
     private readonly menuController = inject(MenuController);
-    private readonly popoverController = inject(PopoverController);
     private readonly toastController = inject(ToastController);
     private readonly router = inject(Router);
     private readonly route = inject(ActivatedRoute);
@@ -198,7 +198,7 @@ export class Tab2Page {
     }
 
     async pickRandomGameFromPopover(): Promise<void> {
-        await this.popoverController.dismiss();
+        this.closeHeaderActionsPopover();
 
         if (this.displayedGames.length === 0) {
             await this.presentToast('No games available in current results.', 'warning');
@@ -211,17 +211,17 @@ export class Tab2Page {
     }
 
     async openSettingsFromPopover(): Promise<void> {
-        await this.popoverController.dismiss();
+        this.closeHeaderActionsPopover();
         await this.router.navigateByUrl('/settings');
     }
 
     async openTagsFromPopover(): Promise<void> {
-        await this.popoverController.dismiss();
+        this.closeHeaderActionsPopover();
         await this.router.navigateByUrl('/tags');
     }
 
     async openViewsFromPopover(): Promise<void> {
-        await this.popoverController.dismiss();
+        this.closeHeaderActionsPopover();
         await this.router.navigate(['/views'], {
             state: {
                 listType: this.listType,
@@ -267,9 +267,19 @@ export class Tab2Page {
         this.isBulkActionsPopoverOpen = true;
     }
 
+    openHeaderActionsPopover(event: Event): void {
+        this.headerActionsPopoverEvent = event;
+        this.isHeaderActionsPopoverOpen = true;
+    }
+
     closeBulkActionsPopover(): void {
         this.isBulkActionsPopoverOpen = false;
         this.bulkActionsPopoverEvent = undefined;
+    }
+
+    closeHeaderActionsPopover(): void {
+        this.isHeaderActionsPopoverOpen = false;
+        this.headerActionsPopoverEvent = undefined;
     }
 
     onGroupByChange(value: GameGroupByField | null | undefined): void {

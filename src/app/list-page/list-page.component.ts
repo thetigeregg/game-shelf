@@ -1,21 +1,52 @@
 import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MenuController, ToastController } from '@ionic/angular/standalone';
-import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal } from "@ionic/angular/standalone";
+import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
 import { GameListComponent, GameListSelectionState } from '../features/game-list/game-list.component';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
-import { addIcons } from "ionicons";
-import { close, filter, ellipsisHorizontal, checkbox, squareOutline, add } from "ionicons/icons";
+import { addIcons } from 'ionicons';
+import { close, filter, ellipsisHorizontal, checkbox, squareOutline, add } from 'ionicons/icons';
+
+type ListPageConfig = {
+    contentId: string;
+    listType: ListType;
+    menuId: string;
+    pageTitle: 'Collection' | 'Wishlist';
+    preferenceStorageKey: string;
+    searchPlaceholder: string;
+};
+
+function buildConfig(listType: ListType): ListPageConfig {
+    if (listType === 'wishlist') {
+        return {
+            contentId: 'wishlist-content',
+            listType,
+            menuId: 'wishlist-filters-menu',
+            pageTitle: 'Wishlist',
+            preferenceStorageKey: 'game-shelf:preferences:wishlist',
+            searchPlaceholder: 'Search wishlist',
+        };
+    }
+
+    return {
+        contentId: 'collection-content',
+        listType: 'collection',
+        menuId: 'collection-filters-menu',
+        pageTitle: 'Collection',
+        preferenceStorageKey: 'game-shelf:preferences:collection',
+        searchPlaceholder: 'Search collection',
+    };
+}
 
 @Component({
-    selector: 'app-tab1',
-    templateUrl: 'tab1.page.html',
-    styleUrls: ['tab1.page.scss'],
+    selector: 'app-list-page',
+    templateUrl: './list-page.component.html',
+    styleUrls: ['./list-page.component.scss'],
     standalone: true,
     imports: [
         CommonModule,
@@ -39,7 +70,7 @@ import { close, filter, ellipsisHorizontal, checkbox, squareOutline, add } from 
         IonModal,
     ],
 })
-export class Tab1Page {
+export class ListPageComponent {
     readonly noneTagFilterValue = '__none__';
     readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
         { value: 'none', label: 'None' },
@@ -51,10 +82,12 @@ export class Tab1Page {
         { value: 'publisher', label: 'Publisher' },
         { value: 'releaseYear', label: 'Release Year' },
     ];
-    readonly listType: ListType = 'collection';
-    readonly preferenceStorageKey = 'game-shelf:preferences:collection';
-    readonly menuId = 'collection-filters-menu';
-    readonly contentId = 'collection-content';
+    readonly listType: ListType;
+    readonly preferenceStorageKey: string;
+    readonly menuId: string;
+    readonly contentId: string;
+    readonly pageTitle: 'Collection' | 'Wishlist';
+    readonly searchPlaceholder: string;
 
     filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
     platformOptions: string[] = [];
@@ -73,12 +106,22 @@ export class Tab1Page {
     headerActionsPopoverEvent: Event | undefined = undefined;
     @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
     private readonly menuController = inject(MenuController);
+    private readonly popoverController = inject(PopoverController);
     private readonly toastController = inject(ToastController);
     private readonly router = inject(Router);
     private readonly route = inject(ActivatedRoute);
     private readonly gameShelfService = inject(GameShelfService);
 
     constructor() {
+        const rawListType = this.route.snapshot.data['listType'];
+        const config = buildConfig(rawListType === 'wishlist' ? 'wishlist' : 'collection');
+        this.listType = config.listType;
+        this.preferenceStorageKey = config.preferenceStorageKey;
+        this.menuId = config.menuId;
+        this.contentId = config.contentId;
+        this.pageTitle = config.pageTitle;
+        this.searchPlaceholder = config.searchPlaceholder;
+
         this.restorePreferences();
         this.route.queryParamMap.subscribe(params => {
             void this.applyViewFromQueryParam(params.get('applyView'));
@@ -198,7 +241,7 @@ export class Tab1Page {
     }
 
     async pickRandomGameFromPopover(): Promise<void> {
-        this.closeHeaderActionsPopover();
+        await this.closeHeaderActionsPopover();
 
         if (this.displayedGames.length === 0) {
             await this.presentToast('No games available in current results.', 'warning');
@@ -211,17 +254,17 @@ export class Tab1Page {
     }
 
     async openSettingsFromPopover(): Promise<void> {
-        this.closeHeaderActionsPopover();
+        await this.closeHeaderActionsPopover();
         await this.router.navigateByUrl('/settings');
     }
 
     async openTagsFromPopover(): Promise<void> {
-        this.closeHeaderActionsPopover();
+        await this.closeHeaderActionsPopover();
         await this.router.navigateByUrl('/tags');
     }
 
     async openViewsFromPopover(): Promise<void> {
-        this.closeHeaderActionsPopover();
+        await this.closeHeaderActionsPopover();
         await this.router.navigate(['/views'], {
             state: {
                 listType: this.listType,
@@ -233,6 +276,14 @@ export class Tab1Page {
 
     getSelectionHeaderLabel(): string {
         return this.selectedGamesCount === 1 ? '1 selected' : `${this.selectedGamesCount} selected`;
+    }
+
+    getMoveTargetLabel(): 'Collection' | 'Wishlist' {
+        return this.listType === 'collection' ? 'Wishlist' : 'Collection';
+    }
+
+    getHeaderActionsAriaLabel(): string {
+        return `Open ${this.listType} actions`;
     }
 
     async clearSelectionMode(): Promise<void> {
@@ -277,9 +328,10 @@ export class Tab1Page {
         this.bulkActionsPopoverEvent = undefined;
     }
 
-    closeHeaderActionsPopover(): void {
+    async closeHeaderActionsPopover(): Promise<void> {
         this.isHeaderActionsPopoverOpen = false;
         this.headerActionsPopoverEvent = undefined;
+        await this.popoverController.dismiss().catch(() => undefined);
     }
 
     onGroupByChange(value: GameGroupByField | null | undefined): void {

@@ -1,0 +1,30 @@
+app-game-search,
+app-game-list {
+  display: block;
+}
+
+.page-title {
+  line-height: 1.1;
+}
+
+.page-subtitle {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ion-color-primary-contrast);
+  opacity: 0.9;
+}
+
+ion-fab {
+  margin-bottom: 12px;
+  margin-right: 8px;
+}
+
+ion-header ion-button {
+  --opacity: 1;
+}
+
+ion-header.selection-mode-header ion-toolbar {
+  --background: var(--ion-color-primary-shade);
+  --color: var(--ion-color-primary-contrast);
+}

@@ -19,11 +19,13 @@ export const routes: Routes = [
     children: [
       {
         path: 'collection',
-        loadComponent: () => import('./tab1/tab1.page').then(m => m.Tab1Page),
+        loadComponent: () => import('./list-page/list-page.component').then(m => m.ListPageComponent),
+        data: { listType: 'collection' },
       },
       {
         path: 'wishlist',
-        loadComponent: () => import('./tab2/tab2.page').then(m => m.Tab2Page),
+        loadComponent: () => import('./list-page/list-page.component').then(m => m.ListPageComponent),
+        data: { listType: 'wishlist' },
       },
       {
         path: '',

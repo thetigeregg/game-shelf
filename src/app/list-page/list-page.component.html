@@ -19,7 +19,7 @@
     </ion-buttons>
 
     <ion-title *ngIf="!isSelectionMode">
-      <div class="page-title">Collection</div>
+      <div class="page-title">{{ pageTitle }}</div>
       <div class="page-subtitle">{{ getDisplayedGamesLabel() }}</div>
     </ion-title>
     <ion-title *ngIf="isSelectionMode">{{ getSelectionHeaderLabel() }}</ion-title>
@@ -28,7 +28,7 @@
       <ion-button *ngIf="!isSelectionMode" aria-label="Open filters" (click)="openFiltersMenu()">
         <ion-icon slot="icon-only" name="filter"></ion-icon>
       </ion-button>
-      <ion-button *ngIf="!isSelectionMode" aria-label="Open collection actions" (click)="openHeaderActionsPopover($event)">
+      <ion-button *ngIf="!isSelectionMode" [attr.aria-label]="getHeaderActionsAriaLabel()" (click)="openHeaderActionsPopover($event)">
         <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
       </ion-button>
       <ion-button *ngIf="isSelectionMode" aria-label="Select all games" (click)="toggleSelectAll()">
@@ -42,7 +42,7 @@
   <ion-toolbar *ngIf="!isSelectionMode">
     <ion-searchbar
       class="list-header-searchbar"
-      placeholder="Search collection"
+      [placeholder]="searchPlaceholder"
       [value]="listSearchQuery"
       (ionInput)="onListSearchChange($any($event).detail.value)"
     ></ion-searchbar>
@@ -62,7 +62,7 @@
       <ion-content>
         <ion-list lines="none">
           <ion-item button detail="false" (click)="moveSelectedGamesFromPopover()">
-            Move to Wishlist
+            Move to {{ getMoveTargetLabel() }}
           </ion-item>
           <ion-item button detail="false" (click)="setTagsForSelectedGamesFromPopover()">
             Set tags

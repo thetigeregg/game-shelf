@@ -106,7 +106,7 @@ describe('IgdbProxyService', () => {
     await expect(promise).rejects.toThrowError('Unable to load game search results.');
   });
 
-  it('maps rate-limited search responses with and without retry-after', async () => {
+  it('maps rate-limited search responses and enforces cooldown from retry-after', async () => {
     const withRetryAfter = firstValueFrom(service.searchGames('mario'));
     const reqOne = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=mario`);
     reqOne.flush(
@@ -119,10 +119,9 @@ describe('IgdbProxyService', () => {
     );
     await expect(withRetryAfter).rejects.toThrowError('Rate limit exceeded. Retry after 9s.');
 
-    const withoutRetryAfter = firstValueFrom(service.searchGames('mario'));
-    const reqTwo = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=mario`);
-    reqTwo.flush({ message: 'rate limited' }, { status: 429, statusText: 'Too Many Requests' });
-    await expect(withoutRetryAfter).rejects.toThrowError('Rate limit exceeded. Please wait and try again.');
+    const duringCooldown = firstValueFrom(service.searchGames('mario'));
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/games/search?q=mario`);
+    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
   });
 
   it('loads a game by IGDB id and normalizes the payload', async () => {
@@ -288,7 +287,7 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(service.searchBoxArtByTitle('mario'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/images/boxart/search?q=mario`);
     req.flush({ message: 'rate limited' }, { status: 429, statusText: 'Too Many Requests' });
-    await expect(promise).rejects.toThrowError('Rate limit exceeded. Please wait and try again.');
+    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
   });
 
   it('normalizes platform options and cover source from rich payloads', async () => {

@@ -1340,7 +1340,7 @@ export class SettingsPage {
             row.status = 'error';
             const message = error instanceof Error ? error.message : '';
             row.statusDetail = message.toLowerCase().includes('rate limit')
-                ? 'Rate limit exceeded.'
+                ? message
                 : 'Search failed.';
         }
     }

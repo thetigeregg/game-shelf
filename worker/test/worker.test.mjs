@@ -343,9 +343,9 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
   );
 
   assert.equal(first.status, 429);
-  assert.equal(first.headers.get('Retry-After'), '15');
+  assert.equal(first.headers.get('Retry-After'), '20');
   const firstPayload = await first.json();
-  assert.equal(firstPayload.error, 'Rate limit exceeded. Retry after 15s.');
+  assert.equal(firstPayload.error, 'Rate limit exceeded. Retry after 20s.');
 
   nowMs += 1_000;
 
@@ -357,7 +357,7 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
   );
 
   assert.equal(second.status, 429);
-  assert.equal(second.headers.get('Retry-After'), '14');
+  assert.equal(second.headers.get('Retry-After'), '19');
   assert.equal(calls.igdb, 1);
 });
 

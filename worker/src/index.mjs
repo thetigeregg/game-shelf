@@ -3,6 +3,7 @@ import { IGDB_TO_THEGAMESDB_PLATFORM_ID } from './platform-id-map.mjs';
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
+const IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS = 20;
 const IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS = 15;
 const IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60;
 const MAX_BOX_ART_RESULTS = 30;
@@ -287,7 +288,7 @@ function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
 
   if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
     const retryAfterMs = Math.max(RATE_LIMIT_WINDOW_MS - (nowMs - entry.startedAt), 0);
-    return Math.max(1, Math.ceil(retryAfterMs / 1000));
+    return Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, Math.ceil(retryAfterMs / 1000));
   }
 
   entry.count += 1;
@@ -302,7 +303,7 @@ function parseRetryAfterSeconds(value, nowMs) {
   const seconds = Number.parseInt(String(value).trim(), 10);
 
   if (Number.isInteger(seconds) && seconds >= 0) {
-    return Math.max(1, Math.min(seconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+    return Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, Math.min(seconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
   }
 
   const dateMs = Date.parse(String(value));
@@ -312,12 +313,12 @@ function parseRetryAfterSeconds(value, nowMs) {
   }
 
   const deltaSeconds = Math.ceil(Math.max(dateMs - nowMs, 0) / 1000);
-  return Math.max(1, Math.min(deltaSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+  return Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, Math.min(deltaSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
 }
 
 function resolveRetryAfterSecondsFromHeaders(headers, nowMs) {
   const parsed = parseRetryAfterSeconds(headers?.get('Retry-After') ?? null, nowMs);
-  return parsed ?? IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS;
+  return parsed ?? Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS);
 }
 
 function getUpstreamCooldownRemainingSeconds(nowMs) {
@@ -330,7 +331,10 @@ function getUpstreamCooldownRemainingSeconds(nowMs) {
 }
 
 function setUpstreamCooldown(retryAfterSeconds, nowMs) {
-  const clampedSeconds = Math.max(1, Math.min(retryAfterSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+  const clampedSeconds = Math.max(
+    IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
+    Math.min(retryAfterSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS),
+  );
   const nextCooldownUntilMs = nowMs + clampedSeconds * 1000;
   igdbRateLimitState.cooldownUntilMs = Math.max(igdbRateLimitState.cooldownUntilMs, nextCooldownUntilMs);
   return getUpstreamCooldownRemainingSeconds(nowMs);

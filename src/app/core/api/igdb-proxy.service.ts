@@ -24,12 +24,14 @@ interface BoxArtSearchResponse {
 
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
+  private static readonly RATE_LIMIT_FALLBACK_COOLDOWN_MS = 20_000;
   private readonly platformCacheStorageKey = 'game-shelf-platform-list-cache-v1';
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
   private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
   private readonly platformListUrl = `${environment.gameApiBaseUrl}/v1/platforms`;
   private readonly boxArtSearchUrl = `${environment.gameApiBaseUrl}/v1/images/boxart/search`;
   private readonly httpClient = inject(HttpClient);
+  private rateLimitCooldownUntilMs = 0;
 
   searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]> {
     const normalized = query.trim();
@@ -47,18 +49,19 @@ export class IgdbProxyService implements GameSearchApi {
       params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
     }
 
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
     return this.httpClient.get<SearchResponse>(this.searchUrl, { params }).pipe(
       map(response => (response.items ?? []).map(item => this.normalizeResult(item))),
       catchError((error: unknown) => {
-        if (error instanceof HttpErrorResponse && error.status === 429) {
-          const retryAfterMs = this.parseRetryAfterMs(error);
+        const rateLimitError = this.toRateLimitError(error);
 
-          if (retryAfterMs !== null) {
-            const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
-            return throwError(() => new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`));
-          }
-
-          return throwError(() => new Error('Rate limit exceeded. Please wait and try again.'));
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
         }
 
         return throwError(() => new Error('Unable to load game search results.'));
@@ -67,13 +70,36 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   listPlatforms(): Observable<GameCatalogPlatformOption[]> {
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      const cached = this.loadCachedPlatformList();
+
+      if (cached.length > 0) {
+        return of(cached);
+      }
+
+      return throwError(() => cooldownError);
+    }
+
     return this.httpClient.get<PlatformListResponse>(this.platformListUrl).pipe(
       map(response => {
         const normalized = this.normalizePlatformList(response.items);
         this.saveCachedPlatformList(normalized);
         return normalized;
       }),
-      catchError(() => {
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          const cached = this.loadCachedPlatformList();
+
+          if (cached.length > 0) {
+            return of(cached);
+          }
+
+          return throwError(() => rateLimitError);
+        }
+
         const cached = this.loadCachedPlatformList();
 
         if (cached.length > 0) {
@@ -94,6 +120,12 @@ export class IgdbProxyService implements GameSearchApi {
 
     const url = `${this.gameByIdBaseUrl}/${encodeURIComponent(normalizedId)}`;
 
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
     return this.httpClient.get<GameByIdResponse>(url).pipe(
       map(response => {
         if (!response?.item) {
@@ -102,7 +134,14 @@ export class IgdbProxyService implements GameSearchApi {
 
         return this.normalizeResult(response.item);
       }),
-      catchError(() => throwError(() => new Error('Unable to refresh game metadata.')))
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to refresh game metadata.'));
+      })
     );
   }
 
@@ -128,18 +167,19 @@ export class IgdbProxyService implements GameSearchApi {
       params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
     }
 
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
     return this.httpClient.get<BoxArtSearchResponse>(this.boxArtSearchUrl, { params }).pipe(
       map(response => this.normalizeBoxArtResults(response.items)),
       catchError((error: unknown) => {
-        if (error instanceof HttpErrorResponse && error.status === 429) {
-          const retryAfterMs = this.parseRetryAfterMs(error);
+        const rateLimitError = this.toRateLimitError(error);
 
-          if (retryAfterMs !== null) {
-            const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
-            return throwError(() => new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`));
-          }
-
-          return throwError(() => new Error('Rate limit exceeded. Please wait and try again.'));
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
         }
 
         return throwError(() => new Error('Unable to load box art results.'));
@@ -327,5 +367,27 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return Math.max(0, dateMs - Date.now());
+  }
+
+  private toRateLimitError(error: unknown): Error | null {
+    if (!(error instanceof HttpErrorResponse) || error.status !== 429) {
+      return null;
+    }
+
+    const retryAfterMs = this.parseRetryAfterMs(error) ?? IgdbProxyService.RATE_LIMIT_FALLBACK_COOLDOWN_MS;
+    this.rateLimitCooldownUntilMs = Math.max(this.rateLimitCooldownUntilMs, Date.now() + retryAfterMs);
+    const retryAfterSeconds = Math.max(1, Math.ceil((this.rateLimitCooldownUntilMs - Date.now()) / 1000));
+    return new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`);
+  }
+
+  private createCooldownErrorIfActive(): Error | null {
+    const remainingMs = this.rateLimitCooldownUntilMs - Date.now();
+
+    if (remainingMs <= 0) {
+      return null;
+    }
+
+    const retryAfterSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+    return new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`);
   }
 }

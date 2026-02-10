@@ -165,7 +165,7 @@
 
       <ion-item lines="none" class="mgc-page-toolbar">
         <ion-button fill="outline" (click)="goToPreviousMgcPage()" [disabled]="mgcPageIndex === 0">Prev</ion-button>
-        <ion-label>Page {{ mgcPageIndex + 1 }} / {{ mgcPageCount }}</ion-label>
+        <ion-label class="mgc-page-counter">Page {{ mgcPageIndex + 1 }} / {{ mgcPageCount }}</ion-label>
         <ion-button fill="outline" (click)="goToNextMgcPage()" [disabled]="mgcPageIndex >= mgcPageCount - 1">Next</ion-button>
       </ion-item>
 
@@ -184,8 +184,8 @@
           (click)="openMgcRowResolver(row)"
         >
           <ion-label>
-            <h2>
-              {{ row.name }}
+            <h2 class="mgc-title-row">
+              <span class="mgc-title-text">{{ row.name }}</span>
               <ion-icon
                 *ngIf="isMgcAutoSelectedMultiple(row)"
                 name="alert-circle"

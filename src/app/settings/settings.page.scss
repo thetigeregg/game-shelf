@@ -58,15 +58,29 @@
 
 .mgc-status-text {
   font-weight: 500;
+  white-space: pre-line;
+}
+
+.mgc-title-row {
+  display: flex;
+  align-items: center;
+}
+
+.mgc-title-text {
+  display: inline-block;
+  padding-right: 0.35rem;
 }
 
 .mgc-auto-selected-icon {
-  margin-left: 0.35rem;
-  vertical-align: text-bottom;
+  flex-shrink: 0;
   color: var(--ion-color-warning);
 }
 
 .mgc-page-toolbar {
   --padding-start: 12px;
   --padding-end: 12px;
+}
+
+.mgc-page-counter {
+  padding-left: 0.5rem;
 }

@@ -600,7 +600,7 @@ export class SettingsPage {
 
     if (row.status === 'multiple') {
       if (row.selected) {
-        return `${row.candidates.length} possible matches found. Auto-selected exact title match: ${row.selected.title}.`;
+        return `${row.candidates.length} possible matches found.\nAuto-selected exact title match: ${row.selected.title}.`;
       }
 
       return `${row.candidates.length} possible matches found.`;

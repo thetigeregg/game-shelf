@@ -514,9 +514,9 @@ export class GameListComponent implements OnChanges {
         this.isRowActionsPopoverOpen = true;
     }
 
-    onActionsOptionSwipe(game: GameEntry, slidingItem: IonItemSliding): void {
+    onActionsOptionSwipe(game: GameEntry, slidingItem: IonItemSliding, event?: Event): void {
         this.rowActionsGame = game;
-        this.rowActionsPopoverEvent = undefined;
+        this.rowActionsPopoverEvent = this.resolveRowActionsPopoverEvent(event, slidingItem);
         this.rowActionsSlidingItem = slidingItem;
         this.isRowActionsPopoverOpen = true;
     }
@@ -956,6 +956,42 @@ export class GameListComponent implements OnChanges {
 
     private getListLabel(listType: ListType): string {
         return listType === 'collection' ? 'Collection' : 'Wishlist';
+    }
+
+    private resolveRowActionsPopoverEvent(event: Event | undefined, slidingItem: IonItemSliding): Event | undefined {
+        if (event instanceof MouseEvent && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+            return event;
+        }
+
+        const eventTarget = event?.target;
+
+        if (eventTarget instanceof Element) {
+            const rect = eventTarget.getBoundingClientRect();
+
+            if (rect.width > 0 && rect.height > 0) {
+                return new MouseEvent('click', {
+                    bubbles: true,
+                    clientX: Math.max(rect.left + 8, rect.right - 8),
+                    clientY: rect.top + (rect.height / 2),
+                });
+            }
+        }
+
+        const slidingElement = (slidingItem as unknown as { el?: Element }).el;
+
+        if (slidingElement instanceof Element) {
+            const rect = slidingElement.getBoundingClientRect();
+
+            if (rect.width > 0 && rect.height > 0) {
+                return new MouseEvent('click', {
+                    bubbles: true,
+                    clientX: Math.max(rect.left + 8, rect.right - 8),
+                    clientY: rect.top + (rect.height / 2),
+                });
+            }
+        }
+
+        return undefined;
     }
 
     private normalizeFilters(filters: GameListFilters): GameListFilters {

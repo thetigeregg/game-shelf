@@ -85,45 +85,46 @@
       </ion-label>
     </ion-item>
 
-    <ion-item-options side="end" *ngIf="!selectionModeActive" (ionSwipe)="onActionsOptionSwipe(game)">
+    <ion-item-options side="end" *ngIf="!selectionModeActive" (ionSwipe)="onActionsOptionSwipe(game, slidingItem)">
       <ion-item-option
-        [id]="getActionsTriggerId(game)"
-        (click)="onActionsButtonClick($event)"
+        (click)="openRowActionsPopover(game, $event, slidingItem)"
       >
         Options
       </ion-item-option>
     </ion-item-options>
   </ion-item-sliding>
-
-  <ion-popover
-    *ngIf="!selectionModeActive"
-    [trigger]="getActionsTriggerId(game)"
-    triggerAction="click"
-    (didDismiss)="onRowActionsPopoverDismiss(slidingItem)"
-  >
-    <ng-template>
-      <ion-content>
-        <ion-list lines="none">
-          <ion-item button detail="false" (click)="openStatusForGameFromPopover(game)">
-            Set status
-          </ion-item>
-          <ion-item button detail="false" (click)="openRatingForGameFromPopover(game)">
-            Set rating
-          </ion-item>
-          <ion-item button detail="false" (click)="openTagsForGameFromPopover(game)">
-            Set tags
-          </ion-item>
-          <ion-item button detail="false" (click)="moveGameFromPopover(game)">
-            Move to {{ getOtherListLabel() }}
-          </ion-item>
-          <ion-item button detail="false" color="danger" (click)="removeGameFromPopover(game)">
-            Delete
-          </ion-item>
-        </ion-list>
-      </ion-content>
-    </ng-template>
-  </ion-popover>
 </ng-template>
+
+<ion-popover
+  [isOpen]="isRowActionsPopoverOpen"
+  [event]="rowActionsPopoverEvent"
+  [arrow]="false"
+  side="bottom"
+  alignment="end"
+  (didDismiss)="onRowActionsPopoverDismiss()"
+>
+  <ng-template>
+    <ion-content>
+      <ion-list lines="none">
+        <ion-item button detail="false" (click)="rowActionsGame && openStatusForGameFromPopover(rowActionsGame)">
+          Set status
+        </ion-item>
+        <ion-item button detail="false" (click)="rowActionsGame && openRatingForGameFromPopover(rowActionsGame)">
+          Set rating
+        </ion-item>
+        <ion-item button detail="false" (click)="rowActionsGame && openTagsForGameFromPopover(rowActionsGame)">
+          Set tags
+        </ion-item>
+        <ion-item button detail="false" (click)="rowActionsGame && moveGameFromPopover(rowActionsGame)">
+          Move to {{ getOtherListLabel() }}
+        </ion-item>
+        <ion-item button detail="false" color="danger" (click)="rowActionsGame && removeGameFromPopover(rowActionsGame)">
+          Delete
+        </ion-item>
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-popover>
 
 <ion-modal [isOpen]="isGameDetailModalOpen" (didDismiss)="closeGameDetailModal()">
   <ng-template>

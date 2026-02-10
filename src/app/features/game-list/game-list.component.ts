@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, IonItemSliding, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
@@ -70,6 +70,7 @@ export interface GameListSelectionState {
     selector: 'app-game-list',
     templateUrl: './game-list.component.html',
     styleUrls: ['./game-list.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
         CommonModule,
@@ -139,8 +140,12 @@ export class GameListComponent implements OnChanges {
     isImagePickerLoading = false;
     imagePickerError: string | null = null;
     selectionModeActive = false;
+    isRowActionsPopoverOpen = false;
+    rowActionsPopoverEvent: Event | undefined = undefined;
+    rowActionsGame: GameEntry | null = null;
     selectedGameKeys = new Set<string>();
     private displayedGames: GameEntry[] = [];
+    private rowActionsSlidingItem: IonItemSliding | null = null;
     private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
     private longPressTriggeredExternalId: string | null = null;
     private readonly gameShelfService = inject(GameShelfService);
@@ -493,24 +498,27 @@ export class GameListComponent implements OnChanges {
         }
     }
 
-    getActionsTriggerId(game: GameEntry): string {
-        return `game-actions-trigger-${this.getGameKey(game).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-    }
-
-    onActionsButtonClick(event: Event): void {
+    openRowActionsPopover(game: GameEntry, event: Event, slidingItem: IonItemSliding): void {
         event.stopPropagation();
+        this.rowActionsGame = game;
+        this.rowActionsPopoverEvent = event;
+        this.rowActionsSlidingItem = slidingItem;
+        this.isRowActionsPopoverOpen = true;
     }
 
-    onActionsOptionSwipe(game: GameEntry): void {
-        const triggerId = this.getActionsTriggerId(game);
-        const trigger = document.getElementById(triggerId);
-
-        if (trigger instanceof HTMLElement) {
-            trigger.click();
-        }
+    onActionsOptionSwipe(game: GameEntry, slidingItem: IonItemSliding): void {
+        this.rowActionsGame = game;
+        this.rowActionsPopoverEvent = undefined;
+        this.rowActionsSlidingItem = slidingItem;
+        this.isRowActionsPopoverOpen = true;
     }
 
-    onRowActionsPopoverDismiss(slidingItem: IonItemSliding): void {
+    onRowActionsPopoverDismiss(): void {
+        this.isRowActionsPopoverOpen = false;
+        this.rowActionsPopoverEvent = undefined;
+        this.rowActionsGame = null;
+        const slidingItem = this.rowActionsSlidingItem;
+        this.rowActionsSlidingItem = null;
         void slidingItem?.close();
     }
 

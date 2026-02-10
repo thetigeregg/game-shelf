@@ -621,6 +621,13 @@ export class SettingsPage {
     return 'Pending match.';
   }
 
+  get isMgcResolverEmptyStateVisible(): boolean {
+    return !this.isMgcResolverSearching
+      && this.mgcResolverError.length === 0
+      && this.mgcResolverQuery.trim().length >= 2
+      && this.mgcResolverResults.length === 0;
+  }
+
   isMgcAutoSelectedMultiple(row: MgcImportRow): boolean {
     return row.status === 'multiple' && row.selected !== null;
   }

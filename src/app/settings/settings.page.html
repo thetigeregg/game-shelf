@@ -264,6 +264,10 @@
         <ion-label class="error-text">{{ mgcResolverError }}</ion-label>
       </ion-item>
 
+      <ion-item *ngIf="isMgcResolverEmptyStateVisible" lines="none">
+        <ion-label>No results found for this search. Try a different query.</ion-label>
+      </ion-item>
+
       <ion-list lines="full">
         <ion-item *ngFor="let result of mgcResolverResults; trackBy: trackByMgcResolverResult">
           <ion-thumbnail slot="start">

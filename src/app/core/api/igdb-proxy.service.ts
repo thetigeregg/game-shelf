@@ -5,6 +5,7 @@ import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { GameCatalogPlatformOption, GameCatalogResult, HltbCompletionTimes } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
+import { PLATFORM_CATALOG } from '../data/platform-catalog';
 
 interface SearchResponse {
   items: GameCatalogResult[];
@@ -12,10 +13,6 @@ interface SearchResponse {
 
 interface GameByIdResponse {
   item: GameCatalogResult;
-}
-
-interface PlatformListResponse {
-  items: GameCatalogPlatformOption[];
 }
 
 interface BoxArtSearchResponse {
@@ -32,7 +29,6 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly platformCacheStorageKey = 'game-shelf-platform-list-cache-v1';
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
   private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
-  private readonly platformListUrl = `${environment.gameApiBaseUrl}/v1/platforms`;
   private readonly boxArtSearchUrl = `${environment.gameApiBaseUrl}/v1/images/boxart/search`;
   private readonly hltbSearchUrl = `${environment.gameApiBaseUrl}/v1/hltb/search`;
   private readonly httpClient = inject(HttpClient);
@@ -75,45 +71,9 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   listPlatforms(): Observable<GameCatalogPlatformOption[]> {
-    const cooldownError = this.createCooldownErrorIfActive();
-
-    if (cooldownError) {
-      const cached = this.loadCachedPlatformList();
-
-      if (cached.length > 0) {
-        return of(cached);
-      }
-
-      return throwError(() => cooldownError);
-    }
-
-    return this.httpClient.get<PlatformListResponse>(this.platformListUrl).pipe(
-      map(response => {
-        const normalized = this.normalizePlatformList(response.items);
-        this.saveCachedPlatformList(normalized);
-        return normalized;
-      }),
-      catchError((error: unknown) => {
-        const rateLimitError = this.toRateLimitError(error);
-        if (rateLimitError) {
-          const cached = this.loadCachedPlatformList();
-
-          if (cached.length > 0) {
-            return of(cached);
-          }
-
-          return throwError(() => rateLimitError);
-        }
-
-        const cached = this.loadCachedPlatformList();
-
-        if (cached.length > 0) {
-          return of(cached);
-        }
-
-        return throwError(() => new Error('Unable to load platform filters.'));
-      })
-    );
+    const normalized = this.normalizePlatformList(PLATFORM_CATALOG);
+    this.saveCachedPlatformList(normalized);
+    return of(normalized);
   }
 
   getGameById(igdbGameId: string): Observable<GameCatalogResult> {

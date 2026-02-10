@@ -179,48 +179,16 @@ describe('IgdbProxyService', () => {
     httpMock.expectNone(request => request.url.startsWith(`${environment.gameApiBaseUrl}/v1/games/`));
   });
 
-  it('loads platform filters and normalizes response', async () => {
+  it('loads platform filters from bundled snapshot without HTTP', async () => {
     const promise = firstValueFrom(service.listPlatforms());
-    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/platforms`);
-    req.flush({
-      items: [
-        { id: 130, name: ' Nintendo Switch ' },
-        { id: null, name: 'Broken' },
-        { id: 130, name: 'Nintendo Switch' },
-        { id: 6, name: 'PC (Microsoft Windows)' },
-      ],
-    });
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/platforms`);
 
-    await expect(promise).resolves.toEqual([
+    await expect(promise).resolves.toEqual(expect.arrayContaining([
       { id: 130, name: 'Nintendo Switch' },
       { id: 6, name: 'PC (Microsoft Windows)' },
-    ]);
-  });
-
-  it('falls back to cached platform filters when upstream request fails', async () => {
-    localStorage.setItem(
-      'game-shelf-platform-list-cache-v1',
-      JSON.stringify([
-        { id: 130, name: 'Nintendo Switch' },
-        { id: 6, name: 'PC (Microsoft Windows)' },
-      ]),
-    );
-
-    const promise = firstValueFrom(service.listPlatforms());
-    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/platforms`);
-    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
-
-    await expect(promise).resolves.toEqual([
-      { id: 130, name: 'Nintendo Switch' },
-      { id: 6, name: 'PC (Microsoft Windows)' },
-    ]);
-  });
-
-  it('throws platform-filter error when upstream fails and no cache exists', async () => {
-    const promise = firstValueFrom(service.listPlatforms());
-    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/platforms`);
-    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
-    await expect(promise).rejects.toThrowError('Unable to load platform filters.');
+      { id: 167, name: 'PlayStation 5' },
+      { id: 169, name: 'Xbox Series X|S' },
+    ]));
   });
 
   it('searches box art results and normalizes URLs', async () => {

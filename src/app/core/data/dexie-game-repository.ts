@@ -228,25 +228,24 @@ export class DexieGameRepository implements GameRepository {
   }
 
   async deleteTag(tagId: number): Promise<void> {
-    await this.db.transaction('rw', this.db.tags, this.db.games, async () => {
-      await this.db.tags.delete(tagId);
+    await this.db.tags.delete(tagId);
 
-      const games = await this.db.games.toArray();
+    const games = await this.db.games.toArray();
+    const now = new Date().toISOString();
 
-      await Promise.all(games.map(async game => {
-        const currentTagIds = this.normalizeTagIds(game.tagIds);
-        const nextTagIds = currentTagIds.filter(id => id !== tagId);
+    for (const game of games) {
+      const currentTagIds = this.normalizeTagIds(game.tagIds);
+      const nextTagIds = currentTagIds.filter(id => id !== tagId);
 
-        if (nextTagIds.length === currentTagIds.length || game.id === undefined) {
-          return;
-        }
+      if (nextTagIds.length === currentTagIds.length || game.id === undefined) {
+        continue;
+      }
 
-        await this.db.games.update(game.id, {
-          tagIds: nextTagIds,
-          updatedAt: new Date().toISOString(),
-        });
-      }));
-    });
+      await this.db.games.update(game.id, {
+        tagIds: nextTagIds,
+        updatedAt: now,
+      });
+    }
   }
 
   async listViews(listType: ListType): Promise<GameListView[]> {

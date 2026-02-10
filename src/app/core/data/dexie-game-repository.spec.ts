@@ -114,4 +114,124 @@ describe('DexieGameRepository', () => {
     const stored = await repository.exists('101', 18);
     expect(stored?.tagIds).toEqual([rpg.id!]);
   });
+
+  it('no-ops when move/remove/update operations target missing entries', async () => {
+    await repository.moveToList('999', 999, 'wishlist');
+    await repository.remove('999', 999);
+    const updatedCover = await repository.updateCover('999', 999, null, 'igdb');
+    const updatedStatus = await repository.setGameStatus('999', 999, 'completed');
+    const updatedRating = await repository.setGameRating('999', 999, 5);
+    const updatedTags = await repository.setGameTags('999', 999, [1, 2]);
+
+    expect(updatedCover).toBeUndefined();
+    expect(updatedStatus).toBeUndefined();
+    expect(updatedRating).toBeUndefined();
+    expect(updatedTags).toBeUndefined();
+  });
+
+  it('updates status and rating for existing entries', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+    await repository.setGameStatus('101', 18, 'playing');
+    await repository.setGameRating('101', 18, 4);
+    const stored = await repository.exists('101', 18);
+
+    expect(stored?.status).toBe('playing');
+    expect(stored?.rating).toBe(4);
+  });
+
+  it('deduplicates and normalizes tag assignments', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+    await repository.setGameTags('101', 18, [2, 2, -1, 3]);
+    const stored = await repository.exists('101', 18);
+    expect(stored?.tagIds).toEqual([2, 3]);
+  });
+
+  it('upserts tags by name and by id', async () => {
+    const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
+    const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });
+    const byId = await repository.upsertTag({ id: created.id, name: 'Backlog Updated', color: '#333333' });
+    const tags = await repository.listTags();
+
+    expect(byName.id).toBe(created.id);
+    expect(byName.color).toBe('#222222');
+    expect(byId.name).toBe('Backlog Updated');
+    expect(tags).toHaveLength(1);
+  });
+
+  it('creates, updates, lists, gets and deletes views', async () => {
+    const created = await repository.createView({
+      name: '  My View  ',
+      listType: 'collection',
+      filters: {
+        sortField: 'releaseDate',
+        sortDirection: 'desc',
+        platform: ['Switch', 'Switch', ''],
+        genres: ['Action', 'Action'],
+        statuses: ['playing', 'playing', 'none'],
+        tags: ['A', 'A', ''],
+        ratings: [5, 5, 'none'],
+        releaseDateFrom: '2024-01-01T00:00:00.000Z',
+        releaseDateTo: '2024-12-31T00:00:00.000Z',
+      },
+      groupBy: 'platform',
+    });
+
+    const fetched = await repository.getView(created.id!);
+    expect(fetched?.name).toBe('My View');
+    expect(fetched?.filters.platform).toEqual(['Switch']);
+    expect(fetched?.filters.releaseDateFrom).toBe('2024-01-01');
+    expect(fetched?.groupBy).toBe('platform');
+
+    const updated = await repository.updateView(created.id!, {
+      name: ' Renamed ',
+      filters: {
+        sortField: 'title',
+        sortDirection: 'asc',
+        platform: [],
+        genres: [],
+        statuses: [],
+        tags: [],
+        ratings: [],
+        releaseDateFrom: null,
+        releaseDateTo: null,
+      },
+      groupBy: 'publisher',
+    });
+
+    expect(updated?.name).toBe('Renamed');
+    expect(updated?.groupBy).toBe('publisher');
+
+    const list = await repository.listViews('collection');
+    expect(list).toHaveLength(1);
+
+    await repository.deleteView(created.id!);
+    expect(await repository.getView(created.id!)).toBeUndefined();
+  });
+
+  it('returns undefined when updating a missing view', async () => {
+    const updated = await repository.updateView(404, { name: 'Missing' });
+    expect(updated).toBeUndefined();
+  });
+
+  it('throws for invalid game and view inputs', async () => {
+    await expect(repository.upsertFromCatalog({ ...mario, igdbGameId: ' ' }, 'collection')).rejects.toThrowError('IGDB game id is required.');
+    await expect(repository.upsertFromCatalog({ ...mario, platformIgdbId: null }, 'collection')).rejects.toThrowError('IGDB platform id is required.');
+    await expect(repository.upsertFromCatalog({ ...mario, platform: ' ' }, 'collection')).rejects.toThrowError('Platform is required.');
+    await expect(repository.createView({
+      name: ' ',
+      listType: 'collection',
+      filters: {
+        sortField: 'title',
+        sortDirection: 'asc',
+        platform: [],
+        genres: [],
+        statuses: [],
+        tags: [],
+        ratings: [],
+        releaseDateFrom: null,
+        releaseDateTo: null,
+      },
+      groupBy: 'none',
+    })).rejects.toThrowError('View name is required.');
+  });
 });

@@ -2,7 +2,7 @@ import { firstValueFrom, of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
-import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult, GameEntry } from '../models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult, GameEntry, GameListView } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
 
 describe('GameShelfService', () => {
@@ -257,5 +257,241 @@ describe('GameShelfService', () => {
 
     expect(repository.updateCover).toHaveBeenCalledWith('123', 130, 'https://example.com/new-cover.jpg', 'thegamesdb');
     expect(result).toEqual(updatedEntry);
+  });
+
+  it('throws when adding a game with invalid identity or platform', async () => {
+    const base: GameCatalogResult = {
+      igdbGameId: '  ',
+      title: 'Test',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: null,
+      releaseYear: null,
+    };
+
+    await expect(service.addGame(base, 'collection')).rejects.toThrowError('IGDB game id is required.');
+    await expect(service.addGame({ ...base, igdbGameId: '123', platformIgdbId: null }, 'collection')).rejects.toThrowError('IGDB platform id is required.');
+    await expect(service.addGame({ ...base, igdbGameId: '123', platform: ' ' }, 'collection')).rejects.toThrowError('Platform is required.');
+  });
+
+  it('throws when refreshing or updating a missing game', async () => {
+    repository.exists.mockResolvedValue(undefined);
+    repository.updateCover.mockResolvedValue(undefined);
+
+    await expect(service.refreshGameMetadata('123', 130)).rejects.toThrowError('Game entry no longer exists.');
+    await expect(service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg')).rejects.toThrowError('Game entry no longer exists.');
+  });
+
+  it('normalizes identity in findGameByIdentity', async () => {
+    const existing = { id: 1 } as GameEntry;
+    repository.exists.mockResolvedValue(existing);
+    const result = await service.findGameByIdentity(' 123 ', 130);
+    expect(repository.exists).toHaveBeenCalledWith('123', 130);
+    expect(result).toBe(existing);
+  });
+
+  it('sets tags/status/rating and attaches tag metadata', async () => {
+    const base: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      tagIds: [1, 2],
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    repository.setGameTags.mockResolvedValue(base);
+    repository.setGameStatus.mockResolvedValue({ ...base, status: 'playing' });
+    repository.setGameRating.mockResolvedValue({ ...base, rating: 3 });
+    repository.listTags.mockResolvedValue([
+      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
+      { id: 2, name: 'Co-op', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+    ]);
+
+    const tagged = await service.setGameTags('123', 130, [1, 2]);
+    const statused = await service.setGameStatus('123', 130, 'playing');
+    const rated = await service.setGameRating('123', 130, 3);
+
+    expect(tagged.tags?.map(tag => tag.name)).toEqual(['Backlog', 'Co-op']);
+    expect(statused.status).toBe('playing');
+    expect(rated.rating).toBe(3);
+  });
+
+  it('coerces invalid rating to null and throws for missing entries on set operations', async () => {
+    repository.setGameRating.mockResolvedValue({
+      id: 1,
+      igdbGameId: '123',
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      tagIds: [],
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x',
+      rating: null,
+    } as GameEntry);
+    repository.listTags.mockResolvedValue([]);
+    await service.setGameRating('123', 130, 99 as never);
+    expect(repository.setGameRating).toHaveBeenCalledWith('123', 130, null);
+
+    repository.setGameTags.mockResolvedValue(undefined);
+    repository.setGameStatus.mockResolvedValue(undefined);
+    repository.setGameRating.mockResolvedValue(undefined);
+    await expect(service.setGameTags('123', 130, [1])).rejects.toThrowError('Game entry no longer exists.');
+    await expect(service.setGameStatus('123', 130, 'playing')).rejects.toThrowError('Game entry no longer exists.');
+    await expect(service.setGameRating('123', 130, 4)).rejects.toThrowError('Game entry no longer exists.');
+  });
+
+  it('validates tag names and normalizes tag colors', async () => {
+    repository.upsertTag.mockResolvedValue({
+      id: 1,
+      name: 'Backlog',
+      color: '#3880ff',
+      createdAt: 'x',
+      updatedAt: 'x',
+    });
+
+    await expect(service.createTag(' ', '#ffffff')).rejects.toThrowError('Tag name is required.');
+    await expect(service.updateTag(1, ' ', '#ffffff')).rejects.toThrowError('Tag name is required.');
+
+    const created = await service.createTag(' Backlog ', 'oops');
+    const updated = await service.updateTag(1, ' Backlog ', '#00ff00');
+
+    expect(repository.upsertTag).toHaveBeenCalledWith({ name: 'Backlog', color: '#3880ff' });
+    expect(repository.upsertTag).toHaveBeenCalledWith({ id: 1, name: 'Backlog', color: '#00ff00' });
+    expect(created.id).toBe(1);
+    expect(updated.id).toBe(1);
+  });
+
+  it('supports list/get/delete tags and watch streams', async () => {
+    repository.listTags.mockResolvedValue([
+      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
+    ]);
+    repository.listByType.mockResolvedValue([
+      {
+        id: 10,
+        igdbGameId: '123',
+        title: 'Game',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'Switch',
+        platformIgdbId: 130,
+        tagIds: [1],
+        releaseDate: null,
+        releaseYear: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      },
+    ]);
+    repository.listAll.mockResolvedValue([
+      {
+        id: 10,
+        igdbGameId: '123',
+        title: 'Game',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'Switch',
+        platformIgdbId: 130,
+        tagIds: [1],
+        releaseDate: null,
+        releaseYear: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      },
+    ]);
+
+    expect(await service.listTags()).toHaveLength(1);
+    const list = await firstValueFrom(service.watchList('collection'));
+    const summaries = await firstValueFrom(service.watchTags());
+    expect(list[0].tags?.[0].name).toBe('Backlog');
+    expect(summaries[0].gameCount).toBe(1);
+
+    await service.deleteTag(1);
+    expect(repository.deleteTag).toHaveBeenCalledWith(1);
+  });
+
+  it('creates/updates/deletes views and validates missing updates', async () => {
+    repository.createView.mockResolvedValue({
+      id: 11,
+      name: 'My View',
+      listType: 'collection',
+      filters: DEFAULT_GAME_LIST_FILTERS,
+      groupBy: 'none',
+      createdAt: 'x',
+      updatedAt: 'x',
+    });
+    repository.updateView.mockResolvedValueOnce({
+      id: 11,
+      name: 'Renamed',
+      listType: 'collection',
+      filters: DEFAULT_GAME_LIST_FILTERS,
+      groupBy: 'none',
+      createdAt: 'x',
+      updatedAt: 'y',
+    });
+    repository.updateView.mockResolvedValueOnce({
+      id: 11,
+      name: 'Renamed',
+      listType: 'collection',
+      filters: DEFAULT_GAME_LIST_FILTERS,
+      groupBy: 'platform',
+      createdAt: 'x',
+      updatedAt: 'z',
+    });
+    repository.getView.mockResolvedValue({
+      id: 11,
+      name: 'Renamed',
+      listType: 'collection',
+      filters: DEFAULT_GAME_LIST_FILTERS,
+      groupBy: 'none',
+      createdAt: 'x',
+      updatedAt: 'z',
+    } as GameListView);
+    repository.listViews.mockResolvedValue([
+      {
+        id: 11,
+        name: 'Renamed',
+        listType: 'collection',
+        filters: DEFAULT_GAME_LIST_FILTERS,
+        groupBy: 'none',
+        createdAt: 'x',
+        updatedAt: 'z',
+      },
+    ] as GameListView[]);
+
+    await service.createView(' My View ', 'collection', DEFAULT_GAME_LIST_FILTERS, 'none');
+    await service.renameView(11, ' Renamed ');
+    await service.updateViewConfiguration(11, DEFAULT_GAME_LIST_FILTERS, 'platform');
+    await service.deleteView(11);
+    await service.getView(11);
+    await firstValueFrom(service.watchViews('collection'));
+
+    expect(repository.createView).toHaveBeenCalledWith({
+      name: 'My View',
+      listType: 'collection',
+      filters: DEFAULT_GAME_LIST_FILTERS,
+      groupBy: 'none',
+    });
+    expect(repository.deleteView).toHaveBeenCalledWith(11);
+
+    repository.updateView.mockResolvedValue(undefined);
+    await expect(service.renameView(11, 'x')).rejects.toThrowError('View no longer exists.');
+    await expect(service.updateViewConfiguration(11, DEFAULT_GAME_LIST_FILTERS, 'none')).rejects.toThrowError('View no longer exists.');
   });
 });

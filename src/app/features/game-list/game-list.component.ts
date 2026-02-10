@@ -718,7 +718,8 @@ export class GameListComponent implements OnChanges {
     }
 
     getExpandedGroupValues(sections: GameGroupSection[]): string[] {
-        return sections.map(section => section.key);
+        const firstSection = sections[0];
+        return firstSection ? [firstSection.key] : [];
     }
 
     getGroupCountLabel(count: number): string {

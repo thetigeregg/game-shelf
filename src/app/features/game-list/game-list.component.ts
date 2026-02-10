@@ -46,7 +46,7 @@ import {
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { addIcons } from "ionicons";
-import { star, ellipsisHorizontal, close, starOutline } from "ionicons/icons";
+import { star, ellipsisHorizontal, close, starOutline, play, trashBin, trophy, bookmark, pause, refresh } from "ionicons/icons";
 
 interface GameGroupSection {
     key: string;
@@ -1481,6 +1481,6 @@ export class GameListComponent implements OnChanges {
     }
 
     constructor() {
-        addIcons({ star, ellipsisHorizontal, close, starOutline });
+        addIcons({ star, ellipsisHorizontal, close, starOutline, play, trashBin, trophy, bookmark, pause, refresh });
     }
 }

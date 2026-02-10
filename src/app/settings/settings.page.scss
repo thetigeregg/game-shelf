@@ -5,3 +5,36 @@
   background: transparent;
   padding: 0;
 }
+
+.data-actions {
+  --inner-padding-end: 0;
+  --padding-start: 0;
+  --min-height: 0;
+}
+
+.data-actions ion-button {
+  width: 100%;
+  margin: 0.4rem 0.75rem;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.import-row-error {
+  --background: rgba(var(--ion-color-danger-rgb), 0.08);
+}
+
+.import-row-warning {
+  --background: rgba(var(--ion-color-warning-rgb), 0.12);
+}
+
+.error-text {
+  color: var(--ion-color-danger);
+  font-weight: 600;
+}
+
+.warning-text {
+  color: var(--ion-color-warning-shade);
+  font-weight: 600;
+}

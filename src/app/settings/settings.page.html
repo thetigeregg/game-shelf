@@ -39,4 +39,79 @@
       />
     </ion-item>
   </ion-list>
+
+  <ion-list inset="true">
+    <ion-list-header>
+      <ion-label>Data</ion-label>
+    </ion-list-header>
+
+    <ion-item lines="none">
+      <ion-label>Export / Import CSV</ion-label>
+    </ion-item>
+    <ion-item lines="none" class="data-actions">
+      <ion-button expand="block" (click)="exportCsv()">Export CSV</ion-button>
+      <ion-button expand="block" fill="outline" (click)="triggerImport(csvFileInput)">Import CSV</ion-button>
+      <input
+        #csvFileInput
+        class="hidden-file-input"
+        type="file"
+        accept=".csv,text/csv"
+        (change)="onImportFileSelected($event)"
+      />
+    </ion-item>
+  </ion-list>
 </ion-content>
+
+<ion-modal [isOpen]="isImportPreviewOpen" (didDismiss)="closeImportPreview()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Import Preview</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closeImportPreview()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ion-list lines="full">
+        <ion-item
+          *ngFor="let row of importPreviewRows"
+          [class.import-row-error]="row.error"
+          [class.import-row-warning]="!row.error && row.warning"
+        >
+          <ion-label>
+            <h2>Row {{ row.rowNumber }} · {{ row.type }}</h2>
+            <p>{{ row.summary }}</p>
+            <p *ngIf="row.error" class="error-text">{{ row.error }}</p>
+            <p *ngIf="!row.error && row.warning" class="warning-text">{{ row.warning }}</p>
+          </ion-label>
+          <ion-button fill="clear" color="danger" slot="end" (click)="removeImportRow(row.id)">
+            <ion-icon slot="icon-only" name="trash"></ion-icon>
+          </ion-button>
+        </ion-item>
+      </ion-list>
+
+      <ion-item *ngIf="importPreviewRows.length === 0" lines="none">
+        <ion-label>No rows to import.</ion-label>
+      </ion-item>
+    </ion-content>
+
+    <ion-footer>
+      <ion-toolbar>
+        <ion-title size="small">
+          {{ importPreviewRows.length }} rows · {{ importErrorCount }} error{{ importErrorCount === 1 ? '' : 's' }} ·
+          {{ importWarningCount }} warning{{ importWarningCount === 1 ? '' : 's' }}
+        </ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="outline" (click)="closeImportPreview()">Cancel</ion-button>
+          <ion-button [disabled]="!canApplyImport" (click)="applyImport()">
+            {{ isApplyingImport ? 'Importing...' : 'Apply Import' }}
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
+  </ng-template>
+</ion-modal>

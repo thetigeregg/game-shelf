@@ -93,6 +93,10 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     title: 'Super Mario Odyssey',
     coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
     coverSource: 'igdb',
+    developers: [],
+    publishers: [],
+    franchises: [],
+    genres: [],
     platforms: ['Nintendo Switch'],
     platformOptions: [{ id: null, name: 'Nintendo Switch' }],
     platform: 'Nintendo Switch',
@@ -148,7 +152,7 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(payload.items[0].coverSource, 'igdb');
   assert.equal(calls.theGamesDb, 0);
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
-  assert.equal(calls.igdbBodies[0].includes('fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,category,parent_game;'), true);
+  assert.equal(calls.igdbBodies[0].includes('fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,category,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'), true);
 });
 
 test('applies platform filter to IGDB game search when platformIgdbId is provided', async () => {

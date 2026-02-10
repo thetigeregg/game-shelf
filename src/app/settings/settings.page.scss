@@ -14,7 +14,12 @@
 
 .data-actions ion-button {
   width: 100%;
-  margin: 0.4rem 0.75rem;
+  min-height: 44px;
+  margin: 0.45rem 0.75rem;
+}
+
+.data-actions-mgc ion-button {
+  margin-top: 0.25rem;
 }
 
 .hidden-file-input {

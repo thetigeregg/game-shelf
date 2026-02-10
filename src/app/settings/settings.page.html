@@ -8,16 +8,11 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Settings</ion-title>
-    </ion-toolbar>
-  </ion-header>
-
   <ion-list inset="true">
     <ion-item>
       <ion-label>Primary Theme Color</ion-label>
       <ion-select
+        labelPlacement="end"
         interface="popover"
         [value]="selectedColor"
         (ionChange)="onPresetColorChange($any($event).detail.value)"
@@ -49,9 +44,11 @@
       <ion-label>Export / Import CSV</ion-label>
     </ion-item>
     <ion-item lines="none" class="data-actions">
-      <ion-button expand="block" (click)="exportCsv()">Export CSV</ion-button>
-      <ion-button expand="block" fill="outline" (click)="triggerImport(csvFileInput)">Import CSV</ion-button>
-      <ion-button expand="block" fill="outline" color="secondary" (click)="triggerMgcImport(mgcCsvFileInput)">
+      <ion-button size="default" expand="block" (click)="exportCsv()">Export CSV</ion-button>
+      <ion-button size="default" expand="block" fill="outline" (click)="triggerImport(csvFileInput)">Import CSV</ion-button>
+    </ion-item>
+    <ion-item lines="none" class="data-actions data-actions-mgc">
+      <ion-button size="default" expand="block" fill="outline" color="secondary" (click)="triggerMgcImport(mgcCsvFileInput)">
         Import MGC CSV
       </ion-button>
       <input

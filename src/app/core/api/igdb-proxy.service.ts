@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
@@ -49,7 +49,13 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<SearchResponse>(this.searchUrl, { params }).pipe(
       map(response => (response.items ?? []).map(item => this.normalizeResult(item))),
-      catchError(() => throwError(() => new Error('Unable to load game search results.')))
+      catchError((error: unknown) => {
+        if (error instanceof HttpErrorResponse && error.status === 429) {
+          return throwError(() => new Error('Rate limit exceeded. Please wait and try again.'));
+        }
+
+        return throwError(() => new Error('Unable to load game search results.'));
+      })
     );
   }
 

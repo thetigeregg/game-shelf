@@ -149,6 +149,12 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   standalone: false,
 })
 export class SettingsPage {
+  private static readonly MGC_RESOLVE_BASE_INTERVAL_MS = 450;
+  private static readonly MGC_RESOLVE_MIN_INTERVAL_MS = 350;
+  private static readonly MGC_RESOLVE_MAX_INTERVAL_MS = 1600;
+  private static readonly MGC_RESOLVE_MAX_ATTEMPTS = 3;
+  private static readonly MGC_RESOLVE_RETRY_BASE_DELAY_MS = 1500;
+
   readonly presets: ThemePreset[] = [
     { label: 'Ionic Blue', value: '#3880ff' },
     { label: 'Emerald', value: '#2ecc71' },
@@ -180,6 +186,7 @@ export class SettingsPage {
   private readonly mgcPlatformLookup = new Map<string, GameCatalogPlatformOption>();
   private mgcPlatformLookupLoaded = false;
   private mgcExistingGameKeys = new Set<string>();
+  private mgcRateLimitCooldownUntilMs = 0;
 
   private readonly themeService = inject(ThemeService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
@@ -446,9 +453,38 @@ export class SettingsPage {
     this.isResolvingMgcPage = true;
 
     try {
-      await this.processWithConcurrency(rowsToResolve, 3, async row => {
-        await this.resolveMgcRowFromSearch(row);
-      });
+      let lastRequestStartedAt = 0;
+      let currentIntervalMs = SettingsPage.MGC_RESOLVE_BASE_INTERVAL_MS;
+
+      for (const row of rowsToResolve) {
+        const nowMs = Date.now();
+        const cooldownWaitMs = Math.max(this.mgcRateLimitCooldownUntilMs - nowMs, 0);
+        const waitMs = Math.max(
+          currentIntervalMs - (nowMs - lastRequestStartedAt),
+          cooldownWaitMs,
+          0,
+        );
+
+        if (waitMs > 0) {
+          await this.delay(waitMs);
+        }
+
+        lastRequestStartedAt = Date.now();
+        await this.resolveMgcRowFromSearchWithRetry(row);
+
+        if (row.status === 'error' && this.isRateLimitStatusDetail(row.statusDetail)) {
+          currentIntervalMs = Math.min(
+            SettingsPage.MGC_RESOLVE_MAX_INTERVAL_MS,
+            Math.round(currentIntervalMs * 1.8),
+          );
+        } else {
+          currentIntervalMs = Math.max(
+            SettingsPage.MGC_RESOLVE_MIN_INTERVAL_MS,
+            Math.round(currentIntervalMs * 0.92),
+          );
+        }
+      }
+
       this.recomputeMgcDuplicateErrors();
       await this.presentToast(`Resolved ${rowsToResolve.length} row${rowsToResolve.length === 1 ? '' : 's'} on this page.`);
     } catch {
@@ -1168,6 +1204,30 @@ export class SettingsPage {
       .replace(/\s+/g, ' ');
   }
 
+  private async resolveMgcRowFromSearchWithRetry(row: MgcImportRow): Promise<void> {
+    let attempt = 1;
+
+    while (attempt <= SettingsPage.MGC_RESOLVE_MAX_ATTEMPTS) {
+      await this.resolveMgcRowFromSearch(row);
+
+      if (row.status !== 'error') {
+        return;
+      }
+
+      const isRateLimited = this.isRateLimitStatusDetail(row.statusDetail);
+
+      if (!isRateLimited || attempt >= SettingsPage.MGC_RESOLVE_MAX_ATTEMPTS) {
+        return;
+      }
+
+      const retryDelay = SettingsPage.MGC_RESOLVE_RETRY_BASE_DELAY_MS * attempt;
+      row.statusDetail = `Rate limited. Retrying in ${Math.ceil(retryDelay / 1000)}s...`;
+      this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
+      await this.delay(retryDelay);
+      attempt += 1;
+    }
+  }
+
   private async resolveMgcRowFromSearch(row: MgcImportRow): Promise<void> {
     if (row.error) {
       return;
@@ -1223,11 +1283,18 @@ export class SettingsPage {
       row.selected = null;
       row.status = 'noMatch';
       row.statusDetail = 'No matches found.';
-    } catch {
+    } catch (error: unknown) {
       row.selected = null;
       row.status = 'error';
-      row.statusDetail = 'Search failed.';
+      const message = error instanceof Error ? error.message : '';
+      row.statusDetail = message.toLowerCase().includes('rate limit')
+        ? 'Rate limit exceeded.'
+        : 'Search failed.';
     }
+  }
+
+  private isRateLimitStatusDetail(detail: string): boolean {
+    return detail.toLowerCase().includes('rate limit');
   }
 
   private async resolveCatalogForRow(
@@ -1456,6 +1523,12 @@ export class SettingsPage {
     }
 
     await Promise.all(workers);
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise<void>(resolve => {
+      window.setTimeout(resolve, ms);
+    });
   }
 
   private async buildExportCsv(): Promise<string> {

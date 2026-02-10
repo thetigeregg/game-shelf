@@ -10,6 +10,20 @@
 <ion-content [fullscreen]="true">
   <ion-list inset="true">
     <ion-item>
+      <ion-label>Theme Mode</ion-label>
+      <ion-select
+        labelPlacement="end"
+        interface="popover"
+        [value]="selectedColorScheme"
+        (ionChange)="onColorSchemePreferenceChange($any($event).detail.value)"
+      >
+        <ion-select-option *ngFor="let option of colorSchemeOptions" [value]="option.value">
+          {{ option.label }}
+        </ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
       <ion-label>Primary Theme Color</ion-label>
       <ion-select
         labelPlacement="end"

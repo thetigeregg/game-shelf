@@ -17,7 +17,7 @@ import {
     ListType,
     Tag,
 } from '../core/models/game.models';
-import { ThemeService } from '../core/services/theme.service';
+import { COLOR_SCHEME_STORAGE_KEY, ColorSchemePreference, PRIMARY_COLOR_STORAGE_KEY, ThemeService } from '../core/services/theme.service';
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
@@ -196,9 +196,15 @@ export class SettingsPage {
         { label: 'Rose', value: '#e91e63' },
         { label: 'Slate', value: '#546e7a' },
     ];
+    readonly colorSchemeOptions: Array<{ label: string; value: ColorSchemePreference }> = [
+        { label: 'System', value: 'system' },
+        { label: 'Light', value: 'light' },
+        { label: 'Dark', value: 'dark' },
+    ];
 
     selectedColor = '';
     customColor = '';
+    selectedColorScheme: ColorSchemePreference = 'system';
     imageCacheLimitMb = 200;
     imageCacheUsageMb = 0;
     isImportPreviewOpen = false;
@@ -240,9 +246,19 @@ export class SettingsPage {
         const currentColor = this.themeService.getPrimaryColor();
         this.selectedColor = this.findPresetColor(currentColor) ?? 'custom';
         this.customColor = currentColor;
+        this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
         addIcons({ close, trash, alertCircle });
+    }
+
+    onColorSchemePreferenceChange(value: ColorSchemePreference | string): void {
+        if (value !== 'system' && value !== 'light' && value !== 'dark') {
+            return;
+        }
+
+        this.selectedColorScheme = value;
+        this.themeService.setColorSchemePreference(value);
     }
 
     onImageCacheLimitChange(value: number | string | null | undefined): void {
@@ -2362,10 +2378,15 @@ export class SettingsPage {
             // Ignore storage read issues.
         }
 
-        const colorKey = 'game-shelf-primary-color';
+        const colorKey = PRIMARY_COLOR_STORAGE_KEY;
+        const colorSchemeKey = COLOR_SCHEME_STORAGE_KEY;
 
         if (!entries.some(([key]) => key === colorKey)) {
             entries.push([colorKey, this.themeService.getPrimaryColor()]);
+        }
+
+        if (!entries.some(([key]) => key === colorSchemeKey)) {
+            entries.push([colorSchemeKey, this.themeService.getColorSchemePreference()]);
         }
 
         return entries;
@@ -2379,8 +2400,13 @@ export class SettingsPage {
                 // Ignore storage write failures.
             }
 
-            if (row.key === 'game-shelf-primary-color') {
+            if (row.key === PRIMARY_COLOR_STORAGE_KEY) {
                 this.themeService.setPrimaryColor(row.value);
+            }
+
+            if (row.key === COLOR_SCHEME_STORAGE_KEY && (row.value === 'system' || row.value === 'light' || row.value === 'dark')) {
+                this.selectedColorScheme = row.value;
+                this.themeService.setColorSchemePreference(row.value);
             }
         });
     }

@@ -6,6 +6,20 @@
   padding: 0;
 }
 
+.number-input {
+  width: 96px;
+  min-height: 32px;
+  border: 1px solid var(--ion-color-medium-tint);
+  border-radius: 8px;
+  background: var(--ion-color-step-50, #fff);
+  padding: 0 8px;
+  text-align: right;
+}
+
+.cache-usage-item {
+  --min-height: 0;
+}
+
 .data-actions {
   --inner-padding-end: 0;
   --padding-start: 0;

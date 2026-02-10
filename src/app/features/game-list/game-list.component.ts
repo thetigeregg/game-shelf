@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, IonItemSliding, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
@@ -45,6 +45,7 @@ import {
     Tag
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
+import { ImageCacheService } from '../../core/services/image-cache.service';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, starOutline, play, trashBin, trophy, bookmark, pause, refresh } from "ionicons/icons";
 
@@ -144,6 +145,10 @@ export class GameListComponent implements OnChanges {
     rowActionsPopoverEvent: Event | undefined = undefined;
     rowActionsGame: GameEntry | null = null;
     selectedGameKeys = new Set<string>();
+    private readonly rowCoverUrlByGameKey = new Map<string, string>();
+    private readonly detailCoverUrlByGameKey = new Map<string, string>();
+    private readonly rowCoverLoadingGameKeys = new Set<string>();
+    private readonly detailCoverLoadingGameKeys = new Set<string>();
     private displayedGames: GameEntry[] = [];
     private rowActionsSlidingItem: IonItemSliding | null = null;
     private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -152,6 +157,8 @@ export class GameListComponent implements OnChanges {
     private readonly popoverController = inject(PopoverController);
     private readonly alertController = inject(AlertController);
     private readonly toastController = inject(ToastController);
+    private readonly imageCacheService = inject(ImageCacheService);
+    private readonly changeDetectorRef = inject(ChangeDetectorRef);
     private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
     private readonly searchQuery$ = new BehaviorSubject<string>('');
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
@@ -430,6 +437,7 @@ export class GameListComponent implements OnChanges {
         this.selectedGame = game;
         this.isGameDetailModalOpen = true;
         this.resetImagePickerState();
+        void this.loadDetailCoverUrl(game);
     }
 
     closeGameDetailModal(): void {
@@ -789,23 +797,94 @@ export class GameListComponent implements OnChanges {
         return `${game.igdbGameId}::${game.platformIgdbId}`;
     }
 
-    getDisplayCoverUrl(coverUrl: string | null | undefined): string {
+    getRowCoverUrl(game: GameEntry): string {
+        const gameKey = this.getGameKey(game);
+        const existing = this.rowCoverUrlByGameKey.get(gameKey);
+
+        if (existing) {
+            return existing;
+        }
+
+        if (!this.rowCoverLoadingGameKeys.has(gameKey)) {
+            void this.loadRowCoverUrl(game);
+        }
+
+        return this.getFallbackCoverUrl(game.coverUrl, 'thumb');
+    }
+
+    getDetailCoverUrl(game: GameEntry): string {
+        const gameKey = this.getGameKey(game);
+        const existing = this.detailCoverUrlByGameKey.get(gameKey);
+
+        if (existing) {
+            return existing;
+        }
+
+        if (!this.detailCoverLoadingGameKeys.has(gameKey)) {
+            void this.loadDetailCoverUrl(game);
+        }
+
+        return this.getFallbackCoverUrl(game.coverUrl, 'detail');
+    }
+
+    private getOtherListType(): ListType {
+        return this.listType === 'collection' ? 'wishlist' : 'collection';
+    }
+
+    private getFallbackCoverUrl(coverUrl: string | null | undefined, variant: 'thumb' | 'detail'): string {
         const normalized = typeof coverUrl === 'string' ? coverUrl.trim() : '';
 
         if (!normalized) {
             return 'assets/icon/favicon.png';
         }
 
-        // Force a small TheGamesDB variant for list thumbnails to reduce oversized-image warnings.
-        if (normalized.includes('cdn.thegamesdb.net/images/')) {
+        if (variant === 'thumb' && normalized.includes('cdn.thegamesdb.net/images/')) {
             return normalized.replace(/\/images\/(?:original|large|medium)\//, '/images/small/');
         }
 
         return normalized;
     }
 
-    private getOtherListType(): ListType {
-        return this.listType === 'collection' ? 'wishlist' : 'collection';
+    private async loadRowCoverUrl(game: GameEntry): Promise<void> {
+        const gameKey = this.getGameKey(game);
+
+        if (this.rowCoverLoadingGameKeys.has(gameKey)) {
+            return;
+        }
+
+        this.rowCoverLoadingGameKeys.add(gameKey);
+
+        try {
+            const resolved = await this.imageCacheService.resolveImageUrl(gameKey, game.coverUrl, 'thumb');
+            this.rowCoverUrlByGameKey.set(gameKey, resolved);
+            this.changeDetectorRef.markForCheck();
+        } catch {
+            this.rowCoverUrlByGameKey.set(gameKey, this.getFallbackCoverUrl(game.coverUrl, 'thumb'));
+            this.changeDetectorRef.markForCheck();
+        } finally {
+            this.rowCoverLoadingGameKeys.delete(gameKey);
+        }
+    }
+
+    private async loadDetailCoverUrl(game: GameEntry): Promise<void> {
+        const gameKey = this.getGameKey(game);
+
+        if (this.detailCoverLoadingGameKeys.has(gameKey)) {
+            return;
+        }
+
+        this.detailCoverLoadingGameKeys.add(gameKey);
+
+        try {
+            const resolved = await this.imageCacheService.resolveImageUrl(gameKey, game.coverUrl, 'detail');
+            this.detailCoverUrlByGameKey.set(gameKey, resolved);
+            this.changeDetectorRef.markForCheck();
+        } catch {
+            this.detailCoverUrlByGameKey.set(gameKey, this.getFallbackCoverUrl(game.coverUrl, 'detail'));
+            this.changeDetectorRef.markForCheck();
+        } finally {
+            this.detailCoverLoadingGameKeys.delete(gameKey);
+        }
     }
 
     private enterSelectionModeWithGame(gameKey: string): void {

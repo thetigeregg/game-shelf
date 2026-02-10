@@ -277,6 +277,10 @@ function isBoxArtSearchPath(pathname) {
   return pathname === '/v1/images/boxart/search';
 }
 
+function isImageProxyPath(pathname) {
+  return pathname === '/v1/images/proxy';
+}
+
 function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
   const key = ipAddress || 'unknown';
   const entry = rateLimitCache.get(key);
@@ -803,6 +807,28 @@ async function searchTheGamesDbBoxArtCandidates(title, platform, platformIgdbId,
   return candidates;
 }
 
+function normalizeProxyImageUrl(url) {
+  try {
+    const parsed = new URL(String(url ?? ''));
+
+    if (parsed.protocol !== 'https:') {
+      return null;
+    }
+
+    if (parsed.hostname !== 'cdn.thegamesdb.net') {
+      return null;
+    }
+
+    if (!parsed.pathname.startsWith('/images/')) {
+      return null;
+    }
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAppToken(env, fetchImpl, nowMs) {
   if (
     tokenCache.accessToken
@@ -1068,10 +1094,11 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const isPlatformListPath = url.pathname === '/v1/platforms';
   const isGameByIdPath = gameId !== null;
   const isBoxArtSearchRoute = isBoxArtSearchPath(url.pathname);
+  const isImageProxyRoute = isImageProxyPath(url.pathname);
   const debugHttp = shouldLogHttp(env, url);
   const loggedFetch = createLoggedFetch(fetchImpl, debugHttp);
 
-  if (!isGameSearchPath && !isPlatformListPath && !isGameByIdPath && !isBoxArtSearchRoute) {
+  if (!isGameSearchPath && !isPlatformListPath && !isGameByIdPath && !isBoxArtSearchRoute && !isImageProxyRoute) {
     return jsonResponse({ error: 'Not found' }, 404);
   }
 
@@ -1089,7 +1116,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
   const localRetryAfterSeconds = getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs);
 
-  if (localRetryAfterSeconds !== null) {
+  if (localRetryAfterSeconds !== null && !isImageProxyRoute) {
     return jsonResponse(
       { error: `Rate limit exceeded. Retry after ${localRetryAfterSeconds}s.` },
       429,
@@ -1110,6 +1137,37 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   }
 
   try {
+    if (isImageProxyRoute) {
+      const targetUrl = normalizeProxyImageUrl(url.searchParams.get('url'));
+
+      if (!targetUrl) {
+        return jsonResponse({ error: 'Invalid image URL.' }, 400);
+      }
+
+      const upstream = await loggedFetch(targetUrl, { method: 'GET' });
+
+      if (!upstream.ok) {
+        return jsonResponse({ error: 'Unable to fetch image.' }, 502);
+      }
+
+      const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Cache-Control': 'public, max-age=86400',
+      };
+      const contentType = upstream.headers.get('Content-Type');
+
+      if (contentType) {
+        headers['Content-Type'] = contentType;
+      }
+
+      return new Response(upstream.body, {
+        status: 200,
+        headers,
+      });
+    }
+
     if (isBoxArtSearchRoute) {
       const query = normalizeSearchQuery(url);
       const platform = normalizePlatformQuery(url);

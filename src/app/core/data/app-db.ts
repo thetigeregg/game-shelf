@@ -7,6 +7,7 @@ export class AppDb extends Dexie {
   games!: Table<GameEntry, number>;
   tags!: Table<Tag, number>;
   views!: Table<GameListView, number>;
+  imageCache!: Table<ImageCacheEntry, number>;
 
   constructor() {
     super('game-shelf-db');
@@ -52,5 +53,24 @@ export class AppDb extends Dexie {
       tags: '++id,&name,createdAt,updatedAt',
       views: '++id,listType,name,updatedAt,createdAt',
     });
+
+    this.version(6).stores({
+      games: '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+    });
   }
+}
+
+export interface ImageCacheEntry {
+  id?: number;
+  cacheKey: string;
+  gameKey: string;
+  variant: 'thumb' | 'detail';
+  sourceUrl: string;
+  blob: Blob;
+  sizeBytes: number;
+  updatedAt: string;
+  lastAccessedAt: string;
 }

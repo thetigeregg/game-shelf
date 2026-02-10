@@ -65,7 +65,7 @@
       </div>
 
       <div slot="start" class="game-art">
-        <img [src]="getDisplayCoverUrl(game.coverUrl)" [alt]="game.title" (error)="onImageError($event)" />
+        <img [src]="getRowCoverUrl(game)" [alt]="game.title" (error)="onImageError($event)" />
       </div>
 
       <ion-label>
@@ -168,9 +168,9 @@
         <div class="detail-cover">
           <div
             class="detail-cover-backdrop"
-            [style.background-image]="game.coverUrl ? 'url(' + game.coverUrl + ')' : 'none'"
+            [style.background-image]="getDetailCoverUrl(game) ? 'url(' + getDetailCoverUrl(game) + ')' : 'none'"
           ></div>
-          <img [src]="game.coverUrl || 'assets/icon/favicon.png'" [alt]="game.title" (error)="onImageError($event)" />
+          <img [src]="getDetailCoverUrl(game)" [alt]="game.title" (error)="onImageError($event)" />
         </div>
 
         <ion-list lines="full">

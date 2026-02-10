@@ -20,6 +20,7 @@ import {
 import { ThemeService } from '../core/services/theme.service';
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { ImageCacheService } from '../core/services/image-cache.service';
 import { addIcons } from "ionicons";
 import { close, trash, alertCircle } from "ionicons/icons";
 
@@ -185,6 +186,8 @@ export class SettingsPage {
     private static readonly MGC_BOX_ART_MAX_ATTEMPTS = 3;
     private static readonly MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 1000;
     private static readonly MGC_RATE_LIMIT_MAX_COOLDOWN_MS = 60000;
+    private static readonly IMAGE_CACHE_MIN_MB = 20;
+    private static readonly IMAGE_CACHE_MAX_MB = 2048;
 
     readonly presets: ThemePreset[] = [
         { label: 'Ionic Blue', value: '#3880ff' },
@@ -196,6 +199,8 @@ export class SettingsPage {
 
     selectedColor = '';
     customColor = '';
+    imageCacheLimitMb = 200;
+    imageCacheUsageMb = 0;
     isImportPreviewOpen = false;
     isApplyingImport = false;
     importPreviewRows: ImportPreviewRow[] = [];
@@ -227,6 +232,7 @@ export class SettingsPage {
     private readonly themeService = inject(ThemeService);
     private readonly repository: GameRepository = inject(GAME_REPOSITORY);
     private readonly gameShelfService = inject(GameShelfService);
+    private readonly imageCacheService = inject(ImageCacheService);
     private readonly toastController = inject(ToastController);
     private readonly alertController = inject(AlertController);
 
@@ -234,7 +240,30 @@ export class SettingsPage {
         const currentColor = this.themeService.getPrimaryColor();
         this.selectedColor = this.findPresetColor(currentColor) ?? 'custom';
         this.customColor = currentColor;
+        this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
+        void this.refreshImageCacheUsage();
         addIcons({ close, trash, alertCircle });
+    }
+
+    onImageCacheLimitChange(value: number | string | null | undefined): void {
+        const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+
+        if (!Number.isInteger(parsed)) {
+            this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
+            return;
+        }
+
+        const normalized = Math.max(
+            SettingsPage.IMAGE_CACHE_MIN_MB,
+            Math.min(parsed, SettingsPage.IMAGE_CACHE_MAX_MB),
+        );
+        this.imageCacheLimitMb = this.imageCacheService.setLimitMb(normalized);
+        void this.refreshImageCacheUsage();
+    }
+
+    private async refreshImageCacheUsage(): Promise<void> {
+        const usageBytes = await this.imageCacheService.getUsageBytes();
+        this.imageCacheUsageMb = Math.round((usageBytes / (1024 * 1024)) * 10) / 10;
     }
 
     get importErrorCount(): number {

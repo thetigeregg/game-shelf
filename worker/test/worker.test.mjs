@@ -22,6 +22,9 @@ function createFetchStub({
   hltbBody = null,
   hltbPageStatus = 200,
   hltbPageBody = '',
+  scraperStatus = 200,
+  scraperBody = null,
+  scraperBaseUrl = null,
 }) {
   const calls = {
     token: 0,
@@ -33,6 +36,7 @@ function createFetchStub({
     theGamesDbUrls: [],
     hltb: 0,
     hltbPage: 0,
+    scraper: 0,
   };
 
   const stub = async (url, options = {}) => {
@@ -100,6 +104,19 @@ function createFetchStub({
       return new Response(
         hltbPageBody || '<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"games":[]}}}</script></body></html>',
         { status: 200, headers: { 'Content-Type': 'text/html' } },
+      );
+    }
+
+    if (typeof scraperBaseUrl === 'string' && scraperBaseUrl.length > 0 && normalizedUrl.startsWith(`${scraperBaseUrl}/v1/hltb/search`)) {
+      calls.scraper += 1;
+
+      if (scraperStatus !== 200) {
+        return new Response(JSON.stringify({ error: 'scraper_failed' }), { status: scraperStatus });
+      }
+
+      return new Response(
+        JSON.stringify(scraperBody ?? { item: null }),
+        { status: 200 },
       );
     }
 
@@ -516,27 +533,27 @@ test('returns empty box art results instead of 502 when TheGamesDB fails', async
   assert.equal(calls.theGamesDb, 1);
 });
 
-test('returns HLTB completion match for hltb search endpoint', async () => {
+test('prefers configured HLTB scraper service when available', async () => {
   resetCaches();
 
+  const scraperBaseUrl = 'https://hltb-scraper.example';
   const { stub, calls } = createFetchStub({
-    hltbBody: {
-      data: [
-        {
-          game_name: 'Super Metroid',
-          comp_main: 450,
-          comp_plus: 600,
-          comp_100: 780,
-          release_world: 1994,
-          profile_platform: 'SNES',
-        },
-      ],
+    scraperBaseUrl,
+    scraperBody: {
+      item: {
+        hltbMainHours: 7.5,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 13,
+      },
     },
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/hltb/search?q=super%20metroid&releaseYear=1994&platform=snes'),
-    env,
+    {
+      ...env,
+      HLTB_SCRAPER_BASE_URL: scraperBaseUrl,
+    },
     stub,
   );
 
@@ -547,20 +564,42 @@ test('returns HLTB completion match for hltb search endpoint', async () => {
     hltbMainExtraHours: 10,
     hltbCompletionistHours: 13,
   });
-  assert.equal(calls.hltb, 1);
-  assert.equal(calls.igdb, 0);
-  assert.equal(calls.token, 0);
+  assert.equal(calls.scraper, 1);
+  assert.equal(calls.hltb, 0);
+  assert.equal(calls.hltbPage, 0);
 });
 
-test('returns null HLTB item when endpoint upstream fails', async () => {
+test('returns null HLTB item when scraper is unavailable', async () => {
   resetCaches();
 
   const { stub, calls } = createFetchStub({
-    hltbStatus: 503,
+    scraperBaseUrl: 'https://hltb-scraper.example',
+    scraperStatus: 503,
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/hltb/search?q=metroid'),
+    {
+      ...env,
+      HLTB_SCRAPER_BASE_URL: 'https://hltb-scraper.example',
+    },
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload, { item: null });
+  assert.equal(calls.scraper, 1);
+  assert.equal(calls.hltb, 0);
+});
+
+test('returns null HLTB item when scraper is not configured', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({});
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/hltb/search?q=super%20metroid'),
     env,
     stub,
   );
@@ -568,38 +607,7 @@ test('returns null HLTB item when endpoint upstream fails', async () => {
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.deepEqual(payload, { item: null });
-  assert.equal(calls.hltb, 1);
-});
-
-test('falls back to scraping HLTB search page when API returns 403', async () => {
-  resetCaches();
-
-  const { stub, calls } = createFetchStub({
-    hltbStatus: 403,
-    hltbPageBody: `
-      <html>
-        <body>
-          <script id="__NEXT_DATA__" type="application/json">
-            {"props":{"pageProps":{"results":[{"game_name":"Super Metroid","comp_main":450,"comp_plus":600,"comp_100":780,"release_world":1994,"profile_platform":"SNES"}]}}}
-          </script>
-        </body>
-      </html>
-    `,
-  });
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/hltb/search?q=super%20metroid&releaseYear=1994&platform=snes'),
-    env,
-    stub,
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.deepEqual(payload.item, {
-    hltbMainHours: 7.5,
-    hltbMainExtraHours: 10,
-    hltbCompletionistHours: 13,
-  });
-  assert.equal(calls.hltb, 1);
-  assert.equal(calls.hltbPage, 1);
+  assert.equal(calls.scraper, 0);
+  assert.equal(calls.hltb, 0);
+  assert.equal(calls.hltbPage, 0);
 });

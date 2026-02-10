@@ -1,0 +1,13 @@
+{
+  "name": "hltb-scraper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ./src/server.mjs",
+    "start": "node ./src/server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "playwright": "^1.52.0"
+  }
+}

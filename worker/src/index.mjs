@@ -7,7 +7,6 @@ const IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS = 20;
 const IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS = 15;
 const IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60;
 const MAX_BOX_ART_RESULTS = 30;
-const MAX_HLTB_RESULTS = 20;
 const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
 const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
@@ -147,6 +146,18 @@ function shouldLogHttp(env, requestUrl) {
 
   const hostname = requestUrl.hostname.toLowerCase();
   return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
+function shouldLogHltb(env, debugHttpEnabled) {
+  if (debugHttpEnabled) {
+    return true;
+  }
+
+  if (typeof env.DEBUG_HLTB_LOGS === 'string') {
+    return env.DEBUG_HLTB_LOGS.toLowerCase() === 'true';
+  }
+
+  return false;
 }
 
 function createLoggedFetch(fetchImpl, debugHttpEnabled) {
@@ -460,6 +471,26 @@ function getTheGamesDbApiKey(env) {
   return typeof env.THEGAMESDB_API_KEY === 'string' && env.THEGAMESDB_API_KEY.trim().length > 0
     ? env.THEGAMESDB_API_KEY.trim()
     : null;
+}
+
+function getHltbScraperBaseUrl(env) {
+  const value = typeof env.HLTB_SCRAPER_BASE_URL === 'string' ? env.HLTB_SCRAPER_BASE_URL.trim() : '';
+
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return null;
+  }
+}
+
+function getHltbScraperToken(env) {
+  const value = typeof env.HLTB_SCRAPER_TOKEN === 'string' ? env.HLTB_SCRAPER_TOKEN.trim() : '';
+  return value.length > 0 ? value : null;
 }
 
 function normalizeTheGamesDbUrl(filename, baseUrl) {
@@ -828,265 +859,110 @@ async function searchTheGamesDbBoxArtCandidates(title, platform, platformIgdbId,
   return candidates;
 }
 
-function extractHltbTitle(entry) {
-  const candidates = [
-    entry?.game_name,
-    entry?.game_alias,
-    entry?.name,
-  ];
-
-  for (const value of candidates) {
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-
-  return '';
-}
-
-function normalizeHltbHours(value) {
+function normalizeHltbHoursValue(value) {
   const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
 
   if (!Number.isFinite(numeric) || numeric <= 0) {
     return null;
   }
 
-  // HLTB values are in minutes in the API response.
-  const hours = numeric / 60;
-  return Math.round(hours * 10) / 10;
+  return Math.round(numeric * 10) / 10;
 }
 
-function normalizeHltbReleaseYear(entry) {
-  const candidates = [
-    entry?.release_world,
-    entry?.release_na,
-    entry?.release_eu,
-    entry?.release_jp,
-  ];
 
-  for (const rawValue of candidates) {
-    const numeric = typeof rawValue === 'number' ? rawValue : Number.parseInt(String(rawValue ?? ''), 10);
+async function searchHltbCompletionTimesViaScraperService(title, releaseYear, platform, env, fetchImpl, debugLogs = false) {
+  const baseUrl = getHltbScraperBaseUrl(env);
 
-    if (!Number.isFinite(numeric) || numeric <= 0) {
-      continue;
-    }
-
-    if (numeric >= 1970 && numeric <= 2100) {
-      return Math.trunc(numeric);
-    }
-
-    const asDate = new Date(numeric * 1000);
-    const year = asDate.getUTCFullYear();
-
-    if (Number.isInteger(year) && year >= 1970 && year <= 2100) {
-      return year;
-    }
-  }
-
-  return null;
-}
-
-function normalizeHltbPlatformText(entry) {
-  const candidates = [
-    entry?.profile_platform,
-    entry?.profile_platforms,
-    entry?.platform,
-    entry?.platforms,
-  ];
-
-  return candidates
-    .map(value => {
-      if (typeof value === 'string') {
-        return value;
-      }
-
-      if (Array.isArray(value)) {
-        return value.join(' ');
-      }
-
-      return '';
-    })
-    .filter(value => value.trim().length > 0)
-    .join(' ');
-}
-
-function normalizeHltbResponseItem(entry) {
-  if (!entry || typeof entry !== 'object') {
+  if (!baseUrl) {
     return null;
   }
 
-  const normalized = {
-    title: extractHltbTitle(entry),
-    releaseYear: normalizeHltbReleaseYear(entry),
-    platformText: normalizeHltbPlatformText(entry),
-    hltbMainHours: normalizeHltbHours(entry?.comp_main),
-    hltbMainExtraHours: normalizeHltbHours(entry?.comp_plus),
-    hltbCompletionistHours: normalizeHltbHours(entry?.comp_100),
+  const url = new URL(`${baseUrl}/v1/hltb/search`);
+  url.searchParams.set('q', title);
+
+  if (Number.isInteger(releaseYear) && releaseYear > 0) {
+    url.searchParams.set('releaseYear', String(releaseYear));
+  }
+
+  if (typeof platform === 'string' && platform.trim().length > 0) {
+    url.searchParams.set('platform', platform.trim());
+  }
+
+  const headers = {
+    Accept: 'application/json',
   };
+  const token = getHltbScraperToken(env);
 
-  if (!normalized.title) {
-    return null;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
-  if (
-    normalized.hltbMainHours === null
-    && normalized.hltbMainExtraHours === null
-    && normalized.hltbCompletionistHours === null
-  ) {
-    return null;
-  }
-
-  return normalized;
-}
-
-function collectHltbEntriesFromUnknown(value, sink, depth = 0) {
-  if (depth > 12 || !value) {
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    value.forEach(item => collectHltbEntriesFromUnknown(item, sink, depth + 1));
-    return;
-  }
-
-  if (typeof value !== 'object') {
-    return;
-  }
-
-  const asRecord = value;
-  const normalized = normalizeHltbResponseItem(asRecord);
-
-  if (normalized) {
-    sink.push(asRecord);
-  }
-
-  Object.values(asRecord).forEach(nested => {
-    collectHltbEntriesFromUnknown(nested, sink, depth + 1);
-  });
-}
-
-function extractHltbEntriesFromSearchPageHtml(html) {
-  if (typeof html !== 'string' || html.length === 0) {
-    return [];
-  }
-
-  const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-
-  if (!nextDataMatch || typeof nextDataMatch[1] !== 'string') {
-    return [];
+  if (debugLogs) {
+    console.info('[hltb] scraper_lookup_start', {
+      title,
+      releaseYear: releaseYear ?? null,
+      platform: platform ?? null,
+      baseUrl,
+    });
   }
 
   try {
-    const parsed = JSON.parse(nextDataMatch[1]);
-    const entries = [];
-    collectHltbEntriesFromUnknown(parsed, entries);
-    return entries;
-  } catch {
-    return [];
-  }
-}
-
-async function searchHltbCompletionTimesViaWebPage(title, releaseYear, platform, fetchImpl) {
-  const normalizedTitle = String(title ?? '').trim();
-
-  if (normalizedTitle.length < 2) {
-    return null;
-  }
-
-  try {
-    const url = new URL('https://howlongtobeat.com/');
-    url.searchParams.set('q', normalizedTitle);
-
     const response = await fetchImpl(url.toString(), {
       method: 'GET',
-      headers: {
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        Referer: 'https://howlongtobeat.com/',
-      },
+      headers,
     });
 
     if (!response.ok) {
+      if (debugLogs) {
+        console.warn('[hltb] scraper_lookup_failed', {
+          title,
+          status: response.status,
+        });
+      }
       return null;
     }
 
-    const html = await response.text();
-    const entries = extractHltbEntriesFromSearchPageHtml(html);
+    const payload = await response.json();
+    const normalized = {
+      hltbMainHours: normalizeHltbHoursValue(payload?.item?.hltbMainHours),
+      hltbMainExtraHours: normalizeHltbHoursValue(payload?.item?.hltbMainExtraHours),
+      hltbCompletionistHours: normalizeHltbHoursValue(payload?.item?.hltbCompletionistHours),
+    };
 
-    if (entries.length === 0) {
+    if (
+      normalized.hltbMainHours === null
+      && normalized.hltbMainExtraHours === null
+      && normalized.hltbCompletionistHours === null
+    ) {
+      if (debugLogs) {
+        console.info('[hltb] scraper_lookup_match', {
+          title,
+          found: false,
+        });
+      }
       return null;
     }
 
-    return findBestHltbMatch({ data: entries }, normalizedTitle, releaseYear, platform);
-  } catch {
+    if (debugLogs) {
+      console.info('[hltb] scraper_lookup_match', {
+        title,
+        found: true,
+      });
+    }
+
+    return normalized;
+  } catch (error) {
+    if (debugLogs) {
+      console.warn('[hltb] scraper_lookup_exception', {
+        title,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     return null;
   }
 }
 
-function findBestHltbMatch(payload, expectedTitle, expectedReleaseYear = null, expectedPlatform = null) {
-  const items = Array.isArray(payload?.data) ? payload.data : [];
-  const normalizedExpectedPlatform = normalizePlatformForMatch(expectedPlatform);
-
-  let best = null;
-  let bestScore = Number.NEGATIVE_INFINITY;
-
-  for (const item of items) {
-    const normalized = normalizeHltbResponseItem(item);
-
-    if (!normalized) {
-      continue;
-    }
-
-    const titleScore = getTitleSimilarityScore(expectedTitle, normalized.title);
-
-    if (!Number.isFinite(titleScore) || titleScore < 20) {
-      continue;
-    }
-
-    let score = titleScore * 100;
-
-    if (normalizeTitleForMatch(expectedTitle) === normalizeTitleForMatch(normalized.title)) {
-      score += 100;
-    }
-
-    if (expectedReleaseYear && normalized.releaseYear) {
-      const diff = Math.abs(expectedReleaseYear - normalized.releaseYear);
-
-      if (diff === 0) {
-        score += 70;
-      } else if (diff === 1) {
-        score += 30;
-      } else if (diff === 2) {
-        score += 10;
-      }
-    }
-
-    if (normalizedExpectedPlatform.length > 0) {
-      const normalizedPlatformText = normalizePlatformForMatch(normalized.platformText);
-
-      if (normalizedPlatformText.includes(normalizedExpectedPlatform)) {
-        score += 40;
-      }
-    }
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = normalized;
-    }
-  }
-
-  if (!best) {
-    return null;
-  }
-
-  return {
-    hltbMainHours: best.hltbMainHours,
-    hltbMainExtraHours: best.hltbMainExtraHours,
-    hltbCompletionistHours: best.hltbCompletionistHours,
-  };
-}
-
-async function searchHltbCompletionTimes(title, releaseYear, platform, fetchImpl) {
+async function searchHltbCompletionTimes(title, releaseYear, platform, env, fetchImpl, debugLogs = false) {
   const normalizedTitle = String(title ?? '').trim();
   const normalizedPlatform = String(platform ?? '').trim();
   const normalizedReleaseYear = Number.isInteger(releaseYear) && releaseYear > 0 ? releaseYear : null;
@@ -1095,55 +971,25 @@ async function searchHltbCompletionTimes(title, releaseYear, platform, fetchImpl
     return null;
   }
 
-  const body = {
-    searchType: 'games',
-    searchTerms: normalizedTitle.split(/\s+/).filter(Boolean),
-    searchPage: 1,
-    size: MAX_HLTB_RESULTS,
-    searchOptions: {
-      games: {
-        userId: 0,
-        platform: '',
-        sortCategory: 'popular',
-        rangeCategory: 'main',
-        rangeTime: { min: 0, max: 0 },
-        gameplay: { perspective: '', flow: '', genre: '', difficulty: '' },
-        rangeYear: { min: '', max: '' },
-        modifier: '',
-      },
-      users: { sortCategory: 'postcount' },
-      filter: '',
-      sort: 0,
-      randomizer: 0,
-    },
-    useCache: true,
-  };
+  const scraperMatch = await searchHltbCompletionTimesViaScraperService(
+    normalizedTitle,
+    normalizedReleaseYear,
+    normalizedPlatform,
+    env,
+    fetchImpl,
+    debugLogs,
+  );
 
-  try {
-    const response = await fetchImpl('https://howlongtobeat.com/api/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Origin: 'https://howlongtobeat.com',
-        Referer: 'https://howlongtobeat.com/',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      if (response.status === 403) {
-        return searchHltbCompletionTimesViaWebPage(normalizedTitle, normalizedReleaseYear, normalizedPlatform, fetchImpl);
-      }
-
-      return null;
-    }
-
-    const payload = await response.json();
-    return findBestHltbMatch(payload, normalizedTitle, normalizedReleaseYear, normalizedPlatform);
-  } catch {
-    return searchHltbCompletionTimesViaWebPage(normalizedTitle, normalizedReleaseYear, normalizedPlatform, fetchImpl);
+  if (scraperMatch !== null) {
+    return scraperMatch;
   }
+  if (debugLogs) {
+    console.info('[hltb] lookup_unresolved', {
+      title: normalizedTitle,
+      reason: getHltbScraperBaseUrl(env) ? 'scraper_no_match' : 'scraper_not_configured',
+    });
+  }
+  return null;
 }
 
 function normalizeProxyImageUrl(url) {
@@ -1436,6 +1282,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const isHltbSearchRoute = isHltbSearchPath(url.pathname);
   const isImageProxyRoute = isImageProxyPath(url.pathname);
   const debugHttp = shouldLogHttp(env, url);
+  const debugHltb = shouldLogHltb(env, debugHttp);
   const loggedFetch = createLoggedFetch(fetchImpl, debugHttp);
 
   if (!isGameSearchPath && !isPlatformListPath && !isGameByIdPath && !isBoxArtSearchRoute && !isHltbSearchRoute && !isImageProxyRoute) {
@@ -1520,7 +1367,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       const query = normalizeSearchQuery(url);
       const releaseYear = normalizeReleaseYearQuery(url);
       const platform = normalizePlatformQuery(url);
-      const item = await searchHltbCompletionTimes(query, releaseYear, platform, loggedFetch);
+      const item = await searchHltbCompletionTimes(query, releaseYear, platform, env, loggedFetch, debugHltb);
       return jsonResponse({ item }, 200);
     }
 

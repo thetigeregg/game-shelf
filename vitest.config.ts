@@ -13,7 +13,7 @@ export default defineConfig({
     include: ['src/**/*.spec.ts'],
     server: {
       deps: {
-        inline: ['@ionic/angular', '@ionic/core'],
+        inline: ['@ionic/angular', '@ionic/angular/standalone', '@ionic/core'],
       },
     },
     coverage: {

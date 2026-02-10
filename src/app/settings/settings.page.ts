@@ -292,7 +292,30 @@ export class SettingsPage {
     }
   }
 
-  removeImportRow(rowId: number): void {
+  async confirmRemoveImportRow(rowId: number): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Remove Import Row',
+      message: 'Remove this row from the import?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: 'Remove',
+          role: 'confirm',
+          cssClass: 'alert-button-danger',
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
     this.importPreviewRows = this.importPreviewRows.filter(row => row.id !== rowId);
   }
 
@@ -338,7 +361,30 @@ export class SettingsPage {
     this.mgcResolverError = '';
   }
 
-  removeMgcRow(rowId: number): void {
+  async confirmRemoveMgcRow(rowId: number): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Remove Import Row',
+      message: 'Remove this row from the MGC import?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: 'Remove',
+          role: 'confirm',
+          cssClass: 'alert-button-danger',
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
     this.mgcRows = this.mgcRows.filter(row => row.id !== rowId);
     this.recomputeMgcDuplicateErrors();
 
@@ -553,6 +599,10 @@ export class SettingsPage {
     }
 
     if (row.status === 'multiple') {
+      if (row.selected) {
+        return `${row.candidates.length} possible matches found. Auto-selected exact title match: ${row.selected.title}.`;
+      }
+
       return `${row.candidates.length} possible matches found.`;
     }
 
@@ -569,6 +619,10 @@ export class SettingsPage {
     }
 
     return 'Pending match.';
+  }
+
+  isMgcAutoSelectedMultiple(row: MgcImportRow): boolean {
+    return row.status === 'multiple' && row.selected !== null;
   }
 
   onMgcResultImageError(event: Event): void {
@@ -772,7 +826,7 @@ export class SettingsPage {
   private isMgcRowReady(row: MgcImportRow): boolean {
     return row.error === null
       && row.duplicateError === null
-      && row.status === 'resolved'
+      && (row.status === 'resolved' || (row.status === 'multiple' && row.selected !== null))
       && row.selected !== null;
   }
 
@@ -784,11 +838,11 @@ export class SettingsPage {
   }
 
   private isMgcRowWarning(row: MgcImportRow): boolean {
-    return !this.isMgcRowError(row) && row.status === 'multiple';
+    return !this.isMgcRowError(row) && row.status === 'multiple' && row.selected === null;
   }
 
   private isMgcRowSuccess(row: MgcImportRow): boolean {
-    return !this.isMgcRowError(row) && !this.isMgcRowWarning(row) && row.status === 'resolved';
+    return !this.isMgcRowError(row) && !this.isMgcRowWarning(row) && (row.status === 'resolved' || this.isMgcAutoSelectedMultiple(row));
   }
 
   private async parseMgcCsv(csv: string): Promise<MgcImportRow[]> {
@@ -1100,6 +1154,13 @@ export class SettingsPage {
       .replace(/[^a-z0-9]+/g, '');
   }
 
+  private normalizeMgcTitleForMatch(value: string): string {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
   private async resolveMgcRowFromSearch(row: MgcImportRow): Promise<void> {
     if (row.error) {
       return;
@@ -1139,11 +1200,22 @@ export class SettingsPage {
         return;
       }
 
+      if (candidates.length > 1) {
+        const exactTitleMatch = candidates.find(candidate => {
+          return this.normalizeMgcTitleForMatch(candidate.title) === this.normalizeMgcTitleForMatch(row.name);
+        }) ?? null;
+
+        row.selected = exactTitleMatch;
+        row.status = 'multiple';
+        row.statusDetail = exactTitleMatch
+          ? `${candidates.length} possible matches found. Exact title match auto-selected.`
+          : `${candidates.length} possible matches found.`;
+        return;
+      }
+
       row.selected = null;
-      row.status = candidates.length === 0 ? 'noMatch' : 'multiple';
-      row.statusDetail = candidates.length === 0
-        ? 'No matches found.'
-        : `${candidates.length} possible matches found.`;
+      row.status = 'noMatch';
+      row.statusDetail = 'No matches found.';
     } catch {
       row.selected = null;
       row.status = 'error';

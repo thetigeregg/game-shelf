@@ -98,7 +98,7 @@
             <p *ngIf="row.error" class="error-text">{{ row.error }}</p>
             <p *ngIf="!row.error && row.warning" class="warning-text">{{ row.warning }}</p>
           </ion-label>
-          <ion-button fill="clear" color="danger" slot="end" (click)="removeImportRow(row.id)">
+          <ion-button fill="clear" color="danger" slot="end" (click)="confirmRemoveImportRow(row.id)">
             <ion-icon slot="icon-only" name="trash"></ion-icon>
           </ion-button>
         </ion-item>
@@ -187,7 +187,14 @@
           (click)="openMgcRowResolver(row)"
         >
           <ion-label>
-            <h2>{{ row.name }}</h2>
+            <h2>
+              {{ row.name }}
+              <ion-icon
+                *ngIf="isMgcAutoSelectedMultiple(row)"
+                name="alert-circle"
+                class="mgc-auto-selected-icon"
+              ></ion-icon>
+            </h2>
             <p>{{ row.platform }}</p>
             <p class="mgc-status-text">{{ getMgcRowStatusText(row) }}</p>
             <p *ngIf="row.warning" class="warning-text">{{ row.warning }}</p>
@@ -197,7 +204,7 @@
             fill="clear"
             color="danger"
             slot="end"
-            (click)="$event.stopPropagation(); removeMgcRow(row.id)"
+            (click)="$event.stopPropagation(); confirmRemoveMgcRow(row.id)"
             [disabled]="isApplyingMgcImport"
           >
             <ion-icon slot="icon-only" name="trash"></ion-icon>

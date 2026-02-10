@@ -34,7 +34,7 @@
 }
 
 .mgc-row-warning {
-  --background: rgba(var(--ion-color-warning-rgb), 0.14);
+  --background: rgba(255, 149, 0, 0.16);
 }
 
 .mgc-row-error {
@@ -53,6 +53,12 @@
 
 .mgc-status-text {
   font-weight: 500;
+}
+
+.mgc-auto-selected-icon {
+  margin-left: 0.35rem;
+  vertical-align: text-bottom;
+  color: var(--ion-color-warning);
 }
 
 .mgc-page-toolbar {

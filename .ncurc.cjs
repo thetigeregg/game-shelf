@@ -4,7 +4,8 @@ module.exports = {
       name.startsWith("@angular/") ||
       name.startsWith("@angular-devkit/") ||
       name.startsWith("@angular-eslint/") ||
-      name.startsWith("@types/node")
+      name.startsWith("@types/node") ||
+      name === "eslint"
     ) {
       return "minor";
     }

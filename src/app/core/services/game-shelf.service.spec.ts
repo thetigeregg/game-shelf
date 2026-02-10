@@ -355,6 +355,99 @@ describe('GameShelfService', () => {
     expect(result).toEqual(updatedEntry);
   });
 
+  it('refreshes game completion times using HLTB lookup values', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Zack & Wiki',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: '2007-10-16T00:00:00.000Z',
+      releaseYear: 2007,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      hltbMainHours: 14,
+      hltbMainExtraHours: 18,
+      hltbCompletionistHours: 24,
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of({
+      hltbMainHours: 14,
+      hltbMainExtraHours: 18,
+      hltbCompletionistHours: 24,
+    }));
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameCompletionTimes('123', 5);
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        igdbGameId: '123',
+        title: 'Zack & Wiki',
+        coverUrl: 'https://example.com/current-cover.jpg',
+        coverSource: 'thegamesdb',
+        hltbMainHours: 14,
+        hltbMainExtraHours: 18,
+        hltbCompletionistHours: 24,
+        platform: 'Wii',
+        platformIgdbId: 5,
+      }),
+      'collection',
+    );
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('clears HLTB fields when completion times lookup returns no result', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Zack & Wiki',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      hltbMainHours: 14,
+      hltbMainExtraHours: 18,
+      hltbCompletionistHours: 24,
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: '2007-10-16T00:00:00.000Z',
+      releaseYear: 2007,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      hltbMainHours: null,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    await service.refreshGameCompletionTimes('123', 5);
+
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+      }),
+      'collection',
+    );
+  });
+
   it('returns empty box art results for short queries', async () => {
     const results = await firstValueFrom(service.searchBoxArtByTitle('m'));
     expect(results).toEqual([]);
@@ -429,6 +522,7 @@ describe('GameShelfService', () => {
     repository.updateCover.mockResolvedValue(undefined);
 
     await expect(service.refreshGameMetadata('123', 130)).rejects.toThrowError('Game entry no longer exists.');
+    await expect(service.refreshGameCompletionTimes('123', 130)).rejects.toThrowError('Game entry no longer exists.');
     await expect(service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg')).rejects.toThrowError('Game entry no longer exists.');
   });
 

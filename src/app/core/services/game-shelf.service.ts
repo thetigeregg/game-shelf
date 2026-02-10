@@ -203,6 +203,44 @@ export class GameShelfService {
     return updated;
   }
 
+  async refreshGameCompletionTimes(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
+    const existing = await this.repository.exists(igdbGameId, platformIgdbId);
+
+    if (!existing) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const completionTimes = await firstValueFrom(
+      this.searchApi.lookupCompletionTimes(existing.title, existing.releaseYear, existing.platform),
+    );
+
+    const updated = await this.repository.upsertFromCatalog(
+      {
+        igdbGameId: existing.igdbGameId,
+        title: existing.title,
+        coverUrl: existing.coverUrl,
+        coverSource: existing.coverSource,
+        hltbMainHours: completionTimes?.hltbMainHours ?? null,
+        hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,
+        hltbCompletionistHours: completionTimes?.hltbCompletionistHours ?? null,
+        developers: existing.developers ?? [],
+        franchises: existing.franchises ?? [],
+        genres: existing.genres ?? [],
+        publishers: existing.publishers ?? [],
+        platforms: [existing.platform],
+        platformOptions: [{ id: existing.platformIgdbId, name: existing.platform }],
+        platform: existing.platform,
+        platformIgdbId: existing.platformIgdbId,
+        releaseDate: existing.releaseDate,
+        releaseYear: existing.releaseYear,
+      },
+      existing.listType,
+    );
+
+    this.listRefresh$.next();
+    return updated;
+  }
+
   searchBoxArtByTitle(query: string, platform?: string | null, platformIgdbId?: number | null): Observable<string[]> {
     const normalized = query.trim();
 

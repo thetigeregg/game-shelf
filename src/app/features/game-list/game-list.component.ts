@@ -541,6 +541,11 @@ export class GameListComponent implements OnChanges {
         await this.popoverController.dismiss();
     }
 
+    async refreshSelectedGameCompletionTimesFromPopover(): Promise<void> {
+        await this.refreshSelectedGameCompletionTimes();
+        await this.popoverController.dismiss();
+    }
+
     async openImagePickerFromPopover(): Promise<void> {
         await this.popoverController.dismiss();
         await this.openImagePickerModal();
@@ -698,6 +703,20 @@ export class GameListComponent implements OnChanges {
             await this.presentToast('Game metadata refreshed.');
         } catch {
             await this.presentToast('Unable to refresh game metadata.', 'danger');
+        }
+    }
+
+    async refreshSelectedGameCompletionTimes(): Promise<void> {
+        if (!this.selectedGame) {
+            return;
+        }
+
+        try {
+            const updated = await this.gameShelfService.refreshGameCompletionTimes(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId);
+            this.selectedGame = updated;
+            await this.presentToast('HLTB data updated.');
+        } catch {
+            await this.presentToast('Unable to update HLTB data.', 'danger');
         }
     }
 

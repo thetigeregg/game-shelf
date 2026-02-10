@@ -67,17 +67,20 @@ export class GameShelfService {
     const normalizedGameId = this.normalizeGameId(result.igdbGameId);
     const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(result.platformIgdbId);
     const normalizedPlatform = this.normalizePlatform(result.platform);
-    const enrichedCatalog = await this.enrichCatalogWithCompletionTimes(result);
+    const normalizedCatalog: GameCatalogResult = {
+      ...result,
+      igdbGameId: normalizedGameId,
+      platform: normalizedPlatform,
+      platformIgdbId: normalizedPlatformIgdbId,
+    };
     const entry = await this.repository.upsertFromCatalog(
       {
-        ...enrichedCatalog,
-        igdbGameId: normalizedGameId,
-        platform: normalizedPlatform,
-        platformIgdbId: normalizedPlatformIgdbId,
+        ...normalizedCatalog,
       },
       listType,
     );
     this.listRefresh$.next();
+    void this.enrichCatalogWithCompletionTimesInBackground(normalizedCatalog, listType);
     return entry;
   }
 
@@ -430,15 +433,15 @@ export class GameShelfService {
     return normalized;
   }
 
-  private async enrichCatalogWithCompletionTimes(result: GameCatalogResult): Promise<GameCatalogResult> {
+  private async enrichCatalogWithCompletionTimesInBackground(result: GameCatalogResult, listType: ListType): Promise<void> {
     if (this.hasCompletionTimes(result)) {
-      return result;
+      return;
     }
 
     const title = typeof result.title === 'string' ? result.title.trim() : '';
 
     if (title.length < 2) {
-      return result;
+      return;
     }
 
     try {
@@ -451,15 +454,19 @@ export class GameShelfService {
       );
 
       if (!completionTimes) {
-        return result;
+        return;
       }
 
-      return {
-        ...result,
-        ...completionTimes,
-      };
+      await this.repository.upsertFromCatalog(
+        {
+          ...result,
+          ...completionTimes,
+        },
+        listType,
+      );
+      this.listRefresh$.next();
     } catch {
-      return result;
+      // Ignore HLTB enrichment failures. Add flow should stay responsive.
     }
   }
 

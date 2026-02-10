@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton } from '@ionic/angular/standalone';
@@ -21,6 +21,7 @@ interface SelectedPlatform {
 })
 export class GameSearchComponent implements OnInit, OnDestroy {
     @Input({ required: true }) listType!: ListType;
+    @Output() gameAdded = new EventEmitter<void>();
 
     query = '';
     results: GameCatalogResult[] = [];
@@ -139,6 +140,7 @@ export class GameSearchComponent implements OnInit, OnDestroy {
                 this.listType
             );
             await this.presentToast(`Added to ${this.getListLabel()}.`);
+            this.gameAdded.emit();
         } finally {
             this.addingExternalIds.delete(result.igdbGameId);
         }

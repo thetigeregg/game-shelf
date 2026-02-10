@@ -131,9 +131,21 @@ describe('GameShelfService', () => {
     } as GameEntry);
 
     await service.addGame(mario, 'collection');
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Mario Kart', 2017, 'Switch');
-    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(2);
+    expect(repository.upsertFromCatalog).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        igdbGameId: '123',
+        platform: 'Switch',
+        platformIgdbId: 130,
+      }),
+      'collection',
+    );
+    expect(repository.upsertFromCatalog).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
@@ -199,8 +211,10 @@ describe('GameShelfService', () => {
     } as GameEntry);
 
     await service.addGame(game, 'collection');
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({ igdbGameId: '123', platform: 'Switch', platformIgdbId: 130 }),
       'collection',

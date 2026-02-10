@@ -108,6 +108,7 @@ export class GameFiltersMenuComponent implements OnChanges {
         this.draftFilters = { ...DEFAULT_GAME_LIST_FILTERS };
         this.sortOption = 'title:asc';
         this.updateFilters();
+        this.groupByChange.emit('none');
     }
 
     onSortOptionChange(value: SortOption | string): void {

@@ -13,6 +13,7 @@ describe('IgdbProxyService', () => {
       providers: [IgdbProxyService],
     });
 
+    localStorage.clear();
     service = TestBed.inject(IgdbProxyService);
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -176,6 +177,27 @@ describe('IgdbProxyService', () => {
         { id: 6, name: 'PC (Microsoft Windows)' },
       ],
     });
+  });
+
+  it('falls back to cached platform filters when upstream request fails', done => {
+    localStorage.setItem(
+      'game-shelf-platform-list-cache-v1',
+      JSON.stringify([
+        { id: 130, name: 'Nintendo Switch' },
+        { id: 6, name: 'PC (Microsoft Windows)' },
+      ]),
+    );
+
+    service.listPlatforms().subscribe(result => {
+      expect(result).toEqual([
+        { id: 6, name: 'PC (Microsoft Windows)' },
+        { id: 130, name: 'Nintendo Switch' },
+      ]);
+      done();
+    });
+
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/platforms`);
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
   });
 
   it('searches box art results and normalizes URLs', done => {

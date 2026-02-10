@@ -51,12 +51,22 @@
     <ion-item lines="none" class="data-actions">
       <ion-button expand="block" (click)="exportCsv()">Export CSV</ion-button>
       <ion-button expand="block" fill="outline" (click)="triggerImport(csvFileInput)">Import CSV</ion-button>
+      <ion-button expand="block" fill="outline" color="secondary" (click)="triggerMgcImport(mgcCsvFileInput)">
+        Import MGC CSV
+      </ion-button>
       <input
         #csvFileInput
         class="hidden-file-input"
         type="file"
         accept=".csv,text/csv"
         (change)="onImportFileSelected($event)"
+      />
+      <input
+        #mgcCsvFileInput
+        class="hidden-file-input"
+        type="file"
+        accept=".csv,text/csv"
+        (change)="onMgcImportFileSelected($event)"
       />
     </ion-item>
   </ion-list>
@@ -113,5 +123,153 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-footer>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isMgcImportOpen" (didDismiss)="closeMgcImport()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>MGC Import</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closeMgcImport()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ion-list lines="full">
+        <ion-item>
+          <ion-select
+            label="Target list"
+            labelPlacement="stacked"
+            [ngModel]="mgcTargetListType"
+            (ngModelChange)="onMgcTargetListTypeChange($event)"
+            placeholder="Select a target list"
+          >
+            <ion-select-option value="collection">Collection</ion-select-option>
+            <ion-select-option value="wishlist">Wishlist</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item>
+          <ion-select
+            label="Rows per page"
+            labelPlacement="stacked"
+            [ngModel]="mgcPageSize"
+            (ngModelChange)="onMgcPageSizeChange($event)"
+          >
+            <ion-select-option *ngFor="let size of mgcPageSizeOptions" [value]="size">{{ size }}</ion-select-option>
+          </ion-select>
+        </ion-item>
+      </ion-list>
+
+      <ion-item lines="none" class="mgc-page-toolbar">
+        <ion-button fill="outline" (click)="goToPreviousMgcPage()" [disabled]="mgcPageIndex === 0">Prev</ion-button>
+        <ion-label>Page {{ mgcPageIndex + 1 }} / {{ mgcPageCount }}</ion-label>
+        <ion-button fill="outline" (click)="goToNextMgcPage()" [disabled]="mgcPageIndex >= mgcPageCount - 1">Next</ion-button>
+      </ion-item>
+
+      <ion-item lines="none" class="mgc-page-toolbar">
+        <ion-button expand="block" [disabled]="isResolvingMgcPage || isApplyingMgcImport" (click)="resolveCurrentMgcPage()">
+          {{ isResolvingMgcPage ? 'Resolving...' : 'Resolve Current Page' }}
+        </ion-button>
+      </ion-item>
+
+      <ion-list lines="full">
+        <ion-item
+          *ngFor="let row of mgcCurrentPageRows; trackBy: trackByMgcRowId"
+          [ngClass]="getMgcRowClass(row)"
+          [button]="!row.error && !isApplyingMgcImport"
+          [detail]="!row.error && !isApplyingMgcImport"
+          (click)="openMgcRowResolver(row)"
+        >
+          <ion-label>
+            <h2>{{ row.name }}</h2>
+            <p>{{ row.platform }}</p>
+            <p class="mgc-status-text">{{ getMgcRowStatusText(row) }}</p>
+            <p *ngIf="row.warning" class="warning-text">{{ row.warning }}</p>
+            <p *ngIf="row.error || row.duplicateError" class="error-text">{{ row.error || row.duplicateError }}</p>
+          </ion-label>
+          <ion-button
+            fill="clear"
+            color="danger"
+            slot="end"
+            (click)="$event.stopPropagation(); removeMgcRow(row.id)"
+            [disabled]="isApplyingMgcImport"
+          >
+            <ion-icon slot="icon-only" name="trash"></ion-icon>
+          </ion-button>
+        </ion-item>
+      </ion-list>
+
+      <ion-item *ngIf="mgcRows.length === 0" lines="none">
+        <ion-label>No rows loaded.</ion-label>
+      </ion-item>
+    </ion-content>
+
+    <ion-footer>
+      <ion-toolbar>
+        <ion-title size="small">
+          {{ mgcRows.length }} rows · {{ mgcResolvedCount }} resolved · {{ mgcBlockedCount }} blocked
+        </ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="outline" (click)="closeMgcImport()" [disabled]="isApplyingMgcImport">Cancel</ion-button>
+          <ion-button [disabled]="!canApplyMgcImport" (click)="confirmApplyMgcImport()">
+            {{ isApplyingMgcImport ? 'Importing...' : 'Import' }}
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isMgcResolverOpen" (didDismiss)="closeMgcResolver()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Resolve Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closeMgcResolver()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ion-item>
+        <ion-searchbar
+          [value]="mgcResolverQuery"
+          (ionInput)="onMgcResolverQueryChange($any($event).detail.value)"
+          placeholder="Search IGDB"
+        ></ion-searchbar>
+      </ion-item>
+      <ion-item lines="none">
+        <ion-button expand="block" (click)="searchMgcResolver()" [disabled]="isMgcResolverSearching">
+          {{ isMgcResolverSearching ? 'Searching...' : 'Search' }}
+        </ion-button>
+      </ion-item>
+
+      <ion-item *ngIf="mgcResolverError" lines="none">
+        <ion-label class="error-text">{{ mgcResolverError }}</ion-label>
+      </ion-item>
+
+      <ion-list lines="full">
+        <ion-item *ngFor="let result of mgcResolverResults; trackBy: trackByMgcResolverResult">
+          <ion-thumbnail slot="start">
+            <img [src]="result.coverUrl || 'assets/icon/favicon.png'" (error)="onMgcResultImageError($event)" alt="Game cover" />
+          </ion-thumbnail>
+          <ion-label>
+            <h2>{{ result.title }}</h2>
+            <p>{{ result.platform || 'Select platform' }}</p>
+            <p *ngIf="result.releaseYear">{{ result.releaseYear }}</p>
+          </ion-label>
+          <ion-button slot="end" (click)="chooseMgcResolverResult(result)">Select</ion-button>
+        </ion-item>
+      </ion-list>
+    </ion-content>
   </ng-template>
 </ion-modal>

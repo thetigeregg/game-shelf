@@ -1,7 +1,9 @@
 import { Component, inject } from '@angular/core';
 import { AlertController, ToastController } from '@ionic/angular';
+import { firstValueFrom } from 'rxjs';
 import {
   DEFAULT_GAME_LIST_FILTERS,
+  GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
   GameGroupByField,
@@ -92,6 +94,26 @@ interface ImportPreviewRow {
   parsed: ParsedImportRow | null;
 }
 
+type MgcRowStatus = 'pending' | 'searching' | 'resolved' | 'multiple' | 'noMatch' | 'error';
+
+interface MgcImportRow {
+  id: number;
+  rowNumber: number;
+  name: string;
+  platformInput: string;
+  platform: string;
+  platformIgdbId: number | null;
+  labelsRaw: string;
+  labels: string[];
+  status: MgcRowStatus;
+  statusDetail: string;
+  warning: string | null;
+  error: string | null;
+  duplicateError: string | null;
+  candidates: GameCatalogResult[];
+  selected: GameCatalogResult | null;
+}
+
 const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'type',
   'listType',
@@ -140,6 +162,24 @@ export class SettingsPage {
   isImportPreviewOpen = false;
   isApplyingImport = false;
   importPreviewRows: ImportPreviewRow[] = [];
+  isMgcImportOpen = false;
+  isResolvingMgcPage = false;
+  isApplyingMgcImport = false;
+  mgcRows: MgcImportRow[] = [];
+  mgcTargetListType: ListType | null = null;
+  mgcPageSize = 50;
+  mgcPageIndex = 0;
+  isMgcResolverOpen = false;
+  mgcResolverRowId: number | null = null;
+  mgcResolverQuery = '';
+  mgcResolverResults: GameCatalogResult[] = [];
+  isMgcResolverSearching = false;
+  mgcResolverError = '';
+  readonly mgcPageSizeOptions = [25, 50, 100];
+  private mgcSearchPlatforms: GameCatalogPlatformOption[] = [];
+  private readonly mgcPlatformLookup = new Map<string, GameCatalogPlatformOption>();
+  private mgcPlatformLookupLoaded = false;
+  private mgcExistingGameKeys = new Set<string>();
 
   private readonly themeService = inject(ThemeService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
@@ -163,6 +203,35 @@ export class SettingsPage {
 
   get canApplyImport(): boolean {
     return this.importPreviewRows.length > 0 && this.importErrorCount === 0 && !this.isApplyingImport;
+  }
+
+  get mgcPageCount(): number {
+    if (this.mgcRows.length === 0) {
+      return 1;
+    }
+
+    return Math.max(1, Math.ceil(this.mgcRows.length / this.mgcPageSize));
+  }
+
+  get mgcCurrentPageRows(): MgcImportRow[] {
+    const start = this.mgcPageIndex * this.mgcPageSize;
+    return this.mgcRows.slice(start, start + this.mgcPageSize);
+  }
+
+  get mgcResolvedCount(): number {
+    return this.mgcRows.filter(row => this.isMgcRowReady(row)).length;
+  }
+
+  get mgcBlockedCount(): number {
+    return this.mgcRows.filter(row => !this.isMgcRowReady(row)).length;
+  }
+
+  get canApplyMgcImport(): boolean {
+    return this.mgcTargetListType !== null
+      && this.mgcRows.length > 0
+      && this.mgcBlockedCount === 0
+      && !this.isApplyingMgcImport
+      && !this.isResolvingMgcPage;
   }
 
   onPresetColorChange(value: string): void {
@@ -229,6 +298,285 @@ export class SettingsPage {
 
   closeImportPreview(): void {
     this.isImportPreviewOpen = false;
+  }
+
+  triggerMgcImport(fileInput: HTMLInputElement): void {
+    fileInput.value = '';
+    fileInput.click();
+  }
+
+  async onMgcImportFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const rows = await this.parseMgcCsv(text);
+      this.mgcRows = rows;
+      this.mgcPageIndex = 0;
+      this.mgcPageSize = 50;
+      this.mgcTargetListType = null;
+      this.isMgcImportOpen = true;
+      this.isMgcResolverOpen = false;
+      this.mgcResolverRowId = null;
+    } catch {
+      await this.presentToast('Unable to parse MGC CSV file.', 'danger');
+    }
+  }
+
+  closeMgcImport(): void {
+    this.isMgcImportOpen = false;
+    this.isMgcResolverOpen = false;
+    this.isResolvingMgcPage = false;
+    this.isApplyingMgcImport = false;
+    this.mgcResolverRowId = null;
+    this.mgcResolverResults = [];
+    this.mgcResolverError = '';
+  }
+
+  removeMgcRow(rowId: number): void {
+    this.mgcRows = this.mgcRows.filter(row => row.id !== rowId);
+    this.recomputeMgcDuplicateErrors();
+
+    if (this.mgcPageIndex >= this.mgcPageCount) {
+      this.mgcPageIndex = Math.max(this.mgcPageCount - 1, 0);
+    }
+  }
+
+  onMgcTargetListTypeChange(value: ListType | string | null | undefined): void {
+    if (value === 'collection' || value === 'wishlist') {
+      this.mgcTargetListType = value;
+      return;
+    }
+
+    this.mgcTargetListType = null;
+  }
+
+  onMgcPageSizeChange(value: number | string | null | undefined): void {
+    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+
+    if (!Number.isInteger(parsed) || !this.mgcPageSizeOptions.includes(parsed)) {
+      return;
+    }
+
+    this.mgcPageSize = parsed;
+    this.mgcPageIndex = 0;
+  }
+
+  goToPreviousMgcPage(): void {
+    if (this.mgcPageIndex <= 0) {
+      return;
+    }
+
+    this.mgcPageIndex -= 1;
+  }
+
+  goToNextMgcPage(): void {
+    if (this.mgcPageIndex >= this.mgcPageCount - 1) {
+      return;
+    }
+
+    this.mgcPageIndex += 1;
+  }
+
+  async resolveCurrentMgcPage(): Promise<void> {
+    if (this.isResolvingMgcPage || this.isApplyingMgcImport) {
+      return;
+    }
+
+    const rowsToResolve = this.mgcCurrentPageRows.filter(row => {
+      return row.error === null && !this.isMgcRowReady(row);
+    });
+
+    if (rowsToResolve.length === 0) {
+      await this.presentToast('No unresolved rows on this page.', 'warning');
+      return;
+    }
+
+    this.isResolvingMgcPage = true;
+
+    try {
+      await this.processWithConcurrency(rowsToResolve, 3, async row => {
+        await this.resolveMgcRowFromSearch(row);
+      });
+      this.recomputeMgcDuplicateErrors();
+      await this.presentToast(`Resolved ${rowsToResolve.length} row${rowsToResolve.length === 1 ? '' : 's'} on this page.`);
+    } catch {
+      await this.presentToast('Unable to resolve all rows on this page.', 'danger');
+    } finally {
+      this.isResolvingMgcPage = false;
+    }
+  }
+
+  async openMgcRowResolver(row: MgcImportRow): Promise<void> {
+    if (row.error || this.isApplyingMgcImport) {
+      return;
+    }
+
+    this.mgcResolverRowId = row.id;
+    this.mgcResolverQuery = row.name;
+    this.mgcResolverResults = [];
+    this.mgcResolverError = '';
+    this.isMgcResolverOpen = true;
+    await this.searchMgcResolver();
+  }
+
+  closeMgcResolver(): void {
+    this.isMgcResolverOpen = false;
+    this.mgcResolverRowId = null;
+    this.mgcResolverQuery = '';
+    this.mgcResolverResults = [];
+    this.mgcResolverError = '';
+    this.isMgcResolverSearching = false;
+  }
+
+  onMgcResolverQueryChange(value: string | null | undefined): void {
+    this.mgcResolverQuery = value ?? '';
+  }
+
+  async searchMgcResolver(): Promise<void> {
+    const row = this.activeMgcResolverRow;
+
+    if (!row) {
+      return;
+    }
+
+    const query = this.mgcResolverQuery.trim();
+
+    if (query.length < 2) {
+      this.mgcResolverResults = [];
+      this.mgcResolverError = '';
+      return;
+    }
+
+    this.isMgcResolverSearching = true;
+    this.mgcResolverError = '';
+
+    try {
+      const results = await firstValueFrom(this.gameShelfService.searchGames(query, row.platformIgdbId));
+      this.mgcResolverResults = results;
+    } catch {
+      this.mgcResolverResults = [];
+      this.mgcResolverError = 'Search failed. Please try again.';
+    } finally {
+      this.isMgcResolverSearching = false;
+    }
+  }
+
+  async chooseMgcResolverResult(result: GameCatalogResult): Promise<void> {
+    const row = this.activeMgcResolverRow;
+
+    if (!row) {
+      return;
+    }
+
+    const resolved = await this.resolveCatalogForRow(row, result, true);
+
+    if (!resolved) {
+      await this.presentToast('Unable to resolve a platform for this result.', 'warning');
+      return;
+    }
+
+    row.selected = resolved;
+    row.candidates = [resolved];
+    row.status = 'resolved';
+    row.statusDetail = 'Selected manually';
+    row.error = null;
+    this.recomputeMgcDuplicateErrors();
+    this.closeMgcResolver();
+  }
+
+  async confirmApplyMgcImport(): Promise<void> {
+    if (!this.canApplyMgcImport || this.mgcTargetListType === null) {
+      return;
+    }
+
+    const targetLabel = this.mgcTargetListType === 'collection' ? 'Collection' : 'Wishlist';
+    const alert = await this.alertController.create({
+      header: 'Confirm MGC Import',
+      message: `Import ${this.mgcResolvedCount} game${this.mgcResolvedCount === 1 ? '' : 's'} into ${targetLabel}?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: 'Import',
+          role: 'confirm',
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    await this.applyMgcImport();
+  }
+
+  trackByMgcRowId(_: number, row: MgcImportRow): number {
+    return row.id;
+  }
+
+  trackByMgcResolverResult(_: number, result: GameCatalogResult): string {
+    return `${result.igdbGameId}-${String(result.platformIgdbId ?? 'x')}-${result.title}`;
+  }
+
+  getMgcRowClass(row: MgcImportRow): Record<string, boolean> {
+    return {
+      'mgc-row-success': this.isMgcRowSuccess(row),
+      'mgc-row-warning': this.isMgcRowWarning(row),
+      'mgc-row-error': this.isMgcRowError(row),
+    };
+  }
+
+  getMgcRowStatusText(row: MgcImportRow): string {
+    if (row.duplicateError) {
+      return row.duplicateError;
+    }
+
+    if (row.error) {
+      return row.error;
+    }
+
+    if (row.status === 'resolved') {
+      const title = row.selected?.title ?? row.name;
+      const platform = row.selected?.platform ?? row.platform;
+      return `Matched: ${title} (${platform})`;
+    }
+
+    if (row.status === 'multiple') {
+      return `${row.candidates.length} possible matches found.`;
+    }
+
+    if (row.status === 'noMatch') {
+      return 'No matches found.';
+    }
+
+    if (row.status === 'searching') {
+      return 'Searching...';
+    }
+
+    if (row.status === 'error') {
+      return row.statusDetail || 'Search failed.';
+    }
+
+    return 'Pending match.';
+  }
+
+  onMgcResultImageError(event: Event): void {
+    const target = event.target;
+
+    if (target instanceof HTMLImageElement) {
+      target.src = 'assets/icon/favicon.png';
+    }
   }
 
   async applyImport(): Promise<void> {
@@ -411,6 +759,624 @@ export class SettingsPage {
     });
 
     await alert.present();
+  }
+
+  private get activeMgcResolverRow(): MgcImportRow | undefined {
+    if (typeof this.mgcResolverRowId !== 'number') {
+      return undefined;
+    }
+
+    return this.mgcRows.find(row => row.id === this.mgcResolverRowId);
+  }
+
+  private isMgcRowReady(row: MgcImportRow): boolean {
+    return row.error === null
+      && row.duplicateError === null
+      && row.status === 'resolved'
+      && row.selected !== null;
+  }
+
+  private isMgcRowError(row: MgcImportRow): boolean {
+    return row.error !== null
+      || row.duplicateError !== null
+      || row.status === 'noMatch'
+      || row.status === 'error';
+  }
+
+  private isMgcRowWarning(row: MgcImportRow): boolean {
+    return !this.isMgcRowError(row) && row.status === 'multiple';
+  }
+
+  private isMgcRowSuccess(row: MgcImportRow): boolean {
+    return !this.isMgcRowError(row) && !this.isMgcRowWarning(row) && row.status === 'resolved';
+  }
+
+  private async parseMgcCsv(csv: string): Promise<MgcImportRow[]> {
+    const table = this.parseCsvTable(csv);
+
+    if (table.length < 2) {
+      throw new Error('CSV must include header and at least one data row.');
+    }
+
+    const headers = table[0].map(cell => cell.trim());
+    const headerIndexByName = new Map<string, number>();
+    headers.forEach((header, index) => {
+      headerIndexByName.set(header.toLowerCase(), index);
+    });
+
+    const nameIndex = headerIndexByName.get('name');
+    const platformIndex = headerIndexByName.get('platform');
+    const labelsIndex = headerIndexByName.get('labels');
+
+    if (nameIndex === undefined || platformIndex === undefined) {
+      throw new Error('MGC CSV must include "name" and "platform" columns.');
+    }
+
+    await this.ensureMgcPlatformLookup();
+
+    const rows: MgcImportRow[] = [];
+
+    for (let index = 1; index < table.length; index += 1) {
+      const values = table[index];
+
+      if (values.every(value => value.trim().length === 0)) {
+        continue;
+      }
+
+      const rowNumber = index + 1;
+      const name = String(values[nameIndex] ?? '').trim();
+      const platformInput = String(values[platformIndex] ?? '').trim();
+      const labelsRaw = labelsIndex !== undefined ? String(values[labelsIndex] ?? '') : '';
+      const labels = this.parseMgcLabels(labelsRaw);
+
+      let error: string | null = null;
+      let warning: string | null = null;
+
+      if (name.length === 0) {
+        error = 'Missing required "name" value.';
+      } else if (platformInput.length === 0) {
+        error = 'Missing required "platform" value.';
+      }
+
+      const platformMatch = platformInput.length > 0
+        ? this.resolveMgcPlatform(platformInput)
+        : null;
+      const platformIgdbId = platformMatch?.id ?? null;
+      const platform = platformMatch?.name ?? platformInput;
+
+      if (!error && platformInput.length > 0 && platformMatch === null) {
+        warning = this.mgcSearchPlatforms.length > 0
+          ? 'Platform is not a recognized IGDB platform name. Search will run without platform filtering.'
+          : 'Platform validation is unavailable. Search will run without platform filtering.';
+      }
+
+      rows.push({
+        id: rowNumber,
+        rowNumber,
+        name,
+        platformInput,
+        platform,
+        platformIgdbId,
+        labelsRaw,
+        labels,
+        status: error ? 'error' : 'pending',
+        statusDetail: error ? error : 'Pending match.',
+        warning,
+        error,
+        duplicateError: null,
+        candidates: [],
+        selected: null,
+      });
+    }
+
+    const existingGames = await this.repository.listAll();
+    this.mgcExistingGameKeys = new Set(
+      existingGames.map(game => this.getGameKey(game.igdbGameId, game.platformIgdbId))
+    );
+
+    return rows;
+  }
+
+  private async applyMgcImport(): Promise<void> {
+    if (!this.canApplyMgcImport || this.mgcTargetListType === null) {
+      return;
+    }
+
+    this.isApplyingMgcImport = true;
+
+    try {
+      this.recomputeMgcDuplicateErrors();
+
+      if (this.mgcBlockedCount > 0) {
+        await this.presentToast('Resolve or remove blocked rows before importing.', 'warning');
+        return;
+      }
+
+      const rowsToImport = this.mgcRows.filter(row => this.isMgcRowReady(row));
+      const { tagIdMap, tagsCreated } = await this.prepareMgcTags(rowsToImport);
+      let gamesImported = 0;
+      let tagsAssigned = 0;
+      let boxArtResolved = 0;
+      let duplicateSkipped = 0;
+      let failed = 0;
+
+      for (const row of rowsToImport) {
+        const selected = row.selected;
+
+        if (!selected || typeof selected.platformIgdbId !== 'number' || selected.platformIgdbId <= 0) {
+          failed += 1;
+          continue;
+        }
+
+        const key = this.getGameKey(selected.igdbGameId, selected.platformIgdbId);
+        const existing = await this.gameShelfService.findGameByIdentity(selected.igdbGameId, selected.platformIgdbId);
+
+        if (existing) {
+          duplicateSkipped += 1;
+          continue;
+        }
+
+        let resolvedCatalog: GameCatalogResult = selected;
+
+        try {
+          const boxArtCandidates = await firstValueFrom(
+            this.gameShelfService.searchBoxArtByTitle(selected.title, selected.platform, selected.platformIgdbId)
+          );
+          const boxArt = boxArtCandidates[0];
+
+          if (boxArt) {
+            resolvedCatalog = {
+              ...selected,
+              coverUrl: boxArt,
+              coverSource: 'thegamesdb',
+            };
+            boxArtResolved += 1;
+          }
+        } catch {
+          // Keep IGDB image when TheGamesDB lookup fails.
+        }
+
+        try {
+          await this.gameShelfService.addGame(resolvedCatalog, this.mgcTargetListType);
+          gamesImported += 1;
+          this.mgcExistingGameKeys.add(key);
+
+          const tagIds = row.labels
+            .map(label => tagIdMap.get(label.toLowerCase()))
+            .filter((tagId): tagId is number => typeof tagId === 'number' && Number.isInteger(tagId) && tagId > 0);
+
+          if (tagIds.length > 0) {
+            await this.gameShelfService.setGameTags(selected.igdbGameId, selected.platformIgdbId, tagIds);
+            tagsAssigned += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+
+      await this.presentToast('MGC import completed.');
+      await this.presentMgcImportSummary({
+        rowsSelected: rowsToImport.length,
+        gamesImported,
+        tagsAssigned,
+        tagsCreated,
+        boxArtResolved,
+        duplicateSkipped,
+        failed,
+      });
+      this.closeMgcImport();
+    } catch {
+      await this.presentToast('Unable to complete MGC import.', 'danger');
+    } finally {
+      this.isApplyingMgcImport = false;
+    }
+  }
+
+  private async presentMgcImportSummary(summary: {
+    rowsSelected: number;
+    gamesImported: number;
+    tagsAssigned: number;
+    tagsCreated: number;
+    boxArtResolved: number;
+    duplicateSkipped: number;
+    failed: number;
+  }): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'MGC Import Summary',
+      message: [
+        `Rows selected: ${summary.rowsSelected}`,
+        `Games imported: ${summary.gamesImported}`,
+        `Games with tags applied: ${summary.tagsAssigned}`,
+        `New tags created: ${summary.tagsCreated}`,
+        `2D box art resolved: ${summary.boxArtResolved}`,
+        `Duplicates skipped: ${summary.duplicateSkipped}`,
+        `Failed: ${summary.failed}`,
+      ].join('<br/>'),
+      buttons: ['OK'],
+    });
+
+    await alert.present();
+  }
+
+  private async prepareMgcTags(rows: MgcImportRow[]): Promise<{ tagIdMap: Map<string, number>; tagsCreated: number }> {
+    const requiredTagNames = new Set<string>();
+
+    rows.forEach(row => {
+      row.labels.forEach(label => {
+        const normalized = label.trim();
+
+        if (normalized.length > 0) {
+          requiredTagNames.add(normalized);
+        }
+      });
+    });
+
+    if (requiredTagNames.size === 0) {
+      return {
+        tagIdMap: await this.buildTagNameToIdMap(),
+        tagsCreated: 0,
+      };
+    }
+
+    const existingTags = await this.repository.listTags();
+    const existingTagNames = new Set(
+      existingTags
+        .map(tag => tag.name.toLowerCase())
+        .filter(name => name.length > 0)
+    );
+
+    let tagsCreated = 0;
+
+    for (const tagName of requiredTagNames) {
+      const key = tagName.toLowerCase();
+
+      if (existingTagNames.has(key)) {
+        continue;
+      }
+
+      await this.gameShelfService.createTag(tagName, '#3880ff');
+      existingTagNames.add(key);
+      tagsCreated += 1;
+    }
+
+    return {
+      tagIdMap: await this.buildTagNameToIdMap(),
+      tagsCreated,
+    };
+  }
+
+  private async ensureMgcPlatformLookup(): Promise<void> {
+    if (this.mgcPlatformLookupLoaded && this.mgcPlatformLookup.size > 0) {
+      return;
+    }
+
+    const previousPlatforms = this.mgcSearchPlatforms;
+
+    try {
+      this.mgcSearchPlatforms = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+    } catch {
+      this.mgcSearchPlatforms = previousPlatforms;
+    }
+
+    if (this.mgcSearchPlatforms.length === 0) {
+      this.mgcPlatformLookupLoaded = false;
+      return;
+    }
+
+    this.mgcPlatformLookup.clear();
+
+    this.mgcSearchPlatforms.forEach(platform => {
+      const normalizedName = this.normalizeLookupKey(platform.name);
+
+      if (!this.mgcPlatformLookup.has(normalizedName)) {
+        this.mgcPlatformLookup.set(normalizedName, platform);
+      }
+    });
+
+    this.mgcPlatformLookupLoaded = this.mgcPlatformLookup.size > 0;
+  }
+
+  private resolveMgcPlatform(platformName: string): GameCatalogPlatformOption | null {
+    const normalized = this.normalizeLookupKey(platformName);
+    return this.mgcPlatformLookup.get(normalized) ?? null;
+  }
+
+  private parseMgcLabels(raw: string): string[] {
+    if (raw.trim().length === 0) {
+      return [];
+    }
+
+    return [...new Set(
+      raw
+        .split(',')
+        .map(value => value.trim())
+        .filter(value => value.length > 0)
+    )];
+  }
+
+  private normalizeLookupKey(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '');
+  }
+
+  private async resolveMgcRowFromSearch(row: MgcImportRow): Promise<void> {
+    if (row.error) {
+      return;
+    }
+
+    row.status = 'searching';
+    row.statusDetail = 'Searching...';
+    row.candidates = [];
+    row.selected = null;
+    row.duplicateError = null;
+
+    try {
+      const results = await firstValueFrom(this.gameShelfService.searchGames(row.name, row.platformIgdbId));
+      const deduped = new Map<string, GameCatalogResult>();
+
+      for (const result of results) {
+        const resolved = await this.resolveCatalogForRow(row, result, false);
+
+        if (!resolved || typeof resolved.platformIgdbId !== 'number' || resolved.platformIgdbId <= 0) {
+          continue;
+        }
+
+        const key = this.getGameKey(resolved.igdbGameId, resolved.platformIgdbId);
+
+        if (!deduped.has(key)) {
+          deduped.set(key, resolved);
+        }
+      }
+
+      const candidates = [...deduped.values()];
+      row.candidates = candidates;
+
+      if (candidates.length === 1) {
+        row.selected = candidates[0];
+        row.status = 'resolved';
+        row.statusDetail = 'Matched automatically.';
+        return;
+      }
+
+      row.selected = null;
+      row.status = candidates.length === 0 ? 'noMatch' : 'multiple';
+      row.statusDetail = candidates.length === 0
+        ? 'No matches found.'
+        : `${candidates.length} possible matches found.`;
+    } catch {
+      row.selected = null;
+      row.status = 'error';
+      row.statusDetail = 'Search failed.';
+    }
+  }
+
+  private async resolveCatalogForRow(
+    row: MgcImportRow,
+    result: GameCatalogResult,
+    allowPlatformPrompt: boolean,
+  ): Promise<GameCatalogResult | null> {
+    const withoutPrompt = this.resolveCatalogForRowWithoutPrompt(row, result);
+
+    if (withoutPrompt) {
+      return withoutPrompt;
+    }
+
+    if (!allowPlatformPrompt) {
+      return null;
+    }
+
+    if (row.platformIgdbId !== null) {
+      return null;
+    }
+
+    const options = this.getCatalogPlatformOptions(result);
+
+    if (options.length === 0) {
+      return null;
+    }
+
+    if (options.length === 1) {
+      return this.withSelectedPlatform(result, options[0]);
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Choose Platform',
+      message: `Select a platform for "${result.title}".`,
+      inputs: options.map((option, index) => ({
+        type: 'radio',
+        label: option.name,
+        value: String(index),
+        checked: index === 0,
+      })),
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: 'Select',
+          role: 'confirm',
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role, data } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return null;
+    }
+
+    const index = Number.parseInt(String(data ?? ''), 10);
+
+    if (!Number.isInteger(index) || index < 0 || index >= options.length) {
+      return null;
+    }
+
+    return this.withSelectedPlatform(result, options[index]);
+  }
+
+  private resolveCatalogForRowWithoutPrompt(row: MgcImportRow, result: GameCatalogResult): GameCatalogResult | null {
+    const options = this.getCatalogPlatformOptions(result);
+
+    if (row.platformIgdbId !== null) {
+      const platformById = options.find(option => option.id === row.platformIgdbId);
+
+      if (platformById) {
+        return this.withSelectedPlatform(result, platformById);
+      }
+
+      if (
+        typeof result.platformIgdbId === 'number'
+        && result.platformIgdbId > 0
+        && result.platformIgdbId === row.platformIgdbId
+        && typeof result.platform === 'string'
+        && result.platform.trim().length > 0
+      ) {
+        return this.withSelectedPlatform(result, {
+          id: result.platformIgdbId,
+          name: result.platform.trim(),
+        });
+      }
+
+      return null;
+    }
+
+    if (
+      typeof result.platformIgdbId === 'number'
+      && result.platformIgdbId > 0
+      && typeof result.platform === 'string'
+      && result.platform.trim().length > 0
+    ) {
+      return this.withSelectedPlatform(result, {
+        id: result.platformIgdbId,
+        name: result.platform.trim(),
+      });
+    }
+
+    if (options.length === 1) {
+      return this.withSelectedPlatform(result, options[0]);
+    }
+
+    return null;
+  }
+
+  private withSelectedPlatform(result: GameCatalogResult, platform: { id: number; name: string }): GameCatalogResult {
+    return {
+      ...result,
+      platform: platform.name,
+      platformIgdbId: platform.id,
+      platforms: [platform.name],
+      platformOptions: [{ id: platform.id, name: platform.name }],
+    };
+  }
+
+  private getCatalogPlatformOptions(result: GameCatalogResult): Array<{ id: number; name: string }> {
+    if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
+      return result.platformOptions
+        .map(option => {
+          const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0 ? option.id : null;
+          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          return { id, name };
+        })
+        .filter((option): option is { id: number; name: string } => option.id !== null && option.name.length > 0)
+        .filter((option, index, all) => {
+          return all.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
+        });
+    }
+
+    if (
+      typeof result.platformIgdbId === 'number'
+      && result.platformIgdbId > 0
+      && typeof result.platform === 'string'
+      && result.platform.trim().length > 0
+    ) {
+      return [{ id: result.platformIgdbId, name: result.platform.trim() }];
+    }
+
+    return [];
+  }
+
+  private recomputeMgcDuplicateErrors(): void {
+    this.mgcRows.forEach(row => {
+      row.duplicateError = null;
+    });
+
+    const groups = new Map<string, MgcImportRow[]>();
+
+    for (const row of this.mgcRows) {
+      const key = this.getMgcRowGameKey(row);
+
+      if (!key) {
+        continue;
+      }
+
+      if (this.mgcExistingGameKeys.has(key)) {
+        row.duplicateError = 'Duplicate game already exists in your library.';
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+
+      groups.get(key)?.push(row);
+    }
+
+    groups.forEach(rows => {
+      if (rows.length < 2) {
+        return;
+      }
+
+      rows.forEach(row => {
+        row.duplicateError = 'Duplicate game also appears in this MGC import.';
+      });
+    });
+  }
+
+  private getMgcRowGameKey(row: MgcImportRow): string | null {
+    if (!row.selected || row.status !== 'resolved') {
+      return null;
+    }
+
+    const platformIgdbId = row.selected.platformIgdbId;
+    const igdbGameId = String(row.selected.igdbGameId ?? '').trim();
+
+    if (!/^\d+$/.test(igdbGameId) || typeof platformIgdbId !== 'number' || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+      return null;
+    }
+
+    return this.getGameKey(igdbGameId, platformIgdbId);
+  }
+
+  private getGameKey(igdbGameId: string, platformIgdbId: number): string {
+    return `${igdbGameId}::${platformIgdbId}`;
+  }
+
+  private async processWithConcurrency<T>(
+    items: T[],
+    concurrency: number,
+    handler: (item: T) => Promise<void>,
+  ): Promise<void> {
+    const queue = [...items];
+    const workers: Promise<void>[] = [];
+    const workerCount = Math.max(1, Math.min(concurrency, queue.length));
+
+    for (let index = 0; index < workerCount; index += 1) {
+      workers.push((async () => {
+        while (queue.length > 0) {
+          const item = queue.shift();
+
+          if (!item) {
+            return;
+          }
+
+          await handler(item);
+        }
+      })());
+    }
+
+    await Promise.all(workers);
   }
 
   private async buildExportCsv(): Promise<string> {

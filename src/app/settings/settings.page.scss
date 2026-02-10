@@ -29,6 +29,18 @@
   --background: rgba(var(--ion-color-warning-rgb), 0.12);
 }
 
+.mgc-row-success {
+  --background: rgba(var(--ion-color-success-rgb), 0.14);
+}
+
+.mgc-row-warning {
+  --background: rgba(var(--ion-color-warning-rgb), 0.14);
+}
+
+.mgc-row-error {
+  --background: rgba(var(--ion-color-danger-rgb), 0.1);
+}
+
 .error-text {
   color: var(--ion-color-danger);
   font-weight: 600;
@@ -37,4 +49,13 @@
 .warning-text {
   color: var(--ion-color-warning-shade);
   font-weight: 600;
+}
+
+.mgc-status-text {
+  font-weight: 500;
+}
+
+.mgc-page-toolbar {
+  --padding-start: 12px;
+  --padding-end: 12px;
 }

@@ -24,6 +24,7 @@ interface BoxArtSearchResponse {
 
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
+  private readonly platformCacheStorageKey = 'game-shelf-platform-list-cache-v1';
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
   private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
   private readonly platformListUrl = `${environment.gameApiBaseUrl}/v1/platforms`;
@@ -54,8 +55,20 @@ export class IgdbProxyService implements GameSearchApi {
 
   listPlatforms(): Observable<GameCatalogPlatformOption[]> {
     return this.httpClient.get<PlatformListResponse>(this.platformListUrl).pipe(
-      map(response => this.normalizePlatformList(response.items)),
-      catchError(() => throwError(() => new Error('Unable to load platform filters.')))
+      map(response => {
+        const normalized = this.normalizePlatformList(response.items);
+        this.saveCachedPlatformList(normalized);
+        return normalized;
+      }),
+      catchError(() => {
+        const cached = this.loadCachedPlatformList();
+
+        if (cached.length > 0) {
+          return of(cached);
+        }
+
+        return throwError(() => new Error('Unable to load platform filters.'));
+      })
     );
   }
 
@@ -243,5 +256,28 @@ export class IgdbProxyService implements GameSearchApi {
         .map(value => value.trim())
         .filter(value => value.length > 0)
     )];
+  }
+
+  private saveCachedPlatformList(items: GameCatalogPlatformOption[]): void {
+    try {
+      localStorage.setItem(this.platformCacheStorageKey, JSON.stringify(items));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  private loadCachedPlatformList(): GameCatalogPlatformOption[] {
+    try {
+      const raw = localStorage.getItem(this.platformCacheStorageKey);
+
+      if (!raw) {
+        return [];
+      }
+
+      const parsed = JSON.parse(raw) as unknown;
+      return this.normalizePlatformList(parsed as GameCatalogPlatformOption[]);
+    } catch {
+      return [];
+    }
   }
 }

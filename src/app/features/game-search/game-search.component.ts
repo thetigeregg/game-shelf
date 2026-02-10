@@ -1,5 +1,7 @@
 import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton } from '@ionic/angular/standalone';
 import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { GameCatalogPlatformOption, GameCatalogResult, ListType } from '../../core/models/game.models';
@@ -14,7 +16,8 @@ interface SelectedPlatform {
     selector: 'app-game-search',
     templateUrl: './game-search.component.html',
     styleUrls: ['./game-search.component.scss'],
-    standalone: false,
+    standalone: true,
+    imports: [CommonModule, IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton],
 })
 export class GameSearchComponent implements OnInit, OnDestroy {
     @Input({ required: true }) listType!: ListType;

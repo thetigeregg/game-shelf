@@ -1,5 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonButton, IonIcon, IonPopover, IonFab, IonFabButton, IonModal, IonInput } from "@ionic/angular/standalone";
 import { Observable } from 'rxjs';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { TagSummary } from '../core/models/game.models';
@@ -10,7 +13,27 @@ import { ellipsisVertical, add } from "ionicons/icons";
     selector: 'app-tags',
     templateUrl: './tags.page.html',
     styleUrls: ['./tags.page.scss'],
-    standalone: false,
+    standalone: true,
+    imports: [
+        CommonModule,
+        FormsModule,
+        IonHeader,
+        IonToolbar,
+        IonButtons,
+        IonBackButton,
+        IonTitle,
+        IonContent,
+        IonList,
+        IonItem,
+        IonLabel,
+        IonButton,
+        IonIcon,
+        IonPopover,
+        IonFab,
+        IonFabButton,
+        IonModal,
+        IonInput,
+    ],
 })
 export class TagsPage implements OnInit {
     tags$!: Observable<TagSummary[]>;

@@ -1,4 +1,24 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import {
+    IonMenu,
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonButtons,
+    IonMenuToggle,
+    IonButton,
+    IonContent,
+    IonList,
+    IonItem,
+    IonSelect,
+    IonSelectOption,
+    IonLabel,
+    IonDatetimeButton,
+    IonModal,
+    IonDatetime
+} from '@ionic/angular/standalone';
 import {
     DEFAULT_GAME_LIST_FILTERS,
     GameGroupByField,
@@ -21,7 +41,27 @@ type SortOption =
     selector: 'app-game-filters-menu',
     templateUrl: './game-filters-menu.component.html',
     styleUrls: ['./game-filters-menu.component.scss'],
-    standalone: false,
+    standalone: true,
+    imports: [
+        CommonModule,
+        FormsModule,
+        IonMenu,
+        IonHeader,
+        IonToolbar,
+        IonTitle,
+        IonButtons,
+        IonMenuToggle,
+        IonButton,
+        IonContent,
+        IonList,
+        IonItem,
+        IonSelect,
+        IonSelectOption,
+        IonLabel,
+        IonDatetimeButton,
+        IonModal,
+        IonDatetime,
+    ],
 })
 export class GameFiltersMenuComponent implements OnChanges {
     readonly noneTagFilterValue = '__none__';

@@ -1,6 +1,9 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonButton, IonIcon, IonPopover, IonFab, IonFabButton, IonModal, IonInput, IonNote } from "@ionic/angular/standalone";
 import { Observable } from 'rxjs';
 import {
     DEFAULT_GAME_LIST_FILTERS,
@@ -17,7 +20,28 @@ import { ellipsisVertical, add } from "ionicons/icons";
     selector: 'app-views',
     templateUrl: './views.page.html',
     styleUrls: ['./views.page.scss'],
-    standalone: false,
+    standalone: true,
+    imports: [
+        CommonModule,
+        FormsModule,
+        IonHeader,
+        IonToolbar,
+        IonButtons,
+        IonBackButton,
+        IonTitle,
+        IonContent,
+        IonList,
+        IonItem,
+        IonLabel,
+        IonButton,
+        IonIcon,
+        IonPopover,
+        IonFab,
+        IonFabButton,
+        IonModal,
+        IonInput,
+        IonNote,
+    ],
 })
 export class ViewsPage implements OnInit {
     views$!: Observable<GameListView[]>;

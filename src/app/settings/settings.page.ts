@@ -1,5 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading } from "@ionic/angular/standalone";
 import { firstValueFrom } from 'rxjs';
 import {
     DEFAULT_GAME_LIST_FILTERS,
@@ -148,7 +151,30 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
     selector: 'app-settings',
     templateUrl: './settings.page.html',
     styleUrls: ['./settings.page.scss'],
-    standalone: false,
+    standalone: true,
+    imports: [
+        CommonModule,
+        FormsModule,
+        IonHeader,
+        IonToolbar,
+        IonButtons,
+        IonBackButton,
+        IonTitle,
+        IonContent,
+        IonList,
+        IonItem,
+        IonLabel,
+        IonSelect,
+        IonSelectOption,
+        IonListHeader,
+        IonButton,
+        IonModal,
+        IonIcon,
+        IonFooter,
+        IonSearchbar,
+        IonThumbnail,
+        IonLoading,
+    ],
 })
 export class SettingsPage {
     private static readonly MGC_RESOLVE_BASE_INTERVAL_MS = 450;

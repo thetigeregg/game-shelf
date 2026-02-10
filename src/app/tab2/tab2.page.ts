@@ -1,8 +1,13 @@
 import { Component, ViewChild, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal } from "@ionic/angular/standalone";
 import { ActivatedRoute, Router } from '@angular/router';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
 import { GameListComponent, GameListSelectionState } from '../features/game-list/game-list.component';
+import { GameSearchComponent } from '../features/game-search/game-search.component';
+import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { addIcons } from "ionicons";
 import { close, filter, ellipsisHorizontal, checkbox, squareOutline, add } from "ionicons/icons";
@@ -11,7 +16,28 @@ import { close, filter, ellipsisHorizontal, checkbox, squareOutline, add } from 
     selector: 'app-tab2',
     templateUrl: 'tab2.page.html',
     styleUrls: ['tab2.page.scss'],
-    standalone: false,
+    standalone: true,
+    imports: [
+        CommonModule,
+        FormsModule,
+        GameListComponent,
+        GameSearchComponent,
+        GameFiltersMenuComponent,
+        IonHeader,
+        IonToolbar,
+        IonButtons,
+        IonButton,
+        IonIcon,
+        IonTitle,
+        IonSearchbar,
+        IonContent,
+        IonPopover,
+        IonList,
+        IonItem,
+        IonFab,
+        IonFabButton,
+        IonModal,
+    ],
 })
 export class Tab2Page {
     readonly noneTagFilterValue = '__none__';

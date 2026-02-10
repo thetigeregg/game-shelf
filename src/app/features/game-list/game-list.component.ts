@@ -1,5 +1,35 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { AlertController, IonItemSliding, PopoverController, ToastController } from '@ionic/angular/standalone';
+import {
+    IonList,
+    IonItem,
+    IonLabel,
+    IonAccordionGroup,
+    IonAccordion,
+    IonIcon,
+    IonBadge,
+    IonItemOptions,
+    IonItemOption,
+    IonPopover,
+    IonContent,
+    IonModal,
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonButtons,
+    IonButton,
+    IonSelect,
+    IonSelectOption,
+    IonSearchbar,
+    IonSpinner,
+    IonGrid,
+    IonRow,
+    IonCol,
+    IonText,
+    IonRange,
+    IonNote
+} from '@ionic/angular/standalone';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import {
@@ -40,7 +70,38 @@ export interface GameListSelectionState {
     selector: 'app-game-list',
     templateUrl: './game-list.component.html',
     styleUrls: ['./game-list.component.scss'],
-    standalone: false,
+    standalone: true,
+    imports: [
+        CommonModule,
+        IonList,
+        IonItem,
+        IonLabel,
+        IonAccordionGroup,
+        IonAccordion,
+        IonItemSliding,
+        IonIcon,
+        IonBadge,
+        IonItemOptions,
+        IonItemOption,
+        IonPopover,
+        IonContent,
+        IonModal,
+        IonHeader,
+        IonToolbar,
+        IonTitle,
+        IonButtons,
+        IonButton,
+        IonSelect,
+        IonSelectOption,
+        IonSearchbar,
+        IonSpinner,
+        IonGrid,
+        IonRow,
+        IonCol,
+        IonText,
+        IonRange,
+        IonNote,
+    ],
 })
 export class GameListComponent implements OnChanges {
     readonly noneTagFilterValue = '__none__';

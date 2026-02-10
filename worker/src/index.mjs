@@ -3,6 +3,8 @@ import { IGDB_TO_THEGAMESDB_PLATFORM_ID } from './platform-id-map.mjs';
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
+const IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS = 15;
+const IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60;
 const MAX_BOX_ART_RESULTS = 30;
 const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
 const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -23,6 +25,9 @@ const igdbPlatformCache = {
   items: null,
   expiresAt: 0,
 };
+const igdbRateLimitState = {
+  cooldownUntilMs: 0,
+};
 
 export function resetCaches() {
   tokenCache.accessToken = null;
@@ -32,9 +37,10 @@ export function resetCaches() {
   igdbSearchVariantCache.disabledVariants.clear();
   igdbPlatformCache.items = null;
   igdbPlatformCache.expiresAt = 0;
+  igdbRateLimitState.cooldownUntilMs = 0;
 }
 
-function jsonResponse(body, status = 200) {
+function jsonResponse(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -42,6 +48,7 @@ function jsonResponse(body, status = 200) {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
+      ...extraHeaders,
     },
   });
 }
@@ -269,21 +276,72 @@ function isBoxArtSearchPath(pathname) {
   return pathname === '/v1/images/boxart/search';
 }
 
-function isRateLimited(ipAddress, nowMs) {
+function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
   const key = ipAddress || 'unknown';
   const entry = rateLimitCache.get(key);
 
   if (!entry || nowMs - entry.startedAt > RATE_LIMIT_WINDOW_MS) {
     rateLimitCache.set(key, { startedAt: nowMs, count: 1 });
-    return false;
+    return null;
   }
 
   if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return true;
+    const retryAfterMs = Math.max(RATE_LIMIT_WINDOW_MS - (nowMs - entry.startedAt), 0);
+    return Math.max(1, Math.ceil(retryAfterMs / 1000));
   }
 
   entry.count += 1;
-  return false;
+  return null;
+}
+
+function parseRetryAfterSeconds(value, nowMs) {
+  if (!value) {
+    return null;
+  }
+
+  const seconds = Number.parseInt(String(value).trim(), 10);
+
+  if (Number.isInteger(seconds) && seconds >= 0) {
+    return Math.max(1, Math.min(seconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+  }
+
+  const dateMs = Date.parse(String(value));
+
+  if (Number.isNaN(dateMs)) {
+    return null;
+  }
+
+  const deltaSeconds = Math.ceil(Math.max(dateMs - nowMs, 0) / 1000);
+  return Math.max(1, Math.min(deltaSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+}
+
+function resolveRetryAfterSecondsFromHeaders(headers, nowMs) {
+  const parsed = parseRetryAfterSeconds(headers?.get('Retry-After') ?? null, nowMs);
+  return parsed ?? IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS;
+}
+
+function getUpstreamCooldownRemainingSeconds(nowMs) {
+  if (igdbRateLimitState.cooldownUntilMs <= nowMs) {
+    return 0;
+  }
+
+  const remainingMs = igdbRateLimitState.cooldownUntilMs - nowMs;
+  return Math.max(1, Math.ceil(remainingMs / 1000));
+}
+
+function setUpstreamCooldown(retryAfterSeconds, nowMs) {
+  const clampedSeconds = Math.max(1, Math.min(retryAfterSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+  const nextCooldownUntilMs = nowMs + clampedSeconds * 1000;
+  igdbRateLimitState.cooldownUntilMs = Math.max(igdbRateLimitState.cooldownUntilMs, nextCooldownUntilMs);
+  return getUpstreamCooldownRemainingSeconds(nowMs);
+}
+
+class UpstreamRateLimitError extends Error {
+  constructor(retryAfterSeconds) {
+    super('IGDB upstream rate limit exceeded');
+    this.name = 'UpstreamRateLimitError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
 }
 
 function escapeQuery(query) {
@@ -805,6 +863,10 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
     body,
   });
 
+  if (response.status === 429) {
+    throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
+  }
+
   if (!response.ok) {
     throw new Error('IGDB platform request failed');
   }
@@ -831,7 +893,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
   return items;
 }
 
-async function searchIgdb(query, platformIgdbId, env, token, fetchImpl) {
+async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
   const normalizedPlatformIgdbId = Number.isInteger(platformIgdbId) && platformIgdbId > 0
     ? platformIgdbId
     : null;
@@ -897,6 +959,10 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl) {
       body,
     });
 
+    if (response.status === 429) {
+      throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
+    }
+
     if (!response.ok) {
       let payloadSnippet = '';
 
@@ -948,7 +1014,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl) {
   throw new Error('IGDB request failed');
 }
 
-async function fetchIgdbById(gameId, env, token, fetchImpl) {
+async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   const body = [
     `where id = ${gameId};`,
     'fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
@@ -964,6 +1030,10 @@ async function fetchIgdbById(gameId, env, token, fetchImpl) {
     },
     body,
   });
+
+  if (response.status === 429) {
+    throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
+  }
 
   if (!response.ok) {
     throw new Error('IGDB request failed');
@@ -1011,9 +1081,28 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
   const nowMs = now();
   const ipAddress = request.headers.get('CF-Connecting-IP') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
+  const isIgdbRoute = isGameSearchPath || isPlatformListPath || isGameByIdPath;
 
-  if (isRateLimited(ipAddress, nowMs)) {
-    return jsonResponse({ error: 'Rate limit exceeded.' }, 429);
+  const localRetryAfterSeconds = getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs);
+
+  if (localRetryAfterSeconds !== null) {
+    return jsonResponse(
+      { error: `Rate limit exceeded. Retry after ${localRetryAfterSeconds}s.` },
+      429,
+      { 'Retry-After': String(localRetryAfterSeconds) },
+    );
+  }
+
+  if (isIgdbRoute) {
+    const upstreamRetryAfterSeconds = getUpstreamCooldownRemainingSeconds(nowMs);
+
+    if (upstreamRetryAfterSeconds > 0) {
+      return jsonResponse(
+        { error: `Rate limit exceeded. Retry after ${upstreamRetryAfterSeconds}s.` },
+        429,
+        { 'Retry-After': String(upstreamRetryAfterSeconds) },
+      );
+    }
   }
 
   try {
@@ -1036,11 +1125,11 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       const query = normalizeSearchQuery(url);
       const platformIgdbId = normalizePlatformIgdbIdQuery(url);
 
-      const items = await searchIgdb(query, platformIgdbId, env, token, loggedFetch);
+      const items = await searchIgdb(query, platformIgdbId, env, token, loggedFetch, nowMs);
       return jsonResponse({ items }, 200);
     }
 
-    const item = await fetchIgdbById(gameId, env, token, loggedFetch);
+    const item = await fetchIgdbById(gameId, env, token, loggedFetch, nowMs);
 
     if (!item) {
       return jsonResponse({ error: 'Game not found.' }, 404);
@@ -1048,6 +1137,15 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
     return jsonResponse({ item }, 200);
   } catch (error) {
+    if (error instanceof UpstreamRateLimitError) {
+      const retryAfterSeconds = setUpstreamCooldown(error.retryAfterSeconds, nowMs);
+      return jsonResponse(
+        { error: `Rate limit exceeded. Retry after ${retryAfterSeconds}s.` },
+        429,
+        { 'Retry-After': String(retryAfterSeconds) },
+      );
+    }
+
     console.error('[worker] request_failed', error);
     return jsonResponse({ error: 'Unable to fetch game data.' }, 502);
   }

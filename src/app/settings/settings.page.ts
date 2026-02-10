@@ -183,7 +183,7 @@ export class SettingsPage {
     private static readonly MGC_BOX_ART_MIN_INTERVAL_MS = 350;
     private static readonly MGC_RESOLVE_MAX_ATTEMPTS = 3;
     private static readonly MGC_BOX_ART_MAX_ATTEMPTS = 3;
-    private static readonly MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS = 15000;
+    private static readonly MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 1000;
     private static readonly MGC_RATE_LIMIT_MAX_COOLDOWN_MS = 60000;
 
     readonly presets: ThemePreset[] = [
@@ -1273,7 +1273,7 @@ export class SettingsPage {
                 return;
             }
 
-            const retryDelay = this.resolveRateLimitRetryDelayMs(row.statusDetail, attempt);
+            const retryDelay = this.resolveRateLimitRetryDelayMs(row.statusDetail);
             this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
             await this.waitWithRetryCountdown(row, retryDelay);
             attempt += 1;
@@ -1349,7 +1349,7 @@ export class SettingsPage {
         return detail.toLowerCase().includes('rate limit');
     }
 
-    private resolveRateLimitRetryDelayMs(statusDetail: string, attempt: number): number {
+    private resolveRateLimitRetryDelayMs(statusDetail: string): number {
         const retryAfterMatch = statusDetail.match(/retry after\s+(\d+)\s*s/i);
 
         if (retryAfterMatch) {
@@ -1360,9 +1360,7 @@ export class SettingsPage {
             }
         }
 
-        const scaled = SettingsPage.MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS * attempt;
-        const exponentialScaled = SettingsPage.MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS * Math.pow(2, Math.max(attempt - 1, 0));
-        return Math.min(Math.max(scaled, exponentialScaled), SettingsPage.MGC_RATE_LIMIT_MAX_COOLDOWN_MS);
+        return SettingsPage.MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS;
     }
 
     private resolveGlobalCooldownWaitMs(nowMs: number): number {
@@ -1390,7 +1388,7 @@ export class SettingsPage {
                     return null;
                 }
 
-                const retryDelay = this.resolveRateLimitRetryDelayMs(message, attempt);
+                const retryDelay = this.resolveRateLimitRetryDelayMs(message);
                 this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
                 await this.waitWithLoadingCountdown(
                     retryDelay,

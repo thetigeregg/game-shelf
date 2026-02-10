@@ -11,6 +11,7 @@ const env = {
 function createFetchStub({
   igdbStatus = 200,
   igdbBody = [],
+  igdbHeaders = {},
   igdbResponses = null,
   igdbPlatformsStatus = 200,
   igdbPlatformsBody = [],
@@ -49,11 +50,11 @@ function createFetchStub({
         const responseConfig = igdbResponses[calls.igdb - 1] ?? igdbResponses[igdbResponses.length - 1];
         return new Response(
           JSON.stringify(responseConfig?.body ?? []),
-          { status: responseConfig?.status ?? 200 },
+          { status: responseConfig?.status ?? 200, headers: responseConfig?.headers ?? {} },
         );
       }
 
-      return new Response(JSON.stringify(igdbBody), { status: igdbStatus });
+      return new Response(JSON.stringify(igdbBody), { status: igdbStatus, headers: igdbHeaders });
     }
 
     if (normalizedUrl === 'https://api.igdb.com/v4/platforms') {
@@ -320,6 +321,44 @@ test('maps upstream errors to safe 502 response', async () => {
   assert.equal(response.status, 502);
   const payload = await response.json();
   assert.equal(payload.error, 'Unable to fetch game data.');
+});
+
+test('returns 429 with Retry-After when IGDB upstream is rate limited and applies shared cooldown', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbStatus: 429,
+    igdbBody: { error: 'too many requests' },
+    igdbHeaders: { 'Retry-After': '15' },
+  });
+
+  let nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
+  const now = () => nowMs;
+
+  const first = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=halo'),
+    env,
+    stub,
+    now,
+  );
+
+  assert.equal(first.status, 429);
+  assert.equal(first.headers.get('Retry-After'), '15');
+  const firstPayload = await first.json();
+  assert.equal(firstPayload.error, 'Rate limit exceeded. Retry after 15s.');
+
+  nowMs += 1_000;
+
+  const second = await handleRequest(
+    new Request('https://worker.example/v1/games/123'),
+    env,
+    stub,
+    now,
+  );
+
+  assert.equal(second.status, 429);
+  assert.equal(second.headers.get('Retry-After'), '14');
+  assert.equal(calls.igdb, 1);
 });
 
 test('returns normalized game metadata for IGDB id endpoint', async () => {

@@ -10,6 +10,10 @@ module.exports = {
       return "minor";
     }
 
+    if (name.startsWith("zone.js")) {
+      return "patch";
+    }
+
     return "latest";
   },
   reject: (name, semver) => {

@@ -41,6 +41,7 @@ describe('GameShelfService', () => {
       getGameById: vi.fn(),
       listPlatforms: vi.fn(),
       searchBoxArtByTitle: vi.fn(),
+      lookupCompletionTimes: vi.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -88,6 +89,7 @@ describe('GameShelfService', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     } as GameEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     await service.addGame(mario, 'collection');
     await service.moveGame('123', 130, 'wishlist');
@@ -99,6 +101,137 @@ describe('GameShelfService', () => {
     );
     expect(repository.moveToList).toHaveBeenCalledWith('123', 130, 'wishlist');
     expect(repository.remove).toHaveBeenCalledWith('123', 130);
+  });
+
+  it('enriches games with HLTB completion times during add when available', async () => {
+    const mario: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017,
+    };
+
+    searchApi.lookupCompletionTimes.mockReturnValue(of({
+      hltbMainHours: 12,
+      hltbMainExtraHours: 18.5,
+      hltbCompletionistHours: 30,
+    }));
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...mario,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as GameEntry);
+
+    await service.addGame(mario, 'collection');
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Mario Kart', 2017, 'Switch');
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hltbMainHours: 12,
+        hltbMainExtraHours: 18.5,
+        hltbCompletionistHours: 30,
+      }),
+      'collection',
+    );
+  });
+
+  it('skips HLTB lookup during add when completion times are already present', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      hltbMainHours: 12.34,
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017,
+    };
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+
+    expect(searchApi.lookupCompletionTimes).not.toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({ hltbMainHours: 12.34 }),
+      'collection',
+    );
+  });
+
+  it('continues add when HLTB lookup fails', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017,
+    };
+
+    searchApi.lookupCompletionTimes.mockReturnValue(throwError(() => new Error('HLTB down')));
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({ igdbGameId: '123', platform: 'Switch', platformIgdbId: 130 }),
+      'collection',
+    );
+  });
+
+  it('skips HLTB lookup for short titles during add', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'x',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: null,
+      releaseYear: null,
+    };
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+
+    expect(searchApi.lookupCompletionTimes).not.toHaveBeenCalled();
   });
 
   it('returns API search results for valid queries', async () => {

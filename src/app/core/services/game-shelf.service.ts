@@ -67,9 +67,10 @@ export class GameShelfService {
     const normalizedGameId = this.normalizeGameId(result.igdbGameId);
     const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(result.platformIgdbId);
     const normalizedPlatform = this.normalizePlatform(result.platform);
+    const enrichedCatalog = await this.enrichCatalogWithCompletionTimes(result);
     const entry = await this.repository.upsertFromCatalog(
       {
-        ...result,
+        ...enrichedCatalog,
         igdbGameId: normalizedGameId,
         platform: normalizedPlatform,
         platformIgdbId: normalizedPlatformIgdbId,
@@ -427,6 +428,53 @@ export class GameShelfService {
     }
 
     return normalized;
+  }
+
+  private async enrichCatalogWithCompletionTimes(result: GameCatalogResult): Promise<GameCatalogResult> {
+    if (this.hasCompletionTimes(result)) {
+      return result;
+    }
+
+    const title = typeof result.title === 'string' ? result.title.trim() : '';
+
+    if (title.length < 2) {
+      return result;
+    }
+
+    try {
+      const completionTimes = await firstValueFrom(
+        this.searchApi.lookupCompletionTimes(
+          title,
+          Number.isInteger(result.releaseYear) ? result.releaseYear : null,
+          typeof result.platform === 'string' ? result.platform : null,
+        ),
+      );
+
+      if (!completionTimes) {
+        return result;
+      }
+
+      return {
+        ...result,
+        ...completionTimes,
+      };
+    } catch {
+      return result;
+    }
+  }
+
+  private hasCompletionTimes(result: GameCatalogResult): boolean {
+    return this.normalizeCompletionHours(result.hltbMainHours) !== null
+      || this.normalizeCompletionHours(result.hltbMainExtraHours) !== null
+      || this.normalizeCompletionHours(result.hltbCompletionistHours) !== null;
+  }
+
+  private normalizeCompletionHours(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
   }
 
   private normalizeRating(value: GameRating | null | undefined): GameRating | null {

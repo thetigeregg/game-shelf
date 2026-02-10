@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { GameCatalogPlatformOption, GameCatalogResult } from '../models/game.models';
+import { GameCatalogPlatformOption, GameCatalogResult, HltbCompletionTimes } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 
 interface SearchResponse {
@@ -22,6 +22,10 @@ interface BoxArtSearchResponse {
   items: string[];
 }
 
+interface HltbSearchResponse {
+  item: HltbCompletionTimes | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
   private static readonly RATE_LIMIT_FALLBACK_COOLDOWN_MS = 20_000;
@@ -30,6 +34,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
   private readonly platformListUrl = `${environment.gameApiBaseUrl}/v1/platforms`;
   private readonly boxArtSearchUrl = `${environment.gameApiBaseUrl}/v1/images/boxart/search`;
+  private readonly hltbSearchUrl = `${environment.gameApiBaseUrl}/v1/hltb/search`;
   private readonly httpClient = inject(HttpClient);
   private rateLimitCooldownUntilMs = 0;
 
@@ -187,6 +192,31 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
+  lookupCompletionTimes(title: string, releaseYear?: number | null, platform?: string | null): Observable<HltbCompletionTimes | null> {
+    const normalizedTitle = title.trim();
+
+    if (normalizedTitle.length < 2) {
+      return of(null);
+    }
+
+    let params = new HttpParams().set('q', normalizedTitle);
+    const normalizedYear = Number.isInteger(releaseYear) && (releaseYear as number) > 0 ? releaseYear as number : null;
+    const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
+
+    if (normalizedYear !== null) {
+      params = params.set('releaseYear', String(normalizedYear));
+    }
+
+    if (normalizedPlatform.length > 0) {
+      params = params.set('platform', normalizedPlatform);
+    }
+
+    return this.httpClient.get<HltbSearchResponse>(this.hltbSearchUrl, { params }).pipe(
+      map(response => this.normalizeCompletionTimes(response?.item ?? null)),
+      catchError(() => of(null)),
+    );
+  }
+
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
     const payload = result as GameCatalogResult & { externalId?: string };
     const platformOptions = this.normalizePlatformOptions(result);
@@ -197,6 +227,9 @@ export class IgdbProxyService implements GameSearchApi {
       title: String(result.title ?? '').trim() || 'Unknown title',
       coverUrl: typeof result.coverUrl === 'string' && result.coverUrl.length > 0 ? result.coverUrl : null,
       coverSource: this.normalizeCoverSource(result.coverSource),
+      hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
+      hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
+      hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
       developers: this.normalizeTextList(result.developers),
       franchises: this.normalizeTextList(result.franchises),
       genres: this.normalizeTextList(result.genres),
@@ -253,6 +286,32 @@ export class IgdbProxyService implements GameSearchApi {
 
     const timestamp = Date.parse(releaseDate);
     return Number.isNaN(timestamp) ? null : new Date(timestamp).toISOString();
+  }
+
+  private normalizeCompletionTimes(value: HltbCompletionTimes | null): HltbCompletionTimes | null {
+    if (!value) {
+      return null;
+    }
+
+    const normalized: HltbCompletionTimes = {
+      hltbMainHours: this.normalizeCompletionHours(value.hltbMainHours),
+      hltbMainExtraHours: this.normalizeCompletionHours(value.hltbMainExtraHours),
+      hltbCompletionistHours: this.normalizeCompletionHours(value.hltbCompletionistHours),
+    };
+
+    if (normalized.hltbMainHours === null && normalized.hltbMainExtraHours === null && normalized.hltbCompletionistHours === null) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeCompletionHours(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
   }
 
   private resolvePlatformIgdbId(result: GameCatalogResult, platformOptions: GameCatalogPlatformOption[]): number | null {

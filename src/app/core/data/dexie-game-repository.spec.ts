@@ -43,6 +43,25 @@ describe('DexieGameRepository', () => {
     expect(stored?.title).toBe(mario.title);
   });
 
+  it('persists optional HLTB completion times and keeps existing values when absent in updates', async () => {
+    await repository.upsertFromCatalog({
+      ...mario,
+      hltbMainHours: 12.1,
+      hltbMainExtraHours: 18.4,
+      hltbCompletionistHours: 30.2,
+    }, 'collection');
+
+    await repository.upsertFromCatalog({
+      ...mario,
+      title: 'Super Mario Bros. Updated',
+    }, 'wishlist');
+
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId!);
+    expect(stored?.hltbMainHours).toBe(12.1);
+    expect(stored?.hltbMainExtraHours).toBe(18.4);
+    expect(stored?.hltbCompletionistHours).toBe(30.2);
+  });
+
   it('moves a game to the other list when added again with same identity', async () => {
     await repository.upsertFromCatalog(mario, 'wishlist');
     const updated = await repository.upsertFromCatalog({ ...mario, title: 'Super Mario Bros. Deluxe' }, 'collection');

@@ -18,6 +18,10 @@ function createFetchStub({
   tokenStatus = 200,
   theGamesDbStatus = 200,
   theGamesDbBody = null,
+  hltbStatus = 200,
+  hltbBody = null,
+  hltbPageStatus = 200,
+  hltbPageBody = '',
 }) {
   const calls = {
     token: 0,
@@ -27,6 +31,8 @@ function createFetchStub({
     igdbPlatformBodies: [],
     theGamesDb: 0,
     theGamesDbUrls: [],
+    hltb: 0,
+    hltbPage: 0,
   };
 
   const stub = async (url, options = {}) => {
@@ -72,6 +78,29 @@ function createFetchStub({
       }
 
       return new Response(JSON.stringify(theGamesDbBody ?? { data: { games: [] }, include: { boxart: { data: {} } } }), { status: 200 });
+    }
+
+    if (normalizedUrl === 'https://howlongtobeat.com/api/search') {
+      calls.hltb += 1;
+
+      if (hltbStatus !== 200) {
+        return new Response(JSON.stringify({ error: 'hltb_failed' }), { status: hltbStatus });
+      }
+
+      return new Response(JSON.stringify(hltbBody ?? { data: [] }), { status: 200 });
+    }
+
+    if (normalizedUrl.startsWith('https://howlongtobeat.com/?q=')) {
+      calls.hltbPage += 1;
+
+      if (hltbPageStatus !== 200) {
+        return new Response('<html><body>blocked</body></html>', { status: hltbPageStatus });
+      }
+
+      return new Response(
+        hltbPageBody || '<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"games":[]}}}</script></body></html>',
+        { status: 200, headers: { 'Content-Type': 'text/html' } },
+      );
     }
 
     throw new Error(`Unexpected URL: ${url}`);
@@ -485,4 +514,92 @@ test('returns empty box art results instead of 502 when TheGamesDB fails', async
   const payload = await response.json();
   assert.deepEqual(payload, { items: [] });
   assert.equal(calls.theGamesDb, 1);
+});
+
+test('returns HLTB completion match for hltb search endpoint', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    hltbBody: {
+      data: [
+        {
+          game_name: 'Super Metroid',
+          comp_main: 450,
+          comp_plus: 600,
+          comp_100: 780,
+          release_world: 1994,
+          profile_platform: 'SNES',
+        },
+      ],
+    },
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/hltb/search?q=super%20metroid&releaseYear=1994&platform=snes'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.item, {
+    hltbMainHours: 7.5,
+    hltbMainExtraHours: 10,
+    hltbCompletionistHours: 13,
+  });
+  assert.equal(calls.hltb, 1);
+  assert.equal(calls.igdb, 0);
+  assert.equal(calls.token, 0);
+});
+
+test('returns null HLTB item when endpoint upstream fails', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    hltbStatus: 503,
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/hltb/search?q=metroid'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload, { item: null });
+  assert.equal(calls.hltb, 1);
+});
+
+test('falls back to scraping HLTB search page when API returns 403', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    hltbStatus: 403,
+    hltbPageBody: `
+      <html>
+        <body>
+          <script id="__NEXT_DATA__" type="application/json">
+            {"props":{"pageProps":{"results":[{"game_name":"Super Metroid","comp_main":450,"comp_plus":600,"comp_100":780,"release_world":1994,"profile_platform":"SNES"}]}}}
+          </script>
+        </body>
+      </html>
+    `,
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/hltb/search?q=super%20metroid&releaseYear=1994&platform=snes'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.item, {
+    hltbMainHours: 7.5,
+    hltbMainExtraHours: 10,
+    hltbCompletionistHours: 13,
+  });
+  assert.equal(calls.hltb, 1);
+  assert.equal(calls.hltbPage, 1);
 });

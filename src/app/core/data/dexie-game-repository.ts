@@ -41,6 +41,9 @@ export class DexieGameRepository implements GameRepository {
         title: result.title,
         coverUrl: result.coverUrl,
         coverSource: result.coverSource,
+        hltbMainHours: this.resolveCompletionHours(result.hltbMainHours, existing.hltbMainHours),
+        hltbMainExtraHours: this.resolveCompletionHours(result.hltbMainExtraHours, existing.hltbMainExtraHours),
+        hltbCompletionistHours: this.resolveCompletionHours(result.hltbCompletionistHours, existing.hltbCompletionistHours),
         developers: this.normalizeTextList(result.developers),
         franchises: this.normalizeTextList(result.franchises),
         genres: this.normalizeTextList(result.genres),
@@ -65,6 +68,9 @@ export class DexieGameRepository implements GameRepository {
       title: result.title,
       coverUrl: result.coverUrl,
       coverSource: result.coverSource,
+      hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
+      hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
+      hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
       developers: this.normalizeTextList(result.developers),
       franchises: this.normalizeTextList(result.franchises),
       genres: this.normalizeTextList(result.genres),
@@ -318,6 +324,22 @@ export class DexieGameRepository implements GameRepository {
         .map(value => (typeof value === 'string' ? value.trim() : ''))
         .filter(value => value.length > 0)
     )];
+  }
+
+  private normalizeCompletionHours(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
+  }
+
+  private resolveCompletionHours(incoming: number | null | undefined, existing: number | null | undefined): number | null {
+    if (incoming === undefined) {
+      return this.normalizeCompletionHours(existing);
+    }
+
+    return this.normalizeCompletionHours(incoming);
   }
 
   private normalizeStatus(value: GameStatus | null | undefined): GameStatus | null {

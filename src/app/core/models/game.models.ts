@@ -33,6 +33,9 @@ export interface GameCatalogResult {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  hltbMainHours?: number | null;
+  hltbMainExtraHours?: number | null;
+  hltbCompletionistHours?: number | null;
   developers?: string[];
   franchises?: string[];
   genres?: string[];
@@ -51,6 +54,9 @@ export interface GameEntry {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  hltbMainHours?: number | null;
+  hltbMainExtraHours?: number | null;
+  hltbCompletionistHours?: number | null;
   developers?: string[];
   franchises?: string[];
   genres?: string[];
@@ -66,6 +72,12 @@ export interface GameEntry {
   listType: ListType;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface HltbCompletionTimes {
+  hltbMainHours: number | null;
+  hltbMainExtraHours: number | null;
+  hltbCompletionistHours: number | null;
 }
 
 export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';

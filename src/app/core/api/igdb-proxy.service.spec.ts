@@ -58,6 +58,9 @@ describe('IgdbProxyService', () => {
         title: 'Super Mario Odyssey',
         coverUrl: null,
         coverSource: 'none',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
         developers: [],
         franchises: [],
         genres: [],
@@ -145,6 +148,9 @@ describe('IgdbProxyService', () => {
       title: 'Super Mario Odyssey',
       coverUrl: 'https://example.com/cover.jpg',
       coverSource: 'thegamesdb',
+      hltbMainHours: null,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
       developers: [],
       franchises: [],
       genres: [],
@@ -324,6 +330,9 @@ describe('IgdbProxyService', () => {
         title: 'Zelda',
         coverUrl: 'https://example.com/zelda.jpg',
         coverSource: 'none',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
         developers: ['Nintendo'],
         franchises: ['The Legend of Zelda'],
         genres: ['Adventure'],
@@ -336,5 +345,36 @@ describe('IgdbProxyService', () => {
         releaseYear: 2024,
       },
     ]);
+  });
+
+  it('looks up HLTB completion times and normalizes the payload', async () => {
+    const promise = firstValueFrom(service.lookupCompletionTimes('Super Metroid', 1994, 'SNES'));
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`
+        && request.params.get('q') === 'Super Metroid'
+        && request.params.get('releaseYear') === '1994'
+        && request.params.get('platform') === 'SNES';
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 7.53,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 13.04,
+      },
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 7.5,
+      hltbMainExtraHours: 10,
+      hltbCompletionistHours: 13,
+    });
+  });
+
+  it('returns null for HLTB lookup failures', async () => {
+    const promise = firstValueFrom(service.lookupCompletionTimes('Super Metroid'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/hltb/search?q=Super%20Metroid`);
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toBeNull();
   });
 });

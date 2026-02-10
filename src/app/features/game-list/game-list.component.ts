@@ -710,6 +710,16 @@ export class GameListComponent implements OnChanges {
         return normalized.length > 0 ? normalized.join(', ') : 'Unknown';
     }
 
+    formatCompletionHours(value: number | null | undefined): string {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+            return 'Unknown';
+        }
+
+        const normalized = Math.round(value * 10) / 10;
+        const hasDecimal = Math.abs(normalized - Math.trunc(normalized)) > 0;
+        return `${normalized.toFixed(hasDecimal ? 1 : 0)} hours`;
+    }
+
     getTagTextColor(color: string): string {
         const normalized = color.trim();
 

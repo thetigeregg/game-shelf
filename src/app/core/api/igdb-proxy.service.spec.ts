@@ -36,10 +36,14 @@ describe('IgdbProxyService', () => {
     service.searchGames('mario').subscribe(results => {
       expect(results.length).toBe(1);
       expect(results[0]).toEqual({
-        externalId: '100',
+        igdbGameId: '100',
         title: 'Super Mario Odyssey',
         coverUrl: null,
         coverSource: 'none',
+        developers: [],
+        franchises: [],
+        genres: [],
+        publishers: [],
         platforms: ['Nintendo Switch'],
         platformOptions: [{ id: null, name: 'Nintendo Switch' }],
         platform: 'Nintendo Switch',
@@ -58,7 +62,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       items: [
         {
-          externalId: '100',
+          igdbGameId: '100',
           title: 'Super Mario Odyssey',
           coverUrl: '',
           coverSource: 'none',
@@ -86,7 +90,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       items: [
         {
-          externalId: '100',
+          igdbGameId: '100',
           title: 'Super Mario Odyssey',
           coverUrl: '',
           coverSource: 'none',
@@ -101,7 +105,7 @@ describe('IgdbProxyService', () => {
 
   it('maps HTTP failure to user-safe error', done => {
     service.searchGames('mario').subscribe({
-      next: () => fail('Expected an error response'),
+      next: () => { throw new Error('Expected an error response'); },
       error: err => {
         expect(err.message).toBe('Unable to load game search results.');
         done();
@@ -115,10 +119,14 @@ describe('IgdbProxyService', () => {
   it('loads a game by IGDB id and normalizes the payload', done => {
     service.getGameById('100').subscribe(result => {
       expect(result).toEqual({
-        externalId: '100',
+        igdbGameId: '100',
         title: 'Super Mario Odyssey',
         coverUrl: 'https://example.com/cover.jpg',
         coverSource: 'thegamesdb',
+        developers: [],
+        franchises: [],
+        genres: [],
+        publishers: [],
         platforms: ['Nintendo Switch', 'Wii U'],
         platformOptions: [
           { id: null, name: 'Nintendo Switch' },
@@ -135,7 +143,7 @@ describe('IgdbProxyService', () => {
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);
     req.flush({
       item: {
-        externalId: '100',
+        igdbGameId: '100',
         title: 'Super Mario Odyssey',
         coverUrl: 'https://example.com/cover.jpg',
         coverSource: 'thegamesdb',
@@ -149,7 +157,7 @@ describe('IgdbProxyService', () => {
 
   it('maps refresh endpoint failure to user-safe error', done => {
     service.getGameById('100').subscribe({
-      next: () => fail('Expected an error response'),
+      next: () => { throw new Error('Expected an error response'); },
       error: err => {
         expect(err.message).toBe('Unable to refresh game metadata.');
         done();
@@ -258,7 +266,7 @@ describe('IgdbProxyService', () => {
 
   it('maps box art search failure to user-safe error', done => {
     service.searchBoxArtByTitle('mario').subscribe({
-      next: () => fail('Expected an error response'),
+      next: () => { throw new Error('Expected an error response'); },
       error: err => {
         expect(err.message).toBe('Unable to load box art results.');
         done();
@@ -271,7 +279,7 @@ describe('IgdbProxyService', () => {
 
   it('maps box art rate limit responses with retry timing', done => {
     service.searchBoxArtByTitle('mario').subscribe({
-      next: () => fail('Expected an error response'),
+      next: () => { throw new Error('Expected an error response'); },
       error: err => {
         expect(err.message).toBe('Rate limit exceeded. Retry after 15s.');
         done();

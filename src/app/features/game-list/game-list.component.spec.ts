@@ -9,12 +9,14 @@ import { GameListComponent } from './game-list.component';
 describe('GameListComponent', () => {
   let component: GameListComponent;
   let fixture: ComponentFixture<GameListComponent>;
-  let gameShelfService: jasmine.SpyObj<GameShelfService>;
+  let gameShelfService: {
+    [K in keyof GameShelfService]?: ReturnType<typeof vi.fn>
+  };
 
   const games: GameEntry[] = [
     {
       id: 1,
-      externalId: '101',
+      igdbGameId: '101',
       title: 'Super Mario Odyssey',
       coverUrl: 'https://example.com/cover.jpg',
       coverSource: 'thegamesdb',
@@ -28,7 +30,7 @@ describe('GameListComponent', () => {
     },
     {
       id: 2,
-      externalId: '102',
+      igdbGameId: '102',
       title: 'Halo Infinite',
       coverUrl: 'https://example.com/halo.jpg',
       coverSource: 'igdb',
@@ -43,32 +45,22 @@ describe('GameListComponent', () => {
   ];
 
   beforeEach(async () => {
-    gameShelfService = jasmine.createSpyObj<GameShelfService>('GameShelfService', [
-      'watchList',
-      'moveGame',
-      'removeGame',
-      'refreshGameMetadata',
-      'searchBoxArtByTitle',
-      'updateGameCover',
-      'setGameStatus',
-      'listTags',
-      'setGameTags',
-    ]);
-
-    gameShelfService.watchList.and.returnValue(of(games));
-    gameShelfService.moveGame.and.resolveTo();
-    gameShelfService.removeGame.and.resolveTo();
-    gameShelfService.refreshGameMetadata.and.resolveTo(games[0]);
-    gameShelfService.searchBoxArtByTitle.and.returnValue(of(['https://example.com/new-cover.jpg']));
-    gameShelfService.updateGameCover.and.resolveTo({ ...games[0], coverUrl: 'https://example.com/new-cover.jpg', coverSource: 'thegamesdb' });
-    gameShelfService.setGameStatus.and.resolveTo(games[0]);
-    gameShelfService.listTags.and.resolveTo([]);
-    gameShelfService.setGameTags.and.resolveTo(games[0]);
+    gameShelfService = {
+      watchList: vi.fn().mockReturnValue(of(games)),
+      moveGame: vi.fn().mockResolvedValue(undefined),
+      removeGame: vi.fn().mockResolvedValue(undefined),
+      refreshGameMetadata: vi.fn().mockResolvedValue(games[0]),
+      searchBoxArtByTitle: vi.fn().mockReturnValue(of(['https://example.com/new-cover.jpg'])),
+      updateGameCover: vi.fn().mockResolvedValue({ ...games[0], coverUrl: 'https://example.com/new-cover.jpg', coverSource: 'thegamesdb' }),
+      setGameStatus: vi.fn().mockResolvedValue(games[0]),
+      listTags: vi.fn().mockResolvedValue([]),
+      setGameTags: vi.fn().mockResolvedValue(games[0]),
+    };
 
     await TestBed.configureTestingModule({
       declarations: [GameListComponent],
       imports: [CommonModule, IonicModule.forRoot()],
-      providers: [{ provide: GameShelfService, useValue: gameShelfService }],
+      providers: [{ provide: GameShelfService, useValue: gameShelfService as unknown as GameShelfService }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(GameListComponent);
@@ -99,8 +91,8 @@ describe('GameListComponent', () => {
     await component.moveGame(games[0]);
     await component.removeGame(games[0]);
 
-    expect(gameShelfService.moveGame).toHaveBeenCalledWith('101', 'wishlist');
-    expect(gameShelfService.removeGame).toHaveBeenCalledWith('101');
+    expect(gameShelfService.moveGame).toHaveBeenCalledWith('101', 130, 'wishlist');
+    expect(gameShelfService.removeGame).toHaveBeenCalledWith('101', 130);
   });
 
   it('refreshes selected game metadata from detail actions', async () => {
@@ -110,7 +102,7 @@ describe('GameListComponent', () => {
 
     await component.refreshSelectedGameMetadata();
 
-    expect(gameShelfService.refreshGameMetadata).toHaveBeenCalledWith('101');
+    expect(gameShelfService.refreshGameMetadata).toHaveBeenCalledWith('101', 130);
   });
 
   it('searches box art with selected game title when picker is opened', async () => {
@@ -132,7 +124,7 @@ describe('GameListComponent', () => {
 
     await component.applySelectedImage('https://example.com/new-cover.jpg');
 
-    expect(gameShelfService.updateGameCover).toHaveBeenCalledWith('101', 'https://example.com/new-cover.jpg');
+    expect(gameShelfService.updateGameCover).toHaveBeenCalledWith('101', 130, 'https://example.com/new-cover.jpg');
   });
 
   it('filters by platform and sorts by release date descending', () => {

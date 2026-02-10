@@ -133,8 +133,7 @@ function normalizeHours(minutesValue) {
     return null;
   }
 
-  const hours = numeric / 60;
-  return Math.round(hours * 10) / 10;
+  return Math.round((numeric / 3600) * 10) / 10;
 }
 
 function normalizeReleaseYear(value) {
@@ -192,6 +191,18 @@ function normalizeEntry(entry) {
   }
 
   return normalized;
+}
+
+function filterEntriesByTitle(entries, expectedTitle) {
+  return entries.filter(entry => {
+    const normalized = normalizeEntry(entry);
+
+    if (!normalized) {
+      return false;
+    }
+
+    return getTitleSimilarityScore(expectedTitle, normalized.title) >= 20;
+  });
 }
 
 function collectCandidateEntriesFromUnknown(value, sink, depth = 0) {
@@ -326,14 +337,14 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     networkEvents.push({ url, status, candidatesAdded });
   };
 
-  page.on('response', responseListener);
-
   try {
+    // Load the shell first without collecting data so homepage preloads don't pollute candidates.
     await page.goto('https://howlongtobeat.com/', { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
 
     const searchInput = page.locator('input[name="site-search"]').first();
 
     if (await searchInput.count() > 0) {
+      page.on('response', responseListener);
       await searchInput.fill(title);
       await searchInput.press('Enter');
       try {
@@ -343,6 +354,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
       }
       await page.waitForTimeout(1200);
       await collectCandidatesFromNextData(page, capturedEntries);
+      page.off('response', responseListener);
     }
 
     if (capturedEntries.length === 0) {
@@ -352,6 +364,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
       ];
 
       for (const directUrl of directUrls) {
+        page.on('response', responseListener);
         await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
         try {
           await page.waitForLoadState('networkidle', { timeout: 5000 });
@@ -360,6 +373,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
         }
         await page.waitForTimeout(1000);
         await collectCandidatesFromNextData(page, capturedEntries);
+        page.off('response', responseListener);
 
         if (capturedEntries.length > 0) {
           break;
@@ -367,16 +381,31 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
       }
     }
 
-    const item = findBestMatch(capturedEntries, title, releaseYear, platform);
+    const relevantEntries = filterEntriesByTitle(capturedEntries, title);
+    const entriesForMatch = relevantEntries.length > 0 ? relevantEntries : capturedEntries;
+    const item = findBestMatch(entriesForMatch, title, releaseYear, platform);
+    const sampledTimes = capturedEntries
+      .slice(0, 5)
+      .map(entry => ({
+        title: typeof entry?.game_name === 'string' ? entry.game_name : (typeof entry?.name === 'string' ? entry.name : null),
+        rawMain: entry?.comp_main ?? null,
+        rawMainExtra: entry?.comp_plus ?? null,
+        rawCompletionist: entry?.comp_100 ?? null,
+        normalizedMain: normalizeHours(entry?.comp_main),
+        normalizedMainExtra: normalizeHours(entry?.comp_plus),
+        normalizedCompletionist: normalizeHours(entry?.comp_100),
+      }));
     const lastStatus = networkEvents.length > 0 ? networkEvents[networkEvents.length - 1].status : 0;
 
     return {
       item,
       diagnostic: {
-        ok: capturedEntries.length > 0,
+        ok: entriesForMatch.length > 0,
         status: Number.isInteger(lastStatus) ? lastStatus : 0,
-        candidates: capturedEntries.length,
+        candidates: entriesForMatch.length,
+        rawCandidates: capturedEntries.length,
         finalUrl: page.url(),
+        sampledTimes,
       },
     };
   } finally {
@@ -433,6 +462,9 @@ app.get('/v1/hltb/search', async (req, res) => {
           ok: result.diagnostic.ok,
           candidates: result.diagnostic.candidates,
           matched: result.item !== null,
+          sampledTimes: result.diagnostic.sampledTimes,
+          matchedItem: result.item,
+          finalUrl: result.diagnostic.finalUrl,
         });
       }
 

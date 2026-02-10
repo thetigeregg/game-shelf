@@ -61,11 +61,25 @@ ion-header ion-toolbar .page-subtitle {
   opacity: 0.9;
 }
 
-.list-header-searchbar {
-  --color: var(--ion-color-primary-contrast);
-  --clear-button-color: var(--ion-color-primary-contrast);
-  --icon-color: var(--ion-color-primary-contrast);
-  --placeholder-color: var(--ion-color-primary-contrast);
+ion-header ion-toolbar ion-searchbar.list-header-searchbar {
+  --color: #fff !important;
+  --clear-button-color: #fff !important;
+  --icon-color: #fff !important;
+  --placeholder-color: #fff !important;
+  --placeholder-opacity: 1 !important;
+  --cancel-button-color: #fff !important;
+}
+
+ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(input),
+ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(search-icon),
+ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(clear-button),
+ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(cancel-button) {
+  color: #fff !important;
+}
+
+ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(input)::placeholder {
+  color: #fff !important;
+  opacity: 1 !important;
 }
 
 ion-fab-button {

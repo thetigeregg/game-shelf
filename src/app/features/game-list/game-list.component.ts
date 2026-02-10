@@ -789,6 +789,21 @@ export class GameListComponent implements OnChanges {
         return `${game.igdbGameId}::${game.platformIgdbId}`;
     }
 
+    getDisplayCoverUrl(coverUrl: string | null | undefined): string {
+        const normalized = typeof coverUrl === 'string' ? coverUrl.trim() : '';
+
+        if (!normalized) {
+            return 'assets/icon/favicon.png';
+        }
+
+        // Force a small TheGamesDB variant for list thumbnails to reduce oversized-image warnings.
+        if (normalized.includes('cdn.thegamesdb.net/images/')) {
+            return normalized.replace(/\/images\/(?:original|large|medium)\//, '/images/small/');
+        }
+
+        return normalized;
+    }
+
     private getOtherListType(): ListType {
         return this.listType === 'collection' ? 'wishlist' : 'collection';
     }

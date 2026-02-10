@@ -420,7 +420,10 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
       },
       include: {
         boxart: {
-          base_url: { original: 'https://cdn.thegamesdb.net/images/original' },
+          base_url: {
+            original: 'https://cdn.thegamesdb.net/images/original',
+            large: 'https://cdn.thegamesdb.net/images/large',
+          },
           data: {
             7001: [
               { type: 'boxart', side: 'front', filename: '/box/front/odyssey.jpg' },
@@ -445,7 +448,7 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
   const payload = await response.json();
   assert.equal(Array.isArray(payload.items), true);
   assert.equal(payload.items.length > 0, true);
-  assert.equal(payload.items[0], 'https://cdn.thegamesdb.net/images/original/box/front/odyssey.jpg');
+  assert.equal(payload.items[0], 'https://cdn.thegamesdb.net/images/large/box/front/odyssey.jpg');
   assert.equal(calls.theGamesDbUrls[0].includes('filter%5Bplatform%5D=4971'), true);
   assert.equal(calls.token, 0);
   assert.equal(calls.igdb, 0);

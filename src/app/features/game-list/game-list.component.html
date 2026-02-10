@@ -65,7 +65,7 @@
       </div>
 
       <div slot="start" class="game-art">
-        <img [src]="game.coverUrl || 'assets/icon/favicon.png'" [alt]="game.title" (error)="onImageError($event)" />
+        <img [src]="getDisplayCoverUrl(game.coverUrl)" [alt]="game.title" (error)="onImageError($event)" />
       </div>
 
       <ion-label>

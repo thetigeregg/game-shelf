@@ -628,9 +628,9 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
   }
 
   const boxartRoot = includeRoot?.boxart;
-  const baseUrl = boxartRoot?.base_url?.original
-    || boxartRoot?.base_url?.large
+  const baseUrl = boxartRoot?.base_url?.large
     || boxartRoot?.base_url?.medium
+    || boxartRoot?.base_url?.original
     || null;
 
   if (!baseUrl) {

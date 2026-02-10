@@ -1,336 +1,336 @@
 import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
-import { AlertController, ToastController } from '@ionic/angular';
+import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { GameCatalogPlatformOption, GameCatalogResult, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 
 interface SelectedPlatform {
-  id: number;
-  name: string;
+    id: number;
+    name: string;
 }
 
 @Component({
-  selector: 'app-game-search',
-  templateUrl: './game-search.component.html',
-  styleUrls: ['./game-search.component.scss'],
-  standalone: false,
+    selector: 'app-game-search',
+    templateUrl: './game-search.component.html',
+    styleUrls: ['./game-search.component.scss'],
+    standalone: false,
 })
 export class GameSearchComponent implements OnInit, OnDestroy {
-  @Input({ required: true }) listType!: ListType;
+    @Input({ required: true }) listType!: ListType;
 
-  query = '';
-  results: GameCatalogResult[] = [];
-  searchPlatforms: GameCatalogPlatformOption[] = [];
-  selectedSearchPlatformIgdbId: number | null = null;
-  isLoading = false;
-  hasSearched = false;
-  errorMessage = '';
-  platformErrorMessage = '';
+    query = '';
+    results: GameCatalogResult[] = [];
+    searchPlatforms: GameCatalogPlatformOption[] = [];
+    selectedSearchPlatformIgdbId: number | null = null;
+    isLoading = false;
+    hasSearched = false;
+    errorMessage = '';
+    platformErrorMessage = '';
 
-  private readonly searchState$ = new Subject<{ query: string; platformIgdbId: number | null }>();
-  private readonly destroy$ = new Subject<void>();
-  private readonly addingExternalIds = new Set<string>();
-  private readonly gameShelfService = inject(GameShelfService);
-  private readonly alertController = inject(AlertController);
-  private readonly toastController = inject(ToastController);
+    private readonly searchState$ = new Subject<{ query: string; platformIgdbId: number | null }>();
+    private readonly destroy$ = new Subject<void>();
+    private readonly addingExternalIds = new Set<string>();
+    private readonly gameShelfService = inject(GameShelfService);
+    private readonly alertController = inject(AlertController);
+    private readonly toastController = inject(ToastController);
 
-  ngOnInit(): void {
-    this.loadSearchPlatforms();
+    ngOnInit(): void {
+        this.loadSearchPlatforms();
 
-    this.searchState$
-      .pipe(
-        tap(state => {
-          const normalized = state.query.trim();
-          this.errorMessage = '';
-          this.hasSearched = normalized.length >= 2;
+        this.searchState$
+            .pipe(
+                tap(state => {
+                    const normalized = state.query.trim();
+                    this.errorMessage = '';
+                    this.hasSearched = normalized.length >= 2;
 
-          if (normalized.length < 2) {
-            this.results = [];
-            this.isLoading = false;
-          }
-        }),
-        debounceTime(300),
-        distinctUntilChanged((left, right) => {
-          return left.query.trim() === right.query.trim() && left.platformIgdbId === right.platformIgdbId;
-        }),
-        switchMap(state => {
-          const normalized = state.query.trim();
+                    if (normalized.length < 2) {
+                        this.results = [];
+                        this.isLoading = false;
+                    }
+                }),
+                debounceTime(300),
+                distinctUntilChanged((left, right) => {
+                    return left.query.trim() === right.query.trim() && left.platformIgdbId === right.platformIgdbId;
+                }),
+                switchMap(state => {
+                    const normalized = state.query.trim();
 
-          if (normalized.length < 2) {
-            return of([] as GameCatalogResult[]);
-          }
+                    if (normalized.length < 2) {
+                        return of([] as GameCatalogResult[]);
+                    }
 
-          this.isLoading = true;
+                    this.isLoading = true;
 
-          return this.gameShelfService.searchGames(normalized, state.platformIgdbId).pipe(
-            catchError(() => {
-              this.errorMessage = 'Search failed. Please try again.';
-              return of([] as GameCatalogResult[]);
-            }),
-            finalize(() => {
-              this.isLoading = false;
-            })
-          );
-        }),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(results => {
-        this.results = results;
-      });
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
-
-  onSearchChange(value: string | null | undefined): void {
-    this.query = value ?? '';
-    this.emitSearchState();
-  }
-
-  onSearchPlatformChange(value: string | number | null | undefined): void {
-    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-      this.selectedSearchPlatformIgdbId = value;
-    } else if (typeof value === 'string' && /^\d+$/.test(value)) {
-      const parsed = Number.parseInt(value, 10);
-      this.selectedSearchPlatformIgdbId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-    } else {
-      this.selectedSearchPlatformIgdbId = null;
+                    return this.gameShelfService.searchGames(normalized, state.platformIgdbId).pipe(
+                        catchError(() => {
+                            this.errorMessage = 'Search failed. Please try again.';
+                            return of([] as GameCatalogResult[]);
+                        }),
+                        finalize(() => {
+                            this.isLoading = false;
+                        })
+                    );
+                }),
+                takeUntil(this.destroy$)
+            )
+            .subscribe(results => {
+                this.results = results;
+            });
     }
 
-    this.emitSearchState();
-  }
-
-  async addGame(result: GameCatalogResult): Promise<void> {
-    if (this.isAdding(result.igdbGameId)) {
-      return;
+    ngOnDestroy(): void {
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 
-    this.addingExternalIds.add(result.igdbGameId);
-
-    try {
-      const platformSelection = await this.resolvePlatformSelection(result);
-
-      if (platformSelection === undefined) {
-        return;
-      }
-
-      const existingEntry = await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformSelection.id);
-
-      if (existingEntry) {
-        await this.presentDuplicateAlert(result.title, platformSelection.name);
-        return;
-      }
-
-      const resolvedForAdd = await this.resolveCoverForAdd(result, platformSelection);
-
-      await this.gameShelfService.addGame(
-        {
-          ...resolvedForAdd,
-          igdbGameId: result.igdbGameId,
-          platform: platformSelection.name,
-          platformIgdbId: platformSelection.id,
-        },
-        this.listType
-      );
-      await this.presentToast(`Added to ${this.getListLabel()}.`);
-    } finally {
-      this.addingExternalIds.delete(result.igdbGameId);
-    }
-  }
-
-  isAdding(externalId: string): boolean {
-    return this.addingExternalIds.has(externalId);
-  }
-
-  trackByExternalId(_: number, result: GameCatalogResult): string {
-    return result.igdbGameId;
-  }
-
-  onImageError(event: Event): void {
-    const target = event.target;
-
-    if (target instanceof HTMLImageElement) {
-      target.src = 'assets/icon/favicon.png';
-    }
-  }
-
-  getPlatformLabel(result: GameCatalogResult): string {
-    const platforms = this.getPlatformOptions(result);
-
-    if (platforms.length === 0) {
-      return 'Unknown platform';
+    onSearchChange(value: string | null | undefined): void {
+        this.query = value ?? '';
+        this.emitSearchState();
     }
 
-    if (platforms.length === 1) {
-      return platforms[0].name;
-    }
-
-    return `${platforms.length} platforms`;
-  }
-
-  getCoverSourceLabel(result: GameCatalogResult): string | null {
-    if (result.coverSource === 'thegamesdb') {
-      return '2D Box Art';
-    }
-
-    if (result.coverSource === 'igdb') {
-      return 'IGDB Cover';
-    }
-
-    return null;
-  }
-
-  private async resolvePlatformSelection(result: GameCatalogResult): Promise<SelectedPlatform | undefined> {
-    const platforms = this.getPlatformOptions(result);
-
-    if (platforms.length === 0) {
-      await this.presentPlatformRequiredAlert(result.title);
-      return undefined;
-    }
-
-    if (platforms.length === 1) {
-      return platforms[0];
-    }
-
-    let selectedIndex = 0;
-    const alert = await this.alertController.create({
-      header: 'Choose platform',
-      message: `Select a platform for ${result.title}.`,
-      inputs: platforms.map((platform, index) => ({
-        type: 'radio',
-        label: platform.name,
-        value: String(index),
-        checked: index === selectedIndex,
-      })),
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-        },
-        {
-          text: 'Add',
-          role: 'confirm',
-          handler: (value: string) => {
+    onSearchPlatformChange(value: string | number | null | undefined): void {
+        if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+            this.selectedSearchPlatformIgdbId = value;
+        } else if (typeof value === 'string' && /^\d+$/.test(value)) {
             const parsed = Number.parseInt(value, 10);
+            this.selectedSearchPlatformIgdbId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+        } else {
+            this.selectedSearchPlatformIgdbId = null;
+        }
 
-            if (Number.isInteger(parsed) && parsed >= 0 && parsed < platforms.length) {
-              selectedIndex = parsed;
+        this.emitSearchState();
+    }
+
+    async addGame(result: GameCatalogResult): Promise<void> {
+        if (this.isAdding(result.igdbGameId)) {
+            return;
+        }
+
+        this.addingExternalIds.add(result.igdbGameId);
+
+        try {
+            const platformSelection = await this.resolvePlatformSelection(result);
+
+            if (platformSelection === undefined) {
+                return;
             }
-          },
-        },
-      ],
-    });
 
-    await alert.present();
-    const { role } = await alert.onDidDismiss();
+            const existingEntry = await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformSelection.id);
 
-    if (role !== 'confirm') {
-      return undefined;
+            if (existingEntry) {
+                await this.presentDuplicateAlert(result.title, platformSelection.name);
+                return;
+            }
+
+            const resolvedForAdd = await this.resolveCoverForAdd(result, platformSelection);
+
+            await this.gameShelfService.addGame(
+                {
+                    ...resolvedForAdd,
+                    igdbGameId: result.igdbGameId,
+                    platform: platformSelection.name,
+                    platformIgdbId: platformSelection.id,
+                },
+                this.listType
+            );
+            await this.presentToast(`Added to ${this.getListLabel()}.`);
+        } finally {
+            this.addingExternalIds.delete(result.igdbGameId);
+        }
     }
 
-    return platforms[selectedIndex];
-  }
-
-  private getPlatformOptions(result: GameCatalogResult): SelectedPlatform[] {
-    if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
-      return result.platformOptions
-        .map(option => {
-          const name = typeof option?.name === 'string' ? option.name.trim() : '';
-          const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0 ? option.id : null;
-          return { id, name };
-        })
-        .filter(option => option.name.length > 0 && option.id !== null)
-        .filter((option, index, items) => {
-          return items.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
-        })
-        .map(option => ({
-          id: option.id as number,
-          name: option.name,
-        }));
+    isAdding(externalId: string): boolean {
+        return this.addingExternalIds.has(externalId);
     }
 
-    return [];
-  }
-
-  private getListLabel(): string {
-    return this.listType === 'collection' ? 'Collection' : 'Wishlist';
-  }
-
-  private async resolveCoverForAdd(result: GameCatalogResult, platform: SelectedPlatform): Promise<GameCatalogResult> {
-    try {
-      const candidates = await firstValueFrom(
-        this.gameShelfService.searchBoxArtByTitle(result.title, platform.name, platform.id)
-      );
-      const boxArtUrl = candidates[0];
-
-      if (!boxArtUrl) {
-        return result;
-      }
-
-      return {
-        ...result,
-        coverUrl: boxArtUrl,
-        coverSource: 'thegamesdb',
-      };
-    } catch {
-      return result;
+    trackByExternalId(_: number, result: GameCatalogResult): string {
+        return result.igdbGameId;
     }
-  }
 
-  private async presentToast(message: string): Promise<void> {
-    const toast = await this.toastController.create({
-      message,
-      duration: 1600,
-      position: 'bottom',
-      color: 'primary',
-    });
+    onImageError(event: Event): void {
+        const target = event.target;
 
-    await toast.present();
-  }
+        if (target instanceof HTMLImageElement) {
+            target.src = 'assets/icon/favicon.png';
+        }
+    }
 
-  private loadSearchPlatforms(): void {
-    this.gameShelfService.listSearchPlatforms()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: platforms => {
-          this.searchPlatforms = platforms;
-          this.platformErrorMessage = '';
-        },
-        error: () => {
-          this.searchPlatforms = [];
-          this.platformErrorMessage = 'Unable to load platform filters.';
-        },
-      });
-  }
+    getPlatformLabel(result: GameCatalogResult): string {
+        const platforms = this.getPlatformOptions(result);
 
-  private emitSearchState(): void {
-    this.searchState$.next({
-      query: this.query,
-      platformIgdbId: this.selectedSearchPlatformIgdbId,
-    });
-  }
+        if (platforms.length === 0) {
+            return 'Unknown platform';
+        }
 
-  private async presentDuplicateAlert(title: string, platformName: string): Promise<void> {
-    const platformSuffix = platformName ? ` on ${platformName}` : '';
-    const alert = await this.alertController.create({
-      header: 'Duplicate Game',
-      message: `${title}${platformSuffix} is already in your game shelf.`,
-      buttons: ['OK'],
-    });
+        if (platforms.length === 1) {
+            return platforms[0].name;
+        }
 
-    await alert.present();
-  }
+        return `${platforms.length} platforms`;
+    }
 
-  private async presentPlatformRequiredAlert(title: string): Promise<void> {
-    const alert = await this.alertController.create({
-      header: 'Platform Required',
-      message: `A valid IGDB platform is required to add ${title}.`,
-      buttons: ['OK'],
-    });
+    getCoverSourceLabel(result: GameCatalogResult): string | null {
+        if (result.coverSource === 'thegamesdb') {
+            return '2D Box Art';
+        }
 
-    await alert.present();
-  }
+        if (result.coverSource === 'igdb') {
+            return 'IGDB Cover';
+        }
+
+        return null;
+    }
+
+    private async resolvePlatformSelection(result: GameCatalogResult): Promise<SelectedPlatform | undefined> {
+        const platforms = this.getPlatformOptions(result);
+
+        if (platforms.length === 0) {
+            await this.presentPlatformRequiredAlert(result.title);
+            return undefined;
+        }
+
+        if (platforms.length === 1) {
+            return platforms[0];
+        }
+
+        let selectedIndex = 0;
+        const alert = await this.alertController.create({
+            header: 'Choose platform',
+            message: `Select a platform for ${result.title}.`,
+            inputs: platforms.map((platform, index) => ({
+                type: 'radio',
+                label: platform.name,
+                value: String(index),
+                checked: index === selectedIndex,
+            })),
+            buttons: [
+                {
+                    text: 'Cancel',
+                    role: 'cancel',
+                },
+                {
+                    text: 'Add',
+                    role: 'confirm',
+                    handler: (value: string) => {
+                        const parsed = Number.parseInt(value, 10);
+
+                        if (Number.isInteger(parsed) && parsed >= 0 && parsed < platforms.length) {
+                            selectedIndex = parsed;
+                        }
+                    },
+                },
+            ],
+        });
+
+        await alert.present();
+        const { role } = await alert.onDidDismiss();
+
+        if (role !== 'confirm') {
+            return undefined;
+        }
+
+        return platforms[selectedIndex];
+    }
+
+    private getPlatformOptions(result: GameCatalogResult): SelectedPlatform[] {
+        if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
+            return result.platformOptions
+                .map(option => {
+                    const name = typeof option?.name === 'string' ? option.name.trim() : '';
+                    const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0 ? option.id : null;
+                    return { id, name };
+                })
+                .filter(option => option.name.length > 0 && option.id !== null)
+                .filter((option, index, items) => {
+                    return items.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
+                })
+                .map(option => ({
+                    id: option.id as number,
+                    name: option.name,
+                }));
+        }
+
+        return [];
+    }
+
+    private getListLabel(): string {
+        return this.listType === 'collection' ? 'Collection' : 'Wishlist';
+    }
+
+    private async resolveCoverForAdd(result: GameCatalogResult, platform: SelectedPlatform): Promise<GameCatalogResult> {
+        try {
+            const candidates = await firstValueFrom(
+                this.gameShelfService.searchBoxArtByTitle(result.title, platform.name, platform.id)
+            );
+            const boxArtUrl = candidates[0];
+
+            if (!boxArtUrl) {
+                return result;
+            }
+
+            return {
+                ...result,
+                coverUrl: boxArtUrl,
+                coverSource: 'thegamesdb',
+            };
+        } catch {
+            return result;
+        }
+    }
+
+    private async presentToast(message: string): Promise<void> {
+        const toast = await this.toastController.create({
+            message,
+            duration: 1600,
+            position: 'bottom',
+            color: 'primary',
+        });
+
+        await toast.present();
+    }
+
+    private loadSearchPlatforms(): void {
+        this.gameShelfService.listSearchPlatforms()
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: platforms => {
+                    this.searchPlatforms = platforms;
+                    this.platformErrorMessage = '';
+                },
+                error: () => {
+                    this.searchPlatforms = [];
+                    this.platformErrorMessage = 'Unable to load platform filters.';
+                },
+            });
+    }
+
+    private emitSearchState(): void {
+        this.searchState$.next({
+            query: this.query,
+            platformIgdbId: this.selectedSearchPlatformIgdbId,
+        });
+    }
+
+    private async presentDuplicateAlert(title: string, platformName: string): Promise<void> {
+        const platformSuffix = platformName ? ` on ${platformName}` : '';
+        const alert = await this.alertController.create({
+            header: 'Duplicate Game',
+            message: `${title}${platformSuffix} is already in your game shelf.`,
+            buttons: ['OK'],
+        });
+
+        await alert.present();
+    }
+
+    private async presentPlatformRequiredAlert(title: string): Promise<void> {
+        const alert = await this.alertController.create({
+            header: 'Platform Required',
+            message: `A valid IGDB platform is required to add ${title}.`,
+            buttons: ['OK'],
+        });
+
+        await alert.present();
+    }
 }

@@ -1,4 +1,5 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpHeaders } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
 import { IgdbProxyService } from './igdb-proxy.service';
@@ -266,5 +267,25 @@ describe('IgdbProxyService', () => {
 
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/images/boxart/search?q=mario`);
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+  });
+
+  it('maps box art rate limit responses with retry timing', done => {
+    service.searchBoxArtByTitle('mario').subscribe({
+      next: () => fail('Expected an error response'),
+      error: err => {
+        expect(err.message).toBe('Rate limit exceeded. Retry after 15s.');
+        done();
+      },
+    });
+
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/images/boxart/search?q=mario`);
+    req.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '15' }),
+      },
+    );
   });
 });

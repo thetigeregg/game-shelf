@@ -152,8 +152,10 @@ export class SettingsPage {
   private static readonly MGC_RESOLVE_BASE_INTERVAL_MS = 450;
   private static readonly MGC_RESOLVE_MIN_INTERVAL_MS = 350;
   private static readonly MGC_RESOLVE_MAX_INTERVAL_MS = 1600;
+  private static readonly MGC_BOX_ART_MIN_INTERVAL_MS = 350;
   private static readonly MGC_RESOLVE_MAX_ATTEMPTS = 3;
-  private static readonly MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS = 8000;
+  private static readonly MGC_BOX_ART_MAX_ATTEMPTS = 3;
+  private static readonly MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS = 15000;
   private static readonly MGC_RATE_LIMIT_MAX_COOLDOWN_MS = 60000;
 
   readonly presets: ThemePreset[] = [
@@ -182,6 +184,11 @@ export class SettingsPage {
   mgcResolverResults: GameCatalogResult[] = [];
   isMgcResolverSearching = false;
   mgcResolverError = '';
+  isImportLoadingOpen = false;
+  importLoadingMessage = '';
+  isSummaryModalOpen = false;
+  summaryModalTitle = '';
+  summaryModalLines: string[] = [];
   readonly mgcPageSizeOptions = [25, 50, 100];
   private mgcSearchPlatforms: GameCatalogPlatformOption[] = [];
   private readonly mgcPlatformLookup = new Map<string, GameCatalogPlatformOption>();
@@ -367,6 +374,14 @@ export class SettingsPage {
     this.mgcResolverRowId = null;
     this.mgcResolverResults = [];
     this.mgcResolverError = '';
+    this.isImportLoadingOpen = false;
+    this.importLoadingMessage = '';
+  }
+
+  closeSummaryModal(): void {
+    this.isSummaryModalOpen = false;
+    this.summaryModalTitle = '';
+    this.summaryModalLines = [];
   }
 
   async confirmRemoveMgcRow(rowId: number): Promise<void> {
@@ -837,26 +852,26 @@ export class SettingsPage {
     failedRows: number;
     skippedRows: number;
   }): Promise<void> {
-    const alert = await this.alertController.create({
-      header: 'Import Summary',
-      message: [
-        `Total rows: ${summary.totalRows}`,
-        `Games imported: ${summary.gamesApplied}`,
-        `Tags imported: ${summary.tagsApplied}`,
-        `Views imported: ${summary.viewsApplied}`,
-        `Settings imported: ${summary.settingsApplied}`,
-        `Game statuses set: ${summary.gameStatusesApplied}`,
-        `Game ratings set: ${summary.gameRatingsApplied}`,
-        `Game tag assignments: ${summary.gameTagAssignmentsApplied}`,
-        `Tags auto-renamed: ${summary.tagsRenamed}`,
-        `Views auto-renamed: ${summary.viewsRenamed}`,
-        `Failed rows: ${summary.failedRows}`,
-        `Skipped rows: ${summary.skippedRows}`,
-      ].join('<br/>'),
-      buttons: ['OK'],
-    });
+    this.presentSummaryModal('Import Summary', [
+      `Total rows: ${summary.totalRows}`,
+      `Games imported: ${summary.gamesApplied}`,
+      `Tags imported: ${summary.tagsApplied}`,
+      `Views imported: ${summary.viewsApplied}`,
+      `Settings imported: ${summary.settingsApplied}`,
+      `Game statuses set: ${summary.gameStatusesApplied}`,
+      `Game ratings set: ${summary.gameRatingsApplied}`,
+      `Game tag assignments: ${summary.gameTagAssignmentsApplied}`,
+      `Tags auto-renamed: ${summary.tagsRenamed}`,
+      `Views auto-renamed: ${summary.viewsRenamed}`,
+      `Failed rows: ${summary.failedRows}`,
+      `Skipped rows: ${summary.skippedRows}`,
+    ]);
+  }
 
-    await alert.present();
+  private presentSummaryModal(title: string, lines: string[]): void {
+    this.summaryModalTitle = title;
+    this.summaryModalLines = lines;
+    this.isSummaryModalOpen = true;
   }
 
   private get activeMgcResolverRow(): MgcImportRow | undefined {
@@ -981,6 +996,8 @@ export class SettingsPage {
     }
 
     this.isApplyingMgcImport = true;
+    this.isImportLoadingOpen = true;
+    this.importLoadingMessage = 'Preparing import...';
 
     try {
       this.recomputeMgcDuplicateErrors();
@@ -991,15 +1008,19 @@ export class SettingsPage {
       }
 
       const rowsToImport = this.mgcRows.filter(row => this.isMgcRowReady(row));
+      this.importLoadingMessage = 'Preparing tags...';
       const { tagIdMap, tagsCreated } = await this.prepareMgcTags(rowsToImport);
       let gamesImported = 0;
       let tagsAssigned = 0;
       let boxArtResolved = 0;
       let duplicateSkipped = 0;
       let failed = 0;
+      let lastBoxArtRequestStartedAt = 0;
 
-      for (const row of rowsToImport) {
+      for (let index = 0; index < rowsToImport.length; index += 1) {
+        const row = rowsToImport[index];
         const selected = row.selected;
+        this.importLoadingMessage = `Importing games ${index + 1}/${rowsToImport.length}...`;
 
         if (!selected || typeof selected.platformIgdbId !== 'number' || selected.platformIgdbId <= 0) {
           failed += 1;
@@ -1016,22 +1037,28 @@ export class SettingsPage {
 
         let resolvedCatalog: GameCatalogResult = selected;
 
-        try {
-          const boxArtCandidates = await firstValueFrom(
-            this.gameShelfService.searchBoxArtByTitle(selected.title, selected.platform, selected.platformIgdbId)
-          );
-          const boxArt = boxArtCandidates[0];
+        const nowMs = Date.now();
+        const waitMs = Math.max(
+          SettingsPage.MGC_BOX_ART_MIN_INTERVAL_MS - (nowMs - lastBoxArtRequestStartedAt),
+          this.resolveGlobalCooldownWaitMs(nowMs),
+          0,
+        );
 
-          if (boxArt) {
-            resolvedCatalog = {
-              ...selected,
-              coverUrl: boxArt,
-              coverSource: 'thegamesdb',
-            };
-            boxArtResolved += 1;
-          }
-        } catch {
-          // Keep IGDB image when TheGamesDB lookup fails.
+        if (waitMs > 0) {
+          await this.waitWithLoadingCountdown(waitMs, 'Waiting to continue box art lookups');
+        }
+
+        lastBoxArtRequestStartedAt = Date.now();
+        this.importLoadingMessage = `Resolving box art ${index + 1}/${rowsToImport.length}...`;
+        const boxArt = await this.resolveBoxArtWithRetry(selected, index + 1, rowsToImport.length);
+
+        if (boxArt) {
+          resolvedCatalog = {
+            ...selected,
+            coverUrl: boxArt,
+            coverSource: 'thegamesdb',
+          };
+          boxArtResolved += 1;
         }
 
         try {
@@ -1067,6 +1094,8 @@ export class SettingsPage {
       await this.presentToast('Unable to complete MGC import.', 'danger');
     } finally {
       this.isApplyingMgcImport = false;
+      this.isImportLoadingOpen = false;
+      this.importLoadingMessage = '';
     }
   }
 
@@ -1079,21 +1108,15 @@ export class SettingsPage {
     duplicateSkipped: number;
     failed: number;
   }): Promise<void> {
-    const alert = await this.alertController.create({
-      header: 'MGC Import Summary',
-      message: [
-        `Rows selected: ${summary.rowsSelected}`,
-        `Games imported: ${summary.gamesImported}`,
-        `Games with tags applied: ${summary.tagsAssigned}`,
-        `New tags created: ${summary.tagsCreated}`,
-        `2D box art resolved: ${summary.boxArtResolved}`,
-        `Duplicates skipped: ${summary.duplicateSkipped}`,
-        `Failed: ${summary.failed}`,
-      ].join('<br/>'),
-      buttons: ['OK'],
-    });
-
-    await alert.present();
+    this.presentSummaryModal('MGC Import Summary', [
+      `Rows selected: ${summary.rowsSelected}`,
+      `Games imported: ${summary.gamesImported}`,
+      `Games with tags applied: ${summary.tagsAssigned}`,
+      `New tags created: ${summary.tagsCreated}`,
+      `2D box art resolved: ${summary.boxArtResolved}`,
+      `Duplicates skipped: ${summary.duplicateSkipped}`,
+      `Failed: ${summary.failed}`,
+    ]);
   }
 
   private async prepareMgcTags(rows: MgcImportRow[]): Promise<{ tagIdMap: Map<string, number>; tagsCreated: number }> {
@@ -1311,6 +1334,44 @@ export class SettingsPage {
     const scaled = SettingsPage.MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS * attempt;
     const exponentialScaled = SettingsPage.MGC_RATE_LIMIT_DEFAULT_COOLDOWN_MS * Math.pow(2, Math.max(attempt - 1, 0));
     return Math.min(Math.max(scaled, exponentialScaled), SettingsPage.MGC_RATE_LIMIT_MAX_COOLDOWN_MS);
+  }
+
+  private resolveGlobalCooldownWaitMs(nowMs: number): number {
+    return Math.max(this.mgcRateLimitCooldownUntilMs - nowMs, 0);
+  }
+
+  private async resolveBoxArtWithRetry(
+    selected: GameCatalogResult,
+    rowIndex: number,
+    totalRows: number,
+  ): Promise<string | null> {
+    let attempt = 1;
+
+    while (attempt <= SettingsPage.MGC_BOX_ART_MAX_ATTEMPTS) {
+      try {
+        const boxArtCandidates = await firstValueFrom(
+          this.gameShelfService.searchBoxArtByTitle(selected.title, selected.platform, selected.platformIgdbId)
+        );
+        return boxArtCandidates[0] ?? null;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '';
+        const isRateLimited = this.isRateLimitStatusDetail(message);
+
+        if (!isRateLimited || attempt >= SettingsPage.MGC_BOX_ART_MAX_ATTEMPTS) {
+          return null;
+        }
+
+        const retryDelay = this.resolveRateLimitRetryDelayMs(message, attempt);
+        this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
+        await this.waitWithLoadingCountdown(
+          retryDelay,
+          `Box art rate limited for row ${rowIndex}/${totalRows}. Retrying`,
+        );
+        attempt += 1;
+      }
+    }
+
+    return null;
   }
 
   private async resolveCatalogForRow(
@@ -1553,6 +1614,18 @@ export class SettingsPage {
     while (remainingMs > 0) {
       const secondsLeft = Math.max(1, Math.ceil(remainingMs / 1000));
       row.statusDetail = `Rate limited. Retrying in ${secondsLeft}s...`;
+      const stepMs = Math.min(1000, remainingMs);
+      await this.delay(stepMs);
+      remainingMs -= stepMs;
+    }
+  }
+
+  private async waitWithLoadingCountdown(totalMs: number, prefix: string): Promise<void> {
+    let remainingMs = totalMs;
+
+    while (remainingMs > 0) {
+      const secondsLeft = Math.max(1, Math.ceil(remainingMs / 1000));
+      this.importLoadingMessage = `${prefix} in ${secondsLeft}s...`;
       const stepMs = Math.min(1000, remainingMs);
       await this.delay(stepMs);
       remainingMs -= stepMs;

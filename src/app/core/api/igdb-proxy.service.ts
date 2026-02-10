@@ -130,7 +130,20 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<BoxArtSearchResponse>(this.boxArtSearchUrl, { params }).pipe(
       map(response => this.normalizeBoxArtResults(response.items)),
-      catchError(() => throwError(() => new Error('Unable to load box art results.')))
+      catchError((error: unknown) => {
+        if (error instanceof HttpErrorResponse && error.status === 429) {
+          const retryAfterMs = this.parseRetryAfterMs(error);
+
+          if (retryAfterMs !== null) {
+            const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+            return throwError(() => new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`));
+          }
+
+          return throwError(() => new Error('Rate limit exceeded. Please wait and try again.'));
+        }
+
+        return throwError(() => new Error('Unable to load box art results.'));
+      })
     );
   }
 

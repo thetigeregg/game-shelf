@@ -281,3 +281,32 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<ion-modal [isOpen]="isSummaryModalOpen" (didDismiss)="closeSummaryModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ summaryModalTitle }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closeSummaryModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ion-list lines="full">
+        <ion-item *ngFor="let line of summaryModalLines">
+          <ion-label>{{ line }}</ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-loading
+  [isOpen]="isImportLoadingOpen"
+  [message]="importLoadingMessage"
+  spinner="crescent"
+></ion-loading>

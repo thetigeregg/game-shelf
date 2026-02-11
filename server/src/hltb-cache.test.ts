@@ -6,27 +6,36 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 
 class HltbPoolMock {
-  private readonly rowsByKey = new Map<string, unknown>();
+  private readonly rowsByKey = new Map<string, { response_json: unknown; updated_at: string }>();
 
-  constructor(private readonly options: { failReads?: boolean } = {}) {}
+  constructor(
+    private readonly options: {
+      failReads?: boolean;
+      now?: () => number;
+    } = {},
+  ) {}
 
   async query<T>(sql: string, params: unknown[]): Promise<{ rows: T[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
-    if (normalized.startsWith('select response_json from hltb_search_cache')) {
+    if (normalized.startsWith('select response_json, updated_at from hltb_search_cache')) {
       if (this.options.failReads) {
         throw new Error('read_failed');
       }
 
       const key = String(params[0] ?? '');
       const row = this.rowsByKey.get(key);
-      return { rows: row ? [{ response_json: row } as T] : [] };
+      return { rows: row ? [row as T] : [] };
     }
 
     if (normalized.startsWith('insert into hltb_search_cache')) {
       const key = String(params[0] ?? '');
       const payload = JSON.parse(String(params[5] ?? 'null'));
-      this.rowsByKey.set(key, payload);
+      const nowMs = this.options.now ? this.options.now() : Date.now();
+      this.rowsByKey.set(key, {
+        response_json: payload,
+        updated_at: new Date(nowMs).toISOString(),
+      });
       return { rows: [] };
     }
 
@@ -63,13 +72,82 @@ test('HLTB cache stores on miss and serves on hit', async () => {
     url: '/v1/hltb/search?q=okami&releaseYear=2006&platform=wii',
   });
   assert.equal(second.statusCode, 200);
-  assert.equal(second.headers['x-gameshelf-hltb-cache'], 'HIT');
+  assert.equal(second.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
   assert.equal(fetchCalls, 1);
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.hltb.misses, 1);
   assert.equal(metrics.hltb.hits, 1);
   assert.equal(metrics.hltb.writes, 1);
+
+  await app.close();
+});
+
+test('HLTB cache serves stale and revalidates in background', async () => {
+  resetCacheMetrics();
+  let nowMs = Date.UTC(2026, 1, 11, 18, 0, 0);
+  const pool = new HltbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  let fetchCalls = 0;
+  let pendingRefreshTask: (() => Promise<void>) | null = null;
+
+  registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: async () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: {
+            hltbMainHours: fetchCalls === 1 ? 10 : 11,
+          },
+          candidates: [],
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    },
+    now: () => nowMs,
+    freshTtlSeconds: 10,
+    staleTtlSeconds: 100,
+    scheduleBackgroundRefresh: task => {
+      pendingRefreshTask = task;
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
+  });
+  assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+
+  nowMs += 20_000;
+
+  const stale = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
+  });
+  assert.equal(stale.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
+  assert.equal(stale.headers['x-gameshelf-hltb-revalidate'], 'scheduled');
+  assert.equal(fetchCalls, 1);
+
+  assert.ok(pendingRefreshTask);
+  await pendingRefreshTask();
+  assert.equal(fetchCalls, 2);
+
+  const freshAfterRefresh = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
+  });
+  assert.equal(freshAfterRefresh.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+  const payload = freshAfterRefresh.json() as { item: { hltbMainHours: number } };
+  assert.equal(payload.item.hltbMainHours, 11);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.hltb.staleServed, 1);
+  assert.equal(metrics.hltb.revalidateScheduled, 1);
+  assert.equal(metrics.hltb.revalidateSucceeded, 1);
 
   await app.close();
 });

@@ -27,6 +27,17 @@ function readIntegerEnv(name: string, fallback: number): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function readBooleanEnv(name: string, fallback: boolean): boolean {
+  const raw = readEnv(name);
+
+  if (!raw) {
+    return fallback;
+  }
+
+  const normalized = raw.toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
 function readEnvFilePath(): string {
   const fromEnv = typeof process.env.ENV_FILE === 'string' ? process.env.ENV_FILE.trim() : '';
   const candidate = fromEnv.length > 0 ? fromEnv : '.env';
@@ -50,6 +61,9 @@ export interface AppConfig {
   theGamesDbApiKey: string;
   hltbScraperBaseUrl: string;
   hltbScraperToken: string;
+  hltbCacheEnableStaleWhileRevalidate: boolean;
+  hltbCacheFreshTtlSeconds: number;
+  hltbCacheStaleTtlSeconds: number;
 }
 
 function readPathEnv(name: string, fallbackAbsolutePath: string): string {
@@ -78,4 +92,7 @@ export const config: AppConfig = {
   theGamesDbApiKey: readRequiredEnv('THEGAMESDB_API_KEY'),
   hltbScraperBaseUrl: readEnv('HLTB_SCRAPER_BASE_URL', ''),
   hltbScraperToken: readEnv('HLTB_SCRAPER_TOKEN', ''),
+  hltbCacheEnableStaleWhileRevalidate: readBooleanEnv('HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE', true),
+  hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
+  hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
 };

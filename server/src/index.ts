@@ -53,7 +53,11 @@ async function main(): Promise<void> {
   app.get('/v1/games/:id', proxyMetadataToWorker);
   app.get('/v1/platforms', proxyMetadataToWorker);
   app.get('/v1/images/boxart/search', proxyMetadataToWorker);
-  registerHltbCachedRoute(app, pool);
+  registerHltbCachedRoute(app, pool, {
+    enableStaleWhileRevalidate: config.hltbCacheEnableStaleWhileRevalidate,
+    freshTtlSeconds: config.hltbCacheFreshTtlSeconds,
+    staleTtlSeconds: config.hltbCacheStaleTtlSeconds,
+  });
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({

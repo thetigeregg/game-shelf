@@ -6,6 +6,11 @@ export interface CacheMetricSnapshot {
     writes: number;
     readErrors: number;
     writeErrors: number;
+    staleServed: number;
+    revalidateScheduled: number;
+    revalidateSkipped: number;
+    revalidateSucceeded: number;
+    revalidateFailed: number;
   };
   image: {
     hits: number;
@@ -26,6 +31,11 @@ const metrics: CacheMetricSnapshot = {
     writes: 0,
     readErrors: 0,
     writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
   },
   image: {
     hits: 0,
@@ -61,6 +71,11 @@ export function resetCacheMetrics(): void {
     writes: 0,
     readErrors: 0,
     writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0,
   };
   metrics.image = {
     hits: 0,

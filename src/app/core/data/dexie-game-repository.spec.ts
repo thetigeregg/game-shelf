@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { AppDb } from './app-db';
 import { DexieGameRepository } from './dexie-game-repository';
 import { GameCatalogResult } from '../models/game.models';
+import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 
 describe('DexieGameRepository', () => {
   let db: AppDb;
@@ -252,5 +253,46 @@ describe('DexieGameRepository', () => {
       },
       groupBy: 'none',
     })).rejects.toThrowError('View name is required.');
+  });
+
+  it('queues outbox operations when sync writer is configured', async () => {
+    const calls: Array<Parameters<SyncOutboxWriter['enqueueOperation']>[0]> = [];
+    const writer: SyncOutboxWriter = {
+      enqueueOperation: async request => {
+        calls.push(request);
+      },
+    };
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        AppDb,
+        DexieGameRepository,
+        { provide: SYNC_OUTBOX_WRITER, useValue: writer },
+      ],
+    });
+
+    const queuedDb = TestBed.inject(AppDb);
+    const queuedRepository = TestBed.inject(DexieGameRepository);
+
+    await queuedRepository.upsertFromCatalog(mario, 'collection');
+    await queuedRepository.setGameStatus('101', 18, 'playing');
+    await queuedRepository.remove('101', 18);
+    const tag = await queuedRepository.upsertTag({ name: 'Queue Tag', color: '#ff0000' });
+    await queuedRepository.deleteTag(tag.id!);
+
+    expect(calls.some(call => call.entityType === 'game' && call.operation === 'upsert')).toBe(true);
+    expect(calls.some(call => call.entityType === 'game' && call.operation === 'delete')).toBe(true);
+    expect(calls.some(call => call.entityType === 'tag' && call.operation === 'upsert')).toBe(true);
+    expect(calls.some(call => call.entityType === 'tag' && call.operation === 'delete')).toBe(true);
+
+    await queuedDb.delete();
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [AppDb, DexieGameRepository],
+    });
+    db = TestBed.inject(AppDb);
+    repository = TestBed.inject(DexieGameRepository);
   });
 });

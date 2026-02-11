@@ -14,10 +14,12 @@ import {
   ListType,
   Tag
 } from '../models/game.models';
+import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
   private readonly db = inject(AppDb);
+  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
 
   async listByType(listType: ListType): Promise<GameEntry[]> {
     return this.db.games.where('listType').equals(listType).sortBy('title');
@@ -60,6 +62,7 @@ export class DexieGameRepository implements GameRepository {
       };
 
       await this.db.games.put(updated);
+      this.queueGameUpsert(updated);
       return updated;
     }
 
@@ -88,7 +91,9 @@ export class DexieGameRepository implements GameRepository {
     };
 
     const id = await this.db.games.add(created);
-    return { ...created, id };
+    const stored = { ...created, id };
+    this.queueGameUpsert(stored);
+    return stored;
   }
 
   async moveToList(igdbGameId: string, platformIgdbId: number, targetList: ListType): Promise<void> {
@@ -102,6 +107,12 @@ export class DexieGameRepository implements GameRepository {
       listType: targetList,
       updatedAt: new Date().toISOString(),
     });
+
+    const updated = await this.exists(igdbGameId, platformIgdbId);
+
+    if (updated) {
+      this.queueGameUpsert(updated);
+    }
   }
 
   async remove(igdbGameId: string, platformIgdbId: number): Promise<void> {
@@ -112,6 +123,7 @@ export class DexieGameRepository implements GameRepository {
     }
 
     await this.db.games.delete(existing.id);
+    this.queueGameDelete(igdbGameId, platformIgdbId);
   }
 
   async exists(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined> {
@@ -133,6 +145,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -150,6 +163,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -167,6 +181,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -184,6 +199,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -204,6 +220,7 @@ export class DexieGameRepository implements GameRepository {
       };
 
       await this.db.tags.put(updatedByName);
+      this.queueTagUpsert(updatedByName);
       return updatedByName;
     }
 
@@ -219,6 +236,7 @@ export class DexieGameRepository implements GameRepository {
         };
 
         await this.db.tags.put(updatedById);
+        this.queueTagUpsert(updatedById);
         return updatedById;
       }
     }
@@ -230,11 +248,14 @@ export class DexieGameRepository implements GameRepository {
       updatedAt: now,
     };
     const createdId = await this.db.tags.add(created);
-    return { ...created, id: createdId };
+    const stored = { ...created, id: createdId };
+    this.queueTagUpsert(stored);
+    return stored;
   }
 
   async deleteTag(tagId: number): Promise<void> {
     await this.db.tags.delete(tagId);
+    this.queueTagDelete(tagId);
 
     const games = await this.db.games.toArray();
     const now = new Date().toISOString();
@@ -248,6 +269,12 @@ export class DexieGameRepository implements GameRepository {
       }
 
       await this.db.games.update(game.id, {
+        tagIds: nextTagIds,
+        updatedAt: now,
+      });
+
+      this.queueGameUpsert({
+        ...game,
         tagIds: nextTagIds,
         updatedAt: now,
       });
@@ -276,7 +303,9 @@ export class DexieGameRepository implements GameRepository {
       updatedAt: now,
     };
     const id = await this.db.views.add(created);
-    return { ...created, id };
+    const stored = { ...created, id };
+    this.queueViewUpsert(stored);
+    return stored;
   }
 
   async updateView(viewId: number, updates: { name?: string; filters?: GameListFilters; groupBy?: GameGroupByField }): Promise<GameListView | undefined> {
@@ -295,11 +324,85 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.views.put(updated);
+    this.queueViewUpsert(updated);
     return updated;
   }
 
   async deleteView(viewId: number): Promise<void> {
     await this.db.views.delete(viewId);
+    this.queueViewDelete(viewId);
+  }
+
+  private queueGameUpsert(game: GameEntry): void {
+    if (!this.outboxWriter) {
+      return;
+    }
+
+    void this.outboxWriter.enqueueOperation({
+      entityType: 'game',
+      operation: 'upsert',
+      payload: game,
+    });
+  }
+
+  private queueGameDelete(igdbGameId: string, platformIgdbId: number): void {
+    if (!this.outboxWriter) {
+      return;
+    }
+
+    void this.outboxWriter.enqueueOperation({
+      entityType: 'game',
+      operation: 'delete',
+      payload: { igdbGameId, platformIgdbId },
+    });
+  }
+
+  private queueTagUpsert(tag: Tag): void {
+    if (!this.outboxWriter) {
+      return;
+    }
+
+    void this.outboxWriter.enqueueOperation({
+      entityType: 'tag',
+      operation: 'upsert',
+      payload: tag,
+    });
+  }
+
+  private queueTagDelete(id: number): void {
+    if (!this.outboxWriter) {
+      return;
+    }
+
+    void this.outboxWriter.enqueueOperation({
+      entityType: 'tag',
+      operation: 'delete',
+      payload: { id },
+    });
+  }
+
+  private queueViewUpsert(view: GameListView): void {
+    if (!this.outboxWriter) {
+      return;
+    }
+
+    void this.outboxWriter.enqueueOperation({
+      entityType: 'view',
+      operation: 'upsert',
+      payload: view,
+    });
+  }
+
+  private queueViewDelete(id: number): void {
+    if (!this.outboxWriter) {
+      return;
+    }
+
+    void this.outboxWriter.enqueueOperation({
+      entityType: 'view',
+      operation: 'delete',
+      payload: { id },
+    });
   }
 
   private normalizeTagIds(tagIds: number[] | undefined): number[] {

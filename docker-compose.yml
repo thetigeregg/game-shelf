@@ -1,0 +1,44 @@
+services:
+  edge:
+    build:
+      context: .
+      dockerfile: edge/Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file:
+      - ./server/.env
+    depends_on:
+      - postgres
+      - hltb-scraper
+    volumes:
+      - ./nas-data/image-cache:/data/images
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gameshelf
+      POSTGRES_USER: gameshelf
+      POSTGRES_PASSWORD: gameshelf
+    volumes:
+      - ./nas-data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  hltb-scraper:
+    build:
+      context: .
+      dockerfile: hltb-scraper/Dockerfile
+    env_file:
+      - ./server/.env
+    environment:
+      PORT: 8788
+      HLTB_SCRAPER_TIMEOUT_MS: 25000
+    restart: unless-stopped

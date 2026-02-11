@@ -87,6 +87,32 @@ export interface HltbMatchCandidate extends HltbCompletionTimes {
   imageUrl?: string | null;
 }
 
+export type SyncEntityType = 'game' | 'tag' | 'view' | 'setting';
+export type SyncOperationType = 'upsert' | 'delete';
+
+export interface ClientSyncOperation {
+  opId: string;
+  entityType: SyncEntityType;
+  operation: SyncOperationType;
+  payload: unknown;
+  clientTimestamp: string;
+}
+
+export interface SyncChangeEvent {
+  eventId: string;
+  entityType: SyncEntityType;
+  operation: SyncOperationType;
+  payload: unknown;
+  serverTimestamp: string;
+}
+
+export interface SyncPushResult {
+  opId: string;
+  status: 'applied' | 'duplicate' | 'failed';
+  message?: string;
+  normalizedPayload?: unknown;
+}
+
 export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';
 export type SortDirection = 'asc' | 'desc';
 export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' | 'tag' | 'genre' | 'publisher' | 'releaseYear';

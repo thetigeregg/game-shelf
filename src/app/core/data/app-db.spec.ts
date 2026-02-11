@@ -9,11 +9,11 @@ describe('AppDb', () => {
     await Dexie.delete(dbName);
   });
 
-  it('opens with v6 schema including games, tags, views and image cache', async () => {
+  it('opens with v7 schema including sync/outbox tables', async () => {
     const db = new AppDb();
     await db.open();
 
-    expect(db.tables.map(table => table.name).sort()).toEqual(['games', 'imageCache', 'tags', 'views']);
+    expect(db.tables.map(table => table.name).sort()).toEqual(['games', 'imageCache', 'outbox', 'syncMeta', 'tags', 'views']);
 
     await db.close();
   });

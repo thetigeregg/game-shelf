@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, Subject, firstValueFrom, from, of } from 'rxjs';
+import { merge, Observable, Subject, firstValueFrom, from, of } from 'rxjs';
 import { catchError, map, switchMap, startWith } from 'rxjs/operators';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
@@ -18,30 +18,32 @@ import {
   Tag,
   TagSummary
 } from '../models/game.models';
+import { SyncEventsService } from './sync-events.service';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
   private static readonly WINDOWS_PLATFORM_IGDB_ID = 6;
   private readonly listRefresh$ = new Subject<void>();
+  private readonly syncEvents = inject(SyncEventsService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
   private readonly searchApi: GameSearchApi = inject(GAME_SEARCH_API);
 
   watchList(listType: ListType): Observable<GameEntry[]> {
-    return this.listRefresh$.pipe(
+    return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
       switchMap(() => from(this.loadGamesWithTags(listType)))
     );
   }
 
   watchTags(): Observable<TagSummary[]> {
-    return this.listRefresh$.pipe(
+    return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
       switchMap(() => from(this.loadTagSummaries()))
     );
   }
 
   watchViews(listType: ListType): Observable<GameListView[]> {
-    return this.listRefresh$.pipe(
+    return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
       switchMap(() => from(this.repository.listViews(listType)))
     );

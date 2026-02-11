@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { Injectable } from '@angular/core';
-import { GameEntry, GameListView, Tag } from '../models/game.models';
+import { ClientSyncOperation, GameEntry, GameListView, SyncEntityType, SyncOperationType, Tag } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
 export class AppDb extends Dexie {
@@ -8,6 +8,8 @@ export class AppDb extends Dexie {
   tags!: Table<Tag, number>;
   views!: Table<GameListView, number>;
   imageCache!: Table<ImageCacheEntry, number>;
+  outbox!: Table<OutboxEntry, string>;
+  syncMeta!: Table<SyncMetaEntry, string>;
 
   constructor() {
     super('game-shelf-db');
@@ -60,6 +62,15 @@ export class AppDb extends Dexie {
       views: '++id,listType,name,updatedAt,createdAt',
       imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
     });
+
+    this.version(7).stores({
+      games: '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+      outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+      syncMeta: '&key,updatedAt',
+    });
   }
 }
 
@@ -73,4 +84,21 @@ export interface ImageCacheEntry {
   sizeBytes: number;
   updatedAt: string;
   lastAccessedAt: string;
+}
+
+export interface OutboxEntry extends ClientSyncOperation {
+  opId: string;
+  entityType: SyncEntityType;
+  operation: SyncOperationType;
+  payload: unknown;
+  clientTimestamp: string;
+  createdAt: string;
+  attemptCount: number;
+  lastError: string | null;
+}
+
+export interface SyncMetaEntry {
+  key: string;
+  value: string;
+  updatedAt: string;
 }

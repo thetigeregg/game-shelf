@@ -9,6 +9,9 @@ import { GAME_REPOSITORY } from './app/core/data/game-repository';
 import { DexieGameRepository } from './app/core/data/dexie-game-repository';
 import { GAME_SEARCH_API } from './app/core/api/game-search-api';
 import { IgdbProxyService } from './app/core/api/igdb-proxy.service';
+import { SYNC_OUTBOX_WRITER } from './app/core/data/sync-outbox-writer';
+import { GameSyncService } from './app/core/services/game-sync.service';
+import { environment } from './environments/environment';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -16,7 +19,16 @@ bootstrapApplication(AppComponent, {
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: GAME_REPOSITORY, useExisting: DexieGameRepository },
     { provide: GAME_SEARCH_API, useExisting: IgdbProxyService },
+    { provide: SYNC_OUTBOX_WRITER, useExisting: GameSyncService },
     provideIonicAngular(),
     provideHttpClient(withInterceptorsFromDi()),
   ],
 }).catch(err => console.error(err));
+
+if (environment.production && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/service-worker.js').catch(error => {
+      console.warn('[pwa] service_worker_registration_failed', error);
+    });
+  });
+}

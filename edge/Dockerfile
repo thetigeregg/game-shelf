@@ -1,0 +1,16 @@
+FROM node:20-alpine AS build
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+
+COPY angular.json tsconfig.json tsconfig.app.json tsconfig.spec.json ionic.config.json capacitor.config.ts ./
+COPY src ./src
+RUN npm run build
+
+FROM caddy:2.8-alpine
+
+COPY edge/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/www /srv
+
+EXPOSE 8080

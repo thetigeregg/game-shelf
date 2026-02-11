@@ -18,6 +18,7 @@
         label="Game list"
         labelPlacement="stacked"
         interface="popover"
+        placeholder="Select game list"
         [value]="selectedListType"
         (ionChange)="onListTypeChange($any($event).detail.value)"
       >
@@ -131,7 +132,9 @@
       </ion-item>
 
       <ion-item *ngIf="games.length === 0" lines="none">
-        <ion-label color="medium">No games match current metadata filters.</ion-label>
+        <ion-label color="medium">
+          {{ selectedListType ? 'No games match current metadata filters.' : 'Select Collection or Wishlist to load games.' }}
+        </ion-label>
       </ion-item>
     </ng-container>
   </ion-list>

@@ -25,7 +25,7 @@ import {
   IonToolbar,
   ToastController,
 } from '@ionic/angular/standalone';
-import { BehaviorSubject, combineLatest, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
 import { GameEntry, HltbMatchCandidate, ListType } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -68,7 +68,7 @@ export class MetadataValidatorPage {
     { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image (non-PC)' },
   ];
 
-  selectedListType: ListType = 'collection';
+  selectedListType: ListType | null = null;
   selectedMissingFilters: MissingMetadataFilter[] = [];
   selectedGameKeys = new Set<string>();
   isBulkRefreshingHltb = false;
@@ -80,14 +80,16 @@ export class MetadataValidatorPage {
   hltbPickerError: string | null = null;
   hltbPickerTargetGame: GameEntry | null = null;
   private displayedGames: GameEntry[] = [];
-  private readonly selectedListType$ = new BehaviorSubject<ListType>('collection');
+  private readonly selectedListType$ = new BehaviorSubject<ListType | null>(null);
   private readonly selectedMissingFilters$ = new BehaviorSubject<MissingMetadataFilter[]>([]);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
 
   readonly filteredGames$ = combineLatest([
-    this.selectedListType$.pipe(switchMap(listType => this.gameShelfService.watchList(listType))),
+    this.selectedListType$.pipe(
+      switchMap(listType => (listType ? this.gameShelfService.watchList(listType) : of([]))),
+    ),
     this.selectedMissingFilters$,
   ]).pipe(
     map(([games, filters]) => this.applyMissingMetadataFilters(games, filters)),
@@ -98,7 +100,7 @@ export class MetadataValidatorPage {
   );
 
   onListTypeChange(value: ListType | string | null | undefined): void {
-    const next = value === 'wishlist' ? 'wishlist' : 'collection';
+    const next = value === 'collection' || value === 'wishlist' ? value : null;
     this.selectedListType = next;
     this.selectedListType$.next(next);
     this.selectedGameKeys.clear();

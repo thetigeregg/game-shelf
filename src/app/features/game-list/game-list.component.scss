@@ -46,6 +46,11 @@ ion-item ion-label {
   margin-left: 8px;
 }
 
+.detail-game-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 ion-item.game-row-selected {
   --background: rgba(var(--ion-color-primary-rgb), 0.14);
 }

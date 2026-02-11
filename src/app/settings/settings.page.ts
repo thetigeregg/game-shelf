@@ -1177,11 +1177,11 @@ export class SettingsPage {
                 );
 
                 if (waitMs > 0) {
-                    await this.waitWithLoadingCountdown(waitMs, 'Waiting to continue box art lookups');
+                    await this.waitWithLoadingCountdown(waitMs, 'Waiting to continue additional metadata lookups');
                 }
 
                 lastBoxArtRequestStartedAt = Date.now();
-                this.importLoadingMessage = `Resolving box art ${index + 1}/${rowsToImport.length}...`;
+                this.importLoadingMessage = `Resolving additional metadata ${index + 1}/${rowsToImport.length}...`;
                 const boxArt = await this.resolveBoxArtWithRetry(selected, index + 1, rowsToImport.length);
 
                 if (boxArt) {

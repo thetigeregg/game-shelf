@@ -439,6 +439,38 @@ export class GameListComponent implements OnChanges {
         await this.presentToast('Tags updated.');
     }
 
+    async refreshMetadataForSelectedGames(): Promise<void> {
+        const selectedGames = this.getSelectedGames();
+
+        if (selectedGames.length === 0) {
+            return;
+        }
+
+        try {
+            await Promise.all(selectedGames.map(game => this.gameShelfService.refreshGameMetadata(game.igdbGameId, game.platformIgdbId)));
+            this.clearSelectionMode();
+            await this.presentToast(`Refreshed metadata for ${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'}.`);
+        } catch {
+            await this.presentToast('Unable to refresh metadata for selected games.', 'danger');
+        }
+    }
+
+    async updateHltbForSelectedGames(): Promise<void> {
+        const selectedGames = this.getSelectedGames();
+
+        if (selectedGames.length === 0) {
+            return;
+        }
+
+        try {
+            await Promise.all(selectedGames.map(game => this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)));
+            this.clearSelectionMode();
+            await this.presentToast(`Updated HLTB data for ${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'}.`);
+        } catch {
+            await this.presentToast('Unable to update HLTB data for selected games.', 'danger');
+        }
+    }
+
     openGameDetail(game: GameEntry): void {
         this.selectedGame = game;
         this.isGameDetailModalOpen = true;

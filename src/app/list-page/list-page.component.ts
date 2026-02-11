@@ -313,6 +313,16 @@ export class ListPageComponent {
         await this.gameListComponent?.setStatusForSelectedGames();
     }
 
+    async refreshMetadataForSelectedGamesFromPopover(): Promise<void> {
+        this.closeBulkActionsPopover();
+        await this.gameListComponent?.refreshMetadataForSelectedGames();
+    }
+
+    async updateHltbForSelectedGamesFromPopover(): Promise<void> {
+        this.closeBulkActionsPopover();
+        await this.gameListComponent?.updateHltbForSelectedGames();
+    }
+
     openBulkActionsPopover(event: Event): void {
         this.bulkActionsPopoverEvent = event;
         this.isBulkActionsPopoverOpen = true;

@@ -549,6 +549,10 @@ export class GameListComponent implements OnChanges {
         return `game-detail-actions-trigger-${this.listType}`;
     }
 
+    getDetailActionsPopoverId(): string {
+        return `game-detail-actions-popover-${this.listType}`;
+    }
+
     trackByExternalId(_: number, game: GameEntry): string {
         return `${game.igdbGameId}::${game.platformIgdbId}`;
     }
@@ -610,27 +614,27 @@ export class GameListComponent implements OnChanges {
     }
 
     async refreshSelectedGameMetadataFromPopover(): Promise<void> {
+        await this.dismissDetailActionsPopover();
         await this.refreshSelectedGameMetadata();
-        await this.popoverController.dismiss();
     }
 
     async refreshSelectedGameCompletionTimesFromPopover(): Promise<void> {
+        await this.dismissDetailActionsPopover();
         await this.refreshSelectedGameCompletionTimes();
-        await this.popoverController.dismiss();
     }
 
     async openImagePickerFromPopover(): Promise<void> {
-        await this.popoverController.dismiss();
         await this.openImagePickerModal();
+        await this.dismissDetailActionsPopover();
     }
 
     async openFixMatchFromPopover(): Promise<void> {
+        await this.dismissDetailActionsPopover();
         this.openFixMatchModal();
-        await this.popoverController.dismiss();
     }
 
     async deleteSelectedGameFromPopover(): Promise<void> {
-        await this.popoverController.dismiss();
+        await this.dismissDetailActionsPopover();
 
         if (!this.selectedGame) {
             return;
@@ -688,7 +692,7 @@ export class GameListComponent implements OnChanges {
     }
 
     async openSelectedGameTagsFromPopover(): Promise<void> {
-        await this.popoverController.dismiss();
+        await this.dismissDetailActionsPopover();
 
         if (!this.selectedGame) {
             return;
@@ -1642,6 +1646,10 @@ export class GameListComponent implements OnChanges {
         this.imagePickerError = null;
         this.isImagePickerModalOpen = true;
         await this.runImagePickerSearch();
+    }
+
+    private async dismissDetailActionsPopover(): Promise<void> {
+        await this.popoverController.dismiss(undefined, undefined, this.getDetailActionsPopoverId()).catch(() => undefined);
     }
 
     private async openTagsPicker(game: GameEntry): Promise<void> {

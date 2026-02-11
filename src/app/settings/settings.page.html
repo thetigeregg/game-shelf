@@ -73,6 +73,11 @@
     <ion-item lines="none">
       <ion-label>Export / Import CSV</ion-label>
     </ion-item>
+    <ion-item lines="none">
+      <ion-button size="default" expand="block" fill="outline" (click)="openMetadataValidator()">
+        Metadata Validator
+      </ion-button>
+    </ion-item>
     <ion-item lines="none" class="data-actions">
       <ion-button size="default" expand="block" (click)="exportCsv()">Export CSV</ion-button>
       <ion-button size="default" expand="block" fill="outline" (click)="triggerImport(csvFileInput)">Import CSV</ion-button>

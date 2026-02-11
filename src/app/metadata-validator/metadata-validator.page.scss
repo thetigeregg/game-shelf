@@ -1,0 +1,15 @@
+.bulk-actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.validator-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.validator-badges ion-badge {
+  font-size: 0.68rem;
+}

@@ -1,0 +1,138 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/settings"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Metadata Validator</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-list inset="true">
+    <ion-list-header>
+      <ion-label>Scope</ion-label>
+    </ion-list-header>
+
+    <ion-item>
+      <ion-select
+        label="Game list"
+        labelPlacement="stacked"
+        interface="popover"
+        [value]="selectedListType"
+        (ionChange)="onListTypeChange($any($event).detail.value)"
+      >
+        <ion-select-option value="collection">Collection</ion-select-option>
+        <ion-select-option value="wishlist">Wishlist</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
+      <ion-select
+        label="Missing metadata filters"
+        labelPlacement="stacked"
+        interface="popover"
+        [multiple]="true"
+        [value]="selectedMissingFilters"
+        (ionChange)="onMissingFiltersChange($any($event).detail.value)"
+      >
+        <ion-select-option *ngFor="let option of missingFilterOptions" [value]="option.value">
+          {{ option.label }}
+        </ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item lines="none">
+      <ion-label color="medium">{{ getDisplayedGamesLabel() }} in current result</ion-label>
+      <ion-note slot="end">{{ selectedGamesCount }} selected</ion-note>
+    </ion-item>
+
+    <ion-item lines="none" class="bulk-actions-row">
+      <ion-button
+        fill="outline"
+        size="small"
+        (click)="toggleSelectAllDisplayed()"
+      >
+        {{ isAllDisplayedSelected() ? 'Unselect all' : 'Select all' }}
+      </ion-button>
+      <ion-button
+        fill="outline"
+        size="small"
+        color="medium"
+        [disabled]="selectedGamesCount === 0"
+        (click)="clearSelection()"
+      >
+        Clear
+      </ion-button>
+    </ion-item>
+
+    <ion-item lines="none" class="bulk-actions-row">
+      <ion-button
+        size="small"
+        [disabled]="selectedGamesCount === 0 || isBulkRefreshingHltb"
+        (click)="refreshHltbForSelectedGames()"
+      >
+        <ion-spinner *ngIf="isBulkRefreshingHltb" name="crescent" slot="start"></ion-spinner>
+        Bulk HLTB
+      </ion-button>
+      <ion-button
+        size="small"
+        color="secondary"
+        [disabled]="selectedGamesCount === 0 || isBulkRefreshingImage"
+        (click)="refreshImageForSelectedGames()"
+      >
+        <ion-spinner *ngIf="isBulkRefreshingImage" name="crescent" slot="start"></ion-spinner>
+        Bulk Image
+      </ion-button>
+    </ion-item>
+  </ion-list>
+
+  <ion-list inset="true">
+    <ion-list-header>
+      <ion-label>Games</ion-label>
+    </ion-list-header>
+
+    <ng-container *ngIf="filteredGames$ | async as games">
+      <ion-item *ngFor="let game of games; trackBy: trackByGameKey">
+        <ion-checkbox
+          slot="start"
+          [checked]="isGameSelected(game)"
+          (ionChange)="toggleGameSelection(game)"
+        ></ion-checkbox>
+
+        <ion-label>
+          <h2>{{ game.title }}</h2>
+          <p>{{ game.platform }} · {{ game.releaseYear || 'Unknown year' }}</p>
+          <div class="validator-badges">
+            <ion-badge [color]="hasHltbMetadata(game) ? 'success' : 'warning'">
+              HLTB {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
+            </ion-badge>
+            <ion-badge *ngIf="!isNonPcImageNotApplicable(game)" [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
+              Image {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
+            </ion-badge>
+            <ion-badge *ngIf="isNonPcImageNotApplicable(game)" color="medium">
+              Image N/A (PC)
+            </ion-badge>
+          </div>
+        </ion-label>
+
+        <ion-button slot="end" fill="outline" size="small" (click)="refreshHltbForGame(game)">
+          HLTB
+        </ion-button>
+        <ion-button
+          slot="end"
+          fill="outline"
+          size="small"
+          color="secondary"
+          [disabled]="isNonPcImageNotApplicable(game)"
+          (click)="refreshImageForGame(game)"
+        >
+          Image
+        </ion-button>
+      </ion-item>
+
+      <ion-item *ngIf="games.length === 0" lines="none">
+        <ion-label color="medium">No games match current metadata filters.</ion-label>
+      </ion-item>
+    </ng-container>
+  </ion-list>
+</ion-content>

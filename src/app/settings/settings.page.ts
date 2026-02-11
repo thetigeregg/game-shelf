@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading } from "@ionic/angular/standalone";
 import { firstValueFrom } from 'rxjs';
+import { Router } from '@angular/router';
 import {
     DEFAULT_GAME_LIST_FILTERS,
     GameCatalogPlatformOption,
@@ -281,6 +282,7 @@ export class SettingsPage {
     private readonly imageCacheService = inject(ImageCacheService);
     private readonly toastController = inject(ToastController);
     private readonly alertController = inject(AlertController);
+    private readonly router = inject(Router);
 
     constructor() {
         const currentColor = this.themeService.getPrimaryColor();
@@ -455,6 +457,10 @@ export class SettingsPage {
     triggerMgcImport(fileInput: HTMLInputElement): void {
         fileInput.value = '';
         fileInput.click();
+    }
+
+    openMetadataValidator(): void {
+        void this.router.navigateByUrl('/metadata-validator');
     }
 
     async onMgcImportFileSelected(event: Event): Promise<void> {

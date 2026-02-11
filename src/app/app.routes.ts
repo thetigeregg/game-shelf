@@ -14,6 +14,10 @@ export const routes: Routes = [
     loadComponent: () => import('./views/views.page').then(m => m.ViewsPage),
   },
   {
+    path: 'metadata-validator',
+    loadComponent: () => import('./metadata-validator/metadata-validator.page').then(m => m.MetadataValidatorPage),
+  },
+  {
     path: 'tabs',
     loadComponent: () => import('./tabs/tabs.page').then(m => m.TabsPage),
     children: [

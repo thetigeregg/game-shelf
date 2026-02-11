@@ -313,6 +313,7 @@ export class GameListComponent implements OnChanges {
         this.selectionModeActive = false;
         this.selectedGameKeys.clear();
         this.emitSelectionState();
+        this.changeDetectorRef.markForCheck();
     }
 
     toggleSelectAllDisplayed(): void {
@@ -328,6 +329,7 @@ export class GameListComponent implements OnChanges {
         this.selectedGameKeys = new Set(this.displayedGames.map(game => this.getGameKey(game)));
         this.selectionModeActive = true;
         this.emitSelectionState();
+        this.changeDetectorRef.markForCheck();
     }
 
     async deleteSelectedGames(): Promise<void> {
@@ -492,6 +494,7 @@ export class GameListComponent implements OnChanges {
         this.selectedGame = game;
         this.isGameDetailModalOpen = true;
         this.resetImagePickerState();
+        this.changeDetectorRef.markForCheck();
         void this.loadDetailCoverUrl(game);
     }
 
@@ -500,6 +503,7 @@ export class GameListComponent implements OnChanges {
         this.isImagePickerModalOpen = false;
         this.selectedGame = null;
         this.resetImagePickerState();
+        this.changeDetectorRef.markForCheck();
     }
 
     closeRatingModal(): void {
@@ -507,6 +511,7 @@ export class GameListComponent implements OnChanges {
         this.ratingTargetGame = null;
         this.ratingDraft = 3;
         this.clearRatingOnSave = false;
+        this.changeDetectorRef.markForCheck();
     }
 
     onRatingRangeChange(event: Event): void {
@@ -579,6 +584,7 @@ export class GameListComponent implements OnChanges {
         }
 
         this.expandedSectionKeys = [];
+        this.changeDetectorRef.markForCheck();
     }
 
     onImageError(event: Event): void {
@@ -683,7 +689,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.rematchGame(current.igdbGameId, current.platformIgdbId, result);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated, { refreshCover: true });
             this.closeFixMatchModal();
             await this.presentToast('Game match updated.');
         } catch {
@@ -718,7 +724,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.setGameStatus(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, normalized);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated);
             await this.presentToast('Game status updated.');
         } catch {
             await this.presentToast('Unable to update game status.', 'danger');
@@ -732,7 +738,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.setGameStatus(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, null);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated);
             await this.presentToast('Game status cleared.');
         } catch {
             await this.presentToast('Unable to clear game status.', 'danger');
@@ -748,7 +754,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.setGameRating(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, normalized);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated);
             await this.presentToast('Game rating updated.');
         } catch {
             await this.presentToast('Unable to update game rating.', 'danger');
@@ -762,7 +768,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.setGameRating(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, null);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated);
             await this.presentToast('Game rating cleared.');
         } catch {
             await this.presentToast('Unable to clear game rating.', 'danger');
@@ -776,7 +782,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.refreshGameMetadata(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated, { refreshCover: true });
             await this.presentToast('Game metadata refreshed.');
         } catch {
             await this.presentToast('Unable to refresh game metadata.', 'danger');
@@ -790,7 +796,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.refreshGameCompletionTimes(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated);
             await this.presentToast('HLTB data updated.');
         } catch {
             await this.presentToast('Unable to update HLTB data.', 'danger');
@@ -799,6 +805,7 @@ export class GameListComponent implements OnChanges {
 
     closeImagePickerModal(): void {
         this.isImagePickerModalOpen = false;
+        this.changeDetectorRef.markForCheck();
     }
 
     async runImagePickerSearch(): Promise<void> {
@@ -807,11 +814,13 @@ export class GameListComponent implements OnChanges {
         if (normalized.length < 2) {
             this.imagePickerResults = [];
             this.imagePickerError = null;
+            this.changeDetectorRef.markForCheck();
             return;
         }
 
         this.isImagePickerLoading = true;
         this.imagePickerError = null;
+        this.changeDetectorRef.markForCheck();
 
         try {
             this.imagePickerResults = await firstValueFrom(
@@ -826,6 +835,7 @@ export class GameListComponent implements OnChanges {
             this.imagePickerError = 'Unable to load box art results.';
         } finally {
             this.isImagePickerLoading = false;
+            this.changeDetectorRef.markForCheck();
         }
     }
 
@@ -841,7 +851,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const updated = await this.gameShelfService.updateGameCover(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, url);
-            this.selectedGame = updated;
+            this.applyUpdatedGame(updated, { refreshCover: true });
             this.closeImagePickerModal();
             await this.presentToast('Game image updated.');
         } catch {
@@ -1645,6 +1655,7 @@ export class GameListComponent implements OnChanges {
         this.imagePickerResults = [];
         this.imagePickerError = null;
         this.isImagePickerModalOpen = true;
+        this.changeDetectorRef.markForCheck();
         await this.runImagePickerSearch();
     }
 
@@ -1689,9 +1700,7 @@ export class GameListComponent implements OnChanges {
 
         const updated = await this.gameShelfService.setGameTags(game.igdbGameId, game.platformIgdbId, nextTagIds);
 
-        if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
-            this.selectedGame = updated;
-        }
+        this.applyUpdatedGame(updated);
 
         await this.presentToast('Tags updated.');
     }
@@ -1778,21 +1787,35 @@ export class GameListComponent implements OnChanges {
         await alert.present();
         const { role } = await alert.onDidDismiss();
 
-        if (role !== 'confirm') {
+        if (role !== 'confirm' && role !== 'destructive') {
             return;
         }
 
         try {
             const updated = await this.gameShelfService.setGameStatus(game.igdbGameId, game.platformIgdbId, nextStatus);
 
-            if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
-                this.selectedGame = updated;
-            }
+            this.applyUpdatedGame(updated);
 
             await this.presentToast('Game status updated.');
         } catch {
             await this.presentToast('Unable to update game status.', 'danger');
         }
+    }
+
+    private applyUpdatedGame(updated: GameEntry, options: { refreshCover?: boolean } = {}): void {
+        if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
+            this.selectedGame = updated;
+        }
+
+        if (options.refreshCover) {
+            const gameKey = this.getGameKey(updated);
+            this.rowCoverUrlByGameKey.delete(gameKey);
+            this.detailCoverUrlByGameKey.delete(gameKey);
+            void this.loadRowCoverUrl(updated);
+            void this.loadDetailCoverUrl(updated);
+        }
+
+        this.changeDetectorRef.markForCheck();
     }
 
     private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {

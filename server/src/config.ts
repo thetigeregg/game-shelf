@@ -1,8 +1,10 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
 const envFile = readEnvFilePath();
 dotenv.config({ path: envFile });
+const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function readEnv(name: string, fallback = ''): string {
   const value = process.env[name];
@@ -61,7 +63,7 @@ function readPathEnv(name: string, fallbackAbsolutePath: string): string {
     return value;
   }
 
-  return path.resolve(process.cwd(), value);
+  return path.resolve(serverRootDir, value);
 }
 
 export const config: AppConfig = {

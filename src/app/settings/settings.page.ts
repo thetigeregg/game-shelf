@@ -23,7 +23,7 @@ import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
 import { addIcons } from "ionicons";
-import { close, trash, alertCircle } from "ionicons/icons";
+import { close, trash, alertCircle, download, share, fileTrayFull } from "ionicons/icons";
 
 interface ThemePreset {
     label: string;
@@ -291,7 +291,7 @@ export class SettingsPage {
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
-        addIcons({ close, trash, alertCircle });
+        addIcons({ close, trash, alertCircle, download, share, fileTrayFull });
     }
 
     onColorSchemePreferenceChange(value: ColorSchemePreference | string): void {

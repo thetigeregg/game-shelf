@@ -8,7 +8,11 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list inset="true">
+  <ion-list lines="full">
+    <ion-list-header>
+      <ion-label>Theme</ion-label>
+    </ion-list-header>
+
     <ion-item>
       <ion-label>Theme Mode</ion-label>
       <ion-select
@@ -49,7 +53,7 @@
     </ion-item>
   </ion-list>
 
-  <ion-list inset="true">
+  <ion-list lines="full">
     <ion-list-header>
       <ion-label>Data</ion-label>
     </ion-list-header>
@@ -66,26 +70,14 @@
         (ngModelChange)="onImageCacheLimitChange($event)"
       />
     </ion-item>
-    <ion-item lines="none" class="cache-usage-item">
+    <ion-item class="cache-usage-item">
       <ion-label color="medium">Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label>
     </ion-item>
-
-    <ion-item lines="none">
-      <ion-label>Export / Import CSV</ion-label>
+    <ion-item button detail="true" (click)="openMetadataValidator()">
+      <ion-icon slot="start" color="primary" name="file-tray-full"></ion-icon>
+      <ion-label>Metadata Validator</ion-label>
     </ion-item>
     <ion-item lines="none">
-      <ion-button size="default" expand="block" fill="outline" (click)="openMetadataValidator()">
-        Metadata Validator
-      </ion-button>
-    </ion-item>
-    <ion-item lines="none" class="data-actions">
-      <ion-button size="default" expand="block" (click)="exportCsv()">Export CSV</ion-button>
-      <ion-button size="default" expand="block" fill="outline" (click)="triggerImport(csvFileInput)">Import CSV</ion-button>
-    </ion-item>
-    <ion-item lines="none" class="data-actions data-actions-mgc">
-      <ion-button size="default" expand="block" fill="outline" color="secondary" (click)="triggerMgcImport(mgcCsvFileInput)">
-        Import MGC CSV
-      </ion-button>
       <input
         #csvFileInput
         class="hidden-file-input"
@@ -100,6 +92,32 @@
         accept=".csv,text/csv"
         (change)="onMgcImportFileSelected($event)"
       />
+    </ion-item>
+  </ion-list>
+
+  <ion-list lines="full">
+    <ion-list-header>
+      <ion-label>Import/Export</ion-label>
+    </ion-list-header>
+
+    <ion-item button detail="true" (click)="exportCsv()">
+      <ion-icon slot="start" color="primary" name="share"></ion-icon>
+      <ion-label>Export CSV</ion-label>
+    </ion-item>
+    <ion-item button detail="true" (click)="triggerImport(csvFileInput)">
+      <ion-icon slot="start" color="primary" name="download"></ion-icon>
+      <ion-label>Import CSV</ion-label>
+    </ion-item>
+  </ion-list>
+
+  <ion-list lines="full">
+    <ion-list-header>
+      <ion-label>Other</ion-label>
+    </ion-list-header>
+
+    <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
+      <ion-icon slot="start" color="primary" name="download"></ion-icon>
+      <ion-label>Import MGC CSV</ion-label>
     </ion-item>
   </ion-list>
 </ion-content>

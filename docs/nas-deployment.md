@@ -31,6 +31,7 @@ If you run Fastify directly from your Mac, use `server/.env.dev`:
 `DATABASE_URL=postgres://gameshelf:gameshelf@localhost:5432/gameshelf`
 `IMAGE_CACHE_DIR=./server/.data/images`
 `HLTB_SCRAPER_BASE_URL=http://localhost:8788`
+`HLTB_SCRAPER_TIMEOUT_MS=30000`
 
 The `postgres` service is published to host port `5432` in `docker-compose.yml` for this workflow.
 

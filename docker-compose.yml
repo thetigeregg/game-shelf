@@ -43,4 +43,6 @@ services:
     environment:
       PORT: 8788
       HLTB_SCRAPER_TIMEOUT_MS: 25000
+    ports:
+      - "8788:8788"
     restart: unless-stopped

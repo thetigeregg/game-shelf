@@ -498,6 +498,30 @@ function getHltbScraperToken(env) {
   return value.length > 0 ? value : null;
 }
 
+function getHltbScraperRequestTimeoutMs(env) {
+  const raw = Number.parseInt(String(env.HLTB_SCRAPER_TIMEOUT_MS ?? ''), 10);
+
+  if (!Number.isInteger(raw) || raw < 1000) {
+    return 30_000;
+  }
+
+  return Math.min(raw, 120_000);
+}
+
+async function fetchWithTimeout(fetchImpl, url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetchImpl(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function normalizeTheGamesDbUrl(filename, baseUrl) {
   if (typeof filename !== 'string' || filename.length === 0) {
     return null;
@@ -897,6 +921,7 @@ async function searchHltbCompletionTimesViaScraperService(title, releaseYear, pl
     Accept: 'application/json',
   };
   const token = getHltbScraperToken(env);
+  const timeoutMs = getHltbScraperRequestTimeoutMs(env);
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -908,14 +933,15 @@ async function searchHltbCompletionTimesViaScraperService(title, releaseYear, pl
       releaseYear: releaseYear ?? null,
       platform: platform ?? null,
       baseUrl,
+      timeoutMs,
     });
   }
 
   try {
-    const response = await fetchImpl(url.toString(), {
+    const response = await fetchWithTimeout(fetchImpl, url.toString(), {
       method: 'GET',
       headers,
-    });
+    }, timeoutMs);
 
     if (!response.ok) {
       if (debugLogs) {
@@ -958,9 +984,13 @@ async function searchHltbCompletionTimesViaScraperService(title, releaseYear, pl
     return normalized;
   } catch (error) {
     if (debugLogs) {
+      const cause = error && typeof error === 'object' ? error.cause : undefined;
       console.warn('[hltb] scraper_lookup_exception', {
         title,
+        timeoutMs,
         message: error instanceof Error ? error.message : String(error),
+        causeMessage: cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : undefined,
+        causeCode: cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : undefined,
       });
     }
     return null;
@@ -990,16 +1020,17 @@ async function searchHltbCandidatesViaScraperService(title, releaseYear, platfor
     Accept: 'application/json',
   };
   const token = getHltbScraperToken(env);
+  const timeoutMs = getHltbScraperRequestTimeoutMs(env);
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
   try {
-    const response = await fetchImpl(url.toString(), {
+    const response = await fetchWithTimeout(fetchImpl, url.toString(), {
       method: 'GET',
       headers,
-    });
+    }, timeoutMs);
 
     if (!response.ok) {
       return [];
@@ -1026,9 +1057,13 @@ async function searchHltbCandidatesViaScraperService(title, releaseYear, platfor
       .filter(candidate => candidate.title.length > 0);
   } catch (error) {
     if (debugLogs) {
+      const cause = error && typeof error === 'object' ? error.cause : undefined;
       console.warn('[hltb] scraper_candidates_exception', {
         title,
+        timeoutMs,
         message: error instanceof Error ? error.message : String(error),
+        causeMessage: cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : undefined,
+        causeCode: cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : undefined,
       });
     }
     return [];

@@ -26,17 +26,21 @@ export async function proxyMetadataToWorker(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
+  const response = await fetchMetadataFromWorker(request);
+  await sendWebResponse(reply, response);
+}
+
+export async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Response> {
   const requestUrl = new URL(request.url, 'http://game-shelf.local');
   const proxiedRequest = new Request(requestUrl.toString(), {
     method: request.method,
     headers: request.headers as HeadersInit,
   });
 
-  const response = await handleWorkerRequest(proxiedRequest, workerEnv, fetch, () => Date.now());
-  await sendWebResponse(reply, response);
+  return handleWorkerRequest(proxiedRequest, workerEnv, fetch, () => Date.now());
 }
 
-async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {
+export async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {
   reply.code(response.status);
   response.headers.forEach((value, key) => {
     reply.header(key, value);
@@ -58,4 +62,3 @@ async function sendWebResponse(reply: FastifyReply, response: Response): Promise
   const bytes = Buffer.from(await response.arrayBuffer());
   reply.send(bytes);
 }
-

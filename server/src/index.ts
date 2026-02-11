@@ -5,6 +5,7 @@ import cors from '@fastify/cors';
 import { config } from './config.js';
 import { createPool } from './db.js';
 import { registerImageProxyRoute } from './image-cache.js';
+import { registerHltbCachedRoute } from './hltb-cache.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerSyncRoutes } from './sync.js';
 
@@ -48,7 +49,7 @@ async function main(): Promise<void> {
   app.get('/v1/games/:id', proxyMetadataToWorker);
   app.get('/v1/platforms', proxyMetadataToWorker);
   app.get('/v1/images/boxart/search', proxyMetadataToWorker);
-  app.get('/v1/hltb/search', proxyMetadataToWorker);
+  registerHltbCachedRoute(app, pool);
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({

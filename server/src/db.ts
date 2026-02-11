@@ -62,6 +62,17 @@ const MIGRATIONS: string[] = [
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   `,
+  `
+  CREATE TABLE IF NOT EXISTS hltb_search_cache (
+    cache_key TEXT PRIMARY KEY,
+    query_title TEXT NOT NULL,
+    release_year INTEGER,
+    platform TEXT,
+    include_candidates BOOLEAN NOT NULL DEFAULT FALSE,
+    response_json JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
 ];
 
 export async function createPool(databaseUrl: string): Promise<Pool> {
@@ -83,4 +94,3 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
 
   return pool;
 }
-

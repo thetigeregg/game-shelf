@@ -156,6 +156,7 @@ export class GameListComponent implements OnChanges {
     isRowActionsPopoverOpen = false;
     rowActionsPopoverEvent: Event | undefined = undefined;
     rowActionsGame: GameEntry | null = null;
+    expandedSectionKeys: string[] = [];
     selectedGameKeys = new Set<string>();
     private readonly rowCoverUrlByGameKey = new Map<string, string>();
     private readonly detailCoverUrlByGameKey = new Map<string, string>();
@@ -196,7 +197,17 @@ export class GameListComponent implements OnChanges {
             );
 
             this.groupedView$ = combineLatest([this.games$, this.groupBy$]).pipe(
-                map(([games, groupBy]) => this.buildGroupedView(games, groupBy))
+                map(([games, groupBy]) => {
+                    const groupedView = this.buildGroupedView(games, groupBy);
+
+                    if (groupedView.grouped) {
+                        this.syncExpandedSectionKeys(groupedView.sections);
+                    } else if (this.expandedSectionKeys.length > 0) {
+                        this.expandedSectionKeys = [];
+                    }
+
+                    return groupedView;
+                })
             );
         }
 
@@ -540,6 +551,30 @@ export class GameListComponent implements OnChanges {
 
     trackByExternalId(_: number, game: GameEntry): string {
         return `${game.igdbGameId}::${game.platformIgdbId}`;
+    }
+
+    trackBySectionKey(_: number, section: GameGroupSection): string {
+        return section.key;
+    }
+
+    onGroupedAccordionChange(event: Event): void {
+        const customEvent = event as CustomEvent<{ value?: string | string[] | null }>;
+        const rawValue = customEvent.detail?.value;
+
+        if (Array.isArray(rawValue)) {
+            this.expandedSectionKeys = rawValue
+                .filter(value => typeof value === 'string')
+                .map(value => value.trim())
+                .filter(value => value.length > 0);
+            return;
+        }
+
+        if (typeof rawValue === 'string' && rawValue.trim().length > 0) {
+            this.expandedSectionKeys = [rawValue.trim()];
+            return;
+        }
+
+        this.expandedSectionKeys = [];
     }
 
     onImageError(event: Event): void {
@@ -1103,6 +1138,23 @@ export class GameListComponent implements OnChanges {
             selectedCount: this.selectedGameKeys.size,
             allDisplayedSelected: this.isAllDisplayedSelected(),
         });
+    }
+
+    private syncExpandedSectionKeys(sections: GameGroupSection[]): void {
+        const validSectionKeys = new Set(sections.map(section => section.key));
+        const nextExpandedKeys = this.expandedSectionKeys.filter(sectionKey => validSectionKeys.has(sectionKey));
+
+        if (nextExpandedKeys.length !== this.expandedSectionKeys.length) {
+            this.expandedSectionKeys = nextExpandedKeys;
+            return;
+        }
+
+        for (let index = 0; index < nextExpandedKeys.length; index += 1) {
+            if (nextExpandedKeys[index] !== this.expandedSectionKeys[index]) {
+                this.expandedSectionKeys = nextExpandedKeys;
+                return;
+            }
+        }
     }
 
     private clearLongPressTimer(): void {

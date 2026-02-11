@@ -12,8 +12,10 @@
   <ion-accordion-group
     *ngIf="groupedView.grouped && groupedView.totalCount > 0"
     [multiple]="true"
+    [value]="expandedSectionKeys"
+    (ionChange)="onGroupedAccordionChange($event)"
   >
-    <ion-accordion *ngFor="let section of groupedView.sections" [value]="section.key">
+    <ion-accordion *ngFor="let section of groupedView.sections; trackBy: trackBySectionKey" [value]="section.key">
       <ion-item slot="header" color="light">
         <ion-label>
           <div class="group-header-title">{{ section.title }}</div>

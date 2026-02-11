@@ -136,3 +136,71 @@
     </ng-container>
   </ion-list>
 </ion-content>
+
+<ion-modal [isOpen]="isHltbPickerModalOpen" (didDismiss)="closeHltbPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select HLTB Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeHltbPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <ion-item lines="none">
+        <ion-searchbar
+          [value]="hltbPickerQuery"
+          placeholder="Search HLTB"
+          show-clear-button="focus"
+          (ionInput)="onHltbPickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button slot="end" [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">Search</ion-button>
+      </ion-item>
+
+      <div class="picker-state" *ngIf="isHltbPickerLoading">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+
+      <p class="picker-state ion-text-center" *ngIf="!isHltbPickerLoading && hltbPickerError">
+        {{ hltbPickerError }}
+      </p>
+
+      <p class="picker-state ion-text-center" *ngIf="!isHltbPickerLoading && !hltbPickerError && hltbPickerResults.length === 0">
+        No HLTB results found.
+      </p>
+
+      <ion-list *ngIf="!isHltbPickerLoading && hltbPickerResults.length > 0">
+        <ion-item button detail="false" *ngFor="let candidate of hltbPickerResults" (click)="applySelectedHltbCandidate(candidate)">
+          <ion-thumbnail slot="start" *ngIf="candidate.imageUrl">
+            <img [src]="candidate.imageUrl" alt="HLTB result cover" />
+          </ion-thumbnail>
+          <ion-label>
+            <h2>{{ candidate.title }}</h2>
+            <p>
+              {{ candidate.releaseYear || 'Unknown year' }}
+              <span *ngIf="candidate.platform"> · {{ candidate.platform }}</span>
+            </p>
+            <p>
+              Main: {{ candidate.hltbMainHours ?? '?' }}h ·
+              Main + Extra: {{ candidate.hltbMainExtraHours ?? '?' }}h ·
+              Completionist: {{ candidate.hltbCompletionistHours ?? '?' }}h
+            </p>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+
+      <ion-item lines="none">
+        <ion-button
+          expand="block"
+          fill="outline"
+          [disabled]="isHltbPickerLoading"
+          (click)="useOriginalHltbLookup()"
+        >
+          Use Original Match
+        </ion-button>
+      </ion-item>
+    </ion-content>
+  </ng-template>
+</ion-modal>

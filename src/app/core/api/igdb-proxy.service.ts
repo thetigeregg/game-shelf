@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { GameCatalogPlatformOption, GameCatalogResult, HltbCompletionTimes } from '../models/game.models';
+import { GameCatalogPlatformOption, GameCatalogResult, HltbCompletionTimes, HltbMatchCandidate } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
 
@@ -21,6 +21,7 @@ interface BoxArtSearchResponse {
 
 interface HltbSearchResponse {
   item: HltbCompletionTimes | null;
+  candidates?: HltbMatchCandidate[] | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -177,6 +178,31 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
+  lookupCompletionTimeCandidates(title: string, releaseYear?: number | null, platform?: string | null): Observable<HltbMatchCandidate[]> {
+    const normalizedTitle = title.trim();
+
+    if (normalizedTitle.length < 2) {
+      return of([]);
+    }
+
+    let params = new HttpParams().set('q', normalizedTitle).set('includeCandidates', 'true');
+    const normalizedYear = Number.isInteger(releaseYear) && (releaseYear as number) > 0 ? releaseYear as number : null;
+    const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
+
+    if (normalizedYear !== null) {
+      params = params.set('releaseYear', String(normalizedYear));
+    }
+
+    if (normalizedPlatform.length > 0) {
+      params = params.set('platform', normalizedPlatform);
+    }
+
+    return this.httpClient.get<HltbSearchResponse>(this.hltbSearchUrl, { params }).pipe(
+      map(response => this.normalizeHltbCandidates(response?.candidates ?? [])),
+      catchError(() => of([])),
+    );
+  }
+
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
     const payload = result as GameCatalogResult & { externalId?: string };
     const platformOptions = this.normalizePlatformOptions(result);
@@ -281,6 +307,59 @@ export class IgdbProxyService implements GameSearchApi {
 
     if (normalized.hltbMainHours === null && normalized.hltbMainExtraHours === null && normalized.hltbCompletionistHours === null) {
       return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeHltbCandidates(candidates: HltbMatchCandidate[] | null | undefined): HltbMatchCandidate[] {
+    if (!Array.isArray(candidates)) {
+      return [];
+    }
+
+    return candidates
+      .map(candidate => {
+        const title = typeof candidate?.title === 'string' ? candidate.title.trim() : '';
+        const releaseYear = Number.isInteger(candidate?.releaseYear) ? candidate.releaseYear : null;
+        const platform = typeof candidate?.platform === 'string' && candidate.platform.trim().length > 0
+          ? candidate.platform.trim()
+          : null;
+        const candidateRecord = candidate as unknown as Record<string, unknown>;
+        const imageUrl = this.normalizeExternalImageUrl(
+          typeof candidate?.imageUrl === 'string'
+            ? candidate.imageUrl
+            : (typeof candidateRecord['coverUrl'] === 'string' ? candidateRecord['coverUrl'] : null),
+        );
+
+        return {
+          title,
+          releaseYear,
+          platform,
+          hltbMainHours: this.normalizeCompletionHours(candidate?.hltbMainHours),
+          hltbMainExtraHours: this.normalizeCompletionHours(candidate?.hltbMainExtraHours),
+          hltbCompletionistHours: this.normalizeCompletionHours(candidate?.hltbCompletionistHours),
+          ...(imageUrl ? { imageUrl } : {}),
+        };
+      })
+      .filter(candidate => candidate.title.length > 0)
+      .filter((candidate, index, all) => {
+        return all.findIndex(entry => (
+          entry.title === candidate.title
+          && entry.releaseYear === candidate.releaseYear
+          && entry.platform === candidate.platform
+        )) === index;
+      });
+  }
+
+  private normalizeExternalImageUrl(value: string | null): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    if (normalized.startsWith('//')) {
+      return `https:${normalized}`;
     }
 
     return normalized;

@@ -26,6 +26,11 @@ function normalizePlatform(req) {
   return String(req.query.platform ?? '').trim();
 }
 
+function normalizeIncludeCandidates(req) {
+  const raw = String(req.query.includeCandidates ?? '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
 function normalizeTitle(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -164,6 +169,28 @@ function normalizePlatformText(value) {
   return '';
 }
 
+function normalizeImageUrl(value) {
+  const normalized = String(value ?? '').trim();
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (normalized.startsWith('//')) {
+    return `https:${normalized}`;
+  }
+
+  if (normalized.startsWith('/')) {
+    return `https://howlongtobeat.com${normalized}`;
+  }
+
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    return normalized;
+  }
+
+  return null;
+}
+
 function normalizeEntry(entry) {
   if (!entry || typeof entry !== 'object') {
     return null;
@@ -181,6 +208,7 @@ function normalizeEntry(entry) {
     title,
     releaseYear: normalizeReleaseYear(entry.release_world ?? entry.release_na ?? entry.release_eu ?? entry.release_jp),
     platformText: normalizePlatformText(entry.profile_platform ?? entry.platform ?? entry.profile_platforms ?? entry.platforms),
+    imageUrl: normalizeImageUrl(entry.game_image ?? entry.image_url ?? entry.image ?? entry.cover_url ?? entry.cover),
     hltbMainHours: normalizeHours(entry.comp_main),
     hltbMainExtraHours: normalizeHours(entry.comp_plus),
     hltbCompletionistHours: normalizeHours(entry.comp_100),
@@ -270,8 +298,22 @@ async function collectCandidatesFromNextData(page, sink) {
 
 function findBestMatch(entries, expectedTitle, expectedReleaseYear, expectedPlatform) {
   const normalizedExpectedPlatform = normalizeTitle(expectedPlatform);
-  let best = null;
-  let bestScore = Number.NEGATIVE_INFINITY;
+  const rankedCandidates = rankCandidateEntries(entries, expectedTitle, expectedReleaseYear, normalizedExpectedPlatform);
+  const best = rankedCandidates[0] ?? null;
+
+  if (!best) {
+    return null;
+  }
+
+  return {
+    hltbMainHours: best.hltbMainHours,
+    hltbMainExtraHours: best.hltbMainExtraHours,
+    hltbCompletionistHours: best.hltbCompletionistHours,
+  };
+}
+
+function rankCandidateEntries(entries, expectedTitle, expectedReleaseYear, normalizedExpectedPlatform) {
+  const ranked = [];
 
   for (const entry of entries) {
     const normalized = normalizeEntry(entry);
@@ -312,21 +354,29 @@ function findBestMatch(entries, expectedTitle, expectedReleaseYear, expectedPlat
       }
     }
 
-    if (score > bestScore) {
-      bestScore = score;
-      best = normalized;
-    }
+    ranked.push({
+      score,
+      title: normalized.title,
+      releaseYear: normalized.releaseYear,
+      platform: normalized.platformText.trim() || null,
+      imageUrl: normalized.imageUrl,
+      hltbMainHours: normalized.hltbMainHours,
+      hltbMainExtraHours: normalized.hltbMainExtraHours,
+      hltbCompletionistHours: normalized.hltbCompletionistHours,
+    });
   }
 
-  if (!best) {
-    return null;
-  }
-
-  return {
-    hltbMainHours: best.hltbMainHours,
-    hltbMainExtraHours: best.hltbMainExtraHours,
-    hltbCompletionistHours: best.hltbCompletionistHours,
-  };
+  return ranked
+    .sort((left, right) => right.score - left.score)
+    .filter((candidate, index, all) => {
+      return all.findIndex(entry => (
+        entry.title === candidate.title
+        && entry.releaseYear === candidate.releaseYear
+        && entry.platform === candidate.platform
+      )) === index;
+    })
+    .slice(0, 12)
+    .map(({ score: _score, ...candidate }) => candidate);
 }
 
 async function searchHltbInBrowser(page, title, releaseYear, platform) {
@@ -450,6 +500,8 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     const relevantEntries = filterEntriesByTitle(capturedEntries, title);
     const entriesForMatch = relevantEntries;
     const item = findBestMatch(entriesForMatch, title, releaseYear, platform);
+    const normalizedExpectedPlatform = normalizeTitle(platform);
+    const candidates = rankCandidateEntries(entriesForMatch, title, releaseYear, normalizedExpectedPlatform);
     const sampledTimes = entriesForMatch
       .slice(0, 5)
       .map(entry => ({
@@ -479,6 +531,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
 
     return {
       item,
+      candidates,
       diagnostic: {
         ok: entriesForMatch.length > 0,
         status: Number.isInteger(lastStatus) ? lastStatus : 0,
@@ -511,6 +564,7 @@ app.get('/v1/hltb/search', async (req, res) => {
   const query = normalizeSearchQuery(req);
   const releaseYear = normalizeReleaseYearQuery(req);
   const platform = normalizePlatform(req);
+  const includeCandidates = normalizeIncludeCandidates(req);
 
   if (query.length < 2) {
     res.status(400).json({ error: 'Query must be at least 2 characters.' });
@@ -528,6 +582,7 @@ app.get('/v1/hltb/search', async (req, res) => {
     });
     const page = await context.newPage();
     let item = null;
+    let candidates = [];
 
     for (const variant of titleVariants) {
       const result = await searchHltbInBrowser(page, variant, releaseYear, platform);
@@ -550,13 +605,14 @@ app.get('/v1/hltb/search', async (req, res) => {
 
       if (result.item !== null) {
         item = result.item;
+        candidates = result.candidates;
         break;
       }
     }
 
     await context.close();
 
-    res.json({ item });
+    res.json(includeCandidates ? { item, candidates } : { item });
   } catch (error) {
     console.error('[hltb-scraper] request_failed', {
       query,

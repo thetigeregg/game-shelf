@@ -80,6 +80,13 @@ export interface HltbCompletionTimes {
   hltbCompletionistHours: number | null;
 }
 
+export interface HltbMatchCandidate extends HltbCompletionTimes {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  imageUrl?: string | null;
+}
+
 export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';
 export type SortDirection = 'asc' | 'desc';
 export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' | 'tag' | 'genre' | 'publisher' | 'releaseYear';

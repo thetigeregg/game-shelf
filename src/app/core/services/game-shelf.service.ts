@@ -10,6 +10,7 @@ import {
   GameGroupByField,
   GameListFilters,
   GameListView,
+  HltbMatchCandidate,
   GameRating,
   GameStatus,
   GameTag,
@@ -62,6 +63,16 @@ export class GameShelfService {
 
   listSearchPlatforms(): Observable<GameCatalogPlatformOption[]> {
     return this.searchApi.listPlatforms();
+  }
+
+  searchHltbCandidates(title: string, releaseYear?: number | null, platform?: string | null): Observable<HltbMatchCandidate[]> {
+    const normalized = title.trim();
+
+    if (normalized.length < 2) {
+      return of([]);
+    }
+
+    return this.searchApi.lookupCompletionTimeCandidates(normalized, releaseYear, platform);
   }
 
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
@@ -211,8 +222,42 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
+    return this.refreshGameCompletionTimesWithLookup(
+      existing,
+      existing.title,
+      existing.releaseYear,
+      existing.platform,
+    );
+  }
+
+  async refreshGameCompletionTimesWithQuery(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query: { title: string; releaseYear?: number | null; platform?: string | null },
+  ): Promise<GameEntry> {
+    const existing = await this.repository.exists(igdbGameId, platformIgdbId);
+
+    if (!existing) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const title = String(query.title ?? '').trim() || existing.title;
+    const releaseYear = Number.isInteger(query.releaseYear) ? query.releaseYear as number : existing.releaseYear;
+    const platform = typeof query.platform === 'string' && query.platform.trim().length > 0
+      ? query.platform.trim()
+      : existing.platform;
+
+    return this.refreshGameCompletionTimesWithLookup(existing, title, releaseYear, platform);
+  }
+
+  private async refreshGameCompletionTimesWithLookup(
+    existing: GameEntry,
+    title: string,
+    releaseYear: number | null,
+    platform: string,
+  ): Promise<GameEntry> {
     const completionTimes = await firstValueFrom(
-      this.searchApi.lookupCompletionTimes(existing.title, existing.releaseYear, existing.platform),
+      this.searchApi.lookupCompletionTimes(title, releaseYear, platform),
     );
 
     const updated = await this.repository.upsertFromCatalog(

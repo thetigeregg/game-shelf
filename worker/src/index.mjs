@@ -94,6 +94,11 @@ function normalizeReleaseYearQuery(url) {
   return parsed;
 }
 
+function normalizeIncludeCandidatesQuery(url) {
+  const raw = String(url.searchParams.get('includeCandidates') ?? '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
 function normalizeGameIdFromPath(pathname) {
   const match = pathname.match(/^\/v1\/games\/(\d+)$/);
   return match ? match[1] : null;
@@ -962,6 +967,74 @@ async function searchHltbCompletionTimesViaScraperService(title, releaseYear, pl
   }
 }
 
+async function searchHltbCandidatesViaScraperService(title, releaseYear, platform, env, fetchImpl, debugLogs = false) {
+  const baseUrl = getHltbScraperBaseUrl(env);
+
+  if (!baseUrl) {
+    return [];
+  }
+
+  const url = new URL(`${baseUrl}/v1/hltb/search`);
+  url.searchParams.set('q', title);
+  url.searchParams.set('includeCandidates', 'true');
+
+  if (Number.isInteger(releaseYear) && releaseYear > 0) {
+    url.searchParams.set('releaseYear', String(releaseYear));
+  }
+
+  if (typeof platform === 'string' && platform.trim().length > 0) {
+    url.searchParams.set('platform', platform.trim());
+  }
+
+  const headers = {
+    Accept: 'application/json',
+  };
+  const token = getHltbScraperToken(env);
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetchImpl(url.toString(), {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const payload = await response.json();
+
+    if (!Array.isArray(payload?.candidates)) {
+      return [];
+    }
+
+    return payload.candidates
+      .map(candidate => ({
+        title: typeof candidate?.title === 'string' ? candidate.title.trim() : '',
+        releaseYear: Number.isInteger(candidate?.releaseYear) ? candidate.releaseYear : null,
+        platform: typeof candidate?.platform === 'string' && candidate.platform.trim().length > 0
+          ? candidate.platform.trim()
+          : null,
+        imageUrl: normalizeHltbCandidateImageUrl(candidate?.imageUrl ?? candidate?.coverUrl ?? null),
+        hltbMainHours: normalizeHltbHoursValue(candidate?.hltbMainHours),
+        hltbMainExtraHours: normalizeHltbHoursValue(candidate?.hltbMainExtraHours),
+        hltbCompletionistHours: normalizeHltbHoursValue(candidate?.hltbCompletionistHours),
+      }))
+      .filter(candidate => candidate.title.length > 0);
+  } catch (error) {
+    if (debugLogs) {
+      console.warn('[hltb] scraper_candidates_exception', {
+        title,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return [];
+  }
+}
+
 async function searchHltbCompletionTimes(title, releaseYear, platform, env, fetchImpl, debugLogs = false) {
   const normalizedTitle = String(title ?? '').trim();
   const normalizedPlatform = String(platform ?? '').trim();
@@ -1012,6 +1085,28 @@ function normalizeProxyImageUrl(url) {
   } catch {
     return null;
   }
+}
+
+function normalizeHltbCandidateImageUrl(url) {
+  const normalized = String(url ?? '').trim();
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (normalized.startsWith('//')) {
+    return `https:${normalized}`;
+  }
+
+  if (normalized.startsWith('/')) {
+    return `https://howlongtobeat.com${normalized}`;
+  }
+
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    return normalized;
+  }
+
+  return null;
 }
 
 async function fetchAppToken(env, fetchImpl, nowMs) {
@@ -1367,8 +1462,14 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       const query = normalizeSearchQuery(url);
       const releaseYear = normalizeReleaseYearQuery(url);
       const platform = normalizePlatformQuery(url);
+      const includeCandidates = normalizeIncludeCandidatesQuery(url);
       const item = await searchHltbCompletionTimes(query, releaseYear, platform, env, loggedFetch, debugHltb);
-      return jsonResponse({ item }, 200);
+      if (!includeCandidates) {
+        return jsonResponse({ item }, 200);
+      }
+
+      const candidates = await searchHltbCandidatesViaScraperService(query, releaseYear, platform, env, loggedFetch, debugHltb);
+      return jsonResponse({ item, candidates }, 200);
     }
 
     const token = await fetchAppToken(env, loggedFetch, nowMs);

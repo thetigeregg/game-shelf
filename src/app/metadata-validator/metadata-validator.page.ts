@@ -14,17 +14,20 @@ import {
   IonLabel,
   IonList,
   IonListHeader,
+  IonModal,
   IonNote,
+  IonSearchbar,
   IonSelect,
   IonSelectOption,
   IonSpinner,
+  IonThumbnail,
   IonTitle,
   IonToolbar,
   ToastController,
 } from '@ionic/angular/standalone';
 import { BehaviorSubject, combineLatest, firstValueFrom } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
-import { GameEntry, ListType } from '../core/models/game.models';
+import { GameEntry, HltbMatchCandidate, ListType } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
 
 type MissingMetadataFilter = 'hltb' | 'nonPcTheGamesDbImage';
@@ -48,10 +51,13 @@ type MissingMetadataFilter = 'hltb' | 'nonPcTheGamesDbImage';
     IonLabel,
     IonList,
     IonListHeader,
+    IonModal,
     IonNote,
+    IonSearchbar,
     IonSelect,
     IonSelectOption,
     IonSpinner,
+    IonThumbnail,
     IonTitle,
     IonToolbar,
   ],
@@ -67,6 +73,12 @@ export class MetadataValidatorPage {
   selectedGameKeys = new Set<string>();
   isBulkRefreshingHltb = false;
   isBulkRefreshingImage = false;
+  isHltbPickerModalOpen = false;
+  isHltbPickerLoading = false;
+  hltbPickerQuery = '';
+  hltbPickerResults: HltbMatchCandidate[] = [];
+  hltbPickerError: string | null = null;
+  hltbPickerTargetGame: GameEntry | null = null;
   private displayedGames: GameEntry[] = [];
   private readonly selectedListType$ = new BehaviorSubject<ListType>('collection');
   private readonly selectedMissingFilters$ = new BehaviorSubject<MissingMetadataFilter[]>([]);
@@ -169,12 +181,7 @@ export class MetadataValidatorPage {
   }
 
   async refreshHltbForGame(game: GameEntry): Promise<void> {
-    try {
-      await this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId);
-      await this.presentToast(`Updated HLTB for ${game.title}.`);
-    } catch {
-      await this.presentToast(`Unable to update HLTB for ${game.title}.`, 'danger');
-    }
+    await this.openHltbPickerModal(game);
   }
 
   async refreshImageForGame(game: GameEntry): Promise<void> {
@@ -263,6 +270,89 @@ export class MetadataValidatorPage {
     void this.router.navigateByUrl('/settings');
   }
 
+  closeHltbPickerModal(): void {
+    this.isHltbPickerModalOpen = false;
+    this.isHltbPickerLoading = false;
+    this.hltbPickerQuery = '';
+    this.hltbPickerResults = [];
+    this.hltbPickerError = null;
+    this.hltbPickerTargetGame = null;
+  }
+
+  onHltbPickerQueryChange(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: string | null }>;
+    this.hltbPickerQuery = String(customEvent.detail?.value ?? '');
+  }
+
+  async runHltbPickerSearch(): Promise<void> {
+    const normalized = this.hltbPickerQuery.trim();
+
+    if (normalized.length < 2) {
+      this.hltbPickerResults = [];
+      this.hltbPickerError = 'Enter at least 2 characters.';
+      return;
+    }
+
+    this.isHltbPickerLoading = true;
+    this.hltbPickerError = null;
+
+    try {
+      const candidates = await firstValueFrom(this.gameShelfService.searchHltbCandidates(normalized, null, null));
+      this.hltbPickerResults = this.dedupeHltbCandidates(candidates).slice(0, 30);
+    } catch {
+      this.hltbPickerResults = [];
+      this.hltbPickerError = 'Unable to search HLTB right now.';
+    } finally {
+      this.isHltbPickerLoading = false;
+    }
+  }
+
+  async applySelectedHltbCandidate(candidate: HltbMatchCandidate): Promise<void> {
+    const target = this.hltbPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isHltbPickerLoading = true;
+
+    try {
+      await this.gameShelfService.refreshGameCompletionTimesWithQuery(
+        target.igdbGameId,
+        target.platformIgdbId,
+        {
+          title: candidate.title,
+          releaseYear: candidate.releaseYear,
+          platform: candidate.platform,
+        },
+      );
+      this.closeHltbPickerModal();
+      await this.presentToast(`Updated HLTB for ${target.title}.`);
+    } catch {
+      this.isHltbPickerLoading = false;
+      await this.presentToast(`Unable to update HLTB for ${target.title}.`, 'danger');
+    }
+  }
+
+  async useOriginalHltbLookup(): Promise<void> {
+    const target = this.hltbPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isHltbPickerLoading = true;
+
+    try {
+      await this.gameShelfService.refreshGameCompletionTimes(target.igdbGameId, target.platformIgdbId);
+      this.closeHltbPickerModal();
+      await this.presentToast(`Updated HLTB for ${target.title}.`);
+    } catch {
+      this.isHltbPickerLoading = false;
+      await this.presentToast(`Unable to update HLTB for ${target.title}.`, 'danger');
+    }
+  }
+
   private applyMissingMetadataFilters(games: GameEntry[], filters: MissingMetadataFilter[]): GameEntry[] {
     if (filters.length === 0) {
       return games;
@@ -312,6 +402,30 @@ export class MetadataValidatorPage {
     }
 
     return value;
+  }
+
+  private async openHltbPickerModal(game: GameEntry): Promise<void> {
+    this.hltbPickerTargetGame = game;
+    this.hltbPickerQuery = game.title;
+    this.hltbPickerResults = [];
+    this.hltbPickerError = null;
+    this.isHltbPickerLoading = false;
+    this.isHltbPickerModalOpen = true;
+    await this.runHltbPickerSearch();
+  }
+
+  private dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatchCandidate[] {
+    const byKey = new Map<string, HltbMatchCandidate>();
+
+    candidates.forEach(candidate => {
+      const key = `${candidate.title}::${candidate.releaseYear ?? ''}::${candidate.platform ?? ''}`;
+
+      if (!byKey.has(key)) {
+        byKey.set(key, candidate);
+      }
+    });
+
+    return [...byKey.values()];
   }
 
   private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {

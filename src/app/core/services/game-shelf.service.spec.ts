@@ -42,6 +42,7 @@ describe('GameShelfService', () => {
       listPlatforms: vi.fn(),
       searchBoxArtByTitle: vi.fn(),
       lookupCompletionTimes: vi.fn(),
+      lookupCompletionTimeCandidates: vi.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -291,6 +292,26 @@ describe('GameShelfService', () => {
     expect(result).toEqual([{ id: 130, name: 'Nintendo Switch' }]);
   });
 
+  it('delegates HLTB candidate search and short-circuits short titles', async () => {
+    searchApi.lookupCompletionTimeCandidates.mockReturnValue(of([
+      {
+        title: 'Super Metroid',
+        releaseYear: 1994,
+        platform: 'SNES',
+        hltbMainHours: 7.5,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 13,
+      },
+    ]));
+
+    const results = await firstValueFrom(service.searchHltbCandidates('Super Metroid', 1994, 'SNES'));
+    const empty = await firstValueFrom(service.searchHltbCandidates('x', 1994, 'SNES'));
+
+    expect(searchApi.lookupCompletionTimeCandidates).toHaveBeenCalledWith('Super Metroid', 1994, 'SNES');
+    expect(results).toHaveLength(1);
+    expect(empty).toEqual([]);
+  });
+
   it('refreshes game metadata by IGDB id and keeps list placement', async () => {
     const existingEntry: GameEntry = {
       id: 10,
@@ -403,6 +424,47 @@ describe('GameShelfService', () => {
       }),
       'collection',
     );
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('refreshes game completion times using override query values', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      hltbMainHours: 21,
+      hltbMainExtraHours: 35,
+      hltbCompletionistHours: 48,
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of({
+      hltbMainHours: 21,
+      hltbMainExtraHours: 35,
+      hltbCompletionistHours: 48,
+    }));
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameCompletionTimesWithQuery('123', 5, {
+      title: 'Zack & Wiki',
+      releaseYear: 2007,
+      platform: 'Wii',
+    });
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
     expect(result).toEqual(updatedEntry);
   });
 

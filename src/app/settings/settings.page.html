@@ -77,22 +77,20 @@
       <ion-icon slot="start" color="primary" name="file-tray-full"></ion-icon>
       <ion-label>Metadata Validator</ion-label>
     </ion-item>
-    <ion-item lines="none">
-      <input
-        #csvFileInput
-        class="hidden-file-input"
-        type="file"
-        accept=".csv,text/csv"
-        (change)="onImportFileSelected($event)"
-      />
-      <input
-        #mgcCsvFileInput
-        class="hidden-file-input"
-        type="file"
-        accept=".csv,text/csv"
-        (change)="onMgcImportFileSelected($event)"
-      />
-    </ion-item>
+    <input
+      #csvFileInput
+      class="hidden-file-input"
+      type="file"
+      accept=".csv,text/csv"
+      (change)="onImportFileSelected($event)"
+    />
+    <input
+      #mgcCsvFileInput
+      class="hidden-file-input"
+      type="file"
+      accept=".csv,text/csv"
+      (change)="onMgcImportFileSelected($event)"
+    />
   </ion-list>
 
   <ion-list lines="full">

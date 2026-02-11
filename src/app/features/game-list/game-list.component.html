@@ -221,9 +221,6 @@
               CLEAR
             </ion-button>
           </ion-item>
-          <ion-item lines="none">
-            <ion-button expand="block" (click)="openSelectedGameTagsFromDetail()">Tags</ion-button>
-          </ion-item>
           <ion-item>
             <ion-select
               label="Rating"
@@ -245,6 +242,23 @@
             >
               CLEAR
             </ion-button>
+          </ion-item>
+          <ion-item button detail="false" (click)="openSelectedGameTagsFromDetail()">
+            <ion-label>
+              <h2>Tags</h2>
+              <div class="game-tags" *ngIf="game.tags && game.tags.length > 0; else noTagsInDetail">
+                <ion-badge
+                  *ngFor="let tag of game.tags"
+                  [style.--background]="tag.color"
+                  [style.color]="getTagTextColor(tag.color)"
+                >
+                  {{ tag.name }}
+                </ion-badge>
+              </div>
+              <ng-template #noTagsInDetail>
+                <p>None</p>
+              </ng-template>
+            </ion-label>
           </ion-item>
           <ion-item>
             <ion-label>

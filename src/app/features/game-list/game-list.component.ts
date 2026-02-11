@@ -49,7 +49,7 @@ import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
-import { star, ellipsisHorizontal, close, starOutline, play, trashBin, trophy, bookmark, pause, refresh } from "ionicons/icons";
+import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh } from "ionicons/icons";
 
 interface GameGroupSection {
     key: string;
@@ -1751,6 +1751,6 @@ export class GameListComponent implements OnChanges {
     }
 
     constructor() {
-        addIcons({ star, ellipsisHorizontal, close, starOutline, play, trashBin, trophy, bookmark, pause, refresh });
+        addIcons({ star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh });
     }
 }

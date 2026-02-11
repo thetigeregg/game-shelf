@@ -211,16 +211,14 @@
                 {{ option.label }}
               </ion-select-option>
             </ion-select>
-          </ion-item>
-          <ion-item lines="none">
             <ion-button
-              expand="block"
-              fill="outline"
+              slot="end"
+              class="detail-clear-button"
               color="medium"
-              [disabled]="!game.status"
+              aria-label="Clear status"
               (click)="clearSelectedGameStatus()"
             >
-              Clear status
+              CLEAR
             </ion-button>
           </ion-item>
           <ion-item lines="none">
@@ -238,16 +236,14 @@
                 {{ rating }}
               </ion-select-option>
             </ion-select>
-          </ion-item>
-          <ion-item lines="none">
             <ion-button
-              expand="block"
-              fill="outline"
+              slot="end"
+              class="detail-clear-button"
               color="medium"
-              [disabled]="!game.rating"
+              aria-label="Clear rating"
               (click)="clearSelectedGameRating()"
             >
-              Clear rating
+              CLEAR
             </ion-button>
           </ion-item>
           <ion-item>

@@ -42,6 +42,10 @@ ion-item ion-label {
   line-height: 1;
 }
 
+.detail-clear-button {
+  margin-left: 8px;
+}
+
 ion-item.game-row-selected {
   --background: rgba(var(--ion-color-primary-rgb), 0.14);
 }

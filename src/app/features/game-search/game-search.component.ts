@@ -294,8 +294,9 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
 
     private async resolveCoverForAdd(result: GameCatalogResult, platform: SelectedPlatform): Promise<GameCatalogResult> {
         try {
+            const useIgdbCover = this.gameShelfService.shouldUseIgdbCoverForPlatform(platform.name, platform.id);
             const candidates = await firstValueFrom(
-                this.gameShelfService.searchBoxArtByTitle(result.title, platform.name, platform.id)
+                this.gameShelfService.searchBoxArtByTitle(result.title, platform.name, platform.id, result.igdbGameId)
             );
             const boxArtUrl = candidates[0];
 
@@ -306,7 +307,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
             return {
                 ...result,
                 coverUrl: boxArtUrl,
-                coverSource: 'thegamesdb',
+                coverSource: useIgdbCover ? 'igdb' : 'thegamesdb',
             };
         } catch {
             return result;

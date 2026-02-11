@@ -475,6 +475,36 @@ describe('GameShelfService', () => {
     expect(results).toEqual(['https://example.com/cover.jpg']);
   });
 
+  it('uses IGDB cover lookup instead of TheGamesDB for Windows platform when game id is provided', async () => {
+    searchApi.getGameById.mockReturnValue(of({
+      igdbGameId: '123',
+      title: 'Halo',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
+      coverSource: 'igdb',
+      platforms: ['PC (Microsoft Windows)'],
+      platform: 'PC (Microsoft Windows)',
+      platformIgdbId: 6,
+      releaseDate: null,
+      releaseYear: null,
+    } as GameCatalogResult));
+
+    const results = await firstValueFrom(service.searchBoxArtByTitle('halo', 'PC (Microsoft Windows)', 6, '123'));
+
+    expect(searchApi.getGameById).toHaveBeenCalledWith('123');
+    expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
+    expect(results).toEqual(['https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg']);
+  });
+
+  it('returns empty cover results for Windows platform when IGDB lookup fails', async () => {
+    searchApi.getGameById.mockReturnValue(throwError(() => new Error('IGDB unavailable')));
+
+    const results = await firstValueFrom(service.searchBoxArtByTitle('halo', 'PC (Microsoft Windows)', 6, '123'));
+
+    expect(searchApi.getGameById).toHaveBeenCalledWith('123');
+    expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
+    expect(results).toEqual([]);
+  });
+
   it('updates game cover using dedicated repository method', async () => {
     const updatedEntry: GameEntry = {
       id: 10,
@@ -496,6 +526,40 @@ describe('GameShelfService', () => {
     const result = await service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg');
 
     expect(repository.updateCover).toHaveBeenCalledWith('123', 130, 'https://example.com/new-cover.jpg', 'thegamesdb');
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('updates game cover with explicit igdb source when provided', async () => {
+    const updatedEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Old Title',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/new.jpg',
+      coverSource: 'igdb',
+      platform: 'PC (Microsoft Windows)',
+      platformIgdbId: 6,
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    };
+
+    repository.updateCover.mockResolvedValue(updatedEntry);
+
+    const result = await service.updateGameCover(
+      '123',
+      6,
+      'https://images.igdb.com/igdb/image/upload/t_cover_big/new.jpg',
+      'igdb',
+    );
+
+    expect(repository.updateCover).toHaveBeenCalledWith(
+      '123',
+      6,
+      'https://images.igdb.com/igdb/image/upload/t_cover_big/new.jpg',
+      'igdb',
+    );
     expect(result).toEqual(updatedEntry);
   });
 

@@ -1183,12 +1183,13 @@ export class SettingsPage {
                 lastBoxArtRequestStartedAt = Date.now();
                 this.importLoadingMessage = `Resolving additional metadata ${index + 1}/${rowsToImport.length}...`;
                 const boxArt = await this.resolveBoxArtWithRetry(selected, index + 1, rowsToImport.length);
+                const useIgdbCover = this.gameShelfService.shouldUseIgdbCoverForPlatform(selected.platform, selected.platformIgdbId);
 
                 if (boxArt) {
                     resolvedCatalog = {
                         ...selected,
                         coverUrl: boxArt,
-                        coverSource: 'thegamesdb',
+                        coverSource: useIgdbCover ? 'igdb' : 'thegamesdb',
                     };
                     boxArtResolved += 1;
                 }
@@ -1480,7 +1481,7 @@ export class SettingsPage {
         while (attempt <= SettingsPage.MGC_BOX_ART_MAX_ATTEMPTS) {
             try {
                 const boxArtCandidates = await firstValueFrom(
-                    this.gameShelfService.searchBoxArtByTitle(selected.title, selected.platform, selected.platformIgdbId)
+                    this.gameShelfService.searchBoxArtByTitle(selected.title, selected.platform, selected.platformIgdbId, selected.igdbGameId)
                 );
                 return boxArtCandidates[0] ?? null;
             } catch (error: unknown) {

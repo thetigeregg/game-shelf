@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, Subject, firstValueFrom, from, of } from 'rxjs';
-import { switchMap, startWith } from 'rxjs/operators';
+import { catchError, map, switchMap, startWith } from 'rxjs/operators';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import {
@@ -20,6 +20,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
+  private static readonly WINDOWS_PLATFORM_IGDB_ID = 6;
   private readonly listRefresh$ = new Subject<void>();
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
   private readonly searchApi: GameSearchApi = inject(GAME_SEARCH_API);
@@ -241,18 +242,45 @@ export class GameShelfService {
     return updated;
   }
 
-  searchBoxArtByTitle(query: string, platform?: string | null, platformIgdbId?: number | null): Observable<string[]> {
+  searchBoxArtByTitle(query: string, platform?: string | null, platformIgdbId?: number | null, igdbGameId?: string): Observable<string[]> {
     const normalized = query.trim();
 
     if (normalized.length < 2) {
       return of([]);
     }
 
+    if (this.shouldUseIgdbCoverForPlatform(platform, platformIgdbId) && typeof igdbGameId === 'string' && igdbGameId.trim().length > 0) {
+      return this.searchApi.getGameById(igdbGameId.trim()).pipe(
+        map(result => {
+          const coverUrl = typeof result.coverUrl === 'string' ? result.coverUrl.trim() : '';
+          return coverUrl.length > 0 ? [coverUrl] : [];
+        }),
+        catchError(() => of([])),
+      );
+    }
+
     return this.searchApi.searchBoxArtByTitle(normalized, platform, platformIgdbId);
   }
 
-  async updateGameCover(igdbGameId: string, platformIgdbId: number, coverUrl: string): Promise<GameEntry> {
-    const updated = await this.repository.updateCover(igdbGameId, platformIgdbId, coverUrl, 'thegamesdb');
+  shouldUseIgdbCoverForPlatform(platform?: string | null, platformIgdbId?: number | null): boolean {
+    if (typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0) {
+      return platformIgdbId === GameShelfService.WINDOWS_PLATFORM_IGDB_ID;
+    }
+
+    const normalizedPlatform = typeof platform === 'string' ? platform.trim().toLowerCase() : '';
+    return normalizedPlatform === 'pc'
+      || normalizedPlatform === 'windows'
+      || normalizedPlatform === 'microsoft windows'
+      || normalizedPlatform === 'pc (microsoft windows)';
+  }
+
+  async updateGameCover(
+    igdbGameId: string,
+    platformIgdbId: number,
+    coverUrl: string,
+    coverSource: 'thegamesdb' | 'igdb' = 'thegamesdb',
+  ): Promise<GameEntry> {
+    const updated = await this.repository.updateCover(igdbGameId, platformIgdbId, coverUrl, coverSource);
 
     if (!updated) {
       throw new Error('Game entry no longer exists.');

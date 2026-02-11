@@ -828,6 +828,7 @@ export class GameListComponent implements OnChanges {
                     normalized,
                     this.selectedGame?.platform ?? null,
                     this.selectedGame?.platformIgdbId ?? null,
+                    this.selectedGame?.igdbGameId,
                 )
             );
         } catch {
@@ -850,7 +851,16 @@ export class GameListComponent implements OnChanges {
         }
 
         try {
-            const updated = await this.gameShelfService.updateGameCover(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, url);
+            const coverSource = this.gameShelfService.shouldUseIgdbCoverForPlatform(
+                this.selectedGame.platform,
+                this.selectedGame.platformIgdbId,
+            ) ? 'igdb' : 'thegamesdb';
+            const updated = await this.gameShelfService.updateGameCover(
+                this.selectedGame.igdbGameId,
+                this.selectedGame.platformIgdbId,
+                url,
+                coverSource,
+            );
             this.applyUpdatedGame(updated, { refreshCover: true });
             this.closeImagePickerModal();
             await this.presentToast('Game image updated.');

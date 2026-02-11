@@ -50,12 +50,26 @@ export interface AppConfig {
   hltbScraperToken: string;
 }
 
+function readPathEnv(name: string, fallbackAbsolutePath: string): string {
+  const value = readEnv(name);
+
+  if (!value) {
+    return fallbackAbsolutePath;
+  }
+
+  if (path.isAbsolute(value)) {
+    return value;
+  }
+
+  return path.resolve(process.cwd(), value);
+}
+
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
   corsOrigin: readEnv('CORS_ORIGIN', '*'),
   postgresUrl: readRequiredEnv('DATABASE_URL'),
-  imageCacheDir: readEnv('IMAGE_CACHE_DIR', path.resolve(process.cwd(), '.data/image-cache')),
+  imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(process.cwd(), '.data/image-cache')),
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),
   twitchClientId: readRequiredEnv('TWITCH_CLIENT_ID'),
   twitchClientSecret: readRequiredEnv('TWITCH_CLIENT_SECRET'),

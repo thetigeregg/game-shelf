@@ -11,6 +11,10 @@ import { registerSyncRoutes } from './sync.js';
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
   const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);
+  console.info('[server] image_cache_dir_ready', {
+    configured: config.imageCacheDir,
+    active: imageCacheDir,
+  });
 
   const app = Fastify({
     logger: true,

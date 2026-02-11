@@ -10,6 +10,8 @@ export class ImageCacheService {
   private static readonly MIN_LIMIT_MB = 20;
   private static readonly MAX_LIMIT_MB = 2048;
   private static readonly LIMIT_STORAGE_KEY = 'game-shelf:image-cache-limit-mb';
+  private static readonly THE_GAMES_DB_HOST = 'cdn.thegamesdb.net';
+  private static readonly IGDB_HOST = 'images.igdb.com';
 
   private readonly db = inject(AppDb);
   private readonly objectUrlsByCacheKey = new Map<string, string>();
@@ -138,11 +140,37 @@ export class ImageCacheService {
   }
 
   private buildFetchUrl(sourceUrl: string): string {
-    if (sourceUrl.includes('cdn.thegamesdb.net/images/')) {
-      return `${environment.gameApiBaseUrl}/v1/images/proxy?url=${encodeURIComponent(sourceUrl)}`;
+    const proxyEligibleUrl = this.toProxyEligibleImageUrl(sourceUrl);
+
+    if (proxyEligibleUrl) {
+      return `${environment.gameApiBaseUrl}/v1/images/proxy?url=${encodeURIComponent(proxyEligibleUrl)}`;
     }
 
     return sourceUrl;
+  }
+
+  private toProxyEligibleImageUrl(sourceUrl: string): string | null {
+    const normalizedSourceUrl = sourceUrl.startsWith('//') ? `https:${sourceUrl}` : sourceUrl;
+
+    try {
+      const parsed = new URL(normalizedSourceUrl);
+
+      if (parsed.protocol !== 'https:') {
+        return null;
+      }
+
+      const hostname = parsed.hostname.toLowerCase();
+      const isTheGamesDb = hostname === ImageCacheService.THE_GAMES_DB_HOST && parsed.pathname.startsWith('/images/');
+      const isIgdb = hostname === ImageCacheService.IGDB_HOST && parsed.pathname.startsWith('/igdb/image/upload/');
+
+      if (!isTheGamesDb && !isIgdb) {
+        return null;
+      }
+
+      return parsed.toString();
+    } catch {
+      return null;
+    }
   }
 
   private buildCacheKey(gameKey: string, variant: ImageCacheVariant, sourceUrl: string): string {

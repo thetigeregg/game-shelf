@@ -71,7 +71,7 @@ export const config: AppConfig = {
   port: readIntegerEnv('PORT', 3000),
   corsOrigin: readEnv('CORS_ORIGIN', '*'),
   postgresUrl: readRequiredEnv('DATABASE_URL'),
-  imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(process.cwd(), '.data/image-cache')),
+  imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(serverRootDir, '.data/image-cache')),
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),
   twitchClientId: readRequiredEnv('TWITCH_CLIENT_ID'),
   twitchClientSecret: readRequiredEnv('TWITCH_CLIENT_SECRET'),

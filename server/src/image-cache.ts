@@ -4,6 +4,7 @@ import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
+import { incrementImageMetric } from './cache-metrics.js';
 
 interface ImageAssetRow {
   cache_key: string;
@@ -17,27 +18,47 @@ interface ImageAssetRow {
 const THE_GAMES_DB_HOST = 'cdn.thegamesdb.net';
 const IGDB_HOST = 'images.igdb.com';
 
+interface ImageCacheRouteOptions {
+  fetchImpl?: typeof fetch;
+}
+
 export function registerImageProxyRoute(
   app: FastifyInstance,
   pool: Pool,
   imageCacheDir: string,
+  options: ImageCacheRouteOptions = {},
 ): void {
+  const fetchImpl = options.fetchImpl ?? fetch;
+
   app.get('/v1/images/proxy', async (request, reply) => {
     const sourceUrl = normalizeProxyImageUrl((request.query as Record<string, unknown>)['url']);
 
     if (!sourceUrl) {
+      incrementImageMetric('invalidRequests');
       reply.code(400).send({ error: 'Invalid image URL.' });
       return;
     }
 
     const cacheKey = sha256(sourceUrl);
-    const cached = await pool.query<ImageAssetRow>(
-      'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
-      [cacheKey],
-    );
-    const existing = cached.rows[0];
+    let existing: ImageAssetRow | undefined;
+
+    try {
+      const cached = await pool.query<ImageAssetRow>(
+        'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
+        [cacheKey],
+      );
+      existing = cached.rows[0];
+    } catch (error) {
+      incrementImageMetric('readErrors');
+      request.log.warn({
+        msg: 'image_cache_read_failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     if (existing && await fileExists(existing.file_path)) {
+      incrementImageMetric('hits');
+      reply.header('X-GameShelf-Image-Cache', 'HIT');
       reply.header('Content-Type', existing.content_type);
       reply.header('Cache-Control', 'public, max-age=86400');
       reply.send(fs.createReadStream(existing.file_path));
@@ -45,12 +66,22 @@ export function registerImageProxyRoute(
     }
 
     if (existing && !(await fileExists(existing.file_path))) {
-      await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+      try {
+        await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+      } catch (error) {
+        incrementImageMetric('writeErrors');
+        request.log.warn({
+          msg: 'image_cache_delete_missing_file_failed',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
-    const upstream = await fetch(sourceUrl, { method: 'GET' });
+    incrementImageMetric('misses');
+    const upstream = await fetchImpl(sourceUrl, { method: 'GET' });
 
     if (!upstream.ok) {
+      incrementImageMetric('upstreamErrors');
       reply.code(502).send({ error: 'Unable to fetch image.' });
       return;
     }
@@ -73,21 +104,31 @@ export function registerImageProxyRoute(
     await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
     await fsPromises.writeFile(storagePath, bytes);
 
-    await pool.query(
-      `
-      INSERT INTO image_assets (cache_key, source_url, content_type, file_path, size_bytes, updated_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
-      ON CONFLICT (cache_key)
-      DO UPDATE SET
-        source_url = EXCLUDED.source_url,
-        content_type = EXCLUDED.content_type,
-        file_path = EXCLUDED.file_path,
-        size_bytes = EXCLUDED.size_bytes,
-        updated_at = NOW()
-      `,
-      [cacheKey, sourceUrl, contentType, storagePath, bytes.length],
-    );
+    try {
+      await pool.query(
+        `
+        INSERT INTO image_assets (cache_key, source_url, content_type, file_path, size_bytes, updated_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (cache_key)
+        DO UPDATE SET
+          source_url = EXCLUDED.source_url,
+          content_type = EXCLUDED.content_type,
+          file_path = EXCLUDED.file_path,
+          size_bytes = EXCLUDED.size_bytes,
+          updated_at = NOW()
+        `,
+        [cacheKey, sourceUrl, contentType, storagePath, bytes.length],
+      );
+      incrementImageMetric('writes');
+    } catch (error) {
+      incrementImageMetric('writeErrors');
+      request.log.warn({
+        msg: 'image_cache_write_failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
+    reply.header('X-GameShelf-Image-Cache', 'MISS');
     reply.header('Content-Type', contentType);
     reply.header('Cache-Control', 'public, max-age=86400');
     reply.send(bytes);
@@ -156,4 +197,3 @@ async function fileExists(filePath: string): Promise<boolean> {
     return false;
   }
 }
-

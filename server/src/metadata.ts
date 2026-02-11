@@ -37,7 +37,7 @@ export async function fetchMetadataFromWorker(request: FastifyRequest): Promise<
     headers: request.headers as HeadersInit,
   });
 
-  return handleWorkerRequest(proxiedRequest, workerEnv, fetch, () => Date.now());
+  return handleWorkerRequest(proxiedRequest, workerEnv as unknown as Record<string, unknown>, fetch, () => Date.now());
 }
 
 export async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {

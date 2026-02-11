@@ -1,13 +1,16 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { config } from './config.js';
+import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerSyncRoutes } from './sync.js';
+const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
@@ -44,6 +47,7 @@ async function main(): Promise<void> {
 
   registerSyncRoutes(app, pool);
   registerImageProxyRoute(app, pool, imageCacheDir);
+  registerCacheObservabilityRoutes(app, pool);
 
   app.get('/v1/games/search', proxyMetadataToWorker);
   app.get('/v1/games/:id', proxyMetadataToWorker);
@@ -78,7 +82,7 @@ async function resolveWritableImageCacheDir(preferredDir: string): Promise<strin
     await fs.mkdir(preferredDir, { recursive: true });
     return preferredDir;
   } catch (error) {
-    const fallback = path.resolve(process.cwd(), '.data/images');
+    const fallback = path.resolve(serverRootDir, '.data/images');
     await fs.mkdir(fallback, { recursive: true });
     console.warn('[server] image_cache_dir_fallback', {
       preferredDir,

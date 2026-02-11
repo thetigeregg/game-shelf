@@ -42,6 +42,9 @@ interface ExportCsvRow {
     platform: string;
     releaseDate: string;
     releaseYear: string;
+    hltbMainHours: string;
+    hltbMainExtraHours: string;
+    hltbCompletionistHours: string;
     status: string;
     rating: string;
     developers: string;
@@ -49,6 +52,8 @@ interface ExportCsvRow {
     genres: string;
     publishers: string;
     tags: string;
+    gameTagIds: string;
+    tagId: string;
     name: string;
     color: string;
     groupBy: string;
@@ -66,10 +71,12 @@ interface ParsedGameImportRow {
     status: GameStatus | null;
     rating: GameRating | null;
     tagNames: string[];
+    tagIds: number[];
 }
 
 interface ParsedTagImportRow {
     kind: 'tag';
+    tagId: number | null;
     name: string;
     color: string;
 }
@@ -121,6 +128,39 @@ interface MgcImportRow {
 }
 
 const CSV_HEADERS: Array<keyof ExportCsvRow> = [
+    'type',
+    'listType',
+    'igdbGameId',
+    'platformIgdbId',
+    'title',
+    'coverUrl',
+    'coverSource',
+    'platform',
+    'releaseDate',
+    'releaseYear',
+    'hltbMainHours',
+    'hltbMainExtraHours',
+    'hltbCompletionistHours',
+    'status',
+    'rating',
+    'developers',
+    'franchises',
+    'genres',
+    'publishers',
+    'tags',
+    'gameTagIds',
+    'tagId',
+    'name',
+    'color',
+    'groupBy',
+    'filters',
+    'key',
+    'value',
+    'createdAt',
+    'updatedAt',
+];
+
+const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
     'type',
     'listType',
     'igdbGameId',
@@ -809,6 +849,7 @@ export class SettingsPage {
                     .map(tag => tag.name.trim().toLowerCase())
                     .filter(name => name.length > 0),
             );
+            const importedTagIdToResolvedTagId = new Map<number, number>();
 
             for (const tagRow of tagRows) {
                 try {
@@ -816,7 +857,16 @@ export class SettingsPage {
                     if (resolvedName !== tagRow.name) {
                         tagsRenamed += 1;
                     }
-                    await this.gameShelfService.createTag(resolvedName, tagRow.color);
+                    const createdTag = await this.gameShelfService.createTag(resolvedName, tagRow.color);
+
+                    if (
+                        tagRow.tagId !== null
+                        && typeof createdTag.id === 'number'
+                        && Number.isInteger(createdTag.id)
+                        && createdTag.id > 0
+                    ) {
+                        importedTagIdToResolvedTagId.set(tagRow.tagId, createdTag.id);
+                    }
                     tagsApplied += 1;
                 } catch {
                     failedRows += 1;
@@ -851,9 +901,17 @@ export class SettingsPage {
                     const tagIds = gameRow.tagNames
                         .map(tagName => tagMap.get(tagName.toLowerCase()))
                         .filter((tagId): tagId is number => typeof tagId === 'number' && Number.isInteger(tagId) && tagId > 0);
+                    gameRow.tagIds.forEach(importedTagId => {
+                        const resolvedTagId = importedTagIdToResolvedTagId.get(importedTagId);
 
-                    if (tagIds.length > 0) {
-                        await this.gameShelfService.setGameTags(gameRow.catalog.igdbGameId, platformIgdbId, tagIds);
+                        if (typeof resolvedTagId === 'number' && Number.isInteger(resolvedTagId) && resolvedTagId > 0) {
+                            tagIds.push(resolvedTagId);
+                        }
+                    });
+                    const uniqueTagIds = [...new Set(tagIds)];
+
+                    if (uniqueTagIds.length > 0) {
+                        await this.gameShelfService.setGameTags(gameRow.catalog.igdbGameId, platformIgdbId, uniqueTagIds);
                         gameTagAssignmentsApplied += 1;
                     }
                 } catch {
@@ -1723,6 +1781,7 @@ export class SettingsPage {
         const rows: ExportCsvRow[] = [];
 
         games.forEach(game => {
+            const normalizedTagIds = this.normalizeTagIds(game.tagIds);
             const tagNames = this.normalizeTagIds(game.tagIds)
                 .map(tagId => tagById.get(tagId)?.name)
                 .filter((name): name is string => typeof name === 'string' && name.length > 0);
@@ -1738,6 +1797,9 @@ export class SettingsPage {
                 platform: game.platform,
                 releaseDate: game.releaseDate ?? '',
                 releaseYear: game.releaseYear !== null && game.releaseYear !== undefined ? String(game.releaseYear) : '',
+                hltbMainHours: game.hltbMainHours !== null && game.hltbMainHours !== undefined ? String(game.hltbMainHours) : '',
+                hltbMainExtraHours: game.hltbMainExtraHours !== null && game.hltbMainExtraHours !== undefined ? String(game.hltbMainExtraHours) : '',
+                hltbCompletionistHours: game.hltbCompletionistHours !== null && game.hltbCompletionistHours !== undefined ? String(game.hltbCompletionistHours) : '',
                 status: game.status ?? '',
                 rating: game.rating !== null && game.rating !== undefined ? String(game.rating) : '',
                 developers: JSON.stringify(game.developers ?? []),
@@ -1745,6 +1807,8 @@ export class SettingsPage {
                 genres: JSON.stringify(game.genres ?? []),
                 publishers: JSON.stringify(game.publishers ?? []),
                 tags: JSON.stringify(tagNames),
+                gameTagIds: JSON.stringify(normalizedTagIds),
+                tagId: '',
                 name: '',
                 color: '',
                 groupBy: '',
@@ -1768,6 +1832,9 @@ export class SettingsPage {
                 platform: '',
                 releaseDate: '',
                 releaseYear: '',
+                hltbMainHours: '',
+                hltbMainExtraHours: '',
+                hltbCompletionistHours: '',
                 status: '',
                 rating: '',
                 developers: '',
@@ -1775,6 +1842,8 @@ export class SettingsPage {
                 genres: '',
                 publishers: '',
                 tags: '',
+                gameTagIds: '',
+                tagId: typeof tag.id === 'number' && tag.id > 0 ? String(tag.id) : '',
                 name: tag.name,
                 color: tag.color,
                 groupBy: '',
@@ -1798,6 +1867,9 @@ export class SettingsPage {
                 platform: '',
                 releaseDate: '',
                 releaseYear: '',
+                hltbMainHours: '',
+                hltbMainExtraHours: '',
+                hltbCompletionistHours: '',
                 status: '',
                 rating: '',
                 developers: '',
@@ -1805,6 +1877,8 @@ export class SettingsPage {
                 genres: '',
                 publishers: '',
                 tags: '',
+                gameTagIds: '',
+                tagId: '',
                 name: view.name,
                 color: '',
                 groupBy: view.groupBy,
@@ -1828,6 +1902,9 @@ export class SettingsPage {
                 platform: '',
                 releaseDate: '',
                 releaseYear: '',
+                hltbMainHours: '',
+                hltbMainExtraHours: '',
+                hltbCompletionistHours: '',
                 status: '',
                 rating: '',
                 developers: '',
@@ -1835,6 +1912,8 @@ export class SettingsPage {
                 genres: '',
                 publishers: '',
                 tags: '',
+                gameTagIds: '',
+                tagId: '',
                 name: '',
                 color: '',
                 groupBy: '',
@@ -1862,7 +1941,7 @@ export class SettingsPage {
         }
 
         const headers = table[0].map(cell => cell.trim());
-        CSV_HEADERS.forEach(header => {
+        REQUIRED_CSV_HEADERS.forEach(header => {
             if (!headers.includes(header)) {
                 throw new Error(`Missing CSV column: ${header}`);
             }
@@ -1960,6 +2039,7 @@ export class SettingsPage {
         if (type === 'tag') {
             const name = record.name.trim();
             const color = this.normalizeColor(record.color);
+            const tagId = this.parsePositiveInteger(record.tagId);
 
             if (name.length === 0) {
                 return this.errorRow(type, rowNumber, 'Tag name is required.');
@@ -1975,6 +2055,7 @@ export class SettingsPage {
                 warning,
                 parsed: {
                     kind: 'tag',
+                    tagId,
                     name,
                     color,
                 },
@@ -2075,6 +2156,9 @@ export class SettingsPage {
             title: record.title.trim() || 'Unknown title',
             coverUrl: record.coverUrl.trim() || null,
             coverSource: this.normalizeCoverSource(record.coverSource),
+            hltbMainHours: this.parseOptionalDecimal(record.hltbMainHours),
+            hltbMainExtraHours: this.parseOptionalDecimal(record.hltbMainExtraHours),
+            hltbCompletionistHours: this.parseOptionalDecimal(record.hltbCompletionistHours),
             developers: this.parseStringArray(record.developers),
             franchises: this.parseStringArray(record.franchises),
             genres: this.parseStringArray(record.genres),
@@ -2088,6 +2172,7 @@ export class SettingsPage {
         };
 
         const tagNames = this.parseStringArray(record.tags);
+        const tagIds = this.parsePositiveIntegerArray(record.gameTagIds);
 
         return {
             id: rowNumber,
@@ -2103,6 +2188,7 @@ export class SettingsPage {
                 status,
                 rating,
                 tagNames,
+                tagIds,
             },
         };
     }
@@ -2210,6 +2296,9 @@ export class SettingsPage {
             platform: getValue('platform'),
             releaseDate: getValue('releaseDate'),
             releaseYear: getValue('releaseYear'),
+            hltbMainHours: getValue('hltbMainHours'),
+            hltbMainExtraHours: getValue('hltbMainExtraHours'),
+            hltbCompletionistHours: getValue('hltbCompletionistHours'),
             status: getValue('status'),
             rating: getValue('rating'),
             developers: getValue('developers'),
@@ -2217,6 +2306,8 @@ export class SettingsPage {
             genres: getValue('genres'),
             publishers: getValue('publishers'),
             tags: getValue('tags'),
+            gameTagIds: getValue('gameTagIds'),
+            tagId: getValue('tagId'),
             name: getValue('name'),
             color: getValue('color'),
             groupBy: getValue('groupBy'),
@@ -2291,6 +2382,50 @@ export class SettingsPage {
 
         const parsed = Number.parseInt(normalized, 10);
         return Number.isInteger(parsed) ? parsed : null;
+    }
+
+    private parseOptionalDecimal(value: string): number | null {
+        const normalized = value.trim();
+
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    private parsePositiveInteger(value: string): number | null {
+        const normalized = value.trim();
+
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        const parsed = Number.parseInt(normalized, 10);
+        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    private parsePositiveIntegerArray(raw: string): number[] {
+        if (raw.trim().length === 0) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(raw);
+
+            if (!Array.isArray(parsed)) {
+                return [];
+            }
+
+            return [...new Set(
+                parsed
+                    .map(value => Number.parseInt(String(value), 10))
+                    .filter(value => Number.isInteger(value) && value > 0)
+            )];
+        } catch {
+            return [];
+        }
     }
 
     private normalizeListType(value: string): ListType | null {

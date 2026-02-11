@@ -56,7 +56,10 @@ export function registerHltbCachedRoute(app: FastifyInstance, pool: Pool, option
         );
         const cachedRow = cached.rows[0];
 
-        if (cachedRow) {
+        if (cachedRow && normalized) {
+          if (!isCacheableHltbPayload(normalized, cachedRow.response_json)) {
+            await deleteHltbCacheEntry(pool, cacheKey, request);
+          } else {
           const ageSeconds = getAgeSeconds(cachedRow.updated_at, now());
 
           if (ageSeconds <= freshTtlSeconds) {
@@ -82,6 +85,7 @@ export function registerHltbCachedRoute(app: FastifyInstance, pool: Pool, option
             reply.code(200).send(cachedRow.response_json);
             return;
           }
+          }
         }
       } catch (error) {
         incrementHltbMetric('readErrors');
@@ -100,7 +104,7 @@ export function registerHltbCachedRoute(app: FastifyInstance, pool: Pool, option
     if (cacheKey && normalized && response.ok) {
       const payload = await safeReadJson(response);
 
-      if (payload !== null) {
+      if (payload !== null && isCacheableHltbPayload(normalized, payload)) {
         await persistHltbCacheEntry(pool, cacheKey, normalized, payload, request);
       }
     }
@@ -205,6 +209,11 @@ function scheduleHltbRevalidation(
         return;
       }
 
+      if (!isCacheableHltbPayload(normalizedQuery, payload)) {
+        incrementHltbMetric('revalidateFailed');
+        return;
+      }
+
       await persistHltbCacheEntry(pool, cacheKey, normalizedQuery, payload, request);
       incrementHltbMetric('revalidateSucceeded');
     } catch (error) {
@@ -253,6 +262,53 @@ async function persistHltbCacheEntry(
     incrementHltbMetric('writeErrors');
     request.log.warn({
       msg: 'hltb_cache_write_failed',
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function isCacheableHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  const item = payloadRecord['item'];
+
+  if (hasValidHltbItem(item)) {
+    return true;
+  }
+
+  if (!normalizedQuery.includeCandidates) {
+    return false;
+  }
+
+  const candidates = payloadRecord['candidates'];
+  return Array.isArray(candidates) && candidates.length > 0;
+}
+
+function hasValidHltbItem(item: unknown): boolean {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+
+  const entry = item as Record<string, unknown>;
+  return isPositiveNumber(entry['hltbMainHours'])
+    || isPositiveNumber(entry['hltbMainExtraHours'])
+    || isPositiveNumber(entry['hltbCompletionistHours']);
+}
+
+function isPositiveNumber(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+async function deleteHltbCacheEntry(pool: Pool, cacheKey: string, request: FastifyRequest): Promise<void> {
+  try {
+    await pool.query('DELETE FROM hltb_search_cache WHERE cache_key = $1', [cacheKey]);
+  } catch (error) {
+    incrementHltbMetric('writeErrors');
+    request.log.warn({
+      msg: 'hltb_cache_delete_failed',
       error: error instanceof Error ? error.message : String(error),
     });
   }

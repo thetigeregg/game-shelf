@@ -39,7 +39,17 @@ class HltbPoolMock {
       return { rows: [] };
     }
 
+    if (normalized.startsWith('delete from hltb_search_cache where cache_key')) {
+      const key = String(params[0] ?? '');
+      this.rowsByKey.delete(key);
+      return { rows: [] };
+    }
+
     throw new Error(`Unsupported SQL in HltbPoolMock: ${sql}`);
+  }
+
+  getEntryCount(): number {
+    return this.rowsByKey.size;
   }
 }
 
@@ -132,8 +142,13 @@ test('HLTB cache serves stale and revalidates in background', async () => {
   assert.equal(stale.headers['x-gameshelf-hltb-revalidate'], 'scheduled');
   assert.equal(fetchCalls, 1);
 
-  assert.ok(pendingRefreshTask);
-  await pendingRefreshTask();
+  const refreshTask = pendingRefreshTask;
+
+  if (!refreshTask) {
+    throw new Error('Expected background refresh task to be scheduled');
+  }
+
+  await (refreshTask as () => Promise<void>)();
   assert.equal(fetchCalls, 2);
 
   const freshAfterRefresh = await app.inject({
@@ -180,6 +195,45 @@ test('HLTB cache is fail-open when cache read throws', async () => {
   assert.equal(metrics.hltb.readErrors, 1);
   assert.equal(metrics.hltb.bypasses, 1);
   assert.equal(metrics.hltb.misses, 1);
+
+  await app.close();
+});
+
+test('HLTB null item responses are not cached', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: async () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ item: null }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203',
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(pool.getEntryCount(), 0);
+
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203',
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+  assert.equal(pool.getEntryCount(), 0);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.hltb.writes, 0);
 
   await app.close();
 });

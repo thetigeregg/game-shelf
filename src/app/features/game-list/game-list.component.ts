@@ -482,9 +482,29 @@ export class GameListComponent implements OnChanges {
         }
 
         try {
-            await Promise.all(selectedGames.map(game => this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)));
+            const results = await Promise.all(
+                selectedGames.map(game =>
+                    this.gameShelfService
+                        .refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)
+                        .then(updated => ({ ok: true as const, updated }))
+                        .catch(() => ({ ok: false as const }))
+                )
+            );
+            const failedCount = results.filter(result => !result.ok).length;
+            const updatedCount = results.filter(result => result.ok && this.hasHltbData(result.updated)).length;
+            const missingCount = results.length - failedCount - updatedCount;
+
             this.clearSelectionMode();
-            await this.presentToast(`Updated HLTB data for ${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'}.`);
+
+            if (updatedCount > 0) {
+                await this.presentToast(`Updated HLTB data for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`);
+            } else if (missingCount > 0 && failedCount === 0) {
+                await this.presentToast('No HLTB matches found for selected games.', 'warning');
+            }
+
+            if (failedCount > 0) {
+                await this.presentToast(`Unable to update HLTB data for ${failedCount} selected game${failedCount === 1 ? '' : 's'}.`, 'danger');
+            }
         } catch {
             await this.presentToast('Unable to update HLTB data for selected games.', 'danger');
         }
@@ -797,7 +817,12 @@ export class GameListComponent implements OnChanges {
         try {
             const updated = await this.gameShelfService.refreshGameCompletionTimes(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId);
             this.applyUpdatedGame(updated);
-            await this.presentToast('HLTB data updated.');
+
+            if (this.hasHltbData(updated)) {
+                await this.presentToast('HLTB data updated.');
+            } else {
+                await this.presentToast('No HLTB match found for this game.', 'warning');
+            }
         } catch {
             await this.presentToast('Unable to update HLTB data.', 'danger');
         }
@@ -1655,7 +1680,17 @@ export class GameListComponent implements OnChanges {
         return releaseDate.slice(0, 10);
     }
 
-    private async presentToast(message: string, color: 'primary' | 'danger' = 'primary'): Promise<void> {
+    private hasHltbData(game: GameEntry): boolean {
+        return this.isPositiveNumber(game.hltbMainHours)
+            || this.isPositiveNumber(game.hltbMainExtraHours)
+            || this.isPositiveNumber(game.hltbCompletionistHours);
+    }
+
+    private isPositiveNumber(value: number | null | undefined): boolean {
+        return typeof value === 'number' && Number.isFinite(value) && value > 0;
+    }
+
+    private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {
         const toast = await this.toastController.create({
             message,
             duration: 1600,

@@ -220,10 +220,27 @@ export class MetadataValidatorPage {
     this.isBulkRefreshingHltb = true;
 
     try {
-      await Promise.all(games.map(game => this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)));
-      await this.presentToast(`Updated HLTB for ${games.length} game${games.length === 1 ? '' : 's'}.`);
-    } catch {
-      await this.presentToast('Unable to update HLTB for selected games.', 'danger');
+      const results = await Promise.all(
+        games.map(game =>
+          this.gameShelfService
+            .refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)
+            .then(updated => ({ ok: true as const, updated }))
+            .catch(() => ({ ok: false as const })),
+        ),
+      );
+      const failedCount = results.filter(result => !result.ok).length;
+      const updatedCount = results.filter(result => result.ok && this.hasHltbMetadata(result.updated)).length;
+      const missingCount = results.length - failedCount - updatedCount;
+
+      if (updatedCount > 0) {
+        await this.presentToast(`Updated HLTB for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`);
+      } else if (missingCount > 0 && failedCount === 0) {
+        await this.presentToast('No HLTB matches found for selected games.', 'warning');
+      }
+
+      if (failedCount > 0) {
+        await this.presentToast(`Unable to update HLTB for ${failedCount} selected game${failedCount === 1 ? '' : 's'}.`, 'danger');
+      }
     } finally {
       this.isBulkRefreshingHltb = false;
     }
@@ -319,7 +336,7 @@ export class MetadataValidatorPage {
     this.isHltbPickerLoading = true;
 
     try {
-      await this.gameShelfService.refreshGameCompletionTimesWithQuery(
+      const updated = await this.gameShelfService.refreshGameCompletionTimesWithQuery(
         target.igdbGameId,
         target.platformIgdbId,
         {
@@ -329,7 +346,11 @@ export class MetadataValidatorPage {
         },
       );
       this.closeHltbPickerModal();
-      await this.presentToast(`Updated HLTB for ${target.title}.`);
+      if (this.hasHltbMetadata(updated)) {
+        await this.presentToast(`Updated HLTB for ${target.title}.`);
+      } else {
+        await this.presentToast(`No HLTB match found for ${target.title}.`, 'warning');
+      }
     } catch {
       this.isHltbPickerLoading = false;
       await this.presentToast(`Unable to update HLTB for ${target.title}.`, 'danger');
@@ -346,9 +367,13 @@ export class MetadataValidatorPage {
     this.isHltbPickerLoading = true;
 
     try {
-      await this.gameShelfService.refreshGameCompletionTimes(target.igdbGameId, target.platformIgdbId);
+      const updated = await this.gameShelfService.refreshGameCompletionTimes(target.igdbGameId, target.platformIgdbId);
       this.closeHltbPickerModal();
-      await this.presentToast(`Updated HLTB for ${target.title}.`);
+      if (this.hasHltbMetadata(updated)) {
+        await this.presentToast(`Updated HLTB for ${target.title}.`);
+      } else {
+        await this.presentToast(`No HLTB match found for ${target.title}.`, 'warning');
+      }
     } catch {
       this.isHltbPickerLoading = false;
       await this.presentToast(`Unable to update HLTB for ${target.title}.`, 'danger');

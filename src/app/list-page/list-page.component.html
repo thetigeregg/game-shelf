@@ -25,8 +25,15 @@
     <ion-title *ngIf="isSelectionMode">{{ getSelectionHeaderLabel() }}</ion-title>
 
     <ion-buttons slot="end">
-      <ion-button *ngIf="!isSelectionMode" aria-label="Open filters" (click)="openFiltersMenu()">
+      <ion-button *ngIf="!isSelectionMode" aria-label="Open filters" (click)="openFiltersMenu()" class="filters-button">
         <ion-icon slot="icon-only" name="filter"></ion-icon>
+        <ion-badge
+          *ngIf="getActiveFilterCount() > 0"
+          color="danger"
+          class="filters-active-count"
+        >
+          {{ getActiveFilterCount() }}
+        </ion-badge>
       </ion-button>
       <ion-button *ngIf="!isSelectionMode" [attr.aria-label]="getHeaderActionsAriaLabel()" (click)="openHeaderActionsPopover($event)">
         <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>

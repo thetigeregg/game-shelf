@@ -2,7 +2,7 @@ import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
-import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal } from '@ionic/angular/standalone';
+import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal, IonBadge } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
 import { GameListComponent, GameListSelectionState } from '../features/game-list/game-list.component';
@@ -65,6 +65,7 @@ function buildConfig(listType: ListType): ListPageConfig {
         IonPopover,
         IonList,
         IonItem,
+        IonBadge,
         IonFab,
         IonFabButton,
         IonModal,
@@ -284,6 +285,36 @@ export class ListPageComponent {
 
     getHeaderActionsAriaLabel(): string {
         return `Open ${this.listType} actions`;
+    }
+
+    getActiveFilterCount(): number {
+        let count = 0;
+
+        if (this.filters.platform.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.genres.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.tags.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.statuses.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.ratings.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.releaseDateFrom !== null || this.filters.releaseDateTo !== null) {
+            count += 1;
+        }
+
+        return count;
     }
 
     async clearSelectionMode(): Promise<void> {

@@ -185,7 +185,7 @@ export class IgdbProxyService implements GameSearchApi {
     return {
       igdbGameId: String(payload.igdbGameId ?? payload.externalId ?? '').trim(),
       title: String(result.title ?? '').trim() || 'Unknown title',
-      coverUrl: typeof result.coverUrl === 'string' && result.coverUrl.length > 0 ? result.coverUrl : null,
+      coverUrl: this.normalizeCoverUrl(result.coverUrl),
       coverSource: this.normalizeCoverSource(result.coverSource),
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
@@ -201,6 +201,26 @@ export class IgdbProxyService implements GameSearchApi {
       releaseDate: this.normalizeReleaseDate(result.releaseDate),
       releaseYear: Number.isInteger(result.releaseYear) ? result.releaseYear : null,
     };
+  }
+
+  private normalizeCoverUrl(coverUrl: string | null | undefined): string | null {
+    const normalized = typeof coverUrl === 'string' ? coverUrl.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    return this.withIgdbRetinaVariant(normalized);
+  }
+
+  private withIgdbRetinaVariant(url: string): string {
+    return url.replace(/(\/igdb\/image\/upload\/)(t_[^/]+)(\/)/, (_match, prefix: string, sizeToken: string, suffix: string) => {
+      if (sizeToken.endsWith('_2x')) {
+        return `${prefix}${sizeToken}${suffix}`;
+      }
+
+      return `${prefix}${sizeToken}_2x${suffix}`;
+    });
   }
 
   private normalizePlatformOptions(result: GameCatalogResult): GameCatalogPlatformOption[] {

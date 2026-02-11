@@ -1074,7 +1074,17 @@ export class GameListComponent implements OnChanges {
             return normalized.replace(/\/images\/(?:original|large|medium)\//, '/images/small/');
         }
 
-        return normalized;
+        return this.withIgdbRetinaVariant(normalized);
+    }
+
+    private withIgdbRetinaVariant(url: string): string {
+        return url.replace(/(\/igdb\/image\/upload\/)(t_[^/]+)(\/)/, (_match, prefix: string, sizeToken: string, suffix: string) => {
+            if (sizeToken.endsWith('_2x')) {
+                return `${prefix}${sizeToken}${suffix}`;
+            }
+
+            return `${prefix}${sizeToken}_2x${suffix}`;
+        });
     }
 
     private async loadRowCoverUrl(game: GameEntry): Promise<void> {

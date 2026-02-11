@@ -231,6 +231,17 @@ function collectCandidateEntriesFromUnknown(value, sink, depth = 0) {
 }
 
 async function collectCandidatesFromNextData(page, sink) {
+  const before = sink.length;
+  const currentUrl = page.url();
+  const isSearchUrl = (() => {
+    try {
+      const parsed = new URL(currentUrl);
+      return parsed.pathname.startsWith('/search');
+    } catch {
+      return false;
+    }
+  })();
+
   try {
     const nextData = await page.evaluate(() => {
       return typeof window !== 'undefined' && typeof window.__NEXT_DATA__ !== 'undefined'
@@ -238,12 +249,23 @@ async function collectCandidatesFromNextData(page, sink) {
         : null;
     });
 
-    if (nextData) {
+    const nextDataPage = typeof nextData?.page === 'string' ? nextData.page : '';
+    const isSearchNextData = nextDataPage.includes('search');
+
+    if (nextData && (isSearchUrl || isSearchNextData)) {
       collectCandidateEntriesFromUnknown(nextData, sink);
     }
   } catch {
     // Ignore page evaluation failures.
   }
+
+  const added = sink.length - before;
+  const sampleTitles = sink
+    .slice(before, before + 5)
+    .map(entry => normalizeEntry(entry)?.title)
+    .filter(Boolean);
+
+  return { added, sampleTitles };
 }
 
 function findBestMatch(entries, expectedTitle, expectedReleaseYear, expectedPlatform) {
@@ -323,12 +345,40 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     const contentType = String(response.headers()['content-type'] ?? '');
     let candidatesAdded = 0;
 
-    if (contentType.includes('application/json')) {
+    // Ignore non-search JSON payloads (ads, telemetry, and misc homepage data).
+    let shouldParsePayload = false;
+    try {
+      const parsedUrl = new URL(url);
+      const isHltbDomain = parsedUrl.hostname.toLowerCase().includes('howlongtobeat.com');
+      const isLikelySearchPayload = parsedUrl.pathname.includes('/api/')
+        || parsedUrl.pathname.includes('/_next/data/')
+        || parsedUrl.pathname.includes('/search');
+      shouldParsePayload = isHltbDomain && isLikelySearchPayload && status >= 200 && status < 300;
+    } catch {
+      shouldParsePayload = false;
+    }
+
+    if (shouldParsePayload && contentType.includes('application/json')) {
       try {
         const payload = await response.json();
         const before = capturedEntries.length;
         collectCandidateEntriesFromUnknown(payload, capturedEntries);
         candidatesAdded = capturedEntries.length - before;
+
+        if (debugLogsEnabled && candidatesAdded > 0) {
+          const sampleTitles = capturedEntries
+            .slice(before, before + 5)
+            .map(entry => normalizeEntry(entry)?.title)
+            .filter(Boolean);
+
+          console.info('[hltb-scraper] candidate_batch', {
+            source: 'network_json',
+            url,
+            status,
+            candidatesAdded,
+            sampleTitles,
+          });
+        }
       } catch {
         candidatesAdded = 0;
       }
@@ -353,7 +403,15 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
         // Ignore timeout and continue with what we captured.
       }
       await page.waitForTimeout(1200);
-      await collectCandidatesFromNextData(page, capturedEntries);
+      const nextDataBatch = await collectCandidatesFromNextData(page, capturedEntries);
+      if (debugLogsEnabled && nextDataBatch.added > 0) {
+        console.info('[hltb-scraper] candidate_batch', {
+          source: 'next_data',
+          url: page.url(),
+          candidatesAdded: nextDataBatch.added,
+          sampleTitles: nextDataBatch.sampleTitles,
+        });
+      }
       page.off('response', responseListener);
     }
 
@@ -372,7 +430,15 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
           // Ignore timeout and continue.
         }
         await page.waitForTimeout(1000);
-        await collectCandidatesFromNextData(page, capturedEntries);
+        const nextDataBatch = await collectCandidatesFromNextData(page, capturedEntries);
+        if (debugLogsEnabled && nextDataBatch.added > 0) {
+          console.info('[hltb-scraper] candidate_batch', {
+            source: 'next_data',
+            url: page.url(),
+            candidatesAdded: nextDataBatch.added,
+            sampleTitles: nextDataBatch.sampleTitles,
+          });
+        }
         page.off('response', responseListener);
 
         if (capturedEntries.length > 0) {
@@ -382,9 +448,9 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     }
 
     const relevantEntries = filterEntriesByTitle(capturedEntries, title);
-    const entriesForMatch = relevantEntries.length > 0 ? relevantEntries : capturedEntries;
+    const entriesForMatch = relevantEntries;
     const item = findBestMatch(entriesForMatch, title, releaseYear, platform);
-    const sampledTimes = capturedEntries
+    const sampledTimes = entriesForMatch
       .slice(0, 5)
       .map(entry => ({
         title: typeof entry?.game_name === 'string' ? entry.game_name : (typeof entry?.name === 'string' ? entry.name : null),
@@ -396,6 +462,20 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
         normalizedCompletionist: normalizeHours(entry?.comp_100),
       }));
     const lastStatus = networkEvents.length > 0 ? networkEvents[networkEvents.length - 1].status : 0;
+
+    if (debugLogsEnabled) {
+      const relevantSampleTitles = relevantEntries
+        .slice(0, 8)
+        .map(entry => normalizeEntry(entry)?.title)
+        .filter(Boolean);
+
+      console.info('[hltb-scraper] candidate_summary', {
+        query: title,
+        rawCandidates: capturedEntries.length,
+        relevantCandidates: relevantEntries.length,
+        relevantSampleTitles,
+      });
+    }
 
     return {
       item,

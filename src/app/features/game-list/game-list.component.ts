@@ -28,7 +28,10 @@ import {
     IonCol,
     IonText,
     IonRange,
-    IonNote
+    IonNote,
+    IonFab,
+    IonFabButton,
+    IonFabList
 } from '@ionic/angular/standalone';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
@@ -49,7 +52,7 @@ import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
-import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh } from "ionicons/icons";
+import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube } from "ionicons/icons";
 
 interface GameGroupSection {
     key: string;
@@ -105,6 +108,9 @@ export interface GameListSelectionState {
         IonText,
         IonRange,
         IonNote,
+        IonFab,
+        IonFabButton,
+        IonFabList,
         GameSearchComponent,
     ],
 })
@@ -848,6 +854,33 @@ export class GameListComponent implements OnChanges {
         const normalized = Math.round(value * 10) / 10;
         const hasDecimal = Math.abs(normalized - Math.trunc(normalized)) > 0;
         return `${normalized.toFixed(hasDecimal ? 1 : 0)} h`;
+    }
+
+    openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
+        const query = this.selectedGame?.title?.trim();
+
+        if (!query) {
+            return;
+        }
+
+        const encodedQuery = encodeURIComponent(query);
+        let url = '';
+
+        if (provider === 'google') {
+            url = `https://www.google.com/search?q=${encodedQuery}`;
+        } else if (provider === 'youtube') {
+            url = `https://www.youtube.com/results?search_query=${encodedQuery}`;
+        } else if (provider === 'wikipedia') {
+            url = `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
+        } else {
+            url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
+        }
+
+        const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+
+        if (!openedWindow) {
+            window.location.href = url;
+        }
     }
 
     getTagTextColor(color: string): string {
@@ -1751,6 +1784,6 @@ export class GameListComponent implements OnChanges {
     }
 
     constructor() {
-        addIcons({ star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh });
+        addIcons({ star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube });
     }
 }

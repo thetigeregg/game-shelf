@@ -1,6 +1,7 @@
 import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal, IonBadge } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -95,6 +96,7 @@ export class ListPageComponent {
     genreOptions: string[] = [];
     tagOptions: string[] = [];
     displayedGames: GameEntry[] = [];
+    totalGamesCount = 0;
     listSearchQuery = '';
     groupBy: GameGroupByField = 'none';
     isAddGameModalOpen = false;
@@ -127,6 +129,11 @@ export class ListPageComponent {
         this.route.queryParamMap.subscribe(params => {
             void this.applyViewFromQueryParam(params.get('applyView'));
         });
+        this.gameShelfService.watchList(this.listType)
+            .pipe(takeUntilDestroyed())
+            .subscribe(games => {
+                this.totalGamesCount = games.length;
+            });
         addIcons({ close, filter, ellipsisHorizontal, checkbox, squareOutline, add });
     }
 
@@ -383,6 +390,20 @@ export class ListPageComponent {
 
     getDisplayedGamesLabel(): string {
         return this.displayedGames.length === 1 ? '1 game' : `${this.displayedGames.length} games`;
+    }
+
+    getListCountSummary(): string {
+        if (this.totalGamesCount <= 0) {
+            return '0 games';
+        }
+
+        if (this.displayedGames.length === this.totalGamesCount) {
+            return this.totalGamesCount === 1 ? '1 game' : `${this.totalGamesCount} games`;
+        }
+
+        const shownLabel = this.displayedGames.length === 1 ? '1 shown' : `${this.displayedGames.length} shown`;
+        const totalLabel = this.totalGamesCount === 1 ? '1 game' : `${this.totalGamesCount} games`;
+        return `${shownLabel} of ${totalLabel}`;
     }
 
     private async presentToast(message: string, color: 'primary' | 'warning' = 'primary'): Promise<void> {

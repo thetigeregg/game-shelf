@@ -20,7 +20,6 @@
 
     <ion-title *ngIf="!isSelectionMode">
       <div class="page-title">{{ pageTitle }}</div>
-      <div class="page-subtitle">{{ getDisplayedGamesLabel() }}</div>
     </ion-title>
     <ion-title *ngIf="isSelectionMode">{{ getSelectionHeaderLabel() }}</ion-title>
 
@@ -53,6 +52,7 @@
       [value]="listSearchQuery"
       (ionInput)="onListSearchChange($any($event).detail.value)"
     ></ion-searchbar>
+    <div class="list-count-summary">{{ getListCountSummary() }}</div>
   </ion-toolbar>
 </ion-header>
 

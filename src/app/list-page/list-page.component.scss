@@ -7,12 +7,12 @@ app-game-list {
   line-height: 1.1;
 }
 
-.page-subtitle {
-  margin-top: 2px;
+.list-count-summary {
+  margin: 0 16px 10px;
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--ion-color-primary-contrast);
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 ion-fab {

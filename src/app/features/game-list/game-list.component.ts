@@ -840,6 +840,16 @@ export class GameListComponent implements OnChanges {
         return `${normalized.toFixed(hasDecimal ? 1 : 0)} hours`;
     }
 
+    formatRowMainHours(value: number | null | undefined): string | null {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+            return null;
+        }
+
+        const normalized = Math.round(value * 10) / 10;
+        const hasDecimal = Math.abs(normalized - Math.trunc(normalized)) > 0;
+        return `${normalized.toFixed(hasDecimal ? 1 : 0)} h`;
+    }
+
     getTagTextColor(color: string): string {
         const normalized = color.trim();
 

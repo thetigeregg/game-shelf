@@ -31,6 +31,17 @@ ion-item ion-label {
   font-size: 0.85rem;
 }
 
+.hltb-main-indicator {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  color: var(--ion-color-medium);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
 ion-item.game-row-selected {
   --background: rgba(var(--ion-color-primary-rgb), 0.14);
 }

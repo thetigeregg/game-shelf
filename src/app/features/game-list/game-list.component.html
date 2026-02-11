@@ -63,6 +63,9 @@
         <ion-icon name="star" aria-hidden="true"></ion-icon>
         <span>{{ rating }}</span>
       </div>
+      <div *ngIf="formatRowMainHours(game.hltbMainHours) as mainHours" class="hltb-main-indicator">
+        {{ mainHours }}
+      </div>
 
       <div slot="start" class="game-art">
         <img [src]="getRowCoverUrl(game)" [alt]="game.title" (error)="onImageError($event)" />

@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  gameApiBaseUrl: 'http://localhost:8787',
+  gameApiBaseUrl: 'http://localhost:3000',
 };
 
 /*

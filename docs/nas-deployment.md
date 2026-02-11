@@ -2,12 +2,13 @@
 
 ## 1. Prepare files
 1. Copy `server/.env.example` to `server/.env`.
-2. Fill secrets in `server/.env`:
+2. Copy `server/.env.dev.example` to `server/.env.dev` for Mac host development.
+3. Fill secrets in both env files as needed:
    - `TWITCH_CLIENT_ID`
    - `TWITCH_CLIENT_SECRET`
    - `THEGAMESDB_API_KEY`
    - `HLTB_SCRAPER_TOKEN` (optional)
-3. Create persistent directories:
+4. Create persistent directories:
    - `nas-data/postgres`
    - `nas-data/image-cache`
 
@@ -23,6 +24,25 @@ Services:
 - `api` hosts metadata + sync endpoints.
 - `postgres` stores authoritative app data.
 - `hltb-scraper` provides browser-backed HLTB lookups.
+
+## Local host-based API development (without running `api` container)
+If you run Fastify directly from your Mac, use `server/.env.dev`:
+
+`DATABASE_URL=postgres://gameshelf:gameshelf@localhost:5432/gameshelf`
+`IMAGE_CACHE_DIR=./server/.data/images`
+`HLTB_SCRAPER_BASE_URL=http://localhost:8788`
+
+The `postgres` service is published to host port `5432` in `docker-compose.yml` for this workflow.
+
+Run host dev server:
+```bash
+npm --prefix server run dev:local
+```
+
+Run runtime-like server (uses `server/.env`):
+```bash
+npm --prefix server run dev:runtime
+```
 
 ## 3. Publish over Tailscale only
 Run on Synology host (where Tailscale is installed):
@@ -65,4 +85,3 @@ Restore image cache:
 ```bash
 tar -xzf backup-image-cache-YYYY-MM-DD.tar.gz
 ```
-

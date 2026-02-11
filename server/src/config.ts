@@ -1,7 +1,8 @@
 import path from 'node:path';
 import dotenv from 'dotenv';
 
-dotenv.config();
+const envFile = readEnvFilePath();
+dotenv.config({ path: envFile });
 
 function readEnv(name: string, fallback = ''): string {
   const value = process.env[name];
@@ -22,6 +23,17 @@ function readIntegerEnv(name: string, fallback: number): number {
   const raw = readEnv(name);
   const parsed = Number.parseInt(raw, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readEnvFilePath(): string {
+  const fromEnv = typeof process.env.ENV_FILE === 'string' ? process.env.ENV_FILE.trim() : '';
+  const candidate = fromEnv.length > 0 ? fromEnv : '.env';
+
+  if (path.isAbsolute(candidate)) {
+    return candidate;
+  }
+
+  return path.resolve(process.cwd(), candidate);
 }
 
 export interface AppConfig {
@@ -51,4 +63,3 @@ export const config: AppConfig = {
   hltbScraperBaseUrl: readEnv('HLTB_SCRAPER_BASE_URL', ''),
   hltbScraperToken: readEnv('HLTB_SCRAPER_TOKEN', ''),
 };
-

@@ -28,6 +28,8 @@ services:
       POSTGRES_DB: gameshelf
       POSTGRES_USER: gameshelf
       POSTGRES_PASSWORD: gameshelf
+    ports:
+      - "5432:5432"
     volumes:
       - ./nas-data/postgres:/var/lib/postgresql/data
     restart: unless-stopped

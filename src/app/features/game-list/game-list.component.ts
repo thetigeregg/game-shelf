@@ -73,6 +73,7 @@ import {
     normalizeTagIds,
     parseTagSelection,
 } from './game-list-detail-actions';
+import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack } from "ionicons/icons";
@@ -1095,14 +1096,14 @@ export class GameListComponent implements OnChanges {
 
                 this.imagePickerResults = results;
             });
-        } catch {
+        } catch (error: unknown) {
             this.ngZone.run(() => {
                 if (requestId !== this.imagePickerSearchRequestId) {
                     return;
                 }
 
                 this.imagePickerResults = [];
-                this.imagePickerError = 'Unable to load box art results.';
+                this.imagePickerError = formatRateLimitedUiError(error, 'Unable to load box art results.');
             });
         } finally {
             this.ngZone.run(() => {
@@ -1168,9 +1169,9 @@ export class GameListComponent implements OnChanges {
         try {
             const candidates = await firstValueFrom(this.gameShelfService.searchHltbCandidates(normalized, null, null));
             this.hltbPickerResults = dedupeHltbCandidates(candidates).slice(0, 30);
-        } catch {
+        } catch (error: unknown) {
             this.hltbPickerResults = [];
-            this.hltbPickerError = 'Unable to search HLTB right now.';
+            this.hltbPickerError = formatRateLimitedUiError(error, 'Unable to search HLTB right now.');
         } finally {
             this.isHltbPickerLoading = false;
             this.changeDetectorRef.markForCheck();

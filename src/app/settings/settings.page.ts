@@ -24,6 +24,7 @@ import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
 import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from '../core/services/platform-order.service';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
+import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 import { addIcons } from "ionicons";
 import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh } from "ionicons/icons";
 
@@ -760,9 +761,9 @@ export class SettingsPage {
         try {
             const results = await firstValueFrom(this.gameShelfService.searchGames(query, this.mgcResolverPlatformIgdbId));
             this.mgcResolverResults = results;
-        } catch {
+        } catch (error: unknown) {
             this.mgcResolverResults = [];
-            this.mgcResolverError = 'Search failed. Please try again.';
+            this.mgcResolverError = formatRateLimitedUiError(error, 'Search failed. Please try again.');
         } finally {
             this.isMgcResolverSearching = false;
         }

@@ -29,6 +29,7 @@ import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
 import { GameEntry, HltbMatchCandidate, ListType } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type MissingMetadataFilter = 'hltb' | 'nonPcTheGamesDbImage';
 
@@ -318,9 +319,9 @@ export class MetadataValidatorPage {
     try {
       const candidates = await firstValueFrom(this.gameShelfService.searchHltbCandidates(normalized, null, null));
       this.hltbPickerResults = this.dedupeHltbCandidates(candidates).slice(0, 30);
-    } catch {
+    } catch (error: unknown) {
       this.hltbPickerResults = [];
-      this.hltbPickerError = 'Unable to search HLTB right now.';
+      this.hltbPickerError = formatRateLimitedUiError(error, 'Unable to search HLTB right now.');
     } finally {
       this.isHltbPickerLoading = false;
     }

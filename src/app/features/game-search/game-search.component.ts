@@ -7,6 +7,7 @@ import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, ta
 import { GameCatalogPlatformOption, GameCatalogResult, GameType, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
+import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 
 interface SelectedPlatform {
     id: number;
@@ -75,8 +76,8 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
                     this.isLoading = true;
 
                     return this.gameShelfService.searchGames(normalized, state.platformIgdbId).pipe(
-                        catchError(() => {
-                            this.errorMessage = 'Search failed. Please try again.';
+                        catchError((error: unknown) => {
+                            this.errorMessage = formatRateLimitedUiError(error, 'Search failed. Please try again.');
                             return of([] as GameCatalogResult[]);
                         }),
                         finalize(() => {

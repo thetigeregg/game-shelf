@@ -1,5 +1,6 @@
 import { HttpHeaders } from '@angular/common/http';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -425,5 +426,179 @@ describe('IgdbProxyService', () => {
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
 
     await expect(promise).resolves.toEqual([]);
+  });
+
+  it('normalizes igdb cover urls to retina variants and keeps existing _2x variant', async () => {
+    const promise = firstValueFrom(service.searchGames('metroid'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=metroid`);
+    req.flush({
+      items: [
+        {
+          igdbGameId: '1',
+          title: 'Metroid',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/hash.jpg',
+          coverSource: 'igdb',
+          platform: 'Switch',
+          releaseDate: null,
+          releaseYear: null,
+        },
+        {
+          igdbGameId: '2',
+          title: 'Metroid Prime',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash2.jpg',
+          coverSource: 'igdb',
+          platform: 'Switch',
+          releaseDate: null,
+          releaseYear: null,
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        igdbGameId: '1',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash.jpg',
+      }),
+      expect.objectContaining({
+        igdbGameId: '2',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash2.jpg',
+      }),
+    ]));
+  });
+
+  it('normalizes hltb candidates with coverUrl fallback and protocol-relative image URL', async () => {
+    const promise = firstValueFrom(service.lookupCompletionTimeCandidates('Okami'));
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`
+        && request.params.get('q') === 'Okami'
+        && request.params.get('includeCandidates') === 'true';
+    });
+
+    req.flush({
+      candidates: [
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
+          hltbMainHours: 15,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null,
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        title: 'Okami',
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
+      }),
+    ]);
+  });
+
+  it('loads cached platform list for valid payloads and returns empty for invalid payloads', () => {
+    const privateService = service as unknown as {
+      loadCachedPlatformList: () => Array<{ id: number; name: string }>;
+    };
+
+    localStorage.setItem('game-shelf-platform-list-cache-v1', JSON.stringify([
+      { id: 130, name: ' Nintendo Switch ' },
+      { id: 130, name: 'Nintendo Switch Duplicate' },
+      { id: null, name: 'Invalid' },
+    ]));
+
+    expect(privateService.loadCachedPlatformList()).toEqual([{ id: 130, name: 'Nintendo Switch' }]);
+
+    localStorage.setItem('game-shelf-platform-list-cache-v1', '{bad-json');
+    expect(privateService.loadCachedPlatformList()).toEqual([]);
+  });
+
+  it('parses retry-after date headers for rate limiting', async () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date('2026-02-12T00:00:00.000Z'));
+
+      const promise = firstValueFrom(service.searchGames('zelda'));
+      const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=zelda`);
+      req.flush(
+        { message: 'rate limited' },
+        {
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: new HttpHeaders({ 'Retry-After': 'Thu, 12 Feb 2026 00:00:10 GMT' }),
+        },
+      );
+
+      await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns null from toRateLimitError for non-429 errors', () => {
+    const privateService = service as unknown as {
+      toRateLimitError: (error: unknown) => Error | null;
+    };
+
+    const error = new HttpErrorResponse({ status: 500, statusText: 'Server Error' });
+    expect(privateService.toRateLimitError(error)).toBeNull();
+  });
+
+  it('falls back to default cooldown when retry-after header is invalid', async () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.setSystemTime(new Date('2026-02-12T00:00:00.000Z'));
+      const promise = firstValueFrom(service.searchGames('chrono'));
+      const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=chrono`);
+      req.flush(
+        { message: 'rate limited' },
+        {
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: new HttpHeaders({ 'Retry-After': 'not-a-date' }),
+        },
+      );
+
+      await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('normalizes similar game ids from mixed payload values', async () => {
+    const promise = firstValueFrom(service.searchGames('persona'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=persona`);
+    req.flush({
+      items: [
+        {
+          igdbGameId: '300',
+          title: 'Persona',
+          coverUrl: null,
+          coverSource: 'none',
+          similarGameIgdbIds: ['10', ' 11 ', 'bad', 12, null, '10'],
+          platform: 'PS2',
+          releaseDate: null,
+          releaseYear: null,
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        igdbGameId: '300',
+        similarGameIgdbIds: ['10', '11', '12'],
+      }),
+    ]);
+  });
+
+  it('returns empty cached platform list when cache is missing', () => {
+    const privateService = service as unknown as {
+      loadCachedPlatformList: () => Array<{ id: number; name: string }>;
+    };
+
+    localStorage.removeItem('game-shelf-platform-list-cache-v1');
+    expect(privateService.loadCachedPlatformList()).toEqual([]);
   });
 });

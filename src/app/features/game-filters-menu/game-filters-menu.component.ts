@@ -28,6 +28,12 @@ import {
     GameStatusFilterOption,
     GameType,
 } from '../../core/models/game.models';
+import {
+    normalizeGameRatingFilterList,
+    normalizeGameStatusFilterList,
+    normalizeGameTypeList,
+    normalizeStringList,
+} from '../../core/utils/game-filter-utils';
 
 type SortOption =
     | 'title:asc'
@@ -335,12 +341,7 @@ export class GameFiltersMenuComponent implements OnChanges {
             : typeof value === 'string'
                 ? [value]
                 : [];
-
-        return [...new Set(
-            normalizedValues
-                .map(platform => platform.trim())
-                .filter(platform => platform.length > 0)
-        )];
+        return normalizeStringList(normalizedValues);
     }
 
     private normalizeStatusSelection(value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined): GameStatusFilterOption[] {
@@ -350,17 +351,7 @@ export class GameFiltersMenuComponent implements OnChanges {
                 ? [value]
                 : [];
 
-        return [...new Set(
-            normalizedValues.filter(status =>
-                status === 'none'
-                || status === 'playing'
-                || status === 'wantToPlay'
-                || status === 'completed'
-                || status === 'paused'
-                || status === 'dropped'
-                || status === 'replay'
-            )
-        )];
+        return normalizeGameStatusFilterList(normalizedValues);
     }
 
     private normalizeRatingSelection(value: GameRatingFilterOption[] | GameRatingFilterOption | null | undefined): GameRatingFilterOption[] {
@@ -370,16 +361,7 @@ export class GameFiltersMenuComponent implements OnChanges {
                 ? [value]
                 : [];
 
-        return [...new Set(
-            normalizedValues.filter(rating =>
-                rating === 'none'
-                || rating === 1
-                || rating === 2
-                || rating === 3
-                || rating === 4
-                || rating === 5
-            )
-        )];
+        return normalizeGameRatingFilterList(normalizedValues);
     }
 
     private normalizeGameTypeSelection(value: GameType[] | GameType | null | undefined): GameType[] {
@@ -389,25 +371,7 @@ export class GameFiltersMenuComponent implements OnChanges {
                 ? [value]
                 : [];
 
-        return [...new Set(
-            normalizedValues.filter(gameType =>
-                gameType === 'main_game'
-                || gameType === 'dlc_addon'
-                || gameType === 'expansion'
-                || gameType === 'bundle'
-                || gameType === 'standalone_expansion'
-                || gameType === 'mod'
-                || gameType === 'episode'
-                || gameType === 'season'
-                || gameType === 'remake'
-                || gameType === 'remaster'
-                || gameType === 'expanded_game'
-                || gameType === 'port'
-                || gameType === 'fork'
-                || gameType === 'pack'
-                || gameType === 'update'
-            )
-        )];
+        return normalizeGameTypeList(normalizedValues);
     }
 
     private normalizeTagSelection(values: string[]): string[] {

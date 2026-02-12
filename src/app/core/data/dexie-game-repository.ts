@@ -14,6 +14,13 @@ import {
   ListType,
   Tag
 } from '../models/game.models';
+import {
+  normalizeGameRatingFilterList,
+  normalizeGameStatusFilterList,
+  normalizeGameTypeList,
+  normalizeNonNegativeNumber,
+  normalizeStringList,
+} from '../utils/game-filter-utils';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 
 @Injectable({ providedIn: 'root' })
@@ -590,69 +597,18 @@ export class DexieGameRepository implements GameRepository {
       ? source.sortField
       : 'title';
     const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
-    const platform = Array.isArray(source.platform)
-      ? [...new Set(source.platform.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
-      : [];
-    const collections = Array.isArray(source.collections)
-      ? [...new Set(source.collections.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
-      : [];
-    const developers = Array.isArray(source.developers)
-      ? [...new Set(source.developers.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
-      : [];
-    const franchises = Array.isArray(source.franchises)
-      ? [...new Set(source.franchises.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
-      : [];
-    const publishers = Array.isArray(source.publishers)
-      ? [...new Set(source.publishers.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
-      : [];
-    const gameTypes = Array.isArray(source.gameTypes)
-      ? [...new Set(source.gameTypes.filter(gameType =>
-        gameType === 'main_game'
-        || gameType === 'dlc_addon'
-        || gameType === 'expansion'
-        || gameType === 'bundle'
-        || gameType === 'standalone_expansion'
-        || gameType === 'mod'
-        || gameType === 'episode'
-        || gameType === 'season'
-        || gameType === 'remake'
-        || gameType === 'remaster'
-        || gameType === 'expanded_game'
-        || gameType === 'port'
-        || gameType === 'fork'
-        || gameType === 'pack'
-        || gameType === 'update'
-      ))]
-      : [];
-    const genres = Array.isArray(source.genres)
-      ? [...new Set(source.genres.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
-      : [];
-    const statuses = Array.isArray(source.statuses)
-      ? [...new Set(source.statuses.filter(status =>
-        status === 'none'
-        || status === 'playing'
-        || status === 'wantToPlay'
-        || status === 'completed'
-        || status === 'paused'
-        || status === 'dropped'
-        || status === 'replay'
-      ))]
-      : [];
-    const tags = Array.isArray(source.tags)
-      ? [...new Set(source.tags.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
-      : [];
-    const ratings = Array.isArray(source.ratings)
-      ? [...new Set(source.ratings.filter(rating =>
-        rating === 'none'
-        || rating === 1
-        || rating === 2
-        || rating === 3
-        || rating === 4
-        || rating === 5
-      ))]
-      : [];
-    const hltbMainHoursMin = this.normalizeHltbMainHoursFilterValue(source.hltbMainHoursMin);
-    const hltbMainHoursMax = this.normalizeHltbMainHoursFilterValue(source.hltbMainHoursMax);
+    const platform = normalizeStringList(source.platform);
+    const collections = normalizeStringList(source.collections);
+    const developers = normalizeStringList(source.developers);
+    const franchises = normalizeStringList(source.franchises);
+    const publishers = normalizeStringList(source.publishers);
+    const gameTypes = normalizeGameTypeList(source.gameTypes);
+    const genres = normalizeStringList(source.genres);
+    const statuses = normalizeGameStatusFilterList(source.statuses);
+    const tags = normalizeStringList(source.tags);
+    const ratings = normalizeGameRatingFilterList(source.ratings);
+    const hltbMainHoursMin = normalizeNonNegativeNumber(source.hltbMainHoursMin);
+    const hltbMainHoursMax = normalizeNonNegativeNumber(source.hltbMainHoursMax);
     const releaseDateFrom = typeof source.releaseDateFrom === 'string' && source.releaseDateFrom.length >= 10
       ? source.releaseDateFrom.slice(0, 10)
       : null;
@@ -684,11 +640,4 @@ export class DexieGameRepository implements GameRepository {
     };
   }
 
-  private normalizeHltbMainHoursFilterValue(value: unknown): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-      return null;
-    }
-
-    return Math.round(value * 10) / 10;
-  }
 }

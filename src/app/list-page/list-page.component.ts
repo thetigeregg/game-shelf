@@ -10,6 +10,14 @@ import { GameListComponent, GameListSelectionState, MetadataFilterSelection } fr
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import {
+    normalizeGameRatingFilterList,
+    normalizeGameStatusFilterList,
+    normalizeGameTypeList,
+    normalizeNonNegativeNumber,
+    normalizeStringList,
+    normalizeTagFilterList,
+} from '../core/utils/game-filter-utils';
 import { addIcons } from 'ionicons';
 import { close, filter, ellipsisHorizontal, checkbox, squareOutline, add } from 'ionicons/icons';
 
@@ -129,9 +137,11 @@ export class ListPageComponent {
         this.searchPlaceholder = config.searchPlaceholder;
 
         this.restorePreferences();
-        this.route.queryParamMap.subscribe(params => {
-            void this.applyViewFromQueryParam(params.get('applyView'));
-        });
+        this.route.queryParamMap
+            .pipe(takeUntilDestroyed())
+            .subscribe(params => {
+                void this.applyViewFromQueryParam(params.get('applyView'));
+            });
         this.gameShelfService.watchList(this.listType)
             .pipe(takeUntilDestroyed())
             .subscribe(games => {
@@ -141,69 +151,18 @@ export class ListPageComponent {
     }
 
     onFiltersChange(filters: GameListFilters): void {
-        const normalizedPlatforms = Array.isArray(filters.platform)
-            ? filters.platform.filter(platform => typeof platform === 'string' && platform.trim().length > 0)
-            : [];
-        const normalizedGenres = Array.isArray(filters.genres)
-            ? filters.genres.filter(genre => typeof genre === 'string' && genre.trim().length > 0)
-            : [];
-        const normalizedCollections = Array.isArray(filters.collections)
-            ? filters.collections.filter(collection => typeof collection === 'string' && collection.trim().length > 0)
-            : [];
-        const normalizedDevelopers = Array.isArray(filters.developers)
-            ? filters.developers.filter(developer => typeof developer === 'string' && developer.trim().length > 0)
-            : [];
-        const normalizedFranchises = Array.isArray(filters.franchises)
-            ? filters.franchises.filter(franchise => typeof franchise === 'string' && franchise.trim().length > 0)
-            : [];
-        const normalizedPublishers = Array.isArray(filters.publishers)
-            ? filters.publishers.filter(publisher => typeof publisher === 'string' && publisher.trim().length > 0)
-            : [];
-        const normalizedGameTypes = Array.isArray(filters.gameTypes)
-            ? filters.gameTypes.filter(gameType =>
-                gameType === 'main_game'
-                || gameType === 'dlc_addon'
-                || gameType === 'expansion'
-                || gameType === 'bundle'
-                || gameType === 'standalone_expansion'
-                || gameType === 'mod'
-                || gameType === 'episode'
-                || gameType === 'season'
-                || gameType === 'remake'
-                || gameType === 'remaster'
-                || gameType === 'expanded_game'
-                || gameType === 'port'
-                || gameType === 'fork'
-                || gameType === 'pack'
-                || gameType === 'update'
-            )
-            : [];
-        const normalizedStatuses = Array.isArray(filters.statuses)
-            ? filters.statuses.filter(status =>
-                status === 'none'
-                || status === 'playing'
-                || status === 'wantToPlay'
-                || status === 'completed'
-                || status === 'paused'
-                || status === 'dropped'
-                || status === 'replay'
-            )
-            : [];
-        const normalizedTags = Array.isArray(filters.tags)
-            ? filters.tags.filter(tag => typeof tag === 'string' && tag.trim().length > 0)
-            : [];
-        const normalizedRatings = Array.isArray(filters.ratings)
-            ? filters.ratings.filter(rating =>
-                rating === 'none'
-                || rating === 1
-                || rating === 2
-                || rating === 3
-                || rating === 4
-                || rating === 5
-            )
-            : [];
-        const hltbMainHoursMin = this.normalizeHltbMainHours(filters.hltbMainHoursMin);
-        const hltbMainHoursMax = this.normalizeHltbMainHours(filters.hltbMainHoursMax);
+        const normalizedPlatforms = normalizeStringList(filters.platform);
+        const normalizedGenres = normalizeStringList(filters.genres);
+        const normalizedCollections = normalizeStringList(filters.collections);
+        const normalizedDevelopers = normalizeStringList(filters.developers);
+        const normalizedFranchises = normalizeStringList(filters.franchises);
+        const normalizedPublishers = normalizeStringList(filters.publishers);
+        const normalizedGameTypes = normalizeGameTypeList(filters.gameTypes);
+        const normalizedStatuses = normalizeGameStatusFilterList(filters.statuses);
+        const normalizedTags = normalizeTagFilterList(filters.tags, this.noneTagFilterValue);
+        const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);
+        const hltbMainHoursMin = normalizeNonNegativeNumber(filters.hltbMainHoursMin);
+        const hltbMainHoursMax = normalizeNonNegativeNumber(filters.hltbMainHoursMax);
 
         this.filters = {
             ...filters,
@@ -585,16 +544,6 @@ export class ListPageComponent {
 
     private isValidSortField(value: unknown): value is GameListFilters['sortField'] {
         return value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform';
-    }
-
-    private normalizeHltbMainHours(value: unknown): number | null {
-        const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-
-        if (!Number.isFinite(numeric) || numeric < 0) {
-            return null;
-        }
-
-        return Math.round(numeric * 10) / 10;
     }
 
     private async applyViewFromQueryParam(rawViewId: string | null): Promise<void> {

@@ -487,7 +487,7 @@
           show-clear-button="focus"
           (ionInput)="onImagePickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button slot="end" (click)="runImagePickerSearch()">Search</ion-button>
+        <ion-button slot="end" [disabled]="isImagePickerLoading" (click)="runImagePickerSearch()">Search</ion-button>
       </ion-item>
 
       <div class="picker-state" *ngIf="isImagePickerLoading">

@@ -1176,6 +1176,10 @@ export class GameListComponent implements OnChanges {
         return normalized.length > 0 ? normalized.join(', ') : 'Unknown';
     }
 
+    hasMetadataValue(values: string[] | undefined): boolean {
+        return this.normalizeMetadataOptions(values).length > 0;
+    }
+
     formatCompletionHours(value: number | null | undefined): string {
         if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
             return 'Unknown';

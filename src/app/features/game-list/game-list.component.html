@@ -276,21 +276,21 @@
               </ng-template>
             </ion-label>
           </ion-item>
-          <ion-item button detail="true" (click)="onDeveloperItemClick(game)">
+          <ion-item [button]="hasMetadataValue(game.developers)" [detail]="hasMetadataValue(game.developers)" (click)="onDeveloperItemClick(game)">
             <ion-label>
               <h2>Developer</h2>
               <p *ngIf="(game.developers?.length ?? 0) <= 1">{{ formatMetadataList(game.developers) }}</p>
               <p *ngIf="(game.developers?.length ?? 0) > 1">Select a developer...</p>
             </ion-label>
           </ion-item>
-          <ion-item button detail="true" (click)="onSeriesItemClick(game)">
+          <ion-item [button]="hasMetadataValue(game.collections)" [detail]="hasMetadataValue(game.collections)" (click)="onSeriesItemClick(game)">
             <ion-label>
               <h2>Series</h2>
               <p *ngIf="(game.collections?.length ?? 0) <= 1">{{ formatMetadataList(game.collections) }}</p>
               <p *ngIf="(game.collections?.length ?? 0) > 1">Select a series...</p>
             </ion-label>
           </ion-item>
-          <ion-item button detail="true" (click)="onFranchiseItemClick(game)">
+          <ion-item [button]="hasMetadataValue(game.franchises)" [detail]="hasMetadataValue(game.franchises)" (click)="onFranchiseItemClick(game)">
             <ion-label>
               <h2>Franchise</h2>
               <p *ngIf="(game.franchises?.length ?? 0) <= 1">{{ formatMetadataList(game.franchises) }}</p>
@@ -303,7 +303,7 @@
               <p>{{ formatMetadataList(game.genres) }}</p>
             </ion-label>
           </ion-item>
-          <ion-item button detail="true" (click)="onPublisherItemClick(game)">
+          <ion-item [button]="hasMetadataValue(game.publishers)" [detail]="hasMetadataValue(game.publishers)" (click)="onPublisherItemClick(game)">
             <ion-label>
               <h2>Publisher</h2>
               <p *ngIf="(game.publishers?.length ?? 0) <= 1">{{ formatMetadataList(game.publishers) }}</p>

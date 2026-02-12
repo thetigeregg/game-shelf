@@ -11,6 +11,7 @@
 4. Create persistent directories:
    - `nas-data/postgres`
    - `nas-data/image-cache`
+   - `nas-data/manuals`
 
 ## 2. Start stack
 ```bash
@@ -24,6 +25,11 @@ Services:
 - `api` hosts metadata + sync endpoints.
 - `postgres` stores authoritative app data.
 - `hltb-scraper` provides browser-backed HLTB lookups.
+
+Manual PDFs:
+- Store PDFs under `nas-data/manuals`.
+- Use platform folders that end with `__pid-<platformIgdbId>` (example: `PlayStation 2__pid-8`).
+- The app serves files at `/manuals/...` and the API scans `/data/manuals` for fuzzy matching.
 
 ## Local host-based API development (without running `api` container)
 If you run Fastify directly from your Mac, use `server/.env.dev`:

@@ -64,6 +64,8 @@ export interface AppConfig {
   hltbCacheEnableStaleWhileRevalidate: boolean;
   hltbCacheFreshTtlSeconds: number;
   hltbCacheStaleTtlSeconds: number;
+  manualsDir: string;
+  manualsPublicBaseUrl: string;
 }
 
 function readPathEnv(name: string, fallbackAbsolutePath: string): string {
@@ -95,4 +97,6 @@ export const config: AppConfig = {
   hltbCacheEnableStaleWhileRevalidate: readBooleanEnv('HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE', true),
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
+  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
 };

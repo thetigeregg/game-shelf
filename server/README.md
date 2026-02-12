@@ -10,6 +10,9 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/images/boxart/search`
 - `GET /v1/hltb/search`
 - `GET /v1/images/proxy`
+- `GET /v1/manuals/resolve`
+- `GET /v1/manuals/search`
+- `POST /v1/manuals/refresh`
 - `POST /v1/sync/push`
 - `POST /v1/sync/pull`
 
@@ -25,4 +28,3 @@ npm run dev
 - Metadata routes reuse the existing worker logic for response compatibility.
 - Sync routes persist server-authoritative state and emit cursor-based change events.
 - Image proxy uses filesystem-backed cache plus `image_assets` index rows in Postgres.
-

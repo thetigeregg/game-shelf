@@ -9,6 +9,7 @@ import { createPool } from './db.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { proxyMetadataToWorker } from './metadata.js';
+import { registerManualRoutes } from './manuals.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -48,6 +49,10 @@ async function main(): Promise<void> {
   registerSyncRoutes(app, pool);
   registerImageProxyRoute(app, pool, imageCacheDir);
   registerCacheObservabilityRoutes(app, pool);
+  registerManualRoutes(app, {
+    manualsDir: config.manualsDir,
+    manualsPublicBaseUrl: config.manualsPublicBaseUrl,
+  });
 
   app.get('/v1/games/search', proxyMetadataToWorker);
   app.get('/v1/games/:id', proxyMetadataToWorker);

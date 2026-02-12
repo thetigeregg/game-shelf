@@ -113,6 +113,29 @@ export interface HltbMatchCandidate extends HltbCompletionTimes {
   imageUrl?: string | null;
 }
 
+export interface ManualCandidate {
+  platformIgdbId: number;
+  fileName: string;
+  relativePath: string;
+  score: number;
+  url: string;
+}
+
+export interface ManualResolveResult {
+  status: 'matched' | 'none';
+  bestMatch?: (ManualCandidate & { source: 'override' | 'fuzzy' }) | null;
+  candidates: ManualCandidate[];
+  unavailable?: boolean;
+  reason?: string | null;
+}
+
+export interface ManualOverrideEntry {
+  relativePath: string;
+  updatedAt: string;
+}
+
+export type ManualOverrideMap = Record<string, ManualOverrideEntry>;
+
 export type SyncEntityType = 'game' | 'tag' | 'view' | 'setting';
 export type SyncOperationType = 'upsert' | 'delete';
 

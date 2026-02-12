@@ -5,6 +5,11 @@
     reverse_proxy api:3000
   }
 
+  handle_path /manuals/* {
+    root * /manuals
+    file_server
+  }
+
   handle {
     root * /srv
     try_files {path} /index.html

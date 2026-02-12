@@ -7,6 +7,8 @@ services:
       - api
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - ./nas-data/manuals:/manuals:ro
     restart: unless-stopped
 
   api:
@@ -20,6 +22,7 @@ services:
       - hltb-scraper
     volumes:
       - ./nas-data/image-cache:/data/images
+      - ./nas-data/manuals:/data/manuals:ro
     restart: unless-stopped
 
   postgres:

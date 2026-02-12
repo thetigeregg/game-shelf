@@ -390,6 +390,22 @@
           <ion-icon name="search" aria-hidden="true"></ion-icon>
         </ion-fab-button>
         <ion-fab-list side="start">
+          <ion-fab-button
+            *ngIf="shouldShowOpenManualButton"
+            class="shortcut-manual"
+            aria-label="Open game manual PDF"
+            (click)="openManualPdf()"
+          >
+            <ion-icon name="document-text" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+          <ion-fab-button
+            *ngIf="shouldShowFindManualButton"
+            class="shortcut-manual-find"
+            aria-label="Find game manual PDF"
+            (click)="openManualPickerModal()"
+          >
+            <ion-icon name="search" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
           <ion-fab-button class="shortcut-google" aria-label="Search on Google" (click)="openShortcutSearch('google')">
             <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
           </ion-fab-button>
@@ -404,6 +420,57 @@
           </ion-fab-button>
         </ion-fab-list>
       </ion-fab>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isManualPickerModalOpen" (didDismiss)="closeManualPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Find Manual</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" aria-label="Close find manual" (click)="closeManualPickerModal()">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <ion-item>
+        <ion-searchbar
+          [value]="manualPickerQuery"
+          (ionInput)="onManualPickerQueryInput($event)"
+          placeholder="Search manuals"
+        ></ion-searchbar>
+      </ion-item>
+      <ion-item lines="none">
+        <ion-button expand="block" [disabled]="isManualPickerLoading" (click)="runManualPickerSearch()">
+          {{ isManualPickerLoading ? 'Searching...' : 'Search' }}
+        </ion-button>
+      </ion-item>
+
+      <ion-item *ngIf="manualPickerError" lines="none">
+        <ion-label [color]="manualCatalogUnavailable ? 'warning' : 'medium'">{{ manualPickerError }}</ion-label>
+      </ion-item>
+
+      <ion-item
+        *ngIf="manualResolvedSource === 'override' && selectedGame"
+        lines="none"
+      >
+        <ion-button color="warning" fill="outline" expand="block" (click)="clearManualMatchOverride()">
+          Clear Custom Match
+        </ion-button>
+      </ion-item>
+
+      <ion-list lines="full">
+        <ion-item button detail="false" *ngFor="let candidate of manualPickerResults" (click)="applyManualMatch(candidate)">
+          <ion-label>
+            <h2>{{ candidate.fileName }}</h2>
+            <p>{{ candidate.relativePath }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-list>
     </ion-content>
   </ng-template>
 </ion-modal>

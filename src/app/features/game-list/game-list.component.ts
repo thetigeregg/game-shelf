@@ -49,10 +49,12 @@ import {
     GameStatusFilterOption,
     GameStatus,
     GameType,
-    ListType
+    ListType,
+    ManualCandidate
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
+import { ManualService } from '../../core/services/manual.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
@@ -76,7 +78,7 @@ import {
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
-import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack } from "ionicons/icons";
+import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack, documentText } from "ionicons/icons";
 
 export interface GameListSelectionState {
     active: boolean;
@@ -197,6 +199,16 @@ export class GameListComponent implements OnChanges {
     metadataPickerKind: MetadataFilterKind | null = null;
     metadataPickerOptions: string[] = [];
     metadataPickerSelection: string | null = null;
+    isManualPickerModalOpen = false;
+    isManualPickerLoading = false;
+    manualPickerQuery = '';
+    manualPickerResults: ManualCandidate[] = [];
+    manualPickerError: string | null = null;
+    manualResolvedUrl: string | null = null;
+    manualResolvedRelativePath: string | null = null;
+    manualResolvedSource: 'override' | 'fuzzy' | null = null;
+    manualCatalogUnavailable = false;
+    manualCatalogUnavailableReason: string | null = null;
     detailTextExpanded = {
         summary: false,
         storyline: false,
@@ -217,6 +229,7 @@ export class GameListComponent implements OnChanges {
     private readonly filteringEngine = new GameListFilteringEngine(this.noneTagFilterValue);
     private imagePickerSearchRequestId = 0;
     private similarLibraryLoadRequestId = 0;
+    private manualResolutionRequestId = 0;
     private rowActionsSlidingItem: IonItemSliding | null = null;
     private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
     private longPressTriggeredExternalId: string | null = null;
@@ -226,6 +239,7 @@ export class GameListComponent implements OnChanges {
     private readonly loadingController = inject(LoadingController);
     private readonly toastController = inject(ToastController);
     private readonly imageCacheService = inject(ImageCacheService);
+    private readonly manualService = inject(ManualService);
     private readonly platformOrderService = inject(PlatformOrderService);
     private readonly changeDetectorRef = inject(ChangeDetectorRef);
     private readonly ngZone = inject(NgZone);
@@ -638,9 +652,11 @@ export class GameListComponent implements OnChanges {
         this.isGameDetailModalOpen = true;
         this.resetDetailTextExpansion();
         this.resetImagePickerState();
+        this.resetManualPickerState();
         this.changeDetectorRef.markForCheck();
         void this.loadDetailCoverUrl(game);
         void this.loadSimilarLibraryGamesForDetail(game);
+        void this.resolveManualForGame(game);
         this.scrollDetailToTop();
     }
 
@@ -655,14 +671,17 @@ export class GameListComponent implements OnChanges {
         this.isImagePickerModalOpen = false;
         this.isHltbPickerModalOpen = false;
         this.isMetadataPickerModalOpen = false;
+        this.isManualPickerModalOpen = false;
         this.selectedGame = null;
         this.detailNavigationStack = [];
         this.similarLibraryGames = [];
         this.isSimilarLibraryGamesLoading = false;
         this.similarLibraryLoadRequestId += 1;
+        this.manualResolutionRequestId += 1;
         this.resetDetailTextExpansion();
         this.resetImagePickerState();
         this.resetHltbPickerState();
+        this.resetManualPickerState();
         this.changeDetectorRef.markForCheck();
     }
 
@@ -1356,6 +1375,120 @@ export class GameListComponent implements OnChanges {
         }
     }
 
+    get shouldShowOpenManualButton(): boolean {
+        return this.manualResolvedUrl !== null;
+    }
+
+    get shouldShowFindManualButton(): boolean {
+        return this.manualResolvedUrl === null;
+    }
+
+    openManualPdf(): void {
+        const url = this.manualResolvedUrl;
+
+        if (!url) {
+            return;
+        }
+
+        const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+
+        if (!openedWindow) {
+            window.location.href = url;
+        }
+    }
+
+    openManualPickerModal(): void {
+        if (this.manualCatalogUnavailable) {
+            const reason = this.manualCatalogUnavailableReason ?? 'Manual catalog is unavailable.';
+            void this.presentToast(reason, 'warning');
+            return;
+        }
+
+        const game = this.selectedGame;
+
+        if (!game) {
+            return;
+        }
+
+        this.isManualPickerModalOpen = true;
+        this.manualPickerQuery = game.title.trim();
+        this.manualPickerResults = [];
+        this.manualPickerError = null;
+        this.isManualPickerLoading = false;
+        this.changeDetectorRef.markForCheck();
+        void this.runManualPickerSearch();
+    }
+
+    closeManualPickerModal(): void {
+        this.isManualPickerModalOpen = false;
+        this.manualPickerQuery = '';
+        this.manualPickerResults = [];
+        this.manualPickerError = null;
+        this.isManualPickerLoading = false;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    onManualPickerQueryInput(event: Event): void {
+        const customEvent = event as CustomEvent<{ value?: string | null }>;
+        this.manualPickerQuery = (customEvent.detail?.value ?? '').replace(/^\s+/, '');
+    }
+
+    async runManualPickerSearch(): Promise<void> {
+        const game = this.selectedGame;
+
+        if (!game) {
+            return;
+        }
+
+        this.isManualPickerLoading = true;
+        this.manualPickerError = null;
+        this.changeDetectorRef.markForCheck();
+
+        try {
+            const response = await firstValueFrom(this.manualService.searchManuals(game.platformIgdbId, this.manualPickerQuery));
+            this.manualCatalogUnavailable = response.unavailable;
+            this.manualCatalogUnavailableReason = response.reason;
+            this.manualPickerResults = response.items;
+
+            if (response.unavailable) {
+                this.manualPickerError = response.reason ?? 'Manual catalog is unavailable.';
+            } else if (response.items.length === 0) {
+                this.manualPickerError = 'No manuals found for this search.';
+            }
+        } catch {
+            this.manualPickerError = 'Unable to search manuals right now.';
+            this.manualPickerResults = [];
+        } finally {
+            this.isManualPickerLoading = false;
+            this.changeDetectorRef.markForCheck();
+        }
+    }
+
+    async applyManualMatch(candidate: ManualCandidate): Promise<void> {
+        const game = this.selectedGame;
+
+        if (!game) {
+            return;
+        }
+
+        this.manualService.setOverride(game, candidate.relativePath);
+        this.closeManualPickerModal();
+        await this.resolveManualForGame(game);
+        await this.presentToast('Manual match saved.');
+    }
+
+    async clearManualMatchOverride(): Promise<void> {
+        const game = this.selectedGame;
+
+        if (!game) {
+            return;
+        }
+
+        this.manualService.clearOverride(game);
+        await this.resolveManualForGame(game);
+        await this.presentToast('Manual override cleared.');
+    }
+
     getTagTextColor(color: string): string {
         const normalized = color.trim();
 
@@ -1911,6 +2044,19 @@ export class GameListComponent implements OnChanges {
         this.detailTextExpanded.storyline = false;
     }
 
+    private resetManualPickerState(): void {
+        this.isManualPickerModalOpen = false;
+        this.isManualPickerLoading = false;
+        this.manualPickerQuery = '';
+        this.manualPickerResults = [];
+        this.manualPickerError = null;
+        this.manualResolvedUrl = null;
+        this.manualResolvedRelativePath = null;
+        this.manualResolvedSource = null;
+        this.manualCatalogUnavailable = false;
+        this.manualCatalogUnavailableReason = null;
+    }
+
     private resetImagePickerState(): void {
         const nextState = createClosedImagePickerState(this.imagePickerSearchRequestId);
         this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
@@ -1942,6 +2088,80 @@ export class GameListComponent implements OnChanges {
         this.hltbPickerResults = nextState.hltbPickerResults;
         this.hltbPickerError = nextState.hltbPickerError;
         this.hltbPickerTargetGame = nextState.hltbPickerTargetGame;
+    }
+
+    private async resolveManualForGame(game: GameEntry): Promise<void> {
+        const requestId = ++this.manualResolutionRequestId;
+        const override = this.manualService.getOverride(game);
+
+        try {
+            const result = await firstValueFrom(this.manualService.resolveManual(game, override?.relativePath));
+
+            if (requestId !== this.manualResolutionRequestId) {
+                return;
+            }
+
+            if (!this.selectedGame || this.getGameKey(this.selectedGame) !== this.getGameKey(game)) {
+                return;
+            }
+
+            this.manualCatalogUnavailable = result.unavailable === true;
+            this.manualCatalogUnavailableReason = result.reason ?? null;
+
+            if (result.bestMatch) {
+                this.manualResolvedUrl = result.bestMatch.url;
+                this.manualResolvedRelativePath = result.bestMatch.relativePath;
+                this.manualResolvedSource = result.bestMatch.source;
+            } else {
+                this.manualResolvedUrl = null;
+                this.manualResolvedRelativePath = null;
+                this.manualResolvedSource = null;
+            }
+
+            if (override && result.bestMatch?.source !== 'override' && !this.manualCatalogUnavailable) {
+                const shouldRemove = await this.confirmManualOverrideRemoval(game);
+
+                if (shouldRemove && this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
+                    this.manualService.clearOverride(game);
+                    await this.resolveManualForGame(game);
+                    return;
+                }
+            }
+
+            this.changeDetectorRef.markForCheck();
+        } catch {
+            if (requestId !== this.manualResolutionRequestId) {
+                return;
+            }
+
+            this.manualResolvedUrl = null;
+            this.manualResolvedRelativePath = null;
+            this.manualResolvedSource = null;
+            this.manualCatalogUnavailable = true;
+            this.manualCatalogUnavailableReason = 'Manual catalog is unavailable.';
+            this.changeDetectorRef.markForCheck();
+        }
+    }
+
+    private async confirmManualOverrideRemoval(game: GameEntry): Promise<boolean> {
+        const alert = await this.alertController.create({
+            header: 'Manual Not Found',
+            message: `Your saved manual match for ${game.title} is no longer available. Remove the custom match and retry auto-match?`,
+            buttons: [
+                {
+                    text: 'Keep',
+                    role: 'cancel',
+                },
+                {
+                    text: 'Remove',
+                    role: 'confirm',
+                },
+            ],
+        });
+
+        await alert.present();
+        const { role } = await alert.onDidDismiss();
+        return role === 'confirm';
     }
 
     private async openStatusPicker(game: GameEntry): Promise<void> {
@@ -2003,6 +2223,7 @@ export class GameListComponent implements OnChanges {
         if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
             this.selectedGame = updated;
             void this.loadSimilarLibraryGamesForDetail(updated);
+            void this.resolveManualForGame(updated);
         }
 
         if (options.refreshCover) {
@@ -2047,6 +2268,6 @@ export class GameListComponent implements OnChanges {
     }
 
     constructor() {
-        addIcons({ star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack });
+        addIcons({ star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack, documentText });
     }
 }

@@ -268,6 +268,7 @@ export class SettingsPage {
     isMgcResolverOpen = false;
     mgcResolverRowId: number | null = null;
     mgcResolverQuery = '';
+    mgcResolverPlatformIgdbId: number | null = null;
     mgcResolverResults: GameCatalogResult[] = [];
     isMgcResolverSearching = false;
     mgcResolverError = '';
@@ -406,6 +407,10 @@ export class SettingsPage {
     get mgcCurrentPageRows(): MgcImportRow[] {
         const start = this.mgcPageIndex * this.mgcPageSize;
         return this.mgcRows.slice(start, start + this.mgcPageSize);
+    }
+
+    get mgcResolverPlatformOptions(): GameCatalogPlatformOption[] {
+        return this.mgcSearchPlatforms;
     }
 
     get mgcResolvedCount(): number {
@@ -553,6 +558,7 @@ export class SettingsPage {
         this.mgcResolverRowId = null;
         this.mgcResolverResults = [];
         this.mgcResolverError = '';
+        this.mgcResolverPlatformIgdbId = null;
         this.isImportLoadingOpen = false;
         this.importLoadingMessage = '';
     }
@@ -694,18 +700,20 @@ export class SettingsPage {
             return;
         }
 
+        await this.ensureMgcPlatformLookup();
         this.mgcResolverRowId = row.id;
         this.mgcResolverQuery = row.name;
+        this.mgcResolverPlatformIgdbId = row.platformIgdbId;
         this.mgcResolverResults = [];
         this.mgcResolverError = '';
         this.isMgcResolverOpen = true;
-        await this.searchMgcResolver();
     }
 
     closeMgcResolver(): void {
         this.isMgcResolverOpen = false;
         this.mgcResolverRowId = null;
         this.mgcResolverQuery = '';
+        this.mgcResolverPlatformIgdbId = null;
         this.mgcResolverResults = [];
         this.mgcResolverError = '';
         this.isMgcResolverSearching = false;
@@ -713,6 +721,21 @@ export class SettingsPage {
 
     onMgcResolverQueryChange(value: string | null | undefined): void {
         this.mgcResolverQuery = value ?? '';
+    }
+
+    onMgcResolverPlatformChange(value: string | number | null | undefined): void {
+        if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+            this.mgcResolverPlatformIgdbId = value;
+            return;
+        }
+
+        if (typeof value === 'string' && /^\d+$/.test(value)) {
+            const parsed = Number.parseInt(value, 10);
+            this.mgcResolverPlatformIgdbId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+            return;
+        }
+
+        this.mgcResolverPlatformIgdbId = null;
     }
 
     async searchMgcResolver(): Promise<void> {
@@ -734,7 +757,7 @@ export class SettingsPage {
         this.mgcResolverError = '';
 
         try {
-            const results = await firstValueFrom(this.gameShelfService.searchGames(query, row.platformIgdbId));
+            const results = await firstValueFrom(this.gameShelfService.searchGames(query, this.mgcResolverPlatformIgdbId));
             this.mgcResolverResults = results;
         } catch {
             this.mgcResolverResults = [];
@@ -751,13 +774,16 @@ export class SettingsPage {
             return;
         }
 
-        const resolved = await this.resolveCatalogForRow(row, result, true);
+        const resolverRow = this.resolveMgcResolverRowContext(row);
+        const resolved = await this.resolveCatalogForRow(resolverRow, result, true);
 
         if (!resolved) {
             await this.presentToast('Unable to resolve a platform for this result.', 'warning');
             return;
         }
 
+        row.platformIgdbId = resolverRow.platformIgdbId;
+        row.platform = resolverRow.platform;
         row.selected = resolved;
         row.candidates = [resolved];
         row.status = 'resolved';
@@ -1398,6 +1424,31 @@ export class SettingsPage {
     private resolveMgcPlatform(platformName: string): GameCatalogPlatformOption | null {
         const normalized = this.normalizeLookupKey(platformName);
         return this.mgcPlatformLookup.get(normalized) ?? null;
+    }
+
+    private resolveMgcPlatformById(platformIgdbId: number | null): GameCatalogPlatformOption | null {
+        if (typeof platformIgdbId !== 'number' || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+            return null;
+        }
+
+        return this.mgcSearchPlatforms.find(option => option.id === platformIgdbId) ?? null;
+    }
+
+    private resolveMgcResolverRowContext(row: MgcImportRow): MgcImportRow {
+        const selectedPlatform = this.resolveMgcPlatformById(this.mgcResolverPlatformIgdbId);
+
+        if (!selectedPlatform || typeof selectedPlatform.id !== 'number' || selectedPlatform.id <= 0) {
+            return {
+                ...row,
+                platformIgdbId: null,
+            };
+        }
+
+        return {
+            ...row,
+            platform: selectedPlatform.name,
+            platformIgdbId: selectedPlatform.id,
+        };
     }
 
     private parseMgcLabels(raw: string): string[] {

@@ -346,6 +346,21 @@
 
     <ion-content>
       <ion-item>
+        <ion-select
+          label="Platform"
+          labelPlacement="stacked"
+          interface="popover"
+          [value]="mgcResolverPlatformIgdbId === null ? '' : mgcResolverPlatformIgdbId"
+          (ionChange)="onMgcResolverPlatformChange($any($event).detail.value)"
+        >
+          <ion-select-option value="">All platforms</ion-select-option>
+          <ion-select-option *ngFor="let platform of mgcResolverPlatformOptions" [value]="platform.id">
+            {{ platform.name }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
         <ion-searchbar
           [value]="mgcResolverQuery"
           (ionInput)="onMgcResolverQueryChange($any($event).detail.value)"

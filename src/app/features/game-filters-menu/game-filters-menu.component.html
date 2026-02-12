@@ -115,6 +115,34 @@
       </ion-item>
 
       <ion-item>
+        <ion-input
+          type="number"
+          min="0"
+          step="0.5"
+          inputmode="decimal"
+          label="HLTB main min (hours)"
+          labelPlacement="stacked"
+          placeholder="No min"
+          [ngModel]="draftFilters.hltbMainHoursMin"
+          (ngModelChange)="onHltbMainHoursMinChange($event)"
+        ></ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          type="number"
+          min="0"
+          step="0.5"
+          inputmode="decimal"
+          label="HLTB main max (hours)"
+          labelPlacement="stacked"
+          placeholder="No max"
+          [ngModel]="draftFilters.hltbMainHoursMax"
+          (ngModelChange)="onHltbMainHoursMaxChange($event)"
+        ></ion-input>
+      </ion-item>
+
+      <ion-item>
         <ion-label>Release date from</ion-label>
         <ion-datetime-button slot="end" [datetime]="releaseDateFromDatetimeId"></ion-datetime-button>
       </ion-item>

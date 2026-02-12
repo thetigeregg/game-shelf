@@ -2355,6 +2355,12 @@ export class SettingsPage {
 
         try {
             const parsed = JSON.parse(raw) as Partial<GameListFilters>;
+            const parsedHltbMainHoursMin = typeof parsed.hltbMainHoursMin === 'number' && Number.isFinite(parsed.hltbMainHoursMin) && parsed.hltbMainHoursMin >= 0
+                ? Math.round(parsed.hltbMainHoursMin * 10) / 10
+                : null;
+            const parsedHltbMainHoursMax = typeof parsed.hltbMainHoursMax === 'number' && Number.isFinite(parsed.hltbMainHoursMax) && parsed.hltbMainHoursMax >= 0
+                ? Math.round(parsed.hltbMainHoursMax * 10) / 10
+                : null;
 
             return {
                 ...DEFAULT_GAME_LIST_FILTERS,
@@ -2372,6 +2378,12 @@ export class SettingsPage {
                     ? parsed.sortField
                     : DEFAULT_GAME_LIST_FILTERS.sortField,
                 sortDirection: parsed.sortDirection === 'desc' ? 'desc' : 'asc',
+                hltbMainHoursMin: parsedHltbMainHoursMin !== null && parsedHltbMainHoursMax !== null && parsedHltbMainHoursMin > parsedHltbMainHoursMax
+                    ? parsedHltbMainHoursMax
+                    : parsedHltbMainHoursMin,
+                hltbMainHoursMax: parsedHltbMainHoursMin !== null && parsedHltbMainHoursMax !== null && parsedHltbMainHoursMin > parsedHltbMainHoursMax
+                    ? parsedHltbMainHoursMin
+                    : parsedHltbMainHoursMax,
                 releaseDateFrom: typeof parsed.releaseDateFrom === 'string' ? parsed.releaseDateFrom : null,
                 releaseDateTo: typeof parsed.releaseDateTo === 'string' ? parsed.releaseDateTo : null,
             };

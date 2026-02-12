@@ -125,6 +125,8 @@ export interface GameListFilters {
   statuses: GameStatusFilterOption[];
   tags: string[];
   ratings: GameRatingFilterOption[];
+  hltbMainHoursMin: number | null;
+  hltbMainHoursMax: number | null;
   releaseDateFrom: string | null;
   releaseDateTo: string | null;
 }
@@ -137,6 +139,8 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   statuses: [],
   tags: [],
   ratings: [],
+  hltbMainHoursMin: null,
+  hltbMainHoursMax: null,
   releaseDateFrom: null,
   releaseDateTo: null,
 };

@@ -316,6 +316,8 @@ export class GameSyncService implements SyncOutboxWriter {
         statuses: [],
         tags: [],
         ratings: [],
+        hltbMainHoursMin: null,
+        hltbMainHoursMax: null,
         releaseDateFrom: null,
         releaseDateTo: null,
       }),
@@ -373,4 +375,3 @@ export class GameSyncService implements SyncOutboxWriter {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 }
-

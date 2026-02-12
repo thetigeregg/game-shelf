@@ -1437,6 +1437,8 @@ export class GameListComponent implements OnChanges {
                 )
             )]
             : [];
+        const hltbMainHoursMin = this.normalizeFilterHours(filters.hltbMainHoursMin);
+        const hltbMainHoursMax = this.normalizeFilterHours(filters.hltbMainHoursMax);
         const hasNoneTagFilter = normalizedTags.includes(this.noneTagFilterValue);
         const normalizedTagNames = normalizedTags.filter(tag => tag !== this.noneTagFilterValue);
 
@@ -1448,6 +1450,12 @@ export class GameListComponent implements OnChanges {
             statuses: normalizedStatuses,
             tags: hasNoneTagFilter ? [this.noneTagFilterValue, ...normalizedTagNames] : normalizedTagNames,
             ratings: normalizedRatings,
+            hltbMainHoursMin: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
+                ? hltbMainHoursMax
+                : hltbMainHoursMin,
+            hltbMainHoursMax: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
+                ? hltbMainHoursMin
+                : hltbMainHoursMax,
         };
     }
 
@@ -1703,6 +1711,20 @@ export class GameListComponent implements OnChanges {
             }
         }
 
+        const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
+        const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
+        const gameMainHours = this.normalizeFilterHours(game.hltbMainHours);
+
+        if (gameMainHours !== null) {
+            if (minMainHours !== null && gameMainHours < minMainHours) {
+                return false;
+            }
+
+            if (maxMainHours !== null && gameMainHours > maxMainHours) {
+                return false;
+            }
+        }
+
         const gameDate = this.getDateOnly(game.releaseDate);
 
         if (filters.releaseDateFrom && (!gameDate || gameDate < filters.releaseDateFrom)) {
@@ -1810,6 +1832,14 @@ export class GameListComponent implements OnChanges {
 
     private isPositiveNumber(value: number | null | undefined): boolean {
         return typeof value === 'number' && Number.isFinite(value) && value > 0;
+    }
+
+    private normalizeFilterHours(value: number | null | undefined): number | null {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+            return null;
+        }
+
+        return Math.round(value * 10) / 10;
     }
 
     private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {

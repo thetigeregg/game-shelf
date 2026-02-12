@@ -168,6 +168,8 @@ export class ListPageComponent {
                 || rating === 5
             )
             : [];
+        const hltbMainHoursMin = this.normalizeHltbMainHours(filters.hltbMainHoursMin);
+        const hltbMainHoursMax = this.normalizeHltbMainHours(filters.hltbMainHoursMax);
 
         this.filters = {
             ...filters,
@@ -176,6 +178,12 @@ export class ListPageComponent {
             statuses: normalizedStatuses,
             tags: normalizedTags,
             ratings: normalizedRatings,
+            hltbMainHoursMin: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
+                ? hltbMainHoursMax
+                : hltbMainHoursMin,
+            hltbMainHoursMax: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
+                ? hltbMainHoursMin
+                : hltbMainHoursMax,
             sortField: this.isValidSortField(filters.sortField) ? filters.sortField : DEFAULT_GAME_LIST_FILTERS.sortField,
             sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',
         };
@@ -314,6 +322,10 @@ export class ListPageComponent {
         }
 
         if (this.filters.ratings.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.hltbMainHoursMin !== null || this.filters.hltbMainHoursMax !== null) {
             count += 1;
         }
 
@@ -461,6 +473,16 @@ export class ListPageComponent {
 
     private isValidSortField(value: unknown): value is GameListFilters['sortField'] {
         return value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform';
+    }
+
+    private normalizeHltbMainHours(value: unknown): number | null {
+        const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+
+        if (!Number.isFinite(numeric) || numeric < 0) {
+            return null;
+        }
+
+        return Math.round(numeric * 10) / 10;
     }
 
     private async applyViewFromQueryParam(rawViewId: string | null): Promise<void> {

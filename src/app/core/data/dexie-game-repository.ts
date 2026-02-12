@@ -552,6 +552,8 @@ export class DexieGameRepository implements GameRepository {
         || rating === 5
       ))]
       : [];
+    const hltbMainHoursMin = this.normalizeHltbMainHoursFilterValue(source.hltbMainHoursMin);
+    const hltbMainHoursMax = this.normalizeHltbMainHoursFilterValue(source.hltbMainHoursMax);
     const releaseDateFrom = typeof source.releaseDateFrom === 'string' && source.releaseDateFrom.length >= 10
       ? source.releaseDateFrom.slice(0, 10)
       : null;
@@ -567,8 +569,22 @@ export class DexieGameRepository implements GameRepository {
       statuses,
       tags,
       ratings,
+      hltbMainHoursMin: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
+        ? hltbMainHoursMax
+        : hltbMainHoursMin,
+      hltbMainHoursMax: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
+        ? hltbMainHoursMin
+        : hltbMainHoursMax,
       releaseDateFrom,
       releaseDateTo,
     };
+  }
+
+  private normalizeHltbMainHoursFilterValue(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
   }
 }

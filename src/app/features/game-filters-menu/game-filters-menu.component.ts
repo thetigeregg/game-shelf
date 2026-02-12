@@ -12,6 +12,7 @@ import {
     IonContent,
     IonList,
     IonItem,
+    IonInput,
     IonSelect,
     IonSelectOption,
     IonLabel,
@@ -55,6 +56,7 @@ type SortOption =
         IonContent,
         IonList,
         IonItem,
+        IonInput,
         IonSelect,
         IonSelectOption,
         IonLabel,
@@ -193,6 +195,28 @@ export class GameFiltersMenuComponent implements OnChanges {
         this.updateFilters();
     }
 
+    onHltbMainHoursMinChange(value: string | number | null | undefined): void {
+        const min = this.toNonNegativeNumber(value);
+        const max = this.toNonNegativeNumber(this.draftFilters.hltbMainHoursMax);
+        this.draftFilters = {
+            ...this.draftFilters,
+            hltbMainHoursMin: min,
+            hltbMainHoursMax: min !== null && max !== null && min > max ? min : max,
+        };
+        this.updateFilters();
+    }
+
+    onHltbMainHoursMaxChange(value: string | number | null | undefined): void {
+        const max = this.toNonNegativeNumber(value);
+        const min = this.toNonNegativeNumber(this.draftFilters.hltbMainHoursMin);
+        this.draftFilters = {
+            ...this.draftFilters,
+            hltbMainHoursMin: min !== null && max !== null && min > max ? max : min,
+            hltbMainHoursMax: max,
+        };
+        this.updateFilters();
+    }
+
     get releaseDateFromDatetimeId(): string {
         return `${this.menuId}-release-date-from`;
     }
@@ -243,6 +267,20 @@ export class GameFiltersMenuComponent implements OnChanges {
         }
 
         return value.slice(0, 10);
+    }
+
+    private toNonNegativeNumber(value: unknown): number | null {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+
+        const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            return null;
+        }
+
+        return Math.round(parsed * 10) / 10;
     }
 
     private normalizeSelection(value: string[] | string | null | undefined): string[] {

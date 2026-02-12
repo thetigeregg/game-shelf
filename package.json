@@ -5,7 +5,7 @@
   "homepage": "https://ionicframework.com/",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "ng serve --port 8100",
     "dev:deps:up": "docker compose up -d postgres hltb-scraper",
     "dev:deps:restart": "docker compose restart postgres hltb-scraper",
     "dev:deps:down": "docker compose stop postgres hltb-scraper",

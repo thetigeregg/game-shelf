@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
-import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton } from '@ionic/angular/standalone';
+import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonButton } from '@ionic/angular/standalone';
 import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { GameCatalogPlatformOption, GameCatalogResult, ListType } from '../../core/models/game.models';
@@ -17,7 +17,7 @@ interface SelectedPlatform {
     templateUrl: './game-search.component.html',
     styleUrls: ['./game-search.component.scss'],
     standalone: true,
-    imports: [CommonModule, IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton],
+    imports: [CommonModule, IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonButton],
 })
 export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     @Input({ required: true }) listType!: ListType;
@@ -194,18 +194,6 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         }
 
         return `${platforms.length} platforms`;
-    }
-
-    getCoverSourceLabel(result: GameCatalogResult): string | null {
-        if (result.coverSource === 'thegamesdb') {
-            return '2D Box Art';
-        }
-
-        if (result.coverSource === 'igdb') {
-            return 'IGDB Cover';
-        }
-
-        return null;
     }
 
     getActionLabel(externalId: string): string {

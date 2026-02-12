@@ -6,6 +6,7 @@ import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-wr
 import { ClientSyncOperation, GameEntry, GameListView, SyncChangeEvent, SyncPushResult, Tag } from '../models/game.models';
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
+import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from './platform-order.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -27,6 +28,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly db = inject(AppDb);
   private readonly httpClient = inject(HttpClient);
   private readonly syncEvents = inject(SyncEventsService);
+  private readonly platformOrderService = inject(PlatformOrderService);
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
@@ -189,6 +191,11 @@ export class GameSyncService implements SyncOutboxWriter {
           await this.applyViewChange(change);
           continue;
         }
+
+        if (change.entityType === 'setting') {
+          await this.applySettingChange(change);
+          continue;
+        }
       }
     });
   }
@@ -332,6 +339,46 @@ export class GameSyncService implements SyncOutboxWriter {
     };
 
     await this.db.views.put(normalized);
+  }
+
+  private async applySettingChange(change: SyncChangeEvent): Promise<void> {
+    if (change.operation === 'delete') {
+      const payload = change.payload as { key?: unknown };
+      const key = typeof payload?.key === 'string' ? payload.key.trim() : '';
+
+      if (key.length === 0) {
+        return;
+      }
+
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Ignore storage failures.
+      }
+
+      if (key === PLATFORM_ORDER_STORAGE_KEY) {
+        this.platformOrderService.refreshFromStorage();
+      }
+      return;
+    }
+
+    const payload = change.payload as { key?: unknown; value?: unknown };
+    const key = typeof payload?.key === 'string' ? payload.key.trim() : '';
+    const value = typeof payload?.value === 'string' ? payload.value : '';
+
+    if (key.length === 0) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Ignore storage failures.
+    }
+
+    if (key === PLATFORM_ORDER_STORAGE_KEY) {
+      this.platformOrderService.refreshFromStorage();
+    }
   }
 
   private async getMeta(key: string): Promise<string | null> {

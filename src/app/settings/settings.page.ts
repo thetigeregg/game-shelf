@@ -22,7 +22,8 @@ import { COLOR_SCHEME_STORAGE_KEY, ColorSchemePreference, PRIMARY_COLOR_STORAGE_
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
-import { PlatformOrderService } from '../core/services/platform-order.service';
+import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from '../core/services/platform-order.service';
+import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
 import { addIcons } from "ionicons";
 import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh } from "ionicons/icons";
 
@@ -287,6 +288,7 @@ export class SettingsPage {
     private readonly gameShelfService = inject(GameShelfService);
     private readonly imageCacheService = inject(ImageCacheService);
     private readonly platformOrderService = inject(PlatformOrderService);
+    private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
     private readonly toastController = inject(ToastController);
     private readonly alertController = inject(AlertController);
     private readonly router = inject(Router);
@@ -347,6 +349,7 @@ export class SettingsPage {
 
     async resetPlatformOrder(): Promise<void> {
         this.platformOrderService.clearOrder();
+        this.queueSettingDelete(PLATFORM_ORDER_STORAGE_KEY);
         this.platformOrderItems = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
     }
 
@@ -371,6 +374,7 @@ export class SettingsPage {
         next.splice(detail.to, 0, item);
         this.platformOrderItems = next;
         this.platformOrderService.setOrder(next.map(option => option.name));
+        this.queueSettingUpsert(PLATFORM_ORDER_STORAGE_KEY, JSON.stringify(next.map(option => option.name)));
         detail.complete();
     }
 
@@ -2642,6 +2646,35 @@ export class SettingsPage {
                 this.selectedColorScheme = row.value;
                 this.themeService.setColorSchemePreference(row.value);
             }
+
+            if (row.key === PLATFORM_ORDER_STORAGE_KEY) {
+                this.platformOrderService.refreshFromStorage();
+                this.queueSettingUpsert(row.key, row.value);
+            }
+        });
+    }
+
+    private queueSettingUpsert(key: string, value: string): void {
+        if (!this.outboxWriter) {
+            return;
+        }
+
+        void this.outboxWriter.enqueueOperation({
+            entityType: 'setting',
+            operation: 'upsert',
+            payload: { key, value },
+        });
+    }
+
+    private queueSettingDelete(key: string): void {
+        if (!this.outboxWriter) {
+            return;
+        }
+
+        void this.outboxWriter.enqueueOperation({
+            entityType: 'setting',
+            operation: 'delete',
+            payload: { key },
         });
     }
 

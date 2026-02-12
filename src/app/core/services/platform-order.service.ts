@@ -3,7 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import { GameCatalogPlatformOption } from '../models/game.models';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
 
-const PLATFORM_ORDER_STORAGE_KEY = 'game-shelf:platform-display-order-v1';
+export const PLATFORM_ORDER_STORAGE_KEY = 'game-shelf:platform-display-order-v1';
 
 @Injectable({ providedIn: 'root' })
 export class PlatformOrderService {
@@ -42,6 +42,10 @@ export class PlatformOrderService {
     } catch {
       // Ignore storage failures.
     }
+  }
+
+  refreshFromStorage(): void {
+    this.orderSubject.next(this.loadOrderFromStorage());
   }
 
   comparePlatformNames(left: string, right: string): number {

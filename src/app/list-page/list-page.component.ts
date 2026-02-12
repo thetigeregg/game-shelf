@@ -79,6 +79,7 @@ export class ListPageComponent {
         { value: 'platform', label: 'Platform' },
         { value: 'developer', label: 'Developer' },
         { value: 'franchise', label: 'Franchise' },
+        { value: 'collection', label: 'Collection' },
         { value: 'tag', label: 'Tag' },
         { value: 'genre', label: 'Genre' },
         { value: 'publisher', label: 'Publisher' },
@@ -93,6 +94,7 @@ export class ListPageComponent {
 
     filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
     platformOptions: string[] = [];
+    collectionOptions: string[] = [];
     genreOptions: string[] = [];
     tagOptions: string[] = [];
     displayedGames: GameEntry[] = [];
@@ -144,6 +146,9 @@ export class ListPageComponent {
         const normalizedGenres = Array.isArray(filters.genres)
             ? filters.genres.filter(genre => typeof genre === 'string' && genre.trim().length > 0)
             : [];
+        const normalizedCollections = Array.isArray(filters.collections)
+            ? filters.collections.filter(collection => typeof collection === 'string' && collection.trim().length > 0)
+            : [];
         const normalizedStatuses = Array.isArray(filters.statuses)
             ? filters.statuses.filter(status =>
                 status === 'none'
@@ -174,6 +179,7 @@ export class ListPageComponent {
         this.filters = {
             ...filters,
             platform: normalizedPlatforms,
+            collections: normalizedCollections,
             genres: normalizedGenres,
             statuses: normalizedStatuses,
             tags: normalizedTags,
@@ -210,6 +216,18 @@ export class ListPageComponent {
             this.filters = {
                 ...this.filters,
                 genres: normalizedSelection,
+            };
+        }
+    }
+
+    onCollectionOptionsChange(collectionOptions: string[]): void {
+        this.collectionOptions = collectionOptions;
+        const normalizedSelection = this.filters.collections.filter(collection => collectionOptions.includes(collection));
+
+        if (normalizedSelection.length !== this.filters.collections.length) {
+            this.filters = {
+                ...this.filters,
+                collections: normalizedSelection,
             };
         }
     }
@@ -310,6 +328,10 @@ export class ListPageComponent {
         }
 
         if (this.filters.genres.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.collections.length > 0) {
             count += 1;
         }
 

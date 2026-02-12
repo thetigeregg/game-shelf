@@ -53,6 +53,7 @@ export interface GameCatalogResult {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  collections?: string[];
   developers?: string[];
   franchises?: string[];
   genres?: string[];
@@ -75,6 +76,7 @@ export interface GameEntry {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  collections?: string[];
   developers?: string[];
   franchises?: string[];
   genres?: string[];
@@ -133,12 +135,13 @@ export interface SyncPushResult {
 
 export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';
 export type SortDirection = 'asc' | 'desc';
-export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' | 'tag' | 'genre' | 'publisher' | 'releaseYear';
+export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' | 'collection' | 'tag' | 'genre' | 'publisher' | 'releaseYear';
 
 export interface GameListFilters {
   sortField: GameSortField;
   sortDirection: SortDirection;
   platform: string[];
+  collections: string[];
   genres: string[];
   statuses: GameStatusFilterOption[];
   tags: string[];
@@ -153,6 +156,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   sortField: 'title',
   sortDirection: 'asc',
   platform: [],
+  collections: [],
   genres: [],
   statuses: [],
   tags: [],

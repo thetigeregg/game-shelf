@@ -312,6 +312,7 @@ export class GameSyncService implements SyncOutboxWriter {
         sortField: 'title',
         sortDirection: 'asc',
         platform: [],
+        collections: [],
         genres: [],
         statuses: [],
         tags: [],

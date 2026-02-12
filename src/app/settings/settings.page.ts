@@ -2366,6 +2366,7 @@ export class SettingsPage {
                 ...DEFAULT_GAME_LIST_FILTERS,
                 ...parsed,
                 platform: Array.isArray(parsed.platform) ? parsed.platform.filter(value => typeof value === 'string') : [],
+                collections: Array.isArray(parsed.collections) ? parsed.collections.filter(value => typeof value === 'string') : [],
                 genres: Array.isArray(parsed.genres) ? parsed.genres.filter(value => typeof value === 'string') : [],
                 statuses: Array.isArray(parsed.statuses)
                     ? parsed.statuses.filter(value => value === 'none' || value === 'playing' || value === 'wantToPlay' || value === 'completed' || value === 'paused' || value === 'dropped' || value === 'replay')

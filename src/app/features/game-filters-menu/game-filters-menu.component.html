@@ -70,6 +70,21 @@
 
       <ion-item>
         <ion-select
+          label="Collection"
+          labelPlacement="stacked"
+          placeholder="All collections"
+          [multiple]="true"
+          [ngModel]="draftFilters.collections"
+          (ngModelChange)="onCollectionSelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let collection of collectionOptions" [value]="collection">
+            {{ collection }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
           label="Status"
           labelPlacement="stacked"
           placeholder="All statuses"

@@ -74,6 +74,7 @@ export class GameFiltersMenuComponent implements OnChanges {
         { value: 'platform', label: 'Platform' },
         { value: 'developer', label: 'Developer' },
         { value: 'franchise', label: 'Franchise' },
+        { value: 'collection', label: 'Collection' },
         { value: 'tag', label: 'Tag' },
         { value: 'genre', label: 'Genre' },
         { value: 'publisher', label: 'Publisher' },
@@ -83,6 +84,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     @Input({ required: true }) menuId!: string;
     @Input({ required: true }) contentId!: string;
     @Input() platformOptions: string[] = [];
+    @Input() collectionOptions: string[] = [];
     @Input() genreOptions: string[] = [];
     @Input() tagOptions: string[] = [];
     @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
@@ -148,6 +150,15 @@ export class GameFiltersMenuComponent implements OnChanges {
         this.draftFilters = {
             ...this.draftFilters,
             genres: normalized,
+        };
+        this.updateFilters();
+    }
+
+    onCollectionSelectionChange(value: string[] | string | null | undefined): void {
+        const normalized = this.normalizeSelection(value);
+        this.draftFilters = {
+            ...this.draftFilters,
+            collections: normalized,
         };
         this.updateFilters();
     }

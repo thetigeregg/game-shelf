@@ -47,6 +47,7 @@ export class DexieGameRepository implements GameRepository {
         hltbMainHours: this.resolveCompletionHours(result.hltbMainHours, existing.hltbMainHours),
         hltbMainExtraHours: this.resolveCompletionHours(result.hltbMainExtraHours, existing.hltbMainExtraHours),
         hltbCompletionistHours: this.resolveCompletionHours(result.hltbCompletionistHours, existing.hltbCompletionistHours),
+        collections: this.normalizeTextList(result.collections),
         developers: this.normalizeTextList(result.developers),
         franchises: this.normalizeTextList(result.franchises),
         genres: this.normalizeTextList(result.genres),
@@ -76,6 +77,7 @@ export class DexieGameRepository implements GameRepository {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
+      collections: this.normalizeTextList(result.collections),
       developers: this.normalizeTextList(result.developers),
       franchises: this.normalizeTextList(result.franchises),
       genres: this.normalizeTextList(result.genres),
@@ -560,6 +562,9 @@ export class DexieGameRepository implements GameRepository {
     const platform = Array.isArray(source.platform)
       ? [...new Set(source.platform.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
       : [];
+    const collections = Array.isArray(source.collections)
+      ? [...new Set(source.collections.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
+      : [];
     const genres = Array.isArray(source.genres)
       ? [...new Set(source.genres.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
       : [];
@@ -600,6 +605,7 @@ export class DexieGameRepository implements GameRepository {
       sortField,
       sortDirection,
       platform,
+      collections,
       genres,
       statuses,
       tags,

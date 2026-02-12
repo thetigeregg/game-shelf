@@ -134,6 +134,7 @@ export class GameListComponent implements OnChanges {
     @Input() searchQuery = '';
     @Input() groupBy: GameGroupByField = 'none';
     @Output() platformOptionsChange = new EventEmitter<string[]>();
+    @Output() collectionOptionsChange = new EventEmitter<string[]>();
     @Output() genreOptionsChange = new EventEmitter<string[]>();
     @Output() tagOptionsChange = new EventEmitter<string[]>();
     @Output() displayedGamesChange = new EventEmitter<GameEntry[]>();
@@ -193,6 +194,7 @@ export class GameListComponent implements OnChanges {
             const allGames$ = this.gameShelfService.watchList(this.listType).pipe(
                 tap(games => {
                     this.platformOptionsChange.emit(this.extractPlatforms(games));
+                    this.collectionOptionsChange.emit(this.extractCollections(games));
                     this.genreOptionsChange.emit(this.extractGenres(games));
                     this.tagOptionsChange.emit(this.extractTags(games));
                 })
@@ -1431,6 +1433,13 @@ export class GameListComponent implements OnChanges {
                     .filter(genre => genre.length > 0)
             )]
             : [];
+        const normalizedCollections = Array.isArray(filters.collections)
+            ? [...new Set(
+                filters.collections
+                    .map(collection => (typeof collection === 'string' ? collection.trim() : ''))
+                    .filter(collection => collection.length > 0)
+            )]
+            : [];
         const normalizedStatuses = Array.isArray(filters.statuses)
             ? [...new Set(
                 filters.statuses.filter(status =>
@@ -1472,6 +1481,7 @@ export class GameListComponent implements OnChanges {
             ...DEFAULT_GAME_LIST_FILTERS,
             ...filters,
             platform: normalizedPlatforms,
+            collections: normalizedCollections,
             genres: normalizedGenres,
             statuses: normalizedStatuses,
             tags: hasNoneTagFilter ? [this.noneTagFilterValue, ...normalizedTagNames] : normalizedTagNames,
@@ -1509,6 +1519,24 @@ export class GameListComponent implements OnChanges {
         });
 
         return Array.from(genreSet).sort((a, b) => this.compareTitles(a, b));
+    }
+
+    private extractCollections(games: GameEntry[]): string[] {
+        const collectionSet = new Set<string>();
+
+        games.forEach((game: GameEntry) => {
+            const collections = Array.isArray(game.collections) ? game.collections : [];
+
+            collections.forEach((collection: string) => {
+                const normalized = typeof collection === 'string' ? collection.trim() : '';
+
+                if (normalized.length > 0) {
+                    collectionSet.add(normalized);
+                }
+            });
+        });
+
+        return Array.from(collectionSet).sort((a, b) => this.compareTitles(a, b));
     }
 
     private extractTags(games: GameEntry[]): string[] {
@@ -1599,6 +1627,10 @@ export class GameListComponent implements OnChanges {
             return this.getMetadataGroupValues(game.franchises, noGroupLabel);
         }
 
+        if (groupBy === 'collection') {
+            return this.getMetadataGroupValues(game.collections, noGroupLabel);
+        }
+
         if (groupBy === 'genre') {
             return this.getMetadataGroupValues(game.genres, noGroupLabel);
         }
@@ -1660,6 +1692,10 @@ export class GameListComponent implements OnChanges {
             return '[No Franchise]';
         }
 
+        if (groupBy === 'collection') {
+            return '[No Collection]';
+        }
+
         if (groupBy === 'tag') {
             return '[No Tag]';
         }
@@ -1696,6 +1732,18 @@ export class GameListComponent implements OnChanges {
                 : [];
 
             if (!filters.genres.some(selectedGenre => gameGenres.includes(selectedGenre))) {
+                return false;
+            }
+        }
+
+        if (filters.collections.length > 0) {
+            const gameCollections = Array.isArray(game.collections)
+                ? game.collections
+                    .map(collection => (typeof collection === 'string' ? collection.trim() : ''))
+                    .filter(collection => collection.length > 0)
+                : [];
+
+            if (!filters.collections.some(selectedCollection => gameCollections.includes(selectedCollection))) {
                 return false;
             }
         }

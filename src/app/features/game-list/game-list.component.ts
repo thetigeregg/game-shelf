@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
@@ -56,7 +56,7 @@ import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
-import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube } from "ionicons/icons";
+import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack } from "ionicons/icons";
 
 interface GameGroupSection {
     key: string;
@@ -168,6 +168,7 @@ export class GameListComponent implements OnChanges {
     isHltbPickerLoading = false;
     hasHltbPickerSearched = false;
     selectedGame: GameEntry | null = null;
+    detailNavigationStack: GameEntry[] = [];
     similarLibraryGames: GameEntry[] = [];
     isSimilarLibraryGamesLoading = false;
     ratingTargetGame: GameEntry | null = null;
@@ -207,6 +208,7 @@ export class GameListComponent implements OnChanges {
     private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
     private readonly searchQuery$ = new BehaviorSubject<string>('');
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
+    @ViewChild('detailContent') private detailContent?: IonContent;
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes['listType']?.currentValue) {
@@ -308,7 +310,7 @@ export class GameListComponent implements OnChanges {
         return this.listType === 'collection' ? 'Wishlist' : 'Collection';
     }
 
-    onGameRowClick(game: GameEntry): void {
+    onGameRowClick(game: GameEntry, fromSimilarDetailSection = false): void {
         if (this.longPressTriggeredExternalId === this.getGameKey(game)) {
             this.longPressTriggeredExternalId = null;
             return;
@@ -316,6 +318,11 @@ export class GameListComponent implements OnChanges {
 
         if (this.selectionModeActive) {
             this.toggleGameSelection(this.getGameKey(game));
+            return;
+        }
+
+        if (fromSimilarDetailSection) {
+            this.openSimilarGameDetail(game);
             return;
         }
 
@@ -556,12 +563,48 @@ export class GameListComponent implements OnChanges {
     }
 
     openGameDetail(game: GameEntry): void {
+        this.detailNavigationStack = [];
+        this.openGameDetailInternal(game);
+    }
+
+    goBackInDetailNavigation(): void {
+        const previous = this.detailNavigationStack.pop();
+
+        if (!previous) {
+            return;
+        }
+
+        this.openGameDetailInternal(previous);
+    }
+
+    private openSimilarGameDetail(game: GameEntry): void {
+        if (!this.selectedGame) {
+            this.openGameDetail(game);
+            return;
+        }
+
+        if (this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
+            return;
+        }
+
+        this.detailNavigationStack.push(this.selectedGame);
+        this.openGameDetailInternal(game);
+    }
+
+    private openGameDetailInternal(game: GameEntry): void {
         this.selectedGame = game;
         this.isGameDetailModalOpen = true;
         this.resetImagePickerState();
         this.changeDetectorRef.markForCheck();
         void this.loadDetailCoverUrl(game);
         void this.loadSimilarLibraryGamesForDetail(game);
+        this.scrollDetailToTop();
+    }
+
+    private scrollDetailToTop(): void {
+        window.requestAnimationFrame(() => {
+            void this.detailContent?.scrollToTop(180);
+        });
     }
 
     closeGameDetailModal(): void {
@@ -569,6 +612,7 @@ export class GameListComponent implements OnChanges {
         this.isImagePickerModalOpen = false;
         this.isHltbPickerModalOpen = false;
         this.selectedGame = null;
+        this.detailNavigationStack = [];
         this.similarLibraryGames = [];
         this.isSimilarLibraryGamesLoading = false;
         this.resetImagePickerState();
@@ -2457,6 +2501,6 @@ export class GameListComponent implements OnChanges {
     }
 
     constructor() {
-        addIcons({ star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube });
+        addIcons({ star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack });
     }
 }

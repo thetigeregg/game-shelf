@@ -221,7 +221,6 @@ function normalizeIgdbReferenceId(value) {
 function normalizeIgdbRankScore(game) {
   const candidates = [
     game?.total_rating_count,
-    game?.follows,
     game?.rating_count,
     game?.hypes,
     game?.aggregated_rating_count,
@@ -1271,7 +1270,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
       sort: null,
     },
     {
-      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,follows,game_type.type,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null,
     },
     {

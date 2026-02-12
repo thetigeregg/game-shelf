@@ -422,9 +422,9 @@
       <ion-list lines="full">
         <ion-item>
           <ion-select
-            label="Series"
+            [label]="metadataPickerFieldLabel"
             labelPlacement="stacked"
-            placeholder="Choose a series"
+            [placeholder]="'Choose ' + metadataPickerFieldLabel.toLowerCase()"
             [value]="metadataPickerSelection || undefined"
             (ionChange)="onMetadataPickerSelectionChange($any($event).detail.value)"
           >

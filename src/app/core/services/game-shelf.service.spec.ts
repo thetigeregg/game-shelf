@@ -576,6 +576,54 @@ describe('GameShelfService', () => {
     expect(results).toEqual([]);
   });
 
+  it('uses IGDB cover lookup for Android, iOS, Web browser, SteamVR, and visionOS platform ids', async () => {
+    searchApi.getGameById.mockReturnValue(of({
+      igdbGameId: '123',
+      title: 'Halo',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
+      coverSource: 'igdb',
+      platforms: ['Android'],
+      platform: 'Android',
+      platformIgdbId: 34,
+      releaseDate: null,
+      releaseYear: null,
+    } as GameCatalogResult));
+
+    const platformIds = [34, 39, 82, 163, 472];
+
+    for (const platformId of platformIds) {
+      const results = await firstValueFrom(service.searchBoxArtByTitle('halo', 'Any', platformId, '123'));
+      expect(results).toEqual(['https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg']);
+    }
+
+    expect(searchApi.getGameById).toHaveBeenCalledTimes(platformIds.length);
+    expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
+  });
+
+  it('uses IGDB cover lookup for mobile/web/vr platform names when id is unavailable', async () => {
+    searchApi.getGameById.mockReturnValue(of({
+      igdbGameId: '123',
+      title: 'Halo',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
+      coverSource: 'igdb',
+      platforms: ['Android'],
+      platform: 'Android',
+      platformIgdbId: 34,
+      releaseDate: null,
+      releaseYear: null,
+    } as GameCatalogResult));
+
+    const platformNames = ['Android', 'iOS', 'Web browser', 'SteamVR', 'visionOS'];
+
+    for (const platformName of platformNames) {
+      const results = await firstValueFrom(service.searchBoxArtByTitle('halo', platformName, undefined, '123'));
+      expect(results).toEqual(['https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg']);
+    }
+
+    expect(searchApi.getGameById).toHaveBeenCalledTimes(platformNames.length);
+    expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
+  });
+
   it('updates game cover using dedicated repository method', async () => {
     const updatedEntry: GameEntry = {
       id: 10,

@@ -696,6 +696,21 @@ export class GameListComponent implements OnChanges {
         this.openMetadataFilterSelection('publisher', game.publishers, 'Select Publisher');
     }
 
+    get metadataPickerFieldLabel(): string {
+        switch (this.metadataPickerKind) {
+            case 'series':
+                return 'Series';
+            case 'developer':
+                return 'Developer';
+            case 'franchise':
+                return 'Franchise';
+            case 'publisher':
+                return 'Publisher';
+            default:
+                return 'Value';
+        }
+    }
+
     closeMetadataPickerModal(): void {
         this.isMetadataPickerModalOpen = false;
         this.metadataPickerTitle = 'Select Value';

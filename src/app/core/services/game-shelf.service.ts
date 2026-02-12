@@ -23,7 +23,18 @@ import { PlatformOrderService } from './platform-order.service';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
-  private static readonly WINDOWS_PLATFORM_IGDB_ID = 6;
+  private static readonly IGDB_COVER_PLATFORM_IGDB_IDS = new Set<number>([6, 34, 39, 82, 163, 472]);
+  private static readonly IGDB_COVER_PLATFORM_NAMES = new Set<string>([
+    'pc',
+    'windows',
+    'microsoft windows',
+    'pc (microsoft windows)',
+    'android',
+    'ios',
+    'web browser',
+    'steamvr',
+    'visionos',
+  ]);
   private readonly listRefresh$ = new Subject<void>();
   private readonly syncEvents = inject(SyncEventsService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
@@ -329,14 +340,11 @@ export class GameShelfService {
 
   shouldUseIgdbCoverForPlatform(platform?: string | null, platformIgdbId?: number | null): boolean {
     if (typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0) {
-      return platformIgdbId === GameShelfService.WINDOWS_PLATFORM_IGDB_ID;
+      return GameShelfService.IGDB_COVER_PLATFORM_IGDB_IDS.has(platformIgdbId);
     }
 
     const normalizedPlatform = typeof platform === 'string' ? platform.trim().toLowerCase() : '';
-    return normalizedPlatform === 'pc'
-      || normalizedPlatform === 'windows'
-      || normalizedPlatform === 'microsoft windows'
-      || normalizedPlatform === 'pc (microsoft windows)';
+    return GameShelfService.IGDB_COVER_PLATFORM_NAMES.has(normalizedPlatform);
   }
 
   async updateGameCover(

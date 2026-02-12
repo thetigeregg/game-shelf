@@ -286,14 +286,14 @@
           <ion-item [button]="hasMetadataValue(game.collections)" [detail]="hasMetadataValue(game.collections)" (click)="onSeriesItemClick(game)">
             <ion-label>
               <h2>Series</h2>
-              <p *ngIf="(game.collections?.length ?? 0) <= 1">{{ formatMetadataList(game.collections) }}</p>
+              <p *ngIf="(game.collections?.length ?? 0) <= 1">{{ hasMetadataValue(game.collections) ? formatMetadataList(game.collections) : 'None' }}</p>
               <p *ngIf="(game.collections?.length ?? 0) > 1">Select a series...</p>
             </ion-label>
           </ion-item>
           <ion-item [button]="hasMetadataValue(game.franchises)" [detail]="hasMetadataValue(game.franchises)" (click)="onFranchiseItemClick(game)">
             <ion-label>
               <h2>Franchise</h2>
-              <p *ngIf="(game.franchises?.length ?? 0) <= 1">{{ formatMetadataList(game.franchises) }}</p>
+              <p *ngIf="(game.franchises?.length ?? 0) <= 1">{{ hasMetadataValue(game.franchises) ? formatMetadataList(game.franchises) : 'None' }}</p>
               <p *ngIf="(game.franchises?.length ?? 0) > 1">Select a franchise...</p>
             </ion-label>
           </ion-item>

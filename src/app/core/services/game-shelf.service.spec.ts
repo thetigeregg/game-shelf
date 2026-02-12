@@ -4,6 +4,7 @@ import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult, GameEntry, GameListView } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
+import { PlatformOrderService } from './platform-order.service';
 
 describe('GameShelfService', () => {
   let repository: {
@@ -284,12 +285,20 @@ describe('GameShelfService', () => {
   });
 
   it('delegates search platform list retrieval', async () => {
-    searchApi.listPlatforms.mockReturnValue(of([{ id: 130, name: 'Nintendo Switch' }]));
+    const platformOrderService = TestBed.inject(PlatformOrderService);
+    platformOrderService.setOrder(['Nintendo Switch', 'PC (Microsoft Windows)']);
+    searchApi.listPlatforms.mockReturnValue(of([
+      { id: 6, name: 'PC (Microsoft Windows)' },
+      { id: 130, name: 'Nintendo Switch' },
+    ]));
 
     const result = await firstValueFrom(service.listSearchPlatforms());
 
     expect(searchApi.listPlatforms).toHaveBeenCalled();
-    expect(result).toEqual([{ id: 130, name: 'Nintendo Switch' }]);
+    expect(result).toEqual([
+      { id: 130, name: 'Nintendo Switch' },
+      { id: 6, name: 'PC (Microsoft Windows)' },
+    ]);
   });
 
   it('delegates HLTB candidate search and short-circuits short titles', async () => {

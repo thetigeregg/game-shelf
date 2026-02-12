@@ -19,6 +19,7 @@ import {
   TagSummary
 } from '../models/game.models';
 import { SyncEventsService } from './sync-events.service';
+import { PlatformOrderService } from './platform-order.service';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
@@ -27,6 +28,7 @@ export class GameShelfService {
   private readonly syncEvents = inject(SyncEventsService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
   private readonly searchApi: GameSearchApi = inject(GAME_SEARCH_API);
+  private readonly platformOrderService = inject(PlatformOrderService);
 
   watchList(listType: ListType): Observable<GameEntry[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
@@ -73,7 +75,9 @@ export class GameShelfService {
   }
 
   listSearchPlatforms(): Observable<GameCatalogPlatformOption[]> {
-    return this.searchApi.listPlatforms();
+    return this.searchApi.listPlatforms().pipe(
+      map(platforms => this.platformOrderService.sortPlatformOptions(platforms)),
+    );
   }
 
   searchHltbCandidates(title: string, releaseYear?: number | null, platform?: string | null): Observable<HltbMatchCandidate[]> {

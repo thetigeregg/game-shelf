@@ -73,6 +73,10 @@
     <ion-item class="cache-usage-item">
       <ion-label color="medium">Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label>
     </ion-item>
+    <ion-item button detail="true" (click)="openPlatformOrderModal()">
+      <ion-icon slot="start" color="primary" name="swap-vertical"></ion-icon>
+      <ion-label>Platform Display Order</ion-label>
+    </ion-item>
     <ion-item button detail="true" (click)="openMetadataValidator()">
       <ion-icon slot="start" color="primary" name="file-tray-full"></ion-icon>
       <ion-label>Metadata Validator</ion-label>
@@ -119,6 +123,57 @@
     </ion-item>
   </ion-list>
 </ion-content>
+
+<ion-modal [isOpen]="isPlatformOrderModalOpen" (didDismiss)="closePlatformOrderModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Platform Display Order</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closePlatformOrderModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ion-item lines="none">
+        <ion-label color="medium">Move platforms up or down to set global display order.</ion-label>
+      </ion-item>
+
+      <ion-item *ngIf="isPlatformOrderLoading" lines="none">
+        <ion-label>Loading platforms...</ion-label>
+      </ion-item>
+
+      <ion-list lines="full" *ngIf="!isPlatformOrderLoading">
+        <ion-item *ngFor="let platform of platformOrderItems; let i = index; trackBy: trackByPlatformOrderItem">
+          <ion-label>{{ platform.name }}</ion-label>
+          <ion-buttons slot="end">
+            <ion-button fill="clear" [disabled]="i === 0" (click)="movePlatformOrderItemUp(i)">
+              <ion-icon slot="icon-only" name="chevron-up"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" [disabled]="i === platformOrderItems.length - 1" (click)="movePlatformOrderItemDown(i)">
+              <ion-icon slot="icon-only" name="chevron-down"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-item>
+      </ion-list>
+    </ion-content>
+
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button fill="outline" (click)="resetPlatformOrder()">
+            <ion-icon slot="start" name="refresh"></ion-icon>
+            Reset
+          </ion-button>
+          <ion-button (click)="closePlatformOrderModal()">Done</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
 
 <ion-modal [isOpen]="isImportPreviewOpen" (didDismiss)="closeImportPreview()">
   <ng-template>

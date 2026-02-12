@@ -48,8 +48,21 @@ interface NormalizedFilterGame {
 
 export class GameListFilteringEngine {
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
+  private readonly platformOrderByKey = new Map<string, number>();
 
   constructor(private readonly noneTagFilterValue: string) {}
+
+  setPlatformOrder(platformNames: string[]): void {
+    this.platformOrderByKey.clear();
+
+    platformNames.forEach((name, index) => {
+      const key = this.normalizePlatformOrderKey(name);
+
+      if (key.length > 0 && !this.platformOrderByKey.has(key)) {
+        this.platformOrderByKey.set(key, index);
+      }
+    });
+  }
 
   normalizeFilters(filters: GameListFilters): GameListFilters {
     const normalizedPlatforms = normalizeStringList(filters.platform);
@@ -92,7 +105,7 @@ export class GameListFilteringEngine {
       games
         .map(game => game.platform?.trim() ?? '')
         .filter(platform => platform.length > 0),
-    )].sort((a, b) => this.compareTitles(a, b));
+    )].sort((a, b) => this.comparePlatformNames(a, b));
   }
 
   extractGenres(games: GameEntry[]): string[] {
@@ -248,7 +261,42 @@ export class GameListFilteringEngine {
       }
     }
 
+    if (groupBy === 'platform') {
+      return this.comparePlatformNames(left, right);
+    }
+
     return this.compareTitles(left, right);
+  }
+
+  private comparePlatformNames(left: string, right: string): number {
+    const leftRank = this.getPlatformOrderRank(left);
+    const rightRank = this.getPlatformOrderRank(right);
+
+    if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    if (leftRank !== null && rightRank === null) {
+      return -1;
+    }
+
+    if (leftRank === null && rightRank !== null) {
+      return 1;
+    }
+
+    return this.compareTitles(left, right);
+  }
+
+  private getPlatformOrderRank(value: string): number | null {
+    const key = this.normalizePlatformOrderKey(value);
+    return this.platformOrderByKey.get(key) ?? null;
+  }
+
+  private normalizePlatformOrderKey(value: string): string {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
   }
 
   private getNoGroupLabel(groupBy: GameGroupByField): string {

@@ -22,8 +22,9 @@ import { COLOR_SCHEME_STORAGE_KEY, ColorSchemePreference, PRIMARY_COLOR_STORAGE_
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
+import { PlatformOrderService } from '../core/services/platform-order.service';
 import { addIcons } from "ionicons";
-import { close, trash, alertCircle, download, share, fileTrayFull } from "ionicons/icons";
+import { close, trash, alertCircle, download, share, fileTrayFull, chevronUp, chevronDown, swapVertical, refresh } from "ionicons/icons";
 
 interface ThemePreset {
     label: string;
@@ -248,6 +249,9 @@ export class SettingsPage {
     selectedColorScheme: ColorSchemePreference = 'system';
     imageCacheLimitMb = 200;
     imageCacheUsageMb = 0;
+    isPlatformOrderModalOpen = false;
+    isPlatformOrderLoading = false;
+    platformOrderItems: GameCatalogPlatformOption[] = [];
     isImportPreviewOpen = false;
     isApplyingImport = false;
     importPreviewRows: ImportPreviewRow[] = [];
@@ -280,6 +284,7 @@ export class SettingsPage {
     private readonly repository: GameRepository = inject(GAME_REPOSITORY);
     private readonly gameShelfService = inject(GameShelfService);
     private readonly imageCacheService = inject(ImageCacheService);
+    private readonly platformOrderService = inject(PlatformOrderService);
     private readonly toastController = inject(ToastController);
     private readonly alertController = inject(AlertController);
     private readonly router = inject(Router);
@@ -291,7 +296,7 @@ export class SettingsPage {
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
-        addIcons({ close, trash, alertCircle, download, share, fileTrayFull });
+        addIcons({ close, trash, alertCircle, download, share, fileTrayFull, chevronUp, chevronDown, swapVertical, refresh });
     }
 
     onColorSchemePreferenceChange(value: ColorSchemePreference | string): void {
@@ -317,6 +322,56 @@ export class SettingsPage {
         );
         this.imageCacheLimitMb = this.imageCacheService.setLimitMb(normalized);
         void this.refreshImageCacheUsage();
+    }
+
+    async openPlatformOrderModal(): Promise<void> {
+        this.isPlatformOrderLoading = true;
+
+        try {
+            this.platformOrderItems = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+            this.isPlatformOrderModalOpen = true;
+        } catch {
+            await this.presentToast('Unable to load platforms.', 'danger');
+            this.platformOrderItems = [];
+            this.isPlatformOrderModalOpen = false;
+        } finally {
+            this.isPlatformOrderLoading = false;
+        }
+    }
+
+    closePlatformOrderModal(): void {
+        this.isPlatformOrderModalOpen = false;
+    }
+
+    async resetPlatformOrder(): Promise<void> {
+        this.platformOrderService.clearOrder();
+        this.platformOrderItems = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+    }
+
+    movePlatformOrderItemUp(index: number): void {
+        this.movePlatformOrderItem(index, -1);
+    }
+
+    movePlatformOrderItemDown(index: number): void {
+        this.movePlatformOrderItem(index, 1);
+    }
+
+    trackByPlatformOrderItem(_index: number, item: GameCatalogPlatformOption): string {
+        return `${item.id ?? 'none'}::${item.name}`;
+    }
+
+    private movePlatformOrderItem(index: number, delta: number): void {
+        const target = index + delta;
+
+        if (index < 0 || target < 0 || index >= this.platformOrderItems.length || target >= this.platformOrderItems.length) {
+            return;
+        }
+
+        const next = [...this.platformOrderItems];
+        const [item] = next.splice(index, 1);
+        next.splice(target, 0, item);
+        this.platformOrderItems = next;
+        this.platformOrderService.setOrder(next.map(option => option.name));
     }
 
     private async refreshImageCacheUsage(): Promise<void> {
@@ -1643,7 +1698,8 @@ export class SettingsPage {
                 .filter((option): option is { id: number; name: string } => option.id !== null && option.name.length > 0)
                 .filter((option, index, all) => {
                     return all.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
-                });
+                })
+                .sort((left, right) => this.platformOrderService.comparePlatformNames(left.name, right.name));
         }
 
         if (

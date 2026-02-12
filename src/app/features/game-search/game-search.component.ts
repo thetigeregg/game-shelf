@@ -6,6 +6,7 @@ import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { GameCatalogPlatformOption, GameCatalogResult, GameType, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
+import { PlatformOrderService } from '../../core/services/platform-order.service';
 
 interface SelectedPlatform {
     id: number;
@@ -41,6 +42,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     private readonly addingExternalIds = new Set<string>();
     private searchReady = false;
     private readonly gameShelfService = inject(GameShelfService);
+    private readonly platformOrderService = inject(PlatformOrderService);
     private readonly alertController = inject(AlertController);
     private readonly toastController = inject(ToastController);
 
@@ -300,7 +302,8 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
                 .map(option => ({
                     id: option.id as number,
                     name: option.name,
-                }));
+                }))
+                .sort((left, right) => this.platformOrderService.comparePlatformNames(left.name, right.name));
         }
 
         return [];

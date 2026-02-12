@@ -133,6 +133,22 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(engine.extractGameTypes(games)).toEqual(['expansion', 'main_game']);
   });
 
+  it('applies custom platform order when extracting platform lists', () => {
+    engine.setPlatformOrder(['PC (Microsoft Windows)', 'Nintendo Switch']);
+
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Switch Game', platform: 'Nintendo Switch' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 6, title: 'PC Game', platform: 'PC (Microsoft Windows)' }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 167, title: 'PS5 Game', platform: 'PlayStation 5' }),
+    ];
+
+    expect(engine.extractPlatforms(games)).toEqual([
+      'PC (Microsoft Windows)',
+      'Nintendo Switch',
+      'PlayStation 5',
+    ]);
+  });
+
   it('filters by metadata fields, status, rating, and game type', () => {
     const games: GameEntry[] = [
       makeGame({

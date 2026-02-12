@@ -53,6 +53,7 @@ import {
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
+import { PlatformOrderService } from '../../core/services/platform-order.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
@@ -224,6 +225,7 @@ export class GameListComponent implements OnChanges {
     private readonly loadingController = inject(LoadingController);
     private readonly toastController = inject(ToastController);
     private readonly imageCacheService = inject(ImageCacheService);
+    private readonly platformOrderService = inject(PlatformOrderService);
     private readonly changeDetectorRef = inject(ChangeDetectorRef);
     private readonly ngZone = inject(NgZone);
     private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
@@ -1644,6 +1646,7 @@ export class GameListComponent implements OnChanges {
     }
 
     private extractPlatforms(games: GameEntry[]): string[] {
+        this.filteringEngine.setPlatformOrder(this.platformOrderService.getEffectiveOrder());
         return this.filteringEngine.extractPlatforms(games);
     }
 
@@ -1668,6 +1671,7 @@ export class GameListComponent implements OnChanges {
     }
 
     private buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {
+        this.filteringEngine.setPlatformOrder(this.platformOrderService.getEffectiveOrder());
         return this.filteringEngine.buildGroupedView(games, groupBy);
     }
 

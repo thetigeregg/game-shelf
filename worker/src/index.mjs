@@ -236,9 +236,32 @@ function normalizeIgdbRankScore(game) {
   return Number.NEGATIVE_INFINITY;
 }
 
-function isRemakeOrRemaster(category) {
-  const normalized = typeof category === 'number' ? category : Number.NaN;
-  return normalized === IGDB_CATEGORY_REMAKE || normalized === IGDB_CATEGORY_REMASTER;
+function normalizeGameTypeLabel(gameType) {
+  if (typeof gameType === 'string' && gameType.trim().length > 0) {
+    return gameType.trim().toLowerCase();
+  }
+
+  if (gameType && typeof gameType === 'object') {
+    const fromTypeField = typeof gameType.type === 'string' ? gameType.type.trim() : '';
+
+    if (fromTypeField.length > 0) {
+      return fromTypeField.toLowerCase();
+    }
+  }
+
+  return null;
+}
+
+function isRemakeOrRemaster(gameType, categoryFallback) {
+  const normalizedType = normalizeGameTypeLabel(gameType);
+
+  if (normalizedType === 'remake' || normalizedType === 'remaster') {
+    return true;
+  }
+
+  // Backward-compatible fallback while game_type rollout is validated.
+  const normalizedCategory = typeof categoryFallback === 'number' ? categoryFallback : Number.NaN;
+  return normalizedCategory === IGDB_CATEGORY_REMAKE || normalizedCategory === IGDB_CATEGORY_REMASTER;
 }
 
 function getOriginalGameId(game) {
@@ -262,7 +285,7 @@ function sortIgdbSearchResults(games) {
     id: normalizeIgdbReferenceId(game?.id),
     rankScore: normalizeIgdbRankScore(game),
     originalId: getOriginalGameId(game),
-    isRemakeOrRemaster: isRemakeOrRemaster(game?.category),
+    isRemakeOrRemaster: isRemakeOrRemaster(game?.game_type, game?.category),
   }));
 
   const idSet = new Set(indexed.map(entry => entry.id).filter(Boolean));
@@ -1244,15 +1267,15 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
     : null;
   const queryVariants = [
     {
-      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,category,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null,
     },
     {
-      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,follows,category,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,follows,game_type.type,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null,
     },
     {
-      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,category,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+      fields: 'id,name,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null,
     },
   ];

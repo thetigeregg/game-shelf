@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AlertController, IonItemSliding, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
     IonList,
     IonItem,
@@ -142,6 +142,7 @@ export class GameListComponent implements OnChanges {
     isImagePickerModalOpen = false;
     isFixMatchModalOpen = false;
     isRatingModalOpen = false;
+    isHltbUpdateLoading = false;
     selectedGame: GameEntry | null = null;
     ratingTargetGame: GameEntry | null = null;
     ratingDraft: GameRating = 3;
@@ -169,6 +170,7 @@ export class GameListComponent implements OnChanges {
     private readonly gameShelfService = inject(GameShelfService);
     private readonly popoverController = inject(PopoverController);
     private readonly alertController = inject(AlertController);
+    private readonly loadingController = inject(LoadingController);
     private readonly toastController = inject(ToastController);
     private readonly imageCacheService = inject(ImageCacheService);
     private readonly changeDetectorRef = inject(ChangeDetectorRef);
@@ -810,13 +812,21 @@ export class GameListComponent implements OnChanges {
     }
 
     async refreshSelectedGameCompletionTimes(): Promise<void> {
-        if (!this.selectedGame) {
+        if (!this.selectedGame || this.isHltbUpdateLoading) {
             return;
         }
+
+        this.isHltbUpdateLoading = true;
+        const loading = await this.loadingController.create({
+            message: 'Updating HLTB data...',
+            spinner: 'crescent',
+        });
+        await loading.present();
 
         try {
             const updated = await this.gameShelfService.refreshGameCompletionTimes(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId);
             this.applyUpdatedGame(updated);
+            await loading.dismiss().catch(() => undefined);
 
             if (this.hasHltbData(updated)) {
                 await this.presentToast('HLTB data updated.');
@@ -824,7 +834,10 @@ export class GameListComponent implements OnChanges {
                 await this.presentToast('No HLTB match found for this game.', 'warning');
             }
         } catch {
+            await loading.dismiss().catch(() => undefined);
             await this.presentToast('Unable to update HLTB data.', 'danger');
+        } finally {
+            this.isHltbUpdateLoading = false;
         }
     }
 

@@ -29,6 +29,7 @@ import {
     IonText,
     IonRange,
     IonNote,
+    IonThumbnail,
     IonFab,
     IonFabButton,
     IonFabList
@@ -41,6 +42,7 @@ import {
     GameEntry,
     GameGroupByField,
     GameListFilters,
+    HltbMatchCandidate,
     GameRatingFilterOption,
     GameRating,
     GameStatusFilterOption,
@@ -108,6 +110,7 @@ export interface GameListSelectionState {
         IonText,
         IonRange,
         IonNote,
+        IonThumbnail,
         IonFab,
         IonFabButton,
         IonFabList,
@@ -143,6 +146,9 @@ export class GameListComponent implements OnChanges {
     isFixMatchModalOpen = false;
     isRatingModalOpen = false;
     isHltbUpdateLoading = false;
+    isHltbPickerModalOpen = false;
+    isHltbPickerLoading = false;
+    hasHltbPickerSearched = false;
     selectedGame: GameEntry | null = null;
     ratingTargetGame: GameEntry | null = null;
     ratingDraft: GameRating = 3;
@@ -151,6 +157,10 @@ export class GameListComponent implements OnChanges {
     imagePickerResults: string[] = [];
     isImagePickerLoading = false;
     imagePickerError: string | null = null;
+    hltbPickerQuery = '';
+    hltbPickerResults: HltbMatchCandidate[] = [];
+    hltbPickerError: string | null = null;
+    hltbPickerTargetGame: GameEntry | null = null;
     fixMatchInitialQuery = '';
     fixMatchInitialPlatformIgdbId: number | null = null;
     selectionModeActive = false;
@@ -523,8 +533,10 @@ export class GameListComponent implements OnChanges {
     closeGameDetailModal(): void {
         this.isGameDetailModalOpen = false;
         this.isImagePickerModalOpen = false;
+        this.isHltbPickerModalOpen = false;
         this.selectedGame = null;
         this.resetImagePickerState();
+        this.resetHltbPickerState();
         this.changeDetectorRef.markForCheck();
     }
 
@@ -831,7 +843,7 @@ export class GameListComponent implements OnChanges {
             if (this.hasHltbData(updated)) {
                 await this.presentToast('HLTB data updated.');
             } else {
-                await this.presentToast('No HLTB match found for this game.', 'warning');
+                await this.openHltbPickerModal(updated);
             }
         } catch {
             await loading.dismiss().catch(() => undefined);
@@ -843,6 +855,11 @@ export class GameListComponent implements OnChanges {
 
     closeImagePickerModal(): void {
         this.isImagePickerModalOpen = false;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    closeHltbPickerModal(): void {
+        this.resetHltbPickerState();
         this.changeDetectorRef.markForCheck();
     }
 
@@ -883,6 +900,11 @@ export class GameListComponent implements OnChanges {
         this.imagePickerQuery = (customEvent.detail?.value ?? '').replace(/^\s+/, '');
     }
 
+    onHltbPickerQueryChange(event: Event): void {
+        const customEvent = event as CustomEvent<{ value?: string | null }>;
+        this.hltbPickerQuery = String(customEvent.detail?.value ?? '');
+    }
+
     async applySelectedImage(url: string): Promise<void> {
         if (!this.selectedGame) {
             return;
@@ -904,6 +926,93 @@ export class GameListComponent implements OnChanges {
             await this.presentToast('Game image updated.');
         } catch {
             await this.presentToast('Unable to update game image.', 'danger');
+        }
+    }
+
+    async runHltbPickerSearch(): Promise<void> {
+        const normalized = this.hltbPickerQuery.trim();
+        this.hasHltbPickerSearched = true;
+
+        if (normalized.length < 2) {
+            this.hltbPickerResults = [];
+            this.hltbPickerError = 'Enter at least 2 characters.';
+            this.changeDetectorRef.markForCheck();
+            return;
+        }
+
+        this.isHltbPickerLoading = true;
+        this.hltbPickerError = null;
+        this.changeDetectorRef.markForCheck();
+
+        try {
+            const candidates = await firstValueFrom(this.gameShelfService.searchHltbCandidates(normalized, null, null));
+            this.hltbPickerResults = this.dedupeHltbCandidates(candidates).slice(0, 30);
+        } catch {
+            this.hltbPickerResults = [];
+            this.hltbPickerError = 'Unable to search HLTB right now.';
+        } finally {
+            this.isHltbPickerLoading = false;
+            this.changeDetectorRef.markForCheck();
+        }
+    }
+
+    async applySelectedHltbCandidate(candidate: HltbMatchCandidate): Promise<void> {
+        const target = this.hltbPickerTargetGame;
+
+        if (!target) {
+            return;
+        }
+
+        this.isHltbPickerLoading = true;
+        this.changeDetectorRef.markForCheck();
+
+        try {
+            const updated = await this.gameShelfService.refreshGameCompletionTimesWithQuery(
+                target.igdbGameId,
+                target.platformIgdbId,
+                {
+                    title: candidate.title,
+                    releaseYear: candidate.releaseYear,
+                    platform: candidate.platform,
+                },
+            );
+            this.applyUpdatedGame(updated);
+            this.closeHltbPickerModal();
+            if (this.hasHltbData(updated)) {
+                await this.presentToast('HLTB data updated.');
+            } else {
+                await this.presentToast('No HLTB match found for this game.', 'warning');
+            }
+        } catch {
+            this.isHltbPickerLoading = false;
+            this.changeDetectorRef.markForCheck();
+            await this.presentToast('Unable to update HLTB data.', 'danger');
+        }
+    }
+
+    async useOriginalHltbLookup(): Promise<void> {
+        const target = this.hltbPickerTargetGame;
+
+        if (!target) {
+            return;
+        }
+
+        this.isHltbPickerLoading = true;
+        this.changeDetectorRef.markForCheck();
+
+        try {
+            const updated = await this.gameShelfService.refreshGameCompletionTimes(target.igdbGameId, target.platformIgdbId);
+            this.applyUpdatedGame(updated);
+            this.closeHltbPickerModal();
+            if (this.hasHltbData(updated)) {
+                await this.presentToast('HLTB data updated.');
+            } else {
+                await this.presentToast('No HLTB match found for this game.', 'warning');
+            }
+        } catch {
+            this.isHltbPickerLoading = false;
+            this.changeDetectorRef.markForCheck();
+            await this.presentToast('Unable to update HLTB data.', 'danger');
         }
     }
 
@@ -1813,6 +1922,41 @@ export class GameListComponent implements OnChanges {
         this.imagePickerResults = [];
         this.imagePickerError = null;
         this.isImagePickerLoading = false;
+    }
+
+    private async openHltbPickerModal(game: GameEntry): Promise<void> {
+        this.hltbPickerTargetGame = game;
+        this.hltbPickerQuery = game.title;
+        this.hltbPickerResults = [];
+        this.hltbPickerError = null;
+        this.hasHltbPickerSearched = false;
+        this.isHltbPickerLoading = false;
+        this.isHltbPickerModalOpen = true;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    private resetHltbPickerState(): void {
+        this.isHltbPickerModalOpen = false;
+        this.isHltbPickerLoading = false;
+        this.hasHltbPickerSearched = false;
+        this.hltbPickerQuery = '';
+        this.hltbPickerResults = [];
+        this.hltbPickerError = null;
+        this.hltbPickerTargetGame = null;
+    }
+
+    private dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatchCandidate[] {
+        const byKey = new Map<string, HltbMatchCandidate>();
+
+        candidates.forEach(candidate => {
+            const key = `${candidate.title}::${candidate.releaseYear ?? ''}::${candidate.platform ?? ''}`;
+
+            if (!byKey.has(key)) {
+                byKey.set(key, candidate);
+            }
+        });
+
+        return [...byKey.values()];
     }
 
     private async openStatusPicker(game: GameEntry): Promise<void> {

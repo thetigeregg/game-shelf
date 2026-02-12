@@ -68,6 +68,12 @@ interface GroupedGamesView {
     totalCount: number;
 }
 
+interface BulkActionResult<T> {
+    game: GameEntry;
+    ok: boolean;
+    value: T | null;
+}
+
 export interface GameListSelectionState {
     active: boolean;
     selectedCount: number;
@@ -118,6 +124,13 @@ export interface GameListSelectionState {
     ],
 })
 export class GameListComponent implements OnChanges {
+    private static readonly BULK_METADATA_CONCURRENCY = 3;
+    private static readonly BULK_HLTB_CONCURRENCY = 2;
+    private static readonly BULK_MAX_ATTEMPTS = 3;
+    private static readonly BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 15000;
+    private static readonly BULK_RETRY_BASE_DELAY_MS = 1000;
+    private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
+
     readonly noneTagFilterValue = '__none__';
     readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
     readonly statusOptions: { value: GameStatus; label: string }[] = [
@@ -479,11 +492,25 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        try {
-            await Promise.all(selectedGames.map(game => this.gameShelfService.refreshGameMetadata(game.igdbGameId, game.platformIgdbId)));
-            this.clearSelectionMode();
-            await this.presentToast(`Refreshed metadata for ${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'}.`);
-        } catch {
+        const results = await this.runBulkAction(
+            selectedGames,
+            {
+                loadingPrefix: 'Refreshing metadata',
+                concurrency: GameListComponent.BULK_METADATA_CONCURRENCY,
+                interItemDelayMs: 0,
+            },
+            game => this.gameShelfService.refreshGameMetadata(game.igdbGameId, game.platformIgdbId),
+        );
+        const updatedCount = results.filter(result => result.ok).length;
+        const failedCount = results.length - updatedCount;
+
+        this.clearSelectionMode();
+
+        if (updatedCount > 0) {
+            await this.presentToast(`Refreshed metadata for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`);
+        }
+
+        if (failedCount > 0) {
             await this.presentToast('Unable to refresh metadata for selected games.', 'danger');
         }
     }
@@ -495,32 +522,29 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        try {
-            const results = await Promise.all(
-                selectedGames.map(game =>
-                    this.gameShelfService
-                        .refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)
-                        .then(updated => ({ ok: true as const, updated }))
-                        .catch(() => ({ ok: false as const }))
-                )
-            );
-            const failedCount = results.filter(result => !result.ok).length;
-            const updatedCount = results.filter(result => result.ok && this.hasHltbData(result.updated)).length;
-            const missingCount = results.length - failedCount - updatedCount;
+        const results = await this.runBulkAction(
+            selectedGames,
+            {
+                loadingPrefix: 'Updating HLTB data',
+                concurrency: GameListComponent.BULK_HLTB_CONCURRENCY,
+                interItemDelayMs: GameListComponent.BULK_HLTB_INTER_ITEM_DELAY_MS,
+            },
+            game => this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId),
+        );
+        const failedCount = results.filter(result => !result.ok).length;
+        const updatedCount = results.filter(result => result.ok && result.value && this.hasHltbData(result.value)).length;
+        const missingCount = results.length - failedCount - updatedCount;
 
-            this.clearSelectionMode();
+        this.clearSelectionMode();
 
-            if (updatedCount > 0) {
-                await this.presentToast(`Updated HLTB data for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`);
-            } else if (missingCount > 0 && failedCount === 0) {
-                await this.presentToast('No HLTB matches found for selected games.', 'warning');
-            }
+        if (updatedCount > 0) {
+            await this.presentToast(`Updated HLTB data for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`);
+        } else if (missingCount > 0 && failedCount === 0) {
+            await this.presentToast('No HLTB matches found for selected games.', 'warning');
+        }
 
-            if (failedCount > 0) {
-                await this.presentToast(`Unable to update HLTB data for ${failedCount} selected game${failedCount === 1 ? '' : 's'}.`, 'danger');
-            }
-        } catch {
-            await this.presentToast('Unable to update HLTB data for selected games.', 'danger');
+        if (failedCount > 0) {
+            await this.presentToast(`Unable to update HLTB data for ${failedCount} selected game${failedCount === 1 ? '' : 's'}.`, 'danger');
         }
     }
 
@@ -1906,6 +1930,137 @@ export class GameListComponent implements OnChanges {
 
     private isPositiveNumber(value: number | null | undefined): boolean {
         return typeof value === 'number' && Number.isFinite(value) && value > 0;
+    }
+
+    private async runBulkAction<T>(
+        games: GameEntry[],
+        options: {
+            loadingPrefix: string;
+            concurrency: number;
+            interItemDelayMs: number;
+        },
+        action: (game: GameEntry) => Promise<T>,
+    ): Promise<BulkActionResult<T>[]> {
+        const loading = await this.loadingController.create({
+            message: `${options.loadingPrefix} 0/${games.length}...`,
+            spinner: 'crescent',
+            backdropDismiss: false,
+        });
+        await loading.present();
+
+        const results: BulkActionResult<T>[] = new Array(games.length);
+        const queue = games.map((game, index) => ({ game, index }));
+        const workerCount = Math.max(1, Math.min(options.concurrency, queue.length));
+        let completed = 0;
+
+        const updateLoadingMessage = (message: string): void => {
+            loading.message = message;
+        };
+
+        const workers = Array.from({ length: workerCount }, async () => {
+            while (queue.length > 0) {
+                const entry = queue.shift();
+
+                if (!entry) {
+                    return;
+                }
+
+                const outcome = await this.executeBulkActionWithRetry(entry.game, action, updateLoadingMessage);
+                results[entry.index] = outcome;
+                completed += 1;
+                updateLoadingMessage(`${options.loadingPrefix} ${completed}/${games.length}...`);
+
+                if (options.interItemDelayMs > 0 && completed < games.length) {
+                    await this.delay(options.interItemDelayMs);
+                }
+            }
+        });
+
+        await Promise.all(workers);
+        await loading.dismiss().catch(() => undefined);
+        return results;
+    }
+
+    private async executeBulkActionWithRetry<T>(
+        game: GameEntry,
+        action: (game: GameEntry) => Promise<T>,
+        setLoadingMessage: (message: string) => void,
+    ): Promise<BulkActionResult<T>> {
+        for (let attempt = 1; attempt <= GameListComponent.BULK_MAX_ATTEMPTS; attempt += 1) {
+            try {
+                const value = await action(game);
+                return { game, ok: true, value };
+            } catch (error: unknown) {
+                if (!this.shouldRetryBulkActionError(error, attempt)) {
+                    return { game, ok: false, value: null };
+                }
+
+                const retryDelayMs = this.resolveBulkRetryDelayMs(error, attempt);
+                const reason = this.isRateLimitError(error) ? 'rate limit' : 'temporary error';
+                const safeTitle = this.truncateTitleForLoading(game.title);
+                setLoadingMessage(`Retrying ${safeTitle} due to ${reason} in ${Math.max(1, Math.ceil(retryDelayMs / 1000))}s...`);
+                await this.delay(retryDelayMs);
+            }
+        }
+
+        return { game, ok: false, value: null };
+    }
+
+    private shouldRetryBulkActionError(error: unknown, attempt: number): boolean {
+        if (attempt >= GameListComponent.BULK_MAX_ATTEMPTS) {
+            return false;
+        }
+
+        const message = error instanceof Error ? error.message : '';
+
+        if (this.isRateLimitError(error)) {
+            return true;
+        }
+
+        return /fetch failed|network|timeout|temporar|unavailable|gateway/i.test(message);
+    }
+
+    private isRateLimitError(error: unknown): boolean {
+        const message = error instanceof Error ? error.message : '';
+        return /rate limit|too many requests|429/i.test(message);
+    }
+
+    private resolveBulkRetryDelayMs(error: unknown, attempt: number): number {
+        const message = error instanceof Error ? error.message : '';
+        const retryAfterMatch = message.match(/retry after\s+(\d+)\s*s/i);
+
+        if (retryAfterMatch) {
+            const seconds = Number.parseInt(retryAfterMatch[1], 10);
+
+            if (Number.isInteger(seconds) && seconds > 0) {
+                return Math.min(seconds * 1000, GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS);
+            }
+        }
+
+        if (this.isRateLimitError(error)) {
+            return GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS;
+        }
+
+        return Math.min(
+            GameListComponent.BULK_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)),
+            GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS,
+        );
+    }
+
+    private truncateTitleForLoading(title: string): string {
+        const normalized = String(title ?? '').trim();
+
+        if (normalized.length <= 32) {
+            return normalized || 'game';
+        }
+
+        return `${normalized.slice(0, 29)}...`;
+    }
+
+    private async delay(ms: number): Promise<void> {
+        await new Promise<void>(resolve => {
+            window.setTimeout(resolve, ms);
+        });
     }
 
     private normalizeFilterHours(value: number | null | undefined): number | null {

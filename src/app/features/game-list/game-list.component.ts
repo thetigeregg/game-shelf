@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
     IonList,
+    IonListHeader,
     IonItem,
     IonLabel,
     IonAccordionGroup,
@@ -90,6 +91,7 @@ export interface GameListSelectionState {
     imports: [
         CommonModule,
         IonList,
+        IonListHeader,
         IonItem,
         IonLabel,
         IonAccordionGroup,

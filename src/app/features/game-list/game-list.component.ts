@@ -156,6 +156,7 @@ export class GameListComponent implements OnChanges {
     @Output() tagOptionsChange = new EventEmitter<string[]>();
     @Output() displayedGamesChange = new EventEmitter<GameEntry[]>();
     @Output() selectionStateChange = new EventEmitter<GameListSelectionState>();
+    @Output() seriesFilterSelected = new EventEmitter<string>();
 
     games$: Observable<GameEntry[]> = of([]);
     groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
@@ -182,6 +183,9 @@ export class GameListComponent implements OnChanges {
     hltbPickerResults: HltbMatchCandidate[] = [];
     hltbPickerError: string | null = null;
     hltbPickerTargetGame: GameEntry | null = null;
+    isSeriesPickerModalOpen = false;
+    seriesPickerOptions: string[] = [];
+    seriesPickerSelection: string | null = null;
     fixMatchInitialQuery = '';
     fixMatchInitialPlatformIgdbId: number | null = null;
     selectionModeActive = false;
@@ -611,6 +615,7 @@ export class GameListComponent implements OnChanges {
         this.isGameDetailModalOpen = false;
         this.isImagePickerModalOpen = false;
         this.isHltbPickerModalOpen = false;
+        this.isSeriesPickerModalOpen = false;
         this.selectedGame = null;
         this.detailNavigationStack = [];
         this.similarLibraryGames = [];
@@ -618,6 +623,46 @@ export class GameListComponent implements OnChanges {
         this.resetImagePickerState();
         this.resetHltbPickerState();
         this.changeDetectorRef.markForCheck();
+    }
+
+    async onSeriesItemClick(game: GameEntry): Promise<void> {
+        const seriesOptions = this.normalizeSeriesOptions(game.collections);
+
+        if (seriesOptions.length === 0) {
+            return;
+        }
+
+        if (seriesOptions.length === 1) {
+            this.applySeriesFilterSelection(seriesOptions[0]);
+            return;
+        }
+
+        this.seriesPickerOptions = seriesOptions;
+        this.seriesPickerSelection = null;
+        this.isSeriesPickerModalOpen = true;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    closeSeriesPickerModal(): void {
+        this.isSeriesPickerModalOpen = false;
+        this.seriesPickerOptions = [];
+        this.seriesPickerSelection = null;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    onSeriesPickerSelectionChange(value: string | null | undefined): void {
+        const normalized = typeof value === 'string' ? value.trim() : '';
+        this.seriesPickerSelection = normalized.length > 0 ? normalized : null;
+    }
+
+    applySelectedSeriesFromPicker(): void {
+        const selected = typeof this.seriesPickerSelection === 'string' ? this.seriesPickerSelection.trim() : '';
+
+        if (selected.length === 0) {
+            return;
+        }
+
+        this.applySeriesFilterSelection(selected);
     }
 
     closeRatingModal(): void {
@@ -2169,6 +2214,30 @@ export class GameListComponent implements OnChanges {
         }
 
         return `${normalized.slice(0, 29)}...`;
+    }
+
+    private normalizeSeriesOptions(values: string[] | undefined): string[] {
+        if (!Array.isArray(values)) {
+            return [];
+        }
+
+        return [...new Set(
+            values
+                .map(value => (typeof value === 'string' ? value.trim() : ''))
+                .filter(value => value.length > 0)
+        )];
+    }
+
+    private applySeriesFilterSelection(series: string): void {
+        const normalized = series.trim();
+
+        if (normalized.length === 0) {
+            return;
+        }
+
+        this.closeSeriesPickerModal();
+        this.closeGameDetailModal();
+        this.seriesFilterSelected.emit(normalized);
     }
 
     private async delay(ms: number): Promise<void> {

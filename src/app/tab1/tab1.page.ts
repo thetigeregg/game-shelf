@@ -244,6 +244,22 @@ export class Tab1Page {
         }
     }
 
+    onSeriesFilterSelected(series: string): void {
+        const normalized = typeof series === 'string' ? series.trim() : '';
+
+        if (normalized.length === 0) {
+            return;
+        }
+
+        this.filters = {
+            ...DEFAULT_GAME_LIST_FILTERS,
+            collections: [normalized],
+        };
+        this.groupBy = 'none';
+        this.listSearchQuery = '';
+        this.persistPreferences();
+    }
+
     openAddGameModal(): void {
         this.isAddGameModalOpen = true;
     }

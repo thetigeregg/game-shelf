@@ -282,10 +282,11 @@
               <p>{{ formatMetadataList(game.developers) }}</p>
             </ion-label>
           </ion-item>
-          <ion-item>
+          <ion-item button detail="true" (click)="onSeriesItemClick(game)">
             <ion-label>
               <h2>Series</h2>
-              <p>{{ formatMetadataList(game.collections) }}</p>
+              <p *ngIf="(game.collections?.length ?? 0) <= 1">{{ formatMetadataList(game.collections) }}</p>
+              <p *ngIf="(game.collections?.length ?? 0) > 1">Select a series...</p>
             </ion-label>
           </ion-item>
           <ion-item>
@@ -364,6 +365,41 @@
           </ion-fab-button>
         </ion-fab-list>
       </ion-fab>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isSeriesPickerModalOpen" (didDismiss)="closeSeriesPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select Series</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeSeriesPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <ion-list lines="full">
+        <ion-item>
+          <ion-select
+            label="Series"
+            labelPlacement="stacked"
+            placeholder="Choose a series"
+            [value]="seriesPickerSelection || undefined"
+            (ionChange)="onSeriesPickerSelectionChange($any($event).detail.value)"
+          >
+            <ion-select-option *ngFor="let series of seriesPickerOptions" [value]="series">
+              {{ series }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+      </ion-list>
+      <div class="actions">
+        <ion-button expand="block" [disabled]="!seriesPickerSelection" (click)="applySelectedSeriesFromPicker()">
+          Apply Series Filter
+        </ion-button>
+      </div>
     </ion-content>
   </ng-template>
 </ion-modal>

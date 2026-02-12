@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, NgZone, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
@@ -213,6 +213,7 @@ export class GameListComponent implements OnChanges {
     private readonly rowCoverLoadingGameKeys = new Set<string>();
     private readonly detailCoverLoadingGameKeys = new Set<string>();
     private displayedGames: GameEntry[] = [];
+    private imagePickerSearchRequestId = 0;
     private similarLibraryLoadRequestId = 0;
     private rowActionsSlidingItem: IonItemSliding | null = null;
     private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -224,6 +225,7 @@ export class GameListComponent implements OnChanges {
     private readonly toastController = inject(ToastController);
     private readonly imageCacheService = inject(ImageCacheService);
     private readonly changeDetectorRef = inject(ChangeDetectorRef);
+    private readonly ngZone = inject(NgZone);
     private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
     private readonly searchQuery$ = new BehaviorSubject<string>('');
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
@@ -1030,6 +1032,7 @@ export class GameListComponent implements OnChanges {
 
     closeImagePickerModal(): void {
         this.isImagePickerModalOpen = false;
+        this.imagePickerSearchRequestId += 1;
         this.changeDetectorRef.markForCheck();
     }
 
@@ -1039,34 +1042,70 @@ export class GameListComponent implements OnChanges {
     }
 
     async runImagePickerSearch(): Promise<void> {
+        const requestId = ++this.imagePickerSearchRequestId;
         const normalized = this.imagePickerQuery.trim();
 
         if (normalized.length < 2) {
-            this.imagePickerResults = [];
-            this.imagePickerError = null;
-            this.changeDetectorRef.markForCheck();
+            this.ngZone.run(() => {
+                if (requestId !== this.imagePickerSearchRequestId) {
+                    return;
+                }
+
+                this.imagePickerResults = [];
+                this.imagePickerError = null;
+                this.isImagePickerLoading = false;
+                this.changeDetectorRef.markForCheck();
+            });
             return;
         }
 
-        this.isImagePickerLoading = true;
-        this.imagePickerError = null;
-        this.changeDetectorRef.markForCheck();
+        this.ngZone.run(() => {
+            if (requestId !== this.imagePickerSearchRequestId) {
+                return;
+            }
+
+            this.isImagePickerLoading = true;
+            this.imagePickerError = null;
+            this.imagePickerResults = [];
+            this.changeDetectorRef.markForCheck();
+        });
 
         try {
-            this.imagePickerResults = await firstValueFrom(
-                this.gameShelfService.searchBoxArtByTitle(
+            const results = await Promise.race([
+                firstValueFrom(this.gameShelfService.searchBoxArtByTitle(
                     normalized,
                     this.selectedGame?.platform ?? null,
                     this.selectedGame?.platformIgdbId ?? null,
                     this.selectedGame?.igdbGameId,
-                )
-            );
+                )),
+                this.delayReject<string[]>(10000, 'image_picker_search_timeout'),
+            ]);
+
+            this.ngZone.run(() => {
+                if (requestId !== this.imagePickerSearchRequestId) {
+                    return;
+                }
+
+                this.imagePickerResults = results;
+            });
         } catch {
-            this.imagePickerResults = [];
-            this.imagePickerError = 'Unable to load box art results.';
+            this.ngZone.run(() => {
+                if (requestId !== this.imagePickerSearchRequestId) {
+                    return;
+                }
+
+                this.imagePickerResults = [];
+                this.imagePickerError = 'Unable to load box art results.';
+            });
         } finally {
-            this.isImagePickerLoading = false;
-            this.changeDetectorRef.markForCheck();
+            this.ngZone.run(() => {
+                if (requestId !== this.imagePickerSearchRequestId) {
+                    return;
+                }
+
+                this.isImagePickerLoading = false;
+                this.changeDetectorRef.markForCheck();
+            });
         }
     }
 
@@ -2582,6 +2621,7 @@ export class GameListComponent implements OnChanges {
     }
 
     private resetImagePickerState(): void {
+        this.imagePickerSearchRequestId += 1;
         this.imagePickerQuery = '';
         this.imagePickerResults = [];
         this.imagePickerError = null;

@@ -53,6 +53,7 @@ export interface GameCatalogResult {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  similarGameIgdbIds?: string[];
   collections?: string[];
   developers?: string[];
   franchises?: string[];
@@ -76,6 +77,7 @@ export interface GameEntry {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  similarGameIgdbIds?: string[];
   collections?: string[];
   developers?: string[];
   franchises?: string[];

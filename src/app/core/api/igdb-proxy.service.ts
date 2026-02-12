@@ -217,6 +217,7 @@ export class IgdbProxyService implements GameSearchApi {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
+      similarGameIgdbIds: this.normalizeGameIdList((result as GameCatalogResult & { similarGameIgdbIds?: unknown }).similarGameIgdbIds),
       collections: this.normalizeTextList(result.collections),
       developers: this.normalizeTextList(result.developers),
       franchises: this.normalizeTextList(result.franchises),
@@ -469,6 +470,18 @@ export class IgdbProxyService implements GameSearchApi {
         .filter(value => typeof value === 'string')
         .map(value => value.trim())
         .filter(value => value.length > 0)
+    )];
+  }
+
+  private normalizeGameIdList(values: unknown): string[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return [...new Set(
+      values
+        .map(value => String(value ?? '').trim())
+        .filter(value => /^\d+$/.test(value))
     )];
   }
 

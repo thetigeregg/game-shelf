@@ -53,6 +53,15 @@ export class GameShelfService {
     return this.repository.listTags();
   }
 
+  async listLibraryGames(): Promise<GameEntry[]> {
+    const [games, tags] = await Promise.all([
+      this.repository.listAll(),
+      this.repository.listTags(),
+    ]);
+
+    return this.attachTags(games, tags);
+  }
+
   searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]> {
     const normalized = query.trim();
 
@@ -268,9 +277,12 @@ export class GameShelfService {
         title: existing.title,
         coverUrl: existing.coverUrl,
         coverSource: existing.coverSource,
+        gameType: existing.gameType ?? null,
         hltbMainHours: completionTimes?.hltbMainHours ?? null,
         hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,
         hltbCompletionistHours: completionTimes?.hltbCompletionistHours ?? null,
+        similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
+        collections: existing.collections ?? [],
         developers: existing.developers ?? [],
         franchises: existing.franchises ?? [],
         genres: existing.genres ?? [],

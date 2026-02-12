@@ -166,6 +166,8 @@ export class GameListComponent implements OnChanges {
     isHltbPickerLoading = false;
     hasHltbPickerSearched = false;
     selectedGame: GameEntry | null = null;
+    similarLibraryGames: GameEntry[] = [];
+    isSimilarLibraryGamesLoading = false;
     ratingTargetGame: GameEntry | null = null;
     ratingDraft: GameRating = 3;
     clearRatingOnSave = false;
@@ -557,6 +559,7 @@ export class GameListComponent implements OnChanges {
         this.resetImagePickerState();
         this.changeDetectorRef.markForCheck();
         void this.loadDetailCoverUrl(game);
+        void this.loadSimilarLibraryGamesForDetail(game);
     }
 
     closeGameDetailModal(): void {
@@ -564,6 +567,8 @@ export class GameListComponent implements OnChanges {
         this.isImagePickerModalOpen = false;
         this.isHltbPickerModalOpen = false;
         this.selectedGame = null;
+        this.similarLibraryGames = [];
+        this.isSimilarLibraryGamesLoading = false;
         this.resetImagePickerState();
         this.resetHltbPickerState();
         this.changeDetectorRef.markForCheck();
@@ -2126,6 +2131,54 @@ export class GameListComponent implements OnChanges {
         });
     }
 
+    private async loadSimilarLibraryGamesForDetail(game: GameEntry): Promise<void> {
+        const similarIds = this.normalizeSimilarGameIds(game.similarGameIgdbIds);
+
+        if (similarIds.length === 0) {
+            this.similarLibraryGames = [];
+            this.isSimilarLibraryGamesLoading = false;
+            this.changeDetectorRef.markForCheck();
+            return;
+        }
+
+        this.isSimilarLibraryGamesLoading = true;
+        this.changeDetectorRef.markForCheck();
+
+        try {
+            const libraryGames = await this.gameShelfService.listLibraryGames();
+            const currentGameKey = this.getGameKey(game);
+            const similarIdSet = new Set(similarIds);
+            const matched = libraryGames.filter(candidate =>
+                this.getGameKey(candidate) !== currentGameKey && similarIdSet.has(String(candidate.igdbGameId).trim())
+            );
+
+            this.similarLibraryGames = matched.sort((left, right) => this.compareTitles(left.title, right.title));
+        } catch {
+            this.similarLibraryGames = [];
+        } finally {
+            this.isSimilarLibraryGamesLoading = false;
+            this.changeDetectorRef.markForCheck();
+        }
+    }
+
+    private normalizeSimilarGameIds(value: string[] | undefined): string[] {
+        if (!Array.isArray(value)) {
+            return [];
+        }
+
+        return [...new Set(
+            value
+                .map(item => (typeof item === 'string' ? item.trim() : ''))
+                .filter(item => /^\d+$/.test(item))
+        )];
+    }
+
+    getSimilarGameSubtitle(game: GameEntry): string {
+        const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
+        const platform = typeof game.platform === 'string' && game.platform.trim().length > 0 ? game.platform.trim() : 'Unknown platform';
+        return `${year} · ${platform}`;
+    }
+
     private normalizeFilterHours(value: number | null | undefined): number | null {
         if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
             return null;
@@ -2339,6 +2392,7 @@ export class GameListComponent implements OnChanges {
     private applyUpdatedGame(updated: GameEntry, options: { refreshCover?: boolean } = {}): void {
         if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
             this.selectedGame = updated;
+            void this.loadSimilarLibraryGamesForDetail(updated);
         }
 
         if (options.refreshCover) {

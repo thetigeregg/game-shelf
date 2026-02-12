@@ -47,6 +47,7 @@ export class DexieGameRepository implements GameRepository {
         hltbMainHours: this.resolveCompletionHours(result.hltbMainHours, existing.hltbMainHours),
         hltbMainExtraHours: this.resolveCompletionHours(result.hltbMainExtraHours, existing.hltbMainExtraHours),
         hltbCompletionistHours: this.resolveCompletionHours(result.hltbCompletionistHours, existing.hltbCompletionistHours),
+        similarGameIgdbIds: this.resolveGameIdList(result.similarGameIgdbIds, existing.similarGameIgdbIds),
         collections: this.normalizeTextList(result.collections),
         developers: this.normalizeTextList(result.developers),
         franchises: this.normalizeTextList(result.franchises),
@@ -77,6 +78,7 @@ export class DexieGameRepository implements GameRepository {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
+      similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
       collections: this.normalizeTextList(result.collections),
       developers: this.normalizeTextList(result.developers),
       franchises: this.normalizeTextList(result.franchises),
@@ -433,6 +435,18 @@ export class DexieGameRepository implements GameRepository {
     )];
   }
 
+  private normalizeGameIdList(values: string[] | undefined): string[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return [...new Set(
+      values
+        .map(value => (typeof value === 'string' ? value.trim() : ''))
+        .filter(value => /^\d+$/.test(value))
+    )];
+  }
+
   private normalizeCompletionHours(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
       return null;
@@ -480,6 +494,14 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeCompletionHours(incoming);
+  }
+
+  private resolveGameIdList(incoming: string[] | undefined, existing: string[] | undefined): string[] {
+    if (incoming === undefined) {
+      return this.normalizeGameIdList(existing);
+    }
+
+    return this.normalizeGameIdList(incoming);
   }
 
   private normalizeStatus(value: GameStatus | null | undefined): GameStatus | null {

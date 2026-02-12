@@ -565,6 +565,25 @@ export class DexieGameRepository implements GameRepository {
     const collections = Array.isArray(source.collections)
       ? [...new Set(source.collections.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
       : [];
+    const gameTypes = Array.isArray(source.gameTypes)
+      ? [...new Set(source.gameTypes.filter(gameType =>
+        gameType === 'main_game'
+        || gameType === 'dlc_addon'
+        || gameType === 'expansion'
+        || gameType === 'bundle'
+        || gameType === 'standalone_expansion'
+        || gameType === 'mod'
+        || gameType === 'episode'
+        || gameType === 'season'
+        || gameType === 'remake'
+        || gameType === 'remaster'
+        || gameType === 'expanded_game'
+        || gameType === 'port'
+        || gameType === 'fork'
+        || gameType === 'pack'
+        || gameType === 'update'
+      ))]
+      : [];
     const genres = Array.isArray(source.genres)
       ? [...new Set(source.genres.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
       : [];
@@ -606,6 +625,7 @@ export class DexieGameRepository implements GameRepository {
       sortDirection,
       platform,
       collections,
+      gameTypes,
       genres,
       statuses,
       tags,

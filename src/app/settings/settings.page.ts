@@ -2367,6 +2367,25 @@ export class SettingsPage {
                 ...parsed,
                 platform: Array.isArray(parsed.platform) ? parsed.platform.filter(value => typeof value === 'string') : [],
                 collections: Array.isArray(parsed.collections) ? parsed.collections.filter(value => typeof value === 'string') : [],
+                gameTypes: Array.isArray(parsed.gameTypes)
+                    ? parsed.gameTypes.filter(value =>
+                        value === 'main_game'
+                        || value === 'dlc_addon'
+                        || value === 'expansion'
+                        || value === 'bundle'
+                        || value === 'standalone_expansion'
+                        || value === 'mod'
+                        || value === 'episode'
+                        || value === 'season'
+                        || value === 'remake'
+                        || value === 'remaster'
+                        || value === 'expanded_game'
+                        || value === 'port'
+                        || value === 'fork'
+                        || value === 'pack'
+                        || value === 'update'
+                    )
+                    : [],
                 genres: Array.isArray(parsed.genres) ? parsed.genres.filter(value => typeof value === 'string') : [],
                 statuses: Array.isArray(parsed.statuses)
                     ? parsed.statuses.filter(value => value === 'none' || value === 'playing' || value === 'wantToPlay' || value === 'completed' || value === 'paused' || value === 'dropped' || value === 'replay')

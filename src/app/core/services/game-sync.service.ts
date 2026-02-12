@@ -313,6 +313,7 @@ export class GameSyncService implements SyncOutboxWriter {
         sortDirection: 'asc',
         platform: [],
         collections: [],
+        gameTypes: [],
         genres: [],
         statuses: [],
         tags: [],

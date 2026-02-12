@@ -55,21 +55,6 @@
 
       <ion-item>
         <ion-select
-          label="Genre"
-          labelPlacement="stacked"
-          placeholder="All genres"
-          [multiple]="true"
-          [ngModel]="draftFilters.genres"
-          (ngModelChange)="onGenreSelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let genre of genreOptions" [value]="genre">
-            {{ genre }}
-          </ion-select-option>
-        </ion-select>
-      </ion-item>
-
-      <ion-item>
-        <ion-select
           label="Series"
           labelPlacement="stacked"
           placeholder="All series"
@@ -79,6 +64,21 @@
         >
           <ion-select-option *ngFor="let collection of collectionOptions" [value]="collection">
             {{ collection }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
+          label="Game type"
+          labelPlacement="stacked"
+          placeholder="All game types"
+          [multiple]="true"
+          [ngModel]="draftFilters.gameTypes"
+          (ngModelChange)="onGameTypeSelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let gameType of gameTypeOptions" [value]="gameType">
+            {{ getGameTypeLabel(gameType) }}
           </ion-select-option>
         </ion-select>
       </ion-item>
@@ -125,6 +125,21 @@
         >
           <ion-select-option *ngFor="let rating of ratingOptions" [value]="rating">
             {{ getRatingLabel(rating) }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
+          label="Genre"
+          labelPlacement="stacked"
+          placeholder="All genres"
+          [multiple]="true"
+          [ngModel]="draftFilters.genres"
+          (ngModelChange)="onGenreSelectionChange($event)"
+        >
+          <ion-select-option *ngFor="let genre of genreOptions" [value]="genre">
+            {{ genre }}
           </ion-select-option>
         </ion-select>
       </ion-item>

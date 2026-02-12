@@ -25,7 +25,8 @@ import {
     GameGroupByField,
     GameListFilters,
     GameRatingFilterOption,
-    GameStatusFilterOption
+    GameStatusFilterOption,
+    GameType,
 } from '../../core/models/game.models';
 
 type SortOption =
@@ -85,6 +86,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     @Input({ required: true }) contentId!: string;
     @Input() platformOptions: string[] = [];
     @Input() collectionOptions: string[] = [];
+    @Input() gameTypeOptions: GameType[] = [];
     @Input() genreOptions: string[] = [];
     @Input() tagOptions: string[] = [];
     @Input() filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
@@ -159,6 +161,15 @@ export class GameFiltersMenuComponent implements OnChanges {
         this.draftFilters = {
             ...this.draftFilters,
             collections: normalized,
+        };
+        this.updateFilters();
+    }
+
+    onGameTypeSelectionChange(value: GameType[] | GameType | null | undefined): void {
+        const normalized = this.normalizeGameTypeSelection(value);
+        this.draftFilters = {
+            ...this.draftFilters,
+            gameTypes: normalized,
         };
         this.updateFilters();
     }
@@ -272,6 +283,30 @@ export class GameFiltersMenuComponent implements OnChanges {
         return `${rating}`;
     }
 
+    getGameTypeLabel(gameType: GameType): string {
+        if (gameType === 'main_game') {
+            return 'Main Game';
+        }
+
+        if (gameType === 'dlc_addon') {
+            return 'DLC Add-on';
+        }
+
+        if (gameType === 'standalone_expansion') {
+            return 'Standalone Expansion';
+        }
+
+        if (gameType === 'expanded_game') {
+            return 'Expanded Game';
+        }
+
+        return gameType
+            .split('_')
+            .filter(part => part.length > 0)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+    }
+
     private toDateOnly(value: string | string[] | null | undefined): string | null {
         if (typeof value !== 'string' || value.length < 10) {
             return null;
@@ -343,6 +378,34 @@ export class GameFiltersMenuComponent implements OnChanges {
                 || rating === 3
                 || rating === 4
                 || rating === 5
+            )
+        )];
+    }
+
+    private normalizeGameTypeSelection(value: GameType[] | GameType | null | undefined): GameType[] {
+        const normalizedValues = Array.isArray(value)
+            ? value
+            : value
+                ? [value]
+                : [];
+
+        return [...new Set(
+            normalizedValues.filter(gameType =>
+                gameType === 'main_game'
+                || gameType === 'dlc_addon'
+                || gameType === 'expansion'
+                || gameType === 'bundle'
+                || gameType === 'standalone_expansion'
+                || gameType === 'mod'
+                || gameType === 'episode'
+                || gameType === 'season'
+                || gameType === 'remake'
+                || gameType === 'remaster'
+                || gameType === 'expanded_game'
+                || gameType === 'port'
+                || gameType === 'fork'
+                || gameType === 'pack'
+                || gameType === 'update'
             )
         )];
     }

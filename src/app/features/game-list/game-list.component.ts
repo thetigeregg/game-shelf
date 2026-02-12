@@ -47,6 +47,7 @@ import {
     GameRating,
     GameStatusFilterOption,
     GameStatus,
+    GameType,
     ListType,
     Tag
 } from '../../core/models/game.models';
@@ -148,6 +149,7 @@ export class GameListComponent implements OnChanges {
     @Input() groupBy: GameGroupByField = 'none';
     @Output() platformOptionsChange = new EventEmitter<string[]>();
     @Output() collectionOptionsChange = new EventEmitter<string[]>();
+    @Output() gameTypeOptionsChange = new EventEmitter<GameType[]>();
     @Output() genreOptionsChange = new EventEmitter<string[]>();
     @Output() tagOptionsChange = new EventEmitter<string[]>();
     @Output() displayedGamesChange = new EventEmitter<GameEntry[]>();
@@ -208,6 +210,7 @@ export class GameListComponent implements OnChanges {
                 tap(games => {
                     this.platformOptionsChange.emit(this.extractPlatforms(games));
                     this.collectionOptionsChange.emit(this.extractCollections(games));
+                    this.gameTypeOptionsChange.emit(this.extractGameTypes(games));
                     this.genreOptionsChange.emit(this.extractGenres(games));
                     this.tagOptionsChange.emit(this.extractTags(games));
                 })
@@ -1464,6 +1467,27 @@ export class GameListComponent implements OnChanges {
                     .filter(collection => collection.length > 0)
             )]
             : [];
+        const normalizedGameTypes = Array.isArray(filters.gameTypes)
+            ? [...new Set(
+                filters.gameTypes.filter(gameType =>
+                    gameType === 'main_game'
+                    || gameType === 'dlc_addon'
+                    || gameType === 'expansion'
+                    || gameType === 'bundle'
+                    || gameType === 'standalone_expansion'
+                    || gameType === 'mod'
+                    || gameType === 'episode'
+                    || gameType === 'season'
+                    || gameType === 'remake'
+                    || gameType === 'remaster'
+                    || gameType === 'expanded_game'
+                    || gameType === 'port'
+                    || gameType === 'fork'
+                    || gameType === 'pack'
+                    || gameType === 'update'
+                )
+            )]
+            : [];
         const normalizedStatuses = Array.isArray(filters.statuses)
             ? [...new Set(
                 filters.statuses.filter(status =>
@@ -1506,6 +1530,7 @@ export class GameListComponent implements OnChanges {
             ...filters,
             platform: normalizedPlatforms,
             collections: normalizedCollections,
+            gameTypes: normalizedGameTypes,
             genres: normalizedGenres,
             statuses: normalizedStatuses,
             tags: hasNoneTagFilter ? [this.noneTagFilterValue, ...normalizedTagNames] : normalizedTagNames,
@@ -1561,6 +1586,36 @@ export class GameListComponent implements OnChanges {
         });
 
         return Array.from(collectionSet).sort((a, b) => this.compareTitles(a, b));
+    }
+
+    private extractGameTypes(games: GameEntry[]): GameType[] {
+        const gameTypeSet = new Set<GameType>();
+
+        games.forEach((game: GameEntry) => {
+            const gameType = game.gameType ?? null;
+
+            if (
+                gameType === 'main_game'
+                || gameType === 'dlc_addon'
+                || gameType === 'expansion'
+                || gameType === 'bundle'
+                || gameType === 'standalone_expansion'
+                || gameType === 'mod'
+                || gameType === 'episode'
+                || gameType === 'season'
+                || gameType === 'remake'
+                || gameType === 'remaster'
+                || gameType === 'expanded_game'
+                || gameType === 'port'
+                || gameType === 'fork'
+                || gameType === 'pack'
+                || gameType === 'update'
+            ) {
+                gameTypeSet.add(gameType);
+            }
+        });
+
+        return Array.from(gameTypeSet).sort((a, b) => a.localeCompare(b));
     }
 
     private extractTags(games: GameEntry[]): string[] {
@@ -1768,6 +1823,14 @@ export class GameListComponent implements OnChanges {
                 : [];
 
             if (!filters.collections.some(selectedCollection => gameCollections.includes(selectedCollection))) {
+                return false;
+            }
+        }
+
+        if (filters.gameTypes.length > 0) {
+            const gameType = game.gameType ?? null;
+
+            if (!gameType || !filters.gameTypes.includes(gameType)) {
                 return false;
             }
         }

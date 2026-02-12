@@ -5,7 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal, IonBadge } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, ListType } from '../core/models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, GameType, ListType } from '../core/models/game.models';
 import { GameListComponent, GameListSelectionState } from '../features/game-list/game-list.component';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
@@ -95,6 +95,7 @@ export class ListPageComponent {
     filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
     platformOptions: string[] = [];
     collectionOptions: string[] = [];
+    gameTypeOptions: GameType[] = [];
     genreOptions: string[] = [];
     tagOptions: string[] = [];
     displayedGames: GameEntry[] = [];
@@ -149,6 +150,25 @@ export class ListPageComponent {
         const normalizedCollections = Array.isArray(filters.collections)
             ? filters.collections.filter(collection => typeof collection === 'string' && collection.trim().length > 0)
             : [];
+        const normalizedGameTypes = Array.isArray(filters.gameTypes)
+            ? filters.gameTypes.filter(gameType =>
+                gameType === 'main_game'
+                || gameType === 'dlc_addon'
+                || gameType === 'expansion'
+                || gameType === 'bundle'
+                || gameType === 'standalone_expansion'
+                || gameType === 'mod'
+                || gameType === 'episode'
+                || gameType === 'season'
+                || gameType === 'remake'
+                || gameType === 'remaster'
+                || gameType === 'expanded_game'
+                || gameType === 'port'
+                || gameType === 'fork'
+                || gameType === 'pack'
+                || gameType === 'update'
+            )
+            : [];
         const normalizedStatuses = Array.isArray(filters.statuses)
             ? filters.statuses.filter(status =>
                 status === 'none'
@@ -180,6 +200,7 @@ export class ListPageComponent {
             ...filters,
             platform: normalizedPlatforms,
             collections: normalizedCollections,
+            gameTypes: normalizedGameTypes,
             genres: normalizedGenres,
             statuses: normalizedStatuses,
             tags: normalizedTags,
@@ -228,6 +249,18 @@ export class ListPageComponent {
             this.filters = {
                 ...this.filters,
                 collections: normalizedSelection,
+            };
+        }
+    }
+
+    onGameTypeOptionsChange(gameTypeOptions: GameType[]): void {
+        this.gameTypeOptions = gameTypeOptions;
+        const normalizedSelection = this.filters.gameTypes.filter(gameType => gameTypeOptions.includes(gameType));
+
+        if (normalizedSelection.length !== this.filters.gameTypes.length) {
+            this.filters = {
+                ...this.filters,
+                gameTypes: normalizedSelection,
             };
         }
     }
@@ -332,6 +365,10 @@ export class ListPageComponent {
         }
 
         if (this.filters.collections.length > 0) {
+            count += 1;
+        }
+
+        if (this.filters.gameTypes.length > 0) {
             count += 1;
         }
 

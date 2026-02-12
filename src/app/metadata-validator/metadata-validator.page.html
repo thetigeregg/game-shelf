@@ -8,7 +8,7 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list inset="true">
+  <ion-list class="validator-list">
     <ion-list-header>
       <ion-label>Scope</ion-label>
     </ion-list-header>
@@ -47,28 +47,25 @@
       <ion-note slot="end">{{ selectedGamesCount }} selected</ion-note>
     </ion-item>
 
-    <ion-item lines="none" class="bulk-actions-row">
+    <div class="bulk-actions-row">
       <ion-button
         fill="outline"
-        size="small"
         (click)="toggleSelectAllDisplayed()"
       >
         {{ isAllDisplayedSelected() ? 'Unselect all' : 'Select all' }}
       </ion-button>
       <ion-button
         fill="outline"
-        size="small"
         color="medium"
         [disabled]="selectedGamesCount === 0"
         (click)="clearSelection()"
       >
         Clear
       </ion-button>
-    </ion-item>
+    </div>
 
-    <ion-item lines="none" class="bulk-actions-row">
+    <div class="bulk-actions-row">
       <ion-button
-        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingHltb"
         (click)="refreshHltbForSelectedGames()"
       >
@@ -76,7 +73,6 @@
         Bulk HLTB
       </ion-button>
       <ion-button
-        size="small"
         color="secondary"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingImage"
         (click)="refreshImageForSelectedGames()"
@@ -84,10 +80,10 @@
         <ion-spinner *ngIf="isBulkRefreshingImage" name="crescent" slot="start"></ion-spinner>
         Bulk Image
       </ion-button>
-    </ion-item>
+    </div>
   </ion-list>
 
-  <ion-list inset="true">
+  <ion-list class="validator-list">
     <ion-list-header>
       <ion-label>Games</ion-label>
     </ion-list-header>
@@ -116,24 +112,30 @@
           </div>
         </ion-label>
 
-        <ion-button slot="end" fill="outline" size="small" (click)="refreshHltbForGame(game)">
-          HLTB
-        </ion-button>
-        <ion-button
-          slot="end"
-          fill="outline"
-          size="small"
-          color="secondary"
-          [disabled]="isNonPcImageNotApplicable(game)"
-          (click)="refreshImageForGame(game)"
-        >
-          Image
-        </ion-button>
+        <div slot="end" class="row-actions">
+          <ion-button fill="outline" (click)="refreshHltbForGame(game)">
+            HLTB
+          </ion-button>
+          <ion-button
+            fill="outline"
+            color="secondary"
+            [disabled]="isNonPcImageNotApplicable(game)"
+            (click)="refreshImageForGame(game)"
+          >
+            Image
+          </ion-button>
+        </div>
       </ion-item>
 
       <ion-item *ngIf="games.length === 0" lines="none">
         <ion-label color="medium">
-          {{ selectedListType ? 'No games match current metadata filters.' : 'Select Collection or Wishlist to load games.' }}
+          {{
+            !selectedListType
+              ? 'Select Collection or Wishlist to load games.'
+              : (selectedMissingFilters.length === 0
+                ? 'Select at least one missing metadata filter to display games.'
+                : 'No games match current metadata filters.')
+          }}
         </ion-label>
       </ion-item>
     </ng-container>
@@ -152,15 +154,15 @@
     </ion-header>
 
     <ion-content class="ion-padding">
-      <ion-item lines="none">
+      <div class="picker-search-row">
         <ion-searchbar
           [value]="hltbPickerQuery"
           placeholder="Search HLTB"
           show-clear-button="focus"
           (ionInput)="onHltbPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button slot="end" [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">Search</ion-button>
-      </ion-item>
+        <ion-button [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">Search</ion-button>
+      </div>
 
       <div class="picker-state" *ngIf="isHltbPickerLoading">
         <ion-spinner name="crescent"></ion-spinner>
@@ -194,7 +196,7 @@
         </ion-item>
       </ion-list>
 
-      <ion-item lines="none">
+      <div class="picker-action-row">
         <ion-button
           expand="block"
           fill="outline"
@@ -203,7 +205,7 @@
         >
           Use Original Match
         </ion-button>
-      </ion-item>
+      </div>
     </ion-content>
   </ng-template>
 </ion-modal>

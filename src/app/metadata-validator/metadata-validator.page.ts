@@ -383,7 +383,7 @@ export class MetadataValidatorPage {
 
   private applyMissingMetadataFilters(games: GameEntry[], filters: MissingMetadataFilter[]): GameEntry[] {
     if (filters.length === 0) {
-      return games;
+      return [];
     }
 
     return games.filter(game => {

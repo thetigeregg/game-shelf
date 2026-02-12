@@ -54,45 +54,10 @@ import {
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
-import {
-    normalizeGameRatingFilterList,
-    normalizeGameStatusFilterList,
-    normalizeGameTypeList,
-    normalizeStringList,
-    normalizeTagFilterList,
-} from '../../core/utils/game-filter-utils';
+import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack } from "ionicons/icons";
-
-interface GameGroupSection {
-    key: string;
-    title: string;
-    games: GameEntry[];
-}
-
-interface GroupedGamesView {
-    grouped: boolean;
-    sections: GameGroupSection[];
-    totalCount: number;
-}
-
-interface NormalizedFilterGame {
-    updatedAt: string;
-    titleLower: string;
-    platform: string;
-    collections: Set<string>;
-    developers: Set<string>;
-    franchises: Set<string>;
-    publishers: Set<string>;
-    genres: Set<string>;
-    tagNames: Set<string>;
-    gameType: GameType | null;
-    status: GameStatus | null;
-    rating: GameRating | null;
-    hltbMainHours: number | null;
-    releaseDate: string | null;
-}
 
 interface BulkActionResult<T> {
     game: GameEntry;
@@ -236,8 +201,8 @@ export class GameListComponent implements OnChanges {
     private readonly detailCoverUrlByGameKey = new Map<string, string>();
     private readonly rowCoverLoadingGameKeys = new Set<string>();
     private readonly detailCoverLoadingGameKeys = new Set<string>();
-    private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
     private displayedGames: GameEntry[] = [];
+    private readonly filteringEngine = new GameListFilteringEngine(this.noneTagFilterValue);
     private imagePickerSearchRequestId = 0;
     private similarLibraryLoadRequestId = 0;
     private rowActionsSlidingItem: IonItemSliding | null = null;
@@ -1660,489 +1625,35 @@ export class GameListComponent implements OnChanges {
     }
 
     private normalizeFilters(filters: GameListFilters): GameListFilters {
-        const normalizedPlatforms = normalizeStringList(filters.platform);
-        const normalizedGenres = normalizeStringList(filters.genres);
-        const normalizedCollections = normalizeStringList(filters.collections);
-        const normalizedDevelopers = normalizeStringList(filters.developers);
-        const normalizedFranchises = normalizeStringList(filters.franchises);
-        const normalizedPublishers = normalizeStringList(filters.publishers);
-        const normalizedGameTypes = normalizeGameTypeList(filters.gameTypes);
-        const normalizedStatuses = normalizeGameStatusFilterList(filters.statuses);
-        const normalizedTags = normalizeTagFilterList(filters.tags, this.noneTagFilterValue);
-        const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);
-        const hltbMainHoursMin = this.normalizeFilterHours(filters.hltbMainHoursMin);
-        const hltbMainHoursMax = this.normalizeFilterHours(filters.hltbMainHoursMax);
-
-        return {
-            ...DEFAULT_GAME_LIST_FILTERS,
-            ...filters,
-            platform: normalizedPlatforms,
-            collections: normalizedCollections,
-            developers: normalizedDevelopers,
-            franchises: normalizedFranchises,
-            publishers: normalizedPublishers,
-            gameTypes: normalizedGameTypes,
-            genres: normalizedGenres,
-            statuses: normalizedStatuses,
-            tags: normalizedTags,
-            ratings: normalizedRatings,
-            hltbMainHoursMin: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
-                ? hltbMainHoursMax
-                : hltbMainHoursMin,
-            hltbMainHoursMax: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
-                ? hltbMainHoursMin
-                : hltbMainHoursMax,
-        };
+        return this.filteringEngine.normalizeFilters(filters);
     }
 
     private extractPlatforms(games: GameEntry[]): string[] {
-        return [...new Set(
-            games
-                .map(game => game.platform?.trim() ?? '')
-                .filter(platform => platform.length > 0)
-        )].sort((a, b) => this.compareTitles(a, b));
+        return this.filteringEngine.extractPlatforms(games);
     }
 
     private extractGenres(games: GameEntry[]): string[] {
-        const genreSet = new Set<string>();
-
-        games.forEach((game: GameEntry) => {
-            const genres = Array.isArray(game.genres) ? game.genres : [];
-
-            genres.forEach((genre: string) => {
-                const normalized = typeof genre === 'string' ? genre.trim() : '';
-
-                if (normalized.length > 0) {
-                    genreSet.add(normalized);
-                }
-            });
-        });
-
-        return Array.from(genreSet).sort((a, b) => this.compareTitles(a, b));
+        return this.filteringEngine.extractGenres(games);
     }
 
     private extractCollections(games: GameEntry[]): string[] {
-        const collectionSet = new Set<string>();
-
-        games.forEach((game: GameEntry) => {
-            const collections = Array.isArray(game.collections) ? game.collections : [];
-
-            collections.forEach((collection: string) => {
-                const normalized = typeof collection === 'string' ? collection.trim() : '';
-
-                if (normalized.length > 0) {
-                    collectionSet.add(normalized);
-                }
-            });
-        });
-
-        return Array.from(collectionSet).sort((a, b) => this.compareTitles(a, b));
+        return this.filteringEngine.extractCollections(games);
     }
 
     private extractGameTypes(games: GameEntry[]): GameType[] {
-        const gameTypeSet = new Set<GameType>();
-
-        games.forEach((game: GameEntry) => {
-            const gameType = game.gameType ?? null;
-
-            if (
-                gameType === 'main_game'
-                || gameType === 'dlc_addon'
-                || gameType === 'expansion'
-                || gameType === 'bundle'
-                || gameType === 'standalone_expansion'
-                || gameType === 'mod'
-                || gameType === 'episode'
-                || gameType === 'season'
-                || gameType === 'remake'
-                || gameType === 'remaster'
-                || gameType === 'expanded_game'
-                || gameType === 'port'
-                || gameType === 'fork'
-                || gameType === 'pack'
-                || gameType === 'update'
-            ) {
-                gameTypeSet.add(gameType);
-            }
-        });
-
-        return Array.from(gameTypeSet).sort((a, b) => a.localeCompare(b));
+        return this.filteringEngine.extractGameTypes(games);
     }
 
     private extractTags(games: GameEntry[]): string[] {
-        const tagSet = new Set<string>();
-
-        games.forEach((game: GameEntry) => {
-            const tags = Array.isArray(game.tags) ? game.tags : [];
-
-            tags.forEach(tag => {
-                const normalized = typeof tag?.name === 'string' ? tag.name.trim() : '';
-
-                if (normalized.length > 0) {
-                    tagSet.add(normalized);
-                }
-            });
-        });
-
-        return Array.from(tagSet).sort((a, b) => this.compareTitles(a, b));
+        return this.filteringEngine.extractTags(games);
     }
 
     private applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
-        this.pruneNormalizedFilterCache(games);
-        const filtered = games.filter(game => this.matchesFilters(game, filters, searchQuery));
-        return this.sortGames(filtered, filters);
+        return this.filteringEngine.applyFiltersAndSort(games, filters, searchQuery);
     }
 
     private buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {
-        if (groupBy === 'none') {
-            return {
-                grouped: false,
-                sections: [{ key: 'none', title: 'All Games', games }],
-                totalCount: games.length,
-            };
-        }
-
-        const sectionsMap = new Map<string, GameEntry[]>();
-
-        games.forEach(game => {
-            this.getGroupTitlesForGame(game, groupBy).forEach(title => {
-                const normalized = title.trim();
-
-                if (!sectionsMap.has(normalized)) {
-                    sectionsMap.set(normalized, []);
-                }
-
-                sectionsMap.get(normalized)?.push(game);
-            });
-        });
-
-        const sortedSections = [...sectionsMap.entries()]
-            .sort(([left], [right]) => this.compareGroupTitles(left, right, groupBy))
-            .map(([title, groupedGames]) => ({
-                key: `${groupBy}-${title}`,
-                title,
-                games: groupedGames,
-            }));
-
-        return {
-            grouped: true,
-            sections: sortedSections,
-            totalCount: games.length,
-        };
-    }
-
-    private getGroupTitlesForGame(game: GameEntry, groupBy: GameGroupByField): string[] {
-        const noGroupLabel = this.getNoGroupLabel(groupBy);
-
-        if (groupBy === 'platform') {
-            return [game.platform?.trim() || noGroupLabel];
-        }
-
-        if (groupBy === 'releaseYear') {
-            return [game.releaseYear ? String(game.releaseYear) : noGroupLabel];
-        }
-
-        if (groupBy === 'tag') {
-            const tagNames = (game.tags ?? [])
-                .map(tag => tag.name.trim())
-                .filter(name => name.length > 0);
-
-            return tagNames.length > 0 ? [...new Set(tagNames)] : [noGroupLabel];
-        }
-
-        if (groupBy === 'developer') {
-            return this.getMetadataGroupValues(game.developers, noGroupLabel);
-        }
-
-        if (groupBy === 'franchise') {
-            return this.getMetadataGroupValues(game.franchises, noGroupLabel);
-        }
-
-        if (groupBy === 'collection') {
-            return this.getMetadataGroupValues(game.collections, noGroupLabel);
-        }
-
-        if (groupBy === 'genre') {
-            return this.getMetadataGroupValues(game.genres, noGroupLabel);
-        }
-
-        if (groupBy === 'publisher') {
-            return this.getMetadataGroupValues(game.publishers, noGroupLabel);
-        }
-
-        return ['All Games'];
-    }
-
-    private getMetadataGroupValues(values: string[] | undefined, fallback: string): string[] {
-        if (!Array.isArray(values)) {
-            return [fallback];
-        }
-
-        const normalizedValues = [...new Set(
-            values
-                .map(value => (typeof value === 'string' ? value.trim() : ''))
-                .filter(value => value.length > 0)
-        )];
-
-        return normalizedValues.length > 0 ? normalizedValues : [fallback];
-    }
-
-    private compareGroupTitles(left: string, right: string, groupBy: GameGroupByField): number {
-        const noGroupLabel = this.getNoGroupLabel(groupBy);
-
-        if (left === noGroupLabel && right !== noGroupLabel) {
-            return -1;
-        }
-
-        if (right === noGroupLabel && left !== noGroupLabel) {
-            return 1;
-        }
-
-        if (groupBy === 'releaseYear') {
-            const leftYear = Number.parseInt(left, 10);
-            const rightYear = Number.parseInt(right, 10);
-
-            if (!Number.isNaN(leftYear) && !Number.isNaN(rightYear) && leftYear !== rightYear) {
-                return rightYear - leftYear;
-            }
-        }
-
-        return this.compareTitles(left, right);
-    }
-
-    private getNoGroupLabel(groupBy: GameGroupByField): string {
-        if (groupBy === 'platform') {
-            return '[No Platform]';
-        }
-
-        if (groupBy === 'developer') {
-            return '[No Developer]';
-        }
-
-        if (groupBy === 'franchise') {
-            return '[No Franchise]';
-        }
-
-        if (groupBy === 'collection') {
-            return '[No Series]';
-        }
-
-        if (groupBy === 'tag') {
-            return '[No Tag]';
-        }
-
-        if (groupBy === 'genre') {
-            return '[No Genre]';
-        }
-
-        if (groupBy === 'publisher') {
-            return '[No Publisher]';
-        }
-
-        if (groupBy === 'releaseYear') {
-            return '[No Release Year]';
-        }
-
-        return '[No Group]';
-    }
-
-    private matchesFilters(game: GameEntry, filters: GameListFilters, searchQuery: string): boolean {
-        const normalized = this.getNormalizedFilterGame(game);
-        const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
-        if (normalizedSearchQuery.length > 0 && !normalized.titleLower.includes(normalizedSearchQuery)) {
-            return false;
-        }
-
-        if (filters.platform.length > 0 && !filters.platform.includes(normalized.platform)) {
-            return false;
-        }
-
-        if (filters.genres.length > 0 && !filters.genres.some(selectedGenre => normalized.genres.has(selectedGenre))) {
-            return false;
-        }
-
-        if (filters.collections.length > 0 && !filters.collections.some(selectedCollection => normalized.collections.has(selectedCollection))) {
-            return false;
-        }
-
-        if (filters.developers.length > 0 && !filters.developers.some(selectedDeveloper => normalized.developers.has(selectedDeveloper))) {
-            return false;
-        }
-
-        if (filters.franchises.length > 0 && !filters.franchises.some(selectedFranchise => normalized.franchises.has(selectedFranchise))) {
-            return false;
-        }
-
-        if (filters.publishers.length > 0 && !filters.publishers.some(selectedPublisher => normalized.publishers.has(selectedPublisher))) {
-            return false;
-        }
-
-        if (filters.gameTypes.length > 0) {
-            const gameType = normalized.gameType;
-
-            if (!gameType || !filters.gameTypes.includes(gameType)) {
-                return false;
-            }
-        }
-
-        if (filters.statuses.length > 0) {
-            const gameStatus = normalized.status;
-            const matchesNone = gameStatus === null && filters.statuses.includes('none');
-            const matchesStatus = gameStatus !== null && filters.statuses.includes(gameStatus as GameStatusFilterOption);
-
-            if (!matchesNone && !matchesStatus) {
-                return false;
-            }
-        }
-
-        if (filters.tags.length > 0) {
-            const matchesNoneTagFilter = filters.tags.includes(this.noneTagFilterValue);
-            const selectedTagNames = filters.tags.filter(tag => tag !== this.noneTagFilterValue);
-            const matchesSelectedTag = selectedTagNames.some(selectedTag => normalized.tagNames.has(selectedTag));
-            const matchesNoTags = matchesNoneTagFilter && normalized.tagNames.size === 0;
-
-            if (!matchesSelectedTag && !matchesNoTags) {
-                return false;
-            }
-        }
-
-        if (filters.ratings.length > 0) {
-            const gameRating = normalized.rating;
-            const matchesNone = gameRating === null && filters.ratings.includes('none');
-            const matchesRating = gameRating !== null && filters.ratings.includes(gameRating as GameRatingFilterOption);
-
-            if (!matchesNone && !matchesRating) {
-                return false;
-            }
-        }
-
-        const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
-        const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
-        const gameMainHours = normalized.hltbMainHours;
-
-        if (gameMainHours !== null) {
-            if (minMainHours !== null && gameMainHours < minMainHours) {
-                return false;
-            }
-
-            if (maxMainHours !== null && gameMainHours > maxMainHours) {
-                return false;
-            }
-        }
-
-        const gameDate = normalized.releaseDate;
-
-        if (filters.releaseDateFrom && (!gameDate || gameDate < filters.releaseDateFrom)) {
-            return false;
-        }
-
-        if (filters.releaseDateTo && (!gameDate || gameDate > filters.releaseDateTo)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private pruneNormalizedFilterCache(games: GameEntry[]): void {
-        const activeKeys = new Set(games.map(game => this.getGameKey(game)));
-
-        this.normalizedFilterGameByKey.forEach((_value, key) => {
-            if (!activeKeys.has(key)) {
-                this.normalizedFilterGameByKey.delete(key);
-            }
-        });
-    }
-
-    private getNormalizedFilterGame(game: GameEntry): NormalizedFilterGame {
-        const gameKey = this.getGameKey(game);
-        const existing = this.normalizedFilterGameByKey.get(gameKey);
-        const gameUpdatedAt = typeof game.updatedAt === 'string' ? game.updatedAt : '';
-
-        if (existing && existing.updatedAt === gameUpdatedAt) {
-            return existing;
-        }
-
-        const normalized: NormalizedFilterGame = {
-            updatedAt: gameUpdatedAt,
-            titleLower: String(game.title ?? '').trim().toLowerCase(),
-            platform: String(game.platform ?? '').trim(),
-            collections: new Set(normalizeStringList(game.collections)),
-            developers: new Set(normalizeStringList(game.developers)),
-            franchises: new Set(normalizeStringList(game.franchises)),
-            publishers: new Set(normalizeStringList(game.publishers)),
-            genres: new Set(normalizeStringList(game.genres)),
-            tagNames: new Set(normalizeStringList((game.tags ?? []).map(tag => tag.name))),
-            gameType: game.gameType ?? null,
-            status: this.normalizeStatus(game.status),
-            rating: this.normalizeRating(game.rating),
-            hltbMainHours: this.normalizeFilterHours(game.hltbMainHours),
-            releaseDate: this.getDateOnly(game.releaseDate),
-        };
-
-        this.normalizedFilterGameByKey.set(gameKey, normalized);
-        return normalized;
-    }
-
-    private sortGames(games: GameEntry[], filters: GameListFilters): GameEntry[] {
-        const sorted = [...games].sort((left, right) => this.compareGames(left, right, filters.sortField));
-        return filters.sortDirection === 'desc' ? sorted.reverse() : sorted;
-    }
-
-    private compareGames(left: GameEntry, right: GameEntry, sortField: GameListFilters['sortField']): number {
-        if (sortField === 'title') {
-            return this.compareTitles(left.title, right.title);
-        }
-
-        if (sortField === 'platform') {
-            const leftPlatform = left.platform?.trim() || 'Unknown platform';
-            const rightPlatform = right.platform?.trim() || 'Unknown platform';
-            const platformCompare = leftPlatform.localeCompare(rightPlatform, undefined, { sensitivity: 'base' });
-
-            if (platformCompare !== 0) {
-                return platformCompare;
-            }
-
-            return this.compareTitles(left.title, right.title);
-        }
-
-        if (sortField === 'createdAt') {
-            const leftCreatedAt = Date.parse(left.createdAt);
-            const rightCreatedAt = Date.parse(right.createdAt);
-            const leftValid = Number.isNaN(leftCreatedAt) ? null : leftCreatedAt;
-            const rightValid = Number.isNaN(rightCreatedAt) ? null : rightCreatedAt;
-
-            if (leftValid !== null && rightValid !== null && leftValid !== rightValid) {
-                return leftValid - rightValid;
-            }
-
-            if (leftValid !== null && rightValid === null) {
-                return -1;
-            }
-
-            if (leftValid === null && rightValid !== null) {
-                return 1;
-            }
-
-            return this.compareTitles(left.title, right.title);
-        }
-
-        const leftDate = this.getDateOnly(left.releaseDate);
-        const rightDate = this.getDateOnly(right.releaseDate);
-
-        if (leftDate && rightDate) {
-            return leftDate.localeCompare(rightDate);
-        }
-
-        if (leftDate) {
-            return -1;
-        }
-
-        if (rightDate) {
-            return 1;
-        }
-
-        return this.compareTitles(left.title, right.title);
+        return this.filteringEngine.buildGroupedView(games, groupBy);
     }
 
     private compareTitles(leftTitle: string, rightTitle: string): number {
@@ -2160,14 +1671,6 @@ export class GameListComponent implements OnChanges {
     private normalizeTitleForSort(title: string): string {
         const normalized = typeof title === 'string' ? title.trim() : '';
         return normalized.replace(/^(?:the|a)\s+/i, '');
-    }
-
-    private getDateOnly(releaseDate: string | null): string | null {
-        if (typeof releaseDate !== 'string' || releaseDate.length < 10) {
-            return null;
-        }
-
-        return releaseDate.slice(0, 10);
     }
 
     private hasHltbData(game: GameEntry): boolean {

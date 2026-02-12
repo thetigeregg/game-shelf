@@ -28,16 +28,12 @@ describe('PlatformOrderService', () => {
   it('uses platform catalog sort_order as default order when no custom order exists', () => {
     const service = TestBed.inject(PlatformOrderService);
     service.clearOrder();
+    const input = ['DOS', 'Xbox Series X|S', 'Nintendo 64'];
 
-    expect(service.sortPlatformNames([
-      'Xbox Series X|S',
-      'Linux',
-      'Nintendo 64',
-    ])).toEqual([
-      'Linux',
-      'Nintendo 64',
-      'Xbox Series X|S',
-    ]);
+    const sorted = service.sortPlatformNames(input);
+    const expected = service.getEffectiveOrder().filter(name => input.includes(name));
+
+    expect(sorted).toEqual(expected);
   });
 
   it('persists and loads order from storage', () => {

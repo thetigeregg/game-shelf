@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading } from "@ionic/angular/standalone";
+import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading, IonReorderGroup, IonReorder } from "@ionic/angular/standalone";
 import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
 import {
@@ -24,7 +24,7 @@ import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
 import { PlatformOrderService } from '../core/services/platform-order.service';
 import { addIcons } from "ionicons";
-import { close, trash, alertCircle, download, share, fileTrayFull, chevronUp, chevronDown, swapVertical, refresh } from "ionicons/icons";
+import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh } from "ionicons/icons";
 
 interface ThemePreset {
     label: string;
@@ -217,6 +217,8 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
         IonSearchbar,
         IonThumbnail,
         IonLoading,
+        IonReorderGroup,
+        IonReorder,
     ],
 })
 export class SettingsPage {
@@ -296,7 +298,7 @@ export class SettingsPage {
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
-        addIcons({ close, trash, alertCircle, download, share, fileTrayFull, chevronUp, chevronDown, swapVertical, refresh });
+        addIcons({ close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh });
     }
 
     onColorSchemePreferenceChange(value: ColorSchemePreference | string): void {
@@ -348,30 +350,28 @@ export class SettingsPage {
         this.platformOrderItems = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
     }
 
-    movePlatformOrderItemUp(index: number): void {
-        this.movePlatformOrderItem(index, -1);
-    }
-
-    movePlatformOrderItemDown(index: number): void {
-        this.movePlatformOrderItem(index, 1);
-    }
-
     trackByPlatformOrderItem(_index: number, item: GameCatalogPlatformOption): string {
         return `${item.id ?? 'none'}::${item.name}`;
     }
 
-    private movePlatformOrderItem(index: number, delta: number): void {
-        const target = index + delta;
+    onPlatformOrderReorder(event: CustomEvent): void {
+        const detail = event.detail as {
+            from: number;
+            to: number;
+            complete: (data?: boolean | GameCatalogPlatformOption[]) => void;
+        };
 
-        if (index < 0 || target < 0 || index >= this.platformOrderItems.length || target >= this.platformOrderItems.length) {
+        if (detail.from === detail.to) {
+            detail.complete();
             return;
         }
 
         const next = [...this.platformOrderItems];
-        const [item] = next.splice(index, 1);
-        next.splice(target, 0, item);
+        const [item] = next.splice(detail.from, 1);
+        next.splice(detail.to, 0, item);
         this.platformOrderItems = next;
         this.platformOrderService.setOrder(next.map(option => option.name));
+        detail.complete();
     }
 
     private async refreshImageCacheUsage(): Promise<void> {

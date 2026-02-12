@@ -147,17 +147,12 @@
       </ion-item>
 
       <ion-list lines="full" *ngIf="!isPlatformOrderLoading">
-        <ion-item *ngFor="let platform of platformOrderItems; let i = index; trackBy: trackByPlatformOrderItem">
-          <ion-label>{{ platform.name }}</ion-label>
-          <ion-buttons slot="end">
-            <ion-button fill="clear" [disabled]="i === 0" (click)="movePlatformOrderItemUp(i)">
-              <ion-icon slot="icon-only" name="chevron-up"></ion-icon>
-            </ion-button>
-            <ion-button fill="clear" [disabled]="i === platformOrderItems.length - 1" (click)="movePlatformOrderItemDown(i)">
-              <ion-icon slot="icon-only" name="chevron-down"></ion-icon>
-            </ion-button>
-          </ion-buttons>
-        </ion-item>
+        <ion-reorder-group [disabled]="false" (ionItemReorder)="onPlatformOrderReorder($event)">
+          <ion-item *ngFor="let platform of platformOrderItems; trackBy: trackByPlatformOrderItem">
+            <ion-label>{{ platform.name }}</ion-label>
+            <ion-reorder slot="end"></ion-reorder>
+          </ion-item>
+        </ion-reorder-group>
       </ion-list>
     </ion-content>
 

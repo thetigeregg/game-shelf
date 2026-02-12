@@ -277,6 +277,8 @@ export class GameShelfService {
         title: existing.title,
         coverUrl: existing.coverUrl,
         coverSource: existing.coverSource,
+        storyline: existing.storyline ?? null,
+        summary: existing.summary ?? null,
         gameType: existing.gameType ?? null,
         hltbMainHours: completionTimes?.hltbMainHours ?? null,
         hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,

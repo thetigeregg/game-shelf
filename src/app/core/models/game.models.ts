@@ -49,6 +49,8 @@ export interface GameCatalogResult {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  storyline?: string | null;
+  summary?: string | null;
   gameType?: GameType | null;
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
@@ -73,6 +75,8 @@ export interface GameEntry {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  storyline?: string | null;
+  summary?: string | null;
   gameType?: GameType | null;
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;

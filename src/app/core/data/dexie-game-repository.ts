@@ -43,6 +43,8 @@ export class DexieGameRepository implements GameRepository {
         title: result.title,
         coverUrl: result.coverUrl,
         coverSource: result.coverSource,
+        storyline: this.normalizeTextValue(result.storyline),
+        summary: this.normalizeTextValue(result.summary),
         gameType: this.resolveGameType(result.gameType, existing.gameType),
         hltbMainHours: this.resolveCompletionHours(result.hltbMainHours, existing.hltbMainHours),
         hltbMainExtraHours: this.resolveCompletionHours(result.hltbMainExtraHours, existing.hltbMainExtraHours),
@@ -74,6 +76,8 @@ export class DexieGameRepository implements GameRepository {
       title: result.title,
       coverUrl: result.coverUrl,
       coverSource: result.coverSource,
+      storyline: this.normalizeTextValue(result.storyline),
+      summary: this.normalizeTextValue(result.summary),
       gameType: this.normalizeGameType(result.gameType),
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
@@ -546,6 +550,11 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return normalized;
+  }
+
+  private normalizeTextValue(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized.length > 0 ? normalized : null;
   }
 
   private normalizeViewName(value: string): string {

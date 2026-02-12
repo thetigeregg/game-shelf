@@ -213,6 +213,8 @@ export class IgdbProxyService implements GameSearchApi {
       title: String(result.title ?? '').trim() || 'Unknown title',
       coverUrl: this.normalizeCoverUrl(result.coverUrl),
       coverSource: this.normalizeCoverSource(result.coverSource),
+      storyline: this.normalizeOptionalText((result as GameCatalogResult & { storyline?: unknown }).storyline),
+      summary: this.normalizeOptionalText((result as GameCatalogResult & { summary?: unknown }).summary),
       gameType: this.normalizeGameType((result as GameCatalogResult & { gameType?: unknown }).gameType),
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
@@ -258,6 +260,15 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return null;
+  }
+
+  private normalizeOptionalText(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
   }
 
   private normalizeCoverUrl(coverUrl: string | null | undefined): string | null {

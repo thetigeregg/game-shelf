@@ -51,6 +51,11 @@ ion-item ion-label {
   overflow-wrap: anywhere;
 }
 
+.detail-long-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 ion-item.game-row-selected {
   --background: rgba(var(--ion-color-primary-rgb), 0.14);
 }

@@ -41,14 +41,19 @@ interface ExportCsvRow {
     igdbGameId: string;
     platformIgdbId: string;
     title: string;
+    summary: string;
+    storyline: string;
     coverUrl: string;
     coverSource: string;
+    gameType: string;
     platform: string;
+    collections: string;
     releaseDate: string;
     releaseYear: string;
     hltbMainHours: string;
     hltbMainExtraHours: string;
     hltbCompletionistHours: string;
+    similarGameIgdbIds: string;
     status: string;
     rating: string;
     developers: string;
@@ -137,14 +142,19 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
     'igdbGameId',
     'platformIgdbId',
     'title',
+    'summary',
+    'storyline',
     'coverUrl',
     'coverSource',
+    'gameType',
     'platform',
+    'collections',
     'releaseDate',
     'releaseYear',
     'hltbMainHours',
     'hltbMainExtraHours',
     'hltbCompletionistHours',
+    'similarGameIgdbIds',
     'status',
     'rating',
     'developers',
@@ -170,8 +180,6 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
     'igdbGameId',
     'platformIgdbId',
     'title',
-    'coverUrl',
-    'coverSource',
     'platform',
     'releaseDate',
     'releaseYear',
@@ -1912,14 +1920,19 @@ export class SettingsPage {
                 igdbGameId: game.igdbGameId,
                 platformIgdbId: String(game.platformIgdbId),
                 title: game.title,
+                summary: game.summary ?? '',
+                storyline: game.storyline ?? '',
                 coverUrl: game.coverUrl ?? '',
                 coverSource: game.coverSource,
+                gameType: game.gameType ?? '',
                 platform: game.platform,
+                collections: JSON.stringify(game.collections ?? []),
                 releaseDate: game.releaseDate ?? '',
                 releaseYear: game.releaseYear !== null && game.releaseYear !== undefined ? String(game.releaseYear) : '',
                 hltbMainHours: game.hltbMainHours !== null && game.hltbMainHours !== undefined ? String(game.hltbMainHours) : '',
                 hltbMainExtraHours: game.hltbMainExtraHours !== null && game.hltbMainExtraHours !== undefined ? String(game.hltbMainExtraHours) : '',
                 hltbCompletionistHours: game.hltbCompletionistHours !== null && game.hltbCompletionistHours !== undefined ? String(game.hltbCompletionistHours) : '',
+                similarGameIgdbIds: JSON.stringify(game.similarGameIgdbIds ?? []),
                 status: game.status ?? '',
                 rating: game.rating !== null && game.rating !== undefined ? String(game.rating) : '',
                 developers: JSON.stringify(game.developers ?? []),
@@ -1947,14 +1960,19 @@ export class SettingsPage {
                 igdbGameId: '',
                 platformIgdbId: '',
                 title: '',
+                summary: '',
+                storyline: '',
                 coverUrl: '',
                 coverSource: '',
+                gameType: '',
                 platform: '',
+                collections: '',
                 releaseDate: '',
                 releaseYear: '',
                 hltbMainHours: '',
                 hltbMainExtraHours: '',
                 hltbCompletionistHours: '',
+                similarGameIgdbIds: '',
                 status: '',
                 rating: '',
                 developers: '',
@@ -1982,14 +2000,19 @@ export class SettingsPage {
                 igdbGameId: '',
                 platformIgdbId: '',
                 title: '',
+                summary: '',
+                storyline: '',
                 coverUrl: '',
                 coverSource: '',
+                gameType: '',
                 platform: '',
+                collections: '',
                 releaseDate: '',
                 releaseYear: '',
                 hltbMainHours: '',
                 hltbMainExtraHours: '',
                 hltbCompletionistHours: '',
+                similarGameIgdbIds: '',
                 status: '',
                 rating: '',
                 developers: '',
@@ -2017,14 +2040,19 @@ export class SettingsPage {
                 igdbGameId: '',
                 platformIgdbId: '',
                 title: '',
+                summary: '',
+                storyline: '',
                 coverUrl: '',
                 coverSource: '',
+                gameType: '',
                 platform: '',
+                collections: '',
                 releaseDate: '',
                 releaseYear: '',
                 hltbMainHours: '',
                 hltbMainExtraHours: '',
                 hltbCompletionistHours: '',
+                similarGameIgdbIds: '',
                 status: '',
                 rating: '',
                 developers: '',
@@ -2271,14 +2299,25 @@ export class SettingsPage {
             return this.errorRow(type, rowNumber, 'Rating must be none or an integer between 1 and 5.');
         }
 
+        const gameType = this.parseOptionalGameType(record.gameType);
+
+        if (record.gameType.trim().length > 0 && gameType === null) {
+            return this.errorRow(type, rowNumber, 'Invalid gameType value.');
+        }
+
         const catalog: GameCatalogResult = {
             igdbGameId,
             title: record.title.trim() || 'Unknown title',
+            summary: this.parseOptionalText(record.summary),
+            storyline: this.parseOptionalText(record.storyline),
             coverUrl: record.coverUrl.trim() || null,
             coverSource: this.normalizeCoverSource(record.coverSource),
+            gameType,
             hltbMainHours: this.parseOptionalDecimal(record.hltbMainHours),
             hltbMainExtraHours: this.parseOptionalDecimal(record.hltbMainExtraHours),
             hltbCompletionistHours: this.parseOptionalDecimal(record.hltbCompletionistHours),
+            similarGameIgdbIds: this.parseGameIdArray(record.similarGameIgdbIds),
+            collections: this.parseStringArray(record.collections),
             developers: this.parseStringArray(record.developers),
             franchises: this.parseStringArray(record.franchises),
             genres: this.parseStringArray(record.genres),
@@ -2411,14 +2450,19 @@ export class SettingsPage {
             igdbGameId: getValue('igdbGameId'),
             platformIgdbId: getValue('platformIgdbId'),
             title: getValue('title'),
+            summary: getValue('summary'),
+            storyline: getValue('storyline'),
             coverUrl: getValue('coverUrl'),
             coverSource: getValue('coverSource'),
+            gameType: getValue('gameType'),
             platform: getValue('platform'),
+            collections: getValue('collections'),
             releaseDate: getValue('releaseDate'),
             releaseYear: getValue('releaseYear'),
             hltbMainHours: getValue('hltbMainHours'),
             hltbMainExtraHours: getValue('hltbMainExtraHours'),
             hltbCompletionistHours: getValue('hltbCompletionistHours'),
+            similarGameIgdbIds: getValue('similarGameIgdbIds'),
             status: getValue('status'),
             rating: getValue('rating'),
             developers: getValue('developers'),
@@ -2459,6 +2503,61 @@ export class SettingsPage {
         } catch {
             return [];
         }
+    }
+
+    private parseGameIdArray(raw: string): string[] {
+        if (raw.trim().length === 0) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(raw);
+
+            if (!Array.isArray(parsed)) {
+                return [];
+            }
+
+            return [...new Set(
+                parsed
+                    .map(value => String(value ?? '').trim())
+                    .filter(value => /^\d+$/.test(value))
+            )];
+        } catch {
+            return [];
+        }
+    }
+
+    private parseOptionalText(raw: string): string | null {
+        const normalized = raw.trim();
+        return normalized.length > 0 ? normalized : null;
+    }
+
+    private parseOptionalGameType(raw: string): GameCatalogResult['gameType'] {
+        const normalized = raw.trim().toLowerCase();
+
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        if (normalized === 'main_game'
+            || normalized === 'dlc_addon'
+            || normalized === 'expansion'
+            || normalized === 'bundle'
+            || normalized === 'standalone_expansion'
+            || normalized === 'mod'
+            || normalized === 'episode'
+            || normalized === 'season'
+            || normalized === 'remake'
+            || normalized === 'remaster'
+            || normalized === 'expanded_game'
+            || normalized === 'port'
+            || normalized === 'fork'
+            || normalized === 'pack'
+            || normalized === 'update') {
+            return normalized;
+        }
+
+        return null;
     }
 
     private parseFilters(raw: string): GameListFilters | null {

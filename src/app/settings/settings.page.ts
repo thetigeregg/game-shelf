@@ -2367,6 +2367,9 @@ export class SettingsPage {
                 ...parsed,
                 platform: Array.isArray(parsed.platform) ? parsed.platform.filter(value => typeof value === 'string') : [],
                 collections: Array.isArray(parsed.collections) ? parsed.collections.filter(value => typeof value === 'string') : [],
+                developers: Array.isArray(parsed.developers) ? parsed.developers.filter(value => typeof value === 'string') : [],
+                franchises: Array.isArray(parsed.franchises) ? parsed.franchises.filter(value => typeof value === 'string') : [],
+                publishers: Array.isArray(parsed.publishers) ? parsed.publishers.filter(value => typeof value === 'string') : [],
                 gameTypes: Array.isArray(parsed.gameTypes)
                     ? parsed.gameTypes.filter(value =>
                         value === 'main_game'

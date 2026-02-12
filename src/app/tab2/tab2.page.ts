@@ -5,7 +5,7 @@ import { MenuController, ToastController } from '@ionic/angular/standalone';
 import { IonHeader, IonToolbar, IonButtons, IonButton, IonIcon, IonTitle, IonSearchbar, IonContent, IonPopover, IonList, IonItem, IonFab, IonFabButton, IonModal } from "@ionic/angular/standalone";
 import { ActivatedRoute, Router } from '@angular/router';
 import { DEFAULT_GAME_LIST_FILTERS, GameEntry, GameGroupByField, GameListFilters, GameType, ListType } from '../core/models/game.models';
-import { GameListComponent, GameListSelectionState } from '../features/game-list/game-list.component';
+import { GameListComponent, GameListSelectionState, MetadataFilterSelection } from '../features/game-list/game-list.component';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -99,6 +99,15 @@ export class Tab2Page {
         const normalizedCollections = Array.isArray(filters.collections)
             ? filters.collections.filter(collection => typeof collection === 'string' && collection.trim().length > 0)
             : [];
+        const normalizedDevelopers = Array.isArray(filters.developers)
+            ? filters.developers.filter(developer => typeof developer === 'string' && developer.trim().length > 0)
+            : [];
+        const normalizedFranchises = Array.isArray(filters.franchises)
+            ? filters.franchises.filter(franchise => typeof franchise === 'string' && franchise.trim().length > 0)
+            : [];
+        const normalizedPublishers = Array.isArray(filters.publishers)
+            ? filters.publishers.filter(publisher => typeof publisher === 'string' && publisher.trim().length > 0)
+            : [];
         const normalizedGameTypes = Array.isArray(filters.gameTypes)
             ? filters.gameTypes.filter(gameType =>
                 gameType === 'main_game'
@@ -149,6 +158,9 @@ export class Tab2Page {
             ...filters,
             platform: normalizedPlatforms,
             collections: normalizedCollections,
+            developers: normalizedDevelopers,
+            franchises: normalizedFranchises,
+            publishers: normalizedPublishers,
             gameTypes: normalizedGameTypes,
             genres: normalizedGenres,
             statuses: normalizedStatuses,
@@ -244,16 +256,29 @@ export class Tab2Page {
         }
     }
 
-    onSeriesFilterSelected(series: string): void {
-        const normalized = typeof series === 'string' ? series.trim() : '';
+    onMetadataFilterSelected(selection: MetadataFilterSelection): void {
+        const normalized = typeof selection.value === 'string' ? selection.value.trim() : '';
 
         if (normalized.length === 0) {
             return;
         }
 
-        this.filters = {
+        const nextFilters: GameListFilters = {
             ...DEFAULT_GAME_LIST_FILTERS,
-            collections: [normalized],
+        };
+
+        if (selection.kind === 'series') {
+            nextFilters.collections = [normalized];
+        } else if (selection.kind === 'developer') {
+            nextFilters.developers = [normalized];
+        } else if (selection.kind === 'franchise') {
+            nextFilters.franchises = [normalized];
+        } else if (selection.kind === 'publisher') {
+            nextFilters.publishers = [normalized];
+        }
+
+        this.filters = {
+            ...nextFilters,
         };
         this.groupBy = 'none';
         this.listSearchQuery = '';

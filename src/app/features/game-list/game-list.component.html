@@ -276,10 +276,11 @@
               </ng-template>
             </ion-label>
           </ion-item>
-          <ion-item>
+          <ion-item button detail="true" (click)="onDeveloperItemClick(game)">
             <ion-label>
               <h2>Developer</h2>
-              <p>{{ formatMetadataList(game.developers) }}</p>
+              <p *ngIf="(game.developers?.length ?? 0) <= 1">{{ formatMetadataList(game.developers) }}</p>
+              <p *ngIf="(game.developers?.length ?? 0) > 1">Select a developer...</p>
             </ion-label>
           </ion-item>
           <ion-item button detail="true" (click)="onSeriesItemClick(game)">
@@ -289,10 +290,11 @@
               <p *ngIf="(game.collections?.length ?? 0) > 1">Select a series...</p>
             </ion-label>
           </ion-item>
-          <ion-item>
+          <ion-item button detail="true" (click)="onFranchiseItemClick(game)">
             <ion-label>
               <h2>Franchise</h2>
-              <p>{{ formatMetadataList(game.franchises) }}</p>
+              <p *ngIf="(game.franchises?.length ?? 0) <= 1">{{ formatMetadataList(game.franchises) }}</p>
+              <p *ngIf="(game.franchises?.length ?? 0) > 1">Select a franchise...</p>
             </ion-label>
           </ion-item>
           <ion-item>
@@ -301,10 +303,11 @@
               <p>{{ formatMetadataList(game.genres) }}</p>
             </ion-label>
           </ion-item>
-          <ion-item>
+          <ion-item button detail="true" (click)="onPublisherItemClick(game)">
             <ion-label>
               <h2>Publisher</h2>
-              <p>{{ formatMetadataList(game.publishers) }}</p>
+              <p *ngIf="(game.publishers?.length ?? 0) <= 1">{{ formatMetadataList(game.publishers) }}</p>
+              <p *ngIf="(game.publishers?.length ?? 0) > 1">Select a publisher...</p>
             </ion-label>
           </ion-item>
           <ion-item>
@@ -369,13 +372,13 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isSeriesPickerModalOpen" (didDismiss)="closeSeriesPickerModal()">
+<ion-modal [isOpen]="isMetadataPickerModalOpen" (didDismiss)="closeMetadataPickerModal()">
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Select Series</ion-title>
+        <ion-title>{{ metadataPickerTitle }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="closeSeriesPickerModal()">Close</ion-button>
+          <ion-button (click)="closeMetadataPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -386,18 +389,18 @@
             label="Series"
             labelPlacement="stacked"
             placeholder="Choose a series"
-            [value]="seriesPickerSelection || undefined"
-            (ionChange)="onSeriesPickerSelectionChange($any($event).detail.value)"
+            [value]="metadataPickerSelection || undefined"
+            (ionChange)="onMetadataPickerSelectionChange($any($event).detail.value)"
           >
-            <ion-select-option *ngFor="let series of seriesPickerOptions" [value]="series">
-              {{ series }}
+            <ion-select-option *ngFor="let option of metadataPickerOptions" [value]="option">
+              {{ option }}
             </ion-select-option>
           </ion-select>
         </ion-item>
       </ion-list>
       <div class="actions">
-        <ion-button expand="block" [disabled]="!seriesPickerSelection" (click)="applySelectedSeriesFromPicker()">
-          Apply Series Filter
+        <ion-button expand="block" [disabled]="!metadataPickerSelection" (click)="applySelectedMetadataFilterFromPicker()">
+          Apply Filter
         </ion-button>
       </div>
     </ion-content>

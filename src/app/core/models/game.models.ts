@@ -144,6 +144,9 @@ export interface GameListFilters {
   sortDirection: SortDirection;
   platform: string[];
   collections: string[];
+  developers: string[];
+  franchises: string[];
+  publishers: string[];
   gameTypes: GameType[];
   genres: string[];
   statuses: GameStatusFilterOption[];
@@ -160,6 +163,9 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   sortDirection: 'asc',
   platform: [],
   collections: [],
+  developers: [],
+  franchises: [],
+  publishers: [],
   gameTypes: [],
   genres: [],
   statuses: [],

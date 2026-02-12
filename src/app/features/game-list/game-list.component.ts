@@ -82,6 +82,13 @@ export interface GameListSelectionState {
     allDisplayedSelected: boolean;
 }
 
+export type MetadataFilterKind = 'series' | 'developer' | 'franchise' | 'publisher';
+
+export interface MetadataFilterSelection {
+    kind: MetadataFilterKind;
+    value: string;
+}
+
 @Component({
     selector: 'app-game-list',
     templateUrl: './game-list.component.html',
@@ -156,7 +163,7 @@ export class GameListComponent implements OnChanges {
     @Output() tagOptionsChange = new EventEmitter<string[]>();
     @Output() displayedGamesChange = new EventEmitter<GameEntry[]>();
     @Output() selectionStateChange = new EventEmitter<GameListSelectionState>();
-    @Output() seriesFilterSelected = new EventEmitter<string>();
+    @Output() metadataFilterSelected = new EventEmitter<MetadataFilterSelection>();
 
     games$: Observable<GameEntry[]> = of([]);
     groupedView$: Observable<GroupedGamesView> = of({ grouped: false, sections: [], totalCount: 0 });
@@ -183,9 +190,11 @@ export class GameListComponent implements OnChanges {
     hltbPickerResults: HltbMatchCandidate[] = [];
     hltbPickerError: string | null = null;
     hltbPickerTargetGame: GameEntry | null = null;
-    isSeriesPickerModalOpen = false;
-    seriesPickerOptions: string[] = [];
-    seriesPickerSelection: string | null = null;
+    isMetadataPickerModalOpen = false;
+    metadataPickerTitle = 'Select Value';
+    metadataPickerKind: MetadataFilterKind | null = null;
+    metadataPickerOptions: string[] = [];
+    metadataPickerSelection: string | null = null;
     fixMatchInitialQuery = '';
     fixMatchInitialPlatformIgdbId: number | null = null;
     selectionModeActive = false;
@@ -615,7 +624,7 @@ export class GameListComponent implements OnChanges {
         this.isGameDetailModalOpen = false;
         this.isImagePickerModalOpen = false;
         this.isHltbPickerModalOpen = false;
-        this.isSeriesPickerModalOpen = false;
+        this.isMetadataPickerModalOpen = false;
         this.selectedGame = null;
         this.detailNavigationStack = [];
         this.similarLibraryGames = [];
@@ -625,44 +634,44 @@ export class GameListComponent implements OnChanges {
         this.changeDetectorRef.markForCheck();
     }
 
-    async onSeriesItemClick(game: GameEntry): Promise<void> {
-        const seriesOptions = this.normalizeSeriesOptions(game.collections);
+    onSeriesItemClick(game: GameEntry): void {
+        this.openMetadataFilterSelection('series', game.collections, 'Select Series');
+    }
 
-        if (seriesOptions.length === 0) {
-            return;
-        }
+    onDeveloperItemClick(game: GameEntry): void {
+        this.openMetadataFilterSelection('developer', game.developers, 'Select Developer');
+    }
 
-        if (seriesOptions.length === 1) {
-            this.applySeriesFilterSelection(seriesOptions[0]);
-            return;
-        }
+    onFranchiseItemClick(game: GameEntry): void {
+        this.openMetadataFilterSelection('franchise', game.franchises, 'Select Franchise');
+    }
 
-        this.seriesPickerOptions = seriesOptions;
-        this.seriesPickerSelection = null;
-        this.isSeriesPickerModalOpen = true;
+    onPublisherItemClick(game: GameEntry): void {
+        this.openMetadataFilterSelection('publisher', game.publishers, 'Select Publisher');
+    }
+
+    closeMetadataPickerModal(): void {
+        this.isMetadataPickerModalOpen = false;
+        this.metadataPickerTitle = 'Select Value';
+        this.metadataPickerKind = null;
+        this.metadataPickerOptions = [];
+        this.metadataPickerSelection = null;
         this.changeDetectorRef.markForCheck();
     }
 
-    closeSeriesPickerModal(): void {
-        this.isSeriesPickerModalOpen = false;
-        this.seriesPickerOptions = [];
-        this.seriesPickerSelection = null;
-        this.changeDetectorRef.markForCheck();
-    }
-
-    onSeriesPickerSelectionChange(value: string | null | undefined): void {
+    onMetadataPickerSelectionChange(value: string | null | undefined): void {
         const normalized = typeof value === 'string' ? value.trim() : '';
-        this.seriesPickerSelection = normalized.length > 0 ? normalized : null;
+        this.metadataPickerSelection = normalized.length > 0 ? normalized : null;
     }
 
-    applySelectedSeriesFromPicker(): void {
-        const selected = typeof this.seriesPickerSelection === 'string' ? this.seriesPickerSelection.trim() : '';
+    applySelectedMetadataFilterFromPicker(): void {
+        const selected = typeof this.metadataPickerSelection === 'string' ? this.metadataPickerSelection.trim() : '';
 
-        if (selected.length === 0) {
+        if (selected.length === 0 || !this.metadataPickerKind) {
             return;
         }
 
-        this.applySeriesFilterSelection(selected);
+        this.applyMetadataFilterSelection(this.metadataPickerKind, selected);
     }
 
     closeRatingModal(): void {
@@ -1563,6 +1572,27 @@ export class GameListComponent implements OnChanges {
                     .filter(collection => collection.length > 0)
             )]
             : [];
+        const normalizedDevelopers = Array.isArray(filters.developers)
+            ? [...new Set(
+                filters.developers
+                    .map(developer => (typeof developer === 'string' ? developer.trim() : ''))
+                    .filter(developer => developer.length > 0)
+            )]
+            : [];
+        const normalizedFranchises = Array.isArray(filters.franchises)
+            ? [...new Set(
+                filters.franchises
+                    .map(franchise => (typeof franchise === 'string' ? franchise.trim() : ''))
+                    .filter(franchise => franchise.length > 0)
+            )]
+            : [];
+        const normalizedPublishers = Array.isArray(filters.publishers)
+            ? [...new Set(
+                filters.publishers
+                    .map(publisher => (typeof publisher === 'string' ? publisher.trim() : ''))
+                    .filter(publisher => publisher.length > 0)
+            )]
+            : [];
         const normalizedGameTypes = Array.isArray(filters.gameTypes)
             ? [...new Set(
                 filters.gameTypes.filter(gameType =>
@@ -1626,6 +1656,9 @@ export class GameListComponent implements OnChanges {
             ...filters,
             platform: normalizedPlatforms,
             collections: normalizedCollections,
+            developers: normalizedDevelopers,
+            franchises: normalizedFranchises,
+            publishers: normalizedPublishers,
             gameTypes: normalizedGameTypes,
             genres: normalizedGenres,
             statuses: normalizedStatuses,
@@ -1923,6 +1956,42 @@ export class GameListComponent implements OnChanges {
             }
         }
 
+        if (filters.developers.length > 0) {
+            const gameDevelopers = Array.isArray(game.developers)
+                ? game.developers
+                    .map(developer => (typeof developer === 'string' ? developer.trim() : ''))
+                    .filter(developer => developer.length > 0)
+                : [];
+
+            if (!filters.developers.some(selectedDeveloper => gameDevelopers.includes(selectedDeveloper))) {
+                return false;
+            }
+        }
+
+        if (filters.franchises.length > 0) {
+            const gameFranchises = Array.isArray(game.franchises)
+                ? game.franchises
+                    .map(franchise => (typeof franchise === 'string' ? franchise.trim() : ''))
+                    .filter(franchise => franchise.length > 0)
+                : [];
+
+            if (!filters.franchises.some(selectedFranchise => gameFranchises.includes(selectedFranchise))) {
+                return false;
+            }
+        }
+
+        if (filters.publishers.length > 0) {
+            const gamePublishers = Array.isArray(game.publishers)
+                ? game.publishers
+                    .map(publisher => (typeof publisher === 'string' ? publisher.trim() : ''))
+                    .filter(publisher => publisher.length > 0)
+                : [];
+
+            if (!filters.publishers.some(selectedPublisher => gamePublishers.includes(selectedPublisher))) {
+                return false;
+            }
+        }
+
         if (filters.gameTypes.length > 0) {
             const gameType = game.gameType ?? null;
 
@@ -2216,7 +2285,7 @@ export class GameListComponent implements OnChanges {
         return `${normalized.slice(0, 29)}...`;
     }
 
-    private normalizeSeriesOptions(values: string[] | undefined): string[] {
+    private normalizeMetadataOptions(values: string[] | undefined): string[] {
         if (!Array.isArray(values)) {
             return [];
         }
@@ -2228,16 +2297,36 @@ export class GameListComponent implements OnChanges {
         )];
     }
 
-    private applySeriesFilterSelection(series: string): void {
-        const normalized = series.trim();
+    private openMetadataFilterSelection(kind: MetadataFilterKind, values: string[] | undefined, title: string): void {
+        const options = this.normalizeMetadataOptions(values);
+
+        if (options.length === 0) {
+            return;
+        }
+
+        if (options.length === 1) {
+            this.applyMetadataFilterSelection(kind, options[0]);
+            return;
+        }
+
+        this.metadataPickerTitle = title;
+        this.metadataPickerKind = kind;
+        this.metadataPickerOptions = options;
+        this.metadataPickerSelection = null;
+        this.isMetadataPickerModalOpen = true;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    private applyMetadataFilterSelection(kind: MetadataFilterKind, value: string): void {
+        const normalized = value.trim();
 
         if (normalized.length === 0) {
             return;
         }
 
-        this.closeSeriesPickerModal();
+        this.closeMetadataPickerModal();
         this.closeGameDetailModal();
-        this.seriesFilterSelected.emit(normalized);
+        this.metadataFilterSelected.emit({ kind, value: normalized });
     }
 
     private async delay(ms: number): Promise<void> {

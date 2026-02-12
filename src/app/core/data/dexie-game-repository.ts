@@ -587,6 +587,15 @@ export class DexieGameRepository implements GameRepository {
     const collections = Array.isArray(source.collections)
       ? [...new Set(source.collections.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
       : [];
+    const developers = Array.isArray(source.developers)
+      ? [...new Set(source.developers.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
+      : [];
+    const franchises = Array.isArray(source.franchises)
+      ? [...new Set(source.franchises.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
+      : [];
+    const publishers = Array.isArray(source.publishers)
+      ? [...new Set(source.publishers.filter(item => typeof item === 'string' && item.trim().length > 0).map(item => item.trim()))]
+      : [];
     const gameTypes = Array.isArray(source.gameTypes)
       ? [...new Set(source.gameTypes.filter(gameType =>
         gameType === 'main_game'
@@ -647,6 +656,9 @@ export class DexieGameRepository implements GameRepository {
       sortDirection,
       platform,
       collections,
+      developers,
+      franchises,
+      publishers,
       gameTypes,
       genres,
       statuses,

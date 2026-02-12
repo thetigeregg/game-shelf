@@ -55,16 +55,11 @@ import {
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
+import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
+import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack } from "ionicons/icons";
-
-interface BulkActionResult<T> {
-    game: GameEntry;
-    ok: boolean;
-    value: T | null;
-    errorReason?: 'rate_limit' | 'transient' | 'other';
-}
 
 export interface GameListSelectionState {
     active: boolean;
@@ -1692,134 +1687,18 @@ export class GameListComponent implements OnChanges {
         },
         action: (game: GameEntry) => Promise<T>,
     ): Promise<BulkActionResult<T>[]> {
-        const loading = await this.loadingController.create({
-            message: `${options.loadingPrefix} 0/${games.length}...`,
-            spinner: 'crescent',
-            backdropDismiss: false,
+        return runBulkActionWithRetry({
+            loadingController: this.loadingController,
+            games,
+            options,
+            retryConfig: {
+                maxAttempts: GameListComponent.BULK_MAX_ATTEMPTS,
+                retryBaseDelayMs: GameListComponent.BULK_RETRY_BASE_DELAY_MS,
+                rateLimitFallbackCooldownMs: GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS,
+            },
+            action,
+            delay: (ms: number) => this.delay(ms),
         });
-        await loading.present();
-
-        const results: BulkActionResult<T>[] = new Array(games.length);
-        const queue = games.map((game, index) => ({ game, index }));
-        const workerCount = Math.max(1, Math.min(options.concurrency, queue.length));
-        let completed = 0;
-
-        const updateLoadingMessage = (message: string): void => {
-            loading.message = message;
-        };
-
-        const workers = Array.from({ length: workerCount }, async () => {
-            while (queue.length > 0) {
-                const entry = queue.shift();
-
-                if (!entry) {
-                    return;
-                }
-
-                const outcome = await this.executeBulkActionWithRetry(entry.game, action, updateLoadingMessage);
-                results[entry.index] = outcome;
-                completed += 1;
-                updateLoadingMessage(`${options.loadingPrefix} ${completed}/${games.length}...`);
-
-                if (options.interItemDelayMs > 0 && completed < games.length) {
-                    await this.delay(options.interItemDelayMs);
-                }
-            }
-        });
-
-        await Promise.all(workers);
-        await loading.dismiss().catch(() => undefined);
-        return results;
-    }
-
-    private async executeBulkActionWithRetry<T>(
-        game: GameEntry,
-        action: (game: GameEntry) => Promise<T>,
-        setLoadingMessage: (message: string) => void,
-    ): Promise<BulkActionResult<T>> {
-        for (let attempt = 1; attempt <= GameListComponent.BULK_MAX_ATTEMPTS; attempt += 1) {
-            try {
-                const value = await action(game);
-                return { game, ok: true, value };
-            } catch (error: unknown) {
-                if (!this.shouldRetryBulkActionError(error, attempt)) {
-                    return { game, ok: false, value: null, errorReason: this.classifyBulkError(error) };
-                }
-
-                const retryDelayMs = this.resolveBulkRetryDelayMs(error, attempt);
-                const reason = this.isRateLimitError(error) ? 'rate limit' : 'temporary error';
-                const safeTitle = this.truncateTitleForLoading(game.title);
-                setLoadingMessage(`Retrying ${safeTitle} due to ${reason} in ${Math.max(1, Math.ceil(retryDelayMs / 1000))}s...`);
-                await this.delay(retryDelayMs);
-            }
-        }
-
-        return { game, ok: false, value: null, errorReason: 'other' };
-    }
-
-    private shouldRetryBulkActionError(error: unknown, attempt: number): boolean {
-        if (attempt >= GameListComponent.BULK_MAX_ATTEMPTS) {
-            return false;
-        }
-
-        const message = error instanceof Error ? error.message : '';
-
-        if (this.isRateLimitError(error)) {
-            return true;
-        }
-
-        return /fetch failed|network|timeout|temporar|unavailable|gateway/i.test(message);
-    }
-
-    private isRateLimitError(error: unknown): boolean {
-        const message = error instanceof Error ? error.message : '';
-        return /rate limit|too many requests|429/i.test(message);
-    }
-
-    private classifyBulkError(error: unknown): 'rate_limit' | 'transient' | 'other' {
-        if (this.isRateLimitError(error)) {
-            return 'rate_limit';
-        }
-
-        const message = error instanceof Error ? error.message : '';
-
-        if (/fetch failed|network|timeout|temporar|unavailable|gateway/i.test(message)) {
-            return 'transient';
-        }
-
-        return 'other';
-    }
-
-    private resolveBulkRetryDelayMs(error: unknown, attempt: number): number {
-        const message = error instanceof Error ? error.message : '';
-        const retryAfterMatch = message.match(/retry after\s+(\d+)\s*s/i);
-
-        if (retryAfterMatch) {
-            const seconds = Number.parseInt(retryAfterMatch[1], 10);
-
-            if (Number.isInteger(seconds) && seconds > 0) {
-                return Math.min(seconds * 1000, GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS);
-            }
-        }
-
-        if (this.isRateLimitError(error)) {
-            return GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS;
-        }
-
-        return Math.min(
-            GameListComponent.BULK_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)),
-            GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS,
-        );
-    }
-
-    private truncateTitleForLoading(title: string): string {
-        const normalized = String(title ?? '').trim();
-
-        if (normalized.length <= 32) {
-            return normalized || 'game';
-        }
-
-        return `${normalized.slice(0, 29)}...`;
     }
 
     private normalizeMetadataOptions(values: string[] | undefined): string[] {
@@ -1879,7 +1758,7 @@ export class GameListComponent implements OnChanges {
 
     private async loadSimilarLibraryGamesForDetail(game: GameEntry): Promise<void> {
         const requestId = ++this.similarLibraryLoadRequestId;
-        const similarIds = this.normalizeSimilarGameIds(game.similarGameIgdbIds);
+        const similarIds = normalizeSimilarGameIds(game.similarGameIgdbIds);
 
         if (similarIds.length === 0) {
             if (requestId === this.similarLibraryLoadRequestId) {
@@ -1904,13 +1783,12 @@ export class GameListComponent implements OnChanges {
                 return;
             }
 
-            const currentGameKey = this.getGameKey(game);
-            const similarIdSet = new Set(similarIds);
-            const matched = libraryGames.filter(candidate =>
-                this.getGameKey(candidate) !== currentGameKey && similarIdSet.has(String(candidate.igdbGameId).trim())
-            );
-
-            this.similarLibraryGames = matched.sort((left, right) => this.compareTitles(left.title, right.title));
+            this.similarLibraryGames = findSimilarLibraryGames({
+                currentGame: game,
+                libraryGames,
+                similarIds,
+                compareTitles: (left, right) => this.compareTitles(left, right),
+            });
         } catch {
             if (requestId === this.similarLibraryLoadRequestId) {
                 this.similarLibraryGames = [];
@@ -1921,18 +1799,6 @@ export class GameListComponent implements OnChanges {
                 this.changeDetectorRef.markForCheck();
             }
         }
-    }
-
-    private normalizeSimilarGameIds(value: string[] | undefined): string[] {
-        if (!Array.isArray(value)) {
-            return [];
-        }
-
-        return [...new Set(
-            value
-                .map(item => (typeof item === 'string' ? item.trim() : ''))
-                .filter(item => /^\d+$/.test(item))
-        )];
     }
 
     getSimilarGameSubtitle(game: GameEntry): string {

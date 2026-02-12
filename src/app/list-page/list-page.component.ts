@@ -79,7 +79,7 @@ export class ListPageComponent {
         { value: 'platform', label: 'Platform' },
         { value: 'developer', label: 'Developer' },
         { value: 'franchise', label: 'Franchise' },
-        { value: 'collection', label: 'Collection' },
+        { value: 'collection', label: 'Series' },
         { value: 'tag', label: 'Tag' },
         { value: 'genre', label: 'Genre' },
         { value: 'publisher', label: 'Publisher' },

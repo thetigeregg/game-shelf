@@ -1693,7 +1693,7 @@ export class GameListComponent implements OnChanges {
         }
 
         if (groupBy === 'collection') {
-            return '[No Collection]';
+            return '[No Series]';
         }
 
         if (groupBy === 'tag') {

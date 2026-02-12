@@ -257,6 +257,10 @@ export class ViewsPage implements OnInit {
             return 'None';
         }
 
+        if (groupBy === 'collection') {
+            return 'Series';
+        }
+
         return groupBy.charAt(0).toUpperCase() + groupBy.slice(1);
     }
 
@@ -266,6 +270,7 @@ export class ViewsPage implements OnInit {
             || value === 'platform'
             || value === 'developer'
             || value === 'franchise'
+            || value === 'collection'
             || value === 'tag'
             || value === 'genre'
             || value === 'publisher'

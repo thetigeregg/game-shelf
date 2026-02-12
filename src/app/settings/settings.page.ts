@@ -2458,6 +2458,7 @@ export class SettingsPage {
             || value === 'platform'
             || value === 'developer'
             || value === 'franchise'
+            || value === 'collection'
             || value === 'tag'
             || value === 'genre'
             || value === 'publisher'

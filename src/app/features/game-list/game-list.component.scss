@@ -115,6 +115,11 @@ ion-item.game-row-selected {
   z-index: 1;
 }
 
+.similar-games-header {
+  border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
+  margin-bottom: 6px;
+}
+
 .detail-shortcuts-fab {
   margin-bottom: 8px;
   margin-right: 8px;

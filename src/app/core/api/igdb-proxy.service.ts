@@ -3,7 +3,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { GameCatalogPlatformOption, GameCatalogResult, HltbCompletionTimes, HltbMatchCandidate } from '../models/game.models';
+import { GameCatalogPlatformOption, GameCatalogResult, GameType, HltbCompletionTimes, HltbMatchCandidate } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
 
@@ -213,6 +213,7 @@ export class IgdbProxyService implements GameSearchApi {
       title: String(result.title ?? '').trim() || 'Unknown title',
       coverUrl: this.normalizeCoverUrl(result.coverUrl),
       coverSource: this.normalizeCoverSource(result.coverSource),
+      gameType: this.normalizeGameType((result as GameCatalogResult & { gameType?: unknown }).gameType),
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
@@ -227,6 +228,34 @@ export class IgdbProxyService implements GameSearchApi {
       releaseDate: this.normalizeReleaseDate(result.releaseDate),
       releaseYear: Number.isInteger(result.releaseYear) ? result.releaseYear : null,
     };
+  }
+
+  private normalizeGameType(value: unknown): GameType | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
+
+    if (normalized === 'main_game'
+      || normalized === 'dlc_addon'
+      || normalized === 'expansion'
+      || normalized === 'bundle'
+      || normalized === 'standalone_expansion'
+      || normalized === 'mod'
+      || normalized === 'episode'
+      || normalized === 'season'
+      || normalized === 'remake'
+      || normalized === 'remaster'
+      || normalized === 'expanded_game'
+      || normalized === 'port'
+      || normalized === 'fork'
+      || normalized === 'pack'
+      || normalized === 'update') {
+      return normalized;
+    }
+
+    return null;
   }
 
   private normalizeCoverUrl(coverUrl: string | null | undefined): string | null {

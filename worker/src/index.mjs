@@ -251,6 +251,19 @@ function normalizeGameTypeLabel(gameType) {
   return null;
 }
 
+function normalizeGameTypeValue(gameType) {
+  const normalizedLabel = normalizeGameTypeLabel(gameType);
+
+  if (!normalizedLabel) {
+    return null;
+  }
+
+  return normalizedLabel
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .trim() || null;
+}
+
 function isRemakeOrRemaster(gameType, categoryFallback) {
   const normalizedType = normalizeGameTypeLabel(gameType);
 
@@ -456,6 +469,7 @@ export function normalizeIgdbGame(game) {
     title: typeof game.name === 'string' && game.name.trim().length > 0 ? game.name.trim() : 'Unknown title',
     coverUrl: buildCoverUrl(game.cover?.image_id ?? null),
     coverSource: game.cover?.image_id ? 'igdb' : 'none',
+    gameType: normalizeGameTypeValue(game.game_type),
     developers,
     publishers,
     franchises,
@@ -1384,7 +1398,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
 async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   const body = [
     `where id = ${gameId};`,
-    'fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
+    'fields id,name,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
     'limit 1;',
   ].join(' ');
 

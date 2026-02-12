@@ -43,6 +43,7 @@ export class DexieGameRepository implements GameRepository {
         title: result.title,
         coverUrl: result.coverUrl,
         coverSource: result.coverSource,
+        gameType: this.resolveGameType(result.gameType, existing.gameType),
         hltbMainHours: this.resolveCompletionHours(result.hltbMainHours, existing.hltbMainHours),
         hltbMainExtraHours: this.resolveCompletionHours(result.hltbMainExtraHours, existing.hltbMainExtraHours),
         hltbCompletionistHours: this.resolveCompletionHours(result.hltbCompletionistHours, existing.hltbCompletionistHours),
@@ -71,6 +72,7 @@ export class DexieGameRepository implements GameRepository {
       title: result.title,
       coverUrl: result.coverUrl,
       coverSource: result.coverSource,
+      gameType: this.normalizeGameType(result.gameType),
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
@@ -435,6 +437,39 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return Math.round(value * 10) / 10;
+  }
+
+  private normalizeGameType(value: unknown): GameEntry['gameType'] {
+    if (value === 'main_game'
+      || value === 'dlc_addon'
+      || value === 'expansion'
+      || value === 'bundle'
+      || value === 'standalone_expansion'
+      || value === 'mod'
+      || value === 'episode'
+      || value === 'season'
+      || value === 'remake'
+      || value === 'remaster'
+      || value === 'expanded_game'
+      || value === 'port'
+      || value === 'fork'
+      || value === 'pack'
+      || value === 'update') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private resolveGameType(
+    incoming: GameCatalogResult['gameType'] | undefined,
+    existing: GameEntry['gameType'] | undefined,
+  ): GameEntry['gameType'] {
+    if (incoming === undefined) {
+      return this.normalizeGameType(existing);
+    }
+
+    return this.normalizeGameType(incoming);
   }
 
   private resolveCompletionHours(incoming: number | null | undefined, existing: number | null | undefined): number | null {

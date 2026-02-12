@@ -1062,6 +1062,32 @@ export class GameListComponent implements OnChanges {
         return `${normalized.toFixed(hasDecimal ? 1 : 0)} h`;
     }
 
+    getGameTypeBadgeLabel(game: GameEntry): string | null {
+        const gameType = game.gameType ?? null;
+
+        if (!gameType || gameType === 'main_game') {
+            return null;
+        }
+
+        if (gameType === 'dlc_addon') {
+            return 'DLC Add-on';
+        }
+
+        if (gameType === 'standalone_expansion') {
+            return 'Standalone Expansion';
+        }
+
+        if (gameType === 'expanded_game') {
+            return 'Expanded Game';
+        }
+
+        return gameType
+            .split('_')
+            .filter(part => part.length > 0)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+    }
+
     openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
         const query = this.selectedGame?.title?.trim();
 

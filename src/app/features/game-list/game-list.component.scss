@@ -176,6 +176,20 @@ ion-item p {
   font-size: 0.68rem;
 }
 
+.game-type-badge {
+  --background: #4a4a4a;
+  --color: #ffffff;
+  margin-top: 6px;
+  margin-right: 6px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.detail-game-type-badge {
+  margin-top: 8px;
+}
+
 .picker-state {
   margin: 12px 0;
   display: flex;

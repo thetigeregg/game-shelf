@@ -24,6 +24,15 @@ ion-item ion-badge {
   margin-top: 6px;
 }
 
+ion-item .game-type-badge {
+  --background: #4a4a4a;
+  --color: #ffffff;
+  margin-right: 6px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
 ion-item p {
   margin-top: 4px;
   color: var(--ion-color-medium);

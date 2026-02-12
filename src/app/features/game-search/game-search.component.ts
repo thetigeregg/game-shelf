@@ -1,10 +1,10 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
-import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonButton } from '@ionic/angular/standalone';
+import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton } from '@ionic/angular/standalone';
 import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
-import { GameCatalogPlatformOption, GameCatalogResult, ListType } from '../../core/models/game.models';
+import { GameCatalogPlatformOption, GameCatalogResult, GameType, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 
 interface SelectedPlatform {
@@ -17,7 +17,7 @@ interface SelectedPlatform {
     templateUrl: './game-search.component.html',
     styleUrls: ['./game-search.component.scss'],
     standalone: true,
-    imports: [CommonModule, IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonButton],
+    imports: [CommonModule, IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton],
 })
 export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     @Input({ required: true }) listType!: ListType;
@@ -196,6 +196,36 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         return `${platforms.length} platforms`;
     }
 
+    getGameTypeBadgeLabel(result: GameCatalogResult): string | null {
+        const gameType = this.normalizeGameType(result.gameType);
+
+        if (!gameType) {
+            return null;
+        }
+
+        if (gameType === 'main_game') {
+            return 'Main Game';
+        }
+
+        if (gameType === 'dlc_addon') {
+            return 'DLC Add-on';
+        }
+
+        if (gameType === 'standalone_expansion') {
+            return 'Standalone Expansion';
+        }
+
+        if (gameType === 'expanded_game') {
+            return 'Expanded Game';
+        }
+
+        return gameType
+            .split('_')
+            .filter(part => part.length > 0)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+    }
+
     getActionLabel(externalId: string): string {
         if (this.actionMode === 'select') {
             return this.isAdding(externalId) ? 'Selecting...' : 'Select';
@@ -274,6 +304,34 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         }
 
         return [];
+    }
+
+    private normalizeGameType(value: unknown): GameType | null {
+        if (typeof value !== 'string') {
+            return null;
+        }
+
+        const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
+
+        if (normalized === 'main_game'
+            || normalized === 'dlc_addon'
+            || normalized === 'expansion'
+            || normalized === 'bundle'
+            || normalized === 'standalone_expansion'
+            || normalized === 'mod'
+            || normalized === 'episode'
+            || normalized === 'season'
+            || normalized === 'remake'
+            || normalized === 'remaster'
+            || normalized === 'expanded_game'
+            || normalized === 'port'
+            || normalized === 'fork'
+            || normalized === 'pack'
+            || normalized === 'update') {
+            return normalized;
+        }
+
+        return null;
     }
 
     private getListLabel(): string {

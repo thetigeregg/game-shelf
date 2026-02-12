@@ -4,6 +4,22 @@ export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'repla
 export type GameStatusFilterOption = GameStatus | 'none';
 export type GameRating = 1 | 2 | 3 | 4 | 5;
 export type GameRatingFilterOption = GameRating | 'none';
+export type GameType =
+  | 'main_game'
+  | 'dlc_addon'
+  | 'expansion'
+  | 'bundle'
+  | 'standalone_expansion'
+  | 'mod'
+  | 'episode'
+  | 'season'
+  | 'remake'
+  | 'remaster'
+  | 'expanded_game'
+  | 'port'
+  | 'fork'
+  | 'pack'
+  | 'update';
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -33,6 +49,7 @@ export interface GameCatalogResult {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  gameType?: GameType | null;
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
@@ -54,6 +71,7 @@ export interface GameEntry {
   title: string;
   coverUrl: string | null;
   coverSource: CoverSource;
+  gameType?: GameType | null;
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;

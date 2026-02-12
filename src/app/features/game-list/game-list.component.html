@@ -75,6 +75,9 @@
 
       <ion-label>
         <h2>{{ game.title }}</h2>
+        <ion-badge class="game-type-badge" *ngIf="getGameTypeBadgeLabel(game) as gameTypeBadgeLabel">
+          {{ gameTypeBadgeLabel }}
+        </ion-badge>
         <p>{{ game.releaseYear || 'Unknown year' }}</p>
         <p>{{ game.platform || 'Unknown platform' }}</p>
         <div class="game-tags" *ngIf="game.tags && game.tags.length > 0">
@@ -190,6 +193,9 @@
             <ion-label>
               <h2>Name</h2>
               <p class="detail-game-name">{{ game.title }}</p>
+              <ion-badge class="game-type-badge detail-game-type-badge" *ngIf="getGameTypeBadgeLabel(game) as gameTypeBadgeLabel">
+                {{ gameTypeBadgeLabel }}
+              </ion-badge>
             </ion-label>
           </ion-item>
           <ion-item>

@@ -45,6 +45,7 @@
 
     <ion-label>
       <h2>{{ result.title }}</h2>
+      <ion-badge class="game-type-badge" *ngIf="getGameTypeBadgeLabel(result) as gameTypeBadgeLabel">{{ gameTypeBadgeLabel }}</ion-badge>
       <p>{{ getPlatformLabel(result) }} • {{ result.releaseYear || 'Unknown year' }}</p>
     </ion-label>
 

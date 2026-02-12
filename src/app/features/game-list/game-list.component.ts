@@ -57,6 +57,14 @@ import { ImageCacheService } from '../../core/services/image-cache.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
+import {
+    createClosedHltbPickerState,
+    createClosedImagePickerState,
+    createOpenedHltbPickerState,
+    createOpenedImagePickerState,
+    dedupeHltbCandidates,
+    normalizeMetadataOptions,
+} from './game-list-detail-workflow';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack } from "ionicons/icons";
@@ -1016,8 +1024,13 @@ export class GameListComponent implements OnChanges {
     }
 
     closeImagePickerModal(): void {
-        this.isImagePickerModalOpen = false;
-        this.imagePickerSearchRequestId += 1;
+        const nextState = createClosedImagePickerState(this.imagePickerSearchRequestId);
+        this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
+        this.imagePickerQuery = nextState.imagePickerQuery;
+        this.imagePickerResults = nextState.imagePickerResults;
+        this.imagePickerError = nextState.imagePickerError;
+        this.isImagePickerLoading = nextState.isImagePickerLoading;
+        this.isImagePickerModalOpen = nextState.isImagePickerModalOpen;
         this.changeDetectorRef.markForCheck();
     }
 
@@ -1145,7 +1158,7 @@ export class GameListComponent implements OnChanges {
 
         try {
             const candidates = await firstValueFrom(this.gameShelfService.searchHltbCandidates(normalized, null, null));
-            this.hltbPickerResults = this.dedupeHltbCandidates(candidates).slice(0, 30);
+            this.hltbPickerResults = dedupeHltbCandidates(candidates).slice(0, 30);
         } catch {
             this.hltbPickerResults = [];
             this.hltbPickerError = 'Unable to search HLTB right now.';
@@ -1242,7 +1255,7 @@ export class GameListComponent implements OnChanges {
     }
 
     hasMetadataValue(values: string[] | undefined): boolean {
-        return this.normalizeMetadataOptions(values).length > 0;
+        return normalizeMetadataOptions(values).length > 0;
     }
 
     formatCompletionHours(value: number | null | undefined): string {
@@ -1701,20 +1714,8 @@ export class GameListComponent implements OnChanges {
         });
     }
 
-    private normalizeMetadataOptions(values: string[] | undefined): string[] {
-        if (!Array.isArray(values)) {
-            return [];
-        }
-
-        return [...new Set(
-            values
-                .map(value => (typeof value === 'string' ? value.trim() : ''))
-                .filter(value => value.length > 0)
-        )];
-    }
-
     private openMetadataFilterSelection(kind: MetadataFilterKind, values: string[] | undefined, title: string): void {
-        const options = this.normalizeMetadataOptions(values);
+        const options = normalizeMetadataOptions(values);
 
         if (options.length === 0) {
             return;
@@ -1831,10 +1832,13 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        this.imagePickerQuery = this.selectedGame.title;
-        this.imagePickerResults = [];
-        this.imagePickerError = null;
-        this.isImagePickerModalOpen = true;
+        const nextState = createOpenedImagePickerState(this.imagePickerSearchRequestId, this.selectedGame.title);
+        this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
+        this.imagePickerQuery = nextState.imagePickerQuery;
+        this.imagePickerResults = nextState.imagePickerResults;
+        this.imagePickerError = nextState.imagePickerError;
+        this.isImagePickerLoading = nextState.isImagePickerLoading;
+        this.isImagePickerModalOpen = nextState.isImagePickerModalOpen;
         this.changeDetectorRef.markForCheck();
         await this.runImagePickerSearch();
     }
@@ -1926,46 +1930,36 @@ export class GameListComponent implements OnChanges {
     }
 
     private resetImagePickerState(): void {
-        this.imagePickerSearchRequestId += 1;
-        this.imagePickerQuery = '';
-        this.imagePickerResults = [];
-        this.imagePickerError = null;
-        this.isImagePickerLoading = false;
+        const nextState = createClosedImagePickerState(this.imagePickerSearchRequestId);
+        this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
+        this.imagePickerQuery = nextState.imagePickerQuery;
+        this.imagePickerResults = nextState.imagePickerResults;
+        this.imagePickerError = nextState.imagePickerError;
+        this.isImagePickerLoading = nextState.isImagePickerLoading;
+        this.isImagePickerModalOpen = nextState.isImagePickerModalOpen;
     }
 
     private async openHltbPickerModal(game: GameEntry): Promise<void> {
-        this.hltbPickerTargetGame = game;
-        this.hltbPickerQuery = game.title;
-        this.hltbPickerResults = [];
-        this.hltbPickerError = null;
-        this.hasHltbPickerSearched = false;
-        this.isHltbPickerLoading = false;
-        this.isHltbPickerModalOpen = true;
+        const nextState = createOpenedHltbPickerState(game);
+        this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
+        this.isHltbPickerLoading = nextState.isHltbPickerLoading;
+        this.hasHltbPickerSearched = nextState.hasHltbPickerSearched;
+        this.hltbPickerQuery = nextState.hltbPickerQuery;
+        this.hltbPickerResults = nextState.hltbPickerResults;
+        this.hltbPickerError = nextState.hltbPickerError;
+        this.hltbPickerTargetGame = nextState.hltbPickerTargetGame;
         this.changeDetectorRef.markForCheck();
     }
 
     private resetHltbPickerState(): void {
-        this.isHltbPickerModalOpen = false;
-        this.isHltbPickerLoading = false;
-        this.hasHltbPickerSearched = false;
-        this.hltbPickerQuery = '';
-        this.hltbPickerResults = [];
-        this.hltbPickerError = null;
-        this.hltbPickerTargetGame = null;
-    }
-
-    private dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatchCandidate[] {
-        const byKey = new Map<string, HltbMatchCandidate>();
-
-        candidates.forEach(candidate => {
-            const key = `${candidate.title}::${candidate.releaseYear ?? ''}::${candidate.platform ?? ''}`;
-
-            if (!byKey.has(key)) {
-                byKey.set(key, candidate);
-            }
-        });
-
-        return [...byKey.values()];
+        const nextState = createClosedHltbPickerState();
+        this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
+        this.isHltbPickerLoading = nextState.isHltbPickerLoading;
+        this.hasHltbPickerSearched = nextState.hasHltbPickerSearched;
+        this.hltbPickerQuery = nextState.hltbPickerQuery;
+        this.hltbPickerResults = nextState.hltbPickerResults;
+        this.hltbPickerError = nextState.hltbPickerError;
+        this.hltbPickerTargetGame = nextState.hltbPickerTargetGame;
     }
 
     private async openStatusPicker(game: GameEntry): Promise<void> {

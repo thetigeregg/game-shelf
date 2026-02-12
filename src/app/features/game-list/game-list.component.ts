@@ -196,6 +196,10 @@ export class GameListComponent implements OnChanges {
     metadataPickerKind: MetadataFilterKind | null = null;
     metadataPickerOptions: string[] = [];
     metadataPickerSelection: string | null = null;
+    detailTextExpanded = {
+        summary: false,
+        storyline: false,
+    };
     fixMatchInitialQuery = '';
     fixMatchInitialPlatformIgdbId: number | null = null;
     selectionModeActive = false;
@@ -626,6 +630,7 @@ export class GameListComponent implements OnChanges {
     private openGameDetailInternal(game: GameEntry): void {
         this.selectedGame = game;
         this.isGameDetailModalOpen = true;
+        this.resetDetailTextExpansion();
         this.resetImagePickerState();
         this.changeDetectorRef.markForCheck();
         void this.loadDetailCoverUrl(game);
@@ -648,9 +653,24 @@ export class GameListComponent implements OnChanges {
         this.detailNavigationStack = [];
         this.similarLibraryGames = [];
         this.isSimilarLibraryGamesLoading = false;
+        this.resetDetailTextExpansion();
         this.resetImagePickerState();
         this.resetHltbPickerState();
         this.changeDetectorRef.markForCheck();
+    }
+
+    isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
+        return this.detailTextExpanded[field];
+    }
+
+    toggleDetailText(field: 'summary' | 'storyline'): void {
+        this.detailTextExpanded[field] = !this.detailTextExpanded[field];
+        this.changeDetectorRef.markForCheck();
+    }
+
+    shouldShowDetailTextToggle(value: string | null | undefined): boolean {
+        const normalized = typeof value === 'string' ? value.trim() : '';
+        return normalized.length > 260;
     }
 
     onSeriesItemClick(game: GameEntry): void {
@@ -2531,6 +2551,11 @@ export class GameListComponent implements OnChanges {
                 .filter(tagId => Number.isInteger(tagId) && tagId > 0)
                 .map(tagId => Math.trunc(tagId))
         )];
+    }
+
+    private resetDetailTextExpansion(): void {
+        this.detailTextExpanded.summary = false;
+        this.detailTextExpanded.storyline = false;
     }
 
     private resetImagePickerState(): void {

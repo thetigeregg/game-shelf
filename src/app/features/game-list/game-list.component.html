@@ -215,16 +215,44 @@
               <p>{{ formatDate(game.releaseDate) }}</p>
             </ion-label>
           </ion-item>
-          <ion-item>
-            <ion-label>
+          <ion-item class="detail-text-item">
+            <ion-label class="detail-text-label">
               <h2>Summary</h2>
-              <p class="detail-long-text">{{ game.summary || 'None' }}</p>
+              <p
+                class="detail-long-text"
+                [class.detail-long-text-collapsed]="!isDetailTextExpanded('summary')"
+              >
+                {{ game.summary || 'None' }}
+              </p>
+              <ion-button
+                *ngIf="shouldShowDetailTextToggle(game.summary)"
+                fill="clear"
+                size="small"
+                class="detail-text-toggle"
+                (click)="toggleDetailText('summary')"
+              >
+                {{ isDetailTextExpanded('summary') ? 'Show less' : 'Show more' }}
+              </ion-button>
             </ion-label>
           </ion-item>
-          <ion-item>
-            <ion-label>
+          <ion-item class="detail-text-item">
+            <ion-label class="detail-text-label">
               <h2>Storyline</h2>
-              <p class="detail-long-text">{{ game.storyline || 'None' }}</p>
+              <p
+                class="detail-long-text"
+                [class.detail-long-text-collapsed]="!isDetailTextExpanded('storyline')"
+              >
+                {{ game.storyline || 'None' }}
+              </p>
+              <ion-button
+                *ngIf="shouldShowDetailTextToggle(game.storyline)"
+                fill="clear"
+                size="small"
+                class="detail-text-toggle"
+                (click)="toggleDetailText('storyline')"
+              >
+                {{ isDetailTextExpanded('storyline') ? 'Show less' : 'Show more' }}
+              </ion-button>
             </ion-label>
           </ion-item>
           <ion-item>

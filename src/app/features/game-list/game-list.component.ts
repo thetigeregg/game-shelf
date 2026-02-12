@@ -49,8 +49,7 @@ import {
     GameStatusFilterOption,
     GameStatus,
     GameType,
-    ListType,
-    Tag
+    ListType
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
@@ -65,6 +64,14 @@ import {
     dedupeHltbCandidates,
     normalizeMetadataOptions,
 } from './game-list-detail-workflow';
+import {
+    buildTagInput,
+    hasHltbData,
+    normalizeGameRating,
+    normalizeGameStatus,
+    normalizeTagIds,
+    parseTagSelection,
+} from './game-list-detail-actions';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack } from "ionicons/icons";
@@ -452,7 +459,7 @@ export class GameListComponent implements OnChanges {
                     text: 'Apply',
                     role: 'confirm',
                     handler: (value: string | null | undefined) => {
-                        nextStatus = this.normalizeStatus(value);
+                        nextStatus = normalizeGameStatus(value);
                     },
                 },
             ],
@@ -488,14 +495,14 @@ export class GameListComponent implements OnChanges {
         const alert = await this.alertController.create({
             header: 'Set Tags',
             message: `Apply tags to ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}.`,
-            inputs: tags.map(tag => this.buildTagInput(tag, [])),
+            inputs: tags.map(tag => buildTagInput(tag, [])),
             buttons: [
                 { text: 'Cancel', role: 'cancel' },
                 {
                     text: 'Apply',
                     role: 'confirm',
                     handler: (value: string[] | string | null | undefined) => {
-                        nextTagIds = this.parseTagSelection(value);
+                        nextTagIds = parseTagSelection(value);
                     },
                 },
             ],
@@ -578,7 +585,7 @@ export class GameListComponent implements OnChanges {
             game => this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId),
         );
         const failedCount = results.filter(result => !result.ok).length;
-        const updatedCount = results.filter(result => result.ok && result.value && this.hasHltbData(result.value)).length;
+        const updatedCount = results.filter(result => result.ok && result.value && hasHltbData(result.value)).length;
         const missingCount = results.length - failedCount - updatedCount;
 
         this.clearSelectionMode();
@@ -720,7 +727,7 @@ export class GameListComponent implements OnChanges {
 
     onRatingRangeChange(event: Event): void {
         const customEvent = event as CustomEvent<{ value?: number | null }>;
-        const normalized = this.normalizeRating(customEvent.detail?.value);
+        const normalized = normalizeGameRating(customEvent.detail?.value);
 
         if (normalized !== null) {
             this.ratingDraft = normalized;
@@ -924,7 +931,7 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        const normalized = this.normalizeStatus(value);
+        const normalized = normalizeGameStatus(value);
 
         try {
             const updated = await this.gameShelfService.setGameStatus(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, normalized);
@@ -954,7 +961,7 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        const normalized = this.normalizeRating(value);
+        const normalized = normalizeGameRating(value);
 
         try {
             const updated = await this.gameShelfService.setGameRating(this.selectedGame.igdbGameId, this.selectedGame.platformIgdbId, normalized);
@@ -1010,7 +1017,7 @@ export class GameListComponent implements OnChanges {
             this.applyUpdatedGame(updated);
             await loading.dismiss().catch(() => undefined);
 
-            if (this.hasHltbData(updated)) {
+            if (hasHltbData(updated)) {
                 await this.presentToast('HLTB data updated.');
             } else {
                 await this.openHltbPickerModal(updated);
@@ -1190,7 +1197,7 @@ export class GameListComponent implements OnChanges {
             );
             this.applyUpdatedGame(updated);
             this.closeHltbPickerModal();
-            if (this.hasHltbData(updated)) {
+            if (hasHltbData(updated)) {
                 await this.presentToast('HLTB data updated.');
             } else {
                 await this.presentToast('No HLTB match found for this game.', 'warning');
@@ -1216,7 +1223,7 @@ export class GameListComponent implements OnChanges {
             const updated = await this.gameShelfService.refreshGameCompletionTimes(target.igdbGameId, target.platformIgdbId);
             this.applyUpdatedGame(updated);
             this.closeHltbPickerModal();
-            if (this.hasHltbData(updated)) {
+            if (hasHltbData(updated)) {
                 await this.presentToast('HLTB data updated.');
             } else {
                 await this.presentToast('No HLTB match found for this game.', 'warning');
@@ -1351,7 +1358,7 @@ export class GameListComponent implements OnChanges {
     }
 
     getStatusIconName(game: GameEntry): string | null {
-        const status = this.normalizeStatus(game.status);
+        const status = normalizeGameStatus(game.status);
 
         if (status === 'playing') {
             return 'play';
@@ -1381,7 +1388,7 @@ export class GameListComponent implements OnChanges {
     }
 
     getStatusIconColor(game: GameEntry): string {
-        const status = this.normalizeStatus(game.status);
+        const status = normalizeGameStatus(game.status);
 
         if (status === 'playing') {
             return '#2dd36f';
@@ -1411,7 +1418,7 @@ export class GameListComponent implements OnChanges {
     }
 
     getRating(game: GameEntry): GameRating | null {
-        return this.normalizeRating(game.rating);
+        return normalizeGameRating(game.rating);
     }
 
     getGameKey(game: GameEntry): string {
@@ -1681,16 +1688,6 @@ export class GameListComponent implements OnChanges {
         return normalized.replace(/^(?:the|a)\s+/i, '');
     }
 
-    private hasHltbData(game: GameEntry): boolean {
-        return this.isPositiveNumber(game.hltbMainHours)
-            || this.isPositiveNumber(game.hltbMainExtraHours)
-            || this.isPositiveNumber(game.hltbCompletionistHours);
-    }
-
-    private isPositiveNumber(value: number | null | undefined): boolean {
-        return typeof value === 'number' && Number.isFinite(value) && value > 0;
-    }
-
     private async runBulkAction<T>(
         games: GameEntry[],
         options: {
@@ -1855,11 +1852,11 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        let nextTagIds = this.normalizeTagIds(game.tagIds);
+        let nextTagIds = normalizeTagIds(game.tagIds);
         const alert = await this.alertController.create({
             header: 'Game Tags',
             message: `Select tags for ${game.title}.`,
-            inputs: tags.map(tag => this.buildTagInput(tag, nextTagIds)),
+            inputs: tags.map(tag => buildTagInput(tag, nextTagIds)),
             buttons: [
                 {
                     text: 'Cancel',
@@ -1869,7 +1866,7 @@ export class GameListComponent implements OnChanges {
                     text: 'Save',
                     role: 'confirm',
                     handler: (value: string[] | string | null | undefined) => {
-                        nextTagIds = this.parseTagSelection(value);
+                        nextTagIds = parseTagSelection(value);
                     },
                 },
             ],
@@ -1887,41 +1884,6 @@ export class GameListComponent implements OnChanges {
         this.applyUpdatedGame(updated);
 
         await this.presentToast('Tags updated.');
-    }
-
-    private buildTagInput(tag: Tag, selectedTagIds: number[]): { type: 'checkbox'; label: string; value: string; checked: boolean } {
-        const tagId = typeof tag.id === 'number' && Number.isInteger(tag.id) && tag.id > 0 ? tag.id : -1;
-
-        return {
-            type: 'checkbox',
-            label: tag.name,
-            value: String(tagId),
-            checked: selectedTagIds.includes(tagId),
-        };
-    }
-
-    private parseTagSelection(value: string[] | string | null | undefined): number[] {
-        if (Array.isArray(value)) {
-            return this.normalizeTagIds(value.map(entry => Number.parseInt(entry, 10)));
-        }
-
-        if (typeof value === 'string') {
-            return this.normalizeTagIds([Number.parseInt(value, 10)]);
-        }
-
-        return [];
-    }
-
-    private normalizeTagIds(tagIds: number[] | undefined): number[] {
-        if (!Array.isArray(tagIds)) {
-            return [];
-        }
-
-        return [...new Set(
-            tagIds
-                .filter(tagId => Number.isInteger(tagId) && tagId > 0)
-                .map(tagId => Math.trunc(tagId))
-        )];
     }
 
     private resetDetailTextExpansion(): void {
@@ -1963,7 +1925,7 @@ export class GameListComponent implements OnChanges {
     }
 
     private async openStatusPicker(game: GameEntry): Promise<void> {
-        const currentStatus = this.normalizeStatus(game.status);
+        const currentStatus = normalizeGameStatus(game.status);
         let nextStatus = currentStatus;
 
         const alert = await this.alertController.create({
@@ -1993,7 +1955,7 @@ export class GameListComponent implements OnChanges {
                     text: 'Save',
                     role: 'confirm',
                     handler: (value: string | null | undefined) => {
-                        nextStatus = this.normalizeStatus(value);
+                        nextStatus = normalizeGameStatus(value);
                     },
                 },
             ],
@@ -2034,26 +1996,8 @@ export class GameListComponent implements OnChanges {
         this.changeDetectorRef.markForCheck();
     }
 
-    private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {
-        if (value === 'playing' || value === 'wantToPlay' || value === 'completed' || value === 'paused' || value === 'dropped' || value === 'replay') {
-            return value;
-        }
-
-        return null;
-    }
-
-    private normalizeRating(value: number | string | GameRating | null | undefined): GameRating | null {
-        const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-
-        if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
-            return numeric;
-        }
-
-        return null;
-    }
-
     private async openRatingPicker(game: GameEntry): Promise<void> {
-        const currentRating = this.normalizeRating(game.rating);
+        const currentRating = normalizeGameRating(game.rating);
         this.ratingTargetGame = game;
         this.ratingDraft = currentRating ?? 3;
         this.clearRatingOnSave = false;

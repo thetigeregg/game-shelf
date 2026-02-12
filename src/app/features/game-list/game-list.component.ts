@@ -74,6 +74,7 @@ interface BulkActionResult<T> {
     game: GameEntry;
     ok: boolean;
     value: T | null;
+    errorReason?: 'rate_limit' | 'transient' | 'other';
 }
 
 export interface GameListSelectionState {
@@ -530,11 +531,29 @@ export class GameListComponent implements OnChanges {
         );
         const updatedCount = results.filter(result => result.ok).length;
         const failedCount = results.length - updatedCount;
+        const failedRateLimitCount = results.filter(result => !result.ok && result.errorReason === 'rate_limit').length;
+        const failedNonRateLimitCount = results.filter(result => !result.ok && result.errorReason !== 'rate_limit').length;
 
         this.clearSelectionMode();
 
         if (updatedCount > 0) {
             await this.presentToast(`Refreshed metadata for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`);
+        }
+
+        if (failedNonRateLimitCount > 0) {
+            await this.presentToast(
+                `Unable to refresh metadata for ${failedNonRateLimitCount} game${failedNonRateLimitCount === 1 ? '' : 's'}.`,
+                'danger',
+            );
+            return;
+        }
+
+        if (failedRateLimitCount > 0) {
+            await this.presentToast(
+                `Rate limited for ${failedRateLimitCount} game${failedRateLimitCount === 1 ? '' : 's'} after retries. Try again shortly.`,
+                'warning',
+            );
+            return;
         }
 
         if (failedCount > 0) {
@@ -2224,7 +2243,7 @@ export class GameListComponent implements OnChanges {
                 return { game, ok: true, value };
             } catch (error: unknown) {
                 if (!this.shouldRetryBulkActionError(error, attempt)) {
-                    return { game, ok: false, value: null };
+                    return { game, ok: false, value: null, errorReason: this.classifyBulkError(error) };
                 }
 
                 const retryDelayMs = this.resolveBulkRetryDelayMs(error, attempt);
@@ -2235,7 +2254,7 @@ export class GameListComponent implements OnChanges {
             }
         }
 
-        return { game, ok: false, value: null };
+        return { game, ok: false, value: null, errorReason: 'other' };
     }
 
     private shouldRetryBulkActionError(error: unknown, attempt: number): boolean {
@@ -2255,6 +2274,20 @@ export class GameListComponent implements OnChanges {
     private isRateLimitError(error: unknown): boolean {
         const message = error instanceof Error ? error.message : '';
         return /rate limit|too many requests|429/i.test(message);
+    }
+
+    private classifyBulkError(error: unknown): 'rate_limit' | 'transient' | 'other' {
+        if (this.isRateLimitError(error)) {
+            return 'rate_limit';
+        }
+
+        const message = error instanceof Error ? error.message : '';
+
+        if (/fetch failed|network|timeout|temporar|unavailable|gateway/i.test(message)) {
+            return 'transient';
+        }
+
+        return 'other';
     }
 
     private resolveBulkRetryDelayMs(error: unknown, attempt: number): number {

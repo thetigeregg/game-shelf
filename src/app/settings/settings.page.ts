@@ -707,6 +707,7 @@ export class SettingsPage {
         this.mgcResolverResults = [];
         this.mgcResolverError = '';
         this.isMgcResolverOpen = true;
+        await this.searchMgcResolver();
     }
 
     closeMgcResolver(): void {

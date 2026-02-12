@@ -213,6 +213,7 @@ export class GameListComponent implements OnChanges {
     private readonly rowCoverLoadingGameKeys = new Set<string>();
     private readonly detailCoverLoadingGameKeys = new Set<string>();
     private displayedGames: GameEntry[] = [];
+    private similarLibraryLoadRequestId = 0;
     private rowActionsSlidingItem: IonItemSliding | null = null;
     private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
     private longPressTriggeredExternalId: string | null = null;
@@ -653,6 +654,7 @@ export class GameListComponent implements OnChanges {
         this.detailNavigationStack = [];
         this.similarLibraryGames = [];
         this.isSimilarLibraryGamesLoading = false;
+        this.similarLibraryLoadRequestId += 1;
         this.resetDetailTextExpansion();
         this.resetImagePickerState();
         this.resetHltbPickerState();
@@ -2392,21 +2394,38 @@ export class GameListComponent implements OnChanges {
         });
     }
 
+    private async delayReject<T>(ms: number, message: string): Promise<T> {
+        await this.delay(ms);
+        throw new Error(message);
+    }
+
     private async loadSimilarLibraryGamesForDetail(game: GameEntry): Promise<void> {
+        const requestId = ++this.similarLibraryLoadRequestId;
         const similarIds = this.normalizeSimilarGameIds(game.similarGameIgdbIds);
 
         if (similarIds.length === 0) {
-            this.similarLibraryGames = [];
-            this.isSimilarLibraryGamesLoading = false;
-            this.changeDetectorRef.markForCheck();
+            if (requestId === this.similarLibraryLoadRequestId) {
+                this.similarLibraryGames = [];
+                this.isSimilarLibraryGamesLoading = false;
+                this.changeDetectorRef.markForCheck();
+            }
             return;
         }
 
         this.isSimilarLibraryGamesLoading = true;
+        this.similarLibraryGames = [];
         this.changeDetectorRef.markForCheck();
 
         try {
-            const libraryGames = await this.gameShelfService.listLibraryGames();
+            const libraryGames = await Promise.race([
+                this.gameShelfService.listLibraryGames(),
+                this.delayReject<GameEntry[]>(10000, 'similar_library_load_timeout'),
+            ]);
+
+            if (requestId !== this.similarLibraryLoadRequestId) {
+                return;
+            }
+
             const currentGameKey = this.getGameKey(game);
             const similarIdSet = new Set(similarIds);
             const matched = libraryGames.filter(candidate =>
@@ -2415,10 +2434,14 @@ export class GameListComponent implements OnChanges {
 
             this.similarLibraryGames = matched.sort((left, right) => this.compareTitles(left.title, right.title));
         } catch {
-            this.similarLibraryGames = [];
+            if (requestId === this.similarLibraryLoadRequestId) {
+                this.similarLibraryGames = [];
+            }
         } finally {
-            this.isSimilarLibraryGamesLoading = false;
-            this.changeDetectorRef.markForCheck();
+            if (requestId === this.similarLibraryLoadRequestId) {
+                this.isSimilarLibraryGamesLoading = false;
+                this.changeDetectorRef.markForCheck();
+            }
         }
     }
 

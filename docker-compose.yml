@@ -1,5 +1,6 @@
 services:
   edge:
+    container_name: gameshelf-edge
     build:
       context: .
       dockerfile: edge/Dockerfile
@@ -12,6 +13,7 @@ services:
     restart: unless-stopped
 
   api:
+    container_name: gameshelf-api
     build:
       context: .
       dockerfile: server/Dockerfile
@@ -37,6 +39,7 @@ services:
     restart: unless-stopped
 
   postgres:
+    container_name: gameshelf-postgres
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gameshelf}
@@ -47,6 +50,7 @@ services:
     restart: unless-stopped
 
   hltb-scraper:
+    container_name: gameshelf-hltb-scraper
     build:
       context: .
       dockerfile: hltb-scraper/Dockerfile

@@ -1,5 +1,6 @@
 services:
   edge:
+    container_name: gameshelf-edge
     image: ${EDGE_IMAGE:-ghcr.io/thetigeregg/game-shelf-edge:main}
     depends_on:
       - api
@@ -10,6 +11,7 @@ services:
     restart: unless-stopped
 
   api:
+    container_name: gameshelf-api
     image: ${API_IMAGE:-ghcr.io/thetigeregg/game-shelf-api:main}
     environment:
       HOST: ${HOST:-0.0.0.0}
@@ -33,6 +35,7 @@ services:
     restart: unless-stopped
 
   postgres:
+    container_name: gameshelf-postgres
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gameshelf}
@@ -43,6 +46,7 @@ services:
     restart: unless-stopped
 
   hltb-scraper:
+    container_name: gameshelf-hltb-scraper
     image: ${HLTB_SCRAPER_IMAGE:-ghcr.io/thetigeregg/game-shelf-hltb-scraper:main}
     environment:
       PORT: ${HLTB_SCRAPER_PORT:-8788}

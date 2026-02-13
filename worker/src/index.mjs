@@ -9,6 +9,8 @@ const IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60;
 const MAX_BOX_ART_RESULTS = 30;
 const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
 const THE_GAMES_DB_SECONDARY_COUNTRY_ID = 0;
+const THE_GAMES_DB_PREFERRED_REGION_IDS = new Set([2]);
+const THE_GAMES_DB_SECONDARY_REGION_IDS = new Set([1]);
 const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
@@ -737,8 +739,9 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
     .map(game => {
       const gameTitle = getTheGamesDbGameTitle(game);
       const normalizedTitle = normalizeTitleForMatch(gameTitle);
+      const regionId = getTheGamesDbRegionId(game);
       const countryId = getTheGamesDbCountryId(game);
-      const regionPreferenceScore = getTheGamesDbRegionPreferenceScoreFromIds({ countryId });
+      const regionPreferenceScore = getTheGamesDbRegionPreferenceScoreFromIds({ regionId, countryId });
 
       return {
         gameId: getTheGamesDbGameId(game),
@@ -746,7 +749,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
         normalizedTitle,
         regionPreferenceScore,
         countryId,
-        regionId: getTheGamesDbRegionId(game),
+        regionId,
         platformText: getTheGamesDbPlatformText(game),
       };
     })
@@ -846,6 +849,9 @@ function getTheGamesDbRegionPreferenceScore(candidate, gameEntry) {
 }
 
 function getTheGamesDbRegionPreferenceScoreFromIds(gameEntry) {
+  const regionId = Number.isInteger(gameEntry?.regionId) && gameEntry.regionId > 0
+    ? gameEntry.regionId
+    : null;
   const countryId = Number.isInteger(gameEntry?.countryId) && gameEntry.countryId >= 0
     ? gameEntry.countryId
     : null;
@@ -855,7 +861,15 @@ function getTheGamesDbRegionPreferenceScoreFromIds(gameEntry) {
   }
 
   if (countryId === THE_GAMES_DB_SECONDARY_COUNTRY_ID) {
+    return 30;
+  }
+
+  if (regionId !== null && THE_GAMES_DB_PREFERRED_REGION_IDS.has(regionId)) {
     return 20;
+  }
+
+  if (regionId !== null && THE_GAMES_DB_SECONDARY_REGION_IDS.has(regionId)) {
+    return 10;
   }
 
   return 0;

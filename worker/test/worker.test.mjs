@@ -554,6 +554,54 @@ test('prioritizes TheGamesDB country_id 50 first and country_id 0 second for mat
   ]);
 });
 
+test('applies TheGamesDB region preferences after country preference', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({
+    theGamesDbBody: {
+      data: {
+        games: [
+          { id: 7201, game_title: 'Ninja Gaiden', region_id: 0, country_id: 50 },
+          { id: 7202, game_title: 'Ninja Gaiden', region_id: 1, country_id: 999 },
+          { id: 7203, game_title: 'Ninja Gaiden', region_id: 2, country_id: 999 },
+        ],
+      },
+      include: {
+        boxart: {
+          base_url: {
+            large: 'https://cdn.thegamesdb.net/images/large',
+          },
+          data: {
+            7201: [
+              { type: 'boxart', side: 'front', filename: '/box/front/ninja-country50.jpg' },
+            ],
+            7202: [
+              { type: 'boxart', side: 'front', filename: '/box/front/ninja-region1.jpg' },
+            ],
+            7203: [
+              { type: 'boxart', side: 'front', filename: '/box/front/ninja-region2.jpg' },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/images/boxart/search?q=ninja%20gaiden'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.items.slice(0, 3), [
+    'https://cdn.thegamesdb.net/images/large/box/front/ninja-country50.jpg',
+    'https://cdn.thegamesdb.net/images/large/box/front/ninja-region2.jpg',
+    'https://cdn.thegamesdb.net/images/large/box/front/ninja-region1.jpg',
+  ]);
+});
+
 test('returns 400 for short box art query', async () => {
   resetCaches();
 

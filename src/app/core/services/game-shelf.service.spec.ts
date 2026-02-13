@@ -984,6 +984,116 @@ describe('GameShelfService', () => {
     expect(repository.deleteTag).toHaveBeenCalledWith(1);
   });
 
+  it('normalizes tag ids and skips invalid tag records in watch streams', async () => {
+    repository.listTags.mockResolvedValue([
+      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
+      { id: 0, name: 'Invalid', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+    ]);
+    repository.listByType.mockResolvedValue([
+      {
+        id: 20,
+        igdbGameId: '200',
+        title: 'Dup Tags',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'Switch',
+        platformIgdbId: 130,
+        tagIds: [1, 1, 0, -2],
+        releaseDate: null,
+        releaseYear: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      },
+    ]);
+    repository.listAll.mockResolvedValue([
+      {
+        id: 20,
+        igdbGameId: '200',
+        title: 'Dup Tags',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'Switch',
+        platformIgdbId: 130,
+        tagIds: [1, 1, 0, -2],
+        releaseDate: null,
+        releaseYear: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      },
+    ]);
+
+    const list = await firstValueFrom(service.watchList('collection'));
+    const summaries = await firstValueFrom(service.watchTags());
+
+    expect(list[0].tagIds).toEqual([1]);
+    expect(list[0].tags).toEqual([{ id: 1, name: 'Backlog', color: '#111111' }]);
+    expect(summaries.find(tag => tag.id === 1)?.gameCount).toBe(1);
+  });
+
+  it('refreshes metadata using normalized platformOptions when current platform is missing from refreshed platform list', async () => {
+    const existingEntry: GameEntry = {
+      id: 12,
+      igdbGameId: '333',
+      title: 'Existing Game',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const refreshedCatalog: GameCatalogResult = {
+      igdbGameId: '333',
+      title: 'Refreshed',
+      coverUrl: null,
+      coverSource: 'igdb',
+      developers: [],
+      franchises: [],
+      genres: [],
+      publishers: [],
+      platforms: ['Switch 2'],
+      platformOptions: [
+        { id: -1, name: 'Bad Id' },
+        { id: 130, name: 'Nintendo Switch Alias' },
+        { id: null, name: '' },
+      ],
+      platform: null,
+      platformIgdbId: null,
+      releaseDate: null,
+      releaseYear: 2026,
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.getGameById.mockReturnValue(of(refreshedCatalog));
+    repository.upsertFromCatalog.mockImplementation(async catalog => ({
+      ...existingEntry,
+      ...catalog,
+      listType: 'collection',
+      createdAt: existingEntry.createdAt,
+      updatedAt: existingEntry.updatedAt,
+      platform: catalog.platform,
+      platformIgdbId: catalog.platformIgdbId as number,
+    } as GameEntry));
+
+    const result = await service.refreshGameMetadata('333', 130);
+
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        platform: 'Nintendo Switch Alias',
+        platformIgdbId: 130,
+      }),
+      'collection',
+    );
+    expect(result.platform).toBe('Nintendo Switch Alias');
+    expect(result.platformIgdbId).toBe(130);
+  });
+
   it('creates/updates/deletes views and validates missing updates', async () => {
     repository.createView.mockResolvedValue({
       id: 11,

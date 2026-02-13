@@ -282,6 +282,96 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('returns empty popularity games for invalid popularity type ids without HTTP call', async () => {
+    await expect(firstValueFrom(service.listPopularityGames(0))).resolves.toEqual([]);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/popularity/primitives`);
+  });
+
+  it('maps popularity game endpoint failures to user-safe error', async () => {
+    const promise = firstValueFrom(service.listPopularityGames(7, 20, 0));
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives`
+        && request.params.get('popularityTypeId') === '7';
+    });
+
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).rejects.toThrowError('Unable to load popular games.');
+  });
+
+  it('normalizes popularity payload with invalid and string values', async () => {
+    const promise = firstValueFrom(service.listPopularityGames(9, 20, 0));
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives`
+        && request.params.get('popularityTypeId') === '9';
+    });
+
+    req.flush({
+      items: [
+        {
+          popularityType: 9,
+          externalPopularitySource: 11,
+          value: '333.5',
+          calculatedAt: 'invalid-date',
+          game: {
+            igdbGameId: '200',
+            title: 'Metroid Prime',
+            coverUrl: null,
+            coverSource: 'igdb',
+            platforms: ['Nintendo GameCube'],
+            platform: 'Nintendo GameCube',
+            releaseDate: null,
+            releaseYear: 2002,
+          },
+        },
+        {
+          popularityType: 9,
+          externalPopularitySource: 11,
+          value: 'not-a-number',
+          calculatedAt: null,
+          game: {
+            igdbGameId: '201',
+            title: 'Metroid Prime 2',
+            coverUrl: null,
+            coverSource: 'igdb',
+            platforms: ['Nintendo GameCube'],
+            platform: 'Nintendo GameCube',
+            releaseDate: null,
+            releaseYear: 2004,
+          },
+        },
+        {
+          popularityType: null,
+          value: 99,
+          game: {
+            igdbGameId: '202',
+            title: 'Filtered Out',
+            coverUrl: null,
+            coverSource: 'igdb',
+            platforms: ['Nintendo GameCube'],
+            platform: 'Nintendo GameCube',
+            releaseDate: null,
+            releaseYear: 2005,
+          },
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        popularityType: 9,
+        value: 333.5,
+        calculatedAt: null,
+        game: expect.objectContaining({ igdbGameId: '200' }),
+      }),
+      expect.objectContaining({
+        popularityType: 9,
+        value: null,
+        calculatedAt: null,
+        game: expect.objectContaining({ igdbGameId: '201' }),
+      }),
+    ]);
+  });
+
   it('searches box art results and normalizes URLs', async () => {
     const promise = firstValueFrom(service.searchBoxArtByTitle('mario'));
     const req = httpMock.expectOne(request => {

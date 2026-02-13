@@ -1,9 +1,8 @@
-name: CI
+name: CI & Publish
 
 on:
   push:
     branches:
-      - master
       - main
   pull_request:
 
@@ -12,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Lint, Test, UI
+  quality_checks:
+    name: Quality Checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -52,9 +51,9 @@ jobs:
             test-results
           if-no-files-found: ignore
 
-  publish:
+  publish_images:
     name: Publish Docker Images
-    needs: quality
+    needs: quality_checks
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

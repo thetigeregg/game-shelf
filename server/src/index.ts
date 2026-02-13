@@ -11,18 +11,32 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
 import { registerSyncRoutes } from './sync.js';
-const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const serverRootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
-  const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);
+  const imageCacheDir = await resolveWritableImageCacheDir(
+    config.imageCacheDir,
+  );
   console.info('[server] image_cache_dir_ready', {
     configured: config.imageCacheDir,
     active: imageCacheDir,
   });
 
   const app = Fastify({
-    logger: true,
+    logger: {
+      transport: {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
+        },
+      },
+    },
   });
 
   await app.register(cors, {
@@ -81,12 +95,14 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error('[server] startup_failed', error);
   process.exitCode = 1;
 });
 
-async function resolveWritableImageCacheDir(preferredDir: string): Promise<string> {
+async function resolveWritableImageCacheDir(
+  preferredDir: string,
+): Promise<string> {
   try {
     await fs.mkdir(preferredDir, { recursive: true });
     return preferredDir;

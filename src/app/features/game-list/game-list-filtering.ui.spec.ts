@@ -163,6 +163,20 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(grouped.sections[0].games.map(game => game.title)).toEqual(['JP SNES', 'US SNES']);
   });
 
+  it('treats New Nintendo 3DS as Nintendo 3DS and Nintendo DSi as Nintendo DS', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 137, title: 'New 3DS Game', platform: 'New Nintendo 3DS' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 37, title: '3DS Game', platform: 'Nintendo 3DS' }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 159, title: 'DSi Game', platform: 'Nintendo DSi' }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 20, title: 'DS Game', platform: 'Nintendo DS' }),
+    ];
+
+    expect(engine.extractPlatforms(games).sort()).toEqual(['Nintendo 3DS', 'Nintendo DS'].sort());
+
+    const grouped = engine.buildGroupedView(games, 'platform');
+    expect(grouped.sections.map(section => section.title).sort()).toEqual(['Nintendo 3DS', 'Nintendo DS'].sort());
+  });
+
   it('applies custom platform order when extracting platform lists', () => {
     engine.setPlatformOrder(['PC (Microsoft Windows)', 'Nintendo Switch']);
 

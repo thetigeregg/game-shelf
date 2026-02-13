@@ -53,6 +53,8 @@ export class GameListFilteringEngine {
   private static readonly PLATFORM_DISPLAY_ALIAS_MAP: Record<string, string> = {
     'family computer': 'Nintendo Entertainment System',
     'super famicom': 'Super Nintendo Entertainment System',
+    'new nintendo 3ds': 'Nintendo 3DS',
+    'nintendo dsi': 'Nintendo DS',
   };
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
   private readonly platformOrderByKey = new Map<string, number>();

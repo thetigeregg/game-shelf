@@ -26,11 +26,20 @@ Required app secrets:
 - `THEGAMESDB_API_KEY`
 
 Common stack env vars:
+- `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`)
 - `DATABASE_URL` (default works for bundled postgres service)
 - `CORS_ORIGIN`
 - `HLTB_SCRAPER_TOKEN` (optional, but recommended)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+
+Example:
+- `NAS_DATA_ROOT=/volume1/docker/game-shelf/nas-data`
+
+You can override individual directories if needed:
+- `POSTGRES_HOST_DIR`
+- `IMAGE_CACHE_HOST_DIR`
+- `MANUALS_HOST_DIR`
 
 ## 3. Start stack
 ```bash

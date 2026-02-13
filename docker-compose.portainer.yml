@@ -6,7 +6,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      - ./nas-data/manuals:/manuals:ro
+      - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/manuals:ro
     restart: unless-stopped
 
   api:
@@ -28,8 +28,8 @@ services:
       - postgres
       - hltb-scraper
     volumes:
-      - ./nas-data/image-cache:/data/images
-      - ./nas-data/manuals:/data/manuals:ro
+      - ${IMAGE_CACHE_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/image-cache}:/data/images
+      - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/data/manuals:ro
     restart: unless-stopped
 
   postgres:
@@ -39,7 +39,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-gameshelf}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gameshelf}
     volumes:
-      - ./nas-data/postgres:/var/lib/postgresql/data
+      - ${POSTGRES_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/postgres}:/var/lib/postgresql/data
     restart: unless-stopped
 
   hltb-scraper:

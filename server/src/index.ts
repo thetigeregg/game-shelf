@@ -71,6 +71,8 @@ async function main(): Promise<void> {
   app.get('/v1/games/search', proxyMetadataToWorker);
   app.get('/v1/games/:id', proxyMetadataToWorker);
   app.get('/v1/platforms', proxyMetadataToWorker);
+  app.get('/v1/popularity/types', proxyMetadataToWorker);
+  app.get('/v1/popularity/primitives', proxyMetadataToWorker);
   app.get('/v1/images/boxart/search', proxyMetadataToWorker);
   registerHltbCachedRoute(app, pool, {
     enableStaleWhileRevalidate: config.hltbCacheEnableStaleWhileRevalidate,

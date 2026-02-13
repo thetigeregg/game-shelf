@@ -15,6 +15,10 @@ function createFetchStub({
   igdbResponses = null,
   igdbPlatformsStatus = 200,
   igdbPlatformsBody = [],
+  igdbPopularityTypesStatus = 200,
+  igdbPopularityTypesBody = [],
+  igdbPopularityPrimitivesStatus = 200,
+  igdbPopularityPrimitivesBody = [],
   tokenStatus = 200,
   theGamesDbStatus = 200,
   theGamesDbBody = null,
@@ -32,6 +36,10 @@ function createFetchStub({
     igdbBodies: [],
     igdbPlatforms: 0,
     igdbPlatformBodies: [],
+    igdbPopularityTypes: 0,
+    igdbPopularityTypeBodies: [],
+    igdbPopularityPrimitives: 0,
+    igdbPopularityPrimitiveBodies: [],
     theGamesDb: 0,
     theGamesDbUrls: [],
     hltb: 0,
@@ -71,6 +79,18 @@ function createFetchStub({
       calls.igdbPlatforms += 1;
       calls.igdbPlatformBodies.push(typeof options.body === 'string' ? options.body : '');
       return new Response(JSON.stringify(igdbPlatformsBody), { status: igdbPlatformsStatus });
+    }
+
+    if (normalizedUrl === 'https://api.igdb.com/v4/popularity_types') {
+      calls.igdbPopularityTypes += 1;
+      calls.igdbPopularityTypeBodies.push(typeof options.body === 'string' ? options.body : '');
+      return new Response(JSON.stringify(igdbPopularityTypesBody), { status: igdbPopularityTypesStatus });
+    }
+
+    if (normalizedUrl === 'https://api.igdb.com/v4/popularity_primitives') {
+      calls.igdbPopularityPrimitives += 1;
+      calls.igdbPopularityPrimitiveBodies.push(typeof options.body === 'string' ? options.body : '');
+      return new Response(JSON.stringify(igdbPopularityPrimitivesBody), { status: igdbPopularityPrimitivesStatus });
     }
 
     if (normalizedUrl.startsWith('https://api.thegamesdb.net/v1.1/Games/ByGameName')) {
@@ -356,6 +376,92 @@ test('returns IGDB platform filters and caches the platform response', async () 
     { id: 130, name: 'Nintendo Switch' },
     { id: 6, name: 'PC (Microsoft Windows)' },
   ]);
+});
+
+test('returns IGDB popularity types', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbPopularityTypesBody: [
+      { id: 1, name: 'Most visited games on IGDB', external_popularity_source: 121 },
+      { id: 2, name: 'Most played in the last 24h', external_popularity_source: 144 },
+    ],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/popularity/types'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.token, 1);
+  assert.equal(calls.igdbPopularityTypes, 1);
+  assert.equal(calls.igdbPopularityTypeBodies[0].includes('fields id,name,external_popularity_source;'), true);
+
+  const payload = await response.json();
+  assert.deepEqual(payload.items, [
+    { id: 1, name: 'Most visited games on IGDB', externalPopularitySource: 121 },
+    { id: 2, name: 'Most played in the last 24h', externalPopularitySource: 144 },
+  ]);
+});
+
+test('returns IGDB popularity primitives enriched with game metadata', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbPopularityPrimitivesBody: [
+      {
+        game_id: 42,
+        popularity_type: 7,
+        external_popularity_source: 81,
+        value: 987.65,
+        calculated_at: 1735689600,
+      },
+    ],
+    igdbBody: [
+      {
+        id: 42,
+        name: 'Super Metroid',
+        first_release_date: 777600000,
+        cover: { image_id: 'super-metroid' },
+        platforms: [{ id: 19, name: 'SNES' }],
+      },
+    ],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=7&limit=20&offset=0'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.igdbPopularityPrimitives, 1);
+  assert.equal(calls.igdb, 1);
+  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('sort value desc;'), true);
+  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('limit 20;'), true);
+  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('offset 0;'), true);
+
+  const payload = await response.json();
+  assert.equal(payload.items.length, 1);
+  assert.equal(payload.items[0].popularityType, 7);
+  assert.equal(payload.items[0].value, 987.65);
+  assert.equal(payload.items[0].game.externalId, '42');
+  assert.equal(payload.items[0].game.title, 'Super Metroid');
+});
+
+test('returns 400 when popularityTypeId is missing for popularity primitives', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({});
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/popularity/primitives'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 400);
 });
 
 test('maps upstream errors to safe 502 response', async () => {

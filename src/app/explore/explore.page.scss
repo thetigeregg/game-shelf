@@ -1,0 +1,18 @@
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+ion-thumbnail {
+  --size: 60px;
+  --border-radius: 6px;
+}
+
+ion-label h2 {
+  margin-bottom: 4px;
+}
+
+ion-label p {
+  margin: 0;
+}

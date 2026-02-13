@@ -69,6 +69,20 @@ export interface GameCatalogResult {
   releaseYear: number | null;
 }
 
+export interface PopularityTypeOption {
+  id: number;
+  name: string;
+  externalPopularitySource: number | null;
+}
+
+export interface PopularityGameResult {
+  game: GameCatalogResult;
+  popularityType: number;
+  externalPopularitySource: number | null;
+  value: number | null;
+  calculatedAt: string | null;
+}
+
 export interface GameEntry {
   id?: number;
   igdbGameId: string;

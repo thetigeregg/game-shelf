@@ -202,6 +202,86 @@ describe('IgdbProxyService', () => {
     ]));
   });
 
+  it('loads popularity categories', async () => {
+    const promise = firstValueFrom(service.listPopularityTypes());
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/popularity/types`);
+    req.flush({
+      items: [
+        { id: 7, name: 'Most visited games on IGDB', externalPopularitySource: 20 },
+        { id: 9, name: 'Most played in the last 24h', externalPopularitySource: 33 },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      { id: 9, name: 'Most played in the last 24h', externalPopularitySource: 33 },
+      { id: 7, name: 'Most visited games on IGDB', externalPopularitySource: 20 },
+    ]);
+  });
+
+  it('loads popularity games with paging params and normalizes payload', async () => {
+    const promise = firstValueFrom(service.listPopularityGames(7, 20, 40));
+    const req = httpMock.expectOne(request => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives`
+        && request.params.get('popularityTypeId') === '7'
+        && request.params.get('limit') === '20'
+        && request.params.get('offset') === '40';
+    });
+
+    req.flush({
+      items: [
+        {
+          popularityType: 7,
+          externalPopularitySource: 20,
+          value: 1234.5,
+          calculatedAt: '2026-01-01T00:00:00.000Z',
+          game: {
+            igdbGameId: '100',
+            title: 'Super Mario Odyssey',
+            coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc.jpg',
+            coverSource: 'igdb',
+            platforms: ['Nintendo Switch'],
+            platform: 'Nintendo Switch',
+            releaseDate: '2017-10-27T00:00:00.000Z',
+            releaseYear: 2017,
+          },
+        },
+      ],
+    });
+
+    await expect(promise).resolves.toEqual([
+      {
+        popularityType: 7,
+        externalPopularitySource: 20,
+        value: 1234.5,
+        calculatedAt: '2026-01-01T00:00:00.000Z',
+        game: {
+          igdbGameId: '100',
+          title: 'Super Mario Odyssey',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/abc.jpg',
+          coverSource: 'igdb',
+          storyline: null,
+          summary: null,
+          hltbMainHours: null,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null,
+          similarGameIgdbIds: [],
+          developers: [],
+          franchises: [],
+          collections: [],
+          genres: [],
+          gameType: null,
+          publishers: [],
+          platforms: ['Nintendo Switch'],
+          platformOptions: [{ id: null, name: 'Nintendo Switch' }],
+          platform: 'Nintendo Switch',
+          platformIgdbId: null,
+          releaseDate: '2017-10-27T00:00:00.000Z',
+          releaseYear: 2017,
+        },
+      },
+    ]);
+  });
+
   it('searches box art results and normalizes URLs', async () => {
     const promise = firstValueFrom(service.searchBoxArtByTitle('mario'));
     const req = httpMock.expectOne(request => {

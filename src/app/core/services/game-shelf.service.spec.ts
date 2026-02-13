@@ -44,6 +44,8 @@ describe('GameShelfService', () => {
       searchBoxArtByTitle: vi.fn(),
       lookupCompletionTimes: vi.fn(),
       lookupCompletionTimeCandidates: vi.fn(),
+      listPopularityTypes: vi.fn(),
+      listPopularityGames: vi.fn(),
     };
 
     TestBed.configureTestingModule({

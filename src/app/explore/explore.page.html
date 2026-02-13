@@ -1,0 +1,66 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Explore</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-item>
+    <ion-select
+      label="Popularity category"
+      labelPlacement="stacked"
+      interface="popover"
+      placeholder="Select category"
+      [value]="selectedPopularityTypeId"
+      [disabled]="isLoadingTypes || popularityTypes.length === 0"
+      (ionChange)="onPopularityTypeChange($any($event).detail.value)"
+    >
+      <ion-select-option *ngFor="let type of popularityTypes; trackBy: trackByPopularityTypeId" [value]="type.id">
+        {{ type.name }}
+      </ion-select-option>
+    </ion-select>
+  </ion-item>
+
+  <div class="loading-state" *ngIf="isLoadingTypes || isLoadingGames">
+    <ion-spinner name="crescent"></ion-spinner>
+  </div>
+
+  <ion-item lines="none" *ngIf="errorMessage.length > 0">
+    <ion-text color="danger">{{ errorMessage }}</ion-text>
+  </ion-item>
+
+  <ion-item lines="none" *ngIf="!isLoadingTypes && popularityTypes.length === 0 && errorMessage.length === 0">
+    <ion-text color="medium">No popularity categories available.</ion-text>
+  </ion-item>
+
+  <ion-list *ngIf="!isLoadingGames && games.length > 0">
+    <ion-item *ngFor="let item of games; trackBy: trackByGameId">
+      <ion-thumbnail slot="start">
+        <img
+          [src]="item.game.coverUrl || 'assets/icon/favicon.png'"
+          [alt]="item.game.title"
+          loading="lazy"
+          (error)="onImageError($event)"
+        />
+      </ion-thumbnail>
+
+      <ion-label>
+        <h2>{{ item.game.title }}</h2>
+        <p>{{ getPlatformLabel(item) }}<span *ngIf="item.game.releaseYear"> • {{ item.game.releaseYear }}</span></p>
+        <p>Popularity: {{ getPopularityValueLabel(item) }}</p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <ion-item lines="none" *ngIf="!isLoadingGames && games.length === 0 && selectedPopularityTypeId !== null && errorMessage.length === 0">
+    <ion-text color="medium">No games found for this category.</ion-text>
+  </ion-item>
+
+  <ion-infinite-scroll
+    threshold="100px"
+    [disabled]="selectedPopularityTypeId === null || isLoadingGames || !hasMore"
+    (ionInfinite)="loadMore($event)"
+  >
+    <ion-infinite-scroll-content loadingSpinner="crescent" loadingText="Loading more games..."></ion-infinite-scroll-content>
+  </ion-infinite-scroll>
+</ion-content>

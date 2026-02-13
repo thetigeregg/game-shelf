@@ -22,6 +22,10 @@ export const routes: Routes = [
     loadComponent: () => import('./tabs/tabs.page').then(m => m.TabsPage),
     children: [
       {
+        path: 'explore',
+        loadComponent: () => import('./explore/explore.page').then(m => m.ExplorePage),
+      },
+      {
         path: 'collection',
         loadComponent: () => import('./list-page/list-page.component').then(m => m.ListPageComponent),
         data: { listType: 'collection' },
@@ -33,14 +37,14 @@ export const routes: Routes = [
       },
       {
         path: '',
-        redirectTo: '/tabs/collection',
+        redirectTo: '/tabs/explore',
         pathMatch: 'full',
       },
     ],
   },
   {
     path: '',
-    redirectTo: '/tabs/collection',
+    redirectTo: '/tabs/explore',
     pathMatch: 'full',
   },
 ];

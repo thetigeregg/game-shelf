@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import {
+  AlertController,
+  ToastController,
   IonContent,
   IonHeader,
   IonItem,
@@ -21,9 +23,12 @@ import {
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
-import { GameCatalogResult, PopularityGameResult, PopularityTypeOption } from '../core/models/game.models';
+import { GameCatalogResult, GameEntry, GameRating, GameStatus, ListType, PopularityGameResult, PopularityTypeOption } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
+import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
+import { GameShelfService } from '../core/services/game-shelf.service';
+import { buildTagInput, normalizeGameRating, normalizeGameStatus, parseTagSelection } from '../features/game-list/game-list-detail-actions';
 
 @Component({
   selector: 'app-explore-page',
@@ -66,10 +71,25 @@ export class ExplorePage implements OnInit {
   isGameDetailModalOpen = false;
   isLoadingDetail = false;
   detailErrorMessage = '';
-  selectedGameDetail: GameCatalogResult | null = null;
+  selectedGameDetail: GameCatalogResult | GameEntry | null = null;
+  detailContext: 'explore' | 'library' = 'explore';
+  isAddToLibraryLoading = false;
+  readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
+  readonly statusOptions: { value: GameStatus; label: string }[] = [
+    { value: 'playing', label: 'Playing' },
+    { value: 'wantToPlay', label: 'Want to Play' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'paused', label: 'Paused' },
+    { value: 'dropped', label: 'Dropped' },
+    { value: 'replay', label: 'Replay' },
+  ];
 
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
+  private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
+  private readonly gameShelfService = inject(GameShelfService);
+  private readonly alertController = inject(AlertController);
+  private readonly toastController = inject(ToastController);
   private offset = 0;
 
   async ngOnInit(): Promise<void> {
@@ -123,6 +143,8 @@ export class ExplorePage implements OnInit {
     this.isGameDetailModalOpen = true;
     this.isLoadingDetail = true;
     this.detailErrorMessage = '';
+    this.detailContext = 'explore';
+    this.isAddToLibraryLoading = false;
     this.selectedGameDetail = item.game;
 
     try {
@@ -140,6 +162,154 @@ export class ExplorePage implements OnInit {
     this.isLoadingDetail = false;
     this.detailErrorMessage = '';
     this.selectedGameDetail = null;
+    this.detailContext = 'explore';
+    this.isAddToLibraryLoading = false;
+  }
+
+  async addSelectedGameToLibrary(): Promise<void> {
+    if (this.detailContext !== 'explore' || this.isAddToLibraryLoading || !this.selectedGameDetail) {
+      return;
+    }
+
+    const listType = await this.pickListTypeForAdd();
+
+    if (!listType) {
+      return;
+    }
+
+    this.isAddToLibraryLoading = true;
+
+    try {
+      const addResult = await this.addToLibraryWorkflow.addToLibrary(this.selectedGameDetail as GameCatalogResult, listType);
+
+      if (addResult.status === 'added' && addResult.entry) {
+        this.selectedGameDetail = addResult.entry;
+        this.detailContext = 'library';
+      }
+    } finally {
+      this.isAddToLibraryLoading = false;
+    }
+  }
+
+  async onDetailStatusChange(value: GameStatus | null | undefined): Promise<void> {
+    const selected = this.selectedGameDetail;
+
+    if (!this.isLibraryEntry(selected)) {
+      return;
+    }
+
+    const normalized = normalizeGameStatus(value);
+
+    try {
+      const updated = await this.gameShelfService.setGameStatus(selected.igdbGameId, selected.platformIgdbId, normalized);
+      this.selectedGameDetail = updated;
+    } catch {
+      await this.presentToast('Unable to update game status.', 'danger');
+    }
+  }
+
+  async clearDetailStatus(): Promise<void> {
+    const selected = this.selectedGameDetail;
+
+    if (!this.isLibraryEntry(selected)) {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.setGameStatus(selected.igdbGameId, selected.platformIgdbId, null);
+      this.selectedGameDetail = updated;
+      await this.presentToast('Game status cleared.');
+    } catch {
+      await this.presentToast('Unable to clear game status.', 'danger');
+    }
+  }
+
+  async onDetailRatingChange(value: number | null | undefined): Promise<void> {
+    const selected = this.selectedGameDetail;
+
+    if (!this.isLibraryEntry(selected)) {
+      return;
+    }
+
+    const normalized = normalizeGameRating(value);
+
+    if (normalized === null) {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.setGameRating(selected.igdbGameId, selected.platformIgdbId, normalized);
+      this.selectedGameDetail = updated;
+      await this.presentToast('Game rating updated.');
+    } catch {
+      await this.presentToast('Unable to update game rating.', 'danger');
+    }
+  }
+
+  async clearDetailRating(): Promise<void> {
+    const selected = this.selectedGameDetail;
+
+    if (!this.isLibraryEntry(selected)) {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.setGameRating(selected.igdbGameId, selected.platformIgdbId, null);
+      this.selectedGameDetail = updated;
+      await this.presentToast('Game rating cleared.');
+    } catch {
+      await this.presentToast('Unable to clear game rating.', 'danger');
+    }
+  }
+
+  async openDetailTags(): Promise<void> {
+    const selected = this.selectedGameDetail;
+
+    if (!this.isLibraryEntry(selected)) {
+      return;
+    }
+
+    const tags = await this.gameShelfService.listTags();
+
+    if (tags.length === 0) {
+      await this.presentToast('Create a tag first from the Tags page.');
+      return;
+    }
+
+    const existingTagIds = Array.isArray(selected.tagIds)
+      ? selected.tagIds.filter(id => Number.isInteger(id) && id > 0)
+      : [];
+    let nextTagIds = existingTagIds;
+    const alert = await this.alertController.create({
+      header: 'Set Tags',
+      message: `Update tags for ${selected.title}.`,
+      inputs: tags.map(tag => buildTagInput(tag, existingTagIds)),
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Apply',
+          role: 'confirm',
+          handler: (value: string[] | string | null | undefined) => {
+            nextTagIds = parseTagSelection(value);
+          },
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    try {
+      const updated = await this.gameShelfService.setGameTags(selected.igdbGameId, selected.platformIgdbId, nextTagIds);
+      this.selectedGameDetail = updated;
+      await this.presentToast('Tags updated.');
+    } catch {
+      await this.presentToast('Unable to update tags.', 'danger');
+    }
   }
 
   onImageError(event: Event): void {
@@ -196,6 +366,66 @@ export class ExplorePage implements OnInit {
     }
 
     return 'Unknown platform';
+  }
+
+  private async pickListTypeForAdd(): Promise<ListType | null> {
+    let selected: ListType = 'collection';
+    const alert = await this.alertController.create({
+      header: 'Add to Library',
+      message: 'Choose where to add this game.',
+      inputs: [
+        {
+          type: 'radio',
+          label: 'Collection',
+          value: 'collection',
+          checked: true,
+        },
+        {
+          type: 'radio',
+          label: 'Wishlist',
+          value: 'wishlist',
+          checked: false,
+        },
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Add',
+          role: 'confirm',
+          handler: (value: string) => {
+            selected = value === 'wishlist' ? 'wishlist' : 'collection';
+          },
+        },
+      ],
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return null;
+    }
+
+    return selected;
+  }
+
+  private isLibraryEntry(value: GameCatalogResult | GameEntry | null): value is GameEntry {
+    if (!value) {
+      return false;
+    }
+
+    return (value as GameEntry).listType === 'collection' || (value as GameEntry).listType === 'wishlist';
+  }
+
+  private async presentToast(message: string, color: 'primary' | 'danger' = 'primary'): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 1600,
+      position: 'bottom',
+      color,
+    });
+
+    await toast.present();
   }
 
   private async loadPopularityTypes(): Promise<void> {

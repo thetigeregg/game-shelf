@@ -16,6 +16,15 @@
           {{ gameTypeBadgeLabelValue }}
         </ion-badge>
       </ion-label>
+      <ion-button
+        *ngIf="showAddToLibraryAction"
+        slot="end"
+        size="default"
+        [disabled]="isAddToLibraryLoading"
+        (click)="addToLibrary.emit()"
+      >
+        {{ isAddToLibraryLoading ? 'Adding...' : 'Add to Library' }}
+      </ion-button>
     </ion-item>
     <ion-item>
       <ion-label>

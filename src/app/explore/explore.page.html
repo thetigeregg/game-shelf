@@ -91,7 +91,17 @@
       <app-game-detail-content
         *ngIf="selectedGameDetail as game"
         [game]="game"
-        context="explore"
+        [context]="detailContext"
+        [statusOptions]="statusOptions"
+        [ratingOptions]="ratingOptions"
+        [showAddToLibraryAction]="detailContext === 'explore'"
+        [isAddToLibraryLoading]="isAddToLibraryLoading"
+        (addToLibrary)="addSelectedGameToLibrary()"
+        (statusChange)="onDetailStatusChange($event)"
+        (clearStatus)="clearDetailStatus()"
+        (ratingChange)="onDetailRatingChange($event)"
+        (clearRating)="clearDetailRating()"
+        (openTags)="openDetailTags()"
       ></app-game-detail-content>
     </ion-content>
   </ng-template>

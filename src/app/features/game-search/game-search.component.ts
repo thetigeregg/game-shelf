@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { AlertController } from '@ionic/angular/standalone';
 import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton } from '@ionic/angular/standalone';
 import { Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
@@ -9,6 +9,7 @@ import { GameShelfService } from '../../core/services/game-shelf.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
+import { AddToLibraryWorkflowService } from './add-to-library-workflow.service';
 
 interface SelectedPlatform {
     id: number;
@@ -47,7 +48,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     private readonly platformOrderService = inject(PlatformOrderService);
     private readonly platformCustomizationService = inject(PlatformCustomizationService);
     private readonly alertController = inject(AlertController);
-    private readonly toastController = inject(ToastController);
+    private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
 
     ngOnInit(): void {
         this.loadSearchPlatforms();
@@ -140,19 +141,19 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         this.addingExternalIds.add(result.igdbGameId);
 
         try {
-            const platformSelection = await this.resolvePlatformSelection(result);
+            if (this.actionMode === 'add') {
+                const addResult = await this.addToLibraryWorkflow.addToLibrary(result, this.listType);
 
-            if (platformSelection === undefined) {
+                if (addResult.status === 'added') {
+                    this.gameAdded.emit();
+                }
+
                 return;
             }
 
-            const existingEntry = await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformSelection.id);
+            const platformSelection = await this.resolvePlatformSelection(result);
 
-            if (existingEntry) {
-                await this.presentDuplicateAlert(
-                    result.title,
-                    this.getPlatformDisplayName(platformSelection.name, platformSelection.id),
-                );
+            if (platformSelection === undefined) {
                 return;
             }
 
@@ -164,17 +165,17 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
                 platformIgdbId: platformSelection.id,
             };
 
-            if (this.actionMode === 'select') {
-                this.matchSelected.emit(resolvedCatalog);
+            const existingEntry = await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformSelection.id);
+
+            if (existingEntry) {
+                await this.presentDuplicateAlert(
+                    result.title,
+                    this.getPlatformDisplayName(platformSelection.name, platformSelection.id),
+                );
                 return;
             }
 
-            await this.gameShelfService.addGame(
-                resolvedCatalog,
-                this.listType
-            );
-            await this.presentToast(`Added to ${this.getListLabel()}.`);
-            this.gameAdded.emit();
+            this.matchSelected.emit(resolvedCatalog);
         } finally {
             this.addingExternalIds.delete(result.igdbGameId);
         }
@@ -354,10 +355,6 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         return null;
     }
 
-    private getListLabel(): string {
-        return this.listType === 'collection' ? 'Collection' : 'Wishlist';
-    }
-
     private async resolveCoverForAdd(result: GameCatalogResult, platform: SelectedPlatform): Promise<GameCatalogResult> {
         try {
             const useIgdbCover = this.gameShelfService.shouldUseIgdbCoverForPlatform(platform.name, platform.id);
@@ -378,17 +375,6 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         } catch {
             return result;
         }
-    }
-
-    private async presentToast(message: string): Promise<void> {
-        const toast = await this.toastController.create({
-            message,
-            duration: 1600,
-            position: 'bottom',
-            color: 'primary',
-        });
-
-        await toast.present();
     }
 
     private loadSearchPlatforms(): void {

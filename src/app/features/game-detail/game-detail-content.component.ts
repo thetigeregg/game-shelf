@@ -28,6 +28,8 @@ export class GameDetailContentComponent {
   @Input() context: DetailContext = 'library';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
   @Input() ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
+  @Input() showAddToLibraryAction = false;
+  @Input() isAddToLibraryLoading = false;
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
@@ -38,6 +40,7 @@ export class GameDetailContentComponent {
   @Output() seriesClick = new EventEmitter<void>();
   @Output() franchiseClick = new EventEmitter<void>();
   @Output() publisherClick = new EventEmitter<void>();
+  @Output() addToLibrary = new EventEmitter<void>();
 
   detailTextExpanded = {
     summary: false,

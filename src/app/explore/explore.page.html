@@ -77,9 +77,12 @@
     </ion-header>
 
     <ion-content class="detail-content">
-      <div class="loading-state" *ngIf="isLoadingDetail">
-        <ion-spinner name="crescent"></ion-spinner>
-      </div>
+      <ion-loading
+        [isOpen]="isLoadingDetail"
+        message="Loading game details..."
+        spinner="crescent"
+        [backdropDismiss]="false"
+      ></ion-loading>
 
       <ion-item lines="none" *ngIf="detailErrorMessage.length > 0">
         <ion-text color="danger">{{ detailErrorMessage }}</ion-text>

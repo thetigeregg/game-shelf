@@ -8,6 +8,7 @@ const IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS = 15;
 const IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60;
 const MAX_BOX_ART_RESULTS = 30;
 const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
+const THE_GAMES_DB_SECONDARY_COUNTRY_ID = 0;
 const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
@@ -845,12 +846,16 @@ function getTheGamesDbRegionPreferenceScore(candidate, gameEntry) {
 }
 
 function getTheGamesDbRegionPreferenceScoreFromIds(gameEntry) {
-  const countryId = Number.isInteger(gameEntry?.countryId) && gameEntry.countryId > 0
+  const countryId = Number.isInteger(gameEntry?.countryId) && gameEntry.countryId >= 0
     ? gameEntry.countryId
     : null;
 
   if (countryId !== null && THE_GAMES_DB_PREFERRED_COUNTRY_IDS.has(countryId)) {
     return 40;
+  }
+
+  if (countryId === THE_GAMES_DB_SECONDARY_COUNTRY_ID) {
+    return 20;
   }
 
   return 0;
@@ -863,7 +868,7 @@ function getTheGamesDbRegionId(game) {
 
 function getTheGamesDbCountryId(game) {
   const value = Number.parseInt(String(game?.country_id ?? ''), 10);
-  return Number.isInteger(value) && value > 0 ? value : null;
+  return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fetchImpl) {

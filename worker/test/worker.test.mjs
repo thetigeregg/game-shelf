@@ -506,6 +506,54 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
   assert.equal(calls.theGamesDb, 1);
 });
 
+test('prioritizes TheGamesDB country_id 50 first and country_id 0 second for matching titles', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({
+    theGamesDbBody: {
+      data: {
+        games: [
+          { id: 7101, game_title: 'SwordQuest EarthWorld', country_id: 999 },
+          { id: 7102, game_title: 'SwordQuest EarthWorld', country_id: 0 },
+          { id: 7103, game_title: 'SwordQuest EarthWorld', country_id: 50 },
+        ],
+      },
+      include: {
+        boxart: {
+          base_url: {
+            large: 'https://cdn.thegamesdb.net/images/large',
+          },
+          data: {
+            7101: [
+              { type: 'boxart', side: 'front', filename: '/box/front/swordquest-other.jpg' },
+            ],
+            7102: [
+              { type: 'boxart', side: 'front', filename: '/box/front/swordquest-zero.jpg' },
+            ],
+            7103: [
+              { type: 'boxart', side: 'front', filename: '/box/front/swordquest-50.jpg' },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/images/boxart/search?q=swordquest%20earthworld'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.items.slice(0, 3), [
+    'https://cdn.thegamesdb.net/images/large/box/front/swordquest-50.jpg',
+    'https://cdn.thegamesdb.net/images/large/box/front/swordquest-zero.jpg',
+    'https://cdn.thegamesdb.net/images/large/box/front/swordquest-other.jpg',
+  ]);
+});
+
 test('returns 400 for short box art query', async () => {
   resetCaches();
 

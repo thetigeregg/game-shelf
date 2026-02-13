@@ -29,6 +29,8 @@ docker compose up -d
 docker compose ps
 ```
 
+For production, use only `docker-compose.yml` (do not include `docker-compose.dev.yml`).
+
 Services:
 - `edge` serves the PWA and proxies `/api/*`.
 - `api` hosts metadata + sync endpoints.
@@ -48,7 +50,11 @@ For local dev, use only `server/.env`:
 `HLTB_SCRAPER_BASE_URL=http://localhost:8788`
 `HLTB_SCRAPER_TIMEOUT_MS=30000`
 
-The `postgres` service is published to host port `5432` in `docker-compose.yml` for this workflow.
+Use the dev override so postgres/scraper are bound to localhost only:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hltb-scraper
+```
 
 Run host dev server:
 ```bash

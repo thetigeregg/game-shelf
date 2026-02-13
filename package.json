@@ -6,9 +6,9 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 8100",
-    "dev:deps:up": "docker compose up -d postgres hltb-scraper",
-    "dev:deps:restart": "docker compose restart postgres hltb-scraper",
-    "dev:deps:down": "docker compose stop postgres hltb-scraper",
+    "dev:deps:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hltb-scraper",
+    "dev:deps:restart": "docker compose -f docker-compose.yml -f docker-compose.dev.yml restart postgres hltb-scraper",
+    "dev:deps:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml stop postgres hltb-scraper",
     "dev:manuals": "npx serve -l 8789 nas-data",
     "dev:host": "npm run dev:deps:up && npm --prefix server run dev",
     "build": "ng build",

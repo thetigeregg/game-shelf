@@ -20,6 +20,10 @@ import {
   IonInfiniteScroll,
   IonInfiniteScrollContent,
   IonText,
+  IonFab,
+  IonFabButton,
+  IonFabList,
+  IonIcon,
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -29,6 +33,8 @@ import { GameDetailContentComponent } from '../features/game-detail/game-detail-
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { buildTagInput, normalizeGameRating, normalizeGameStatus, parseTagSelection } from '../features/game-list/game-list-detail-actions';
+import { addIcons } from 'ionicons';
+import { search, logoGoogle, logoYoutube } from 'ionicons/icons';
 
 @Component({
   selector: 'app-explore-page',
@@ -54,6 +60,10 @@ import { buildTagInput, normalizeGameRating, normalizeGameStatus, parseTagSelect
     IonInfiniteScroll,
     IonInfiniteScrollContent,
     IonText,
+    IonFab,
+    IonFabButton,
+    IonFabList,
+    IonIcon,
     GameDetailContentComponent,
   ],
 })
@@ -91,6 +101,10 @@ export class ExplorePage implements OnInit {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private offset = 0;
+
+  constructor() {
+    addIcons({ search, logoGoogle, logoYoutube });
+  }
 
   async ngOnInit(): Promise<void> {
     await this.loadPopularityTypes();
@@ -309,6 +323,33 @@ export class ExplorePage implements OnInit {
       await this.presentToast('Tags updated.');
     } catch {
       await this.presentToast('Unable to update tags.', 'danger');
+    }
+  }
+
+  openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
+    const query = this.selectedGameDetail?.title?.trim();
+
+    if (!query) {
+      return;
+    }
+
+    const encodedQuery = encodeURIComponent(query);
+    let url = '';
+
+    if (provider === 'google') {
+      url = `https://www.google.com/search?q=${encodedQuery}`;
+    } else if (provider === 'youtube') {
+      url = `https://www.youtube.com/results?search_query=${encodedQuery}`;
+    } else if (provider === 'wikipedia') {
+      url = `https://en.wikipedia.org/w/index.php?search=${encodedQuery}`;
+    } else {
+      url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
+    }
+
+    const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+
+    if (!openedWindow) {
+      window.location.href = url;
     }
   }
 

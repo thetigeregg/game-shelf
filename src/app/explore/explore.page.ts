@@ -19,6 +19,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PopularityGameResult, PopularityTypeOption } from '../core/models/game.models';
+import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 
 @Component({
   selector: 'app-explore-page',
@@ -56,6 +57,7 @@ export class ExplorePage implements OnInit {
   errorMessage = '';
 
   private readonly igdbProxyService = inject(IgdbProxyService);
+  private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private offset = 0;
 
   async ngOnInit(): Promise<void> {
@@ -114,23 +116,48 @@ export class ExplorePage implements OnInit {
   }
 
   getPlatformLabel(item: PopularityGameResult): string {
-    if (item.game.platform && item.game.platform.trim().length > 0) {
-      return item.game.platform.trim();
-    }
+    const preferredPlatform = this.resolvePreferredPlatform(item);
 
-    if (Array.isArray(item.game.platforms) && item.game.platforms.length > 0) {
-      return item.game.platforms[0];
+    if (preferredPlatform.name.length > 0) {
+      const aliased = this.platformCustomizationService.getDisplayName(preferredPlatform.name, preferredPlatform.id).trim();
+
+      if (aliased.length > 0) {
+        return aliased;
+      }
     }
 
     return 'Unknown platform';
   }
 
-  getPopularityValueLabel(item: PopularityGameResult): string {
-    if (typeof item.value !== 'number' || !Number.isFinite(item.value)) {
-      return 'n/a';
+  private resolvePreferredPlatform(item: PopularityGameResult): { id: number | null; name: string } {
+    const fromPrimaryName = typeof item.game.platform === 'string' ? item.game.platform.trim() : '';
+    const fromPrimaryId = Number.isInteger(item.game.platformIgdbId) && (item.game.platformIgdbId as number) > 0
+      ? item.game.platformIgdbId as number
+      : null;
+
+    if (fromPrimaryName.length > 0) {
+      return { id: fromPrimaryId, name: fromPrimaryName };
     }
 
-    return Number.isInteger(item.value) ? String(item.value) : item.value.toFixed(2);
+    if (Array.isArray(item.game.platformOptions) && item.game.platformOptions.length > 0) {
+      const first = item.game.platformOptions[0];
+      const name = typeof first?.name === 'string' ? first.name.trim() : '';
+      const id = Number.isInteger(first?.id) && (first.id as number) > 0 ? first.id as number : null;
+
+      if (name.length > 0) {
+        return { id, name };
+      }
+    }
+
+    if (Array.isArray(item.game.platforms) && item.game.platforms.length > 0) {
+      const name = typeof item.game.platforms[0] === 'string' ? item.game.platforms[0].trim() : '';
+
+      if (name.length > 0) {
+        return { id: null, name };
+      }
+    }
+
+    return { id: null, name: '' };
   }
 
   private async loadPopularityTypes(): Promise<void> {

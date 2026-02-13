@@ -47,7 +47,6 @@
       <ion-label>
         <h2>{{ item.game.title }}</h2>
         <p>{{ getPlatformLabel(item) }}<span *ngIf="item.game.releaseYear"> • {{ item.game.releaseYear }}</span></p>
-        <p>Popularity: {{ getPopularityValueLabel(item) }}</p>
       </ion-label>
     </ion-item>
   </ion-list>

@@ -5,7 +5,7 @@ WORKDIR /app
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 COPY hltb-scraper/package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY hltb-scraper/src ./src
 

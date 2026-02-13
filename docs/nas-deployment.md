@@ -8,7 +8,17 @@
    - `nas-data/manuals`
 
 ## 2. Create Portainer stack
-Use this repo's `docker-compose.yml` in Portainer (`Repository` or `Upload`), then set env vars in the stack UI.
+Use `docker-compose.portainer.yml` in Portainer (`Repository` or `Upload`), then set env vars in the stack UI.
+
+Before first deploy, publish images from GitHub Actions:
+1. Push to `main` (or run `Publish Docker Images` workflow manually).
+2. Confirm images exist in GHCR:
+   - `ghcr.io/thetigeregg/game-shelf-edge:main`
+   - `ghcr.io/thetigeregg/game-shelf-api:main`
+   - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
+3. In Portainer, add a registry credential for `ghcr.io`:
+   - Username: your GitHub username
+   - Password/token: GitHub PAT with `read:packages` (and `repo` if repo/packages are private)
 
 Required app secrets:
 - `TWITCH_CLIENT_ID`
@@ -24,12 +34,11 @@ Common stack env vars:
 
 ## 3. Start stack
 ```bash
-docker compose build
 docker compose up -d
 docker compose ps
 ```
 
-For production, use only `docker-compose.yml` (do not include `docker-compose.dev.yml`).
+For production, use only `docker-compose.portainer.yml` (do not include `docker-compose.dev.yml`).
 
 Services:
 - `edge` serves the PWA and proxies `/api/*`.

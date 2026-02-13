@@ -394,7 +394,14 @@ test('returns IGDB popularity types', async () => {
     stub,
   );
 
+  const second = await handleRequest(
+    new Request('https://worker.example/v1/popularity/types'),
+    env,
+    stub,
+  );
+
   assert.equal(response.status, 200);
+  assert.equal(second.status, 200);
   assert.equal(calls.token, 1);
   assert.equal(calls.igdbPopularityTypes, 1);
   assert.equal(calls.igdbPopularityTypeBodies[0].includes('fields id,name,external_popularity_source;'), true);

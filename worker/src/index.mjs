@@ -12,6 +12,7 @@ const THE_GAMES_DB_SECONDARY_COUNTRY_ID = 0;
 const THE_GAMES_DB_PREFERRED_REGION_IDS = new Set([2]);
 const THE_GAMES_DB_SECONDARY_REGION_IDS = new Set([1]);
 const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const POPULARITY_TYPES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
 
@@ -29,6 +30,10 @@ const igdbPlatformCache = {
   items: null,
   expiresAt: 0,
 };
+const igdbPopularityTypeCache = {
+  items: null,
+  expiresAt: 0,
+};
 const igdbRateLimitState = {
   cooldownUntilMs: 0,
 };
@@ -41,6 +46,8 @@ export function resetCaches() {
   igdbSearchVariantCache.disabledVariants.clear();
   igdbPlatformCache.items = null;
   igdbPlatformCache.expiresAt = 0;
+  igdbPopularityTypeCache.items = null;
+  igdbPopularityTypeCache.expiresAt = 0;
   igdbRateLimitState.cooldownUntilMs = 0;
 }
 
@@ -1384,6 +1391,10 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
 }
 
 async function listPopularityTypes(env, token, fetchImpl, nowMs) {
+  if (Array.isArray(igdbPopularityTypeCache.items) && igdbPopularityTypeCache.expiresAt > nowMs) {
+    return igdbPopularityTypeCache.items;
+  }
+
   const body = [
     'fields id,name,external_popularity_source;',
     'sort name asc;',
@@ -1411,10 +1422,12 @@ async function listPopularityTypes(env, token, fetchImpl, nowMs) {
   const payload = await response.json();
 
   if (!Array.isArray(payload)) {
+    igdbPopularityTypeCache.items = [];
+    igdbPopularityTypeCache.expiresAt = nowMs + POPULARITY_TYPES_CACHE_TTL_MS;
     return [];
   }
 
-  return payload
+  const items = payload
     .map(item => ({
       id: Number.isInteger(item?.id) && item.id > 0 ? item.id : null,
       name: typeof item?.name === 'string' ? item.name.trim() : '',
@@ -1429,6 +1442,10 @@ async function listPopularityTypes(env, token, fetchImpl, nowMs) {
       name: item.name,
       externalPopularitySource: item.externalPopularitySource,
     }));
+
+  igdbPopularityTypeCache.items = items;
+  igdbPopularityTypeCache.expiresAt = nowMs + POPULARITY_TYPES_CACHE_TTL_MS;
+  return items;
 }
 
 async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {

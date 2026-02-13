@@ -1,19 +1,28 @@
 # NAS Deployment (Synology + Docker + Tailscale)
 
-## 1. Prepare files
-1. Copy `server/.env.example` to `server/.env`.
-2. Copy `server/.env.dev.example` to `server/.env.dev` for Mac host development.
-3. Fill secrets in both env files as needed:
-   - `TWITCH_CLIENT_ID`
-   - `TWITCH_CLIENT_SECRET`
-   - `THEGAMESDB_API_KEY`
-   - `HLTB_SCRAPER_TOKEN` (optional)
-4. Create persistent directories:
+## 1. Branch and directories
+1. Deploy from branch `main`.
+2. Create persistent directories on your NAS host:
    - `nas-data/postgres`
    - `nas-data/image-cache`
    - `nas-data/manuals`
 
-## 2. Start stack
+## 2. Create Portainer stack
+Use this repo's `docker-compose.yml` in Portainer (`Repository` or `Upload`), then set env vars in the stack UI.
+
+Required app secrets:
+- `TWITCH_CLIENT_ID`
+- `TWITCH_CLIENT_SECRET`
+- `THEGAMESDB_API_KEY`
+
+Common stack env vars:
+- `DATABASE_URL` (default works for bundled postgres service)
+- `CORS_ORIGIN`
+- `HLTB_SCRAPER_TOKEN` (optional, but recommended)
+- `DEBUG_HLTB_SCRAPER_LOGS` (optional)
+- `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+
+## 3. Start stack
 ```bash
 docker compose build
 docker compose up -d
@@ -32,7 +41,7 @@ Manual PDFs:
 - The app serves files at `/manuals/...` and the API scans `/data/manuals` for fuzzy matching.
 
 ## Local host-based API development (without running `api` container)
-If you run Fastify directly from your Mac, use `server/.env.dev`:
+For local dev, use only `server/.env`:
 
 `DATABASE_URL=postgres://gameshelf:gameshelf@localhost:5432/gameshelf`
 `IMAGE_CACHE_DIR=./server/.data/images`
@@ -43,15 +52,10 @@ The `postgres` service is published to host port `5432` in `docker-compose.yml` 
 
 Run host dev server:
 ```bash
-npm --prefix server run dev:local
+npm --prefix server run dev
 ```
 
-Run runtime-like server (uses `server/.env`):
-```bash
-npm --prefix server run dev:runtime
-```
-
-## 3. Publish over Tailscale only
+## 4. Publish over Tailscale only
 Run on Synology host (where Tailscale is installed):
 ```bash
 tailscale serve --https=443 http://127.0.0.1:8080
@@ -65,13 +69,13 @@ tailscale serve status
 
 Then access with your tailnet URL shown by `tailscale serve status`.
 
-## 4. Health checks
+## 5. Health checks
 ```bash
 curl http://127.0.0.1:8080/api/v1/health
 docker compose logs -f api
 ```
 
-## 5. Manual backup
+## 6. Manual backup
 Postgres dump:
 ```bash
 docker compose exec -T postgres pg_dump -U gameshelf -d gameshelf > backup-gameshelf-$(date +%F).sql
@@ -82,7 +86,7 @@ Image cache archive:
 tar -czf backup-image-cache-$(date +%F).tar.gz nas-data/image-cache
 ```
 
-## 6. Restore
+## 7. Restore
 Restore Postgres:
 ```bash
 cat backup-gameshelf-YYYY-MM-DD.sql | docker compose exec -T postgres psql -U gameshelf -d gameshelf

@@ -19,7 +19,8 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 ## Run locally
 ```bash
 cd server
-cp .env.example .env
+# create .env with required keys
+# DATABASE_URL, TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, THEGAMESDB_API_KEY
 npm install
 npm run dev
 ```

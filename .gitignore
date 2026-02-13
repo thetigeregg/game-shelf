@@ -73,4 +73,5 @@ test-results/
 Thumbs.db
 worker/.dev.vars
 server/.env
+server/.env.dev
 nas-data/

@@ -4,8 +4,6 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "dev:local": "ENV_FILE=.env.dev tsx watch src/index.ts",
-    "dev:runtime": "ENV_FILE=.env tsx watch src/index.ts",
     "start": "node --enable-source-maps --import tsx src/index.ts",
     "test": "node --test --import tsx src/**/*.test.ts"
   },

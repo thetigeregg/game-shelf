@@ -15,8 +15,19 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    env_file:
-      - ./server/.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      DATABASE_URL: ${DATABASE_URL:-postgres://gameshelf:gameshelf@postgres:5432/gameshelf}
+      IMAGE_CACHE_DIR: /data/images
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
+      THEGAMESDB_API_KEY: ${THEGAMESDB_API_KEY:-}
+      HLTB_SCRAPER_BASE_URL: ${HLTB_SCRAPER_BASE_URL:-http://hltb-scraper:8788}
+      HLTB_SCRAPER_TOKEN: ${HLTB_SCRAPER_TOKEN:-}
+      MANUALS_DIR: /data/manuals
+      MANUALS_PUBLIC_BASE_URL: /manuals
     depends_on:
       - postgres
       - hltb-scraper
@@ -41,11 +52,11 @@ services:
     build:
       context: .
       dockerfile: hltb-scraper/Dockerfile
-    env_file:
-      - ./server/.env
     environment:
       PORT: 8788
       HLTB_SCRAPER_TIMEOUT_MS: 25000
+      HLTB_SCRAPER_TOKEN: ${HLTB_SCRAPER_TOKEN:-}
+      DEBUG_HLTB_SCRAPER_LOGS: ${DEBUG_HLTB_SCRAPER_LOGS:-false}
     ports:
       - "8788:8788"
     restart: unless-stopped

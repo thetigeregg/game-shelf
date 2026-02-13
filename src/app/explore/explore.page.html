@@ -5,7 +5,7 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-item>
+  <ion-item lines="full">
     <ion-select
       label="Popularity category"
       labelPlacement="stacked"
@@ -33,16 +33,17 @@
     <ion-text color="medium">No popularity categories available.</ion-text>
   </ion-item>
 
-  <ion-list *ngIf="!isLoadingGames && games.length > 0">
+  <ion-list lines="full" *ngIf="!isLoadingGames && games.length > 0">
     <ion-item *ngFor="let item of games; trackBy: trackByGameId">
-      <ion-thumbnail slot="start">
+      <div slot="start" class="explore-cover">
         <img
+          class="explore-cover-image"
           [src]="item.game.coverUrl || 'assets/icon/favicon.png'"
           [alt]="item.game.title"
           loading="lazy"
           (error)="onImageError($event)"
         />
-      </ion-thumbnail>
+      </div>
 
       <ion-label>
         <h2>{{ item.game.title }}</h2>

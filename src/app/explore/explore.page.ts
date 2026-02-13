@@ -14,7 +14,6 @@ import {
   IonInfiniteScroll,
   IonInfiniteScrollContent,
   IonText,
-  IonThumbnail,
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -41,7 +40,6 @@ import { PlatformCustomizationService } from '../core/services/platform-customiz
     IonInfiniteScroll,
     IonInfiniteScrollContent,
     IonText,
-    IonThumbnail,
   ],
 })
 export class ExplorePage implements OnInit {

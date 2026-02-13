@@ -81,6 +81,13 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
     max: 12,
     idleTimeoutMillis: 30_000,
   });
+  // Keep the API process alive when Postgres restarts and idle clients are terminated.
+  pool.on('error', (error: Error) => {
+    console.warn('[db] pool_client_error', {
+      message: error.message,
+      code: (error as { code?: unknown }).code ?? null,
+    });
+  });
 
   const client = await pool.connect();
 

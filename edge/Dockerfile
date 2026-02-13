@@ -11,6 +11,6 @@ RUN npm run build
 FROM caddy:2.8-alpine
 
 COPY edge/Caddyfile /etc/caddy/Caddyfile
-COPY --from=build /app/www /srv
+COPY --from=build /app/www/browser /srv
 
 EXPOSE 8080

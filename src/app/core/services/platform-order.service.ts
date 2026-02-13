@@ -23,6 +23,10 @@ export class PlatformOrderService {
     return [...this.orderSubject.value];
   }
 
+  getDefaultOrder(): string[] {
+    return [...this.defaultOrder];
+  }
+
   getEffectiveOrder(): string[] {
     const custom = this.orderSubject.value;
     return custom.length > 0 ? [...custom] : [...this.defaultOrder];
@@ -49,22 +53,21 @@ export class PlatformOrderService {
   }
 
   comparePlatformNames(left: string, right: string): number {
-    const leftRank = this.getOrderRank(left);
-    const rightRank = this.getOrderRank(right);
+    return this.comparePlatformNamesByOrder(left, right, this.getDefaultOrder());
+  }
 
-    if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
-      return leftRank - rightRank;
-    }
+  comparePlatformNamesByCustomOrder(left: string, right: string): number {
+    return this.comparePlatformNamesByOrder(left, right, this.getEffectiveOrder());
+  }
 
-    if (leftRank !== null && rightRank === null) {
-      return -1;
-    }
+  sortPlatformNamesByCustomOrder(platformNames: string[]): string[] {
+    const deduped = [...new Set(
+      platformNames
+        .map(name => String(name ?? '').trim())
+        .filter(name => name.length > 0),
+    )];
 
-    if (leftRank === null && rightRank !== null) {
-      return 1;
-    }
-
-    return left.localeCompare(right, undefined, { sensitivity: 'base' });
+    return deduped.sort((left, right) => this.comparePlatformNamesByCustomOrder(left, right));
   }
 
   sortPlatformNames(platformNames: string[]): string[] {
@@ -85,9 +88,35 @@ export class PlatformOrderService {
     return [...deduped].sort((left, right) => this.comparePlatformNames(left.name, right.name));
   }
 
-  private getOrderRank(value: string): number | null {
+  sortPlatformOptionsByCustomOrder(options: GameCatalogPlatformOption[]): GameCatalogPlatformOption[] {
+    const deduped = options.filter((option, index, all) => {
+      return all.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
+    });
+
+    return [...deduped].sort((left, right) => this.comparePlatformNamesByCustomOrder(left.name, right.name));
+  }
+
+  private comparePlatformNamesByOrder(left: string, right: string, order: string[]): number {
+    const leftRank = this.getOrderRank(left, order);
+    const rightRank = this.getOrderRank(right, order);
+
+    if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    if (leftRank !== null && rightRank === null) {
+      return -1;
+    }
+
+    if (leftRank === null && rightRank !== null) {
+      return 1;
+    }
+
+    return left.localeCompare(right, undefined, { sensitivity: 'base' });
+  }
+
+  private getOrderRank(value: string, order: string[]): number | null {
     const key = this.normalizeKey(value);
-    const order = this.getEffectiveOrder();
 
     for (let index = 0; index < order.length; index += 1) {
       if (this.normalizeKey(order[index]) === key) {

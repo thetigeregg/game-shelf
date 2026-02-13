@@ -1795,7 +1795,7 @@ export class GameListComponent implements OnChanges {
     }
 
     private extractPlatforms(games: GameEntry[]): string[] {
-        this.filteringEngine.setPlatformOrder(this.platformOrderService.getEffectiveOrder());
+        this.filteringEngine.setPlatformOrder(this.platformOrderService.getDefaultOrder());
         return this.filteringEngine.extractPlatforms(games);
     }
 
@@ -1820,7 +1820,7 @@ export class GameListComponent implements OnChanges {
     }
 
     private buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {
-        this.filteringEngine.setPlatformOrder(this.platformOrderService.getEffectiveOrder());
+        this.filteringEngine.setPlatformOrder(this.platformOrderService.getDefaultOrder());
         return this.filteringEngine.buildGroupedView(games, groupBy);
     }
 

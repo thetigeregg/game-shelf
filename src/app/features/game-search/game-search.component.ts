@@ -99,6 +99,12 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         if (changes['initialQuery'] || changes['initialPlatformIgdbId']) {
             this.applyInitialSearchInputs();
         }
+
+        if (changes['actionMode'] && this.searchPlatforms.length > 0) {
+            this.searchPlatforms = this.actionMode === 'add'
+                ? this.platformOrderService.sortPlatformOptionsByCustomOrder(this.searchPlatforms)
+                : this.platformOrderService.sortPlatformOptions(this.searchPlatforms);
+        }
     }
 
     ngOnDestroy(): void {
@@ -380,7 +386,9 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
             .pipe(takeUntil(this.destroy$))
             .subscribe({
                 next: platforms => {
-                    this.searchPlatforms = platforms;
+                    this.searchPlatforms = this.actionMode === 'add'
+                        ? this.platformOrderService.sortPlatformOptionsByCustomOrder(platforms)
+                        : this.platformOrderService.sortPlatformOptions(platforms);
                     this.platformErrorMessage = '';
                 },
                 error: () => {

@@ -10,11 +10,26 @@ describe('PlatformOrderService', () => {
     });
   });
 
-  it('sorts platform names by custom order and falls back to alphabetical', () => {
+  it('sorts platform names by default order and ignores custom order', () => {
+    const service = TestBed.inject(PlatformOrderService);
+    service.setOrder(['PC (Microsoft Windows)', 'Nintendo Switch']);
+
+    expect(service.sortPlatformNames([
+      'PlayStation 5',
+      'PC (Microsoft Windows)',
+      'Nintendo Switch',
+    ])).toEqual([
+      'Nintendo Switch',
+      'PlayStation 5',
+      'PC (Microsoft Windows)',
+    ]);
+  });
+
+  it('can sort platform names by custom order when explicitly requested', () => {
     const service = TestBed.inject(PlatformOrderService);
     service.setOrder(['Nintendo Switch', 'PC (Microsoft Windows)']);
 
-    expect(service.sortPlatformNames([
+    expect(service.sortPlatformNamesByCustomOrder([
       'PlayStation 5',
       'PC (Microsoft Windows)',
       'Nintendo Switch',
@@ -31,7 +46,7 @@ describe('PlatformOrderService', () => {
     const input = ['DOS', 'Xbox Series X|S', 'Nintendo 64'];
 
     const sorted = service.sortPlatformNames(input);
-    const expected = service.getEffectiveOrder().filter(name => input.includes(name));
+    const expected = service.getDefaultOrder().filter(name => input.includes(name));
 
     expect(sorted).toEqual(expected);
   });

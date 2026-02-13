@@ -23,10 +23,11 @@ import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
 import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from '../core/services/platform-order.service';
+import { PlatformCustomizationService, PLATFORM_DISPLAY_NAMES_STORAGE_KEY } from '../core/services/platform-customization.service';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 import { addIcons } from "ionicons";
-import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh } from "ionicons/icons";
+import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers } from "ionicons/icons";
 
 interface ThemePreset {
     label: string;
@@ -134,6 +135,10 @@ interface MgcImportRow {
     duplicateError: string | null;
     candidates: GameCatalogResult[];
     selected: GameCatalogResult | null;
+}
+
+interface PlatformCustomizationItem extends GameCatalogPlatformOption {
+    customName: string;
 }
 
 const CSV_HEADERS: Array<keyof ExportCsvRow> = [
@@ -263,7 +268,7 @@ export class SettingsPage {
     imageCacheUsageMb = 0;
     isPlatformOrderModalOpen = false;
     isPlatformOrderLoading = false;
-    platformOrderItems: GameCatalogPlatformOption[] = [];
+    platformOrderItems: PlatformCustomizationItem[] = [];
     isImportPreviewOpen = false;
     isApplyingImport = false;
     importPreviewRows: ImportPreviewRow[] = [];
@@ -298,6 +303,7 @@ export class SettingsPage {
     private readonly gameShelfService = inject(GameShelfService);
     private readonly imageCacheService = inject(ImageCacheService);
     private readonly platformOrderService = inject(PlatformOrderService);
+    private readonly platformCustomizationService = inject(PlatformCustomizationService);
     private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
     private readonly toastController = inject(ToastController);
     private readonly alertController = inject(AlertController);
@@ -310,7 +316,7 @@ export class SettingsPage {
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
-        addIcons({ close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh });
+        addIcons({ close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers });
     }
 
     onColorSchemePreferenceChange(value: ColorSchemePreference | string): void {
@@ -342,7 +348,16 @@ export class SettingsPage {
         this.isPlatformOrderLoading = true;
 
         try {
-            this.platformOrderItems = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+            const platforms = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+            const displayNames = this.platformCustomizationService.getDisplayNames();
+            this.platformOrderItems = platforms.map(platform => {
+                const key = typeof platform.id === 'number' && platform.id > 0 ? String(platform.id) : null;
+                const customName = key ? (displayNames[key] ?? '') : '';
+                return {
+                    ...platform,
+                    customName,
+                };
+            });
             this.isPlatformOrderModalOpen = true;
         } catch {
             await this.presentToast('Unable to load platforms.', 'danger');
@@ -360,7 +375,16 @@ export class SettingsPage {
     async resetPlatformOrder(): Promise<void> {
         this.platformOrderService.clearOrder();
         this.queueSettingDelete(PLATFORM_ORDER_STORAGE_KEY);
-        this.platformOrderItems = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+        this.platformOrderItems = await this.buildPlatformCustomizationItems();
+    }
+
+    async clearPlatformDisplayNames(): Promise<void> {
+        this.platformCustomizationService.clearCustomNames();
+        this.queueSettingDelete(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
+        this.platformOrderItems = this.platformOrderItems.map(platform => ({
+            ...platform,
+            customName: '',
+        }));
     }
 
     trackByPlatformOrderItem(_index: number, item: GameCatalogPlatformOption): string {
@@ -386,6 +410,62 @@ export class SettingsPage {
         this.platformOrderService.setOrder(next.map(option => option.name));
         this.queueSettingUpsert(PLATFORM_ORDER_STORAGE_KEY, JSON.stringify(next.map(option => option.name)));
         detail.complete();
+    }
+
+    getPlatformCustomizationDisplayName(platform: PlatformCustomizationItem): string {
+        const customName = String(platform.customName ?? '').trim();
+        return customName.length > 0 ? customName : platform.name;
+    }
+
+    getPlatformDisplayName(platformName: string | null | undefined, platformIgdbId: number | null | undefined): string {
+        const label = this.platformCustomizationService.getDisplayName(platformName, platformIgdbId).trim();
+        return label.length > 0 ? label : 'Unknown platform';
+    }
+
+    async editPlatformDisplayName(platform: PlatformCustomizationItem): Promise<void> {
+        let draftName = String(platform.customName ?? '');
+
+        const alert = await this.alertController.create({
+            header: `Display Name (${platform.name})`,
+            inputs: [
+                {
+                    name: 'displayName',
+                    type: 'text',
+                    value: draftName,
+                    placeholder: platform.name,
+                },
+            ],
+            buttons: [
+                {
+                    text: 'Cancel',
+                    role: 'cancel',
+                },
+                {
+                    text: 'Clear',
+                    role: 'destructive',
+                    handler: () => {
+                        draftName = '';
+                    },
+                },
+                {
+                    text: 'Save',
+                    role: 'confirm',
+                    handler: (value: { displayName?: string } | undefined) => {
+                        draftName = String(value?.displayName ?? '').trim();
+                    },
+                },
+            ],
+        });
+
+        await alert.present();
+        const { role } = await alert.onDidDismiss();
+
+        if (role !== 'confirm' && role !== 'destructive') {
+            return;
+        }
+
+        platform.customName = draftName;
+        this.persistPlatformDisplayNames();
     }
 
     private async refreshImageCacheUsage(): Promise<void> {
@@ -2803,6 +2883,49 @@ export class SettingsPage {
                 this.platformOrderService.refreshFromStorage();
                 this.queueSettingUpsert(row.key, row.value);
             }
+
+            if (row.key === PLATFORM_DISPLAY_NAMES_STORAGE_KEY) {
+                this.platformCustomizationService.refreshFromStorage();
+                this.queueSettingUpsert(row.key, row.value);
+            }
+        });
+    }
+
+    private persistPlatformDisplayNames(): void {
+        const next: Record<string, string> = {};
+
+        this.platformOrderItems.forEach(platform => {
+            const platformId = typeof platform.id === 'number' && Number.isInteger(platform.id) && platform.id > 0
+                ? platform.id
+                : null;
+            const customName = String(platform.customName ?? '').trim();
+
+            if (platformId !== null && customName.length > 0) {
+                next[String(platformId)] = customName;
+            }
+        });
+
+        this.platformCustomizationService.setDisplayNames(next);
+
+        if (Object.keys(next).length === 0) {
+            this.queueSettingDelete(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
+            return;
+        }
+
+        this.queueSettingUpsert(PLATFORM_DISPLAY_NAMES_STORAGE_KEY, JSON.stringify(next));
+    }
+
+    private async buildPlatformCustomizationItems(): Promise<PlatformCustomizationItem[]> {
+        const platforms = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+        const displayNames = this.platformCustomizationService.getDisplayNames();
+
+        return platforms.map(platform => {
+            const key = typeof platform.id === 'number' && platform.id > 0 ? String(platform.id) : null;
+            const customName = key ? (displayNames[key] ?? '') : '';
+            return {
+                ...platform,
+                customName,
+            };
         });
     }
 

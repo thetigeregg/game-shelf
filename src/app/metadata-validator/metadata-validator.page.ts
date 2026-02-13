@@ -29,6 +29,7 @@ import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
 import { GameEntry, HltbMatchCandidate, ListType } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type MissingMetadataFilter = 'hltb' | 'nonPcTheGamesDbImage';
@@ -84,6 +85,7 @@ export class MetadataValidatorPage {
   private readonly selectedListType$ = new BehaviorSubject<ListType | null>(null);
   private readonly selectedMissingFilters$ = new BehaviorSubject<MissingMetadataFilter[]>([]);
   private readonly gameShelfService = inject(GameShelfService);
+  private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
 
@@ -121,6 +123,11 @@ export class MetadataValidatorPage {
 
   getDisplayedGamesLabel(): string {
     return this.displayedGames.length === 1 ? '1 game' : `${this.displayedGames.length} games`;
+  }
+
+  getPlatformLabel(game: GameEntry): string {
+    const label = this.platformCustomizationService.getDisplayName(game.platform, game.platformIgdbId).trim();
+    return label.length > 0 ? label : 'Unknown platform';
   }
 
   isGameSelected(game: GameEntry): boolean {

@@ -56,6 +56,7 @@ import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
 import { ManualService } from '../../core/services/manual.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
+import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
@@ -241,6 +242,7 @@ export class GameListComponent implements OnChanges {
     private readonly imageCacheService = inject(ImageCacheService);
     private readonly manualService = inject(ManualService);
     private readonly platformOrderService = inject(PlatformOrderService);
+    private readonly platformCustomizationService = inject(PlatformCustomizationService);
     private readonly changeDetectorRef = inject(ChangeDetectorRef);
     private readonly ngZone = inject(NgZone);
     private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
@@ -1791,11 +1793,12 @@ export class GameListComponent implements OnChanges {
     }
 
     private normalizeFilters(filters: GameListFilters): GameListFilters {
+        this.configureFilteringEngine();
         return this.filteringEngine.normalizeFilters(filters);
     }
 
     private extractPlatforms(games: GameEntry[]): string[] {
-        this.filteringEngine.setPlatformOrder(this.platformOrderService.getDefaultOrder());
+        this.configureFilteringEngine();
         return this.filteringEngine.extractPlatforms(games);
     }
 
@@ -1816,12 +1819,18 @@ export class GameListComponent implements OnChanges {
     }
 
     private applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
+        this.configureFilteringEngine();
         return this.filteringEngine.applyFiltersAndSort(games, filters, searchQuery);
     }
 
     private buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {
-        this.filteringEngine.setPlatformOrder(this.platformOrderService.getDefaultOrder());
+        this.configureFilteringEngine();
         return this.filteringEngine.buildGroupedView(games, groupBy);
+    }
+
+    private configureFilteringEngine(): void {
+        this.filteringEngine.setPlatformOrder(this.platformOrderService.getDefaultOrder());
+        this.filteringEngine.setPlatformDisplayNames(this.platformCustomizationService.getDisplayNames());
     }
 
     private compareTitles(leftTitle: string, rightTitle: string): number {
@@ -1954,8 +1963,13 @@ export class GameListComponent implements OnChanges {
 
     getSimilarGameSubtitle(game: GameEntry): string {
         const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
-        const platform = typeof game.platform === 'string' && game.platform.trim().length > 0 ? game.platform.trim() : 'Unknown platform';
+        const platform = this.getPlatformLabel(game.platform, game.platformIgdbId);
         return `${year} · ${platform}`;
+    }
+
+    getPlatformLabel(platform: string | null | undefined, platformIgdbId: number | null | undefined): string {
+        const label = this.platformCustomizationService.getDisplayName(platform, platformIgdbId).trim();
+        return label.length > 0 ? label : 'Unknown platform';
     }
 
     private normalizeFilterHours(value: number | null | undefined): number | null {

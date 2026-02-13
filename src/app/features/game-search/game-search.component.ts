@@ -7,6 +7,7 @@ import { catchError, debounceTime, distinctUntilChanged, finalize, switchMap, ta
 import { GameCatalogPlatformOption, GameCatalogResult, GameType, ListType } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
+import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 
 interface SelectedPlatform {
@@ -44,6 +45,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     private searchReady = false;
     private readonly gameShelfService = inject(GameShelfService);
     private readonly platformOrderService = inject(PlatformOrderService);
+    private readonly platformCustomizationService = inject(PlatformCustomizationService);
     private readonly alertController = inject(AlertController);
     private readonly toastController = inject(ToastController);
 
@@ -147,7 +149,10 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
             const existingEntry = await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformSelection.id);
 
             if (existingEntry) {
-                await this.presentDuplicateAlert(result.title, platformSelection.name);
+                await this.presentDuplicateAlert(
+                    result.title,
+                    this.getPlatformDisplayName(platformSelection.name, platformSelection.id),
+                );
                 return;
             }
 
@@ -199,10 +204,15 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         }
 
         if (platforms.length === 1) {
-            return platforms[0].name;
+            return this.getPlatformDisplayName(platforms[0].name, platforms[0].id);
         }
 
         return `${platforms.length} platforms`;
+    }
+
+    getPlatformDisplayName(name: string | null | undefined, platformIgdbId: number | null | undefined): string {
+        const label = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+        return label.length > 0 ? label : 'Unknown platform';
     }
 
     getGameTypeBadgeLabel(result: GameCatalogResult): string | null {
@@ -261,7 +271,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
             message: `Select a platform for ${result.title}.`,
             inputs: platforms.map((platform, index) => ({
                 type: 'radio',
-                label: platform.name,
+                label: this.getPlatformDisplayName(platform.name, platform.id),
                 value: String(index),
                 checked: index === selectedIndex,
             })),

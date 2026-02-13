@@ -8,7 +8,7 @@
   >
     <ion-select-option value="">All platforms</ion-select-option>
     <ion-select-option *ngFor="let platform of searchPlatforms" [value]="platform.id">
-      {{ platform.name }}
+      {{ getPlatformDisplayName(platform.name, platform.id) }}
     </ion-select-option>
   </ion-select>
 </ion-item>

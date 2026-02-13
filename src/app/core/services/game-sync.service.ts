@@ -7,6 +7,7 @@ import { ClientSyncOperation, GameEntry, GameListView, SyncChangeEvent, SyncPush
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
 import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from './platform-order.service';
+import { PlatformCustomizationService, PLATFORM_DISPLAY_NAMES_STORAGE_KEY } from './platform-customization.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -29,6 +30,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly httpClient = inject(HttpClient);
   private readonly syncEvents = inject(SyncEventsService);
   private readonly platformOrderService = inject(PlatformOrderService);
+  private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
@@ -359,6 +361,10 @@ export class GameSyncService implements SyncOutboxWriter {
       if (key === PLATFORM_ORDER_STORAGE_KEY) {
         this.platformOrderService.refreshFromStorage();
       }
+
+      if (key === PLATFORM_DISPLAY_NAMES_STORAGE_KEY) {
+        this.platformCustomizationService.refreshFromStorage();
+      }
       return;
     }
 
@@ -378,6 +384,10 @@ export class GameSyncService implements SyncOutboxWriter {
 
     if (key === PLATFORM_ORDER_STORAGE_KEY) {
       this.platformOrderService.refreshFromStorage();
+    }
+
+    if (key === PLATFORM_DISPLAY_NAMES_STORAGE_KEY) {
+      this.platformCustomizationService.refreshFromStorage();
     }
   }
 

@@ -74,8 +74,8 @@
       <ion-label color="medium">Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label>
     </ion-item>
     <ion-item button detail="true" (click)="openPlatformOrderModal()">
-      <ion-icon slot="start" color="primary" name="swap-vertical"></ion-icon>
-      <ion-label>Platform Display Order</ion-label>
+      <ion-icon slot="start" color="primary" name="layers"></ion-icon>
+      <ion-label>Platform Customizations</ion-label>
     </ion-item>
     <ion-item button detail="true" (click)="openMetadataValidator()">
       <ion-icon slot="start" color="primary" name="file-tray-full"></ion-icon>
@@ -128,7 +128,7 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Platform Display Order</ion-title>
+        <ion-title>Platform Customizations</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" (click)="closePlatformOrderModal()">
             <ion-icon slot="icon-only" name="close"></ion-icon>
@@ -139,7 +139,7 @@
 
     <ion-content>
       <ion-item lines="none">
-        <ion-label color="medium">Move platforms up or down to set global display order.</ion-label>
+        <ion-label color="medium">Reorder platforms and set custom display names for UI labels.</ion-label>
       </ion-item>
 
       <ion-item *ngIf="isPlatformOrderLoading" lines="none">
@@ -149,7 +149,13 @@
       <ion-list lines="full" *ngIf="!isPlatformOrderLoading">
         <ion-reorder-group [disabled]="false" (ionItemReorder)="onPlatformOrderReorder($event)">
           <ion-item *ngFor="let platform of platformOrderItems; trackBy: trackByPlatformOrderItem">
-            <ion-label>{{ platform.name }}</ion-label>
+            <ion-label>
+              <h3>{{ getPlatformCustomizationDisplayName(platform) }}</h3>
+              <p>{{ platform.name }}</p>
+            </ion-label>
+            <ion-button fill="clear" size="small" slot="end" (click)="editPlatformDisplayName(platform)">
+              Rename
+            </ion-button>
             <ion-reorder slot="end"></ion-reorder>
           </ion-item>
         </ion-reorder-group>
@@ -159,9 +165,12 @@
     <ion-footer>
       <ion-toolbar>
         <ion-buttons slot="end">
+          <ion-button fill="outline" color="medium" (click)="clearPlatformDisplayNames()">
+            Clear Names
+          </ion-button>
           <ion-button fill="outline" (click)="resetPlatformOrder()">
             <ion-icon slot="start" name="refresh"></ion-icon>
-            Reset
+            Reset Order
           </ion-button>
           <ion-button (click)="closePlatformOrderModal()">Done</ion-button>
         </ion-buttons>
@@ -355,7 +364,7 @@
         >
           <ion-select-option value="">All platforms</ion-select-option>
           <ion-select-option *ngFor="let platform of mgcResolverPlatformOptions" [value]="platform.id">
-            {{ platform.name }}
+            {{ getPlatformDisplayName(platform.name, platform.id) }}
           </ion-select-option>
         </ion-select>
       </ion-item>
@@ -388,7 +397,7 @@
           </ion-thumbnail>
           <ion-label>
             <h2>{{ result.title }}</h2>
-            <p>{{ result.platform || 'Select platform' }}</p>
+            <p>{{ getPlatformDisplayName(result.platform, result.platformIgdbId ?? null) }}</p>
             <p *ngIf="result.releaseYear">{{ result.releaseYear }}</p>
           </ion-label>
           <ion-button slot="end" (click)="chooseMgcResolverResult(result)">Select</ion-button>

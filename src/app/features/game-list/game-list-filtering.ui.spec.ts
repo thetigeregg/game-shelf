@@ -179,6 +179,53 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
+  it('applies custom platform display names by platform id for extraction and filtering', () => {
+    engine.setPlatformDisplayNames({ '130': 'Switch' });
+
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Mario', platform: 'Nintendo Switch' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 167, title: 'Astro', platform: 'PlayStation 5' }),
+    ];
+
+    expect(engine.extractPlatforms(games)).toEqual(['PlayStation 5', 'Switch']);
+
+    const normalizedFilters = engine.normalizeFilters({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      platform: ['Switch'],
+    });
+
+    const filtered = engine.applyFiltersAndSort(games, normalizedFilters, '');
+    expect(filtered.map(game => game.title)).toEqual(['Mario']);
+  });
+
+  it('uses canonical custom names for aliased platforms and keeps default platform order ranking', () => {
+    engine.setPlatformOrder([
+      'Family Computer',
+      'Nintendo Entertainment System',
+      'Super Famicom',
+      'Super Nintendo Entertainment System',
+      'Nintendo 64',
+    ]);
+    engine.setPlatformDisplayNames({
+      '99': 'Famicom',
+      '18': 'NES',
+      '19': 'SNES',
+    });
+
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 99, title: 'JP NES', platform: 'Family Computer' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 18, title: 'US NES', platform: 'Nintendo Entertainment System' }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 58, title: 'JP SNES', platform: 'Super Famicom' }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 19, title: 'US SNES', platform: 'Super Nintendo Entertainment System' }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 4, title: 'N64', platform: 'Nintendo 64' }),
+    ];
+
+    expect(engine.extractPlatforms(games)).toEqual(['NES', 'SNES', 'Nintendo 64']);
+
+    const grouped = engine.buildGroupedView(games, 'platform');
+    expect(grouped.sections.map(section => section.title)).toEqual(['NES', 'SNES', 'Nintendo 64']);
+  });
+
   it('filters by metadata fields, status, rating, and game type', () => {
     const games: GameEntry[] = [
       makeGame({

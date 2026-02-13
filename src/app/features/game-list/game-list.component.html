@@ -185,186 +185,21 @@
 
     <ion-content #detailContent *ngIf="selectedGame as game" class="detail-content">
       <div class="detail-content-inner">
-        <div class="detail-cover">
-          <div
-            class="detail-cover-backdrop"
-            [style.background-image]="getDetailCoverUrl(game) ? 'url(' + getDetailCoverUrl(game) + ')' : 'none'"
-          ></div>
-          <img [src]="getDetailCoverUrl(game)" [alt]="game.title" (error)="onImageError($event)" />
-        </div>
-
-        <ion-list lines="full">
-          <ion-item>
-            <ion-label>
-              <h2>Name</h2>
-              <p class="detail-game-name">{{ game.title }}</p>
-              <ion-badge class="game-type-badge detail-game-type-badge" *ngIf="getGameTypeBadgeLabel(game) as gameTypeBadgeLabel">
-                {{ gameTypeBadgeLabel }}
-              </ion-badge>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>
-              <h2>Platform</h2>
-              <p>{{ getPlatformLabel(game.platform, game.platformIgdbId) }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>
-              <h2>Release Date</h2>
-              <p>{{ formatDate(game.releaseDate) }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item class="detail-text-item">
-            <ion-label class="detail-text-label">
-              <h2>Summary</h2>
-              <p
-                class="detail-long-text"
-                [class.detail-long-text-collapsed]="!isDetailTextExpanded('summary')"
-              >
-                {{ game.summary || 'None' }}
-              </p>
-              <ion-button
-                *ngIf="shouldShowDetailTextToggle(game.summary)"
-                fill="clear"
-                size="small"
-                class="detail-text-toggle"
-                (click)="toggleDetailText('summary')"
-              >
-                {{ isDetailTextExpanded('summary') ? 'Show less' : 'Show more' }}
-              </ion-button>
-            </ion-label>
-          </ion-item>
-          <ion-item class="detail-text-item">
-            <ion-label class="detail-text-label">
-              <h2>Storyline</h2>
-              <p
-                class="detail-long-text"
-                [class.detail-long-text-collapsed]="!isDetailTextExpanded('storyline')"
-              >
-                {{ game.storyline || 'None' }}
-              </p>
-              <ion-button
-                *ngIf="shouldShowDetailTextToggle(game.storyline)"
-                fill="clear"
-                size="small"
-                class="detail-text-toggle"
-                (click)="toggleDetailText('storyline')"
-              >
-                {{ isDetailTextExpanded('storyline') ? 'Show less' : 'Show more' }}
-              </ion-button>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-select
-              label="Status"
-              labelPlacement="stacked"
-              placeholder="Select status"
-              [value]="game.status || undefined"
-              (ionChange)="onSelectedGameStatusChange($any($event).detail.value)"
-            >
-              <ion-select-option *ngFor="let option of statusOptions" [value]="option.value">
-                {{ option.label }}
-              </ion-select-option>
-            </ion-select>
-            <ion-button
-              slot="end"
-              class="detail-clear-button"
-              color="medium"
-              aria-label="Clear status"
-              (click)="clearSelectedGameStatus()"
-            >
-              CLEAR
-            </ion-button>
-          </ion-item>
-          <ion-item>
-            <ion-select
-              label="Rating"
-              labelPlacement="stacked"
-              placeholder="Select rating"
-              [value]="game.rating || undefined"
-              (ionChange)="onSelectedGameRatingChange($any($event).detail.value)"
-            >
-              <ion-select-option *ngFor="let rating of ratingOptions" [value]="rating">
-                {{ rating }}
-              </ion-select-option>
-            </ion-select>
-            <ion-button
-              slot="end"
-              class="detail-clear-button"
-              color="medium"
-              aria-label="Clear rating"
-              (click)="clearSelectedGameRating()"
-            >
-              CLEAR
-            </ion-button>
-          </ion-item>
-          <ion-item button detail="false" (click)="openSelectedGameTagsFromDetail()">
-            <ion-label>
-              <h2>Tags</h2>
-              <div class="game-tags" *ngIf="game.tags && game.tags.length > 0; else noTagsInDetail">
-                <ion-badge
-                  *ngFor="let tag of game.tags"
-                  [style.--background]="tag.color"
-                  [style.color]="getTagTextColor(tag.color)"
-                >
-                  {{ tag.name }}
-                </ion-badge>
-              </div>
-              <ng-template #noTagsInDetail>
-                <p>None</p>
-              </ng-template>
-            </ion-label>
-          </ion-item>
-          <ion-item [button]="hasMetadataValue(game.developers)" [detail]="hasMetadataValue(game.developers)" (click)="onDeveloperItemClick(game)">
-            <ion-label>
-              <h2>Developer</h2>
-              <p>{{ formatMetadataList(game.developers) }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item [button]="hasMetadataValue(game.collections)" [detail]="hasMetadataValue(game.collections)" (click)="onSeriesItemClick(game)">
-            <ion-label>
-              <h2>Series</h2>
-              <p>{{ hasMetadataValue(game.collections) ? formatMetadataList(game.collections) : 'None' }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item [button]="hasMetadataValue(game.franchises)" [detail]="hasMetadataValue(game.franchises)" (click)="onFranchiseItemClick(game)">
-            <ion-label>
-              <h2>Franchise</h2>
-              <p>{{ hasMetadataValue(game.franchises) ? formatMetadataList(game.franchises) : 'None' }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>
-              <h2>Genres</h2>
-              <p>{{ formatMetadataList(game.genres) }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item [button]="hasMetadataValue(game.publishers)" [detail]="hasMetadataValue(game.publishers)" (click)="onPublisherItemClick(game)">
-            <ion-label>
-              <h2>Publisher</h2>
-              <p>{{ formatMetadataList(game.publishers) }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>
-              <h2>HLTB Main Story</h2>
-              <p>{{ formatCompletionHours(game.hltbMainHours) }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>
-              <h2>HLTB Main + Extras</h2>
-              <p>{{ formatCompletionHours(game.hltbMainExtraHours) }}</p>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>
-              <h2>HLTB Completionist</h2>
-              <p>{{ formatCompletionHours(game.hltbCompletionistHours) }}</p>
-            </ion-label>
-          </ion-item>
-        </ion-list>
+        <app-game-detail-content
+          [game]="getDetailGamePayload(game)"
+          context="library"
+          [statusOptions]="statusOptions"
+          [ratingOptions]="ratingOptions"
+          (statusChange)="onSelectedGameStatusChange($event)"
+          (clearStatus)="clearSelectedGameStatus()"
+          (ratingChange)="onSelectedGameRatingChange($event)"
+          (clearRating)="clearSelectedGameRating()"
+          (openTags)="openSelectedGameTagsFromDetail()"
+          (developerClick)="onDetailDeveloperClick()"
+          (seriesClick)="onDetailSeriesClick()"
+          (franchiseClick)="onDetailFranchiseClick()"
+          (publisherClick)="onDetailPublisherClick()"
+        ></app-game-detail-content>
 
         <ion-list lines="full">
           <ion-list-header class="similar-games-header">

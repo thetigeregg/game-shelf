@@ -78,6 +78,7 @@ import {
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { GameSearchComponent } from '../game-search/game-search.component';
+import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { addIcons } from "ionicons";
 import { star, ellipsisHorizontal, close, closeCircle, starOutline, play, trashBin, trophy, bookmark, pause, refresh, search, logoGoogle, logoYoutube, chevronBack, documentText } from "ionicons/icons";
 
@@ -136,6 +137,7 @@ export interface MetadataFilterSelection {
         IonFabButton,
         IonFabList,
         GameSearchComponent,
+        GameDetailContentComponent,
     ],
 })
 export class GameListComponent implements OnChanges {
@@ -715,6 +717,40 @@ export class GameListComponent implements OnChanges {
 
     onPublisherItemClick(game: GameEntry): void {
         this.openMetadataFilterSelection('publisher', game.publishers, 'Select Publisher');
+    }
+
+    onDetailDeveloperClick(): void {
+        if (this.selectedGame) {
+            this.onDeveloperItemClick(this.selectedGame);
+        }
+    }
+
+    onDetailSeriesClick(): void {
+        if (this.selectedGame) {
+            this.onSeriesItemClick(this.selectedGame);
+        }
+    }
+
+    onDetailFranchiseClick(): void {
+        if (this.selectedGame) {
+            this.onFranchiseItemClick(this.selectedGame);
+        }
+    }
+
+    onDetailPublisherClick(): void {
+        if (this.selectedGame) {
+            this.onPublisherItemClick(this.selectedGame);
+        }
+    }
+
+    getDetailGamePayload(game: GameEntry): GameCatalogResult {
+        return {
+            ...game,
+            coverUrl: this.getDetailCoverUrl(game),
+            platforms: [game.platform],
+            platform: game.platform,
+            platformOptions: [{ id: game.platformIgdbId, name: game.platform }],
+        };
     }
 
     get metadataPickerFieldLabel(): string {

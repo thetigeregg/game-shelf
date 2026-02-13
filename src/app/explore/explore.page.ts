@@ -6,8 +6,11 @@ import {
   IonItem,
   IonLabel,
   IonList,
+  IonModal,
   IonSelect,
   IonSelectOption,
+  IonButton,
+  IonButtons,
   IonSpinner,
   IonTitle,
   IonToolbar,
@@ -17,8 +20,9 @@ import {
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
-import { PopularityGameResult, PopularityTypeOption } from '../core/models/game.models';
+import { GameCatalogResult, PopularityGameResult, PopularityTypeOption } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
+import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
 
 @Component({
   selector: 'app-explore-page',
@@ -33,13 +37,17 @@ import { PlatformCustomizationService } from '../core/services/platform-customiz
     IonContent,
     IonItem,
     IonLabel,
+    IonModal,
     IonSelect,
     IonSelectOption,
+    IonButton,
+    IonButtons,
     IonSpinner,
     IonList,
     IonInfiniteScroll,
     IonInfiniteScrollContent,
     IonText,
+    GameDetailContentComponent,
   ],
 })
 export class ExplorePage implements OnInit {
@@ -53,6 +61,10 @@ export class ExplorePage implements OnInit {
   isLoadingMore = false;
   hasMore = false;
   errorMessage = '';
+  isGameDetailModalOpen = false;
+  isLoadingDetail = false;
+  detailErrorMessage = '';
+  selectedGameDetail: GameCatalogResult | null = null;
 
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
@@ -105,6 +117,29 @@ export class ExplorePage implements OnInit {
     return `${item.game.igdbGameId}:${index}`;
   }
 
+  async openGameDetail(item: PopularityGameResult): Promise<void> {
+    this.isGameDetailModalOpen = true;
+    this.isLoadingDetail = true;
+    this.detailErrorMessage = '';
+    this.selectedGameDetail = item.game;
+
+    try {
+      const detail = await firstValueFrom(this.igdbProxyService.getGameById(item.game.igdbGameId));
+      this.selectedGameDetail = detail;
+    } catch (error) {
+      this.detailErrorMessage = error instanceof Error ? error.message : 'Unable to load game details.';
+    } finally {
+      this.isLoadingDetail = false;
+    }
+  }
+
+  closeGameDetailModal(): void {
+    this.isGameDetailModalOpen = false;
+    this.isLoadingDetail = false;
+    this.detailErrorMessage = '';
+    this.selectedGameDetail = null;
+  }
+
   onImageError(event: Event): void {
     const target = event.target;
 
@@ -115,16 +150,7 @@ export class ExplorePage implements OnInit {
 
   getPlatformLabel(item: PopularityGameResult): string {
     const preferredPlatform = this.resolvePreferredPlatform(item);
-
-    if (preferredPlatform.name.length > 0) {
-      const aliased = this.platformCustomizationService.getDisplayName(preferredPlatform.name, preferredPlatform.id).trim();
-
-      if (aliased.length > 0) {
-        return aliased;
-      }
-    }
-
-    return 'Unknown platform';
+    return this.getAliasedPlatformLabel(preferredPlatform.name, preferredPlatform.id);
   }
 
   private resolvePreferredPlatform(item: PopularityGameResult): { id: number | null; name: string } {
@@ -156,6 +182,18 @@ export class ExplorePage implements OnInit {
     }
 
     return { id: null, name: '' };
+  }
+
+  private getAliasedPlatformLabel(name: string, platformIgdbId: number | null): string {
+    if (name.trim().length > 0) {
+      const aliased = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+
+      if (aliased.length > 0) {
+        return aliased;
+      }
+    }
+
+    return 'Unknown platform';
   }
 
   private async loadPopularityTypes(): Promise<void> {

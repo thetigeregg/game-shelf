@@ -1,0 +1,118 @@
+.detail-content-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.detail-cover {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  height: 350px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.detail-cover img {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 5px;
+}
+
+.detail-cover-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(10px);
+  opacity: 0.5;
+  transform: scale(1.05);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.detail-game-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.detail-clear-button {
+  margin-left: 8px;
+}
+
+.detail-text-item {
+  --inner-padding-end: 0;
+}
+
+.detail-text-label {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  margin-right: 0;
+}
+
+.detail-long-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  margin-bottom: 6px;
+}
+
+.detail-long-text-collapsed {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.detail-text-toggle {
+  margin: 0;
+  min-height: 24px;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.game-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.game-tags ion-badge {
+  font-size: 0.68rem;
+}
+
+.game-type-badge {
+  --background: #4a4a4a;
+  --color: #ffffff;
+  margin-top: 6px;
+  margin-right: 6px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.detail-game-type-badge {
+  margin-top: 8px;
+}
+
+ion-item h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+ion-item p {
+  margin-top: 4px;
+  color: var(--ion-color-medium);
+}

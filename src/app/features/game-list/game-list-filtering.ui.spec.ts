@@ -133,6 +133,36 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(engine.extractGameTypes(games)).toEqual(['expansion', 'main_game']);
   });
 
+  it('treats Family Computer as Nintendo Entertainment System for platform filters/options', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 99, title: 'JP Game', platform: 'Family Computer' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 18, title: 'US Game', platform: 'Nintendo Entertainment System' }),
+    ];
+
+    expect(engine.extractPlatforms(games)).toEqual(['Nintendo Entertainment System']);
+
+    const normalizedFilters = engine.normalizeFilters({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      platform: ['Family Computer'],
+    });
+
+    expect(normalizedFilters.platform).toEqual(['Nintendo Entertainment System']);
+
+    const filtered = engine.applyFiltersAndSort(games, normalizedFilters, '');
+    expect(filtered.map(game => game.title)).toEqual(['JP Game', 'US Game']);
+  });
+
+  it('treats Super Famicom as Super Nintendo Entertainment System for platform grouping', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 58, title: 'JP SNES', platform: 'Super Famicom' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 19, title: 'US SNES', platform: 'Super Nintendo Entertainment System' }),
+    ];
+
+    const grouped = engine.buildGroupedView(games, 'platform');
+    expect(grouped.sections.map(section => section.title)).toEqual(['Super Nintendo Entertainment System']);
+    expect(grouped.sections[0].games.map(game => game.title)).toEqual(['JP SNES', 'US SNES']);
+  });
+
   it('applies custom platform order when extracting platform lists', () => {
     engine.setPlatformOrder(['PC (Microsoft Windows)', 'Nintendo Switch']);
 

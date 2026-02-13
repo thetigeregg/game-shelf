@@ -47,6 +47,10 @@ interface NormalizedFilterGame {
 }
 
 export class GameListFilteringEngine {
+  private static readonly PLATFORM_DISPLAY_ALIAS_MAP: Record<string, string> = {
+    'family computer': 'Nintendo Entertainment System',
+    'super famicom': 'Super Nintendo Entertainment System',
+  };
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
   private readonly platformOrderByKey = new Map<string, number>();
 
@@ -65,7 +69,11 @@ export class GameListFilteringEngine {
   }
 
   normalizeFilters(filters: GameListFilters): GameListFilters {
-    const normalizedPlatforms = normalizeStringList(filters.platform);
+    const normalizedPlatforms = [...new Set(
+      normalizeStringList(filters.platform)
+        .map(platform => this.getCanonicalPlatformLabel(platform))
+        .filter(platform => platform.length > 0),
+    )];
     const normalizedGenres = normalizeStringList(filters.genres);
     const normalizedCollections = normalizeStringList(filters.collections);
     const normalizedDevelopers = normalizeStringList(filters.developers);
@@ -103,7 +111,7 @@ export class GameListFilteringEngine {
   extractPlatforms(games: GameEntry[]): string[] {
     return [...new Set(
       games
-        .map(game => game.platform?.trim() ?? '')
+        .map(game => this.getCanonicalPlatformLabel(game.platform))
         .filter(platform => platform.length > 0),
     )].sort((a, b) => this.comparePlatformNames(a, b));
   }
@@ -201,7 +209,7 @@ export class GameListFilteringEngine {
     const noGroupLabel = this.getNoGroupLabel(groupBy);
 
     if (groupBy === 'platform') {
-      return [game.platform?.trim() || noGroupLabel];
+      return [this.getCanonicalPlatformLabel(game.platform) || noGroupLabel];
     }
 
     if (groupBy === 'releaseYear') {
@@ -293,10 +301,21 @@ export class GameListFilteringEngine {
   }
 
   private normalizePlatformOrderKey(value: string): string {
-    return String(value ?? '')
+    return this.getCanonicalPlatformLabel(value)
       .trim()
       .toLowerCase()
       .replace(/\s+/g, ' ');
+  }
+
+  private getCanonicalPlatformLabel(value: string | null | undefined): string {
+    const trimmed = String(value ?? '').trim();
+
+    if (trimmed.length === 0) {
+      return '';
+    }
+
+    const normalizedKey = trimmed.toLowerCase().replace(/\s+/g, ' ');
+    return GameListFilteringEngine.PLATFORM_DISPLAY_ALIAS_MAP[normalizedKey] ?? trimmed;
   }
 
   private getNoGroupLabel(groupBy: GameGroupByField): string {
@@ -455,7 +474,7 @@ export class GameListFilteringEngine {
     const normalized: NormalizedFilterGame = {
       updatedAt: gameUpdatedAt,
       titleLower: String(game.title ?? '').trim().toLowerCase(),
-      platform: String(game.platform ?? '').trim(),
+      platform: this.getCanonicalPlatformLabel(game.platform),
       collections: new Set(normalizeStringList(game.collections)),
       developers: new Set(normalizeStringList(game.developers)),
       franchises: new Set(normalizeStringList(game.franchises)),

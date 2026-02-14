@@ -69,3 +69,9 @@ ion-label p {
   font-weight: 700;
   line-height: 1;
 }
+
+ion-header[collapse='condense'] ion-toolbar {
+  --border-width: 0 0 0.55px;
+  --border-style: solid;
+  --border-color: rgba(var(--ion-color-medium-rgb), 0.35);
+}

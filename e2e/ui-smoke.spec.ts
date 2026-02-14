@@ -4,6 +4,9 @@ test('collection page loads core controls', async ({ page }) => {
   await page.goto('/tabs/collection');
 
   await expect(page.locator('ion-title .page-title', { hasText: 'Collection' })).toBeVisible();
+  const searchButton = page.getByRole('button', { name: 'Search games' });
+  await expect(searchButton).toBeVisible();
+  await searchButton.click();
   await expect(page.getByPlaceholder('Search collection')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open filters' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add game' })).toBeVisible();

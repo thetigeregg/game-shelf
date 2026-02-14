@@ -1,17 +1,3 @@
-<app-game-filters-menu
-  [menuId]="menuId"
-  [contentId]="contentId"
-  [platformOptions]="platformOptions"
-  [collectionOptions]="collectionOptions"
-  [gameTypeOptions]="gameTypeOptions"
-  [genreOptions]="genreOptions"
-  [tagOptions]="tagOptions"
-  [filters]="filters"
-  [groupBy]="groupBy"
-  (filtersChange)="onFiltersChange($event)"
-  (groupByChange)="onGroupByChange($event)"
-></app-game-filters-menu>
-
 <ion-header
   [translucent]="true"
   [class.selection-mode-header]="isSelectionMode"
@@ -242,3 +228,17 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<app-game-filters-menu
+  [menuId]="menuId"
+  [contentId]="contentId"
+  [platformOptions]="platformOptions"
+  [collectionOptions]="collectionOptions"
+  [gameTypeOptions]="gameTypeOptions"
+  [genreOptions]="genreOptions"
+  [tagOptions]="tagOptions"
+  [filters]="filters"
+  [groupBy]="groupBy"
+  (filtersChange)="onFiltersChange($event)"
+  (groupByChange)="onGroupByChange($event)"
+></app-game-filters-menu>

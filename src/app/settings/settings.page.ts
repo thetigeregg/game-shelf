@@ -18,7 +18,7 @@ import {
     ListType,
     Tag,
 } from '../core/models/game.models';
-import { COLOR_SCHEME_STORAGE_KEY, ColorSchemePreference, PRIMARY_COLOR_STORAGE_KEY, ThemeService } from '../core/services/theme.service';
+import { COLOR_SCHEME_STORAGE_KEY, ColorSchemePreference, ThemeService } from '../core/services/theme.service';
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
@@ -29,10 +29,7 @@ import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 import { addIcons } from "ionicons";
 import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers } from "ionicons/icons";
 
-interface ThemePreset {
-    label: string;
-    value: string;
-}
+const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
 
 type ExportRowType = 'game' | 'tag' | 'view' | 'setting';
 
@@ -248,21 +245,12 @@ export class SettingsPage {
     private static readonly IMAGE_CACHE_MIN_MB = 20;
     private static readonly IMAGE_CACHE_MAX_MB = 2048;
 
-    readonly presets: ThemePreset[] = [
-        { label: 'Ionic Blue', value: '#3880ff' },
-        { label: 'Emerald', value: '#2ecc71' },
-        { label: 'Sunset Orange', value: '#ff6b35' },
-        { label: 'Rose', value: '#e91e63' },
-        { label: 'Slate', value: '#546e7a' },
-    ];
     readonly colorSchemeOptions: Array<{ label: string; value: ColorSchemePreference }> = [
         { label: 'System', value: 'system' },
         { label: 'Light', value: 'light' },
         { label: 'Dark', value: 'dark' },
     ];
 
-    selectedColor = '';
-    customColor = '';
     selectedColorScheme: ColorSchemePreference = 'system';
     imageCacheLimitMb = 200;
     imageCacheUsageMb = 0;
@@ -310,9 +298,6 @@ export class SettingsPage {
     private readonly router = inject(Router);
 
     constructor() {
-        const currentColor = this.themeService.getPrimaryColor();
-        this.selectedColor = this.findPresetColor(currentColor) ?? 'custom';
-        this.customColor = currentColor;
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
@@ -516,28 +501,6 @@ export class SettingsPage {
             && this.mgcBlockedCount === 0
             && !this.isApplyingMgcImport
             && !this.isResolvingMgcPage;
-    }
-
-    onPresetColorChange(value: string): void {
-        if (value === 'custom') {
-            this.selectedColor = value;
-            this.themeService.setPrimaryColor(this.customColor);
-            return;
-        }
-
-        this.selectedColor = value;
-        this.customColor = value;
-        this.themeService.setPrimaryColor(value);
-    }
-
-    onCustomColorChange(value: string): void {
-        if (!value) {
-            return;
-        }
-
-        this.customColor = value;
-        this.selectedColor = 'custom';
-        this.themeService.setPrimaryColor(value);
     }
 
     async exportCsv(): Promise<void> {
@@ -2834,7 +2797,7 @@ export class SettingsPage {
             for (let i = 0; i < localStorage.length; i += 1) {
                 const key = localStorage.key(i);
 
-                if (!key || !key.startsWith('game-shelf')) {
+                if (!key || !key.startsWith('game-shelf') || key === LEGACY_PRIMARY_COLOR_STORAGE_KEY) {
                     continue;
                 }
 
@@ -2848,12 +2811,7 @@ export class SettingsPage {
             // Ignore storage read issues.
         }
 
-        const colorKey = PRIMARY_COLOR_STORAGE_KEY;
         const colorSchemeKey = COLOR_SCHEME_STORAGE_KEY;
-
-        if (!entries.some(([key]) => key === colorKey)) {
-            entries.push([colorKey, this.themeService.getPrimaryColor()]);
-        }
 
         if (!entries.some(([key]) => key === colorSchemeKey)) {
             entries.push([colorSchemeKey, this.themeService.getColorSchemePreference()]);
@@ -2864,14 +2822,19 @@ export class SettingsPage {
 
     private applyImportedSettings(rows: ParsedSettingImportRow[]): void {
         rows.forEach(row => {
+            if (row.key === LEGACY_PRIMARY_COLOR_STORAGE_KEY) {
+                try {
+                    localStorage.removeItem(LEGACY_PRIMARY_COLOR_STORAGE_KEY);
+                } catch {
+                    // Ignore storage write failures.
+                }
+                return;
+            }
+
             try {
                 localStorage.setItem(row.key, row.value);
             } catch {
                 // Ignore storage write failures.
-            }
-
-            if (row.key === PRIMARY_COLOR_STORAGE_KEY) {
-                this.themeService.setPrimaryColor(row.value);
             }
 
             if (row.key === COLOR_SCHEME_STORAGE_KEY && (row.value === 'system' || row.value === 'light' || row.value === 'dark')) {
@@ -3062,10 +3025,6 @@ export class SettingsPage {
         } finally {
             URL.revokeObjectURL(objectUrl);
         }
-    }
-
-    private findPresetColor(color: string): string | null {
-        return this.presets.find(preset => preset.value === color)?.value ?? null;
     }
 
     private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {

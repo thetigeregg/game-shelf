@@ -27,30 +27,6 @@
       </ion-select>
     </ion-item>
 
-    <ion-item>
-      <ion-label>Primary Theme Color</ion-label>
-      <ion-select
-        labelPlacement="end"
-        interface="popover"
-        [value]="selectedColor"
-        (ionChange)="onPresetColorChange($any($event).detail.value)"
-      >
-        <ion-select-option *ngFor="let preset of presets" [value]="preset.value">
-          {{ preset.label }}
-        </ion-select-option>
-        <ion-select-option value="custom">Custom</ion-select-option>
-      </ion-select>
-    </ion-item>
-
-    <ion-item>
-      <ion-label>Custom Color</ion-label>
-      <input
-        class="color-input"
-        type="color"
-        [value]="customColor"
-        (change)="onCustomColorChange($any($event.target).value)"
-      />
-    </ion-item>
   </ion-list>
 
   <ion-list lines="full">

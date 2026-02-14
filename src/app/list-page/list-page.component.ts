@@ -57,6 +57,7 @@ import {
   checkbox,
   squareOutline,
   add,
+  search,
 } from 'ionicons/icons';
 
 type ListPageConfig = {
@@ -149,6 +150,7 @@ export class ListPageComponent {
   listSearchQuery = '';
   groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
+  isSearchModalOpen = false;
   isSelectionMode = false;
   selectedGamesCount = 0;
   allDisplayedSelected = false;
@@ -157,6 +159,7 @@ export class ListPageComponent {
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
+  @ViewChild('modalSearchbar') private modalSearchbar?: IonSearchbar;
   private readonly menuController = inject(MenuController);
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
@@ -193,6 +196,7 @@ export class ListPageComponent {
       checkbox,
       squareOutline,
       add,
+      search,
     });
   }
 
@@ -321,6 +325,22 @@ export class ListPageComponent {
 
   onListSearchChange(value: string | null | undefined): void {
     this.listSearchQuery = (value ?? '').replace(/^\s+/, '');
+  }
+
+  openSearchModal(): void {
+    this.isSearchModalOpen = true;
+  }
+
+  closeSearchModal(): void {
+    this.isSearchModalOpen = false;
+  }
+
+  clearSearch(): void {
+    this.listSearchQuery = '';
+  }
+
+  async focusSearchbar(): Promise<void> {
+    await this.modalSearchbar?.setFocus();
   }
 
   onDisplayedGamesChange(games: GameEntry[]): void {

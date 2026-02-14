@@ -23,6 +23,15 @@
     <ion-buttons slot="end" [collapse]="true">
       <ion-button
         *ngIf="!isSelectionMode"
+        aria-label="Search games"
+        (click)="openSearchModal()"
+        class="search-button"
+      >
+        <ion-icon slot="icon-only" name="search"></ion-icon>
+        <ion-badge *ngIf="listSearchQuery.trim().length > 0" class="search-active-indicator"></ion-badge>
+      </ion-button>
+      <ion-button
+        *ngIf="!isSelectionMode"
         aria-label="Open filters"
         (click)="openFiltersMenu()"
         class="filters-button"
@@ -63,12 +72,6 @@
     </ion-buttons>
   </ion-toolbar>
   <ion-toolbar *ngIf="!isSelectionMode">
-    <ion-searchbar
-      class="list-header-searchbar"
-      [placeholder]="searchPlaceholder"
-      [value]="listSearchQuery"
-      (ionInput)="onListSearchChange($any($event).detail.value)"
-    ></ion-searchbar>
   </ion-toolbar>
 </ion-header>
 
@@ -80,6 +83,14 @@
         <span class="condensed-count-inline">{{ getListCountSummary() }}</span>
       </ion-title>
       <ion-buttons [collapse]="true" slot="end">
+        <ion-button
+          aria-label="Search games"
+          (click)="openSearchModal()"
+          class="search-button"
+        >
+          <ion-icon slot="icon-only" name="search"></ion-icon>
+          <ion-badge *ngIf="listSearchQuery.trim().length > 0" class="search-active-indicator"></ion-badge>
+        </ion-button>
         <ion-button
           aria-label="Open filters"
           (click)="openFiltersMenu()"
@@ -212,6 +223,32 @@
     </ion-fab-button>
   </ion-fab>
 </ion-content>
+
+<ion-modal
+  [isOpen]="isSearchModalOpen"
+  [initialBreakpoint]="0.2"
+  [breakpoints]="[0, 0.2]"
+  [backdropBreakpoint]="0.12"
+  (didPresent)="focusSearchbar()"
+  (didDismiss)="closeSearchModal()"
+>
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Search {{ pageTitle }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <ion-searchbar
+        #modalSearchbar
+        [placeholder]="searchPlaceholder"
+        [value]="listSearchQuery"
+        (ionInput)="onListSearchChange($any($event).detail.value)"
+        (ionClear)="clearSearch()"
+      ></ion-searchbar>
+    </ion-content>
+  </ng-template>
+</ion-modal>
 
 <ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">
   <ng-template>

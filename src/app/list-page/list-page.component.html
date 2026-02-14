@@ -3,7 +3,7 @@
   [class.selection-mode-header]="isSelectionMode"
 >
   <ion-toolbar>
-    <ion-buttons slot="start" *ngIf="isSelectionMode">
+    <ion-buttons slot="start" *ngIf="isSelectionMode" [collapse]="true">
       <ion-button
         aria-label="Exit selection mode"
         (click)="clearSelectionMode()"
@@ -19,7 +19,7 @@
       getSelectionHeaderLabel()
     }}</ion-title>
 
-    <ion-buttons slot="end">
+    <ion-buttons slot="end" [collapse]="true">
       <ion-button
         *ngIf="!isSelectionMode"
         aria-label="Open filters"
@@ -76,7 +76,7 @@
   <ion-header collapse="condense" *ngIf="!isSelectionMode">
     <ion-toolbar>
       <ion-title size="large">{{ pageTitle }}</ion-title>
-      <ion-buttons slot="end">
+      <ion-buttons [collapse]="true" slot="end">
         <ion-button
           aria-label="Open filters"
           (click)="openFiltersMenu()"

@@ -73,3 +73,9 @@ ion-header ion-button {
   line-height: 1;
   padding: 0 4px;
 }
+
+ion-header[collapse='condense'] ion-toolbar {
+  --border-width: 0 0 0.55px;
+  --border-style: solid;
+  --border-color: rgba(var(--ion-color-medium-rgb), 0.35);
+}

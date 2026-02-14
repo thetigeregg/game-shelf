@@ -20,43 +20,13 @@
       getSelectionHeaderLabel()
     }}</ion-title>
 
-    <ion-buttons slot="end" [collapse]="true">
+    <ng-container
+      *ngIf="!isSelectionMode"
+      [ngTemplateOutlet]="browseHeaderActions"
+      [ngTemplateOutletContext]="{ collapseAttr: true }"
+    ></ng-container>
+    <ion-buttons slot="end" *ngIf="isSelectionMode" [collapse]="true">
       <ion-button
-        *ngIf="!isSelectionMode"
-        aria-label="Search games"
-        (click)="openSearchModal()"
-        class="search-button"
-      >
-        <ion-icon slot="icon-only" name="search"></ion-icon>
-        <ion-badge
-          *ngIf="listSearchQuery.trim().length > 0"
-          class="search-active-indicator"
-        ></ion-badge>
-      </ion-button>
-      <ion-button
-        *ngIf="!isSelectionMode"
-        aria-label="Open filters"
-        (click)="openFiltersMenu()"
-        class="filters-button"
-      >
-        <ion-icon slot="icon-only" name="filter"></ion-icon>
-        <ion-badge
-          *ngIf="getActiveFilterCount() > 0"
-          color="danger"
-          class="filters-active-count"
-        >
-          {{ getActiveFilterCount() }}
-        </ion-badge>
-      </ion-button>
-      <ion-button
-        *ngIf="!isSelectionMode"
-        [attr.aria-label]="getHeaderActionsAriaLabel()"
-        (click)="openHeaderActionsPopover($event)"
-      >
-        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
-      </ion-button>
-      <ion-button
-        *ngIf="isSelectionMode"
         aria-label="Select all games"
         (click)="toggleSelectAll()"
       >
@@ -66,7 +36,6 @@
         ></ion-icon>
       </ion-button>
       <ion-button
-        *ngIf="isSelectionMode"
         aria-label="Open bulk actions"
         (click)="openBulkActionsPopover($event)"
       >
@@ -83,39 +52,10 @@
         <span>{{ pageTitle }}</span>
         <span class="condensed-count-inline">{{ getListCountSummary() }}</span>
       </ion-title>
-      <ion-buttons [collapse]="true" slot="end">
-        <ion-button
-          aria-label="Search games"
-          (click)="openSearchModal()"
-          class="search-button"
-        >
-          <ion-icon slot="icon-only" name="search"></ion-icon>
-          <ion-badge
-            *ngIf="listSearchQuery.trim().length > 0"
-            class="search-active-indicator"
-          ></ion-badge>
-        </ion-button>
-        <ion-button
-          aria-label="Open filters"
-          (click)="openFiltersMenu()"
-          class="filters-button"
-        >
-          <ion-icon slot="icon-only" name="filter"></ion-icon>
-          <ion-badge
-            *ngIf="getActiveFilterCount() > 0"
-            color="danger"
-            class="filters-active-count"
-          >
-            {{ getActiveFilterCount() }}
-          </ion-badge>
-        </ion-button>
-        <ion-button
-          [attr.aria-label]="getHeaderActionsAriaLabel()"
-          (click)="openHeaderActionsPopover($event)"
-        >
-          <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
-        </ion-button>
-      </ion-buttons>
+      <ng-container
+        [ngTemplateOutlet]="browseHeaderActions"
+        [ngTemplateOutletContext]="{ collapseAttr: true }"
+      ></ng-container>
     </ion-toolbar>
   </ion-header>
 
@@ -286,3 +226,39 @@
   (filtersChange)="onFiltersChange($event)"
   (groupByChange)="onGroupByChange($event)"
 ></app-game-filters-menu>
+
+<ng-template #browseHeaderActions let-collapseAttr="collapseAttr">
+  <ion-buttons slot="end" [collapse]="collapseAttr">
+    <ion-button
+      aria-label="Search games"
+      (click)="openSearchModal()"
+      class="search-button"
+    >
+      <ion-icon slot="icon-only" name="search"></ion-icon>
+      <ion-badge
+        *ngIf="listSearchQuery.trim().length > 0"
+        class="search-active-indicator"
+      ></ion-badge>
+    </ion-button>
+    <ion-button
+      aria-label="Open filters"
+      (click)="openFiltersMenu()"
+      class="filters-button"
+    >
+      <ion-icon slot="icon-only" name="filter"></ion-icon>
+      <ion-badge
+        *ngIf="getActiveFilterCount() > 0"
+        color="danger"
+        class="filters-active-count"
+      >
+        {{ getActiveFilterCount() }}
+      </ion-badge>
+    </ion-button>
+    <ion-button
+      [attr.aria-label]="getHeaderActionsAriaLabel()"
+      (click)="openHeaderActionsPopover($event)"
+    >
+      <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
+    </ion-button>
+  </ion-buttons>
+</ng-template>

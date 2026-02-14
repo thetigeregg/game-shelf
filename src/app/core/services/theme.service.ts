@@ -4,7 +4,8 @@ export const PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
 export const COLOR_SCHEME_STORAGE_KEY = 'game-shelf-color-scheme';
 const DARK_CLASS_NAME = 'ion-palette-dark';
 const DEFAULT_PRIMARY_COLOR = '#3880ff';
-const PRIMARY_CONTRAST_COLOR = '#ffffff';
+const LIGHT_CONTRAST_COLOR = '#ffffff';
+const DARK_CONTRAST_COLOR = '#111111';
 const DEFAULT_COLOR_SCHEME_PREFERENCE: ColorSchemePreference = 'system';
 
 export type ColorSchemePreference = 'system' | 'light' | 'dark';
@@ -105,7 +106,7 @@ export class ThemeService {
     const rgb = this.hexToRgb(normalizedColor);
     const shade = this.adjustColor(normalizedColor, -0.1);
     const tint = this.adjustColor(normalizedColor, 0.1);
-    const contrast = PRIMARY_CONTRAST_COLOR;
+    const contrast = this.getContrastColor(normalizedColor);
     const contrastRgb = this.hexToRgb(contrast);
     const rootStyle = document.documentElement.style;
 
@@ -201,6 +202,12 @@ export class ThemeService {
     const nextB = adjustChannel(b).toString(16).padStart(2, '0');
 
     return `#${nextR}${nextG}${nextB}`;
+  }
+
+  private getContrastColor(hexColor: string): string {
+    const { r, g, b } = this.hexToRgb(hexColor);
+    const luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
+    return luminance > 150 ? DARK_CONTRAST_COLOR : LIGHT_CONTRAST_COLOR;
   }
 
 }

@@ -11,7 +11,6 @@ app-game-list {
   margin: 0 16px 10px;
   font-size: 0.78rem;
   font-weight: 500;
-  color: var(--ion-color-primary-contrast);
   opacity: 0.92;
 }
 
@@ -22,11 +21,6 @@ ion-fab {
 
 ion-header ion-button {
   --opacity: 1;
-}
-
-ion-header.selection-mode-header ion-toolbar {
-  --background: var(--ion-color-primary-shade);
-  --color: var(--ion-color-primary-contrast);
 }
 
 .filters-button {

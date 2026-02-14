@@ -14,7 +14,7 @@
 
 <ion-header [translucent]="true" [class.selection-mode-header]="isSelectionMode">
   <ion-toolbar>
-    <ion-buttons slot="start" *ngIf="isSelectionMode">
+    <ion-buttons slot="start" *ngIf="isSelectionMode" [collapse]="true">
       <ion-button aria-label="Exit selection mode" (click)="clearSelectionMode()">
         <ion-icon slot="icon-only" name="close"></ion-icon>
       </ion-button>
@@ -25,7 +25,7 @@
     </ion-title>
     <ion-title *ngIf="isSelectionMode">{{ getSelectionHeaderLabel() }}</ion-title>
 
-    <ion-buttons slot="end">
+    <ion-buttons slot="end" [collapse]="true">
       <ion-button *ngIf="!isSelectionMode" aria-label="Open filters" (click)="openFiltersMenu()" class="filters-button">
         <ion-icon slot="icon-only" name="filter"></ion-icon>
         <ion-badge

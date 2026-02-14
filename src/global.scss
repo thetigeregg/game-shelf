@@ -36,52 +36,6 @@
 @import "@ionic/angular/css/palettes/dark.class.css";
 /* @import "@ionic/angular/css/palettes/dark.system.css"; */
 
-ion-header ion-toolbar {
-  --background: var(--ion-color-primary);
-  --color: var(--ion-color-primary-contrast);
-  --border-color: var(--ion-color-primary-shade);
-  --opacity: 1;
-  background: var(--ion-color-primary);
-}
-
-ion-header ion-toolbar ion-title,
-ion-header ion-toolbar ion-button,
-ion-header ion-toolbar ion-icon,
-ion-header ion-toolbar ion-back-button {
-  color: var(--ion-color-primary-contrast);
-}
-
-ion-header ion-toolbar ion-button,
-ion-header ion-toolbar ion-back-button {
-  --color: var(--ion-color-primary-contrast);
-}
-
-ion-header ion-toolbar .page-subtitle {
-  color: var(--ion-color-primary-contrast);
-  opacity: 0.9;
-}
-
-ion-header ion-toolbar ion-searchbar.list-header-searchbar {
-  --color: #fff !important;
-  --clear-button-color: #fff !important;
-  --icon-color: #fff !important;
-  --placeholder-color: #fff !important;
-  --placeholder-opacity: 1 !important;
-  --cancel-button-color: #fff !important;
-}
-
-ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(input),
-ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(search-icon),
-ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(clear-button),
-ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(cancel-button) {
-  color: #fff !important;
-}
-
-ion-header ion-toolbar ion-searchbar.list-header-searchbar::part(input)::placeholder {
-  color: #fff !important;
-  opacity: 1 !important;
-}
-
 ion-fab-button {
   --color: var(--ion-color-primary-contrast);
 }

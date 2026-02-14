@@ -581,23 +581,8 @@ export class ListPageComponent {
   }
 
   getListCountSummary(): string {
-    if (this.totalGamesCount <= 0) {
-      return '0 games';
-    }
-
-    if (this.displayedGames.length === this.totalGamesCount) {
-      return this.totalGamesCount === 1
-        ? '1 game'
-        : `${this.totalGamesCount} games`;
-    }
-
-    const shownLabel =
-      this.displayedGames.length === 1
-        ? '1 shown'
-        : `${this.displayedGames.length} shown`;
-    const totalLabel =
-      this.totalGamesCount === 1 ? '1 game' : `${this.totalGamesCount} games`;
-    return `${shownLabel} of ${totalLabel}`;
+    const count = Math.max(0, this.displayedGames.length);
+    return count === 1 ? '1 game' : `${count} games`;
   }
 
   private async presentToast(

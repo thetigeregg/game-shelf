@@ -28,7 +28,10 @@
         class="search-button"
       >
         <ion-icon slot="icon-only" name="search"></ion-icon>
-        <ion-badge *ngIf="listSearchQuery.trim().length > 0" class="search-active-indicator"></ion-badge>
+        <ion-badge
+          *ngIf="listSearchQuery.trim().length > 0"
+          class="search-active-indicator"
+        ></ion-badge>
       </ion-button>
       <ion-button
         *ngIf="!isSelectionMode"
@@ -71,8 +74,6 @@
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-  <ion-toolbar *ngIf="!isSelectionMode">
-  </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" [id]="contentId">
@@ -89,7 +90,10 @@
           class="search-button"
         >
           <ion-icon slot="icon-only" name="search"></ion-icon>
-          <ion-badge *ngIf="listSearchQuery.trim().length > 0" class="search-active-indicator"></ion-badge>
+          <ion-badge
+            *ngIf="listSearchQuery.trim().length > 0"
+            class="search-active-indicator"
+          ></ion-badge>
         </ion-button>
         <ion-button
           aria-label="Open filters"

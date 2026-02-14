@@ -235,10 +235,13 @@
       class="search-button"
     >
       <ion-icon slot="icon-only" name="search"></ion-icon>
-      <ion-badge
-        *ngIf="listSearchQuery.trim().length > 0"
-        class="search-active-indicator"
-      ></ion-badge>
+    <ion-badge
+      *ngIf="listSearchQuery.trim().length > 0"
+      color="danger"
+      class="filters-active-count search-active-count"
+      aria-hidden="true"
+      >&nbsp;</ion-badge
+    >
     </ion-button>
     <ion-button
       aria-label="Open filters"

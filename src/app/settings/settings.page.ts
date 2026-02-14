@@ -240,6 +240,8 @@ export class SettingsPage {
     private static readonly MGC_BOX_ART_MIN_INTERVAL_MS = 350;
     private static readonly MGC_RESOLVE_MAX_ATTEMPTS = 3;
     private static readonly MGC_BOX_ART_MAX_ATTEMPTS = 3;
+    private static readonly MGC_TRANSIENT_RETRY_BASE_DELAY_MS = 1500;
+    private static readonly MGC_TRANSIENT_RETRY_MAX_DELAY_MS = 12000;
     private static readonly MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 1000;
     private static readonly MGC_RATE_LIMIT_MAX_COOLDOWN_MS = 60000;
     private static readonly IMAGE_CACHE_MIN_MB = 20;
@@ -1541,14 +1543,21 @@ export class SettingsPage {
             }
 
             const isRateLimited = this.isRateLimitStatusDetail(row.statusDetail);
+            const isTransientError = this.isTransientMgcStatusDetail(row.statusDetail);
 
-            if (!isRateLimited || attempt >= SettingsPage.MGC_RESOLVE_MAX_ATTEMPTS) {
+            if ((!isRateLimited && !isTransientError) || attempt >= SettingsPage.MGC_RESOLVE_MAX_ATTEMPTS) {
                 return;
             }
 
-            const retryDelay = this.resolveRateLimitRetryDelayMs(row.statusDetail);
+            const retryDelay = isRateLimited
+                ? this.resolveRateLimitRetryDelayMs(row.statusDetail)
+                : this.resolveTransientRetryDelayMs(attempt);
             this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
-            await this.waitWithRetryCountdown(row, retryDelay);
+            await this.waitWithRetryCountdown(
+                row,
+                retryDelay,
+                isRateLimited ? 'Rate limited' : 'Network issue'
+            );
             attempt += 1;
         }
     }
@@ -1612,14 +1621,22 @@ export class SettingsPage {
             row.selected = null;
             row.status = 'error';
             const message = error instanceof Error ? error.message : '';
-            row.statusDetail = message.toLowerCase().includes('rate limit')
-                ? message
-                : 'Search failed.';
+            row.statusDetail = message.trim().length > 0 ? message : 'Search failed.';
         }
     }
 
     private isRateLimitStatusDetail(detail: string): boolean {
         return detail.toLowerCase().includes('rate limit');
+    }
+
+    private isTransientMgcStatusDetail(detail: string): boolean {
+        const normalized = detail.toLowerCase();
+
+        if (this.isRateLimitStatusDetail(normalized)) {
+            return false;
+        }
+
+        return /fetch failed|network|timeout|timed out|temporary|temporarily|unavailable|gateway|bad gateway|abort|aborted|offline|503|502|504/i.test(normalized);
     }
 
     private resolveRateLimitRetryDelayMs(statusDetail: string): number {
@@ -1634,6 +1651,14 @@ export class SettingsPage {
         }
 
         return SettingsPage.MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS;
+    }
+
+    private resolveTransientRetryDelayMs(attempt: number): number {
+        const exponent = Math.max(0, attempt - 1);
+        return Math.min(
+            SettingsPage.MGC_TRANSIENT_RETRY_BASE_DELAY_MS * (2 ** exponent),
+            SettingsPage.MGC_TRANSIENT_RETRY_MAX_DELAY_MS,
+        );
     }
 
     private resolveGlobalCooldownWaitMs(nowMs: number): number {
@@ -1656,16 +1681,21 @@ export class SettingsPage {
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : '';
                 const isRateLimited = this.isRateLimitStatusDetail(message);
+                const isTransientError = this.isTransientMgcStatusDetail(message);
 
-                if (!isRateLimited || attempt >= SettingsPage.MGC_BOX_ART_MAX_ATTEMPTS) {
+                if ((!isRateLimited && !isTransientError) || attempt >= SettingsPage.MGC_BOX_ART_MAX_ATTEMPTS) {
                     return null;
                 }
 
-                const retryDelay = this.resolveRateLimitRetryDelayMs(message);
+                const retryDelay = isRateLimited
+                    ? this.resolveRateLimitRetryDelayMs(message)
+                    : this.resolveTransientRetryDelayMs(attempt);
                 this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
                 await this.waitWithLoadingCountdown(
                     retryDelay,
-                    `Box art rate limited for row ${rowIndex}/${totalRows}. Retrying`,
+                    isRateLimited
+                        ? `Box art rate limited for row ${rowIndex}/${totalRows}. Retrying`
+                        : `Box art lookup failed for row ${rowIndex}/${totalRows}. Retrying`,
                 );
                 attempt += 1;
             }
@@ -1909,12 +1939,12 @@ export class SettingsPage {
         });
     }
 
-    private async waitWithRetryCountdown(row: MgcImportRow, totalMs: number): Promise<void> {
+    private async waitWithRetryCountdown(row: MgcImportRow, totalMs: number, reason: string): Promise<void> {
         let remainingMs = totalMs;
 
         while (remainingMs > 0) {
             const secondsLeft = Math.max(1, Math.ceil(remainingMs / 1000));
-            row.statusDetail = `Rate limited. Retrying in ${secondsLeft}s...`;
+            row.statusDetail = `${reason}. Retrying in ${secondsLeft}s...`;
             const stepMs = Math.min(1000, remainingMs);
             await this.delay(stepMs);
             remainingMs -= stepMs;

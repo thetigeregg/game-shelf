@@ -25,5 +25,34 @@
         ]
       }
     }
+  ],
+  "dataGroups": [
+    {
+      "name": "api-read-cache",
+      "urls": [
+        "/api/v1/games/**",
+        "/api/v1/platforms",
+        "/api/v1/popularity/**",
+        "/api/v1/images/boxart/search**",
+        "/api/v1/hltb/search**",
+        "/api/v1/manuals/**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 500,
+        "maxAge": "1d"
+      }
+    },
+    {
+      "name": "api-images-proxy-cache",
+      "urls": [
+        "/api/v1/images/proxy**"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 1000,
+        "maxAge": "7d"
+      }
+    }
   ]
 }

@@ -7,6 +7,8 @@ const IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS = 20;
 const IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS = 15;
 const IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 60;
 const MAX_BOX_ART_RESULTS = 30;
+const IGDB_REQUEST_TIMEOUT_DEFAULT_MS = 15_000;
+const THEGAMESDB_REQUEST_TIMEOUT_DEFAULT_MS = 15_000;
 const THE_GAMES_DB_PREFERRED_COUNTRY_IDS = new Set([50]);
 const THE_GAMES_DB_SECONDARY_COUNTRY_ID = 0;
 const THE_GAMES_DB_PREFERRED_REGION_IDS = new Set([2]);
@@ -644,6 +646,26 @@ function getHltbScraperRequestTimeoutMs(env) {
   return Math.min(raw, 120_000);
 }
 
+function getIgdbRequestTimeoutMs(env) {
+  const raw = Number.parseInt(String(env.IGDB_REQUEST_TIMEOUT_MS ?? ''), 10);
+
+  if (!Number.isInteger(raw) || raw < 1000) {
+    return IGDB_REQUEST_TIMEOUT_DEFAULT_MS;
+  }
+
+  return Math.min(raw, 120_000);
+}
+
+function getTheGamesDbRequestTimeoutMs(env) {
+  const raw = Number.parseInt(String(env.THEGAMESDB_REQUEST_TIMEOUT_MS ?? ''), 10);
+
+  if (!Number.isInteger(raw) || raw < 1000) {
+    return THEGAMESDB_REQUEST_TIMEOUT_DEFAULT_MS;
+  }
+
+  return Math.min(raw, 120_000);
+}
+
 async function fetchWithTimeout(fetchImpl, url, options, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -955,6 +977,7 @@ function getTheGamesDbCountryId(game) {
 
 async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fetchImpl) {
   const apiKey = getTheGamesDbApiKey(env);
+  const timeoutMs = getTheGamesDbRequestTimeoutMs(env);
   const normalizedPlatformId = Number.isInteger(theGamesDbPlatformId) && theGamesDbPlatformId > 0
     ? theGamesDbPlatformId
     : null;
@@ -974,7 +997,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
   }
 
   try {
-    const response = await fetchImpl(searchUrl.toString(), { method: 'GET' });
+    const response = await fetchWithTimeout(fetchImpl, searchUrl.toString(), { method: 'GET' }, timeoutMs);
 
     if (!response.ok) {
       let payloadSnippet = '';
@@ -1332,6 +1355,7 @@ async function fetchAppToken(env, fetchImpl, nowMs) {
 }
 
 async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
+  const timeoutMs = getIgdbRequestTimeoutMs(env);
   if (Array.isArray(igdbPlatformCache.items) && igdbPlatformCache.expiresAt > nowMs) {
     return igdbPlatformCache.items;
   }
@@ -1350,7 +1374,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
     `limit ${platformIds.length};`,
   ].join(' ');
 
-  const response = await fetchImpl('https://api.igdb.com/v4/platforms', {
+  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/platforms', {
     method: 'POST',
     headers: {
       'Client-ID': env.TWITCH_CLIENT_ID,
@@ -1358,7 +1382,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
       'Content-Type': 'text/plain',
     },
     body,
-  });
+  }, timeoutMs);
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1391,6 +1415,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
 }
 
 async function listPopularityTypes(env, token, fetchImpl, nowMs) {
+  const timeoutMs = getIgdbRequestTimeoutMs(env);
   if (Array.isArray(igdbPopularityTypeCache.items) && igdbPopularityTypeCache.expiresAt > nowMs) {
     return igdbPopularityTypeCache.items;
   }
@@ -1401,7 +1426,7 @@ async function listPopularityTypes(env, token, fetchImpl, nowMs) {
     'limit 500;',
   ].join(' ');
 
-  const response = await fetchImpl('https://api.igdb.com/v4/popularity_types', {
+  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/popularity_types', {
     method: 'POST',
     headers: {
       'Client-ID': env.TWITCH_CLIENT_ID,
@@ -1409,7 +1434,7 @@ async function listPopularityTypes(env, token, fetchImpl, nowMs) {
       'Content-Type': 'text/plain',
     },
     body,
-  });
+  }, timeoutMs);
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1449,6 +1474,7 @@ async function listPopularityTypes(env, token, fetchImpl, nowMs) {
 }
 
 async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
+  const timeoutMs = getIgdbRequestTimeoutMs(env);
   if (!Array.isArray(gameIds) || gameIds.length === 0) {
     return [];
   }
@@ -1469,7 +1495,7 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
     `limit ${uniqueIds.length};`,
   ].join(' ');
 
-  const response = await fetchImpl('https://api.igdb.com/v4/games', {
+  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
     method: 'POST',
     headers: {
       'Client-ID': env.TWITCH_CLIENT_ID,
@@ -1477,7 +1503,7 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
       'Content-Type': 'text/plain',
     },
     body,
-  });
+  }, timeoutMs);
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1492,6 +1518,7 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
 }
 
 async function listPopularityPrimitives(popularityTypeId, limit, offset, env, token, fetchImpl, nowMs) {
+  const timeoutMs = getIgdbRequestTimeoutMs(env);
   const normalizedPopularityTypeId = Number.isInteger(popularityTypeId) && popularityTypeId > 0
     ? popularityTypeId
     : null;
@@ -1511,7 +1538,7 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
     `offset ${normalizedOffset};`,
   ].join(' ');
 
-  const primitivesResponse = await fetchImpl('https://api.igdb.com/v4/popularity_primitives', {
+  const primitivesResponse = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/popularity_primitives', {
     method: 'POST',
     headers: {
       'Client-ID': env.TWITCH_CLIENT_ID,
@@ -1519,7 +1546,7 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
       'Content-Type': 'text/plain',
     },
     body: primitivesBody,
-  });
+  }, timeoutMs);
 
   if (primitivesResponse.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(primitivesResponse.headers, nowMs));
@@ -1589,6 +1616,7 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
 }
 
 async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
+  const timeoutMs = getIgdbRequestTimeoutMs(env);
   const normalizedPlatformIgdbId = Number.isInteger(platformIgdbId) && platformIgdbId > 0
     ? platformIgdbId
     : null;
@@ -1648,11 +1676,11 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
     );
 
     const body = bodyParts.join(' ');
-    const response = await fetchImpl('https://api.igdb.com/v4/games', {
+    const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: requestHeaders,
       body,
-    });
+    }, timeoutMs);
 
     if (response.status === 429) {
       throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1710,13 +1738,14 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
 }
 
 async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
+  const timeoutMs = getIgdbRequestTimeoutMs(env);
   const body = [
     `where id = ${gameId};`,
     'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
     'limit 1;',
   ].join(' ');
 
-  const response = await fetchImpl('https://api.igdb.com/v4/games', {
+  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
     method: 'POST',
     headers: {
       'Client-ID': env.TWITCH_CLIENT_ID,
@@ -1724,7 +1753,7 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
       'Content-Type': 'text/plain',
     },
     body,
-  });
+  }, timeoutMs);
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));

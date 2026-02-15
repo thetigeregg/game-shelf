@@ -894,7 +894,7 @@ export class GameListComponent implements OnChanges {
         const target = event.target;
 
         if (target instanceof HTMLImageElement) {
-            target.src = 'assets/icon/favicon.png';
+            target.src = 'assets/icon/placeholder.png';
         }
     }
 
@@ -1661,7 +1661,7 @@ export class GameListComponent implements OnChanges {
         const normalized = typeof coverUrl === 'string' ? coverUrl.trim() : '';
 
         if (!normalized) {
-            return 'assets/icon/favicon.png';
+            return 'assets/icon/placeholder.png';
         }
 
         if (variant === 'thumb' && normalized.includes('cdn.thegamesdb.net/images/')) {

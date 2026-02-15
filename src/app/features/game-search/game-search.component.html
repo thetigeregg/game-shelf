@@ -40,7 +40,7 @@
 
   <ion-item *ngFor="let result of results; trackBy: trackByExternalId">
     <div slot="start" class="game-art">
-      <img [src]="result.coverUrl || 'assets/icon/favicon.png'" [alt]="result.title" (error)="onImageError($event)" />
+      <img [src]="result.coverUrl || 'assets/icon/placeholder.png'" [alt]="result.title" (error)="onImageError($event)" />
     </div>
 
     <ion-label>

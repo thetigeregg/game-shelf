@@ -264,7 +264,7 @@ export class GameDetailContentComponent {
     const target = event.target;
 
     if (target instanceof HTMLImageElement) {
-      target.src = 'assets/icon/favicon.png';
+      target.src = 'assets/icon/placeholder.png';
     }
   }
 

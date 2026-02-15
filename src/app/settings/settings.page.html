@@ -378,7 +378,7 @@
       <ion-list lines="full">
         <ion-item *ngFor="let result of mgcResolverResults; trackBy: trackByMgcResolverResult">
           <ion-thumbnail slot="start">
-            <img [src]="result.coverUrl || 'assets/icon/favicon.png'" (error)="onMgcResultImageError($event)" alt="Game cover" />
+            <img [src]="result.coverUrl || 'assets/icon/placeholder.png'" (error)="onMgcResultImageError($event)" alt="Game cover" />
           </ion-thumbnail>
           <ion-label>
             <h2>{{ result.title }}</h2>

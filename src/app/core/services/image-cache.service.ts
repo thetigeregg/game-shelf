@@ -43,7 +43,7 @@ export class ImageCacheService {
     const normalizedSourceUrl = this.normalizeSourceUrl(sourceUrl, variant);
 
     if (!normalizedSourceUrl) {
-      return 'assets/icon/favicon.png';
+      return 'assets/icon/placeholder.png';
     }
 
     const cacheKey = this.buildCacheKey(gameKey, variant, normalizedSourceUrl);

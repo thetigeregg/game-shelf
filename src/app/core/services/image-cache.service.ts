@@ -50,7 +50,11 @@ export class ImageCacheService {
     const existing = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
 
     if (existing) {
-      if (!(existing.blob instanceof Blob) || existing.blob.size <= 0) {
+      if (
+        !(existing.blob instanceof Blob)
+        || existing.blob.size <= 0
+        || !this.isCacheableImageBlob(existing.blob)
+      ) {
         if (existing.id !== undefined) {
           await this.db.imageCache.delete(existing.id);
         }

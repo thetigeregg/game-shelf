@@ -374,7 +374,7 @@
           </ion-thumbnail>
           <ion-label>
             <h2>{{ result.title }}</h2>
-            <p>{{ getPlatformDisplayName(result.platform, result.platformIgdbId ?? null) }}</p>
+            <p>{{ getMgcResolverPlatformSummary(result) }}</p>
             <p *ngIf="result.releaseYear">{{ result.releaseYear }}</p>
           </ion-label>
           <ion-button slot="end" (click)="chooseMgcResolverResult(result)">Select</ion-button>

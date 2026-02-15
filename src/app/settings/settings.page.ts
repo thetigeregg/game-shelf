@@ -412,6 +412,33 @@ export class SettingsPage {
         return label.length > 0 ? label : 'Unknown platform';
     }
 
+    getMgcResolverPlatformSummary(result: GameCatalogResult): string {
+        const options = this.getCatalogPlatformOptions(result);
+
+        if (options.length === 0) {
+            return this.getPlatformDisplayName(result.platform ?? null, result.platformIgdbId ?? null);
+        }
+
+        const selectedPlatformId = this.mgcResolverPlatformIgdbId;
+        const selectedOption = typeof selectedPlatformId === 'number'
+            ? options.find(option => option.id === selectedPlatformId)
+            : null;
+
+        if (selectedOption) {
+            const selectedLabel = this.getPlatformDisplayName(selectedOption.name, selectedOption.id);
+
+            if (options.length <= 1) {
+                return selectedLabel;
+            }
+
+            return `${selectedLabel} + ${options.length - 1} more`;
+        }
+
+        return options
+            .map(option => this.getPlatformDisplayName(option.name, option.id))
+            .join(', ');
+    }
+
     async editPlatformDisplayName(platform: PlatformCustomizationItem): Promise<void> {
         let draftName = String(platform.customName ?? '');
 

@@ -26,8 +26,9 @@ import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from '../core/servic
 import { PlatformCustomizationService, PLATFORM_DISPLAY_NAMES_STORAGE_KEY } from '../core/services/platform-customization.service';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
+import { DebugLogService } from '../core/services/debug-log.service';
 import { addIcons } from "ionicons";
-import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers } from "ionicons/icons";
+import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers, bug } from "ionicons/icons";
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
 
@@ -301,12 +302,13 @@ export class SettingsPage {
     private readonly toastController = inject(ToastController);
     private readonly alertController = inject(AlertController);
     private readonly router = inject(Router);
+    private readonly debugLogService = inject(DebugLogService);
 
     constructor() {
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
-        addIcons({ close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers });
+        addIcons({ close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers, bug });
     }
 
     onColorSchemePreferenceChange(value: ColorSchemePreference | string): void {
@@ -540,11 +542,60 @@ export class SettingsPage {
             const csv = await this.buildExportCsv();
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const filename = `game-shelf-export-${timestamp}.csv`;
-            await this.presentShareDialog(csv, filename);
+            await this.presentShareFile({
+                content: csv,
+                filename,
+                mimeType: 'text/csv;charset=utf-8',
+                title: 'Game Shelf Export',
+                text: 'Game Shelf CSV export',
+                dialogTitle: 'Export CSV',
+            });
             await this.presentToast('CSV export prepared.');
         } catch {
             await this.presentToast('Unable to export CSV.', 'danger');
         }
+    }
+
+    async exportDebugLogs(): Promise<void> {
+        try {
+            this.debugLogService.info('settings.export_debug_logs_requested');
+            const content = this.debugLogService.exportText();
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `game-shelf-debug-${timestamp}.log`;
+            await this.presentShareFile({
+                content,
+                filename,
+                mimeType: 'text/plain;charset=utf-8',
+                title: 'Game Shelf Debug Logs',
+                text: 'Game Shelf debug logs',
+                dialogTitle: 'Export Debug Logs',
+            });
+            await this.presentToast('Debug logs prepared.');
+        } catch (error: unknown) {
+            this.debugLogService.error('settings.export_debug_logs_failed', error);
+            await this.presentToast('Unable to export debug logs.', 'danger');
+        }
+    }
+
+    async clearDebugLogs(): Promise<void> {
+        const alert = await this.alertController.create({
+            header: 'Clear Debug Logs',
+            message: 'Delete all locally captured debug logs?',
+            buttons: [
+                { text: 'Cancel', role: 'cancel' },
+                { text: 'Clear', role: 'confirm', cssClass: 'alert-button-danger' },
+            ],
+        });
+
+        await alert.present();
+        const { role } = await alert.onDidDismiss();
+
+        if (role !== 'confirm') {
+            return;
+        }
+
+        this.debugLogService.clear();
+        await this.presentToast('Debug logs cleared.');
     }
 
     triggerImport(fileInput: HTMLInputElement): void {
@@ -622,6 +673,7 @@ export class SettingsPage {
         try {
             const text = await file.text();
             const rows = await this.parseMgcCsv(text);
+            this.debugLogService.info('mgc.import_file_parsed', { rows: rows.length, name: file.name });
             this.mgcRows = rows;
             this.mgcPageIndex = 0;
             this.mgcPageSize = 50;
@@ -630,6 +682,7 @@ export class SettingsPage {
             this.isMgcResolverOpen = false;
             this.mgcResolverRowId = null;
         } catch {
+            this.debugLogService.error('mgc.import_file_parse_failed');
             await this.presentToast('Unable to parse MGC CSV file.', 'danger');
         }
     }
@@ -736,6 +789,11 @@ export class SettingsPage {
         }
 
         this.isResolvingMgcPage = true;
+        this.debugLogService.info('mgc.resolve_page_start', {
+            pageIndex: this.mgcPageIndex,
+            pageSize: this.mgcPageSize,
+            unresolvedRows: rowsToResolve.length,
+        });
 
         try {
             let lastRequestStartedAt = 0;
@@ -771,8 +829,15 @@ export class SettingsPage {
             }
 
             this.recomputeMgcDuplicateErrors();
+            this.debugLogService.info('mgc.resolve_page_complete', {
+                pageIndex: this.mgcPageIndex,
+                resolvedRows: rowsToResolve.length,
+            });
             await this.presentToast(`Resolved ${rowsToResolve.length} row${rowsToResolve.length === 1 ? '' : 's'} on this page.`);
         } catch {
+            this.debugLogService.error('mgc.resolve_page_failed', {
+                pageIndex: this.mgcPageIndex,
+            });
             await this.presentToast('Unable to resolve all rows on this page.', 'danger');
         } finally {
             this.isResolvingMgcPage = false;
@@ -840,13 +905,19 @@ export class SettingsPage {
 
         this.isMgcResolverSearching = true;
         this.mgcResolverError = '';
+        this.debugLogService.debug('mgc.resolver_search_start', {
+            query,
+            platformIgdbId: this.mgcResolverPlatformIgdbId,
+        });
 
         try {
             const results = await firstValueFrom(this.gameShelfService.searchGames(query, this.mgcResolverPlatformIgdbId));
             this.mgcResolverResults = results;
+            this.debugLogService.debug('mgc.resolver_search_complete', { results: results.length });
         } catch (error: unknown) {
             this.mgcResolverResults = [];
             this.mgcResolverError = formatRateLimitedUiError(error, 'Search failed. Please try again.');
+            this.debugLogService.error('mgc.resolver_search_failed', error);
         } finally {
             this.isMgcResolverSearching = false;
         }
@@ -1306,6 +1377,10 @@ export class SettingsPage {
         this.isApplyingMgcImport = true;
         this.isImportLoadingOpen = true;
         this.importLoadingMessage = 'Preparing import...';
+        this.debugLogService.info('mgc.apply_start', {
+            rows: this.mgcRows.length,
+            targetListType: this.mgcTargetListType,
+        });
 
         try {
             this.recomputeMgcDuplicateErrors();
@@ -1412,6 +1487,17 @@ export class SettingsPage {
             }
 
             await this.presentToast('MGC import completed.');
+            this.debugLogService.info('mgc.apply_complete', {
+                rowsSelected: rowsToImport.length,
+                gamesImported,
+                tagsAssigned,
+                tagsCreated,
+                boxArtResolved,
+                hltbResolved,
+                hltbFailed,
+                duplicateSkipped,
+                failed,
+            });
             await this.presentMgcImportSummary({
                 rowsSelected: rowsToImport.length,
                 gamesImported,
@@ -1425,6 +1511,7 @@ export class SettingsPage {
             });
             this.closeMgcImport();
         } catch {
+            this.debugLogService.error('mgc.apply_failed');
             await this.presentToast('Unable to complete MGC import.', 'danger');
         } finally {
             this.isApplyingMgcImport = false;
@@ -3125,9 +3212,16 @@ export class SettingsPage {
         return normalized;
     }
 
-    private async presentShareDialog(csv: string, filename: string): Promise<void> {
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-        const file = new File([blob], filename, { type: 'text/csv' });
+    private async presentShareFile(params: {
+        content: string;
+        filename: string;
+        mimeType: string;
+        title: string;
+        text: string;
+        dialogTitle: string;
+    }): Promise<void> {
+        const blob = new Blob([params.content], { type: params.mimeType });
+        const file = new File([blob], params.filename, { type: params.mimeType });
 
         const capacitorShare = (window as { Capacitor?: { Plugins?: { Share?: { share: (options: { title?: string; text?: string; url?: string; dialogTitle?: string }) => Promise<void> } } } }).Capacitor?.Plugins?.Share;
 
@@ -3136,10 +3230,10 @@ export class SettingsPage {
 
             try {
                 await capacitorShare.share({
-                    title: 'Game Shelf Export',
-                    text: 'Game Shelf CSV export',
+                    title: params.title,
+                    text: params.text,
                     url: objectUrl,
-                    dialogTitle: 'Export CSV',
+                    dialogTitle: params.dialogTitle,
                 });
                 return;
             } catch {
@@ -3159,8 +3253,8 @@ export class SettingsPage {
 
             if (canShareFiles) {
                 await webNavigator.share({
-                    title: 'Game Shelf Export',
-                    text: 'Game Shelf CSV export',
+                    title: params.title,
+                    text: params.text,
                     files: [file],
                 });
                 return;
@@ -3172,7 +3266,7 @@ export class SettingsPage {
         try {
             const anchor = document.createElement('a');
             anchor.href = objectUrl;
-            anchor.download = filename;
+            anchor.download = params.filename;
             anchor.click();
         } finally {
             URL.revokeObjectURL(objectUrl);

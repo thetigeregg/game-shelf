@@ -1,10 +1,21 @@
 <ng-container *ngIf="groupedView$ | async as groupedView">
-  <ion-list *ngIf="!groupedView.grouped">
-    <ng-container *ngFor="let game of groupedView.sections[0]?.games || []; trackBy: trackByExternalId">
-      <ng-container *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"></ng-container>
-    </ng-container>
+  <cdk-virtual-scroll-viewport
+    *ngIf="!groupedView.grouped && groupedView.totalCount > 0"
+    class="game-list-virtual-viewport"
+    style="height: 100%; width: 100%;"
+    [itemSize]="virtualRowHeight"
+    [minBufferPx]="virtualMinBufferPx"
+    [maxBufferPx]="virtualMaxBufferPx"
+  >
+    <ion-list>
+      <ng-container *cdkVirtualFor="let game of groupedView.sections[0]?.games || []; trackBy: trackByExternalId">
+        <ng-container *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"></ng-container>
+      </ng-container>
+    </ion-list>
+  </cdk-virtual-scroll-viewport>
 
-    <ion-item *ngIf="groupedView.totalCount === 0" lines="none">
+  <ion-list *ngIf="!groupedView.grouped && groupedView.totalCount === 0">
+    <ion-item lines="none">
       <ion-label color="medium">No games match current filters.</ion-label>
     </ion-item>
   </ion-list>

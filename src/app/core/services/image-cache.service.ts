@@ -69,7 +69,7 @@ export class ImageCacheService {
 
       const blob = await response.blob();
 
-      if (!(blob instanceof Blob) || blob.size <= 0) {
+      if (!(blob instanceof Blob) || blob.size <= 0 || !this.isCacheableImageBlob(blob)) {
         return normalizedSourceUrl;
       }
 
@@ -192,6 +192,20 @@ export class ImageCacheService {
     return Math.max(ImageCacheService.MIN_LIMIT_MB, Math.min(rounded, ImageCacheService.MAX_LIMIT_MB));
   }
 
+  private isCacheableImageBlob(blob: Blob): boolean {
+    const mimeType = blob.type.trim().toLowerCase();
+
+    if (!mimeType) {
+      return true;
+    }
+
+    if (mimeType.startsWith('image/')) {
+      return true;
+    }
+
+    return mimeType === 'application/octet-stream';
+  }
+
   private async enforceLimitBytes(limitBytes: number): Promise<void> {
     const entries = await this.db.imageCache.orderBy('lastAccessedAt').toArray();
     let totalBytes = entries.reduce((sum, entry) => sum + (entry.sizeBytes || 0), 0);
@@ -207,13 +221,8 @@ export class ImageCacheService {
 
       await this.db.imageCache.delete(entry.id);
       totalBytes -= entry.sizeBytes || 0;
-
-      const existingObjectUrl = this.objectUrlsByCacheKey.get(entry.cacheKey);
-
-      if (existingObjectUrl) {
-        URL.revokeObjectURL(existingObjectUrl);
-        this.objectUrlsByCacheKey.delete(entry.cacheKey);
-      }
+      // Keep active object URLs alive even after backing cache eviction.
+      // Revoking here can break currently-rendered rows and force placeholder fallback.
     }
   }
 }

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, NgZone, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
     IonList,
@@ -103,6 +104,7 @@ export interface MetadataFilterSelection {
     standalone: true,
     imports: [
         CommonModule,
+        ScrollingModule,
         IonList,
         IonListHeader,
         IonItem,
@@ -149,6 +151,8 @@ export class GameListComponent implements OnChanges {
     private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
     private static readonly ROW_LONG_PRESS_DELAY_MS = 750;
     private static readonly ROW_LONG_PRESS_CLICK_SUPPRESSION_MS = 350;
+    private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
+    private static readonly VIRTUAL_BUFFER_ROWS = 8;
 
     readonly noneTagFilterValue = '__none__';
     readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
@@ -253,6 +257,10 @@ export class GameListComponent implements OnChanges {
     private readonly searchQuery$ = new BehaviorSubject<string>('');
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
     @ViewChild('detailContent') private detailContent?: IonContent;
+
+    readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
+    readonly virtualMinBufferPx = GameListComponent.VIRTUAL_ROW_HEIGHT_PX * GameListComponent.VIRTUAL_BUFFER_ROWS;
+    readonly virtualMaxBufferPx = GameListComponent.VIRTUAL_ROW_HEIGHT_PX * (GameListComponent.VIRTUAL_BUFFER_ROWS * 2);
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes['listType']?.currentValue) {

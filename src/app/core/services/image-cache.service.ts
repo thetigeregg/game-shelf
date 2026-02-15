@@ -50,47 +50,57 @@ export class ImageCacheService {
     const existing = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
 
     if (existing) {
-      await this.touchEntry(existing);
-      return this.toObjectUrl(existing);
-    }
-
-    const response = await fetch(this.buildFetchUrl(normalizedSourceUrl));
-
-    if (!response.ok) {
-      return normalizedSourceUrl;
-    }
-
-    const blob = await response.blob();
-
-    if (!(blob instanceof Blob) || blob.size <= 0) {
-      return normalizedSourceUrl;
-    }
-
-    const now = new Date().toISOString();
-    const entry: ImageCacheEntry = {
-      cacheKey,
-      gameKey,
-      variant,
-      sourceUrl: normalizedSourceUrl,
-      blob,
-      sizeBytes: blob.size,
-      updatedAt: now,
-      lastAccessedAt: now,
-    };
-
-    const limitBytes = this.getLimitMb() * 1024 * 1024;
-
-    if (entry.sizeBytes <= limitBytes) {
-      await this.db.imageCache.put(entry);
-      await this.enforceLimitBytes(limitBytes);
-      const stored = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
-
-      if (stored) {
-        return this.toObjectUrl(stored);
+      if (!(existing.blob instanceof Blob) || existing.blob.size <= 0) {
+        if (existing.id !== undefined) {
+          await this.db.imageCache.delete(existing.id);
+        }
+      } else {
+        await this.touchEntry(existing);
+        return this.toObjectUrl(existing);
       }
     }
 
-    return normalizedSourceUrl;
+    try {
+      const response = await fetch(this.buildFetchUrl(normalizedSourceUrl));
+
+      if (!response.ok) {
+        return normalizedSourceUrl;
+      }
+
+      const blob = await response.blob();
+
+      if (!(blob instanceof Blob) || blob.size <= 0) {
+        return normalizedSourceUrl;
+      }
+
+      const now = new Date().toISOString();
+      const entry: ImageCacheEntry = {
+        cacheKey,
+        gameKey,
+        variant,
+        sourceUrl: normalizedSourceUrl,
+        blob,
+        sizeBytes: blob.size,
+        updatedAt: now,
+        lastAccessedAt: now,
+      };
+
+      const limitBytes = this.getLimitMb() * 1024 * 1024;
+
+      if (entry.sizeBytes <= limitBytes) {
+        await this.db.imageCache.put(entry);
+        await this.enforceLimitBytes(limitBytes);
+        const stored = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
+
+        if (stored && stored.blob instanceof Blob && stored.blob.size > 0) {
+          return this.toObjectUrl(stored);
+        }
+      }
+
+      return normalizedSourceUrl;
+    } catch {
+      return normalizedSourceUrl;
+    }
   }
 
   private async touchEntry(entry: ImageCacheEntry): Promise<void> {

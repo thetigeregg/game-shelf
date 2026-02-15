@@ -36,7 +36,7 @@
 
     <ion-item>
       <ion-label>Image Cache Limit (MB)</ion-label>
-      <input
+      <ion-input
         class="number-input"
         type="number"
         min="20"
@@ -44,7 +44,8 @@
         step="10"
         [ngModel]="imageCacheLimitMb"
         (ngModelChange)="onImageCacheLimitChange($event)"
-      />
+        inputmode="numeric"
+      ></ion-input>
     </ion-item>
     <ion-item class="cache-usage-item">
       <ion-label color="medium">Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label>

@@ -147,6 +147,8 @@ export class GameListComponent implements OnChanges {
     private static readonly BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 15000;
     private static readonly BULK_RETRY_BASE_DELAY_MS = 1000;
     private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
+    private static readonly ROW_LONG_PRESS_DELAY_MS = 750;
+    private static readonly ROW_LONG_PRESS_CLICK_SUPPRESSION_MS = 350;
 
     readonly noneTagFilterValue = '__none__';
     readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
@@ -235,7 +237,7 @@ export class GameListComponent implements OnChanges {
     private manualResolutionRequestId = 0;
     private rowActionsSlidingItem: IonItemSliding | null = null;
     private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
-    private longPressTriggeredExternalId: string | null = null;
+    private longPressSuppressedClick: { gameKey: string; untilMs: number } | null = null;
     private readonly gameShelfService = inject(GameShelfService);
     private readonly popoverController = inject(PopoverController);
     private readonly alertController = inject(AlertController);
@@ -353,13 +355,25 @@ export class GameListComponent implements OnChanges {
     }
 
     onGameRowClick(game: GameEntry, fromSimilarDetailSection = false): void {
-        if (this.longPressTriggeredExternalId === this.getGameKey(game)) {
-            this.longPressTriggeredExternalId = null;
+        const gameKey = this.getGameKey(game);
+
+        if (
+            this.longPressSuppressedClick
+            && this.longPressSuppressedClick.gameKey === gameKey
+            && this.longPressSuppressedClick.untilMs >= Date.now()
+        ) {
+            this.longPressSuppressedClick = null;
             return;
         }
+        this.longPressSuppressedClick = null;
 
         if (this.selectionModeActive) {
-            this.toggleGameSelection(this.getGameKey(game));
+            if (this.selectedGameKeys.size === 1 && this.selectedGameKeys.has(gameKey)) {
+                this.clearSelectionMode();
+                return;
+            }
+
+            this.toggleGameSelection(gameKey);
             return;
         }
 
@@ -375,9 +389,12 @@ export class GameListComponent implements OnChanges {
         this.clearLongPressTimer();
         this.longPressTimerId = setTimeout(() => {
             const gameKey = this.getGameKey(game);
-            this.longPressTriggeredExternalId = gameKey;
+            this.longPressSuppressedClick = {
+                gameKey,
+                untilMs: Date.now() + GameListComponent.ROW_LONG_PRESS_CLICK_SUPPRESSION_MS,
+            };
             this.enterSelectionModeWithGame(gameKey);
-        }, 450);
+        }, GameListComponent.ROW_LONG_PRESS_DELAY_MS);
     }
 
     onRowPressEnd(): void {
@@ -1406,11 +1423,7 @@ export class GameListComponent implements OnChanges {
             url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
         }
 
-        const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
-
-        if (!openedWindow) {
-            window.location.href = url;
-        }
+        this.openExternalUrl(url);
     }
 
     get shouldShowOpenManualButton(): boolean {
@@ -1428,11 +1441,7 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
-
-        if (!openedWindow) {
-            window.location.href = url;
-        }
+        this.openExternalUrl(url);
     }
 
     openManualPickerModal(): void {
@@ -1781,6 +1790,14 @@ export class GameListComponent implements OnChanges {
             clearTimeout(this.longPressTimerId);
             this.longPressTimerId = null;
         }
+    }
+
+    private openExternalUrl(url: string): void {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer external';
+        anchor.click();
     }
 
     private getSelectedGames(): GameEntry[] {

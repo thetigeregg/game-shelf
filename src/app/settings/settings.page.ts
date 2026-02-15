@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading, IonReorderGroup, IonReorder } from "@ionic/angular/standalone";
+import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading, IonReorderGroup, IonReorder, IonInput } from "@ionic/angular/standalone";
 import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
 import {
@@ -231,6 +231,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
         IonLoading,
         IonReorderGroup,
         IonReorder,
+        IonInput,
     ],
 })
 export class SettingsPage {
@@ -238,8 +239,10 @@ export class SettingsPage {
     private static readonly MGC_RESOLVE_MIN_INTERVAL_MS = 350;
     private static readonly MGC_RESOLVE_MAX_INTERVAL_MS = 1600;
     private static readonly MGC_BOX_ART_MIN_INTERVAL_MS = 350;
+    private static readonly MGC_HLTB_MIN_INTERVAL_MS = 350;
     private static readonly MGC_RESOLVE_MAX_ATTEMPTS = 3;
     private static readonly MGC_BOX_ART_MAX_ATTEMPTS = 3;
+    private static readonly MGC_HLTB_MAX_ATTEMPTS = 3;
     private static readonly MGC_TRANSIENT_RETRY_BASE_DELAY_MS = 1500;
     private static readonly MGC_TRANSIENT_RETRY_MAX_DELAY_MS = 12000;
     private static readonly MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 1000;
@@ -1291,9 +1294,12 @@ export class SettingsPage {
             let gamesImported = 0;
             let tagsAssigned = 0;
             let boxArtResolved = 0;
+            let hltbResolved = 0;
+            let hltbFailed = 0;
             let duplicateSkipped = 0;
             let failed = 0;
             let lastBoxArtRequestStartedAt = 0;
+            let lastHltbRequestStartedAt = 0;
 
             for (let index = 0; index < rowsToImport.length; index += 1) {
                 const row = rowsToImport[index];
@@ -1353,6 +1359,26 @@ export class SettingsPage {
                         await this.gameShelfService.setGameTags(selected.igdbGameId, selected.platformIgdbId, tagIds);
                         tagsAssigned += 1;
                     }
+
+                    const hltbWaitMs = Math.max(
+                        SettingsPage.MGC_HLTB_MIN_INTERVAL_MS - (Date.now() - lastHltbRequestStartedAt),
+                        this.resolveGlobalCooldownWaitMs(Date.now()),
+                        0,
+                    );
+
+                    if (hltbWaitMs > 0) {
+                        await this.waitWithLoadingCountdown(hltbWaitMs, 'Waiting to continue HLTB lookups');
+                    }
+
+                    lastHltbRequestStartedAt = Date.now();
+                    this.importLoadingMessage = `Resolving HLTB ${index + 1}/${rowsToImport.length}...`;
+                    const hltbOutcome = await this.resolveMgcHltbWithRetry(selected, index + 1, rowsToImport.length);
+
+                    if (hltbOutcome === 'updated') {
+                        hltbResolved += 1;
+                    } else if (hltbOutcome === 'failed') {
+                        hltbFailed += 1;
+                    }
                 } catch {
                     failed += 1;
                 }
@@ -1365,6 +1391,8 @@ export class SettingsPage {
                 tagsAssigned,
                 tagsCreated,
                 boxArtResolved,
+                hltbResolved,
+                hltbFailed,
                 duplicateSkipped,
                 failed,
             });
@@ -1384,6 +1412,8 @@ export class SettingsPage {
         tagsAssigned: number;
         tagsCreated: number;
         boxArtResolved: number;
+        hltbResolved: number;
+        hltbFailed: number;
         duplicateSkipped: number;
         failed: number;
     }): Promise<void> {
@@ -1393,6 +1423,8 @@ export class SettingsPage {
             `Games with tags applied: ${summary.tagsAssigned}`,
             `New tags created: ${summary.tagsCreated}`,
             `2D box art resolved: ${summary.boxArtResolved}`,
+            `HLTB data resolved: ${summary.hltbResolved}`,
+            `HLTB lookup failures: ${summary.hltbFailed}`,
             `Duplicates skipped: ${summary.duplicateSkipped}`,
             `Failed: ${summary.failed}`,
         ]);
@@ -1464,7 +1496,6 @@ export class SettingsPage {
         }
 
         this.mgcPlatformLookup.clear();
-
         this.mgcSearchPlatforms.forEach(platform => {
             const normalizedName = this.normalizeLookupKey(platform.name);
 
@@ -1702,6 +1733,70 @@ export class SettingsPage {
         }
 
         return null;
+    }
+
+    private async resolveMgcHltbWithRetry(
+        selected: GameCatalogResult,
+        rowIndex: number,
+        totalRows: number,
+    ): Promise<'updated' | 'not_found' | 'failed'> {
+        let attempt = 1;
+
+        while (attempt <= SettingsPage.MGC_HLTB_MAX_ATTEMPTS) {
+            try {
+                const refreshed = await this.gameShelfService.refreshGameCompletionTimesWithQuery(
+                    selected.igdbGameId,
+                    selected.platformIgdbId as number,
+                    {
+                        title: selected.title,
+                        releaseYear: selected.releaseYear,
+                        platform: selected.platform,
+                    },
+                );
+
+                if (this.hasHltbData(refreshed)) {
+                    return 'updated';
+                }
+
+                return 'not_found';
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : '';
+                const isRateLimited = this.isRateLimitStatusDetail(message);
+                const isTransientError = this.isTransientMgcStatusDetail(message);
+
+                if ((!isRateLimited && !isTransientError) || attempt >= SettingsPage.MGC_HLTB_MAX_ATTEMPTS) {
+                    return 'failed';
+                }
+
+                const retryDelay = isRateLimited
+                    ? this.resolveRateLimitRetryDelayMs(message)
+                    : this.resolveTransientRetryDelayMs(attempt);
+                this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
+                await this.waitWithLoadingCountdown(
+                    retryDelay,
+                    isRateLimited
+                        ? `HLTB rate limited for row ${rowIndex}/${totalRows}. Retrying`
+                        : `HLTB lookup failed for row ${rowIndex}/${totalRows}. Retrying`,
+                );
+                attempt += 1;
+            }
+        }
+
+        return 'failed';
+    }
+
+    private hasHltbData(game: GameEntry): boolean {
+        return this.normalizeCompletionHours(game.hltbMainHours) !== null
+            || this.normalizeCompletionHours(game.hltbMainExtraHours) !== null
+            || this.normalizeCompletionHours(game.hltbCompletionistHours) !== null;
+    }
+
+    private normalizeCompletionHours(value: number | null | undefined): number | null {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+            return null;
+        }
+
+        return Math.round(value * 10) / 10;
     }
 
     private async resolveCatalogForRow(

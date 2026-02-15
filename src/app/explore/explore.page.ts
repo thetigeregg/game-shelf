@@ -346,11 +346,7 @@ export class ExplorePage implements OnInit {
       url = `https://gamefaqs.gamespot.com/search?game=${encodedQuery}`;
     }
 
-    const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
-
-    if (!openedWindow) {
-      window.location.href = url;
-    }
+    this.openExternalUrl(url);
   }
 
   onImageError(event: Event): void {
@@ -467,6 +463,14 @@ export class ExplorePage implements OnInit {
     });
 
     await toast.present();
+  }
+
+  private openExternalUrl(url: string): void {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer external';
+    anchor.click();
   }
 
   private async loadPopularityTypes(): Promise<void> {

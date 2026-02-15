@@ -1,10 +1,12 @@
 .number-input {
-  width: 96px;
-  min-height: 32px;
-  border: 1px solid var(--ion-color-medium-tint);
-  border-radius: 8px;
-  background: var(--ion-color-step-50, #fff);
-  padding: 0 8px;
+  width: 108px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --highlight-height: 0;
+  --border-width: 1px;
+  --border-color: var(--ion-color-medium-tint);
+  --border-radius: 8px;
+  --background: var(--ion-color-step-50, #fff);
   text-align: right;
 }
 

@@ -3231,7 +3231,6 @@ export class SettingsPage {
             try {
                 await capacitorShare.share({
                     title: params.title,
-                    text: params.text,
                     url: objectUrl,
                     dialogTitle: params.dialogTitle,
                 });
@@ -3254,7 +3253,6 @@ export class SettingsPage {
             if (canShareFiles) {
                 await webNavigator.share({
                     title: params.title,
-                    text: params.text,
                     files: [file],
                 });
                 return;

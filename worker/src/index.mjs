@@ -475,7 +475,12 @@ class UpstreamRateLimitError extends Error {
 }
 
 function escapeQuery(query) {
-  return query.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return String(query ?? '')
+    .replace(/[;\r\n\t]+/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function buildCoverUrl(imageId) {

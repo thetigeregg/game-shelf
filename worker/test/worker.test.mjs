@@ -245,6 +245,24 @@ test('applies platform filter to IGDB game search when platformIgdbId is provide
   assert.equal(calls.igdbBodies[0].includes('where platforms = (130);'), true);
 });
 
+test('sanitizes semicolons in search query before building IGDB body', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbBody: [],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=metal%20gear%3B%20solid'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.igdb, 1);
+  assert.equal(calls.igdbBodies[0].includes('search "metal gear solid";'), true);
+});
+
 test('demotes remakes/remasters below their original game when both are in results', async () => {
   resetCaches();
 

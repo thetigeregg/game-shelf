@@ -3,10 +3,6 @@ app-game-list {
   display: block;
 }
 
-.list-page-content {
-  --padding-bottom: calc(72px + env(safe-area-inset-bottom));
-}
-
 ion-content::part(scroll) {
   display: flex;
   flex-direction: column;

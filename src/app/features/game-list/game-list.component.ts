@@ -1042,8 +1042,9 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        this.editMetadataTitle = game.customTitle ?? '';
-        this.editMetadataPlatformIgdbId = this.normalizePlatformSelectionValue(game.customPlatformIgdbId);
+        const displayPlatform = this.getGameDisplayPlatform(game);
+        this.editMetadataTitle = this.getGameDisplayTitle(game);
+        this.editMetadataPlatformIgdbId = this.normalizePlatformSelectionValue(displayPlatform.igdbId);
         this.isEditMetadataModalOpen = true;
         this.changeDetectorRef.markForCheck();
     }

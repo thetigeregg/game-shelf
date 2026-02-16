@@ -4,7 +4,12 @@
       class="detail-cover-backdrop"
       [style.background-image]="game.coverUrl ? 'url(' + game.coverUrl + ')' : 'none'"
     ></div>
-    <img [src]="game.coverUrl || 'assets/icon/placeholder.png'" [alt]="displayTitle" (error)="onImageError($event)" />
+    <img
+      [src]="game.coverUrl || 'assets/icon/placeholder.png'"
+      [alt]="displayTitle"
+      (load)="onImageLoad($event)"
+      (error)="onImageError($event)"
+    />
   </div>
 
   <ion-list lines="full">

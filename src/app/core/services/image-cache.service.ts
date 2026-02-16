@@ -69,6 +69,13 @@ export class ImageCacheService {
       return normalizedSourceUrl;
     }
 
+    // In standalone PWA mode (especially iOS), blob/object URLs used for detail art
+    // can intermittently fail after first paint and trigger placeholder fallbacks.
+    // Prefer direct source URLs in that environment for rendering stability.
+    if (this.shouldBypassDetailBlobCache()) {
+      return normalizedSourceUrl;
+    }
+
     const cacheKey = this.buildCacheKey(gameKey, variant, normalizedSourceUrl);
     const existing = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
 
@@ -238,6 +245,21 @@ export class ImageCacheService {
 
   private buildCacheKey(gameKey: string, variant: ImageCacheVariant, sourceUrl: string): string {
     return `${gameKey}::${variant}::${sourceUrl}`;
+  }
+
+  private shouldBypassDetailBlobCache(): boolean {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const nav = navigator as Navigator & { standalone?: boolean };
+    const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches === true || nav.standalone === true;
+
+    if (!isStandalone) {
+      return false;
+    }
+
+    return true;
   }
 
   private clampLimitMb(value: number): number {

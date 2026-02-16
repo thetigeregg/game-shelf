@@ -24,6 +24,8 @@ type DetailGame = GameCatalogResult | GameEntry;
   ],
 })
 export class GameDetailContentComponent {
+  private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
+  private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
@@ -269,11 +271,57 @@ export class GameDetailContentComponent {
     }
   }
 
+  onImageLoad(event: Event): void {
+    const target = event.target;
+
+    if (target instanceof HTMLImageElement) {
+      delete target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY];
+    }
+  }
+
   onImageError(event: Event): void {
     const target = event.target;
 
     if (target instanceof HTMLImageElement) {
-      target.src = 'assets/icon/placeholder.png';
+      const currentSrc = (target.currentSrc || target.src || '').trim();
+
+      if (currentSrc.includes(GameDetailContentComponent.PLACEHOLDER_SRC)) {
+        return;
+      }
+
+      const hasRetried = target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY] === '1';
+
+      if (!hasRetried) {
+        target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY] = '1';
+        const retrySrc = this.buildRetryImageSrc(currentSrc);
+
+        if (retrySrc) {
+          target.src = retrySrc;
+          return;
+        }
+      }
+
+      target.src = GameDetailContentComponent.PLACEHOLDER_SRC;
+    }
+  }
+
+  private buildRetryImageSrc(source: string): string | null {
+    const normalized = source.trim();
+
+    if (!normalized || normalized.startsWith('data:image/')) {
+      return null;
+    }
+
+    if (normalized.startsWith('blob:')) {
+      return normalized;
+    }
+
+    try {
+      const parsed = new URL(normalized, window.location.origin);
+      parsed.searchParams.set('_img_retry', Date.now().toString());
+      return parsed.toString();
+    } catch {
+      return normalized;
     }
   }
 

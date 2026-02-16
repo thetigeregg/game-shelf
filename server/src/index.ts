@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   });
 
   const app = Fastify({
+    bodyLimit: config.requestBodyLimitBytes,
     logger: {
       transport: {
         target: 'pino-pretty',

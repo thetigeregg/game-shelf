@@ -52,6 +52,7 @@ function readEnvFilePath(): string {
 export interface AppConfig {
   host: string;
   port: number;
+  requestBodyLimitBytes: number;
   corsOrigin: string;
   postgresUrl: string;
   imageCacheDir: string;
@@ -85,6 +86,7 @@ function readPathEnv(name: string, fallbackAbsolutePath: string): string {
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
+  requestBodyLimitBytes: readIntegerEnv('REQUEST_BODY_LIMIT_BYTES', 10 * 1024 * 1024),
   corsOrigin: readEnv('CORS_ORIGIN', '*'),
   postgresUrl: readRequiredEnv('DATABASE_URL'),
   imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(serverRootDir, '.data/image-cache')),

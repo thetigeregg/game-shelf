@@ -156,6 +156,11 @@ export class GameListComponent implements OnChanges {
     private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
     private static readonly VIRTUAL_BUFFER_ROWS = 8;
     private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
+    private static readonly MAX_CUSTOM_COVER_DATA_URL_BYTES = 1024 * 1024;
+    private static readonly MIN_CUSTOM_COVER_QUALITY = 0.5;
+    private static readonly MAX_CUSTOM_COVER_QUALITY = 0.98;
+    private static readonly CUSTOM_COVER_QUALITY_STEPS = 8;
+    private static readonly CUSTOM_COVER_SCALE_FACTORS = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
 
     readonly noneTagFilterValue = '__none__';
     readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
@@ -928,17 +933,21 @@ export class GameListComponent implements OnChanges {
             return;
         }
 
-        const dataUrl = await this.readImageFileAsDataUrl(file);
+        const normalizedImage = await this.readImageFileAsDataUrl(file);
 
-        if (!dataUrl) {
-            await this.presentToast('Unable to read image file.', 'danger');
+        if (!normalizedImage) {
+            await this.presentToast('Unable to process image file.', 'danger');
             return;
         }
 
         try {
-            const updated = await this.gameShelfService.setGameCustomCover(game.igdbGameId, game.platformIgdbId, dataUrl);
+            const updated = await this.gameShelfService.setGameCustomCover(
+                game.igdbGameId,
+                game.platformIgdbId,
+                normalizedImage.dataUrl,
+            );
             this.applyUpdatedGame(updated, { refreshCover: true });
-            await this.presentToast('Custom image updated.');
+            await this.presentToast(normalizedImage.compressed ? 'Custom image compressed and updated.' : 'Custom image updated.');
         } catch {
             await this.presentToast('Unable to set custom image.', 'danger');
         }
@@ -2651,11 +2660,35 @@ export class GameListComponent implements OnChanges {
         return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
     }
 
-    private async readImageFileAsDataUrl(file: File): Promise<string | null> {
+    private async readImageFileAsDataUrl(file: File): Promise<{ dataUrl: string; compressed: boolean } | null> {
         if (!file.type.startsWith('image/')) {
             return null;
         }
 
+        const originalDataUrl = await this.readFileAsDataUrl(file);
+
+        if (!originalDataUrl) {
+            return null;
+        }
+
+        if (this.getApproximateStringBytes(originalDataUrl) <= GameListComponent.MAX_CUSTOM_COVER_DATA_URL_BYTES) {
+            return { dataUrl: originalDataUrl, compressed: false };
+        }
+
+        const compressedDataUrl = await this.compressImageDataUrlToFitLimit(
+            originalDataUrl,
+            GameListComponent.MAX_CUSTOM_COVER_DATA_URL_BYTES,
+            this.getCompressionOutputMimeType(file.type),
+        );
+
+        if (!compressedDataUrl) {
+            return null;
+        }
+
+        return { dataUrl: compressedDataUrl, compressed: true };
+    }
+
+    private async readFileAsDataUrl(file: File): Promise<string | null> {
         return await new Promise<string | null>(resolve => {
             const reader = new FileReader();
 
@@ -2667,6 +2700,86 @@ export class GameListComponent implements OnChanges {
             reader.onabort = () => resolve(null);
             reader.readAsDataURL(file);
         });
+    }
+
+    private async compressImageDataUrlToFitLimit(
+        sourceDataUrl: string,
+        maxBytes: number,
+        mimeType: 'image/webp' | 'image/jpeg',
+    ): Promise<string | null> {
+        const image = await this.loadImageFromDataUrl(sourceDataUrl);
+
+        if (!image) {
+            return null;
+        }
+
+        for (const scaleFactor of GameListComponent.CUSTOM_COVER_SCALE_FACTORS) {
+            const targetWidth = Math.max(1, Math.round(image.naturalWidth * scaleFactor));
+            const targetHeight = Math.max(1, Math.round(image.naturalHeight * scaleFactor));
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            const context = canvas.getContext('2d');
+
+            if (!context) {
+                continue;
+            }
+
+            context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+            let bestDataUrl: string | null = null;
+            let low = GameListComponent.MIN_CUSTOM_COVER_QUALITY;
+            let high = GameListComponent.MAX_CUSTOM_COVER_QUALITY;
+
+            for (let index = 0; index < GameListComponent.CUSTOM_COVER_QUALITY_STEPS; index += 1) {
+                const quality = (low + high) / 2;
+                const candidate = this.encodeCanvasAsDataUrl(canvas, mimeType, quality);
+
+                if (!candidate) {
+                    break;
+                }
+
+                if (this.getApproximateStringBytes(candidate) <= maxBytes) {
+                    bestDataUrl = candidate;
+                    low = quality;
+                } else {
+                    high = quality;
+                }
+            }
+
+            if (bestDataUrl) {
+                return bestDataUrl;
+            }
+        }
+
+        return null;
+    }
+
+    private loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement | null> {
+        return new Promise(resolve => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => resolve(null);
+            image.src = dataUrl;
+        });
+    }
+
+    private encodeCanvasAsDataUrl(
+        canvas: HTMLCanvasElement,
+        mimeType: 'image/webp' | 'image/jpeg',
+        quality: number,
+    ): string | null {
+        const dataUrl = canvas.toDataURL(mimeType, quality);
+        return /^data:image\/[a-z0-9.+-]+;base64,/i.test(dataUrl) ? dataUrl : null;
+    }
+
+    private getCompressionOutputMimeType(inputMimeType: string): 'image/webp' | 'image/jpeg' {
+        return inputMimeType === 'image/jpeg' || inputMimeType === 'image/jpg' ? 'image/jpeg' : 'image/webp';
+    }
+
+    private getApproximateStringBytes(value: string): number {
+        return value.length;
     }
 
     constructor() {

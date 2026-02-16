@@ -22,6 +22,9 @@ interface SyncPullResponse {
 @Injectable({ providedIn: 'root' })
 export class GameSyncService implements SyncOutboxWriter {
   private static readonly SYNC_INTERVAL_MS = 30_000;
+  private static readonly MAX_PUSH_BODY_BYTES = 8 * 1024 * 1024;
+  private static readonly PUSH_BODY_PREFIX_BYTES = '{"operations":['.length;
+  private static readonly PUSH_BODY_SUFFIX_BYTES = ']}'.length;
   private static readonly META_CURSOR_KEY = 'cursor';
   private static readonly META_LAST_SYNC_KEY = 'lastSyncAt';
   private static readonly META_CONNECTIVITY_KEY = 'connectivity';
@@ -115,28 +118,40 @@ export class GameSyncService implements SyncOutboxWriter {
       payload: entry.payload,
       clientTimestamp: entry.clientTimestamp,
     }));
-    const response = await firstValueFrom(
-      this.httpClient.post<SyncPushResponse>(`${this.baseUrl}/v1/sync/push`, { operations }),
-    );
+    const operationBatches = this.buildPushOperationBatches(operations, GameSyncService.MAX_PUSH_BODY_BYTES);
+    const ackedIds = new Set<string>();
+    const failedResults: SyncPushResult[] = [];
+    let latestCursor: string | null = null;
 
-    if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
-      await this.setMeta(GameSyncService.META_CURSOR_KEY, response.cursor.trim());
-    }
+    for (const batch of operationBatches) {
+      const response = await firstValueFrom(
+        this.httpClient.post<SyncPushResponse>(`${this.baseUrl}/v1/sync/push`, { operations: batch }),
+      );
 
-    const ackedIds = new Set(
-      (Array.isArray(response.results) ? response.results : [])
+      if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
+        latestCursor = response.cursor.trim();
+      }
+
+      const batchResults = Array.isArray(response.results) ? response.results : [];
+
+      batchResults
         .filter(result => result.status === 'applied' || result.status === 'duplicate')
         .map(result => result.opId)
-        .filter(opId => typeof opId === 'string' && opId.trim().length > 0),
-    );
+        .filter(opId => typeof opId === 'string' && opId.trim().length > 0)
+        .forEach(opId => ackedIds.add(opId));
+
+      failedResults.push(...batchResults.filter(result => result.status === 'failed'));
+    }
+
+    if (latestCursor) {
+      await this.setMeta(GameSyncService.META_CURSOR_KEY, latestCursor);
+    }
 
     if (ackedIds.size > 0) {
       await this.db.outbox.bulkDelete([...ackedIds]);
     }
 
-    const failed = (Array.isArray(response.results) ? response.results : []).filter(result => result.status === 'failed');
-
-    for (const failure of failed) {
+    for (const failure of failedResults) {
       const existing = await this.db.outbox.get(failure.opId);
 
       if (!existing) {
@@ -149,6 +164,37 @@ export class GameSyncService implements SyncOutboxWriter {
         lastError: failure.message ?? 'Failed to push operation.',
       });
     }
+  }
+
+  private buildPushOperationBatches(
+    operations: ClientSyncOperation[],
+    maxBodyBytes: number,
+  ): ClientSyncOperation[][] {
+    const batches: ClientSyncOperation[][] = [];
+    let currentBatch: ClientSyncOperation[] = [];
+    let currentBatchBytes = GameSyncService.PUSH_BODY_PREFIX_BYTES + GameSyncService.PUSH_BODY_SUFFIX_BYTES;
+
+    for (const operation of operations) {
+      const operationBytes = JSON.stringify(operation).length;
+      const commaBytes = currentBatch.length > 0 ? 1 : 0;
+      const nextBatchBytes = currentBatchBytes + commaBytes + operationBytes;
+
+      if (nextBatchBytes <= maxBodyBytes || currentBatch.length === 0) {
+        currentBatch.push(operation);
+        currentBatchBytes = nextBatchBytes;
+        continue;
+      }
+
+      batches.push(currentBatch);
+      currentBatch = [operation];
+      currentBatchBytes = GameSyncService.PUSH_BODY_PREFIX_BYTES + GameSyncService.PUSH_BODY_SUFFIX_BYTES + operationBytes;
+    }
+
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
+    }
+
+    return batches;
   }
 
   private async pullChanges(): Promise<void> {

@@ -3,7 +3,7 @@
   [class.selection-mode-header]="isSelectionMode"
 >
   <ion-toolbar>
-    <ion-buttons slot="start" *ngIf="isSelectionMode" [collapse]="true">
+    <ion-buttons slot="start" *ngIf="isSelectionMode">
       <ion-button
         aria-label="Exit selection mode"
         (click)="clearSelectionMode()"
@@ -25,7 +25,7 @@
       [ngTemplateOutlet]="browseHeaderActions"
       [ngTemplateOutletContext]="{ collapseAttr: true }"
     ></ng-container>
-    <ion-buttons slot="end" *ngIf="isSelectionMode" [collapse]="true">
+    <ion-buttons slot="end" *ngIf="isSelectionMode">
       <ion-button
         aria-label="Select all games"
         (click)="toggleSelectAll()"

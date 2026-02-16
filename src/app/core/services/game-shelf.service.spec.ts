@@ -27,6 +27,7 @@ describe('GameShelfService', () => {
       setGameStatus: vi.fn(),
       setGameRating: vi.fn(),
       setGameTags: vi.fn(),
+      setGameCustomCover: vi.fn(),
       setGameCustomMetadata: vi.fn(),
       listTags: vi.fn(),
       upsertTag: vi.fn(),

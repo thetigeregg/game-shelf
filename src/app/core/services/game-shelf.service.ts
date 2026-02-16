@@ -363,6 +363,21 @@ export class GameShelfService {
     return updated;
   }
 
+  async setGameCustomCover(
+    igdbGameId: string,
+    platformIgdbId: number,
+    customCoverUrl: string | null,
+  ): Promise<GameEntry> {
+    const updated = await this.repository.setGameCustomCover(igdbGameId, platformIgdbId, customCoverUrl);
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    this.listRefresh$.next();
+    return updated;
+  }
+
   async setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry> {
     const updated = await this.repository.setGameTags(igdbGameId, platformIgdbId, tagIds);
 

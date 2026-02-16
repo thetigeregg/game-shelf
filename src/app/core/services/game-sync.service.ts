@@ -237,6 +237,7 @@ export class GameSyncService implements SyncOutboxWriter {
       platform: typeof payload.platform === 'string' && payload.platform.trim().length > 0 ? payload.platform.trim() : 'Unknown platform',
       customPlatform: this.normalizeCustomPlatform(payload.customPlatform, payload.customPlatformIgdbId, payload.platform),
       customPlatformIgdbId: this.normalizeCustomPlatformIgdbId(payload.customPlatformIgdbId, payload.customPlatform, payload.platformIgdbId, payload.platform),
+      customCoverUrl: this.normalizeCustomCoverUrl(payload.customCoverUrl),
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
       createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
       updatedAt: typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
@@ -308,6 +309,16 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     return parsed;
+  }
+
+  private normalizeCustomCoverUrl(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
   }
 
   private async applyTagChange(change: SyncChangeEvent): Promise<void> {

@@ -188,6 +188,19 @@ describe('DexieGameRepository', () => {
     expect(reset?.customPlatformIgdbId).toBeNull();
   });
 
+  it('stores and resets custom cover image', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+    const customCoverUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
+
+    await repository.setGameCustomCover('101', 18, customCoverUrl);
+    const customized = await repository.exists('101', 18);
+    expect(customized?.customCoverUrl).toBe(customCoverUrl);
+
+    await repository.setGameCustomCover('101', 18, null);
+    const reset = await repository.exists('101', 18);
+    expect(reset?.customCoverUrl).toBeNull();
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });

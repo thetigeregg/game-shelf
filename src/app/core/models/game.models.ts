@@ -89,6 +89,7 @@ export interface GameEntry {
   title: string;
   customTitle?: string | null;
   coverUrl: string | null;
+  customCoverUrl?: string | null;
   coverSource: CoverSource;
   storyline?: string | null;
   summary?: string | null;

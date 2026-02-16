@@ -50,6 +50,7 @@ export class DexieGameRepository implements GameRepository {
         title: result.title,
         customTitle: this.resolveCustomTitle(existing.customTitle, result.title),
         coverUrl: result.coverUrl,
+        customCoverUrl: this.normalizeCustomCoverUrl(existing.customCoverUrl),
         coverSource: result.coverSource,
         storyline: this.normalizeTextValue(result.storyline),
         summary: this.normalizeTextValue(result.summary),
@@ -91,6 +92,7 @@ export class DexieGameRepository implements GameRepository {
       title: result.title,
       customTitle: null,
       coverUrl: result.coverUrl,
+      customCoverUrl: null,
       coverSource: result.coverSource,
       storyline: this.normalizeTextValue(result.storyline),
       summary: this.normalizeTextValue(result.summary),
@@ -223,6 +225,24 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       tagIds: this.normalizeTagIds(tagIds),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
+    return updated;
+  }
+
+  async setGameCustomCover(igdbGameId: string, platformIgdbId: number, customCoverUrl: string | null): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      customCoverUrl: this.normalizeCustomCoverUrl(customCoverUrl),
       updatedAt: new Date().toISOString(),
     };
 
@@ -615,6 +635,16 @@ export class DexieGameRepository implements GameRepository {
   private normalizeTextValue(value: string | null | undefined): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeCustomCoverUrl(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
   }
 
   private normalizeCustomTitle(value: string | null | undefined, defaultTitle: string): string | null {

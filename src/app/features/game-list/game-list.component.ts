@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, NgZone, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
@@ -264,6 +264,7 @@ export class GameListComponent implements OnChanges {
     private readonly searchQuery$ = new BehaviorSubject<string>('');
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
     @ViewChild('detailContent') private detailContent?: IonContent;
+    @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
     private imageErrorLogCount = 0;
 
     readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
@@ -916,6 +917,32 @@ export class GameListComponent implements OnChanges {
         }
     }
 
+    async onCustomCoverFileSelected(event: Event): Promise<void> {
+        const game = this.selectedGame;
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+
+        if (!game || !file) {
+            return;
+        }
+
+        const dataUrl = await this.readImageFileAsDataUrl(file);
+
+        if (!dataUrl) {
+            await this.presentToast('Unable to read image file.', 'danger');
+            return;
+        }
+
+        try {
+            const updated = await this.gameShelfService.setGameCustomCover(game.igdbGameId, game.platformIgdbId, dataUrl);
+            this.applyUpdatedGame(updated, { refreshCover: true });
+            await this.presentToast('Custom image updated.');
+        } catch {
+            await this.presentToast('Unable to set custom image.', 'danger');
+        }
+    }
+
     openRowActionsPopover(game: GameEntry, event: Event, slidingItem: IonItemSliding): void {
         event.stopPropagation();
         this.rowActionsGame = game;
@@ -953,6 +980,43 @@ export class GameListComponent implements OnChanges {
     async openImagePickerFromPopover(): Promise<void> {
         await this.openImagePickerModal();
         await this.dismissDetailActionsPopover();
+    }
+
+    async uploadCustomImageFromPopover(): Promise<void> {
+        await this.dismissDetailActionsPopover();
+        this.customCoverFileInput?.nativeElement.click();
+    }
+
+    uploadCustomImageFromEditMetadata(): void {
+        this.customCoverFileInput?.nativeElement.click();
+    }
+
+    async resetCustomImageFromPopover(): Promise<void> {
+        await this.dismissDetailActionsPopover();
+        await this.resetSelectedGameCustomImage();
+    }
+
+    async resetCustomImageFromEditMetadata(): Promise<void> {
+        await this.resetSelectedGameCustomImage();
+    }
+
+    private async resetSelectedGameCustomImage(): Promise<void> {
+
+        if (!this.selectedGame) {
+            return;
+        }
+
+        try {
+            const updated = await this.gameShelfService.setGameCustomCover(
+                this.selectedGame.igdbGameId,
+                this.selectedGame.platformIgdbId,
+                null,
+            );
+            this.applyUpdatedGame(updated, { refreshCover: true });
+            await this.presentToast('Custom image reset.');
+        } catch {
+            await this.presentToast('Unable to reset custom image.', 'danger');
+        }
     }
 
     async openFixMatchFromPopover(): Promise<void> {
@@ -1749,6 +1813,12 @@ export class GameListComponent implements OnChanges {
     }
 
     getRowCoverUrl(game: GameEntry): string {
+        const displayCoverUrl = this.getDisplayCoverUrl(game);
+
+        if (typeof displayCoverUrl === 'string' && displayCoverUrl.startsWith('data:image/')) {
+            return displayCoverUrl;
+        }
+
         const gameKey = this.getGameKey(game);
         const existing = this.rowCoverUrlByGameKey.get(gameKey);
 
@@ -1760,10 +1830,16 @@ export class GameListComponent implements OnChanges {
             void this.loadRowCoverUrl(game);
         }
 
-        return this.getFallbackCoverUrl(game.coverUrl, 'thumb');
+        return this.getFallbackCoverUrl(displayCoverUrl, 'thumb');
     }
 
     getDetailCoverUrl(game: GameEntry): string {
+        const displayCoverUrl = this.getDisplayCoverUrl(game);
+
+        if (typeof displayCoverUrl === 'string' && displayCoverUrl.startsWith('data:image/')) {
+            return displayCoverUrl;
+        }
+
         const gameKey = this.getGameKey(game);
         const existing = this.detailCoverUrlByGameKey.get(gameKey);
 
@@ -1775,7 +1851,7 @@ export class GameListComponent implements OnChanges {
             void this.loadDetailCoverUrl(game);
         }
 
-        return this.getFallbackCoverUrl(game.coverUrl, 'detail');
+        return this.getFallbackCoverUrl(displayCoverUrl, 'detail');
     }
 
     private getOtherListType(): ListType {
@@ -1806,8 +1882,25 @@ export class GameListComponent implements OnChanges {
         });
     }
 
+    private getDisplayCoverUrl(game: GameEntry): string | null {
+        const customCoverUrl = typeof game.customCoverUrl === 'string' ? game.customCoverUrl.trim() : '';
+
+        if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrl)) {
+            return customCoverUrl;
+        }
+
+        return game.coverUrl;
+    }
+
     private async loadRowCoverUrl(game: GameEntry): Promise<void> {
         const gameKey = this.getGameKey(game);
+        const displayCoverUrl = this.getDisplayCoverUrl(game);
+
+        if (typeof displayCoverUrl === 'string' && displayCoverUrl.startsWith('data:image/')) {
+            this.rowCoverUrlByGameKey.set(gameKey, displayCoverUrl);
+            this.changeDetectorRef.markForCheck();
+            return;
+        }
 
         if (this.rowCoverLoadingGameKeys.has(gameKey)) {
             return;
@@ -1816,11 +1909,11 @@ export class GameListComponent implements OnChanges {
         this.rowCoverLoadingGameKeys.add(gameKey);
 
         try {
-            const resolved = await this.imageCacheService.resolveImageUrl(gameKey, game.coverUrl, 'thumb');
+            const resolved = await this.imageCacheService.resolveImageUrl(gameKey, displayCoverUrl, 'thumb');
             this.rowCoverUrlByGameKey.set(gameKey, resolved);
             this.changeDetectorRef.markForCheck();
         } catch {
-            this.rowCoverUrlByGameKey.set(gameKey, this.getFallbackCoverUrl(game.coverUrl, 'thumb'));
+            this.rowCoverUrlByGameKey.set(gameKey, this.getFallbackCoverUrl(displayCoverUrl, 'thumb'));
             this.changeDetectorRef.markForCheck();
         } finally {
             this.rowCoverLoadingGameKeys.delete(gameKey);
@@ -1829,6 +1922,13 @@ export class GameListComponent implements OnChanges {
 
     private async loadDetailCoverUrl(game: GameEntry): Promise<void> {
         const gameKey = this.getGameKey(game);
+        const displayCoverUrl = this.getDisplayCoverUrl(game);
+
+        if (typeof displayCoverUrl === 'string' && displayCoverUrl.startsWith('data:image/')) {
+            this.detailCoverUrlByGameKey.set(gameKey, displayCoverUrl);
+            this.changeDetectorRef.markForCheck();
+            return;
+        }
 
         if (this.detailCoverLoadingGameKeys.has(gameKey)) {
             return;
@@ -1837,11 +1937,11 @@ export class GameListComponent implements OnChanges {
         this.detailCoverLoadingGameKeys.add(gameKey);
 
         try {
-            const resolved = await this.imageCacheService.resolveImageUrl(gameKey, game.coverUrl, 'detail');
+            const resolved = await this.imageCacheService.resolveImageUrl(gameKey, displayCoverUrl, 'detail');
             this.detailCoverUrlByGameKey.set(gameKey, resolved);
             this.changeDetectorRef.markForCheck();
         } catch {
-            this.detailCoverUrlByGameKey.set(gameKey, this.getFallbackCoverUrl(game.coverUrl, 'detail'));
+            this.detailCoverUrlByGameKey.set(gameKey, this.getFallbackCoverUrl(displayCoverUrl, 'detail'));
             this.changeDetectorRef.markForCheck();
         } finally {
             this.detailCoverLoadingGameKeys.delete(gameKey);
@@ -2520,6 +2620,24 @@ export class GameListComponent implements OnChanges {
     private normalizePlatformSelectionValue(value: unknown): number | null {
         const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
         return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    private async readImageFileAsDataUrl(file: File): Promise<string | null> {
+        if (!file.type.startsWith('image/')) {
+            return null;
+        }
+
+        return await new Promise<string | null>(resolve => {
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+                resolve(/^data:image\/[a-z0-9.+-]+;base64,/i.test(dataUrl) ? dataUrl : null);
+            };
+            reader.onerror = () => resolve(null);
+            reader.onabort = () => resolve(null);
+            reader.readAsDataURL(file);
+        });
     }
 
     constructor() {

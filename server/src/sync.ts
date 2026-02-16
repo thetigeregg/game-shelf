@@ -425,6 +425,7 @@ function normalizeGamePayload(value: unknown): Record<string, unknown> & { igdbG
   const customTitleRaw = typeof payload.customTitle === 'string' ? payload.customTitle.trim() : '';
   const customPlatformRaw = typeof payload.customPlatform === 'string' ? payload.customPlatform.trim() : '';
   const customPlatformIgdbIdRaw = Number.parseInt(String(payload.customPlatformIgdbId ?? ''), 10);
+  const customCoverUrlRaw = typeof payload.customCoverUrl === 'string' ? payload.customCoverUrl.trim() : '';
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId = Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
     ? customPlatformIgdbIdRaw
@@ -432,6 +433,7 @@ function normalizeGamePayload(value: unknown): Record<string, unknown> & { igdbG
   const customPlatform = customPlatformRaw.length > 0 && customPlatformIgdbId !== null && customPlatformRaw !== platform
     ? customPlatformRaw
     : null;
+  const customCoverUrl = /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw) ? customCoverUrlRaw : null;
 
   return {
     ...payload,
@@ -440,6 +442,7 @@ function normalizeGamePayload(value: unknown): Record<string, unknown> & { igdbG
     customTitle,
     customPlatform,
     customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
+    customCoverUrl,
     updatedAt,
   };
 }

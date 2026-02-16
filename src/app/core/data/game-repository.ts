@@ -12,6 +12,7 @@ export interface GameRepository {
   setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry | undefined>;
   setGameRating(igdbGameId: string, platformIgdbId: number, rating: GameRating | null): Promise<GameEntry | undefined>;
   setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry | undefined>;
+  setGameCustomCover(igdbGameId: string, platformIgdbId: number, customCoverUrl: string | null): Promise<GameEntry | undefined>;
   setGameCustomMetadata(
     igdbGameId: string,
     platformIgdbId: number,

@@ -177,6 +177,12 @@
             <ion-item button detail="false" (click)="openImagePickerFromPopover()">
               Update image
             </ion-item>
+            <ion-item button detail="false" (click)="uploadCustomImageFromPopover()">
+              Upload custom image
+            </ion-item>
+            <ion-item button detail="false" *ngIf="selectedGame?.customCoverUrl" (click)="resetCustomImageFromPopover()">
+              Reset to default image
+            </ion-item>
             <ion-item button detail="false" (click)="openFixMatchFromPopover()">
               Fix game match
             </ion-item>
@@ -267,6 +273,14 @@
   </ng-template>
 </ion-modal>
 
+<input
+  #customCoverFileInput
+  style="display: none"
+  type="file"
+  accept="image/*"
+  (change)="onCustomCoverFileSelected($event)"
+/>
+
 <ion-modal [isOpen]="isEditMetadataModalOpen" (didDismiss)="closeEditMetadataModal()">
   <ng-template>
     <ion-header>
@@ -317,6 +331,22 @@
           <ion-button fill="outline" color="medium" [disabled]="isEditMetadataSaving" (click)="resetEditMetadataPlatform()">
             Reset Platform
           </ion-button>
+        </ion-item>
+        <ion-item>
+          <ion-label>Box art</ion-label>
+          <ion-buttons slot="end">
+            <ion-button fill="outline" [disabled]="isEditMetadataSaving" (click)="uploadCustomImageFromEditMetadata()">
+              Upload custom image
+            </ion-button>
+            <ion-button
+              fill="outline"
+              color="medium"
+              [disabled]="isEditMetadataSaving || !selectedGame?.customCoverUrl"
+              (click)="resetCustomImageFromEditMetadata()"
+            >
+              Reset to default
+            </ion-button>
+          </ion-buttons>
         </ion-item>
         <ion-item lines="none">
           <ion-button size="default" [disabled]="isEditMetadataSaving" (click)="saveEditMetadata()">

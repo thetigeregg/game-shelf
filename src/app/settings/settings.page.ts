@@ -44,6 +44,7 @@ interface ExportCsvRow {
     summary: string;
     storyline: string;
     coverUrl: string;
+    customCoverUrl: string;
     coverSource: string;
     gameType: string;
     platform: string;
@@ -83,6 +84,7 @@ interface ParsedGameImportRow {
     rating: GameRating | null;
     customTitle: string | null;
     customPlatform: { name: string; igdbId: number } | null;
+    customCoverUrl: string | null;
     tagNames: string[];
     tagIds: number[];
 }
@@ -154,6 +156,7 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
     'summary',
     'storyline',
     'coverUrl',
+    'customCoverUrl',
     'coverSource',
     'gameType',
     'platform',
@@ -1174,6 +1177,14 @@ export class SettingsPage {
                             },
                         );
                         gameCustomMetadataApplied += 1;
+                    }
+
+                    if (gameRow.customCoverUrl !== null) {
+                        await this.gameShelfService.setGameCustomCover(
+                            gameRow.catalog.igdbGameId,
+                            platformIgdbId,
+                            gameRow.customCoverUrl,
+                        );
                     }
 
                     if (gameRow.status !== null) {
@@ -2250,6 +2261,7 @@ export class SettingsPage {
                 summary: game.summary ?? '',
                 storyline: game.storyline ?? '',
                 coverUrl: game.coverUrl ?? '',
+                customCoverUrl: game.customCoverUrl ?? '',
                 coverSource: game.coverSource,
                 gameType: game.gameType ?? '',
                 platform: game.platform,
@@ -2295,6 +2307,7 @@ export class SettingsPage {
                 summary: '',
                 storyline: '',
                 coverUrl: '',
+                customCoverUrl: '',
                 coverSource: '',
                 gameType: '',
                 platform: '',
@@ -2338,6 +2351,7 @@ export class SettingsPage {
                 summary: '',
                 storyline: '',
                 coverUrl: '',
+                customCoverUrl: '',
                 coverSource: '',
                 gameType: '',
                 platform: '',
@@ -2381,6 +2395,7 @@ export class SettingsPage {
                 summary: '',
                 storyline: '',
                 coverUrl: '',
+                customCoverUrl: '',
                 coverSource: '',
                 gameType: '',
                 platform: '',
@@ -2629,11 +2644,16 @@ export class SettingsPage {
         const customTitle = this.parseOptionalText(record.customTitle);
         const customPlatformName = this.parseOptionalText(record.customPlatform);
         const customPlatformIgdbId = this.parsePositiveInteger(record.customPlatformIgdbId);
+        const customCoverUrl = this.parseOptionalDataImage(record.customCoverUrl);
         const hasCustomPlatformName = customPlatformName !== null;
         const hasCustomPlatformId = customPlatformIgdbId !== null;
 
         if (hasCustomPlatformName !== hasCustomPlatformId) {
             return this.errorRow(type, rowNumber, 'Custom platform must include both name and IGDB platform id.');
+        }
+
+        if (record.customCoverUrl.trim().length > 0 && customCoverUrl === null) {
+            return this.errorRow(type, rowNumber, 'Custom cover image must be a data URL.');
         }
 
         const customPlatform = hasCustomPlatformName && hasCustomPlatformId
@@ -2701,6 +2721,7 @@ export class SettingsPage {
                 rating,
                 customTitle,
                 customPlatform,
+                customCoverUrl,
                 tagNames,
                 tagIds,
             },
@@ -2809,6 +2830,7 @@ export class SettingsPage {
             summary: getValue('summary'),
             storyline: getValue('storyline'),
             coverUrl: getValue('coverUrl'),
+            customCoverUrl: getValue('customCoverUrl'),
             coverSource: getValue('coverSource'),
             gameType: getValue('gameType'),
             platform: getValue('platform'),
@@ -2888,6 +2910,16 @@ export class SettingsPage {
     private parseOptionalText(raw: string): string | null {
         const normalized = raw.trim();
         return normalized.length > 0 ? normalized : null;
+    }
+
+    private parseOptionalDataImage(raw: string): string | null {
+        const normalized = raw.trim();
+
+        if (normalized.length === 0) {
+            return null;
+        }
+
+        return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
     }
 
     private parseOptionalGameType(raw: string): GameCatalogResult['gameType'] {

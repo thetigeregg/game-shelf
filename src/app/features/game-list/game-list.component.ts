@@ -271,6 +271,7 @@ export class GameListComponent implements OnChanges {
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
     @ViewChild('detailContent') private detailContent?: IonContent;
     @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
+    @ViewChild('gameDetailModal', { read: ElementRef }) private gameDetailModalRef?: ElementRef<HTMLElement>;
     private imageErrorLogCount = 0;
 
     readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
@@ -873,6 +874,10 @@ export class GameListComponent implements OnChanges {
         return `game-detail-actions-trigger-${this.listType}`;
     }
 
+    get gameDetailModalElement(): HTMLElement | undefined {
+        return this.gameDetailModalRef?.nativeElement;
+    }
+
     getDetailActionsPopoverId(): string {
         return `game-detail-actions-popover-${this.listType}`;
     }
@@ -1095,11 +1100,8 @@ export class GameListComponent implements OnChanges {
     }
 
     closeEditMetadataModal(): void {
-        if (this.isEditMetadataSaving) {
-            return;
-        }
-
         this.isEditMetadataModalOpen = false;
+        this.isEditMetadataSaving = false;
         this.editMetadataTitle = '';
         this.editMetadataPlatformIgdbId = null;
         this.editMetadataPlatformOptions = [];

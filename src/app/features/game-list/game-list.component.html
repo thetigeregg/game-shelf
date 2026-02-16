@@ -157,7 +157,12 @@
   </ng-template>
 </ion-popover>
 
-<ion-modal [isOpen]="isGameDetailModalOpen" (didDismiss)="closeGameDetailModal()">
+<ion-modal
+  #gameDetailModal
+  [isOpen]="isGameDetailModalOpen"
+  [focusTrap]="!isEditMetadataModalOpen"
+  (didDismiss)="closeGameDetailModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>
@@ -301,13 +306,17 @@
   (change)="onCustomCoverFileSelected($event)"
   />
 
-<ion-modal [isOpen]="isEditMetadataModalOpen" (didDismiss)="closeEditMetadataModal()">
+<ion-modal
+  [isOpen]="isEditMetadataModalOpen"
+  [presentingElement]="gameDetailModalElement"
+  (didDismiss)="closeEditMetadataModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>
         <ion-title>Edit Metadata</ion-title>
         <ion-buttons slot="end">
-          <ion-button fill="clear" [disabled]="isEditMetadataSaving" (click)="closeEditMetadataModal()">
+          <ion-button fill="clear" (click)="closeEditMetadataModal()">
             Close
           </ion-button>
         </ion-buttons>

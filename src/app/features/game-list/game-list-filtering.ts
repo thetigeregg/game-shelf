@@ -52,9 +52,11 @@ interface NormalizedFilterGame {
 export class GameListFilteringEngine {
   private static readonly PLATFORM_DISPLAY_ALIAS_MAP: Record<string, string> = {
     'family computer': 'Nintendo Entertainment System',
+    'family computer disk system': 'Nintendo Entertainment System',
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
+    'e-reader / card-e reader': 'Game Boy Advance',
   };
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
   private readonly platformOrderByKey = new Map<string, number>();

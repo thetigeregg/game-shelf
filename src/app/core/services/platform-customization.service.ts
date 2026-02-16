@@ -7,6 +7,14 @@ export type PlatformDisplayNameMap = Record<string, string>;
 
 @Injectable({ providedIn: 'root' })
 export class PlatformCustomizationService {
+  private static readonly PLATFORM_DISPLAY_ALIAS_MAP: Record<string, string> = {
+    'family computer': 'Nintendo Entertainment System',
+    'family computer disk system': 'Nintendo Entertainment System',
+    'super famicom': 'Super Nintendo Entertainment System',
+    'new nintendo 3ds': 'Nintendo 3DS',
+    'nintendo dsi': 'Nintendo DS',
+    'e-reader / card-e reader': 'Game Boy Advance',
+  };
   private readonly displayNamesSubject = new BehaviorSubject<PlatformDisplayNameMap>(this.loadFromStorage());
   readonly displayNames$ = this.displayNamesSubject.asObservable();
 
@@ -16,6 +24,7 @@ export class PlatformCustomizationService {
 
   getDisplayName(platformName: string | null | undefined, platformIgdbId: number | null | undefined): string {
     const fallback = String(platformName ?? '').trim();
+    const aliasedFallback = this.getAliasedPlatformName(fallback);
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const custom = platformId !== null ? this.displayNamesSubject.value[String(platformId)] : undefined;
     const normalizedCustom = typeof custom === 'string' ? custom.trim() : '';
@@ -24,7 +33,7 @@ export class PlatformCustomizationService {
       return normalizedCustom;
     }
 
-    return fallback;
+    return aliasedFallback;
   }
 
   getCustomName(platformIgdbId: number | null | undefined): string | null {
@@ -107,6 +116,17 @@ export class PlatformCustomizationService {
     return typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
       ? platformIgdbId
       : null;
+  }
+
+  private getAliasedPlatformName(value: string | null | undefined): string {
+    const trimmed = String(value ?? '').trim();
+
+    if (trimmed.length === 0) {
+      return '';
+    }
+
+    const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
+    return PlatformCustomizationService.PLATFORM_DISPLAY_ALIAS_MAP[key] ?? trimmed;
   }
 
   private loadFromStorage(): PlatformDisplayNameMap {

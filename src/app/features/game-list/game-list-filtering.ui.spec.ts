@@ -163,6 +163,20 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(grouped.sections[0].games.map(game => game.title)).toEqual(['JP SNES', 'US SNES']);
   });
 
+  it('treats Family Computer Disk System as NES and e-Reader / Card-e Reader as Game Boy Advance', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 51, title: 'Disk System Game', platform: 'Family Computer Disk System' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 18, title: 'NES Game', platform: 'Nintendo Entertainment System' }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 510, title: 'e-Reader Game', platform: 'e-Reader / Card-e Reader' }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 24, title: 'GBA Game', platform: 'Game Boy Advance' }),
+    ];
+
+    expect(engine.extractPlatforms(games).sort()).toEqual(['Nintendo Entertainment System', 'Game Boy Advance'].sort());
+
+    const grouped = engine.buildGroupedView(games, 'platform');
+    expect(grouped.sections.map(section => section.title).sort()).toEqual(['Nintendo Entertainment System', 'Game Boy Advance'].sort());
+  });
+
   it('treats New Nintendo 3DS as Nintendo 3DS and Nintendo DSi as Nintendo DS', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 137, title: 'New 3DS Game', platform: 'New Nintendo 3DS' }),

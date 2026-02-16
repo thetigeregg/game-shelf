@@ -18,6 +18,14 @@ describe('PlatformCustomizationService', () => {
     expect(service.getDisplayName('Nintendo Switch', 130)).toBe('Nintendo Switch');
   });
 
+  it('applies built-in platform aliases when no custom display name exists', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+
+    expect(service.getDisplayName('Super Famicom', 58)).toBe('Super Nintendo Entertainment System');
+    expect(service.getDisplayName('Family Computer Disk System', 51)).toBe('Nintendo Entertainment System');
+    expect(service.getDisplayName('e-Reader / Card-e Reader', 510)).toBe('Game Boy Advance');
+  });
+
   it('applies custom display names by platform id', () => {
     const service = TestBed.inject(PlatformCustomizationService);
     service.setCustomName(130, 'Switch');

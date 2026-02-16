@@ -170,6 +170,7 @@ export class ListPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
   private receivedInitialListSnapshot = false;
+  private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'];
@@ -341,6 +342,10 @@ export class ListPageComponent {
 
   closeSearchModal(): void {
     this.isSearchModalOpen = false;
+    if (this.searchbarFocusRetryHandle !== null) {
+      clearTimeout(this.searchbarFocusRetryHandle);
+      this.searchbarFocusRetryHandle = null;
+    }
   }
 
   clearSearch(): void {
@@ -348,7 +353,24 @@ export class ListPageComponent {
   }
 
   async focusSearchbar(): Promise<void> {
+    if (!this.isSearchModalOpen) {
+      return;
+    }
+
     await this.modalSearchbar?.setFocus();
+
+    if (this.searchbarFocusRetryHandle !== null) {
+      clearTimeout(this.searchbarFocusRetryHandle);
+    }
+
+    this.searchbarFocusRetryHandle = setTimeout(() => {
+      if (!this.isSearchModalOpen) {
+        return;
+      }
+
+      void this.modalSearchbar?.setFocus();
+      this.searchbarFocusRetryHandle = null;
+    }, 120);
   }
 
   onDisplayedGamesChange(games: GameEntry[]): void {

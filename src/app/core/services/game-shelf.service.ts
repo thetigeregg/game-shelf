@@ -338,6 +338,22 @@ export class GameShelfService {
     return this.searchApi.searchBoxArtByTitle(normalized, platform, platformIgdbId);
   }
 
+  getIgdbCoverByGameId(igdbGameId: string): Observable<string | null> {
+    const normalized = igdbGameId.trim();
+
+    if (normalized.length === 0) {
+      return of(null);
+    }
+
+    return this.searchApi.getGameById(normalized).pipe(
+      map(result => {
+        const coverUrl = typeof result.coverUrl === 'string' ? result.coverUrl.trim() : '';
+        return coverUrl.length > 0 ? coverUrl : null;
+      }),
+      catchError(() => of(null)),
+    );
+  }
+
   shouldUseIgdbCoverForPlatform(platform?: string | null, platformIgdbId?: number | null): boolean {
     if (typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0) {
       return GameShelfService.IGDB_COVER_PLATFORM_IGDB_IDS.has(platformIgdbId);

@@ -490,7 +490,14 @@
         {{ imagePickerError }}
       </p>
 
-      <p class="picker-state ion-text-center" *ngIf="!isImagePickerLoading && !imagePickerError && imagePickerResults.length === 0">
+      <ion-list-header *ngIf="!isImagePickerLoading && imagePickerResults.length > 0">
+        <ion-label>TheGamesDB Results</ion-label>
+      </ion-list-header>
+
+      <p
+        class="picker-state ion-text-center"
+        *ngIf="!isImagePickerLoading && !imagePickerError && imagePickerResults.length === 0 && !imagePickerIgdbCoverUrl"
+      >
         No 2D box art found.
       </p>
 
@@ -499,6 +506,20 @@
           <ion-col size="4" size-md="3" *ngFor="let imageUrl of imagePickerResults">
             <ion-button fill="clear" class="box-art-option" (click)="applySelectedImage(imageUrl)">
               <img [src]="imageUrl" alt="Box art option" />
+            </ion-button>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+
+      <ion-list-header *ngIf="!isImagePickerLoading && imagePickerIgdbCoverUrl">
+        <ion-label>IGDB Image</ion-label>
+      </ion-list-header>
+
+      <ion-grid *ngIf="!isImagePickerLoading && imagePickerIgdbCoverUrl">
+        <ion-row>
+          <ion-col size="4" size-md="3">
+            <ion-button fill="clear" class="box-art-option" (click)="applySelectedImage(imagePickerIgdbCoverUrl!)">
+              <img [src]="imagePickerIgdbCoverUrl" alt="IGDB box art option" />
             </ion-button>
           </ion-col>
         </ion-row>

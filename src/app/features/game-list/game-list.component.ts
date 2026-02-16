@@ -200,6 +200,7 @@ export class GameListComponent implements OnChanges {
     clearRatingOnSave = false;
     imagePickerQuery = '';
     imagePickerResults: string[] = [];
+    imagePickerIgdbCoverUrl: string | null = null;
     isImagePickerLoading = false;
     imagePickerError: string | null = null;
     hltbPickerQuery = '';
@@ -1323,6 +1324,7 @@ export class GameListComponent implements OnChanges {
                 }
 
                 this.imagePickerResults = [];
+                this.imagePickerIgdbCoverUrl = null;
                 this.imagePickerError = null;
                 this.isImagePickerLoading = false;
                 this.changeDetectorRef.markForCheck();
@@ -1357,7 +1359,7 @@ export class GameListComponent implements OnChanges {
                     return;
                 }
 
-                this.imagePickerResults = results;
+                this.imagePickerResults = this.filterOutImagePickerIgdbCover(results);
             });
         } catch (error: unknown) {
             this.ngZone.run(() => {
@@ -1396,10 +1398,12 @@ export class GameListComponent implements OnChanges {
         }
 
         try {
-            const coverSource = this.gameShelfService.shouldUseIgdbCoverForPlatform(
-                this.selectedGame.platform,
-                this.selectedGame.platformIgdbId,
-            ) ? 'igdb' : 'thegamesdb';
+            const coverSource = this.isIgdbCoverUrl(url)
+                ? 'igdb'
+                : this.gameShelfService.shouldUseIgdbCoverForPlatform(
+                    this.selectedGame.platform,
+                    this.selectedGame.platformIgdbId,
+                ) ? 'igdb' : 'thegamesdb';
             const updated = await this.gameShelfService.updateGameCover(
                 this.selectedGame.igdbGameId,
                 this.selectedGame.platformIgdbId,
@@ -2305,10 +2309,12 @@ export class GameListComponent implements OnChanges {
         this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
         this.imagePickerQuery = nextState.imagePickerQuery;
         this.imagePickerResults = nextState.imagePickerResults;
+        this.imagePickerIgdbCoverUrl = null;
         this.imagePickerError = nextState.imagePickerError;
         this.isImagePickerLoading = nextState.isImagePickerLoading;
         this.isImagePickerModalOpen = nextState.isImagePickerModalOpen;
         this.changeDetectorRef.markForCheck();
+        void this.loadImagePickerIgdbCover(this.selectedGame.igdbGameId);
         await this.runImagePickerSearch();
     }
 
@@ -2381,9 +2387,42 @@ export class GameListComponent implements OnChanges {
         this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
         this.imagePickerQuery = nextState.imagePickerQuery;
         this.imagePickerResults = nextState.imagePickerResults;
+        this.imagePickerIgdbCoverUrl = null;
         this.imagePickerError = nextState.imagePickerError;
         this.isImagePickerLoading = nextState.isImagePickerLoading;
         this.isImagePickerModalOpen = nextState.isImagePickerModalOpen;
+    }
+
+    private async loadImagePickerIgdbCover(igdbGameId: string): Promise<void> {
+        const coverUrl = await firstValueFrom(this.gameShelfService.getIgdbCoverByGameId(igdbGameId));
+
+        this.ngZone.run(() => {
+            if (!this.isImagePickerModalOpen) {
+                return;
+            }
+
+            if (!this.selectedGame || this.selectedGame.igdbGameId !== igdbGameId) {
+                return;
+            }
+
+            this.imagePickerIgdbCoverUrl = coverUrl;
+            this.imagePickerResults = this.filterOutImagePickerIgdbCover(this.imagePickerResults);
+            this.changeDetectorRef.markForCheck();
+        });
+    }
+
+    private filterOutImagePickerIgdbCover(results: string[]): string[] {
+        const igdbCover = this.imagePickerIgdbCoverUrl;
+
+        if (!igdbCover) {
+            return results;
+        }
+
+        return results.filter(url => url !== igdbCover);
+    }
+
+    private isIgdbCoverUrl(url: string): boolean {
+        return /^https:\/\/images\.igdb\.com\/igdb\/image\/upload\//i.test(url.trim());
     }
 
     private async openHltbPickerModal(game: GameEntry): Promise<void> {

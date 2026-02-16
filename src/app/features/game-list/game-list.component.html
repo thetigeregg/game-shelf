@@ -49,6 +49,7 @@
     </ion-item>
   </ion-list>
 </ng-container>
+<div style="height: var(--game-list-bottom-inset, 0px)" aria-hidden="true"></div>
 
 <ng-template #gameRowTemplate let-game let-fromSimilarDetailSection="fromSimilarDetailSection">
   <ion-item-sliding #slidingItem [disabled]="selectionModeActive">

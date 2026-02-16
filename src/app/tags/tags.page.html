@@ -4,6 +4,11 @@
       <ion-back-button defaultHref="/tabs/collection"></ion-back-button>
     </ion-buttons>
     <ion-title>Tags</ion-title>
+    <ion-buttons slot="end">
+      <ion-button aria-label="Add tag" (click)="openNewTagModal()">
+        <ion-icon slot="icon-only" name="add"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -52,11 +57,6 @@
     </ion-item>
   </ion-list>
 
-  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-    <ion-fab-button aria-label="Add tag" (click)="openNewTagModal()">
-      <ion-icon name="add"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
 </ion-content>
 
 <ion-modal [isOpen]="isTagModalOpen" (didDismiss)="closeTagModal()">

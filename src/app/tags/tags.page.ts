@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonButton, IonIcon, IonPopover, IonFab, IonFabButton, IonModal, IonInput } from "@ionic/angular/standalone";
+import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonButton, IonIcon, IonPopover, IonModal, IonInput } from "@ionic/angular/standalone";
 import { Observable } from 'rxjs';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { TagSummary } from '../core/models/game.models';
@@ -29,8 +29,6 @@ import { ellipsisVertical, add } from "ionicons/icons";
         IonButton,
         IonIcon,
         IonPopover,
-        IonFab,
-        IonFabButton,
         IonModal,
         IonInput,
     ],

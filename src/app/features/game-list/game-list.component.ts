@@ -982,18 +982,8 @@ export class GameListComponent implements OnChanges {
         await this.dismissDetailActionsPopover();
     }
 
-    async uploadCustomImageFromPopover(): Promise<void> {
-        await this.dismissDetailActionsPopover();
-        this.customCoverFileInput?.nativeElement.click();
-    }
-
     uploadCustomImageFromEditMetadata(): void {
         this.customCoverFileInput?.nativeElement.click();
-    }
-
-    async resetCustomImageFromPopover(): Promise<void> {
-        await this.dismissDetailActionsPopover();
-        await this.resetSelectedGameCustomImage();
     }
 
     async resetCustomImageFromEditMetadata(): Promise<void> {

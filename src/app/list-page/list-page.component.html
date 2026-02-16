@@ -46,6 +46,12 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" [id]="contentId">
+  <ion-loading
+    [isOpen]="isInitialListLoading"
+    message="Loading games..."
+    spinner="crescent"
+  ></ion-loading>
+
   <ion-header collapse="condense" *ngIf="!isSelectionMode">
     <ion-toolbar>
       <ion-title size="large" class="condensed-title-inline">

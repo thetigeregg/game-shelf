@@ -23,6 +23,7 @@ import {
   IonFabButton,
   IonModal,
   IonBadge,
+  IonLoading,
 } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -117,6 +118,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonFab,
     IonFabButton,
     IonModal,
+    IonLoading,
   ],
 })
 export class ListPageComponent {
@@ -152,6 +154,7 @@ export class ListPageComponent {
   isAddGameModalOpen = false;
   isSearchModalOpen = false;
   isSelectionMode = false;
+  isInitialListLoading = true;
   selectedGamesCount = 0;
   allDisplayedSelected = false;
   isBulkActionsPopoverOpen = false;
@@ -166,6 +169,7 @@ export class ListPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
+  private receivedInitialListSnapshot = false;
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'];
@@ -188,6 +192,10 @@ export class ListPageComponent {
       .pipe(takeUntilDestroyed())
       .subscribe((games) => {
         this.totalGamesCount = games.length;
+        if (!this.receivedInitialListSnapshot) {
+          this.receivedInitialListSnapshot = true;
+          this.isInitialListLoading = false;
+        }
       });
     addIcons({
       close,

@@ -35,6 +35,19 @@
             "prefix": "app",
             "style": "camelCase"
           }
+        ],
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "window",
+            "property": "Capacitor",
+            "message": "Do not use window.Capacitor directly. Import Capacitor plugins from their @capacitor/* packages."
+          },
+          {
+            "object": "Capacitor",
+            "property": "Plugins",
+            "message": "Do not use Capacitor.Plugins directly. Import Capacitor plugins from their @capacitor/* packages."
+          }
         ]
       }
     },

@@ -153,8 +153,6 @@ export class GameListComponent implements OnChanges {
     private static readonly BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 15000;
     private static readonly BULK_RETRY_BASE_DELAY_MS = 1000;
     private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
-    private static readonly ROW_LONG_PRESS_DELAY_MS = 500;
-    private static readonly ROW_LONG_PRESS_MOVE_CANCEL_PX = 14;
     private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
     private static readonly VIRTUAL_BUFFER_ROWS = 8;
     private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
@@ -250,9 +248,6 @@ export class GameListComponent implements OnChanges {
     private similarLibraryLoadRequestId = 0;
     private manualResolutionRequestId = 0;
     private rowActionsSlidingItem: IonItemSliding | null = null;
-    private longPressTimerId: ReturnType<typeof setTimeout> | null = null;
-    private suppressRowClicksUntilNextPress = false;
-    private longPressStartPoint: { x: number; y: number } | null = null;
     private readonly gameShelfService = inject(GameShelfService);
     private readonly popoverController = inject(PopoverController);
     private readonly alertController = inject(AlertController);
@@ -376,10 +371,6 @@ export class GameListComponent implements OnChanges {
     }
 
     onGameRowClick(game: GameEntry, fromSimilarDetailSection = false): void {
-        if (this.suppressRowClicksUntilNextPress) {
-            return;
-        }
-
         const gameKey = this.getGameKey(game);
 
         if (this.selectionModeActive) {
@@ -400,43 +391,6 @@ export class GameListComponent implements OnChanges {
         this.openGameDetail(game);
     }
 
-    onRowPressStart(game: GameEntry, event: Event): void {
-        this.suppressRowClicksUntilNextPress = false;
-        this.clearLongPressTimer();
-        this.longPressStartPoint = this.getEventPoint(event);
-
-        this.longPressTimerId = setTimeout(() => {
-            const gameKey = this.getGameKey(game);
-            this.suppressRowClicksUntilNextPress = true;
-            this.enterSelectionModeWithGame(gameKey);
-            this.clearLongPressTimer();
-        }, GameListComponent.ROW_LONG_PRESS_DELAY_MS);
-    }
-
-    onRowPressMove(event: Event): void {
-        if (this.longPressTimerId === null || this.longPressStartPoint === null) {
-            return;
-        }
-
-        const currentPoint = this.getEventPoint(event);
-
-        if (!currentPoint) {
-            return;
-        }
-
-        const deltaX = currentPoint.x - this.longPressStartPoint.x;
-        const deltaY = currentPoint.y - this.longPressStartPoint.y;
-        const movedDistance = Math.hypot(deltaX, deltaY);
-
-        if (movedDistance >= GameListComponent.ROW_LONG_PRESS_MOVE_CANCEL_PX) {
-            this.clearLongPressTimer();
-        }
-    }
-
-    onRowPressEnd(): void {
-        this.clearLongPressTimer();
-    }
-
     isGameSelected(gameKey: string): boolean {
         return this.selectedGameKeys.has(gameKey);
     }
@@ -447,6 +401,17 @@ export class GameListComponent implements OnChanges {
 
     clearSelectionMode(): void {
         this.selectionModeActive = false;
+        this.selectedGameKeys.clear();
+        this.emitSelectionState();
+        this.changeDetectorRef.markForCheck();
+    }
+
+    activateSelectionMode(): void {
+        if (this.selectionModeActive) {
+            return;
+        }
+
+        this.selectionModeActive = true;
         this.selectedGameKeys.clear();
         this.emitSelectionState();
         this.changeDetectorRef.markForCheck();
@@ -1878,12 +1843,6 @@ export class GameListComponent implements OnChanges {
         }
     }
 
-    private enterSelectionModeWithGame(gameKey: string): void {
-        this.selectionModeActive = true;
-        this.selectedGameKeys.add(gameKey);
-        this.emitSelectionState();
-    }
-
     private toggleGameSelection(gameKey: string): void {
         if (this.selectedGameKeys.has(gameKey)) {
             this.selectedGameKeys.delete(gameKey);
@@ -1938,36 +1897,6 @@ export class GameListComponent implements OnChanges {
                 return;
             }
         }
-    }
-
-    private clearLongPressTimer(): void {
-        if (this.longPressTimerId !== null) {
-            clearTimeout(this.longPressTimerId);
-            this.longPressTimerId = null;
-        }
-        this.longPressStartPoint = null;
-    }
-
-    private getEventPoint(event: Event): { x: number; y: number } | null {
-        if (event instanceof TouchEvent) {
-            const touch = event.touches[0] ?? event.changedTouches[0];
-
-            if (touch) {
-                return {
-                    x: touch.clientX,
-                    y: touch.clientY,
-                };
-            }
-        }
-
-        if (event instanceof MouseEvent) {
-            return {
-                x: event.clientX,
-                y: event.clientY,
-            };
-        }
-
-        return null;
     }
 
     private openExternalUrl(url: string): void {

@@ -58,14 +58,6 @@
       detail="false"
       [class.game-row-selected]="isGameSelected(getGameKey(game))"
       (click)="onGameRowClick(game, fromSimilarDetailSection === true)"
-      (touchstart)="onRowPressStart(game, $event)"
-      (touchmove)="onRowPressMove($event)"
-      (touchend)="onRowPressEnd()"
-      (touchcancel)="onRowPressEnd()"
-      (mousedown)="onRowPressStart(game, $event)"
-      (mousemove)="onRowPressMove($event)"
-      (mouseup)="onRowPressEnd()"
-      (mouseleave)="onRowPressEnd()"
     >
       <ion-icon
         *ngIf="getStatusIconName(game) as statusIconName"

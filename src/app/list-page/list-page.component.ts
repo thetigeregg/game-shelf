@@ -436,6 +436,11 @@ export class ListPageComponent {
     });
   }
 
+  async activateMultiSelectFromPopover(): Promise<void> {
+    await this.closeHeaderActionsPopover();
+    this.gameListComponent?.activateSelectionMode();
+  }
+
   getSelectionHeaderLabel(): string {
     return this.selectedGamesCount === 1
       ? '1 selected'

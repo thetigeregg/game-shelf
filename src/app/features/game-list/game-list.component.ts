@@ -1071,11 +1071,21 @@ export class GameListComponent implements OnChanges {
     }
 
     resetEditMetadataTitle(): void {
-        this.editMetadataTitle = '';
+        if (!this.selectedGame) {
+            this.editMetadataTitle = '';
+            return;
+        }
+
+        this.editMetadataTitle = this.selectedGame.title;
     }
 
     resetEditMetadataPlatform(): void {
-        this.editMetadataPlatformIgdbId = null;
+        if (!this.selectedGame) {
+            this.editMetadataPlatformIgdbId = null;
+            return;
+        }
+
+        this.editMetadataPlatformIgdbId = this.normalizePlatformSelectionValue(this.selectedGame.platformIgdbId);
     }
 
     async saveEditMetadata(): Promise<void> {

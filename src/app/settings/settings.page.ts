@@ -5,7 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading, IonReorderGroup, IonReorder, IonInput } from "@ionic/angular/standalone";
 import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
-import { Share } from '@capacitor/share';
 import {
     DEFAULT_GAME_LIST_FILTERS,
     GameCatalogPlatformOption,
@@ -581,7 +580,6 @@ export class SettingsPage {
                 content: csv,
                 filename,
                 mimeType: 'text/csv;charset=utf-8',
-                dialogTitle: 'Export CSV',
             });
             await this.presentToast('CSV export prepared.');
         } catch {
@@ -599,7 +597,6 @@ export class SettingsPage {
                 content,
                 filename,
                 mimeType: 'text/plain;charset=utf-8',
-                dialogTitle: 'Export Debug Logs',
             });
             await this.presentToast('Debug logs prepared.');
         } catch (error: unknown) {
@@ -3295,31 +3292,8 @@ export class SettingsPage {
         content: string;
         filename: string;
         mimeType: string;
-        dialogTitle: string;
     }): Promise<void> {
         const blob = new Blob([params.content], { type: params.mimeType });
-
-        try {
-            const capability = await Share.canShare();
-            if (!capability.value) {
-                throw new Error('share_not_supported');
-            }
-            const objectUrl = URL.createObjectURL(blob);
-
-            try {
-                await Share.share({
-                    url: objectUrl,
-                    dialogTitle: params.dialogTitle,
-                });
-                return;
-            } catch {
-                // Fall through to next strategy.
-            } finally {
-                URL.revokeObjectURL(objectUrl);
-            }
-        } catch {
-            // Fall through to web share / download.
-        }
 
         const webNavigator = navigator as Navigator & {
             share?: (data: { title?: string; text?: string; files?: File[] }) => Promise<void>;

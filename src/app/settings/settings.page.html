@@ -50,6 +50,10 @@
     <ion-item class="cache-usage-item">
       <ion-label color="medium">Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label>
     </ion-item>
+    <ion-item button detail="false" (click)="purgeLocalImageCache()">
+      <ion-icon slot="start" color="danger" name="trash"></ion-icon>
+      <ion-label>Purge Local Image Cache</ion-label>
+    </ion-item>
     <ion-item button detail="true" (click)="openPlatformOrderModal()">
       <ion-icon slot="start" color="primary" name="layers"></ion-icon>
       <ion-label>Platform Customizations</ion-label>

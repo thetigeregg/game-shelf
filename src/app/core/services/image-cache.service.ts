@@ -43,6 +43,18 @@ export class ImageCacheService {
     return entries.reduce((sum, entry) => sum + (entry.sizeBytes || 0), 0);
   }
 
+  async purgeLocalCache(): Promise<void> {
+    this.objectUrlsByCacheKey.forEach(url => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // Ignore URL revoke failures.
+      }
+    });
+    this.objectUrlsByCacheKey.clear();
+    await this.db.imageCache.clear();
+  }
+
   async resolveImageUrl(gameKey: string, sourceUrl: string | null | undefined, variant: ImageCacheVariant): Promise<string> {
     const normalizedSourceUrl = this.normalizeSourceUrl(sourceUrl, variant);
 

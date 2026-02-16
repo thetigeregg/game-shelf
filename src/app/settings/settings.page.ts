@@ -345,6 +345,32 @@ export class SettingsPage {
         void this.refreshImageCacheUsage();
     }
 
+    async purgeLocalImageCache(): Promise<void> {
+        const alert = await this.alertController.create({
+            header: 'Purge Local Image Cache',
+            message: 'Delete all locally cached game images from this device? Images will be re-fetched when needed.',
+            buttons: [
+                { text: 'Cancel', role: 'cancel' },
+                { text: 'Purge', role: 'confirm', cssClass: 'alert-button-danger' },
+            ],
+        });
+
+        await alert.present();
+        const { role } = await alert.onDidDismiss();
+
+        if (role !== 'confirm') {
+            return;
+        }
+
+        try {
+            await this.imageCacheService.purgeLocalCache();
+            await this.refreshImageCacheUsage();
+            await this.presentToast('Local image cache purged.');
+        } catch {
+            await this.presentToast('Unable to purge local image cache.', 'danger');
+        }
+    }
+
     async openPlatformOrderModal(): Promise<void> {
         this.isPlatformOrderLoading = true;
 

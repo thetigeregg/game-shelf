@@ -23,6 +23,7 @@ import { PlatformOrderService } from './platform-order.service';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
+  private static readonly IGDB_ID_QUERY_PATTERN = /^igdb:\s*(\d+)$/i;
   private static readonly IGDB_COVER_PLATFORM_IGDB_IDS = new Set<number>([6, 34, 39, 82, 163, 472]);
   private static readonly IGDB_COVER_PLATFORM_NAMES = new Set<string>([
     'pc',
@@ -77,12 +78,24 @@ export class GameShelfService {
 
   searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]> {
     const normalized = query.trim();
+    const directLookupId = this.parseIgdbIdSearchQuery(normalized);
+
+    if (directLookupId !== null) {
+      return this.searchApi.getGameById(directLookupId).pipe(
+        map(result => [result]),
+      );
+    }
 
     if (normalized.length < 2) {
       return of([]);
     }
 
     return this.searchApi.searchGames(normalized, platformIgdbId);
+  }
+
+  private parseIgdbIdSearchQuery(query: string): string | null {
+    const match = GameShelfService.IGDB_ID_QUERY_PATTERN.exec(query);
+    return match ? match[1] : null;
   }
 
   listSearchPlatforms(): Observable<GameCatalogPlatformOption[]> {

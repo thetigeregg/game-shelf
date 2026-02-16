@@ -288,6 +288,56 @@ describe('GameShelfService', () => {
     expect(searchApi.searchGames).toHaveBeenCalledWith('mario', 130);
   });
 
+  it('uses IGDB direct lookup when query is in igdb:<id> format', async () => {
+    const expected: GameCatalogResult = {
+      igdbGameId: '4512',
+      title: 'Einhänder',
+      coverUrl: null,
+      coverSource: 'none',
+      developers: [],
+      franchises: [],
+      genres: [],
+      publishers: [],
+      platforms: ['PlayStation'],
+      platform: 'PlayStation',
+      platformIgdbId: 7,
+      releaseDate: null,
+      releaseYear: null,
+    };
+    searchApi.getGameById.mockReturnValue(of(expected));
+
+    const result = await firstValueFrom(service.searchGames('igdb:4512', 130));
+
+    expect(searchApi.getGameById).toHaveBeenCalledWith('4512');
+    expect(searchApi.searchGames).not.toHaveBeenCalled();
+    expect(result).toEqual([expected]);
+  });
+
+  it('supports case-insensitive and spaced igdb:<id> direct lookup queries', async () => {
+    const expected: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Test Game',
+      coverUrl: null,
+      coverSource: 'none',
+      developers: [],
+      franchises: [],
+      genres: [],
+      publishers: [],
+      platforms: [],
+      platform: null,
+      platformIgdbId: null,
+      releaseDate: null,
+      releaseYear: null,
+    };
+    searchApi.getGameById.mockReturnValue(of(expected));
+
+    const result = await firstValueFrom(service.searchGames('  IGDB:   123   '));
+
+    expect(searchApi.getGameById).toHaveBeenCalledWith('123');
+    expect(searchApi.searchGames).not.toHaveBeenCalled();
+    expect(result).toEqual([expected]);
+  });
+
   it('delegates search platform list retrieval', async () => {
     const platformOrderService = TestBed.inject(PlatformOrderService);
     platformOrderService.setOrder(['Nintendo Switch', 'PC (Microsoft Windows)']);

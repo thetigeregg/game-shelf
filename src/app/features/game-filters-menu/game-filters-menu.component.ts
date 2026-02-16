@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import {
     IonMenu,
@@ -51,26 +51,25 @@ type SortOption =
     styleUrls: ['./game-filters-menu.component.scss'],
     standalone: true,
     imports: [
-        CommonModule,
-        FormsModule,
-        IonMenu,
-        IonHeader,
-        IonToolbar,
-        IonTitle,
-        IonButtons,
-        IonMenuToggle,
-        IonButton,
-        IonContent,
-        IonList,
-        IonItem,
-        IonInput,
-        IonSelect,
-        IonSelectOption,
-        IonLabel,
-        IonDatetimeButton,
-        IonModal,
-        IonDatetime,
-    ],
+    FormsModule,
+    IonMenu,
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonButtons,
+    IonMenuToggle,
+    IonButton,
+    IonContent,
+    IonList,
+    IonItem,
+    IonInput,
+    IonSelect,
+    IonSelectOption,
+    IonLabel,
+    IonDatetimeButton,
+    IonModal,
+    IonDatetime
+],
 })
 export class GameFiltersMenuComponent implements OnChanges {
     readonly noneTagFilterValue = '__none__';

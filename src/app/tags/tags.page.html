@@ -13,49 +13,51 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list *ngIf="tags$ | async as tags">
-    <ion-item *ngFor="let tag of tags; trackBy: trackByTagId">
-      <div
-        class="tag-color-square"
-        slot="start"
-        [style.background]="tag.color"
-        [style.color]="getTagTextColor(tag.color)"
-      ></div>
-
-      <ion-label>
-        <h2>{{ tag.name }}</h2>
-        <p>{{ tag.gameCount === 1 ? '1 game' : (tag.gameCount + ' games') }}</p>
-      </ion-label>
-
-      <ion-button
-        slot="end"
-        fill="clear"
-        aria-label="Tag actions"
-        [id]="getActionsTriggerId(tag)"
-      >
-        <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
-      </ion-button>
-
-      <ion-popover [trigger]="getActionsTriggerId(tag)" triggerAction="click">
-        <ng-template>
-          <ion-content>
-            <ion-list lines="none">
-              <ion-item button detail="false" (click)="openEditTagFromPopover(tag)">
-                Edit
-              </ion-item>
-              <ion-item button detail="false" color="danger" (click)="deleteTagFromPopover(tag)">
-                Delete
-              </ion-item>
-            </ion-list>
-          </ion-content>
-        </ng-template>
-      </ion-popover>
-    </ion-item>
-
-    <ion-item *ngIf="tags.length === 0" lines="none">
-      <ion-label color="medium">No tags created yet.</ion-label>
-    </ion-item>
-  </ion-list>
+  @if (tags$ | async; as tags) {
+    <ion-list>
+      @for (tag of tags; track trackByTagId($index, tag)) {
+        <ion-item>
+          <div
+            class="tag-color-square"
+            slot="start"
+            [style.background]="tag.color"
+            [style.color]="getTagTextColor(tag.color)"
+          ></div>
+          <ion-label>
+            <h2>{{ tag.name }}</h2>
+            <p>{{ tag.gameCount === 1 ? '1 game' : (tag.gameCount + ' games') }}</p>
+          </ion-label>
+          <ion-button
+            slot="end"
+            fill="clear"
+            aria-label="Tag actions"
+            [id]="getActionsTriggerId(tag)"
+            >
+            <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
+          </ion-button>
+          <ion-popover [trigger]="getActionsTriggerId(tag)" triggerAction="click">
+            <ng-template>
+              <ion-content>
+                <ion-list lines="none">
+                  <ion-item button detail="false" (click)="openEditTagFromPopover(tag)">
+                    Edit
+                  </ion-item>
+                  <ion-item button detail="false" color="danger" (click)="deleteTagFromPopover(tag)">
+                    Delete
+                  </ion-item>
+                </ion-list>
+              </ion-content>
+            </ng-template>
+          </ion-popover>
+        </ion-item>
+      }
+      @if (tags.length === 0) {
+        <ion-item lines="none">
+          <ion-label color="medium">No tags created yet.</ion-label>
+        </ion-item>
+      }
+    </ion-list>
+  }
 
 </ion-content>
 
@@ -88,7 +90,7 @@
           type="color"
           [value]="draftColor"
           (change)="draftColor = $any($event.target).value || '#3880ff'"
-        />
+          />
       </ion-item>
 
       <ion-button expand="block" class="ion-margin-top" (click)="saveTag()">

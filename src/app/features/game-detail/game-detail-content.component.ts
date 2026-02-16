@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { IonBadge, IonButton, IonItem, IonLabel, IonList, IonSelect, IonSelectOption } from '@ionic/angular/standalone';
 import { GameCatalogResult, GameEntry, GameRating, GameStatus } from '../../core/models/game.models';
@@ -13,15 +13,14 @@ type DetailGame = GameCatalogResult | GameEntry;
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
   imports: [
-    CommonModule,
     IonList,
     IonItem,
     IonLabel,
     IonBadge,
     IonButton,
     IonSelect,
-    IonSelectOption,
-  ],
+    IonSelectOption
+],
 })
 export class GameDetailContentComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';

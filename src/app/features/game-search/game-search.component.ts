@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { AlertController } from '@ionic/angular/standalone';
 import { IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton } from '@ionic/angular/standalone';
 import { Subject, firstValueFrom, of } from 'rxjs';
@@ -21,7 +21,7 @@ interface SelectedPlatform {
     templateUrl: './game-search.component.html',
     styleUrls: ['./game-search.component.scss'],
     standalone: true,
-    imports: [CommonModule, IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton],
+    imports: [IonItem, IonSelect, IonSelectOption, IonLabel, IonSearchbar, IonList, IonSpinner, IonBadge, IonButton],
 })
 export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     @Input({ required: true }) listType!: ListType;

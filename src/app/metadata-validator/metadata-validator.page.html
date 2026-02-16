@@ -21,7 +21,7 @@
         placeholder="Select game list"
         [value]="selectedListType"
         (ionChange)="onListTypeChange($any($event).detail.value)"
-      >
+        >
         <ion-select-option value="collection">Collection</ion-select-option>
         <ion-select-option value="wishlist">Wishlist</ion-select-option>
       </ion-select>
@@ -35,10 +35,12 @@
         [multiple]="true"
         [value]="selectedMissingFilters"
         (ionChange)="onMissingFiltersChange($any($event).detail.value)"
-      >
-        <ion-select-option *ngFor="let option of missingFilterOptions" [value]="option.value">
-          {{ option.label }}
-        </ion-select-option>
+        >
+        @for (option of missingFilterOptions; track option) {
+          <ion-select-option [value]="option.value">
+            {{ option.label }}
+          </ion-select-option>
+        }
       </ion-select>
     </ion-item>
 
@@ -51,7 +53,7 @@
       <ion-button
         fill="outline"
         (click)="toggleSelectAllDisplayed()"
-      >
+        >
         {{ isAllDisplayedSelected() ? 'Unselect all' : 'Select all' }}
       </ion-button>
       <ion-button
@@ -59,7 +61,7 @@
         color="medium"
         [disabled]="selectedGamesCount === 0"
         (click)="clearSelection()"
-      >
+        >
         Clear
       </ion-button>
     </div>
@@ -68,16 +70,20 @@
       <ion-button
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingHltb"
         (click)="refreshHltbForSelectedGames()"
-      >
-        <ion-spinner *ngIf="isBulkRefreshingHltb" name="crescent" slot="start"></ion-spinner>
+        >
+        @if (isBulkRefreshingHltb) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
         Bulk HLTB
       </ion-button>
       <ion-button
         color="secondary"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingImage"
         (click)="refreshImageForSelectedGames()"
-      >
-        <ion-spinner *ngIf="isBulkRefreshingImage" name="crescent" slot="start"></ion-spinner>
+        >
+        @if (isBulkRefreshingImage) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
         Bulk Image
       </ion-button>
     </div>
@@ -88,57 +94,62 @@
       <ion-label>Games</ion-label>
     </ion-list-header>
 
-    <ng-container *ngIf="filteredGames$ | async as games">
-      <ion-item *ngFor="let game of games; trackBy: trackByGameKey">
-        <ion-checkbox
-          slot="start"
-          [checked]="isGameSelected(game)"
-          (ionChange)="toggleGameSelection(game)"
-        ></ion-checkbox>
-
-        <ion-label>
-          <h2>{{ game.title }}</h2>
-          <p>{{ getPlatformLabel(game) }} · {{ game.releaseYear || 'Unknown year' }}</p>
-          <div class="validator-badges">
-            <ion-badge [color]="hasHltbMetadata(game) ? 'success' : 'warning'">
-              HLTB {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
-            </ion-badge>
-            <ion-badge *ngIf="!isNonPcImageNotApplicable(game)" [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
-              Image {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
-            </ion-badge>
-            <ion-badge *ngIf="isNonPcImageNotApplicable(game)" color="medium">
-              Image N/A (PC)
-            </ion-badge>
+    @if (filteredGames$ | async; as games) {
+      @for (game of games; track trackByGameKey($index, game)) {
+        <ion-item>
+          <ion-checkbox
+            slot="start"
+            [checked]="isGameSelected(game)"
+            (ionChange)="toggleGameSelection(game)"
+          ></ion-checkbox>
+          <ion-label>
+            <h2>{{ game.title }}</h2>
+            <p>{{ getPlatformLabel(game) }} · {{ game.releaseYear || 'Unknown year' }}</p>
+            <div class="validator-badges">
+              <ion-badge [color]="hasHltbMetadata(game) ? 'success' : 'warning'">
+                HLTB {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
+              </ion-badge>
+              @if (!isNonPcImageNotApplicable(game)) {
+                <ion-badge [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
+                  Image {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
+                </ion-badge>
+              }
+              @if (isNonPcImageNotApplicable(game)) {
+                <ion-badge color="medium">
+                  Image N/A (PC)
+                </ion-badge>
+              }
+            </div>
+          </ion-label>
+          <div slot="end" class="row-actions">
+            <ion-button fill="outline" (click)="refreshHltbForGame(game)">
+              HLTB
+            </ion-button>
+            <ion-button
+              fill="outline"
+              color="secondary"
+              [disabled]="isNonPcImageNotApplicable(game)"
+              (click)="refreshImageForGame(game)"
+              >
+              Image
+            </ion-button>
           </div>
-        </ion-label>
-
-        <div slot="end" class="row-actions">
-          <ion-button fill="outline" (click)="refreshHltbForGame(game)">
-            HLTB
-          </ion-button>
-          <ion-button
-            fill="outline"
-            color="secondary"
-            [disabled]="isNonPcImageNotApplicable(game)"
-            (click)="refreshImageForGame(game)"
-          >
-            Image
-          </ion-button>
-        </div>
-      </ion-item>
-
-      <ion-item *ngIf="games.length === 0" lines="none">
-        <ion-label color="medium">
-          {{
+        </ion-item>
+      }
+      @if (games.length === 0) {
+        <ion-item lines="none">
+          <ion-label color="medium">
+            {{
             !selectedListType
-              ? 'Select Collection or Wishlist to load games.'
-              : (selectedMissingFilters.length === 0
-                ? 'Select at least one missing metadata filter to display games.'
-                : 'No games match current metadata filters.')
-          }}
-        </ion-label>
-      </ion-item>
-    </ng-container>
+            ? 'Select Collection or Wishlist to load games.'
+            : (selectedMissingFilters.length === 0
+            ? 'Select at least one missing metadata filter to display games.'
+            : 'No games match current metadata filters.')
+            }}
+          </ion-label>
+        </ion-item>
+      }
+    }
   </ion-list>
 </ion-content>
 
@@ -164,37 +175,51 @@
         <ion-button [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">Search</ion-button>
       </div>
 
-      <div class="picker-state" *ngIf="isHltbPickerLoading">
-        <ion-spinner name="crescent"></ion-spinner>
-      </div>
+      @if (isHltbPickerLoading) {
+        <div class="picker-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
 
-      <p class="picker-state ion-text-center" *ngIf="!isHltbPickerLoading && hltbPickerError">
-        {{ hltbPickerError }}
-      </p>
+      @if (!isHltbPickerLoading && hltbPickerError) {
+        <p class="picker-state ion-text-center">
+          {{ hltbPickerError }}
+        </p>
+      }
 
-      <p class="picker-state ion-text-center" *ngIf="!isHltbPickerLoading && !hltbPickerError && hltbPickerResults.length === 0">
-        No HLTB results found.
-      </p>
+      @if (!isHltbPickerLoading && !hltbPickerError && hltbPickerResults.length === 0) {
+        <p class="picker-state ion-text-center">
+          No HLTB results found.
+        </p>
+      }
 
-      <ion-list *ngIf="!isHltbPickerLoading && hltbPickerResults.length > 0">
-        <ion-item button detail="false" *ngFor="let candidate of hltbPickerResults" (click)="applySelectedHltbCandidate(candidate)">
-          <ion-thumbnail slot="start" *ngIf="candidate.imageUrl">
-            <img [src]="candidate.imageUrl" alt="HLTB result cover" />
-          </ion-thumbnail>
-          <ion-label>
-            <h2>{{ candidate.title }}</h2>
-            <p>
-              {{ candidate.releaseYear || 'Unknown year' }}
-              <span *ngIf="candidate.platform"> · {{ candidate.platform }}</span>
-            </p>
-            <p>
-              Main: {{ candidate.hltbMainHours ?? '?' }}h ·
-              Main + Extra: {{ candidate.hltbMainExtraHours ?? '?' }}h ·
-              Completionist: {{ candidate.hltbCompletionistHours ?? '?' }}h
-            </p>
-          </ion-label>
-        </ion-item>
-      </ion-list>
+      @if (!isHltbPickerLoading && hltbPickerResults.length > 0) {
+        <ion-list>
+          @for (candidate of hltbPickerResults; track candidate) {
+            <ion-item button detail="false" (click)="applySelectedHltbCandidate(candidate)">
+              @if (candidate.imageUrl) {
+                <ion-thumbnail slot="start">
+                  <img [src]="candidate.imageUrl" alt="HLTB result cover" />
+                </ion-thumbnail>
+              }
+              <ion-label>
+                <h2>{{ candidate.title }}</h2>
+                <p>
+                  {{ candidate.releaseYear || 'Unknown year' }}
+                  @if (candidate.platform) {
+                    <span> · {{ candidate.platform }}</span>
+                  }
+                </p>
+                <p>
+                  Main: {{ candidate.hltbMainHours ?? '?' }}h ·
+                  Main + Extra: {{ candidate.hltbMainExtraHours ?? '?' }}h ·
+                  Completionist: {{ candidate.hltbCompletionistHours ?? '?' }}h
+                </p>
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
 
       <div class="picker-action-row">
         <ion-button
@@ -202,7 +227,7 @@
           fill="outline"
           [disabled]="isHltbPickerLoading"
           (click)="useOriginalHltbLookup()"
-        >
+          >
           Use Original Match
         </ion-button>
       </div>

@@ -31,10 +31,12 @@
           labelPlacement="stacked"
           [ngModel]="groupBy"
           (ngModelChange)="onGroupBySelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let option of groupByOptions" [value]="option.value">
-            {{ option.label }}
-          </ion-select-option>
+          >
+          @for (option of groupByOptions; track option) {
+            <ion-select-option [value]="option.value">
+              {{ option.label }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 
@@ -46,10 +48,12 @@
           [multiple]="true"
           [ngModel]="draftFilters.platform"
           (ngModelChange)="onPlatformSelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let platform of platformOptions" [value]="platform">
-            {{ platform }}
-          </ion-select-option>
+          >
+          @for (platform of platformOptions; track platform) {
+            <ion-select-option [value]="platform">
+              {{ platform }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 
@@ -61,10 +65,12 @@
           [multiple]="true"
           [ngModel]="draftFilters.collections"
           (ngModelChange)="onCollectionSelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let collection of collectionOptions" [value]="collection">
-            {{ collection }}
-          </ion-select-option>
+          >
+          @for (collection of collectionOptions; track collection) {
+            <ion-select-option [value]="collection">
+              {{ collection }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 
@@ -76,10 +82,12 @@
           [multiple]="true"
           [ngModel]="draftFilters.gameTypes"
           (ngModelChange)="onGameTypeSelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let gameType of gameTypeOptions" [value]="gameType">
-            {{ getGameTypeLabel(gameType) }}
-          </ion-select-option>
+          >
+          @for (gameType of gameTypeOptions; track gameType) {
+            <ion-select-option [value]="gameType">
+              {{ getGameTypeLabel(gameType) }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 
@@ -91,10 +99,12 @@
           [multiple]="true"
           [ngModel]="draftFilters.statuses"
           (ngModelChange)="onStatusSelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let status of statusOptions" [value]="status">
-            {{ getStatusLabel(status) }}
-          </ion-select-option>
+          >
+          @for (status of statusOptions; track status) {
+            <ion-select-option [value]="status">
+              {{ getStatusLabel(status) }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 
@@ -106,11 +116,13 @@
           [multiple]="true"
           [ngModel]="draftFilters.tags"
           (ngModelChange)="onTagSelectionChange($event)"
-        >
+          >
           <ion-select-option [value]="noneTagFilterValue">None</ion-select-option>
-          <ion-select-option *ngFor="let tag of tagOptions" [value]="tag">
-            {{ tag }}
-          </ion-select-option>
+          @for (tag of tagOptions; track tag) {
+            <ion-select-option [value]="tag">
+              {{ tag }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 
@@ -122,10 +134,12 @@
           [multiple]="true"
           [ngModel]="draftFilters.ratings"
           (ngModelChange)="onRatingSelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let rating of ratingOptions" [value]="rating">
-            {{ getRatingLabel(rating) }}
-          </ion-select-option>
+          >
+          @for (rating of ratingOptions; track rating) {
+            <ion-select-option [value]="rating">
+              {{ getRatingLabel(rating) }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 
@@ -137,10 +151,12 @@
           [multiple]="true"
           [ngModel]="draftFilters.genres"
           (ngModelChange)="onGenreSelectionChange($event)"
-        >
-          <ion-select-option *ngFor="let genre of genreOptions" [value]="genre">
-            {{ genre }}
-          </ion-select-option>
+          >
+          @for (genre of genreOptions; track genre) {
+            <ion-select-option [value]="genre">
+              {{ genre }}
+            </ion-select-option>
+          }
         </ion-select>
       </ion-item>
 

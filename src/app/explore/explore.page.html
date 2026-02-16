@@ -20,53 +20,68 @@
       [value]="selectedPopularityTypeId"
       [disabled]="isLoadingTypes || popularityTypes.length === 0"
       (ionChange)="onPopularityTypeChange($any($event).detail.value)"
-    >
-      <ion-select-option *ngFor="let type of popularityTypes; trackBy: trackByPopularityTypeId" [value]="type.id">
-        {{ type.name }}
-      </ion-select-option>
+      >
+      @for (type of popularityTypes; track trackByPopularityTypeId($index, type)) {
+        <ion-select-option [value]="type.id">
+          {{ type.name }}
+        </ion-select-option>
+      }
     </ion-select>
   </ion-item>
 
-  <div class="loading-state" *ngIf="isLoadingTypes || isLoadingGames">
-    <ion-spinner name="crescent"></ion-spinner>
-  </div>
+  @if (isLoadingTypes || isLoadingGames) {
+    <div class="loading-state">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  }
 
-  <ion-item lines="none" *ngIf="errorMessage.length > 0">
-    <ion-text color="danger">{{ errorMessage }}</ion-text>
-  </ion-item>
-
-  <ion-item lines="none" *ngIf="!isLoadingTypes && popularityTypes.length === 0 && errorMessage.length === 0">
-    <ion-text color="medium">No popularity categories available.</ion-text>
-  </ion-item>
-
-  <ion-list lines="full" *ngIf="!isLoadingGames && games.length > 0">
-    <ion-item button detail="true" *ngFor="let item of games; trackBy: trackByGameId" (click)="openGameDetail(item)">
-      <div slot="start" class="explore-cover">
-        <img
-          class="explore-cover-image"
-          [src]="item.game.coverUrl || 'assets/icon/placeholder.png'"
-          [alt]="item.game.title"
-          loading="lazy"
-          (error)="onImageError($event)"
-        />
-      </div>
-
-      <ion-label>
-        <h2>{{ item.game.title }}</h2>
-        <p>{{ getPlatformLabel(item) }}<span *ngIf="item.game.releaseYear"> • {{ item.game.releaseYear }}</span></p>
-      </ion-label>
+  @if (errorMessage.length > 0) {
+    <ion-item lines="none">
+      <ion-text color="danger">{{ errorMessage }}</ion-text>
     </ion-item>
-  </ion-list>
+  }
 
-  <ion-item lines="none" *ngIf="!isLoadingGames && games.length === 0 && selectedPopularityTypeId !== null && errorMessage.length === 0">
-    <ion-text color="medium">No games found for this category.</ion-text>
-  </ion-item>
+  @if (!isLoadingTypes && popularityTypes.length === 0 && errorMessage.length === 0) {
+    <ion-item lines="none">
+      <ion-text color="medium">No popularity categories available.</ion-text>
+    </ion-item>
+  }
+
+  @if (!isLoadingGames && games.length > 0) {
+    <ion-list lines="full">
+      @for (item of games; track trackByGameId($index, item)) {
+        <ion-item button detail="true" (click)="openGameDetail(item)">
+          <div slot="start" class="explore-cover">
+            <img
+              class="explore-cover-image"
+              [src]="item.game.coverUrl || 'assets/icon/placeholder.png'"
+              [alt]="item.game.title"
+              loading="lazy"
+              (error)="onImageError($event)"
+              />
+          </div>
+          <ion-label>
+            <h2>{{ item.game.title }}</h2>
+            <p>{{ getPlatformLabel(item) }}@if (item.game.releaseYear) {
+              <span> • {{ item.game.releaseYear }}</span>
+            }</p>
+          </ion-label>
+        </ion-item>
+      }
+    </ion-list>
+  }
+
+  @if (!isLoadingGames && games.length === 0 && selectedPopularityTypeId !== null && errorMessage.length === 0) {
+    <ion-item lines="none">
+      <ion-text color="medium">No games found for this category.</ion-text>
+    </ion-item>
+  }
 
   <ion-infinite-scroll
     threshold="100px"
     [disabled]="selectedPopularityTypeId === null || isLoadingGames || !hasMore"
     (ionInfinite)="loadMore($event)"
-  >
+    >
     <ion-infinite-scroll-content loadingSpinner="crescent" loadingText="Loading more games..."></ion-infinite-scroll-content>
   </ion-infinite-scroll>
 </ion-content>
@@ -90,45 +105,50 @@
         [backdropDismiss]="false"
       ></ion-loading>
 
-      <ion-item lines="none" *ngIf="detailErrorMessage.length > 0">
-        <ion-text color="danger">{{ detailErrorMessage }}</ion-text>
-      </ion-item>
+      @if (detailErrorMessage.length > 0) {
+        <ion-item lines="none">
+          <ion-text color="danger">{{ detailErrorMessage }}</ion-text>
+        </ion-item>
+      }
 
-      <app-game-detail-content
-        *ngIf="selectedGameDetail as game"
-        [game]="game"
-        [context]="detailContext"
-        [statusOptions]="statusOptions"
-        [ratingOptions]="ratingOptions"
-        [showAddToLibraryAction]="detailContext === 'explore'"
-        [isAddToLibraryLoading]="isAddToLibraryLoading"
-        (addToLibrary)="addSelectedGameToLibrary()"
-        (statusChange)="onDetailStatusChange($event)"
-        (clearStatus)="clearDetailStatus()"
-        (ratingChange)="onDetailRatingChange($event)"
-        (clearRating)="clearDetailRating()"
-        (openTags)="openDetailTags()"
-      ></app-game-detail-content>
+      @if (selectedGameDetail; as game) {
+        <app-game-detail-content
+          [game]="game"
+          [context]="detailContext"
+          [statusOptions]="statusOptions"
+          [ratingOptions]="ratingOptions"
+          [showAddToLibraryAction]="detailContext === 'explore'"
+          [isAddToLibraryLoading]="isAddToLibraryLoading"
+          (addToLibrary)="addSelectedGameToLibrary()"
+          (statusChange)="onDetailStatusChange($event)"
+          (clearStatus)="clearDetailStatus()"
+          (ratingChange)="onDetailRatingChange($event)"
+          (clearRating)="clearDetailRating()"
+          (openTags)="openDetailTags()"
+        ></app-game-detail-content>
+      }
 
-      <ion-fab *ngIf="detailContext === 'explore'" slot="fixed" vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
-        <ion-fab-button aria-label="Open web shortcuts">
-          <ion-icon name="search" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-list side="start">
-          <ion-fab-button class="shortcut-google" aria-label="Search on Google" (click)="openShortcutSearch('google')">
-            <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
+      @if (detailContext === 'explore') {
+        <ion-fab slot="fixed" vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
+          <ion-fab-button aria-label="Open web shortcuts">
+            <ion-icon name="search" aria-hidden="true"></ion-icon>
           </ion-fab-button>
-          <ion-fab-button class="shortcut-youtube" aria-label="Search on YouTube" (click)="openShortcutSearch('youtube')">
-            <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-          <ion-fab-button class="shortcut-wikipedia" aria-label="Search on Wikipedia" (click)="openShortcutSearch('wikipedia')">
-            <span class="shortcut-text" aria-hidden="true">W</span>
-          </ion-fab-button>
-          <ion-fab-button class="shortcut-gamefaqs" aria-label="Search on GameFAQs" (click)="openShortcutSearch('gamefaqs')">
-            <span class="shortcut-text" aria-hidden="true">G</span>
-          </ion-fab-button>
-        </ion-fab-list>
-      </ion-fab>
+          <ion-fab-list side="start">
+            <ion-fab-button class="shortcut-google" aria-label="Search on Google" (click)="openShortcutSearch('google')">
+              <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
+            </ion-fab-button>
+            <ion-fab-button class="shortcut-youtube" aria-label="Search on YouTube" (click)="openShortcutSearch('youtube')">
+              <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
+            </ion-fab-button>
+            <ion-fab-button class="shortcut-wikipedia" aria-label="Search on Wikipedia" (click)="openShortcutSearch('wikipedia')">
+              <span class="shortcut-text" aria-hidden="true">W</span>
+            </ion-fab-button>
+            <ion-fab-button class="shortcut-gamefaqs" aria-label="Search on GameFAQs" (click)="openShortcutSearch('gamefaqs')">
+              <span class="shortcut-text" aria-hidden="true">G</span>
+            </ion-fab-button>
+          </ion-fab-list>
+        </ion-fab>
+      }
     </ion-content>
   </ng-template>
 </ion-modal>

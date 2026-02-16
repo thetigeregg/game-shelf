@@ -9,7 +9,7 @@
         aria-label="Save current as view"
         [disabled]="!hasCurrentConfiguration"
         (click)="openCreateViewModal()"
-      >
+        >
         <ion-icon slot="icon-only" name="add"></ion-icon>
       </ion-button>
     </ion-buttons>
@@ -17,46 +17,49 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list *ngIf="views$ | async as views">
-    <ion-item button detail="false" *ngFor="let view of views; trackBy: trackByViewId" (click)="applyView(view)">
-      <ion-label>
-        <h2>{{ view.name }}</h2>
-        <p>{{ getViewSummary(view) }}</p>
-      </ion-label>
-
-      <ion-button
-        slot="end"
-        fill="clear"
-        aria-label="View actions"
-        [id]="getActionsTriggerId(view)"
-        (click)="$event.stopPropagation()"
-      >
-        <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
-      </ion-button>
-
-      <ion-popover [trigger]="getActionsTriggerId(view)" triggerAction="click">
-        <ng-template>
-          <ion-content>
-            <ion-list lines="none">
-              <ion-item button detail="false" (click)="renameViewFromPopover(view)">
-                Rename
-              </ion-item>
-              <ion-item button detail="false" (click)="updateViewFromPopover(view)">
-                Update from current
-              </ion-item>
-              <ion-item button detail="false" color="danger" (click)="deleteViewFromPopover(view)">
-                Delete
-              </ion-item>
-            </ion-list>
-          </ion-content>
-        </ng-template>
-      </ion-popover>
-    </ion-item>
-
-    <ion-item *ngIf="views.length === 0" lines="none">
-      <ion-label color="medium">No views saved yet.</ion-label>
-    </ion-item>
-  </ion-list>
+  @if (views$ | async; as views) {
+    <ion-list>
+      @for (view of views; track trackByViewId($index, view)) {
+        <ion-item button detail="false" (click)="applyView(view)">
+          <ion-label>
+            <h2>{{ view.name }}</h2>
+            <p>{{ getViewSummary(view) }}</p>
+          </ion-label>
+          <ion-button
+            slot="end"
+            fill="clear"
+            aria-label="View actions"
+            [id]="getActionsTriggerId(view)"
+            (click)="$event.stopPropagation()"
+            >
+            <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
+          </ion-button>
+          <ion-popover [trigger]="getActionsTriggerId(view)" triggerAction="click">
+            <ng-template>
+              <ion-content>
+                <ion-list lines="none">
+                  <ion-item button detail="false" (click)="renameViewFromPopover(view)">
+                    Rename
+                  </ion-item>
+                  <ion-item button detail="false" (click)="updateViewFromPopover(view)">
+                    Update from current
+                  </ion-item>
+                  <ion-item button detail="false" color="danger" (click)="deleteViewFromPopover(view)">
+                    Delete
+                  </ion-item>
+                </ion-list>
+              </ion-content>
+            </ng-template>
+          </ion-popover>
+        </ion-item>
+      }
+      @if (views.length === 0) {
+        <ion-item lines="none">
+          <ion-label color="medium">No views saved yet.</ion-label>
+        </ion-item>
+      }
+    </ion-list>
+  }
 
 </ion-content>
 
@@ -80,9 +83,11 @@
           (ionInput)="draftName = $any($event).detail.value || ''"
         ></ion-input>
       </ion-item>
-      <ion-note color="medium" *ngIf="!isRenameMode">
-        {{ getCreateButtonLabel() }}
-      </ion-note>
+      @if (!isRenameMode) {
+        <ion-note color="medium">
+          {{ getCreateButtonLabel() }}
+        </ion-note>
+      }
       <ion-button expand="block" class="ion-margin-top" (click)="saveViewName()">
         {{ isRenameMode ? 'Save name' : 'Save view' }}
       </ion-button>

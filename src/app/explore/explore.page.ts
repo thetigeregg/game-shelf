@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, OnInit, inject } from '@angular/core';
 import {
   AlertController,
@@ -42,7 +42,6 @@ import { search, logoGoogle, logoYoutube } from 'ionicons/icons';
   styleUrls: ['./explore.page.scss'],
   standalone: true,
   imports: [
-    CommonModule,
     IonHeader,
     IonToolbar,
     IonTitle,
@@ -64,8 +63,8 @@ import { search, logoGoogle, logoYoutube } from 'ionicons/icons';
     IonFabButton,
     IonFabList,
     IonIcon,
-    GameDetailContentComponent,
-  ],
+    GameDetailContentComponent
+],
 })
 export class ExplorePage implements OnInit {
   private static readonly PAGE_SIZE = 20;

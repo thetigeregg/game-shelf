@@ -1,47 +1,56 @@
 <ion-header
   [translucent]="true"
   [class.selection-mode-header]="isSelectionMode"
->
+  >
   <ion-toolbar>
-    <ion-buttons slot="start" *ngIf="isSelectionMode">
-      <ion-button
-        aria-label="Exit selection mode"
-        (click)="clearSelectionMode()"
-      >
-        <ion-icon slot="icon-only" name="close"></ion-icon>
-      </ion-button>
-    </ion-buttons>
+    @if (isSelectionMode) {
+      <ion-buttons slot="start">
+        <ion-button
+          aria-label="Exit selection mode"
+          (click)="clearSelectionMode()"
+          >
+          <ion-icon slot="icon-only" name="close"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+    }
 
-    <ion-title *ngIf="!isSelectionMode">
-      <div class="page-title">{{ pageTitle }}</div>
-      <div class="page-title-count">{{ getListCountSummary() }}</div>
-    </ion-title>
-    <ion-title *ngIf="isSelectionMode">{{
-      getSelectionHeaderLabel()
-    }}</ion-title>
+    @if (!isSelectionMode) {
+      <ion-title>
+        <div class="page-title">{{ pageTitle }}</div>
+        <div class="page-title-count">{{ getListCountSummary() }}</div>
+      </ion-title>
+    }
+    @if (isSelectionMode) {
+      <ion-title>{{
+        getSelectionHeaderLabel()
+      }}</ion-title>
+    }
 
-    <ng-container
-      *ngIf="!isSelectionMode"
-      [ngTemplateOutlet]="browseHeaderActions"
-      [ngTemplateOutletContext]="{ collapseAttr: true }"
-    ></ng-container>
-    <ion-buttons slot="end" *ngIf="isSelectionMode">
-      <ion-button
-        aria-label="Select all games"
-        (click)="toggleSelectAll()"
-      >
-        <ion-icon
-          slot="icon-only"
-          [name]="allDisplayedSelected ? 'checkbox' : 'square-outline'"
-        ></ion-icon>
-      </ion-button>
-      <ion-button
-        aria-label="Open bulk actions"
-        (click)="openBulkActionsPopover($event)"
-      >
-        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
-      </ion-button>
-    </ion-buttons>
+    @if (!isSelectionMode) {
+      <ng-container
+        [ngTemplateOutlet]="browseHeaderActions"
+        [ngTemplateOutletContext]="{ collapseAttr: true }"
+      ></ng-container>
+    }
+    @if (isSelectionMode) {
+      <ion-buttons slot="end">
+        <ion-button
+          aria-label="Select all games"
+          (click)="toggleSelectAll()"
+          >
+          <ion-icon
+            slot="icon-only"
+            [name]="allDisplayedSelected ? 'checkbox' : 'square-outline'"
+          ></ion-icon>
+        </ion-button>
+        <ion-button
+          aria-label="Open bulk actions"
+          (click)="openBulkActionsPopover($event)"
+          >
+          <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+    }
   </ion-toolbar>
 </ion-header>
 
@@ -52,18 +61,20 @@
     spinner="crescent"
   ></ion-loading>
 
-  <ion-header collapse="condense" *ngIf="!isSelectionMode">
-    <ion-toolbar>
-      <ion-title size="large" class="condensed-title-inline">
-        <span>{{ pageTitle }}</span>
-        <span class="condensed-count-inline">{{ getListCountSummary() }}</span>
-      </ion-title>
-      <ng-container
-        [ngTemplateOutlet]="browseHeaderActions"
-        [ngTemplateOutletContext]="{ collapseAttr: true }"
-      ></ng-container>
-    </ion-toolbar>
-  </ion-header>
+  @if (!isSelectionMode) {
+    <ion-header collapse="condense">
+      <ion-toolbar>
+        <ion-title size="large" class="condensed-title-inline">
+          <span>{{ pageTitle }}</span>
+          <span class="condensed-count-inline">{{ getListCountSummary() }}</span>
+        </ion-title>
+        <ng-container
+          [ngTemplateOutlet]="browseHeaderActions"
+          [ngTemplateOutletContext]="{ collapseAttr: true }"
+        ></ng-container>
+      </ion-toolbar>
+    </ion-header>
+  }
 
   <ion-popover
     [isOpen]="isBulkActionsPopoverOpen"
@@ -72,7 +83,7 @@
     side="bottom"
     alignment="end"
     (didDismiss)="closeBulkActionsPopover()"
-  >
+    >
     <ng-template>
       <ion-content>
         <ion-list lines="none">
@@ -80,35 +91,35 @@
             button
             detail="false"
             (click)="moveSelectedGamesFromPopover()"
-          >
+            >
             Move to {{ getMoveTargetLabel() }}
           </ion-item>
           <ion-item
             button
             detail="false"
             (click)="setTagsForSelectedGamesFromPopover()"
-          >
+            >
             Set tags
           </ion-item>
           <ion-item
             button
             detail="false"
             (click)="setStatusForSelectedGamesFromPopover()"
-          >
+            >
             Set status
           </ion-item>
           <ion-item
             button
             detail="false"
             (click)="refreshMetadataForSelectedGamesFromPopover()"
-          >
+            >
             Refresh metadata
           </ion-item>
           <ion-item
             button
             detail="false"
             (click)="updateHltbForSelectedGamesFromPopover()"
-          >
+            >
             Update HLTB data
           </ion-item>
           <ion-item
@@ -116,7 +127,7 @@
             detail="false"
             color="danger"
             (click)="deleteSelectedGames()"
-          >
+            >
             Delete
           </ion-item>
         </ion-list>
@@ -131,7 +142,7 @@
     side="bottom"
     alignment="end"
     (didDismiss)="closeHeaderActionsPopover()"
-  >
+    >
     <ng-template>
       <ion-content>
         <ion-list lines="none">
@@ -184,7 +195,7 @@
   [backdropBreakpoint]="0.12"
   (didPresent)="onSearchModalDidPresent()"
   (didDismiss)="onSearchModalDidDismiss()"
->
+  >
   <ng-template>
     <ion-header>
       <ion-toolbar>
@@ -242,35 +253,37 @@
       aria-label="Search games"
       (click)="openSearchModal()"
       class="search-button"
-    >
-      <ion-icon slot="icon-only" name="search"></ion-icon>
-    <ion-badge
-      *ngIf="listSearchQuery.trim().length > 0"
-      color="danger"
-      class="filters-active-count search-active-count"
-      aria-hidden="true"
-      >&nbsp;</ion-badge
-    >
-    </ion-button>
-    <ion-button
-      aria-label="Open filters"
-      (click)="openFiltersMenu()"
-      class="filters-button"
-    >
-      <ion-icon slot="icon-only" name="filter"></ion-icon>
-      <ion-badge
-        *ngIf="getActiveFilterCount() > 0"
-        color="danger"
-        class="filters-active-count"
       >
-        {{ getActiveFilterCount() }}
-      </ion-badge>
-    </ion-button>
-    <ion-button
-      [attr.aria-label]="getHeaderActionsAriaLabel()"
-      (click)="openHeaderActionsPopover($event)"
-    >
-      <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
-    </ion-button>
-  </ion-buttons>
-</ng-template>
+      <ion-icon slot="icon-only" name="search"></ion-icon>
+      @if (listSearchQuery.trim().length > 0) {
+        <ion-badge
+          color="danger"
+          class="filters-active-count search-active-count"
+          aria-hidden="true"
+          >&nbsp;</ion-badge
+          >
+        }
+      </ion-button>
+      <ion-button
+        aria-label="Open filters"
+        (click)="openFiltersMenu()"
+        class="filters-button"
+        >
+        <ion-icon slot="icon-only" name="filter"></ion-icon>
+        @if (getActiveFilterCount() > 0) {
+          <ion-badge
+            color="danger"
+            class="filters-active-count"
+            >
+            {{ getActiveFilterCount() }}
+          </ion-badge>
+        }
+      </ion-button>
+      <ion-button
+        [attr.aria-label]="getHeaderActionsAriaLabel()"
+        (click)="openHeaderActionsPopover($event)"
+        >
+        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ng-template>

@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -163,6 +163,8 @@ export class ListPageComponent {
   headerActionsPopoverEvent: Event | undefined = undefined;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   @ViewChild('modalSearchbar') private modalSearchbar?: IonSearchbar;
+  @ViewChild('pageContent', { read: ElementRef })
+  private pageContentRef?: ElementRef<HTMLElement & { resize?: () => Promise<void> }>;
   private readonly menuController = inject(MenuController);
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
@@ -171,6 +173,7 @@ export class ListPageComponent {
   private readonly gameShelfService = inject(GameShelfService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
+  private contentResizeRetryHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'];
@@ -346,6 +349,10 @@ export class ListPageComponent {
       clearTimeout(this.searchbarFocusRetryHandle);
       this.searchbarFocusRetryHandle = null;
     }
+    if (this.contentResizeRetryHandle !== null) {
+      clearTimeout(this.contentResizeRetryHandle);
+      this.contentResizeRetryHandle = null;
+    }
   }
 
   clearSearch(): void {
@@ -370,6 +377,29 @@ export class ListPageComponent {
 
       void this.modalSearchbar?.setFocus();
       this.searchbarFocusRetryHandle = null;
+    }, 120);
+  }
+
+  async onSearchModalDidPresent(): Promise<void> {
+    this.resizePageContent();
+    await this.focusSearchbar();
+  }
+
+  onSearchModalDidDismiss(): void {
+    this.closeSearchModal();
+    this.resizePageContent();
+  }
+
+  private resizePageContent(): void {
+    void this.pageContentRef?.nativeElement.resize?.();
+
+    if (this.contentResizeRetryHandle !== null) {
+      clearTimeout(this.contentResizeRetryHandle);
+    }
+
+    this.contentResizeRetryHandle = setTimeout(() => {
+      void this.pageContentRef?.nativeElement.resize?.();
+      this.contentResizeRetryHandle = null;
     }, 120);
   }
 

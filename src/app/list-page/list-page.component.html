@@ -45,7 +45,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" [id]="contentId">
+<ion-content #pageContent [fullscreen]="true" [id]="contentId">
   <ion-loading
     [isOpen]="isInitialListLoading"
     message="Loading games..."
@@ -182,8 +182,8 @@
   [initialBreakpoint]="0.2"
   [breakpoints]="[0, 0.2]"
   [backdropBreakpoint]="0.12"
-  (didPresent)="focusSearchbar()"
-  (didDismiss)="closeSearchModal()"
+  (didPresent)="onSearchModalDidPresent()"
+  (didDismiss)="onSearchModalDidDismiss()"
 >
   <ng-template>
     <ion-header>

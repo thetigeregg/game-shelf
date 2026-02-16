@@ -3298,7 +3298,6 @@ export class SettingsPage {
         dialogTitle: string;
     }): Promise<void> {
         const blob = new Blob([params.content], { type: params.mimeType });
-        const file = new File([blob], params.filename, { type: params.mimeType });
 
         try {
             const capability = await Share.canShare();
@@ -3328,13 +3327,23 @@ export class SettingsPage {
         };
 
         if (typeof webNavigator.share === 'function') {
-            const canShareFiles = typeof webNavigator.canShare !== 'function' || webNavigator.canShare({ files: [file] });
+            const file = this.tryCreateFile(blob, params.filename, params.mimeType);
 
-            if (canShareFiles) {
-                await webNavigator.share({
-                    files: [file],
-                });
-                return;
+            if (file) {
+                const canShareFiles = typeof webNavigator.canShare !== 'function' || webNavigator.canShare({ files: [file] });
+
+                if (canShareFiles) {
+                    try {
+                        await webNavigator.share({
+                            files: [file],
+                        });
+                        return;
+                    } catch (error: unknown) {
+                        if (this.isShareCancelError(error)) {
+                            return;
+                        }
+                    }
+                }
             }
         }
 
@@ -3348,6 +3357,27 @@ export class SettingsPage {
         } finally {
             URL.revokeObjectURL(objectUrl);
         }
+    }
+
+    private tryCreateFile(blob: Blob, filename: string, mimeType: string): File | null {
+        try {
+            if (typeof File !== 'function') {
+                return null;
+            }
+
+            return new File([blob], filename, { type: mimeType });
+        } catch {
+            return null;
+        }
+    }
+
+    private isShareCancelError(error: unknown): boolean {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+            return true;
+        }
+
+        const message = error instanceof Error ? error.message : String(error ?? '');
+        return /abort|cancel/i.test(message);
     }
 
     private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {

@@ -546,8 +546,6 @@ export class SettingsPage {
                 content: csv,
                 filename,
                 mimeType: 'text/csv;charset=utf-8',
-                title: 'Game Shelf Export',
-                text: 'Game Shelf CSV export',
                 dialogTitle: 'Export CSV',
             });
             await this.presentToast('CSV export prepared.');
@@ -566,8 +564,6 @@ export class SettingsPage {
                 content,
                 filename,
                 mimeType: 'text/plain;charset=utf-8',
-                title: 'Game Shelf Debug Logs',
-                text: 'Game Shelf debug logs',
                 dialogTitle: 'Export Debug Logs',
             });
             await this.presentToast('Debug logs prepared.');
@@ -3216,8 +3212,6 @@ export class SettingsPage {
         content: string;
         filename: string;
         mimeType: string;
-        title: string;
-        text: string;
         dialogTitle: string;
     }): Promise<void> {
         const blob = new Blob([params.content], { type: params.mimeType });
@@ -3230,7 +3224,6 @@ export class SettingsPage {
 
             try {
                 await capacitorShare.share({
-                    title: params.title,
                     url: objectUrl,
                     dialogTitle: params.dialogTitle,
                 });
@@ -3252,7 +3245,6 @@ export class SettingsPage {
 
             if (canShareFiles) {
                 await webNavigator.share({
-                    title: params.title,
                     files: [file],
                 });
                 return;

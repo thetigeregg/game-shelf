@@ -70,7 +70,7 @@
         <ion-icon name="star" aria-hidden="true"></ion-icon>
         <span>{{ rating }}</span>
       </div>
-      <div *ngIf="formatRowMainHours(game.hltbMainHours) as mainHours" class="hltb-main-indicator">
+      <div *ngIf="getRowHltbHoursLabel(game) as mainHours" class="hltb-main-indicator">
         {{ mainHours }}
       </div>
 

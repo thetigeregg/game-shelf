@@ -1497,6 +1497,11 @@ export class GameListComponent implements OnChanges {
         return `${normalized.toFixed(hasDecimal ? 1 : 0)} h`;
     }
 
+    getRowHltbHoursLabel(game: GameEntry): string | null {
+        const preferred = this.selectRowHltbHours(game);
+        return this.formatRowMainHours(preferred);
+    }
+
     getGameTypeBadgeLabel(game: GameEntry): string | null {
         const gameType = game.gameType ?? null;
 
@@ -2172,6 +2177,22 @@ export class GameListComponent implements OnChanges {
         }
 
         return Math.round(value * 10) / 10;
+    }
+
+    private selectRowHltbHours(game: GameEntry): number | null {
+        const candidates = [
+            game.hltbMainHours,
+            game.hltbMainExtraHours,
+            game.hltbCompletionistHours,
+        ];
+
+        for (const candidate of candidates) {
+            if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {

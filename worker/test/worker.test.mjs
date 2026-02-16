@@ -241,8 +241,9 @@ test('applies platform filter to IGDB game search when platformIgdbId is provide
   );
 
   assert.equal(response.status, 200);
-  assert.equal(calls.igdb, 1);
+  assert.equal(calls.igdb, 2);
   assert.equal(calls.igdbBodies[0].includes('where platforms = (130);'), true);
+  assert.equal(calls.igdbBodies[1].includes('where platforms = (130);'), false);
 });
 
 test('sanitizes semicolons in search query before building IGDB body', async () => {
@@ -607,6 +608,93 @@ test('falls back to accent-folded IGDB query when the original query returns no 
   assert.equal(calls.igdb, 2);
   assert.equal(calls.igdbBodies[0].includes('search "Einhänder";'), true);
   assert.equal(calls.igdbBodies[1].includes('search "Einhander";'), true);
+});
+
+test('merges accent-folded IGDB query results when the original query returns non-matching entries', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbResponses: [
+      {
+        status: 200,
+        body: [
+          {
+            id: 999001,
+            name: 'Einhänder Preview Disc',
+            first_release_date: 888451200,
+            platforms: [{ id: 7, name: 'PlayStation' }],
+          },
+        ],
+      },
+      {
+        status: 200,
+        body: [
+          {
+            id: 4512,
+            name: 'Einhänder',
+            first_release_date: 888451200,
+            cover: { image_id: 'einhander-cover' },
+            platforms: [{ id: 7, name: 'PlayStation' }],
+          },
+        ],
+      },
+    ],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=einh%C3%A4nder'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.items.length, 2);
+  assert.equal(payload.items.some(item => item.title === 'Einhänder'), true);
+  assert.equal(calls.igdb, 2);
+  assert.equal(calls.igdbBodies[0].includes('search "einhänder";'), true);
+  assert.equal(calls.igdbBodies[1].includes('search "einhander";'), true);
+});
+
+test('retries IGDB search without platform filter when filtered umlaut query returns no results', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbResponses: [
+      { status: 200, body: [] },
+      { status: 200, body: [] },
+      { status: 200, body: [] },
+      {
+        status: 200,
+        body: [
+          {
+            id: 4512,
+            name: 'Einhänder',
+            first_release_date: 888451200,
+            cover: { image_id: 'einhander-cover' },
+            platforms: [{ id: 7, name: 'PlayStation' }],
+          },
+        ],
+      },
+    ],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=einh%C3%A4nder&platformIgdbId=7'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.items.length, 1);
+  assert.equal(payload.items[0].title, 'Einhänder');
+  assert.equal(calls.igdb, 4);
+  assert.equal(calls.igdbBodies[0].includes('where platforms = (7);'), true);
+  assert.equal(calls.igdbBodies[1].includes('where platforms = (7);'), true);
+  assert.equal(calls.igdbBodies[2].includes('where platforms = (7);'), false);
+  assert.equal(calls.igdbBodies[3].includes('where platforms = (7);'), false);
+  assert.equal(calls.igdbBodies[3].includes('search "einhander";'), true);
 });
 
 test('returns 404 when IGDB id endpoint has no matching game', async () => {

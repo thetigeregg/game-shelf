@@ -1685,6 +1685,12 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
     'Content-Type': 'text/plain',
   };
   const queryCandidates = buildQueryFallbacks(query);
+  const mergedResults = [];
+  const mergedResultIds = new Set();
+  let hadSuccessfulPayload = false;
+  const platformConstraints = normalizedPlatformIgdbId !== null
+    ? [normalizedPlatformIgdbId, null]
+    : [null];
 
   if (igdbSearchVariantCache.disabledVariants.size >= queryVariants.length) {
     igdbSearchVariantCache.disabledVariants.clear();
@@ -1701,96 +1707,126 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
     variantIndexes.unshift(igdbSearchVariantCache.preferredVariantIndex);
   }
 
-  for (let queryAttempt = 0; queryAttempt < queryCandidates.length; queryAttempt += 1) {
-    const queryCandidate = queryCandidates[queryAttempt];
+  for (let platformConstraintAttempt = 0; platformConstraintAttempt < platformConstraints.length; platformConstraintAttempt += 1) {
+    const platformConstraint = platformConstraints[platformConstraintAttempt];
 
-    for (let attempt = 0; attempt < variantIndexes.length; attempt += 1) {
-      const variantIndex = variantIndexes[attempt];
-      const variant = queryVariants[variantIndex];
-      const bodyParts = [
-        `search "${escapeQuery(queryCandidate)}";`,
-        `fields ${variant.fields};`,
-      ];
+    for (let queryAttempt = 0; queryAttempt < queryCandidates.length; queryAttempt += 1) {
+      const queryCandidate = queryCandidates[queryAttempt];
 
-      if (normalizedPlatformIgdbId !== null) {
-        bodyParts.push(`where platforms = (${normalizedPlatformIgdbId});`);
-      }
+      for (let attempt = 0; attempt < variantIndexes.length; attempt += 1) {
+        const variantIndex = variantIndexes[attempt];
+        const variant = queryVariants[variantIndex];
+        const bodyParts = [
+          `search "${escapeQuery(queryCandidate)}";`,
+          `fields ${variant.fields};`,
+        ];
 
-      if (variant.sort) {
-        bodyParts.push(`sort ${variant.sort};`);
-      }
+        if (platformConstraint !== null) {
+          bodyParts.push(`where platforms = (${platformConstraint});`);
+        }
 
-      bodyParts.push(
-        'limit 25;',
-      );
+        if (variant.sort) {
+          bodyParts.push(`sort ${variant.sort};`);
+        }
 
-      const body = bodyParts.join(' ');
-      const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
-        method: 'POST',
-        headers: requestHeaders,
-        body,
-      }, timeoutMs);
+        bodyParts.push(
+          'limit 25;',
+        );
 
-      if (response.status === 429) {
-        throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
-      }
+        const body = bodyParts.join(' ');
+        const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
+          method: 'POST',
+          headers: requestHeaders,
+          body,
+        }, timeoutMs);
 
-      if (!response.ok) {
-        let payloadSnippet = '';
+        if (response.status === 429) {
+          throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
+        }
+
+        if (!response.ok) {
+          let payloadSnippet = '';
+
+          try {
+            payloadSnippet = await response.text();
+          } catch {
+            payloadSnippet = '';
+          }
+
+          console.warn('[igdb] search_variant_failed', {
+            attempt: attempt + 1,
+            queryAttempt: queryAttempt + 1,
+            platformConstraintAttempt: platformConstraintAttempt + 1,
+            platformConstraint,
+            variantIndex: variantIndex + 1,
+            status: response.status,
+            payload: payloadSnippet,
+            sort: variant.sort,
+          });
+
+          if (response.status === 400 && payloadSnippet.toLowerCase().includes('invalid field')) {
+            igdbSearchVariantCache.disabledVariants.add(variantIndex);
+          }
+
+          continue;
+        }
+
+        let data;
 
         try {
-          payloadSnippet = await response.text();
+          data = await response.json();
         } catch {
-          payloadSnippet = '';
+          console.warn('[igdb] search_variant_invalid_json', {
+            attempt: attempt + 1,
+            queryAttempt: queryAttempt + 1,
+            platformConstraintAttempt: platformConstraintAttempt + 1,
+            platformConstraint,
+            variantIndex: variantIndex + 1,
+          });
+          continue;
         }
 
-        console.warn('[igdb] search_variant_failed', {
-          attempt: attempt + 1,
-          queryAttempt: queryAttempt + 1,
-          variantIndex: variantIndex + 1,
-          status: response.status,
-          payload: payloadSnippet,
-          sort: variant.sort,
-        });
-
-        if (response.status === 400 && payloadSnippet.toLowerCase().includes('invalid field')) {
-          igdbSearchVariantCache.disabledVariants.add(variantIndex);
+        if (!Array.isArray(data)) {
+          console.warn('[igdb] search_variant_invalid_payload', {
+            attempt: attempt + 1,
+            queryAttempt: queryAttempt + 1,
+            platformConstraintAttempt: platformConstraintAttempt + 1,
+            platformConstraint,
+            variantIndex: variantIndex + 1,
+          });
+          continue;
         }
 
-        continue;
-      }
+        hadSuccessfulPayload = true;
+        igdbSearchVariantCache.preferredVariantIndex = variantIndex;
+        const normalizedResults = sortIgdbSearchResults(data).map(normalizeIgdbGame);
 
-      let data;
+        normalizedResults.forEach(result => {
+          const resultId = String(result?.igdbGameId ?? result?.externalId ?? '').trim();
 
-      try {
-        data = await response.json();
-      } catch {
-        console.warn('[igdb] search_variant_invalid_json', {
-          attempt: attempt + 1,
-          queryAttempt: queryAttempt + 1,
-          variantIndex: variantIndex + 1,
+          if (!resultId || mergedResultIds.has(resultId)) {
+            return;
+          }
+
+          mergedResultIds.add(resultId);
+          mergedResults.push(result);
         });
-        continue;
+
+        break;
       }
+    }
 
-      if (!Array.isArray(data)) {
-        console.warn('[igdb] search_variant_invalid_payload', {
-          attempt: attempt + 1,
-          queryAttempt: queryAttempt + 1,
-          variantIndex: variantIndex + 1,
-        });
-        continue;
-      }
-
-      igdbSearchVariantCache.preferredVariantIndex = variantIndex;
-      const normalizedResults = sortIgdbSearchResults(data).map(normalizeIgdbGame);
-
-      if (normalizedResults.length > 0 || queryAttempt === queryCandidates.length - 1) {
-        return normalizedResults;
-      }
-
+    if (mergedResults.length > 0) {
       break;
     }
+  }
+
+  if (mergedResults.length > 0) {
+    return mergedResults;
+  }
+
+  if (hadSuccessfulPayload) {
+    return [];
   }
 
   throw new Error('IGDB request failed');

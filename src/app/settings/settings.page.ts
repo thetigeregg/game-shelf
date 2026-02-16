@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading, IonReorderGroup, IonReorder, IonInput } from "@ionic/angular/standalone";
 import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
+import { Share } from '@capacitor/share';
 import {
     DEFAULT_GAME_LIST_FILTERS,
     GameCatalogPlatformOption,
@@ -3217,13 +3218,15 @@ export class SettingsPage {
         const blob = new Blob([params.content], { type: params.mimeType });
         const file = new File([blob], params.filename, { type: params.mimeType });
 
-        const capacitorShare = (window as { Capacitor?: { Plugins?: { Share?: { share: (options: { title?: string; text?: string; url?: string; dialogTitle?: string }) => Promise<void> } } } }).Capacitor?.Plugins?.Share;
-
-        if (capacitorShare?.share) {
+        try {
+            const capability = await Share.canShare();
+            if (!capability.value) {
+                throw new Error('share_not_supported');
+            }
             const objectUrl = URL.createObjectURL(blob);
 
             try {
-                await capacitorShare.share({
+                await Share.share({
                     url: objectUrl,
                     dialogTitle: params.dialogTitle,
                 });
@@ -3233,6 +3236,8 @@ export class SettingsPage {
             } finally {
                 URL.revokeObjectURL(objectUrl);
             }
+        } catch {
+            // Fall through to web share / download.
         }
 
         const webNavigator = navigator as Navigator & {

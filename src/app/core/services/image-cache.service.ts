@@ -50,6 +50,13 @@ export class ImageCacheService {
       return 'assets/icon/placeholder.png';
     }
 
+    // Thumbnails are rendered in large volumes and have shown unreliable behavior
+    // when persisted as IndexedDB blobs on some clients (notably iOS/PWA contexts).
+    // Use direct URL rendering for thumbs and reserve blob cache for detail art.
+    if (variant === 'thumb') {
+      return normalizedSourceUrl;
+    }
+
     const cacheKey = this.buildCacheKey(gameKey, variant, normalizedSourceUrl);
     const existing = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
 

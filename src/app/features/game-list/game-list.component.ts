@@ -58,6 +58,7 @@ import { ImageCacheService } from '../../core/services/image-cache.service';
 import { ManualService } from '../../core/services/manual.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
+import { DebugLogService } from '../../core/services/debug-log.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
@@ -153,6 +154,7 @@ export class GameListComponent implements OnChanges {
     private static readonly ROW_LONG_PRESS_CLICK_SUPPRESSION_MS = 350;
     private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
     private static readonly VIRTUAL_BUFFER_ROWS = 8;
+    private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
 
     readonly noneTagFilterValue = '__none__';
     readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
@@ -251,12 +253,14 @@ export class GameListComponent implements OnChanges {
     private readonly manualService = inject(ManualService);
     private readonly platformOrderService = inject(PlatformOrderService);
     private readonly platformCustomizationService = inject(PlatformCustomizationService);
+    private readonly debugLogService = inject(DebugLogService);
     private readonly changeDetectorRef = inject(ChangeDetectorRef);
     private readonly ngZone = inject(NgZone);
     private readonly filters$ = new BehaviorSubject<GameListFilters>({ ...DEFAULT_GAME_LIST_FILTERS });
     private readonly searchQuery$ = new BehaviorSubject<string>('');
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
     @ViewChild('detailContent') private detailContent?: IonContent;
+    private imageErrorLogCount = 0;
 
     readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
     readonly virtualMinBufferPx = GameListComponent.VIRTUAL_ROW_HEIGHT_PX * GameListComponent.VIRTUAL_BUFFER_ROWS;
@@ -898,10 +902,19 @@ export class GameListComponent implements OnChanges {
         this.changeDetectorRef.markForCheck();
     }
 
-    onImageError(event: Event): void {
+    onImageError(event: Event, game?: GameEntry): void {
         const target = event.target;
 
         if (target instanceof HTMLImageElement) {
+            if (this.imageErrorLogCount < GameListComponent.IMAGE_ERROR_LOG_LIMIT) {
+                this.imageErrorLogCount += 1;
+                this.debugLogService.warn('game_row_image_error', {
+                    gameKey: game ? this.getGameKey(game) : null,
+                    igdbGameId: game?.igdbGameId ?? null,
+                    platformIgdbId: game?.platformIgdbId ?? null,
+                    attemptedSrc: target.currentSrc || target.src || null,
+                });
+            }
             target.src = 'assets/icon/placeholder.png';
         }
     }

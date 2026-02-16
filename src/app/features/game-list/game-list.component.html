@@ -81,7 +81,7 @@
       </div>
 
       <div slot="start" class="game-art">
-        <img [src]="getRowCoverUrl(game)" [alt]="game.title" (error)="onImageError($event)" />
+        <img [src]="getRowCoverUrl(game)" [alt]="game.title" (error)="onImageError($event, game)" />
       </div>
 
       <ion-label>

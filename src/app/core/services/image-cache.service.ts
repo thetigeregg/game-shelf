@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb, ImageCacheEntry } from '../data/app-db';
+import { DebugLogService } from './debug-log.service';
 import { environment } from '../../../environments/environment';
 
 export type ImageCacheVariant = 'thumb' | 'detail';
@@ -12,9 +13,12 @@ export class ImageCacheService {
   private static readonly LIMIT_STORAGE_KEY = 'game-shelf:image-cache-limit-mb';
   private static readonly THE_GAMES_DB_HOST = 'cdn.thegamesdb.net';
   private static readonly IGDB_HOST = 'images.igdb.com';
+  private static readonly IMAGE_DIAGNOSTIC_LIMIT = 120;
 
   private readonly db = inject(AppDb);
+  private readonly debugLogService = inject(DebugLogService);
   private readonly objectUrlsByCacheKey = new Map<string, string>();
+  private imageDiagnosticsCount = 0;
 
   getLimitMb(): number {
     const raw = localStorage.getItem(ImageCacheService.LIMIT_STORAGE_KEY);
@@ -53,8 +57,15 @@ export class ImageCacheService {
       if (
         !(existing.blob instanceof Blob)
         || existing.blob.size <= 0
-        || !this.isCacheableImageBlob(existing.blob)
+        || !(await this.isCacheableImageBlob(existing.blob))
       ) {
+        this.logImageDiagnostic('image_cache_rejected_existing_blob', {
+          cacheKey,
+          gameKey,
+          variant,
+          blobType: existing.blob instanceof Blob ? existing.blob.type : null,
+          blobSize: existing.blob instanceof Blob ? existing.blob.size : null,
+        });
         if (existing.id !== undefined) {
           await this.db.imageCache.delete(existing.id);
         }
@@ -68,12 +79,26 @@ export class ImageCacheService {
       const response = await fetch(this.buildFetchUrl(normalizedSourceUrl));
 
       if (!response.ok) {
+        this.logImageDiagnostic('image_cache_fetch_non_ok', {
+          cacheKey,
+          gameKey,
+          variant,
+          status: response.status,
+          statusText: response.statusText,
+        });
         return normalizedSourceUrl;
       }
 
       const blob = await response.blob();
 
-      if (!(blob instanceof Blob) || blob.size <= 0 || !this.isCacheableImageBlob(blob)) {
+      if (!(blob instanceof Blob) || blob.size <= 0 || !(await this.isCacheableImageBlob(blob))) {
+        this.logImageDiagnostic('image_cache_rejected_fetched_blob', {
+          cacheKey,
+          gameKey,
+          variant,
+          blobType: blob instanceof Blob ? blob.type : null,
+          blobSize: blob instanceof Blob ? blob.size : null,
+        });
         return normalizedSourceUrl;
       }
 
@@ -103,6 +128,11 @@ export class ImageCacheService {
 
       return normalizedSourceUrl;
     } catch {
+      this.logImageDiagnostic('image_cache_fetch_failed', {
+        cacheKey,
+        gameKey,
+        variant,
+      });
       return normalizedSourceUrl;
     }
   }
@@ -196,18 +226,89 @@ export class ImageCacheService {
     return Math.max(ImageCacheService.MIN_LIMIT_MB, Math.min(rounded, ImageCacheService.MAX_LIMIT_MB));
   }
 
-  private isCacheableImageBlob(blob: Blob): boolean {
+  private async isCacheableImageBlob(blob: Blob): Promise<boolean> {
     const mimeType = blob.type.trim().toLowerCase();
-
-    if (!mimeType) {
-      return true;
-    }
 
     if (mimeType.startsWith('image/')) {
       return true;
     }
 
-    return mimeType === 'application/octet-stream';
+    if (!mimeType || mimeType === 'application/octet-stream') {
+      return this.hasImageSignature(blob);
+    }
+
+    return false;
+  }
+
+  private async hasImageSignature(blob: Blob): Promise<boolean> {
+    try {
+      const buffer = await blob.slice(0, 16).arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      if (bytes.length >= 8) {
+        const isPng = bytes[0] === 0x89
+          && bytes[1] === 0x50
+          && bytes[2] === 0x4e
+          && bytes[3] === 0x47
+          && bytes[4] === 0x0d
+          && bytes[5] === 0x0a
+          && bytes[6] === 0x1a
+          && bytes[7] === 0x0a;
+
+        if (isPng) {
+          return true;
+        }
+      }
+
+      if (bytes.length >= 3) {
+        const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+
+        if (isJpeg) {
+          return true;
+        }
+      }
+
+      if (bytes.length >= 6) {
+        const isGif = bytes[0] === 0x47
+          && bytes[1] === 0x49
+          && bytes[2] === 0x46
+          && bytes[3] === 0x38
+          && (bytes[4] === 0x37 || bytes[4] === 0x39)
+          && bytes[5] === 0x61;
+
+        if (isGif) {
+          return true;
+        }
+      }
+
+      if (bytes.length >= 12) {
+        const isWebp = bytes[0] === 0x52
+          && bytes[1] === 0x49
+          && bytes[2] === 0x46
+          && bytes[3] === 0x46
+          && bytes[8] === 0x57
+          && bytes[9] === 0x45
+          && bytes[10] === 0x42
+          && bytes[11] === 0x50;
+
+        if (isWebp) {
+          return true;
+        }
+      }
+    } catch {
+      return false;
+    }
+
+    return false;
+  }
+
+  private logImageDiagnostic(message: string, payload: Record<string, unknown>): void {
+    if (this.imageDiagnosticsCount >= ImageCacheService.IMAGE_DIAGNOSTIC_LIMIT) {
+      return;
+    }
+
+    this.imageDiagnosticsCount += 1;
+    this.debugLogService.warn(message, payload);
   }
 
   private async enforceLimitBytes(limitBytes: number): Promise<void> {

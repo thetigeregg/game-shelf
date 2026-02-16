@@ -573,6 +573,42 @@ test('returns normalized game metadata for IGDB id endpoint', async () => {
   assert.equal(calls.theGamesDb, 0);
 });
 
+test('falls back to accent-folded IGDB query when the original query returns no results', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbResponses: [
+      { status: 200, body: [] },
+      {
+        status: 200,
+        body: [
+          {
+            id: 4512,
+            name: 'Einhänder',
+            first_release_date: 888451200,
+            cover: { image_id: 'einhander-cover' },
+            platforms: [{ id: 7, name: 'PlayStation' }],
+          },
+        ],
+      },
+    ],
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=Einh%C3%A4nder'),
+    env,
+    stub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.items.length, 1);
+  assert.equal(payload.items[0].title, 'Einhänder');
+  assert.equal(calls.igdb, 2);
+  assert.equal(calls.igdbBodies[0].includes('search "Einhänder";'), true);
+  assert.equal(calls.igdbBodies[1].includes('search "Einhander";'), true);
+});
+
 test('returns 404 when IGDB id endpoint has no matching game', async () => {
   resetCaches();
 
@@ -635,6 +671,59 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
   assert.equal(calls.token, 0);
   assert.equal(calls.igdb, 0);
   assert.equal(calls.theGamesDb, 1);
+});
+
+test('falls back to accent-folded TheGamesDB query when the original query returns no candidates', async () => {
+  resetCaches();
+
+  const theGamesDbUrls = [];
+  const fetchStub = async (url) => {
+    const normalizedUrl = String(url);
+
+    if (normalizedUrl.startsWith('https://api.thegamesdb.net/v1.1/Games/ByGameName')) {
+      theGamesDbUrls.push(normalizedUrl);
+
+      const parsed = new URL(normalizedUrl);
+      const name = parsed.searchParams.get('name');
+      const isFoldedQuery = name === 'Einhander';
+
+      const body = isFoldedQuery
+        ? {
+          data: {
+            games: [{ id: 8001, game_title: 'Einhänder' }],
+          },
+          include: {
+            boxart: {
+              base_url: {
+                large: 'https://cdn.thegamesdb.net/images/large',
+              },
+              data: {
+                8001: [
+                  { type: 'boxart', side: 'front', filename: '/box/front/einhander.jpg' },
+                ],
+              },
+            },
+          },
+        }
+        : { data: { games: [] }, include: { boxart: { data: {} } } };
+
+      return new Response(JSON.stringify(body), { status: 200 });
+    }
+
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/images/boxart/search?q=Einh%C3%A4nder'),
+    env,
+    fetchStub,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.items, ['https://cdn.thegamesdb.net/images/large/box/front/einhander.jpg']);
+  assert.equal(theGamesDbUrls.some(url => url.includes('name=Einh%C3%A4nder')), true);
+  assert.equal(theGamesDbUrls.some(url => url.includes('name=Einhander')), true);
 });
 
 test('prioritizes TheGamesDB country_id 50 first and country_id 0 second for matching titles', async () => {

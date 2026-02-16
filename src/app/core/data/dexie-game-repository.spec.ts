@@ -166,6 +166,28 @@ describe('DexieGameRepository', () => {
     expect(stored?.tagIds).toEqual([2, 3]);
   });
 
+  it('stores and resets custom metadata without overwriting IGDB metadata', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameCustomMetadata('101', 18, {
+      title: 'My Mario',
+      platform: { name: 'Nintendo Switch', igdbId: 130 },
+    });
+
+    const customized = await repository.exists('101', 18);
+    expect(customized?.title).toBe('Super Mario Bros.');
+    expect(customized?.platform).toBe('NES');
+    expect(customized?.customTitle).toBe('My Mario');
+    expect(customized?.customPlatform).toBe('Nintendo Switch');
+    expect(customized?.customPlatformIgdbId).toBe(130);
+
+    await repository.setGameCustomMetadata('101', 18, { title: null, platform: null });
+    const reset = await repository.exists('101', 18);
+    expect(reset?.customTitle).toBeNull();
+    expect(reset?.customPlatform).toBeNull();
+    expect(reset?.customPlatformIgdbId).toBeNull();
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });

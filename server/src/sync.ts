@@ -416,11 +416,30 @@ function normalizeGamePayload(value: unknown): Record<string, unknown> & { igdbG
   const updatedAt = typeof payload.updatedAt === 'string' && payload.updatedAt.trim().length > 0
     ? payload.updatedAt
     : new Date().toISOString();
+  const title = typeof payload.title === 'string' && payload.title.trim().length > 0
+    ? payload.title.trim()
+    : '';
+  const platform = typeof payload.platform === 'string' && payload.platform.trim().length > 0
+    ? payload.platform.trim()
+    : '';
+  const customTitleRaw = typeof payload.customTitle === 'string' ? payload.customTitle.trim() : '';
+  const customPlatformRaw = typeof payload.customPlatform === 'string' ? payload.customPlatform.trim() : '';
+  const customPlatformIgdbIdRaw = Number.parseInt(String(payload.customPlatformIgdbId ?? ''), 10);
+  const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
+  const customPlatformIgdbId = Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
+    ? customPlatformIgdbIdRaw
+    : null;
+  const customPlatform = customPlatformRaw.length > 0 && customPlatformIgdbId !== null && customPlatformRaw !== platform
+    ? customPlatformRaw
+    : null;
 
   return {
     ...payload,
     igdbGameId,
     platformIgdbId,
+    customTitle,
+    customPlatform,
+    customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
     updatedAt,
   };
 }
@@ -473,4 +492,3 @@ function normalizeSettingIdentityPayload(value: unknown): { key: string } {
 
   return { key };
 }
-

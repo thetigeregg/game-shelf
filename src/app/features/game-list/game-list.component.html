@@ -81,16 +81,16 @@
       </div>
 
       <div slot="start" class="game-art">
-        <img [src]="getRowCoverUrl(game)" [alt]="game.title" (error)="onImageError($event, game)" />
+        <img [src]="getRowCoverUrl(game)" [alt]="getGameDisplayTitle(game)" (error)="onImageError($event, game)" />
       </div>
 
       <ion-label>
-        <h2>{{ game.title }}</h2>
+        <h2>{{ getGameDisplayTitle(game) }}</h2>
         <ion-badge class="game-type-badge" *ngIf="getGameTypeBadgeLabel(game) as gameTypeBadgeLabel">
           {{ gameTypeBadgeLabel }}
         </ion-badge>
         <p>{{ game.releaseYear || 'Unknown year' }}</p>
-        <p>{{ getPlatformLabel(game.platform, game.platformIgdbId) }}</p>
+        <p>{{ getGameDisplayPlatformLabel(game) }}</p>
         <div class="game-tags" *ngIf="game.tags && game.tags.length > 0">
           <ion-badge
             *ngFor="let tag of game.tags"
@@ -154,7 +154,7 @@
             <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title>{{ selectedGame?.title || 'Game Details' }}</ion-title>
+        <ion-title>{{ (selectedGame ? getGameDisplayTitle(selectedGame) : '') || 'Game Details' }}</ion-title>
         <ion-buttons slot="end">
           <ion-button
             fill="clear"
@@ -185,6 +185,9 @@
             </ion-item>
             <ion-item button detail="false" (click)="openFixMatchFromPopover()">
               Fix game match
+            </ion-item>
+            <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
+              Edit metadata
             </ion-item>
             <ion-item button detail="false" color="danger" (click)="deleteSelectedGameFromPopover()">
               Delete
@@ -266,6 +269,67 @@
           </ion-fab-button>
         </ion-fab-list>
       </ion-fab>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isEditMetadataModalOpen" (didDismiss)="closeEditMetadataModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Edit Metadata</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" [disabled]="isEditMetadataSaving" (click)="closeEditMetadataModal()">
+            Close
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <ion-list lines="full">
+        <ion-item>
+          <ion-input
+            label="Game name"
+            labelPlacement="stacked"
+            [value]="editMetadataTitle"
+            placeholder="Game name"
+            (ionInput)="onEditMetadataTitleChange($event)"
+          ></ion-input>
+        </ion-item>
+        <ion-item lines="none">
+          <ion-button fill="outline" color="medium" [disabled]="isEditMetadataSaving" (click)="resetEditMetadataTitle()">
+            Reset Name
+          </ion-button>
+        </ion-item>
+        <ion-item>
+          <ion-select
+            label="Platform"
+            labelPlacement="stacked"
+            interface="action-sheet"
+            [value]="editMetadataPlatformIgdbId"
+            placeholder="Default platform"
+            (ionChange)="onEditMetadataPlatformChange($any($event).detail.value)"
+          >
+            <ion-select-option [value]="null">Default platform</ion-select-option>
+            <ion-select-option
+              *ngFor="let platformOption of editMetadataPlatformOptions"
+              [value]="platformOption.id"
+            >
+              {{ getPlatformLabel(platformOption.name, platformOption.id) }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-item lines="none">
+          <ion-button fill="outline" color="medium" [disabled]="isEditMetadataSaving" (click)="resetEditMetadataPlatform()">
+            Reset Platform
+          </ion-button>
+        </ion-item>
+        <ion-item lines="none">
+          <ion-button expand="block" [disabled]="isEditMetadataSaving" (click)="saveEditMetadata()">
+            {{ isEditMetadataSaving ? 'Saving...' : 'Save' }}
+          </ion-button>
+        </ion-item>
+      </ion-list>
     </ion-content>
   </ng-template>
 </ion-modal>

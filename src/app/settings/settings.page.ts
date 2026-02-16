@@ -41,12 +41,15 @@ interface ExportCsvRow {
     igdbGameId: string;
     platformIgdbId: string;
     title: string;
+    customTitle: string;
     summary: string;
     storyline: string;
     coverUrl: string;
     coverSource: string;
     gameType: string;
     platform: string;
+    customPlatform: string;
+    customPlatformIgdbId: string;
     collections: string;
     releaseDate: string;
     releaseYear: string;
@@ -79,6 +82,8 @@ interface ParsedGameImportRow {
     catalog: GameCatalogResult;
     status: GameStatus | null;
     rating: GameRating | null;
+    customTitle: string | null;
+    customPlatform: { name: string; igdbId: number } | null;
     tagNames: string[];
     tagIds: number[];
 }
@@ -146,12 +151,15 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
     'igdbGameId',
     'platformIgdbId',
     'title',
+    'customTitle',
     'summary',
     'storyline',
     'coverUrl',
     'coverSource',
     'gameType',
     'platform',
+    'customPlatform',
+    'customPlatformIgdbId',
     'collections',
     'releaseDate',
     'releaseYear',
@@ -1070,6 +1078,7 @@ export class SettingsPage {
             let settingsApplied = 0;
             let tagsApplied = 0;
             let gamesApplied = 0;
+            let gameCustomMetadataApplied = 0;
             let gameStatusesApplied = 0;
             let gameRatingsApplied = 0;
             let gameTagAssignmentsApplied = 0;
@@ -1131,6 +1140,18 @@ export class SettingsPage {
                 try {
                     await this.gameShelfService.addGame(gameRow.catalog, gameRow.listType);
                     gamesApplied += 1;
+
+                    if (gameRow.customTitle !== null || gameRow.customPlatform !== null) {
+                        await this.gameShelfService.setGameCustomMetadata(
+                            gameRow.catalog.igdbGameId,
+                            platformIgdbId,
+                            {
+                                title: gameRow.customTitle,
+                                platform: gameRow.customPlatform,
+                            },
+                        );
+                        gameCustomMetadataApplied += 1;
+                    }
 
                     if (gameRow.status !== null) {
                         await this.gameShelfService.setGameStatus(gameRow.catalog.igdbGameId, platformIgdbId, gameRow.status);
@@ -1200,6 +1221,7 @@ export class SettingsPage {
                 gamesApplied,
                 gameStatusesApplied,
                 gameRatingsApplied,
+                gameCustomMetadataApplied,
                 gameTagAssignmentsApplied,
                 viewsApplied,
                 tagsRenamed,
@@ -1221,6 +1243,7 @@ export class SettingsPage {
         gamesApplied: number;
         gameStatusesApplied: number;
         gameRatingsApplied: number;
+        gameCustomMetadataApplied: number;
         gameTagAssignmentsApplied: number;
         viewsApplied: number;
         tagsRenamed: number;
@@ -1236,6 +1259,7 @@ export class SettingsPage {
             `Settings imported: ${summary.settingsApplied}`,
             `Game statuses set: ${summary.gameStatusesApplied}`,
             `Game ratings set: ${summary.gameRatingsApplied}`,
+            `Game custom metadata updates: ${summary.gameCustomMetadataApplied}`,
             `Game tag assignments: ${summary.gameTagAssignmentsApplied}`,
             `Tags auto-renamed: ${summary.tagsRenamed}`,
             `Views auto-renamed: ${summary.viewsRenamed}`,
@@ -2199,12 +2223,17 @@ export class SettingsPage {
                 igdbGameId: game.igdbGameId,
                 platformIgdbId: String(game.platformIgdbId),
                 title: game.title,
+                customTitle: game.customTitle ?? '',
                 summary: game.summary ?? '',
                 storyline: game.storyline ?? '',
                 coverUrl: game.coverUrl ?? '',
                 coverSource: game.coverSource,
                 gameType: game.gameType ?? '',
                 platform: game.platform,
+                customPlatform: game.customPlatform ?? '',
+                customPlatformIgdbId: game.customPlatformIgdbId !== null && game.customPlatformIgdbId !== undefined
+                    ? String(game.customPlatformIgdbId)
+                    : '',
                 collections: JSON.stringify(game.collections ?? []),
                 releaseDate: game.releaseDate ?? '',
                 releaseYear: game.releaseYear !== null && game.releaseYear !== undefined ? String(game.releaseYear) : '',
@@ -2239,12 +2268,15 @@ export class SettingsPage {
                 igdbGameId: '',
                 platformIgdbId: '',
                 title: '',
+                customTitle: '',
                 summary: '',
                 storyline: '',
                 coverUrl: '',
                 coverSource: '',
                 gameType: '',
                 platform: '',
+                customPlatform: '',
+                customPlatformIgdbId: '',
                 collections: '',
                 releaseDate: '',
                 releaseYear: '',
@@ -2279,12 +2311,15 @@ export class SettingsPage {
                 igdbGameId: '',
                 platformIgdbId: '',
                 title: '',
+                customTitle: '',
                 summary: '',
                 storyline: '',
                 coverUrl: '',
                 coverSource: '',
                 gameType: '',
                 platform: '',
+                customPlatform: '',
+                customPlatformIgdbId: '',
                 collections: '',
                 releaseDate: '',
                 releaseYear: '',
@@ -2319,12 +2354,15 @@ export class SettingsPage {
                 igdbGameId: '',
                 platformIgdbId: '',
                 title: '',
+                customTitle: '',
                 summary: '',
                 storyline: '',
                 coverUrl: '',
                 coverSource: '',
                 gameType: '',
                 platform: '',
+                customPlatform: '',
+                customPlatformIgdbId: '',
                 collections: '',
                 releaseDate: '',
                 releaseYear: '',
@@ -2565,6 +2603,19 @@ export class SettingsPage {
         if (platform.length === 0) {
             return this.errorRow(type, rowNumber, 'Platform is required for imported games.');
         }
+        const customTitle = this.parseOptionalText(record.customTitle);
+        const customPlatformName = this.parseOptionalText(record.customPlatform);
+        const customPlatformIgdbId = this.parsePositiveInteger(record.customPlatformIgdbId);
+        const hasCustomPlatformName = customPlatformName !== null;
+        const hasCustomPlatformId = customPlatformIgdbId !== null;
+
+        if (hasCustomPlatformName !== hasCustomPlatformId) {
+            return this.errorRow(type, rowNumber, 'Custom platform must include both name and IGDB platform id.');
+        }
+
+        const customPlatform = hasCustomPlatformName && hasCustomPlatformId
+            ? { name: customPlatformName!, igdbId: customPlatformIgdbId! }
+            : null;
 
         const status = this.normalizeStatus(record.status);
 
@@ -2625,6 +2676,8 @@ export class SettingsPage {
                 catalog,
                 status,
                 rating,
+                customTitle,
+                customPlatform,
                 tagNames,
                 tagIds,
             },
@@ -2729,12 +2782,15 @@ export class SettingsPage {
             igdbGameId: getValue('igdbGameId'),
             platformIgdbId: getValue('platformIgdbId'),
             title: getValue('title'),
+            customTitle: getValue('customTitle'),
             summary: getValue('summary'),
             storyline: getValue('storyline'),
             coverUrl: getValue('coverUrl'),
             coverSource: getValue('coverSource'),
             gameType: getValue('gameType'),
             platform: getValue('platform'),
+            customPlatform: getValue('customPlatform'),
+            customPlatformIgdbId: getValue('customPlatformIgdbId'),
             collections: getValue('collections'),
             releaseDate: getValue('releaseDate'),
             releaseYear: getValue('releaseYear'),

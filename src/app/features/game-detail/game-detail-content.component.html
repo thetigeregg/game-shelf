@@ -4,14 +4,14 @@
       class="detail-cover-backdrop"
       [style.background-image]="game.coverUrl ? 'url(' + game.coverUrl + ')' : 'none'"
     ></div>
-    <img [src]="game.coverUrl || 'assets/icon/placeholder.png'" [alt]="game.title" (error)="onImageError($event)" />
+    <img [src]="game.coverUrl || 'assets/icon/placeholder.png'" [alt]="displayTitle" (error)="onImageError($event)" />
   </div>
 
   <ion-list lines="full">
     <ion-item>
       <ion-label>
         <h2>Name</h2>
-        <p class="detail-game-name">{{ game.title }}</p>
+        <p class="detail-game-name">{{ displayTitle }}</p>
         <ion-badge class="game-type-badge detail-game-type-badge" *ngIf="gameTypeBadgeLabel as gameTypeBadgeLabelValue">
           {{ gameTypeBadgeLabelValue }}
         </ion-badge>

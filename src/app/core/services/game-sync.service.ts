@@ -233,7 +233,10 @@ export class GameSyncService implements SyncOutboxWriter {
       igdbGameId,
       platformIgdbId,
       title: typeof payload.title === 'string' && payload.title.trim().length > 0 ? payload.title.trim() : 'Unknown title',
+      customTitle: this.normalizeCustomTitle(payload.customTitle, typeof payload.title === 'string' ? payload.title : ''),
       platform: typeof payload.platform === 'string' && payload.platform.trim().length > 0 ? payload.platform.trim() : 'Unknown platform',
+      customPlatform: this.normalizeCustomPlatform(payload.customPlatform, payload.customPlatformIgdbId, payload.platform),
+      customPlatformIgdbId: this.normalizeCustomPlatformIgdbId(payload.customPlatformIgdbId, payload.customPlatform, payload.platformIgdbId, payload.platform),
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
       createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
       updatedAt: typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
@@ -246,6 +249,65 @@ export class GameSyncService implements SyncOutboxWriter {
     } as GameEntry;
 
     await this.db.games.put(normalized);
+  }
+
+  private normalizeCustomTitle(value: unknown, defaultTitle: string): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    const normalizedDefault = typeof defaultTitle === 'string' ? defaultTitle.trim() : '';
+
+    if (normalized.length === 0 || normalized === normalizedDefault) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeCustomPlatform(
+    platformName: unknown,
+    platformIgdbId: unknown,
+    defaultPlatformName: unknown,
+  ): string | null {
+    const normalizedName = typeof platformName === 'string' ? platformName.trim() : '';
+    const normalizedPlatformId = this.normalizeOptionalPlatformIgdbId(platformIgdbId);
+    const normalizedDefaultPlatformName = typeof defaultPlatformName === 'string' ? defaultPlatformName.trim() : '';
+
+    if (normalizedName.length === 0 || normalizedPlatformId === null || normalizedName === normalizedDefaultPlatformName) {
+      return null;
+    }
+
+    return normalizedName;
+  }
+
+  private normalizeCustomPlatformIgdbId(
+    platformIgdbId: unknown,
+    platformName: unknown,
+    defaultPlatformIgdbId: unknown,
+    defaultPlatformName: unknown,
+  ): number | null {
+    const normalizedPlatformId = this.normalizeOptionalPlatformIgdbId(platformIgdbId);
+    const normalizedPlatformName = typeof platformName === 'string' ? platformName.trim() : '';
+    const normalizedDefaultPlatformId = this.normalizeOptionalPlatformIgdbId(defaultPlatformIgdbId);
+    const normalizedDefaultPlatformName = typeof defaultPlatformName === 'string' ? defaultPlatformName.trim() : '';
+
+    if (normalizedPlatformId === null || normalizedPlatformName.length === 0) {
+      return null;
+    }
+
+    if (normalizedDefaultPlatformId !== null && normalizedPlatformId === normalizedDefaultPlatformId && normalizedPlatformName === normalizedDefaultPlatformName) {
+      return null;
+    }
+
+    return normalizedPlatformId;
+  }
+
+  private normalizeOptionalPlatformIgdbId(value: unknown): number | null {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    return parsed;
   }
 
   private async applyTagChange(change: SyncChangeEvent): Promise<void> {

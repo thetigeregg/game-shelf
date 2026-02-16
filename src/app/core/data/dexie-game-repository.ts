@@ -48,6 +48,7 @@ export class DexieGameRepository implements GameRepository {
         ...existing,
         igdbGameId: normalizedGameId,
         title: result.title,
+        customTitle: this.resolveCustomTitle(existing.customTitle, result.title),
         coverUrl: result.coverUrl,
         coverSource: result.coverSource,
         storyline: this.normalizeTextValue(result.storyline),
@@ -64,6 +65,13 @@ export class DexieGameRepository implements GameRepository {
         publishers: this.normalizeTextList(result.publishers),
         platform: normalizedPlatformName,
         platformIgdbId: normalizedPlatformIgdbId,
+        customPlatform: this.resolveCustomPlatformName(
+          existing.customPlatform,
+          existing.customPlatformIgdbId,
+          normalizedPlatformName,
+          normalizedPlatformIgdbId,
+        ),
+        customPlatformIgdbId: this.resolveCustomPlatformIgdbId(existing.customPlatformIgdbId, existing.customPlatform, normalizedPlatformName, normalizedPlatformIgdbId),
         tagIds: this.normalizeTagIds(existing.tagIds),
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
@@ -81,6 +89,7 @@ export class DexieGameRepository implements GameRepository {
     const created: GameEntry = {
       igdbGameId: normalizedGameId,
       title: result.title,
+      customTitle: null,
       coverUrl: result.coverUrl,
       coverSource: result.coverSource,
       storyline: this.normalizeTextValue(result.storyline),
@@ -97,6 +106,8 @@ export class DexieGameRepository implements GameRepository {
       publishers: this.normalizeTextList(result.publishers),
       platform: normalizedPlatformName,
       platformIgdbId: normalizedPlatformIgdbId,
+      customPlatform: null,
+      customPlatformIgdbId: null,
       tagIds: [],
       releaseDate: result.releaseDate,
       releaseYear: result.releaseYear,
@@ -212,6 +223,48 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       tagIds: this.normalizeTagIds(tagIds),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
+    return updated;
+  }
+
+  async setGameCustomMetadata(
+    igdbGameId: string,
+    platformIgdbId: number,
+    customizations: {
+      title?: string | null;
+      platform?: { name: string; igdbId: number } | null;
+    },
+  ): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const nextCustomTitle = customizations.title === undefined
+      ? this.normalizeCustomTitle(existing.customTitle, existing.title)
+      : this.normalizeCustomTitle(customizations.title, existing.title);
+    const nextCustomPlatformName = customizations.platform === undefined
+      ? this.normalizeCustomPlatformName(existing.customPlatform, existing.platform, existing.platformIgdbId, existing.platformIgdbId)
+      : this.normalizeCustomPlatformName(
+        customizations.platform?.name ?? null,
+        existing.platform,
+        customizations.platform?.igdbId ?? null,
+        existing.platformIgdbId,
+      );
+    const nextCustomPlatformIgdbId = customizations.platform === undefined
+      ? this.normalizeCustomPlatformIgdbId(existing.customPlatformIgdbId, existing.customPlatform, existing.platform, existing.platformIgdbId)
+      : this.normalizeCustomPlatformIgdbId(customizations.platform?.igdbId ?? null, customizations.platform?.name ?? null, existing.platform, existing.platformIgdbId);
+
+    const updated: GameEntry = {
+      ...existing,
+      customTitle: nextCustomTitle,
+      customPlatform: nextCustomPlatformName,
+      customPlatformIgdbId: nextCustomPlatformIgdbId,
       updatedAt: new Date().toISOString(),
     };
 
@@ -562,6 +615,92 @@ export class DexieGameRepository implements GameRepository {
   private normalizeTextValue(value: string | null | undefined): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeCustomTitle(value: string | null | undefined, defaultTitle: string): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    return normalized === defaultTitle ? null : normalized;
+  }
+
+  private normalizeCustomPlatformName(
+    value: string | null | undefined,
+    defaultPlatformName: string,
+    candidatePlatformId: number | null | undefined,
+    defaultPlatformIgdbId: number,
+  ): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    const normalizedCandidateId = this.normalizeOptionalPlatformIgdbId(candidatePlatformId);
+
+    if (normalized.length === 0 || normalizedCandidateId === null) {
+      return null;
+    }
+
+    return normalized === defaultPlatformName && normalizedCandidateId === defaultPlatformIgdbId ? null : normalized;
+  }
+
+  private normalizeCustomPlatformIgdbId(
+    value: number | null | undefined,
+    candidatePlatformName: string | null | undefined,
+    defaultPlatformName: string,
+    defaultPlatformIgdbId: number,
+  ): number | null {
+    const normalizedId = this.normalizeOptionalPlatformIgdbId(value);
+    const normalizedName = typeof candidatePlatformName === 'string' ? candidatePlatformName.trim() : '';
+
+    if (normalizedId === null || normalizedName.length === 0) {
+      return null;
+    }
+
+    if (normalizedId === defaultPlatformIgdbId && normalizedName === defaultPlatformName) {
+      return null;
+    }
+
+    return normalizedId;
+  }
+
+  private normalizeOptionalPlatformIgdbId(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+      return null;
+    }
+
+    return value;
+  }
+
+  private resolveCustomTitle(existingCustomTitle: string | null | undefined, incomingTitle: string): string | null {
+    return this.normalizeCustomTitle(existingCustomTitle, incomingTitle);
+  }
+
+  private resolveCustomPlatformName(
+    existingCustomPlatformName: string | null | undefined,
+    existingCustomPlatformIgdbId: number | null | undefined,
+    incomingPlatformName: string,
+    incomingPlatformIgdbId: number,
+  ): string | null {
+    return this.normalizeCustomPlatformName(
+      existingCustomPlatformName,
+      incomingPlatformName,
+      existingCustomPlatformIgdbId,
+      incomingPlatformIgdbId,
+    );
+  }
+
+  private resolveCustomPlatformIgdbId(
+    existingCustomPlatformIgdbId: number | null | undefined,
+    existingCustomPlatformName: string | null | undefined,
+    incomingPlatformName: string,
+    incomingPlatformIgdbId: number,
+  ): number | null {
+    return this.normalizeCustomPlatformIgdbId(
+      existingCustomPlatformIgdbId,
+      existingCustomPlatformName,
+      incomingPlatformName,
+      incomingPlatformIgdbId,
+    );
   }
 
   private normalizeViewName(value: string): string {

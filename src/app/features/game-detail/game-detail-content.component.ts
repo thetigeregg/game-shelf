@@ -54,10 +54,19 @@ export class GameDetailContentComponent {
   }
 
   get platformLabel(): string {
-    const primaryPlatform = typeof this.game.platform === 'string' ? this.game.platform.trim() : '';
-    const primaryPlatformId = Number.isInteger(this.game.platformIgdbId) && (this.game.platformIgdbId as number) > 0
-      ? this.game.platformIgdbId as number
+    const gameEntryLike = this.game as Partial<GameEntry>;
+    const customPlatform = typeof gameEntryLike.customPlatform === 'string' ? gameEntryLike.customPlatform.trim() : '';
+    const customPlatformId = Number.isInteger(gameEntryLike.customPlatformIgdbId) && (gameEntryLike.customPlatformIgdbId as number) > 0
+      ? gameEntryLike.customPlatformIgdbId as number
       : null;
+    const primaryPlatform = customPlatform.length > 0
+      ? customPlatform
+      : (typeof this.game.platform === 'string' ? this.game.platform.trim() : '');
+    const primaryPlatformId = customPlatform.length > 0 && customPlatformId !== null
+      ? customPlatformId
+      : (Number.isInteger(this.game.platformIgdbId) && (this.game.platformIgdbId as number) > 0
+        ? this.game.platformIgdbId as number
+        : null);
     const gameCatalogLike = this.game as Partial<GameCatalogResult>;
 
     if (primaryPlatform.length > 0) {
@@ -301,5 +310,17 @@ export class GameDetailContentComponent {
 
     const rounded = Math.round(value * 10) / 10;
     return `${rounded}h`;
+  }
+
+  get displayTitle(): string {
+    const gameEntryLike = this.game as Partial<GameEntry>;
+    const customTitle = typeof gameEntryLike.customTitle === 'string' ? gameEntryLike.customTitle.trim() : '';
+
+    if (customTitle.length > 0) {
+      return customTitle;
+    }
+
+    const title = typeof this.game.title === 'string' ? this.game.title.trim() : '';
+    return title.length > 0 ? title : 'Unknown title';
   }
 }

@@ -87,6 +87,7 @@ export interface GameEntry {
   id?: number;
   igdbGameId: string;
   title: string;
+  customTitle?: string | null;
   coverUrl: string | null;
   coverSource: CoverSource;
   storyline?: string | null;
@@ -103,6 +104,8 @@ export interface GameEntry {
   publishers?: string[];
   platform: string;
   platformIgdbId: number;
+  customPlatform?: string | null;
+  customPlatformIgdbId?: number | null;
   tagIds?: number[];
   tags?: GameTag[];
   releaseDate: string | null;

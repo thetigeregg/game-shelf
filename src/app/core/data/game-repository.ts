@@ -12,6 +12,14 @@ export interface GameRepository {
   setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry | undefined>;
   setGameRating(igdbGameId: string, platformIgdbId: number, rating: GameRating | null): Promise<GameEntry | undefined>;
   setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry | undefined>;
+  setGameCustomMetadata(
+    igdbGameId: string,
+    platformIgdbId: number,
+    customizations: {
+      title?: string | null;
+      platform?: { name: string; igdbId: number } | null;
+    },
+  ): Promise<GameEntry | undefined>;
   listTags(): Promise<Tag[]>;
   upsertTag(tag: { id?: number; name: string; color: string }): Promise<Tag>;
   deleteTag(tagId: number): Promise<void>;

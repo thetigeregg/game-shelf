@@ -376,6 +376,25 @@ export class GameShelfService {
     return this.attachTags([updated], tags)[0];
   }
 
+  async setGameCustomMetadata(
+    igdbGameId: string,
+    platformIgdbId: number,
+    customizations: {
+      title?: string | null;
+      platform?: { name: string; igdbId: number } | null;
+    },
+  ): Promise<GameEntry> {
+    const updated = await this.repository.setGameCustomMetadata(igdbGameId, platformIgdbId, customizations);
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const tags = await this.repository.listTags();
+    this.listRefresh$.next();
+    return this.attachTags([updated], tags)[0];
+  }
+
   async setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry> {
     const updated = await this.repository.setGameStatus(igdbGameId, platformIgdbId, status);
 

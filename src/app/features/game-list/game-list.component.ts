@@ -34,12 +34,14 @@ import {
     IonThumbnail,
     IonFab,
     IonFabButton,
-    IonFabList
+    IonFabList,
+    IonInput
 } from '@ionic/angular/standalone';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import {
     DEFAULT_GAME_LIST_FILTERS,
+    GameCatalogPlatformOption,
     GameCatalogResult,
     GameEntry,
     GameGroupByField,
@@ -139,6 +141,7 @@ export interface MetadataFilterSelection {
         IonFab,
         IonFabButton,
         IonFabList,
+        IonInput,
         GameSearchComponent,
         GameDetailContentComponent,
     ],
@@ -210,6 +213,11 @@ export class GameListComponent implements OnChanges {
     metadataPickerKind: MetadataFilterKind | null = null;
     metadataPickerOptions: string[] = [];
     metadataPickerSelection: string | null = null;
+    isEditMetadataModalOpen = false;
+    isEditMetadataSaving = false;
+    editMetadataTitle = '';
+    editMetadataPlatformIgdbId: number | null = null;
+    editMetadataPlatformOptions: GameCatalogPlatformOption[] = [];
     isManualPickerModalOpen = false;
     isManualPickerLoading = false;
     manualPickerQuery = '';
@@ -336,7 +344,7 @@ export class GameListComponent implements OnChanges {
 
         const confirmed = await this.confirmDelete({
             header: 'Delete Game',
-            message: `Delete ${game.title}?`,
+            message: `Delete ${this.getGameDisplayTitle(game)}?`,
             confirmText: 'Delete',
         });
 
@@ -704,6 +712,8 @@ export class GameListComponent implements OnChanges {
         this.isImagePickerModalOpen = false;
         this.isHltbPickerModalOpen = false;
         this.isMetadataPickerModalOpen = false;
+        this.isEditMetadataModalOpen = false;
+        this.isEditMetadataSaving = false;
         this.isManualPickerModalOpen = false;
         this.selectedGame = null;
         this.detailNavigationStack = [];
@@ -715,6 +725,9 @@ export class GameListComponent implements OnChanges {
         this.resetImagePickerState();
         this.resetHltbPickerState();
         this.resetManualPickerState();
+        this.editMetadataTitle = '';
+        this.editMetadataPlatformIgdbId = null;
+        this.editMetadataPlatformOptions = [];
         this.changeDetectorRef.markForCheck();
     }
 
@@ -773,12 +786,15 @@ export class GameListComponent implements OnChanges {
     }
 
     getDetailGamePayload(game: GameEntry): GameCatalogResult {
+        const displayPlatform = this.getGameDisplayPlatform(game);
+
         return {
             ...game,
+            title: this.getGameDisplayTitle(game),
             coverUrl: this.getDetailCoverUrl(game),
-            platforms: [game.platform],
-            platform: game.platform,
-            platformOptions: [{ id: game.platformIgdbId, name: game.platform }],
+            platforms: [displayPlatform.name],
+            platform: displayPlatform.name,
+            platformOptions: [{ id: displayPlatform.igdbId, name: displayPlatform.name }],
         };
     }
 
@@ -963,6 +979,11 @@ export class GameListComponent implements OnChanges {
         this.openFixMatchModal();
     }
 
+    async openEditMetadataFromPopover(): Promise<void> {
+        await this.dismissDetailActionsPopover();
+        await this.openEditMetadataModal();
+    }
+
     async deleteSelectedGameFromPopover(): Promise<void> {
         await this.dismissDetailActionsPopover();
 
@@ -973,7 +994,7 @@ export class GameListComponent implements OnChanges {
         const target = this.selectedGame;
         const confirmed = await this.confirmDelete({
             header: 'Delete Game',
-            message: `Delete ${target.title}?`,
+            message: `Delete ${this.getGameDisplayTitle(target)}?`,
             confirmText: 'Delete',
         });
 
@@ -1001,6 +1022,92 @@ export class GameListComponent implements OnChanges {
         this.fixMatchInitialQuery = '';
         this.fixMatchInitialPlatformIgdbId = null;
         this.changeDetectorRef.markForCheck();
+    }
+
+    async openEditMetadataModal(): Promise<void> {
+        const game = this.selectedGame;
+
+        if (!game || this.isEditMetadataSaving) {
+            return;
+        }
+
+        try {
+            const platforms = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
+            this.editMetadataPlatformOptions = platforms.filter(option => {
+                return typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0;
+            }) as GameCatalogPlatformOption[];
+        } catch {
+            this.editMetadataPlatformOptions = [];
+            await this.presentToast('Unable to load platforms.', 'danger');
+            return;
+        }
+
+        this.editMetadataTitle = game.customTitle ?? '';
+        this.editMetadataPlatformIgdbId = this.normalizePlatformSelectionValue(game.customPlatformIgdbId);
+        this.isEditMetadataModalOpen = true;
+        this.changeDetectorRef.markForCheck();
+    }
+
+    closeEditMetadataModal(): void {
+        if (this.isEditMetadataSaving) {
+            return;
+        }
+
+        this.isEditMetadataModalOpen = false;
+        this.editMetadataTitle = '';
+        this.editMetadataPlatformIgdbId = null;
+        this.editMetadataPlatformOptions = [];
+        this.changeDetectorRef.markForCheck();
+    }
+
+    onEditMetadataTitleChange(event: Event): void {
+        const customEvent = event as CustomEvent<{ value?: string | null }>;
+        this.editMetadataTitle = String(customEvent.detail?.value ?? '');
+    }
+
+    onEditMetadataPlatformChange(value: number | string | null | undefined): void {
+        this.editMetadataPlatformIgdbId = this.normalizePlatformSelectionValue(value);
+    }
+
+    resetEditMetadataTitle(): void {
+        this.editMetadataTitle = '';
+    }
+
+    resetEditMetadataPlatform(): void {
+        this.editMetadataPlatformIgdbId = null;
+    }
+
+    async saveEditMetadata(): Promise<void> {
+        const game = this.selectedGame;
+
+        if (!game || this.isEditMetadataSaving) {
+            return;
+        }
+
+        const title = this.editMetadataTitle.trim();
+        const platformSelection = this.resolveEditMetadataPlatformSelection();
+
+        if (this.editMetadataPlatformIgdbId !== null && platformSelection === null) {
+            await this.presentToast('Select a valid platform.', 'warning');
+            return;
+        }
+
+        this.isEditMetadataSaving = true;
+
+        try {
+            const updated = await this.gameShelfService.setGameCustomMetadata(game.igdbGameId, game.platformIgdbId, {
+                title: title.length > 0 ? title : null,
+                platform: platformSelection,
+            });
+            this.applyUpdatedGame(updated);
+            this.isEditMetadataSaving = false;
+            this.closeEditMetadataModal();
+            await this.presentToast('Metadata updated.');
+        } catch {
+            await this.presentToast('Unable to update metadata.', 'danger');
+        } finally {
+            this.isEditMetadataSaving = false;
+        }
     }
 
     async onFixMatchSelected(result: GameCatalogResult): Promise<void> {
@@ -2037,8 +2144,42 @@ export class GameListComponent implements OnChanges {
 
     getSimilarGameSubtitle(game: GameEntry): string {
         const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
-        const platform = this.getPlatformLabel(game.platform, game.platformIgdbId);
+        const displayPlatform = this.getGameDisplayPlatform(game);
+        const platform = this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
         return `${year} · ${platform}`;
+    }
+
+    getGameDisplayTitle(game: GameEntry): string {
+        const customTitle = typeof game.customTitle === 'string' ? game.customTitle.trim() : '';
+
+        if (customTitle.length > 0) {
+            return customTitle;
+        }
+
+        const title = typeof game.title === 'string' ? game.title.trim() : '';
+        return title.length > 0 ? title : 'Unknown title';
+    }
+
+    getGameDisplayPlatform(game: GameEntry): { name: string; igdbId: number } {
+        const customPlatformName = typeof game.customPlatform === 'string' ? game.customPlatform.trim() : '';
+        const customPlatformIgdbId = this.normalizePlatformSelectionValue(game.customPlatformIgdbId);
+
+        if (customPlatformName.length > 0 && customPlatformIgdbId !== null) {
+            return {
+                name: customPlatformName,
+                igdbId: customPlatformIgdbId,
+            };
+        }
+
+        return {
+            name: game.platform,
+            igdbId: game.platformIgdbId,
+        };
+    }
+
+    getGameDisplayPlatformLabel(game: GameEntry): string {
+        const displayPlatform = this.getGameDisplayPlatform(game);
+        return this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
     }
 
     getPlatformLabel(platform: string | null | undefined, platformIgdbId: number | null | undefined): string {
@@ -2096,7 +2237,7 @@ export class GameListComponent implements OnChanges {
         let nextTagIds = normalizeTagIds(game.tagIds);
         const alert = await this.alertController.create({
             header: 'Game Tags',
-            message: `Select tags for ${game.title}.`,
+            message: `Select tags for ${this.getGameDisplayTitle(game)}.`,
             inputs: tags.map(tag => buildTagInput(tag, nextTagIds)),
             buttons: [
                 {
@@ -2234,7 +2375,7 @@ export class GameListComponent implements OnChanges {
     private async confirmManualOverrideRemoval(game: GameEntry): Promise<boolean> {
         const alert = await this.alertController.create({
             header: 'Manual Not Found',
-            message: `Your saved manual match for ${game.title} is no longer available. Remove the custom match and retry auto-match?`,
+            message: `Your saved manual match for ${this.getGameDisplayTitle(game)} is no longer available. Remove the custom match and retry auto-match?`,
             buttons: [
                 {
                     text: 'Keep',
@@ -2258,7 +2399,7 @@ export class GameListComponent implements OnChanges {
 
         const alert = await this.alertController.create({
             header: 'Set Status',
-            message: `Choose a status for ${game.title}.`,
+            message: `Choose a status for ${this.getGameDisplayTitle(game)}.`,
             inputs: [
                 ...this.statusOptions.map(option => ({
                     type: 'radio' as const,
@@ -2353,6 +2494,32 @@ export class GameListComponent implements OnChanges {
         await alert.present();
         const { role } = await alert.onDidDismiss();
         return role === 'confirm';
+    }
+
+    private resolveEditMetadataPlatformSelection(): { name: string; igdbId: number } | null {
+        const selectedId = this.editMetadataPlatformIgdbId;
+
+        if (selectedId === null) {
+            return null;
+        }
+
+        const selected = this.editMetadataPlatformOptions.find(option => option.id === selectedId);
+        const selectedName = typeof selected?.name === 'string' ? selected.name.trim() : '';
+        const normalizedId = this.normalizePlatformSelectionValue(selected?.id);
+
+        if (selectedName.length === 0 || normalizedId === null) {
+            return null;
+        }
+
+        return {
+            name: selectedName,
+            igdbId: normalizedId,
+        };
+    }
+
+    private normalizePlatformSelectionValue(value: unknown): number | null {
+        const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
     }
 
     constructor() {

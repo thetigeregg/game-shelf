@@ -230,8 +230,7 @@ export class MetadataValidatorPage {
     try {
       const results = await Promise.all(
         games.map(game =>
-          this.gameShelfService
-            .refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)
+          this.refreshHltbForBulkGame(game)
             .then(updated => ({ ok: true as const, updated }))
             .catch(() => ({ ok: false as const })),
         ),
@@ -461,6 +460,35 @@ export class MetadataValidatorPage {
     });
 
     return [...byKey.values()];
+  }
+
+  private async refreshHltbForBulkGame(game: GameEntry): Promise<GameEntry> {
+    const title = typeof game.title === 'string' ? game.title.trim() : '';
+
+    if (title.length >= 2) {
+      try {
+        const candidates = await firstValueFrom(
+          this.gameShelfService.searchHltbCandidates(title, game.releaseYear, game.platform),
+        );
+        const candidate = candidates[0];
+
+        if (candidate) {
+          return await this.gameShelfService.refreshGameCompletionTimesWithQuery(
+            game.igdbGameId,
+            game.platformIgdbId,
+            {
+              title: candidate.title,
+              releaseYear: candidate.releaseYear,
+              platform: candidate.platform,
+            },
+          );
+        }
+      } catch {
+        // Fall back to the default lookup when candidate search fails.
+      }
+    }
+
+    return this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId);
   }
 
   private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {

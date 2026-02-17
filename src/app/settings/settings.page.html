@@ -104,6 +104,15 @@
         <ion-label>Debug</ion-label>
       </ion-list-header>
 
+      <ion-item>
+        <ion-icon slot="start" color="medium" name="bug"></ion-icon>
+        <ion-label>Verbose Trace Logs</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="verboseTracingEnabled"
+          (ionChange)="onVerboseTracingToggleChange($any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
       <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
         <ion-icon slot="start" color="primary" name="download"></ion-icon>
         <ion-label>Import MGC CSV</ion-label>

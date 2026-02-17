@@ -31,6 +31,7 @@ import { GameEntry, HltbMatchCandidate, ListType } from '../core/models/game.mod
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
+import { DebugLogService } from '../core/services/debug-log.service';
 
 type MissingMetadataFilter = 'hltb' | 'nonPcTheGamesDbImage';
 
@@ -88,6 +89,7 @@ export class MetadataValidatorPage {
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
+  private readonly debugLogService = inject(DebugLogService);
 
   readonly filteredGames$ = combineLatest([
     this.selectedListType$.pipe(
@@ -220,8 +222,16 @@ export class MetadataValidatorPage {
 
   async refreshHltbForSelectedGames(): Promise<void> {
     const games = this.getSelectedGames();
+    this.debugLogService.trace('metadata_validator.bulk_hltb.start', {
+      selectedCount: games.length,
+      selectedGameKeys: games.map(game => this.getGameKey(game)),
+    });
 
     if (games.length === 0 || this.isBulkRefreshingHltb) {
+      this.debugLogService.trace('metadata_validator.bulk_hltb.skipped', {
+        selectedCount: games.length,
+        isBulkRefreshingHltb: this.isBulkRefreshingHltb,
+      });
       return;
     }
 
@@ -238,6 +248,12 @@ export class MetadataValidatorPage {
       const failedCount = results.filter(result => !result.ok).length;
       const updatedCount = results.filter(result => result.ok && this.hasHltbMetadata(result.updated)).length;
       const missingCount = results.length - failedCount - updatedCount;
+      this.debugLogService.trace('metadata_validator.bulk_hltb.complete', {
+        selectedCount: results.length,
+        updatedCount,
+        missingCount,
+        failedCount,
+      });
 
       if (updatedCount > 0) {
         await this.presentToast(`Updated HLTB for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`);
@@ -464,15 +480,43 @@ export class MetadataValidatorPage {
 
   private async refreshHltbForBulkGame(game: GameEntry): Promise<GameEntry> {
     const title = typeof game.title === 'string' ? game.title.trim() : '';
+    this.debugLogService.trace('metadata_validator.bulk_hltb.game_start', {
+      gameKey: this.getGameKey(game),
+      title,
+      releaseYear: game.releaseYear,
+      platform: game.platform,
+      platformIgdbId: game.platformIgdbId,
+    });
 
     if (title.length >= 2) {
       try {
+        this.debugLogService.trace('metadata_validator.bulk_hltb.candidate_search_start', {
+          gameKey: this.getGameKey(game),
+          title,
+          releaseYear: game.releaseYear,
+          platform: game.platform,
+        });
         const candidates = await firstValueFrom(
           this.gameShelfService.searchHltbCandidates(title, game.releaseYear, game.platform),
         );
         const candidate = candidates[0];
+        this.debugLogService.trace('metadata_validator.bulk_hltb.candidate_search_complete', {
+          gameKey: this.getGameKey(game),
+          candidates: candidates.length,
+          selectedCandidate: candidate ? {
+            title: candidate.title,
+            releaseYear: candidate.releaseYear,
+            platform: candidate.platform,
+          } : null,
+        });
 
         if (candidate) {
+          this.debugLogService.trace('metadata_validator.bulk_hltb.apply_candidate', {
+            gameKey: this.getGameKey(game),
+            candidateTitle: candidate.title,
+            candidateReleaseYear: candidate.releaseYear,
+            candidatePlatform: candidate.platform,
+          });
           return await this.gameShelfService.refreshGameCompletionTimesWithQuery(
             game.igdbGameId,
             game.platformIgdbId,
@@ -484,12 +528,19 @@ export class MetadataValidatorPage {
           );
         }
       } catch {
+        this.debugLogService.trace('metadata_validator.bulk_hltb.candidate_search_failed', {
+          gameKey: this.getGameKey(game),
+        });
         // Fall back to the default lookup when candidate search fails.
       }
     }
 
+    this.debugLogService.trace('metadata_validator.bulk_hltb.fallback_lookup', {
+      gameKey: this.getGameKey(game),
+    });
     return this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId);
   }
+
 
   private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {
     const toast = await this.toastController.create({

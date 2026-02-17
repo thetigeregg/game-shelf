@@ -22,6 +22,7 @@ import { SyncEventsService } from './sync-events.service';
 import { PlatformOrderService } from './platform-order.service';
 import { environment } from '../../../environments/environment';
 import { AppDb } from '../data/app-db';
+import { DebugLogService } from './debug-log.service';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
@@ -48,6 +49,7 @@ export class GameShelfService {
   private readonly searchApi: GameSearchApi = inject(GAME_SEARCH_API);
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly db = inject(AppDb);
+  private readonly debugLogService = inject(DebugLogService);
 
   watchList(listType: ListType): Observable<GameEntry[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
@@ -262,9 +264,18 @@ export class GameShelfService {
   }
 
   async refreshGameCompletionTimes(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
+    this.debugLogService.trace('game_shelf.hltb.refresh_start', {
+      igdbGameId,
+      platformIgdbId,
+      mode: 'default',
+    });
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
     if (!existing) {
+      this.debugLogService.trace('game_shelf.hltb.refresh_missing_game', {
+        igdbGameId,
+        platformIgdbId,
+      });
       throw new Error('Game entry no longer exists.');
     }
 
@@ -281,9 +292,20 @@ export class GameShelfService {
     platformIgdbId: number,
     query: { title: string; releaseYear?: number | null; platform?: string | null },
   ): Promise<GameEntry> {
+    this.debugLogService.trace('game_shelf.hltb.refresh_start', {
+      igdbGameId,
+      platformIgdbId,
+      mode: 'query',
+      query,
+    });
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
     if (!existing) {
+      this.debugLogService.trace('game_shelf.hltb.refresh_missing_game', {
+        igdbGameId,
+        platformIgdbId,
+        mode: 'query',
+      });
       throw new Error('Game entry no longer exists.');
     }
 
@@ -302,9 +324,20 @@ export class GameShelfService {
     releaseYear: number | null,
     platform: string,
   ): Promise<GameEntry> {
+    this.debugLogService.trace('game_shelf.hltb.lookup_start', {
+      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      lookupTitle: title,
+      lookupReleaseYear: releaseYear,
+      lookupPlatform: platform,
+    });
     const completionTimes = await firstValueFrom(
       this.searchApi.lookupCompletionTimes(title, releaseYear, platform),
     );
+    this.debugLogService.trace('game_shelf.hltb.lookup_complete', {
+      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      completionTimes,
+      hasCompletionTimes: completionTimes !== null,
+    });
 
     const updated = await this.repository.upsertFromCatalog(
       {
@@ -335,6 +368,12 @@ export class GameShelfService {
     );
 
     this.listRefresh$.next();
+    this.debugLogService.trace('game_shelf.hltb.refresh_complete', {
+      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      updatedHltbMainHours: updated.hltbMainHours,
+      updatedHltbMainExtraHours: updated.hltbMainExtraHours,
+      updatedHltbCompletionistHours: updated.hltbCompletionistHours,
+    });
     return updated;
   }
 

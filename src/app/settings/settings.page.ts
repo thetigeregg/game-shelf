@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading, IonReorderGroup, IonReorder, IonInput } from "@ionic/angular/standalone";
+import { IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, IonContent, IonList, IonItem, IonLabel, IonSelect, IonSelectOption, IonListHeader, IonButton, IonModal, IonIcon, IonFooter, IonSearchbar, IonThumbnail, IonLoading, IonReorderGroup, IonReorder, IonInput, IonToggle } from "@ionic/angular/standalone";
 import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
 import {
@@ -244,6 +244,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
         IonReorderGroup,
         IonReorder,
         IonInput,
+        IonToggle,
     ],
 })
 export class SettingsPage {
@@ -269,6 +270,7 @@ export class SettingsPage {
     ];
 
     selectedColorScheme: ColorSchemePreference = 'system';
+    verboseTracingEnabled = false;
     imageCacheLimitMb = 200;
     imageCacheUsageMb = 0;
     isPlatformOrderModalOpen = false;
@@ -317,6 +319,7 @@ export class SettingsPage {
 
     constructor() {
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
+        this.verboseTracingEnabled = this.debugLogService.isVerboseTracingEnabled();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
         addIcons({ close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers, bug });
@@ -345,6 +348,11 @@ export class SettingsPage {
         );
         this.imageCacheLimitMb = this.imageCacheService.setLimitMb(normalized);
         void this.refreshImageCacheUsage();
+    }
+
+    onVerboseTracingToggleChange(enabled: boolean): void {
+        this.verboseTracingEnabled = Boolean(enabled);
+        this.debugLogService.setVerboseTracingEnabled(this.verboseTracingEnabled);
     }
 
     async purgeLocalImageCache(): Promise<void> {

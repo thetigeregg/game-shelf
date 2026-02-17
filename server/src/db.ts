@@ -73,6 +73,54 @@ const MIGRATIONS: string[] = [
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   `,
+  `
+  CREATE TABLE IF NOT EXISTS fcm_tokens (
+    token TEXT PRIMARY KEY,
+    platform TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    timezone TEXT,
+    app_version TEXT,
+    user_agent TEXT,
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS release_watch_state (
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    last_known_release_date DATE,
+    last_known_release_year INTEGER,
+    last_seen_state TEXT NOT NULL DEFAULT 'unknown',
+    last_igdb_refresh_at TIMESTAMPTZ,
+    last_hltb_refresh_at TIMESTAMPTZ,
+    next_check_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_notified_set_at TIMESTAMPTZ,
+    last_notified_change_at TIMESTAMPTZ,
+    last_notified_unset_at TIMESTAMPTZ,
+    last_notified_release_day DATE,
+    last_error TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (igdb_game_id, platform_igdb_id)
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS release_watch_state_next_check_idx
+  ON release_watch_state (next_check_at);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS release_notification_log (
+    id BIGSERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    event_key TEXT NOT NULL UNIQUE,
+    payload JSONB NOT NULL,
+    sent_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
 ];
 
 export async function createPool(databaseUrl: string): Promise<Pool> {

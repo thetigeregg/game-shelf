@@ -27,6 +27,12 @@ import { PlatformCustomizationService, PLATFORM_DISPLAY_NAMES_STORAGE_KEY } from
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 import { DebugLogService } from '../core/services/debug-log.service';
+import {
+    NotificationService,
+    RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+    RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+    ReleaseNotificationEventsPreference,
+} from '../core/services/notification.service';
 import { addIcons } from "ionicons";
 import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers, bug } from "ionicons/icons";
 
@@ -271,6 +277,13 @@ export class SettingsPage {
 
     selectedColorScheme: ColorSchemePreference = 'system';
     verboseTracingEnabled = false;
+    releaseNotificationsEnabled = true;
+    releaseNotificationEvents: ReleaseNotificationEventsPreference = {
+        set: true,
+        changed: true,
+        removed: true,
+        day: true,
+    };
     imageCacheLimitMb = 200;
     imageCacheUsageMb = 0;
     isPlatformOrderModalOpen = false;
@@ -316,10 +329,13 @@ export class SettingsPage {
     private readonly alertController = inject(AlertController);
     private readonly router = inject(Router);
     private readonly debugLogService = inject(DebugLogService);
+    private readonly notificationService = inject(NotificationService);
 
     constructor() {
         this.selectedColorScheme = this.themeService.getColorSchemePreference();
         this.verboseTracingEnabled = this.debugLogService.isVerboseTracingEnabled();
+        this.releaseNotificationsEnabled = this.notificationService.isReleaseNotificationsEnabled();
+        this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
         this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
         void this.refreshImageCacheUsage();
         addIcons({ close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers, bug });
@@ -353,6 +369,29 @@ export class SettingsPage {
     onVerboseTracingToggleChange(enabled: boolean): void {
         this.verboseTracingEnabled = Boolean(enabled);
         this.debugLogService.setVerboseTracingEnabled(this.verboseTracingEnabled);
+    }
+
+    async onReleaseNotificationsEnabledChange(enabled: boolean): Promise<void> {
+        const nextEnabled = Boolean(enabled);
+        this.releaseNotificationsEnabled = nextEnabled;
+        this.persistReleaseNotificationsEnabled(nextEnabled);
+
+        if (nextEnabled) {
+            const result = await this.notificationService.requestPermissionAndRegister();
+            await this.presentToast(result.message, result.ok ? 'primary' : 'warning');
+            return;
+        }
+
+        await this.notificationService.unregisterCurrentDevice();
+        await this.presentToast('Notifications disabled on this device.');
+    }
+
+    onReleaseEventToggleChange(eventKey: keyof ReleaseNotificationEventsPreference, enabled: boolean): void {
+        this.releaseNotificationEvents = {
+            ...this.releaseNotificationEvents,
+            [eventKey]: Boolean(enabled),
+        };
+        this.persistReleaseNotificationEvents();
     }
 
     async purgeLocalImageCache(): Promise<void> {
@@ -3206,7 +3245,41 @@ export class SettingsPage {
                 this.platformCustomizationService.refreshFromStorage();
                 this.queueSettingUpsert(row.key, row.value);
             }
+
+            if (row.key === RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
+                this.releaseNotificationsEnabled = this.notificationService.isReleaseNotificationsEnabled();
+                this.queueSettingUpsert(row.key, row.value);
+            }
+
+            if (row.key === RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY) {
+                this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
+                this.queueSettingUpsert(row.key, row.value);
+            }
         });
+    }
+
+    private persistReleaseNotificationsEnabled(enabled: boolean): void {
+        const value = enabled ? 'true' : 'false';
+
+        try {
+            localStorage.setItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
+        } catch {
+            // Ignore storage write failures.
+        }
+
+        this.queueSettingUpsert(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
+    }
+
+    private persistReleaseNotificationEvents(): void {
+        const value = JSON.stringify(this.releaseNotificationEvents);
+
+        try {
+            localStorage.setItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY, value);
+        } catch {
+            // Ignore storage write failures.
+        }
+
+        this.queueSettingUpsert(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY, value);
     }
 
     private persistPlatformDisplayNames(): void {

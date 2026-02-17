@@ -13,6 +13,9 @@ import { SYNC_OUTBOX_WRITER } from './app/core/data/sync-outbox-writer';
 import { GameSyncService } from './app/core/services/game-sync.service';
 import { isDevMode } from '@angular/core';
 import { provideServiceWorker } from '@angular/service-worker';
+import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
+import { getMessaging, provideMessaging } from '@angular/fire/messaging';
+import { environment } from './environments/environment';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -23,6 +26,8 @@ bootstrapApplication(AppComponent, {
     { provide: SYNC_OUTBOX_WRITER, useExisting: GameSyncService },
     provideIonicAngular(),
     provideHttpClient(withInterceptorsFromDi()),
+    provideFirebaseApp(() => initializeApp(environment.firebase)),
+    provideMessaging(() => getMessaging()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',

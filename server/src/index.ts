@@ -10,6 +10,8 @@ import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
+import { registerNotificationRoutes } from './notifications.js';
+import { startReleaseMonitor } from './release-monitor.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -62,6 +64,7 @@ async function main(): Promise<void> {
   });
 
   registerSyncRoutes(app, pool);
+  registerNotificationRoutes(app, pool);
   registerImageProxyRoute(app, pool, imageCacheDir);
   registerCacheObservabilityRoutes(app, pool);
   registerManualRoutes(app, {
@@ -80,6 +83,7 @@ async function main(): Promise<void> {
     freshTtlSeconds: config.hltbCacheFreshTtlSeconds,
     staleTtlSeconds: config.hltbCacheStaleTtlSeconds,
   });
+  const releaseMonitor = startReleaseMonitor(pool);
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({
@@ -89,6 +93,7 @@ async function main(): Promise<void> {
   });
 
   app.addHook('onClose', async () => {
+    releaseMonitor.stop();
     await pool.end();
   });
 

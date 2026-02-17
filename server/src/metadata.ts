@@ -40,6 +40,29 @@ export async function fetchMetadataFromWorker(request: FastifyRequest): Promise<
   return handleWorkerRequest(proxiedRequest, workerEnv as unknown as Record<string, unknown>, fetch, () => Date.now());
 }
 
+export async function fetchMetadataPathFromWorker(
+  pathname: string,
+  query?: Record<string, string | number | boolean | null | undefined>,
+): Promise<Response> {
+  const requestUrl = new URL(pathname, 'http://game-shelf.local');
+
+  if (query) {
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        return;
+      }
+
+      requestUrl.searchParams.set(key, String(value));
+    });
+  }
+
+  const proxiedRequest = new Request(requestUrl.toString(), {
+    method: 'GET',
+  });
+
+  return handleWorkerRequest(proxiedRequest, workerEnv as unknown as Record<string, unknown>, fetch, () => Date.now());
+}
+
 export async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {
   reply.code(response.status);
   response.headers.forEach((value, key) => {

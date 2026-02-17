@@ -6,6 +6,15 @@ export const environment = {
   production: false,
   gameApiBaseUrl: 'http://localhost:3000',
   manualsBaseUrl: '/manuals',
+  firebase: {
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: '',
+  },
+  firebaseVapidKey: '',
 };
 
 /*

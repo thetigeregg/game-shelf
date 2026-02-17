@@ -86,6 +86,53 @@
 
     <ion-list lines="full">
       <ion-list-header>
+        <ion-label>Notifications</ion-label>
+      </ion-list-header>
+
+      <ion-item>
+        <ion-label>Release Notifications</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="releaseNotificationsEnabled"
+          (ionChange)="onReleaseNotificationsEnabledChange($any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
+      <ion-item>
+        <ion-label>Date Set</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="releaseNotificationEvents.set"
+          (ionChange)="onReleaseEventToggleChange('set', $any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
+      <ion-item>
+        <ion-label>Date Changed</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="releaseNotificationEvents.changed"
+          (ionChange)="onReleaseEventToggleChange('changed', $any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
+      <ion-item>
+        <ion-label>Date Removed</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="releaseNotificationEvents.removed"
+          (ionChange)="onReleaseEventToggleChange('removed', $any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
+      <ion-item>
+        <ion-label>Release Day</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="releaseNotificationEvents.day"
+          (ionChange)="onReleaseEventToggleChange('day', $any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
+    </ion-list>
+
+    <ion-list lines="full">
+      <ion-list-header>
         <ion-label>Import/Export</ion-label>
       </ion-list-header>
 

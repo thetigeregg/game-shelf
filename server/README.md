@@ -10,6 +10,8 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/images/boxart/search`
 - `GET /v1/hltb/search`
 - `GET /v1/images/proxy`
+- `POST /v1/notifications/fcm/register`
+- `POST /v1/notifications/fcm/unregister`
 - `GET /v1/manuals/resolve`
 - `GET /v1/manuals/search`
 - `POST /v1/manuals/refresh`

@@ -32,6 +32,13 @@ Common stack env vars:
 - `HLTB_SCRAPER_TOKEN` (optional, but recommended)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+- `FIREBASE_SERVICE_ACCOUNT_JSON` (required for FCM notifications)
+- `RELEASE_MONITOR_ENABLED` (optional; defaults `true`)
+- `RELEASE_MONITOR_INTERVAL_SECONDS` (optional; defaults `900`)
+- `RELEASE_MONITOR_BATCH_SIZE` (optional; defaults `100`)
+- `RELEASE_MONITOR_DEBUG_LOGS` (optional; defaults `false`)
+- `HLTB_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
+- `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
 
 Example:
 - `NAS_DATA_ROOT=/volume1/docker/game-shelf/nas-data`

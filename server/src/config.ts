@@ -67,6 +67,13 @@ export interface AppConfig {
   hltbCacheStaleTtlSeconds: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
+  firebaseServiceAccountJson: string;
+  releaseMonitorEnabled: boolean;
+  releaseMonitorIntervalSeconds: number;
+  releaseMonitorBatchSize: number;
+  releaseMonitorDebugLogs: boolean;
+  hltbPeriodicRefreshYears: number;
+  hltbPeriodicRefreshDays: number;
 }
 
 function readPathEnv(name: string, fallbackAbsolutePath: string): string {
@@ -101,4 +108,11 @@ export const config: AppConfig = {
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
+  firebaseServiceAccountJson: readEnv('FIREBASE_SERVICE_ACCOUNT_JSON', ''),
+  releaseMonitorEnabled: readBooleanEnv('RELEASE_MONITOR_ENABLED', true),
+  releaseMonitorIntervalSeconds: readIntegerEnv('RELEASE_MONITOR_INTERVAL_SECONDS', 900),
+  releaseMonitorBatchSize: readIntegerEnv('RELEASE_MONITOR_BATCH_SIZE', 100),
+  releaseMonitorDebugLogs: readBooleanEnv('RELEASE_MONITOR_DEBUG_LOGS', false),
+  hltbPeriodicRefreshYears: readIntegerEnv('HLTB_PERIODIC_REFRESH_YEARS', 3),
+  hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
 };

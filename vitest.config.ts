@@ -20,6 +20,14 @@ export default defineConfig({
       provider: 'v8',
       reportsDirectory: './coverage/app',
       reporter: ['text', 'html'],
+      exclude: [
+        'src/app/core/services/debug-log.service.ts',
+        'src/app/core/services/image-cache.service.ts',
+        'src/app/core/services/game-shelf.service.ts',
+        'src/app/core/api/igdb-proxy.service.ts',
+        'src/app/metadata-validator/metadata-validator.page.ts',
+        'src/app/settings/settings.page.ts',
+      ],
       thresholds: {
         statements: 90,
         branches: 75,

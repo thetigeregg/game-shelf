@@ -75,3 +75,4 @@ worker/.dev.vars
 server/.env
 server/.env.dev
 nas-data/
+src/environments/environment.local.ts

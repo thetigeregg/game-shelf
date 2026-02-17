@@ -23,6 +23,7 @@ import {
   IonThumbnail,
   IonTitle,
   IonToolbar,
+  LoadingController,
   ToastController,
 } from '@ionic/angular/standalone';
 import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
@@ -32,6 +33,7 @@ import { GameShelfService } from '../core/services/game-shelf.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 import { DebugLogService } from '../core/services/debug-log.service';
+import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
 
 type MissingMetadataFilter = 'hltb' | 'nonPcTheGamesDbImage';
 
@@ -66,6 +68,13 @@ type MissingMetadataFilter = 'hltb' | 'nonPcTheGamesDbImage';
   ],
 })
 export class MetadataValidatorPage {
+  private static readonly BULK_HLTB_CONCURRENCY = 2;
+  private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
+  private static readonly BULK_HLTB_ITEM_TIMEOUT_MS = 30000;
+  private static readonly BULK_HLTB_MAX_ATTEMPTS = 3;
+  private static readonly BULK_HLTB_RETRY_BASE_DELAY_MS = 1000;
+  private static readonly BULK_HLTB_RATE_LIMIT_COOLDOWN_MS = 15000;
+
   readonly missingFilterOptions: Array<{ value: MissingMetadataFilter; label: string }> = [
     { value: 'hltb', label: 'Missing HLTB' },
     { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image (non-PC)' },
@@ -88,6 +97,7 @@ export class MetadataValidatorPage {
   private readonly gameShelfService = inject(GameShelfService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly toastController = inject(ToastController);
+  private readonly loadingController = inject(LoadingController);
   private readonly router = inject(Router);
   private readonly debugLogService = inject(DebugLogService);
 
@@ -238,15 +248,25 @@ export class MetadataValidatorPage {
     this.isBulkRefreshingHltb = true;
 
     try {
-      const results = await Promise.all(
-        games.map(game =>
-          this.refreshHltbForBulkGame(game)
-            .then(updated => ({ ok: true as const, updated }))
-            .catch(() => ({ ok: false as const })),
-        ),
-      );
+      const results = await runBulkActionWithRetry({
+        loadingController: this.loadingController,
+        games,
+        options: {
+          loadingPrefix: 'Updating HLTB data',
+          concurrency: MetadataValidatorPage.BULK_HLTB_CONCURRENCY,
+          interItemDelayMs: MetadataValidatorPage.BULK_HLTB_INTER_ITEM_DELAY_MS,
+          itemTimeoutMs: MetadataValidatorPage.BULK_HLTB_ITEM_TIMEOUT_MS,
+        },
+        retryConfig: {
+          maxAttempts: MetadataValidatorPage.BULK_HLTB_MAX_ATTEMPTS,
+          retryBaseDelayMs: MetadataValidatorPage.BULK_HLTB_RETRY_BASE_DELAY_MS,
+          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_HLTB_RATE_LIMIT_COOLDOWN_MS,
+        },
+        action: game => this.refreshHltbForBulkGame(game),
+        delay: (ms: number) => this.delay(ms),
+      });
       const failedCount = results.filter(result => !result.ok).length;
-      const updatedCount = results.filter(result => result.ok && this.hasHltbMetadata(result.updated)).length;
+      const updatedCount = results.filter(result => result.ok && result.value && this.hasHltbMetadata(result.value)).length;
       const missingCount = results.length - failedCount - updatedCount;
       this.debugLogService.trace('metadata_validator.bulk_hltb.complete', {
         selectedCount: results.length,
@@ -541,6 +561,11 @@ export class MetadataValidatorPage {
     return this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId);
   }
 
+  private async delay(ms: number): Promise<void> {
+    await new Promise<void>(resolve => {
+      window.setTimeout(resolve, ms);
+    });
+  }
 
   private async presentToast(message: string, color: 'primary' | 'danger' | 'warning' = 'primary'): Promise<void> {
     const toast = await this.toastController.create({

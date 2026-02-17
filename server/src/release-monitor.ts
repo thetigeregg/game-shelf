@@ -14,6 +14,7 @@ interface DueGameRow {
   igdb_game_id: string;
   platform_igdb_id: number;
   payload: Record<string, unknown>;
+  watch_exists: boolean;
   last_known_release_date: string | null;
   last_known_release_year: number | null;
   last_seen_state: string | null;
@@ -84,6 +85,7 @@ async function processDueGames(pool: Pool): Promise<void> {
       g.igdb_game_id,
       g.platform_igdb_id,
       g.payload,
+      (rws.igdb_game_id IS NOT NULL) AS watch_exists,
       rws.last_known_release_date,
       rws.last_known_release_year,
       rws.last_seen_state,
@@ -123,6 +125,7 @@ async function processGameRow(
   const now = new Date();
   const nowIso = now.toISOString();
   const originalPayload = row.payload ?? {};
+  const isBootstrap = !row.watch_exists;
   let mergedPayload = originalPayload;
   const title = stringOrFallback(originalPayload['title'], 'Unknown title');
   const platformName = stringOrNull(originalPayload['platform']);
@@ -133,9 +136,11 @@ async function processGameRow(
   let lastHltbRefreshAt = row.last_hltb_refresh_at;
 
   try {
-    const refreshed = await fetchGameById(row.igdb_game_id);
-    if (refreshed) {
-      mergedPayload = mergePayloadForRefresh(originalPayload, refreshed);
+    if (!isBootstrap) {
+      const refreshed = await fetchGameById(row.igdb_game_id);
+      if (refreshed) {
+        mergedPayload = mergePayloadForRefresh(originalPayload, refreshed);
+      }
     }
 
     const releaseDateAfter = normalizeDateString(stringOrNull(mergedPayload['releaseDate']));
@@ -143,7 +148,14 @@ async function processGameRow(
     const releaseStateAfter = deriveReleaseState(releaseDateAfter, now);
     const releaseStateBefore = normalizeReleaseState(row.last_seen_state) ?? deriveReleaseState(releaseDateBefore, now);
     const hltbEligible = isWithinPastYears(releaseDateAfter, now, config.hltbPeriodicRefreshYears);
-    const hltbDue = isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
+    const hasExistingHltb = hasHltbValues(mergedPayload);
+
+    if (isBootstrap && hasExistingHltb && hltbEligible) {
+      // Seed periodic timer from existing library metadata to avoid immediate re-scrape flood.
+      lastHltbRefreshAt = nowIso;
+    }
+
+    const hltbDue = !isBootstrap && isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
 
     if (hltbEligible && hltbDue) {
       const refreshedHltb = await fetchHltbPayload({
@@ -167,14 +179,16 @@ async function processGameRow(
       await upsertGamePayload(pool, row.igdb_game_id, platformIgdbId, mergedPayload);
     }
 
-    const releaseEvents = buildReleaseEvents({
-      igdbGameId: row.igdb_game_id,
-      platformIgdbId,
-      title: stringOrFallback(mergedPayload['title'], title),
-      releaseDateBefore,
-      releaseDateAfter,
-      now,
-    });
+    const releaseEvents = isBootstrap
+      ? []
+      : buildReleaseEvents({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId,
+        title: stringOrFallback(mergedPayload['title'], title),
+        releaseDateBefore,
+        releaseDateAfter,
+        now,
+      });
 
     const sentEventTypes = new Set<ReleaseEventType>();
     const lastNotifiedReleaseDay = normalizeDateString(row.last_notified_release_day);
@@ -239,7 +253,7 @@ async function processGameRow(
       releaseDate: releaseDateAfter,
       releaseYear: releaseYearAfter,
       releaseState: releaseStateAfter,
-      lastIgdRefreshAt: nowIso,
+      lastIgdRefreshAt: isBootstrap ? null : nowIso,
       lastHltbRefreshAt,
       nextCheckAt,
       sentEventTypes,
@@ -542,7 +556,7 @@ async function upsertWatchState(
     releaseDate: string | null;
     releaseYear: number | null;
     releaseState: ReleaseState;
-    lastIgdRefreshAt: string;
+    lastIgdRefreshAt: string | null;
     lastHltbRefreshAt: string | null;
     nextCheckAt: string;
     sentEventTypes: Set<ReleaseEventType>;
@@ -657,10 +671,7 @@ function computeNextCheckAt(
 }
 
 function isHltbRefreshDue(lastHltbRefreshAt: string | null, payload: Record<string, unknown>, now: Date): boolean {
-  const hasHltb =
-    numberOrNull(payload['hltbMainHours']) !== null
-    || numberOrNull(payload['hltbMainExtraHours']) !== null
-    || numberOrNull(payload['hltbCompletionistHours']) !== null;
+  const hasHltb = hasHltbValues(payload);
   if (!hasHltb) {
     return true;
   }
@@ -676,6 +687,12 @@ function isHltbRefreshDue(lastHltbRefreshAt: string | null, payload: Record<stri
 
   const ageMs = now.getTime() - refreshedAtMs;
   return ageMs >= Math.max(1, config.hltbPeriodicRefreshDays) * ONE_DAY_MS;
+}
+
+function hasHltbValues(payload: Record<string, unknown>): boolean {
+  return numberOrNull(payload['hltbMainHours']) !== null
+    || numberOrNull(payload['hltbMainExtraHours']) !== null
+    || numberOrNull(payload['hltbCompletionistHours']) !== null;
 }
 
 function deriveReleaseState(releaseDate: string | null, now: Date): ReleaseState {

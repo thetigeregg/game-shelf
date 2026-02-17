@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Messaging } from '@angular/fire/messaging';
 import { deleteToken, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { environment } from '../../../environments/environment';
+import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
@@ -20,6 +21,7 @@ export interface ReleaseNotificationEventsPreference {
 export class NotificationService {
   private readonly httpClient = inject(HttpClient);
   private readonly messaging = inject(Messaging, { optional: true });
+  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
   private initialized = false;
 
   async initialize(): Promise<void> {
@@ -56,13 +58,21 @@ export class NotificationService {
     try {
       const raw = localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY);
       if (raw === null) {
-        return true;
+        return false;
       }
 
       const normalized = raw.trim().toLowerCase();
       return normalized !== 'false' && normalized !== '0' && normalized !== 'no';
     } catch {
-      return true;
+      return false;
+    }
+  }
+
+  hasStoredReleaseNotificationsPreference(): boolean {
+    try {
+      return localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) !== null;
+    } catch {
+      return false;
     }
   }
 
@@ -124,6 +134,56 @@ export class NotificationService {
     }
 
     return { ok: true, message: 'Notifications enabled on this device.' };
+  }
+
+  async shouldPromptForReleaseNotifications(): Promise<boolean> {
+    if (this.hasStoredReleaseNotificationsPreference()) {
+      return false;
+    }
+
+    if (!this.messaging) {
+      return false;
+    }
+
+    const supported = await isSupported().catch(() => false);
+
+    if (!supported) {
+      return false;
+    }
+
+    if (typeof Notification === 'undefined') {
+      return false;
+    }
+
+    return Notification.permission === 'default';
+  }
+
+  async enableReleaseNotifications(): Promise<{ ok: boolean; message: string }> {
+    const result = await this.requestPermissionAndRegister();
+
+    if (result.ok) {
+      this.setReleaseNotificationsEnabled(true);
+      return result;
+    }
+
+    this.setReleaseNotificationsEnabled(false);
+    return result;
+  }
+
+  async disableReleaseNotifications(): Promise<void> {
+    this.setReleaseNotificationsEnabled(false);
+    await this.unregisterCurrentDevice();
+  }
+
+  setReleaseNotificationsEnabled(enabled: boolean): void {
+    const value = enabled ? 'true' : 'false';
+    try {
+      localStorage.setItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
+    } catch {
+      // Ignore storage write failures.
+    }
+
+    this.queueSettingUpsert(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
   }
 
   async unregisterCurrentDevice(): Promise<void> {
@@ -246,5 +306,17 @@ export class NotificationService {
     } catch {
       return null;
     }
+  }
+
+  private queueSettingUpsert(key: string, value: string): void {
+    if (!this.outboxWriter) {
+      return;
+    }
+
+    void this.outboxWriter.enqueueOperation({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: { key, value },
+    });
   }
 }

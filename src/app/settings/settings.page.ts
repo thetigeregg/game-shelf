@@ -373,16 +373,16 @@ export class SettingsPage {
 
     async onReleaseNotificationsEnabledChange(enabled: boolean): Promise<void> {
         const nextEnabled = Boolean(enabled);
-        this.releaseNotificationsEnabled = nextEnabled;
-        this.persistReleaseNotificationsEnabled(nextEnabled);
 
         if (nextEnabled) {
-            const result = await this.notificationService.requestPermissionAndRegister();
+            const result = await this.notificationService.enableReleaseNotifications();
+            this.releaseNotificationsEnabled = result.ok;
             await this.presentToast(result.message, result.ok ? 'primary' : 'warning');
             return;
         }
 
-        await this.notificationService.unregisterCurrentDevice();
+        this.releaseNotificationsEnabled = false;
+        await this.notificationService.disableReleaseNotifications();
         await this.presentToast('Notifications disabled on this device.');
     }
 
@@ -3256,18 +3256,6 @@ export class SettingsPage {
                 this.queueSettingUpsert(row.key, row.value);
             }
         });
-    }
-
-    private persistReleaseNotificationsEnabled(enabled: boolean): void {
-        const value = enabled ? 'true' : 'false';
-
-        try {
-            localStorage.setItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
-        } catch {
-            // Ignore storage write failures.
-        }
-
-        this.queueSettingUpsert(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
     }
 
     private persistReleaseNotificationEvents(): void {

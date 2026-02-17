@@ -17,6 +17,33 @@ import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { getMessaging, provideMessaging } from '@angular/fire/messaging';
 import { environment } from './environments/environment';
 
+function hasFirebaseMessagingConfig(): boolean {
+  const firebase = environment.firebase;
+
+  if (!firebase || typeof firebase !== 'object') {
+    return false;
+  }
+
+  const requiredKeys: Array<keyof typeof firebase> = [
+    'apiKey',
+    'appId',
+    'projectId',
+    'messagingSenderId',
+  ];
+
+  return requiredKeys.every(key => {
+    const value = firebase[key];
+    return typeof value === 'string' && value.trim().length > 0;
+  });
+}
+
+const firebaseProviders = hasFirebaseMessagingConfig()
+  ? [
+    provideFirebaseApp(() => initializeApp(environment.firebase)),
+    provideMessaging(() => getMessaging()),
+  ]
+  : [];
+
 bootstrapApplication(AppComponent, {
   providers: [
     provideRouter(routes, withPreloading(PreloadAllModules)),
@@ -26,8 +53,7 @@ bootstrapApplication(AppComponent, {
     { provide: SYNC_OUTBOX_WRITER, useExisting: GameSyncService },
     provideIonicAngular(),
     provideHttpClient(withInterceptorsFromDi()),
-    provideFirebaseApp(() => initializeApp(environment.firebase)),
-    provideMessaging(() => getMessaging()),
+    ...firebaseProviders,
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',

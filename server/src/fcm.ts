@@ -13,9 +13,7 @@ export interface FcmSendResult {
 }
 
 type FirebaseAdminModule = {
-  credential: {
-    cert: (serviceAccount: Record<string, unknown>) => unknown;
-  };
+  cert: (serviceAccount: Record<string, unknown>) => unknown;
   initializeApp: (options: { credential: unknown }) => void;
   getApps: () => unknown[];
 };
@@ -115,7 +113,7 @@ async function resolveMessaging(): Promise<ReturnType<FirebaseMessagingModule['g
     if (apps.length === 0) {
       const parsed = JSON.parse(config.firebaseServiceAccountJson) as Record<string, unknown>;
       adminModule.initializeApp({
-        credential: adminModule.credential.cert(parsed),
+        credential: adminModule.cert(parsed),
       });
     }
     initialized = true;

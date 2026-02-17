@@ -157,7 +157,17 @@ export class DexieGameRepository implements GameRepository {
   }
 
   async exists(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined> {
-    return this.db.games.where('[igdbGameId+platformIgdbId]').equals([igdbGameId, platformIgdbId]).first();
+    const normalizedGameId = typeof igdbGameId === 'string' ? igdbGameId.trim() : '';
+
+    if (normalizedGameId.length === 0) {
+      return undefined;
+    }
+
+    if (typeof platformIgdbId !== 'number' || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+      return undefined;
+    }
+
+    return this.db.games.where('[igdbGameId+platformIgdbId]').equals([normalizedGameId, platformIgdbId]).first();
   }
 
   async updateCover(igdbGameId: string, platformIgdbId: number, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined> {

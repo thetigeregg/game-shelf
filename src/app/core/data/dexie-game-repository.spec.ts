@@ -149,6 +149,14 @@ describe('DexieGameRepository', () => {
     expect(updatedTags).toBeUndefined();
   });
 
+  it('returns undefined for malformed identity keys instead of throwing from IndexedDB', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await expect(repository.exists('101', Number.NaN)).resolves.toBeUndefined();
+    await expect(repository.exists('', 18)).resolves.toBeUndefined();
+    await expect(repository.exists('101', 0)).resolves.toBeUndefined();
+  });
+
   it('updates status and rating for existing entries', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
     await repository.setGameStatus('101', 18, 'playing');

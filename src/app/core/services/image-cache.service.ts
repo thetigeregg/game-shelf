@@ -85,8 +85,14 @@ export class ImageCacheService {
 
   async resolveImageUrl(gameKey: string, sourceUrl: string | null | undefined, variant: ImageCacheVariant): Promise<string> {
     const normalizedSourceUrl = this.normalizeSourceUrl(sourceUrl, variant);
+    this.debugLogService.trace('image_cache.resolve_start', {
+      gameKey,
+      variant,
+      sourceUrl: normalizedSourceUrl,
+    });
 
     if (!normalizedSourceUrl) {
+      this.debugLogService.trace('image_cache.resolve_placeholder', { gameKey, variant, reason: 'missing_source_url' });
       return 'assets/icon/placeholder.png';
     }
 
@@ -94,6 +100,7 @@ export class ImageCacheService {
     // when persisted as IndexedDB blobs on some clients (notably iOS/PWA contexts).
     // Use direct URL rendering for thumbs and reserve blob cache for detail art.
     if (variant === 'thumb') {
+      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'thumb_variant' });
       return normalizedSourceUrl;
     }
 
@@ -101,6 +108,7 @@ export class ImageCacheService {
     // can intermittently fail after first paint and trigger placeholder fallbacks.
     // Prefer direct source URLs in that environment for rendering stability.
     if (this.shouldBypassDetailBlobCache()) {
+      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'pwa_blob_bypass' });
       return normalizedSourceUrl;
     }
 
@@ -124,10 +132,17 @@ export class ImageCacheService {
           await this.db.imageCache.delete(existing.id);
         }
       } else {
+        this.debugLogService.trace('image_cache.resolve_hit', {
+          cacheKey,
+          gameKey,
+          variant,
+          blobSize: existing.blob.size,
+        });
         await this.touchEntry(existing);
         return this.toObjectUrl(existing);
       }
     }
+    this.debugLogService.trace('image_cache.resolve_miss', { cacheKey, gameKey, variant });
 
     try {
       const response = await fetch(this.buildFetchUrl(normalizedSourceUrl));
@@ -172,14 +187,28 @@ export class ImageCacheService {
 
       if (entry.sizeBytes <= limitBytes) {
         await this.db.imageCache.put(entry);
+        this.debugLogService.trace('image_cache.store_put', {
+          cacheKey,
+          gameKey,
+          variant,
+          sizeBytes: entry.sizeBytes,
+          limitBytes,
+        });
         await this.enforceLimitBytes(limitBytes);
         const stored = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
 
         if (stored && stored.blob instanceof Blob && stored.blob.size > 0) {
+          this.debugLogService.trace('image_cache.resolve_stored_hit', {
+            cacheKey,
+            gameKey,
+            variant,
+            blobSize: stored.blob.size,
+          });
           return this.toObjectUrl(stored);
         }
       }
 
+      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'store_skipped_or_missing' });
       return normalizedSourceUrl;
     } catch {
       this.logImageDiagnostic('image_cache_fetch_failed', {
@@ -187,6 +216,7 @@ export class ImageCacheService {
         gameKey,
         variant,
       });
+      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'fetch_failed' });
       return normalizedSourceUrl;
     }
   }

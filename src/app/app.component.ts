@@ -3,6 +3,7 @@ import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';
+import { GameShelfService } from './core/services/game-shelf.service';
 
 @Component({
     selector: 'app-root',
@@ -15,10 +16,12 @@ export class AppComponent {
     private readonly themeService = inject(ThemeService);
     private readonly gameSyncService = inject(GameSyncService);
     private readonly debugLogService = inject(DebugLogService);
+    private readonly gameShelfService = inject(GameShelfService);
 
     constructor() {
         this.debugLogService.initialize();
         this.themeService.initialize();
         this.gameSyncService.initialize();
+        void this.gameShelfService.migratePreferredPlatformCoversToIgdb();
     }
 }

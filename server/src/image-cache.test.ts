@@ -94,3 +94,50 @@ test('Image cache stores on miss and serves on hit', async () => {
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });
 });
+
+test('Image cache purge endpoint removes cached assets by source URL', async () => {
+  resetCacheMetrics();
+  const pool = new ImagePoolMock();
+  const app = Fastify();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-test-'));
+  let fetchCalls = 0;
+
+  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    },
+  });
+
+  const sourceUrl = 'https://cdn.thegamesdb.net/images/original/boxart/front/123.jpg';
+  const encodedUrl = encodeURIComponent(sourceUrl);
+  const first = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encodedUrl}`,
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+
+  const purge = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [sourceUrl] },
+  });
+  assert.equal(purge.statusCode, 200);
+  assert.deepEqual(purge.json(), { deleted: 1 });
+
+  const second = await app.inject({
+    method: 'GET',
+    url: `/v1/images/proxy?url=${encodedUrl}`,
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});

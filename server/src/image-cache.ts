@@ -30,6 +30,58 @@ export function registerImageProxyRoute(
 ): void {
   const fetchImpl = options.fetchImpl ?? fetch;
 
+  app.post('/v1/images/cache/purge', async (request, reply) => {
+    const body = (request.body ?? {}) as { urls?: unknown };
+    const rawUrls = Array.isArray(body.urls) ? body.urls : [];
+    const normalizedUrls = [...new Set(
+      rawUrls
+        .map(url => normalizeProxyImageUrl(url))
+        .filter((url): url is string => typeof url === 'string' && url.length > 0)
+    )];
+
+    if (normalizedUrls.length === 0) {
+      reply.send({ deleted: 0 });
+      return;
+    }
+
+    let deleted = 0;
+
+    for (const sourceUrl of normalizedUrls) {
+      const cacheKey = sha256(sourceUrl);
+      let existing: ImageAssetRow | undefined;
+
+      try {
+        const cached = await pool.query<ImageAssetRow>(
+          'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
+          [cacheKey],
+        );
+        existing = cached.rows[0];
+      } catch {
+        continue;
+      }
+
+      if (!existing) {
+        continue;
+      }
+
+      try {
+        await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+      } catch {
+        continue;
+      }
+
+      deleted += 1;
+
+      try {
+        await fsPromises.unlink(existing.file_path);
+      } catch {
+        // Ignore filesystem cleanup failures. DB metadata is already removed.
+      }
+    }
+
+    reply.send({ deleted });
+  });
+
   app.get('/v1/images/proxy', async (request, reply) => {
     const sourceUrl = normalizeProxyImageUrl((request.query as Record<string, unknown>)['url']);
 

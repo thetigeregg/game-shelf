@@ -20,11 +20,15 @@ import {
 } from '../models/game.models';
 import { SyncEventsService } from './sync-events.service';
 import { PlatformOrderService } from './platform-order.service';
+import { environment } from '../../../environments/environment';
+import { AppDb } from '../data/app-db';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
+  private static readonly IGDB_COVER_MIGRATION_DONE_STORAGE_KEY = 'game-shelf:igdb-cover-migration:v2';
   private static readonly IGDB_ID_QUERY_PATTERN = /^igdb:\s*(\d+)$/i;
-  private static readonly IGDB_COVER_PLATFORM_IGDB_IDS = new Set<number>([6, 34, 39, 82, 163, 472]);
+  private static readonly IGDB_COVER_PLATFORM_IGDB_IDS = new Set<number>([6, 34, 39, 82, 163, 167, 472, 508]);
+  private static readonly IGDB_COVER_MIGRATION_PLATFORM_IGDB_IDS = new Set<number>([167, 508]);
   private static readonly IGDB_COVER_PLATFORM_NAMES = new Set<string>([
     'pc',
     'windows',
@@ -35,12 +39,15 @@ export class GameShelfService {
     'web browser',
     'steamvr',
     'visionos',
+    'playstation 5',
+    'nintendo switch 2',
   ]);
   private readonly listRefresh$ = new Subject<void>();
   private readonly syncEvents = inject(SyncEventsService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
   private readonly searchApi: GameSearchApi = inject(GAME_SEARCH_API);
   private readonly platformOrderService = inject(PlatformOrderService);
+  private readonly db = inject(AppDb);
 
   watchList(listType: ListType): Observable<GameEntry[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
@@ -541,6 +548,73 @@ export class GameShelfService {
     this.listRefresh$.next();
   }
 
+  async migratePreferredPlatformCoversToIgdb(): Promise<void> {
+    if (this.isIgdbCoverMigrationComplete()) {
+      return;
+    }
+
+    const allGames = await this.repository.listAll();
+    const candidates = allGames.filter(game => {
+      if (!GameShelfService.IGDB_COVER_MIGRATION_PLATFORM_IGDB_IDS.has(game.platformIgdbId)) {
+        return false;
+      }
+
+      if (game.coverSource !== 'thegamesdb') {
+        return false;
+      }
+
+      if (typeof game.customCoverUrl === 'string' && game.customCoverUrl.trim().length > 0) {
+        return false;
+      }
+
+      return typeof game.coverUrl === 'string' && game.coverUrl.trim().length > 0;
+    });
+
+    if (candidates.length === 0) {
+      this.markIgdbCoverMigrationComplete();
+      return;
+    }
+
+    const staleServerUrls = new Set<string>();
+    let updatedCount = 0;
+
+    for (const game of candidates) {
+      const gameKey = `${game.igdbGameId}::${game.platformIgdbId}`;
+      await this.db.imageCache.where('gameKey').equals(gameKey).delete();
+
+      const staleUrl = this.normalizeTheGamesDbUrl(game.coverUrl);
+
+      if (staleUrl) {
+        staleServerUrls.add(staleUrl);
+      }
+
+      try {
+        const refreshed = await firstValueFrom(this.searchApi.getGameById(game.igdbGameId));
+        const igdbCoverUrl = typeof refreshed.coverUrl === 'string' ? refreshed.coverUrl.trim() : '';
+
+        if (!igdbCoverUrl) {
+          continue;
+        }
+
+        const updated = await this.repository.updateCover(game.igdbGameId, game.platformIgdbId, igdbCoverUrl, 'igdb');
+
+        if (updated) {
+          updatedCount += 1;
+        }
+      } catch {
+        // Keep migration best-effort. A failed title should not block startup.
+      }
+    }
+
+    await this.purgeServerImageCacheUrls([...staleServerUrls]);
+
+    if (updatedCount > 0) {
+      this.listRefresh$.next();
+    }
+
+    this.markIgdbCoverMigrationComplete();
+  }
+
   private resolvePlatformSelection(
     currentPlatform: string,
     currentPlatformIgdbId: number,
@@ -762,5 +836,63 @@ export class GameShelfService {
     }
 
     return null;
+  }
+
+  private normalizeTheGamesDbUrl(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (!normalized) {
+      return null;
+    }
+
+    try {
+      const parsed = new URL(normalized);
+
+      if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'cdn.thegamesdb.net') {
+        return null;
+      }
+
+      return parsed.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  private async purgeServerImageCacheUrls(urls: string[]): Promise<void> {
+    const normalizedUrls = [...new Set(
+      urls
+        .map(url => this.normalizeTheGamesDbUrl(url))
+        .filter((url): url is string => typeof url === 'string' && url.length > 0)
+    )];
+
+    if (normalizedUrls.length === 0) {
+      return;
+    }
+
+    try {
+      await fetch(`${environment.gameApiBaseUrl}/v1/images/cache/purge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: normalizedUrls }),
+      });
+    } catch {
+      // Ignore server cache purge failures. Client cover migration still succeeds.
+    }
+  }
+
+  private isIgdbCoverMigrationComplete(): boolean {
+    try {
+      return localStorage.getItem(GameShelfService.IGDB_COVER_MIGRATION_DONE_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private markIgdbCoverMigrationComplete(): void {
+    try {
+      localStorage.setItem(GameShelfService.IGDB_COVER_MIGRATION_DONE_STORAGE_KEY, '1');
+    } catch {
+      // Ignore storage failures.
+    }
   }
 }

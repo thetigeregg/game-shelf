@@ -55,6 +55,34 @@ export class ImageCacheService {
     await this.db.imageCache.clear();
   }
 
+  async purgeGameCache(gameKey: string): Promise<void> {
+    const normalizedGameKey = String(gameKey ?? '').trim();
+
+    if (normalizedGameKey.length === 0) {
+      return;
+    }
+
+    const entries = await this.db.imageCache.where('gameKey').equals(normalizedGameKey).toArray();
+
+    entries.forEach(entry => {
+      const objectUrl = this.objectUrlsByCacheKey.get(entry.cacheKey);
+
+      if (!objectUrl) {
+        return;
+      }
+
+      try {
+        URL.revokeObjectURL(objectUrl);
+      } catch {
+        // Ignore URL revoke failures.
+      }
+
+      this.objectUrlsByCacheKey.delete(entry.cacheKey);
+    });
+
+    await this.db.imageCache.where('gameKey').equals(normalizedGameKey).delete();
+  }
+
   async resolveImageUrl(gameKey: string, sourceUrl: string | null | undefined, variant: ImageCacheVariant): Promise<string> {
     const normalizedSourceUrl = this.normalizeSourceUrl(sourceUrl, variant);
 

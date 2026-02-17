@@ -2,6 +2,7 @@ import { firstValueFrom, of, throwError } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
+import { AppDb } from '../data/app-db';
 import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult, GameEntry, GameListView } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
 import { PlatformOrderService } from './platform-order.service';
@@ -13,9 +14,16 @@ describe('GameShelfService', () => {
   let searchApi: {
     [K in keyof GameSearchApi]: ReturnType<typeof vi.fn>
   };
+  let appDb: {
+    imageCache: {
+      where: ReturnType<typeof vi.fn>
+    }
+  };
   let service: GameShelfService;
+  const migrationStorageKey = 'game-shelf:igdb-cover-migration:v2';
 
   beforeEach(() => {
+    localStorage.removeItem(migrationStorageKey);
     repository = {
       listByType: vi.fn(),
       listAll: vi.fn(),
@@ -50,15 +58,31 @@ describe('GameShelfService', () => {
       listPopularityGames: vi.fn(),
     };
 
+    appDb = {
+      imageCache: {
+        where: vi.fn().mockReturnValue({
+          equals: vi.fn().mockReturnValue({
+            delete: vi.fn().mockResolvedValue(undefined),
+          }),
+        }),
+      },
+    };
+
     TestBed.configureTestingModule({
       providers: [
         GameShelfService,
         { provide: GAME_REPOSITORY, useValue: repository },
         { provide: GAME_SEARCH_API, useValue: searchApi },
+        { provide: AppDb, useValue: appDb },
       ],
     });
 
     service = TestBed.inject(GameShelfService);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(migrationStorageKey);
+    vi.restoreAllMocks();
   });
 
   it('returns empty search results for short queries and does not call API', async () => {
@@ -336,6 +360,155 @@ describe('GameShelfService', () => {
     expect(searchApi.getGameById).toHaveBeenCalledWith('123');
     expect(searchApi.searchGames).not.toHaveBeenCalled();
     expect(result).toEqual([expected]);
+  });
+
+  it('skips preferred-platform cover migration when already completed', async () => {
+    localStorage.setItem(migrationStorageKey, '1');
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(repository.listAll).not.toHaveBeenCalled();
+  });
+
+  it('marks preferred-platform cover migration complete when no candidates exist', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '1',
+        title: 'Switch Game',
+        platformIgdbId: 130,
+        platform: 'Nintendo Switch',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/switch.jpg',
+        coverSource: 'thegamesdb',
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(localStorage.getItem(migrationStorageKey)).toBe('1');
+    expect(repository.updateCover).not.toHaveBeenCalled();
+  });
+
+  it('migrates PS5/Switch2 TheGamesDB covers to IGDB and purges caches', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '4512',
+        title: 'Example',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+    searchApi.getGameById.mockReturnValue(of({
+      igdbGameId: '4512',
+      title: 'Example',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/example.jpg',
+      coverSource: 'igdb',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      platforms: ['PlayStation 5'],
+      releaseDate: null,
+      releaseYear: null,
+    } as GameCatalogResult));
+    repository.updateCover.mockResolvedValue({
+      igdbGameId: '4512',
+      title: 'Example',
+      platformIgdbId: 167,
+      platform: 'PlayStation 5',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/example.jpg',
+      coverSource: 'igdb',
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x',
+    } as GameEntry);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(appDb.imageCache.where).toHaveBeenCalledWith('gameKey');
+    expect(repository.updateCover).toHaveBeenCalledWith(
+      '4512',
+      167,
+      'https://images.igdb.com/igdb/image/upload/t_cover_big/example.jpg',
+      'igdb',
+    );
+    expect(fetchSpy).toHaveBeenCalled();
+    expect(localStorage.getItem(migrationStorageKey)).toBe('1');
+  });
+
+  it('continues preferred-platform cover migration when per-game refresh fails', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '4512',
+        title: 'Example',
+        platformIgdbId: 508,
+        platform: 'Nintendo Switch 2',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/example2.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+    searchApi.getGameById.mockReturnValue(throwError(() => new Error('IGDB unavailable')));
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(repository.updateCover).not.toHaveBeenCalled();
+    expect(localStorage.getItem(migrationStorageKey)).toBe('1');
+  });
+
+  it('skips server purge request when migration candidates do not have valid TheGamesDB URLs', async () => {
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '4512',
+        title: 'Example',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'not-a-url',
+        coverSource: 'thegamesdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x',
+      } as GameEntry,
+    ]);
+    searchApi.getGameById.mockReturnValue(of({
+      igdbGameId: '4512',
+      title: 'Example',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['PlayStation 5'],
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: null,
+    } as GameCatalogResult));
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('continues migration when localStorage read throws', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+    repository.listAll.mockResolvedValue([]);
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(getItemSpy).toHaveBeenCalled();
   });
 
   it('delegates search platform list retrieval', async () => {
@@ -630,7 +803,7 @@ describe('GameShelfService', () => {
     expect(results).toEqual([]);
   });
 
-  it('uses IGDB cover lookup for Android, iOS, Web browser, SteamVR, and visionOS platform ids', async () => {
+  it('uses IGDB cover lookup for Android, iOS, Web browser, SteamVR, visionOS, PS5, and Switch 2 platform ids', async () => {
     searchApi.getGameById.mockReturnValue(of({
       igdbGameId: '123',
       title: 'Halo',
@@ -643,7 +816,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
     } as GameCatalogResult));
 
-    const platformIds = [34, 39, 82, 163, 472];
+    const platformIds = [34, 39, 82, 163, 167, 472, 508];
 
     for (const platformId of platformIds) {
       const results = await firstValueFrom(service.searchBoxArtByTitle('halo', 'Any', platformId, '123'));
@@ -654,7 +827,7 @@ describe('GameShelfService', () => {
     expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
   });
 
-  it('uses IGDB cover lookup for mobile/web/vr platform names when id is unavailable', async () => {
+  it('uses IGDB cover lookup for mobile/web/vr and PS5/Switch 2 platform names when id is unavailable', async () => {
     searchApi.getGameById.mockReturnValue(of({
       igdbGameId: '123',
       title: 'Halo',
@@ -667,7 +840,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
     } as GameCatalogResult));
 
-    const platformNames = ['Android', 'iOS', 'Web browser', 'SteamVR', 'visionOS'];
+    const platformNames = ['Android', 'iOS', 'Web browser', 'SteamVR', 'visionOS', 'PlayStation 5', 'Nintendo Switch 2'];
 
     for (const platformName of platformNames) {
       const results = await firstValueFrom(service.searchBoxArtByTitle('halo', platformName, undefined, '123'));

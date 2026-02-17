@@ -127,10 +127,10 @@ export class NotificationService {
       return { ok: false, message: 'Notification permission was not granted.' };
     }
 
-    const token = await this.registerCurrentDevice();
+    const registrationResult = await this.registerCurrentDevice();
 
-    if (!token) {
-      return { ok: false, message: 'Unable to register device for notifications.' };
+    if (!registrationResult.ok) {
+      return { ok: false, message: registrationResult.message };
     }
 
     return { ok: true, message: 'Notifications enabled on this device.' };
@@ -209,25 +209,32 @@ export class NotificationService {
     }
   }
 
-  private async registerCurrentDevice(): Promise<string | null> {
+  private async registerCurrentDevice(): Promise<{ ok: true; token: string } | { ok: false; message: string }> {
     if (!this.messaging) {
-      return null;
+      return { ok: false, message: 'Notifications are not available in this app session.' };
     }
 
     const serviceWorkerRegistration = await this.resolveServiceWorkerRegistration();
     const vapidKey = String(environment.firebaseVapidKey ?? '').trim();
 
-    if (!serviceWorkerRegistration || vapidKey.length === 0) {
-      return null;
+    if (!serviceWorkerRegistration) {
+      return { ok: false, message: 'Unable to register notification service worker.' };
+    }
+
+    if (vapidKey.length === 0) {
+      return { ok: false, message: 'Missing Firebase VAPID key in frontend environment config.' };
     }
 
     const token = await getToken(this.messaging, {
       vapidKey,
       serviceWorkerRegistration,
-    }).catch(() => null);
+    }).catch((error: unknown) => {
+      console.error('[notifications] token_registration_failed', error);
+      return null;
+    });
 
     if (!token) {
-      return null;
+      return { ok: false, message: 'Unable to register the device for notifications. Check Firebase web config/VAPID values.' };
     }
 
     await firstValueFrom(
@@ -241,7 +248,10 @@ export class NotificationService {
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
         },
       ),
-    ).catch(() => null);
+    ).catch((error: unknown) => {
+      console.error('[notifications] backend_register_failed', error);
+      return null;
+    });
 
     try {
       localStorage.setItem(FCM_DEVICE_TOKEN_STORAGE_KEY, token);
@@ -249,7 +259,7 @@ export class NotificationService {
       // Ignore storage failures.
     }
 
-    return token;
+    return { ok: true, token };
   }
 
   private async resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
@@ -266,7 +276,8 @@ export class NotificationService {
       }
 
       return await navigator.serviceWorker.register(workerUrl);
-    } catch {
+    } catch (error) {
+      console.error('[notifications] service_worker_register_failed', error);
       return null;
     }
   }

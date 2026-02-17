@@ -1,7 +1,4 @@
 /* eslint-disable no-undef */
-importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js');
-
 const defaultConfig = {
   apiKey: '',
   authDomain: '',
@@ -26,11 +23,21 @@ const configFromQuery = (() => {
 })();
 const runtimeConfig = configFromQuery || self.GAME_SHELF_FIREBASE_CONFIG || defaultConfig;
 
-if (runtimeConfig.messagingSenderId) {
-  firebase.initializeApp(runtimeConfig);
+let messaging = null;
 
-  const messaging = firebase.messaging();
+try {
+  importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js');
 
+  if (runtimeConfig && runtimeConfig.messagingSenderId) {
+    firebase.initializeApp(runtimeConfig);
+    messaging = firebase.messaging();
+  }
+} catch (error) {
+  console.error('[firebase-messaging-sw] init_failed', error);
+}
+
+if (messaging) {
   messaging.onBackgroundMessage(payload => {
     const notification = payload.notification || {};
     const title = notification.title || 'Game Shelf';
@@ -40,10 +47,10 @@ if (runtimeConfig.messagingSenderId) {
     };
     self.registration.showNotification(title, options);
   });
-
-  self.addEventListener('notificationclick', event => {
-    event.notification.close();
-    const route = event.notification?.data?.route || '/tabs/wishlist';
-    event.waitUntil(clients.openWindow(route));
-  });
 }
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const route = event.notification?.data?.route || '/tabs/wishlist';
+  event.waitUntil(clients.openWindow(route));
+});

@@ -34,7 +34,6 @@
         "/api/v1/platforms",
         "/api/v1/popularity/**",
         "/api/v1/images/boxart/search**",
-        "/api/v1/hltb/search**",
         "/api/v1/manuals/**"
       ],
       "cacheConfig": {

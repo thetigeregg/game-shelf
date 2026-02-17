@@ -45,7 +45,7 @@ interface NormalizedFilterGame {
   gameType: GameType | null;
   status: GameStatus | null;
   rating: GameRating | null;
-  hltbMainHours: number | null;
+  effectiveHltbHours: number | null;
   releaseDate: string | null;
 }
 
@@ -533,7 +533,7 @@ export class GameListFilteringEngine {
 
     const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
-    const gameMainHours = normalized.hltbMainHours;
+    const gameMainHours = normalized.effectiveHltbHours;
 
     if (gameMainHours !== null) {
       if (minMainHours !== null && gameMainHours < minMainHours) {
@@ -590,7 +590,7 @@ export class GameListFilteringEngine {
       gameType: game.gameType ?? null,
       status: this.normalizeStatus(game.status),
       rating: this.normalizeRating(game.rating),
-      hltbMainHours: this.normalizeFilterHours(game.hltbMainHours),
+      effectiveHltbHours: this.selectEffectiveHltbHours(game),
       releaseDate: this.getDateOnly(game.releaseDate),
     };
 
@@ -689,6 +689,22 @@ export class GameListFilteringEngine {
     }
 
     return Math.round(value * 10) / 10;
+  }
+
+  private selectEffectiveHltbHours(game: GameEntry): number | null {
+    const main = this.normalizeFilterHours(game.hltbMainHours);
+
+    if (main !== null) {
+      return main;
+    }
+
+    const mainExtra = this.normalizeFilterHours(game.hltbMainExtraHours);
+
+    if (mainExtra !== null) {
+      return mainExtra;
+    }
+
+    return this.normalizeFilterHours(game.hltbCompletionistHours);
   }
 
   private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {

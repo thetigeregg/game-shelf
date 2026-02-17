@@ -74,6 +74,24 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map(game => game.title)).toEqual(['A', 'B']);
   });
 
+  it('applies hltb range filtering using main -> main+extra -> completionist fallback order', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Main', hltbMainHours: 9 }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Main+Extra', hltbMainHours: null, hltbMainExtraHours: 11 }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Completionist', hltbMainHours: null, hltbMainExtraHours: null, hltbCompletionistHours: 8 }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'Missing', hltbMainHours: null, hltbMainExtraHours: null, hltbCompletionistHours: null }),
+    ];
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      hltbMainHoursMin: 8,
+      hltbMainHoursMax: 10,
+    };
+
+    const result = engine.applyFiltersAndSort(games, filters, '');
+
+    expect(result.map(game => game.title)).toEqual(['Completionist', 'Main', 'Missing']);
+  });
+
   it('supports none-tag filter for untagged games', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Tagged', tags: [{ id: 1, name: 'Action', color: '#fff' }] }),

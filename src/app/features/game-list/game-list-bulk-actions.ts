@@ -12,6 +12,7 @@ export interface BulkActionOptions {
   loadingPrefix: string;
   concurrency: number;
   interItemDelayMs: number;
+  itemTimeoutMs?: number;
 }
 
 export interface BulkActionRetryConfig {
@@ -53,7 +54,14 @@ export async function runBulkActionWithRetry<T>(params: {
         return;
       }
 
-      const outcome = await executeBulkActionWithRetry(entry.game, action, retryConfig, delay, updateLoadingMessage);
+      const outcome = await executeBulkActionWithRetry(
+        entry.game,
+        action,
+        retryConfig,
+        options.itemTimeoutMs,
+        delay,
+        updateLoadingMessage,
+      );
       results[entry.index] = outcome;
       completed += 1;
       updateLoadingMessage(`${options.loadingPrefix} ${completed}/${games.length}...`);
@@ -73,12 +81,17 @@ async function executeBulkActionWithRetry<T>(
   game: GameEntry,
   action: (game: GameEntry) => Promise<T>,
   retryConfig: BulkActionRetryConfig,
+  itemTimeoutMs: number | undefined,
   delay: (ms: number) => Promise<void>,
   setLoadingMessage: (message: string) => void,
 ): Promise<BulkActionResult<T>> {
   for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt += 1) {
     try {
-      const value = await action(game);
+      const value = await withOptionalTimeout(
+        action(game),
+        itemTimeoutMs,
+        `Bulk action timed out after ${itemTimeoutMs}ms`,
+      );
       return { game, ok: true, value };
     } catch (error: unknown) {
       if (!shouldRetryBulkActionError(error, attempt, retryConfig)) {
@@ -96,6 +109,32 @@ async function executeBulkActionWithRetry<T>(
   return { game, ok: false, value: null, errorReason: 'other' };
 }
 
+async function withOptionalTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number | undefined,
+  timeoutMessage: string,
+): Promise<T> {
+  if (typeof timeoutMs !== 'number' || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return task;
+  }
+
+  let timeoutId: number | null = null;
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([task, timeoutPromise]);
+  } finally {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
 function shouldRetryBulkActionError(error: unknown, attempt: number, retryConfig: BulkActionRetryConfig): boolean {
   if (attempt >= retryConfig.maxAttempts) {
     return false;
@@ -107,7 +146,7 @@ function shouldRetryBulkActionError(error: unknown, attempt: number, retryConfig
     return true;
   }
 
-  return /fetch failed|network|timeout|temporar|unavailable|gateway/i.test(message);
+  return /fetch failed|network|time(?:d)?\s*out|temporar|unavailable|gateway/i.test(message);
 }
 
 function isRateLimitError(error: unknown): boolean {
@@ -122,7 +161,7 @@ function classifyBulkError(error: unknown): 'rate_limit' | 'transient' | 'other'
 
   const message = error instanceof Error ? error.message : '';
 
-  if (/fetch failed|network|timeout|temporar|unavailable|gateway/i.test(message)) {
+  if (/fetch failed|network|time(?:d)?\s*out|temporar|unavailable|gateway/i.test(message)) {
     return 'transient';
   }
 

@@ -153,6 +153,7 @@ export class GameListComponent implements OnChanges {
     private static readonly BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 15000;
     private static readonly BULK_RETRY_BASE_DELAY_MS = 1000;
     private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
+    private static readonly BULK_HLTB_ITEM_TIMEOUT_MS = 30000;
     private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
     private static readonly VIRTUAL_BUFFER_ROWS = 8;
     private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
@@ -628,6 +629,7 @@ export class GameListComponent implements OnChanges {
                 loadingPrefix: 'Updating HLTB data',
                 concurrency: GameListComponent.BULK_HLTB_CONCURRENCY,
                 interItemDelayMs: GameListComponent.BULK_HLTB_INTER_ITEM_DELAY_MS,
+                itemTimeoutMs: GameListComponent.BULK_HLTB_ITEM_TIMEOUT_MS,
             },
             game => this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId),
         );
@@ -2126,6 +2128,7 @@ export class GameListComponent implements OnChanges {
             loadingPrefix: string;
             concurrency: number;
             interItemDelayMs: number;
+            itemTimeoutMs?: number;
         },
         action: (game: GameEntry) => Promise<T>,
     ): Promise<BulkActionResult<T>[]> {

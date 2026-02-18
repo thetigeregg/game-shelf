@@ -14,6 +14,8 @@ import {
   IonLabel,
   IonButton,
   IonIcon,
+  IonFab,
+  IonFabButton,
   IonPopover,
   IonModal,
   IonInput
@@ -43,6 +45,8 @@ import { ellipsisVertical, add } from 'ionicons/icons';
     IonLabel,
     IonButton,
     IonIcon,
+    IonFab,
+    IonFabButton,
     IonPopover,
     IonModal,
     IonInput

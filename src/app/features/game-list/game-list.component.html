@@ -36,11 +36,15 @@
             </ion-label>
           </ion-item>
           <div slot="content">
-            <ion-list>
-              @for (game of section.games; track trackByExternalId($index, game)) {
-                <ng-container *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"></ng-container>
-              }
-            </ion-list>
+            @if (isSectionRendered(section.key)) {
+              <div class="group-section-content">
+                <ion-list>
+                  @for (game of section.games; track trackByExternalId($index, game)) {
+                    <ng-container *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"></ng-container>
+                  }
+                </ion-list>
+              </div>
+            }
           </div>
         </ion-accordion>
       }
@@ -86,7 +90,13 @@
       }
 
       <div slot="start" class="game-art">
-        <img [src]="getRowCoverUrl(game)" [alt]="getGameDisplayTitle(game)" (error)="onImageError($event, game)" />
+        <img
+          [src]="getRowCoverUrl(game)"
+          [alt]="getGameDisplayTitle(game)"
+          loading="lazy"
+          decoding="async"
+          (error)="onImageError($event, game)"
+        />
       </div>
 
       <ion-label>

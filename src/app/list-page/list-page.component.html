@@ -180,12 +180,6 @@
     (selectionStateChange)="onSelectionStateChange($event)"
     (metadataFilterSelected)="onMetadataFilterSelected($event)"
   ></app-game-list>
-
-  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-    <ion-fab-button aria-label="Add game" (click)="openAddGameModal()">
-      <ion-icon name="add"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
 </ion-content>
 
 <ion-modal
@@ -249,6 +243,9 @@
 
 <ng-template #browseHeaderActions let-collapseAttr="collapseAttr">
   <ion-buttons slot="end" [collapse]="collapseAttr">
+    <ion-button aria-label="Add game" (click)="openAddGameModal()">
+      <ion-icon slot="icon-only" name="add"></ion-icon>
+    </ion-button>
     <ion-button
       aria-label="Search games"
       (click)="openSearchModal()"

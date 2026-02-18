@@ -29,7 +29,6 @@
     @if (!isSelectionMode) {
       <ng-container
         [ngTemplateOutlet]="browseHeaderActions"
-        [ngTemplateOutletContext]="{ collapseAttr: true }"
       ></ng-container>
     }
     @if (isSelectionMode) {
@@ -72,21 +71,6 @@
     message="Loading games..."
     spinner="crescent"
   ></ion-loading>
-
-  @if (!isSelectionMode) {
-    <ion-header collapse="condense">
-      <ion-toolbar>
-        <ion-title size="large" class="condensed-title-inline">
-          <span>{{ pageTitle }}</span>
-          <span class="condensed-count-inline">{{ getListCountSummary() }}</span>
-        </ion-title>
-        <ng-container
-          [ngTemplateOutlet]="browseHeaderActions"
-          [ngTemplateOutletContext]="{ collapseAttr: true }"
-        ></ng-container>
-      </ion-toolbar>
-    </ion-header>
-  }
 
   <ion-popover
     [isOpen]="isBulkActionsPopoverOpen"
@@ -271,8 +255,8 @@
   (groupByChange)="onGroupByChange($event)"
 ></app-game-filters-menu>
 
-<ng-template #browseHeaderActions let-collapseAttr="collapseAttr">
-  <ion-buttons slot="end" [collapse]="collapseAttr">
+<ng-template #browseHeaderActions>
+  <ion-buttons slot="end">
       <ion-button
         aria-label="Open filters"
         (click)="openFiltersMenu()"

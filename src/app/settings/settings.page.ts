@@ -27,6 +27,7 @@ import { PlatformCustomizationService, PLATFORM_DISPLAY_NAMES_STORAGE_KEY } from
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 import { DebugLogService } from '../core/services/debug-log.service';
+import { isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { addIcons } from "ionicons";
 import { close, trash, alertCircle, download, share, fileTrayFull, swapVertical, refresh, layers, bug } from "ionicons/icons";
 
@@ -268,6 +269,7 @@ export class SettingsPage {
         { label: 'Light', value: 'light' },
         { label: 'Dark', value: 'dark' },
     ];
+    readonly isMgcImportFeatureEnabled = isMgcImportFeatureEnabled();
 
     selectedColorScheme: ColorSchemePreference = 'system';
     verboseTracingEnabled = false;
@@ -693,6 +695,10 @@ export class SettingsPage {
     }
 
     triggerMgcImport(fileInput: HTMLInputElement): void {
+        if (!this.isMgcImportFeatureEnabled) {
+            return;
+        }
+
         fileInput.value = '';
         fileInput.click();
     }
@@ -702,6 +708,10 @@ export class SettingsPage {
     }
 
     async onMgcImportFileSelected(event: Event): Promise<void> {
+        if (!this.isMgcImportFeatureEnabled) {
+            return;
+        }
+
         const input = event.target as HTMLInputElement;
         const file = input.files?.[0];
 

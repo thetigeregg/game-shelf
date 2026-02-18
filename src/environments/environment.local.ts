@@ -2,6 +2,9 @@ export const environment = {
   production: false,
   gameApiBaseUrl: 'http://localhost:3000',
   manualsBaseUrl: '/manuals',
+  featureFlags: {
+    showMgcImport: false,
+  },
   firebase: {
     apiKey: 'AIzaSyBN3ohTFU4a5CfGYg8iXEvfRUuHnEoFiQA',
     authDomain: 'game-shelf-49aa4.firebaseapp.com',

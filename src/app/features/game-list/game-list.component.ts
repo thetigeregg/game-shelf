@@ -2064,16 +2064,10 @@ export class GameListComponent implements OnChanges {
     }
 
     private openExternalUrl(url: string): void {
-        const normalized = typeof url === 'string' ? url.trim() : '';
+    Browser.open({
+      url,
+    }).then();
 
-        if (!/^https?:\/\//i.test(normalized)) {
-            void this.presentToast('Unable to open link.', 'warning');
-            return;
-        }
-
-        void Browser.open({ url: normalized }).catch(() => {
-            void this.presentToast('Unable to open link.', 'danger');
-        });
     }
 
     private getSelectedGames(): GameEntry[] {

@@ -22,6 +22,9 @@ import {
   IonModal,
   IonBadge,
   IonLoading,
+  IonFab,
+  IonFabButton,
+  IonFabList,
 } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -57,6 +60,7 @@ import {
   squareOutline,
   add,
   search,
+  chevronUp,
 } from 'ionicons/icons';
 
 type ListPageConfig = {
@@ -115,6 +119,9 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonBadge,
     IonModal,
     IonLoading,
+    IonFab,
+    IonFabButton,
+    IonFabList,
   ],
 })
 export class ListPageComponent {
@@ -159,6 +166,7 @@ export class ListPageComponent {
   bulkActionsPopoverEvent: Event | undefined = undefined;
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
+  isBottomFabOpen = false;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   @ViewChild('modalSearchbar') private modalSearchbar?: IonSearchbar;
   @ViewChild('pageContent', { read: ElementRef })
@@ -208,6 +216,7 @@ export class ListPageComponent {
       squareOutline,
       add,
       search,
+      chevronUp,
     });
   }
 
@@ -345,6 +354,19 @@ export class ListPageComponent {
       this.listSearchQuery = this.listSearchQueryInput;
       this.searchDebounceHandle = null;
     }, ListPageComponent.SEARCH_DEBOUNCE_MS);
+  }
+
+  toggleBottomFab(): void {
+    this.isBottomFabOpen = !this.isBottomFabOpen;
+  }
+
+  closeBottomFab(): void {
+    this.isBottomFabOpen = false;
+  }
+
+  async onBottomFabPlaceholderAction(): Promise<void> {
+    this.closeBottomFab();
+    await this.presentToast('Quick actions coming soon.');
   }
 
   openSearchModal(): void {

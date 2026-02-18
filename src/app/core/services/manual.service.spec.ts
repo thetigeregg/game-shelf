@@ -141,6 +141,30 @@ describe('ManualService', () => {
     });
   });
 
+  it('encodes semicolons in resolve query params', async () => {
+    const promise = firstValueFrom(service.resolveManual({
+      igdbGameId: '11393',
+      platformIgdbId: 46,
+      title: 'Chaos;Child',
+    }));
+
+    const req = httpMock.expectOne(request => {
+      return request.urlWithParams === `${environment.gameApiBaseUrl}/v1/manuals/resolve?igdbGameId=11393&platformIgdbId=46&title=Chaos%3BChild`;
+    });
+    req.flush({
+      status: 'none',
+      candidates: [],
+    });
+
+    await expect(promise).resolves.toEqual({
+      status: 'none',
+      bestMatch: null,
+      candidates: [],
+      unavailable: false,
+      reason: null,
+    });
+  });
+
   it('returns empty search list when platform id is invalid without HTTP call', async () => {
     await expect(firstValueFrom(service.searchManuals(0, 'mario'))).resolves.toEqual({
       items: [],

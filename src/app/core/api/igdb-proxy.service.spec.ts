@@ -532,6 +532,25 @@ describe('IgdbProxyService', () => {
     await expect(promise).resolves.toBeNull();
   });
 
+  it('encodes semicolons in HLTB lookup query params', async () => {
+    const promise = firstValueFrom(service.lookupCompletionTimes('Chaos;Child', 2014, 'PlayStation Vita'));
+    const req = httpMock.expectOne(request => request.urlWithParams === `${environment.gameApiBaseUrl}/v1/hltb/search?q=Chaos%3BChild&releaseYear=2014&platform=PlayStation%20Vita`);
+
+    req.flush({
+      item: {
+        hltbMainHours: 40.4,
+        hltbMainExtraHours: 52.2,
+        hltbCompletionistHours: 70.6,
+      },
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 40.4,
+      hltbMainExtraHours: 52.2,
+      hltbCompletionistHours: 70.6,
+    });
+  });
+
   it('looks up HLTB candidates and normalizes candidate payload', async () => {
     const promise = firstValueFrom(service.lookupCompletionTimeCandidates('Super Metroid', 1994, 'SNES'));
     const req = httpMock.expectOne(request => {

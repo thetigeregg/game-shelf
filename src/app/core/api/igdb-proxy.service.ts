@@ -7,6 +7,7 @@ import { GameCatalogPlatformOption, GameCatalogResult, GameType, HltbCompletionT
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
 import { DebugLogService } from '../services/debug-log.service';
+import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
 
 interface SearchResponse {
   items: GameCatalogResult[];
@@ -36,6 +37,7 @@ interface PopularityGamesResponse {
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
   private static readonly RATE_LIMIT_FALLBACK_COOLDOWN_MS = 20_000;
+  private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
   private readonly platformCacheStorageKey = 'game-shelf-platform-list-cache-v1';
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
   private readonly gameByIdBaseUrl = `${environment.gameApiBaseUrl}/v1/games`;
@@ -54,7 +56,7 @@ export class IgdbProxyService implements GameSearchApi {
       return of([]);
     }
 
-    let params = new HttpParams().set('q', normalized);
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set('q', normalized);
     const normalizedPlatformIgdbId = typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
       ? platformIgdbId
       : null;
@@ -130,7 +132,7 @@ export class IgdbProxyService implements GameSearchApi {
       return of([]);
     }
 
-    let params = new HttpParams().set('q', normalized);
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set('q', normalized);
     const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
 
     if (normalizedPlatform.length > 0) {
@@ -176,7 +178,7 @@ export class IgdbProxyService implements GameSearchApi {
       return of(null);
     }
 
-    let params = new HttpParams().set('q', normalizedTitle);
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set('q', normalizedTitle);
     const normalizedYear = Number.isInteger(releaseYear) && (releaseYear as number) > 0 ? releaseYear as number : null;
     const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
 
@@ -221,7 +223,9 @@ export class IgdbProxyService implements GameSearchApi {
       return of([]);
     }
 
-    let params = new HttpParams().set('q', normalizedTitle).set('includeCandidates', 'true');
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('q', normalizedTitle)
+      .set('includeCandidates', 'true');
     const normalizedYear = Number.isInteger(releaseYear) && (releaseYear as number) > 0 ? releaseYear as number : null;
     const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
 
@@ -292,7 +296,7 @@ export class IgdbProxyService implements GameSearchApi {
       return throwError(() => cooldownError);
     }
 
-    const params = new HttpParams()
+    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
       .set('popularityTypeId', String(normalizedPopularityTypeId))
       .set('limit', String(normalizedLimit))
       .set('offset', String(normalizedOffset));

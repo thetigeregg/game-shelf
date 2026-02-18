@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 import { GameEntry, ManualCandidate, ManualOverrideMap, ManualResolveResult } from '../models/game.models';
 
@@ -24,6 +25,7 @@ export const MANUAL_OVERRIDES_STORAGE_KEY = 'game-shelf:manual-overrides-v1';
 
 @Injectable({ providedIn: 'root' })
 export class ManualService {
+  private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
   private readonly httpClient = inject(HttpClient);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
   private readonly apiBaseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
@@ -52,7 +54,7 @@ export class ManualService {
       return of({ items: [], unavailable: false, reason: null });
     }
 
-    let params = new HttpParams().set('platformIgdbId', String(normalizedPlatformId));
+    let params = new HttpParams({ encoder: ManualService.STRICT_HTTP_PARAM_ENCODER }).set('platformIgdbId', String(normalizedPlatformId));
     const normalizedQuery = query.trim();
 
     if (normalizedQuery.length > 0) {
@@ -130,7 +132,7 @@ export class ManualService {
     const normalizedPlatformId = Number.isInteger(game.platformIgdbId) && game.platformIgdbId > 0 ? game.platformIgdbId : null;
     const normalizedTitle = String(game.title ?? '').trim();
 
-    let params = new HttpParams()
+    let params = new HttpParams({ encoder: ManualService.STRICT_HTTP_PARAM_ENCODER })
       .set('igdbGameId', normalizedGameId)
       .set('platformIgdbId', normalizedPlatformId === null ? '' : String(normalizedPlatformId))
       .set('title', normalizedTitle);

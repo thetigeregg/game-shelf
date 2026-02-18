@@ -200,7 +200,7 @@
       <ion-searchbar
         #modalSearchbar
         [placeholder]="searchPlaceholder"
-        [value]="listSearchQuery"
+        [value]="listSearchQueryInput"
         (ionInput)="onListSearchChange($any($event).detail.value)"
         (ionClear)="clearSearch()"
       ></ion-searchbar>

@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -158,7 +158,6 @@ export class ListPageComponent {
   listSearchQueryInput = '';
   groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
-  isSearchModalOpen = false;
   isSelectionMode = false;
   isInitialListLoading = true;
   selectedGamesCount = 0;
@@ -170,9 +169,7 @@ export class ListPageComponent {
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   @ViewChild('quickActionsFab') private quickActionsFab?: IonFab;
   @ViewChild('pageContent') private pageContent?: IonContent;
-  @ViewChild('modalSearchbar') private modalSearchbar?: IonSearchbar;
-  @ViewChild('pageContent', { read: ElementRef })
-  private pageContentRef?: ElementRef<HTMLElement & { resize?: () => Promise<void> }>;
+  @ViewChild('headerSearchbar') private headerSearchbar?: IonSearchbar;
   private readonly menuController = inject(MenuController);
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
@@ -181,7 +178,6 @@ export class ListPageComponent {
   private readonly gameShelfService = inject(GameShelfService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
-  private contentResizeRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -367,7 +363,7 @@ export class ListPageComponent {
 
   onBottomFabSearch(): void {
     this.closeBottomFab();
-    this.openSearchModal();
+    this.focusHeaderSearchbar();
   }
 
   onBottomFabAddGame(): void {
@@ -381,22 +377,6 @@ export class ListPageComponent {
     await this.pageContent?.scrollToTop(220);
   }
 
-  openSearchModal(): void {
-    this.isSearchModalOpen = true;
-  }
-
-  closeSearchModal(): void {
-    this.isSearchModalOpen = false;
-    if (this.searchbarFocusRetryHandle !== null) {
-      clearTimeout(this.searchbarFocusRetryHandle);
-      this.searchbarFocusRetryHandle = null;
-    }
-    if (this.contentResizeRetryHandle !== null) {
-      clearTimeout(this.contentResizeRetryHandle);
-      this.contentResizeRetryHandle = null;
-    }
-  }
-
   clearSearch(): void {
     if (this.searchDebounceHandle !== null) {
       clearTimeout(this.searchDebounceHandle);
@@ -407,47 +387,16 @@ export class ListPageComponent {
     this.listSearchQuery = '';
   }
 
-  async focusSearchbar(): Promise<void> {
-    if (!this.isSearchModalOpen) {
-      return;
-    }
-
-    await this.modalSearchbar?.setFocus();
+  focusHeaderSearchbar(): void {
+    void this.headerSearchbar?.setFocus();
 
     if (this.searchbarFocusRetryHandle !== null) {
       clearTimeout(this.searchbarFocusRetryHandle);
     }
 
     this.searchbarFocusRetryHandle = setTimeout(() => {
-      if (!this.isSearchModalOpen) {
-        return;
-      }
-
-      void this.modalSearchbar?.setFocus();
+      void this.headerSearchbar?.setFocus();
       this.searchbarFocusRetryHandle = null;
-    }, 120);
-  }
-
-  async onSearchModalDidPresent(): Promise<void> {
-    this.resizePageContent();
-    await this.focusSearchbar();
-  }
-
-  onSearchModalDidDismiss(): void {
-    this.closeSearchModal();
-    this.resizePageContent();
-  }
-
-  private resizePageContent(): void {
-    void this.pageContentRef?.nativeElement.resize?.();
-
-    if (this.contentResizeRetryHandle !== null) {
-      clearTimeout(this.contentResizeRetryHandle);
-    }
-
-    this.contentResizeRetryHandle = setTimeout(() => {
-      void this.pageContentRef?.nativeElement.resize?.();
-      this.contentResizeRetryHandle = null;
     }, 120);
   }
 

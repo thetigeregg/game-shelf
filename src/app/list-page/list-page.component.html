@@ -52,7 +52,19 @@
       </ion-buttons>
     }
   </ion-toolbar>
+  @if (!isSelectionMode) {
+    <ion-toolbar>
+      <ion-searchbar
+        #headerSearchbar
+        [placeholder]="searchPlaceholder"
+        [value]="listSearchQueryInput"
+        (ionInput)="onListSearchChange($any($event).detail.value)"
+        (ionClear)="clearSearch()"
+      ></ion-searchbar>
+    </ion-toolbar>
+}
 </ion-header>
+
 
 <ion-content #pageContent [fullscreen]="true" [id]="contentId">
   <ion-loading
@@ -225,32 +237,6 @@
     </ion-fab>
   }
 </ion-content>
-
-<ion-modal
-  [isOpen]="isSearchModalOpen"
-  [initialBreakpoint]="0.2"
-  [breakpoints]="[0, 0.2]"
-  [backdropBreakpoint]="0.12"
-  (didPresent)="onSearchModalDidPresent()"
-  (didDismiss)="onSearchModalDidDismiss()"
-  >
-  <ng-template>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Search {{ pageTitle }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content class="ion-padding">
-      <ion-searchbar
-        #modalSearchbar
-        [placeholder]="searchPlaceholder"
-        [value]="listSearchQueryInput"
-        (ionInput)="onListSearchChange($any($event).detail.value)"
-        (ionClear)="clearSearch()"
-      ></ion-searchbar>
-    </ion-content>
-  </ng-template>
-</ion-modal>
 
 <ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">
   <ng-template>

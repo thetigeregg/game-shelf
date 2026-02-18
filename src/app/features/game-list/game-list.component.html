@@ -279,7 +279,7 @@
     </ion-popover>
 
     @if (selectedGame; as game) {
-      <ion-content #detailContent class="detail-content" [fullscreen]="true">
+      <ion-content #detailContent class="detail-content" [fullscreen]="true" appAutoContentOffsets>
         <div class="detail-content-inner">
           <app-game-detail-content
             [game]="getDetailGamePayload(game)"

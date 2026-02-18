@@ -59,6 +59,12 @@ export class GameListFilteringEngine {
     'e-reader / card-e reader': 'Game Boy Advance',
   };
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
+  private sortedGamesCache: {
+    sourceGames: GameEntry[];
+    sortField: GameListFilters['sortField'];
+    sortDirection: GameListFilters['sortDirection'];
+    sortedGames: GameEntry[];
+  } | null = null;
   private readonly platformOrderByKey = new Map<string, number>();
   private platformDisplayNameById = new Map<number, string>();
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
@@ -126,6 +132,7 @@ export class GameListFilteringEngine {
     this.canonicalPlatformNameKeyByCustomLabelKey.clear();
     nextCanonicalPlatformNameKeyByCustomLabelKey.forEach((value, key) => this.canonicalPlatformNameKeyByCustomLabelKey.set(key, value));
     this.normalizedFilterGameByKey.clear();
+    this.sortedGamesCache = null;
   }
 
   normalizeFilters(filters: GameListFilters): GameListFilters {
@@ -222,9 +229,11 @@ export class GameListFilteringEngine {
 
   applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
-    const filtered = games.filter(game => this.matchesFilters(game, filters, searchQuery));
-    const sorted = [...filtered].sort((left, right) => this.compareGames(left, right, filters.sortField));
-    return filters.sortDirection === 'desc' ? sorted.reverse() : sorted;
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+    const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
+    const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
+    const sortedGames = this.getSortedGames(games, filters.sortField, filters.sortDirection);
+    return sortedGames.filter(game => this.matchesFilters(game, filters, normalizedSearchQuery, minMainHours, maxMainHours));
   }
 
   buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {
@@ -460,9 +469,14 @@ export class GameListFilteringEngine {
     return '[No Group]';
   }
 
-  private matchesFilters(game: GameEntry, filters: GameListFilters, searchQuery: string): boolean {
+  private matchesFilters(
+    game: GameEntry,
+    filters: GameListFilters,
+    normalizedSearchQuery: string,
+    minMainHours: number | null,
+    maxMainHours: number | null,
+  ): boolean {
     const normalized = this.getNormalizedFilterGame(game);
-    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
     if (normalizedSearchQuery.length > 0 && !normalized.titleLower.includes(normalizedSearchQuery)) {
       return false;
@@ -531,8 +545,6 @@ export class GameListFilteringEngine {
       }
     }
 
-    const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
-    const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
     const gameMainHours = normalized.effectiveHltbHours;
 
     if (gameMainHours !== null) {
@@ -556,6 +568,31 @@ export class GameListFilteringEngine {
     }
 
     return true;
+  }
+
+  private getSortedGames(
+    games: GameEntry[],
+    sortField: GameListFilters['sortField'],
+    sortDirection: GameListFilters['sortDirection'],
+  ): GameEntry[] {
+    const existingCache = this.sortedGamesCache;
+
+    if (existingCache
+      && existingCache.sourceGames === games
+      && existingCache.sortField === sortField
+      && existingCache.sortDirection === sortDirection) {
+      return existingCache.sortedGames;
+    }
+
+    const sortedAsc = [...games].sort((left, right) => this.compareGames(left, right, sortField));
+    const sortedGames = sortDirection === 'desc' ? sortedAsc.reverse() : sortedAsc;
+    this.sortedGamesCache = {
+      sourceGames: games,
+      sortField,
+      sortDirection,
+      sortedGames,
+    };
+    return sortedGames;
   }
 
   private pruneNormalizedFilterCache(games: GameEntry[]): void {

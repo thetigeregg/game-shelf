@@ -118,6 +118,7 @@ function buildConfig(listType: ListType): ListPageConfig {
   ],
 })
 export class ListPageComponent {
+  private static readonly SEARCH_DEBOUNCE_MS = 180;
   readonly noneTagFilterValue = '__none__';
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
@@ -146,6 +147,7 @@ export class ListPageComponent {
   displayedGames: GameEntry[] = [];
   totalGamesCount = 0;
   listSearchQuery = '';
+  listSearchQueryInput = '';
   groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
   isSearchModalOpen = false;
@@ -170,6 +172,7 @@ export class ListPageComponent {
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private contentResizeRetryHandle: ReturnType<typeof setTimeout> | null = null;
+  private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'];
@@ -332,7 +335,16 @@ export class ListPageComponent {
   }
 
   onListSearchChange(value: string | null | undefined): void {
-    this.listSearchQuery = (value ?? '').replace(/^\s+/, '');
+    this.listSearchQueryInput = (value ?? '').replace(/^\s+/, '');
+
+    if (this.searchDebounceHandle !== null) {
+      clearTimeout(this.searchDebounceHandle);
+    }
+
+    this.searchDebounceHandle = setTimeout(() => {
+      this.listSearchQuery = this.listSearchQueryInput;
+      this.searchDebounceHandle = null;
+    }, ListPageComponent.SEARCH_DEBOUNCE_MS);
   }
 
   openSearchModal(): void {
@@ -352,6 +364,12 @@ export class ListPageComponent {
   }
 
   clearSearch(): void {
+    if (this.searchDebounceHandle !== null) {
+      clearTimeout(this.searchDebounceHandle);
+      this.searchDebounceHandle = null;
+    }
+
+    this.listSearchQueryInput = '';
     this.listSearchQuery = '';
   }
 
@@ -439,6 +457,7 @@ export class ListPageComponent {
       ...nextFilters,
     };
     this.groupBy = 'none';
+    this.listSearchQueryInput = '';
     this.listSearchQuery = '';
     this.persistPreferences();
   }
@@ -744,6 +763,8 @@ export class ListPageComponent {
         ...view.filters,
       };
       this.groupBy = view.groupBy;
+      this.listSearchQueryInput = '';
+      this.listSearchQuery = '';
       this.persistPreferences();
     } finally {
       void this.router.navigate([], {

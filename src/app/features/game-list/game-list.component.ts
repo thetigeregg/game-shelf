@@ -313,6 +313,7 @@ export class GameListComponent implements OnChanges {
   private readonly searchQuery$ = new BehaviorSubject<string>('');
   private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
   @ViewChild('detailContent') private detailContent?: IonContent;
+  @ViewChild('detailShortcutsFab') private detailShortcutsFab?: IonFab;
   @ViewChild(CdkVirtualScrollViewport) private listViewport?: CdkVirtualScrollViewport;
   @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('gameDetailModal', { read: ElementRef })
@@ -747,6 +748,12 @@ export class GameListComponent implements OnChanges {
     }
 
     this.openGameDetailInternal(previous);
+  }
+
+  closeDetailShortcutsFab(): void {
+    if (this.detailShortcutsFab) {
+      this.detailShortcutsFab.activated = false;
+    }
   }
 
   private openSimilarGameDetail(game: GameEntry): void {

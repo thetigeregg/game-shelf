@@ -10,6 +10,11 @@
   --ion-color-forest-tint: #4eb450;
 }
 
+.ion-palette-dark {
+  --ion-color-forest-contrast: #111111;
+  --ion-color-forest-contrast-rgb: 17, 17, 17;
+}
+
 .ion-color-forest {
   --ion-color-base: var(--ion-color-forest);
   --ion-color-base-rgb: var(--ion-color-forest-rgb);

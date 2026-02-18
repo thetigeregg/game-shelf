@@ -527,7 +527,7 @@ export class SettingsPage {
     platformIgdbId: number | null | undefined
   ): string {
     const label = this.platformCustomizationService
-      .getDisplayName(platformName, platformIgdbId)
+      .getDisplayNameWithoutAlias(platformName, platformIgdbId)
       .trim();
     return label.length > 0 ? label : 'Unknown platform';
   }

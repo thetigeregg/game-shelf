@@ -398,7 +398,7 @@ export class ExplorePage implements OnInit {
 
   getPlatformLabel(item: PopularityGameResult): string {
     const preferredPlatform = this.resolvePreferredPlatform(item);
-    return this.getAliasedPlatformLabel(preferredPlatform.name, preferredPlatform.id);
+    return this.getPlatformDisplayName(preferredPlatform.name, preferredPlatform.id);
   }
 
   private resolvePreferredPlatform(item: PopularityGameResult): {
@@ -437,9 +437,11 @@ export class ExplorePage implements OnInit {
     return { id: null, name: '' };
   }
 
-  private getAliasedPlatformLabel(name: string, platformIgdbId: number | null): string {
+  private getPlatformDisplayName(name: string, platformIgdbId: number | null): string {
     if (name.trim().length > 0) {
-      const aliased = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+      const aliased = this.platformCustomizationService
+        .getDisplayNameWithoutAlias(name, platformIgdbId)
+        .trim();
 
       if (aliased.length > 0) {
         return aliased;

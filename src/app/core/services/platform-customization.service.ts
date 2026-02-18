@@ -67,6 +67,23 @@ export class PlatformCustomizationService {
     return aliasedFallback;
   }
 
+  getDisplayNameWithoutAlias(
+    platformName: string | null | undefined,
+    platformIgdbId: number | null | undefined
+  ): string {
+    const fallback = String(platformName ?? '').trim();
+    const platformId = this.normalizePlatformIgdbId(platformIgdbId);
+    const custom =
+      platformId !== null ? this.displayNamesSubject.value[String(platformId)] : undefined;
+    const normalizedCustom = typeof custom === 'string' ? custom.trim() : '';
+
+    if (normalizedCustom.length > 0) {
+      return normalizedCustom;
+    }
+
+    return fallback;
+  }
+
   getDisplayNameWithAliasSource(
     platformName: string | null | undefined,
     platformIgdbId: number | null | undefined

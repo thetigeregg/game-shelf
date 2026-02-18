@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { PLATFORM_CATALOG } from '../data/platform-catalog';
 
 export const PLATFORM_DISPLAY_NAMES_STORAGE_KEY = 'game-shelf:platform-display-names-v1';
 
@@ -15,6 +16,18 @@ export class PlatformCustomizationService {
     'nintendo dsi': 'Nintendo DS',
     'e-reader / card-e reader': 'Game Boy Advance',
   };
+  private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
+    const platformId = typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0
+      ? entry.id
+      : null;
+    const platformName = String(entry.name ?? '').trim();
+
+    if (platformId !== null && platformName.length > 0) {
+      map.set(platformId, platformName);
+    }
+
+    return map;
+  }, new Map<number, string>());
   private readonly displayNamesSubject = new BehaviorSubject<PlatformDisplayNameMap>(this.loadFromStorage());
   readonly displayNames$ = this.displayNamesSubject.asObservable();
 
@@ -25,6 +38,18 @@ export class PlatformCustomizationService {
   getDisplayName(platformName: string | null | undefined, platformIgdbId: number | null | undefined): string {
     const fallback = String(platformName ?? '').trim();
     const aliasedFallback = this.getAliasedPlatformName(fallback);
+    const fallbackKey = this.normalizePlatformKey(fallback);
+    const aliasedFallbackKey = this.normalizePlatformKey(aliasedFallback);
+    const aliasWasApplied = fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
+
+    if (aliasWasApplied) {
+      const canonicalCustom = this.getCanonicalCustomName(aliasedFallback);
+
+      if (canonicalCustom !== null) {
+        return canonicalCustom;
+      }
+    }
+
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const custom = platformId !== null ? this.displayNamesSubject.value[String(platformId)] : undefined;
     const normalizedCustom = typeof custom === 'string' ? custom.trim() : '';
@@ -34,6 +59,49 @@ export class PlatformCustomizationService {
     }
 
     return aliasedFallback;
+  }
+
+  private getCanonicalCustomName(canonicalPlatformName: string): string | null {
+    const canonicalKey = this.normalizePlatformKey(canonicalPlatformName);
+
+    if (canonicalKey.length === 0) {
+      return null;
+    }
+
+    let aliasedSourceCustom: string | null = null;
+
+    for (const [platformIdKey, customName] of Object.entries(this.displayNamesSubject.value)) {
+      const platformId = Number.parseInt(platformIdKey, 10);
+      const normalizedCustom = String(customName ?? '').trim();
+
+      if (!Number.isInteger(platformId) || platformId <= 0 || normalizedCustom.length === 0) {
+        continue;
+      }
+
+      const platformName = this.platformNameById.get(platformId) ?? '';
+
+      if (platformName.length === 0) {
+        continue;
+      }
+
+      const platformKey = this.normalizePlatformKey(platformName);
+      const canonicalFromPlatform = this.getAliasedPlatformName(platformName);
+
+      if (this.normalizePlatformKey(canonicalFromPlatform) !== canonicalKey) {
+        continue;
+      }
+
+      // Prefer the custom name set on the canonical platform destination itself.
+      if (platformKey === canonicalKey) {
+        return normalizedCustom;
+      }
+
+      if (aliasedSourceCustom === null) {
+        aliasedSourceCustom = normalizedCustom;
+      }
+    }
+
+    return aliasedSourceCustom;
   }
 
   getCustomName(platformIgdbId: number | null | undefined): string | null {
@@ -127,6 +195,13 @@ export class PlatformCustomizationService {
 
     const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
     return PlatformCustomizationService.PLATFORM_DISPLAY_ALIAS_MAP[key] ?? trimmed;
+  }
+
+  private normalizePlatformKey(value: string | null | undefined): string {
+    return String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
   }
 
   private loadFromStorage(): PlatformDisplayNameMap {

@@ -102,6 +102,7 @@ import {
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
+import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -178,6 +179,7 @@ export interface MetadataFilterSelection {
     IonFabButton,
     IonFabList,
     IonInput,
+    AutoContentOffsetsDirective,
     GameSearchComponent,
     GameDetailContentComponent
   ]

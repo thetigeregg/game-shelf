@@ -279,7 +279,12 @@
     </ion-popover>
 
     @if (selectedGame; as game) {
-      <ion-content #detailContent class="detail-content" [fullscreen]="true" appAutoContentOffsets>
+      <ion-content
+        #detailContent
+        class="detail-content gs-safe-bottom-with-offset"
+        [fullscreen]="true"
+        appAutoContentOffsets
+      >
         <div class="detail-content-inner">
           <app-game-detail-content
             [game]="getDetailGamePayload(game)"
@@ -412,7 +417,7 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content>
+    <ion-content class="gs-safe-bottom">
       <ion-list lines="full">
         <ion-item>
           <ion-input
@@ -507,7 +512,7 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content>
+    <ion-content class="gs-safe-bottom">
       <ion-item>
         <ion-searchbar
           [value]="manualPickerQuery"
@@ -570,7 +575,7 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content>
+    <ion-content class="gs-safe-bottom">
       <app-game-search
         [listType]="listType"
         actionMode="select"
@@ -593,7 +598,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding gs-safe-bottom">
       <ion-item lines="none">
         <ion-searchbar
           [value]="imagePickerQuery"
@@ -687,7 +692,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding gs-safe-bottom">
       <ion-item lines="none">
         <ion-searchbar
           [value]="hltbPickerQuery"
@@ -778,7 +783,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding gs-safe-bottom">
       <ion-text color="medium">
         <p>Choose a rating for {{ ratingTargetGame?.title || 'this game' }}.</p>
       </ion-text>

@@ -39,3 +39,13 @@
 :root {
   --game-shelf-tab-bar-height: 56px;
 }
+
+ion-content.gs-safe-bottom {
+  --padding-bottom: calc(16px + var(--ion-safe-area-bottom, env(safe-area-inset-bottom)));
+}
+
+ion-content.gs-safe-bottom-with-offset {
+  --padding-bottom: calc(
+    16px + var(--offset-bottom, 0px) + var(--ion-safe-area-bottom, env(safe-area-inset-bottom))
+  );
+}

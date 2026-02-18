@@ -326,7 +326,7 @@ export class GameDetailContentComponent {
 
   private getAliasedPlatformLabel(name: string, platformIgdbId: number | null): string {
     if (name.trim().length > 0) {
-      const aliased = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+      const aliased = this.platformCustomizationService.getDisplayNameWithAliasSource(name, platformIgdbId).trim();
 
       if (aliased.length > 0) {
         return aliased;

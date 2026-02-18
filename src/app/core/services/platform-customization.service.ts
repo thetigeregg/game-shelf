@@ -61,6 +61,34 @@ export class PlatformCustomizationService {
     return aliasedFallback;
   }
 
+  getDisplayNameWithAliasSource(platformName: string | null | undefined, platformIgdbId: number | null | undefined): string {
+    const fallback = String(platformName ?? '').trim();
+
+    if (fallback.length === 0) {
+      return '';
+    }
+
+    const aliasedFallback = this.getAliasedPlatformName(fallback);
+    const fallbackKey = this.normalizePlatformKey(fallback);
+    const aliasedFallbackKey = this.normalizePlatformKey(aliasedFallback);
+    const aliasWasApplied = fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
+
+    if (!aliasWasApplied) {
+      return this.getDisplayName(fallback, platformIgdbId);
+    }
+
+    const canonicalCustom = this.getCanonicalCustomName(aliasedFallback);
+    const canonicalLabel = canonicalCustom ?? aliasedFallback;
+    const sourceCustom = this.getCustomName(platformIgdbId);
+    const sourceLabel = sourceCustom ?? fallback;
+
+    if (sourceLabel.trim().length === 0 || this.normalizePlatformKey(sourceLabel) === this.normalizePlatformKey(canonicalLabel)) {
+      return canonicalLabel;
+    }
+
+    return `${canonicalLabel} (${sourceLabel})`;
+  }
+
   private getCanonicalCustomName(canonicalPlatformName: string): string | null {
     const canonicalKey = this.normalizePlatformKey(canonicalPlatformName);
 

@@ -2281,7 +2281,8 @@ export class GameListComponent implements OnChanges {
 
     getGameDisplayPlatformLabel(game: GameEntry): string {
         const displayPlatform = this.getGameDisplayPlatform(game);
-        return this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
+        const label = this.platformCustomizationService.getDisplayNameWithAliasSource(displayPlatform.name, displayPlatform.igdbId).trim();
+        return label.length > 0 ? label : 'Unknown platform';
     }
 
     getPlatformLabel(platform: string | null | undefined, platformIgdbId: number | null | undefined): string {

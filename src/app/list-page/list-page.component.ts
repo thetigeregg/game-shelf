@@ -363,7 +363,9 @@ export class ListPageComponent {
 
   onBottomFabSearch(): void {
     this.closeBottomFab();
-    this.focusHeaderSearchbar();
+    window.setTimeout(() => {
+      void this.focusHeaderSearchbar();
+    }, 140);
   }
 
   onBottomFabAddGame(): void {
@@ -387,8 +389,8 @@ export class ListPageComponent {
     this.listSearchQuery = '';
   }
 
-  focusHeaderSearchbar(): void {
-    void this.headerSearchbar?.setFocus();
+  private async focusHeaderSearchbar(): Promise<void> {
+    await this.headerSearchbar?.setFocus();
 
     if (this.searchbarFocusRetryHandle !== null) {
       clearTimeout(this.searchbarFocusRetryHandle);

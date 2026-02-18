@@ -143,7 +143,7 @@ export class MetadataValidatorPage {
 
   getPlatformLabel(game: GameEntry): string {
     const label = this.platformCustomizationService
-      .getDisplayName(game.platform, game.platformIgdbId)
+      .getDisplayNameWithoutAlias(game.platform, game.platformIgdbId)
       .trim();
     return label.length > 0 ? label : 'Unknown platform';
   }

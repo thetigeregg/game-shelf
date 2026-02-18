@@ -36,6 +36,16 @@ describe('PlatformCustomizationService', () => {
     expect(service.getDisplayName('Nintendo Switch', 6)).toBe('Nintendo Switch');
   });
 
+  it('returns custom name or raw fallback when aliasing is disabled', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+    service.setCustomName(130, 'Switch');
+    service.setCustomName(18, 'NES');
+
+    expect(service.getDisplayNameWithoutAlias('Nintendo Switch', 130)).toBe('Switch');
+    expect(service.getDisplayNameWithoutAlias('Family Computer', 99)).toBe('Family Computer');
+    expect(service.getDisplayNameWithoutAlias('Nintendo Entertainment System', 18)).toBe('NES');
+  });
+
   it('applies canonical destination custom names to aliased source platforms', () => {
     const service = TestBed.inject(PlatformCustomizationService);
     service.setCustomName(99, 'Famicom');

@@ -2492,7 +2492,9 @@ export class GameListComponent implements OnChanges {
     platform: string | null | undefined,
     platformIgdbId: number | null | undefined
   ): string {
-    const label = this.platformCustomizationService.getDisplayName(platform, platformIgdbId).trim();
+    const label = this.platformCustomizationService
+      .getDisplayNameWithoutAlias(platform, platformIgdbId)
+      .trim();
     return label.length > 0 ? label : 'Unknown platform';
   }
 

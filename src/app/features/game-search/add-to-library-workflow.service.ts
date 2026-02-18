@@ -61,7 +61,9 @@ export class AddToLibraryWorkflowService {
     name: string | null | undefined,
     platformIgdbId: number | null | undefined
   ): string {
-    const label = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+    const label = this.platformCustomizationService
+      .getDisplayNameWithoutAlias(name, platformIgdbId)
+      .trim();
     return label.length > 0 ? label : 'Unknown platform';
   }
 

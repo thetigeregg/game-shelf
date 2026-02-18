@@ -267,7 +267,9 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     name: string | null | undefined,
     platformIgdbId: number | null | undefined
   ): string {
-    const label = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+    const label = this.platformCustomizationService
+      .getDisplayNameWithoutAlias(name, platformIgdbId)
+      .trim();
     return label.length > 0 ? label : 'Unknown platform';
   }
 
@@ -275,14 +277,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     name: string | null | undefined,
     platformIgdbId: number | null | undefined
   ): string {
-    const customName = this.platformCustomizationService.getCustomName(platformIgdbId);
-
-    if (customName !== null) {
-      return customName;
-    }
-
-    const normalized = typeof name === 'string' ? name.trim() : '';
-    return normalized.length > 0 ? normalized : 'Unknown platform';
+    return this.getPlatformDisplayName(name, platformIgdbId);
   }
 
   getGameTypeBadgeLabel(result: GameCatalogResult): string | null {

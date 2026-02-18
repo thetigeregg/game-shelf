@@ -994,6 +994,16 @@ export class GameListComponent implements OnChanges {
         await this.refreshSelectedGameCompletionTimes();
     }
 
+    async openFixHltbMatchFromPopover(): Promise<void> {
+        await this.dismissDetailActionsPopover();
+
+        if (!this.selectedGame) {
+            return;
+        }
+
+        await this.openHltbPickerModal(this.selectedGame);
+    }
+
     async openImagePickerFromPopover(): Promise<void> {
         await this.openImagePickerModal();
         await this.dismissDetailActionsPopover();

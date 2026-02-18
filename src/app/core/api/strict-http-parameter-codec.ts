@@ -17,4 +17,3 @@ export class StrictHttpParameterCodec implements HttpParameterCodec {
     return decodeURIComponent(value);
   }
 }
-

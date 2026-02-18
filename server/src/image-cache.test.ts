@@ -23,7 +23,11 @@ class ImagePoolMock {
   async query<T>(sql: string, params: unknown[]): Promise<{ rows: T[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
-    if (normalized.startsWith('select cache_key, source_url, content_type, file_path, size_bytes, updated_at from image_assets')) {
+    if (
+      normalized.startsWith(
+        'select cache_key, source_url, content_type, file_path, size_bytes, updated_at from image_assets'
+      )
+    ) {
       const key = String(params[0] ?? '');
       const row = this.rowsByKey.get(key);
       return { rows: row ? [row as T] : [] };
@@ -42,7 +46,7 @@ class ImagePoolMock {
         content_type: String(params[2] ?? ''),
         file_path: String(params[3] ?? ''),
         size_bytes: Number(params[4] ?? 0),
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       this.rowsByKey.set(row.cache_key, row);
       return { rows: [] };
@@ -64,15 +68,17 @@ test('Image cache stores on miss and serves on hit', async () => {
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
-        headers: { 'content-type': 'image/jpeg' },
+        headers: { 'content-type': 'image/jpeg' }
       });
-    },
+    }
   });
 
-  const imageUrl = encodeURIComponent('https://images.igdb.com/igdb/image/upload/t_cover_big_2x/abc123.jpg');
+  const imageUrl = encodeURIComponent(
+    'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/abc123.jpg'
+  );
   const first = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${imageUrl}`,
+    url: `/v1/images/proxy?url=${imageUrl}`
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
@@ -80,7 +86,7 @@ test('Image cache stores on miss and serves on hit', async () => {
 
   const second = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${imageUrl}`,
+    url: `/v1/images/proxy?url=${imageUrl}`
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-image-cache'], 'HIT');
@@ -107,16 +113,16 @@ test('Image cache purge endpoint removes cached assets by source URL', async () 
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
-        headers: { 'content-type': 'image/jpeg' },
+        headers: { 'content-type': 'image/jpeg' }
       });
-    },
+    }
   });
 
   const sourceUrl = 'https://cdn.thegamesdb.net/images/original/boxart/front/123.jpg';
   const encodedUrl = encodeURIComponent(sourceUrl);
   const first = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${encodedUrl}`,
+    url: `/v1/images/proxy?url=${encodedUrl}`
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-image-cache'], 'MISS');
@@ -125,14 +131,14 @@ test('Image cache purge endpoint removes cached assets by source URL', async () 
   const purge = await app.inject({
     method: 'POST',
     url: '/v1/images/cache/purge',
-    payload: { urls: [sourceUrl] },
+    payload: { urls: [sourceUrl] }
   });
   assert.equal(purge.statusCode, 200);
   assert.deepEqual(purge.json(), { deleted: 1 });
 
   const second = await app.inject({
     method: 'GET',
-    url: `/v1/images/proxy?url=${encodedUrl}`,
+    url: `/v1/images/proxy?url=${encodedUrl}`
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');

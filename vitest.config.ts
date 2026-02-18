@@ -3,8 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      '@ionic/core/loader': '@ionic/core/loader/index.js',
-    },
+      '@ionic/core/loader': '@ionic/core/loader/index.js'
+    }
   },
   test: {
     globals: true,
@@ -13,8 +13,8 @@ export default defineConfig({
     include: ['src/**/*.spec.ts'],
     server: {
       deps: {
-        inline: ['@ionic/angular', '@ionic/angular/standalone', '@ionic/core'],
-      },
+        inline: ['@ionic/angular', '@ionic/angular/standalone', '@ionic/core']
+      }
     },
     coverage: {
       provider: 'v8',
@@ -26,14 +26,14 @@ export default defineConfig({
         'src/app/core/services/game-shelf.service.ts',
         'src/app/core/api/igdb-proxy.service.ts',
         'src/app/metadata-validator/metadata-validator.page.ts',
-        'src/app/settings/settings.page.ts',
+        'src/app/settings/settings.page.ts'
       ],
       thresholds: {
         statements: 90,
         branches: 75,
         functions: 90,
-        lines: 90,
-      },
-    },
-  },
+        lines: 90
+      }
+    }
+  }
 });

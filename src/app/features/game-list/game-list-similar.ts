@@ -5,11 +5,13 @@ export function normalizeSimilarGameIds(value: string[] | undefined): string[] {
     return [];
   }
 
-  return [...new Set(
-    value
-      .map(item => (typeof item === 'string' ? item.trim() : ''))
-      .filter(item => /^\d+$/.test(item)),
-  )];
+  return [
+    ...new Set(
+      value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => /^\d+$/.test(item))
+    )
+  ];
 }
 
 export function findSimilarLibraryGames(params: {
@@ -23,9 +25,10 @@ export function findSimilarLibraryGames(params: {
   const similarIdSet = new Set(similarIds);
 
   return libraryGames
-    .filter(candidate =>
-      `${candidate.igdbGameId}::${candidate.platformIgdbId}` !== currentGameKey
-      && similarIdSet.has(String(candidate.igdbGameId).trim()),
+    .filter(
+      (candidate) =>
+        `${candidate.igdbGameId}::${candidate.platformIgdbId}` !== currentGameKey &&
+        similarIdSet.has(String(candidate.igdbGameId).trim())
     )
     .sort((left, right) => compareTitles(left.title, right.title));
 }

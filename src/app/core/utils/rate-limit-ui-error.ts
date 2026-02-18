@@ -58,4 +58,3 @@ function extractRetryAfterSeconds(message: string): number | null {
   const seconds = Number.parseInt(match[1], 10);
   return Number.isInteger(seconds) && seconds > 0 ? seconds : null;
 }
-

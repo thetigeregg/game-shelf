@@ -6,7 +6,7 @@ describe('PlatformOrderService', () => {
     localStorage.clear();
 
     TestBed.configureTestingModule({
-      providers: [PlatformOrderService],
+      providers: [PlatformOrderService]
     });
   });
 
@@ -14,30 +14,22 @@ describe('PlatformOrderService', () => {
     const service = TestBed.inject(PlatformOrderService);
     service.setOrder(['PC (Microsoft Windows)', 'Nintendo Switch']);
 
-    expect(service.sortPlatformNames([
-      'PlayStation 5',
-      'PC (Microsoft Windows)',
-      'Nintendo Switch',
-    ])).toEqual([
-      'Nintendo Switch',
-      'PlayStation 5',
-      'PC (Microsoft Windows)',
-    ]);
+    expect(
+      service.sortPlatformNames(['PlayStation 5', 'PC (Microsoft Windows)', 'Nintendo Switch'])
+    ).toEqual(['Nintendo Switch', 'PlayStation 5', 'PC (Microsoft Windows)']);
   });
 
   it('can sort platform names by custom order when explicitly requested', () => {
     const service = TestBed.inject(PlatformOrderService);
     service.setOrder(['Nintendo Switch', 'PC (Microsoft Windows)']);
 
-    expect(service.sortPlatformNamesByCustomOrder([
-      'PlayStation 5',
-      'PC (Microsoft Windows)',
-      'Nintendo Switch',
-    ])).toEqual([
-      'Nintendo Switch',
-      'PC (Microsoft Windows)',
-      'PlayStation 5',
-    ]);
+    expect(
+      service.sortPlatformNamesByCustomOrder([
+        'PlayStation 5',
+        'PC (Microsoft Windows)',
+        'Nintendo Switch'
+      ])
+    ).toEqual(['Nintendo Switch', 'PC (Microsoft Windows)', 'PlayStation 5']);
   });
 
   it('uses platform catalog sort_order as default order when no custom order exists', () => {
@@ -46,7 +38,7 @@ describe('PlatformOrderService', () => {
     const input = ['DOS', 'Xbox Series X|S', 'Nintendo 64'];
 
     const sorted = service.sortPlatformNames(input);
-    const expected = service.getDefaultOrder().filter(name => input.includes(name));
+    const expected = service.getDefaultOrder().filter((name) => input.includes(name));
 
     expect(sorted).toEqual(expected);
   });
@@ -57,7 +49,7 @@ describe('PlatformOrderService', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [PlatformOrderService],
+      providers: [PlatformOrderService]
     });
 
     const second = TestBed.inject(PlatformOrderService);

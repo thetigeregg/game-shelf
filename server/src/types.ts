@@ -29,4 +29,3 @@ export interface SyncPushResult {
 export interface AppServices {
   pool: Pool;
 }
-

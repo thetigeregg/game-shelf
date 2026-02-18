@@ -1,5 +1,11 @@
 import { inject, Injectable } from '@angular/core';
-import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router } from '@angular/router';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationStart,
+  Router
+} from '@angular/router';
 import { Subscription } from 'rxjs';
 
 export type DebugLogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -43,16 +49,16 @@ export class DebugLogService {
     this.installXhrCapture();
     this.installRouterCapture();
 
-    window.addEventListener('error', event => {
+    window.addEventListener('error', (event) => {
       this.error('window.error', {
         message: event.message,
         source: event.filename,
         line: event.lineno,
-        column: event.colno,
+        column: event.colno
       });
     });
 
-    window.addEventListener('unhandledrejection', event => {
+    window.addEventListener('unhandledrejection', (event) => {
       this.error('window.unhandledrejection', this.normalizeUnknown(event.reason));
     });
 
@@ -97,7 +103,7 @@ export class DebugLogService {
     try {
       localStorage.setItem(
         DebugLogService.VERBOSE_TRACE_STORAGE_KEY,
-        this.verboseTracingEnabled ? '1' : '0',
+        this.verboseTracingEnabled ? '1' : '0'
       );
     } catch {
       // Ignore storage failures.
@@ -114,7 +120,7 @@ export class DebugLogService {
 
     try {
       localStorage.removeItem(DebugLogService.STORAGE_KEY);
-      DebugLogService.LEGACY_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      DebugLogService.LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
     } catch {
       // Ignore storage failures.
     }
@@ -125,9 +131,9 @@ export class DebugLogService {
       `Game Shelf Debug Logs`,
       `Generated: ${new Date().toISOString()}`,
       `Entries: ${this.entries.length}`,
-      '',
+      ''
     ];
-    const lines = this.entries.map(entry => {
+    const lines = this.entries.map((entry) => {
       const base = `[${entry.ts}] [${entry.level.toUpperCase()}] ${entry.message}`;
       return entry.details ? `${base} | ${entry.details}` : base;
     });
@@ -141,7 +147,10 @@ export class DebugLogService {
     const now = Date.now();
     const fingerprint = `${level}|${normalizedMessage}|${details ?? ''}`;
 
-    if (this.lastEntryFingerprint === fingerprint && now - this.lastEntryAtMs <= DebugLogService.DEDUPE_WINDOW_MS) {
+    if (
+      this.lastEntryFingerprint === fingerprint &&
+      now - this.lastEntryAtMs <= DebugLogService.DEDUPE_WINDOW_MS
+    ) {
       this.duplicateCount += 1;
       this.lastEntryAtMs = now;
       return;
@@ -152,7 +161,7 @@ export class DebugLogService {
         ts: new Date(this.lastEntryAtMs).toISOString(),
         level: 'debug',
         message: 'log.duplicates',
-        details: this.safeStringify({ count: this.duplicateCount }),
+        details: this.safeStringify({ count: this.duplicateCount })
       });
       this.duplicateCount = 0;
     }
@@ -161,7 +170,7 @@ export class DebugLogService {
       ts: new Date().toISOString(),
       level,
       message: normalizedMessage,
-      details,
+      details
     });
     this.lastEntryFingerprint = fingerprint;
     this.lastEntryAtMs = now;
@@ -205,8 +214,8 @@ export class DebugLogService {
     try {
       const keys = [DebugLogService.STORAGE_KEY, ...DebugLogService.LEGACY_STORAGE_KEYS];
       const raw = keys
-        .map(key => localStorage.getItem(key))
-        .find(value => typeof value === 'string' && value.length > 0);
+        .map((key) => localStorage.getItem(key))
+        .find((value) => typeof value === 'string' && value.length > 0);
 
       if (!raw) {
         return;
@@ -219,11 +228,15 @@ export class DebugLogService {
       }
 
       const normalized = parsed
-        .map(item => {
+        .map((item) => {
           const ts = typeof item?.ts === 'string' ? item.ts : '';
-          const level = item?.level === 'debug' || item?.level === 'info' || item?.level === 'warn' || item?.level === 'error'
-            ? item.level
-            : null;
+          const level =
+            item?.level === 'debug' ||
+            item?.level === 'info' ||
+            item?.level === 'warn' ||
+            item?.level === 'error'
+              ? item.level
+              : null;
           const message = typeof item?.message === 'string' ? item.message : '';
           const details = typeof item?.details === 'string' ? item.details : undefined;
 
@@ -243,7 +256,8 @@ export class DebugLogService {
 
   private hydrateVerboseTracingPreference(): void {
     try {
-      this.verboseTracingEnabled = localStorage.getItem(DebugLogService.VERBOSE_TRACE_STORAGE_KEY) === '1';
+      this.verboseTracingEnabled =
+        localStorage.getItem(DebugLogService.VERBOSE_TRACE_STORAGE_KEY) === '1';
     } catch {
       this.verboseTracingEnabled = false;
     }
@@ -268,7 +282,7 @@ export class DebugLogService {
       log: console.log.bind(console),
       info: console.info.bind(console),
       warn: console.warn.bind(console),
-      error: console.error.bind(console),
+      error: console.error.bind(console)
     };
     consoleLike.__gsDebugCapture = original;
     consoleLike.__gsDebugCaptureInstalled = true;
@@ -310,7 +324,9 @@ export class DebugLogService {
 
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const requestUrl = this.resolveRequestUrl(input);
-      const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+      const method = (
+        init?.method ?? (input instanceof Request ? input.method : 'GET')
+      ).toUpperCase();
       const startedAt = Date.now();
       this.debug('http.fetch.start', { method, url: requestUrl });
 
@@ -320,7 +336,7 @@ export class DebugLogService {
           method,
           url: requestUrl,
           status: response.status,
-          durationMs: Date.now() - startedAt,
+          durationMs: Date.now() - startedAt
         });
         return response;
       } catch (error: unknown) {
@@ -328,7 +344,7 @@ export class DebugLogService {
           method,
           url: requestUrl,
           durationMs: Date.now() - startedAt,
-          error: this.normalizeUnknown(error),
+          error: this.normalizeUnknown(error)
         });
         throw error;
       }
@@ -358,17 +374,24 @@ export class DebugLogService {
       url: string | URL,
       async?: boolean,
       username?: string | null,
-      password?: string | null,
+      password?: string | null
     ): void {
       this.__gsMethod = String(method ?? 'GET').toUpperCase();
       this.__gsUrl = String(url ?? '');
-      return open.call(this, method, url, async ?? true, username ?? undefined, password ?? undefined);
+      return open.call(
+        this,
+        method,
+        url,
+        async ?? true,
+        username ?? undefined,
+        password ?? undefined
+      );
     };
 
     XMLHttpRequest.prototype.setRequestHeader = function (
       this: XMLHttpRequest,
       name: string,
-      value: string,
+      value: string
     ): void {
       return setRequestHeader.call(this, name, value);
     };
@@ -379,7 +402,7 @@ export class DebugLogService {
         __gsUrl?: string;
         __gsStartedAt?: number;
       },
-      body?: Document | XMLHttpRequestBodyInit | null,
+      body?: Document | XMLHttpRequestBodyInit | null
     ): void {
       const method = this.__gsMethod ?? 'GET';
       const url = this.__gsUrl ?? '';
@@ -392,7 +415,7 @@ export class DebugLogService {
           method,
           url,
           status: this.status,
-          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now()),
+          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now())
         });
       });
 
@@ -400,7 +423,7 @@ export class DebugLogService {
         logger?.error('http.xhr.error', {
           method,
           url,
-          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now()),
+          durationMs: Date.now() - (this.__gsStartedAt ?? Date.now())
         });
       });
 
@@ -416,18 +439,22 @@ export class DebugLogService {
       return;
     }
 
-    this.routeSubscription = this.router.events.subscribe(event => {
+    this.routeSubscription = this.router.events.subscribe((event) => {
       if (event instanceof NavigationStart) {
         this.info('router.navigation_start', { id: event.id, url: event.url });
       } else if (event instanceof NavigationEnd) {
         this.info('router.navigation_end', { id: event.id, url: event.urlAfterRedirects });
       } else if (event instanceof NavigationCancel) {
-        this.warn('router.navigation_cancel', { id: event.id, url: event.url, reason: event.reason });
+        this.warn('router.navigation_cancel', {
+          id: event.id,
+          url: event.url,
+          reason: event.reason
+        });
       } else if (event instanceof NavigationError) {
         this.error('router.navigation_error', {
           id: event.id,
           url: event.url,
-          error: this.normalizeUnknown(event.error),
+          error: this.normalizeUnknown(event.error)
         });
       }
     });
@@ -438,7 +465,7 @@ export class DebugLogService {
       return JSON.stringify({
         name: value.name,
         message: value.message,
-        stack: value.stack,
+        stack: value.stack
       });
     }
 
@@ -492,7 +519,7 @@ export class DebugLogService {
       return {
         name: value.name,
         message: value.message,
-        stack: value.stack,
+        stack: value.stack
       };
     }
 

@@ -4,7 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import Fastify from 'fastify';
-import { normalizeManualTitle, parsePlatformIdFromFolderName, registerManualRoutes, scoreManualTitleMatch } from './manuals.js';
+import {
+  normalizeManualTitle,
+  parsePlatformIdFromFolderName,
+  registerManualRoutes,
+  scoreManualTitleMatch
+} from './manuals.js';
 
 test('parsePlatformIdFromFolderName extracts trailing pid token', () => {
   assert.equal(parsePlatformIdFromFolderName('PlayStation 2__pid-8'), 8);
@@ -33,19 +38,21 @@ test('resolve endpoint auto-matches when score and gap pass thresholds', async (
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: fixture.rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?igdbGameId=100&platformIgdbId=8&title=God%20of%20War%20II',
+    url: '/v1/manuals/resolve?igdbGameId=100&platformIgdbId=8&title=God%20of%20War%20II'
   });
 
   assert.equal(response.statusCode, 200);
   const payload = response.json() as Record<string, any>;
   assert.equal(payload.status, 'matched');
   assert.equal(payload.bestMatch?.source, 'fuzzy');
-  assert.ok(String(payload.bestMatch?.relativePath ?? '').includes('PlayStation 2__pid-8/God of War II.pdf'));
+  assert.ok(
+    String(payload.bestMatch?.relativePath ?? '').includes('PlayStation 2__pid-8/God of War II.pdf')
+  );
 
   await app.close();
   await fs.rm(fixture.rootDir, { recursive: true, force: true });
@@ -60,12 +67,12 @@ test('resolve endpoint returns none for ambiguous title', async () => {
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?platformIgdbId=8&title=Resident',
+    url: '/v1/manuals/resolve?platformIgdbId=8&title=Resident'
   });
 
   assert.equal(response.statusCode, 200);
@@ -83,12 +90,12 @@ test('search endpoint lists and ranks candidates by platform', async () => {
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: fixture.rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8&q=god%20war',
+    url: '/v1/manuals/search?platformIgdbId=8&q=god%20war'
   });
 
   assert.equal(response.statusCode, 200);

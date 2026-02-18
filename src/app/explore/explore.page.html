@@ -20,7 +20,7 @@
       [value]="selectedPopularityTypeId"
       [disabled]="isLoadingTypes || popularityTypes.length === 0"
       (ionChange)="onPopularityTypeChange($any($event).detail.value)"
-      >
+    >
       @for (type of popularityTypes; track trackByPopularityTypeId($index, type)) {
         <ion-select-option [value]="type.id">
           {{ type.name }}
@@ -58,20 +58,28 @@
               [alt]="item.game.title"
               loading="lazy"
               (error)="onImageError($event)"
-              />
+            />
           </div>
           <ion-label>
             <h2>{{ item.game.title }}</h2>
-            <p>{{ getPlatformLabel(item) }}@if (item.game.releaseYear) {
-              <span> • {{ item.game.releaseYear }}</span>
-            }</p>
+            <p>
+              {{ getPlatformLabel(item) }}
+              @if (item.game.releaseYear) {
+                <span> • {{ item.game.releaseYear }}</span>
+              }
+            </p>
           </ion-label>
         </ion-item>
       }
     </ion-list>
   }
 
-  @if (!isLoadingGames && games.length === 0 && selectedPopularityTypeId !== null && errorMessage.length === 0) {
+  @if (
+    !isLoadingGames &&
+    games.length === 0 &&
+    selectedPopularityTypeId !== null &&
+    errorMessage.length === 0
+  ) {
     <ion-item lines="none">
       <ion-text color="medium">No games found for this category.</ion-text>
     </ion-item>
@@ -81,8 +89,11 @@
     threshold="100px"
     [disabled]="selectedPopularityTypeId === null || isLoadingGames || !hasMore"
     (ionInfinite)="loadMore($event)"
-    >
-    <ion-infinite-scroll-content loadingSpinner="crescent" loadingText="Loading more games..."></ion-infinite-scroll-content>
+  >
+    <ion-infinite-scroll-content
+      loadingSpinner="crescent"
+      loadingText="Loading more games..."
+    ></ion-infinite-scroll-content>
   </ion-infinite-scroll>
 </ion-content>
 
@@ -134,16 +145,32 @@
             <ion-icon name="search" aria-hidden="true"></ion-icon>
           </ion-fab-button>
           <ion-fab-list side="start">
-            <ion-fab-button class="shortcut-google" aria-label="Search on Google" (click)="openShortcutSearch('google')">
+            <ion-fab-button
+              class="shortcut-google"
+              aria-label="Search on Google"
+              (click)="openShortcutSearch('google')"
+            >
               <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
             </ion-fab-button>
-            <ion-fab-button class="shortcut-youtube" aria-label="Search on YouTube" (click)="openShortcutSearch('youtube')">
+            <ion-fab-button
+              class="shortcut-youtube"
+              aria-label="Search on YouTube"
+              (click)="openShortcutSearch('youtube')"
+            >
               <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
             </ion-fab-button>
-            <ion-fab-button class="shortcut-wikipedia" aria-label="Search on Wikipedia" (click)="openShortcutSearch('wikipedia')">
+            <ion-fab-button
+              class="shortcut-wikipedia"
+              aria-label="Search on Wikipedia"
+              (click)="openShortcutSearch('wikipedia')"
+            >
               <span class="shortcut-text" aria-hidden="true">W</span>
             </ion-fab-button>
-            <ion-fab-button class="shortcut-gamefaqs" aria-label="Search on GameFAQs" (click)="openShortcutSearch('gamefaqs')">
+            <ion-fab-button
+              class="shortcut-gamefaqs"
+              aria-label="Search on GameFAQs"
+              (click)="openShortcutSearch('gamefaqs')"
+            >
               <span class="shortcut-text" aria-hidden="true">G</span>
             </ion-fab-button>
           </ion-fab-list>

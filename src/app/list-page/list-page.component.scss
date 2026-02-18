@@ -10,7 +10,8 @@ ion-content::part(scroll) {
 
 app-game-list {
   --game-list-bottom-inset: calc(
-    var(--game-shelf-tab-bar-height, 56px) + var(--ion-safe-area-bottom, env(safe-area-inset-bottom))
+    var(--game-shelf-tab-bar-height, 56px) +
+      var(--ion-safe-area-bottom, env(safe-area-inset-bottom))
   );
   flex: 1 1 auto;
   min-height: 0;

@@ -6,22 +6,22 @@ import { DebugLogService } from './core/services/debug-log.service';
 import { GameShelfService } from './core/services/game-shelf.service';
 
 @Component({
-    selector: 'app-root',
-    templateUrl: 'app.component.html',
-    styleUrls: ['app.component.scss'],
-    standalone: true,
-    imports: [IonApp, IonRouterOutlet],
+  selector: 'app-root',
+  templateUrl: 'app.component.html',
+  styleUrls: ['app.component.scss'],
+  standalone: true,
+  imports: [IonApp, IonRouterOutlet]
 })
 export class AppComponent {
-    private readonly themeService = inject(ThemeService);
-    private readonly gameSyncService = inject(GameSyncService);
-    private readonly debugLogService = inject(DebugLogService);
-    private readonly gameShelfService = inject(GameShelfService);
+  private readonly themeService = inject(ThemeService);
+  private readonly gameSyncService = inject(GameSyncService);
+  private readonly debugLogService = inject(DebugLogService);
+  private readonly gameShelfService = inject(GameShelfService);
 
-    constructor() {
-        this.debugLogService.initialize();
-        this.themeService.initialize();
-        this.gameSyncService.initialize();
-        void this.gameShelfService.migratePreferredPlatformCoversToIgdb();
-    }
+  constructor() {
+    this.debugLogService.initialize();
+    this.themeService.initialize();
+    this.gameSyncService.initialize();
+    void this.gameShelfService.migratePreferredPlatformCoversToIgdb();
+  }
 }

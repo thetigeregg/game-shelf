@@ -3,6 +3,6 @@ declare module '*.mjs' {
     request: Request,
     env: Record<string, unknown>,
     fetchImpl: typeof fetch,
-    now: () => number,
+    now: () => number
   ): Promise<Response>;
 }

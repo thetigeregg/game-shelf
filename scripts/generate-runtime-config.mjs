@@ -28,10 +28,11 @@ function parseDotEnv(content) {
       continue;
     }
 
-    const unquoted = (rawValue.startsWith('"') && rawValue.endsWith('"'))
-      || (rawValue.startsWith("'") && rawValue.endsWith("'"))
-      ? rawValue.slice(1, -1)
-      : rawValue;
+    const unquoted =
+      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+      (rawValue.startsWith("'") && rawValue.endsWith("'"))
+        ? rawValue.slice(1, -1)
+        : rawValue;
 
     values[key] = unquoted;
   }

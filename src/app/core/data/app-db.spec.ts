@@ -13,7 +13,14 @@ describe('AppDb', () => {
     const db = new AppDb();
     await db.open();
 
-    expect(db.tables.map(table => table.name).sort()).toEqual(['games', 'imageCache', 'outbox', 'syncMeta', 'tags', 'views']);
+    expect(db.tables.map((table) => table.name).sort()).toEqual([
+      'games',
+      'imageCache',
+      'outbox',
+      'syncMeta',
+      'tags',
+      'views'
+    ]);
 
     await db.close();
   });
@@ -22,7 +29,7 @@ describe('AppDb', () => {
     const legacy = new Dexie(dbName);
     legacy.version(3).stores({
       games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
-      tags: '++id,&name,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt'
     });
     await legacy.open();
     await legacy.table('games').add({
@@ -32,7 +39,7 @@ describe('AppDb', () => {
       platformIgdbId: '',
       platform: '',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
     await legacy.close();
 

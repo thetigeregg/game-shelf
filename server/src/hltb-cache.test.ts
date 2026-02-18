@@ -12,7 +12,7 @@ class HltbPoolMock {
     private readonly options: {
       failReads?: boolean;
       now?: () => number;
-    } = {},
+    } = {}
   ) {}
 
   async query<T>(sql: string, params: unknown[]): Promise<{ rows: T[] }> {
@@ -34,7 +34,7 @@ class HltbPoolMock {
       const nowMs = this.options.now ? this.options.now() : Date.now();
       this.rowsByKey.set(key, {
         response_json: payload,
-        updated_at: new Date(nowMs).toISOString(),
+        updated_at: new Date(nowMs).toISOString()
       });
       return { rows: [] };
     }
@@ -64,14 +64,14 @@ test('HLTB cache stores on miss and serves on hit', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { hltbMainHours: 20 }, candidates: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       });
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii',
+    url: '/v1/hltb/search?q=Okami&releaseYear=2006&platform=Wii'
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
@@ -79,7 +79,7 @@ test('HLTB cache stores on miss and serves on hit', async () => {
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=okami&releaseYear=2006&platform=wii',
+    url: '/v1/hltb/search?q=okami&releaseYear=2006&platform=wii'
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
@@ -107,27 +107,27 @@ test('HLTB cache serves stale and revalidates in background', async () => {
       return new Response(
         JSON.stringify({
           item: {
-            hltbMainHours: fetchCalls === 1 ? 10 : 11,
+            hltbMainHours: fetchCalls === 1 ? 10 : 11
           },
-          candidates: [],
+          candidates: []
         }),
         {
           status: 200,
-          headers: { 'content-type': 'application/json' },
-        },
+          headers: { 'content-type': 'application/json' }
+        }
       );
     },
     now: () => nowMs,
     freshTtlSeconds: 10,
     staleTtlSeconds: 100,
-    scheduleBackgroundRefresh: task => {
+    scheduleBackgroundRefresh: (task) => {
       pendingRefreshTask = task;
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
+    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1'
   });
   assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
   assert.equal(fetchCalls, 1);
@@ -136,7 +136,7 @@ test('HLTB cache serves stale and revalidates in background', async () => {
 
   const stale = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
+    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1'
   });
   assert.equal(stale.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
   assert.equal(stale.headers['x-gameshelf-hltb-revalidate'], 'scheduled');
@@ -153,7 +153,7 @@ test('HLTB cache serves stale and revalidates in background', async () => {
 
   const freshAfterRefresh = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1',
+    url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1'
   });
   assert.equal(freshAfterRefresh.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
   const payload = freshAfterRefresh.json() as { item: { hltbMainHours: number } };
@@ -178,14 +178,14 @@ test('HLTB cache is fail-open when cache read throws', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       });
-    },
+    }
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=Super%20Metroid&releaseYear=1994&platform=SNES',
+    url: '/v1/hltb/search?q=Super%20Metroid&releaseYear=1994&platform=SNES'
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-hltb-cache'], 'BYPASS');
@@ -210,14 +210,14 @@ test('HLTB null item responses are not cached', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       });
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203',
+    url: '/v1/hltb/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203'
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
@@ -225,7 +225,7 @@ test('HLTB null item responses are not cached', async () => {
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/hltb/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203',
+    url: '/v1/hltb/search?q=Afro%20Samurai&releaseYear=2009&platform=PlayStation%203'
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-hltb-cache'], 'MISS');

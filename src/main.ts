@@ -1,4 +1,9 @@
-import { RouteReuseStrategy, provideRouter, withPreloading, PreloadAllModules } from '@angular/router';
+import {
+  RouteReuseStrategy,
+  provideRouter,
+  withPreloading,
+  PreloadAllModules
+} from '@angular/router';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalone';
@@ -25,7 +30,7 @@ bootstrapApplication(AppComponent, {
     provideHttpClient(withInterceptorsFromDi()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
-      registrationStrategy: 'registerWhenStable:30000',
-    }),
-  ],
-}).catch(err => console.error(err));
+      registrationStrategy: 'registerWhenStable:30000'
+    })
+  ]
+}).catch((err) => console.error(err));

@@ -38,7 +38,9 @@ function parseBoolean(value: unknown): boolean | null {
 
 export function isMgcImportFeatureEnabled(): boolean {
   if (typeof window !== 'undefined') {
-    const runtimeValue = parseBoolean(window.__GAME_SHELF_RUNTIME_CONFIG__?.featureFlags?.showMgcImport);
+    const runtimeValue = parseBoolean(
+      window.__GAME_SHELF_RUNTIME_CONFIG__?.featureFlags?.showMgcImport
+    );
 
     if (runtimeValue !== null) {
       return runtimeValue;

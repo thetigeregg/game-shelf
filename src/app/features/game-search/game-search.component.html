@@ -5,7 +5,7 @@
     interface="popover"
     [value]="selectedSearchPlatformIgdbId === null ? '' : selectedSearchPlatformIgdbId"
     (ionChange)="onSearchPlatformChange($any($event).detail.value)"
-    >
+  >
     <ion-select-option value="">All platforms</ion-select-option>
     @for (platform of searchPlatforms; track platform) {
       <ion-select-option [value]="platform.id">
@@ -49,7 +49,11 @@
     @for (result of results; track trackByExternalId($index, result)) {
       <ion-item>
         <div slot="start" class="game-art">
-          <img [src]="result.coverUrl || 'assets/icon/placeholder.png'" [alt]="result.title" (error)="onImageError($event)" />
+          <img
+            [src]="result.coverUrl || 'assets/icon/placeholder.png'"
+            [alt]="result.title"
+            (error)="onImageError($event)"
+          />
         </div>
         <ion-label>
           <h2>{{ result.title }}</h2>
@@ -64,7 +68,7 @@
           size="small"
           [disabled]="isAdding(result.igdbGameId)"
           (click)="addGame(result)"
-          >
+        >
           {{ getActionLabel(result.igdbGameId) }}
         </ion-button>
       </ion-item>

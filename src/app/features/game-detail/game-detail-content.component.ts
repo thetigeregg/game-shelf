@@ -1,7 +1,19 @@
-
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
-import { IonBadge, IonButton, IonItem, IonLabel, IonList, IonSelect, IonSelectOption } from '@ionic/angular/standalone';
-import { GameCatalogResult, GameEntry, GameRating, GameStatus } from '../../core/models/game.models';
+import {
+  IonBadge,
+  IonButton,
+  IonItem,
+  IonLabel,
+  IonList,
+  IonSelect,
+  IonSelectOption
+} from '@ionic/angular/standalone';
+import {
+  GameCatalogResult,
+  GameEntry,
+  GameRating,
+  GameStatus
+} from '../../core/models/game.models';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 
 type DetailContext = 'library' | 'explore';
@@ -12,15 +24,7 @@ type DetailGame = GameCatalogResult | GameEntry;
   templateUrl: './game-detail-content.component.html',
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
-  imports: [
-    IonList,
-    IonItem,
-    IonLabel,
-    IonBadge,
-    IonButton,
-    IonSelect,
-    IonSelectOption
-],
+  imports: [IonList, IonItem, IonLabel, IonBadge, IonButton, IonSelect, IonSelectOption]
 })
 export class GameDetailContentComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
@@ -45,7 +49,7 @@ export class GameDetailContentComponent {
 
   detailTextExpanded = {
     summary: false,
-    storyline: false,
+    storyline: false
   };
 
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
@@ -56,28 +60,39 @@ export class GameDetailContentComponent {
 
   get platformLabel(): string {
     const gameEntryLike = this.game as Partial<GameEntry>;
-    const customPlatform = typeof gameEntryLike.customPlatform === 'string' ? gameEntryLike.customPlatform.trim() : '';
-    const customPlatformId = Number.isInteger(gameEntryLike.customPlatformIgdbId) && (gameEntryLike.customPlatformIgdbId as number) > 0
-      ? gameEntryLike.customPlatformIgdbId as number
-      : null;
-    const primaryPlatform = customPlatform.length > 0
-      ? customPlatform
-      : (typeof this.game.platform === 'string' ? this.game.platform.trim() : '');
-    const primaryPlatformId = customPlatform.length > 0 && customPlatformId !== null
-      ? customPlatformId
-      : (Number.isInteger(this.game.platformIgdbId) && (this.game.platformIgdbId as number) > 0
-        ? this.game.platformIgdbId as number
-        : null);
+    const customPlatform =
+      typeof gameEntryLike.customPlatform === 'string' ? gameEntryLike.customPlatform.trim() : '';
+    const customPlatformId =
+      Number.isInteger(gameEntryLike.customPlatformIgdbId) &&
+      (gameEntryLike.customPlatformIgdbId as number) > 0
+        ? (gameEntryLike.customPlatformIgdbId as number)
+        : null;
+    const primaryPlatform =
+      customPlatform.length > 0
+        ? customPlatform
+        : typeof this.game.platform === 'string'
+          ? this.game.platform.trim()
+          : '';
+    const primaryPlatformId =
+      customPlatform.length > 0 && customPlatformId !== null
+        ? customPlatformId
+        : Number.isInteger(this.game.platformIgdbId) && (this.game.platformIgdbId as number) > 0
+          ? (this.game.platformIgdbId as number)
+          : null;
     const gameCatalogLike = this.game as Partial<GameCatalogResult>;
 
     if (primaryPlatform.length > 0) {
       return this.getAliasedPlatformLabel(primaryPlatform, primaryPlatformId);
     }
 
-    if (Array.isArray(gameCatalogLike.platformOptions) && gameCatalogLike.platformOptions.length > 0) {
+    if (
+      Array.isArray(gameCatalogLike.platformOptions) &&
+      gameCatalogLike.platformOptions.length > 0
+    ) {
       const first = gameCatalogLike.platformOptions[0];
       const name = typeof first?.name === 'string' ? first.name.trim() : '';
-      const id = Number.isInteger(first?.id) && (first.id as number) > 0 ? first.id as number : null;
+      const id =
+        Number.isInteger(first?.id) && (first.id as number) > 0 ? (first.id as number) : null;
 
       if (name.length > 0) {
         return this.getAliasedPlatformLabel(name, id);
@@ -85,7 +100,8 @@ export class GameDetailContentComponent {
     }
 
     if (Array.isArray(gameCatalogLike.platforms) && gameCatalogLike.platforms.length > 0) {
-      const name = typeof gameCatalogLike.platforms[0] === 'string' ? gameCatalogLike.platforms[0].trim() : '';
+      const name =
+        typeof gameCatalogLike.platforms[0] === 'string' ? gameCatalogLike.platforms[0].trim() : '';
 
       if (name.length > 0) {
         return this.getAliasedPlatformLabel(name, null);
@@ -120,8 +136,8 @@ export class GameDetailContentComponent {
 
     return gameType
       .split('_')
-      .filter(part => part.length > 0)
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .filter((part) => part.length > 0)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
   }
 
@@ -155,11 +171,14 @@ export class GameDetailContentComponent {
     }
 
     return tags
-      .map(tag => ({
+      .map((tag) => ({
         name: typeof tag?.name === 'string' ? tag.name.trim() : '',
-        color: typeof tag?.color === 'string' && tag.color.trim().length > 0 ? tag.color.trim() : '#808080',
+        color:
+          typeof tag?.color === 'string' && tag.color.trim().length > 0
+            ? tag.color.trim()
+            : '#808080'
       }))
-      .filter(tag => tag.name.length > 0);
+      .filter((tag) => tag.name.length > 0);
   }
 
   get hltbMainLabel(): string {
@@ -201,7 +220,7 @@ export class GameDetailContentComponent {
     return new Date(timestamp).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
+      day: 'numeric'
     });
   }
 
@@ -210,17 +229,17 @@ export class GameDetailContentComponent {
       return 'None';
     }
 
-    const normalized = [...new Set(
-      values
-        .map(value => String(value ?? '').trim())
-        .filter(value => value.length > 0)
-    )];
+    const normalized = [
+      ...new Set(
+        values.map((value) => String(value ?? '').trim()).filter((value) => value.length > 0)
+      )
+    ];
 
     return normalized.length > 0 ? normalized.join(', ') : 'None';
   }
 
   hasMetadataValue(values: string[] | null | undefined): boolean {
-    return Array.isArray(values) && values.some(value => String(value ?? '').trim().length > 0);
+    return Array.isArray(values) && values.some((value) => String(value ?? '').trim().length > 0);
   }
 
   getTagTextColor(backgroundColor: string | null | undefined): string {
@@ -233,7 +252,7 @@ export class GameDetailContentComponent {
     const red = Number.parseInt(normalized.slice(1, 3), 16);
     const green = Number.parseInt(normalized.slice(3, 5), 16);
     const blue = Number.parseInt(normalized.slice(5, 7), 16);
-    const luminance = (0.299 * red) + (0.587 * green) + (0.114 * blue);
+    const luminance = 0.299 * red + 0.587 * green + 0.114 * blue;
 
     return luminance > 150 ? '#111111' : '#ffffff';
   }
@@ -326,7 +345,9 @@ export class GameDetailContentComponent {
 
   private getAliasedPlatformLabel(name: string, platformIgdbId: number | null): string {
     if (name.trim().length > 0) {
-      const aliased = this.platformCustomizationService.getDisplayNameWithAliasSource(name, platformIgdbId).trim();
+      const aliased = this.platformCustomizationService
+        .getDisplayNameWithAliasSource(name, platformIgdbId)
+        .trim();
 
       if (aliased.length > 0) {
         return aliased;
@@ -361,7 +382,8 @@ export class GameDetailContentComponent {
 
   get displayTitle(): string {
     const gameEntryLike = this.game as Partial<GameEntry>;
-    const customTitle = typeof gameEntryLike.customTitle === 'string' ? gameEntryLike.customTitle.trim() : '';
+    const customTitle =
+      typeof gameEntryLike.customTitle === 'string' ? gameEntryLike.customTitle.trim() : '';
 
     if (customTitle.length > 0) {
       return customTitle;

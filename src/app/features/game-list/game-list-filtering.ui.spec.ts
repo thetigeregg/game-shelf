@@ -418,7 +418,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
-  it('does not apply aliased source custom name to canonical destination grouping', () => {
+  it('keeps aliased source custom names from splitting canonical destination grouping', () => {
     engine.setPlatformDisplayNames({
       '510': 'e-Reader'
     });
@@ -438,12 +438,10 @@ describe('GameListFilteringEngine UI behavior', () => {
       })
     ];
 
-    expect(engine.extractPlatforms(games).sort()).toEqual(['Game Boy Advance', 'e-Reader'].sort());
+    expect(engine.extractPlatforms(games)).toEqual(['Game Boy Advance']);
 
     const grouped = engine.buildGroupedView(games, 'platform');
-    expect(grouped.sections.map((section) => section.title).sort()).toEqual(
-      ['Game Boy Advance', 'e-Reader'].sort()
-    );
+    expect(grouped.sections.map((section) => section.title)).toEqual(['Game Boy Advance']);
   });
 
   it('filters by metadata fields, status, rating, and game type', () => {

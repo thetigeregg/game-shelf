@@ -244,6 +244,7 @@ export class GameListComponent implements OnChanges {
     rowActionsPopoverEvent: Event | undefined = undefined;
     rowActionsGame: GameEntry | null = null;
     expandedSectionKeys: string[] = [];
+    private readonly renderedSectionKeys = new Set<string>();
     selectedGameKeys = new Set<string>();
     private readonly rowCoverUrlByGameKey = new Map<string, string>();
     private readonly detailCoverUrlByGameKey = new Map<string, string>();
@@ -901,16 +902,25 @@ export class GameListComponent implements OnChanges {
                 .filter(value => typeof value === 'string')
                 .map(value => value.trim())
                 .filter(value => value.length > 0);
+            this.markExpandedSectionsAsRendered(this.expandedSectionKeys);
+            this.changeDetectorRef.markForCheck();
             return;
         }
 
         if (typeof rawValue === 'string' && rawValue.trim().length > 0) {
             this.expandedSectionKeys = [rawValue.trim()];
+            this.markExpandedSectionsAsRendered(this.expandedSectionKeys);
+            this.changeDetectorRef.markForCheck();
             return;
         }
 
         this.expandedSectionKeys = [];
         this.changeDetectorRef.markForCheck();
+    }
+
+    isSectionRendered(sectionKey: string): boolean {
+        const normalized = String(sectionKey ?? '').trim();
+        return normalized.length > 0 && this.renderedSectionKeys.has(normalized);
     }
 
     onImageError(event: Event, game?: GameEntry): void {
@@ -2007,18 +2017,49 @@ export class GameListComponent implements OnChanges {
     private syncExpandedSectionKeys(sections: GameGroupSection[]): void {
         const validSectionKeys = new Set(sections.map(section => section.key));
         const nextExpandedKeys = this.expandedSectionKeys.filter(sectionKey => validSectionKeys.has(sectionKey));
+        let removedRenderedKey = false;
+
+        for (const renderedKey of this.renderedSectionKeys) {
+            if (!validSectionKeys.has(renderedKey)) {
+                this.renderedSectionKeys.delete(renderedKey);
+                removedRenderedKey = true;
+            }
+        }
 
         if (nextExpandedKeys.length !== this.expandedSectionKeys.length) {
             this.expandedSectionKeys = nextExpandedKeys;
+            this.markExpandedSectionsAsRendered(nextExpandedKeys);
+            if (removedRenderedKey) {
+                this.changeDetectorRef.markForCheck();
+            }
             return;
         }
 
         for (let index = 0; index < nextExpandedKeys.length; index += 1) {
             if (nextExpandedKeys[index] !== this.expandedSectionKeys[index]) {
                 this.expandedSectionKeys = nextExpandedKeys;
+                this.markExpandedSectionsAsRendered(nextExpandedKeys);
+                if (removedRenderedKey) {
+                    this.changeDetectorRef.markForCheck();
+                }
                 return;
             }
         }
+
+        this.markExpandedSectionsAsRendered(nextExpandedKeys);
+        if (removedRenderedKey) {
+            this.changeDetectorRef.markForCheck();
+        }
+    }
+
+    private markExpandedSectionsAsRendered(sectionKeys: readonly string[]): void {
+        sectionKeys.forEach(sectionKey => {
+            const normalized = String(sectionKey ?? '').trim();
+
+            if (normalized.length > 0) {
+                this.renderedSectionKeys.add(normalized);
+            }
+        });
     }
 
     private openExternalUrl(url: string): void {

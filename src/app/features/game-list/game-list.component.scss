@@ -206,6 +206,11 @@ ion-item h2 {
   font-weight: 600;
 }
 
+.group-section-content {
+  content-visibility: auto;
+  contain-intrinsic-size: 320px;
+}
+
 ion-item p {
   margin-top: 4px;
   color: var(--ion-color-medium);

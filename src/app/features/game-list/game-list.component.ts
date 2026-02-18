@@ -295,7 +295,7 @@ export class GameListComponent implements OnChanges {
             this.games$ = combineLatest([allGames$, this.filters$, this.searchQuery$]).pipe(
                 map(([games, filters, searchQuery]) => this.applyFiltersAndSort(games, filters, searchQuery)),
                 tap(games => {
-                    this.displayedGames = [...games];
+                    this.displayedGames = games;
                     this.syncSelectionWithDisplayedGames();
                     this.displayedGamesChange.emit(games);
                     this.emitSelectionState();

@@ -418,7 +418,7 @@ export class ListPageComponent {
   }
 
   onDisplayedGamesChange(games: GameEntry[]): void {
-    this.displayedGames = [...games];
+    this.displayedGames = games;
   }
 
   onSelectionStateChange(state: GameListSelectionState): void {

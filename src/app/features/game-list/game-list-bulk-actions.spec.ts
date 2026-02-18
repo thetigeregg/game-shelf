@@ -16,7 +16,7 @@ function createGame(id: number): GameEntry {
     releaseYear: null,
     listType: 'collection',
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   };
 }
 
@@ -24,11 +24,11 @@ function createLoadingControllerStub(): LoadingController {
   const loading = {
     message: '',
     present: vi.fn(async () => undefined),
-    dismiss: vi.fn(async () => undefined),
+    dismiss: vi.fn(async () => undefined)
   };
 
   return {
-    create: vi.fn(async () => loading),
+    create: vi.fn(async () => loading)
   } as unknown as LoadingController;
 }
 
@@ -53,15 +53,15 @@ describe('runBulkActionWithRetry', () => {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
         interItemDelayMs: 0,
-        itemTimeoutMs: 25,
+        itemTimeoutMs: 25
       },
       retryConfig: {
         maxAttempts: 1,
         retryBaseDelayMs: 10,
-        rateLimitFallbackCooldownMs: 100,
+        rateLimitFallbackCooldownMs: 100
       },
       action,
-      delay: async () => undefined,
+      delay: async () => undefined
     });
 
     await vi.advanceTimersByTimeAsync(60);
@@ -69,7 +69,7 @@ describe('runBulkActionWithRetry', () => {
     vi.useRealTimers();
 
     expect(action).toHaveBeenCalledTimes(3);
-    expect(results.map(result => result.ok)).toEqual([false, true, true]);
+    expect(results.map((result) => result.ok)).toEqual([false, true, true]);
     expect(results[0].errorReason).toBe('transient');
     expect(results[1].value?.igdbGameId).toBe('2');
     expect(results[2].value?.igdbGameId).toBe('3');
@@ -93,15 +93,15 @@ describe('runBulkActionWithRetry', () => {
       options: {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
-        interItemDelayMs: 0,
+        interItemDelayMs: 0
       },
       retryConfig: {
         maxAttempts: 3,
         retryBaseDelayMs: 250,
-        rateLimitFallbackCooldownMs: 1000,
+        rateLimitFallbackCooldownMs: 1000
       },
       action,
-      delay,
+      delay
     });
 
     expect(action).toHaveBeenCalledTimes(2);
@@ -124,15 +124,15 @@ describe('runBulkActionWithRetry', () => {
       options: {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
-        interItemDelayMs: 0,
+        interItemDelayMs: 0
       },
       retryConfig: {
         maxAttempts: 2,
         retryBaseDelayMs: 250,
-        rateLimitFallbackCooldownMs: 10000,
+        rateLimitFallbackCooldownMs: 10000
       },
       action,
-      delay,
+      delay
     });
 
     expect(action).toHaveBeenCalledTimes(2);
@@ -155,15 +155,15 @@ describe('runBulkActionWithRetry', () => {
       options: {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
-        interItemDelayMs: 0,
+        interItemDelayMs: 0
       },
       retryConfig: {
         maxAttempts: 3,
         retryBaseDelayMs: 250,
-        rateLimitFallbackCooldownMs: 1000,
+        rateLimitFallbackCooldownMs: 1000
       },
       action,
-      delay,
+      delay
     });
 
     expect(action).toHaveBeenCalledTimes(1);

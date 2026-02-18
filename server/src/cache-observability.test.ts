@@ -33,7 +33,7 @@ test('Cache stats endpoint returns counters and db counts', async () => {
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/cache/stats',
+    url: '/v1/cache/stats'
   });
 
   assert.equal(response.statusCode, 200);

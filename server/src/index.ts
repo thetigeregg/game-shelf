@@ -11,19 +11,14 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
 import { registerSyncRoutes } from './sync.js';
-const serverRootDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-);
+const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
-  const imageCacheDir = await resolveWritableImageCacheDir(
-    config.imageCacheDir,
-  );
+  const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);
   console.info('[server] image_cache_dir_ready', {
     configured: config.imageCacheDir,
-    active: imageCacheDir,
+    active: imageCacheDir
   });
 
   const app = Fastify({
@@ -34,15 +29,15 @@ async function main(): Promise<void> {
         options: {
           colorize: true,
           translateTime: 'SYS:standard',
-          ignore: 'pid,hostname',
-        },
-      },
-    },
+          ignore: 'pid,hostname'
+        }
+      }
+    }
   });
 
   await app.register(cors, {
     origin: config.corsOrigin === '*' ? true : config.corsOrigin,
-    credentials: true,
+    credentials: true
   });
 
   app.get('/v1/health', async (_request, reply) => {
@@ -51,12 +46,12 @@ async function main(): Promise<void> {
       reply.send({
         ok: true,
         service: 'game-shelf-server',
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString()
       });
     } catch (error) {
       reply.code(503).send({
         ok: false,
-        error: 'Database unavailable',
+        error: 'Database unavailable'
       });
     }
   });
@@ -66,7 +61,7 @@ async function main(): Promise<void> {
   registerCacheObservabilityRoutes(app, pool);
   registerManualRoutes(app, {
     manualsDir: config.manualsDir,
-    manualsPublicBaseUrl: config.manualsPublicBaseUrl,
+    manualsPublicBaseUrl: config.manualsPublicBaseUrl
   });
 
   app.get('/v1/games/search', proxyMetadataToWorker);
@@ -78,13 +73,13 @@ async function main(): Promise<void> {
   registerHltbCachedRoute(app, pool, {
     enableStaleWhileRevalidate: config.hltbCacheEnableStaleWhileRevalidate,
     freshTtlSeconds: config.hltbCacheFreshTtlSeconds,
-    staleTtlSeconds: config.hltbCacheStaleTtlSeconds,
+    staleTtlSeconds: config.hltbCacheStaleTtlSeconds
   });
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({
       error: 'Not found',
-      path: request.url,
+      path: request.url
     });
   });
 
@@ -94,7 +89,7 @@ async function main(): Promise<void> {
 
   await app.listen({
     host: config.host,
-    port: config.port,
+    port: config.port
   });
 }
 
@@ -103,9 +98,7 @@ main().catch((error) => {
   process.exitCode = 1;
 });
 
-async function resolveWritableImageCacheDir(
-  preferredDir: string,
-): Promise<string> {
+async function resolveWritableImageCacheDir(preferredDir: string): Promise<string> {
   try {
     await fs.mkdir(preferredDir, { recursive: true });
     return preferredDir;
@@ -115,7 +108,7 @@ async function resolveWritableImageCacheDir(
     console.warn('[server] image_cache_dir_fallback', {
       preferredDir,
       fallback,
-      reason: error instanceof Error ? error.message : String(error),
+      reason: error instanceof Error ? error.message : String(error)
     });
     return fallback;
   }

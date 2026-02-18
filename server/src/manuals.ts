@@ -68,11 +68,16 @@ export function normalizeManualTitle(title: string): string {
   const strippedDiacritics = String(title ?? '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '');
-  const withoutParentheticalNoise = strippedDiacritics.replace(/\(([^)]*)\)/g, (_match, group: string) => {
-    const normalizedGroup = String(group ?? '').toLowerCase();
-    const isNoise = /(usa|eur|jpn|jp|us|eu|rev|revision|manual|instruction|scan|v\d+)/.test(normalizedGroup);
-    return isNoise ? ' ' : ` ${normalizedGroup} `;
-  });
+  const withoutParentheticalNoise = strippedDiacritics.replace(
+    /\(([^)]*)\)/g,
+    (_match, group: string) => {
+      const normalizedGroup = String(group ?? '').toLowerCase();
+      const isNoise = /(usa|eur|jpn|jp|us|eu|rev|revision|manual|instruction|scan|v\d+)/.test(
+        normalizedGroup
+      );
+      return isNoise ? ' ' : ` ${normalizedGroup} `;
+    }
+  );
 
   return withoutParentheticalNoise
     .toLowerCase()
@@ -93,8 +98,11 @@ export function scoreManualTitleMatch(queryTitle: string, candidateTitle: string
   const queryTokens = normalizedQuery.split(' ').filter(Boolean);
   const candidateTokens = normalizedCandidate.split(' ').filter(Boolean);
   const tokenScore = calculateTokenJaccard(queryTokens, candidateTokens);
-  const trigramScore = calculateTrigramDice(buildTrigrams(normalizedQuery), buildTrigrams(normalizedCandidate));
-  let score = (tokenScore * 0.6) + (trigramScore * 0.4);
+  const trigramScore = calculateTrigramDice(
+    buildTrigrams(normalizedQuery),
+    buildTrigrams(normalizedCandidate)
+  );
+  let score = tokenScore * 0.6 + trigramScore * 0.4;
 
   if (normalizedQuery === normalizedCandidate) {
     score += 0.08;
@@ -112,8 +120,13 @@ export function scoreManualTitleMatch(queryTitle: string, candidateTitle: string
   return Number(Math.min(1, score).toFixed(4));
 }
 
-export function registerManualRoutes(app: FastifyInstance, options: RegisterManualRoutesOptions): void {
-  const normalizedManualsPublicBaseUrl = normalizeManualsPublicBaseUrl(options.manualsPublicBaseUrl);
+export function registerManualRoutes(
+  app: FastifyInstance,
+  options: RegisterManualRoutesOptions
+): void {
+  const normalizedManualsPublicBaseUrl = normalizeManualsPublicBaseUrl(
+    options.manualsPublicBaseUrl
+  );
   let cachedCatalog: ManualCatalog | null = null;
   let cacheExpiresAt = 0;
 
@@ -135,12 +148,14 @@ export function registerManualRoutes(app: FastifyInstance, options: RegisterManu
         status: 'none',
         candidates: [],
         unavailable: true,
-        reason: catalog.reason ?? 'Manual catalog unavailable.',
+        reason: catalog.reason ?? 'Manual catalog unavailable.'
       });
       return;
     }
 
-    const platformEntries = catalog.entries.filter(entry => entry.platformIgdbId === platformIgdbId);
+    const platformEntries = catalog.entries.filter(
+      (entry) => entry.platformIgdbId === platformIgdbId
+    );
 
     if (platformEntries.length === 0) {
       reply.send({ status: 'none', candidates: [] });
@@ -148,16 +163,18 @@ export function registerManualRoutes(app: FastifyInstance, options: RegisterManu
     }
 
     if (preferredRelativePath) {
-      const preferred = platformEntries.find(entry => entry.relativePath === preferredRelativePath);
+      const preferred = platformEntries.find(
+        (entry) => entry.relativePath === preferredRelativePath
+      );
 
       if (preferred) {
         reply.send({
           status: 'matched',
           bestMatch: {
             ...toCandidateResponse(preferred, normalizedManualsPublicBaseUrl, 1),
-            source: 'override',
+            source: 'override'
           },
-          candidates: [],
+          candidates: []
         });
         return;
       }
@@ -169,7 +186,9 @@ export function registerManualRoutes(app: FastifyInstance, options: RegisterManu
     }
 
     const scored = rankEntriesByTitle(title, platformEntries);
-    const candidates = scored.slice(0, MAX_CANDIDATES).map(item => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
+    const candidates = scored
+      .slice(0, MAX_CANDIDATES)
+      .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
     const top = scored[0];
     const runnerUp = scored[1];
     const scoreGap = top ? top.score - (runnerUp?.score ?? 0) : 0;
@@ -179,16 +198,16 @@ export function registerManualRoutes(app: FastifyInstance, options: RegisterManu
         status: 'matched',
         bestMatch: {
           ...toCandidateResponse(top.entry, normalizedManualsPublicBaseUrl, top.score),
-          source: 'fuzzy',
+          source: 'fuzzy'
         },
-        candidates,
+        candidates
       });
       return;
     }
 
     reply.send({
       status: 'none',
-      candidates,
+      candidates
     });
   });
 
@@ -208,25 +227,29 @@ export function registerManualRoutes(app: FastifyInstance, options: RegisterManu
       reply.send({
         items: [],
         unavailable: true,
-        reason: catalog.reason ?? 'Manual catalog unavailable.',
+        reason: catalog.reason ?? 'Manual catalog unavailable.'
       });
       return;
     }
 
-    const platformEntries = catalog.entries.filter(entry => entry.platformIgdbId === platformIgdbId);
+    const platformEntries = catalog.entries.filter(
+      (entry) => entry.platformIgdbId === platformIgdbId
+    );
 
     if (searchQuery.length === 0) {
       const items = [...platformEntries]
-        .sort((left, right) => left.fileName.localeCompare(right.fileName, undefined, { sensitivity: 'base' }))
+        .sort((left, right) =>
+          left.fileName.localeCompare(right.fileName, undefined, { sensitivity: 'base' })
+        )
         .slice(0, MAX_SEARCH_RESULTS)
-        .map(entry => toCandidateResponse(entry, normalizedManualsPublicBaseUrl, 0));
+        .map((entry) => toCandidateResponse(entry, normalizedManualsPublicBaseUrl, 0));
       reply.send({ items });
       return;
     }
 
     const items = rankEntriesByTitle(searchQuery, platformEntries)
       .slice(0, MAX_SEARCH_RESULTS)
-      .map(item => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
+      .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
     reply.send({ items });
   });
 
@@ -240,7 +263,7 @@ export function registerManualRoutes(app: FastifyInstance, options: RegisterManu
       unavailable: catalog.unavailable,
       reason: catalog.reason,
       count: catalog.entries.length,
-      refreshedAt: new Date().toISOString(),
+      refreshedAt: new Date().toISOString()
     });
   });
 
@@ -265,7 +288,8 @@ async function scanManualsDirectory(manualsDir: string): Promise<ManualCatalog> 
     return {
       entries: [],
       unavailable: true,
-      reason: error instanceof Error ? error.message : `Unable to access manuals directory: ${manualsDir}`,
+      reason:
+        error instanceof Error ? error.message : `Unable to access manuals directory: ${manualsDir}`
     };
   }
 
@@ -273,9 +297,11 @@ async function scanManualsDirectory(manualsDir: string): Promise<ManualCatalog> 
   await walkManuals(manualsDir, '', null, entries);
 
   return {
-    entries: entries.sort((left, right) => left.relativePath.localeCompare(right.relativePath, undefined, { sensitivity: 'base' })),
+    entries: entries.sort((left, right) =>
+      left.relativePath.localeCompare(right.relativePath, undefined, { sensitivity: 'base' })
+    ),
     unavailable: false,
-    reason: null,
+    reason: null
   };
 }
 
@@ -283,7 +309,7 @@ async function walkManuals(
   baseDir: string,
   relativeDir: string,
   activePlatformId: number | null,
-  output: ManualCatalogEntry[],
+  output: ManualCatalogEntry[]
 ): Promise<void> {
   const absoluteDir = relativeDir ? path.join(baseDir, relativeDir) : baseDir;
   const children = await fs.readdir(absoluteDir, { withFileTypes: true });
@@ -321,12 +347,15 @@ async function walkManuals(
       relativePath: normalizedRelativePath,
       normalizedTitle,
       tokens: normalizedTitle.split(' ').filter(Boolean),
-      trigrams: buildTrigrams(normalizedTitle),
+      trigrams: buildTrigrams(normalizedTitle)
     });
   }
 }
 
-function rankEntriesByTitle(title: string, entries: ManualCatalogEntry[]): Array<{ entry: ManualCatalogEntry; score: number }> {
+function rankEntriesByTitle(
+  title: string,
+  entries: ManualCatalogEntry[]
+): Array<{ entry: ManualCatalogEntry; score: number }> {
   const normalizedTitle = normalizeManualTitle(title);
   if (!normalizedTitle) {
     return [];
@@ -336,8 +365,10 @@ function rankEntriesByTitle(title: string, entries: ManualCatalogEntry[]): Array
   const titleTrigrams = buildTrigrams(normalizedTitle);
 
   return entries
-    .map(entry => {
-      let score = (calculateTokenJaccard(titleTokens, entry.tokens) * 0.6) + (calculateTrigramDice(titleTrigrams, entry.trigrams) * 0.4);
+    .map((entry) => {
+      let score =
+        calculateTokenJaccard(titleTokens, entry.tokens) * 0.6 +
+        calculateTrigramDice(titleTrigrams, entry.trigrams) * 0.4;
 
       if (normalizedTitle === entry.normalizedTitle) {
         score += 0.08;
@@ -351,13 +382,15 @@ function rankEntriesByTitle(title: string, entries: ManualCatalogEntry[]): Array
       const normalizedScore = Number(Math.min(1, Math.max(0, score)).toFixed(4));
       return { entry, score: normalizedScore };
     })
-    .filter(item => item.score > 0)
+    .filter((item) => item.score > 0)
     .sort((left, right) => {
       if (left.score !== right.score) {
         return right.score - left.score;
       }
 
-      return left.entry.fileName.localeCompare(right.entry.fileName, undefined, { sensitivity: 'base' });
+      return left.entry.fileName.localeCompare(right.entry.fileName, undefined, {
+        sensitivity: 'base'
+      });
     });
 }
 
@@ -372,7 +405,7 @@ function calculateTokenJaccard(leftTokens: string[], rightTokens: string[]): num
   const union = new Set([...left, ...right]);
   let intersectionCount = 0;
 
-  left.forEach(token => {
+  left.forEach((token) => {
     if (right.has(token)) {
       intersectionCount += 1;
     }
@@ -391,7 +424,7 @@ function calculateTrigramDice(left: Set<string>, right: Set<string>): number {
   }
 
   let overlap = 0;
-  left.forEach(item => {
+  left.forEach((item) => {
     if (right.has(item)) {
       overlap += 1;
     }
@@ -428,10 +461,10 @@ function normalizeManualRelativePath(value: unknown): string {
   const withForwardSlashes = value.replace(/\\/g, '/');
   const parts = withForwardSlashes
     .split('/')
-    .map(part => part.trim())
-    .filter(part => part.length > 0 && part !== '.');
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0 && part !== '.');
 
-  if (parts.length === 0 || parts.some(part => part === '..')) {
+  if (parts.length === 0 || parts.some((part) => part === '..')) {
     return '';
   }
 
@@ -443,20 +476,24 @@ function parsePositiveInteger(value: unknown): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function toCandidateResponse(entry: ManualCatalogEntry, manualsPublicBaseUrl: string, score: number): ManualCandidateResponse {
+function toCandidateResponse(
+  entry: ManualCatalogEntry,
+  manualsPublicBaseUrl: string,
+  score: number
+): ManualCandidateResponse {
   return {
     platformIgdbId: entry.platformIgdbId,
     fileName: entry.fileName,
     relativePath: entry.relativePath,
     score: Number(Math.max(0, Math.min(1, score)).toFixed(4)),
-    url: buildManualUrl(manualsPublicBaseUrl, entry.relativePath),
+    url: buildManualUrl(manualsPublicBaseUrl, entry.relativePath)
   };
 }
 
 function buildManualUrl(baseUrl: string, relativePath: string): string {
   const encodedPath = relativePath
     .split('/')
-    .map(segment => encodeURIComponent(segment))
+    .map((segment) => encodeURIComponent(segment))
     .join('/');
 
   return `${baseUrl}/${encodedPath}`;

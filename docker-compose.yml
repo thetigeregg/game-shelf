@@ -16,7 +16,7 @@ services:
     depends_on:
       - api
     ports:
-      - "127.0.0.1:8080:8080"
+      - '127.0.0.1:8080:8080'
     volumes:
       - ./nas-data/manuals:/manuals:ro
     restart: unless-stopped

@@ -15,8 +15,12 @@ export function registerCacheObservabilityRoutes(app: FastifyInstance, pool: Poo
     let dbError: string | null = null;
 
     try {
-      const imageCountResult = await pool.query<CacheCountRow>('SELECT COUNT(*)::text AS count FROM image_assets');
-      const hltbCountResult = await pool.query<CacheCountRow>('SELECT COUNT(*)::text AS count FROM hltb_search_cache');
+      const imageCountResult = await pool.query<CacheCountRow>(
+        'SELECT COUNT(*)::text AS count FROM image_assets'
+      );
+      const hltbCountResult = await pool.query<CacheCountRow>(
+        'SELECT COUNT(*)::text AS count FROM hltb_search_cache'
+      );
       imageAssetCount = Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10);
       hltbEntryCount = Number.parseInt(hltbCountResult.rows[0]?.count ?? '0', 10);
     } catch (error) {
@@ -28,9 +32,9 @@ export function registerCacheObservabilityRoutes(app: FastifyInstance, pool: Poo
       metrics,
       counts: {
         imageAssets: imageAssetCount,
-        hltbEntries: hltbEntryCount,
+        hltbEntries: hltbEntryCount
       },
-      dbError,
+      dbError
     });
   });
 }

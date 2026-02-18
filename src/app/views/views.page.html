@@ -9,7 +9,7 @@
         aria-label="Save current as view"
         [disabled]="!hasCurrentConfiguration"
         (click)="openCreateViewModal()"
-        >
+      >
         <ion-icon slot="icon-only" name="add"></ion-icon>
       </ion-button>
     </ion-buttons>
@@ -31,7 +31,7 @@
             aria-label="View actions"
             [id]="getActionsTriggerId(view)"
             (click)="$event.stopPropagation()"
-            >
+          >
             <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
           </ion-button>
           <ion-popover [trigger]="getActionsTriggerId(view)" triggerAction="click">
@@ -44,7 +44,12 @@
                   <ion-item button detail="false" (click)="updateViewFromPopover(view)">
                     Update from current
                   </ion-item>
-                  <ion-item button detail="false" color="danger" (click)="deleteViewFromPopover(view)">
+                  <ion-item
+                    button
+                    detail="false"
+                    color="danger"
+                    (click)="deleteViewFromPopover(view)"
+                  >
                     Delete
                   </ion-item>
                 </ion-list>
@@ -60,7 +65,6 @@
       }
     </ion-list>
   }
-
 </ion-content>
 
 <ion-modal [isOpen]="isNameModalOpen" (didDismiss)="closeNameModal()">

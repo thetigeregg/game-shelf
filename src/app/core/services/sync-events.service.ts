@@ -10,4 +10,3 @@ export class SyncEventsService {
     this.changedSubject.next();
   }
 }
-

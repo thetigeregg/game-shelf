@@ -26,18 +26,20 @@ export function registerImageProxyRoute(
   app: FastifyInstance,
   pool: Pool,
   imageCacheDir: string,
-  options: ImageCacheRouteOptions = {},
+  options: ImageCacheRouteOptions = {}
 ): void {
   const fetchImpl = options.fetchImpl ?? fetch;
 
   app.post('/v1/images/cache/purge', async (request, reply) => {
     const body = (request.body ?? {}) as { urls?: unknown };
     const rawUrls = Array.isArray(body.urls) ? body.urls : [];
-    const normalizedUrls = [...new Set(
-      rawUrls
-        .map(url => normalizeProxyImageUrl(url))
-        .filter((url): url is string => typeof url === 'string' && url.length > 0)
-    )];
+    const normalizedUrls = [
+      ...new Set(
+        rawUrls
+          .map((url) => normalizeProxyImageUrl(url))
+          .filter((url): url is string => typeof url === 'string' && url.length > 0)
+      )
+    ];
 
     if (normalizedUrls.length === 0) {
       reply.send({ deleted: 0 });
@@ -53,7 +55,7 @@ export function registerImageProxyRoute(
       try {
         const cached = await pool.query<ImageAssetRow>(
           'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
-          [cacheKey],
+          [cacheKey]
         );
         existing = cached.rows[0];
       } catch {
@@ -97,18 +99,18 @@ export function registerImageProxyRoute(
     try {
       const cached = await pool.query<ImageAssetRow>(
         'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
-        [cacheKey],
+        [cacheKey]
       );
       existing = cached.rows[0];
     } catch (error) {
       incrementImageMetric('readErrors');
       request.log.warn({
         msg: 'image_cache_read_failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     }
 
-    if (existing && await fileExists(existing.file_path)) {
+    if (existing && (await fileExists(existing.file_path))) {
       incrementImageMetric('hits');
       reply.header('X-GameShelf-Image-Cache', 'HIT');
       reply.header('Content-Type', existing.content_type);
@@ -124,7 +126,7 @@ export function registerImageProxyRoute(
         incrementImageMetric('writeErrors');
         request.log.warn({
           msg: 'image_cache_delete_missing_file_failed',
-          error: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     }
@@ -138,7 +140,8 @@ export function registerImageProxyRoute(
       return;
     }
 
-    const contentType = String(upstream.headers.get('content-type') ?? '').trim() || 'application/octet-stream';
+    const contentType =
+      String(upstream.headers.get('content-type') ?? '').trim() || 'application/octet-stream';
     const bytes = Buffer.from(await upstream.arrayBuffer());
 
     if (bytes.length === 0) {
@@ -147,11 +150,7 @@ export function registerImageProxyRoute(
     }
 
     const extension = resolveFileExtension(contentType, sourceUrl);
-    const storagePath = path.join(
-      imageCacheDir,
-      cacheKey.slice(0, 2),
-      `${cacheKey}${extension}`,
-    );
+    const storagePath = path.join(imageCacheDir, cacheKey.slice(0, 2), `${cacheKey}${extension}`);
 
     await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
     await fsPromises.writeFile(storagePath, bytes);
@@ -169,14 +168,14 @@ export function registerImageProxyRoute(
           size_bytes = EXCLUDED.size_bytes,
           updated_at = NOW()
         `,
-        [cacheKey, sourceUrl, contentType, storagePath, bytes.length],
+        [cacheKey, sourceUrl, contentType, storagePath, bytes.length]
       );
       incrementImageMetric('writes');
     } catch (error) {
       incrementImageMetric('writeErrors');
       request.log.warn({
         msg: 'image_cache_write_failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     }
 

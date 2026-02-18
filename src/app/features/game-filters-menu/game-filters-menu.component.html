@@ -13,7 +13,12 @@
   <ion-content>
     <ion-list lines="full">
       <ion-item>
-        <ion-select label="Sort" labelPlacement="stacked" [ngModel]="sortOption" (ngModelChange)="onSortOptionChange($event)">
+        <ion-select
+          label="Sort"
+          labelPlacement="stacked"
+          [ngModel]="sortOption"
+          (ngModelChange)="onSortOptionChange($event)"
+        >
           <ion-select-option value="title:asc">Title ↑</ion-select-option>
           <ion-select-option value="title:desc">Title ↓</ion-select-option>
           <ion-select-option value="platform:asc">Platform ↑</ion-select-option>
@@ -31,7 +36,7 @@
           labelPlacement="stacked"
           [ngModel]="groupBy"
           (ngModelChange)="onGroupBySelectionChange($event)"
-          >
+        >
           @for (option of groupByOptions; track option) {
             <ion-select-option [value]="option.value">
               {{ option.label }}
@@ -48,7 +53,7 @@
           [multiple]="true"
           [ngModel]="draftFilters.platform"
           (ngModelChange)="onPlatformSelectionChange($event)"
-          >
+        >
           @for (platform of platformOptions; track platform) {
             <ion-select-option [value]="platform">
               {{ platform }}
@@ -65,7 +70,7 @@
           [multiple]="true"
           [ngModel]="draftFilters.collections"
           (ngModelChange)="onCollectionSelectionChange($event)"
-          >
+        >
           @for (collection of collectionOptions; track collection) {
             <ion-select-option [value]="collection">
               {{ collection }}
@@ -82,7 +87,7 @@
           [multiple]="true"
           [ngModel]="draftFilters.gameTypes"
           (ngModelChange)="onGameTypeSelectionChange($event)"
-          >
+        >
           @for (gameType of gameTypeOptions; track gameType) {
             <ion-select-option [value]="gameType">
               {{ getGameTypeLabel(gameType) }}
@@ -99,7 +104,7 @@
           [multiple]="true"
           [ngModel]="draftFilters.statuses"
           (ngModelChange)="onStatusSelectionChange($event)"
-          >
+        >
           @for (status of statusOptions; track status) {
             <ion-select-option [value]="status">
               {{ getStatusLabel(status) }}
@@ -116,7 +121,7 @@
           [multiple]="true"
           [ngModel]="draftFilters.tags"
           (ngModelChange)="onTagSelectionChange($event)"
-          >
+        >
           <ion-select-option [value]="noneTagFilterValue">None</ion-select-option>
           @for (tag of tagOptions; track tag) {
             <ion-select-option [value]="tag">
@@ -134,7 +139,7 @@
           [multiple]="true"
           [ngModel]="draftFilters.ratings"
           (ngModelChange)="onRatingSelectionChange($event)"
-          >
+        >
           @for (rating of ratingOptions; track rating) {
             <ion-select-option [value]="rating">
               {{ getRatingLabel(rating) }}
@@ -151,7 +156,7 @@
           [multiple]="true"
           [ngModel]="draftFilters.genres"
           (ngModelChange)="onGenreSelectionChange($event)"
-          >
+        >
           @for (genre of genreOptions; track genre) {
             <ion-select-option [value]="genre">
               {{ genre }}
@@ -190,7 +195,10 @@
 
       <ion-item>
         <ion-label>Release date from</ion-label>
-        <ion-datetime-button slot="end" [datetime]="releaseDateFromDatetimeId"></ion-datetime-button>
+        <ion-datetime-button
+          slot="end"
+          [datetime]="releaseDateFromDatetimeId"
+        ></ion-datetime-button>
       </ion-item>
       <ion-modal [keepContentsMounted]="true">
         <ng-template>

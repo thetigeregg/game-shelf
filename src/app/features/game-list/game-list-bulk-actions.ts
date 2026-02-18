@@ -33,7 +33,7 @@ export async function runBulkActionWithRetry<T>(params: {
   const loading = await loadingController.create({
     message: `${options.loadingPrefix} 0/${games.length}...`,
     spinner: 'crescent',
-    backdropDismiss: false,
+    backdropDismiss: false
   });
   await loading.present();
 
@@ -60,7 +60,7 @@ export async function runBulkActionWithRetry<T>(params: {
         retryConfig,
         options.itemTimeoutMs,
         delay,
-        updateLoadingMessage,
+        updateLoadingMessage
       );
       results[entry.index] = outcome;
       completed += 1;
@@ -83,14 +83,14 @@ async function executeBulkActionWithRetry<T>(
   retryConfig: BulkActionRetryConfig,
   itemTimeoutMs: number | undefined,
   delay: (ms: number) => Promise<void>,
-  setLoadingMessage: (message: string) => void,
+  setLoadingMessage: (message: string) => void
 ): Promise<BulkActionResult<T>> {
   for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt += 1) {
     try {
       const value = await withOptionalTimeout(
         action(game),
         itemTimeoutMs,
-        `Bulk action timed out after ${itemTimeoutMs}ms`,
+        `Bulk action timed out after ${itemTimeoutMs}ms`
       );
       return { game, ok: true, value };
     } catch (error: unknown) {
@@ -101,7 +101,9 @@ async function executeBulkActionWithRetry<T>(
       const retryDelayMs = resolveBulkRetryDelayMs(error, attempt, retryConfig);
       const reason = isRateLimitError(error) ? 'rate limit' : 'temporary error';
       const safeTitle = truncateTitleForLoading(game.title);
-      setLoadingMessage(`Retrying ${safeTitle} due to ${reason} in ${Math.max(1, Math.ceil(retryDelayMs / 1000))}s...`);
+      setLoadingMessage(
+        `Retrying ${safeTitle} due to ${reason} in ${Math.max(1, Math.ceil(retryDelayMs / 1000))}s...`
+      );
       await delay(retryDelayMs);
     }
   }
@@ -112,7 +114,7 @@ async function executeBulkActionWithRetry<T>(
 async function withOptionalTimeout<T>(
   task: Promise<T>,
   timeoutMs: number | undefined,
-  timeoutMessage: string,
+  timeoutMessage: string
 ): Promise<T> {
   if (typeof timeoutMs !== 'number' || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     return task;
@@ -135,7 +137,11 @@ async function withOptionalTimeout<T>(
   }
 }
 
-function shouldRetryBulkActionError(error: unknown, attempt: number, retryConfig: BulkActionRetryConfig): boolean {
+function shouldRetryBulkActionError(
+  error: unknown,
+  attempt: number,
+  retryConfig: BulkActionRetryConfig
+): boolean {
   if (attempt >= retryConfig.maxAttempts) {
     return false;
   }
@@ -168,7 +174,11 @@ function classifyBulkError(error: unknown): 'rate_limit' | 'transient' | 'other'
   return 'other';
 }
 
-function resolveBulkRetryDelayMs(error: unknown, attempt: number, retryConfig: BulkActionRetryConfig): number {
+function resolveBulkRetryDelayMs(
+  error: unknown,
+  attempt: number,
+  retryConfig: BulkActionRetryConfig
+): number {
   const message = error instanceof Error ? error.message : '';
   const retryAfterMatch = message.match(/retry after\s+(\d+)\s*s/i);
 
@@ -185,8 +195,8 @@ function resolveBulkRetryDelayMs(error: unknown, attempt: number, retryConfig: B
   }
 
   return Math.min(
-    retryConfig.retryBaseDelayMs * (2 ** (attempt - 1)),
-    retryConfig.rateLimitFallbackCooldownMs,
+    retryConfig.retryBaseDelayMs * 2 ** (attempt - 1),
+    retryConfig.rateLimitFallbackCooldownMs
   );
 }
 

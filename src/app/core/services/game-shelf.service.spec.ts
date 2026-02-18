@@ -3,21 +3,26 @@ import { TestBed } from '@angular/core/testing';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { AppDb } from '../data/app-db';
-import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult, GameEntry, GameListView } from '../models/game.models';
+import {
+  DEFAULT_GAME_LIST_FILTERS,
+  GameCatalogResult,
+  GameEntry,
+  GameListView
+} from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
 import { PlatformOrderService } from './platform-order.service';
 
 describe('GameShelfService', () => {
   let repository: {
-    [K in keyof GameRepository]: ReturnType<typeof vi.fn>
+    [K in keyof GameRepository]: ReturnType<typeof vi.fn>;
   };
   let searchApi: {
-    [K in keyof GameSearchApi]: ReturnType<typeof vi.fn>
+    [K in keyof GameSearchApi]: ReturnType<typeof vi.fn>;
   };
   let appDb: {
     imageCache: {
-      where: ReturnType<typeof vi.fn>
-    }
+      where: ReturnType<typeof vi.fn>;
+    };
   };
   let service: GameShelfService;
   const migrationStorageKey = 'game-shelf:igdb-cover-migration:v2';
@@ -44,7 +49,7 @@ describe('GameShelfService', () => {
       getView: vi.fn(),
       createView: vi.fn(),
       updateView: vi.fn(),
-      deleteView: vi.fn(),
+      deleteView: vi.fn()
     };
 
     searchApi = {
@@ -55,17 +60,17 @@ describe('GameShelfService', () => {
       lookupCompletionTimes: vi.fn(),
       lookupCompletionTimeCandidates: vi.fn(),
       listPopularityTypes: vi.fn(),
-      listPopularityGames: vi.fn(),
+      listPopularityGames: vi.fn()
     };
 
     appDb = {
       imageCache: {
         where: vi.fn().mockReturnValue({
           equals: vi.fn().mockReturnValue({
-            delete: vi.fn().mockResolvedValue(undefined),
-          }),
-        }),
-      },
+            delete: vi.fn().mockResolvedValue(undefined)
+          })
+        })
+      }
     };
 
     TestBed.configureTestingModule({
@@ -73,8 +78,8 @@ describe('GameShelfService', () => {
         GameShelfService,
         { provide: GAME_REPOSITORY, useValue: repository },
         { provide: GAME_SEARCH_API, useValue: searchApi },
-        { provide: AppDb, useValue: appDb },
-      ],
+        { provide: AppDb, useValue: appDb }
+      ]
     });
 
     service = TestBed.inject(GameShelfService);
@@ -95,7 +100,9 @@ describe('GameShelfService', () => {
   it('propagates API errors for valid search queries', async () => {
     searchApi.searchGames.mockReturnValue(throwError(() => new Error('API unavailable')));
 
-    await expect(firstValueFrom(service.searchGames('mario'))).rejects.toThrowError('API unavailable');
+    await expect(firstValueFrom(service.searchGames('mario'))).rejects.toThrowError(
+      'API unavailable'
+    );
   });
 
   it('delegates add/move/remove actions to repository', async () => {
@@ -108,7 +115,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
@@ -117,7 +124,7 @@ describe('GameShelfService', () => {
       platformIgdbId: 130,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
@@ -143,25 +150,27 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
-    searchApi.lookupCompletionTimes.mockReturnValue(of({
-      hltbMainHours: 12,
-      hltbMainExtraHours: 18.5,
-      hltbCompletionistHours: 30,
-    }));
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({
+        hltbMainHours: 12,
+        hltbMainExtraHours: 18.5,
+        hltbCompletionistHours: 30
+      })
+    );
     repository.upsertFromCatalog.mockResolvedValue({
       ...mario,
       listType: 'collection',
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(mario, 'collection');
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Mario Kart', 2017, 'Switch');
     expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(2);
@@ -170,18 +179,18 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         igdbGameId: '123',
         platform: 'Switch',
-        platformIgdbId: 130,
+        platformIgdbId: 130
       }),
-      'collection',
+      'collection'
     );
     expect(repository.upsertFromCatalog).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         hltbMainHours: 12,
         hltbMainExtraHours: 18.5,
-        hltbCompletionistHours: 30,
+        hltbCompletionistHours: 30
       }),
-      'collection',
+      'collection'
     );
   });
 
@@ -196,7 +205,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
@@ -205,7 +214,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -213,7 +222,7 @@ describe('GameShelfService', () => {
     expect(searchApi.lookupCompletionTimes).not.toHaveBeenCalled();
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({ hltbMainHours: 12.34 }),
-      'collection',
+      'collection'
     );
   });
 
@@ -227,7 +236,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     };
 
     searchApi.lookupCompletionTimes.mockReturnValue(throwError(() => new Error('HLTB down')));
@@ -237,17 +246,17 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalled();
     expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({ igdbGameId: '123', platform: 'Switch', platformIgdbId: 130 }),
-      'collection',
+      'collection'
     );
   });
 
@@ -261,7 +270,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
 
     repository.upsertFromCatalog.mockResolvedValue({
@@ -270,7 +279,7 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     } as GameEntry);
 
     await service.addGame(game, 'collection');
@@ -294,7 +303,7 @@ describe('GameShelfService', () => {
         platformIgdbId: null,
         releaseDate: null,
         releaseYear: null
-      },
+      }
     ];
     searchApi.searchGames.mockReturnValue(of(expected));
 
@@ -326,7 +335,7 @@ describe('GameShelfService', () => {
       platform: 'PlayStation',
       platformIgdbId: 7,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
     searchApi.getGameById.mockReturnValue(of(expected));
 
@@ -351,7 +360,7 @@ describe('GameShelfService', () => {
       platform: null,
       platformIgdbId: null,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
     searchApi.getGameById.mockReturnValue(of(expected));
 
@@ -381,8 +390,8 @@ describe('GameShelfService', () => {
         coverSource: 'thegamesdb',
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
 
     await service.migratePreferredPlatformCoversToIgdb();
@@ -403,20 +412,22 @@ describe('GameShelfService', () => {
         customCoverUrl: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
-    searchApi.getGameById.mockReturnValue(of({
-      igdbGameId: '4512',
-      title: 'Example',
-      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/example.jpg',
-      coverSource: 'igdb',
-      platform: 'PlayStation 5',
-      platformIgdbId: 167,
-      platforms: ['PlayStation 5'],
-      releaseDate: null,
-      releaseYear: null,
-    } as GameCatalogResult));
+    searchApi.getGameById.mockReturnValue(
+      of({
+        igdbGameId: '4512',
+        title: 'Example',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/example.jpg',
+        coverSource: 'igdb',
+        platform: 'PlayStation 5',
+        platformIgdbId: 167,
+        platforms: ['PlayStation 5'],
+        releaseDate: null,
+        releaseYear: null
+      } as GameCatalogResult)
+    );
     repository.updateCover.mockResolvedValue({
       igdbGameId: '4512',
       title: 'Example',
@@ -426,9 +437,11 @@ describe('GameShelfService', () => {
       coverSource: 'igdb',
       listType: 'collection',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     } as GameEntry);
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}', { status: 200 }));
 
     await service.migratePreferredPlatformCoversToIgdb();
 
@@ -437,7 +450,7 @@ describe('GameShelfService', () => {
       '4512',
       167,
       'https://images.igdb.com/igdb/image/upload/t_cover_big/example.jpg',
-      'igdb',
+      'igdb'
     );
     expect(fetchSpy).toHaveBeenCalled();
     expect(localStorage.getItem(migrationStorageKey)).toBe('1');
@@ -455,8 +468,8 @@ describe('GameShelfService', () => {
         customCoverUrl: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
     searchApi.getGameById.mockReturnValue(throwError(() => new Error('IGDB unavailable')));
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
@@ -479,21 +492,25 @@ describe('GameShelfService', () => {
         customCoverUrl: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      } as GameEntry,
+        updatedAt: 'x'
+      } as GameEntry
     ]);
-    searchApi.getGameById.mockReturnValue(of({
-      igdbGameId: '4512',
-      title: 'Example',
-      coverUrl: null,
-      coverSource: 'none',
-      platforms: ['PlayStation 5'],
-      platform: 'PlayStation 5',
-      platformIgdbId: 167,
-      releaseDate: null,
-      releaseYear: null,
-    } as GameCatalogResult));
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+    searchApi.getGameById.mockReturnValue(
+      of({
+        igdbGameId: '4512',
+        title: 'Example',
+        coverUrl: null,
+        coverSource: 'none',
+        platforms: ['PlayStation 5'],
+        platform: 'PlayStation 5',
+        platformIgdbId: 167,
+        releaseDate: null,
+        releaseYear: null
+      } as GameCatalogResult)
+    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}', { status: 200 }));
 
     await service.migratePreferredPlatformCoversToIgdb();
 
@@ -514,36 +531,46 @@ describe('GameShelfService', () => {
   it('delegates search platform list retrieval', async () => {
     const platformOrderService = TestBed.inject(PlatformOrderService);
     platformOrderService.setOrder(['Nintendo Switch', 'PC (Microsoft Windows)']);
-    searchApi.listPlatforms.mockReturnValue(of([
-      { id: 6, name: 'PC (Microsoft Windows)' },
-      { id: 130, name: 'Nintendo Switch' },
-    ]));
+    searchApi.listPlatforms.mockReturnValue(
+      of([
+        { id: 6, name: 'PC (Microsoft Windows)' },
+        { id: 130, name: 'Nintendo Switch' }
+      ])
+    );
 
     const result = await firstValueFrom(service.listSearchPlatforms());
 
     expect(searchApi.listPlatforms).toHaveBeenCalled();
     expect(result).toEqual([
       { id: 130, name: 'Nintendo Switch' },
-      { id: 6, name: 'PC (Microsoft Windows)' },
+      { id: 6, name: 'PC (Microsoft Windows)' }
     ]);
   });
 
   it('delegates HLTB candidate search and short-circuits short titles', async () => {
-    searchApi.lookupCompletionTimeCandidates.mockReturnValue(of([
-      {
-        title: 'Super Metroid',
-        releaseYear: 1994,
-        platform: 'SNES',
-        hltbMainHours: 7.5,
-        hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13,
-      },
-    ]));
+    searchApi.lookupCompletionTimeCandidates.mockReturnValue(
+      of([
+        {
+          title: 'Super Metroid',
+          releaseYear: 1994,
+          platform: 'SNES',
+          hltbMainHours: 7.5,
+          hltbMainExtraHours: 10,
+          hltbCompletionistHours: 13
+        }
+      ])
+    );
 
-    const results = await firstValueFrom(service.searchHltbCandidates('Super Metroid', 1994, 'SNES'));
+    const results = await firstValueFrom(
+      service.searchHltbCandidates('Super Metroid', 1994, 'SNES')
+    );
     const empty = await firstValueFrom(service.searchHltbCandidates('x', 1994, 'SNES'));
 
-    expect(searchApi.lookupCompletionTimeCandidates).toHaveBeenCalledWith('Super Metroid', 1994, 'SNES');
+    expect(searchApi.lookupCompletionTimeCandidates).toHaveBeenCalledWith(
+      'Super Metroid',
+      1994,
+      'SNES'
+    );
     expect(results).toHaveLength(1);
     expect(empty).toEqual([]);
   });
@@ -561,7 +588,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'wishlist' as const,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const refreshedCatalog: GameCatalogResult = {
@@ -577,7 +604,7 @@ describe('GameShelfService', () => {
       platform: null,
       platformIgdbId: null,
       releaseDate: '2026-01-02T00:00:00.000Z',
-      releaseYear: 2026,
+      releaseYear: 2026
     };
 
     const updatedEntry: GameEntry = {
@@ -588,7 +615,7 @@ describe('GameShelfService', () => {
       platform: 'Nintendo Switch',
       platformIgdbId: 130,
       releaseDate: refreshedCatalog.releaseDate,
-      releaseYear: refreshedCatalog.releaseYear,
+      releaseYear: refreshedCatalog.releaseYear
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -605,9 +632,9 @@ describe('GameShelfService', () => {
         coverUrl: 'https://example.com/current-cover.jpg',
         coverSource: 'thegamesdb',
         platform: 'Nintendo Switch',
-        platformIgdbId: 130,
+        platformIgdbId: 130
       }),
-      'wishlist',
+      'wishlist'
     );
     expect(result).toEqual(updatedEntry);
   });
@@ -625,22 +652,24 @@ describe('GameShelfService', () => {
       releaseYear: 2007,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       hltbMainHours: 14,
       hltbMainExtraHours: 18,
-      hltbCompletionistHours: 24,
+      hltbCompletionistHours: 24
     };
 
     repository.exists.mockResolvedValue(existingEntry);
-    searchApi.lookupCompletionTimes.mockReturnValue(of({
-      hltbMainHours: 14,
-      hltbMainExtraHours: 18,
-      hltbCompletionistHours: 24,
-    }));
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({
+        hltbMainHours: 14,
+        hltbMainExtraHours: 18,
+        hltbCompletionistHours: 24
+      })
+    );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
 
     const result = await service.refreshGameCompletionTimes('123', 5);
@@ -656,9 +685,9 @@ describe('GameShelfService', () => {
         hltbMainExtraHours: 18,
         hltbCompletionistHours: 24,
         platform: 'Wii',
-        platformIgdbId: 5,
+        platformIgdbId: 5
       }),
-      'collection',
+      'collection'
     );
     expect(result).toEqual(updatedEntry);
   });
@@ -676,28 +705,30 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       hltbMainHours: 21,
       hltbMainExtraHours: 35,
-      hltbCompletionistHours: 48,
+      hltbCompletionistHours: 48
     };
 
     repository.exists.mockResolvedValue(existingEntry);
-    searchApi.lookupCompletionTimes.mockReturnValue(of({
-      hltbMainHours: 21,
-      hltbMainExtraHours: 35,
-      hltbCompletionistHours: 48,
-    }));
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({
+        hltbMainHours: 21,
+        hltbMainExtraHours: 35,
+        hltbCompletionistHours: 48
+      })
+    );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
 
     const result = await service.refreshGameCompletionTimesWithQuery('123', 5, {
       title: 'Zack & Wiki',
       releaseYear: 2007,
-      platform: 'Wii',
+      platform: 'Wii'
     });
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
@@ -720,14 +751,14 @@ describe('GameShelfService', () => {
       releaseYear: 2007,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const updatedEntry: GameEntry = {
       ...existingEntry,
       hltbMainHours: null,
       hltbMainExtraHours: null,
-      hltbCompletionistHours: null,
+      hltbCompletionistHours: null
     };
 
     repository.exists.mockResolvedValue(existingEntry);
@@ -740,9 +771,9 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null,
+        hltbCompletionistHours: null
       }),
-      'collection',
+      'collection'
     );
   });
 
@@ -762,31 +793,41 @@ describe('GameShelfService', () => {
   it('delegates box art title search with platform for valid query', async () => {
     searchApi.searchBoxArtByTitle.mockReturnValue(of(['https://example.com/cover.jpg']));
     const results = await firstValueFrom(service.searchBoxArtByTitle('mario', 'Nintendo Switch'));
-    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', 'Nintendo Switch', undefined);
+    expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith(
+      'mario',
+      'Nintendo Switch',
+      undefined
+    );
     expect(results).toEqual(['https://example.com/cover.jpg']);
   });
 
   it('delegates box art title search with IGDB platform id for valid query', async () => {
     searchApi.searchBoxArtByTitle.mockReturnValue(of(['https://example.com/cover.jpg']));
-    const results = await firstValueFrom(service.searchBoxArtByTitle('mario', 'Nintendo Switch', 130));
+    const results = await firstValueFrom(
+      service.searchBoxArtByTitle('mario', 'Nintendo Switch', 130)
+    );
     expect(searchApi.searchBoxArtByTitle).toHaveBeenCalledWith('mario', 'Nintendo Switch', 130);
     expect(results).toEqual(['https://example.com/cover.jpg']);
   });
 
   it('uses IGDB cover lookup instead of TheGamesDB for Windows platform when game id is provided', async () => {
-    searchApi.getGameById.mockReturnValue(of({
-      igdbGameId: '123',
-      title: 'Halo',
-      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
-      coverSource: 'igdb',
-      platforms: ['PC (Microsoft Windows)'],
-      platform: 'PC (Microsoft Windows)',
-      platformIgdbId: 6,
-      releaseDate: null,
-      releaseYear: null,
-    } as GameCatalogResult));
+    searchApi.getGameById.mockReturnValue(
+      of({
+        igdbGameId: '123',
+        title: 'Halo',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
+        coverSource: 'igdb',
+        platforms: ['PC (Microsoft Windows)'],
+        platform: 'PC (Microsoft Windows)',
+        platformIgdbId: 6,
+        releaseDate: null,
+        releaseYear: null
+      } as GameCatalogResult)
+    );
 
-    const results = await firstValueFrom(service.searchBoxArtByTitle('halo', 'PC (Microsoft Windows)', 6, '123'));
+    const results = await firstValueFrom(
+      service.searchBoxArtByTitle('halo', 'PC (Microsoft Windows)', 6, '123')
+    );
 
     expect(searchApi.getGameById).toHaveBeenCalledWith('123');
     expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
@@ -796,7 +837,9 @@ describe('GameShelfService', () => {
   it('returns empty cover results for Windows platform when IGDB lookup fails', async () => {
     searchApi.getGameById.mockReturnValue(throwError(() => new Error('IGDB unavailable')));
 
-    const results = await firstValueFrom(service.searchBoxArtByTitle('halo', 'PC (Microsoft Windows)', 6, '123'));
+    const results = await firstValueFrom(
+      service.searchBoxArtByTitle('halo', 'PC (Microsoft Windows)', 6, '123')
+    );
 
     expect(searchApi.getGameById).toHaveBeenCalledWith('123');
     expect(searchApi.searchBoxArtByTitle).not.toHaveBeenCalled();
@@ -804,22 +847,26 @@ describe('GameShelfService', () => {
   });
 
   it('uses IGDB cover lookup for Android, iOS, Web browser, SteamVR, visionOS, PS5, and Switch 2 platform ids', async () => {
-    searchApi.getGameById.mockReturnValue(of({
-      igdbGameId: '123',
-      title: 'Halo',
-      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
-      coverSource: 'igdb',
-      platforms: ['Android'],
-      platform: 'Android',
-      platformIgdbId: 34,
-      releaseDate: null,
-      releaseYear: null,
-    } as GameCatalogResult));
+    searchApi.getGameById.mockReturnValue(
+      of({
+        igdbGameId: '123',
+        title: 'Halo',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
+        coverSource: 'igdb',
+        platforms: ['Android'],
+        platform: 'Android',
+        platformIgdbId: 34,
+        releaseDate: null,
+        releaseYear: null
+      } as GameCatalogResult)
+    );
 
     const platformIds = [34, 39, 82, 163, 167, 472, 508];
 
     for (const platformId of platformIds) {
-      const results = await firstValueFrom(service.searchBoxArtByTitle('halo', 'Any', platformId, '123'));
+      const results = await firstValueFrom(
+        service.searchBoxArtByTitle('halo', 'Any', platformId, '123')
+      );
       expect(results).toEqual(['https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg']);
     }
 
@@ -828,22 +875,34 @@ describe('GameShelfService', () => {
   });
 
   it('uses IGDB cover lookup for mobile/web/vr and PS5/Switch 2 platform names when id is unavailable', async () => {
-    searchApi.getGameById.mockReturnValue(of({
-      igdbGameId: '123',
-      title: 'Halo',
-      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
-      coverSource: 'igdb',
-      platforms: ['Android'],
-      platform: 'Android',
-      platformIgdbId: 34,
-      releaseDate: null,
-      releaseYear: null,
-    } as GameCatalogResult));
+    searchApi.getGameById.mockReturnValue(
+      of({
+        igdbGameId: '123',
+        title: 'Halo',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
+        coverSource: 'igdb',
+        platforms: ['Android'],
+        platform: 'Android',
+        platformIgdbId: 34,
+        releaseDate: null,
+        releaseYear: null
+      } as GameCatalogResult)
+    );
 
-    const platformNames = ['Android', 'iOS', 'Web browser', 'SteamVR', 'visionOS', 'PlayStation 5', 'Nintendo Switch 2'];
+    const platformNames = [
+      'Android',
+      'iOS',
+      'Web browser',
+      'SteamVR',
+      'visionOS',
+      'PlayStation 5',
+      'Nintendo Switch 2'
+    ];
 
     for (const platformName of platformNames) {
-      const results = await firstValueFrom(service.searchBoxArtByTitle('halo', platformName, undefined, '123'));
+      const results = await firstValueFrom(
+        service.searchBoxArtByTitle('halo', platformName, undefined, '123')
+      );
       expect(results).toEqual(['https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg']);
     }
 
@@ -864,14 +923,19 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z'
     };
 
     repository.updateCover.mockResolvedValue(updatedEntry);
 
     const result = await service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg');
 
-    expect(repository.updateCover).toHaveBeenCalledWith('123', 130, 'https://example.com/new-cover.jpg', 'thegamesdb');
+    expect(repository.updateCover).toHaveBeenCalledWith(
+      '123',
+      130,
+      'https://example.com/new-cover.jpg',
+      'thegamesdb'
+    );
     expect(result).toEqual(updatedEntry);
   });
 
@@ -888,7 +952,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z'
     };
 
     repository.updateCover.mockResolvedValue(updatedEntry);
@@ -897,14 +961,14 @@ describe('GameShelfService', () => {
       '123',
       6,
       'https://images.igdb.com/igdb/image/upload/t_cover_big/new.jpg',
-      'igdb',
+      'igdb'
     );
 
     expect(repository.updateCover).toHaveBeenCalledWith(
       '123',
       6,
       'https://images.igdb.com/igdb/image/upload/t_cover_big/new.jpg',
-      'igdb',
+      'igdb'
     );
     expect(result).toEqual(updatedEntry);
   });
@@ -919,21 +983,33 @@ describe('GameShelfService', () => {
       platform: 'Switch',
       platformIgdbId: 130,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
 
-    await expect(service.addGame(base, 'collection')).rejects.toThrowError('IGDB game id is required.');
-    await expect(service.addGame({ ...base, igdbGameId: '123', platformIgdbId: null }, 'collection')).rejects.toThrowError('IGDB platform id is required.');
-    await expect(service.addGame({ ...base, igdbGameId: '123', platform: ' ' }, 'collection')).rejects.toThrowError('Platform is required.');
+    await expect(service.addGame(base, 'collection')).rejects.toThrowError(
+      'IGDB game id is required.'
+    );
+    await expect(
+      service.addGame({ ...base, igdbGameId: '123', platformIgdbId: null }, 'collection')
+    ).rejects.toThrowError('IGDB platform id is required.');
+    await expect(
+      service.addGame({ ...base, igdbGameId: '123', platform: ' ' }, 'collection')
+    ).rejects.toThrowError('Platform is required.');
   });
 
   it('throws when refreshing or updating a missing game', async () => {
     repository.exists.mockResolvedValue(undefined);
     repository.updateCover.mockResolvedValue(undefined);
 
-    await expect(service.refreshGameMetadata('123', 130)).rejects.toThrowError('Game entry no longer exists.');
-    await expect(service.refreshGameCompletionTimes('123', 130)).rejects.toThrowError('Game entry no longer exists.');
-    await expect(service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg')).rejects.toThrowError('Game entry no longer exists.');
+    await expect(service.refreshGameMetadata('123', 130)).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
+    await expect(service.refreshGameCompletionTimes('123', 130)).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
+    await expect(
+      service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg')
+    ).rejects.toThrowError('Game entry no longer exists.');
   });
 
   it('rematches game identity and preserves user fields', async () => {
@@ -952,7 +1028,7 @@ describe('GameShelfService', () => {
       rating: 4,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const replacement: GameCatalogResult = {
@@ -965,7 +1041,7 @@ describe('GameShelfService', () => {
       platform: 'Nintendo Switch',
       platformIgdbId: 130,
       releaseDate: '2021-01-01T00:00:00.000Z',
-      releaseYear: 2021,
+      releaseYear: 2021
     };
 
     const upserted: GameEntry = {
@@ -977,22 +1053,27 @@ describe('GameShelfService', () => {
       coverSource: 'igdb',
       status: null,
       rating: null,
-      tagIds: [],
+      tagIds: []
     };
 
     repository.exists.mockResolvedValue(current);
     repository.upsertFromCatalog.mockResolvedValue(upserted);
     repository.setGameStatus.mockResolvedValue({ ...upserted, status: 'playing' });
     repository.setGameRating.mockResolvedValue({ ...upserted, status: 'playing', rating: 4 });
-    repository.setGameTags.mockResolvedValue({ ...upserted, status: 'playing', rating: 4, tagIds: [1, 2] });
+    repository.setGameTags.mockResolvedValue({
+      ...upserted,
+      status: 'playing',
+      rating: 4,
+      tagIds: [1, 2]
+    });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
-      { id: 2, name: 'Favorite', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+      { id: 2, name: 'Favorite', color: '#222222', createdAt: 'x', updatedAt: 'x' }
     ]);
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     const result = await service.rematchGame('123', 130, replacement);
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1000,15 +1081,15 @@ describe('GameShelfService', () => {
         platformIgdbId: 130,
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null,
+        hltbCompletionistHours: null
       }),
-      'collection',
+      'collection'
     );
     expect(repository.remove).toHaveBeenCalledWith('123', 130);
     expect(repository.setGameStatus).toHaveBeenCalledWith('456', 130, 'playing');
     expect(repository.setGameRating).toHaveBeenCalledWith('456', 130, 4);
     expect(repository.setGameTags).toHaveBeenCalledWith('456', 130, [1, 2]);
-    expect(result.tags?.map(tag => tag.name)).toEqual(['Backlog', 'Favorite']);
+    expect(result.tags?.map((tag) => tag.name)).toEqual(['Backlog', 'Favorite']);
   });
 
   it('does not remove entry during rematch when identity is unchanged', async () => {
@@ -1027,7 +1108,7 @@ describe('GameShelfService', () => {
       rating: null,
       listType: 'collection',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     };
 
     const replacement: GameCatalogResult = {
@@ -1039,7 +1120,7 @@ describe('GameShelfService', () => {
       platform: 'Nintendo Switch',
       platformIgdbId: 130,
       releaseDate: null,
-      releaseYear: null,
+      releaseYear: null
     };
 
     repository.exists.mockResolvedValue(current);
@@ -1055,17 +1136,19 @@ describe('GameShelfService', () => {
   it('throws when rematching a missing game entry', async () => {
     repository.exists.mockResolvedValue(undefined);
 
-    await expect(service.rematchGame('123', 130, {
-      igdbGameId: '456',
-      title: 'Replacement',
-      coverUrl: null,
-      coverSource: 'igdb',
-      platforms: ['Nintendo Switch'],
-      platform: 'Nintendo Switch',
-      platformIgdbId: 130,
-      releaseDate: null,
-      releaseYear: null,
-    })).rejects.toThrowError('Game entry no longer exists.');
+    await expect(
+      service.rematchGame('123', 130, {
+        igdbGameId: '456',
+        title: 'Replacement',
+        coverUrl: null,
+        coverSource: 'igdb',
+        platforms: ['Nintendo Switch'],
+        platform: 'Nintendo Switch',
+        platformIgdbId: 130,
+        releaseDate: null,
+        releaseYear: null
+      })
+    ).rejects.toThrowError('Game entry no longer exists.');
   });
 
   it('normalizes identity in findGameByIdentity', async () => {
@@ -1090,7 +1173,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     repository.setGameTags.mockResolvedValue(base);
@@ -1098,14 +1181,14 @@ describe('GameShelfService', () => {
     repository.setGameRating.mockResolvedValue({ ...base, rating: 3 });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
-      { id: 2, name: 'Co-op', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+      { id: 2, name: 'Co-op', color: '#222222', createdAt: 'x', updatedAt: 'x' }
     ]);
 
     const tagged = await service.setGameTags('123', 130, [1, 2]);
     const statused = await service.setGameStatus('123', 130, 'playing');
     const rated = await service.setGameRating('123', 130, 3);
 
-    expect(tagged.tags?.map(tag => tag.name)).toEqual(['Backlog', 'Co-op']);
+    expect(tagged.tags?.map((tag) => tag.name)).toEqual(['Backlog', 'Co-op']);
     expect(statused.status).toBe('playing');
     expect(rated.rating).toBe(3);
   });
@@ -1125,7 +1208,7 @@ describe('GameShelfService', () => {
       listType: 'collection',
       createdAt: 'x',
       updatedAt: 'x',
-      rating: null,
+      rating: null
     } as GameEntry);
     repository.listTags.mockResolvedValue([]);
     await service.setGameRating('123', 130, 99 as never);
@@ -1134,9 +1217,15 @@ describe('GameShelfService', () => {
     repository.setGameTags.mockResolvedValue(undefined);
     repository.setGameStatus.mockResolvedValue(undefined);
     repository.setGameRating.mockResolvedValue(undefined);
-    await expect(service.setGameTags('123', 130, [1])).rejects.toThrowError('Game entry no longer exists.');
-    await expect(service.setGameStatus('123', 130, 'playing')).rejects.toThrowError('Game entry no longer exists.');
-    await expect(service.setGameRating('123', 130, 4)).rejects.toThrowError('Game entry no longer exists.');
+    await expect(service.setGameTags('123', 130, [1])).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
+    await expect(service.setGameStatus('123', 130, 'playing')).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
+    await expect(service.setGameRating('123', 130, 4)).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
   });
 
   it('validates tag names and normalizes tag colors', async () => {
@@ -1145,11 +1234,13 @@ describe('GameShelfService', () => {
       name: 'Backlog',
       color: '#3880ff',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     });
 
     await expect(service.createTag(' ', '#ffffff')).rejects.toThrowError('Tag name is required.');
-    await expect(service.updateTag(1, ' ', '#ffffff')).rejects.toThrowError('Tag name is required.');
+    await expect(service.updateTag(1, ' ', '#ffffff')).rejects.toThrowError(
+      'Tag name is required.'
+    );
 
     const created = await service.createTag(' Backlog ', 'oops');
     const updated = await service.updateTag(1, ' Backlog ', '#00ff00');
@@ -1162,7 +1253,7 @@ describe('GameShelfService', () => {
 
   it('supports list/get/delete tags and watch streams', async () => {
     repository.listTags.mockResolvedValue([
-      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
+      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' }
     ]);
     repository.listByType.mockResolvedValue([
       {
@@ -1178,8 +1269,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
     repository.listAll.mockResolvedValue([
       {
@@ -1195,8 +1286,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
 
     expect(await service.listTags()).toHaveLength(1);
@@ -1212,7 +1303,7 @@ describe('GameShelfService', () => {
   it('normalizes tag ids and skips invalid tag records in watch streams', async () => {
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
-      { id: 0, name: 'Invalid', color: '#222222', createdAt: 'x', updatedAt: 'x' },
+      { id: 0, name: 'Invalid', color: '#222222', createdAt: 'x', updatedAt: 'x' }
     ]);
     repository.listByType.mockResolvedValue([
       {
@@ -1228,8 +1319,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
     repository.listAll.mockResolvedValue([
       {
@@ -1245,8 +1336,8 @@ describe('GameShelfService', () => {
         releaseYear: null,
         listType: 'collection',
         createdAt: 'x',
-        updatedAt: 'x',
-      },
+        updatedAt: 'x'
+      }
     ]);
 
     const list = await firstValueFrom(service.watchList('collection'));
@@ -1254,7 +1345,7 @@ describe('GameShelfService', () => {
 
     expect(list[0].tagIds).toEqual([1]);
     expect(list[0].tags).toEqual([{ id: 1, name: 'Backlog', color: '#111111' }]);
-    expect(summaries.find(tag => tag.id === 1)?.gameCount).toBe(1);
+    expect(summaries.find((tag) => tag.id === 1)?.gameCount).toBe(1);
   });
 
   it('refreshes metadata using normalized platformOptions when current platform is missing from refreshed platform list', async () => {
@@ -1270,7 +1361,7 @@ describe('GameShelfService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
     const refreshedCatalog: GameCatalogResult = {
@@ -1286,34 +1377,37 @@ describe('GameShelfService', () => {
       platformOptions: [
         { id: -1, name: 'Bad Id' },
         { id: 130, name: 'Nintendo Switch Alias' },
-        { id: null, name: '' },
+        { id: null, name: '' }
       ],
       platform: null,
       platformIgdbId: null,
       releaseDate: null,
-      releaseYear: 2026,
+      releaseYear: 2026
     };
 
     repository.exists.mockResolvedValue(existingEntry);
     searchApi.getGameById.mockReturnValue(of(refreshedCatalog));
-    repository.upsertFromCatalog.mockImplementation(async catalog => ({
-      ...existingEntry,
-      ...catalog,
-      listType: 'collection',
-      createdAt: existingEntry.createdAt,
-      updatedAt: existingEntry.updatedAt,
-      platform: catalog.platform,
-      platformIgdbId: catalog.platformIgdbId as number,
-    } as GameEntry));
+    repository.upsertFromCatalog.mockImplementation(
+      async (catalog) =>
+        ({
+          ...existingEntry,
+          ...catalog,
+          listType: 'collection',
+          createdAt: existingEntry.createdAt,
+          updatedAt: existingEntry.updatedAt,
+          platform: catalog.platform,
+          platformIgdbId: catalog.platformIgdbId as number
+        }) as GameEntry
+    );
 
     const result = await service.refreshGameMetadata('333', 130);
 
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         platform: 'Nintendo Switch Alias',
-        platformIgdbId: 130,
+        platformIgdbId: 130
       }),
-      'collection',
+      'collection'
     );
     expect(result.platform).toBe('Nintendo Switch Alias');
     expect(result.platformIgdbId).toBe(130);
@@ -1327,7 +1421,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'none',
       createdAt: 'x',
-      updatedAt: 'x',
+      updatedAt: 'x'
     });
     repository.updateView.mockResolvedValueOnce({
       id: 11,
@@ -1336,7 +1430,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'none',
       createdAt: 'x',
-      updatedAt: 'y',
+      updatedAt: 'y'
     });
     repository.updateView.mockResolvedValueOnce({
       id: 11,
@@ -1345,7 +1439,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'platform',
       createdAt: 'x',
-      updatedAt: 'z',
+      updatedAt: 'z'
     });
     repository.getView.mockResolvedValue({
       id: 11,
@@ -1354,7 +1448,7 @@ describe('GameShelfService', () => {
       filters: DEFAULT_GAME_LIST_FILTERS,
       groupBy: 'none',
       createdAt: 'x',
-      updatedAt: 'z',
+      updatedAt: 'z'
     } as GameListView);
     repository.listViews.mockResolvedValue([
       {
@@ -1364,8 +1458,8 @@ describe('GameShelfService', () => {
         filters: DEFAULT_GAME_LIST_FILTERS,
         groupBy: 'none',
         createdAt: 'x',
-        updatedAt: 'z',
-      },
+        updatedAt: 'z'
+      }
     ] as GameListView[]);
 
     await service.createView(' My View ', 'collection', DEFAULT_GAME_LIST_FILTERS, 'none');
@@ -1379,12 +1473,14 @@ describe('GameShelfService', () => {
       name: 'My View',
       listType: 'collection',
       filters: DEFAULT_GAME_LIST_FILTERS,
-      groupBy: 'none',
+      groupBy: 'none'
     });
     expect(repository.deleteView).toHaveBeenCalledWith(11);
 
     repository.updateView.mockResolvedValue(undefined);
     await expect(service.renameView(11, 'x')).rejects.toThrowError('View no longer exists.');
-    await expect(service.updateViewConfiguration(11, DEFAULT_GAME_LIST_FILTERS, 'none')).rejects.toThrowError('View no longer exists.');
+    await expect(
+      service.updateViewConfiguration(11, DEFAULT_GAME_LIST_FILTERS, 'none')
+    ).rejects.toThrowError('View no longer exists.');
   });
 });

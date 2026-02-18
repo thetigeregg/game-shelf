@@ -21,17 +21,21 @@ describe('rate-limit-ui-error', () => {
   });
 
   it('supports rate-limit messages passed directly as strings', () => {
-    expect(formatRateLimitedUiError('429 - retry after 8s', 'fallback')).toBe('Rate limited. Retry after 8s.');
+    expect(formatRateLimitedUiError('429 - retry after 8s', 'fallback')).toBe(
+      'Rate limited. Retry after 8s.'
+    );
   });
 
   it('supports plain object error message fields', () => {
-    expect(formatRateLimitedUiError({ message: 'Too many requests from upstream' }, 'fallback'))
-      .toBe('Rate limited. Please retry shortly.');
+    expect(
+      formatRateLimitedUiError({ message: 'Too many requests from upstream' }, 'fallback')
+    ).toBe('Rate limited. Please retry shortly.');
   });
 
   it('supports plain object error detail fields', () => {
-    expect(formatRateLimitedUiError({ detail: 'Rate limit reached' }, 'fallback'))
-      .toBe('Rate limited. Please retry shortly.');
+    expect(formatRateLimitedUiError({ detail: 'Rate limit reached' }, 'fallback')).toBe(
+      'Rate limited. Please retry shortly.'
+    );
   });
 
   it('returns fallback for unrecognized object payloads', () => {

@@ -5,7 +5,7 @@ import { handleRequest, normalizeIgdbGame, resetCaches } from '../src/index.mjs'
 const env = {
   TWITCH_CLIENT_ID: 'client-id',
   TWITCH_CLIENT_SECRET: 'client-secret',
-  THEGAMESDB_API_KEY: 'thegamesdb-key',
+  THEGAMESDB_API_KEY: 'thegamesdb-key'
 };
 
 function createFetchStub({
@@ -28,7 +28,7 @@ function createFetchStub({
   hltbPageBody = '',
   scraperStatus = 200,
   scraperBody = null,
-  scraperBaseUrl = null,
+  scraperBaseUrl = null
 }) {
   const calls = {
     token: 0,
@@ -44,7 +44,7 @@ function createFetchStub({
     theGamesDbUrls: [],
     hltb: 0,
     hltbPage: 0,
-    scraper: 0,
+    scraper: 0
   };
 
   const stub = async (url, options = {}) => {
@@ -57,7 +57,9 @@ function createFetchStub({
         return new Response(JSON.stringify({ error: 'token_failed' }), { status: tokenStatus });
       }
 
-      return new Response(JSON.stringify({ access_token: 'abc123', expires_in: 3600 }), { status: 200 });
+      return new Response(JSON.stringify({ access_token: 'abc123', expires_in: 3600 }), {
+        status: 200
+      });
     }
 
     if (normalizedUrl === 'https://api.igdb.com/v4/games') {
@@ -65,11 +67,12 @@ function createFetchStub({
       calls.igdbBodies.push(typeof options.body === 'string' ? options.body : '');
 
       if (Array.isArray(igdbResponses) && igdbResponses.length > 0) {
-        const responseConfig = igdbResponses[calls.igdb - 1] ?? igdbResponses[igdbResponses.length - 1];
-        return new Response(
-          JSON.stringify(responseConfig?.body ?? []),
-          { status: responseConfig?.status ?? 200, headers: responseConfig?.headers ?? {} },
-        );
+        const responseConfig =
+          igdbResponses[calls.igdb - 1] ?? igdbResponses[igdbResponses.length - 1];
+        return new Response(JSON.stringify(responseConfig?.body ?? []), {
+          status: responseConfig?.status ?? 200,
+          headers: responseConfig?.headers ?? {}
+        });
       }
 
       return new Response(JSON.stringify(igdbBody), { status: igdbStatus, headers: igdbHeaders });
@@ -84,13 +87,19 @@ function createFetchStub({
     if (normalizedUrl === 'https://api.igdb.com/v4/popularity_types') {
       calls.igdbPopularityTypes += 1;
       calls.igdbPopularityTypeBodies.push(typeof options.body === 'string' ? options.body : '');
-      return new Response(JSON.stringify(igdbPopularityTypesBody), { status: igdbPopularityTypesStatus });
+      return new Response(JSON.stringify(igdbPopularityTypesBody), {
+        status: igdbPopularityTypesStatus
+      });
     }
 
     if (normalizedUrl === 'https://api.igdb.com/v4/popularity_primitives') {
       calls.igdbPopularityPrimitives += 1;
-      calls.igdbPopularityPrimitiveBodies.push(typeof options.body === 'string' ? options.body : '');
-      return new Response(JSON.stringify(igdbPopularityPrimitivesBody), { status: igdbPopularityPrimitivesStatus });
+      calls.igdbPopularityPrimitiveBodies.push(
+        typeof options.body === 'string' ? options.body : ''
+      );
+      return new Response(JSON.stringify(igdbPopularityPrimitivesBody), {
+        status: igdbPopularityPrimitivesStatus
+      });
     }
 
     if (normalizedUrl.startsWith('https://api.thegamesdb.net/v1.1/Games/ByGameName')) {
@@ -98,10 +107,17 @@ function createFetchStub({
       calls.theGamesDbUrls.push(normalizedUrl);
 
       if (theGamesDbStatus !== 200) {
-        return new Response(JSON.stringify({ error: 'thegamesdb_failed' }), { status: theGamesDbStatus });
+        return new Response(JSON.stringify({ error: 'thegamesdb_failed' }), {
+          status: theGamesDbStatus
+        });
       }
 
-      return new Response(JSON.stringify(theGamesDbBody ?? { data: { games: [] }, include: { boxart: { data: {} } } }), { status: 200 });
+      return new Response(
+        JSON.stringify(
+          theGamesDbBody ?? { data: { games: [] }, include: { boxart: { data: {} } } }
+        ),
+        { status: 200 }
+      );
     }
 
     if (normalizedUrl === 'https://howlongtobeat.com/api/search') {
@@ -122,22 +138,24 @@ function createFetchStub({
       }
 
       return new Response(
-        hltbPageBody || '<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"games":[]}}}</script></body></html>',
-        { status: 200, headers: { 'Content-Type': 'text/html' } },
+        hltbPageBody ||
+          '<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"games":[]}}}</script></body></html>',
+        { status: 200, headers: { 'Content-Type': 'text/html' } }
       );
     }
 
-    if (typeof scraperBaseUrl === 'string' && scraperBaseUrl.length > 0 && normalizedUrl.startsWith(`${scraperBaseUrl}/v1/hltb/search`)) {
+    if (
+      typeof scraperBaseUrl === 'string' &&
+      scraperBaseUrl.length > 0 &&
+      normalizedUrl.startsWith(`${scraperBaseUrl}/v1/hltb/search`)
+    ) {
       calls.scraper += 1;
 
       if (scraperStatus !== 200) {
         return new Response(JSON.stringify({ error: 'scraper_failed' }), { status: scraperStatus });
       }
 
-      return new Response(
-        JSON.stringify(scraperBody ?? { item: null }),
-        { status: 200 },
-      );
+      return new Response(JSON.stringify(scraperBody ?? { item: null }), { status: 200 });
     }
 
     throw new Error(`Unexpected URL: ${url}`);
@@ -152,7 +170,7 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     name: 'Super Mario Odyssey',
     first_release_date: 1508457600,
     cover: { image_id: 'abc123' },
-    platforms: [{ name: 'Nintendo Switch' }],
+    platforms: [{ name: 'Nintendo Switch' }]
   });
 
   assert.deepEqual(normalized, {
@@ -174,7 +192,7 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     platform: 'Nintendo Switch',
     platformIgdbId: null,
     releaseDate: '2017-10-20T00:00:00.000Z',
-    releaseYear: 2017,
+    releaseYear: 2017
   });
 });
 
@@ -184,7 +202,7 @@ test('returns 400 for short query', async () => {
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=m'),
     env,
-    async () => new Response('{}', { status: 200 }),
+    async () => new Response('{}', { status: 200 })
   );
 
   assert.equal(response.status, 400);
@@ -200,15 +218,15 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
         name: 'Mario Kart 8 Deluxe',
         first_release_date: 1488499200,
         cover: { image_id: 'xyz987' },
-        platforms: [{ id: 130, name: 'Nintendo Switch' }],
-      },
-    ],
+        platforms: [{ id: 130, name: 'Nintendo Switch' }]
+      }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=mario'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -220,24 +238,32 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.deepEqual(payload.items[0].platforms, ['Nintendo Switch']);
   assert.deepEqual(payload.items[0].platformOptions, [{ id: 130, name: 'Nintendo Switch' }]);
   assert.equal(payload.items[0].platformIgdbId, 130);
-  assert.equal(payload.items[0].coverUrl, 'https://images.igdb.com/igdb/image/upload/t_cover_big/xyz987.jpg');
+  assert.equal(
+    payload.items[0].coverUrl,
+    'https://images.igdb.com/igdb/image/upload/t_cover_big/xyz987.jpg'
+  );
   assert.equal(payload.items[0].coverSource, 'igdb');
   assert.equal(calls.theGamesDb, 0);
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
-  assert.equal(calls.igdbBodies[0].includes('fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'), true);
+  assert.equal(
+    calls.igdbBodies[0].includes(
+      'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'
+    ),
+    true
+  );
 });
 
 test('applies platform filter to IGDB game search when platformIgdbId is provided', async () => {
   resetCaches();
 
   const { stub, calls } = createFetchStub({
-    igdbBody: [],
+    igdbBody: []
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=mario&platformIgdbId=130'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -250,13 +276,13 @@ test('sanitizes semicolons in search query before building IGDB body', async () 
   resetCaches();
 
   const { stub, calls } = createFetchStub({
-    igdbBody: [],
+    igdbBody: []
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=metal%20gear%3B%20solid'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -277,7 +303,7 @@ test('demotes remakes/remasters below their original game when both are in resul
         platforms: [{ id: 130, name: 'Nintendo Switch' }],
         total_rating_count: 99,
         category: 8,
-        version_parent: 200,
+        version_parent: 200
       },
       {
         id: 200,
@@ -286,15 +312,15 @@ test('demotes remakes/remasters below their original game when both are in resul
         cover: { image_id: 'original-cover' },
         platforms: [{ id: 6, name: 'Wii' }],
         total_rating_count: 10,
-        category: 0,
-      },
-    ],
+        category: 0
+      }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=epic%20mickey'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -322,17 +348,17 @@ test('falls back to reduced IGDB fields when first search variant fails', async 
             cover: { image_id: 'zelda-cover' },
             platforms: [{ id: 18, name: 'NES' }],
             follows: 777,
-            category: 0,
-          },
-        ],
-      },
-    ],
+            category: 0
+          }
+        ]
+      }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=zelda'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -352,8 +378,18 @@ test('reuses cached token between requests', async () => {
   const { stub, calls } = createFetchStub({ igdbBody: [] });
   const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
 
-  await handleRequest(new Request('https://worker.example/v1/games/search?q=mario'), env, stub, now);
-  await handleRequest(new Request('https://worker.example/v1/games/search?q=zelda'), env, stub, now);
+  await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=mario'),
+    env,
+    stub,
+    now
+  );
+  await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=zelda'),
+    env,
+    stub,
+    now
+  );
 
   assert.equal(calls.token, 1);
   assert.equal(calls.igdb, 2);
@@ -365,8 +401,8 @@ test('returns IGDB platform filters and caches the platform response', async () 
   const { stub, calls } = createFetchStub({
     igdbPlatformsBody: [
       { id: 130, name: 'Nintendo Switch' },
-      { id: 6, name: 'PC (Microsoft Windows)' },
-    ],
+      { id: 6, name: 'PC (Microsoft Windows)' }
+    ]
   });
   const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
 
@@ -374,14 +410,14 @@ test('returns IGDB platform filters and caches the platform response', async () 
     new Request('https://worker.example/v1/platforms'),
     env,
     stub,
-    now,
+    now
   );
 
   const second = await handleRequest(
     new Request('https://worker.example/v1/platforms'),
     env,
     stub,
-    now,
+    now
   );
 
   assert.equal(first.status, 200);
@@ -393,7 +429,7 @@ test('returns IGDB platform filters and caches the platform response', async () 
   const payload = await first.json();
   assert.deepEqual(payload.items, [
     { id: 130, name: 'Nintendo Switch' },
-    { id: 6, name: 'PC (Microsoft Windows)' },
+    { id: 6, name: 'PC (Microsoft Windows)' }
   ]);
 });
 
@@ -403,32 +439,35 @@ test('returns IGDB popularity types', async () => {
   const { stub, calls } = createFetchStub({
     igdbPopularityTypesBody: [
       { id: 1, name: 'Most visited games on IGDB', external_popularity_source: 121 },
-      { id: 2, name: 'Most played in the last 24h', external_popularity_source: 144 },
-    ],
+      { id: 2, name: 'Most played in the last 24h', external_popularity_source: 144 }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/popularity/types'),
     env,
-    stub,
+    stub
   );
 
   const second = await handleRequest(
     new Request('https://worker.example/v1/popularity/types'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
   assert.equal(second.status, 200);
   assert.equal(calls.token, 1);
   assert.equal(calls.igdbPopularityTypes, 1);
-  assert.equal(calls.igdbPopularityTypeBodies[0].includes('fields id,name,external_popularity_source;'), true);
+  assert.equal(
+    calls.igdbPopularityTypeBodies[0].includes('fields id,name,external_popularity_source;'),
+    true
+  );
 
   const payload = await response.json();
   assert.deepEqual(payload.items, [
     { id: 1, name: 'Most visited games on IGDB', externalPopularitySource: 121 },
-    { id: 2, name: 'Most played in the last 24h', externalPopularitySource: 144 },
+    { id: 2, name: 'Most played in the last 24h', externalPopularitySource: 144 }
   ]);
 });
 
@@ -442,8 +481,8 @@ test('returns IGDB popularity primitives enriched with game metadata', async () 
         popularity_type: 7,
         external_popularity_source: 81,
         value: 987.65,
-        calculated_at: 1735689600,
-      },
+        calculated_at: 1735689600
+      }
     ],
     igdbBody: [
       {
@@ -451,15 +490,17 @@ test('returns IGDB popularity primitives enriched with game metadata', async () 
         name: 'Super Metroid',
         first_release_date: 777600000,
         cover: { image_id: 'super-metroid' },
-        platforms: [{ id: 19, name: 'SNES' }],
-      },
-    ],
+        platforms: [{ id: 19, name: 'SNES' }]
+      }
+    ]
   });
 
   const response = await handleRequest(
-    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=7&limit=20&offset=0'),
+    new Request(
+      'https://worker.example/v1/popularity/primitives?popularityTypeId=7&limit=20&offset=0'
+    ),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -484,7 +525,7 @@ test('returns 400 when popularityTypeId is missing for popularity primitives', a
   const response = await handleRequest(
     new Request('https://worker.example/v1/popularity/primitives'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 400);
@@ -498,7 +539,7 @@ test('maps upstream errors to safe 502 response', async () => {
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=halo'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 502);
@@ -512,7 +553,7 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
   const { stub, calls } = createFetchStub({
     igdbStatus: 429,
     igdbBody: { error: 'too many requests' },
-    igdbHeaders: { 'Retry-After': '15' },
+    igdbHeaders: { 'Retry-After': '15' }
   });
 
   let nowMs = Date.UTC(2026, 0, 1, 0, 0, 0);
@@ -522,7 +563,7 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
     new Request('https://worker.example/v1/games/search?q=halo'),
     env,
     stub,
-    now,
+    now
   );
 
   assert.equal(first.status, 429);
@@ -536,7 +577,7 @@ test('returns 429 with Retry-After when IGDB upstream is rate limited and applie
     new Request('https://worker.example/v1/games/123'),
     env,
     stub,
-    now,
+    now
   );
 
   assert.equal(second.status, 429);
@@ -554,15 +595,15 @@ test('returns normalized game metadata for IGDB id endpoint', async () => {
         name: 'Super Metroid',
         first_release_date: 775353600,
         cover: { image_id: 'supermetroid-cover' },
-        platforms: [{ id: 19, name: 'SNES' }],
-      },
-    ],
+        platforms: [{ id: 19, name: 'SNES' }]
+      }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/321'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -570,7 +611,10 @@ test('returns normalized game metadata for IGDB id endpoint', async () => {
   assert.equal(payload.item.externalId, '321');
   assert.equal(payload.item.title, 'Super Metroid');
   assert.equal(payload.item.coverSource, 'igdb');
-  assert.equal(payload.item.coverUrl, 'https://images.igdb.com/igdb/image/upload/t_cover_big/supermetroid-cover.jpg');
+  assert.equal(
+    payload.item.coverUrl,
+    'https://images.igdb.com/igdb/image/upload/t_cover_big/supermetroid-cover.jpg'
+  );
   assert.equal(calls.theGamesDb, 0);
 });
 
@@ -588,17 +632,17 @@ test('falls back to accent-folded IGDB query when the original query returns no 
             name: 'Einhänder',
             first_release_date: 888451200,
             cover: { image_id: 'einhander-cover' },
-            platforms: [{ id: 7, name: 'PlayStation' }],
-          },
-        ],
-      },
-    ],
+            platforms: [{ id: 7, name: 'PlayStation' }]
+          }
+        ]
+      }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=Einh%C3%A4nder'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -622,9 +666,9 @@ test('merges accent-folded IGDB query results when the original query returns no
             id: 999001,
             name: 'Einhänder Preview Disc',
             first_release_date: 888451200,
-            platforms: [{ id: 7, name: 'PlayStation' }],
-          },
-        ],
+            platforms: [{ id: 7, name: 'PlayStation' }]
+          }
+        ]
       },
       {
         status: 200,
@@ -634,23 +678,26 @@ test('merges accent-folded IGDB query results when the original query returns no
             name: 'Einhänder',
             first_release_date: 888451200,
             cover: { image_id: 'einhander-cover' },
-            platforms: [{ id: 7, name: 'PlayStation' }],
-          },
-        ],
-      },
-    ],
+            platforms: [{ id: 7, name: 'PlayStation' }]
+          }
+        ]
+      }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=einh%C3%A4nder'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.items.length, 2);
-  assert.equal(payload.items.some(item => item.title === 'Einhänder'), true);
+  assert.equal(
+    payload.items.some((item) => item.title === 'Einhänder'),
+    true
+  );
   assert.equal(calls.igdb, 2);
   assert.equal(calls.igdbBodies[0].includes('search "einhänder";'), true);
   assert.equal(calls.igdbBodies[1].includes('search "einhander";'), true);
@@ -672,17 +719,17 @@ test('retries IGDB search without platform filter when filtered umlaut query ret
             name: 'Einhänder',
             first_release_date: 888451200,
             cover: { image_id: 'einhander-cover' },
-            platforms: [{ id: 7, name: 'PlayStation' }],
-          },
-        ],
-      },
-    ],
+            platforms: [{ id: 7, name: 'PlayStation' }]
+          }
+        ]
+      }
+    ]
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/search?q=einh%C3%A4nder&platformIgdbId=7'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -705,7 +752,7 @@ test('returns 404 when IGDB id endpoint has no matching game', async () => {
   const response = await handleRequest(
     new Request('https://worker.example/v1/games/999999'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 404);
@@ -721,33 +768,33 @@ test('returns 2D box art candidates for box art search endpoint', async () => {
       data: {
         games: [
           { id: 7001, game_title: 'Super Mario Odyssey' },
-          { id: 7002, game_title: 'Mario Party' },
-        ],
+          { id: 7002, game_title: 'Mario Party' }
+        ]
       },
       include: {
         boxart: {
           base_url: {
             original: 'https://cdn.thegamesdb.net/images/original',
-            large: 'https://cdn.thegamesdb.net/images/large',
+            large: 'https://cdn.thegamesdb.net/images/large'
           },
           data: {
             7001: [
               { type: 'boxart', side: 'front', filename: '/box/front/odyssey.jpg' },
-              { type: 'boxart', side: 'back', filename: '/box/back/odyssey.jpg' },
+              { type: 'boxart', side: 'back', filename: '/box/back/odyssey.jpg' }
             ],
-            7002: [
-              { type: 'boxart', side: 'front', filename: '/box/front/mario-party.jpg' },
-            ],
-          },
-        },
-      },
-    },
+            7002: [{ type: 'boxart', side: 'front', filename: '/box/front/mario-party.jpg' }]
+          }
+        }
+      }
+    }
   });
 
   const response = await handleRequest(
-    new Request('https://worker.example/v1/images/boxart/search?q=super%20mario&platform=nintendo%20switch&platformIgdbId=130'),
+    new Request(
+      'https://worker.example/v1/images/boxart/search?q=super%20mario&platform=nintendo%20switch&platformIgdbId=130'
+    ),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -777,22 +824,20 @@ test('falls back to accent-folded TheGamesDB query when the original query retur
 
       const body = isFoldedQuery
         ? {
-          data: {
-            games: [{ id: 8001, game_title: 'Einhänder' }],
-          },
-          include: {
-            boxart: {
-              base_url: {
-                large: 'https://cdn.thegamesdb.net/images/large',
-              },
-              data: {
-                8001: [
-                  { type: 'boxart', side: 'front', filename: '/box/front/einhander.jpg' },
-                ],
-              },
+            data: {
+              games: [{ id: 8001, game_title: 'Einhänder' }]
             },
-          },
-        }
+            include: {
+              boxart: {
+                base_url: {
+                  large: 'https://cdn.thegamesdb.net/images/large'
+                },
+                data: {
+                  8001: [{ type: 'boxart', side: 'front', filename: '/box/front/einhander.jpg' }]
+                }
+              }
+            }
+          }
         : { data: { games: [] }, include: { boxart: { data: {} } } };
 
       return new Response(JSON.stringify(body), { status: 200 });
@@ -804,14 +849,22 @@ test('falls back to accent-folded TheGamesDB query when the original query retur
   const response = await handleRequest(
     new Request('https://worker.example/v1/images/boxart/search?q=Einh%C3%A4nder'),
     env,
-    fetchStub,
+    fetchStub
   );
 
   assert.equal(response.status, 200);
   const payload = await response.json();
-  assert.deepEqual(payload.items, ['https://cdn.thegamesdb.net/images/large/box/front/einhander.jpg']);
-  assert.equal(theGamesDbUrls.some(url => url.includes('name=Einh%C3%A4nder')), true);
-  assert.equal(theGamesDbUrls.some(url => url.includes('name=Einhander')), true);
+  assert.deepEqual(payload.items, [
+    'https://cdn.thegamesdb.net/images/large/box/front/einhander.jpg'
+  ]);
+  assert.equal(
+    theGamesDbUrls.some((url) => url.includes('name=Einh%C3%A4nder')),
+    true
+  );
+  assert.equal(
+    theGamesDbUrls.some((url) => url.includes('name=Einhander')),
+    true
+  );
 });
 
 test('prioritizes TheGamesDB country_id 50 first and country_id 0 second for matching titles', async () => {
@@ -823,34 +876,28 @@ test('prioritizes TheGamesDB country_id 50 first and country_id 0 second for mat
         games: [
           { id: 7101, game_title: 'SwordQuest EarthWorld', country_id: 999 },
           { id: 7102, game_title: 'SwordQuest EarthWorld', country_id: 0 },
-          { id: 7103, game_title: 'SwordQuest EarthWorld', country_id: 50 },
-        ],
+          { id: 7103, game_title: 'SwordQuest EarthWorld', country_id: 50 }
+        ]
       },
       include: {
         boxart: {
           base_url: {
-            large: 'https://cdn.thegamesdb.net/images/large',
+            large: 'https://cdn.thegamesdb.net/images/large'
           },
           data: {
-            7101: [
-              { type: 'boxart', side: 'front', filename: '/box/front/swordquest-other.jpg' },
-            ],
-            7102: [
-              { type: 'boxart', side: 'front', filename: '/box/front/swordquest-zero.jpg' },
-            ],
-            7103: [
-              { type: 'boxart', side: 'front', filename: '/box/front/swordquest-50.jpg' },
-            ],
-          },
-        },
-      },
-    },
+            7101: [{ type: 'boxart', side: 'front', filename: '/box/front/swordquest-other.jpg' }],
+            7102: [{ type: 'boxart', side: 'front', filename: '/box/front/swordquest-zero.jpg' }],
+            7103: [{ type: 'boxart', side: 'front', filename: '/box/front/swordquest-50.jpg' }]
+          }
+        }
+      }
+    }
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/images/boxart/search?q=swordquest%20earthworld'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -858,7 +905,7 @@ test('prioritizes TheGamesDB country_id 50 first and country_id 0 second for mat
   assert.deepEqual(payload.items.slice(0, 3), [
     'https://cdn.thegamesdb.net/images/large/box/front/swordquest-50.jpg',
     'https://cdn.thegamesdb.net/images/large/box/front/swordquest-zero.jpg',
-    'https://cdn.thegamesdb.net/images/large/box/front/swordquest-other.jpg',
+    'https://cdn.thegamesdb.net/images/large/box/front/swordquest-other.jpg'
   ]);
 });
 
@@ -871,34 +918,28 @@ test('applies TheGamesDB region preferences after country preference', async () 
         games: [
           { id: 7201, game_title: 'Ninja Gaiden', region_id: 0, country_id: 50 },
           { id: 7202, game_title: 'Ninja Gaiden', region_id: 1, country_id: 999 },
-          { id: 7203, game_title: 'Ninja Gaiden', region_id: 2, country_id: 999 },
-        ],
+          { id: 7203, game_title: 'Ninja Gaiden', region_id: 2, country_id: 999 }
+        ]
       },
       include: {
         boxart: {
           base_url: {
-            large: 'https://cdn.thegamesdb.net/images/large',
+            large: 'https://cdn.thegamesdb.net/images/large'
           },
           data: {
-            7201: [
-              { type: 'boxart', side: 'front', filename: '/box/front/ninja-country50.jpg' },
-            ],
-            7202: [
-              { type: 'boxart', side: 'front', filename: '/box/front/ninja-region1.jpg' },
-            ],
-            7203: [
-              { type: 'boxart', side: 'front', filename: '/box/front/ninja-region2.jpg' },
-            ],
-          },
-        },
-      },
-    },
+            7201: [{ type: 'boxart', side: 'front', filename: '/box/front/ninja-country50.jpg' }],
+            7202: [{ type: 'boxart', side: 'front', filename: '/box/front/ninja-region1.jpg' }],
+            7203: [{ type: 'boxart', side: 'front', filename: '/box/front/ninja-region2.jpg' }]
+          }
+        }
+      }
+    }
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/images/boxart/search?q=ninja%20gaiden'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -906,7 +947,7 @@ test('applies TheGamesDB region preferences after country preference', async () 
   assert.deepEqual(payload.items.slice(0, 3), [
     'https://cdn.thegamesdb.net/images/large/box/front/ninja-country50.jpg',
     'https://cdn.thegamesdb.net/images/large/box/front/ninja-region2.jpg',
-    'https://cdn.thegamesdb.net/images/large/box/front/ninja-region1.jpg',
+    'https://cdn.thegamesdb.net/images/large/box/front/ninja-region1.jpg'
   ]);
 });
 
@@ -916,7 +957,7 @@ test('returns 400 for short box art query', async () => {
   const response = await handleRequest(
     new Request('https://worker.example/v1/images/boxart/search?q=m'),
     env,
-    async () => new Response('{}', { status: 200 }),
+    async () => new Response('{}', { status: 200 })
   );
 
   assert.equal(response.status, 400);
@@ -927,13 +968,13 @@ test('returns empty box art results instead of 502 when TheGamesDB fails', async
 
   const { stub, calls } = createFetchStub({
     theGamesDbStatus: 500,
-    theGamesDbBody: { error: 'thegamesdb_failed' },
+    theGamesDbBody: { error: 'thegamesdb_failed' }
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/images/boxart/search?q=metroid'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -952,18 +993,20 @@ test('prefers configured HLTB scraper service when available', async () => {
       item: {
         hltbMainHours: 7.5,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13,
-      },
-    },
+        hltbCompletionistHours: 13
+      }
+    }
   });
 
   const response = await handleRequest(
-    new Request('https://worker.example/v1/hltb/search?q=super%20metroid&releaseYear=1994&platform=snes'),
+    new Request(
+      'https://worker.example/v1/hltb/search?q=super%20metroid&releaseYear=1994&platform=snes'
+    ),
     {
       ...env,
-      HLTB_SCRAPER_BASE_URL: scraperBaseUrl,
+      HLTB_SCRAPER_BASE_URL: scraperBaseUrl
     },
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -971,7 +1014,7 @@ test('prefers configured HLTB scraper service when available', async () => {
   assert.deepEqual(payload.item, {
     hltbMainHours: 7.5,
     hltbMainExtraHours: 10,
-    hltbCompletionistHours: 13,
+    hltbCompletionistHours: 13
   });
   assert.equal(calls.scraper, 1);
   assert.equal(calls.hltb, 0);
@@ -983,16 +1026,16 @@ test('returns null HLTB item when scraper is unavailable', async () => {
 
   const { stub, calls } = createFetchStub({
     scraperBaseUrl: 'https://hltb-scraper.example',
-    scraperStatus: 503,
+    scraperStatus: 503
   });
 
   const response = await handleRequest(
     new Request('https://worker.example/v1/hltb/search?q=metroid'),
     {
       ...env,
-      HLTB_SCRAPER_BASE_URL: 'https://hltb-scraper.example',
+      HLTB_SCRAPER_BASE_URL: 'https://hltb-scraper.example'
     },
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);
@@ -1010,7 +1053,7 @@ test('returns null HLTB item when scraper is not configured', async () => {
   const response = await handleRequest(
     new Request('https://worker.example/v1/hltb/search?q=super%20metroid'),
     env,
-    stub,
+    stub
   );
 
   assert.equal(response.status, 200);

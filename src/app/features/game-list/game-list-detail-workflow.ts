@@ -24,17 +24,19 @@ export function normalizeMetadataOptions(values: string[] | undefined): string[]
     return [];
   }
 
-  return [...new Set(
-    values
-      .map(value => (typeof value === 'string' ? value.trim() : ''))
-      .filter(value => value.length > 0),
-  )];
+  return [
+    ...new Set(
+      values
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter((value) => value.length > 0)
+    )
+  ];
 }
 
 export function dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatchCandidate[] {
   const byKey = new Map<string, HltbMatchCandidate>();
 
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     const key = `${candidate.title}::${candidate.releaseYear ?? ''}::${candidate.platform ?? ''}`;
 
     if (!byKey.has(key)) {
@@ -45,14 +47,17 @@ export function dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatc
   return [...byKey.values()];
 }
 
-export function createOpenedImagePickerState(previousRequestId: number, title: string): ImagePickerState {
+export function createOpenedImagePickerState(
+  previousRequestId: number,
+  title: string
+): ImagePickerState {
   return {
     imagePickerSearchRequestId: previousRequestId,
     imagePickerQuery: title,
     imagePickerResults: [],
     imagePickerError: null,
     isImagePickerLoading: false,
-    isImagePickerModalOpen: true,
+    isImagePickerModalOpen: true
   };
 }
 
@@ -63,7 +68,7 @@ export function createClosedImagePickerState(previousRequestId: number): ImagePi
     imagePickerResults: [],
     imagePickerError: null,
     isImagePickerLoading: false,
-    isImagePickerModalOpen: false,
+    isImagePickerModalOpen: false
   };
 }
 
@@ -75,7 +80,7 @@ export function createOpenedHltbPickerState(game: GameEntry): HltbPickerState {
     hltbPickerQuery: game.title,
     hltbPickerResults: [],
     hltbPickerError: null,
-    hltbPickerTargetGame: game,
+    hltbPickerTargetGame: game
   };
 }
 
@@ -87,6 +92,6 @@ export function createClosedHltbPickerState(): HltbPickerState {
     hltbPickerQuery: '',
     hltbPickerResults: [],
     hltbPickerError: null,
-    hltbPickerTargetGame: null,
+    hltbPickerTargetGame: null
   };
 }

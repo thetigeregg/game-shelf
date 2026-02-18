@@ -14,12 +14,11 @@ export class PlatformCustomizationService {
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
-    'e-reader / card-e reader': 'Game Boy Advance',
+    'e-reader / card-e reader': 'Game Boy Advance'
   };
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
-    const platformId = typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0
-      ? entry.id
-      : null;
+    const platformId =
+      typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0 ? entry.id : null;
     const platformName = String(entry.name ?? '').trim();
 
     if (platformId !== null && platformName.length > 0) {
@@ -28,19 +27,25 @@ export class PlatformCustomizationService {
 
     return map;
   }, new Map<number, string>());
-  private readonly displayNamesSubject = new BehaviorSubject<PlatformDisplayNameMap>(this.loadFromStorage());
+  private readonly displayNamesSubject = new BehaviorSubject<PlatformDisplayNameMap>(
+    this.loadFromStorage()
+  );
   readonly displayNames$ = this.displayNamesSubject.asObservable();
 
   getDisplayNames(): PlatformDisplayNameMap {
     return { ...this.displayNamesSubject.value };
   }
 
-  getDisplayName(platformName: string | null | undefined, platformIgdbId: number | null | undefined): string {
+  getDisplayName(
+    platformName: string | null | undefined,
+    platformIgdbId: number | null | undefined
+  ): string {
     const fallback = String(platformName ?? '').trim();
     const aliasedFallback = this.getAliasedPlatformName(fallback);
     const fallbackKey = this.normalizePlatformKey(fallback);
     const aliasedFallbackKey = this.normalizePlatformKey(aliasedFallback);
-    const aliasWasApplied = fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
+    const aliasWasApplied =
+      fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
 
     if (aliasWasApplied) {
       const canonicalCustom = this.getCanonicalCustomName(aliasedFallback);
@@ -51,7 +56,8 @@ export class PlatformCustomizationService {
     }
 
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
-    const custom = platformId !== null ? this.displayNamesSubject.value[String(platformId)] : undefined;
+    const custom =
+      platformId !== null ? this.displayNamesSubject.value[String(platformId)] : undefined;
     const normalizedCustom = typeof custom === 'string' ? custom.trim() : '';
 
     if (normalizedCustom.length > 0) {
@@ -61,7 +67,10 @@ export class PlatformCustomizationService {
     return aliasedFallback;
   }
 
-  getDisplayNameWithAliasSource(platformName: string | null | undefined, platformIgdbId: number | null | undefined): string {
+  getDisplayNameWithAliasSource(
+    platformName: string | null | undefined,
+    platformIgdbId: number | null | undefined
+  ): string {
     const fallback = String(platformName ?? '').trim();
 
     if (fallback.length === 0) {
@@ -71,7 +80,8 @@ export class PlatformCustomizationService {
     const aliasedFallback = this.getAliasedPlatformName(fallback);
     const fallbackKey = this.normalizePlatformKey(fallback);
     const aliasedFallbackKey = this.normalizePlatformKey(aliasedFallback);
-    const aliasWasApplied = fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
+    const aliasWasApplied =
+      fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
 
     if (!aliasWasApplied) {
       return this.getDisplayName(fallback, platformIgdbId);
@@ -82,7 +92,10 @@ export class PlatformCustomizationService {
     const sourceCustom = this.getCustomName(platformIgdbId);
     const sourceLabel = sourceCustom ?? fallback;
 
-    if (sourceLabel.trim().length === 0 || this.normalizePlatformKey(sourceLabel) === this.normalizePlatformKey(canonicalLabel)) {
+    if (
+      sourceLabel.trim().length === 0 ||
+      this.normalizePlatformKey(sourceLabel) === this.normalizePlatformKey(canonicalLabel)
+    ) {
       return canonicalLabel;
     }
 
@@ -144,7 +157,10 @@ export class PlatformCustomizationService {
     return normalized.length > 0 ? normalized : null;
   }
 
-  setCustomName(platformIgdbId: number | null | undefined, customName: string | null | undefined): void {
+  setCustomName(
+    platformIgdbId: number | null | undefined,
+    customName: string | null | undefined
+  ): void {
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
 
     if (platformId === null) {
@@ -209,7 +225,9 @@ export class PlatformCustomizationService {
   }
 
   private normalizePlatformIgdbId(platformIgdbId: number | null | undefined): number | null {
-    return typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
+    return typeof platformIgdbId === 'number' &&
+      Number.isInteger(platformIgdbId) &&
+      platformIgdbId > 0
       ? platformIgdbId
       : null;
   }

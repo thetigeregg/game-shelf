@@ -114,5 +114,5 @@ export const IGDB_TO_THEGAMESDB_PLATFORM_ID = new Map([
   [475, 4983],
   [407, 4987],
   [309, 4985],
-  [381, 5016],
+  [381, 5016]
 ]);

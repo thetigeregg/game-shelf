@@ -96,9 +96,12 @@ export const config: AppConfig = {
   theGamesDbApiKey: readRequiredEnv('THEGAMESDB_API_KEY'),
   hltbScraperBaseUrl: readEnv('HLTB_SCRAPER_BASE_URL', ''),
   hltbScraperToken: readEnv('HLTB_SCRAPER_TOKEN', ''),
-  hltbCacheEnableStaleWhileRevalidate: readBooleanEnv('HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE', true),
+  hltbCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
-  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
+  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')
 };

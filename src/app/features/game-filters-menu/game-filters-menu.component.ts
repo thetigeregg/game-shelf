@@ -18,7 +18,9 @@ import {
   IonLabel,
   IonDatetimeButton,
   IonModal,
-  IonDatetime
+  IonDatetime,
+  IonAccordionGroup,
+  IonAccordion
 } from '@ionic/angular/standalone';
 import {
   DEFAULT_GAME_LIST_FILTERS,
@@ -68,7 +70,9 @@ type SortOption =
     IonLabel,
     IonDatetimeButton,
     IonModal,
-    IonDatetime
+    IonDatetime,
+    IonAccordionGroup,
+    IonAccordion
   ]
 })
 export class GameFiltersMenuComponent implements OnChanges {

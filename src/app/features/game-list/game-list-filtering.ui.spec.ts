@@ -442,6 +442,15 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     const grouped = engine.buildGroupedView(games, 'platform');
     expect(grouped.sections.map((section) => section.title)).toEqual(['Game Boy Advance']);
+
+    const normalizedFilters = engine.normalizeFilters({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      platform: ['e-Reader']
+    });
+    expect(normalizedFilters.platform).toEqual(['Game Boy Advance']);
+
+    const filtered = engine.applyFiltersAndSort(games, normalizedFilters, '');
+    expect(filtered.map((game) => game.title).sort()).toEqual(['Card-e Game', 'GBA Game'].sort());
   });
 
   it('filters by metadata fields, status, rating, and game type', () => {

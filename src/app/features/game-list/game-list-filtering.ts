@@ -80,6 +80,7 @@ export class GameListFilteringEngine {
   }, new Map<number, string>());
   private readonly canonicalCustomByPlatformNameKey = new Map<string, string>();
   private readonly canonicalPlatformNameKeyByCustomLabelKey = new Map<string, string>();
+  private readonly canonicalPlatformLabelByCustomLabelKey = new Map<string, string>();
 
   constructor(private readonly noneTagFilterValue: string) {}
 
@@ -99,6 +100,12 @@ export class GameListFilteringEngine {
     const nextMap = new Map<number, string>();
     const nextCanonicalCustomByPlatformNameKey = new Map<string, string>();
     const nextCanonicalPlatformNameKeyByCustomLabelKey = new Map<string, string>();
+    const nextCanonicalPlatformLabelByCustomLabelKey = new Map<string, string>();
+    const customPlatformEntries: {
+      customLabel: string;
+      canonicalPlatformName: string;
+      canonicalPlatformNameKey: string;
+    }[] = [];
 
     Object.entries(displayNames ?? {}).forEach(([rawKey, rawValue]) => {
       const platformId = Number.parseInt(String(rawKey ?? ''), 10);
@@ -112,6 +119,14 @@ export class GameListFilteringEngine {
         const canonicalPlatformName = this.getAliasedPlatformName(platformName);
         const canonicalPlatformNameKey = this.normalizePlatformKey(canonicalPlatformName);
 
+        if (canonicalPlatformNameKey.length > 0) {
+          customPlatformEntries.push({
+            customLabel: normalizedName,
+            canonicalPlatformName,
+            canonicalPlatformNameKey
+          });
+        }
+
         // Only treat custom labels on the canonical destination platform as canonical aliases.
         if (
           canonicalPlatformNameKey.length > 0 &&
@@ -119,11 +134,33 @@ export class GameListFilteringEngine {
           !nextCanonicalCustomByPlatformNameKey.has(canonicalPlatformNameKey)
         ) {
           nextCanonicalCustomByPlatformNameKey.set(canonicalPlatformNameKey, normalizedName);
-          nextCanonicalPlatformNameKeyByCustomLabelKey.set(
-            this.normalizePlatformKey(normalizedName),
-            canonicalPlatformNameKey
-          );
         }
+      }
+    });
+
+    customPlatformEntries.forEach((entry) => {
+      const customLabelKey = this.normalizePlatformKey(entry.customLabel);
+      const canonicalLabel =
+        nextCanonicalCustomByPlatformNameKey.get(entry.canonicalPlatformNameKey) ??
+        entry.canonicalPlatformName;
+
+      if (
+        customLabelKey.length > 0 &&
+        canonicalLabel.trim().length > 0 &&
+        !nextCanonicalPlatformNameKeyByCustomLabelKey.has(customLabelKey)
+      ) {
+        nextCanonicalPlatformNameKeyByCustomLabelKey.set(
+          customLabelKey,
+          entry.canonicalPlatformNameKey
+        );
+      }
+
+      if (
+        customLabelKey.length > 0 &&
+        canonicalLabel.trim().length > 0 &&
+        !nextCanonicalPlatformLabelByCustomLabelKey.has(customLabelKey)
+      ) {
+        nextCanonicalPlatformLabelByCustomLabelKey.set(customLabelKey, canonicalLabel.trim());
       }
     });
 
@@ -145,6 +182,10 @@ export class GameListFilteringEngine {
     this.canonicalPlatformNameKeyByCustomLabelKey.clear();
     nextCanonicalPlatformNameKeyByCustomLabelKey.forEach((value, key) =>
       this.canonicalPlatformNameKeyByCustomLabelKey.set(key, value)
+    );
+    this.canonicalPlatformLabelByCustomLabelKey.clear();
+    nextCanonicalPlatformLabelByCustomLabelKey.forEach((value, key) =>
+      this.canonicalPlatformLabelByCustomLabelKey.set(key, value)
     );
     this.normalizedFilterGameByKey.clear();
     this.sortedGamesCache = null;
@@ -446,8 +487,17 @@ export class GameListFilteringEngine {
       return '';
     }
 
-    const aliased = this.getAliasedPlatformName(trimmed);
     const trimmedKey = this.normalizePlatformKey(trimmed);
+    const canonicalLabelFromCustom = this.canonicalPlatformLabelByCustomLabelKey.get(trimmedKey);
+
+    if (
+      typeof canonicalLabelFromCustom === 'string' &&
+      canonicalLabelFromCustom.trim().length > 0
+    ) {
+      return canonicalLabelFromCustom.trim();
+    }
+
+    const aliased = this.getAliasedPlatformName(trimmed);
     const aliasedKey = this.normalizePlatformKey(aliased);
     const aliasWasApplied =
       trimmedKey.length > 0 && aliasedKey.length > 0 && trimmedKey !== aliasedKey;

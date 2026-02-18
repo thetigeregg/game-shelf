@@ -4,15 +4,6 @@
       <ion-back-button [defaultHref]="backHref"></ion-back-button>
     </ion-buttons>
     <ion-title>Views</ion-title>
-    <ion-buttons slot="end">
-      <ion-button
-        aria-label="Save current as view"
-        [disabled]="!hasCurrentConfiguration"
-        (click)="openCreateViewModal()"
-      >
-        <ion-icon slot="icon-only" name="add"></ion-icon>
-      </ion-button>
-    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -65,6 +56,17 @@
       }
     </ion-list>
   }
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button
+      size="small"
+      aria-label="Save current as view"
+      [disabled]="!hasCurrentConfiguration"
+      (click)="openCreateViewModal()"
+    >
+      <ion-icon name="add" aria-hidden="true"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
 </ion-content>
 
 <ion-modal [isOpen]="isNameModalOpen" (didDismiss)="closeNameModal()">

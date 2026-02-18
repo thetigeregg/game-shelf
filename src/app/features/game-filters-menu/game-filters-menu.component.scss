@@ -16,5 +16,5 @@
 
 ion-accordion-group > ion-accordion:last-of-type ion-item[slot='header'] {
   --border-width: 0 0 0.55px 0;
-  border-bottom: 0.55px solid var(--border-color-rgb);
+  border-bottom: 0.55px solid var(--border-color);
 }

@@ -21,7 +21,8 @@
     "test:ui:e2e": "npx playwright test",
     "test:ui": "npm run test:ui:component && npm run test:ui:e2e",
     "test:ui:e2e:install": "npx playwright install --with-deps chromium",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "prepare": "husky"
   },
   "private": true,
   "dependencies": {
@@ -71,9 +72,14 @@
     "eslint-plugin-prefer-arrow": "1.2.3",
     "husky": "^9.1.7",
     "jsdom": "^28.0.0",
+    "lint-staged": "^16.2.7",
     "prettier": "3.8.1",
     "typescript": "~5.9.3",
     "vitest": "^4.0.18"
   },
-  "description": "An Ionic project"
+  "description": "An Ionic project",
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs}": "npx eslint --fix",
+    "*.{ts,html,scss,json,js,mjs,cjs}": "prettier --write"
+  }
 }

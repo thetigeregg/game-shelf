@@ -4,12 +4,9 @@ test('collection page loads core controls', async ({ page }) => {
   await page.goto('/tabs/collection');
 
   await expect(page.locator('ion-title .page-title', { hasText: 'Collection' })).toBeVisible();
-  const searchButton = page.getByRole('button', { name: 'Search games' });
-  await expect(searchButton).toBeVisible();
-  await searchButton.click();
   await expect(page.getByPlaceholder('Search collection')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open filters' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add game' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open quick actions' })).toBeVisible();
 });
 
 test('filter menu shows reset and done on same row', async ({ page }) => {
@@ -42,5 +39,5 @@ test('settings page shows metadata validator and import export entries', async (
   await expect(page.locator('ion-list-header', { hasText: 'Import/Export' })).toBeVisible();
   await expect(page.locator('ion-item', { hasText: 'Export CSV' })).toBeVisible();
   await expect(page.locator('ion-item', { hasText: 'Import CSV' })).toBeVisible();
-  await expect(page.locator('ion-item', { hasText: 'Import MGC CSV' })).toBeVisible();
+  await expect(page.locator('ion-item', { hasText: 'Import MGC CSV' })).not.toBeVisible();
 });

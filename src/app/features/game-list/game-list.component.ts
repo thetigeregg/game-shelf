@@ -252,11 +252,6 @@ export class GameListComponent implements OnChanges {
   hltbPickerResults: HltbMatchCandidate[] = [];
   hltbPickerError: string | null = null;
   hltbPickerTargetGame: GameEntry | null = null;
-  isMetadataPickerModalOpen = false;
-  metadataPickerTitle = 'Select Value';
-  metadataPickerKind: MetadataFilterKind | null = null;
-  metadataPickerOptions: string[] = [];
-  metadataPickerSelection: string | null = null;
   isEditMetadataModalOpen = false;
   isEditMetadataSaving = false;
   editMetadataTitle = '';
@@ -793,7 +788,6 @@ export class GameListComponent implements OnChanges {
     this.isGameDetailModalOpen = false;
     this.isImagePickerModalOpen = false;
     this.isHltbPickerModalOpen = false;
-    this.isMetadataPickerModalOpen = false;
     this.isEditMetadataModalOpen = false;
     this.isEditMetadataSaving = false;
     this.isManualPickerModalOpen = false;
@@ -832,19 +826,19 @@ export class GameListComponent implements OnChanges {
   }
 
   onSeriesItemClick(game: GameEntry): void {
-    this.openMetadataFilterSelection('series', game.collections, 'Select Series');
+    void this.openMetadataFilterSelection('series', game.collections, 'Select Series');
   }
 
   onDeveloperItemClick(game: GameEntry): void {
-    this.openMetadataFilterSelection('developer', game.developers, 'Select Developer');
+    void this.openMetadataFilterSelection('developer', game.developers, 'Select Developer');
   }
 
   onFranchiseItemClick(game: GameEntry): void {
-    this.openMetadataFilterSelection('franchise', game.franchises, 'Select Franchise');
+    void this.openMetadataFilterSelection('franchise', game.franchises, 'Select Franchise');
   }
 
   onPublisherItemClick(game: GameEntry): void {
-    this.openMetadataFilterSelection('publisher', game.publishers, 'Select Publisher');
+    void this.openMetadataFilterSelection('publisher', game.publishers, 'Select Publisher');
   }
 
   onDetailDeveloperClick(): void {
@@ -882,46 +876,6 @@ export class GameListComponent implements OnChanges {
       platform: displayPlatform.name,
       platformOptions: [{ id: displayPlatform.igdbId, name: displayPlatform.name }]
     };
-  }
-
-  get metadataPickerFieldLabel(): string {
-    switch (this.metadataPickerKind) {
-      case 'series':
-        return 'Series';
-      case 'developer':
-        return 'Developer';
-      case 'franchise':
-        return 'Franchise';
-      case 'publisher':
-        return 'Publisher';
-      default:
-        return 'Value';
-    }
-  }
-
-  closeMetadataPickerModal(): void {
-    this.isMetadataPickerModalOpen = false;
-    this.metadataPickerTitle = 'Select Value';
-    this.metadataPickerKind = null;
-    this.metadataPickerOptions = [];
-    this.metadataPickerSelection = null;
-    this.changeDetectorRef.markForCheck();
-  }
-
-  onMetadataPickerSelectionChange(value: string | null | undefined): void {
-    const normalized = typeof value === 'string' ? value.trim() : '';
-    this.metadataPickerSelection = normalized.length > 0 ? normalized : null;
-  }
-
-  applySelectedMetadataFilterFromPicker(): void {
-    const selected =
-      typeof this.metadataPickerSelection === 'string' ? this.metadataPickerSelection.trim() : '';
-
-    if (selected.length === 0 || !this.metadataPickerKind) {
-      return;
-    }
-
-    this.applyMetadataFilterSelection(this.metadataPickerKind, selected);
   }
 
   closeRatingModal(): void {
@@ -2380,11 +2334,11 @@ export class GameListComponent implements OnChanges {
     });
   }
 
-  private openMetadataFilterSelection(
+  private async openMetadataFilterSelection(
     kind: MetadataFilterKind,
     values: string[] | undefined,
     title: string
-  ): void {
+  ): Promise<void> {
     const options = normalizeMetadataOptions(values);
 
     if (options.length === 0) {
@@ -2396,12 +2350,31 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    this.metadataPickerTitle = title;
-    this.metadataPickerKind = kind;
-    this.metadataPickerOptions = options;
-    this.metadataPickerSelection = null;
-    this.isMetadataPickerModalOpen = true;
-    this.changeDetectorRef.markForCheck();
+    const alert = await this.alertController.create({
+      header: title,
+      inputs: options.map((option, index) => ({
+        type: 'radio',
+        label: option,
+        value: option,
+        checked: index === 0
+      })),
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Apply',
+          handler: (selectedValue: string | undefined) => {
+            if (typeof selectedValue === 'string' && selectedValue.trim().length > 0) {
+              this.applyMetadataFilterSelection(kind, selectedValue);
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   private applyMetadataFilterSelection(kind: MetadataFilterKind, value: string): void {
@@ -2411,7 +2384,6 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    this.closeMetadataPickerModal();
     this.closeGameDetailModal();
     this.metadataFilterSelected.emit({ kind, value: normalized });
   }

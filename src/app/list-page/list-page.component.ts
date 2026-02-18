@@ -364,9 +364,14 @@ export class ListPageComponent {
     this.isBottomFabOpen = false;
   }
 
-  async onBottomFabPlaceholderAction(): Promise<void> {
+  onBottomFabSearch(): void {
     this.closeBottomFab();
-    await this.presentToast('Quick actions coming soon.');
+    this.openSearchModal();
+  }
+
+  onBottomFabAddGame(): void {
+    this.closeBottomFab();
+    this.openAddGameModal();
   }
 
   openSearchModal(): void {

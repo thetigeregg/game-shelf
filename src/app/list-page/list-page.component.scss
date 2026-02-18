@@ -48,6 +48,12 @@ ion-fab {
   margin-right: 8px;
 }
 
+.bottom-right-fab {
+  margin-bottom: calc(12px + var(--ion-safe-area-bottom, env(safe-area-inset-bottom)));
+  margin-right: 8px;
+  z-index: 10;
+}
+
 ion-header ion-button {
   --opacity: 1;
 }

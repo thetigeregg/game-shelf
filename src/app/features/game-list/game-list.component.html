@@ -174,7 +174,7 @@
   (didDismiss)="closeGameDetailModal()"
 >
   <ng-template>
-    <ion-header>
+    <ion-header [translucent]="true">
       <ion-toolbar>
         @if (detailNavigationStack.length > 0) {
           <ion-buttons slot="start">
@@ -230,7 +230,7 @@
     </ion-popover>
 
     @if (selectedGame; as game) {
-      <ion-content #detailContent class="detail-content">
+      <ion-content #detailContent class="detail-content" [fullscreen]="true">
         <div class="detail-content-inner">
           <app-game-detail-content
             [game]="getDetailGamePayload(game)"

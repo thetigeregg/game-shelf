@@ -348,6 +348,7 @@ export class ListPageComponent {
 
   onBottomFabSearch(): void {
     this.closeBottomFab();
+    this.focusHeaderSearchbarFromUserGesture();
     window.setTimeout(() => {
       void this.focusHeaderSearchbar();
     }, 140);
@@ -385,6 +386,22 @@ export class ListPageComponent {
       void this.headerSearchbar?.setFocus();
       this.searchbarFocusRetryHandle = null;
     }, 120);
+  }
+
+  private focusHeaderSearchbarFromUserGesture(): void {
+    const searchbar = this.headerSearchbar;
+
+    if (!searchbar) {
+      return;
+    }
+
+    // On iOS PWA, keyboard opening is more reliable when focus is triggered
+    // directly from the user gesture on the underlying native input.
+    void searchbar.setFocus();
+    void searchbar.getInputElement().then((input) => {
+      input.focus();
+      input.click();
+    });
   }
 
   onDisplayedGamesChange(games: GameEntry[]): void {

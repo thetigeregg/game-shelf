@@ -447,11 +447,18 @@ export class GameListFilteringEngine {
     }
 
     const aliased = this.getAliasedPlatformName(trimmed);
+    const trimmedKey = this.normalizePlatformKey(trimmed);
     const aliasedKey = this.normalizePlatformKey(aliased);
+    const aliasWasApplied =
+      trimmedKey.length > 0 && aliasedKey.length > 0 && trimmedKey !== aliasedKey;
     const canonicalCustomName = this.canonicalCustomByPlatformNameKey.get(aliasedKey);
 
     if (typeof canonicalCustomName === 'string' && canonicalCustomName.trim().length > 0) {
       return canonicalCustomName.trim();
+    }
+
+    if (aliasWasApplied) {
+      return aliased;
     }
 
     const platformId =

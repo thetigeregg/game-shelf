@@ -2,12 +2,29 @@ import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import {
   IonBadge,
   IonButton,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
   IonSelect,
   IonSelectOption
 } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import {
+  build,
+  business,
+  calendar,
+  documentText,
+  gameController,
+  gitBranch,
+  grid,
+  hardwareChip,
+  book,
+  library,
+  pricetags,
+  star,
+  trophy
+} from 'ionicons/icons';
 import {
   GameCatalogResult,
   GameEntry,
@@ -24,7 +41,7 @@ type DetailGame = GameCatalogResult | GameEntry;
   templateUrl: './game-detail-content.component.html',
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
-  imports: [IonList, IonItem, IonLabel, IonBadge, IonButton, IonSelect, IonSelectOption]
+  imports: [IonList, IonItem, IonLabel, IonBadge, IonButton, IonSelect, IonSelectOption, IonIcon]
 })
 export class GameDetailContentComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
@@ -53,6 +70,24 @@ export class GameDetailContentComponent {
   };
 
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
+
+  constructor() {
+    addIcons({
+      build,
+      business,
+      calendar,
+      documentText,
+      gameController,
+      gitBranch,
+      grid,
+      hardwareChip,
+      book,
+      library,
+      pricetags,
+      star,
+      trophy
+    });
+  }
 
   get showLibrarySections(): boolean {
     return this.context === 'library';

@@ -425,7 +425,6 @@ export class ListPageComponent {
     this.filters = {
       ...nextFilters
     };
-    this.groupBy = 'none';
     this.listSearchQueryInput = '';
     this.listSearchQuery = '';
     this.persistPreferences();

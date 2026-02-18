@@ -233,6 +233,11 @@ export class GameListFilteringEngine {
     const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
     const sortedGames = this.getSortedGames(games, filters.sortField, filters.sortDirection);
+
+    if (normalizedSearchQuery.length === 0 && !this.hasActiveFilterConstraints(filters, minMainHours, maxMainHours)) {
+      return sortedGames;
+    }
+
     return sortedGames.filter(game => this.matchesFilters(game, filters, normalizedSearchQuery, minMainHours, maxMainHours));
   }
 
@@ -593,6 +598,27 @@ export class GameListFilteringEngine {
       sortedGames,
     };
     return sortedGames;
+  }
+
+  private hasActiveFilterConstraints(
+    filters: GameListFilters,
+    minMainHours: number | null,
+    maxMainHours: number | null,
+  ): boolean {
+    return filters.platform.length > 0
+      || filters.genres.length > 0
+      || filters.collections.length > 0
+      || filters.developers.length > 0
+      || filters.franchises.length > 0
+      || filters.publishers.length > 0
+      || filters.gameTypes.length > 0
+      || filters.statuses.length > 0
+      || filters.tags.length > 0
+      || filters.ratings.length > 0
+      || minMainHours !== null
+      || maxMainHours !== null
+      || !!filters.releaseDateFrom
+      || !!filters.releaseDateTo;
   }
 
   private pruneNormalizedFilterCache(games: GameEntry[]): void {

@@ -167,8 +167,8 @@ export class ListPageComponent {
   bulkActionsPopoverEvent: Event | undefined = undefined;
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
-  isBottomFabOpen = false;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
+  @ViewChild('quickActionsFab') private quickActionsFab?: IonFab;
   @ViewChild('pageContent') private pageContent?: IonContent;
   @ViewChild('modalSearchbar') private modalSearchbar?: IonSearchbar;
   @ViewChild('pageContent', { read: ElementRef })
@@ -359,12 +359,10 @@ export class ListPageComponent {
     }, ListPageComponent.SEARCH_DEBOUNCE_MS);
   }
 
-  toggleBottomFab(): void {
-    this.isBottomFabOpen = !this.isBottomFabOpen;
-  }
-
   closeBottomFab(): void {
-    this.isBottomFabOpen = false;
+    if (this.quickActionsFab) {
+      this.quickActionsFab.activated = false;
+    }
   }
 
   onBottomFabSearch(): void {

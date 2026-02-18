@@ -21,7 +21,7 @@
     "test:ui:e2e": "npx playwright test",
     "test:ui": "npm run test:ui:component && npm run test:ui:e2e",
     "test:ui:e2e:install": "npx playwright install --with-deps chromium",
-    "lint": "ng lint",
+    "lint": "npx eslint .",
     "prepare": "husky"
   },
   "private": true,

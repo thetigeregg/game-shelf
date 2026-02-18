@@ -183,17 +183,16 @@
 
   @if (!isSelectionMode) {
     <ion-fab
+      #quickActionsFab
       class="bottom-right-fab"
       slot="fixed"
       vertical="bottom"
       horizontal="end"
-      [activated]="isBottomFabOpen"
     >
       <ion-fab-button
         size="small"
         color="primary"
         aria-label="Open quick actions"
-        (click)="toggleBottomFab()"
       >
         <ion-icon name="chevron-up"></ion-icon>
       </ion-fab-button>

@@ -34,6 +34,16 @@ describe('PlatformCustomizationService', () => {
     expect(service.getDisplayName('Nintendo Switch', 6)).toBe('Nintendo Switch');
   });
 
+  it('applies canonical destination custom names to aliased source platforms', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+    service.setCustomName(99, 'Famicom');
+    service.setCustomName(18, 'NES');
+
+    expect(service.getDisplayName('Family Computer', 99)).toBe('NES');
+    expect(service.getDisplayName('Family Computer Disk System', 51)).toBe('NES');
+    expect(service.getDisplayName('Nintendo Entertainment System', 18)).toBe('NES');
+  });
+
   it('removes custom display names when set to empty', () => {
     const service = TestBed.inject(PlatformCustomizationService);
     service.setCustomName(130, 'Switch');

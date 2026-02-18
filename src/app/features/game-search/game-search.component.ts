@@ -271,6 +271,20 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     return label.length > 0 ? label : 'Unknown platform';
   }
 
+  getSearchSelectPlatformName(
+    name: string | null | undefined,
+    platformIgdbId: number | null | undefined
+  ): string {
+    const customName = this.platformCustomizationService.getCustomName(platformIgdbId);
+
+    if (customName !== null) {
+      return customName;
+    }
+
+    const normalized = typeof name === 'string' ? name.trim() : '';
+    return normalized.length > 0 ? normalized : 'Unknown platform';
+  }
+
   getGameTypeBadgeLabel(result: GameCatalogResult): string | null {
     const gameType = this.normalizeGameType(result.gameType);
 

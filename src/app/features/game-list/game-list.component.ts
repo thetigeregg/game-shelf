@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ScrollingModule } from '@angular/cdk/scrolling';
-import { Browser } from '@capacitor/browser';
 import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
     IonList,
@@ -2064,10 +2063,11 @@ export class GameListComponent implements OnChanges {
     }
 
     private openExternalUrl(url: string): void {
-    Browser.open({
-      url,
-    }).then();
-
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer external';
+        anchor.click();
     }
 
     private getSelectedGames(): GameEntry[] {

@@ -109,10 +109,14 @@ export class GameListFilteringEngine {
         nextMap.set(platformId, normalizedName);
 
         const platformName = this.platformNameById.get(platformId) ?? '';
+        const platformNameKey = this.normalizePlatformKey(platformName);
         const canonicalPlatformName = this.getAliasedPlatformName(platformName);
         const canonicalPlatformNameKey = this.normalizePlatformKey(canonicalPlatformName);
 
-        if (canonicalPlatformNameKey.length > 0 && !nextCanonicalCustomByPlatformNameKey.has(canonicalPlatformNameKey)) {
+        // Only treat custom labels on the canonical destination platform as canonical aliases.
+        if (canonicalPlatformNameKey.length > 0
+          && platformNameKey === canonicalPlatformNameKey
+          && !nextCanonicalCustomByPlatformNameKey.has(canonicalPlatformNameKey)) {
           nextCanonicalCustomByPlatformNameKey.set(canonicalPlatformNameKey, normalizedName);
           nextCanonicalPlatformNameKeyByCustomLabelKey.set(this.normalizePlatformKey(normalizedName), canonicalPlatformNameKey);
         }

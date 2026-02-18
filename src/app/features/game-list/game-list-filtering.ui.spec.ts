@@ -272,6 +272,22 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(grouped.sections.map(section => section.title)).toEqual(['NES', 'SNES', 'Nintendo 64']);
   });
 
+  it('does not apply aliased source custom name to canonical destination grouping', () => {
+    engine.setPlatformDisplayNames({
+      '510': 'e-Reader',
+    });
+
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 510, title: 'Card-e Game', platform: 'e-Reader / Card-e Reader' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 24, title: 'GBA Game', platform: 'Game Boy Advance' }),
+    ];
+
+    expect(engine.extractPlatforms(games).sort()).toEqual(['Game Boy Advance', 'e-Reader'].sort());
+
+    const grouped = engine.buildGroupedView(games, 'platform');
+    expect(grouped.sections.map(section => section.title).sort()).toEqual(['Game Boy Advance', 'e-Reader'].sort());
+  });
+
   it('filters by metadata fields, status, rating, and game type', () => {
     const games: GameEntry[] = [
       makeGame({

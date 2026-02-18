@@ -194,7 +194,7 @@ export class GameListComponent implements OnChanges {
   private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
   private static readonly BULK_HLTB_ITEM_TIMEOUT_MS = 30000;
   private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
-  private static readonly VIRTUAL_BUFFER_ROWS = 8;
+  private static readonly VIRTUAL_BUFFER_ROWS = 10;
   private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
   private static readonly MAX_CUSTOM_COVER_DATA_URL_BYTES = 1024 * 1024;
   private static readonly MIN_CUSTOM_COVER_QUALITY = 0.5;
@@ -319,7 +319,7 @@ export class GameListComponent implements OnChanges {
   readonly virtualMinBufferPx =
     GameListComponent.VIRTUAL_ROW_HEIGHT_PX * GameListComponent.VIRTUAL_BUFFER_ROWS;
   readonly virtualMaxBufferPx =
-    GameListComponent.VIRTUAL_ROW_HEIGHT_PX * (GameListComponent.VIRTUAL_BUFFER_ROWS * 2);
+    GameListComponent.VIRTUAL_ROW_HEIGHT_PX * (GameListComponent.VIRTUAL_BUFFER_ROWS * 3);
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['listType']?.currentValue) {

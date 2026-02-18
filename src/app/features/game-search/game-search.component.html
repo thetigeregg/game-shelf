@@ -9,7 +9,7 @@
     <ion-select-option value="">All platforms</ion-select-option>
     @for (platform of searchPlatforms; track platform) {
       <ion-select-option [value]="platform.id">
-        {{ getPlatformDisplayName(platform.name, platform.id) }}
+        {{ getSearchSelectPlatformName(platform.name, platform.id) }}
       </ion-select-option>
     }
   </ion-select>

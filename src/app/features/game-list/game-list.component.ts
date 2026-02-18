@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ScrollingModule } from '@angular/cdk/scrolling';
+import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { AlertController, IonItemSliding, LoadingController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
     IonList,
@@ -272,6 +272,7 @@ export class GameListComponent implements OnChanges {
     private readonly searchQuery$ = new BehaviorSubject<string>('');
     private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
     @ViewChild('detailContent') private detailContent?: IonContent;
+    @ViewChild(CdkVirtualScrollViewport) private listViewport?: CdkVirtualScrollViewport;
     @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
     @ViewChild('gameDetailModal', { read: ElementRef }) private gameDetailModalRef?: ElementRef<HTMLElement>;
     private imageErrorLogCount = 0;
@@ -730,6 +731,10 @@ export class GameListComponent implements OnChanges {
     toggleDetailText(field: 'summary' | 'storyline'): void {
         this.detailTextExpanded[field] = !this.detailTextExpanded[field];
         this.changeDetectorRef.markForCheck();
+    }
+
+    scrollToTop(): void {
+        this.listViewport?.scrollToIndex(0, 'smooth');
     }
 
     shouldShowDetailTextToggle(value: string | null | undefined): boolean {

@@ -61,6 +61,7 @@ import {
   add,
   search,
   chevronUp,
+  arrowUp,
 } from 'ionicons/icons';
 
 type ListPageConfig = {
@@ -168,6 +169,7 @@ export class ListPageComponent {
   headerActionsPopoverEvent: Event | undefined = undefined;
   isBottomFabOpen = false;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
+  @ViewChild('pageContent') private pageContent?: IonContent;
   @ViewChild('modalSearchbar') private modalSearchbar?: IonSearchbar;
   @ViewChild('pageContent', { read: ElementRef })
   private pageContentRef?: ElementRef<HTMLElement & { resize?: () => Promise<void> }>;
@@ -217,6 +219,7 @@ export class ListPageComponent {
       add,
       search,
       chevronUp,
+      arrowUp,
     });
   }
 
@@ -372,6 +375,12 @@ export class ListPageComponent {
   onBottomFabAddGame(): void {
     this.closeBottomFab();
     this.openAddGameModal();
+  }
+
+  async onBottomFabScrollTop(): Promise<void> {
+    this.closeBottomFab();
+    this.gameListComponent?.scrollToTop();
+    await this.pageContent?.scrollToTop(220);
   }
 
   openSearchModal(): void {

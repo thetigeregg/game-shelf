@@ -65,6 +65,25 @@ import {
   isRateLimitedMessage,
   isTransientNetworkMessage
 } from '../core/utils/rate-limit-ui-error';
+import {
+  escapeCsvValue,
+  normalizeColor,
+  normalizeCoverSource,
+  normalizeGroupBy,
+  normalizeListType,
+  normalizeRating,
+  normalizeStatus,
+  parseFilters,
+  parseGameIdArray,
+  parseOptionalDataImage,
+  parseOptionalDecimal,
+  parseOptionalGameType,
+  parseOptionalNumber,
+  parseOptionalText,
+  parsePositiveInteger,
+  parsePositiveIntegerArray,
+  parseStringArray
+} from './settings-import-export.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { addIcons } from 'ionicons';
@@ -2663,7 +2682,7 @@ export class SettingsPage {
 
     const lines = [
       CSV_HEADERS.join(','),
-      ...rows.map((row) => CSV_HEADERS.map((header) => this.escapeCsvValue(row[header])).join(','))
+      ...rows.map((row) => CSV_HEADERS.map((header) => escapeCsvValue(row[header])).join(','))
     ];
 
     return lines.join('\n');
@@ -2776,8 +2795,8 @@ export class SettingsPage {
 
     if (type === 'tag') {
       const name = record.name.trim();
-      const color = this.normalizeColor(record.color);
-      const tagId = this.parsePositiveInteger(record.tagId);
+      const color = normalizeColor(record.color);
+      const tagId = parsePositiveInteger(record.tagId);
 
       if (name.length === 0) {
         return this.errorRow(type, rowNumber, 'Tag name is required.');
@@ -2806,8 +2825,8 @@ export class SettingsPage {
     }
 
     if (type === 'view') {
-      const listType = this.normalizeListType(record.listType);
-      const groupBy = this.normalizeGroupBy(record.groupBy);
+      const listType = normalizeListType(record.listType);
+      const groupBy = normalizeGroupBy(record.groupBy);
       const name = record.name.trim();
 
       if (name.length === 0) {
@@ -2822,7 +2841,7 @@ export class SettingsPage {
         return this.errorRow(type, rowNumber, 'Invalid groupBy value.');
       }
 
-      const filters = this.parseFilters(record.filters);
+      const filters = parseFilters(record.filters, DEFAULT_GAME_LIST_FILTERS);
 
       if (!filters) {
         return this.errorRow(type, rowNumber, 'Invalid filters payload for view.');
@@ -2851,7 +2870,7 @@ export class SettingsPage {
       };
     }
 
-    const listType = this.normalizeListType(record.listType);
+    const listType = normalizeListType(record.listType);
 
     if (!listType) {
       return this.errorRow(type, rowNumber, 'Game list type must be collection or wishlist.');
@@ -2898,10 +2917,10 @@ export class SettingsPage {
     if (platform.length === 0) {
       return this.errorRow(type, rowNumber, 'Platform is required for imported games.');
     }
-    const customTitle = this.parseOptionalText(record.customTitle);
-    const customPlatformName = this.parseOptionalText(record.customPlatform);
-    const customPlatformIgdbId = this.parsePositiveInteger(record.customPlatformIgdbId);
-    const customCoverUrl = this.parseOptionalDataImage(record.customCoverUrl);
+    const customTitle = parseOptionalText(record.customTitle);
+    const customPlatformName = parseOptionalText(record.customPlatform);
+    const customPlatformIgdbId = parsePositiveInteger(record.customPlatformIgdbId);
+    const customCoverUrl = parseOptionalDataImage(record.customCoverUrl);
     const hasCustomPlatformName = customPlatformName !== null;
     const hasCustomPlatformId = customPlatformIgdbId !== null;
 
@@ -2922,19 +2941,19 @@ export class SettingsPage {
         ? { name: customPlatformName!, igdbId: customPlatformIgdbId! }
         : null;
 
-    const status = this.normalizeStatus(record.status);
+    const status = normalizeStatus(record.status);
 
     if (record.status.trim().length > 0 && status === null) {
       return this.errorRow(type, rowNumber, 'Invalid status value.');
     }
 
-    const rating = this.normalizeRating(record.rating);
+    const rating = normalizeRating(record.rating);
 
     if (record.rating.trim().length > 0 && rating === null) {
       return this.errorRow(type, rowNumber, 'Rating must be none or an integer between 1 and 5.');
     }
 
-    const gameType = this.parseOptionalGameType(record.gameType);
+    const gameType = parseOptionalGameType(record.gameType);
 
     if (record.gameType.trim().length > 0 && gameType === null) {
       return this.errorRow(type, rowNumber, 'Invalid gameType value.');
@@ -2943,30 +2962,30 @@ export class SettingsPage {
     const catalog: GameCatalogResult = {
       igdbGameId,
       title: record.title.trim() || 'Unknown title',
-      summary: this.parseOptionalText(record.summary),
-      storyline: this.parseOptionalText(record.storyline),
+      summary: parseOptionalText(record.summary),
+      storyline: parseOptionalText(record.storyline),
       coverUrl: record.coverUrl.trim() || null,
-      coverSource: this.normalizeCoverSource(record.coverSource),
+      coverSource: normalizeCoverSource(record.coverSource),
       gameType,
-      hltbMainHours: this.parseOptionalDecimal(record.hltbMainHours),
-      hltbMainExtraHours: this.parseOptionalDecimal(record.hltbMainExtraHours),
-      hltbCompletionistHours: this.parseOptionalDecimal(record.hltbCompletionistHours),
-      similarGameIgdbIds: this.parseGameIdArray(record.similarGameIgdbIds),
-      collections: this.parseStringArray(record.collections),
-      developers: this.parseStringArray(record.developers),
-      franchises: this.parseStringArray(record.franchises),
-      genres: this.parseStringArray(record.genres),
-      publishers: this.parseStringArray(record.publishers),
+      hltbMainHours: parseOptionalDecimal(record.hltbMainHours),
+      hltbMainExtraHours: parseOptionalDecimal(record.hltbMainExtraHours),
+      hltbCompletionistHours: parseOptionalDecimal(record.hltbCompletionistHours),
+      similarGameIgdbIds: parseGameIdArray(record.similarGameIgdbIds),
+      collections: parseStringArray(record.collections),
+      developers: parseStringArray(record.developers),
+      franchises: parseStringArray(record.franchises),
+      genres: parseStringArray(record.genres),
+      publishers: parseStringArray(record.publishers),
       platforms: [platform],
       platformOptions: [{ id: platformIgdbId, name: platform }],
       platform,
       platformIgdbId,
       releaseDate: record.releaseDate.trim().length > 0 ? record.releaseDate.trim() : null,
-      releaseYear: this.parseOptionalNumber(record.releaseYear)
+      releaseYear: parseOptionalNumber(record.releaseYear)
     };
 
-    const tagNames = this.parseStringArray(record.tags);
-    const tagIds = this.parsePositiveIntegerArray(record.gameTagIds);
+    const tagNames = parseStringArray(record.tags);
+    const tagIds = parsePositiveIntegerArray(record.gameTagIds);
 
     return {
       id: rowNumber,
@@ -3123,334 +3142,6 @@ export class SettingsPage {
       createdAt: getValue('createdAt'),
       updatedAt: getValue('updatedAt')
     };
-  }
-
-  private parseStringArray(raw: string): string[] {
-    if (raw.trim().length === 0) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-
-      return [
-        ...new Set(
-          parsed
-            .map((value) => (typeof value === 'string' ? value.trim() : ''))
-            .filter((value) => value.length > 0)
-        )
-      ];
-    } catch {
-      return [];
-    }
-  }
-
-  private parseGameIdArray(raw: string): string[] {
-    if (raw.trim().length === 0) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-
-      return [
-        ...new Set(
-          parsed.map((value) => String(value ?? '').trim()).filter((value) => /^\d+$/.test(value))
-        )
-      ];
-    } catch {
-      return [];
-    }
-  }
-
-  private parseOptionalText(raw: string): string | null {
-    const normalized = raw.trim();
-    return normalized.length > 0 ? normalized : null;
-  }
-
-  private parseOptionalDataImage(raw: string): string | null {
-    const normalized = raw.trim();
-
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
-  }
-
-  private parseOptionalGameType(raw: string): GameCatalogResult['gameType'] {
-    const normalized = raw.trim().toLowerCase();
-
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    if (
-      normalized === 'main_game' ||
-      normalized === 'dlc_addon' ||
-      normalized === 'expansion' ||
-      normalized === 'bundle' ||
-      normalized === 'standalone_expansion' ||
-      normalized === 'mod' ||
-      normalized === 'episode' ||
-      normalized === 'season' ||
-      normalized === 'remake' ||
-      normalized === 'remaster' ||
-      normalized === 'expanded_game' ||
-      normalized === 'port' ||
-      normalized === 'fork' ||
-      normalized === 'pack' ||
-      normalized === 'update'
-    ) {
-      return normalized;
-    }
-
-    return null;
-  }
-
-  private parseFilters(raw: string): GameListFilters | null {
-    if (raw.trim().length === 0) {
-      return { ...DEFAULT_GAME_LIST_FILTERS };
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<GameListFilters>;
-      const parsedHltbMainHoursMin =
-        typeof parsed.hltbMainHoursMin === 'number' &&
-        Number.isFinite(parsed.hltbMainHoursMin) &&
-        parsed.hltbMainHoursMin >= 0
-          ? Math.round(parsed.hltbMainHoursMin * 10) / 10
-          : null;
-      const parsedHltbMainHoursMax =
-        typeof parsed.hltbMainHoursMax === 'number' &&
-        Number.isFinite(parsed.hltbMainHoursMax) &&
-        parsed.hltbMainHoursMax >= 0
-          ? Math.round(parsed.hltbMainHoursMax * 10) / 10
-          : null;
-
-      return {
-        ...DEFAULT_GAME_LIST_FILTERS,
-        ...parsed,
-        platform: Array.isArray(parsed.platform)
-          ? parsed.platform.filter((value) => typeof value === 'string')
-          : [],
-        collections: Array.isArray(parsed.collections)
-          ? parsed.collections.filter((value) => typeof value === 'string')
-          : [],
-        developers: Array.isArray(parsed.developers)
-          ? parsed.developers.filter((value) => typeof value === 'string')
-          : [],
-        franchises: Array.isArray(parsed.franchises)
-          ? parsed.franchises.filter((value) => typeof value === 'string')
-          : [],
-        publishers: Array.isArray(parsed.publishers)
-          ? parsed.publishers.filter((value) => typeof value === 'string')
-          : [],
-        gameTypes: Array.isArray(parsed.gameTypes)
-          ? parsed.gameTypes.filter(
-              (value) =>
-                value === 'main_game' ||
-                value === 'dlc_addon' ||
-                value === 'expansion' ||
-                value === 'bundle' ||
-                value === 'standalone_expansion' ||
-                value === 'mod' ||
-                value === 'episode' ||
-                value === 'season' ||
-                value === 'remake' ||
-                value === 'remaster' ||
-                value === 'expanded_game' ||
-                value === 'port' ||
-                value === 'fork' ||
-                value === 'pack' ||
-                value === 'update'
-            )
-          : [],
-        genres: Array.isArray(parsed.genres)
-          ? parsed.genres.filter((value) => typeof value === 'string')
-          : [],
-        statuses: Array.isArray(parsed.statuses)
-          ? parsed.statuses.filter(
-              (value) =>
-                value === 'none' ||
-                value === 'playing' ||
-                value === 'wantToPlay' ||
-                value === 'completed' ||
-                value === 'paused' ||
-                value === 'dropped' ||
-                value === 'replay'
-            )
-          : [],
-        tags: Array.isArray(parsed.tags)
-          ? parsed.tags.filter((value) => typeof value === 'string')
-          : [],
-        ratings: Array.isArray(parsed.ratings)
-          ? parsed.ratings.filter(
-              (value) =>
-                value === 'none' ||
-                value === 1 ||
-                value === 2 ||
-                value === 3 ||
-                value === 4 ||
-                value === 5
-            )
-          : [],
-        sortField:
-          parsed.sortField === 'title' ||
-          parsed.sortField === 'releaseDate' ||
-          parsed.sortField === 'createdAt' ||
-          parsed.sortField === 'platform'
-            ? parsed.sortField
-            : DEFAULT_GAME_LIST_FILTERS.sortField,
-        sortDirection: parsed.sortDirection === 'desc' ? 'desc' : 'asc',
-        hltbMainHoursMin:
-          parsedHltbMainHoursMin !== null &&
-          parsedHltbMainHoursMax !== null &&
-          parsedHltbMainHoursMin > parsedHltbMainHoursMax
-            ? parsedHltbMainHoursMax
-            : parsedHltbMainHoursMin,
-        hltbMainHoursMax:
-          parsedHltbMainHoursMin !== null &&
-          parsedHltbMainHoursMax !== null &&
-          parsedHltbMainHoursMin > parsedHltbMainHoursMax
-            ? parsedHltbMainHoursMin
-            : parsedHltbMainHoursMax,
-        releaseDateFrom: typeof parsed.releaseDateFrom === 'string' ? parsed.releaseDateFrom : null,
-        releaseDateTo: typeof parsed.releaseDateTo === 'string' ? parsed.releaseDateTo : null
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private parseOptionalNumber(value: string): number | null {
-    const normalized = value.trim();
-
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    const parsed = Number.parseInt(normalized, 10);
-    return Number.isInteger(parsed) ? parsed : null;
-  }
-
-  private parseOptionalDecimal(value: string): number | null {
-    const normalized = value.trim();
-
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    const parsed = Number.parseFloat(normalized);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }
-
-  private parsePositiveInteger(value: string): number | null {
-    const normalized = value.trim();
-
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    const parsed = Number.parseInt(normalized, 10);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-  }
-
-  private parsePositiveIntegerArray(raw: string): number[] {
-    if (raw.trim().length === 0) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-
-      return [
-        ...new Set(
-          parsed
-            .map((value) => Number.parseInt(String(value), 10))
-            .filter((value) => Number.isInteger(value) && value > 0)
-        )
-      ];
-    } catch {
-      return [];
-    }
-  }
-
-  private normalizeListType(value: string): ListType | null {
-    return value === 'collection' || value === 'wishlist' ? value : null;
-  }
-
-  private normalizeGroupBy(value: string): GameGroupByField | null {
-    if (
-      value === 'none' ||
-      value === 'platform' ||
-      value === 'developer' ||
-      value === 'franchise' ||
-      value === 'collection' ||
-      value === 'tag' ||
-      value === 'genre' ||
-      value === 'publisher' ||
-      value === 'releaseYear'
-    ) {
-      return value;
-    }
-
-    return null;
-  }
-
-  private normalizeStatus(value: string): GameStatus | null {
-    if (
-      value === 'completed' ||
-      value === 'dropped' ||
-      value === 'playing' ||
-      value === 'paused' ||
-      value === 'replay' ||
-      value === 'wantToPlay'
-    ) {
-      return value;
-    }
-
-    return null;
-  }
-
-  private normalizeRating(value: string): GameRating | null {
-    const normalized = value.trim();
-
-    if (normalized.length === 0) {
-      return null;
-    }
-
-    const parsed = Number.parseInt(normalized, 10);
-
-    if (parsed === 1 || parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5) {
-      return parsed;
-    }
-
-    return null;
-  }
-
-  private normalizeCoverSource(value: string): 'thegamesdb' | 'igdb' | 'none' {
-    if (value === 'thegamesdb' || value === 'igdb' || value === 'none') {
-      return value;
-    }
-
-    return 'none';
-  }
-
-  private normalizeColor(value: string): string {
-    return /^#[0-9a-fA-F]{6}$/.test(value.trim()) ? value.trim() : '#3880ff';
   }
 
   private readExportableSettings(): Array<[string, string]> {
@@ -3628,21 +3319,6 @@ export class SettingsPage {
     const fallback = `${baseName} (${Date.now()})`;
     usedNamesLowercase.add(fallback.toLowerCase());
     return fallback;
-  }
-
-  private escapeCsvValue(value: string): string {
-    const normalized = String(value ?? '');
-
-    if (
-      normalized.includes(',') ||
-      normalized.includes('"') ||
-      normalized.includes('\n') ||
-      normalized.includes('\r')
-    ) {
-      return `"${normalized.replace(/"/g, '""')}"`;
-    }
-
-    return normalized;
   }
 
   private async presentShareFile(params: {

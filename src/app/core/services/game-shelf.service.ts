@@ -23,6 +23,16 @@ import { PlatformOrderService } from './platform-order.service';
 import { environment } from '../../../environments/environment';
 import { AppDb } from '../data/app-db';
 import { DebugLogService } from './debug-log.service';
+import {
+  hasCompletionTimes,
+  normalizeGameId,
+  normalizePlatform,
+  normalizePlatformIgdbId,
+  normalizeRating,
+  normalizeTagColor,
+  normalizeTagIds,
+  normalizeTheGamesDbUrl
+} from './game-shelf-normalization';
 
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
@@ -129,9 +139,9 @@ export class GameShelfService {
   }
 
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
-    const normalizedGameId = this.normalizeGameId(result.igdbGameId);
-    const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(result.platformIgdbId);
-    const normalizedPlatform = this.normalizePlatform(result.platform);
+    const normalizedGameId = normalizeGameId(result.igdbGameId);
+    const normalizedPlatformIgdbId = normalizePlatformIgdbId(result.platformIgdbId);
+    const normalizedPlatform = normalizePlatform(result.platform);
     const normalizedCatalog: GameCatalogResult = {
       ...result,
       igdbGameId: normalizedGameId,
@@ -153,8 +163,8 @@ export class GameShelfService {
     igdbGameId: string,
     platformIgdbId: number | null | undefined
   ): Promise<GameEntry | undefined> {
-    const normalizedGameId = this.normalizeGameId(igdbGameId);
-    const normalizedPlatform = this.normalizePlatformIgdbId(platformIgdbId);
+    const normalizedGameId = normalizeGameId(igdbGameId);
+    const normalizedPlatform = normalizePlatformIgdbId(platformIgdbId);
     return this.repository.exists(normalizedGameId, normalizedPlatform);
   }
 
@@ -179,9 +189,9 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
-    const normalizedGameId = this.normalizeGameId(replacement.igdbGameId);
-    const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(replacement.platformIgdbId);
-    const normalizedPlatform = this.normalizePlatform(replacement.platform);
+    const normalizedGameId = normalizeGameId(replacement.igdbGameId);
+    const normalizedPlatformIgdbId = normalizePlatformIgdbId(replacement.platformIgdbId);
+    const normalizedPlatform = normalizePlatform(replacement.platform);
     const normalizedReplacement: GameCatalogResult = {
       ...replacement,
       igdbGameId: normalizedGameId,
@@ -232,7 +242,7 @@ export class GameShelfService {
       }
     }
 
-    const tagIds = this.normalizeTagIds(current.tagIds);
+    const tagIds = normalizeTagIds(current.tagIds);
     if (tagIds.length > 0) {
       const next = await this.repository.setGameTags(
         withRating.igdbGameId,
@@ -563,7 +573,7 @@ export class GameShelfService {
     const updated = await this.repository.setGameRating(
       igdbGameId,
       platformIgdbId,
-      this.normalizeRating(rating)
+      normalizeRating(rating)
     );
 
     if (!updated) {
@@ -584,7 +594,7 @@ export class GameShelfService {
 
     const created = await this.repository.upsertTag({
       name: normalizedName,
-      color: this.normalizeTagColor(color)
+      color: normalizeTagColor(color)
     });
     this.listRefresh$.next();
     return created;
@@ -600,7 +610,7 @@ export class GameShelfService {
     const updated = await this.repository.upsertTag({
       id: tagId,
       name: normalizedName,
-      color: this.normalizeTagColor(color)
+      color: normalizeTagColor(color)
     });
     this.listRefresh$.next();
     return updated;
@@ -696,7 +706,7 @@ export class GameShelfService {
       const gameKey = `${game.igdbGameId}::${game.platformIgdbId}`;
       await this.db.imageCache.where('gameKey').equals(gameKey).delete();
 
-      const staleUrl = this.normalizeTheGamesDbUrl(game.coverUrl);
+      const staleUrl = normalizeTheGamesDbUrl(game.coverUrl);
 
       if (staleUrl) {
         staleServerUrls.add(staleUrl);
@@ -816,7 +826,7 @@ export class GameShelfService {
     });
 
     return games.map((game) => {
-      const gameTagIds = this.normalizeTagIds(game.tagIds);
+      const gameTagIds = normalizeTagIds(game.tagIds);
       const gameTags = gameTagIds
         .map((tagId) => tagsById.get(tagId))
         .filter((tag): tag is GameTag => Boolean(tag));
@@ -846,7 +856,7 @@ export class GameShelfService {
     const usageCountByTag = new Map<number, number>();
 
     games.forEach((game) => {
-      this.normalizeTagIds(game.tagIds).forEach((tagId) => {
+      normalizeTagIds(game.tagIds).forEach((tagId) => {
         usageCountByTag.set(tagId, (usageCountByTag.get(tagId) ?? 0) + 1);
       });
     });
@@ -857,58 +867,11 @@ export class GameShelfService {
     }));
   }
 
-  private normalizeTagIds(tagIds: number[] | undefined): number[] {
-    if (!Array.isArray(tagIds)) {
-      return [];
-    }
-
-    return [
-      ...new Set(
-        tagIds
-          .filter((tagId) => Number.isInteger(tagId) && tagId > 0)
-          .map((tagId) => Math.trunc(tagId))
-      )
-    ];
-  }
-
-  private normalizeTagColor(value: string): string {
-    const normalized = value.trim();
-    return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : '#3880ff';
-  }
-
-  private normalizeGameId(value: string): string {
-    const normalized = String(value ?? '').trim();
-
-    if (normalized.length === 0) {
-      throw new Error('IGDB game id is required.');
-    }
-
-    return normalized;
-  }
-
-  private normalizePlatformIgdbId(value: number | null | undefined): number {
-    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-      throw new Error('IGDB platform id is required.');
-    }
-
-    return value;
-  }
-
-  private normalizePlatform(value: string | null | undefined): string {
-    const normalized = typeof value === 'string' ? value.trim() : '';
-
-    if (normalized.length === 0) {
-      throw new Error('Platform is required.');
-    }
-
-    return normalized;
-  }
-
   private async enrichCatalogWithCompletionTimesInBackground(
     result: GameCatalogResult,
     listType: ListType
   ): Promise<void> {
-    if (this.hasCompletionTimes(result)) {
+    if (hasCompletionTimes(result)) {
       return;
     }
 
@@ -944,55 +907,11 @@ export class GameShelfService {
     }
   }
 
-  private hasCompletionTimes(result: GameCatalogResult): boolean {
-    return (
-      this.normalizeCompletionHours(result.hltbMainHours) !== null ||
-      this.normalizeCompletionHours(result.hltbMainExtraHours) !== null ||
-      this.normalizeCompletionHours(result.hltbCompletionistHours) !== null
-    );
-  }
-
-  private normalizeCompletionHours(value: number | null | undefined): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-      return null;
-    }
-
-    return Math.round(value * 10) / 10;
-  }
-
-  private normalizeRating(value: GameRating | null | undefined): GameRating | null {
-    if (value === 1 || value === 2 || value === 3 || value === 4 || value === 5) {
-      return value;
-    }
-
-    return null;
-  }
-
-  private normalizeTheGamesDbUrl(value: string | null | undefined): string | null {
-    const normalized = typeof value === 'string' ? value.trim() : '';
-
-    if (!normalized) {
-      return null;
-    }
-
-    try {
-      const parsed = new URL(normalized);
-
-      if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'cdn.thegamesdb.net') {
-        return null;
-      }
-
-      return parsed.toString();
-    } catch {
-      return null;
-    }
-  }
-
   private async purgeServerImageCacheUrls(urls: string[]): Promise<void> {
     const normalizedUrls = [
       ...new Set(
         urls
-          .map((url) => this.normalizeTheGamesDbUrl(url))
+          .map((url) => normalizeTheGamesDbUrl(url))
           .filter((url): url is string => typeof url === 'string' && url.length > 0)
       )
     ];

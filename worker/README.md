@@ -15,7 +15,7 @@ Search flow:
 
 ## Local setup
 
-1. Copy `.env.example` values into `.dev.vars` and set real credentials.
+1. Copy `.dev.vars.example` to `.dev.vars` and set real credentials.
 2. Install dependencies with `npm install` inside `worker/`.
 3. Run `npm run dev`.
 

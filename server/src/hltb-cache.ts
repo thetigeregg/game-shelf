@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
+import { config } from './config.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -333,8 +334,46 @@ async function deleteHltbCacheEntry(
 }
 
 async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Response> {
-  const metadataModule = await import('./metadata.js');
-  return metadataModule.fetchMetadataFromWorker(request);
+  const baseUrl = config.hltbScraperBaseUrl.trim();
+
+  if (!baseUrl) {
+    return new Response(JSON.stringify({ error: 'HLTB scraper base URL is not configured' }), {
+      status: 503,
+      headers: {
+        'content-type': 'application/json'
+      }
+    });
+  }
+
+  const requestUrl = new URL(request.url, 'http://game-shelf.local');
+  const targetUrl = new URL('/v1/hltb/search', baseUrl);
+  targetUrl.search = requestUrl.search;
+
+  const headers = new Headers();
+
+  if (config.hltbScraperToken.length > 0) {
+    headers.set('Authorization', `Bearer ${config.hltbScraperToken}`);
+  }
+
+  try {
+    return await fetch(targetUrl.toString(), {
+      method: 'GET',
+      headers
+    });
+  } catch (error) {
+    request.log.warn({
+      msg: 'hltb_scraper_request_failed',
+      url: targetUrl.toString(),
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return new Response(JSON.stringify({ error: 'HLTB scraper request failed' }), {
+      status: 502,
+      headers: {
+        'content-type': 'application/json'
+      }
+    });
+  }
 }
 
 async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {

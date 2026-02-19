@@ -475,3 +475,9 @@
 - 9bf1d84 Merge branch 'main' into dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
 - 54fe978 chore(deps): bump express from 4.22.1 to 5.2.1 in /hltb-scraper
 
+## v0.0.11 - 2026-02-19
+- d75002d Merge pull request #14 from thetigeregg/dependabot/github_actions/actions/checkout-6
+- 4831b46 Merge branch 'main' into dependabot/github_actions/actions/checkout-6
+- 6e0c2c7 Merge branch 'main' into dependabot/github_actions/actions/checkout-6
+- 887b26f chore(ci): bump actions/checkout from 4 to 6
+

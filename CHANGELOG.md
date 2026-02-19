@@ -481,3 +481,14 @@
 - 6e0c2c7 Merge branch 'main' into dependabot/github_actions/actions/checkout-6
 - 887b26f chore(ci): bump actions/checkout from 4 to 6
 
+## v0.0.12 - 2026-02-19
+- 22d2197 Merge pull request #23 from thetigeregg/hltb-fix
+- 692e743 Merge branch 'main' into hltb-fix
+- 9aa2e9b Update backend test coverage command
+- 742502c Bump app version to 0.0.10 in runtime configuration
+- 7f4ed2b Refactor HLTB metadata fetching to use environment variables for base URL and token
+- 94a0166 Potential fix for code scanning alert no. 13: Incomplete URL substring sanitization
+- a77ac05 Merge branch 'main' into hltb-fix
+- 5ab03bf Fix HLTB scraper base URL handling
+- 585cc19 chore: update appVersion to 0.0.9 in runtime config
+

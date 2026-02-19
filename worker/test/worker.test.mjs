@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleRequest, normalizeIgdbGame, resetCaches } from '../src/index.mjs';
+import { __testables, handleRequest, normalizeIgdbGame, resetCaches } from '../src/index.mjs';
 
 const env = {
   TWITCH_CLIENT_ID: 'client-id',
@@ -933,4 +933,376 @@ test('returns empty box art results instead of 502 when TheGamesDB fails', async
   const payload = await response.json();
   assert.deepEqual(payload, { items: [] });
   assert.equal(calls.theGamesDb, 1);
+});
+
+test('rejects non-GET requests and unknown routes', async () => {
+  resetCaches();
+
+  const postResponse = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=halo', { method: 'POST' }),
+    env,
+    async () => new Response('{}', { status: 200 })
+  );
+  assert.equal(postResponse.status, 405);
+
+  const unknownRoute = await handleRequest(
+    new Request('https://worker.example/v1/unknown/path', { method: 'GET' }),
+    env,
+    async () => new Response('{}', { status: 200 })
+  );
+  assert.equal(unknownRoute.status, 404);
+});
+
+test('returns 400 for invalid popularityTypeId and handles popularity upstream rate limit', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({
+    igdbPopularityPrimitivesStatus: 429
+  });
+
+  const invalidTypeId = await handleRequest(
+    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=abc'),
+    env,
+    stub
+  );
+  assert.equal(invalidTypeId.status, 400);
+
+  const rateLimited = await handleRequest(
+    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=7'),
+    env,
+    stub
+  );
+  assert.equal(rateLimited.status, 429);
+  assert.ok(Number(rateLimited.headers.get('Retry-After') ?? '0') >= 20);
+});
+
+test('returns 400 for invalid game id route and maps token fetch failures to 502', async () => {
+  resetCaches();
+
+  const badGameIdRoute = await handleRequest(
+    new Request('https://worker.example/v1/games/not-a-number'),
+    env,
+    async () => new Response('{}', { status: 200 })
+  );
+  assert.equal(badGameIdRoute.status, 404);
+
+  const { stub } = createFetchStub({
+    tokenStatus: 500
+  });
+  const tokenFailure = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=metroid'),
+    env,
+    stub
+  );
+  assert.equal(tokenFailure.status, 502);
+});
+
+test('returns empty box art results when THEGAMESDB key is missing', async () => {
+  resetCaches();
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/images/boxart/search?q=metroid'),
+    {
+      TWITCH_CLIENT_ID: env.TWITCH_CLIENT_ID,
+      TWITCH_CLIENT_SECRET: env.TWITCH_CLIENT_SECRET,
+      THEGAMESDB_API_KEY: ''
+    },
+    async () => new Response('{}', { status: 200 })
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload, { items: [] });
+});
+
+test('supports DEBUG_HTTP_LOGS and sanitizes sensitive token endpoint query params', async () => {
+  resetCaches();
+  const logs = [];
+  const originalInfo = console.info;
+  console.info = (...args) => {
+    logs.push(args);
+  };
+
+  try {
+    const fetchStub = async (url) => {
+      const normalizedUrl = String(url);
+      if (normalizedUrl.startsWith('https://id.twitch.tv/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'abc123', expires_in: 3600 }), {
+          status: 200
+        });
+      }
+      if (normalizedUrl === 'https://api.igdb.com/v4/games') {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    };
+
+    const response = await handleRequest(
+      new Request('https://worker.example/v1/games/search?q=metroid'),
+      {
+        ...env,
+        DEBUG_HTTP_LOGS: 'true'
+      },
+      fetchStub
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(logs.length > 0, true);
+  } finally {
+    console.info = originalInfo;
+  }
+});
+
+test('returns 429 for local burst rate limiting', async () => {
+  resetCaches();
+  const { stub } = createFetchStub({ igdbBody: [] });
+  const now = () => Date.UTC(2026, 0, 1, 0, 0, 0);
+  let lastResponse = null;
+
+  for (let index = 0; index < 61; index += 1) {
+    lastResponse = await handleRequest(
+      new Request('https://worker.example/v1/games/search?q=zelda', {
+        headers: { 'x-forwarded-for': '192.0.2.1' }
+      }),
+      env,
+      stub,
+      now
+    );
+  }
+
+  assert.equal(lastResponse.status, 429);
+  assert.ok(Number(lastResponse.headers.get('Retry-After') ?? '0') >= 20);
+});
+
+test('returns 429 when IGDB platforms endpoint is rate limited', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({
+    igdbPlatformsStatus: 429
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/platforms'),
+    env,
+    stub
+  );
+  assert.equal(response.status, 429);
+  assert.ok(Number(response.headers.get('Retry-After') ?? '0') >= 20);
+});
+
+test('returns 502 when IGDB popularity types payload is invalid', async () => {
+  resetCaches();
+
+  const { stub } = createFetchStub({
+    igdbPopularityTypesBody: { invalid: true }
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/popularity/types'),
+    env,
+    stub
+  );
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload, { items: [] });
+});
+
+test('returns empty popularity primitives payload when upstream data is empty', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbPopularityPrimitivesBody: []
+  });
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=7'),
+    env,
+    stub
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload, { items: [] });
+  assert.equal(calls.igdbPopularityPrimitives, 1);
+});
+
+test('returns 502 when Twitch credentials are missing for IGDB routes', async () => {
+  resetCaches();
+
+  const response = await handleRequest(
+    new Request('https://worker.example/v1/games/search?q=zelda'),
+    {
+      ...env,
+      TWITCH_CLIENT_ID: '',
+      TWITCH_CLIENT_SECRET: ''
+    },
+    async () => new Response('{}', { status: 200 })
+  );
+
+  assert.equal(response.status, 502);
+});
+
+test('handles popularity primitive query normalization for limit/offset bounds', async () => {
+  resetCaches();
+
+  const { stub, calls } = createFetchStub({
+    igdbPopularityPrimitivesBody: [],
+    igdbBody: []
+  });
+
+  const response = await handleRequest(
+    new Request(
+      'https://worker.example/v1/popularity/primitives?popularityTypeId=7&limit=999&offset=-12'
+    ),
+    env,
+    stub
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('limit 100;'), true);
+  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('offset 0;'), true);
+});
+
+test('testable helpers normalize query/id/url utilities', () => {
+  const url = new URL('https://worker.example/test?platformIgdbId=130&popularityTypeId=7');
+  const invalidUrl = new URL('https://worker.example/test?platformIgdbId=abc&popularityTypeId=-2');
+
+  assert.equal(__testables.normalizePlatformIgdbIdQuery(url), 130);
+  assert.equal(__testables.normalizePlatformIgdbIdQuery(invalidUrl), null);
+  assert.equal(__testables.normalizePopularityTypeIdQuery(url), 7);
+  assert.equal(__testables.normalizePopularityTypeIdQuery(invalidUrl), null);
+  assert.equal(__testables.resolveTheGamesDbPlatformId(130), 4971);
+  assert.equal(__testables.resolveTheGamesDbPlatformId(-1), null);
+
+  const sanitized = __testables.sanitizeUrlForLogs(
+    'https://id.twitch.tv/oauth2/token?client_id=abc&client_secret=xyz'
+  );
+  assert.equal(sanitized.includes('client_secret=***'), true);
+  assert.equal(__testables.buildBodyPreview('abc'), 'abc');
+  assert.equal(__testables.buildBodyPreview(''), undefined);
+});
+
+test('testable helpers parse limit/offset and retry-after variants', () => {
+  const rangeUrl = new URL('https://worker.example/x?limit=250&offset=-5');
+  const fallbackUrl = new URL('https://worker.example/x?limit=zzz&offset=bad');
+
+  assert.equal(__testables.normalizeLimitQuery(rangeUrl, 20), 100);
+  assert.equal(__testables.normalizeLimitQuery(fallbackUrl, 20), 20);
+  assert.equal(__testables.normalizeOffsetQuery(rangeUrl), 0);
+  assert.equal(__testables.normalizeOffsetQuery(fallbackUrl), 0);
+
+  assert.equal(__testables.parseRetryAfterSeconds('30', Date.UTC(2026, 0, 1, 0, 0, 0)), 30);
+  assert.equal(__testables.parseRetryAfterSeconds('0', Date.UTC(2026, 0, 1, 0, 0, 0)), 20);
+  assert.equal(
+    __testables.resolveRetryAfterSecondsFromHeaders(
+      new Headers({ 'Retry-After': 'Thu, 01 Jan 2026 00:00:40 GMT' }),
+      Date.UTC(2026, 0, 1, 0, 0, 0)
+    ) >= 20,
+    true
+  );
+});
+
+test('testable helpers normalize optional values and TheGamesDB url composition', () => {
+  assert.equal(__testables.normalizeOptionalText('  test  '), 'test');
+  assert.equal(__testables.normalizeOptionalText('   '), null);
+  assert.equal(__testables.normalizeNumericValue(1.5), 1.5);
+  assert.equal(__testables.normalizeNumericValue('2.75'), 2.75);
+  assert.equal(__testables.normalizeNumericValue('bad'), null);
+
+  assert.deepEqual(__testables.normalizeIgdbNamedCollection([{ name: 'A' }, { name: 'A' }]), ['A']);
+  assert.deepEqual(__testables.normalizeIgdbReferenceIds([{ id: 1 }, 2, 'bad']), ['1', '2']);
+  assert.deepEqual(
+    __testables.normalizeIgdbCompanyNames(
+      {
+        involved_companies: [
+          { developer: true, company: { name: 'Nintendo' } },
+          { developer: false, company: { name: 'Capcom' } }
+        ]
+      },
+      'developer'
+    ),
+    ['Nintendo']
+  );
+
+  assert.equal(
+    __testables.normalizeTheGamesDbUrl('/box/front.jpg', 'https://cdn.thegamesdb.net/images/large'),
+    'https://cdn.thegamesdb.net/images/large/box/front.jpg'
+  );
+  assert.equal(
+    __testables.normalizeTheGamesDbUrl('https://example.com/x.jpg', ''),
+    'https://example.com/x.jpg'
+  );
+  assert.equal(
+    __testables.normalizeTheGamesDbUrl('', 'https://cdn.thegamesdb.net/images/large'),
+    null
+  );
+});
+
+test('testable helpers support accent folding and unique query fallbacks', () => {
+  assert.equal(__testables.foldToAsciiForSearch('Einhänder'), 'Einhander');
+  assert.equal(__testables.foldToAsciiForSearch(''), '');
+  assert.deepEqual(__testables.buildQueryFallbacks('Einhänder'), ['Einhänder', 'Einhander']);
+  assert.deepEqual(__testables.buildQueryFallbacks('Metroid'), ['Metroid']);
+});
+
+test('testable helpers cover IGDB remaster/remake ranking and original references', () => {
+  assert.equal(__testables.normalizeIgdbReferenceId(42), '42');
+  assert.equal(__testables.normalizeIgdbReferenceId({ id: 7 }), '7');
+  assert.equal(__testables.normalizeIgdbReferenceId('bad'), null);
+
+  assert.equal(__testables.normalizeIgdbRankScore({ rating_count: 10 }), 10);
+  assert.equal(__testables.normalizeIgdbRankScore({}), Number.NEGATIVE_INFINITY);
+  assert.equal(__testables.normalizeGameTypeLabel(' Remake '), 'remake');
+  assert.equal(__testables.normalizeGameTypeLabel({ type: ' Remaster ' }), 'remaster');
+  assert.equal(__testables.normalizeGameTypeValue('Action RPG'), 'action_rpg');
+  assert.equal(__testables.isRemakeOrRemaster('remaster', null), true);
+  assert.equal(__testables.isRemakeOrRemaster(null, 8), true);
+  assert.equal(__testables.getOriginalGameId({ parent_game: 99 }), '99');
+  assert.equal(__testables.getOriginalGameId({ version_parent: { id: 101 } }), '101');
+
+  const ranked = __testables.sortIgdbSearchResults([
+    { id: 2, name: 'Game B', total_rating_count: 5, game_type: { type: 'remake' }, parent_game: 1 },
+    { id: 1, name: 'Game A', total_rating_count: 10 }
+  ]);
+  assert.equal(ranked[0].id, 1);
+  assert.equal(ranked[1].id, 2);
+});
+
+test('testable helpers cover timeouts, escaping, and box art candidate ranking utilities', () => {
+  assert.equal(__testables.getIgdbRequestTimeoutMs({ IGDB_REQUEST_TIMEOUT_MS: '500' }), 15000);
+  assert.equal(__testables.getIgdbRequestTimeoutMs({ IGDB_REQUEST_TIMEOUT_MS: '150000' }), 120000);
+  assert.equal(
+    __testables.getTheGamesDbRequestTimeoutMs({ THEGAMESDB_REQUEST_TIMEOUT_MS: '2000' }),
+    2000
+  );
+  assert.equal(__testables.escapeQuery('Metal; Gear \"Solid\"\n'), 'Metal Gear \\"Solid\\"');
+
+  assert.equal(__testables.getTitleSimilarityScore('Chrono Trigger', 'Chrono Trigger') > 100, true);
+  assert.equal(__testables.getTitleSimilarityScore('', 'Chrono Trigger'), -1);
+  assert.equal(__testables.getTheGamesDbRegionPreferenceScoreFromIds({ countryId: 50 }), 40);
+  assert.equal(__testables.getTheGamesDbRegionPreferenceScoreFromIds({ countryId: 0 }), 30);
+  assert.equal(__testables.getTheGamesDbRegionPreferenceScoreFromIds({ regionId: 2 }), 20);
+  assert.equal(__testables.getTheGamesDbRegionPreferenceScoreFromIds({ regionId: 1 }), 10);
+  assert.equal(__testables.getTheGamesDbRegionId({ region_id: 2 }), 2);
+  assert.equal(__testables.getTheGamesDbCountryId({ country_id: 50 }), 50);
+
+  const candidates = __testables.findTheGamesDbBoxArtCandidates(
+    {
+      data: { games: [{ id: 1, game_title: 'Chrono Trigger', country_id: 50, platform: 'SNES' }] },
+      include: {
+        boxart: {
+          base_url: { large: 'https://cdn.thegamesdb.net/images/large' },
+          data: {
+            1: [
+              { type: 'boxart', side: 'front', filename: '/front.jpg' },
+              { type: 'boxart', side: 'back', filename: '/back.jpg' }
+            ]
+          }
+        }
+      }
+    },
+    'Chrono Trigger',
+    'SNES'
+  );
+  assert.equal(candidates.length > 0, true);
 });

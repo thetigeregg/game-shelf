@@ -1,6 +1,9 @@
 FROM node:20-alpine
 
 WORKDIR /app/server
+ENV TZ=Europe/Zurich
+
+RUN apk add --no-cache tzdata
 
 COPY server/package*.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund

@@ -51,6 +51,13 @@ class HltbPoolMock {
   getEntryCount(): number {
     return this.rowsByKey.size;
   }
+
+  seed(cacheKey: string, payload: unknown, updatedAt: string): void {
+    this.rowsByKey.set(cacheKey, {
+      response_json: payload,
+      updated_at: updatedAt
+    });
+  }
 }
 
 test('HLTB cache stores on miss and serves on hit', async () => {
@@ -89,6 +96,197 @@ test('HLTB cache stores on miss and serves on hit', async () => {
   assert.equal(metrics.hltb.misses, 1);
   assert.equal(metrics.hltb.hits, 1);
   assert.equal(metrics.hltb.writes, 1);
+
+  await app.close();
+});
+
+test('HLTB cache supports candidates when includeCandidates is enabled', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: async () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: null,
+          candidates: [{ hltbMainHours: 18 }]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+    }
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=okami&includeCandidates=true'
+  });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(pool.getEntryCount(), 1);
+
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=okami&includeCandidates=true'
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+  assert.equal(fetchCalls, 1);
+
+  await app.close();
+});
+
+test('HLTB cache stale revalidation handles failures and skip when already in-flight', async () => {
+  resetCacheMetrics();
+  let nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);
+  const pool = new HltbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  let fetchCalls = 0;
+  let pendingTask: (() => Promise<void>) | null = null;
+
+  registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: async () => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) {
+        return new Response(JSON.stringify({ item: { hltbMainHours: 5 } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      }
+
+      if (fetchCalls === 2) {
+        return new Response('upstream error', { status: 500 });
+      }
+
+      return new Response('not-json', {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    },
+    now: () => nowMs,
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 100,
+    scheduleBackgroundRefresh: (task) => {
+      pendingTask = task;
+    }
+  });
+
+  await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=chrono'
+  });
+
+  nowMs += 2_000;
+  const staleOne = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=chrono'
+  });
+  assert.equal(staleOne.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
+  assert.equal(staleOne.headers['x-gameshelf-hltb-revalidate'], 'scheduled');
+
+  const staleTwo = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=chrono'
+  });
+  assert.equal(staleTwo.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
+  assert.equal(staleTwo.headers['x-gameshelf-hltb-revalidate'], 'skipped');
+
+  const task = pendingTask;
+  if (!task) {
+    throw new Error('Expected revalidation task');
+  }
+  await task();
+
+  nowMs += 2_000;
+  await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=chrono'
+  });
+  const taskTwo = pendingTask;
+  if (!taskTwo) {
+    throw new Error('Expected second revalidation task');
+  }
+  await taskTwo();
+
+  const metrics = getCacheMetrics();
+  assert.ok(metrics.hltb.revalidateScheduled >= 2);
+  assert.ok(metrics.hltb.revalidateSkipped >= 1);
+  assert.ok(metrics.hltb.revalidateFailed >= 1);
+
+  await app.close();
+});
+
+test('HLTB cache bypasses cache when query is too short', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: async () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ item: null, candidates: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=a'
+  });
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=a'
+  });
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(second.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+  assert.equal(pool.getEntryCount(), 0);
+
+  await app.close();
+});
+
+test('HLTB cache deletes stale invalid payload and fetches fresh response', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  // Cache key for q=okami with default query params.
+  pool.seed(
+    '8e1ab85d0a4683234ba346eebe701b9506defc4f93464723461226ace18cd84a',
+    { item: null, candidates: [] },
+    new Date(Date.UTC(2026, 1, 1, 0, 0, 0)).toISOString()
+  );
+
+  registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: async () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ item: { hltbMainHours: 12 }, candidates: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=okami'
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+  assert.equal(pool.getEntryCount(), 1);
 
   await app.close();
 });

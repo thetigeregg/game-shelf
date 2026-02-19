@@ -236,6 +236,13 @@ function normalizeProxyImageUrl(raw: unknown): string | null {
       return null;
     }
 
+    // Reject URLs containing userinfo to avoid multiple cache keys for the same resource
+    if (parsed.username || parsed.password) {
+      return null;
+    }
+
+    // Remove URL fragment so it does not affect cache keys
+    parsed.hash = '';
     return parsed.toString();
   } catch {
     return null;

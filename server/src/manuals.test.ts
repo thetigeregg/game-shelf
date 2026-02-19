@@ -108,6 +108,73 @@ test('search endpoint lists and ranks candidates by platform', async () => {
   await fs.rm(fixture.rootDir, { recursive: true, force: true });
 });
 
+test('resolve endpoint supports aliased platform ids using canonical manual folders', async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'manuals-alias-resolve-'));
+  await fs.mkdir(path.join(rootDir, 'Nintendo Entertainment System__pid-18'), { recursive: true });
+  await fs.writeFile(
+    path.join(rootDir, 'Nintendo Entertainment System__pid-18/Super Mario Bros.pdf'),
+    'pdf'
+  );
+
+  const app = Fastify();
+  registerManualRoutes(app, {
+    manualsDir: rootDir,
+    manualsPublicBaseUrl: '/manuals'
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/manuals/resolve?platformIgdbId=99&title=Super%20Mario%20Bros'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json() as Record<string, any>;
+  assert.equal(payload.status, 'matched');
+  assert.equal(payload.bestMatch?.platformIgdbId, 18);
+  assert.ok(
+    String(payload.bestMatch?.relativePath ?? '').includes(
+      'Nintendo Entertainment System__pid-18/Super Mario Bros.pdf'
+    )
+  );
+
+  await app.close();
+  await fs.rm(rootDir, { recursive: true, force: true });
+});
+
+test('search endpoint supports aliased platform ids using canonical manual folders', async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'manuals-alias-search-'));
+  await fs.mkdir(path.join(rootDir, 'Nintendo Entertainment System__pid-18'), { recursive: true });
+  await fs.writeFile(
+    path.join(rootDir, 'Nintendo Entertainment System__pid-18/The Legend of Zelda.pdf'),
+    'pdf'
+  );
+
+  const app = Fastify();
+  registerManualRoutes(app, {
+    manualsDir: rootDir,
+    manualsPublicBaseUrl: '/manuals'
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/manuals/search?platformIgdbId=51&q=zelda'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json() as Record<string, any>;
+  assert.ok(Array.isArray(payload.items));
+  assert.ok(payload.items.length >= 1);
+  assert.equal(payload.items[0].platformIgdbId, 18);
+  assert.ok(
+    String(payload.items[0].relativePath ?? '').includes(
+      'Nintendo Entertainment System__pid-18/The Legend of Zelda.pdf'
+    )
+  );
+
+  await app.close();
+  await fs.rm(rootDir, { recursive: true, force: true });
+});
+
 async function buildFixtureTree(): Promise<{ rootDir: string }> {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'manuals-fixture-'));
   await fs.mkdir(path.join(rootDir, 'PlayStation 2__pid-8'), { recursive: true });

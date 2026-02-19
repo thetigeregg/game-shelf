@@ -27,6 +27,37 @@ interface PullBody {
   cursor?: string | null;
 }
 
+const SYNC_PULL_WINDOW_MS = 60_000;
+const SYNC_PULL_MAX_REQUESTS = 100;
+
+type RateLimitState = {
+  count: number;
+  windowStart: number;
+};
+
+const syncPullRateLimitMap = new Map<string, RateLimitState>();
+
+function isSyncPullRateLimited(ip: string | undefined): boolean {
+  if (!ip) {
+    return false;
+  }
+
+  const now = Date.now();
+  const existing = syncPullRateLimitMap.get(ip);
+
+  if (!existing || now - existing.windowStart >= SYNC_PULL_WINDOW_MS) {
+    syncPullRateLimitMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+
+if (existing.count >= SYNC_PULL_MAX_REQUESTS) {
+    return true;
+  }
+
+  existing.count += 1;
+  return false;
+}
+
 export function registerSyncRoutes(app: FastifyInstance, pool: Pool): void {
   app.post('/v1/sync/push', async (request, reply) => {
     const body = (request.body ?? {}) as PushBody;
@@ -94,6 +125,11 @@ export function registerSyncRoutes(app: FastifyInstance, pool: Pool): void {
   });
 
   app.post('/v1/sync/pull', async (request, reply) => {
+    if (isSyncPullRateLimited(request.ip)) {
+      reply.code(429).send({ error: 'Rate limit exceeded.' });
+      return;
+    }
+
     const body = (request.body ?? {}) as PullBody;
     const cursor = normalizeCursor(body.cursor);
 

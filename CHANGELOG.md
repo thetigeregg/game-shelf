@@ -464,3 +464,9 @@
 - 330f6b8 Merge pull request #22 from thetigeregg/codex/deps
 - df49d37 Add dependabot docker major rules
 
+## v0.0.9 - 2026-02-19
+- b97449a Merge pull request #6 from thetigeregg/dependabot/docker/edge/caddy-2.10-alpine
+- 9f2caae Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- c3530e8 Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- 0ec4272 chore(docker): bump caddy from 2.8-alpine to 2.10-alpine in /edge
+

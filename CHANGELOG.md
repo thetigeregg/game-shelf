@@ -429,3 +429,16 @@
 - 97d8489 Move pino-pretty to dependencies
 - 05685eb Move pino-pretty dependency
 
+## v0.0.5 - 2026-02-19
+- a4d5d3b Merge pull request #2 from thetigeregg/test
+- 8af153a Fix collection UI smoke selectors
+- dc5e0cc Set up GitHub App for auto commits
+- e6d90da Remove CI workflow
+- bc31df2 Update CI to run quality on PRs
+- c596c6d Add auto version alert dismissal
+- 965b70e Revert "fix: correct author name in package.json"
+- 3edd3a8 fix: correct author name in package.json
+- c9b7908 Enable CI for pull requests
+- 4233a84 Fix runtime config flag append
+- 27c42bc Add version alert on update
+

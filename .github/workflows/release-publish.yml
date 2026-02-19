@@ -12,7 +12,6 @@ concurrency:
 jobs:
   release:
     name: Bump Version and Tag
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,9 +23,17 @@ jobs:
       release_sha: ${{ steps.push.outputs.release_sha }}
 
     steps:
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.AUTOCOMMIT_APP_ID }}
+          private-key: ${{ secrets.AUTOCOMMIT_APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          token: ${{ steps.app_token.outputs.token }}
           fetch-depth: 0
 
       - name: Setup Node.js

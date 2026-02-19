@@ -156,6 +156,12 @@ Adjust schedule/retention via stack env vars:
 - `BACKUP_SCHEDULE_TIME=00:00`
 - `BACKUP_KEEP_COUNT=14`
 
+Trigger an immediate manual backup run from a shell inside `gameshelf-backup` (Portainer Console):
+
+```bash
+/usr/local/bin/backup.sh
+```
+
 ## 7. Restore
 
 Restore Postgres dump:

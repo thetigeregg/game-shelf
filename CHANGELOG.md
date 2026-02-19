@@ -492,3 +492,8 @@
 - 5ab03bf Fix HLTB scraper base URL handling
 - 585cc19 chore: update appVersion to 0.0.9 in runtime config
 
+## v0.0.13 - 2026-02-19
+- dff2ea9 Merge pull request #24 from thetigeregg/dep-rules
+- d0caf81 Update dependabot.yml to ignore specific dependency
+- f6e84bc chore(deps): ignore major version updates for @types/node
+

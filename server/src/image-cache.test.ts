@@ -142,6 +142,19 @@ test('Image proxy validates URLs and handles upstream timeout/errors', async () 
   });
   assert.equal(invalid.statusCode, 400);
 
+  const invalidPort = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com:444/igdb/image/upload/bad-port.jpg'
+  });
+  assert.equal(invalidPort.statusCode, 400);
+
+  // Explicit :443 is normalized to the default HTTPS port and should pass validation
+  const explicitStandardPort = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com:443/igdb/image/upload/explicit-443.jpg'
+  });
+  assert.equal(explicitStandardPort.statusCode, 502);
+
   const timeout = await app.inject({
     method: 'GET',
     url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/timeout.jpg'
@@ -155,8 +168,8 @@ test('Image proxy validates URLs and handles upstream timeout/errors', async () 
   assert.equal(upstreamError.statusCode, 502);
 
   const metrics = getCacheMetrics();
-  assert.equal(metrics.image.invalidRequests, 1);
-  assert.equal(metrics.image.upstreamErrors, 2);
+  assert.equal(metrics.image.invalidRequests, 2);
+  assert.equal(metrics.image.upstreamErrors, 3);
 
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });

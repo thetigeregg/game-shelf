@@ -144,6 +144,7 @@ For NAS/Portainer/Tailscale deployment, see:
 Containerized backups are enabled by default via the `backup` service in both `docker-compose.yml` (local/dev) and `docker-compose.portainer.yml` (NAS/Portainer production).
 For deployment usage details, see `docs/nas-deployment.md`.
 Default schedule is `00:00` in the container timezone (`TZ`), which may differ from your local timezone.
+For NAS/Portainer deployments, the backup service pulls `${BACKUP_IMAGE:-ghcr.io/thetigeregg/game-shelf-backup:main}`.
 Schedule and retention are controlled by env vars:
 
 ```bash

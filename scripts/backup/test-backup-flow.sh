@@ -27,6 +27,13 @@ if [[ -z "${BACKUP_HOST_DIR:-}" ]]; then
   exit 1
 fi
 
+if [[ -z "${SECRETS_HOST_DIR:-}" ]]; then
+  SECRETS_HOST_DIR="$(docker compose config | awk '/source:/{src=$NF} /target: \/run\/secrets/{print src; exit}')"
+fi
+if [[ -z "${SECRETS_HOST_DIR:-}" ]]; then
+  SECRETS_HOST_DIR="./nas-secrets"
+fi
+
 count_timestamp_backup_dirs() {
   find "$BACKUP_HOST_DIR" -mindepth 1 -maxdepth 1 -type d -print \
     | while IFS= read -r path; do

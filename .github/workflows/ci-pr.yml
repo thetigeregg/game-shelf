@@ -38,7 +38,7 @@ jobs:
         run: npm --prefix server ci && npm --prefix worker ci
 
       - name: Backend tests
-        run: npm run test:backend
+        run: npm run test:backend:coverage
 
       - name: Install Playwright browser
         run: npm run test:ui:e2e:install

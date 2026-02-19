@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import type { FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
@@ -37,6 +38,11 @@ async function main(): Promise<void> {
     }
   });
 
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute'
+  });
+
   app.log.info({
     event: 'server_timezone_configured',
     tzEnv: process.env.TZ ?? 'unset',
@@ -66,7 +72,14 @@ async function main(): Promise<void> {
     }
   });
 
-  app.get('/v1/health', async (_request, reply) => {
+  app.get('/v1/health', {
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (_request, reply) => {
     try {
       await pool.query('SELECT 1');
       reply.send({

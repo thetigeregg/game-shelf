@@ -1,0 +1,8 @@
+title = "game-shelf gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Test fixture placeholders in worker tests"
+paths = ['''worker/test/worker\.test\.mjs''']

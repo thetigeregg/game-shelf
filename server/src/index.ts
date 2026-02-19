@@ -37,6 +37,12 @@ async function main(): Promise<void> {
     }
   });
 
+  app.log.info({
+    event: 'server_timezone_configured',
+    tzEnv: process.env.TZ ?? 'unset',
+    runtimeTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
+
   await app.register(cors, {
     origin: (origin, callback) => {
       if (!origin) {

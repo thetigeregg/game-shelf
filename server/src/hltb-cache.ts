@@ -333,8 +333,52 @@ async function deleteHltbCacheEntry(
 }
 
 async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Response> {
-  const metadataModule = await import('./metadata.js');
-  return metadataModule.fetchMetadataFromWorker(request);
+  const baseUrl = readEnv('HLTB_SCRAPER_BASE_URL').trim();
+
+  if (!baseUrl) {
+    return new Response(JSON.stringify({ error: 'HLTB scraper base URL is not configured' }), {
+      status: 503,
+      headers: {
+        'content-type': 'application/json'
+      }
+    });
+  }
+
+  const requestUrl = new URL(request.url, 'http://game-shelf.local');
+  const targetUrl = new URL('/v1/hltb/search', baseUrl);
+  targetUrl.search = requestUrl.search;
+
+  const headers = new Headers();
+  const scraperToken = readEnv('HLTB_SCRAPER_TOKEN').trim();
+
+  if (scraperToken.length > 0) {
+    headers.set('Authorization', `Bearer ${scraperToken}`);
+  }
+
+  try {
+    return await fetch(targetUrl.toString(), {
+      method: 'GET',
+      headers
+    });
+  } catch (error) {
+    request.log.warn({
+      msg: 'hltb_scraper_request_failed',
+      url: targetUrl.toString(),
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return new Response(JSON.stringify({ error: 'HLTB scraper request failed' }), {
+      status: 502,
+      headers: {
+        'content-type': 'application/json'
+      }
+    });
+  }
+}
+
+function readEnv(name: string): string {
+  const value = process.env[name];
+  return typeof value === 'string' ? value : '';
 }
 
 async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {

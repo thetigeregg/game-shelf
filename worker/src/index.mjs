@@ -470,6 +470,41 @@ class UpstreamRateLimitError extends Error {
   }
 }
 
+export const __testables = {
+  normalizePlatformIgdbIdQuery,
+  normalizePopularityTypeIdQuery,
+  normalizeLimitQuery,
+  normalizeOffsetQuery,
+  normalizeIgdbReferenceId,
+  normalizeIgdbRankScore,
+  normalizeGameTypeLabel,
+  normalizeGameTypeValue,
+  isRemakeOrRemaster,
+  getOriginalGameId,
+  sortIgdbSearchResults,
+  resolveTheGamesDbPlatformId,
+  sanitizeUrlForLogs,
+  buildBodyPreview,
+  parseRetryAfterSeconds,
+  resolveRetryAfterSecondsFromHeaders,
+  normalizeOptionalText,
+  normalizeNumericValue,
+  normalizeIgdbNamedCollection,
+  normalizeIgdbReferenceIds,
+  normalizeIgdbCompanyNames,
+  getIgdbRequestTimeoutMs,
+  getTheGamesDbRequestTimeoutMs,
+  normalizeTheGamesDbUrl,
+  foldToAsciiForSearch,
+  buildQueryFallbacks,
+  escapeQuery,
+  getTitleSimilarityScore,
+  findTheGamesDbBoxArtCandidates,
+  getTheGamesDbRegionPreferenceScoreFromIds,
+  getTheGamesDbRegionId,
+  getTheGamesDbCountryId
+};
+
 function escapeQuery(query) {
   return String(query ?? '')
     .replace(/[;\r\n\t]+/g, ' ')

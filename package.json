@@ -19,6 +19,7 @@
     "test:server": "npm --prefix server test",
     "test:worker": "npm --prefix worker test",
     "test:backend": "npm run test:server && npm run test:worker",
+    "test:backend:coverage": "npm --prefix server run test:coverage && npm --prefix worker run test:coverage",
     "test:watch": "vitest",
     "test:ui:component": "vitest run --config vitest.ui.config.ts",
     "test:ui:e2e": "npx playwright test",

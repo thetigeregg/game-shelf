@@ -497,3 +497,8 @@
 - d0caf81 Update dependabot.yml to ignore specific dependency
 - f6e84bc chore(deps): ignore major version updates for @types/node
 
+## v0.0.14 - 2026-02-19
+- 0e507cf Merge pull request #4 from thetigeregg/dependabot/npm_and_yarn/server/ajv-8.18.0
+- e0fcb7a Merge branch 'main' into dependabot/npm_and_yarn/server/ajv-8.18.0
+- 45da2aa Bump ajv from 8.17.1 to 8.18.0 in /server
+

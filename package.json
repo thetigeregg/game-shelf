@@ -27,7 +27,8 @@
     "test:ui:e2e:install": "npx playwright install --with-deps chromium",
     "lint": "npx eslint .",
     "prepare": "husky",
-    "backup:restore:postgres": "./scripts/backup/restore-postgres.sh"
+    "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
+    "test:backup:ops": "./scripts/backup/test-backup-flow.sh"
   },
   "private": true,
   "dependencies": {

@@ -84,6 +84,12 @@ Run UI tests (component + e2e):
 npm run test:ui
 ```
 
+Run backup ops integration check (requires Docker services):
+
+```bash
+npm run test:backup:ops
+```
+
 ## CI/CD Workflows
 
 - `CI PR Checks` (`.github/workflows/ci-pr.yml`)

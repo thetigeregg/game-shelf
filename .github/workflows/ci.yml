@@ -35,6 +35,9 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      - name: Install backend package dependencies
+        run: npm --prefix server ci && npm --prefix worker ci
+
       - name: Backend tests
         run: npm run test:backend
 

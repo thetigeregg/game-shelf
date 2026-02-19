@@ -141,7 +141,8 @@ For NAS/Portainer/Tailscale deployment, see:
 
 ## Backups
 
-Containerized midnight backups are enabled by default via the `backup` service in Compose.
+Containerized backups are enabled by default via the `backup` service in Compose.
+Default schedule is `00:00` in the container timezone (`TZ`), which may differ from your local timezone.
 Schedule and retention are controlled by env vars:
 
 ```bash

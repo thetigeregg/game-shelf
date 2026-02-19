@@ -154,6 +154,7 @@ Recommended excludes:
 
 Nightly scheduling is handled by the `backup` container itself (cron inside container).
 By default it runs at `00:00` container local time (`TZ`).
+This may differ from your own local timezone if `TZ` is set differently.
 Adjust schedule/retention via stack env vars:
 - `BACKUP_SCHEDULE_TIME=00:00`
 - `BACKUP_KEEP_COUNT=14`

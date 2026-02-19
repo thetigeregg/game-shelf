@@ -7,6 +7,14 @@ const AUTO_MATCH_MIN_SCORE = 0.86;
 const AUTO_MATCH_MIN_GAP = 0.08;
 const MAX_CANDIDATES = 12;
 const MAX_SEARCH_RESULTS = 50;
+const PLATFORM_MANUAL_ALIAS_TO_CANONICAL: Record<number, number> = {
+  99: 18,
+  51: 18,
+  58: 19,
+  137: 37,
+  159: 20,
+  510: 24
+};
 
 interface ManualCatalogEntry {
   platformIgdbId: number;
@@ -153,8 +161,9 @@ export function registerManualRoutes(
       return;
     }
 
-    const platformEntries = catalog.entries.filter(
-      (entry) => entry.platformIgdbId === platformIgdbId
+    const equivalentPlatformIds = buildEquivalentManualPlatformIds(platformIgdbId);
+    const platformEntries = catalog.entries.filter((entry) =>
+      equivalentPlatformIds.has(entry.platformIgdbId)
     );
 
     if (platformEntries.length === 0) {
@@ -232,8 +241,9 @@ export function registerManualRoutes(
       return;
     }
 
-    const platformEntries = catalog.entries.filter(
-      (entry) => entry.platformIgdbId === platformIgdbId
+    const equivalentPlatformIds = buildEquivalentManualPlatformIds(platformIgdbId);
+    const platformEntries = catalog.entries.filter((entry) =>
+      equivalentPlatformIds.has(entry.platformIgdbId)
     );
 
     if (searchQuery.length === 0) {
@@ -474,6 +484,24 @@ function normalizeManualRelativePath(value: unknown): string {
 function parsePositiveInteger(value: unknown): number | null {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function buildEquivalentManualPlatformIds(platformIgdbId: number): Set<number> {
+  const canonicalPlatformId = PLATFORM_MANUAL_ALIAS_TO_CANONICAL[platformIgdbId] ?? platformIgdbId;
+  const ids = new Set<number>([canonicalPlatformId]);
+
+  Object.entries(PLATFORM_MANUAL_ALIAS_TO_CANONICAL).forEach(([sourceIdRaw, destinationId]) => {
+    if (destinationId !== canonicalPlatformId) {
+      return;
+    }
+
+    const sourceId = Number.parseInt(sourceIdRaw, 10);
+    if (Number.isInteger(sourceId) && sourceId > 0) {
+      ids.add(sourceId);
+    }
+  });
+
+  return ids;
 }
 
 function toCandidateResponse(

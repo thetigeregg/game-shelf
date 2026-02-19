@@ -25,10 +25,10 @@ echo "[backup-test] Ensuring services are running"
 docker compose up -d postgres backup
 
 echo "[backup-test] Triggering manual backup #1"
-docker compose exec -T backup /usr/local/bin/backup.sh
+docker compose exec -T backup /bin/sh /opt/backup/backup.sh
 sleep 1
 echo "[backup-test] Triggering manual backup #2"
-docker compose exec -T backup /usr/local/bin/backup.sh
+docker compose exec -T backup /bin/sh /opt/backup/backup.sh
 
 LATEST_PATH="$BACKUP_HOST_DIR/latest"
 if [[ ! -L "$LATEST_PATH" ]]; then

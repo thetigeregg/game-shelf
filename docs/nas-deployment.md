@@ -159,7 +159,7 @@ Adjust schedule/retention via stack env vars:
 Trigger an immediate manual backup run from a shell inside `gameshelf-backup` (Portainer Console):
 
 ```bash
-/usr/local/bin/backup.sh
+/bin/sh /opt/backup/backup.sh
 ```
 
 ## 7. Restore

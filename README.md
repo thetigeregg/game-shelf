@@ -133,6 +133,22 @@ For NAS/Portainer/Tailscale deployment, see:
 
 - `docs/nas-deployment.md`
 
+## Backups
+
+Containerized midnight backups are enabled by default via the `backup` service in Compose.
+Schedule and retention are controlled by env vars:
+
+```bash
+BACKUP_SCHEDULE_TIME=00:00
+BACKUP_KEEP_COUNT=14
+```
+
+Restore Postgres from a generated dump:
+
+```bash
+npm run backup:restore:postgres -- --file nas-data/backups/latest/postgres.sql.gz --yes
+```
+
 ## Related Service Readmes
 
 - `server/README.md`

@@ -40,6 +40,8 @@ Common stack env vars:
 - `HLTB_SCRAPER_TOKEN` (optional, but recommended)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+- `BACKUP_SCHEDULE_TIME` (optional; defaults to `00:00` in container timezone)
+- `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
 
 Protected POST endpoints (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`, `/api/v1/manuals/refresh`) require:
 
@@ -71,6 +73,7 @@ Services:
 - `api` hosts metadata + sync endpoints.
 - `postgres` stores authoritative app data.
 - `hltb-scraper` provides browser-backed HLTB lookups.
+- `backup` creates nightly Postgres dump artifacts under `nas-data/backups`.
 
 Manual PDFs:
 
@@ -123,30 +126,42 @@ curl http://127.0.0.1:8080/api/v1/health
 docker compose logs -f api
 ```
 
-## 6. Manual backup
+## 6. Backup workflow (Backrest/Restic friendly)
 
-Postgres dump:
+App-consistent Postgres dump artifacts are created automatically by the `backup` service.
 
-```bash
-docker compose exec -T postgres pg_dump -U gameshelf -d gameshelf > backup-gameshelf-$(date +%F).sql
-```
+What it produces under `nas-data/backups/<timestamp>/`:
 
-Image cache archive:
+- `postgres.sql.gz` (logical dump via `pg_dump --clean --if-exists`)
+- `manifest.txt`
 
-```bash
-tar -czf backup-image-cache-$(date +%F).tar.gz nas-data/image-cache
-```
+`nas-data/backups/latest` is updated to the most recent backup.
+
+Recommended Backrest/Restic includes:
+
+- `nas-data/backups`
+- `nas-data/image-cache`
+- `docker-compose.portainer.yml`
+- stack env/config files (`.env` in your deployment location)
+
+Recommended excludes:
+
+- `nas-data/postgres` (raw live DB files)
+- `nas-data/manuals` (explicitly excluded per current backup policy)
+- transient container/cache data outside your intended persisted dirs
+
+Nightly scheduling is handled by the `backup` container itself (cron inside container).
+By default it runs at `00:00` container local time (`TZ`).
+Adjust schedule/retention via stack env vars:
+- `BACKUP_SCHEDULE_TIME=00:00`
+- `BACKUP_KEEP_COUNT=14`
 
 ## 7. Restore
 
-Restore Postgres:
+Restore Postgres dump:
 
 ```bash
-cat backup-gameshelf-YYYY-MM-DD.sql | docker compose exec -T postgres psql -U gameshelf -d gameshelf
+npm run backup:restore:postgres -- --file nas-data/backups/latest/postgres.sql.gz --yes
 ```
 
-Restore image cache:
-
-```bash
-tar -xzf backup-image-cache-YYYY-MM-DD.tar.gz
-```
+Restore image cache by restoring `nas-data/image-cache` from your Backrest/Restic snapshot.

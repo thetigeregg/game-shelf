@@ -38,7 +38,6 @@ docker compose up -d postgres backup
 
 echo "[backup-test] Triggering manual backup #1"
 docker compose exec -T backup /bin/sh /opt/backup/backup.sh
-sleep 1
 echo "[backup-test] Triggering manual backup #2"
 docker compose exec -T backup /bin/sh /opt/backup/backup.sh
 
@@ -57,6 +56,18 @@ if [[ ! -f "$LATEST_PATH/manifest.txt" ]]; then
   echo "[backup-test] FAIL: manifest.txt missing at $LATEST_PATH/manifest.txt" >&2
   exit 1
 fi
+
+if ! gzip -t "$LATEST_PATH/postgres.sql.gz"; then
+  echo "[backup-test] FAIL: postgres.sql.gz failed gzip integrity check" >&2
+  exit 1
+fi
+
+if ! gzip -dc "$LATEST_PATH/postgres.sql.gz" | grep -Eq '^-- PostgreSQL database dump'; then
+  echo "[backup-test] FAIL: postgres.sql.gz does not look like a PostgreSQL SQL dump" >&2
+  exit 1
+fi
+
+echo "[backup-test] Backup artifact integrity assertions passed"
 
 KEEP_COUNT="$(docker compose exec -T backup sh -lc 'printf "%s" "${BACKUP_KEEP_COUNT:-}"')"
 if [[ "$KEEP_COUNT" == "1" ]]; then

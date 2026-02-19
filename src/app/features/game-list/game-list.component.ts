@@ -1750,7 +1750,11 @@ export class GameListComponent implements OnChanges {
   }
 
   get shouldShowFindManualButton(): boolean {
-    return this.manualResolvedUrl === null;
+    if (!this.selectedGame) {
+      return false;
+    }
+
+    return !this.manualCatalogUnavailable || this.manualResolvedSource === 'override';
   }
 
   openManualPdf(): void {
@@ -1764,7 +1768,7 @@ export class GameListComponent implements OnChanges {
   }
 
   openManualPickerModal(): void {
-    if (this.manualCatalogUnavailable) {
+    if (this.manualCatalogUnavailable && this.manualResolvedSource !== 'override') {
       const reason = this.manualCatalogUnavailableReason ?? 'Manual catalog is unavailable.';
       void this.presentToast(reason, 'warning');
       return;

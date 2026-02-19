@@ -97,33 +97,46 @@ services:
       - postgres
     volumes:
       - ${BACKUP_HOST_DIR:-./nas-data/backups}:/backups
-    command: >-
-      /bin/sh -c "cat >/usr/local/bin/backup.sh <<'SCRIPT'
-      #!/bin/sh
-      set -eu
-      ts=\"$$(date -u +%Y%m%dT%H%M%SZ)\"
-      dir=\"/backups/$$ts\"
-      mkdir -p \"$$dir\"
-      pg_dump --clean --if-exists --no-owner --no-privileges | gzip -c >\"$$dir/postgres.sql.gz\"
-      {
-        echo \"timestamp=$$ts\"
-        echo \"created_at_utc=$$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-        echo \"postgres_dump=postgres.sql.gz\"
-        echo \"image_cache=external_snapshot\"
-        echo \"manuals=excluded\"
-      } >\"$$dir/manifest.txt\"
-      ln -sfn \"$$ts\" /backups/latest
-      keep=\"$${BACKUP_KEEP_COUNT:-14}\"
-      if echo \"$$keep\" | grep -Eq '^[0-9]+$$'; then
-        count=\"$$(find /backups -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l | tr -d ' ')\"
-        if [ \"$$count\" -gt \"$$keep\" ]; then
-          remove=$$((count - keep))
-          find /backups -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | head -n \"$$remove\" | xargs -r rm -rf
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        cat >/usr/local/bin/backup.sh <<'SCRIPT'
+        #!/bin/sh
+        set -eu
+        ts="$$(date -u +%Y%m%dT%H%M%SZ)"
+        dir="/backups/$$ts"
+        mkdir -p "$$dir"
+        pg_dump --clean --if-exists --no-owner --no-privileges | gzip -c >"$$dir/postgres.sql.gz"
+        {
+          echo "timestamp=$$ts"
+          echo "created_at_utc=$$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "postgres_dump=postgres.sql.gz"
+          echo "image_cache=external_snapshot"
+          echo "manuals=excluded"
+        } >"$$dir/manifest.txt"
+        ln -sfn "$$ts" /backups/latest
+        keep="$${BACKUP_KEEP_COUNT:-14}"
+        if echo "$$keep" | grep -Eq '^[0-9]+$$'; then
+          count="$$(find /backups -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l | tr -d ' ')"
+          if [ "$$count" -gt "$$keep" ]; then
+            remove=$$((count - keep))
+            find /backups -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | head -n "$$remove" | xargs -r rm -rf
+          fi
         fi
-      fi
-      SCRIPT
-      chmod +x /usr/local/bin/backup.sh
-      mkdir -p /backups
-      printf '%s %s\n' \"$${BACKUP_SCHEDULE_TIME:-00:00}\" '/usr/local/bin/backup.sh >>/proc/1/fd/1 2>>/proc/1/fd/2' > /etc/crontabs/root
-      exec crond -f -l 8"
+        SCRIPT
+        chmod +x /usr/local/bin/backup.sh
+        mkdir -p /backups
+        schedule="$${BACKUP_SCHEDULE_TIME:-00:00}"
+        case "$$schedule" in
+          [0-1][0-9]:[0-5][0-9]|2[0-3]:[0-5][0-9]) ;;
+          *)
+            echo "Invalid BACKUP_SCHEDULE_TIME=$$schedule (expected HH:MM, 24-hour format)" >&2
+            exit 1
+            ;;
+        esac
+        hour="$${schedule%:*}"
+        minute="$${schedule#*:}"
+        printf '%s %s * * * %s\n' "$$minute" "$$hour" '/usr/local/bin/backup.sh >>/proc/1/fd/1 2>>/proc/1/fd/2' > /etc/crontabs/root
+        exec crond -f -l 8
     restart: unless-stopped

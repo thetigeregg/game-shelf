@@ -566,3 +566,18 @@
 - 0d65a6d Merge pull request #46 from thetigeregg/codex/manual-match
 - 782f7dc Add manual bind clear option
 
+## v0.0.22 - 2026-02-19
+- 1bf340d Merge pull request #43 from thetigeregg/alert-autofix-11
+- 3fab720 Refactor normalizeProxyImageUrl to construct canonical URLs with server-controlled host and path prefix
+- c995631 Fix image proxy forgery tests
+- 3840082 Merge branch 'main' into alert-autofix-11
+- ff1adcc Merge branch 'main' into alert-autofix-11
+- 6c12791 Merge pull request #45 from thetigeregg/copilot/sub-pr-43-again
+- 875c11d Merge pull request #44 from thetigeregg/copilot/sub-pr-43
+- e1a0fb3 test(image-cache): add port validation tests for normalizeProxyImageUrl
+- 27c6ebc fix(security): prevent SSRF via HTTP redirects in image proxy fetch
+- d665c91 Apply suggestions from code review
+- b9ae1b1 Initial plan
+- f6f0317 Initial plan
+- c6b561c Potential fix for code scanning alert no. 11: Server-side request forgery
+

@@ -17,6 +17,8 @@ interface ImageAssetRow {
 
 const THE_GAMES_DB_HOST = 'cdn.thegamesdb.net';
 const IGDB_HOST = 'images.igdb.com';
+const THE_GAMES_DB_PATH_PREFIX = '/images/';
+const IGDB_PATH_PREFIX = '/igdb/image/upload/';
 
 interface ImageCacheRouteOptions {
   fetchImpl?: typeof fetch;
@@ -40,7 +42,7 @@ export function registerImageProxyRoute(
     const normalizedUrls = [
       ...new Set(
         rawUrls
-          .map((url) => normalizeProxyImageUrl(url))
+          .map((url) => normalizeProxyImageUrl(url)?.cacheKeyUrl)
           .filter((url): url is string => typeof url === 'string' && url.length > 0)
       )
     ];
@@ -89,14 +91,17 @@ export function registerImageProxyRoute(
   });
 
   app.get('/v1/images/proxy', async (request, reply) => {
-    const sourceUrl = normalizeProxyImageUrl((request.query as Record<string, unknown>)['url']);
+    const normalizedImageUrl = normalizeProxyImageUrl(
+      (request.query as Record<string, unknown>)['url']
+    );
 
-    if (!sourceUrl) {
+    if (!normalizedImageUrl) {
       incrementImageMetric('invalidRequests');
       reply.code(400).send({ error: 'Invalid image URL.' });
       return;
     }
 
+    const sourceUrl = normalizedImageUrl.cacheKeyUrl;
     const cacheKey = sha256(sourceUrl);
     let existing: ImageAssetRow | undefined;
 
@@ -141,7 +146,11 @@ export function registerImageProxyRoute(
     let upstream: Response;
 
     try {
-      upstream = await fetchImpl(sourceUrl, { method: 'GET', signal: controller.signal, redirect: 'error' });
+      upstream = await fetchImpl(normalizedImageUrl.fetchUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        redirect: 'error'
+      });
     } catch {
       incrementImageMetric('upstreamErrors');
       reply.code(504).send({ error: 'Image fetch timed out.' });
@@ -208,7 +217,12 @@ export function registerImageProxyRoute(
   });
 }
 
-function normalizeProxyImageUrl(raw: unknown): string | null {
+interface NormalizedProxyImageUrl {
+  cacheKeyUrl: string;
+  fetchUrl: URL;
+}
+
+function normalizeProxyImageUrl(raw: unknown): NormalizedProxyImageUrl | null {
   try {
     const parsed = new URL(String(raw ?? ''));
 
@@ -219,13 +233,17 @@ function normalizeProxyImageUrl(raw: unknown): string | null {
 
     const hostname = parsed.hostname.toLowerCase();
     const pathname = parsed.pathname;
+    const normalizedPath = pathname.toLowerCase();
 
     // Normalize allowed hosts for comparison
     const allowedTheGamesDbHost = THE_GAMES_DB_HOST.toLowerCase();
     const allowedIgdbHost = IGDB_HOST.toLowerCase();
+    const allowedTheGamesDbPathPrefix = THE_GAMES_DB_PATH_PREFIX.toLowerCase();
+    const allowedIgdbPathPrefix = IGDB_PATH_PREFIX.toLowerCase();
 
-    const isTheGamesDb = hostname === allowedTheGamesDbHost && pathname.startsWith('/images/');
-    const isIgdb = hostname === allowedIgdbHost && pathname.startsWith('/igdb/image/upload/');
+    const isTheGamesDb =
+      hostname === allowedTheGamesDbHost && normalizedPath.startsWith(allowedTheGamesDbPathPrefix);
+    const isIgdb = hostname === allowedIgdbHost && normalizedPath.startsWith(allowedIgdbPathPrefix);
 
     if (!isTheGamesDb && !isIgdb) {
       return null;
@@ -241,9 +259,24 @@ function normalizeProxyImageUrl(raw: unknown): string | null {
       return null;
     }
 
+    // Reject encoded path separators and dot segments to prevent ambiguous upstream routing.
+    if (/%2f|%5c|%2e/i.test(pathname)) {
+      return null;
+    }
+
+    // This proxy only supports path-based image URLs.
+    if (parsed.search.length > 0) {
+      return null;
+    }
+
     // Remove URL fragment so it does not affect cache keys
     parsed.hash = '';
-    return parsed.toString();
+
+    const canonicalUrl = parsed.toString();
+    const fetchUrl = new URL(canonicalUrl);
+    fetchUrl.search = '';
+
+    return { cacheKeyUrl: canonicalUrl, fetchUrl };
   } catch {
     return null;
   }

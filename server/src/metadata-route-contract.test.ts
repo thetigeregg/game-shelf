@@ -14,6 +14,7 @@ function createJsonResponse(payload: unknown, status = 200): Response {
 
 async function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = String(input);
+  const parsedUrl = new URL(url);
 
   if (url.includes('id.twitch.tv/oauth2/token')) {
     return createJsonResponse({
@@ -51,7 +52,7 @@ async function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<
     return createJsonResponse([]);
   }
 
-  if (url.includes('thegamesdb.net')) {
+  if (parsedUrl.hostname === 'thegamesdb.net') {
     return createJsonResponse({
       data: {
         games: [],

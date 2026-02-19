@@ -21,11 +21,19 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 
 ```bash
 cd server
-# create .env with required keys
-# DATABASE_URL, TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, THEGAMESDB_API_KEY
+# copy sample env and fill secrets
+cp .env.example .env
 npm install
 npm run dev
 ```
+
+Required values to fill in `.env`:
+
+- `DATABASE_URL`
+- `TWITCH_CLIENT_ID`
+- `TWITCH_CLIENT_SECRET`
+- `THEGAMESDB_API_KEY`
+- `API_TOKEN` (when `REQUIRE_AUTH=true`)
 
 ## Notes
 

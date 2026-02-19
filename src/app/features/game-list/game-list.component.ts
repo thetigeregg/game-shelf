@@ -92,6 +92,12 @@ import {
   normalizeMetadataOptions
 } from './game-list-detail-workflow';
 import {
+  encodeCanvasAsDataUrl,
+  getApproximateStringBytes,
+  getCompressionOutputMimeType,
+  loadImageFromDataUrl
+} from './game-list-image-utils';
+import {
   buildTagInput,
   hasHltbData,
   normalizeGameRating,
@@ -2920,7 +2926,7 @@ export class GameListComponent implements OnChanges {
     }
 
     if (
-      this.getApproximateStringBytes(originalDataUrl) <=
+      getApproximateStringBytes(originalDataUrl) <=
       GameListComponent.MAX_CUSTOM_COVER_DATA_URL_BYTES
     ) {
       return { dataUrl: originalDataUrl, compressed: false };
@@ -2929,7 +2935,7 @@ export class GameListComponent implements OnChanges {
     const compressedDataUrl = await this.compressImageDataUrlToFitLimit(
       originalDataUrl,
       GameListComponent.MAX_CUSTOM_COVER_DATA_URL_BYTES,
-      this.getCompressionOutputMimeType(file.type)
+      getCompressionOutputMimeType(file.type)
     );
 
     if (!compressedDataUrl) {
@@ -2958,7 +2964,7 @@ export class GameListComponent implements OnChanges {
     maxBytes: number,
     mimeType: 'image/webp' | 'image/jpeg'
   ): Promise<string | null> {
-    const image = await this.loadImageFromDataUrl(sourceDataUrl);
+    const image = await loadImageFromDataUrl(sourceDataUrl);
 
     if (!image) {
       return null;
@@ -2985,13 +2991,13 @@ export class GameListComponent implements OnChanges {
 
       for (let index = 0; index < GameListComponent.CUSTOM_COVER_QUALITY_STEPS; index += 1) {
         const quality = (low + high) / 2;
-        const candidate = this.encodeCanvasAsDataUrl(canvas, mimeType, quality);
+        const candidate = encodeCanvasAsDataUrl(canvas, mimeType, quality);
 
         if (!candidate) {
           break;
         }
 
-        if (this.getApproximateStringBytes(candidate) <= maxBytes) {
+        if (getApproximateStringBytes(candidate) <= maxBytes) {
           bestDataUrl = candidate;
           low = quality;
         } else {
@@ -3005,34 +3011,6 @@ export class GameListComponent implements OnChanges {
     }
 
     return null;
-  }
-
-  private loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement | null> {
-    return new Promise((resolve) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => resolve(null);
-      image.src = dataUrl;
-    });
-  }
-
-  private encodeCanvasAsDataUrl(
-    canvas: HTMLCanvasElement,
-    mimeType: 'image/webp' | 'image/jpeg',
-    quality: number
-  ): string | null {
-    const dataUrl = canvas.toDataURL(mimeType, quality);
-    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(dataUrl) ? dataUrl : null;
-  }
-
-  private getCompressionOutputMimeType(inputMimeType: string): 'image/webp' | 'image/jpeg' {
-    return inputMimeType === 'image/jpeg' || inputMimeType === 'image/jpg'
-      ? 'image/jpeg'
-      : 'image/webp';
-  }
-
-  private getApproximateStringBytes(value: string): number {
-    return value.length;
   }
 
   constructor() {

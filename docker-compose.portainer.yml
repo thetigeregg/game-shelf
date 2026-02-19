@@ -10,7 +10,7 @@ services:
       "feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
       case \"$$feature_raw\" in 1|true|yes|on) feature_bool=true ;; *) feature_bool=false ;; esac;
       mkdir -p /srv/assets;
-      printf \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: %s } });\n\" \"$$feature_bool\" > /srv/assets/runtime-config.js;
+      printf \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: %s } });\n\" \"$$feature_bool\" >> /srv/assets/runtime-config.js;
       exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     depends_on:
       - api

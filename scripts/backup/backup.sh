@@ -40,6 +40,12 @@ fi
 log "backup run started"
 ts="$(date -u +%Y%m%dT%H%M%SZ)"
 dir="$BACKUP_ROOT/$ts"
+while [ -e "$dir" ]; do
+  log "timestamp collision for $dir; waiting for next second"
+  sleep 1
+  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+  dir="$BACKUP_ROOT/$ts"
+done
 staging_dir="$BACKUP_ROOT/.tmp-$ts-$$"
 cleanup_staging() {
   rm -rf "$staging_dir"

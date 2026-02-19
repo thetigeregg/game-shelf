@@ -73,3 +73,51 @@ services:
       HLTB_SCRAPER_TOKEN: ${HLTB_SCRAPER_TOKEN:-}
       DEBUG_HLTB_SCRAPER_LOGS: ${DEBUG_HLTB_SCRAPER_LOGS:-false}
     restart: unless-stopped
+
+  backup:
+    container_name: gameshelf-backup
+    image: postgres:16-alpine
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+      PGTZ: ${TZ:-Europe/Zurich}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-gameshelf}
+      PGUSER: ${POSTGRES_USER:-gameshelf}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-gameshelf}
+      BACKUP_KEEP_COUNT: ${BACKUP_KEEP_COUNT:-14}
+      BACKUP_SCHEDULE_TIME: ${BACKUP_SCHEDULE_TIME:-00:00}
+    depends_on:
+      - postgres
+    volumes:
+      - ${BACKUP_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/backups}:/backups
+    command: >-
+      /bin/sh -c "cat >/usr/local/bin/backup.sh <<'SCRIPT'
+      #!/bin/sh
+      set -eu
+      ts=\"$$(date -u +%Y%m%dT%H%M%SZ)\"
+      dir=\"/backups/$$ts\"
+      mkdir -p \"$$dir\"
+      pg_dump --clean --if-exists --no-owner --no-privileges | gzip -c >\"$$dir/postgres.sql.gz\"
+      {
+        echo \"timestamp=$$ts\"
+        echo \"created_at_utc=$$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+        echo \"postgres_dump=postgres.sql.gz\"
+        echo \"image_cache=external_snapshot\"
+        echo \"manuals=excluded\"
+      } >\"$$dir/manifest.txt\"
+      ln -sfn \"$$ts\" /backups/latest
+      keep=\"$${BACKUP_KEEP_COUNT:-14}\"
+      if echo \"$$keep\" | grep -Eq '^[0-9]+$$'; then
+        count=\"$$(find /backups -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l | tr -d ' ')\"
+        if [ \"$$count\" -gt \"$$keep\" ]; then
+          remove=$$((count - keep))
+          find /backups -mindepth 1 -maxdepth 1 -type d -name '20*' | sort | head -n \"$$remove\" | xargs -r rm -rf
+        fi
+      fi
+      SCRIPT
+      chmod +x /usr/local/bin/backup.sh
+      mkdir -p /backups
+      printf '%s %s\n' \"$${BACKUP_SCHEDULE_TIME:-00:00}\" '/usr/local/bin/backup.sh >>/proc/1/fd/1 2>>/proc/1/fd/2' > /etc/crontabs/root
+      exec crond -f -l 8"
+    restart: unless-stopped

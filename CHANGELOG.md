@@ -557,3 +557,8 @@
 - 9c4461e chore(deps): update vitest and related dependencies in package-lock.json
 - 36671ba chore(deps): bump hono from 4.11.9 to 4.12.0
 
+## v0.0.20 - 2026-02-19
+- 96658e8 Merge pull request #17 from thetigeregg/dependabot/npm_and_yarn/eslint-plugin-jsdoc-62.6.1
+- c65b476 chore(deps): update vitest and related dependencies in package-lock.json
+- 73795b8 chore(deps): bump eslint-plugin-jsdoc from 62.6.0 to 62.6.1
+

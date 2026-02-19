@@ -99,7 +99,9 @@ services:
 
   backup:
     container_name: gameshelf-backup
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: backup/Dockerfile
     environment:
       TZ: ${TZ:-Europe/Zurich}
       PGTZ: ${TZ:-Europe/Zurich}
@@ -117,12 +119,7 @@ services:
         condition: service_healthy
     volumes:
       - ${BACKUP_HOST_DIR:-./nas-data/backups}:/backups
-      - ./scripts/backup:/opt/backup:ro
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
-    command:
-      - /bin/sh
-      - -ec
-      - /opt/backup/start-cron.sh
     restart: unless-stopped
     deploy:
       resources:

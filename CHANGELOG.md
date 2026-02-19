@@ -537,3 +537,18 @@
 - 9948ce0 Add manual backup trigger docs
 - bfeec98 Document backup service setup
 
+## v0.0.18 - 2026-02-19
+- e2c6f3f Merge pull request #31 from thetigeregg/codex/backup-strategy
+- 16f47d0 Merge pull request #34 from thetigeregg/copilot/sub-pr-31
+- 24e0a8a Apply suggestions from code review
+- cea0c5f docs(nas-deployment): add backup image to GHCR pre-deploy checklist
+- d49693e Initial plan
+- b926152 Merge pull request #33 from thetigeregg/copilot/sub-pr-31-again
+- dbad985 Merge pull request #32 from thetigeregg/copilot/sub-pr-31
+- ca5f059 fix(docker): remove redundant command override from backup service in compose files
+- 543cd4c fix(docker): remove redundant command override from backup service
+- 2768223 Initial plan
+- 526ae74 Initial plan
+- 901b08f Merge branch 'main' into codex/backup-strategy
+- feb838d Add backup image deployment docs
+

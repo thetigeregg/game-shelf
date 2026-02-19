@@ -510,3 +510,30 @@
 - c791a92 Merge pull request #26 from thetigeregg/thetigeregg-patch-1
 - 506b541 Add MIT License to the project
 
+## v0.0.17 - 2026-02-19
+- c5614fb Merge pull request #27 from thetigeregg/codex/backup-strategy
+- 93aa388 Merge pull request #30 from thetigeregg/copilot/sub-pr-27
+- b85e23e fix(scripts): derive BACKUP_HOST_DIR from docker compose config in test-backup-flow.sh
+- 419e282 Initial plan
+- dc1e37b Merge pull request #29 from thetigeregg/copilot/sub-pr-27-again
+- 894045b Merge pull request #28 from thetigeregg/copilot/sub-pr-27
+- 4c23736 fix(docker): add missing BACKUP_PGDUMP_RETRIES and BACKUP_PGDUMP_RETRY_DELAY_SECONDS to backup service env
+- fa44d20 Remove volumes after test
+- d69565f Initial plan
+- d442a8d fix(docker): add BACKUP_PGDUMP_RETRIES and BACKUP_PGDUMP_RETRY_DELAY_SECONDS to backup service env
+- 4956abd Add CPU and memory limits
+- 61eee66 Initial plan
+- f602b34 Clarify backup docs and checks
+- 5f513f5 Improve backup validation checks
+- 427a20b Improve backup startup handling
+- 7a3f98e Harden backup reliability workflow
+- 499c285 Ensure backup waits for postgres
+- 0f5066c Fix backup script handling
+- 88a5024 Ensure postgres healthy before using
+- e3349f8 Add backup ops smoke test
+- 9168b43 Fix docker compose backup vars
+- f5a418a Retrieve backup container logs
+- 1b145b1 Fix backup container restart logging
+- 9948ce0 Add manual backup trigger docs
+- bfeec98 Document backup service setup
+

@@ -506,3 +506,7 @@
 - 70e4aa1 Merge pull request #12 from thetigeregg/dependabot/npm_and_yarn/server/dotenv-17.3.1
 - f390b92 chore(deps): bump dotenv from 16.6.1 to 17.3.1 in /server
 
+## v0.0.16 - 2026-02-19
+- c791a92 Merge pull request #26 from thetigeregg/thetigeregg-patch-1
+- 506b541 Add MIT License to the project
+

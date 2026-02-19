@@ -35,6 +35,9 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      - name: Backend tests
+        run: npm run test:backend
+
       - name: Install Playwright browser
         run: npm run test:ui:e2e:install
 

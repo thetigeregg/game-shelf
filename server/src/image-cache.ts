@@ -20,6 +20,8 @@ const IGDB_HOST = 'images.igdb.com';
 
 interface ImageCacheRouteOptions {
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  maxBytes?: number;
 }
 
 export function registerImageProxyRoute(
@@ -29,6 +31,8 @@ export function registerImageProxyRoute(
   options: ImageCacheRouteOptions = {}
 ): void {
   const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
+  const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
 
   app.post('/v1/images/cache/purge', async (request, reply) => {
     const body = (request.body ?? {}) as { urls?: unknown };
@@ -132,7 +136,19 @@ export function registerImageProxyRoute(
     }
 
     incrementImageMetric('misses');
-    const upstream = await fetchImpl(sourceUrl, { method: 'GET' });
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+    let upstream: Response;
+
+    try {
+      upstream = await fetchImpl(sourceUrl, { method: 'GET', signal: controller.signal });
+    } catch {
+      incrementImageMetric('upstreamErrors');
+      reply.code(504).send({ error: 'Image fetch timed out.' });
+      return;
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
 
     if (!upstream.ok) {
       incrementImageMetric('upstreamErrors');
@@ -142,7 +158,13 @@ export function registerImageProxyRoute(
 
     const contentType =
       String(upstream.headers.get('content-type') ?? '').trim() || 'application/octet-stream';
-    const bytes = Buffer.from(await upstream.arrayBuffer());
+    const bytes = await readResponseBytesWithLimit(upstream, maxBytes);
+
+    if (!bytes) {
+      incrementImageMetric('upstreamErrors');
+      reply.code(413).send({ error: 'Image exceeds maximum allowed size.' });
+      return;
+    }
 
     if (bytes.length === 0) {
       reply.code(502).send({ error: 'Empty image response.' });
@@ -247,4 +269,48 @@ async function fileExists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function readResponseBytesWithLimit(
+  response: Response,
+  maxBytes: number
+): Promise<Buffer | null> {
+  const contentLength = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+
+  if (Number.isInteger(contentLength) && contentLength > maxBytes) {
+    return null;
+  }
+
+  const reader = response.body?.getReader();
+
+  if (!reader) {
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    if (!value) {
+      continue;
+    }
+
+    total += value.byteLength;
+
+    if (total > maxBytes) {
+      return null;
+    }
+
+    chunks.push(value);
+  }
+
+  return Buffer.concat(
+    chunks.map((chunk) => Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength))
+  );
 }

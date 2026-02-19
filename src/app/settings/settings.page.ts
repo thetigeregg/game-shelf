@@ -59,7 +59,12 @@ import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY
 } from '../core/services/platform-customization.service';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
-import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
+import {
+  extractRetryAfterSeconds,
+  formatRateLimitedUiError,
+  isRateLimitedMessage,
+  isTransientNetworkMessage
+} from '../core/utils/rate-limit-ui-error';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { addIcons } from 'ionicons';
@@ -2001,7 +2006,7 @@ export class SettingsPage {
   }
 
   private isRateLimitStatusDetail(detail: string): boolean {
-    return detail.toLowerCase().includes('rate limit');
+    return isRateLimitedMessage(detail);
   }
 
   private isTransientMgcStatusDetail(detail: string): boolean {
@@ -2011,20 +2016,14 @@ export class SettingsPage {
       return false;
     }
 
-    return /fetch failed|network|timeout|timed out|temporary|temporarily|unavailable|gateway|bad gateway|abort|aborted|offline|503|502|504/i.test(
-      normalized
-    );
+    return isTransientNetworkMessage(normalized);
   }
 
   private resolveRateLimitRetryDelayMs(statusDetail: string): number {
-    const retryAfterMatch = statusDetail.match(/retry after\s+(\d+)\s*s/i);
+    const seconds = extractRetryAfterSeconds(statusDetail);
 
-    if (retryAfterMatch) {
-      const seconds = Number.parseInt(retryAfterMatch[1], 10);
-
-      if (Number.isInteger(seconds) && seconds > 0) {
-        return Math.min(seconds * 1000, SettingsPage.MGC_RATE_LIMIT_MAX_COOLDOWN_MS);
-      }
+    if (seconds !== null) {
+      return Math.min(seconds * 1000, SettingsPage.MGC_RATE_LIMIT_MAX_COOLDOWN_MS);
     }
 
     return SettingsPage.MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS;

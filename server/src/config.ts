@@ -53,10 +53,14 @@ export interface AppConfig {
   host: string;
   port: number;
   requestBodyLimitBytes: number;
-  corsOrigin: string;
+  corsAllowedOrigins: string[];
   postgresUrl: string;
+  apiToken: string;
+  requireAuth: boolean;
   imageCacheDir: string;
   imageCacheTtlSeconds: number;
+  imageProxyTimeoutMs: number;
+  imageProxyMaxBytes: number;
   twitchClientId: string;
   twitchClientSecret: string;
   theGamesDbApiKey: string;
@@ -83,14 +87,32 @@ function readPathEnv(name: string, fallbackAbsolutePath: string): string {
   return path.resolve(serverRootDir, value);
 }
 
+function readListEnv(name: string, fallback: string[]): string[] {
+  const raw = readEnv(name);
+  const source = raw.length > 0 ? raw : fallback.join(',');
+  return source
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
   requestBodyLimitBytes: readIntegerEnv('REQUEST_BODY_LIMIT_BYTES', 10 * 1024 * 1024),
-  corsOrigin: readEnv('CORS_ORIGIN', '*'),
+  corsAllowedOrigins: readListEnv('CORS_ORIGIN', [
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:8100',
+    'http://127.0.0.1:8100'
+  ]),
   postgresUrl: readRequiredEnv('DATABASE_URL'),
+  apiToken: readEnv('API_TOKEN', ''),
+  requireAuth: readBooleanEnv('REQUIRE_AUTH', true),
   imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(serverRootDir, '.data/image-cache')),
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),
+  imageProxyTimeoutMs: readIntegerEnv('IMAGE_PROXY_TIMEOUT_MS', 12_000),
+  imageProxyMaxBytes: readIntegerEnv('IMAGE_PROXY_MAX_BYTES', 8 * 1024 * 1024),
   twitchClientId: readRequiredEnv('TWITCH_CLIENT_ID'),
   twitchClientSecret: readRequiredEnv('TWITCH_CLIENT_SECRET'),
   theGamesDbApiKey: readRequiredEnv('THEGAMESDB_API_KEY'),

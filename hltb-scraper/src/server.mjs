@@ -5,7 +5,11 @@ const app = express();
 const port = Number.parseInt(process.env.PORT ?? '8788', 10);
 const apiToken = (process.env.HLTB_SCRAPER_TOKEN ?? '').trim();
 const browserTimeoutMs = Number.parseInt(process.env.HLTB_SCRAPER_TIMEOUT_MS ?? '25000', 10);
+const browserIdleTtlMs = Number.parseInt(process.env.HLTB_SCRAPER_BROWSER_IDLE_MS ?? '30000', 10);
 const debugLogsEnabled = String(process.env.DEBUG_HLTB_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
+let sharedBrowser = null;
+let sharedBrowserPromise = null;
+let browserIdleTimer = null;
 
 function normalizeSearchQuery(req) {
   return String(req.query.q ?? '').trim();
@@ -615,12 +619,10 @@ app.get('/v1/hltb/search', async (req, res) => {
     return;
   }
 
-  let browser;
-
   try {
     const titleVariants = buildSearchTitleVariants(query);
 
-    browser = await chromium.launch({ headless: true });
+    const browser = await getSharedBrowser();
     const context = await browser.newContext({
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -656,6 +658,7 @@ app.get('/v1/hltb/search', async (req, res) => {
     }
 
     await context.close();
+    scheduleBrowserIdleClose();
 
     res.json(includeCandidates ? { item, candidates } : { item });
   } catch (error) {
@@ -664,13 +667,77 @@ app.get('/v1/hltb/search', async (req, res) => {
       message: error instanceof Error ? error.message : String(error)
     });
     res.status(502).json({ error: 'Unable to fetch HLTB data.' });
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 });
 
 app.listen(port, () => {
   console.log(`[hltb-scraper] listening on http://localhost:${port}`);
 });
+
+async function getSharedBrowser() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+    browserIdleTimer = null;
+  }
+
+  if (sharedBrowser) {
+    return sharedBrowser;
+  }
+
+  if (!sharedBrowserPromise) {
+    sharedBrowserPromise = chromium
+      .launch({ headless: true })
+      .then((browser) => {
+        sharedBrowser = browser;
+        sharedBrowserPromise = null;
+        return browser;
+      })
+      .catch((error) => {
+        sharedBrowserPromise = null;
+        throw error;
+      });
+  }
+
+  return sharedBrowserPromise;
+}
+
+function scheduleBrowserIdleClose() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+  }
+
+  browserIdleTimer = setTimeout(() => {
+    closeSharedBrowser().catch((error) => {
+      console.warn('[hltb-scraper] browser_close_failed', {
+        message: error instanceof Error ? error.message : String(error)
+      });
+    });
+  }, browserIdleTtlMs);
+}
+
+async function closeSharedBrowser() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+    browserIdleTimer = null;
+  }
+
+  if (!sharedBrowser) {
+    return;
+  }
+
+  const browser = sharedBrowser;
+  sharedBrowser = null;
+  await browser.close();
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    closeSharedBrowser()
+      .catch(() => {
+        // Ignore shutdown cleanup errors.
+      })
+      .finally(() => {
+        process.exit(0);
+      });
+  });
+}

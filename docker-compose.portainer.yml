@@ -4,6 +4,7 @@ services:
     image: ${EDGE_IMAGE:-ghcr.io/thetigeregg/game-shelf-edge:main}
     environment:
       FEATURE_MGC_IMPORT: ${FEATURE_MGC_IMPORT:-false}
+      API_TOKEN: ${API_TOKEN:-change-me}
     command: >-
       /bin/sh -c
       "feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
@@ -25,9 +26,13 @@ services:
     environment:
       HOST: ${HOST:-0.0.0.0}
       PORT: ${PORT:-3000}
-      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://127.0.0.1:8080,http://localhost:8080}
+      REQUIRE_AUTH: ${REQUIRE_AUTH:-true}
+      API_TOKEN: ${API_TOKEN:-change-me}
       DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-gameshelf}:${POSTGRES_PASSWORD:-gameshelf}@postgres:5432/${POSTGRES_DB:-gameshelf}}
       IMAGE_CACHE_DIR: ${IMAGE_CACHE_DIR:-/data/images}
+      IMAGE_PROXY_TIMEOUT_MS: ${IMAGE_PROXY_TIMEOUT_MS:-12000}
+      IMAGE_PROXY_MAX_BYTES: ${IMAGE_PROXY_MAX_BYTES:-8388608}
       TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
       TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
       THEGAMESDB_API_KEY: ${THEGAMESDB_API_KEY:-}

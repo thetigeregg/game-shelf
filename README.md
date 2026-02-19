@@ -143,6 +143,12 @@ BACKUP_SCHEDULE_TIME=00:00
 BACKUP_KEEP_COUNT=14
 ```
 
+Trigger an immediate manual backup from a shell inside `gameshelf-backup`:
+
+```bash
+/usr/local/bin/backup.sh
+```
+
 Restore Postgres from a generated dump:
 
 ```bash

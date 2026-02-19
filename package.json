@@ -1,8 +1,8 @@
 {
   "name": "game-shelf",
   "version": "0.0.1",
-  "author": "Ionic Framework",
-  "homepage": "https://ionicframework.com/",
+  "author": "TigerEgg",
+  "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
     "prestart": "node scripts/generate-runtime-config.mjs",
     "ng": "ng",
@@ -82,7 +82,7 @@
     "typescript": "~5.9.3",
     "vitest": "^4.0.18"
   },
-  "description": "An Ionic project",
+  "description": "A game library tracker with metadata enrichment, manual lookup, and import workflows.",
   "lint-staged": {
     "*.{ts,js,mjs,cjs}": "npx eslint --fix",
     "*.{ts,html,scss,json,js,mjs,cjs}": "prettier --write"

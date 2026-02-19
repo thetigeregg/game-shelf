@@ -15,7 +15,7 @@ Run from a clean local clone:
 
 ```bash
 git filter-repo --replace-text <(cat <<'EOT'
-REDACTED_FIREBASE_API_KEY==>REDACTED_FIREBASE_API_KEY
+OLD_FIREBASE_API_KEY==>REDACTED_FIREBASE_API_KEY
 EOT
 )
 ```

@@ -19,8 +19,13 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-BACKUP_HOST_DIR="${BACKUP_HOST_DIR:-./nas-data/backups}"
-SECRETS_HOST_DIR="${SECRETS_HOST_DIR:-./nas-secrets}"
+if [[ -z "${BACKUP_HOST_DIR:-}" ]]; then
+  BACKUP_HOST_DIR="$(docker compose config | awk '/source:/{src=$NF} /target: \/backups/{print src; exit}')"
+fi
+if [[ -z "${BACKUP_HOST_DIR:-}" ]]; then
+  echo "[backup-test] ERROR: could not determine BACKUP_HOST_DIR from docker compose config; export it explicitly" >&2
+  exit 1
+fi
 
 count_timestamp_backup_dirs() {
   find "$BACKUP_HOST_DIR" -mindepth 1 -maxdepth 1 -type d -print \

@@ -454,3 +454,9 @@
 - d649432 Enforce 80% coverage minimum
 - cf0a424 Enforce 80% coverage minimum
 
+## v0.0.7 - 2026-02-19
+- ca22a2a Merge pull request #11 from thetigeregg/dependabot/github_actions/actions/create-github-app-token-2
+- 04ee9f4 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 3bb4652 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 0b51990 chore(ci): bump actions/create-github-app-token from 1 to 2
+

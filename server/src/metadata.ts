@@ -6,20 +6,14 @@ interface WorkerEnvLike {
   TWITCH_CLIENT_ID: string;
   TWITCH_CLIENT_SECRET: string;
   THEGAMESDB_API_KEY: string;
-  HLTB_SCRAPER_BASE_URL?: string;
-  HLTB_SCRAPER_TOKEN?: string;
   DEBUG_HTTP_LOGS?: string;
-  DEBUG_HLTB_LOGS?: string;
 }
 
 const workerEnv: WorkerEnvLike = {
   TWITCH_CLIENT_ID: config.twitchClientId,
   TWITCH_CLIENT_SECRET: config.twitchClientSecret,
   THEGAMESDB_API_KEY: config.theGamesDbApiKey,
-  HLTB_SCRAPER_BASE_URL: config.hltbScraperBaseUrl,
-  HLTB_SCRAPER_TOKEN: config.hltbScraperToken,
-  DEBUG_HTTP_LOGS: process.env.DEBUG_HTTP_LOGS ?? '',
-  DEBUG_HLTB_LOGS: process.env.DEBUG_HLTB_LOGS ?? ''
+  DEBUG_HTTP_LOGS: process.env.DEBUG_HTTP_LOGS ?? ''
 };
 
 export async function proxyMetadataToWorker(

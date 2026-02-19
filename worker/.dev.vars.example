@@ -1,7 +1,0 @@
-TWITCH_CLIENT_ID=your_twitch_client_id
-TWITCH_CLIENT_SECRET=your_twitch_client_secret
-THEGAMESDB_API_KEY=your_thegamesdb_api_key
-HLTB_SCRAPER_BASE_URL=http://127.0.0.1:8788
-HLTB_SCRAPER_TOKEN=
-DEBUG_HTTP_LOGS=false
-DEBUG_HLTB_LOGS=false

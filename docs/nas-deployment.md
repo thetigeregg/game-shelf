@@ -42,6 +42,8 @@ Common stack env vars:
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `BACKUP_SCHEDULE_TIME` (optional; defaults to `00:00` in container timezone)
 - `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
+- `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
+- `BACKUP_PGDUMP_RETRY_DELAY_SECONDS` (optional; defaults to `5`)
 
 Protected POST endpoints (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`, `/api/v1/manuals/refresh`) require:
 

@@ -502,3 +502,7 @@
 - e0fcb7a Merge branch 'main' into dependabot/npm_and_yarn/server/ajv-8.18.0
 - 45da2aa Bump ajv from 8.17.1 to 8.18.0 in /server
 
+## v0.0.15 - 2026-02-19
+- 70e4aa1 Merge pull request #12 from thetigeregg/dependabot/npm_and_yarn/server/dotenv-17.3.1
+- f390b92 chore(deps): bump dotenv from 16.6.1 to 17.3.1 in /server
+

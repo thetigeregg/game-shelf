@@ -4,6 +4,7 @@ import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { incrementImageMetric } from './cache-metrics.js';
 
 interface ImageAssetRow {
@@ -24,15 +25,20 @@ interface ImageCacheRouteOptions {
   maxBytes?: number;
 }
 
-export function registerImageProxyRoute(
+export async function registerImageProxyRoute(
   app: FastifyInstance,
   pool: Pool,
   imageCacheDir: string,
   options: ImageCacheRouteOptions = {}
-): void {
+): Promise<void> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
+
+  await app.register(fastifyRateLimit, {
+    max: 60,
+    timeWindow: '1 minute'
+  });
 
   app.post('/v1/images/cache/purge', async (request, reply) => {
     const body = (request.body ?? {}) as { urls?: unknown };
@@ -88,98 +94,108 @@ export function registerImageProxyRoute(
     reply.send({ deleted });
   });
 
-  app.get('/v1/images/proxy', async (request, reply) => {
-    const sourceUrl = normalizeProxyImageUrl((request.query as Record<string, unknown>)['url']);
+  app.get(
+    '/v1/images/proxy',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    async (request, reply) => {
+      const sourceUrl = normalizeProxyImageUrl((request.query as Record<string, unknown>)['url']);
 
-    if (!sourceUrl) {
-      incrementImageMetric('invalidRequests');
-      reply.code(400).send({ error: 'Invalid image URL.' });
-      return;
-    }
+      if (!sourceUrl) {
+        incrementImageMetric('invalidRequests');
+        reply.code(400).send({ error: 'Invalid image URL.' });
+        return;
+      }
 
-    const cacheKey = sha256(sourceUrl);
-    let existing: ImageAssetRow | undefined;
+      const cacheKey = sha256(sourceUrl);
+      let existing: ImageAssetRow | undefined;
 
-    try {
-      const cached = await pool.query<ImageAssetRow>(
-        'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
-        [cacheKey]
-      );
-      existing = cached.rows[0];
-    } catch (error) {
-      incrementImageMetric('readErrors');
-      request.log.warn({
-        msg: 'image_cache_read_failed',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-
-    if (existing && (await fileExists(existing.file_path))) {
-      incrementImageMetric('hits');
-      reply.header('X-GameShelf-Image-Cache', 'HIT');
-      reply.header('Content-Type', existing.content_type);
-      reply.header('Cache-Control', 'public, max-age=86400');
-      reply.send(fs.createReadStream(existing.file_path));
-      return;
-    }
-
-    if (existing && !(await fileExists(existing.file_path))) {
       try {
-        await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+        const cached = await pool.query<ImageAssetRow>(
+          'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
+          [cacheKey]
+        );
+        existing = cached.rows[0];
       } catch (error) {
-        incrementImageMetric('writeErrors');
+        incrementImageMetric('readErrors');
         request.log.warn({
-          msg: 'image_cache_delete_missing_file_failed',
+          msg: 'image_cache_read_failed',
           error: error instanceof Error ? error.message : String(error)
         });
       }
-    }
 
-    incrementImageMetric('misses');
-    const controller = new AbortController();
-    const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
-    let upstream: Response;
+      if (existing && (await fileExists(existing.file_path))) {
+        incrementImageMetric('hits');
+        reply.header('X-GameShelf-Image-Cache', 'HIT');
+        reply.header('Content-Type', existing.content_type);
+        reply.header('Cache-Control', 'public, max-age=86400');
+        reply.send(fs.createReadStream(existing.file_path));
+        return;
+      }
 
-    try {
-      upstream = await fetchImpl(sourceUrl, { method: 'GET', signal: controller.signal });
-    } catch {
-      incrementImageMetric('upstreamErrors');
-      reply.code(504).send({ error: 'Image fetch timed out.' });
-      return;
-    } finally {
-      clearTimeout(timeoutHandle);
-    }
+      if (existing && !(await fileExists(existing.file_path))) {
+        try {
+          await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+        } catch (error) {
+          incrementImageMetric('writeErrors');
+          request.log.warn({
+            msg: 'image_cache_delete_missing_file_failed',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
 
-    if (!upstream.ok) {
-      incrementImageMetric('upstreamErrors');
-      reply.code(502).send({ error: 'Unable to fetch image.' });
-      return;
-    }
+      incrementImageMetric('misses');
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+      let upstream: Response;
 
-    const contentType =
-      String(upstream.headers.get('content-type') ?? '').trim() || 'application/octet-stream';
-    const bytes = await readResponseBytesWithLimit(upstream, maxBytes);
+      try {
+        upstream = await fetchImpl(sourceUrl, { method: 'GET', signal: controller.signal });
+      } catch {
+        incrementImageMetric('upstreamErrors');
+        reply.code(504).send({ error: 'Image fetch timed out.' });
+        return;
+      } finally {
+        clearTimeout(timeoutHandle);
+      }
 
-    if (!bytes) {
-      incrementImageMetric('upstreamErrors');
-      reply.code(413).send({ error: 'Image exceeds maximum allowed size.' });
-      return;
-    }
+      if (!upstream.ok) {
+        incrementImageMetric('upstreamErrors');
+        reply.code(502).send({ error: 'Unable to fetch image.' });
+        return;
+      }
 
-    if (bytes.length === 0) {
-      reply.code(502).send({ error: 'Empty image response.' });
-      return;
-    }
+      const contentType =
+        String(upstream.headers.get('content-type') ?? '').trim() || 'application/octet-stream';
+      const bytes = await readResponseBytesWithLimit(upstream, maxBytes);
 
-    const extension = resolveFileExtension(contentType, sourceUrl);
-    const storagePath = path.join(imageCacheDir, cacheKey.slice(0, 2), `${cacheKey}${extension}`);
+      if (!bytes) {
+        incrementImageMetric('upstreamErrors');
+        reply.code(413).send({ error: 'Image exceeds maximum allowed size.' });
+        return;
+      }
 
-    await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
-    await fsPromises.writeFile(storagePath, bytes);
+      if (bytes.length === 0) {
+        reply.code(502).send({ error: 'Empty image response.' });
+        return;
+      }
 
-    try {
-      await pool.query(
-        `
+      const extension = resolveFileExtension(contentType, sourceUrl);
+      const storagePath = path.join(imageCacheDir, cacheKey.slice(0, 2), `${cacheKey}${extension}`);
+
+      await fsPromises.mkdir(path.dirname(storagePath), { recursive: true });
+      await fsPromises.writeFile(storagePath, bytes);
+
+      try {
+        await pool.query(
+          `
         INSERT INTO image_assets (cache_key, source_url, content_type, file_path, size_bytes, updated_at)
         VALUES ($1, $2, $3, $4, $5, NOW())
         ON CONFLICT (cache_key)
@@ -190,22 +206,23 @@ export function registerImageProxyRoute(
           size_bytes = EXCLUDED.size_bytes,
           updated_at = NOW()
         `,
-        [cacheKey, sourceUrl, contentType, storagePath, bytes.length]
-      );
-      incrementImageMetric('writes');
-    } catch (error) {
-      incrementImageMetric('writeErrors');
-      request.log.warn({
-        msg: 'image_cache_write_failed',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
+          [cacheKey, sourceUrl, contentType, storagePath, bytes.length]
+        );
+        incrementImageMetric('writes');
+      } catch (error) {
+        incrementImageMetric('writeErrors');
+        request.log.warn({
+          msg: 'image_cache_write_failed',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
 
-    reply.header('X-GameShelf-Image-Cache', 'MISS');
-    reply.header('Content-Type', contentType);
-    reply.header('Cache-Control', 'public, max-age=86400');
-    reply.send(bytes);
-  });
+      reply.header('X-GameShelf-Image-Cache', 'MISS');
+      reply.header('Content-Type', contentType);
+      reply.header('Cache-Control', 'public, max-age=86400');
+      reply.send(bytes);
+    }
+  );
 }
 
 function normalizeProxyImageUrl(raw: unknown): string | null {

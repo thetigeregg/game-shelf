@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
@@ -349,7 +350,7 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
   targetUrl.search = requestUrl.search;
 
   const headers = new Headers();
-  const scraperToken = readEnv('HLTB_SCRAPER_TOKEN').trim();
+  const scraperToken = readSecretFile('HLTB_SCRAPER_TOKEN', 'hltb_scraper_token').trim();
 
   if (scraperToken.length > 0) {
     headers.set('Authorization', `Bearer ${scraperToken}`);
@@ -379,6 +380,19 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
 function readEnv(name: string): string {
   const value = process.env[name];
   return typeof value === 'string' ? value : '';
+}
+
+function readSecretFile(name: string, fallbackSecretName: string): string {
+  const explicit = readEnv(`${name}_FILE`).trim();
+  const filePath = explicit.length > 0 ? explicit : `/run/secrets/${fallbackSecretName}`;
+  if (!fs.existsSync(filePath)) {
+    return '';
+  }
+  try {
+    return fs.readFileSync(filePath, 'utf8').trim();
+  } catch {
+    return '';
+  }
 }
 
 async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {

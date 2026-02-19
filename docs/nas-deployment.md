@@ -23,21 +23,34 @@ Before first deploy, publish images from GitHub Actions:
    - Username: your GitHub username
    - Password/token: GitHub PAT with `read:packages` (and `repo` if repo/packages are private)
 
-Required app secrets:
+Required app secrets (one secret per file):
 
-- `TWITCH_CLIENT_ID`
-- `TWITCH_CLIENT_SECRET`
-- `THEGAMESDB_API_KEY`
+- `api_token`
+- `database_url`
+- `twitch_client_id`
+- `twitch_client_secret`
+- `thegamesdb_api_key`
+- `hltb_scraper_token` (optional)
+- `postgres_user`
+- `postgres_password`
 
 Common stack env vars:
 
 - `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`)
+- `SECRETS_HOST_DIR` (recommended: `/volume1/docker/secrets/gameshelf`)
 - `TZ` (optional; defaults to `Europe/Zurich`, can be overridden)
-- `DATABASE_URL` (default works for bundled postgres service)
+- `DATABASE_URL_FILE`
 - `CORS_ORIGIN`
-- `API_TOKEN` (required when `REQUIRE_AUTH=true`)
+- `API_TOKEN_FILE`
 - `REQUIRE_AUTH` (defaults to true)
-- `HLTB_SCRAPER_TOKEN` (optional, but recommended)
+- `HLTB_SCRAPER_TOKEN_FILE` (optional, but recommended)
+- `TWITCH_CLIENT_ID_FILE`
+- `TWITCH_CLIENT_SECRET_FILE`
+- `THEGAMESDB_API_KEY_FILE`
+- `POSTGRES_USER_FILE`
+- `POSTGRES_PASSWORD_FILE`
+- `PGUSER_FILE` (backup service DB user)
+- `PGPASSWORD_FILE` (backup service DB password)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `BACKUP_SCHEDULE_TIME` (optional; defaults to `00:00` in container timezone)
@@ -45,14 +58,32 @@ Common stack env vars:
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
 - `BACKUP_PGDUMP_RETRY_DELAY_SECONDS` (optional; defaults to `5`)
 
+Security note:
+
+- File-based secrets are required for sensitive values in this stack.
+- The stack mounts `SECRETS_HOST_DIR` to `/run/secrets` read-only in relevant containers.
+- `api`, `backup`, and `hltb-scraper` runtime config read sensitive values from secret files.
+
 Protected POST endpoints (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`, `/api/v1/manuals/refresh`) require:
 
 - `Authorization: Bearer <API_TOKEN>`
-- The bundled `edge` service injects this header automatically for `/api/*` requests.
+- The bundled `edge` service injects this header automatically for `/api/*` requests from `API_TOKEN_FILE`.
 
 Example:
 
 - `NAS_DATA_ROOT=/volume1/docker/game-shelf/nas-data`
+- `SECRETS_HOST_DIR=/volume1/docker/secrets/gameshelf`
+
+Create one file per secret under `SECRETS_HOST_DIR`:
+
+- `/volume1/docker/secrets/gameshelf/api_token`
+- `/volume1/docker/secrets/gameshelf/database_url`
+- `/volume1/docker/secrets/gameshelf/twitch_client_id`
+- `/volume1/docker/secrets/gameshelf/twitch_client_secret`
+- `/volume1/docker/secrets/gameshelf/thegamesdb_api_key`
+- `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
+- `/volume1/docker/secrets/gameshelf/postgres_user`
+- `/volume1/docker/secrets/gameshelf/postgres_password`
 
 You can override individual directories if needed:
 
@@ -87,10 +118,19 @@ Manual PDFs:
 
 For local dev, use only `server/.env`:
 
-`DATABASE_URL=postgres://gameshelf:gameshelf@localhost:5432/gameshelf`
+`DATABASE_URL_FILE=./secrets/database_url`
 `IMAGE_CACHE_DIR=./server/.data/images`
 `HLTB_SCRAPER_BASE_URL=http://localhost:8788`
 `HLTB_SCRAPER_TIMEOUT_MS=30000`
+
+Create local secret files (required, one file per secret), for example:
+
+`server/secrets/database_url`
+`server/secrets/api_token`
+`server/secrets/twitch_client_id`
+`server/secrets/twitch_client_secret`
+`server/secrets/thegamesdb_api_key`
+`server/secrets/hltb_scraper_token` (optional)
 
 Use the dev override so postgres/scraper are bound to localhost only:
 

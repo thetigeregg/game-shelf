@@ -59,27 +59,38 @@ if (existing.count >= SYNC_PULL_MAX_REQUESTS) {
 }
 
 export function registerSyncRoutes(app: FastifyInstance, pool: Pool): void {
-  app.post('/v1/sync/push', async (request, reply) => {
-    const body = (request.body ?? {}) as PushBody;
-    const operations = normalizeOperations(body.operations);
+  app.post(
+    '/v1/sync/push',
+    {
+      config: {
+        // Per-route rate limiting to protect the database-backed sync endpoint
+        rateLimit: {
+          max: 60, // maximum number of requests
+          timeWindow: '1 minute' // per this time window
+        }
+      }
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as PushBody;
+      const operations = normalizeOperations(body.operations);
 
-    if (!operations) {
-      reply.code(400).send({ error: 'Invalid sync push payload.' });
-      return;
-    }
+      if (!operations) {
+        reply.code(400).send({ error: 'Invalid sync push payload.' });
+        return;
+      }
 
-    const client = await pool.connect();
+      const client = await pool.connect();
 
-    try {
-      const results: SyncPushResult[] = [];
+      try {
+        const results: SyncPushResult[] = [];
 
-      await client.query('BEGIN');
+        await client.query('BEGIN');
 
-      for (const operation of operations) {
-        const existing = await client.query<IdempotencyRow>(
-          'SELECT result FROM idempotency_keys WHERE op_id = $1 LIMIT 1',
-          [operation.opId]
-        );
+        for (const operation of operations) {
+          const existing = await client.query<IdempotencyRow>(
+            'SELECT result FROM idempotency_keys WHERE op_id = $1 LIMIT 1',
+            [operation.opId]
+          );
 
         if (existing.rows[0]) {
           results.push({

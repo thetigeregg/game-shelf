@@ -32,6 +32,7 @@ Required app secrets:
 Common stack env vars:
 
 - `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`)
+- `TZ` (optional; defaults to `Europe/Zurich`, can be overridden)
 - `DATABASE_URL` (default works for bundled postgres service)
 - `CORS_ORIGIN`
 - `API_TOKEN` (required when `REQUIRE_AUTH=true`)

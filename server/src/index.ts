@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import type { FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
@@ -35,6 +36,11 @@ async function main(): Promise<void> {
         }
       }
     }
+  });
+
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute'
   });
 
   app.log.info({

@@ -34,16 +34,26 @@ export function registerImageProxyRoute(
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
 
-  app.post('/v1/images/cache/purge', async (request, reply) => {
-    const body = (request.body ?? {}) as { urls?: unknown };
-    const rawUrls = Array.isArray(body.urls) ? body.urls : [];
-    const normalizedUrls = [
-      ...new Set(
-        rawUrls
-          .map((url) => normalizeProxyImageUrl(url))
-          .filter((url): url is string => typeof url === 'string' && url.length > 0)
-      )
-    ];
+  app.post(
+    '/v1/images/cache/purge',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as { urls?: unknown };
+      const rawUrls = Array.isArray(body.urls) ? body.urls : [];
+      const normalizedUrls = [
+        ...new Set(
+          rawUrls
+            .map((url) => normalizeProxyImageUrl(url))
+            .filter((url): url is string => typeof url === 'string' && url.length > 0)
+        )
+      ];
 
     if (normalizedUrls.length === 0) {
       reply.send({ deleted: 0 });

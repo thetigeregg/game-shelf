@@ -84,6 +84,12 @@ Run UI tests (component + e2e):
 npm run test:ui
 ```
 
+Run backup ops integration check (requires Docker services):
+
+```bash
+npm run test:backup:ops
+```
+
 ## CI/CD Workflows
 
 - `CI PR Checks` (`.github/workflows/ci-pr.yml`)
@@ -132,6 +138,30 @@ Compose stacks use:
 For NAS/Portainer/Tailscale deployment, see:
 
 - `docs/nas-deployment.md`
+
+## Backups
+
+Containerized backups are enabled by default via the `backup` service in both `docker-compose.yml` (local/dev) and `docker-compose.portainer.yml` (NAS/Portainer production).
+For deployment usage details, see `docs/nas-deployment.md`.
+Default schedule is `00:00` in the container timezone (`TZ`), which may differ from your local timezone.
+Schedule and retention are controlled by env vars:
+
+```bash
+BACKUP_SCHEDULE_TIME=00:00
+BACKUP_KEEP_COUNT=14
+```
+
+Trigger an immediate manual backup from a shell inside `gameshelf-backup`:
+
+```bash
+/bin/sh /opt/backup/backup.sh
+```
+
+Restore Postgres from a generated dump:
+
+```bash
+npm run backup:restore:postgres -- --file nas-data/backups/latest/postgres.sql.gz --yes
+```
 
 ## Related Service Readmes
 

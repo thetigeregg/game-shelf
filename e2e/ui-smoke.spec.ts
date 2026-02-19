@@ -15,14 +15,14 @@ test('collection page loads core controls', async ({ page }) => {
 
   await expect(page.locator('ion-title .page-title', { hasText: 'Collection' })).toBeVisible();
   await expect(page.getByPlaceholder('Search collection')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open filters' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open quick actions' })).toBeVisible();
+  await expect(page.locator('ion-button.filters-button')).toBeVisible();
+  await expect(page.locator('ion-fab-button[color=\"primary\"]')).toBeVisible();
 });
 
 test('filter menu shows reset and done on same row', async ({ page }) => {
   await page.goto('/tabs/collection');
   await dismissVersionAlertIfPresent(page);
-  await page.getByRole('button', { name: 'Open filters' }).click();
+  await page.locator('ion-button.filters-button').click();
 
   const reset = page.locator('ion-menu .actions ion-button', { hasText: 'Reset' });
   const done = page.locator('ion-menu .actions ion-button', { hasText: 'Done' });

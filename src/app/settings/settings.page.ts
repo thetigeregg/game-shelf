@@ -33,7 +33,6 @@ import {
   DEFAULT_GAME_LIST_FILTERS,
   GameCatalogPlatformOption,
   GameCatalogResult,
-  GameEntry,
   GameGroupByField,
   GameListFilters,
   GameListView,
@@ -60,7 +59,6 @@ import {
 } from '../core/services/platform-customization.service';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
 import {
-  extractRetryAfterSeconds,
   formatRateLimitedUiError,
   isRateLimitedMessage,
   isTransientNetworkMessage
@@ -84,6 +82,31 @@ import {
   parsePositiveIntegerArray,
   parseStringArray
 } from './settings-import-export.utils';
+import {
+  getGameKey,
+  hasHltbData,
+  isMgcAutoSelectedMultiple as isMgcAutoSelectedMultipleRow,
+  isMgcRowError,
+  isMgcRowReady,
+  isMgcRowSuccess,
+  isMgcRowWarning,
+  MGC_BOX_ART_MAX_ATTEMPTS,
+  MGC_BOX_ART_MIN_INTERVAL_MS,
+  MGC_HLTB_MAX_ATTEMPTS,
+  MGC_HLTB_MIN_INTERVAL_MS,
+  MGC_RESOLVE_BASE_INTERVAL_MS,
+  MGC_RESOLVE_MAX_ATTEMPTS,
+  MGC_RESOLVE_MAX_INTERVAL_MS,
+  MGC_RESOLVE_MIN_INTERVAL_MS,
+  MgcImportRow,
+  normalizeLookupKey,
+  normalizeMgcTitleForMatch,
+  parseMgcLabels,
+  recomputeMgcDuplicateErrors,
+  resolveGlobalCooldownWaitMs,
+  resolveRateLimitRetryDelayMs,
+  resolveTransientRetryDelayMs
+} from './settings-mgc.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { addIcons } from 'ionicons';
@@ -196,26 +219,6 @@ interface ImportPreviewRow {
   parsed: ParsedImportRow | null;
 }
 
-type MgcRowStatus = 'pending' | 'searching' | 'resolved' | 'multiple' | 'noMatch' | 'error';
-
-interface MgcImportRow {
-  id: number;
-  rowNumber: number;
-  name: string;
-  platformInput: string;
-  platform: string;
-  platformIgdbId: number | null;
-  labelsRaw: string;
-  labels: string[];
-  status: MgcRowStatus;
-  statusDetail: string;
-  warning: string | null;
-  error: string | null;
-  duplicateError: string | null;
-  candidates: GameCatalogResult[];
-  selected: GameCatalogResult | null;
-}
-
 interface PlatformCustomizationItem extends GameCatalogPlatformOption {
   customName: string;
 }
@@ -322,18 +325,6 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
   ]
 })
 export class SettingsPage {
-  private static readonly MGC_RESOLVE_BASE_INTERVAL_MS = 450;
-  private static readonly MGC_RESOLVE_MIN_INTERVAL_MS = 350;
-  private static readonly MGC_RESOLVE_MAX_INTERVAL_MS = 1600;
-  private static readonly MGC_BOX_ART_MIN_INTERVAL_MS = 350;
-  private static readonly MGC_HLTB_MIN_INTERVAL_MS = 350;
-  private static readonly MGC_RESOLVE_MAX_ATTEMPTS = 3;
-  private static readonly MGC_BOX_ART_MAX_ATTEMPTS = 3;
-  private static readonly MGC_HLTB_MAX_ATTEMPTS = 3;
-  private static readonly MGC_TRANSIENT_RETRY_BASE_DELAY_MS = 1500;
-  private static readonly MGC_TRANSIENT_RETRY_MAX_DELAY_MS = 12000;
-  private static readonly MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS = 1000;
-  private static readonly MGC_RATE_LIMIT_MAX_COOLDOWN_MS = 60000;
   private static readonly IMAGE_CACHE_MIN_MB = 20;
   private static readonly IMAGE_CACHE_MAX_MB = 2048;
 
@@ -665,11 +656,11 @@ export class SettingsPage {
   }
 
   get mgcResolvedCount(): number {
-    return this.mgcRows.filter((row) => this.isMgcRowReady(row)).length;
+    return this.mgcRows.filter((row) => isMgcRowReady(row)).length;
   }
 
   get mgcBlockedCount(): number {
-    return this.mgcRows.filter((row) => !this.isMgcRowReady(row)).length;
+    return this.mgcRows.filter((row) => !isMgcRowReady(row)).length;
   }
 
   get canApplyMgcImport(): boolean {
@@ -878,7 +869,7 @@ export class SettingsPage {
     }
 
     this.mgcRows = this.mgcRows.filter((row) => row.id !== rowId);
-    this.recomputeMgcDuplicateErrors();
+    recomputeMgcDuplicateErrors(this.mgcRows, this.mgcExistingGameKeys);
 
     if (this.mgcPageIndex >= this.mgcPageCount) {
       this.mgcPageIndex = Math.max(this.mgcPageCount - 1, 0);
@@ -927,7 +918,7 @@ export class SettingsPage {
     }
 
     const rowsToResolve = this.mgcCurrentPageRows.filter((row) => {
-      return row.error === null && !this.isMgcRowReady(row);
+      return row.error === null && !isMgcRowReady(row);
     });
 
     if (rowsToResolve.length === 0) {
@@ -944,7 +935,7 @@ export class SettingsPage {
 
     try {
       let lastRequestStartedAt = 0;
-      let currentIntervalMs = SettingsPage.MGC_RESOLVE_BASE_INTERVAL_MS;
+      let currentIntervalMs = MGC_RESOLVE_BASE_INTERVAL_MS;
 
       for (const row of rowsToResolve) {
         const nowMs = Date.now();
@@ -964,18 +955,18 @@ export class SettingsPage {
 
         if (row.status === 'error' && this.isRateLimitStatusDetail(row.statusDetail)) {
           currentIntervalMs = Math.min(
-            SettingsPage.MGC_RESOLVE_MAX_INTERVAL_MS,
+            MGC_RESOLVE_MAX_INTERVAL_MS,
             Math.round(currentIntervalMs * 1.8)
           );
         } else {
           currentIntervalMs = Math.max(
-            SettingsPage.MGC_RESOLVE_MIN_INTERVAL_MS,
+            MGC_RESOLVE_MIN_INTERVAL_MS,
             Math.round(currentIntervalMs * 0.92)
           );
         }
       }
 
-      this.recomputeMgcDuplicateErrors();
+      recomputeMgcDuplicateErrors(this.mgcRows, this.mgcExistingGameKeys);
       this.debugLogService.info('mgc.resolve_page_complete', {
         pageIndex: this.mgcPageIndex,
         resolvedRows: rowsToResolve.length
@@ -1096,7 +1087,7 @@ export class SettingsPage {
     row.status = 'resolved';
     row.statusDetail = 'Selected manually';
     row.error = null;
-    this.recomputeMgcDuplicateErrors();
+    recomputeMgcDuplicateErrors(this.mgcRows, this.mgcExistingGameKeys);
     this.closeMgcResolver();
   }
 
@@ -1141,9 +1132,9 @@ export class SettingsPage {
 
   getMgcRowClass(row: MgcImportRow): Record<string, boolean> {
     return {
-      'mgc-row-success': this.isMgcRowSuccess(row),
-      'mgc-row-warning': this.isMgcRowWarning(row),
-      'mgc-row-error': this.isMgcRowError(row)
+      'mgc-row-success': isMgcRowSuccess(row),
+      'mgc-row-warning': isMgcRowWarning(row),
+      'mgc-row-error': isMgcRowError(row)
     };
   }
 
@@ -1195,7 +1186,7 @@ export class SettingsPage {
   }
 
   isMgcAutoSelectedMultiple(row: MgcImportRow): boolean {
-    return row.status === 'multiple' && row.selected !== null;
+    return isMgcAutoSelectedMultipleRow(row);
   }
 
   onMgcResultImageError(event: Event): void {
@@ -1466,36 +1457,6 @@ export class SettingsPage {
     return this.mgcRows.find((row) => row.id === this.mgcResolverRowId);
   }
 
-  private isMgcRowReady(row: MgcImportRow): boolean {
-    return (
-      row.error === null &&
-      row.duplicateError === null &&
-      (row.status === 'resolved' || (row.status === 'multiple' && row.selected !== null)) &&
-      row.selected !== null
-    );
-  }
-
-  private isMgcRowError(row: MgcImportRow): boolean {
-    return (
-      row.error !== null ||
-      row.duplicateError !== null ||
-      row.status === 'noMatch' ||
-      row.status === 'error'
-    );
-  }
-
-  private isMgcRowWarning(row: MgcImportRow): boolean {
-    return !this.isMgcRowError(row) && row.status === 'multiple' && row.selected === null;
-  }
-
-  private isMgcRowSuccess(row: MgcImportRow): boolean {
-    return (
-      !this.isMgcRowError(row) &&
-      !this.isMgcRowWarning(row) &&
-      (row.status === 'resolved' || this.isMgcAutoSelectedMultiple(row))
-    );
-  }
-
   private async parseMgcCsv(csv: string): Promise<MgcImportRow[]> {
     const table = this.parseCsvTable(csv);
 
@@ -1532,7 +1493,7 @@ export class SettingsPage {
       const name = String(values[nameIndex] ?? '').trim();
       const platformInput = String(values[platformIndex] ?? '').trim();
       const labelsRaw = labelsIndex !== undefined ? String(values[labelsIndex] ?? '') : '';
-      const labels = this.parseMgcLabels(labelsRaw);
+      const labels = parseMgcLabels(labelsRaw);
 
       let error: string | null = null;
       let warning: string | null = null;
@@ -1576,7 +1537,7 @@ export class SettingsPage {
 
     const existingGames = await this.repository.listAll();
     this.mgcExistingGameKeys = new Set(
-      existingGames.map((game) => this.getGameKey(game.igdbGameId, game.platformIgdbId))
+      existingGames.map((game) => getGameKey(game.igdbGameId, game.platformIgdbId))
     );
 
     return rows;
@@ -1596,14 +1557,14 @@ export class SettingsPage {
     });
 
     try {
-      this.recomputeMgcDuplicateErrors();
+      recomputeMgcDuplicateErrors(this.mgcRows, this.mgcExistingGameKeys);
 
       if (this.mgcBlockedCount > 0) {
         await this.presentToast('Resolve or remove blocked rows before importing.', 'warning');
         return;
       }
 
-      const rowsToImport = this.mgcRows.filter((row) => this.isMgcRowReady(row));
+      const rowsToImport = this.mgcRows.filter((row) => isMgcRowReady(row));
       this.importLoadingMessage = 'Preparing tags...';
       const { tagIdMap, tagsCreated } = await this.prepareMgcTags(rowsToImport);
       let gamesImported = 0;
@@ -1630,7 +1591,7 @@ export class SettingsPage {
           continue;
         }
 
-        const key = this.getGameKey(selected.igdbGameId, selected.platformIgdbId);
+        const key = getGameKey(selected.igdbGameId, selected.platformIgdbId);
         const existing = await this.gameShelfService.findGameByIdentity(
           selected.igdbGameId,
           selected.platformIgdbId
@@ -1645,8 +1606,8 @@ export class SettingsPage {
 
         const nowMs = Date.now();
         const waitMs = Math.max(
-          SettingsPage.MGC_BOX_ART_MIN_INTERVAL_MS - (nowMs - lastBoxArtRequestStartedAt),
-          this.resolveGlobalCooldownWaitMs(nowMs),
+          MGC_BOX_ART_MIN_INTERVAL_MS - (nowMs - lastBoxArtRequestStartedAt),
+          resolveGlobalCooldownWaitMs(this.mgcRateLimitCooldownUntilMs, nowMs),
           0
         );
 
@@ -1696,8 +1657,8 @@ export class SettingsPage {
           }
 
           const hltbWaitMs = Math.max(
-            SettingsPage.MGC_HLTB_MIN_INTERVAL_MS - (Date.now() - lastHltbRequestStartedAt),
-            this.resolveGlobalCooldownWaitMs(Date.now()),
+            MGC_HLTB_MIN_INTERVAL_MS - (Date.now() - lastHltbRequestStartedAt),
+            resolveGlobalCooldownWaitMs(this.mgcRateLimitCooldownUntilMs, Date.now()),
             0
           );
 
@@ -1848,7 +1809,7 @@ export class SettingsPage {
 
     this.mgcPlatformLookup.clear();
     this.mgcSearchPlatforms.forEach((platform) => {
-      const normalizedName = this.normalizeLookupKey(platform.name);
+      const normalizedName = normalizeLookupKey(platform.name);
 
       if (!this.mgcPlatformLookup.has(normalizedName)) {
         this.mgcPlatformLookup.set(normalizedName, platform);
@@ -1859,7 +1820,7 @@ export class SettingsPage {
   }
 
   private resolveMgcPlatform(platformName: string): GameCatalogPlatformOption | null {
-    const normalized = this.normalizeLookupKey(platformName);
+    const normalized = normalizeLookupKey(platformName);
     return this.mgcPlatformLookup.get(normalized) ?? null;
   }
 
@@ -1892,36 +1853,10 @@ export class SettingsPage {
     };
   }
 
-  private parseMgcLabels(raw: string): string[] {
-    if (raw.trim().length === 0) {
-      return [];
-    }
-
-    return [
-      ...new Set(
-        raw
-          .split(',')
-          .map((value) => value.trim())
-          .filter((value) => value.length > 0)
-      )
-    ];
-  }
-
-  private normalizeLookupKey(value: string): string {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
-  }
-
-  private normalizeMgcTitleForMatch(value: string): string {
-    return String(value ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
-  }
-
   private async resolveMgcRowFromSearchWithRetry(row: MgcImportRow): Promise<void> {
     let attempt = 1;
 
-    while (attempt <= SettingsPage.MGC_RESOLVE_MAX_ATTEMPTS) {
+    while (attempt <= MGC_RESOLVE_MAX_ATTEMPTS) {
       await this.resolveMgcRowFromSearch(row);
 
       if (row.status !== 'error') {
@@ -1931,16 +1866,13 @@ export class SettingsPage {
       const isRateLimited = this.isRateLimitStatusDetail(row.statusDetail);
       const isTransientError = this.isTransientMgcStatusDetail(row.statusDetail);
 
-      if (
-        (!isRateLimited && !isTransientError) ||
-        attempt >= SettingsPage.MGC_RESOLVE_MAX_ATTEMPTS
-      ) {
+      if ((!isRateLimited && !isTransientError) || attempt >= MGC_RESOLVE_MAX_ATTEMPTS) {
         return;
       }
 
       const retryDelay = isRateLimited
-        ? this.resolveRateLimitRetryDelayMs(row.statusDetail)
-        : this.resolveTransientRetryDelayMs(attempt);
+        ? resolveRateLimitRetryDelayMs(row.statusDetail)
+        : resolveTransientRetryDelayMs(attempt);
       this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
       await this.waitWithRetryCountdown(
         row,
@@ -1979,7 +1911,7 @@ export class SettingsPage {
           continue;
         }
 
-        const key = this.getGameKey(resolved.igdbGameId, resolved.platformIgdbId);
+        const key = getGameKey(resolved.igdbGameId, resolved.platformIgdbId);
 
         if (!deduped.has(key)) {
           deduped.set(key, resolved);
@@ -2000,8 +1932,7 @@ export class SettingsPage {
         const exactTitleMatch =
           candidates.find((candidate) => {
             return (
-              this.normalizeMgcTitleForMatch(candidate.title) ===
-              this.normalizeMgcTitleForMatch(row.name)
+              normalizeMgcTitleForMatch(candidate.title) === normalizeMgcTitleForMatch(row.name)
             );
           }) ?? null;
 
@@ -2038,28 +1969,6 @@ export class SettingsPage {
     return isTransientNetworkMessage(normalized);
   }
 
-  private resolveRateLimitRetryDelayMs(statusDetail: string): number {
-    const seconds = extractRetryAfterSeconds(statusDetail);
-
-    if (seconds !== null) {
-      return Math.min(seconds * 1000, SettingsPage.MGC_RATE_LIMIT_MAX_COOLDOWN_MS);
-    }
-
-    return SettingsPage.MGC_RATE_LIMIT_FALLBACK_COOLDOWN_MS;
-  }
-
-  private resolveTransientRetryDelayMs(attempt: number): number {
-    const exponent = Math.max(0, attempt - 1);
-    return Math.min(
-      SettingsPage.MGC_TRANSIENT_RETRY_BASE_DELAY_MS * 2 ** exponent,
-      SettingsPage.MGC_TRANSIENT_RETRY_MAX_DELAY_MS
-    );
-  }
-
-  private resolveGlobalCooldownWaitMs(nowMs: number): number {
-    return Math.max(this.mgcRateLimitCooldownUntilMs - nowMs, 0);
-  }
-
   private async resolveBoxArtWithRetry(
     selected: GameCatalogResult,
     rowIndex: number,
@@ -2067,7 +1976,7 @@ export class SettingsPage {
   ): Promise<string | null> {
     let attempt = 1;
 
-    while (attempt <= SettingsPage.MGC_BOX_ART_MAX_ATTEMPTS) {
+    while (attempt <= MGC_BOX_ART_MAX_ATTEMPTS) {
       try {
         const boxArtCandidates = await firstValueFrom(
           this.gameShelfService.searchBoxArtByTitle(
@@ -2083,16 +1992,13 @@ export class SettingsPage {
         const isRateLimited = this.isRateLimitStatusDetail(message);
         const isTransientError = this.isTransientMgcStatusDetail(message);
 
-        if (
-          (!isRateLimited && !isTransientError) ||
-          attempt >= SettingsPage.MGC_BOX_ART_MAX_ATTEMPTS
-        ) {
+        if ((!isRateLimited && !isTransientError) || attempt >= MGC_BOX_ART_MAX_ATTEMPTS) {
           return null;
         }
 
         const retryDelay = isRateLimited
-          ? this.resolveRateLimitRetryDelayMs(message)
-          : this.resolveTransientRetryDelayMs(attempt);
+          ? resolveRateLimitRetryDelayMs(message)
+          : resolveTransientRetryDelayMs(attempt);
         this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
         await this.waitWithLoadingCountdown(
           retryDelay,
@@ -2114,7 +2020,7 @@ export class SettingsPage {
   ): Promise<'updated' | 'not_found' | 'failed'> {
     let attempt = 1;
 
-    while (attempt <= SettingsPage.MGC_HLTB_MAX_ATTEMPTS) {
+    while (attempt <= MGC_HLTB_MAX_ATTEMPTS) {
       try {
         const refreshed = await this.gameShelfService.refreshGameCompletionTimesWithQuery(
           selected.igdbGameId,
@@ -2126,7 +2032,7 @@ export class SettingsPage {
           }
         );
 
-        if (this.hasHltbData(refreshed)) {
+        if (hasHltbData(refreshed)) {
           return 'updated';
         }
 
@@ -2136,16 +2042,13 @@ export class SettingsPage {
         const isRateLimited = this.isRateLimitStatusDetail(message);
         const isTransientError = this.isTransientMgcStatusDetail(message);
 
-        if (
-          (!isRateLimited && !isTransientError) ||
-          attempt >= SettingsPage.MGC_HLTB_MAX_ATTEMPTS
-        ) {
+        if ((!isRateLimited && !isTransientError) || attempt >= MGC_HLTB_MAX_ATTEMPTS) {
           return 'failed';
         }
 
         const retryDelay = isRateLimited
-          ? this.resolveRateLimitRetryDelayMs(message)
-          : this.resolveTransientRetryDelayMs(attempt);
+          ? resolveRateLimitRetryDelayMs(message)
+          : resolveTransientRetryDelayMs(attempt);
         this.mgcRateLimitCooldownUntilMs = Date.now() + retryDelay;
         await this.waitWithLoadingCountdown(
           retryDelay,
@@ -2158,22 +2061,6 @@ export class SettingsPage {
     }
 
     return 'failed';
-  }
-
-  private hasHltbData(game: GameEntry): boolean {
-    return (
-      this.normalizeCompletionHours(game.hltbMainHours) !== null ||
-      this.normalizeCompletionHours(game.hltbMainExtraHours) !== null ||
-      this.normalizeCompletionHours(game.hltbCompletionistHours) !== null
-    );
-  }
-
-  private normalizeCompletionHours(value: number | null | undefined): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-      return null;
-    }
-
-    return Math.round(value * 10) / 10;
   }
 
   private async resolveCatalogForRow(
@@ -2342,66 +2229,6 @@ export class SettingsPage {
     }
 
     return [];
-  }
-
-  private recomputeMgcDuplicateErrors(): void {
-    this.mgcRows.forEach((row) => {
-      row.duplicateError = null;
-    });
-
-    const groups = new Map<string, MgcImportRow[]>();
-
-    for (const row of this.mgcRows) {
-      const key = this.getMgcRowGameKey(row);
-
-      if (!key) {
-        continue;
-      }
-
-      if (this.mgcExistingGameKeys.has(key)) {
-        row.duplicateError = 'Duplicate game already exists in your library.';
-      }
-
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-
-      groups.get(key)?.push(row);
-    }
-
-    groups.forEach((rows) => {
-      if (rows.length < 2) {
-        return;
-      }
-
-      rows.forEach((row) => {
-        row.duplicateError = 'Duplicate game also appears in this MGC import.';
-      });
-    });
-  }
-
-  private getMgcRowGameKey(row: MgcImportRow): string | null {
-    if (!row.selected || row.status !== 'resolved') {
-      return null;
-    }
-
-    const platformIgdbId = row.selected.platformIgdbId;
-    const igdbGameId = String(row.selected.igdbGameId ?? '').trim();
-
-    if (
-      !/^\d+$/.test(igdbGameId) ||
-      typeof platformIgdbId !== 'number' ||
-      !Number.isInteger(platformIgdbId) ||
-      platformIgdbId <= 0
-    ) {
-      return null;
-    }
-
-    return this.getGameKey(igdbGameId, platformIgdbId);
-  }
-
-  private getGameKey(igdbGameId: string, platformIgdbId: number): string {
-    return `${igdbGameId}::${platformIgdbId}`;
   }
 
   private async processWithConcurrency<T>(

@@ -14,6 +14,7 @@ export class PlatformCustomizationService {
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
+    'e-reader': 'Game Boy Advance',
     'e-reader / card-e reader': 'Game Boy Advance'
   };
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
@@ -41,11 +42,11 @@ export class PlatformCustomizationService {
     platformIgdbId: number | null | undefined
   ): string {
     const fallback = String(platformName ?? '').trim();
-    const aliasedFallback = this.getAliasedPlatformName(fallback);
-    const fallbackKey = this.normalizePlatformKey(fallback);
-    const aliasedFallbackKey = this.normalizePlatformKey(aliasedFallback);
-    const aliasWasApplied =
-      fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
+    const platformId = this.normalizePlatformIgdbId(platformIgdbId);
+    const { aliasedName: aliasedFallback, aliasWasApplied } = this.resolveAlias({
+      displayName: fallback,
+      platformId
+    });
 
     if (aliasWasApplied) {
       const canonicalCustom = this.getCanonicalCustomName(aliasedFallback);
@@ -55,7 +56,6 @@ export class PlatformCustomizationService {
       }
     }
 
-    const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const custom =
       platformId !== null ? this.displayNamesSubject.value[String(platformId)] : undefined;
     const normalizedCustom = typeof custom === 'string' ? custom.trim() : '';
@@ -89,24 +89,23 @@ export class PlatformCustomizationService {
     platformIgdbId: number | null | undefined
   ): string {
     const fallback = String(platformName ?? '').trim();
+    const platformId = this.normalizePlatformIgdbId(platformIgdbId);
+    const { aliasedName: aliasedFallback, aliasWasApplied } = this.resolveAlias({
+      displayName: fallback,
+      platformId
+    });
 
-    if (fallback.length === 0) {
+    if (fallback.length === 0 && !aliasWasApplied) {
       return '';
     }
 
-    const aliasedFallback = this.getAliasedPlatformName(fallback);
-    const fallbackKey = this.normalizePlatformKey(fallback);
-    const aliasedFallbackKey = this.normalizePlatformKey(aliasedFallback);
-    const aliasWasApplied =
-      fallbackKey.length > 0 && aliasedFallbackKey.length > 0 && fallbackKey !== aliasedFallbackKey;
-
     if (!aliasWasApplied) {
-      return this.getDisplayName(fallback, platformIgdbId);
+      return this.getDisplayName(fallback, platformId);
     }
 
-    const canonicalCustom = this.getCanonicalCustomName(aliasedFallback);
+    const canonicalCustom = this.getCanonicalDestinationCustomName(aliasedFallback);
     const canonicalLabel = canonicalCustom ?? aliasedFallback;
-    const sourceCustom = this.getCustomName(platformIgdbId);
+    const sourceCustom = this.getCustomName(platformId);
     const sourceLabel = sourceCustom ?? fallback;
 
     if (
@@ -160,6 +159,37 @@ export class PlatformCustomizationService {
     }
 
     return aliasedSourceCustom;
+  }
+
+  private getCanonicalDestinationCustomName(canonicalPlatformName: string): string | null {
+    const canonicalKey = this.normalizePlatformKey(canonicalPlatformName);
+
+    if (canonicalKey.length === 0) {
+      return null;
+    }
+
+    for (const [platformIdKey, customName] of Object.entries(this.displayNamesSubject.value)) {
+      const platformId = Number.parseInt(platformIdKey, 10);
+      const normalizedCustom = String(customName ?? '').trim();
+
+      if (!Number.isInteger(platformId) || platformId <= 0 || normalizedCustom.length === 0) {
+        continue;
+      }
+
+      const platformName = this.platformNameById.get(platformId) ?? '';
+
+      if (platformName.length === 0) {
+        continue;
+      }
+
+      const platformKey = this.normalizePlatformKey(platformName);
+
+      if (platformKey === canonicalKey) {
+        return normalizedCustom;
+      }
+    }
+
+    return null;
   }
 
   getCustomName(platformIgdbId: number | null | undefined): string | null {
@@ -258,6 +288,36 @@ export class PlatformCustomizationService {
 
     const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
     return PlatformCustomizationService.PLATFORM_DISPLAY_ALIAS_MAP[key] ?? trimmed;
+  }
+
+  private resolveAlias(input: { displayName: string; platformId: number | null }): {
+    aliasedName: string;
+    aliasWasApplied: boolean;
+  } {
+    const normalizedDisplayName = String(input.displayName ?? '').trim();
+    const aliasedFromDisplayName = this.getAliasedPlatformName(normalizedDisplayName);
+
+    if (
+      this.normalizePlatformKey(normalizedDisplayName).length > 0 &&
+      this.normalizePlatformKey(normalizedDisplayName) !==
+        this.normalizePlatformKey(aliasedFromDisplayName)
+    ) {
+      return { aliasedName: aliasedFromDisplayName, aliasWasApplied: true };
+    }
+
+    if (input.platformId !== null) {
+      const platformNameFromId = this.platformNameById.get(input.platformId) ?? '';
+      const aliasedFromId = this.getAliasedPlatformName(platformNameFromId);
+
+      if (
+        this.normalizePlatformKey(platformNameFromId).length > 0 &&
+        this.normalizePlatformKey(platformNameFromId) !== this.normalizePlatformKey(aliasedFromId)
+      ) {
+        return { aliasedName: aliasedFromId, aliasWasApplied: true };
+      }
+    }
+
+    return { aliasedName: aliasedFromDisplayName, aliasWasApplied: false };
   }
 
   private normalizePlatformKey(value: string | null | undefined): string {

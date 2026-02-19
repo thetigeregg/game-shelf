@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 concurrency:
   group: game-shelf-${{ github.event.pull_request.number || github.ref }}

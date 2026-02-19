@@ -419,3 +419,9 @@
 - ed54edf Build Ionic game shelf MVP
 - bc68d91 Initial commit
 
+## v0.0.3 - 2026-02-19
+- a4c3f51 Add version display to settings page
+- 28b33a9 Update settings page with version
+- 776f3d3 Remove @capacitor/app dependency
+- a0b61af Display app version in settings
+

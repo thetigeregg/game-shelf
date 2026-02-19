@@ -5,6 +5,7 @@ interface RuntimeFeatureFlags {
 }
 
 interface RuntimeConfig {
+  appVersion?: string;
   featureFlags?: RuntimeFeatureFlags;
 }
 
@@ -48,4 +49,15 @@ export function isMgcImportFeatureEnabled(): boolean {
   }
 
   return environment.featureFlags?.showMgcImport === true;
+}
+
+export function getAppVersion(): string {
+  if (typeof window !== 'undefined') {
+    const value = window.__GAME_SHELF_RUNTIME_CONFIG__?.appVersion;
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return '0.0.0';
 }

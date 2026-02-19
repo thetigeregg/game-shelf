@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
+import rateLimit from '@fastify/rate-limit';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -28,11 +29,15 @@ const DEFAULT_HLTB_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
 
-export function registerHltbCachedRoute(
+export async function registerHltbCachedRoute(
   app: FastifyInstance,
   pool: Pool,
   options: HltbCacheRouteOptions = {}
-): void {
+): Promise<void> {
+  await app.register(rateLimit, {
+    max: 60,
+    timeWindow: '1 minute'
+  });
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
   const scheduleBackgroundRefresh =
@@ -52,74 +57,84 @@ export function registerHltbCachedRoute(
     normalizeTtlSeconds(options.staleTtlSeconds, DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS)
   );
 
-  app.get('/v1/hltb/search', async (request, reply) => {
-    const normalized = normalizeHltbQuery(request.url);
-    const cacheKey = normalized ? buildCacheKey(normalized) : null;
-    let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
+  app.route({
+    method: 'GET',
+    url: '/v1/hltb/search',
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    },
+    handler: async (request, reply) => {
+      const normalized = normalizeHltbQuery(request.url);
+      const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-    if (cacheKey) {
-      try {
-        const cached = await pool.query<HltbCacheRow>(
-          'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',
-          [cacheKey]
-        );
-        const cachedRow = cached.rows[0];
+      if (cacheKey) {
+        try {
+          const cached = await pool.query<HltbCacheRow>(
+            'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',
+            [cacheKey]
+          );
+          const cachedRow = cached.rows[0];
 
-        if (cachedRow && normalized) {
-          if (!isCacheableHltbPayload(normalized, cachedRow.response_json)) {
-            await deleteHltbCacheEntry(pool, cacheKey, request);
-          } else {
-            const ageSeconds = getAgeSeconds(cachedRow.updated_at, now());
+          if (cachedRow && normalized) {
+            if (!isCacheableHltbPayload(normalized, cachedRow.response_json)) {
+              await deleteHltbCacheEntry(pool, cacheKey, request);
+            } else {
+              const ageSeconds = getAgeSeconds(cachedRow.updated_at, now());
 
-            if (ageSeconds <= freshTtlSeconds) {
-              incrementHltbMetric('hits');
-              reply.header('X-GameShelf-HLTB-Cache', 'HIT_FRESH');
-              reply.code(200).send(cachedRow.response_json);
-              return;
-            }
+              if (ageSeconds <= freshTtlSeconds) {
+                incrementHltbMetric('hits');
+                reply.header('X-GameShelf-HLTB-Cache', 'HIT_FRESH');
+                reply.code(200).send(cachedRow.response_json);
+                return;
+              }
 
-            if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds && normalized) {
-              incrementHltbMetric('hits');
-              incrementHltbMetric('staleServed');
-              const scheduled = scheduleHltbRevalidation(
-                cacheKey,
-                request,
-                normalized,
-                fetchMetadata,
-                pool,
-                scheduleBackgroundRefresh
-              );
-              reply.header('X-GameShelf-HLTB-Cache', 'HIT_STALE');
-              reply.header('X-GameShelf-HLTB-Revalidate', scheduled ? 'scheduled' : 'skipped');
-              reply.code(200).send(cachedRow.response_json);
-              return;
+              if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds && normalized) {
+                incrementHltbMetric('hits');
+                incrementHltbMetric('staleServed');
+                const scheduled = scheduleHltbRevalidation(
+                  cacheKey,
+                  request,
+                  normalized,
+                  fetchMetadata,
+                  pool,
+                  scheduleBackgroundRefresh
+                );
+                reply.header('X-GameShelf-HLTB-Cache', 'HIT_STALE');
+                reply.header('X-GameShelf-HLTB-Revalidate', scheduled ? 'scheduled' : 'skipped');
+                reply.code(200).send(cachedRow.response_json);
+                return;
+              }
+        } catch (error) {
+          incrementHltbMetric('readErrors');
+          incrementHltbMetric('bypasses');
+          cacheOutcome = 'BYPASS';
+          request.log.warn({
+            msg: 'hltb_cache_read_failed',
+            error: error instanceof Error ? error.message : String(error)
+          });
             }
           }
         }
-      } catch (error) {
-        incrementHltbMetric('readErrors');
-        incrementHltbMetric('bypasses');
-        cacheOutcome = 'BYPASS';
-        request.log.warn({
-          msg: 'hltb_cache_read_failed',
-          error: error instanceof Error ? error.message : String(error)
-        });
       }
-    }
 
-    incrementHltbMetric('misses');
-    const response = await fetchMetadata(request);
+      incrementHltbMetric('misses');
+      const response = await fetchMetadata(request);
 
-    if (cacheKey && normalized && response.ok) {
-      const payload = await safeReadJson(response);
+      if (cacheKey && normalized && response.ok) {
+        const payload = await safeReadJson(response);
 
-      if (payload !== null && isCacheableHltbPayload(normalized, payload)) {
-        await persistHltbCacheEntry(pool, cacheKey, normalized, payload, request);
+        if (payload !== null && isCacheableHltbPayload(normalized, payload)) {
+          await persistHltbCacheEntry(pool, cacheKey, normalized, payload, request);
+        }
       }
-    }
 
-    reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
-    await sendWebResponse(reply, response);
+      reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
+      await sendWebResponse(reply, response);
+    }
   });
 }
 

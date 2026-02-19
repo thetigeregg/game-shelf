@@ -562,3 +562,7 @@
 - c65b476 chore(deps): update vitest and related dependencies in package-lock.json
 - 73795b8 chore(deps): bump eslint-plugin-jsdoc from 62.6.0 to 62.6.1
 
+## v0.0.21 - 2026-02-19
+- 0d65a6d Merge pull request #46 from thetigeregg/codex/manual-match
+- 782f7dc Add manual bind clear option
+

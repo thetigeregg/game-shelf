@@ -72,6 +72,15 @@ describe('PlatformCustomizationService', () => {
     expect(service.getDisplayNameWithAliasSource('Family Computer', 99)).toBe('NES (Famicom)');
   });
 
+  it('uses platform id alias mapping for alias-source formatting when display name is a nickname', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+    service.setCustomName(510, 'e-Reader');
+
+    expect(service.getDisplayNameWithAliasSource('e-Reader', 510)).toBe(
+      'Game Boy Advance (e-Reader)'
+    );
+  });
+
   it('returns non-aliased platform labels unchanged for alias-source formatting', () => {
     const service = TestBed.inject(PlatformCustomizationService);
     service.setCustomName(130, 'Switch');

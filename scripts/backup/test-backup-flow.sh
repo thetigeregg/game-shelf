@@ -21,6 +21,18 @@ fi
 
 BACKUP_HOST_DIR="${BACKUP_HOST_DIR:-./nas-data/backups}"
 
+count_timestamp_backup_dirs() {
+  find "$BACKUP_HOST_DIR" -mindepth 1 -maxdepth 1 -type d -print \
+    | while IFS= read -r path; do
+        name="${path##*/}"
+        if echo "$name" | grep -Eq '^(2[0-9]{3})(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3])[0-5][0-9][0-5][0-9]Z$'; then
+          printf '%s\n' "$path"
+        fi
+      done \
+    | wc -l \
+    | tr -d ' '
+}
+
 echo "[backup-test] Ensuring services are running"
 docker compose up -d postgres backup
 
@@ -48,7 +60,7 @@ fi
 
 KEEP_COUNT="$(docker compose exec -T backup sh -lc 'printf "%s" "${BACKUP_KEEP_COUNT:-}"')"
 if [[ "$KEEP_COUNT" == "1" ]]; then
-  DIR_COUNT="$(find "$BACKUP_HOST_DIR" -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l | tr -d ' ')"
+  DIR_COUNT="$(count_timestamp_backup_dirs)"
   if [[ "$DIR_COUNT" != "1" ]]; then
     echo "[backup-test] FAIL: expected 1 retained backup dir, found $DIR_COUNT" >&2
     exit 1

@@ -212,15 +212,27 @@ function normalizeProxyImageUrl(raw: unknown): string | null {
   try {
     const parsed = new URL(String(raw ?? ''));
 
+    // Only allow HTTPS requests
     if (parsed.protocol !== 'https:') {
       return null;
     }
 
     const hostname = parsed.hostname.toLowerCase();
-    const isTheGamesDb = hostname === THE_GAMES_DB_HOST && parsed.pathname.startsWith('/images/');
-    const isIgdb = hostname === IGDB_HOST && parsed.pathname.startsWith('/igdb/image/upload/');
+    const pathname = parsed.pathname;
+
+    // Normalize allowed hosts for comparison
+    const allowedTheGamesDbHost = THE_GAMES_DB_HOST.toLowerCase();
+    const allowedIgdbHost = IGDB_HOST.toLowerCase();
+
+    const isTheGamesDb = hostname === allowedTheGamesDbHost && pathname.startsWith('/images/');
+    const isIgdb = hostname === allowedIgdbHost && pathname.startsWith('/igdb/image/upload/');
 
     if (!isTheGamesDb && !isIgdb) {
+      return null;
+    }
+
+    // Enforce standard HTTPS port: either explicit 443 or default (empty)
+    if (parsed.port && parsed.port !== '443') {
       return null;
     }
 

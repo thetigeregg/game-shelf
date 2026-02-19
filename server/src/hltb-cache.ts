@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
-import { config } from './config.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -334,7 +333,7 @@ async function deleteHltbCacheEntry(
 }
 
 async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Response> {
-  const baseUrl = config.hltbScraperBaseUrl.trim();
+  const baseUrl = readEnv('HLTB_SCRAPER_BASE_URL').trim();
 
   if (!baseUrl) {
     return new Response(JSON.stringify({ error: 'HLTB scraper base URL is not configured' }), {
@@ -350,9 +349,10 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
   targetUrl.search = requestUrl.search;
 
   const headers = new Headers();
+  const scraperToken = readEnv('HLTB_SCRAPER_TOKEN').trim();
 
-  if (config.hltbScraperToken.length > 0) {
-    headers.set('Authorization', `Bearer ${config.hltbScraperToken}`);
+  if (scraperToken.length > 0) {
+    headers.set('Authorization', `Bearer ${scraperToken}`);
   }
 
   try {
@@ -374,6 +374,11 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
       }
     });
   }
+}
+
+function readEnv(name: string): string {
+  const value = process.env[name];
+  return typeof value === 'string' ? value : '';
 }
 
 async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {

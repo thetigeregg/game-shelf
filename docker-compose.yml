@@ -112,3 +112,8 @@ services:
       - -ec
       - /opt/backup/start-cron.sh
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "${BACKUP_CPU_LIMIT:-0.5}"
+          memory: "${BACKUP_MEMORY_LIMIT:-512M}"

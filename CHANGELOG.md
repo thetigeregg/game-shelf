@@ -429,3 +429,44 @@
 - 97d8489 Move pino-pretty to dependencies
 - 05685eb Move pino-pretty dependency
 
+## v0.0.6 - 2026-02-19
+- 6b34fde Merge pull request #21 from thetigeregg/test
+- cd348ca Merge branch 'main' into test
+- 20b4fc1 Merge pull request #7 from thetigeregg/dependabot/github_actions/actions/setup-node-6
+- 34b9970 Merge branch 'main' into test
+- 40730e0 Fix release tag handling
+- 0a16cf5 chore(ci): bump actions/setup-node from 4 to 6
+- 3f4aac5 Merge pull request #10 from thetigeregg/dependabot/github_actions/actions/upload-artifact-6
+- b8f6e32 chore(ci): bump actions/upload-artifact from 4 to 6
+- 02ca46e Merge pull request #3 from thetigeregg/test
+- 5e62f66 Add permissions to workflows
+- 089a7ed Update workflow timezone config
+- 077beef Add dependabot config and TZ env
+- 1a1df7e Adjust workflows and TZ defaults
+- 8c07bbb Update dependabot timezone settings
+- c36d743 Add read permissions to workflows
+- 64e840b Add dependabot config for repos
+- 91fff1b Fix secret-scan workflow
+- cf5eaa3 Audit repo for secrets and CI issues
+- 8e1c22e Ensure API key removed from refs
+- 5b355c4 Add public repo secret scan workflow
+- fe9fec3 Enforce 80% coverage minimum
+- d649432 Enforce 80% coverage minimum
+- cf0a424 Enforce 80% coverage minimum
+
+## v0.0.7 - 2026-02-19
+- ca22a2a Merge pull request #11 from thetigeregg/dependabot/github_actions/actions/create-github-app-token-2
+- 04ee9f4 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 3bb4652 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 0b51990 chore(ci): bump actions/create-github-app-token from 1 to 2
+
+## v0.0.8 - 2026-02-19
+- 330f6b8 Merge pull request #22 from thetigeregg/codex/deps
+- df49d37 Add dependabot docker major rules
+
+## v0.0.9 - 2026-02-19
+- b97449a Merge pull request #6 from thetigeregg/dependabot/docker/edge/caddy-2.10-alpine
+- 9f2caae Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- c3530e8 Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- 0ec4272 chore(docker): bump caddy from 2.8-alpine to 2.10-alpine in /edge
+

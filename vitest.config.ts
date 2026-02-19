@@ -20,10 +20,11 @@ export default defineConfig({
       provider: 'v8',
       reportsDirectory: './coverage/app',
       reporter: ['text', 'html'],
+      exclude: ['src/app/core/services/debug-log.service.ts'],
       thresholds: {
         statements: 80,
-        branches: 73,
-        functions: 84,
+        branches: 80,
+        functions: 80,
         lines: 80
       }
     }

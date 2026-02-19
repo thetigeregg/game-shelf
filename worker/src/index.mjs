@@ -61,9 +61,6 @@ function jsonResponse(body, status = 200, extraHeaders = {}) {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
       ...extraHeaders
     }
   });
@@ -2038,10 +2035,6 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
 }
 
 export async function handleRequest(request, env, fetchImpl = fetch, now = () => Date.now()) {
-  if (request.method === 'OPTIONS') {
-    return jsonResponse({}, 204);
-  }
-
   if (request.method !== 'GET') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
@@ -2129,9 +2122,6 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       }
 
       const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
         'Cache-Control': 'public, max-age=86400'
       };
       const contentType = upstream.headers.get('Content-Type');
@@ -2250,9 +2240,3 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
     return jsonResponse({ error: 'Unable to fetch game data.' }, 502);
   }
 }
-
-export default {
-  fetch(request, env) {
-    return handleRequest(request, env);
-  }
-};

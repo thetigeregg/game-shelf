@@ -171,3 +171,16 @@ npm run backup:restore:postgres -- --file nas-data/backups/latest/postgres.sql.g
 ```
 
 Restore image cache by restoring `nas-data/image-cache` from your Backrest/Restic snapshot.
+
+## 8. Backup smoke test (local/dev)
+
+Run:
+
+```bash
+npm run test:backup:ops
+```
+
+This validates:
+- backup container can run on demand
+- `latest/postgres.sql.gz` and `latest/manifest.txt` exist
+- retention behavior when `BACKUP_KEEP_COUNT=1`

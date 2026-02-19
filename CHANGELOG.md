@@ -470,3 +470,8 @@
 - c3530e8 Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
 - 0ec4272 chore(docker): bump caddy from 2.8-alpine to 2.10-alpine in /edge
 
+## v0.0.10 - 2026-02-19
+- 07596a9 Merge pull request #13 from thetigeregg/dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
+- 9bf1d84 Merge branch 'main' into dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
+- 54fe978 chore(deps): bump express from 4.22.1 to 5.2.1 in /hltb-scraper
+

@@ -552,3 +552,8 @@
 - 901b08f Merge branch 'main' into codex/backup-strategy
 - feb838d Add backup image deployment docs
 
+## v0.0.19 - 2026-02-19
+- 01a6740 Merge pull request #35 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.0
+- 9c4461e chore(deps): update vitest and related dependencies in package-lock.json
+- 36671ba chore(deps): bump hono from 4.11.9 to 4.12.0
+

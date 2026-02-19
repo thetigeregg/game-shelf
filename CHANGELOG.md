@@ -460,3 +460,7 @@
 - 3bb4652 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
 - 0b51990 chore(ci): bump actions/create-github-app-token from 1 to 2
 
+## v0.0.8 - 2026-02-19
+- 330f6b8 Merge pull request #22 from thetigeregg/codex/deps
+- df49d37 Add dependabot docker major rules
+

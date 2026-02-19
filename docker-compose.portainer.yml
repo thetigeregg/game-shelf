@@ -3,6 +3,7 @@ services:
     container_name: gameshelf-edge
     image: ${EDGE_IMAGE:-ghcr.io/thetigeregg/game-shelf-edge:main}
     environment:
+      TZ: ${TZ:-Europe/Zurich}
       FEATURE_MGC_IMPORT: ${FEATURE_MGC_IMPORT:-false}
       API_TOKEN: ${API_TOKEN:-change-me}
     command: >-
@@ -24,6 +25,7 @@ services:
     container_name: gameshelf-api
     image: ${API_IMAGE:-ghcr.io/thetigeregg/game-shelf-api:main}
     environment:
+      TZ: ${TZ:-Europe/Zurich}
       HOST: ${HOST:-0.0.0.0}
       PORT: ${PORT:-3000}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://127.0.0.1:8080,http://localhost:8080}
@@ -52,6 +54,8 @@ services:
     container_name: gameshelf-postgres
     image: postgres:16-alpine
     environment:
+      TZ: ${TZ:-Europe/Zurich}
+      PGTZ: ${TZ:-Europe/Zurich}
       POSTGRES_DB: ${POSTGRES_DB:-gameshelf}
       POSTGRES_USER: ${POSTGRES_USER:-gameshelf}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gameshelf}
@@ -63,6 +67,7 @@ services:
     container_name: gameshelf-hltb-scraper
     image: ${HLTB_SCRAPER_IMAGE:-ghcr.io/thetigeregg/game-shelf-hltb-scraper:main}
     environment:
+      TZ: ${TZ:-Europe/Zurich}
       PORT: ${HLTB_SCRAPER_PORT:-8788}
       HLTB_SCRAPER_TIMEOUT_MS: ${HLTB_SCRAPER_TIMEOUT_MS:-25000}
       HLTB_SCRAPER_TOKEN: ${HLTB_SCRAPER_TOKEN:-}

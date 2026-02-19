@@ -21,6 +21,18 @@ class CacheStatsPoolMock {
   }
 }
 
+class CacheStatsFailingPoolMock {
+  async query<T>(): Promise<{ rows: T[] }> {
+    throw new Error('db_unavailable');
+  }
+}
+
+class CacheStatsNonErrorFailingPoolMock {
+  async query<T>(): Promise<{ rows: T[] }> {
+    throw 'db_string_failure';
+  }
+}
+
 test('Cache stats endpoint returns counters and db counts', async () => {
   resetCacheMetrics();
   incrementImageMetric('hits');
@@ -45,6 +57,44 @@ test('Cache stats endpoint returns counters and db counts', async () => {
   assert.equal(payload.metrics.hltb.hits, 1);
   assert.equal(payload.metrics.hltb.writes, 1);
   assert.equal(payload.dbError, null);
+
+  await app.close();
+});
+
+test('Cache stats endpoint stringifies non-Error db failures', async () => {
+  resetCacheMetrics();
+
+  const app = Fastify();
+  registerCacheObservabilityRoutes(app, new CacheStatsNonErrorFailingPoolMock() as unknown as Pool);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/cache/stats'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json() as Record<string, any>;
+  assert.equal(payload.dbError, 'db_string_failure');
+
+  await app.close();
+});
+
+test('Cache stats endpoint returns dbError when count queries fail', async () => {
+  resetCacheMetrics();
+
+  const app = Fastify();
+  registerCacheObservabilityRoutes(app, new CacheStatsFailingPoolMock() as unknown as Pool);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/cache/stats'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json() as Record<string, any>;
+  assert.equal(payload.counts.imageAssets, null);
+  assert.equal(payload.counts.hltbEntries, null);
+  assert.equal(payload.dbError, 'db_unavailable');
 
   await app.close();
 });

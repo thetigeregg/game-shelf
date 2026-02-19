@@ -11,6 +11,9 @@ RUN npm run build
 
 FROM caddy:2.8-alpine
 
+ENV TZ=Europe/Zurich
+RUN apk add --no-cache tzdata
+
 COPY edge/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/www/browser /srv
 

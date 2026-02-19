@@ -110,10 +110,6 @@ services:
         condition: service_healthy
     volumes:
       - ${BACKUP_HOST_DIR:-./nas-data/backups}:/backups
-    command:
-      - /bin/sh
-      - -ec
-      - /opt/backup/start-cron.sh
     restart: unless-stopped
     deploy:
       resources:

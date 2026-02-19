@@ -43,6 +43,13 @@ jobs:
       - name: Backend tests
         run: npm run test:backend:coverage
 
+      - name: Backup ops smoke test
+        run: npm run test:backup:ops
+
+      - name: Backup ops cleanup
+        if: always()
+        run: docker compose down --remove-orphans
+
       - name: Install Playwright browser
         run: npm run test:ui:e2e:install
 

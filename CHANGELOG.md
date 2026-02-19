@@ -454,3 +454,24 @@
 - d649432 Enforce 80% coverage minimum
 - cf0a424 Enforce 80% coverage minimum
 
+## v0.0.7 - 2026-02-19
+- ca22a2a Merge pull request #11 from thetigeregg/dependabot/github_actions/actions/create-github-app-token-2
+- 04ee9f4 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 3bb4652 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 0b51990 chore(ci): bump actions/create-github-app-token from 1 to 2
+
+## v0.0.8 - 2026-02-19
+- 330f6b8 Merge pull request #22 from thetigeregg/codex/deps
+- df49d37 Add dependabot docker major rules
+
+## v0.0.9 - 2026-02-19
+- b97449a Merge pull request #6 from thetigeregg/dependabot/docker/edge/caddy-2.10-alpine
+- 9f2caae Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- c3530e8 Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- 0ec4272 chore(docker): bump caddy from 2.8-alpine to 2.10-alpine in /edge
+
+## v0.0.10 - 2026-02-19
+- 07596a9 Merge pull request #13 from thetigeregg/dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
+- 9bf1d84 Merge branch 'main' into dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
+- 54fe978 chore(deps): bump express from 4.22.1 to 5.2.1 in /hltb-scraper
+

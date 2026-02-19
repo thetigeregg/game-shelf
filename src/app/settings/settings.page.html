@@ -125,6 +125,10 @@
       <ion-label>Clear Debug Logs</ion-label>
     </ion-item>
   </ion-list>
+
+  <div class="settings-version">
+    <ion-label color="medium">Version {{ appVersion }}</ion-label>
+  </div>
 </ion-content>
 
 <ion-modal [isOpen]="isPlatformOrderModalOpen" (didDismiss)="closePlatformOrderModal()">

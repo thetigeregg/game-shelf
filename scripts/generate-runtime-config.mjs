@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 const ENV_PATH = resolve(process.cwd(), '.env');
 const OUTPUT_PATH = resolve(process.cwd(), 'src/assets/runtime-config.js');
+const PACKAGE_JSON_PATH = resolve(process.cwd(), 'package.json');
 
 function parseDotEnv(content) {
   const values = {};
@@ -63,6 +64,7 @@ function parseBoolean(value, fallback = false) {
 }
 
 let envValues = {};
+let appVersion = '0.0.0';
 
 try {
   const envContent = readFileSync(ENV_PATH, 'utf8');
@@ -71,12 +73,22 @@ try {
   envValues = {};
 }
 
+try {
+  const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf8'));
+  if (typeof packageJson.version === 'string' && packageJson.version.trim().length > 0) {
+    appVersion = packageJson.version.trim();
+  }
+} catch {
+  appVersion = '0.0.0';
+}
+
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 
 const output = `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
   window.__GAME_SHELF_RUNTIME_CONFIG__,
   {
+    appVersion: ${JSON.stringify(appVersion)},
     featureFlags: {
       showMgcImport: ${showMgcImport},
     },

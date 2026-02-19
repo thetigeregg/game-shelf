@@ -108,7 +108,7 @@ import {
   resolveTransientRetryDelayMs
 } from './settings-mgc.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
-import { isMgcImportFeatureEnabled } from '../core/config/runtime-config';
+import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -333,6 +333,7 @@ export class SettingsPage {
     { label: 'Light', value: 'light' },
     { label: 'Dark', value: 'dark' }
   ];
+  readonly appVersion = getAppVersion();
   readonly isMgcImportFeatureEnabled = isMgcImportFeatureEnabled();
 
   selectedColorScheme: ColorSchemePreference = 'system';

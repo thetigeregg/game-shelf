@@ -104,6 +104,8 @@ services:
       PGPASSWORD_FILE: ${PGPASSWORD_FILE:-/run/secrets/postgres_password}
       BACKUP_KEEP_COUNT: ${BACKUP_KEEP_COUNT:-14}
       BACKUP_SCHEDULE_TIME: ${BACKUP_SCHEDULE_TIME:-00:00}
+      BACKUP_PGDUMP_RETRIES: ${BACKUP_PGDUMP_RETRIES:-3}
+      BACKUP_PGDUMP_RETRY_DELAY_SECONDS: ${BACKUP_PGDUMP_RETRY_DELAY_SECONDS:-5}
     depends_on:
       postgres:
         condition: service_healthy

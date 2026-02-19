@@ -90,29 +90,6 @@ function normalizePlatformIgdbIdQuery(url) {
   return parsed;
 }
 
-function normalizeReleaseYearQuery(url) {
-  const raw = (url.searchParams.get('releaseYear') ?? '').trim();
-
-  if (!/^\d{4}$/.test(raw)) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(raw, 10);
-
-  if (!Number.isInteger(parsed) || parsed < 1970 || parsed > 2100) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function normalizeIncludeCandidatesQuery(url) {
-  const raw = String(url.searchParams.get('includeCandidates') ?? '')
-    .trim()
-    .toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes';
-}
-
 function normalizePopularityTypeIdQuery(url) {
   const raw = String(url.searchParams.get('popularityTypeId') ?? '').trim();
 
@@ -203,18 +180,6 @@ function shouldLogHttp(env, requestUrl) {
 
   const hostname = requestUrl.hostname.toLowerCase();
   return hostname === 'localhost' || hostname === '127.0.0.1';
-}
-
-function shouldLogHltb(env, debugHttpEnabled) {
-  if (debugHttpEnabled) {
-    return true;
-  }
-
-  if (typeof env.DEBUG_HLTB_LOGS === 'string') {
-    return env.DEBUG_HLTB_LOGS.toLowerCase() === 'true';
-  }
-
-  return false;
 }
 
 function createLoggedFetch(fetchImpl, debugHttpEnabled) {
@@ -404,14 +369,6 @@ function sortIgdbSearchResults(games) {
 
 function isBoxArtSearchPath(pathname) {
   return pathname === '/v1/images/boxart/search';
-}
-
-function isHltbSearchPath(pathname) {
-  return pathname === '/v1/hltb/search';
-}
-
-function isImageProxyPath(pathname) {
-  return pathname === '/v1/images/proxy';
 }
 
 function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
@@ -673,37 +630,6 @@ function getTheGamesDbApiKey(env) {
   return typeof env.THEGAMESDB_API_KEY === 'string' && env.THEGAMESDB_API_KEY.trim().length > 0
     ? env.THEGAMESDB_API_KEY.trim()
     : null;
-}
-
-function getHltbScraperBaseUrl(env) {
-  const value =
-    typeof env.HLTB_SCRAPER_BASE_URL === 'string' ? env.HLTB_SCRAPER_BASE_URL.trim() : '';
-
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(value);
-    return parsed.toString().replace(/\/+$/, '');
-  } catch {
-    return null;
-  }
-}
-
-function getHltbScraperToken(env) {
-  const value = typeof env.HLTB_SCRAPER_TOKEN === 'string' ? env.HLTB_SCRAPER_TOKEN.trim() : '';
-  return value.length > 0 ? value : null;
-}
-
-function getHltbScraperRequestTimeoutMs(env) {
-  const raw = Number.parseInt(String(env.HLTB_SCRAPER_TIMEOUT_MS ?? ''), 10);
-
-  if (!Number.isInteger(raw) || raw < 1000) {
-    return 30_000;
-  }
-
-  return Math.min(raw, 120_000);
 }
 
 function getIgdbRequestTimeoutMs(env) {
@@ -1185,304 +1111,6 @@ async function searchTheGamesDbBoxArtCandidates(title, platform, platformIgdbId,
   }
 
   return [];
-}
-
-function normalizeHltbHoursValue(value) {
-  const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-
-  return Math.round(numeric * 10) / 10;
-}
-
-async function searchHltbCompletionTimesViaScraperService(
-  title,
-  releaseYear,
-  platform,
-  env,
-  fetchImpl,
-  debugLogs = false
-) {
-  const baseUrl = getHltbScraperBaseUrl(env);
-
-  if (!baseUrl) {
-    return null;
-  }
-
-  const url = new URL(`${baseUrl}/v1/hltb/search`);
-  url.searchParams.set('q', title);
-
-  if (Number.isInteger(releaseYear) && releaseYear > 0) {
-    url.searchParams.set('releaseYear', String(releaseYear));
-  }
-
-  if (typeof platform === 'string' && platform.trim().length > 0) {
-    url.searchParams.set('platform', platform.trim());
-  }
-
-  const headers = {
-    Accept: 'application/json'
-  };
-  const token = getHltbScraperToken(env);
-  const timeoutMs = getHltbScraperRequestTimeoutMs(env);
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  if (debugLogs) {
-    console.info('[hltb] scraper_lookup_start', {
-      title,
-      releaseYear: releaseYear ?? null,
-      platform: platform ?? null,
-      baseUrl,
-      timeoutMs
-    });
-  }
-
-  try {
-    const response = await fetchWithTimeout(
-      fetchImpl,
-      url.toString(),
-      {
-        method: 'GET',
-        headers
-      },
-      timeoutMs
-    );
-
-    if (!response.ok) {
-      if (debugLogs) {
-        console.warn('[hltb] scraper_lookup_failed', {
-          title,
-          status: response.status
-        });
-      }
-      return null;
-    }
-
-    const payload = await response.json();
-    const normalized = {
-      hltbMainHours: normalizeHltbHoursValue(payload?.item?.hltbMainHours),
-      hltbMainExtraHours: normalizeHltbHoursValue(payload?.item?.hltbMainExtraHours),
-      hltbCompletionistHours: normalizeHltbHoursValue(payload?.item?.hltbCompletionistHours)
-    };
-
-    if (
-      normalized.hltbMainHours === null &&
-      normalized.hltbMainExtraHours === null &&
-      normalized.hltbCompletionistHours === null
-    ) {
-      if (debugLogs) {
-        console.info('[hltb] scraper_lookup_match', {
-          title,
-          found: false
-        });
-      }
-      return null;
-    }
-
-    if (debugLogs) {
-      console.info('[hltb] scraper_lookup_match', {
-        title,
-        found: true
-      });
-    }
-
-    return normalized;
-  } catch (error) {
-    if (debugLogs) {
-      const cause = error && typeof error === 'object' ? error.cause : undefined;
-      console.warn('[hltb] scraper_lookup_exception', {
-        title,
-        timeoutMs,
-        message: error instanceof Error ? error.message : String(error),
-        causeMessage:
-          cause && typeof cause === 'object' && 'message' in cause
-            ? String(cause.message)
-            : undefined,
-        causeCode:
-          cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : undefined
-      });
-    }
-    return null;
-  }
-}
-
-async function searchHltbCandidatesViaScraperService(
-  title,
-  releaseYear,
-  platform,
-  env,
-  fetchImpl,
-  debugLogs = false
-) {
-  const baseUrl = getHltbScraperBaseUrl(env);
-
-  if (!baseUrl) {
-    return [];
-  }
-
-  const url = new URL(`${baseUrl}/v1/hltb/search`);
-  url.searchParams.set('q', title);
-  url.searchParams.set('includeCandidates', 'true');
-
-  if (Number.isInteger(releaseYear) && releaseYear > 0) {
-    url.searchParams.set('releaseYear', String(releaseYear));
-  }
-
-  if (typeof platform === 'string' && platform.trim().length > 0) {
-    url.searchParams.set('platform', platform.trim());
-  }
-
-  const headers = {
-    Accept: 'application/json'
-  };
-  const token = getHltbScraperToken(env);
-  const timeoutMs = getHltbScraperRequestTimeoutMs(env);
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await fetchWithTimeout(
-      fetchImpl,
-      url.toString(),
-      {
-        method: 'GET',
-        headers
-      },
-      timeoutMs
-    );
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = await response.json();
-
-    if (!Array.isArray(payload?.candidates)) {
-      return [];
-    }
-
-    return payload.candidates
-      .map((candidate) => ({
-        title: typeof candidate?.title === 'string' ? candidate.title.trim() : '',
-        releaseYear: Number.isInteger(candidate?.releaseYear) ? candidate.releaseYear : null,
-        platform:
-          typeof candidate?.platform === 'string' && candidate.platform.trim().length > 0
-            ? candidate.platform.trim()
-            : null,
-        imageUrl: normalizeHltbCandidateImageUrl(
-          candidate?.imageUrl ?? candidate?.coverUrl ?? null
-        ),
-        hltbMainHours: normalizeHltbHoursValue(candidate?.hltbMainHours),
-        hltbMainExtraHours: normalizeHltbHoursValue(candidate?.hltbMainExtraHours),
-        hltbCompletionistHours: normalizeHltbHoursValue(candidate?.hltbCompletionistHours)
-      }))
-      .filter((candidate) => candidate.title.length > 0);
-  } catch (error) {
-    if (debugLogs) {
-      const cause = error && typeof error === 'object' ? error.cause : undefined;
-      console.warn('[hltb] scraper_candidates_exception', {
-        title,
-        timeoutMs,
-        message: error instanceof Error ? error.message : String(error),
-        causeMessage:
-          cause && typeof cause === 'object' && 'message' in cause
-            ? String(cause.message)
-            : undefined,
-        causeCode:
-          cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : undefined
-      });
-    }
-    return [];
-  }
-}
-
-async function searchHltbCompletionTimes(
-  title,
-  releaseYear,
-  platform,
-  env,
-  fetchImpl,
-  debugLogs = false
-) {
-  const normalizedTitle = String(title ?? '').trim();
-  const normalizedPlatform = String(platform ?? '').trim();
-  const normalizedReleaseYear =
-    Number.isInteger(releaseYear) && releaseYear > 0 ? releaseYear : null;
-
-  if (normalizedTitle.length < 2) {
-    return null;
-  }
-
-  const scraperMatch = await searchHltbCompletionTimesViaScraperService(
-    normalizedTitle,
-    normalizedReleaseYear,
-    normalizedPlatform,
-    env,
-    fetchImpl,
-    debugLogs
-  );
-
-  if (scraperMatch !== null) {
-    return scraperMatch;
-  }
-  if (debugLogs) {
-    console.info('[hltb] lookup_unresolved', {
-      title: normalizedTitle,
-      reason: getHltbScraperBaseUrl(env) ? 'scraper_no_match' : 'scraper_not_configured'
-    });
-  }
-  return null;
-}
-
-function normalizeProxyImageUrl(url) {
-  try {
-    const parsed = new URL(String(url ?? ''));
-
-    if (parsed.protocol !== 'https:') {
-      return null;
-    }
-
-    if (parsed.hostname !== 'cdn.thegamesdb.net') {
-      return null;
-    }
-
-    if (!parsed.pathname.startsWith('/images/')) {
-      return null;
-    }
-
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
-
-function normalizeHltbCandidateImageUrl(url) {
-  const normalized = String(url ?? '').trim();
-
-  if (normalized.length === 0) {
-    return null;
-  }
-
-  if (normalized.startsWith('//')) {
-    return `https:${normalized}`;
-  }
-
-  if (normalized.startsWith('/')) {
-    return `https://howlongtobeat.com${normalized}`;
-  }
-
-  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-    return normalized;
-  }
-
-  return null;
 }
 
 async function fetchAppToken(env, fetchImpl, nowMs) {
@@ -2048,10 +1676,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const isPopularityPrimitivesPath = url.pathname === '/v1/popularity/primitives';
   const isGameByIdPath = gameId !== null;
   const isBoxArtSearchRoute = isBoxArtSearchPath(url.pathname);
-  const isHltbSearchRoute = isHltbSearchPath(url.pathname);
-  const isImageProxyRoute = isImageProxyPath(url.pathname);
   const debugHttp = shouldLogHttp(env, url);
-  const debugHltb = shouldLogHltb(env, debugHttp);
   const loggedFetch = createLoggedFetch(fetchImpl, debugHttp);
 
   if (
@@ -2060,14 +1685,12 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
     !isPopularityTypesPath &&
     !isPopularityPrimitivesPath &&
     !isGameByIdPath &&
-    !isBoxArtSearchRoute &&
-    !isHltbSearchRoute &&
-    !isImageProxyRoute
+    !isBoxArtSearchRoute
   ) {
     return jsonResponse({ error: 'Not found' }, 404);
   }
 
-  if (isGameSearchPath || isBoxArtSearchRoute || isHltbSearchRoute) {
+  if (isGameSearchPath || isBoxArtSearchRoute) {
     const query = normalizeSearchQuery(url);
 
     if (query.length < 2) {
@@ -2087,7 +1710,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
   const localRetryAfterSeconds = getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs);
 
-  if (localRetryAfterSeconds !== null && !isImageProxyRoute) {
+  if (localRetryAfterSeconds !== null) {
     return jsonResponse(
       { error: `Rate limit exceeded. Retry after ${localRetryAfterSeconds}s.` },
       429,
@@ -2108,34 +1731,6 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   }
 
   try {
-    if (isImageProxyRoute) {
-      const targetUrl = normalizeProxyImageUrl(url.searchParams.get('url'));
-
-      if (!targetUrl) {
-        return jsonResponse({ error: 'Invalid image URL.' }, 400);
-      }
-
-      const upstream = await loggedFetch(targetUrl, { method: 'GET' });
-
-      if (!upstream.ok) {
-        return jsonResponse({ error: 'Unable to fetch image.' }, 502);
-      }
-
-      const headers = {
-        'Cache-Control': 'public, max-age=86400'
-      };
-      const contentType = upstream.headers.get('Content-Type');
-
-      if (contentType) {
-        headers['Content-Type'] = contentType;
-      }
-
-      return new Response(upstream.body, {
-        status: 200,
-        headers
-      });
-    }
-
     if (isBoxArtSearchRoute) {
       const query = normalizeSearchQuery(url);
       const platform = normalizePlatformQuery(url);
@@ -2148,34 +1743,6 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
         loggedFetch
       );
       return jsonResponse({ items }, 200);
-    }
-
-    if (isHltbSearchRoute) {
-      const query = normalizeSearchQuery(url);
-      const releaseYear = normalizeReleaseYearQuery(url);
-      const platform = normalizePlatformQuery(url);
-      const includeCandidates = normalizeIncludeCandidatesQuery(url);
-      const item = await searchHltbCompletionTimes(
-        query,
-        releaseYear,
-        platform,
-        env,
-        loggedFetch,
-        debugHltb
-      );
-      if (!includeCandidates) {
-        return jsonResponse({ item }, 200);
-      }
-
-      const candidates = await searchHltbCandidatesViaScraperService(
-        query,
-        releaseYear,
-        platform,
-        env,
-        loggedFetch,
-        debugHltb
-      );
-      return jsonResponse({ item, candidates }, 200);
     }
 
     const token = await fetchAppToken(env, loggedFetch, nowMs);

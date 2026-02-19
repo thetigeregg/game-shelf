@@ -21,14 +21,7 @@ function createFetchStub({
   igdbPopularityPrimitivesBody = [],
   tokenStatus = 200,
   theGamesDbStatus = 200,
-  theGamesDbBody = null,
-  hltbStatus = 200,
-  hltbBody = null,
-  hltbPageStatus = 200,
-  hltbPageBody = '',
-  scraperStatus = 200,
-  scraperBody = null,
-  scraperBaseUrl = null
+  theGamesDbBody = null
 }) {
   const calls = {
     token: 0,
@@ -41,10 +34,7 @@ function createFetchStub({
     igdbPopularityPrimitives: 0,
     igdbPopularityPrimitiveBodies: [],
     theGamesDb: 0,
-    theGamesDbUrls: [],
-    hltb: 0,
-    hltbPage: 0,
-    scraper: 0
+    theGamesDbUrls: []
   };
 
   const stub = async (url, options = {}) => {
@@ -118,44 +108,6 @@ function createFetchStub({
         ),
         { status: 200 }
       );
-    }
-
-    if (normalizedUrl === 'https://howlongtobeat.com/api/search') {
-      calls.hltb += 1;
-
-      if (hltbStatus !== 200) {
-        return new Response(JSON.stringify({ error: 'hltb_failed' }), { status: hltbStatus });
-      }
-
-      return new Response(JSON.stringify(hltbBody ?? { data: [] }), { status: 200 });
-    }
-
-    if (normalizedUrl.startsWith('https://howlongtobeat.com/?q=')) {
-      calls.hltbPage += 1;
-
-      if (hltbPageStatus !== 200) {
-        return new Response('<html><body>blocked</body></html>', { status: hltbPageStatus });
-      }
-
-      return new Response(
-        hltbPageBody ||
-          '<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"games":[]}}}</script></body></html>',
-        { status: 200, headers: { 'Content-Type': 'text/html' } }
-      );
-    }
-
-    if (
-      typeof scraperBaseUrl === 'string' &&
-      scraperBaseUrl.length > 0 &&
-      normalizedUrl.startsWith(`${scraperBaseUrl}/v1/hltb/search`)
-    ) {
-      calls.scraper += 1;
-
-      if (scraperStatus !== 200) {
-        return new Response(JSON.stringify({ error: 'scraper_failed' }), { status: scraperStatus });
-      }
-
-      return new Response(JSON.stringify(scraperBody ?? { item: null }), { status: 200 });
     }
 
     throw new Error(`Unexpected URL: ${url}`);
@@ -981,85 +933,4 @@ test('returns empty box art results instead of 502 when TheGamesDB fails', async
   const payload = await response.json();
   assert.deepEqual(payload, { items: [] });
   assert.equal(calls.theGamesDb, 1);
-});
-
-test('prefers configured HLTB scraper service when available', async () => {
-  resetCaches();
-
-  const scraperBaseUrl = 'https://hltb-scraper.example';
-  const { stub, calls } = createFetchStub({
-    scraperBaseUrl,
-    scraperBody: {
-      item: {
-        hltbMainHours: 7.5,
-        hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13
-      }
-    }
-  });
-
-  const response = await handleRequest(
-    new Request(
-      'https://worker.example/v1/hltb/search?q=super%20metroid&releaseYear=1994&platform=snes'
-    ),
-    {
-      ...env,
-      HLTB_SCRAPER_BASE_URL: scraperBaseUrl
-    },
-    stub
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.deepEqual(payload.item, {
-    hltbMainHours: 7.5,
-    hltbMainExtraHours: 10,
-    hltbCompletionistHours: 13
-  });
-  assert.equal(calls.scraper, 1);
-  assert.equal(calls.hltb, 0);
-  assert.equal(calls.hltbPage, 0);
-});
-
-test('returns null HLTB item when scraper is unavailable', async () => {
-  resetCaches();
-
-  const { stub, calls } = createFetchStub({
-    scraperBaseUrl: 'https://hltb-scraper.example',
-    scraperStatus: 503
-  });
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/hltb/search?q=metroid'),
-    {
-      ...env,
-      HLTB_SCRAPER_BASE_URL: 'https://hltb-scraper.example'
-    },
-    stub
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.deepEqual(payload, { item: null });
-  assert.equal(calls.scraper, 1);
-  assert.equal(calls.hltb, 0);
-});
-
-test('returns null HLTB item when scraper is not configured', async () => {
-  resetCaches();
-
-  const { stub, calls } = createFetchStub({});
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/hltb/search?q=super%20metroid'),
-    env,
-    stub
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.deepEqual(payload, { item: null });
-  assert.equal(calls.scraper, 0);
-  assert.equal(calls.hltb, 0);
-  assert.equal(calls.hltbPage, 0);
 });

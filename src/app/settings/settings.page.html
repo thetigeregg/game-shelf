@@ -8,126 +8,128 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list lines="full">
-    <ion-list-header>
-      <ion-label>Theme</ion-label>
-    </ion-list-header>
+  <div class="settings-content">
+    <ion-list lines="full">
+      <ion-list-header>
+        <ion-label>Theme</ion-label>
+      </ion-list-header>
 
-    <ion-item>
-      <ion-label>Theme Mode</ion-label>
-      <ion-select
-        labelPlacement="end"
-        interface="popover"
-        [value]="selectedColorScheme"
-        (ionChange)="onColorSchemePreferenceChange($any($event).detail.value)"
-      >
-        @for (option of colorSchemeOptions; track option) {
-          <ion-select-option [value]="option.value">
-            {{ option.label }}
-          </ion-select-option>
-        }
-      </ion-select>
-    </ion-item>
-  </ion-list>
+      <ion-item>
+        <ion-label>Theme Mode</ion-label>
+        <ion-select
+          labelPlacement="end"
+          interface="popover"
+          [value]="selectedColorScheme"
+          (ionChange)="onColorSchemePreferenceChange($any($event).detail.value)"
+        >
+          @for (option of colorSchemeOptions; track option) {
+            <ion-select-option [value]="option.value">
+              {{ option.label }}
+            </ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+    </ion-list>
 
-  <ion-list lines="full">
-    <ion-list-header>
-      <ion-label>Data</ion-label>
-    </ion-list-header>
+    <ion-list lines="full">
+      <ion-list-header>
+        <ion-label>Data</ion-label>
+      </ion-list-header>
 
-    <ion-item>
-      <ion-input
-        label="Image Cache Limit (MB)"
-        class="ion-text-end"
-        type="number"
-        min="20"
-        max="2048"
-        step="10"
-        [ngModel]="imageCacheLimitMb"
-        (ngModelChange)="onImageCacheLimitChange($event)"
-        inputmode="numeric"
-      ></ion-input>
-    </ion-item>
-    <ion-item class="cache-usage-item">
-      <ion-label color="medium"
-        >Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label
-      >
-    </ion-item>
-    <ion-item button detail="false" (click)="purgeLocalImageCache()">
-      <ion-icon slot="start" color="danger" name="trash"></ion-icon>
-      <ion-label>Purge Local Image Cache</ion-label>
-    </ion-item>
-    <ion-item button detail="true" (click)="openPlatformOrderModal()">
-      <ion-icon slot="start" color="primary" name="layers"></ion-icon>
-      <ion-label>Platform Customizations</ion-label>
-    </ion-item>
-    <ion-item button detail="true" (click)="openMetadataValidator()">
-      <ion-icon slot="start" color="primary" name="file-tray-full"></ion-icon>
-      <ion-label>Metadata Validator</ion-label>
-    </ion-item>
-    <input
-      #csvFileInput
-      class="hidden-file-input"
-      type="file"
-      accept=".csv,text/csv"
-      (change)="onImportFileSelected($event)"
-    />
-  </ion-list>
-
-  <ion-list lines="full">
-    <ion-list-header>
-      <ion-label>Import/Export</ion-label>
-    </ion-list-header>
-
-    <ion-item button detail="true" (click)="exportCsv()">
-      <ion-icon slot="start" color="primary" name="share"></ion-icon>
-      <ion-label>Export CSV</ion-label>
-    </ion-item>
-    <ion-item button detail="true" (click)="triggerImport(csvFileInput)">
-      <ion-icon slot="start" color="primary" name="download"></ion-icon>
-      <ion-label>Import CSV</ion-label>
-    </ion-item>
-  </ion-list>
-
-  <ion-list lines="full">
-    <ion-list-header>
-      <ion-label>Debug</ion-label>
-    </ion-list-header>
-
-    <ion-item>
-      <ion-icon slot="start" color="medium" name="bug"></ion-icon>
-      <ion-label>Verbose Trace Logs</ion-label>
-      <ion-toggle
-        slot="end"
-        [checked]="verboseTracingEnabled"
-        (ionChange)="onVerboseTracingToggleChange($any($event).detail.checked)"
-      ></ion-toggle>
-    </ion-item>
-    @if (isMgcImportFeatureEnabled) {
+      <ion-item>
+        <ion-input
+          label="Image Cache Limit (MB)"
+          class="ion-text-end"
+          type="number"
+          min="20"
+          max="2048"
+          step="10"
+          [ngModel]="imageCacheLimitMb"
+          (ngModelChange)="onImageCacheLimitChange($event)"
+          inputmode="numeric"
+        ></ion-input>
+      </ion-item>
+      <ion-item class="cache-usage-item">
+        <ion-label color="medium"
+          >Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label
+        >
+      </ion-item>
+      <ion-item button detail="false" (click)="purgeLocalImageCache()">
+        <ion-icon slot="start" color="danger" name="trash"></ion-icon>
+        <ion-label>Purge Local Image Cache</ion-label>
+      </ion-item>
+      <ion-item button detail="true" (click)="openPlatformOrderModal()">
+        <ion-icon slot="start" color="primary" name="layers"></ion-icon>
+        <ion-label>Platform Customizations</ion-label>
+      </ion-item>
+      <ion-item button detail="true" (click)="openMetadataValidator()">
+        <ion-icon slot="start" color="primary" name="file-tray-full"></ion-icon>
+        <ion-label>Metadata Validator</ion-label>
+      </ion-item>
       <input
-        #mgcCsvFileInput
+        #csvFileInput
         class="hidden-file-input"
         type="file"
         accept=".csv,text/csv"
-        (change)="onMgcImportFileSelected($event)"
+        (change)="onImportFileSelected($event)"
       />
-      <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
-        <ion-icon slot="start" color="primary" name="download"></ion-icon>
-        <ion-label>Import MGC CSV</ion-label>
-      </ion-item>
-    }
-    <ion-item button detail="true" (click)="exportDebugLogs()">
-      <ion-icon slot="start" color="primary" name="bug"></ion-icon>
-      <ion-label>Export Debug Logs</ion-label>
-    </ion-item>
-    <ion-item button detail="true" (click)="clearDebugLogs()">
-      <ion-icon slot="start" color="danger" name="trash"></ion-icon>
-      <ion-label>Clear Debug Logs</ion-label>
-    </ion-item>
-  </ion-list>
+    </ion-list>
 
-  <div class="settings-version">
-    <ion-label color="medium">Version {{ appVersion }}</ion-label>
+    <ion-list lines="full">
+      <ion-list-header>
+        <ion-label>Import/Export</ion-label>
+      </ion-list-header>
+
+      <ion-item button detail="true" (click)="exportCsv()">
+        <ion-icon slot="start" color="primary" name="share"></ion-icon>
+        <ion-label>Export CSV</ion-label>
+      </ion-item>
+      <ion-item button detail="true" (click)="triggerImport(csvFileInput)">
+        <ion-icon slot="start" color="primary" name="download"></ion-icon>
+        <ion-label>Import CSV</ion-label>
+      </ion-item>
+    </ion-list>
+
+    <ion-list lines="full">
+      <ion-list-header>
+        <ion-label>Debug</ion-label>
+      </ion-list-header>
+
+      <ion-item>
+        <ion-icon slot="start" color="medium" name="bug"></ion-icon>
+        <ion-label>Verbose Trace Logs</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="verboseTracingEnabled"
+          (ionChange)="onVerboseTracingToggleChange($any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
+      @if (isMgcImportFeatureEnabled) {
+        <input
+          #mgcCsvFileInput
+          class="hidden-file-input"
+          type="file"
+          accept=".csv,text/csv"
+          (change)="onMgcImportFileSelected($event)"
+        />
+        <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
+          <ion-icon slot="start" color="primary" name="download"></ion-icon>
+          <ion-label>Import MGC CSV</ion-label>
+        </ion-item>
+      }
+      <ion-item button detail="true" (click)="exportDebugLogs()">
+        <ion-icon slot="start" color="primary" name="bug"></ion-icon>
+        <ion-label>Export Debug Logs</ion-label>
+      </ion-item>
+      <ion-item button detail="true" (click)="clearDebugLogs()">
+        <ion-icon slot="start" color="danger" name="trash"></ion-icon>
+        <ion-label>Clear Debug Logs</ion-label>
+      </ion-item>
+    </ion-list>
+
+    <div class="settings-version">
+      <ion-label color="medium">Version {{ appVersion }}</ion-label>
+    </div>
   </div>
 </ion-content>
 

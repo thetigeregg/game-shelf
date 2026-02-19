@@ -65,6 +65,11 @@ jobs:
             exit 0
           fi
           git commit -m "chore(release): ${RELEASE_TAG} [skip ci]"
+          if git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null; then
+            echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            git push origin HEAD:main
+            exit 0
+          fi
           git tag "${RELEASE_TAG}"
           git push origin HEAD:main
           git push origin "${RELEASE_TAG}"

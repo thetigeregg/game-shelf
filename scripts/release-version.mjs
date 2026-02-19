@@ -38,6 +38,21 @@ function bumpVersion(version, bumpType) {
   return `${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
 }
 
+function compareSemver(leftVersion, rightVersion) {
+  const left = parseSemver(leftVersion);
+  const right = parseSemver(rightVersion);
+
+  if (left.major !== right.major) {
+    return left.major - right.major;
+  }
+
+  if (left.minor !== right.minor) {
+    return left.minor - right.minor;
+  }
+
+  return left.patch - right.patch;
+}
+
 function getLatestTag() {
   const tags = run("git tag --list 'v*' --sort=-v:refname");
   if (!tags) {
@@ -132,10 +147,15 @@ if (!currentVersion) {
 }
 
 const latestTag = getLatestTag();
+const latestTagVersion = latestTag ? latestTag.replace(/^v/, '') : null;
+const releaseBaseVersion =
+  latestTagVersion && compareSemver(latestTagVersion, currentVersion) > 0
+    ? latestTagVersion
+    : currentVersion;
 const range = latestTag ? `${latestTag}..HEAD` : 'HEAD';
 const commits = getCommitMessages(range);
 const bumpType = inferBumpType(commits);
-const nextVersion = bumpVersion(currentVersion, bumpType);
+const nextVersion = bumpVersion(releaseBaseVersion, bumpType);
 const changelogCommits = getCommitsForChangelog(range);
 
 if (!DRY_RUN) {

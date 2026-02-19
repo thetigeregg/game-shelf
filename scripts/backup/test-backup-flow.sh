@@ -62,7 +62,7 @@ if ! gzip -t "$LATEST_PATH/postgres.sql.gz"; then
   exit 1
 fi
 
-if ! gzip -dc "$LATEST_PATH/postgres.sql.gz" | grep -Eq '^-- PostgreSQL database dump'; then
+if ! zgrep -Fq 'PostgreSQL database dump' "$LATEST_PATH/postgres.sql.gz"; then
   echo "[backup-test] FAIL: postgres.sql.gz does not look like a PostgreSQL SQL dump" >&2
   exit 1
 fi

@@ -141,7 +141,8 @@ For NAS/Portainer/Tailscale deployment, see:
 
 ## Backups
 
-Containerized backups are enabled by default via the `backup` service in Compose.
+Containerized backups are enabled by default via the `backup` service in both `docker-compose.yml` (local/dev) and `docker-compose.portainer.yml` (NAS/Portainer production).
+For deployment usage details, see `docs/nas-deployment.md`.
 Default schedule is `00:00` in the container timezone (`TZ`), which may differ from your local timezone.
 Schedule and retention are controlled by env vars:
 

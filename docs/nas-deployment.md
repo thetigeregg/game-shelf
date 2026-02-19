@@ -131,6 +131,7 @@ docker compose logs -f api
 ## 6. Backup workflow (Backrest/Restic friendly)
 
 App-consistent Postgres dump artifacts are created automatically by the `backup` service.
+The service exists in both compose files, but for NAS/production use `docker-compose.portainer.yml`.
 
 What it produces under `nas-data/backups/<timestamp>/`:
 

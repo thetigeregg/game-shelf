@@ -1,7 +1,17 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
+  const versionAlert = page.getByRole('alertdialog', { name: 'App Updated' });
+
+  if (await versionAlert.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await page.getByRole('button', { name: 'OK' }).click();
+    await expect(versionAlert).toBeHidden();
+  }
+}
 
 test('collection page loads core controls', async ({ page }) => {
   await page.goto('/tabs/collection');
+  await dismissVersionAlertIfPresent(page);
 
   await expect(page.locator('ion-title .page-title', { hasText: 'Collection' })).toBeVisible();
   await expect(page.getByPlaceholder('Search collection')).toBeVisible();
@@ -11,6 +21,7 @@ test('collection page loads core controls', async ({ page }) => {
 
 test('filter menu shows reset and done on same row', async ({ page }) => {
   await page.goto('/tabs/collection');
+  await dismissVersionAlertIfPresent(page);
   await page.getByRole('button', { name: 'Open filters' }).click();
 
   const reset = page.locator('ion-menu .actions ion-button', { hasText: 'Reset' });
@@ -32,6 +43,7 @@ test('filter menu shows reset and done on same row', async ({ page }) => {
 
 test('settings page shows metadata validator and import export entries', async ({ page }) => {
   await page.goto('/settings');
+  await dismissVersionAlertIfPresent(page);
 
   await expect(page.locator('ion-list-header', { hasText: 'Theme' })).toBeVisible();
   await expect(page.locator('ion-list-header', { hasText: 'Data' })).toBeVisible();

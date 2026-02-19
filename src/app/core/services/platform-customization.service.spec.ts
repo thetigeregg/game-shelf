@@ -4,6 +4,19 @@ import {
   PlatformCustomizationService
 } from './platform-customization.service';
 
+const PLATFORM_ALIAS_CASES: Array<{ source: string; id: number; canonical: string }> = [
+  { source: 'Family Computer', id: 99, canonical: 'Nintendo Entertainment System' },
+  {
+    source: 'Family Computer Disk System',
+    id: 51,
+    canonical: 'Nintendo Entertainment System'
+  },
+  { source: 'Super Famicom', id: 58, canonical: 'Super Nintendo Entertainment System' },
+  { source: 'New Nintendo 3DS', id: 137, canonical: 'Nintendo 3DS' },
+  { source: 'Nintendo DSi', id: 159, canonical: 'Nintendo DS' },
+  { source: 'e-Reader / Card-e Reader', id: 510, canonical: 'Game Boy Advance' }
+];
+
 describe('PlatformCustomizationService', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -21,11 +34,9 @@ describe('PlatformCustomizationService', () => {
   it('applies built-in platform aliases when no custom display name exists', () => {
     const service = TestBed.inject(PlatformCustomizationService);
 
-    expect(service.getDisplayName('Super Famicom', 58)).toBe('Super Nintendo Entertainment System');
-    expect(service.getDisplayName('Family Computer Disk System', 51)).toBe(
-      'Nintendo Entertainment System'
-    );
-    expect(service.getDisplayName('e-Reader / Card-e Reader', 510)).toBe('Game Boy Advance');
+    for (const testCase of PLATFORM_ALIAS_CASES) {
+      expect(service.getDisplayName(testCase.source, testCase.id)).toBe(testCase.canonical);
+    }
   });
 
   it('applies custom display names by platform id', () => {
@@ -59,9 +70,11 @@ describe('PlatformCustomizationService', () => {
   it('formats aliased labels as canonical with original source in parentheses', () => {
     const service = TestBed.inject(PlatformCustomizationService);
 
-    expect(service.getDisplayNameWithAliasSource('Family Computer', 99)).toBe(
-      'Nintendo Entertainment System (Family Computer)'
-    );
+    for (const testCase of PLATFORM_ALIAS_CASES) {
+      expect(service.getDisplayNameWithAliasSource(testCase.source, testCase.id)).toBe(
+        `${testCase.canonical} (${testCase.source})`
+      );
+    }
 
     service.setCustomName(18, 'NES');
     expect(service.getDisplayNameWithAliasSource('Family Computer', 99)).toBe(
@@ -79,6 +92,16 @@ describe('PlatformCustomizationService', () => {
     expect(service.getDisplayNameWithAliasSource('e-Reader', 510)).toBe(
       'Game Boy Advance (e-Reader)'
     );
+  });
+
+  it('returns raw alias source labels when aliasing is disabled', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+
+    for (const testCase of PLATFORM_ALIAS_CASES) {
+      expect(service.getDisplayNameWithoutAlias(testCase.source, testCase.id)).toBe(
+        testCase.source
+      );
+    }
   });
 
   it('returns non-aliased platform labels unchanged for alias-source formatting', () => {

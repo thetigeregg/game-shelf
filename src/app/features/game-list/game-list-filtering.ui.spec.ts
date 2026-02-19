@@ -280,6 +280,37 @@ describe('GameListFilteringEngine UI behavior', () => {
     );
   });
 
+  it('treats shorthand e-Reader label as Game Boy Advance for grouping and filtering', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 510,
+        title: 'Card-e Game',
+        platform: 'e-Reader'
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 24,
+        title: 'GBA Game',
+        platform: 'Game Boy Advance'
+      })
+    ];
+
+    expect(engine.extractPlatforms(games)).toEqual(['Game Boy Advance']);
+
+    const grouped = engine.buildGroupedView(games, 'platform');
+    expect(grouped.sections.map((section) => section.title)).toEqual(['Game Boy Advance']);
+
+    const normalizedFilters = engine.normalizeFilters({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      platform: ['e-Reader']
+    });
+    expect(normalizedFilters.platform).toEqual(['Game Boy Advance']);
+
+    const filtered = engine.applyFiltersAndSort(games, normalizedFilters, '');
+    expect(filtered.map((game) => game.title).sort()).toEqual(['Card-e Game', 'GBA Game'].sort());
+  });
+
   it('treats New Nintendo 3DS as Nintendo 3DS and Nintendo DSi as Nintendo DS', () => {
     const games: GameEntry[] = [
       makeGame({

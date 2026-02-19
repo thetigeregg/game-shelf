@@ -15,6 +15,7 @@ concurrency:
 jobs:
   quality_checks:
     name: Quality Checks
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -61,7 +62,6 @@ jobs:
 
   release:
     name: Bump Version and Tag
-    needs: quality_checks
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
@@ -113,7 +113,6 @@ jobs:
   publish_images:
     name: Publish Docker Images
     needs:
-      - quality_checks
       - release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

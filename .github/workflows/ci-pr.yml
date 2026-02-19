@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 concurrency:
   group: game-shelf-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true

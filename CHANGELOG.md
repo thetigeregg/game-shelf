@@ -425,3 +425,7 @@
 - 776f3d3 Remove @capacitor/app dependency
 - a0b61af Display app version in settings
 
+## v0.0.4 - 2026-02-19
+- 97d8489 Move pino-pretty to dependencies
+- 05685eb Move pino-pretty dependency
+

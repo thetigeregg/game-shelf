@@ -141,7 +141,7 @@ export function registerImageProxyRoute(
     let upstream: Response;
 
     try {
-      upstream = await fetchImpl(sourceUrl, { method: 'GET', signal: controller.signal });
+      upstream = await fetchImpl(sourceUrl, { method: 'GET', signal: controller.signal, redirect: 'error' });
     } catch {
       incrementImageMetric('upstreamErrors');
       reply.code(504).send({ error: 'Image fetch timed out.' });

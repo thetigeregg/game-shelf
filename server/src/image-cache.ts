@@ -269,12 +269,31 @@ function normalizeProxyImageUrl(raw: unknown): NormalizedProxyImageUrl | null {
       return null;
     }
 
-    // Remove URL fragment so it does not affect cache keys
-    parsed.hash = '';
+    // At this point we know which backend host this URL targets and that the path
+    // starts with the expected, allowed prefix. Reconstruct a canonical URL using
+    // server-controlled host and path prefix to avoid relying on the user-supplied
+    // URL instance for the actual upstream request.
+    const isGamesDbTarget = isTheGamesDb;
+    const targetHost = isGamesDbTarget ? allowedTheGamesDbHost : allowedIgdbHost;
+    const targetPrefix = isGamesDbTarget ? allowedTheGamesDbPathPrefix : allowedIgdbPathPrefix;
 
-    const canonicalUrl = parsed.toString();
+    // Compute the path suffix after the allowed prefix. We use the original
+    // case-preserving pathname when slicing to avoid altering the upstream path.
+    const prefixLength = targetPrefix.length;
+    const pathSuffix = pathname.substring(prefixLength);
+
+    // Build a fresh URL using a fixed base (scheme, host, port) plus the validated path.
+    const baseUrl = new URL(`https://${targetHost}`);
+    baseUrl.port = '443';
+    baseUrl.search = '';
+    baseUrl.hash = '';
+    baseUrl.pathname =
+      THE_GAMES_DB_HOST.toLowerCase() === targetHost
+        ? THE_GAMES_DB_PATH_PREFIX + pathSuffix
+        : IGDB_PATH_PREFIX + pathSuffix;
+
+    const canonicalUrl = baseUrl.toString();
     const fetchUrl = new URL(canonicalUrl);
-    fetchUrl.search = '';
 
     return { cacheKeyUrl: canonicalUrl, fetchUrl };
   } catch {

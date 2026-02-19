@@ -19,6 +19,7 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-edge:main`
    - `ghcr.io/thetigeregg/game-shelf-api:main`
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
+   - `ghcr.io/thetigeregg/game-shelf-backup:main`
 3. In Portainer, add a registry credential for `ghcr.io`:
    - Username: your GitHub username
    - Password/token: GitHub PAT with `read:packages` (and `repo` if repo/packages are private)
@@ -132,6 +133,7 @@ docker compose logs -f api
 
 App-consistent Postgres dump artifacts are created automatically by the `backup` service.
 The service exists in both compose files, but for NAS/production use `docker-compose.portainer.yml`.
+In NAS/Portainer deployments, `backup` runs from `${BACKUP_IMAGE:-ghcr.io/thetigeregg/game-shelf-backup:main}` and already includes `/opt/backup` scripts.
 
 What it produces under `nas-data/backups/<timestamp>/`:
 

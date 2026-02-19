@@ -84,7 +84,7 @@ services:
 
   backup:
     container_name: gameshelf-backup
-    image: postgres:16-alpine
+    image: ${BACKUP_IMAGE:-ghcr.io/thetigeregg/game-shelf-backup:main}
     environment:
       TZ: ${TZ:-Europe/Zurich}
       PGTZ: ${TZ:-Europe/Zurich}
@@ -102,9 +102,4 @@ services:
         condition: service_healthy
     volumes:
       - ${BACKUP_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/backups}:/backups
-      - ${BACKUP_SCRIPTS_DIR:-./scripts/backup}:/opt/backup:ro
-    command:
-      - /bin/sh
-      - -ec
-      - /opt/backup/start-cron.sh
     restart: unless-stopped

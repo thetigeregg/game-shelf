@@ -1,7 +1,7 @@
 {
   "name": "game-shelf",
   "version": "0.0.4",
-  "author": "TigerEgg",
+  "author": "TigerEsgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
     "prestart": "node scripts/generate-runtime-config.mjs",

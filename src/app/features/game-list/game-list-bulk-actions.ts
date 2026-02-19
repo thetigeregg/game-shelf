@@ -1,5 +1,10 @@
 import type { LoadingController } from '@ionic/angular/standalone';
 import { GameEntry } from '../../core/models/game.models';
+import {
+  extractRetryAfterSeconds,
+  isRateLimitedMessage,
+  isTransientNetworkMessage
+} from '../../core/utils/rate-limit-ui-error';
 
 export interface BulkActionResult<T> {
   game: GameEntry;
@@ -152,12 +157,12 @@ function shouldRetryBulkActionError(
     return true;
   }
 
-  return /fetch failed|network|time(?:d)?\s*out|temporar|unavailable|gateway/i.test(message);
+  return isTransientNetworkMessage(message.toLowerCase());
 }
 
 function isRateLimitError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : '';
-  return /rate limit|too many requests|429/i.test(message);
+  return isRateLimitedMessage(message);
 }
 
 function classifyBulkError(error: unknown): 'rate_limit' | 'transient' | 'other' {
@@ -167,7 +172,7 @@ function classifyBulkError(error: unknown): 'rate_limit' | 'transient' | 'other'
 
   const message = error instanceof Error ? error.message : '';
 
-  if (/fetch failed|network|time(?:d)?\s*out|temporar|unavailable|gateway/i.test(message)) {
+  if (isTransientNetworkMessage(message.toLowerCase())) {
     return 'transient';
   }
 
@@ -180,14 +185,10 @@ function resolveBulkRetryDelayMs(
   retryConfig: BulkActionRetryConfig
 ): number {
   const message = error instanceof Error ? error.message : '';
-  const retryAfterMatch = message.match(/retry after\s+(\d+)\s*s/i);
+  const seconds = extractRetryAfterSeconds(message);
 
-  if (retryAfterMatch) {
-    const seconds = Number.parseInt(retryAfterMatch[1], 10);
-
-    if (Number.isInteger(seconds) && seconds > 0) {
-      return Math.min(seconds * 1000, retryConfig.rateLimitFallbackCooldownMs);
-    }
+  if (seconds !== null) {
+    return Math.min(seconds * 1000, retryConfig.rateLimitFallbackCooldownMs);
   }
 
   if (isRateLimitError(error)) {

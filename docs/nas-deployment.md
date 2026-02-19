@@ -34,9 +34,16 @@ Common stack env vars:
 - `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`)
 - `DATABASE_URL` (default works for bundled postgres service)
 - `CORS_ORIGIN`
+- `API_TOKEN` (required when `REQUIRE_AUTH=true`)
+- `REQUIRE_AUTH` (defaults to true)
 - `HLTB_SCRAPER_TOKEN` (optional, but recommended)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+
+Protected POST endpoints (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`, `/api/v1/manuals/refresh`) require:
+
+- `Authorization: Bearer <API_TOKEN>`
+- The bundled `edge` service injects this header automatically for `/api/*` requests.
 
 Example:
 

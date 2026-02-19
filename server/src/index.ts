@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
@@ -16,6 +17,7 @@ const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
   const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);
+  validateSecurityConfig();
   console.info('[server] image_cache_dir_ready', {
     configured: config.imageCacheDir,
     active: imageCacheDir
@@ -36,8 +38,26 @@ async function main(): Promise<void> {
   });
 
   await app.register(cors, {
-    origin: config.corsOrigin === '*' ? true : config.corsOrigin,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const allowed = isCorsOriginAllowed(origin);
+      callback(null, allowed);
+    },
     credentials: true
+  });
+
+  app.addHook('onRequest', async (request, reply) => {
+    if (!isProtectedRoute(request)) {
+      return;
+    }
+
+    if (!isAuthorizedRequest(request)) {
+      reply.code(401).send({ error: 'Unauthorized' });
+    }
   });
 
   app.get('/v1/health', async (_request, reply) => {
@@ -57,7 +77,10 @@ async function main(): Promise<void> {
   });
 
   registerSyncRoutes(app, pool);
-  registerImageProxyRoute(app, pool, imageCacheDir);
+  registerImageProxyRoute(app, pool, imageCacheDir, {
+    timeoutMs: config.imageProxyTimeoutMs,
+    maxBytes: config.imageProxyMaxBytes
+  });
   registerCacheObservabilityRoutes(app, pool);
   registerManualRoutes(app, {
     manualsDir: config.manualsDir,
@@ -91,6 +114,44 @@ async function main(): Promise<void> {
     host: config.host,
     port: config.port
   });
+}
+
+function validateSecurityConfig(): void {
+  if (config.requireAuth && config.apiToken.length === 0) {
+    throw new Error('REQUIRE_AUTH is enabled but API_TOKEN is not configured.');
+  }
+}
+
+function isCorsOriginAllowed(origin: string): boolean {
+  return config.corsAllowedOrigins.some((allowedOrigin) => allowedOrigin === origin);
+}
+
+function isProtectedRoute(request: FastifyRequest): boolean {
+  if (request.method !== 'POST') {
+    return false;
+  }
+
+  return (
+    request.url === '/v1/sync/push' ||
+    request.url === '/v1/sync/pull' ||
+    request.url === '/v1/images/cache/purge' ||
+    request.url === '/v1/manuals/refresh'
+  );
+}
+
+function isAuthorizedRequest(request: FastifyRequest): boolean {
+  if (!config.requireAuth) {
+    return true;
+  }
+
+  const authorization = String(request.headers.authorization ?? '').trim();
+
+  if (!authorization.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = authorization.slice('Bearer '.length).trim();
+  return token.length > 0 && token === config.apiToken;
 }
 
 main().catch((error) => {

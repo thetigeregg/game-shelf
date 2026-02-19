@@ -24,6 +24,9 @@ const tokenCache = {
 };
 
 const rateLimitCache = new Map();
+const RATE_LIMIT_CACHE_SWEEP_INTERVAL = 250;
+const RATE_LIMIT_CACHE_MAX_SIZE = 5000;
+let rateLimitSweepCounter = 0;
 const igdbSearchVariantCache = {
   preferredVariantIndex: 0,
   disabledVariants: new Set()
@@ -415,6 +418,7 @@ function isImageProxyPath(pathname) {
 }
 
 function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
+  sweepLocalRateLimitCache(nowMs);
   const key = ipAddress || 'unknown';
   const entry = rateLimitCache.get(key);
 
@@ -430,6 +434,21 @@ function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
 
   entry.count += 1;
   return null;
+}
+
+function sweepLocalRateLimitCache(nowMs) {
+  rateLimitSweepCounter += 1;
+  const shouldSweepByInterval = rateLimitSweepCounter % RATE_LIMIT_CACHE_SWEEP_INTERVAL === 0;
+
+  if (!shouldSweepByInterval && rateLimitCache.size <= RATE_LIMIT_CACHE_MAX_SIZE) {
+    return;
+  }
+
+  for (const [key, entry] of rateLimitCache.entries()) {
+    if (nowMs - entry.startedAt > RATE_LIMIT_WINDOW_MS) {
+      rateLimitCache.delete(key);
+    }
+  }
 }
 
 function parseRetryAfterSeconds(value, nowMs) {

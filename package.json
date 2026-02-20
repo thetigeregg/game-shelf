@@ -8,7 +8,7 @@
     "ng": "ng",
     "start": "ng serve --port 8100",
     "prebuild": "node scripts/generate-runtime-config.mjs",
-    "dev:stack:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hltb-scraper api",
+    "dev:stack:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build postgres hltb-scraper api",
     "dev:stack:restart": "docker compose -f docker-compose.yml -f docker-compose.dev.yml restart postgres hltb-scraper api",
     "dev:stack:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "dev:backend:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f api postgres hltb-scraper",

@@ -617,3 +617,11 @@
 - 1ff9bdb Add @fastify/rate-limit dependency to enhance rate limiting functionality
 - f4c03f7 Potential fix for code scanning alert no. 2: Missing rate limiting
 
+## v0.1.2 - 2026-02-20
+- 161e392 Merge pull request #54 from thetigeregg/angular-21
+- 3b88539 Merge branch 'main' into angular-21
+- c0f31f0 chore: refine versioning rules for Angular-related packages in .ncurc.cjs
+- 4db2c65 chore(deps): upgrade @angular/cdk to version 21.1.5
+- 8271f31 chore(deps): update @angular-eslint packages to version 21.2.0
+- 652be68 chore: upgrade Angular dependencies to version 21.x and adjust configurations
+

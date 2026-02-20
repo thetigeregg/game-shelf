@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
 
@@ -57,65 +57,77 @@ export function registerImageProxyRoute(
     maxRequestsPerWindow: imagePurgeMaxRequestsPerWindow
   });
 
-  app.post(
-    '/v1/images/cache/purge',
-    { preHandler: imagePurgeRateLimit },
-    async (request, reply) => {
-      const body = (request.body ?? {}) as { urls?: unknown };
-      const rawUrls = Array.isArray(body.urls) ? body.urls : [];
-      const normalizedUrls = [
-        ...new Set(
-          rawUrls
-            .map((url) => normalizeProxyImageUrl(url)?.cacheKeyUrl)
-            .filter((url): url is string => typeof url === 'string' && url.length > 0)
-        )
-      ];
+  app.post('/v1/images/cache/purge', async (request, reply) => {
+    const purgeRateLimit = imagePurgeRateLimit.consume(getClientIpKey(request));
 
-      if (normalizedUrls.length === 0) {
-        reply.send({ deleted: 0 });
-        return;
-      }
-
-      let deleted = 0;
-
-      for (const sourceUrl of normalizedUrls) {
-        const cacheKey = sha256(sourceUrl);
-        let existing: ImageAssetRow | undefined;
-
-        try {
-          const cached = await pool.query<ImageAssetRow>(
-            'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
-            [cacheKey]
-          );
-          existing = cached.rows[0];
-        } catch {
-          continue;
-        }
-
-        if (!existing) {
-          continue;
-        }
-
-        try {
-          await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
-        } catch {
-          continue;
-        }
-
-        deleted += 1;
-
-        try {
-          await fsPromises.unlink(existing.file_path);
-        } catch {
-          // Ignore filesystem cleanup failures. DB metadata is already removed.
-        }
-      }
-
-      reply.send({ deleted });
+    if (purgeRateLimit.retryAfterSeconds !== undefined) {
+      reply.header('Retry-After', String(purgeRateLimit.retryAfterSeconds));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
     }
-  );
 
-  app.get('/v1/images/proxy', { preHandler: imageProxyRateLimit }, async (request, reply) => {
+    const body = (request.body ?? {}) as { urls?: unknown };
+    const rawUrls = Array.isArray(body.urls) ? body.urls : [];
+    const normalizedUrls = [
+      ...new Set(
+        rawUrls
+          .map((url) => normalizeProxyImageUrl(url)?.cacheKeyUrl)
+          .filter((url): url is string => typeof url === 'string' && url.length > 0)
+      )
+    ];
+
+    if (normalizedUrls.length === 0) {
+      reply.send({ deleted: 0 });
+      return;
+    }
+
+    let deleted = 0;
+
+    for (const sourceUrl of normalizedUrls) {
+      const cacheKey = sha256(sourceUrl);
+      let existing: ImageAssetRow | undefined;
+
+      try {
+        const cached = await pool.query<ImageAssetRow>(
+          'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
+          [cacheKey]
+        );
+        existing = cached.rows[0];
+      } catch {
+        continue;
+      }
+
+      if (!existing) {
+        continue;
+      }
+
+      try {
+        await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+      } catch {
+        continue;
+      }
+
+      deleted += 1;
+
+      try {
+        await fsPromises.unlink(existing.file_path);
+      } catch {
+        // Ignore filesystem cleanup failures. DB metadata is already removed.
+      }
+    }
+
+    reply.send({ deleted });
+  });
+
+  app.get('/v1/images/proxy', async (request, reply) => {
+    const proxyRateLimit = imageProxyRateLimit.consume(getClientIpKey(request));
+
+    if (proxyRateLimit.retryAfterSeconds !== undefined) {
+      reply.header('Retry-After', String(proxyRateLimit.retryAfterSeconds));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
+    }
+
     const normalizedImageUrl = normalizeProxyImageUrl(
       (request.query as Record<string, unknown>)['url']
     );
@@ -252,6 +264,10 @@ interface RateLimitEntry {
   resetAtEpochMs: number;
 }
 
+interface RouteRateLimiter {
+  consume(ipKey: string): { retryAfterSeconds?: number };
+}
+
 function getClientIpKey(request: FastifyRequest): string {
   const xForwardedFor = request.headers['x-forwarded-for'];
 
@@ -290,7 +306,7 @@ function getClientIpKey(request: FastifyRequest): string {
 // 120 req/min, a single client could make up to 360 req/min across the fleet.
 // If multi-instance deployments are required, replace this with a shared
 // rate-limiting backend such as Redis.
-function createRouteRateLimiter(options: RateLimiterOptions) {
+function createRouteRateLimiter(options: RateLimiterOptions): RouteRateLimiter {
   const entries = new Map<string, RateLimitEntry>();
 
   setInterval(() => {
@@ -302,27 +318,28 @@ function createRouteRateLimiter(options: RateLimiterOptions) {
     }
   }, options.windowMs).unref();
 
-  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const now = Date.now();
-    const ipKey = getClientIpKey(request);
-    const existing = entries.get(ipKey);
+  return {
+    consume(ipKey: string): { retryAfterSeconds?: number } {
+      const now = Date.now();
+      const existing = entries.get(ipKey);
 
-    if (!existing || now >= existing.resetAtEpochMs) {
-      entries.set(ipKey, {
-        count: 1,
-        resetAtEpochMs: now + options.windowMs
-      });
-      return;
+      if (!existing || now >= existing.resetAtEpochMs) {
+        entries.set(ipKey, {
+          count: 1,
+          resetAtEpochMs: now + options.windowMs
+        });
+        return {};
+      }
+
+      if (existing.count >= options.maxRequestsPerWindow) {
+        return {
+          retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAtEpochMs - now) / 1000))
+        };
+      }
+
+      existing.count += 1;
+      return {};
     }
-
-    if (existing.count >= options.maxRequestsPerWindow) {
-      const retryAfterSeconds = Math.max(1, Math.ceil((existing.resetAtEpochMs - now) / 1000));
-      reply.header('Retry-After', String(retryAfterSeconds));
-      reply.code(429).send({ error: 'Too many requests.' });
-      return;
-    }
-
-    existing.count += 1;
   };
 }
 

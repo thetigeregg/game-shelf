@@ -11,7 +11,7 @@
     "dev:stack:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hltb-scraper api",
     "dev:stack:restart": "docker compose -f docker-compose.yml -f docker-compose.dev.yml restart postgres hltb-scraper api",
     "dev:stack:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
-    "dev:api:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f api postgres hltb-scraper",
+    "dev:backend:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f api postgres hltb-scraper",
     "dev:manuals": "npx serve -l 8789 nas-data",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",

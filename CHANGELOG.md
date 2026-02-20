@@ -657,3 +657,25 @@
 - ee3d5ea Prevent duplicate CodeQL runs
 - b50d8fd Prevent duplicate CodeQL runs on
 
+## v0.1.9 - 2026-02-20
+- 9f5191e Merge pull request #62 from thetigeregg/codex/vars
+- 4bbb169 Apply suggestions from code review
+- 3c9ab18 Review env var sweep before merge
+- b3c312d Fix manual load proxy
+- 899ce18 Document manual proxy setup
+- 1e44186 Fix database auth failure
+- da464cd Fix missing DATABASE_URL env
+- 123810b Update dev log watching script
+- ee3f33a Update backend log script
+- c991abb Update dev env scripts and logs
+- 0887b64 Add env setup documentation
+- b24ff1e Document nas secret setup
+- ba2b68c Drop CLI API mode and env files
+- 97a7e45 Update docker dev stack docs
+- dc14e18 Apply suggestions from code review
+- d9aff93 Merge branch 'main' into codex/vars
+- acf4730 Move sensitive vars to secret files
+- acce039 Merge branch 'main' into codex/vars
+- 0d67382 Merge branch 'main' into codex/vars
+- 741373e Move compose secrets from env
+

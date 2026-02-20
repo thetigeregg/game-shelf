@@ -6,7 +6,13 @@ function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
   const resolved = filePath.length > 0 ? filePath : `/run/secrets/${name.toLowerCase()}`;
   if (fs.existsSync(resolved)) {
-    return fs.readFileSync(resolved, 'utf8').trim();
+    try {
+      return fs.readFileSync(resolved, 'utf8').trim();
+    } catch (error) {
+      throw new Error(
+        `Failed to read configuration secret for "${name}" from path "${resolved}": ${error.message}`,
+      );
+    }
   }
   return '';
 }

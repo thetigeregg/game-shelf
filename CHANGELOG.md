@@ -585,3 +585,21 @@
 - 6fa87de Merge pull request #47 from thetigeregg/alert-autofix-10
 - 7b8c447 Potential fix for code scanning alert no. 10: Incomplete URL substring sanitization
 
+## v0.1.0 - 2026-02-20
+- 1256f30 Merge pull request #48 from thetigeregg/alert-fix-22
+- 8ca2f85 Restore image cache purge rate limit
+- f3dc2ec Merge pull request #52 from thetigeregg/copilot/sub-pr-48-yet-again
+- 71bbc01 Merge pull request #50 from thetigeregg/copilot/sub-pr-48-again
+- 05a9d65 Merge pull request #49 from thetigeregg/copilot/sub-pr-48
+- 400e83d Merge pull request #51 from thetigeregg/copilot/sub-pr-48-another-one
+- 65018f5 docs: document in-memory rate limiter limitation for multi-instance deployments
+- 650b08b fix(image-cache): add periodic cleanup to prevent rate limiter memory leak
+- 4d07ff2 feat(config): expose image cache rate limit options via environment variables
+- 0e075d8 test(image-cache): add rate limit test for purge endpoint
+- af5813f Initial plan
+- 6a91101 Initial plan
+- d3c7ebc Initial plan
+- 5cd8973 Initial plan
+- 70a68f9 Apply suggestions from code review
+- f8f41d5 Add rate limiting to image cache
+

@@ -85,7 +85,10 @@ async function main(): Promise<void> {
   registerSyncRoutes(app, pool);
   registerImageProxyRoute(app, pool, imageCacheDir, {
     timeoutMs: config.imageProxyTimeoutMs,
-    maxBytes: config.imageProxyMaxBytes
+    maxBytes: config.imageProxyMaxBytes,
+    rateLimitWindowMs: config.imageProxyRateLimitWindowMs,
+    imageProxyMaxRequestsPerWindow: config.imageProxyMaxRequestsPerWindow,
+    imagePurgeMaxRequestsPerWindow: config.imagePurgeMaxRequestsPerWindow
   });
   registerCacheObservabilityRoutes(app, pool);
   registerManualRoutes(app, {

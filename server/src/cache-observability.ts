@@ -7,6 +7,12 @@ interface CacheCountRow {
   count: string;
 }
 
+interface CacheCountSnapshot {
+  imageAssetCount: number | null;
+  hltbEntryCount: number | null;
+  dbError: string | null;
+}
+
 export async function registerCacheObservabilityRoutes(
   app: FastifyInstance,
   pool: Pool
@@ -14,6 +20,46 @@ export async function registerCacheObservabilityRoutes(
   await app.register(rateLimit, {
     max: 60, // maximum number of requests per IP per time window
     timeWindow: '1 minute'
+  });
+
+  let snapshot: CacheCountSnapshot = {
+    imageAssetCount: null,
+    hltbEntryCount: null,
+    dbError: null
+  };
+
+  const refreshSnapshot = async (): Promise<void> => {
+    try {
+      const imageCountResult = await pool.query<CacheCountRow>(
+        'SELECT COUNT(*)::text AS count FROM image_assets'
+      );
+      const hltbCountResult = await pool.query<CacheCountRow>(
+        'SELECT COUNT(*)::text AS count FROM hltb_search_cache'
+      );
+
+      snapshot = {
+        imageAssetCount: Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10),
+        hltbEntryCount: Number.parseInt(hltbCountResult.rows[0]?.count ?? '0', 10),
+        dbError: null
+      };
+    } catch (error) {
+      snapshot = {
+        imageAssetCount: null,
+        hltbEntryCount: null,
+        dbError: error instanceof Error ? error.message : String(error)
+      };
+    }
+  };
+
+  await refreshSnapshot();
+
+  const refreshHandle = setInterval(() => {
+    void refreshSnapshot();
+  }, 30_000);
+  refreshHandle.unref();
+
+  app.addHook('onClose', async () => {
+    clearInterval(refreshHandle);
   });
 
   app.get(
@@ -29,31 +75,14 @@ export async function registerCacheObservabilityRoutes(
     async (_request, reply) => {
       const metrics = getCacheMetrics();
 
-      let imageAssetCount: number | null = null;
-      let hltbEntryCount: number | null = null;
-      let dbError: string | null = null;
-
-      try {
-        const imageCountResult = await pool.query<CacheCountRow>(
-          'SELECT COUNT(*)::text AS count FROM image_assets'
-        );
-        const hltbCountResult = await pool.query<CacheCountRow>(
-          'SELECT COUNT(*)::text AS count FROM hltb_search_cache'
-        );
-        imageAssetCount = Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10);
-        hltbEntryCount = Number.parseInt(hltbCountResult.rows[0]?.count ?? '0', 10);
-      } catch (error) {
-        dbError = error instanceof Error ? error.message : String(error);
-      }
-
       reply.send({
         timestamp: new Date().toISOString(),
         metrics,
         counts: {
-          imageAssets: imageAssetCount,
-          hltbEntries: hltbEntryCount
+          imageAssets: snapshot.imageAssetCount,
+          hltbEntries: snapshot.hltbEntryCount
         },
-        dbError
+        dbError: snapshot.dbError
       });
     }
   );

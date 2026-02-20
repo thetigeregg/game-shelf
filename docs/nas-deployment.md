@@ -138,13 +138,19 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
 
-2. Start the dev stack:
+2. Create local non-secret env file:
+
+```bash
+cp .env.example .env
+```
+
+3. Start the dev stack:
 
 ```bash
 npm run dev:stack:up
 ```
 
-3. API is reachable at `http://127.0.0.1:3000` and frontend can run with:
+4. API is reachable at `http://127.0.0.1:3000` and frontend can run with:
 
 ```bash
 npm start

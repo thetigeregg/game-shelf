@@ -26,7 +26,13 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 npm ci
 ```
 
-2. Create required local secret files under `./nas-secrets`:
+2. Create local non-secret env file:
+
+```bash
+cp .env.example .env
+```
+
+3. Create required local secret files under `./nas-secrets`:
 
 - `nas-secrets/database_url`
 - `nas-secrets/api_token`
@@ -37,19 +43,19 @@ npm ci
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
 
-3. Start local backend stack (`postgres` + `hltb-scraper` + `api`):
+4. Start local backend stack (`postgres` + `hltb-scraper` + `api`):
 
 ```bash
 npm run dev:stack:up
 ```
 
-4. (Optional) Follow API logs:
+5. (Optional) Follow API logs:
 
 ```bash
 npm run dev:api:logs
 ```
 
-5. Run frontend:
+6. Run frontend:
 
 ```bash
 npm start

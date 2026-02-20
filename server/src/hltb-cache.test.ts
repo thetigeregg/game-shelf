@@ -66,7 +66,7 @@ test('HLTB cache stores on miss and serves on hit', async () => {
   const app = Fastify();
   let fetchCalls = 0;
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { hltbMainHours: 20 }, candidates: [] }), {
@@ -106,7 +106,7 @@ test('HLTB cache supports candidates when includeCandidates is enabled', async (
   const app = Fastify();
   let fetchCalls = 0;
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       return new Response(
@@ -149,7 +149,7 @@ test('HLTB cache stale revalidation handles failures and skip when already in-fl
   let fetchCalls = 0;
   let pendingTask: (() => Promise<void>) | null = null;
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       if (fetchCalls === 1) {
@@ -227,7 +227,7 @@ test('HLTB cache bypasses cache when query is too short', async () => {
   const app = Fastify();
   let fetchCalls = 0;
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
@@ -269,7 +269,7 @@ test('HLTB cache deletes stale invalid payload and fetches fresh response', asyn
     new Date(Date.UTC(2026, 1, 1, 0, 0, 0)).toISOString()
   );
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { hltbMainHours: 12 }, candidates: [] }), {
@@ -299,7 +299,7 @@ test('HLTB cache serves stale and revalidates in background', async () => {
   let fetchCalls = 0;
   let pendingRefreshTask: (() => Promise<void>) | null = null;
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       return new Response(
@@ -371,7 +371,7 @@ test('HLTB cache is fail-open when cache read throws', async () => {
   const app = Fastify();
   let fetchCalls = 0;
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
@@ -403,7 +403,7 @@ test('HLTB null item responses are not cached', async () => {
   const app = Fastify();
   let fetchCalls = 0;
 
-  registerHltbCachedRoute(app, pool as unknown as Pool, {
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
     fetchMetadata: async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null }), {

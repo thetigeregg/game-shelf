@@ -43,7 +43,7 @@ cp .env.example .env
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
 
-4. Start local backend stack (`postgres` + `hltb-scraper` + `api`):
+4. Start local stack (`postgres` + `hltb-scraper` + `api` + `edge`):
 
 ```bash
 npm run dev:stack:up
@@ -62,6 +62,7 @@ npm start
 ```
 
 Frontend dev server runs on `http://localhost:8100`.
+Manual URLs under `/manuals/...` are proxied to local `edge` (`http://127.0.0.1:8080`) during dev.
 For full local Docker setup details, see `/Users/sixtopia/projects/game-shelf/docs/nas-deployment.md` (`Local Docker-based API development`).
 
 ## Build

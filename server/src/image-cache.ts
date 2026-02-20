@@ -285,6 +285,15 @@ function getClientIpKey(request: FastifyRequest): string {
 function createRouteRateLimiter(options: RateLimiterOptions) {
   const entries = new Map<string, RateLimitEntry>();
 
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of entries) {
+      if (now >= entry.resetAtEpochMs) {
+        entries.delete(key);
+      }
+    }
+  }, options.windowMs).unref();
+
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const now = Date.now();
     const ipKey = getClientIpKey(request);

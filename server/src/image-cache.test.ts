@@ -142,6 +142,31 @@ test('Image proxy validates URLs and handles upstream timeout/errors', async () 
   });
   assert.equal(invalid.statusCode, 400);
 
+  const invalidPort = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com:444/igdb/image/upload/bad-port.jpg'
+  });
+  assert.equal(invalidPort.statusCode, 400);
+
+  const encodedPathTraversal = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/%2e%2e/admin.jpg'
+  });
+  assert.equal(encodedPathTraversal.statusCode, 400);
+
+  const withQueryString = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/abc123.jpg?redirect=http://127.0.0.1'
+  });
+  assert.equal(withQueryString.statusCode, 400);
+
+  // Explicit :443 is normalized to the default HTTPS port and should pass validation
+  const explicitStandardPort = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com:443/igdb/image/upload/explicit-443.jpg'
+  });
+  assert.equal(explicitStandardPort.statusCode, 502);
+
   const timeout = await app.inject({
     method: 'GET',
     url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/timeout.jpg'
@@ -155,8 +180,8 @@ test('Image proxy validates URLs and handles upstream timeout/errors', async () 
   assert.equal(upstreamError.statusCode, 502);
 
   const metrics = getCacheMetrics();
-  assert.equal(metrics.image.invalidRequests, 1);
-  assert.equal(metrics.image.upstreamErrors, 2);
+  assert.equal(metrics.image.invalidRequests, 4);
+  assert.equal(metrics.image.upstreamErrors, 3);
 
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });
@@ -447,6 +472,84 @@ test('Image cache purge endpoint removes cached assets by source URL', async () 
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-image-cache'], 'MISS');
   assert.equal(fetchCalls, 2);
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});
+
+test('Image proxy route rate limits by client IP', async () => {
+  resetCacheMetrics();
+  const pool = new ImagePoolMock();
+  const app = Fastify();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-rate-limit-test-'));
+
+  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    rateLimitWindowMs: 60_000,
+    imageProxyMaxRequestsPerWindow: 2,
+    fetchImpl: async () =>
+      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' }
+      })
+  });
+
+  const one = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-1.jpg'
+  });
+  assert.equal(one.statusCode, 200);
+
+  const two = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-2.jpg'
+  });
+  assert.equal(two.statusCode, 200);
+
+  const limited = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-3.jpg'
+  });
+  assert.equal(limited.statusCode, 429);
+  assert.ok(typeof limited.headers['retry-after'] === 'string');
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});
+
+test('Image purge route rate limits by client IP', async () => {
+  resetCacheMetrics();
+  const pool = new ImagePoolMock();
+  const app = Fastify();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-rate-limit-test-'));
+
+  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    rateLimitWindowMs: 60_000,
+    imagePurgeMaxRequestsPerWindow: 2
+  });
+
+  const url = 'https://images.igdb.com/igdb/image/upload/purge-rate-limit.jpg';
+
+  const one = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [url] }
+  });
+  assert.equal(one.statusCode, 200);
+
+  const two = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [url] }
+  });
+  assert.equal(two.statusCode, 200);
+
+  const limited = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [url] }
+  });
+  assert.equal(limited.statusCode, 429);
+  assert.ok(typeof limited.headers['retry-after'] === 'string');
 
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });

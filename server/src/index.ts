@@ -102,7 +102,7 @@ async function main(): Promise<void> {
     }
   });
 
-  registerSyncRoutes(app, pool);
+  await registerSyncRoutes(app, pool);
   await registerImageProxyRoute(app, pool, imageCacheDir, {
     timeoutMs: config.imageProxyTimeoutMs,
     maxBytes: config.imageProxyMaxBytes,

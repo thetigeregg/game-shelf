@@ -316,6 +316,48 @@ test('manual catalog cache requires force refresh to detect new files', async ()
   await fs.rm(rootDir, { recursive: true, force: true });
 });
 
+test('manual routes set no-store cache headers', async () => {
+  const fixture = await buildFixtureTree();
+  const app = Fastify();
+  registerManualRoutes(app, {
+    manualsDir: fixture.rootDir,
+    manualsPublicBaseUrl: '/manuals'
+  });
+
+  const resolve = await app.inject({
+    method: 'GET',
+    url: '/v1/manuals/resolve?platformIgdbId=8&title=God%20of%20War%20II'
+  });
+  assert.equal(resolve.statusCode, 200);
+  assert.equal(resolve.headers['cache-control'], 'no-store, no-cache, must-revalidate');
+  assert.equal(resolve.headers['pragma'], 'no-cache');
+  assert.equal(resolve.headers['expires'], '0');
+
+  const search = await app.inject({
+    method: 'GET',
+    url: '/v1/manuals/search?platformIgdbId=8&q=god%20war'
+  });
+  assert.equal(search.statusCode, 200);
+  assert.equal(search.headers['cache-control'], 'no-store, no-cache, must-revalidate');
+
+  const refresh = await app.inject({
+    method: 'POST',
+    url: '/v1/manuals/refresh?force=1'
+  });
+  assert.equal(refresh.statusCode, 200);
+  assert.equal(refresh.headers['cache-control'], 'no-store, no-cache, must-revalidate');
+
+  const invalid = await app.inject({
+    method: 'GET',
+    url: '/v1/manuals/resolve?title=MissingPlatform'
+  });
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalid.headers['cache-control'], 'no-store, no-cache, must-revalidate');
+
+  await app.close();
+  await fs.rm(fixture.rootDir, { recursive: true, force: true });
+});
+
 async function buildFixtureTree(): Promise<{ rootDir: string }> {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'manuals-fixture-'));
   await fs.mkdir(path.join(rootDir, 'PlayStation 2__pid-8'), { recursive: true });

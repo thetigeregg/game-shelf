@@ -282,6 +282,14 @@ function getClientIpKey(request: FastifyRequest): string {
   return 'unknown';
 }
 
+// NOTE: This is an in-memory rate limiter scoped to a single process instance.
+// In a multi-instance or horizontally-scaled deployment (e.g. multiple API
+// replicas behind a load balancer), each instance maintains its own independent
+// counter map. As a result, the effective per-IP limit is multiplied by the
+// number of running instances. For example, with 3 replicas and a limit of
+// 120 req/min, a single client could make up to 360 req/min across the fleet.
+// If multi-instance deployments are required, replace this with a shared
+// rate-limiting backend such as Redis.
 function createRouteRateLimiter(options: RateLimiterOptions) {
   const entries = new Map<string, RateLimitEntry>();
 

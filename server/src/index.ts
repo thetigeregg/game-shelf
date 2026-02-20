@@ -13,7 +13,11 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
-import { shouldRequireAuth } from './request-security.js';
+import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  isAuthorizedMutatingRequest,
+  shouldRequireAuth
+} from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HEALTH_RATE_LIMIT_WINDOW_MS = 60_000;
@@ -114,7 +118,15 @@ async function main(): Promise<void> {
       return;
     }
 
-    if (!isAuthorizedRequestHeader(request.headers.authorization)) {
+    if (
+      !isAuthorizedMutatingRequest({
+        requireAuth: config.requireAuth,
+        apiToken: config.apiToken,
+        clientWriteTokens: config.clientWriteTokens,
+        authorizationHeader: request.headers.authorization,
+        clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME]
+      })
+    ) {
       response.statusCode = 401;
       response.setHeader('Content-Type', 'application/json; charset=utf-8');
       response.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -215,31 +227,15 @@ async function main(): Promise<void> {
 }
 
 function validateSecurityConfig(): void {
-  if (config.requireAuth && config.apiToken.length === 0) {
-    throw new Error('REQUIRE_AUTH is enabled but API_TOKEN is not configured.');
+  if (config.requireAuth && config.apiToken.length === 0 && config.clientWriteTokens.length === 0) {
+    throw new Error(
+      'REQUIRE_AUTH is enabled but no auth credentials are configured. Set API_TOKEN or CLIENT_WRITE_TOKENS.'
+    );
   }
 }
 
 function isCorsOriginAllowed(origin: string): boolean {
   return config.corsAllowedOrigins.some((allowedOrigin) => allowedOrigin === origin);
-}
-
-function isAuthorizedRequestHeader(authorizationHeader: string | string[] | undefined): boolean {
-  if (!config.requireAuth) {
-    return true;
-  }
-
-  const authorizationRaw = Array.isArray(authorizationHeader)
-    ? authorizationHeader[0]
-    : authorizationHeader;
-  const authorization = String(authorizationRaw ?? '').trim();
-
-  if (!authorization.startsWith('Bearer ')) {
-    return false;
-  }
-
-  const token = authorization.slice('Bearer '.length).trim();
-  return token.length > 0 && token === config.apiToken;
 }
 
 function resolveHealthRateLimitKey(ip: string | undefined): string {

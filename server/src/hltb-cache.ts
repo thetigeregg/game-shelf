@@ -1,10 +1,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
-import { ensureMiddieRegistered } from './middleware.js';
+import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -38,23 +37,7 @@ export async function registerHltbCachedRoute(
   pool: Pool,
   options: HltbCacheRouteOptions = {}
 ): Promise<void> {
-  const rateLimitExceededHandler = (_request: unknown, response: any): void => {
-    response.statusCode = 429;
-    response.setHeader('Content-Type', 'application/json; charset=utf-8');
-    response.end(JSON.stringify({ error: 'Too many requests.' }));
-  };
-  await ensureMiddieRegistered(app);
-  app.use(
-    '/v1/hltb/search',
-    expressRateLimit({
-      windowMs: HLTB_RATE_LIMIT_WINDOW_MS,
-      max: HLTB_MAX_REQUESTS_PER_WINDOW,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitExceededHandler,
-      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
-    })
-  );
+  await ensureRouteRateLimitRegistered(app);
 
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
@@ -75,75 +58,86 @@ export async function registerHltbCachedRoute(
     normalizeTtlSeconds(options.staleTtlSeconds, DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS)
   );
 
-  app.get('/v1/hltb/search', async (request, reply) => {
-    const normalized = normalizeHltbQuery(request.url);
-    const cacheKey = normalized ? buildCacheKey(normalized) : null;
-    let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
+  app.get(
+    '/v1/hltb/search',
+    {
+      config: {
+        rateLimit: {
+          max: HLTB_MAX_REQUESTS_PER_WINDOW,
+          timeWindow: HLTB_RATE_LIMIT_WINDOW_MS
+        }
+      }
+    },
+    async (request, reply) => {
+      const normalized = normalizeHltbQuery(request.url);
+      const cacheKey = normalized ? buildCacheKey(normalized) : null;
+      let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
 
-    if (cacheKey) {
-      try {
-        const cached = await pool.query<HltbCacheRow>(
-          'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',
-          [cacheKey]
-        );
-        const cachedRow = cached.rows[0];
+      if (cacheKey) {
+        try {
+          const cached = await pool.query<HltbCacheRow>(
+            'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',
+            [cacheKey]
+          );
+          const cachedRow = cached.rows[0];
 
-        if (cachedRow && normalized) {
-          if (!isCacheableHltbPayload(normalized, cachedRow.response_json)) {
-            await deleteHltbCacheEntry(pool, cacheKey, request);
-          } else {
-            const ageSeconds = getAgeSeconds(cachedRow.updated_at, now());
+          if (cachedRow && normalized) {
+            if (!isCacheableHltbPayload(normalized, cachedRow.response_json)) {
+              await deleteHltbCacheEntry(pool, cacheKey, request);
+            } else {
+              const ageSeconds = getAgeSeconds(cachedRow.updated_at, now());
 
-            if (ageSeconds <= freshTtlSeconds) {
-              incrementHltbMetric('hits');
-              reply.header('X-GameShelf-HLTB-Cache', 'HIT_FRESH');
-              reply.code(200).send(cachedRow.response_json);
-              return;
-            }
+              if (ageSeconds <= freshTtlSeconds) {
+                incrementHltbMetric('hits');
+                reply.header('X-GameShelf-HLTB-Cache', 'HIT_FRESH');
+                reply.code(200).send(cachedRow.response_json);
+                return;
+              }
 
-            if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds && normalized) {
-              incrementHltbMetric('hits');
-              incrementHltbMetric('staleServed');
-              const scheduled = scheduleHltbRevalidation(
-                cacheKey,
-                request,
-                normalized,
-                fetchMetadata,
-                pool,
-                scheduleBackgroundRefresh
-              );
-              reply.header('X-GameShelf-HLTB-Cache', 'HIT_STALE');
-              reply.header('X-GameShelf-HLTB-Revalidate', scheduled ? 'scheduled' : 'skipped');
-              reply.code(200).send(cachedRow.response_json);
-              return;
+              if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds && normalized) {
+                incrementHltbMetric('hits');
+                incrementHltbMetric('staleServed');
+                const scheduled = scheduleHltbRevalidation(
+                  cacheKey,
+                  request,
+                  normalized,
+                  fetchMetadata,
+                  pool,
+                  scheduleBackgroundRefresh
+                );
+                reply.header('X-GameShelf-HLTB-Cache', 'HIT_STALE');
+                reply.header('X-GameShelf-HLTB-Revalidate', scheduled ? 'scheduled' : 'skipped');
+                reply.code(200).send(cachedRow.response_json);
+                return;
+              }
             }
           }
+        } catch (error) {
+          incrementHltbMetric('readErrors');
+          incrementHltbMetric('bypasses');
+          cacheOutcome = 'BYPASS';
+          request.log.warn({
+            msg: 'hltb_cache_read_failed',
+            error: error instanceof Error ? error.message : String(error)
+          });
         }
-      } catch (error) {
-        incrementHltbMetric('readErrors');
-        incrementHltbMetric('bypasses');
-        cacheOutcome = 'BYPASS';
-        request.log.warn({
-          msg: 'hltb_cache_read_failed',
-          error: error instanceof Error ? error.message : String(error)
-        });
       }
-    }
 
-    incrementHltbMetric('misses');
-    const response = await fetchMetadata(request);
+      incrementHltbMetric('misses');
+      const response = await fetchMetadata(request);
 
-    if (cacheKey && normalized && response.ok) {
-      const payload = await safeReadJson(response);
+      if (cacheKey && normalized && response.ok) {
+        const payload = await safeReadJson(response);
 
-      if (payload !== null && isCacheableHltbPayload(normalized, payload)) {
-        await persistHltbCacheEntry(pool, cacheKey, normalized, payload, request);
+        if (payload !== null && isCacheableHltbPayload(normalized, payload)) {
+          await persistHltbCacheEntry(pool, cacheKey, normalized, payload, request);
+        }
       }
-    }
 
-    reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
-    await sendWebResponse(reply, response);
-  });
+      reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
+      await sendWebResponse(reply, response);
+    }
+  );
 }
 
 function normalizeHltbQuery(rawUrl: string): NormalizedHltbQuery | null {

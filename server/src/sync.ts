@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool, PoolClient } from 'pg';
-import { ensureMiddieRegistered } from './middleware.js';
+import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 import type {
   ClientSyncOperation,
   SyncEntityType,
@@ -34,129 +33,124 @@ const SYNC_PUSH_MAX_REQUESTS_PER_WINDOW = 120;
 const SYNC_PULL_MAX_REQUESTS_PER_WINDOW = 120;
 
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
-  const rateLimitExceededHandler = (_request: unknown, response: any): void => {
-    response.statusCode = 429;
-    response.setHeader('Content-Type', 'application/json; charset=utf-8');
-    response.end(JSON.stringify({ error: 'Too many requests.' }));
-  };
-  await ensureMiddieRegistered(app);
-  app.use(
+  await ensureRouteRateLimitRegistered(app);
+
+  app.post(
     '/v1/sync/push',
-    expressRateLimit({
-      windowMs: SYNC_RATE_LIMIT_WINDOW_MS,
-      max: SYNC_PUSH_MAX_REQUESTS_PER_WINDOW,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitExceededHandler,
-      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
-    })
-  );
-  app.use(
-    '/v1/sync/pull',
-    expressRateLimit({
-      windowMs: SYNC_RATE_LIMIT_WINDOW_MS,
-      max: SYNC_PULL_MAX_REQUESTS_PER_WINDOW,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitExceededHandler,
-      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
-    })
-  );
-
-  app.post('/v1/sync/push', async (request, reply) => {
-    const body = (request.body ?? {}) as PushBody;
-    const operations = normalizeOperations(body.operations);
-
-    if (!operations) {
-      reply.code(400).send({ error: 'Invalid sync push payload.' });
-      return;
-    }
-
-    const client = await pool.connect();
-
-    try {
-      const results: SyncPushResult[] = [];
-
-      await client.query('BEGIN');
-
-      for (const operation of operations) {
-        const existing = await client.query<IdempotencyRow>(
-          'SELECT result FROM idempotency_keys WHERE op_id = $1 LIMIT 1',
-          [operation.opId]
-        );
-
-        if (existing.rows[0]) {
-          results.push({
-            ...existing.rows[0].result,
-            status: 'duplicate'
-          });
-          continue;
-        }
-
-        try {
-          const result = await applyOperation(client, operation);
-          results.push(result);
-
-          await client.query(
-            'INSERT INTO idempotency_keys (op_id, result, created_at) VALUES ($1, $2::jsonb, NOW())',
-            [operation.opId, JSON.stringify(result)]
-          );
-        } catch (error) {
-          const failed: SyncPushResult = {
-            opId: operation.opId,
-            status: 'failed',
-            message: error instanceof Error ? error.message : 'Failed to apply operation.'
-          };
-          results.push(failed);
-
-          await client.query(
-            'INSERT INTO idempotency_keys (op_id, result, created_at) VALUES ($1, $2::jsonb, NOW())',
-            [operation.opId, JSON.stringify(failed)]
-          );
+    {
+      config: {
+        rateLimit: {
+          max: SYNC_PUSH_MAX_REQUESTS_PER_WINDOW,
+          timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
         }
       }
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as PushBody;
+      const operations = normalizeOperations(body.operations);
 
-      await client.query('COMMIT');
-      const cursor = await readLatestCursor(client);
-      reply.send({ results, cursor });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      reply.code(500).send({ error: 'Unable to process sync push.' });
-      console.error('[sync] push_failed', error);
-    } finally {
-      client.release();
+      if (!operations) {
+        reply.code(400).send({ error: 'Invalid sync push payload.' });
+        return;
+      }
+
+      const client = await pool.connect();
+
+      try {
+        const results: SyncPushResult[] = [];
+
+        await client.query('BEGIN');
+
+        for (const operation of operations) {
+          const existing = await client.query<IdempotencyRow>(
+            'SELECT result FROM idempotency_keys WHERE op_id = $1 LIMIT 1',
+            [operation.opId]
+          );
+
+          if (existing.rows[0]) {
+            results.push({
+              ...existing.rows[0].result,
+              status: 'duplicate'
+            });
+            continue;
+          }
+
+          try {
+            const result = await applyOperation(client, operation);
+            results.push(result);
+
+            await client.query(
+              'INSERT INTO idempotency_keys (op_id, result, created_at) VALUES ($1, $2::jsonb, NOW())',
+              [operation.opId, JSON.stringify(result)]
+            );
+          } catch (error) {
+            const failed: SyncPushResult = {
+              opId: operation.opId,
+              status: 'failed',
+              message: error instanceof Error ? error.message : 'Failed to apply operation.'
+            };
+            results.push(failed);
+
+            await client.query(
+              'INSERT INTO idempotency_keys (op_id, result, created_at) VALUES ($1, $2::jsonb, NOW())',
+              [operation.opId, JSON.stringify(failed)]
+            );
+          }
+        }
+
+        await client.query('COMMIT');
+        const cursor = await readLatestCursor(client);
+        reply.send({ results, cursor });
+      } catch (error) {
+        await client.query('ROLLBACK');
+        reply.code(500).send({ error: 'Unable to process sync push.' });
+        console.error('[sync] push_failed', error);
+      } finally {
+        client.release();
+      }
     }
-  });
+  );
 
-  app.post('/v1/sync/pull', async (request, reply) => {
-    const body = (request.body ?? {}) as PullBody;
-    const cursor = normalizeCursor(body.cursor);
+  app.post(
+    '/v1/sync/pull',
+    {
+      config: {
+        rateLimit: {
+          max: SYNC_PULL_MAX_REQUESTS_PER_WINDOW,
+          timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
+        }
+      }
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as PullBody;
+      const cursor = normalizeCursor(body.cursor);
 
-    const result = await pool.query<SyncEventRow>(
-      `
+      const result = await pool.query<SyncEventRow>(
+        `
       SELECT event_id, entity_type, operation, payload, server_timestamp
       FROM sync_events
       WHERE event_id > $1
       ORDER BY event_id ASC
       LIMIT 1000
       `,
-      [cursor]
-    );
+        [cursor]
+      );
 
-    const changes = result.rows.map((row) => ({
-      eventId: String(row.event_id),
-      entityType: row.entity_type,
-      operation: row.operation,
-      payload: row.payload,
-      serverTimestamp: row.server_timestamp
-    }));
-    const nextCursor = changes.length > 0 ? changes[changes.length - 1].eventId : String(cursor);
+      const changes = result.rows.map((row) => ({
+        eventId: String(row.event_id),
+        entityType: row.entity_type,
+        operation: row.operation,
+        payload: row.payload,
+        serverTimestamp: row.server_timestamp
+      }));
+      const nextCursor = changes.length > 0 ? changes[changes.length - 1].eventId : String(cursor);
 
-    reply.send({
-      cursor: nextCursor,
-      changes
-    });
-  });
+      reply.send({
+        cursor: nextCursor,
+        changes
+      });
+    }
+  );
 }
 
 async function applyOperation(

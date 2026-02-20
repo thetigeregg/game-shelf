@@ -3,10 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import middie from '@fastify/middie';
 import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
+import { ensureMiddieRegistered } from './middleware.js';
 
 interface ImageAssetRow {
   cache_key: string;
@@ -54,7 +54,7 @@ export async function registerImageProxyRoute(
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.end(JSON.stringify({ error: 'Too many requests.' }));
   };
-  await app.register(middie);
+  await ensureMiddieRegistered(app);
 
   app.use(
     '/v1/images/cache/purge',

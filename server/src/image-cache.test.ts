@@ -476,3 +476,42 @@ test('Image cache purge endpoint removes cached assets by source URL', async () 
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });
 });
+
+test('Image proxy route rate limits by client IP', async () => {
+  resetCacheMetrics();
+  const pool = new ImagePoolMock();
+  const app = Fastify();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-rate-limit-test-'));
+
+  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    rateLimitWindowMs: 60_000,
+    imageProxyMaxRequestsPerWindow: 2,
+    fetchImpl: async () =>
+      new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' }
+      })
+  });
+
+  const one = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-1.jpg'
+  });
+  assert.equal(one.statusCode, 200);
+
+  const two = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-2.jpg'
+  });
+  assert.equal(two.statusCode, 200);
+
+  const limited = await app.inject({
+    method: 'GET',
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-3.jpg'
+  });
+  assert.equal(limited.statusCode, 429);
+  assert.ok(typeof limited.headers['retry-after'] === 'string');
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});

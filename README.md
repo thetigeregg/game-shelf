@@ -26,25 +26,37 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 npm ci
 ```
 
-2. Start local backend stack (`postgres` + `hltb-scraper` + `api`):
+2. Create required local secret files under `./nas-secrets`:
+
+- `nas-secrets/database_url`
+- `nas-secrets/api_token`
+- `nas-secrets/twitch_client_id`
+- `nas-secrets/twitch_client_secret`
+- `nas-secrets/thegamesdb_api_key`
+- `nas-secrets/postgres_user`
+- `nas-secrets/postgres_password`
+- `nas-secrets/hltb_scraper_token` (optional)
+
+3. Start local backend stack (`postgres` + `hltb-scraper` + `api`):
 
 ```bash
 npm run dev:stack:up
 ```
 
-3. (Optional) Follow API logs:
+4. (Optional) Follow API logs:
 
 ```bash
 npm run dev:api:logs
 ```
 
-4. Run frontend:
+5. Run frontend:
 
 ```bash
 npm start
 ```
 
 Frontend dev server runs on `http://localhost:8100`.
+For full local Docker setup details, see `/Users/sixtopia/projects/game-shelf/docs/nas-deployment.md` (`Local Docker-based API development`).
 
 ## Build
 

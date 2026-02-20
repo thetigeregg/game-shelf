@@ -629,3 +629,12 @@
 - 6d471e1 Merge pull request #55 from thetigeregg/hono-fix
 - 21affc2 chore: update hono package to version 4.12.0
 
+## v0.1.4 - 2026-02-20
+- c8db52c Merge pull request #56 from thetigeregg/auth-fix
+- 0cdb786 Audit rate limiting for endpoints
+- f847eda Apply suggestions from code review
+- bf31666 Add auth rate limiting
+- 3c0e7d6 Merge branch 'main' into auth-fix
+- 23a295a Audit manual refresh endpoint access
+- 5b7a340 Normalize request path for auth
+

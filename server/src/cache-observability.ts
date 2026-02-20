@@ -13,14 +13,25 @@ interface CacheCountSnapshot {
   dbError: string | null;
 }
 
+interface CacheObservabilityRouteOptions {
+  cacheStatsRateLimitWindowMs?: number;
+  cacheStatsMaxRequestsPerWindow?: number;
+}
+
 export async function registerCacheObservabilityRoutes(
   app: FastifyInstance,
-  pool: Pool
+  pool: Pool,
+  options: CacheObservabilityRouteOptions = {}
 ): Promise<void> {
   await app.register(rateLimit, {
-    max: 60, // maximum number of requests per IP per time window
-    timeWindow: '1 minute'
+    global: false
   });
+  const cacheStatsRateLimitWindowMs = Number.isInteger(options.cacheStatsRateLimitWindowMs)
+    ? Number(options.cacheStatsRateLimitWindowMs)
+    : 60_000;
+  const cacheStatsMaxRequestsPerWindow = Number.isInteger(options.cacheStatsMaxRequestsPerWindow)
+    ? Number(options.cacheStatsMaxRequestsPerWindow)
+    : 10;
 
   let snapshot: CacheCountSnapshot = {
     imageAssetCount: null,
@@ -67,8 +78,8 @@ export async function registerCacheObservabilityRoutes(
     {
       config: {
         rateLimit: {
-          max: 10,
-          timeWindow: '1 minute'
+          max: cacheStatsMaxRequestsPerWindow,
+          timeWindow: cacheStatsRateLimitWindowMs
         }
       }
     },

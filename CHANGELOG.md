@@ -652,3 +652,8 @@
 - 6cad856 Merge pull request #60 from thetigeregg/api
 - adec991 Prevent duplicate middie setup
 
+## v0.1.8 - 2026-02-20
+- 6ed034f Merge pull request #61 from thetigeregg/dupe-ci
+- ee3d5ea Prevent duplicate CodeQL runs
+- b50d8fd Prevent duplicate CodeQL runs on
+

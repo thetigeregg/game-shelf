@@ -65,6 +65,14 @@ Security note:
 - The stack mounts `SECRETS_HOST_DIR` to `/run/secrets` read-only in relevant containers.
 - `api`, `backup`, and `hltb-scraper` runtime config read sensitive values from secret files.
 
+Rate limiting env vars (optional):
+
+- `RATE_LIMIT_WINDOW_MS` (defaults to `60000` — 1 minute window)
+- `IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW` (defaults to `120` req/min per IP for the image proxy endpoint)
+- `IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW` (defaults to `30` req/min per IP for the cache purge endpoint)
+
+> **Note:** The rate limiter is in-memory and scoped to a single `api` container instance. If you scale the `api` service to multiple replicas, each replica maintains its own independent counter, so the effective per-IP limit is multiplied by the number of running replicas. This deployment guide assumes a single `api` replica, which is the expected use case for a personal NAS. If you require multi-instance deployments, a shared rate-limiting backend (e.g. Redis) would be needed.
+
 Protected POST endpoints (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`, `/api/v1/manuals/refresh`) require:
 
 - `Authorization: Bearer <API_TOKEN>`
@@ -199,6 +207,7 @@ Nightly scheduling is handled by the `backup` container itself (cron inside cont
 By default it runs at `00:00` container local time (`TZ`).
 This may differ from your own local timezone if `TZ` is set differently.
 Adjust schedule/retention via stack env vars:
+
 - `BACKUP_SCHEDULE_TIME=00:00`
 - `BACKUP_KEEP_COUNT=14`
 
@@ -227,6 +236,7 @@ npm run test:backup:ops
 ```
 
 This validates:
+
 - backup container can run on demand
 - `latest/postgres.sql.gz` and `latest/manifest.txt` exist
 - retention behavior when `BACKUP_KEEP_COUNT=1`

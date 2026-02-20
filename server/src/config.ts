@@ -83,6 +83,11 @@ export interface AppConfig {
   imageCacheTtlSeconds: number;
   imageProxyTimeoutMs: number;
   imageProxyMaxBytes: number;
+  imageProxyRateLimitWindowMs: number;
+  imageProxyMaxRequestsPerWindow: number;
+  imagePurgeMaxRequestsPerWindow: number;
+  cacheStatsRateLimitWindowMs: number;
+  cacheStatsMaxRequestsPerWindow: number;
   twitchClientId: string;
   twitchClientSecret: string;
   theGamesDbApiKey: string;
@@ -138,6 +143,11 @@ export const config: AppConfig = {
   twitchClientId: readRequiredSecretFile('TWITCH_CLIENT_ID', 'twitch_client_id'),
   twitchClientSecret: readRequiredSecretFile('TWITCH_CLIENT_SECRET', 'twitch_client_secret'),
   theGamesDbApiKey: readRequiredSecretFile('THEGAMESDB_API_KEY', 'thegamesdb_api_key'),
+  imageProxyRateLimitWindowMs: readIntegerEnv('IMAGE_PROXY_RATE_LIMIT_WINDOW_MS', 60_000),
+  imageProxyMaxRequestsPerWindow: readIntegerEnv('IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW', 120),
+  imagePurgeMaxRequestsPerWindow: readIntegerEnv('IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW', 30),
+  cacheStatsRateLimitWindowMs: readIntegerEnv('CACHE_STATS_RATE_LIMIT_WINDOW_MS', 60_000),
+  cacheStatsMaxRequestsPerWindow: readIntegerEnv('CACHE_STATS_MAX_REQUESTS_PER_WINDOW', 60),
   hltbScraperBaseUrl: readEnv('HLTB_SCRAPER_BASE_URL', ''),
   hltbScraperToken: readSecretFile('HLTB_SCRAPER_TOKEN', 'hltb_scraper_token'),
   hltbCacheEnableStaleWhileRevalidate: readBooleanEnv(

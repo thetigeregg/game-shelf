@@ -1,17 +1,7 @@
 module.exports = {
   target: (name, semver) => {
-    if (
-      name.startsWith('@angular/') ||
-      name.startsWith('@angular-devkit/') ||
-      name.startsWith('@angular-eslint/') ||
-      name.startsWith('@types/node') ||
-      name === 'eslint'
-    ) {
+    if (name.startsWith('@types/node')) {
       return 'minor';
-    }
-
-    if (name.startsWith('zone.js')) {
-      return 'patch';
     }
 
     return 'latest';

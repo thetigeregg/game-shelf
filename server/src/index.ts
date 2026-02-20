@@ -13,10 +13,12 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
-import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 import { shouldRequireAuth } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const HEALTH_RATE_LIMIT_WINDOW_MS = 60_000;
+const HEALTH_MAX_REQUESTS_PER_WINDOW = 1000;
+const healthRateLimitState = new Map<string, { windowStart: number; count: number }>();
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
@@ -59,7 +61,6 @@ async function main(): Promise<void> {
     },
     credentials: true
   });
-  await ensureRouteRateLimitRegistered(app);
 
   await ensureMiddieRegistered(app);
   app.use(
@@ -88,30 +89,30 @@ async function main(): Promise<void> {
     next();
   });
 
-  app.get(
-    '/v1/health',
-    {
-      preHandler: app.rateLimit({
-        max: 1000,
-        timeWindow: 60_000
-      })
-    },
-    async (_request, reply) => {
-      try {
-        await pool.query('SELECT 1');
-        reply.send({
-          ok: true,
-          service: 'game-shelf-server',
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        reply.code(503).send({
-          ok: false,
-          error: 'Database unavailable'
-        });
-      }
+  app.get('/v1/health', async (request, reply) => {
+    if (isHealthRateLimitExceeded(Date.now(), resolveHealthRateLimitKey(request.ip))) {
+      reply.header(
+        'Retry-After',
+        String(Math.max(1, Math.ceil(HEALTH_RATE_LIMIT_WINDOW_MS / 1000)))
+      );
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
     }
-  );
+
+    try {
+      await pool.query('SELECT 1');
+      reply.send({
+        ok: true,
+        service: 'game-shelf-server',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      reply.code(503).send({
+        ok: false,
+        error: 'Database unavailable'
+      });
+    }
+  });
 
   await registerSyncRoutes(app, pool);
   await registerImageProxyRoute(app, pool, imageCacheDir, {
@@ -185,6 +186,30 @@ function isAuthorizedRequestHeader(authorizationHeader: string | string[] | unde
 
   const token = authorization.slice('Bearer '.length).trim();
   return token.length > 0 && token === config.apiToken;
+}
+
+function resolveHealthRateLimitKey(ip: string | undefined): string {
+  const normalized = String(ip ?? '').trim();
+  return normalized.length > 0 ? normalized : 'unknown';
+}
+
+function isHealthRateLimitExceeded(nowMs: number, key: string): boolean {
+  const existing = healthRateLimitState.get(key);
+
+  if (!existing || nowMs - existing.windowStart >= HEALTH_RATE_LIMIT_WINDOW_MS) {
+    healthRateLimitState.set(key, {
+      windowStart: nowMs,
+      count: 1
+    });
+    return false;
+  }
+
+  const updatedCount = existing.count + 1;
+  healthRateLimitState.set(key, {
+    windowStart: existing.windowStart,
+    count: updatedCount
+  });
+  return updatedCount > HEALTH_MAX_REQUESTS_PER_WINDOW;
 }
 
 main().catch((error) => {

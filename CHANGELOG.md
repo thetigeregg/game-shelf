@@ -506,3 +506,114 @@
 - 70e4aa1 Merge pull request #12 from thetigeregg/dependabot/npm_and_yarn/server/dotenv-17.3.1
 - f390b92 chore(deps): bump dotenv from 16.6.1 to 17.3.1 in /server
 
+## v0.0.16 - 2026-02-19
+- c791a92 Merge pull request #26 from thetigeregg/thetigeregg-patch-1
+- 506b541 Add MIT License to the project
+
+## v0.0.17 - 2026-02-19
+- c5614fb Merge pull request #27 from thetigeregg/codex/backup-strategy
+- 93aa388 Merge pull request #30 from thetigeregg/copilot/sub-pr-27
+- b85e23e fix(scripts): derive BACKUP_HOST_DIR from docker compose config in test-backup-flow.sh
+- 419e282 Initial plan
+- dc1e37b Merge pull request #29 from thetigeregg/copilot/sub-pr-27-again
+- 894045b Merge pull request #28 from thetigeregg/copilot/sub-pr-27
+- 4c23736 fix(docker): add missing BACKUP_PGDUMP_RETRIES and BACKUP_PGDUMP_RETRY_DELAY_SECONDS to backup service env
+- fa44d20 Remove volumes after test
+- d69565f Initial plan
+- d442a8d fix(docker): add BACKUP_PGDUMP_RETRIES and BACKUP_PGDUMP_RETRY_DELAY_SECONDS to backup service env
+- 4956abd Add CPU and memory limits
+- 61eee66 Initial plan
+- f602b34 Clarify backup docs and checks
+- 5f513f5 Improve backup validation checks
+- 427a20b Improve backup startup handling
+- 7a3f98e Harden backup reliability workflow
+- 499c285 Ensure backup waits for postgres
+- 0f5066c Fix backup script handling
+- 88a5024 Ensure postgres healthy before using
+- e3349f8 Add backup ops smoke test
+- 9168b43 Fix docker compose backup vars
+- f5a418a Retrieve backup container logs
+- 1b145b1 Fix backup container restart logging
+- 9948ce0 Add manual backup trigger docs
+- bfeec98 Document backup service setup
+
+## v0.0.18 - 2026-02-19
+- e2c6f3f Merge pull request #31 from thetigeregg/codex/backup-strategy
+- 16f47d0 Merge pull request #34 from thetigeregg/copilot/sub-pr-31
+- 24e0a8a Apply suggestions from code review
+- cea0c5f docs(nas-deployment): add backup image to GHCR pre-deploy checklist
+- d49693e Initial plan
+- b926152 Merge pull request #33 from thetigeregg/copilot/sub-pr-31-again
+- dbad985 Merge pull request #32 from thetigeregg/copilot/sub-pr-31
+- ca5f059 fix(docker): remove redundant command override from backup service in compose files
+- 543cd4c fix(docker): remove redundant command override from backup service
+- 2768223 Initial plan
+- 526ae74 Initial plan
+- 901b08f Merge branch 'main' into codex/backup-strategy
+- feb838d Add backup image deployment docs
+
+## v0.0.19 - 2026-02-19
+- 01a6740 Merge pull request #35 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.0
+- 9c4461e chore(deps): update vitest and related dependencies in package-lock.json
+- 36671ba chore(deps): bump hono from 4.11.9 to 4.12.0
+
+## v0.0.20 - 2026-02-19
+- 96658e8 Merge pull request #17 from thetigeregg/dependabot/npm_and_yarn/eslint-plugin-jsdoc-62.6.1
+- c65b476 chore(deps): update vitest and related dependencies in package-lock.json
+- 73795b8 chore(deps): bump eslint-plugin-jsdoc from 62.6.0 to 62.6.1
+
+## v0.0.21 - 2026-02-19
+- 0d65a6d Merge pull request #46 from thetigeregg/codex/manual-match
+- 782f7dc Add manual bind clear option
+
+## v0.0.22 - 2026-02-19
+- 1bf340d Merge pull request #43 from thetigeregg/alert-autofix-11
+- 3fab720 Refactor normalizeProxyImageUrl to construct canonical URLs with server-controlled host and path prefix
+- c995631 Fix image proxy forgery tests
+- 3840082 Merge branch 'main' into alert-autofix-11
+- ff1adcc Merge branch 'main' into alert-autofix-11
+- 6c12791 Merge pull request #45 from thetigeregg/copilot/sub-pr-43-again
+- 875c11d Merge pull request #44 from thetigeregg/copilot/sub-pr-43
+- e1a0fb3 test(image-cache): add port validation tests for normalizeProxyImageUrl
+- 27c6ebc fix(security): prevent SSRF via HTTP redirects in image proxy fetch
+- d665c91 Apply suggestions from code review
+- b9ae1b1 Initial plan
+- f6f0317 Initial plan
+- c6b561c Potential fix for code scanning alert no. 11: Server-side request forgery
+
+## v0.0.23 - 2026-02-20
+- 6fa87de Merge pull request #47 from thetigeregg/alert-autofix-10
+- 7b8c447 Potential fix for code scanning alert no. 10: Incomplete URL substring sanitization
+
+## v0.1.0 - 2026-02-20
+- 1256f30 Merge pull request #48 from thetigeregg/alert-fix-22
+- 8ca2f85 Restore image cache purge rate limit
+- f3dc2ec Merge pull request #52 from thetigeregg/copilot/sub-pr-48-yet-again
+- 71bbc01 Merge pull request #50 from thetigeregg/copilot/sub-pr-48-again
+- 05a9d65 Merge pull request #49 from thetigeregg/copilot/sub-pr-48
+- 400e83d Merge pull request #51 from thetigeregg/copilot/sub-pr-48-another-one
+- 65018f5 docs: document in-memory rate limiter limitation for multi-instance deployments
+- 650b08b fix(image-cache): add periodic cleanup to prevent rate limiter memory leak
+- 4d07ff2 feat(config): expose image cache rate limit options via environment variables
+- 0e075d8 test(image-cache): add rate limit test for purge endpoint
+- af5813f Initial plan
+- 6a91101 Initial plan
+- d3c7ebc Initial plan
+- 5cd8973 Initial plan
+- 70a68f9 Apply suggestions from code review
+- f8f41d5 Add rate limiting to image cache
+
+## v0.1.1 - 2026-02-20
+- 48595b8 Merge pull request #53 from thetigeregg/alert-autofix-2
+- 4bd58a3 Tune cache stats rate limits
+- 6ed3957 Adjust cache observability rate limi
+- f51afe0 Add rate limiting middleware
+- 8fb4028 Add inline rate limit config
+- 25cb48d Fix cache observability registration
+- 4fa3432 Apply suggestions from code review
+- 5be5ff6 refactor: update rate limiting implementation in cache observability routes
+- 876800e refactor: improve formatting and structure of registerCacheObservabilityRoutes function
+- ba7828f Potential fix for code scanning alert no. 19: Missing rate limiting
+- 1ff9bdb Add @fastify/rate-limit dependency to enhance rate limiting functionality
+- f4c03f7 Potential fix for code scanning alert no. 2: Missing rate limiting
+

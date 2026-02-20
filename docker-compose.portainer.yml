@@ -61,6 +61,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gameshelf}
     volumes:
       - ${POSTGRES_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/postgres}:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
 
   hltb-scraper:
@@ -72,4 +80,26 @@ services:
       HLTB_SCRAPER_TIMEOUT_MS: ${HLTB_SCRAPER_TIMEOUT_MS:-25000}
       HLTB_SCRAPER_TOKEN: ${HLTB_SCRAPER_TOKEN:-}
       DEBUG_HLTB_SCRAPER_LOGS: ${DEBUG_HLTB_SCRAPER_LOGS:-false}
+    restart: unless-stopped
+
+  backup:
+    container_name: gameshelf-backup
+    image: ${BACKUP_IMAGE:-ghcr.io/thetigeregg/game-shelf-backup:main}
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+      PGTZ: ${TZ:-Europe/Zurich}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-gameshelf}
+      PGUSER: ${POSTGRES_USER:-gameshelf}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-gameshelf}
+      BACKUP_KEEP_COUNT: ${BACKUP_KEEP_COUNT:-14}
+      BACKUP_SCHEDULE_TIME: ${BACKUP_SCHEDULE_TIME:-00:00}
+      BACKUP_PGDUMP_RETRIES: ${BACKUP_PGDUMP_RETRIES:-3}
+      BACKUP_PGDUMP_RETRY_DELAY_SECONDS: ${BACKUP_PGDUMP_RETRY_DELAY_SECONDS:-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${BACKUP_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/backups}:/backups
     restart: unless-stopped

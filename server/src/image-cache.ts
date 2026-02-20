@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
 
@@ -17,11 +18,16 @@ interface ImageAssetRow {
 
 const THE_GAMES_DB_HOST = 'cdn.thegamesdb.net';
 const IGDB_HOST = 'images.igdb.com';
+const THE_GAMES_DB_PATH_PREFIX = '/images/';
+const IGDB_PATH_PREFIX = '/igdb/image/upload/';
 
 interface ImageCacheRouteOptions {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   maxBytes?: number;
+  rateLimitWindowMs?: number;
+  imageProxyMaxRequestsPerWindow?: number;
+  imagePurgeMaxRequestsPerWindow?: number;
 }
 
 export function registerImageProxyRoute(
@@ -33,14 +39,39 @@ export function registerImageProxyRoute(
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
+  const rateLimitWindowMs = Number.isInteger(options.rateLimitWindowMs)
+    ? Number(options.rateLimitWindowMs)
+    : 60_000;
+  const imageProxyMaxRequestsPerWindow = Number.isInteger(options.imageProxyMaxRequestsPerWindow)
+    ? Number(options.imageProxyMaxRequestsPerWindow)
+    : 120;
+  const imagePurgeMaxRequestsPerWindow = Number.isInteger(options.imagePurgeMaxRequestsPerWindow)
+    ? Number(options.imagePurgeMaxRequestsPerWindow)
+    : 30;
+  const imageProxyRateLimit = createRouteRateLimiter({
+    windowMs: rateLimitWindowMs,
+    maxRequestsPerWindow: imageProxyMaxRequestsPerWindow
+  });
+  const imagePurgeRateLimit = createRouteRateLimiter({
+    windowMs: rateLimitWindowMs,
+    maxRequestsPerWindow: imagePurgeMaxRequestsPerWindow
+  });
 
   app.post('/v1/images/cache/purge', async (request, reply) => {
+    const purgeRateLimit = imagePurgeRateLimit.consume(getClientIpKey(request));
+
+    if (purgeRateLimit.retryAfterSeconds !== undefined) {
+      reply.header('Retry-After', String(purgeRateLimit.retryAfterSeconds));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
+    }
+
     const body = (request.body ?? {}) as { urls?: unknown };
     const rawUrls = Array.isArray(body.urls) ? body.urls : [];
     const normalizedUrls = [
       ...new Set(
         rawUrls
-          .map((url) => normalizeProxyImageUrl(url))
+          .map((url) => normalizeProxyImageUrl(url)?.cacheKeyUrl)
           .filter((url): url is string => typeof url === 'string' && url.length > 0)
       )
     ];
@@ -89,14 +120,25 @@ export function registerImageProxyRoute(
   });
 
   app.get('/v1/images/proxy', async (request, reply) => {
-    const sourceUrl = normalizeProxyImageUrl((request.query as Record<string, unknown>)['url']);
+    const proxyRateLimit = imageProxyRateLimit.consume(getClientIpKey(request));
 
-    if (!sourceUrl) {
+    if (proxyRateLimit.retryAfterSeconds !== undefined) {
+      reply.header('Retry-After', String(proxyRateLimit.retryAfterSeconds));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
+    }
+
+    const normalizedImageUrl = normalizeProxyImageUrl(
+      (request.query as Record<string, unknown>)['url']
+    );
+
+    if (!normalizedImageUrl) {
       incrementImageMetric('invalidRequests');
       reply.code(400).send({ error: 'Invalid image URL.' });
       return;
     }
 
+    const sourceUrl = normalizedImageUrl.cacheKeyUrl;
     const cacheKey = sha256(sourceUrl);
     let existing: ImageAssetRow | undefined;
 
@@ -141,7 +183,11 @@ export function registerImageProxyRoute(
     let upstream: Response;
 
     try {
-      upstream = await fetchImpl(sourceUrl, { method: 'GET', signal: controller.signal });
+      upstream = await fetchImpl(normalizedImageUrl.fetchUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        redirect: 'error'
+      });
     } catch {
       incrementImageMetric('upstreamErrors');
       reply.code(504).send({ error: 'Image fetch timed out.' });
@@ -208,23 +254,174 @@ export function registerImageProxyRoute(
   });
 }
 
-function normalizeProxyImageUrl(raw: unknown): string | null {
+interface RateLimiterOptions {
+  windowMs: number;
+  maxRequestsPerWindow: number;
+}
+
+interface RateLimitEntry {
+  count: number;
+  resetAtEpochMs: number;
+}
+
+interface RouteRateLimiter {
+  consume(ipKey: string): { retryAfterSeconds?: number };
+}
+
+function getClientIpKey(request: FastifyRequest): string {
+  const xForwardedFor = request.headers['x-forwarded-for'];
+
+  if (typeof xForwardedFor === 'string' && xForwardedFor.length > 0) {
+    const first = xForwardedFor.split(',')[0]?.trim();
+    if (first) {
+      return first;
+    }
+  } else if (Array.isArray(xForwardedFor) && xForwardedFor.length > 0) {
+    const first = xForwardedFor[0]?.split(',')[0]?.trim();
+    if (first) {
+      return first;
+    }
+  }
+
+  const xRealIp = request.headers['x-real-ip'];
+
+  if (typeof xRealIp === 'string' && xRealIp.length > 0) {
+    return xRealIp.trim();
+  } else if (Array.isArray(xRealIp) && xRealIp.length > 0 && xRealIp[0]) {
+    return xRealIp[0].trim();
+  }
+
+  if (request.ip) {
+    return request.ip;
+  }
+
+  return 'unknown';
+}
+
+// NOTE: This is an in-memory rate limiter scoped to a single process instance.
+// In a multi-instance or horizontally-scaled deployment (e.g. multiple API
+// replicas behind a load balancer), each instance maintains its own independent
+// counter map. As a result, the effective per-IP limit is multiplied by the
+// number of running instances. For example, with 3 replicas and a limit of
+// 120 req/min, a single client could make up to 360 req/min across the fleet.
+// If multi-instance deployments are required, replace this with a shared
+// rate-limiting backend such as Redis.
+function createRouteRateLimiter(options: RateLimiterOptions): RouteRateLimiter {
+  const entries = new Map<string, RateLimitEntry>();
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of entries) {
+      if (now >= entry.resetAtEpochMs) {
+        entries.delete(key);
+      }
+    }
+  }, options.windowMs).unref();
+
+  return {
+    consume(ipKey: string): { retryAfterSeconds?: number } {
+      const now = Date.now();
+      const existing = entries.get(ipKey);
+
+      if (!existing || now >= existing.resetAtEpochMs) {
+        entries.set(ipKey, {
+          count: 1,
+          resetAtEpochMs: now + options.windowMs
+        });
+        return {};
+      }
+
+      if (existing.count >= options.maxRequestsPerWindow) {
+        return {
+          retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAtEpochMs - now) / 1000))
+        };
+      }
+
+      existing.count += 1;
+      return {};
+    }
+  };
+}
+
+interface NormalizedProxyImageUrl {
+  cacheKeyUrl: string;
+  fetchUrl: URL;
+}
+
+function normalizeProxyImageUrl(raw: unknown): NormalizedProxyImageUrl | null {
   try {
     const parsed = new URL(String(raw ?? ''));
 
+    // Only allow HTTPS requests
     if (parsed.protocol !== 'https:') {
       return null;
     }
 
     const hostname = parsed.hostname.toLowerCase();
-    const isTheGamesDb = hostname === THE_GAMES_DB_HOST && parsed.pathname.startsWith('/images/');
-    const isIgdb = hostname === IGDB_HOST && parsed.pathname.startsWith('/igdb/image/upload/');
+    const pathname = parsed.pathname;
+    const normalizedPath = pathname.toLowerCase();
+
+    // Normalize allowed hosts for comparison
+    const allowedTheGamesDbHost = THE_GAMES_DB_HOST.toLowerCase();
+    const allowedIgdbHost = IGDB_HOST.toLowerCase();
+    const allowedTheGamesDbPathPrefix = THE_GAMES_DB_PATH_PREFIX.toLowerCase();
+    const allowedIgdbPathPrefix = IGDB_PATH_PREFIX.toLowerCase();
+
+    const isTheGamesDb =
+      hostname === allowedTheGamesDbHost && normalizedPath.startsWith(allowedTheGamesDbPathPrefix);
+    const isIgdb = hostname === allowedIgdbHost && normalizedPath.startsWith(allowedIgdbPathPrefix);
 
     if (!isTheGamesDb && !isIgdb) {
       return null;
     }
 
-    return parsed.toString();
+    // Enforce standard HTTPS port: either explicit 443 or default (empty)
+    if (parsed.port && parsed.port !== '443') {
+      return null;
+    }
+
+    // Reject URLs containing userinfo to avoid multiple cache keys for the same resource
+    if (parsed.username || parsed.password) {
+      return null;
+    }
+
+    // Reject encoded path separators and dot segments to prevent ambiguous upstream routing.
+    if (/%2f|%5c|%2e/i.test(pathname)) {
+      return null;
+    }
+
+    // This proxy only supports path-based image URLs.
+    if (parsed.search.length > 0) {
+      return null;
+    }
+
+    // At this point we know which backend host this URL targets and that the path
+    // starts with the expected, allowed prefix. Reconstruct a canonical URL using
+    // server-controlled host and path prefix to avoid relying on the user-supplied
+    // URL instance for the actual upstream request.
+    const isGamesDbTarget = isTheGamesDb;
+    const targetHost = isGamesDbTarget ? allowedTheGamesDbHost : allowedIgdbHost;
+    const targetPrefix = isGamesDbTarget ? allowedTheGamesDbPathPrefix : allowedIgdbPathPrefix;
+
+    // Compute the path suffix after the allowed prefix. We use the original
+    // case-preserving pathname when slicing to avoid altering the upstream path.
+    const prefixLength = targetPrefix.length;
+    const pathSuffix = pathname.substring(prefixLength);
+
+    // Build a fresh URL using a fixed base (scheme, host, port) plus the validated path.
+    const baseUrl = new URL(`https://${targetHost}`);
+    baseUrl.port = '443';
+    baseUrl.search = '';
+    baseUrl.hash = '';
+    baseUrl.pathname =
+      THE_GAMES_DB_HOST.toLowerCase() === targetHost
+        ? THE_GAMES_DB_PATH_PREFIX + pathSuffix
+        : IGDB_PATH_PREFIX + pathSuffix;
+
+    const canonicalUrl = baseUrl.toString();
+    const fetchUrl = new URL(canonicalUrl);
+
+    return { cacheKeyUrl: canonicalUrl, fetchUrl };
   } catch {
     return null;
   }

@@ -41,7 +41,7 @@ test('Cache stats endpoint returns counters and db counts', async () => {
   incrementHltbMetric('writes');
 
   const app = Fastify();
-  registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool);
+  await registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool);
 
   const response = await app.inject({
     method: 'GET',
@@ -65,7 +65,10 @@ test('Cache stats endpoint stringifies non-Error db failures', async () => {
   resetCacheMetrics();
 
   const app = Fastify();
-  registerCacheObservabilityRoutes(app, new CacheStatsNonErrorFailingPoolMock() as unknown as Pool);
+  await registerCacheObservabilityRoutes(
+    app,
+    new CacheStatsNonErrorFailingPoolMock() as unknown as Pool
+  );
 
   const response = await app.inject({
     method: 'GET',
@@ -83,7 +86,7 @@ test('Cache stats endpoint returns dbError when count queries fail', async () =>
   resetCacheMetrics();
 
   const app = Fastify();
-  registerCacheObservabilityRoutes(app, new CacheStatsFailingPoolMock() as unknown as Pool);
+  await registerCacheObservabilityRoutes(app, new CacheStatsFailingPoolMock() as unknown as Pool);
 
   const response = await app.inject({
     method: 'GET',
@@ -95,6 +98,31 @@ test('Cache stats endpoint returns dbError when count queries fail', async () =>
   assert.equal(payload.counts.imageAssets, null);
   assert.equal(payload.counts.hltbEntries, null);
   assert.equal(payload.dbError, 'db_unavailable');
+
+  await app.close();
+});
+
+test('Cache stats endpoint is rate limited', async () => {
+  resetCacheMetrics();
+
+  const app = Fastify();
+  await registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool);
+
+  for (let i = 0; i < 10; i += 1) {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/cache/stats'
+    });
+
+    assert.equal(response.statusCode, 200);
+  }
+
+  const limitedResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/cache/stats'
+  });
+
+  assert.equal(limitedResponse.statusCode, 429);
 
   await app.close();
 });

@@ -61,6 +61,11 @@ export interface AppConfig {
   imageCacheTtlSeconds: number;
   imageProxyTimeoutMs: number;
   imageProxyMaxBytes: number;
+  imageProxyRateLimitWindowMs: number;
+  imageProxyMaxRequestsPerWindow: number;
+  imagePurgeMaxRequestsPerWindow: number;
+  cacheStatsRateLimitWindowMs: number;
+  cacheStatsMaxRequestsPerWindow: number;
   twitchClientId: string;
   twitchClientSecret: string;
   theGamesDbApiKey: string;
@@ -113,6 +118,11 @@ export const config: AppConfig = {
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),
   imageProxyTimeoutMs: readIntegerEnv('IMAGE_PROXY_TIMEOUT_MS', 12_000),
   imageProxyMaxBytes: readIntegerEnv('IMAGE_PROXY_MAX_BYTES', 8 * 1024 * 1024),
+  imageProxyRateLimitWindowMs: readIntegerEnv('IMAGE_PROXY_RATE_LIMIT_WINDOW_MS', 60_000),
+  imageProxyMaxRequestsPerWindow: readIntegerEnv('IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW', 120),
+  imagePurgeMaxRequestsPerWindow: readIntegerEnv('IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW', 30),
+  cacheStatsRateLimitWindowMs: readIntegerEnv('CACHE_STATS_RATE_LIMIT_WINDOW_MS', 60_000),
+  cacheStatsMaxRequestsPerWindow: readIntegerEnv('CACHE_STATS_MAX_REQUESTS_PER_WINDOW', 60),
   twitchClientId: readRequiredEnv('TWITCH_CLIENT_ID'),
   twitchClientSecret: readRequiredEnv('TWITCH_CLIENT_SECRET'),
   theGamesDbApiKey: readRequiredEnv('THEGAMESDB_API_KEY'),

@@ -16,9 +16,47 @@ import { registerManualRoutes } from './manuals.js';
 import { shouldRequireAuth } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const HEALTH_RATE_LIMIT_WINDOW_MS = 60_000;
+const HEALTH_MAX_REQUESTS_PER_WINDOW = 1000;
+
+interface HealthRateLimitEntry {
+  windowStart: number;
+  count: number;
+}
+
+interface HealthSnapshot {
+  dbAvailable: boolean;
+  dbError: string | null;
+}
+
+const healthRateLimitState = new Map<string, HealthRateLimitEntry>();
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
+  let healthSnapshot: HealthSnapshot = {
+    dbAvailable: false,
+    dbError: null
+  };
+  const refreshHealthSnapshot = async (): Promise<void> => {
+    try {
+      await pool.query('SELECT 1');
+      healthSnapshot = {
+        dbAvailable: true,
+        dbError: null
+      };
+    } catch (error) {
+      healthSnapshot = {
+        dbAvailable: false,
+        dbError: error instanceof Error ? error.message : String(error)
+      };
+    }
+  };
+  await refreshHealthSnapshot();
+  const healthRefreshHandle = setInterval(() => {
+    void refreshHealthSnapshot();
+  }, 30_000);
+  healthRefreshHandle.unref();
+
   const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);
   validateSecurityConfig();
   console.info('[server] image_cache_dir_ready', {
@@ -86,20 +124,47 @@ async function main(): Promise<void> {
     next();
   });
 
-  app.get('/v1/health', async (_request, reply) => {
-    try {
-      await pool.query('SELECT 1');
-      reply.send({
-        ok: true,
-        service: 'game-shelf-server',
-        timestamp: new Date().toISOString()
+  app.get('/v1/health', async (request, reply) => {
+    const nowMs = Date.now();
+    const key = resolveHealthRateLimitKey(request.ip);
+    const existing = healthRateLimitState.get(key);
+
+    if (!existing || nowMs - existing.windowStart >= HEALTH_RATE_LIMIT_WINDOW_MS) {
+      healthRateLimitState.set(key, {
+        windowStart: nowMs,
+        count: 1
       });
-    } catch (error) {
+    } else {
+      const updatedCount = existing.count + 1;
+      healthRateLimitState.set(key, {
+        windowStart: existing.windowStart,
+        count: updatedCount
+      });
+
+      if (updatedCount > HEALTH_MAX_REQUESTS_PER_WINDOW) {
+        reply.header(
+          'Retry-After',
+          String(Math.max(1, Math.ceil(HEALTH_RATE_LIMIT_WINDOW_MS / 1000)))
+        );
+        reply.code(429).send({ error: 'Too many requests.' });
+        return;
+      }
+    }
+
+    if (!healthSnapshot.dbAvailable) {
       reply.code(503).send({
         ok: false,
-        error: 'Database unavailable'
+        error: 'Database unavailable',
+        reason: healthSnapshot.dbError
       });
+      return;
     }
+
+    reply.send({
+      ok: true,
+      service: 'game-shelf-server',
+      timestamp: new Date().toISOString()
+    });
   });
 
   await registerSyncRoutes(app, pool);
@@ -139,6 +204,7 @@ async function main(): Promise<void> {
   });
 
   app.addHook('onClose', async () => {
+    clearInterval(healthRefreshHandle);
     await pool.end();
   });
 
@@ -174,6 +240,11 @@ function isAuthorizedRequestHeader(authorizationHeader: string | string[] | unde
 
   const token = authorization.slice('Bearer '.length).trim();
   return token.length > 0 && token === config.apiToken;
+}
+
+function resolveHealthRateLimitKey(ip: string | undefined): string {
+  const normalized = String(ip ?? '').trim();
+  return normalized.length > 0 ? normalized : 'unknown';
 }
 
 main().catch((error) => {

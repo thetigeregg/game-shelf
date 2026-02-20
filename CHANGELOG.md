@@ -644,3 +644,7 @@
 - bde7baf Merge branch 'main' into img-c
 - a1016be Add rate limiting to image cache API
 
+## v0.1.6 - 2026-02-20
+- ed89f22 Merge pull request #59 from thetigeregg/hltb-c
+- ea13022 Add rate limits to server routes
+

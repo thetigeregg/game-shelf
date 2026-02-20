@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - main
+      # Add other protected branches here if needed, for example:
+      # - release/*
   pull_request:
     branches:
       - main
+      # Add other protected branches here if needed, for example:
+      # - release/*
   schedule:
-    # Weekly scan on Thursday at 14:08 UTC.
-    - cron: "8 14 * * 4"
+    # Weekly scan on Thursday at 14:00 UTC.
+    - cron: "0 14 * * 4"
 
 permissions:
   actions: read
@@ -18,8 +22,8 @@ permissions:
 
 jobs:
   analyze:
-    # Skip release/version bump pushes that already include [skip ci].
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+    # Skip only release/version bump pushes (not arbitrary [skip ci] commits).
+    if: github.event_name != 'push' || !(startsWith(github.event.head_commit.message, 'chore(release):') && contains(github.event.head_commit.message, '[skip ci]'))
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     strategy:

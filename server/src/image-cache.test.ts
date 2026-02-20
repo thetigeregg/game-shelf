@@ -83,7 +83,7 @@ test('Image cache stores on miss and serves on hit', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-test-'));
   let fetchCalls = 0;
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: async () => {
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
@@ -127,7 +127,7 @@ test('Image proxy validates URLs and handles upstream timeout/errors', async () 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-invalid-test-'));
   const pool = new ImagePoolMock();
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: async (url) => {
       if (String(url).includes('timeout')) {
         throw new Error('timeout');
@@ -194,7 +194,7 @@ test('Image proxy enforces size limits and rejects empty upstream payloads', asy
   const pool = new ImagePoolMock();
   let call = 0;
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     maxBytes: 3,
     fetchImpl: async () => {
       call += 1;
@@ -240,7 +240,7 @@ test('Image proxy tolerates cache read/write/delete failures and still serves re
 
   {
     const app = Fastify();
-    registerImageProxyRoute(
+    await registerImageProxyRoute(
       app,
       new ImagePoolMock({ failReads: true }) as unknown as Pool,
       tempDir,
@@ -263,7 +263,7 @@ test('Image proxy tolerates cache read/write/delete failures and still serves re
 
   {
     const app = Fastify();
-    registerImageProxyRoute(
+    await registerImageProxyRoute(
       app,
       new ImagePoolMock({ failWrites: true }) as unknown as Pool,
       tempDir,
@@ -286,7 +286,7 @@ test('Image proxy tolerates cache read/write/delete failures and still serves re
 
   {
     const app = Fastify();
-    registerImageProxyRoute(
+    await registerImageProxyRoute(
       app,
       new ImagePoolMock({ failDeletes: true, failWrites: true }) as unknown as Pool,
       tempDir,
@@ -324,7 +324,7 @@ test('Image proxy handles stale DB record with missing file and fallback extensi
 
   // Prime cache metadata with a missing file path by making one request, then deleting the file.
   const primingApp = Fastify();
-  registerImageProxyRoute(primingApp, stalePool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(primingApp, stalePool as unknown as Pool, tempDir, {
     fetchImpl: async () =>
       new Response(Buffer.from([1, 2, 3]), {
         status: 200,
@@ -345,7 +345,7 @@ test('Image proxy handles stale DB record with missing file and fallback extensi
   }
 
   const app = Fastify();
-  registerImageProxyRoute(app, stalePool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, stalePool as unknown as Pool, tempDir, {
     fetchImpl: async () =>
       new Response(Buffer.from([9, 9, 9]), {
         status: 200,
@@ -377,7 +377,7 @@ test('Image proxy logs non-Error database failures and still responds', async ()
     writeFailureValue: 'write_failure_string'
   });
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: async () =>
       new Response(Buffer.from([0xaa, 0xbb, 0xcc]), {
         status: 200,
@@ -404,7 +404,7 @@ test('Image proxy handles missing url parameter and null upstream body', async (
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-null-body-test-'));
   const pool = new ImagePoolMock();
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: async () =>
       new Response(null, {
         status: 200,
@@ -437,7 +437,7 @@ test('Image cache purge endpoint removes cached assets by source URL', async () 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-test-'));
   let fetchCalls = 0;
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     fetchImpl: async () => {
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
@@ -483,7 +483,7 @@ test('Image proxy route rate limits by client IP', async () => {
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-rate-limit-test-'));
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     rateLimitWindowMs: 60_000,
     imageProxyMaxRequestsPerWindow: 2,
     fetchImpl: async () =>
@@ -522,7 +522,7 @@ test('Image purge route rate limits by client IP', async () => {
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-rate-limit-test-'));
 
-  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     rateLimitWindowMs: 60_000,
     imagePurgeMaxRequestsPerWindow: 2
   });

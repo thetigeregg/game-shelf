@@ -109,6 +109,7 @@ import {
 } from './settings-mgc.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
+import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -120,7 +121,8 @@ import {
   swapVertical,
   refresh,
   layers,
-  bug
+  bug,
+  key
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
@@ -337,6 +339,7 @@ export class SettingsPage {
   readonly isMgcImportFeatureEnabled = isMgcImportFeatureEnabled();
 
   selectedColorScheme: ColorSchemePreference = 'system';
+  clientWriteTokenConfigured = false;
   verboseTracingEnabled = false;
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
@@ -385,9 +388,11 @@ export class SettingsPage {
   private readonly alertController = inject(AlertController);
   private readonly router = inject(Router);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly clientWriteAuthService = inject(ClientWriteAuthService);
 
   constructor() {
     this.selectedColorScheme = this.themeService.getColorSchemePreference();
+    this.clientWriteTokenConfigured = this.clientWriteAuthService.hasToken();
     this.verboseTracingEnabled = this.debugLogService.isVerboseTracingEnabled();
     this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
     void this.refreshImageCacheUsage();
@@ -401,7 +406,8 @@ export class SettingsPage {
       swapVertical,
       refresh,
       layers,
-      bug
+      bug,
+      key
     });
   }
 
@@ -433,6 +439,65 @@ export class SettingsPage {
   onVerboseTracingToggleChange(enabled: boolean): void {
     this.verboseTracingEnabled = Boolean(enabled);
     this.debugLogService.setVerboseTracingEnabled(this.verboseTracingEnabled);
+  }
+
+  async promptClientWriteToken(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Set Device Write Token',
+      message:
+        'Paste the write token for this device. It is stored locally and used for sync write requests.',
+      inputs: [
+        {
+          name: 'token',
+          type: 'password',
+          placeholder: 'Device write token'
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Save', role: 'confirm' }
+      ]
+    });
+
+    await alert.present();
+    const { role, data } = await alert.onDidDismiss<{ values?: { token?: unknown } }>();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    const token = String(data?.values?.token ?? '').trim();
+
+    if (token.length === 0) {
+      await this.presentToast('Device write token was empty.', 'warning');
+      return;
+    }
+
+    this.clientWriteAuthService.setToken(token);
+    this.clientWriteTokenConfigured = this.clientWriteAuthService.hasToken();
+    await this.presentToast('Device write token saved.');
+  }
+
+  async clearClientWriteToken(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Clear Device Write Token',
+      message: 'Remove the stored write token from this device?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Clear', role: 'confirm', cssClass: 'alert-button-danger' }
+      ]
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
+    this.clientWriteAuthService.clearToken();
+    this.clientWriteTokenConfigured = false;
+    await this.presentToast('Device write token removed.');
   }
 
   async purgeLocalImageCache(): Promise<void> {

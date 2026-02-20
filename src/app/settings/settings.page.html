@@ -96,6 +96,26 @@
       </ion-list-header>
 
       <ion-item>
+        <ion-icon slot="start" color="medium" name="key"></ion-icon>
+        <ion-label>
+          <h2>Device Write Token</h2>
+          <p>{{ clientWriteTokenConfigured ? 'Configured on this device' : 'Not configured' }}</p>
+        </ion-label>
+        <ion-button fill="outline" size="small" slot="end" (click)="promptClientWriteToken()"
+          >Set</ion-button
+        >
+        <ion-button
+          fill="clear"
+          color="danger"
+          size="small"
+          slot="end"
+          [disabled]="!clientWriteTokenConfigured"
+          (click)="clearClientWriteToken()"
+          >Clear</ion-button
+        >
+      </ion-item>
+
+      <ion-item>
         <ion-icon slot="start" color="medium" name="bug"></ion-icon>
         <ion-label>Verbose Trace Logs</ion-label>
         <ion-toggle

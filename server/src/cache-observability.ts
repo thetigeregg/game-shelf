@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics } from './cache-metrics.js';
-import rateLimit from '@fastify/rate-limit';
+import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 
 interface CacheCountRow {
   count: string;
@@ -23,9 +23,7 @@ export async function registerCacheObservabilityRoutes(
   pool: Pool,
   options: CacheObservabilityRouteOptions = {}
 ): Promise<void> {
-  await app.register(rateLimit, {
-    global: false
-  });
+  await ensureRouteRateLimitRegistered(app);
   const cacheStatsRateLimitWindowMs = Number.isInteger(options.cacheStatsRateLimitWindowMs)
     ? Number(options.cacheStatsRateLimitWindowMs)
     : 60_000;

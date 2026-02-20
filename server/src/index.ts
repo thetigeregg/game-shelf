@@ -16,6 +16,8 @@ import { registerManualRoutes } from './manuals.js';
 import { shouldRequireAuth } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const AUTH_RATE_LIMIT_WINDOW_MS = 60_000;
+const AUTH_MAX_REQUESTS_PER_WINDOW = 120;
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
@@ -60,6 +62,10 @@ async function main(): Promise<void> {
   });
 
   await app.register(middie);
+  const authRateLimiter = createRouteRateLimiter({
+    windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+    maxRequestsPerWindow: AUTH_MAX_REQUESTS_PER_WINDOW
+  });
   app.use(
     expressRateLimit({
       windowMs: 60_000,
@@ -75,8 +81,16 @@ async function main(): Promise<void> {
       return;
     }
 
+    const authRateLimit = authRateLimiter.consume(getClientIpKey(request));
+    if (authRateLimit.retryAfterSeconds !== undefined) {
+      reply.header('Retry-After', String(authRateLimit.retryAfterSeconds));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
+    }
+
     if (!isAuthorizedRequest(request)) {
       reply.code(401).send({ error: 'Unauthorized' });
+      return;
     }
   });
 
@@ -165,6 +179,84 @@ function isAuthorizedRequest(request: FastifyRequest): boolean {
 
   const token = authorization.slice('Bearer '.length).trim();
   return token.length > 0 && token === config.apiToken;
+}
+
+function getClientIpKey(request: FastifyRequest): string {
+  const xForwardedFor = request.headers['x-forwarded-for'];
+
+  if (typeof xForwardedFor === 'string' && xForwardedFor.length > 0) {
+    return xForwardedFor.split(',')[0].trim();
+  } else if (Array.isArray(xForwardedFor) && xForwardedFor.length > 0) {
+    const first = xForwardedFor[0]?.split(',')[0]?.trim();
+    if (first) {
+      return first;
+    }
+  }
+
+  const xRealIp = request.headers['x-real-ip'];
+
+  if (typeof xRealIp === 'string' && xRealIp.length > 0) {
+    return xRealIp.trim();
+  } else if (Array.isArray(xRealIp) && xRealIp.length > 0 && xRealIp[0]) {
+    return xRealIp[0].trim();
+  }
+
+  if (request.ip) {
+    return request.ip;
+  }
+
+  return 'unknown';
+}
+
+interface RateLimitEntry {
+  count: number;
+  resetAtEpochMs: number;
+}
+
+interface RouteRateLimiter {
+  consume(ipKey: string): { retryAfterSeconds?: number };
+}
+
+interface RateLimiterOptions {
+  windowMs: number;
+  maxRequestsPerWindow: number;
+}
+
+function createRouteRateLimiter(options: RateLimiterOptions): RouteRateLimiter {
+  const entries = new Map<string, RateLimitEntry>();
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of entries) {
+      if (now >= entry.resetAtEpochMs) {
+        entries.delete(key);
+      }
+    }
+  }, options.windowMs).unref();
+
+  return {
+    consume(ipKey: string): { retryAfterSeconds?: number } {
+      const now = Date.now();
+      const existing = entries.get(ipKey);
+
+      if (!existing || now >= existing.resetAtEpochMs) {
+        entries.set(ipKey, {
+          count: 1,
+          resetAtEpochMs: now + options.windowMs
+        });
+        return {};
+      }
+
+      if (existing.count >= options.maxRequestsPerWindow) {
+        return {
+          retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAtEpochMs - now) / 1000))
+        };
+      }
+
+      existing.count += 1;
+      return {};
+    }
+  };
 }
 
 main().catch((error) => {

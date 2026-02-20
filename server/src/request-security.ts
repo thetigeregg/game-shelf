@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
+
 const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 export const CLIENT_WRITE_TOKEN_HEADER_NAME = 'x-game-shelf-client-token';
 
@@ -65,7 +67,7 @@ function isAuthorizedBearerToken(
   }
 
   const token = authorization.slice('Bearer '.length).trim();
-  return token.length > 0 && token === configuredToken;
+  return token.length > 0 && timingSafeStringEqual(token, configuredToken);
 }
 
 function isAuthorizedClientWriteToken(
@@ -78,10 +80,21 @@ function isAuthorizedClientWriteToken(
     return false;
   }
 
-  return clientWriteTokens.includes(token);
+  return clientWriteTokens.some((configuredToken) => timingSafeStringEqual(token, configuredToken));
 }
 
 function normalizeHeaderValue(value: string | string[] | undefined): string {
   const raw = Array.isArray(value) ? value[0] : value;
   return String(raw ?? '').trim();
+}
+
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  const maxLen = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.concat([bufA, Buffer.alloc(maxLen - bufA.length)]);
+  const paddedB = Buffer.concat([bufB, Buffer.alloc(maxLen - bufB.length)]);
+  const bytesEqual = timingSafeEqual(paddedA, paddedB);
+  const lengthsEqual = bufA.length === bufB.length;
+  return bytesEqual && lengthsEqual;
 }

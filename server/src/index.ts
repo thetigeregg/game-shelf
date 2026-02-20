@@ -13,6 +13,7 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
+import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 import { shouldRequireAuth } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
     },
     credentials: true
   });
+  await ensureRouteRateLimitRegistered(app);
 
   await ensureMiddieRegistered(app);
   app.use(
@@ -86,21 +88,32 @@ async function main(): Promise<void> {
     next();
   });
 
-  app.get('/v1/health', async (_request, reply) => {
-    try {
-      await pool.query('SELECT 1');
-      reply.send({
-        ok: true,
-        service: 'game-shelf-server',
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      reply.code(503).send({
-        ok: false,
-        error: 'Database unavailable'
-      });
+  app.get(
+    '/v1/health',
+    {
+      config: {
+        rateLimit: {
+          max: 1000,
+          timeWindow: 60_000
+        }
+      }
+    },
+    async (_request, reply) => {
+      try {
+        await pool.query('SELECT 1');
+        reply.send({
+          ok: true,
+          service: 'game-shelf-server',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        reply.code(503).send({
+          ok: false,
+          error: 'Database unavailable'
+        });
+      }
     }
-  });
+  );
 
   await registerSyncRoutes(app, pool);
   await registerImageProxyRoute(app, pool, imageCacheDir, {

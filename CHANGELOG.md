@@ -687,3 +687,13 @@
 - bb14cd9 Adjust manual cache headers
 - 6434bf5 fix(docker-compose): standardize secrets directory path across services
 
+## v0.1.11 - 2026-02-20
+- 84ba1a9 Merge pull request #65 from thetigeregg/fix
+- 42943dd Add periodic health snapshot
+- fb6da41 Update health rate limiter
+- 998f715 Refactor health endpoint rate limit
+- ee3d235 Fix missing rate limiting alerts
+- d82233c Fix missing rate limiting
+- 4780811 Merge branch 'main' into fix
+- c909b62 Fix js missing rate limiting issues
+

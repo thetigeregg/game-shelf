@@ -21,7 +21,7 @@ HLTB has no official public API and often blocks server-side direct endpoint cal
 ## Environment
 
 - `PORT` (optional, default `8788`)
-- `HLTB_SCRAPER_TOKEN` (optional bearer token requirement)
+- `HLTB_SCRAPER_TOKEN_FILE` (optional bearer token file path; if token auth is enabled, this file is required)
 - `HLTB_SCRAPER_TIMEOUT_MS` (optional, default `25000`)
 - `DEBUG_HLTB_SCRAPER_LOGS=true` (optional debug logs per lookup attempt)
 

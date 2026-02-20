@@ -75,4 +75,6 @@ Thumbs.db
 worker/.dev.vars
 server/.env
 server/.env.dev
+.env
 nas-data/
+nas-secrets/

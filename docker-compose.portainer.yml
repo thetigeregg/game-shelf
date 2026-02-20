@@ -5,10 +5,14 @@ services:
     environment:
       TZ: ${TZ:-Europe/Zurich}
       FEATURE_MGC_IMPORT: ${FEATURE_MGC_IMPORT:-false}
-      API_TOKEN: ${API_TOKEN:-change-me}
+      API_TOKEN_FILE: ${API_TOKEN_FILE:-/run/secrets/api_token}
     command: >-
       /bin/sh -c
-      "feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
+      "token_file=$${API_TOKEN_FILE:-};
+      if [ -n \"$$token_file\" ] && [ -r \"$$token_file\" ]; then
+        export API_TOKEN=$$(tr -d '\r\n' < \"$$token_file\");
+      fi;
+      feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
       case \"$$feature_raw\" in 1|true|yes|on) feature_bool=true ;; *) feature_bool=false ;; esac;
       mkdir -p /srv/assets;
       printf \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: %s } });\n\" \"$$feature_bool\" >> /srv/assets/runtime-config.js;
@@ -19,6 +23,7 @@ services:
       - '127.0.0.1:8080:8080'
     volumes:
       - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/manuals:ro
+      - ${SECRETS_HOST_DIR:-/volume1/docker/secrets/gameshelf}:/run/secrets:ro
     restart: unless-stopped
 
   api:
@@ -28,18 +33,29 @@ services:
       TZ: ${TZ:-Europe/Zurich}
       HOST: ${HOST:-0.0.0.0}
       PORT: ${PORT:-3000}
+      REQUEST_BODY_LIMIT_BYTES: ${REQUEST_BODY_LIMIT_BYTES:-10485760}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://127.0.0.1:8080,http://localhost:8080}
       REQUIRE_AUTH: ${REQUIRE_AUTH:-true}
-      API_TOKEN: ${API_TOKEN:-change-me}
-      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-gameshelf}:${POSTGRES_PASSWORD:-gameshelf}@postgres:5432/${POSTGRES_DB:-gameshelf}}
+      DEBUG_HTTP_LOGS: ${DEBUG_HTTP_LOGS:-}
+      API_TOKEN_FILE: ${API_TOKEN_FILE:-/run/secrets/api_token}
+      DATABASE_URL_FILE: ${DATABASE_URL_FILE:-/run/secrets/database_url}
       IMAGE_CACHE_DIR: ${IMAGE_CACHE_DIR:-/data/images}
+      IMAGE_CACHE_TTL_SECONDS: ${IMAGE_CACHE_TTL_SECONDS:-2592000}
       IMAGE_PROXY_TIMEOUT_MS: ${IMAGE_PROXY_TIMEOUT_MS:-12000}
       IMAGE_PROXY_MAX_BYTES: ${IMAGE_PROXY_MAX_BYTES:-8388608}
-      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
-      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
-      THEGAMESDB_API_KEY: ${THEGAMESDB_API_KEY:-}
+      IMAGE_PROXY_RATE_LIMIT_WINDOW_MS: ${IMAGE_PROXY_RATE_LIMIT_WINDOW_MS:-60000}
+      IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW: ${IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW:-120}
+      IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW: ${IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW:-30}
+      CACHE_STATS_RATE_LIMIT_WINDOW_MS: ${CACHE_STATS_RATE_LIMIT_WINDOW_MS:-60000}
+      CACHE_STATS_MAX_REQUESTS_PER_WINDOW: ${CACHE_STATS_MAX_REQUESTS_PER_WINDOW:-60}
+      TWITCH_CLIENT_ID_FILE: ${TWITCH_CLIENT_ID_FILE:-/run/secrets/twitch_client_id}
+      TWITCH_CLIENT_SECRET_FILE: ${TWITCH_CLIENT_SECRET_FILE:-/run/secrets/twitch_client_secret}
+      THEGAMESDB_API_KEY_FILE: ${THEGAMESDB_API_KEY_FILE:-/run/secrets/thegamesdb_api_key}
       HLTB_SCRAPER_BASE_URL: ${HLTB_SCRAPER_BASE_URL:-http://hltb-scraper:8788}
-      HLTB_SCRAPER_TOKEN: ${HLTB_SCRAPER_TOKEN:-}
+      HLTB_SCRAPER_TOKEN_FILE: ${HLTB_SCRAPER_TOKEN_FILE:-/run/secrets/hltb_scraper_token}
+      HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
+      HLTB_CACHE_FRESH_TTL_SECONDS: ${HLTB_CACHE_FRESH_TTL_SECONDS:-604800}
+      HLTB_CACHE_STALE_TTL_SECONDS: ${HLTB_CACHE_STALE_TTL_SECONDS:-7776000}
       MANUALS_DIR: ${MANUALS_DIR:-/data/manuals}
       MANUALS_PUBLIC_BASE_URL: ${MANUALS_PUBLIC_BASE_URL:-/manuals}
     depends_on:
@@ -48,6 +64,7 @@ services:
     volumes:
       - ${IMAGE_CACHE_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/image-cache}:/data/images
       - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/data/manuals:ro
+      - ${SECRETS_HOST_DIR:-/volume1/docker/secrets/gameshelf}:/run/secrets:ro
     restart: unless-stopped
 
   postgres:
@@ -57,14 +74,15 @@ services:
       TZ: ${TZ:-Europe/Zurich}
       PGTZ: ${TZ:-Europe/Zurich}
       POSTGRES_DB: ${POSTGRES_DB:-gameshelf}
-      POSTGRES_USER: ${POSTGRES_USER:-gameshelf}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gameshelf}
+      POSTGRES_USER_FILE: ${POSTGRES_USER_FILE:-/run/secrets/postgres_user}
+      POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:-/run/secrets/postgres_password}
     volumes:
       - ${POSTGRES_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/postgres}:/var/lib/postgresql/data
+      - ${SECRETS_HOST_DIR:-/volume1/docker/secrets/gameshelf}:/run/secrets:ro
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}" || exit 1
+        - user_file="$${POSTGRES_USER_FILE:-}"; if [ -z "$$user_file" ] || [ ! -r "$$user_file" ]; then echo "POSTGRES_USER_FILE missing/unreadable" >&2; exit 1; fi; user="$$(tr -d '\r\n' < "$$user_file")"; pg_isready -h 127.0.0.1 -U "$$user" -d "$${POSTGRES_DB}" || exit 1
       interval: 10s
       timeout: 5s
       retries: 10
@@ -78,8 +96,11 @@ services:
       TZ: ${TZ:-Europe/Zurich}
       PORT: ${HLTB_SCRAPER_PORT:-8788}
       HLTB_SCRAPER_TIMEOUT_MS: ${HLTB_SCRAPER_TIMEOUT_MS:-25000}
-      HLTB_SCRAPER_TOKEN: ${HLTB_SCRAPER_TOKEN:-}
+      HLTB_SCRAPER_BROWSER_IDLE_MS: ${HLTB_SCRAPER_BROWSER_IDLE_MS:-30000}
+      HLTB_SCRAPER_TOKEN_FILE: ${HLTB_SCRAPER_TOKEN_FILE:-/run/secrets/hltb_scraper_token}
       DEBUG_HLTB_SCRAPER_LOGS: ${DEBUG_HLTB_SCRAPER_LOGS:-false}
+    volumes:
+      - ${SECRETS_HOST_DIR:-/volume1/docker/secrets/gameshelf}:/run/secrets:ro
     restart: unless-stopped
 
   backup:
@@ -91,8 +112,8 @@ services:
       PGHOST: postgres
       PGPORT: 5432
       PGDATABASE: ${POSTGRES_DB:-gameshelf}
-      PGUSER: ${POSTGRES_USER:-gameshelf}
-      PGPASSWORD: ${POSTGRES_PASSWORD:-gameshelf}
+      PGUSER_FILE: ${PGUSER_FILE:-/run/secrets/postgres_user}
+      PGPASSWORD_FILE: ${PGPASSWORD_FILE:-/run/secrets/postgres_password}
       BACKUP_KEEP_COUNT: ${BACKUP_KEEP_COUNT:-14}
       BACKUP_SCHEDULE_TIME: ${BACKUP_SCHEDULE_TIME:-00:00}
       BACKUP_PGDUMP_RETRIES: ${BACKUP_PGDUMP_RETRIES:-3}
@@ -102,4 +123,5 @@ services:
         condition: service_healthy
     volumes:
       - ${BACKUP_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/backups}:/backups
+      - ${SECRETS_HOST_DIR:-/volume1/docker/secrets/gameshelf}:/run/secrets:ro
     restart: unless-stopped

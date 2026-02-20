@@ -28,6 +28,25 @@ KEEP_COUNT="${BACKUP_KEEP_COUNT:-14}"
 DUMP_RETRIES="${BACKUP_PGDUMP_RETRIES:-3}"
 DUMP_RETRY_DELAY_SECONDS="${BACKUP_PGDUMP_RETRY_DELAY_SECONDS:-5}"
 
+PGUSER_FILE_PATH="${PGUSER_FILE:-/run/secrets/postgres_user}"
+PGPASSWORD_FILE_PATH="${PGPASSWORD_FILE:-/run/secrets/postgres_password}"
+
+if [ ! -r "$PGUSER_FILE_PATH" ]; then
+  log "database user secret is missing or unreadable: $PGUSER_FILE_PATH"
+  exit 1
+fi
+
+if [ ! -r "$PGPASSWORD_FILE_PATH" ]; then
+  log "database password secret is missing or unreadable: $PGPASSWORD_FILE_PATH"
+  exit 1
+fi
+
+PGUSER="$(tr -d '\r\n' <"$PGUSER_FILE_PATH")"
+PGPASSWORD="$(tr -d '\r\n' <"$PGPASSWORD_FILE_PATH")"
+export PGUSER
+export PGPASSWORD
+log "loaded database credentials from secret files"
+
 if ! echo "$DUMP_RETRIES" | grep -Eq '^[0-9]+$'; then
   log "invalid BACKUP_PGDUMP_RETRIES=$DUMP_RETRIES, defaulting to 3"
   DUMP_RETRIES=3

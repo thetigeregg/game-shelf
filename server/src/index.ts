@@ -18,7 +18,13 @@ import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HEALTH_RATE_LIMIT_WINDOW_MS = 60_000;
 const HEALTH_MAX_REQUESTS_PER_WINDOW = 1000;
-const healthRateLimitState = new Map<string, { windowStart: number; count: number }>();
+
+interface HealthRateLimitEntry {
+  windowStart: number;
+  count: number;
+}
+
+const healthRateLimitState = new Map<string, HealthRateLimitEntry>();
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
@@ -90,7 +96,15 @@ async function main(): Promise<void> {
   });
 
   app.get('/v1/health', async (request, reply) => {
-    if (isHealthRateLimitExceeded(Date.now(), resolveHealthRateLimitKey(request.ip))) {
+    if (
+      isHealthRateLimitExceeded(
+        healthRateLimitState,
+        Date.now(),
+        resolveHealthRateLimitKey(request.ip),
+        HEALTH_RATE_LIMIT_WINDOW_MS,
+        HEALTH_MAX_REQUESTS_PER_WINDOW
+      )
+    ) {
       reply.header(
         'Retry-After',
         String(Math.max(1, Math.ceil(HEALTH_RATE_LIMIT_WINDOW_MS / 1000)))
@@ -193,11 +207,17 @@ function resolveHealthRateLimitKey(ip: string | undefined): string {
   return normalized.length > 0 ? normalized : 'unknown';
 }
 
-function isHealthRateLimitExceeded(nowMs: number, key: string): boolean {
-  const existing = healthRateLimitState.get(key);
+function isHealthRateLimitExceeded(
+  rateLimitState: Map<string, HealthRateLimitEntry>,
+  nowMs: number,
+  key: string,
+  windowMs: number,
+  maxRequests: number
+): boolean {
+  const existing = rateLimitState.get(key);
 
-  if (!existing || nowMs - existing.windowStart >= HEALTH_RATE_LIMIT_WINDOW_MS) {
-    healthRateLimitState.set(key, {
+  if (!existing || nowMs - existing.windowStart >= windowMs) {
+    rateLimitState.set(key, {
       windowStart: nowMs,
       count: 1
     });
@@ -205,11 +225,11 @@ function isHealthRateLimitExceeded(nowMs: number, key: string): boolean {
   }
 
   const updatedCount = existing.count + 1;
-  healthRateLimitState.set(key, {
+  rateLimitState.set(key, {
     windowStart: existing.windowStart,
     count: updatedCount
   });
-  return updatedCount > HEALTH_MAX_REQUESTS_PER_WINDOW;
+  return updatedCount > maxRequests;
 }
 
 main().catch((error) => {

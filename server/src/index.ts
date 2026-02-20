@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import type { FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import middie from '@fastify/middie';
+import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
@@ -56,6 +58,17 @@ async function main(): Promise<void> {
     credentials: true
   });
 
+  await app.register(middie);
+  app.use(
+    expressRateLimit({
+      windowMs: 60_000,
+      max: 1000,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
+    })
+  );
+
   app.addHook('onRequest', async (request, reply) => {
     if (!isProtectedRoute(request)) {
       return;
@@ -90,7 +103,10 @@ async function main(): Promise<void> {
     imageProxyMaxRequestsPerWindow: config.imageProxyMaxRequestsPerWindow,
     imagePurgeMaxRequestsPerWindow: config.imagePurgeMaxRequestsPerWindow
   });
-  registerCacheObservabilityRoutes(app, pool);
+  await registerCacheObservabilityRoutes(app, pool, {
+    cacheStatsRateLimitWindowMs: config.cacheStatsRateLimitWindowMs,
+    cacheStatsMaxRequestsPerWindow: config.cacheStatsMaxRequestsPerWindow
+  });
   registerManualRoutes(app, {
     manualsDir: config.manualsDir,
     manualsPublicBaseUrl: config.manualsPublicBaseUrl

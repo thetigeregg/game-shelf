@@ -156,11 +156,13 @@ function isProtectedRoute(request: FastifyRequest): boolean {
     return false;
   }
 
+  const pathOnly = normalizeRequestPath(request.url);
+
   return (
-    request.url === '/v1/sync/push' ||
-    request.url === '/v1/sync/pull' ||
-    request.url === '/v1/images/cache/purge' ||
-    request.url === '/v1/manuals/refresh'
+    pathOnly === '/v1/sync/push' ||
+    pathOnly === '/v1/sync/pull' ||
+    pathOnly === '/v1/images/cache/purge' ||
+    pathOnly === '/v1/manuals/refresh'
   );
 }
 
@@ -177,6 +179,15 @@ function isAuthorizedRequest(request: FastifyRequest): boolean {
 
   const token = authorization.slice('Bearer '.length).trim();
   return token.length > 0 && token === config.apiToken;
+}
+
+function normalizeRequestPath(value: string): string {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  return normalized.split(/[?#]/, 1)[0];
 }
 
 main().catch((error) => {

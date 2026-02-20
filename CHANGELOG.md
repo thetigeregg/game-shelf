@@ -625,3 +625,7 @@
 - 8271f31 chore(deps): update @angular-eslint packages to version 21.2.0
 - 652be68 chore: upgrade Angular dependencies to version 21.x and adjust configurations
 
+## v0.1.3 - 2026-02-20
+- 6d471e1 Merge pull request #55 from thetigeregg/hono-fix
+- 21affc2 chore: update hono package to version 4.12.0
+

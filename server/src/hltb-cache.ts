@@ -61,12 +61,10 @@ export async function registerHltbCachedRoute(
   app.get(
     '/v1/hltb/search',
     {
-      config: {
-        rateLimit: {
-          max: HLTB_MAX_REQUESTS_PER_WINDOW,
-          timeWindow: HLTB_RATE_LIMIT_WINDOW_MS
-        }
-      }
+      preHandler: app.rateLimit({
+        max: HLTB_MAX_REQUESTS_PER_WINDOW,
+        timeWindow: HLTB_RATE_LIMIT_WINDOW_MS
+      })
     },
     async (request, reply) => {
       const normalized = normalizeHltbQuery(request.url);

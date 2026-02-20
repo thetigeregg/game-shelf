@@ -91,12 +91,10 @@ async function main(): Promise<void> {
   app.get(
     '/v1/health',
     {
-      config: {
-        rateLimit: {
-          max: 1000,
-          timeWindow: 60_000
-        }
-      }
+      preHandler: app.rateLimit({
+        max: 1000,
+        timeWindow: 60_000
+      })
     },
     async (_request, reply) => {
       try {

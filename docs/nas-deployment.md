@@ -156,6 +156,8 @@ npm run dev:stack:up
 npm start
 ```
 
+In local dev, Angular proxies `/manuals/...` requests to `edge` on `http://127.0.0.1:8080` so manual PDF links resolve without a separate host script.
+
 ## 4. Publish over Tailscale only
 
 Run on Synology host (where Tailscale is installed):

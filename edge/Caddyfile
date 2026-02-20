@@ -1,26 +1,6 @@
 :8080 {
   encode gzip zstd
 
-  # Inject API auth only for browser-initiated write routes that cannot
-  # safely store the API token client-side.
-  handle_path /api/v1/sync/push {
-    reverse_proxy api:3000 {
-      header_up Authorization "Bearer {$API_TOKEN}"
-    }
-  }
-
-  handle_path /api/v1/sync/pull {
-    reverse_proxy api:3000 {
-      header_up Authorization "Bearer {$API_TOKEN}"
-    }
-  }
-
-  handle_path /api/v1/images/cache/purge {
-    reverse_proxy api:3000 {
-      header_up Authorization "Bearer {$API_TOKEN}"
-    }
-  }
-
   handle_path /api/* {
     reverse_proxy api:3000
   }

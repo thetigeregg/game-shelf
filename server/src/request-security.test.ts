@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { shouldRequireAuth } from './request-security.js';
+import { isAuthorizedMutatingRequest, shouldRequireAuth } from './request-security.js';
 
 test('shouldRequireAuth protects all mutating HTTP methods by default', () => {
   assert.equal(shouldRequireAuth('GET'), false);
@@ -13,6 +13,56 @@ test('shouldRequireAuth protects all mutating HTTP methods by default', () => {
   assert.equal(shouldRequireAuth('DELETE'), true);
   assert.equal(shouldRequireAuth('TRACE'), true);
   assert.equal(shouldRequireAuth(''), true);
+});
+
+test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: 'api-secret',
+      clientWriteTokens: ['device-a'],
+      authorizationHeader: 'Bearer api-secret',
+      clientWriteTokenHeader: undefined
+    }),
+    true
+  );
+});
+
+test('isAuthorizedMutatingRequest accepts client write token auth', () => {
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: 'api-secret',
+      clientWriteTokens: ['device-a', 'device-b'],
+      authorizationHeader: undefined,
+      clientWriteTokenHeader: 'device-b'
+    }),
+    true
+  );
+});
+
+test('isAuthorizedMutatingRequest rejects missing or invalid auth when required', () => {
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: 'api-secret',
+      clientWriteTokens: ['device-a'],
+      authorizationHeader: undefined,
+      clientWriteTokenHeader: undefined
+    }),
+    false
+  );
+
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: 'api-secret',
+      clientWriteTokens: ['device-a'],
+      authorizationHeader: 'Bearer wrong-secret',
+      clientWriteTokenHeader: 'wrong-device'
+    }),
+    false
+  );
 });
 
 test('server route inventory remains audited and mutating routes require auth', async () => {

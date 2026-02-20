@@ -1,4 +1,13 @@
 const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+export const CLIENT_WRITE_TOKEN_HEADER_NAME = 'x-game-shelf-client-token';
+
+interface MutatingRequestAuthOptions {
+  requireAuth: boolean;
+  apiToken: string;
+  clientWriteTokens: string[];
+  authorizationHeader: string | string[] | undefined;
+  clientWriteTokenHeader: string | string[] | undefined;
+}
 
 /**
  * Determine whether the given HTTP method must be authenticated.
@@ -25,4 +34,54 @@ export function shouldRequireAuth(method: string): boolean {
   }
 
   return !SAFE_HTTP_METHODS.has(normalized);
+}
+
+export function isAuthorizedMutatingRequest(options: MutatingRequestAuthOptions): boolean {
+  if (!options.requireAuth) {
+    return true;
+  }
+
+  if (isAuthorizedBearerToken(options.authorizationHeader, options.apiToken)) {
+    return true;
+  }
+
+  return isAuthorizedClientWriteToken(options.clientWriteTokenHeader, options.clientWriteTokens);
+}
+
+function isAuthorizedBearerToken(
+  authorizationHeader: string | string[] | undefined,
+  apiToken: string
+): boolean {
+  const configuredToken = String(apiToken ?? '').trim();
+
+  if (configuredToken.length === 0) {
+    return false;
+  }
+
+  const authorization = normalizeHeaderValue(authorizationHeader);
+
+  if (!authorization.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = authorization.slice('Bearer '.length).trim();
+  return token.length > 0 && token === configuredToken;
+}
+
+function isAuthorizedClientWriteToken(
+  clientWriteTokenHeader: string | string[] | undefined,
+  clientWriteTokens: string[]
+): boolean {
+  const token = normalizeHeaderValue(clientWriteTokenHeader);
+
+  if (token.length === 0) {
+    return false;
+  }
+
+  return clientWriteTokens.includes(token);
+}
+
+function normalizeHeaderValue(value: string | string[] | undefined): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return String(raw ?? '').trim();
 }

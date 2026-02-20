@@ -7,14 +7,9 @@ services:
     environment:
       TZ: ${TZ:-Europe/Zurich}
       FEATURE_MGC_IMPORT: ${FEATURE_MGC_IMPORT:-false}
-      API_TOKEN_FILE: ${API_TOKEN_FILE:-/run/secrets/api_token}
     command: >-
       /bin/sh -c
-      "token_file=$${API_TOKEN_FILE:-};
-      if [ -n \"$$token_file\" ] && [ -r \"$$token_file\" ]; then
-        export API_TOKEN=$$(tr -d '\r\n' < \"$$token_file\");
-      fi;
-      feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
+      "feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
       case \"$$feature_raw\" in 1|true|yes|on) feature_bool=true ;; *) feature_bool=false ;; esac;
       mkdir -p /srv/assets;
       printf \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: %s } });\n\" \"$$feature_bool\" >> /srv/assets/runtime-config.js;
@@ -25,7 +20,6 @@ services:
       - '127.0.0.1:8080:8080'
     volumes:
       - ./nas-data/manuals:/manuals:ro
-      - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
     restart: unless-stopped
 
   api:
@@ -42,6 +36,7 @@ services:
       REQUIRE_AUTH: ${REQUIRE_AUTH:-true}
       DEBUG_HTTP_LOGS: ${DEBUG_HTTP_LOGS:-}
       API_TOKEN_FILE: ${API_TOKEN_FILE:-/run/secrets/api_token}
+      CLIENT_WRITE_TOKENS_FILE: ${CLIENT_WRITE_TOKENS_FILE:-/run/secrets/client_write_tokens}
       DATABASE_URL_FILE: ${DATABASE_URL_FILE:-/run/secrets/database_url}
       IMAGE_CACHE_DIR: ${IMAGE_CACHE_DIR:-/data/images}
       IMAGE_CACHE_TTL_SECONDS: ${IMAGE_CACHE_TTL_SECONDS:-2592000}

@@ -515,3 +515,42 @@ test('Image proxy route rate limits by client IP', async () => {
   await app.close();
   await fs.rm(tempDir, { recursive: true, force: true });
 });
+
+test('Image purge route rate limits by client IP', async () => {
+  resetCacheMetrics();
+  const pool = new ImagePoolMock();
+  const app = Fastify();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-rate-limit-test-'));
+
+  registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
+    rateLimitWindowMs: 60_000,
+    imagePurgeMaxRequestsPerWindow: 2
+  });
+
+  const url = 'https://images.igdb.com/igdb/image/upload/purge-rate-limit.jpg';
+
+  const one = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [url] }
+  });
+  assert.equal(one.statusCode, 200);
+
+  const two = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [url] }
+  });
+  assert.equal(two.statusCode, 200);
+
+  const limited = await app.inject({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    payload: { urls: [url] }
+  });
+  assert.equal(limited.statusCode, 429);
+  assert.ok(typeof limited.headers['retry-after'] === 'string');
+
+  await app.close();
+  await fs.rm(tempDir, { recursive: true, force: true });
+});

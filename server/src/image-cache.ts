@@ -53,12 +53,10 @@ export async function registerImageProxyRoute(
   app.post(
     '/v1/images/cache/purge',
     {
-      config: {
-        rateLimit: {
-          max: imagePurgeMaxRequestsPerWindow,
-          timeWindow: rateLimitWindowMs
-        }
-      }
+      preHandler: app.rateLimit({
+        max: imagePurgeMaxRequestsPerWindow,
+        timeWindow: rateLimitWindowMs
+      })
     },
     async (request, reply) => {
       const body = (request.body ?? {}) as { urls?: unknown };
@@ -118,12 +116,10 @@ export async function registerImageProxyRoute(
   app.get(
     '/v1/images/proxy',
     {
-      config: {
-        rateLimit: {
-          max: imageProxyMaxRequestsPerWindow,
-          timeWindow: rateLimitWindowMs
-        }
-      }
+      preHandler: app.rateLimit({
+        max: imageProxyMaxRequestsPerWindow,
+        timeWindow: rateLimitWindowMs
+      })
     },
     async (request, reply) => {
       const normalizedImageUrl = normalizeProxyImageUrl(

@@ -38,12 +38,10 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
   app.post(
     '/v1/sync/push',
     {
-      config: {
-        rateLimit: {
-          max: SYNC_PUSH_MAX_REQUESTS_PER_WINDOW,
-          timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
-        }
-      }
+      preHandler: app.rateLimit({
+        max: SYNC_PUSH_MAX_REQUESTS_PER_WINDOW,
+        timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
+      })
     },
     async (request, reply) => {
       const body = (request.body ?? {}) as PushBody;
@@ -114,12 +112,10 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
   app.post(
     '/v1/sync/pull',
     {
-      config: {
-        rateLimit: {
-          max: SYNC_PULL_MAX_REQUESTS_PER_WINDOW,
-          timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
-        }
-      }
+      preHandler: app.rateLimit({
+        max: SYNC_PULL_MAX_REQUESTS_PER_WINDOW,
+        timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
+      })
     },
     async (request, reply) => {
       const body = (request.body ?? {}) as PullBody;

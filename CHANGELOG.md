@@ -638,3 +638,9 @@
 - 23a295a Audit manual refresh endpoint access
 - 5b7a340 Normalize request path for auth
 
+## v0.1.5 - 2026-02-20
+- d54ed48 Merge pull request #57 from thetigeregg/img-c
+- e004df1 Add rate limiting to server routes
+- bde7baf Merge branch 'main' into img-c
+- a1016be Add rate limiting to image cache API
+

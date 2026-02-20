@@ -603,3 +603,17 @@
 - 70a68f9 Apply suggestions from code review
 - f8f41d5 Add rate limiting to image cache
 
+## v0.1.1 - 2026-02-20
+- 48595b8 Merge pull request #53 from thetigeregg/alert-autofix-2
+- 4bd58a3 Tune cache stats rate limits
+- 6ed3957 Adjust cache observability rate limi
+- f51afe0 Add rate limiting middleware
+- 8fb4028 Add inline rate limit config
+- 25cb48d Fix cache observability registration
+- 4fa3432 Apply suggestions from code review
+- 5be5ff6 refactor: update rate limiting implementation in cache observability routes
+- 876800e refactor: improve formatting and structure of registerCacheObservabilityRoutes function
+- ba7828f Potential fix for code scanning alert no. 19: Missing rate limiting
+- 1ff9bdb Add @fastify/rate-limit dependency to enhance rate limiting functionality
+- f4c03f7 Potential fix for code scanning alert no. 2: Missing rate limiting
+

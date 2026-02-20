@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import type { FastifyRequest } from 'fastify';
+import middie from '@fastify/middie';
+import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
 
@@ -30,12 +31,12 @@ interface ImageCacheRouteOptions {
   imagePurgeMaxRequestsPerWindow?: number;
 }
 
-export function registerImageProxyRoute(
+export async function registerImageProxyRoute(
   app: FastifyInstance,
   pool: Pool,
   imageCacheDir: string,
   options: ImageCacheRouteOptions = {}
-): void {
+): Promise<void> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
@@ -48,24 +49,37 @@ export function registerImageProxyRoute(
   const imagePurgeMaxRequestsPerWindow = Number.isInteger(options.imagePurgeMaxRequestsPerWindow)
     ? Number(options.imagePurgeMaxRequestsPerWindow)
     : 30;
-  const imageProxyRateLimit = createRouteRateLimiter({
-    windowMs: rateLimitWindowMs,
-    maxRequestsPerWindow: imageProxyMaxRequestsPerWindow
-  });
-  const imagePurgeRateLimit = createRouteRateLimiter({
-    windowMs: rateLimitWindowMs,
-    maxRequestsPerWindow: imagePurgeMaxRequestsPerWindow
-  });
+  const rateLimitExceededHandler = (_request: unknown, response: any): void => {
+    response.statusCode = 429;
+    response.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.end(JSON.stringify({ error: 'Too many requests.' }));
+  };
+  await app.register(middie);
+
+  app.use(
+    '/v1/images/cache/purge',
+    expressRateLimit({
+      windowMs: rateLimitWindowMs,
+      max: imagePurgeMaxRequestsPerWindow,
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: rateLimitExceededHandler,
+      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
+    })
+  );
+  app.use(
+    '/v1/images/proxy',
+    expressRateLimit({
+      windowMs: rateLimitWindowMs,
+      max: imageProxyMaxRequestsPerWindow,
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: rateLimitExceededHandler,
+      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
+    })
+  );
 
   app.post('/v1/images/cache/purge', async (request, reply) => {
-    const purgeRateLimit = imagePurgeRateLimit.consume(getClientIpKey(request));
-
-    if (purgeRateLimit.retryAfterSeconds !== undefined) {
-      reply.header('Retry-After', String(purgeRateLimit.retryAfterSeconds));
-      reply.code(429).send({ error: 'Too many requests.' });
-      return;
-    }
-
     const body = (request.body ?? {}) as { urls?: unknown };
     const rawUrls = Array.isArray(body.urls) ? body.urls : [];
     const normalizedUrls = [
@@ -120,14 +134,6 @@ export function registerImageProxyRoute(
   });
 
   app.get('/v1/images/proxy', async (request, reply) => {
-    const proxyRateLimit = imageProxyRateLimit.consume(getClientIpKey(request));
-
-    if (proxyRateLimit.retryAfterSeconds !== undefined) {
-      reply.header('Retry-After', String(proxyRateLimit.retryAfterSeconds));
-      reply.code(429).send({ error: 'Too many requests.' });
-      return;
-    }
-
     const normalizedImageUrl = normalizeProxyImageUrl(
       (request.query as Record<string, unknown>)['url']
     );
@@ -226,16 +232,16 @@ export function registerImageProxyRoute(
     try {
       await pool.query(
         `
-        INSERT INTO image_assets (cache_key, source_url, content_type, file_path, size_bytes, updated_at)
-        VALUES ($1, $2, $3, $4, $5, NOW())
-        ON CONFLICT (cache_key)
-        DO UPDATE SET
-          source_url = EXCLUDED.source_url,
-          content_type = EXCLUDED.content_type,
-          file_path = EXCLUDED.file_path,
-          size_bytes = EXCLUDED.size_bytes,
-          updated_at = NOW()
-        `,
+          INSERT INTO image_assets (cache_key, source_url, content_type, file_path, size_bytes, updated_at)
+          VALUES ($1, $2, $3, $4, $5, NOW())
+          ON CONFLICT (cache_key)
+          DO UPDATE SET
+            source_url = EXCLUDED.source_url,
+            content_type = EXCLUDED.content_type,
+            file_path = EXCLUDED.file_path,
+            size_bytes = EXCLUDED.size_bytes,
+            updated_at = NOW()
+          `,
         [cacheKey, sourceUrl, contentType, storagePath, bytes.length]
       );
       incrementImageMetric('writes');
@@ -252,95 +258,6 @@ export function registerImageProxyRoute(
     reply.header('Cache-Control', 'public, max-age=86400');
     reply.send(bytes);
   });
-}
-
-interface RateLimiterOptions {
-  windowMs: number;
-  maxRequestsPerWindow: number;
-}
-
-interface RateLimitEntry {
-  count: number;
-  resetAtEpochMs: number;
-}
-
-interface RouteRateLimiter {
-  consume(ipKey: string): { retryAfterSeconds?: number };
-}
-
-function getClientIpKey(request: FastifyRequest): string {
-  const xForwardedFor = request.headers['x-forwarded-for'];
-
-  if (typeof xForwardedFor === 'string' && xForwardedFor.length > 0) {
-    const first = xForwardedFor.split(',')[0]?.trim();
-    if (first) {
-      return first;
-    }
-  } else if (Array.isArray(xForwardedFor) && xForwardedFor.length > 0) {
-    const first = xForwardedFor[0]?.split(',')[0]?.trim();
-    if (first) {
-      return first;
-    }
-  }
-
-  const xRealIp = request.headers['x-real-ip'];
-
-  if (typeof xRealIp === 'string' && xRealIp.length > 0) {
-    return xRealIp.trim();
-  } else if (Array.isArray(xRealIp) && xRealIp.length > 0 && xRealIp[0]) {
-    return xRealIp[0].trim();
-  }
-
-  if (request.ip) {
-    return request.ip;
-  }
-
-  return 'unknown';
-}
-
-// NOTE: This is an in-memory rate limiter scoped to a single process instance.
-// In a multi-instance or horizontally-scaled deployment (e.g. multiple API
-// replicas behind a load balancer), each instance maintains its own independent
-// counter map. As a result, the effective per-IP limit is multiplied by the
-// number of running instances. For example, with 3 replicas and a limit of
-// 120 req/min, a single client could make up to 360 req/min across the fleet.
-// If multi-instance deployments are required, replace this with a shared
-// rate-limiting backend such as Redis.
-function createRouteRateLimiter(options: RateLimiterOptions): RouteRateLimiter {
-  const entries = new Map<string, RateLimitEntry>();
-
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of entries) {
-      if (now >= entry.resetAtEpochMs) {
-        entries.delete(key);
-      }
-    }
-  }, options.windowMs).unref();
-
-  return {
-    consume(ipKey: string): { retryAfterSeconds?: number } {
-      const now = Date.now();
-      const existing = entries.get(ipKey);
-
-      if (!existing || now >= existing.resetAtEpochMs) {
-        entries.set(ipKey, {
-          count: 1,
-          resetAtEpochMs: now + options.windowMs
-        });
-        return {};
-      }
-
-      if (existing.count >= options.maxRequestsPerWindow) {
-        return {
-          retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAtEpochMs - now) / 1000))
-        };
-      }
-
-      existing.count += 1;
-      return {};
-    }
-  };
 }
 
 interface NormalizedProxyImageUrl {

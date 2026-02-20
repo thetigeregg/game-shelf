@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import middie from '@fastify/middie';
+import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
 
@@ -26,13 +28,33 @@ interface HltbCacheRouteOptions {
 
 const DEFAULT_HLTB_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS = 86400 * 90;
+const HLTB_RATE_LIMIT_WINDOW_MS = 60_000;
+const HLTB_MAX_REQUESTS_PER_WINDOW = 120;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
 
-export function registerHltbCachedRoute(
+export async function registerHltbCachedRoute(
   app: FastifyInstance,
   pool: Pool,
   options: HltbCacheRouteOptions = {}
-): void {
+): Promise<void> {
+  const rateLimitExceededHandler = (_request: unknown, response: any): void => {
+    response.statusCode = 429;
+    response.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.end(JSON.stringify({ error: 'Too many requests.' }));
+  };
+  await app.register(middie);
+  app.use(
+    '/v1/hltb/search',
+    expressRateLimit({
+      windowMs: HLTB_RATE_LIMIT_WINDOW_MS,
+      max: HLTB_MAX_REQUESTS_PER_WINDOW,
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: rateLimitExceededHandler,
+      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
+    })
+  );
+
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
   const scheduleBackgroundRefresh =

@@ -1,9 +1,25 @@
 import express from 'express';
+import fs from 'node:fs';
 import { chromium } from 'playwright';
+
+function readEnvOrFile(name) {
+  const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
+  const resolved = filePath.length > 0 ? filePath : `/run/secrets/${name.toLowerCase()}`;
+  if (fs.existsSync(resolved)) {
+    try {
+      return fs.readFileSync(resolved, 'utf8').trim();
+    } catch (error) {
+      throw new Error(
+        `Failed to read configuration secret for "${name}" from path "${resolved}": ${error.message}`,
+      );
+    }
+  }
+  return '';
+}
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '8788', 10);
-const apiToken = (process.env.HLTB_SCRAPER_TOKEN ?? '').trim();
+const apiToken = readEnvOrFile('HLTB_SCRAPER_TOKEN');
 const browserTimeoutMs = Number.parseInt(process.env.HLTB_SCRAPER_TIMEOUT_MS ?? '25000', 10);
 const browserIdleTtlMs = Number.parseInt(process.env.HLTB_SCRAPER_BROWSER_IDLE_MS ?? '30000', 10);
 const debugLogsEnabled = String(process.env.DEBUG_HLTB_SCRAPER_LOGS ?? '').toLowerCase() === 'true';

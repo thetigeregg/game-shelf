@@ -27,6 +27,13 @@ if [[ -z "${BACKUP_HOST_DIR:-}" ]]; then
   exit 1
 fi
 
+if [[ -z "${SECRETS_HOST_DIR:-}" ]]; then
+  SECRETS_HOST_DIR="$(docker compose config | awk '/source:/{src=$NF} /target: \/run\/secrets/{print src; exit}')"
+fi
+if [[ -z "${SECRETS_HOST_DIR:-}" ]]; then
+  SECRETS_HOST_DIR="./nas-secrets"
+fi
+
 count_timestamp_backup_dirs() {
   find "$BACKUP_HOST_DIR" -mindepth 1 -maxdepth 1 -type d -print \
     | while IFS= read -r path; do
@@ -40,6 +47,13 @@ count_timestamp_backup_dirs() {
 }
 
 echo "[backup-test] Ensuring services are running"
+mkdir -p "$SECRETS_HOST_DIR"
+if [[ ! -f "$SECRETS_HOST_DIR/postgres_user" ]]; then
+  printf 'gameshelf\n' > "$SECRETS_HOST_DIR/postgres_user"
+fi
+if [[ ! -f "$SECRETS_HOST_DIR/postgres_password" ]]; then
+  printf 'gameshelf\n' > "$SECRETS_HOST_DIR/postgres_password"
+fi
 docker compose up -d postgres backup
 
 echo "[backup-test] Triggering manual backup #1"

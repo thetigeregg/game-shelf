@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import middie from '@fastify/middie';
 import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool, PoolClient } from 'pg';
+import { ensureMiddieRegistered } from './middleware.js';
 import type {
   ClientSyncOperation,
   SyncEntityType,
@@ -39,7 +39,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.end(JSON.stringify({ error: 'Too many requests.' }));
   };
-  await app.register(middie);
+  await ensureMiddieRegistered(app);
   app.use(
     '/v1/sync/push',
     expressRateLimit({

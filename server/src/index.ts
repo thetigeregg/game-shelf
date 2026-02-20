@@ -4,13 +4,13 @@ import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import middie from '@fastify/middie';
 import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
+import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
 import { shouldRequireAuth } from './request-security.js';
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     credentials: true
   });
 
-  await app.register(middie);
+  await ensureMiddieRegistered(app);
   app.use(
     expressRateLimit({
       windowMs: 60_000,

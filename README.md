@@ -63,7 +63,7 @@ npm start
 
 Frontend dev server runs on `http://localhost:8100`.
 Manual URLs resolve from the API to `http://127.0.0.1:8080/manuals/...` during dev (served by local `edge`).
-For full local Docker setup details, see `/Users/sixtopia/projects/game-shelf/docs/nas-deployment.md` (`Local Docker-based API development`).
+For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-deployment.md) (`Local Docker-based API development`).
 
 ## Build
 

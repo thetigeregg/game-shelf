@@ -125,7 +125,7 @@ async function main(): Promise<void> {
   app.get('/v1/popularity/types', proxyMetadataToWorker);
   app.get('/v1/popularity/primitives', proxyMetadataToWorker);
   app.get('/v1/images/boxart/search', proxyMetadataToWorker);
-  registerHltbCachedRoute(app, pool, {
+  await registerHltbCachedRoute(app, pool, {
     enableStaleWhileRevalidate: config.hltbCacheEnableStaleWhileRevalidate,
     freshTtlSeconds: config.hltbCacheFreshTtlSeconds,
     staleTtlSeconds: config.hltbCacheStaleTtlSeconds

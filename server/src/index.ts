@@ -13,6 +13,7 @@ import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
+import { shouldRequireAuth } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
   );
 
   app.addHook('onRequest', async (request, reply) => {
-    if (!isProtectedRoute(request)) {
+    if (!shouldRequireAuth(request.method)) {
       return;
     }
 
@@ -151,21 +152,6 @@ function isCorsOriginAllowed(origin: string): boolean {
   return config.corsAllowedOrigins.some((allowedOrigin) => allowedOrigin === origin);
 }
 
-function isProtectedRoute(request: FastifyRequest): boolean {
-  if (request.method !== 'POST') {
-    return false;
-  }
-
-  const pathOnly = normalizeRequestPath(request.url);
-
-  return (
-    pathOnly === '/v1/sync/push' ||
-    pathOnly === '/v1/sync/pull' ||
-    pathOnly === '/v1/images/cache/purge' ||
-    pathOnly === '/v1/manuals/refresh'
-  );
-}
-
 function isAuthorizedRequest(request: FastifyRequest): boolean {
   if (!config.requireAuth) {
     return true;
@@ -179,15 +165,6 @@ function isAuthorizedRequest(request: FastifyRequest): boolean {
 
   const token = authorization.slice('Bearer '.length).trim();
   return token.length > 0 && token === config.apiToken;
-}
-
-function normalizeRequestPath(value: string): string {
-  const normalized = String(value ?? '').trim();
-  if (!normalized) {
-    return '';
-  }
-
-  return normalized.split(/[?#]/, 1)[0];
 }
 
 main().catch((error) => {

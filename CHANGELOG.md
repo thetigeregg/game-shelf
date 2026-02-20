@@ -648,3 +648,7 @@
 - ed89f22 Merge pull request #59 from thetigeregg/hltb-c
 - ea13022 Add rate limits to server routes
 
+## v0.1.7 - 2026-02-20
+- 6cad856 Merge pull request #60 from thetigeregg/api
+- adec991 Prevent duplicate middie setup
+

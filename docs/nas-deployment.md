@@ -73,10 +73,14 @@ Rate limiting env vars (optional):
 
 > **Note:** The rate limiter is in-memory and scoped to a single `api` container instance. If you scale the `api` service to multiple replicas, each replica maintains its own independent counter, so the effective per-IP limit is multiplied by the number of running replicas. This deployment guide assumes a single `api` replica, which is the expected use case for a personal NAS. If you require multi-instance deployments, a shared rate-limiting backend (e.g. Redis) would be needed.
 
-Protected POST endpoints (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`, `/api/v1/manuals/refresh`) require:
+Protected POST endpoints require:
 
 - `Authorization: Bearer <API_TOKEN>`
-- The bundled `edge` service injects this header automatically for `/api/*` requests from `API_TOKEN_FILE`.
+- The bundled `edge` service injects this header automatically only for these browser-required routes:
+  - `POST /api/v1/sync/push`
+  - `POST /api/v1/sync/pull`
+  - `POST /api/v1/images/cache/purge`
+- All other protected routes (including `POST /api/v1/manuals/refresh`) must provide `Authorization` explicitly.
 
 Example:
 

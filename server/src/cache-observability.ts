@@ -7,11 +7,11 @@ interface CacheCountRow {
   count: string;
 }
 
-export async function registerCacheObservabilityRoutes(
+export function registerCacheObservabilityRoutes(
   app: FastifyInstance,
   pool: Pool
-): Promise<void> {
-  await app.register(rateLimit, {
+): void {
+  app.register(rateLimit, {
     max: 60, // maximum number of requests per IP per time window
     timeWindow: '1 minute'
   });

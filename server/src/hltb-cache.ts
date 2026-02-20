@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import middie from '@fastify/middie';
 import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
+import { ensureMiddieRegistered } from './middleware.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -42,7 +42,7 @@ export async function registerHltbCachedRoute(
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.end(JSON.stringify({ error: 'Too many requests.' }));
   };
-  await app.register(middie);
+  await ensureMiddieRegistered(app);
   app.use(
     '/v1/hltb/search',
     expressRateLimit({

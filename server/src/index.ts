@@ -1,16 +1,19 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
-import type { FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
+import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
+import { shouldRequireAuth } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -56,14 +59,31 @@ async function main(): Promise<void> {
     credentials: true
   });
 
-  app.addHook('onRequest', async (request, reply) => {
-    if (!isProtectedRoute(request)) {
+  await ensureMiddieRegistered(app);
+  app.use(
+    expressRateLimit({
+      windowMs: 60_000,
+      max: 1000,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
+    })
+  );
+
+  app.use((request: IncomingMessage, response: ServerResponse, next) => {
+    if (!shouldRequireAuth(request.method ?? '')) {
+      next();
       return;
     }
 
-    if (!isAuthorizedRequest(request)) {
-      reply.code(401).send({ error: 'Unauthorized' });
+    if (!isAuthorizedRequestHeader(request.headers.authorization)) {
+      response.statusCode = 401;
+      response.setHeader('Content-Type', 'application/json; charset=utf-8');
+      response.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
     }
+
+    next();
   });
 
   app.get('/v1/health', async (_request, reply) => {
@@ -82,12 +102,18 @@ async function main(): Promise<void> {
     }
   });
 
-  registerSyncRoutes(app, pool);
-  registerImageProxyRoute(app, pool, imageCacheDir, {
+  await registerSyncRoutes(app, pool);
+  await registerImageProxyRoute(app, pool, imageCacheDir, {
     timeoutMs: config.imageProxyTimeoutMs,
-    maxBytes: config.imageProxyMaxBytes
+    maxBytes: config.imageProxyMaxBytes,
+    rateLimitWindowMs: config.imageProxyRateLimitWindowMs,
+    imageProxyMaxRequestsPerWindow: config.imageProxyMaxRequestsPerWindow,
+    imagePurgeMaxRequestsPerWindow: config.imagePurgeMaxRequestsPerWindow
   });
-  registerCacheObservabilityRoutes(app, pool);
+  await registerCacheObservabilityRoutes(app, pool, {
+    cacheStatsRateLimitWindowMs: config.cacheStatsRateLimitWindowMs,
+    cacheStatsMaxRequestsPerWindow: config.cacheStatsMaxRequestsPerWindow
+  });
   registerManualRoutes(app, {
     manualsDir: config.manualsDir,
     manualsPublicBaseUrl: config.manualsPublicBaseUrl
@@ -99,7 +125,7 @@ async function main(): Promise<void> {
   app.get('/v1/popularity/types', proxyMetadataToWorker);
   app.get('/v1/popularity/primitives', proxyMetadataToWorker);
   app.get('/v1/images/boxart/search', proxyMetadataToWorker);
-  registerHltbCachedRoute(app, pool, {
+  await registerHltbCachedRoute(app, pool, {
     enableStaleWhileRevalidate: config.hltbCacheEnableStaleWhileRevalidate,
     freshTtlSeconds: config.hltbCacheFreshTtlSeconds,
     staleTtlSeconds: config.hltbCacheStaleTtlSeconds
@@ -132,25 +158,15 @@ function isCorsOriginAllowed(origin: string): boolean {
   return config.corsAllowedOrigins.some((allowedOrigin) => allowedOrigin === origin);
 }
 
-function isProtectedRoute(request: FastifyRequest): boolean {
-  if (request.method !== 'POST') {
-    return false;
-  }
-
-  return (
-    request.url === '/v1/sync/push' ||
-    request.url === '/v1/sync/pull' ||
-    request.url === '/v1/images/cache/purge' ||
-    request.url === '/v1/manuals/refresh'
-  );
-}
-
-function isAuthorizedRequest(request: FastifyRequest): boolean {
+function isAuthorizedRequestHeader(authorizationHeader: string | string[] | undefined): boolean {
   if (!config.requireAuth) {
     return true;
   }
 
-  const authorization = String(request.headers.authorization ?? '').trim();
+  const authorizationRaw = Array.isArray(authorizationHeader)
+    ? authorizationHeader[0]
+    : authorizationHeader;
+  const authorization = String(authorizationRaw ?? '').trim();
 
   if (!authorization.startsWith('Bearer ')) {
     return false;

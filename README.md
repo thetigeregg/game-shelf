@@ -26,16 +26,16 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 npm ci
 ```
 
-2. Start required local dependencies (`postgres` + `hltb-scraper`):
+2. Start local backend stack (`postgres` + `hltb-scraper` + `api`):
 
 ```bash
-npm run dev:deps:up
+npm run dev:stack:up
 ```
 
-3. Run API on host (optional but common for local dev):
+3. (Optional) Follow API logs:
 
 ```bash
-npm run dev:host
+npm run dev:api:logs
 ```
 
 4. Run frontend:

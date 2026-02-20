@@ -123,34 +123,31 @@ Manual PDFs:
 - Use platform folders that end with `__pid-<platformIgdbId>` (example: `PlayStation 2__pid-8`).
 - The app serves files at `/manuals/...` and the API scans `/data/manuals` for fuzzy matching.
 
-## Local host-based API development (without running `api` container)
+## Local Docker-based API development
 
-For local dev, use only `server/.env`:
+Local development runs `api` in Docker (no host-run API process).
 
-`DATABASE_URL_FILE=./secrets/database_url`
-`IMAGE_CACHE_DIR=./server/.data/images`
-`HLTB_SCRAPER_BASE_URL=http://localhost:8788`
-`HLTB_SCRAPER_TIMEOUT_MS=30000`
+1. Create local secret files (required, one file per secret) under `./nas-secrets`:
 
-Create local secret files (required, one file per secret), for example:
+`nas-secrets/database_url`
+`nas-secrets/api_token`
+`nas-secrets/twitch_client_id`
+`nas-secrets/twitch_client_secret`
+`nas-secrets/thegamesdb_api_key`
+`nas-secrets/postgres_user`
+`nas-secrets/postgres_password`
+`nas-secrets/hltb_scraper_token` (optional)
 
-`server/secrets/database_url`
-`server/secrets/api_token`
-`server/secrets/twitch_client_id`
-`server/secrets/twitch_client_secret`
-`server/secrets/thegamesdb_api_key`
-`server/secrets/hltb_scraper_token` (optional)
-
-Use the dev override so postgres/scraper are bound to localhost only:
+2. Start the dev stack:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hltb-scraper
+npm run dev:stack:up
 ```
 
-Run host dev server:
+3. API is reachable at `http://127.0.0.1:3000` and frontend can run with:
 
 ```bash
-npm --prefix server run dev
+npm start
 ```
 
 ## 4. Publish over Tailscale only

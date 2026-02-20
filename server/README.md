@@ -20,20 +20,12 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 ## Run locally
 
 ```bash
-cd server
-# copy sample env and fill secrets
-cp .env.example .env
-npm install
-npm run dev
+cd ..
+npm run dev:stack:up
 ```
 
-Required values to fill in `.env`:
-
-- `DATABASE_URL`
-- `TWITCH_CLIENT_ID`
-- `TWITCH_CLIENT_SECRET`
-- `THEGAMESDB_API_KEY`
-- `API_TOKEN` (when `REQUIRE_AUTH=true`)
+This starts the API in Docker with Postgres + HLTB scraper dependencies.
+Provide file-based secrets in `./nas-secrets` (see `docs/nas-deployment.md` for the full list).
 
 ## Notes
 

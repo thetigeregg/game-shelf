@@ -252,12 +252,42 @@ interface RateLimitEntry {
   resetAtEpochMs: number;
 }
 
+function getClientIpKey(request: FastifyRequest): string {
+  const xForwardedFor = request.headers['x-forwarded-for'];
+
+  if (typeof xForwardedFor === 'string' && xForwardedFor.length > 0) {
+    const first = xForwardedFor.split(',')[0]?.trim();
+    if (first) {
+      return first;
+    }
+  } else if (Array.isArray(xForwardedFor) && xForwardedFor.length > 0) {
+    const first = xForwardedFor[0]?.split(',')[0]?.trim();
+    if (first) {
+      return first;
+    }
+  }
+
+  const xRealIp = request.headers['x-real-ip'];
+
+  if (typeof xRealIp === 'string' && xRealIp.length > 0) {
+    return xRealIp.trim();
+  } else if (Array.isArray(xRealIp) && xRealIp.length > 0 && xRealIp[0]) {
+    return xRealIp[0].trim();
+  }
+
+  if (request.ip) {
+    return request.ip;
+  }
+
+  return 'unknown';
+}
+
 function createRouteRateLimiter(options: RateLimiterOptions) {
   const entries = new Map<string, RateLimitEntry>();
 
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const now = Date.now();
-    const ipKey = request.ip || 'unknown';
+    const ipKey = getClientIpKey(request);
     const existing = entries.get(ipKey);
 
     if (!existing || now >= existing.resetAtEpochMs) {

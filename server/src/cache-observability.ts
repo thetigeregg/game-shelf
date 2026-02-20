@@ -16,15 +16,15 @@ export async function registerCacheObservabilityRoutes(
     timeWindow: '1 minute'
   });
 
-  const cacheStatsRateLimit = app.rateLimit({
-    max: 10,
-    timeWindow: '1 minute'
-  });
-
   app.get(
     '/v1/cache/stats',
     {
-      onRequest: cacheStatsRateLimit
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 minute'
+        }
+      }
     },
     async (_request, reply) => {
       const metrics = getCacheMetrics();

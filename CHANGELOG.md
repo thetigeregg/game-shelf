@@ -581,3 +581,7 @@
 - f6f0317 Initial plan
 - c6b561c Potential fix for code scanning alert no. 11: Server-side request forgery
 
+## v0.0.23 - 2026-02-20
+- 6fa87de Merge pull request #47 from thetigeregg/alert-autofix-10
+- 7b8c447 Potential fix for code scanning alert no. 10: Incomplete URL substring sanitization
+

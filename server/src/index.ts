@@ -96,21 +96,30 @@ async function main(): Promise<void> {
   });
 
   app.get('/v1/health', async (request, reply) => {
-    if (
-      isHealthRateLimitExceeded(
-        healthRateLimitState,
-        Date.now(),
-        resolveHealthRateLimitKey(request.ip),
-        HEALTH_RATE_LIMIT_WINDOW_MS,
-        HEALTH_MAX_REQUESTS_PER_WINDOW
-      )
-    ) {
-      reply.header(
-        'Retry-After',
-        String(Math.max(1, Math.ceil(HEALTH_RATE_LIMIT_WINDOW_MS / 1000)))
-      );
-      reply.code(429).send({ error: 'Too many requests.' });
-      return;
+    const nowMs = Date.now();
+    const key = resolveHealthRateLimitKey(request.ip);
+    const existing = healthRateLimitState.get(key);
+
+    if (!existing || nowMs - existing.windowStart >= HEALTH_RATE_LIMIT_WINDOW_MS) {
+      healthRateLimitState.set(key, {
+        windowStart: nowMs,
+        count: 1
+      });
+    } else {
+      const updatedCount = existing.count + 1;
+      healthRateLimitState.set(key, {
+        windowStart: existing.windowStart,
+        count: updatedCount
+      });
+
+      if (updatedCount > HEALTH_MAX_REQUESTS_PER_WINDOW) {
+        reply.header(
+          'Retry-After',
+          String(Math.max(1, Math.ceil(HEALTH_RATE_LIMIT_WINDOW_MS / 1000)))
+        );
+        reply.code(429).send({ error: 'Too many requests.' });
+        return;
+      }
     }
 
     try {
@@ -205,31 +214,6 @@ function isAuthorizedRequestHeader(authorizationHeader: string | string[] | unde
 function resolveHealthRateLimitKey(ip: string | undefined): string {
   const normalized = String(ip ?? '').trim();
   return normalized.length > 0 ? normalized : 'unknown';
-}
-
-function isHealthRateLimitExceeded(
-  rateLimitState: Map<string, HealthRateLimitEntry>,
-  nowMs: number,
-  key: string,
-  windowMs: number,
-  maxRequests: number
-): boolean {
-  const existing = rateLimitState.get(key);
-
-  if (!existing || nowMs - existing.windowStart >= windowMs) {
-    rateLimitState.set(key, {
-      windowStart: nowMs,
-      count: 1
-    });
-    return false;
-  }
-
-  const updatedCount = existing.count + 1;
-  rateLimitState.set(key, {
-    windowStart: existing.windowStart,
-    count: updatedCount
-  });
-  return updatedCount > maxRequests;
 }
 
 main().catch((error) => {

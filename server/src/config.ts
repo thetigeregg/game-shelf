@@ -122,7 +122,7 @@ export const config: AppConfig = {
   imageProxyMaxRequestsPerWindow: readIntegerEnv('IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW', 120),
   imagePurgeMaxRequestsPerWindow: readIntegerEnv('IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW', 30),
   cacheStatsRateLimitWindowMs: readIntegerEnv('CACHE_STATS_RATE_LIMIT_WINDOW_MS', 60_000),
-  cacheStatsMaxRequestsPerWindow: readIntegerEnv('CACHE_STATS_MAX_REQUESTS_PER_WINDOW', 10),
+  cacheStatsMaxRequestsPerWindow: readIntegerEnv('CACHE_STATS_MAX_REQUESTS_PER_WINDOW', 60),
   twitchClientId: readRequiredEnv('TWITCH_CLIENT_ID'),
   twitchClientSecret: readRequiredEnv('TWITCH_CLIENT_SECRET'),
   theGamesDbApiKey: readRequiredEnv('THEGAMESDB_API_KEY'),

@@ -103,7 +103,10 @@ async function main(): Promise<void> {
     imageProxyMaxRequestsPerWindow: config.imageProxyMaxRequestsPerWindow,
     imagePurgeMaxRequestsPerWindow: config.imagePurgeMaxRequestsPerWindow
   });
-  await registerCacheObservabilityRoutes(app, pool);
+  await registerCacheObservabilityRoutes(app, pool, {
+    cacheStatsRateLimitWindowMs: config.cacheStatsRateLimitWindowMs,
+    cacheStatsMaxRequestsPerWindow: config.cacheStatsMaxRequestsPerWindow
+  });
   registerManualRoutes(app, {
     manualsDir: config.manualsDir,
     manualsPublicBaseUrl: config.manualsPublicBaseUrl

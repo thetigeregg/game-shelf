@@ -436,8 +436,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
       const parsedUrl = new URL(url);
       const hostname = parsedUrl.hostname.toLowerCase();
       const isHltbDomain =
-        hostname === 'howlongtobeat.com' ||
-        hostname.endsWith('.howlongtobeat.com');
+        hostname === 'howlongtobeat.com' || hostname.endsWith('.howlongtobeat.com');
       const isLikelySearchPayload =
         parsedUrl.pathname.includes('/api/') ||
         parsedUrl.pathname.includes('/_next/data/') ||

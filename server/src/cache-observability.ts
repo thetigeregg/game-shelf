@@ -16,11 +16,9 @@ export async function registerCacheObservabilityRoutes(app: FastifyInstance, poo
   app.get(
     '/v1/cache/stats',
     {
-      config: {
-        rateLimit: {
-          max: 10, // stricter per-route limit for this expensive endpoint
-          timeWindow: '1 minute'
-        }
+      rateLimit: {
+        max: 10, // stricter per-route limit for this expensive endpoint
+        timeWindow: '1 minute'
       }
     },
     async (_request, reply) => {

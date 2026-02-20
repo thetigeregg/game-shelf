@@ -52,7 +52,7 @@ npm run dev:stack:up
 5. (Optional) Follow API logs:
 
 ```bash
-npm run dev:api:logs
+npm run dev:backend:logs
 ```
 
 6. Run frontend:

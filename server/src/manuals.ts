@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 
 const MANUAL_SCAN_CACHE_TTL_MS = 60_000;
 const AUTO_MATCH_MIN_SCORE = 0.86;
@@ -139,6 +139,8 @@ export function registerManualRoutes(
   let cacheExpiresAt = 0;
 
   app.get('/v1/manuals/resolve', async (request, reply) => {
+    setNoStoreCacheHeaders(reply);
+
     const query = request.query as ResolveQuery;
     const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
     const title = String(query.title ?? '').trim();
@@ -221,6 +223,8 @@ export function registerManualRoutes(
   });
 
   app.get('/v1/manuals/search', async (request, reply) => {
+    setNoStoreCacheHeaders(reply);
+
     const query = request.query as SearchQuery;
     const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
     const searchQuery = String(query.q ?? '').trim();
@@ -264,6 +268,8 @@ export function registerManualRoutes(
   });
 
   app.post('/v1/manuals/refresh', async (request, reply) => {
+    setNoStoreCacheHeaders(reply);
+
     const query = request.query as RefreshQuery;
     const force = query.force === '1' || query.force === 'true';
     const catalog = await readCatalog({ force });
@@ -289,6 +295,12 @@ export function registerManualRoutes(
     cacheExpiresAt = now + MANUAL_SCAN_CACHE_TTL_MS;
     return next;
   }
+}
+
+function setNoStoreCacheHeaders(reply: FastifyReply): void {
+  reply.header('Cache-Control', 'no-store, no-cache, must-revalidate');
+  reply.header('Pragma', 'no-cache');
+  reply.header('Expires', '0');
 }
 
 async function scanManualsDirectory(manualsDir: string): Promise<ManualCatalog> {

@@ -679,3 +679,11 @@
 - 0d67382 Merge branch 'main' into codex/vars
 - 741373e Move compose secrets from env
 
+## v0.1.10 - 2026-02-20
+- f3095cd Merge pull request #63 from thetigeregg/mans
+- f3a8368 Merge pull request #64 from thetigeregg/copilot/sub-pr-63
+- 4927a7e docs(nas-deployment): mark SECRETS_HOST_DIR as required for Portainer
+- bf4bebf Initial plan
+- bb14cd9 Adjust manual cache headers
+- 6434bf5 fix(docker-compose): standardize secrets directory path across services
+

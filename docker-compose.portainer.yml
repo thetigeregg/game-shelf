@@ -82,7 +82,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - user="$${POSTGRES_USER:-}"; if [ -z "$$user" ] && [ -n "$${POSTGRES_USER_FILE:-}" ] && [ -r "$${POSTGRES_USER_FILE}" ]; then user="$$(tr -d '\r\n' < "$${POSTGRES_USER_FILE}")"; fi; pg_isready -h 127.0.0.1 -U "$$user" -d "$${POSTGRES_DB}" || exit 1
+        - user_file="$${POSTGRES_USER_FILE:-}"; if [ -z "$$user_file" ] || [ ! -r "$$user_file" ]; then echo "POSTGRES_USER_FILE missing/unreadable" >&2; exit 1; fi; user="$$(tr -d '\r\n' < "$$user_file")"; pg_isready -h 127.0.0.1 -U "$$user" -d "$${POSTGRES_DB}" || exit 1
       interval: 10s
       timeout: 5s
       retries: 10

@@ -1,7 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool, PoolClient } from 'pg';
-import { ensureMiddieRegistered } from './middleware.js';
 import type {
   ClientSyncOperation,
   SyncEntityType,
@@ -29,41 +27,34 @@ interface PullBody {
   cursor?: string | null;
 }
 
+interface SyncRateLimitEntry {
+  windowStart: number;
+  count: number;
+}
+
 const SYNC_RATE_LIMIT_WINDOW_MS = 60_000;
 const SYNC_PUSH_MAX_REQUESTS_PER_WINDOW = 120;
 const SYNC_PULL_MAX_REQUESTS_PER_WINDOW = 120;
 
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
-  const rateLimitExceededHandler = (_request: unknown, response: any): void => {
-    response.statusCode = 429;
-    response.setHeader('Content-Type', 'application/json; charset=utf-8');
-    response.end(JSON.stringify({ error: 'Too many requests.' }));
-  };
-  await ensureMiddieRegistered(app);
-  app.use(
-    '/v1/sync/push',
-    expressRateLimit({
-      windowMs: SYNC_RATE_LIMIT_WINDOW_MS,
-      max: SYNC_PUSH_MAX_REQUESTS_PER_WINDOW,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitExceededHandler,
-      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
-    })
-  );
-  app.use(
-    '/v1/sync/pull',
-    expressRateLimit({
-      windowMs: SYNC_RATE_LIMIT_WINDOW_MS,
-      max: SYNC_PULL_MAX_REQUESTS_PER_WINDOW,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitExceededHandler,
-      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
-    })
-  );
-
+  const syncPushRateLimitState = new Map<string, SyncRateLimitEntry>();
+  const syncPullRateLimitState = new Map<string, SyncRateLimitEntry>();
   app.post('/v1/sync/push', async (request, reply) => {
+    const pushRateLimitKey = resolveSyncRateLimitKey(request.ip);
+    if (
+      isSyncRateLimitExceeded(
+        syncPushRateLimitState,
+        Date.now(),
+        pushRateLimitKey,
+        SYNC_RATE_LIMIT_WINDOW_MS,
+        SYNC_PUSH_MAX_REQUESTS_PER_WINDOW
+      )
+    ) {
+      reply.header('Retry-After', String(Math.max(1, Math.ceil(SYNC_RATE_LIMIT_WINDOW_MS / 1000))));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
+    }
+
     const body = (request.body ?? {}) as PushBody;
     const operations = normalizeOperations(body.operations);
 
@@ -129,6 +120,21 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
   });
 
   app.post('/v1/sync/pull', async (request, reply) => {
+    const pullRateLimitKey = resolveSyncRateLimitKey(request.ip);
+    if (
+      isSyncRateLimitExceeded(
+        syncPullRateLimitState,
+        Date.now(),
+        pullRateLimitKey,
+        SYNC_RATE_LIMIT_WINDOW_MS,
+        SYNC_PULL_MAX_REQUESTS_PER_WINDOW
+      )
+    ) {
+      reply.header('Retry-After', String(Math.max(1, Math.ceil(SYNC_RATE_LIMIT_WINDOW_MS / 1000))));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
+    }
+
     const body = (request.body ?? {}) as PullBody;
     const cursor = normalizeCursor(body.cursor);
 
@@ -157,6 +163,33 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       changes
     });
   });
+}
+
+function resolveSyncRateLimitKey(ip: string | undefined): string {
+  const normalized = String(ip ?? '').trim();
+  return normalized.length > 0 ? normalized : 'unknown';
+}
+
+function isSyncRateLimitExceeded(
+  rateLimitState: Map<string, SyncRateLimitEntry>,
+  nowMs: number,
+  key: string,
+  windowMs: number,
+  maxRequests: number
+): boolean {
+  const existing = rateLimitState.get(key);
+
+  if (!existing || nowMs - existing.windowStart >= windowMs) {
+    rateLimitState.set(key, { windowStart: nowMs, count: 1 });
+    return false;
+  }
+
+  const updatedCount = existing.count + 1;
+  rateLimitState.set(key, {
+    windowStart: existing.windowStart,
+    count: updatedCount
+  });
+  return updatedCount > maxRequests;
 }
 
 async function applyOperation(

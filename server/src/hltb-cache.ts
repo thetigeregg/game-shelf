@@ -1,10 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
-import { ensureMiddieRegistered } from './middleware.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -27,6 +25,11 @@ interface HltbCacheRouteOptions {
   staleTtlSeconds?: number;
 }
 
+interface HltbRateLimitEntry {
+  windowStart: number;
+  count: number;
+}
+
 const DEFAULT_HLTB_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const HLTB_RATE_LIMIT_WINDOW_MS = 60_000;
@@ -38,24 +41,7 @@ export async function registerHltbCachedRoute(
   pool: Pool,
   options: HltbCacheRouteOptions = {}
 ): Promise<void> {
-  const rateLimitExceededHandler = (_request: unknown, response: any): void => {
-    response.statusCode = 429;
-    response.setHeader('Content-Type', 'application/json; charset=utf-8');
-    response.end(JSON.stringify({ error: 'Too many requests.' }));
-  };
-  await ensureMiddieRegistered(app);
-  app.use(
-    '/v1/hltb/search',
-    expressRateLimit({
-      windowMs: HLTB_RATE_LIMIT_WINDOW_MS,
-      max: HLTB_MAX_REQUESTS_PER_WINDOW,
-      standardHeaders: true,
-      legacyHeaders: false,
-      handler: rateLimitExceededHandler,
-      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
-    })
-  );
-
+  const hltbRateLimitState = new Map<string, HltbRateLimitEntry>();
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
   const scheduleBackgroundRefresh =
@@ -76,6 +62,14 @@ export async function registerHltbCachedRoute(
   );
 
   app.get('/v1/hltb/search', async (request, reply) => {
+    const nowMs = Date.now();
+    const rateLimitKey = resolveHltbRateLimitKey(request.ip);
+    if (isHltbRateLimitExceeded(hltbRateLimitState, nowMs, rateLimitKey)) {
+      reply.header('Retry-After', String(Math.max(1, Math.ceil(HLTB_RATE_LIMIT_WINDOW_MS / 1000))));
+      reply.code(429).send({ error: 'Too many requests.' });
+      return;
+    }
+
     const normalized = normalizeHltbQuery(request.url);
     const cacheKey = normalized ? buildCacheKey(normalized) : null;
     let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
@@ -144,6 +138,34 @@ export async function registerHltbCachedRoute(
     reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
     await sendWebResponse(reply, response);
   });
+}
+
+function resolveHltbRateLimitKey(ip: string | undefined): string {
+  const normalized = String(ip ?? '').trim();
+  return normalized.length > 0 ? normalized : 'unknown';
+}
+
+function isHltbRateLimitExceeded(
+  rateLimitState: Map<string, HltbRateLimitEntry>,
+  nowMs: number,
+  key: string
+): boolean {
+  const existing = rateLimitState.get(key);
+
+  if (!existing || nowMs - existing.windowStart >= HLTB_RATE_LIMIT_WINDOW_MS) {
+    rateLimitState.set(key, {
+      windowStart: nowMs,
+      count: 1
+    });
+    return false;
+  }
+
+  const updatedCount = existing.count + 1;
+  rateLimitState.set(key, {
+    windowStart: existing.windowStart,
+    count: updatedCount
+  });
+  return updatedCount > HLTB_MAX_REQUESTS_PER_WINDOW;
 }
 
 function normalizeHltbQuery(rawUrl: string): NormalizedHltbQuery | null {

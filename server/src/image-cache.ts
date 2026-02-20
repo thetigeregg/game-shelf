@@ -4,7 +4,9 @@ import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
+import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import { incrementImageMetric } from './cache-metrics.js';
+import { ensureMiddieRegistered, makeExpressRateLimitHandler } from './middleware.js';
 
 interface ImageAssetRow {
   cache_key: string;
@@ -29,11 +31,6 @@ interface ImageCacheRouteOptions {
   imagePurgeMaxRequestsPerWindow?: number;
 }
 
-interface ImageRateLimitEntry {
-  windowStart: number;
-  count: number;
-}
-
 export async function registerImageProxyRoute(
   app: FastifyInstance,
   pool: Pool,
@@ -52,24 +49,21 @@ export async function registerImageProxyRoute(
   const imagePurgeMaxRequestsPerWindow = Number.isInteger(options.imagePurgeMaxRequestsPerWindow)
     ? Number(options.imagePurgeMaxRequestsPerWindow)
     : 30;
-  const imageProxyRateLimitState = new Map<string, ImageRateLimitEntry>();
-  const imagePurgeRateLimitState = new Map<string, ImageRateLimitEntry>();
+  const retryAfterSeconds = Math.max(1, Math.ceil(rateLimitWindowMs / 1000));
+  const rateLimitHandler = makeExpressRateLimitHandler(retryAfterSeconds);
+  await ensureMiddieRegistered(app);
+  app.use(
+    '/v1/images/cache/purge',
+    expressRateLimit({
+      windowMs: rateLimitWindowMs,
+      max: imagePurgeMaxRequestsPerWindow,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => String(req.socket?.remoteAddress ?? 'unknown'),
+      handler: rateLimitHandler
+    })
+  );
   app.post('/v1/images/cache/purge', async (request, reply) => {
-    const purgeRateLimitKey = resolveRouteRateLimitKey(request.ip);
-    if (
-      isRouteRateLimitExceeded(
-        imagePurgeRateLimitState,
-        Date.now(),
-        purgeRateLimitKey,
-        rateLimitWindowMs,
-        imagePurgeMaxRequestsPerWindow
-      )
-    ) {
-      reply.header('Retry-After', String(Math.max(1, Math.ceil(rateLimitWindowMs / 1000))));
-      reply.code(429).send({ error: 'Too many requests.' });
-      return;
-    }
-
     const body = (request.body ?? {}) as { urls?: unknown };
     const rawUrls = Array.isArray(body.urls) ? body.urls : [];
     const normalizedUrls = [
@@ -123,22 +117,18 @@ export async function registerImageProxyRoute(
     reply.send({ deleted });
   });
 
+  app.use(
+    '/v1/images/proxy',
+    expressRateLimit({
+      windowMs: rateLimitWindowMs,
+      max: imageProxyMaxRequestsPerWindow,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => String(req.socket?.remoteAddress ?? 'unknown'),
+      handler: rateLimitHandler
+    })
+  );
   app.get('/v1/images/proxy', async (request, reply) => {
-    const proxyRateLimitKey = resolveRouteRateLimitKey(request.ip);
-    if (
-      isRouteRateLimitExceeded(
-        imageProxyRateLimitState,
-        Date.now(),
-        proxyRateLimitKey,
-        rateLimitWindowMs,
-        imageProxyMaxRequestsPerWindow
-      )
-    ) {
-      reply.header('Retry-After', String(Math.max(1, Math.ceil(rateLimitWindowMs / 1000))));
-      reply.code(429).send({ error: 'Too many requests.' });
-      return;
-    }
-
     const normalizedImageUrl = normalizeProxyImageUrl(
       (request.query as Record<string, unknown>)['url']
     );
@@ -263,33 +253,6 @@ export async function registerImageProxyRoute(
     reply.header('Cache-Control', 'public, max-age=86400');
     reply.send(bytes);
   });
-}
-
-function resolveRouteRateLimitKey(ip: string | undefined): string {
-  const normalized = String(ip ?? '').trim();
-  return normalized.length > 0 ? normalized : 'unknown';
-}
-
-function isRouteRateLimitExceeded(
-  rateLimitState: Map<string, ImageRateLimitEntry>,
-  nowMs: number,
-  key: string,
-  windowMs: number,
-  maxRequests: number
-): boolean {
-  const existing = rateLimitState.get(key);
-
-  if (!existing || nowMs - existing.windowStart >= windowMs) {
-    rateLimitState.set(key, { windowStart: nowMs, count: 1 });
-    return false;
-  }
-
-  const updatedCount = existing.count + 1;
-  rateLimitState.set(key, {
-    windowStart: existing.windowStart,
-    count: updatedCount
-  });
-  return updatedCount > maxRequests;
 }
 
 interface NormalizedProxyImageUrl {

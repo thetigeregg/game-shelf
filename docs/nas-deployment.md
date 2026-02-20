@@ -38,7 +38,7 @@ Required app secrets (one secret per file):
 Common stack env vars:
 
 - `NAS_DATA_ROOT` (recommended absolute host path for `postgres`, `image-cache`, `manuals`)
-- `SECRETS_HOST_DIR` (recommended: `/volume1/docker/secrets/gameshelf`)
+- `SECRETS_HOST_DIR` (required: absolute host path to your secrets directory, e.g. `/volume1/docker/secrets/gameshelf`)
 - `TZ` (optional; defaults to `Europe/Zurich`, can be overridden)
 - `DATABASE_URL_FILE`
 - `CORS_ORIGIN`

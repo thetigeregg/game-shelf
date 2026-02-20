@@ -31,8 +31,7 @@
         "/api/v1/games/**",
         "/api/v1/platforms",
         "/api/v1/popularity/**",
-        "/api/v1/images/boxart/search**",
-        "/api/v1/manuals/**"
+        "/api/v1/images/boxart/search**"
       ],
       "cacheConfig": {
         "strategy": "performance",

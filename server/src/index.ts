@@ -24,10 +24,39 @@ interface HealthRateLimitEntry {
   count: number;
 }
 
+interface HealthSnapshot {
+  dbAvailable: boolean;
+  dbError: string | null;
+}
+
 const healthRateLimitState = new Map<string, HealthRateLimitEntry>();
 
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
+  let healthSnapshot: HealthSnapshot = {
+    dbAvailable: false,
+    dbError: null
+  };
+  const refreshHealthSnapshot = async (): Promise<void> => {
+    try {
+      await pool.query('SELECT 1');
+      healthSnapshot = {
+        dbAvailable: true,
+        dbError: null
+      };
+    } catch (error) {
+      healthSnapshot = {
+        dbAvailable: false,
+        dbError: error instanceof Error ? error.message : String(error)
+      };
+    }
+  };
+  await refreshHealthSnapshot();
+  const healthRefreshHandle = setInterval(() => {
+    void refreshHealthSnapshot();
+  }, 30_000);
+  healthRefreshHandle.unref();
+
   const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);
   validateSecurityConfig();
   console.info('[server] image_cache_dir_ready', {
@@ -122,19 +151,20 @@ async function main(): Promise<void> {
       }
     }
 
-    try {
-      await pool.query('SELECT 1');
-      reply.send({
-        ok: true,
-        service: 'game-shelf-server',
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
+    if (!healthSnapshot.dbAvailable) {
       reply.code(503).send({
         ok: false,
-        error: 'Database unavailable'
+        error: 'Database unavailable',
+        reason: healthSnapshot.dbError
       });
+      return;
     }
+
+    reply.send({
+      ok: true,
+      service: 'game-shelf-server',
+      timestamp: new Date().toISOString()
+    });
   });
 
   await registerSyncRoutes(app, pool);
@@ -174,6 +204,7 @@ async function main(): Promise<void> {
   });
 
   app.addHook('onClose', async () => {
+    clearInterval(healthRefreshHandle);
     await pool.end();
   });
 

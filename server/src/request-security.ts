@@ -80,7 +80,7 @@ function isAuthorizedClientWriteToken(
     return false;
   }
 
-  return clientWriteTokens.some((t) => timingSafeStringEqual(token, t));
+  return clientWriteTokens.some((configuredToken) => timingSafeStringEqual(token, configuredToken));
 }
 
 function normalizeHeaderValue(value: string | string[] | undefined): string {
@@ -91,8 +91,10 @@ function normalizeHeaderValue(value: string | string[] | undefined): string {
 function timingSafeStringEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) {
-    return false;
-  }
-  return timingSafeEqual(bufA, bufB);
+  const maxLen = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.concat([bufA, Buffer.alloc(maxLen - bufA.length)]);
+  const paddedB = Buffer.concat([bufB, Buffer.alloc(maxLen - bufB.length)]);
+  const bytesEqual = timingSafeEqual(paddedA, paddedB);
+  const lengthsEqual = bufA.length === bufB.length;
+  return bytesEqual && lengthsEqual;
 }

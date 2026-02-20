@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+import middie from '@fastify/middie';
+import { rateLimit as expressRateLimit } from 'express-rate-limit';
 import type { Pool, PoolClient } from 'pg';
 import type {
   ClientSyncOperation,
@@ -27,7 +29,40 @@ interface PullBody {
   cursor?: string | null;
 }
 
-export function registerSyncRoutes(app: FastifyInstance, pool: Pool): void {
+const SYNC_RATE_LIMIT_WINDOW_MS = 60_000;
+const SYNC_PUSH_MAX_REQUESTS_PER_WINDOW = 120;
+const SYNC_PULL_MAX_REQUESTS_PER_WINDOW = 120;
+
+export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
+  const rateLimitExceededHandler = (_request: unknown, response: any): void => {
+    response.statusCode = 429;
+    response.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.end(JSON.stringify({ error: 'Too many requests.' }));
+  };
+  await app.register(middie);
+  app.use(
+    '/v1/sync/push',
+    expressRateLimit({
+      windowMs: SYNC_RATE_LIMIT_WINDOW_MS,
+      max: SYNC_PUSH_MAX_REQUESTS_PER_WINDOW,
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: rateLimitExceededHandler,
+      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
+    })
+  );
+  app.use(
+    '/v1/sync/pull',
+    expressRateLimit({
+      windowMs: SYNC_RATE_LIMIT_WINDOW_MS,
+      max: SYNC_PULL_MAX_REQUESTS_PER_WINDOW,
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: rateLimitExceededHandler,
+      keyGenerator: (request) => String(request.socket?.remoteAddress ?? 'unknown')
+    })
+  );
+
   app.post('/v1/sync/push', async (request, reply) => {
     const body = (request.body ?? {}) as PushBody;
     const operations = normalizeOperations(body.operations);

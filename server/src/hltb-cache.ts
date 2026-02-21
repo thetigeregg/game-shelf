@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
-import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -35,7 +35,9 @@ export async function registerHltbCachedRoute(
   pool: Pool,
   options: HltbCacheRouteOptions = {}
 ): Promise<void> {
-  await ensureRouteRateLimitRegistered(app);
+  if (!app.hasDecorator('rateLimit')) {
+    await app.register(rateLimit, { global: false });
+  }
   const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromWorker;
   const now = options.now ?? (() => Date.now());
   const scheduleBackgroundRefresh =

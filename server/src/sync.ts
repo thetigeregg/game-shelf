@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import type { Pool, PoolClient } from 'pg';
 import type {
   ClientSyncOperation,
@@ -6,7 +7,6 @@ import type {
   SyncOperationType,
   SyncPushResult
 } from './types.js';
-import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 
 interface SyncEventRow {
   event_id: number;
@@ -29,7 +29,9 @@ interface PullBody {
 }
 
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
-  await ensureRouteRateLimitRegistered(app);
+  if (!app.hasDecorator('rateLimit')) {
+    await app.register(rateLimit, { global: false });
+  }
   app.route({
     method: 'POST',
     url: '/v1/sync/push',

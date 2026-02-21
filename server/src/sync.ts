@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import rateLimit from '@fastify/rate-limit';
+import rateLimit from 'fastify-rate-limit';
 import type { Pool, PoolClient } from 'pg';
 import type {
   ClientSyncOperation,

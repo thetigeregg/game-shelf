@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import rateLimit from '@fastify/rate-limit';
+import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
 

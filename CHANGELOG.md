@@ -697,3 +697,13 @@
 - 4780811 Merge branch 'main' into fix
 - c909b62 Fix js missing rate limiting issues
 
+## v0.1.12 - 2026-02-21
+- af66dcf Merge pull request #69 from thetigeregg/cov
+- 2341384 Add fastify rate limit dependency
+- 4f70e1d Register rate-limit plugin
+- 4aac3f6 Fix cache rate limit registration
+- 9f14081 Implement rate limit instructions
+- 30537c1 Fix HLTB rate limit config
+- 95a84d1 Implement rate limit plugin
+- 434323b Fix rate limit for HLTB search
+

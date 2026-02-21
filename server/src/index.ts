@@ -186,7 +186,7 @@ async function main(): Promise<void> {
 function validateSecurityConfig(): void {
   if (config.requireAuth && config.apiToken.length === 0 && config.clientWriteTokens.length === 0) {
     throw new Error(
-      'REQUIRE_AUTH is enabled but no auth credentials are configured. Set API_TOKEN or CLIENT_WRITE_TOKENS.'
+      'REQUIRE_AUTH is enabled but no auth credentials are configured. Configure an API token via API_TOKEN_FILE or /run/secrets/api_token, or client write tokens via CLIENT_WRITE_TOKENS_FILE or /run/secrets/client_write_tokens.'
     );
   }
 }

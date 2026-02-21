@@ -78,6 +78,7 @@ export interface AppConfig {
   corsAllowedOrigins: string[];
   postgresUrl: string;
   apiToken: string;
+  clientWriteTokens: string[];
   requireAuth: boolean;
   imageCacheDir: string;
   imageCacheTtlSeconds: number;
@@ -98,6 +99,23 @@ export interface AppConfig {
   hltbCacheStaleTtlSeconds: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
+}
+
+function readTokenList(name: string, fallbackSecretName: string): string[] {
+  const source = readSecretFile(name, fallbackSecretName);
+
+  if (!source) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      source
+        .split(/[\r\n,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  ];
 }
 
 function readPathEnv(name: string, fallbackAbsolutePath: string): string {
@@ -135,6 +153,7 @@ export const config: AppConfig = {
   ]),
   postgresUrl: readRequiredSecretFile('DATABASE_URL', 'database_url'),
   apiToken: readSecretFile('API_TOKEN', 'api_token'),
+  clientWriteTokens: readTokenList('CLIENT_WRITE_TOKENS', 'client_write_tokens'),
   requireAuth: readBooleanEnv('REQUIRE_AUTH', true),
   imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(serverRootDir, '.data/image-cache')),
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),

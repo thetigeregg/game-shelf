@@ -5,7 +5,7 @@ import {
   PreloadAllModules
 } from '@angular/router';
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalone';
 
 import { AppComponent } from './app/app.component';
@@ -18,6 +18,7 @@ import { SYNC_OUTBOX_WRITER } from './app/core/data/sync-outbox-writer';
 import { GameSyncService } from './app/core/services/game-sync.service';
 import { isDevMode, provideZoneChangeDetection } from '@angular/core';
 import { provideServiceWorker } from '@angular/service-worker';
+import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.interceptor';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -27,6 +28,7 @@ bootstrapApplication(AppComponent, {
     { provide: GAME_REPOSITORY, useExisting: DexieGameRepository },
     { provide: GAME_SEARCH_API, useExisting: IgdbProxyService },
     { provide: SYNC_OUTBOX_WRITER, useExisting: GameSyncService },
+    { provide: HTTP_INTERCEPTORS, useClass: ClientWriteTokenInterceptor, multi: true },
     provideIonicAngular(),
     provideHttpClient(withInterceptorsFromDi()),
     provideServiceWorker('ngsw-worker.js', {

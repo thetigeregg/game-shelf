@@ -13,12 +13,17 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
-import { shouldRequireAuth } from './request-security.js';
+import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  isAuthorizedMutatingRequest,
+  shouldRequireAuth
+} from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
 
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main(): Promise<void> {
+  validateSecurityConfig();
   const pool = await createPool(config.postgresUrl);
 
   const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);
@@ -48,9 +53,15 @@ async function main(): Promise<void> {
       return;
     }
 
-    const authorization = String(request.headers.authorization ?? '');
-
-    if (!authorization.startsWith('Bearer ') || authorization.slice(7) !== config.apiToken) {
+    if (
+      !isAuthorizedMutatingRequest({
+        requireAuth: config.requireAuth,
+        apiToken: config.apiToken,
+        clientWriteTokens: config.clientWriteTokens,
+        authorizationHeader: request.headers.authorization,
+        clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME]
+      })
+    ) {
       response.statusCode = 401;
       response.setHeader('Content-Type', 'application/json');
       response.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -171,6 +182,23 @@ async function main(): Promise<void> {
     host: config.host,
     port: config.port
   });
+}
+
+function validateSecurityConfig(): void {
+  if (config.requireAuth && config.apiToken.length === 0 && config.clientWriteTokens.length === 0) {
+    throw new Error(
+      'REQUIRE_AUTH is enabled but no auth credentials are configured. Configure an API token via API_TOKEN_FILE or /run/secrets/api_token, or client write tokens via CLIENT_WRITE_TOKENS_FILE or /run/secrets/client_write_tokens.'
+    );
+  }
+}
+
+function isCorsOriginAllowed(origin: string): boolean {
+  return config.corsAllowedOrigins.some((allowedOrigin) => allowedOrigin === origin);
+}
+
+function resolveHealthRateLimitKey(ip: string | undefined): string {
+  const normalized = String(ip ?? '').trim();
+  return normalized.length > 0 ? normalized : 'unknown';
 }
 
 main().catch((error) => {

@@ -18,13 +18,6 @@ import { registerSyncRoutes } from './sync.js';
 
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const DEFAULT_RATE_LIMIT = {
-  rateLimit: {
-    max: 50,
-    timeWindow: '1 minute'
-  }
-};
-
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
 
@@ -71,7 +64,12 @@ async function main(): Promise<void> {
   app.route({
     method: 'GET',
     url: '/v1/health',
-    config: DEFAULT_RATE_LIMIT,
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
     handler: async (request, reply) => {
       try {
         await pool.query('SELECT 1');
@@ -86,42 +84,72 @@ async function main(): Promise<void> {
   app.route({
     method: 'GET',
     url: '/v1/games/search',
-    config: DEFAULT_RATE_LIMIT,
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
     handler: proxyMetadataToWorker
   });
 
   app.route({
     method: 'GET',
     url: '/v1/games/:id',
-    config: DEFAULT_RATE_LIMIT,
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
     handler: proxyMetadataToWorker
   });
 
   app.route({
     method: 'GET',
     url: '/v1/platforms',
-    config: DEFAULT_RATE_LIMIT,
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
     handler: proxyMetadataToWorker
   });
 
   app.route({
     method: 'GET',
     url: '/v1/popularity/types',
-    config: DEFAULT_RATE_LIMIT,
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
     handler: proxyMetadataToWorker
   });
 
   app.route({
     method: 'GET',
     url: '/v1/popularity/primitives',
-    config: DEFAULT_RATE_LIMIT,
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
     handler: proxyMetadataToWorker
   });
 
   app.route({
     method: 'GET',
     url: '/v1/images/boxart/search',
-    config: DEFAULT_RATE_LIMIT,
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
     handler: proxyMetadataToWorker
   });
 

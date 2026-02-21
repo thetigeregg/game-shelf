@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { getCacheMetrics } from './cache-metrics.js';
-import { ensureRouteRateLimitRegistered } from './rate-limit.js';
 
 interface CacheCountRow {
   count: string;
@@ -23,7 +23,9 @@ export async function registerCacheObservabilityRoutes(
   pool: Pool,
   options: CacheObservabilityRouteOptions = {}
 ): Promise<void> {
-  await ensureRouteRateLimitRegistered(app);
+  if (!app.hasDecorator('rateLimit')) {
+    await app.register(rateLimit, { global: false });
+  }
   const cacheStatsRateLimitWindowMs = Number.isInteger(options.cacheStatsRateLimitWindowMs)
     ? Number(options.cacheStatsRateLimitWindowMs)
     : 60_000;
@@ -71,17 +73,16 @@ export async function registerCacheObservabilityRoutes(
     clearInterval(refreshHandle);
   });
 
-  app.get(
-    '/v1/cache/stats',
-    {
-      config: {
-        rateLimit: {
-          max: cacheStatsMaxRequestsPerWindow,
-          timeWindow: cacheStatsRateLimitWindowMs
-        }
+  app.route({
+    method: 'GET',
+    url: '/v1/cache/stats',
+    config: {
+      rateLimit: {
+        max: cacheStatsMaxRequestsPerWindow,
+        timeWindow: `${Math.floor(cacheStatsRateLimitWindowMs / 1000)} seconds`
       }
     },
-    async (_request, reply) => {
+    handler: async (_request, reply) => {
       const metrics = getCacheMetrics();
 
       reply.send({
@@ -94,5 +95,5 @@ export async function registerCacheObservabilityRoutes(
         dbError: snapshot.dbError
       });
     }
-  );
+  });
 }

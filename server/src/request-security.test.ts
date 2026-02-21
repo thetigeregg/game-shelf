@@ -74,13 +74,21 @@ test('server route inventory remains audited and mutating routes require auth', 
     './manuals.ts',
     './cache-observability.ts'
   ];
-  const routeRegex = /app\.(get|post|put|patch|delete|options|head)\(\s*'([^']+)'/g;
+  const routeMethodRegex = /app\.(get|post|put|patch|delete|options|head)\(\s*'([^']+)'/g;
+  const routeObjectRegex = /app\.route\(\s*\{\s*method:\s*'([^']+)'\s*,\s*url:\s*'([^']+)'/g;
   const discoveredRoutes: Array<{ method: string; path: string }> = [];
 
   for (const relativePath of routeSourceFiles) {
     const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
 
-    for (const match of source.matchAll(routeRegex)) {
+    for (const match of source.matchAll(routeMethodRegex)) {
+      discoveredRoutes.push({
+        method: match[1].toUpperCase(),
+        path: match[2]
+      });
+    }
+
+    for (const match of source.matchAll(routeObjectRegex)) {
       discoveredRoutes.push({
         method: match[1].toUpperCase(),
         path: match[2]

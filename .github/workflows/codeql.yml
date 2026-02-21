@@ -1,10 +1,10 @@
-name: "CodeQL"
+name: 'CodeQL'
 
 on:
   push:
     branches:
       - main
-      # Add other protected branches here if needed, for example:
+      # Add other protected branches here if needed:
       # - release/*
   pull_request:
     branches:
@@ -13,7 +13,7 @@ on:
       # - release/*
   schedule:
     # Weekly scan on Thursday at 14:00 UTC.
-    - cron: "0 14 * * 4"
+    - cron: '0 14 * * 4'
 
 permissions:
   actions: read

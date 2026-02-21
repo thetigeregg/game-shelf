@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
 interface ImageAssetRow {
@@ -37,6 +38,9 @@ export async function registerImageProxyRoute(
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
+  if (!app.hasDecorator('rateLimit')) {
+    await app.register(rateLimit, { global: false });
+  }
 
   app.route({
     method: 'POST',

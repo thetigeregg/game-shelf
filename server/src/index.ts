@@ -23,6 +23,7 @@ import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main(): Promise<void> {
+  validateSecurityConfig();
   const pool = await createPool(config.postgresUrl);
 
   const imageCacheDir = await resolveWritableImageCacheDir(config.imageCacheDir);

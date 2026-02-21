@@ -55,17 +55,16 @@ export async function registerHltbCachedRoute(
     normalizeTtlSeconds(options.staleTtlSeconds, DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS)
   );
 
-  app.get(
-    '/v1/hltb/search',
-    {
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute'
-        }
+  app.route({
+    method: 'GET',
+    url: '/v1/hltb/search',
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
       }
     },
-    async (request, reply) => {
+    handler: async (request, reply) => {
       const normalized = normalizeHltbQuery(request.url);
       const cacheKey = normalized ? buildCacheKey(normalized) : null;
       let cacheOutcome: 'MISS' | 'BYPASS' = 'MISS';
@@ -134,7 +133,7 @@ export async function registerHltbCachedRoute(
       reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
       await sendWebResponse(reply, response);
     }
-  );
+  });
 }
 
 function normalizeHltbQuery(rawUrl: string): NormalizedHltbQuery | null {

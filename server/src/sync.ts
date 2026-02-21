@@ -30,17 +30,16 @@ interface PullBody {
 
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
   await ensureRouteRateLimitRegistered(app);
-  app.post(
-    '/v1/sync/push',
-    {
-      config: {
-        rateLimit: {
-          max: 10,
-          timeWindow: '1 minute'
-        }
+  app.route({
+    method: 'POST',
+    url: '/v1/sync/push',
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute'
       }
     },
-    async (request, reply) => {
+    handler: async (request, reply) => {
       const body = (request.body ?? {}) as PushBody;
       const operations = normalizeOperations(body.operations);
 
@@ -104,19 +103,18 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         client.release();
       }
     }
-  );
+  });
 
-  app.post(
-    '/v1/sync/pull',
-    {
-      config: {
-        rateLimit: {
-          max: 10,
-          timeWindow: '1 minute'
-        }
+  app.route({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute'
       }
     },
-    async (request, reply) => {
+    handler: async (request, reply) => {
       const body = (request.body ?? {}) as PullBody;
       const cursor = normalizeCursor(body.cursor);
 
@@ -145,7 +143,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         changes
       });
     }
-  );
+  });
 }
 
 async function applyOperation(

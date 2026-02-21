@@ -89,12 +89,19 @@ function sampleUrlForServerProxyPath(path: string): string {
 
 test('all server metadata proxy routes are implemented by worker handler', async () => {
   const indexSource = await readFile(new URL('./index.ts', import.meta.url), 'utf8');
-  const proxyRouteMatches = [
+  const proxyGetMatches = [
     ...indexSource.matchAll(/app\.get\('([^']+)',\s*proxyMetadataToWorker\);/g)
-  ];
-  const proxyPaths = proxyRouteMatches
-    .map((match) => match[1])
-    .filter((value, index, all) => all.indexOf(value) === index);
+  ].map((match) => match[1]);
+  const routeBlocks = [...indexSource.matchAll(/app\.route\(\{[\s\S]*?\}\);/g)];
+  const proxyRouteMatches = routeBlocks
+    .map((match) => match[0])
+    .filter((block) => /handler:\s*proxyMetadataToWorker/.test(block))
+    .map((block) => block.match(/url:\s*'([^']+)'/))
+    .filter((match): match is RegExpMatchArray => match !== null)
+    .map((match) => match[1]);
+  const proxyPaths = [...proxyGetMatches, ...proxyRouteMatches].filter(
+    (value, index, all) => all.indexOf(value) === index
+  );
 
   assert.ok(proxyPaths.length > 0, 'Expected at least one worker-proxied route in server index.');
 

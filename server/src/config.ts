@@ -102,8 +102,7 @@ export interface AppConfig {
 }
 
 function readTokenList(name: string, fallbackSecretName: string): string[] {
-  const fromSecretFile = readSecretFile(name, fallbackSecretName);
-  const source = fromSecretFile.length > 0 ? fromSecretFile : readEnv(name);
+  const source = readSecretFile(name, fallbackSecretName);
 
   if (!source) {
     return [];

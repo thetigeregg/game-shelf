@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import rateLimit from '@fastify/rate-limit';
+import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { getCacheMetrics } from './cache-metrics.js';
 

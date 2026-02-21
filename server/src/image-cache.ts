@@ -5,8 +5,6 @@ import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { incrementImageMetric } from './cache-metrics.js';
-import { ensureRouteRateLimitRegistered } from './rate-limit.js';
-
 interface ImageAssetRow {
   cache_key: string;
   source_url: string;
@@ -39,7 +37,7 @@ export async function registerImageProxyRoute(
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
-  await ensureRouteRateLimitRegistered(app);
+
   app.route({
     method: 'POST',
     url: '/v1/images/cache/purge',

@@ -40,17 +40,16 @@ export async function registerImageProxyRoute(
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
   await ensureRouteRateLimitRegistered(app);
-  app.post(
-    '/v1/images/cache/purge',
-    {
-      config: {
-        rateLimit: {
-          max: 10,
-          timeWindow: '1 minute'
-        }
+  app.route({
+    method: 'POST',
+    url: '/v1/images/cache/purge',
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute'
       }
     },
-    async (request, reply) => {
+    handler: async (request, reply) => {
       const body = (request.body ?? {}) as { urls?: unknown };
       const rawUrls = Array.isArray(body.urls) ? body.urls : [];
       const normalizedUrls = [
@@ -103,19 +102,18 @@ export async function registerImageProxyRoute(
 
       reply.send({ deleted });
     }
-  );
+  });
 
-  app.get(
-    '/v1/images/proxy',
-    {
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute'
-        }
+  app.route({
+    method: 'GET',
+    url: '/v1/images/proxy',
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
       }
     },
-    async (request, reply) => {
+    handler: async (request, reply) => {
       const normalizedImageUrl = normalizeProxyImageUrl(
         (request.query as Record<string, unknown>)['url']
       );
@@ -240,7 +238,7 @@ export async function registerImageProxyRoute(
       reply.header('Cache-Control', 'public, max-age=86400');
       reply.send(bytes);
     }
-  );
+  });
 }
 
 interface NormalizedProxyImageUrl {

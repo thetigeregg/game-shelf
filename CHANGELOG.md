@@ -711,3 +711,24 @@
 - 37fe429 Merge pull request #73 from thetigeregg/test
 - b17c9c6 Re-enable CodeQL
 
+## v0.1.14 - 2026-02-21
+- f49661e Merge pull request #66 from thetigeregg/auth-fix
+- ce3c900 Add peer dependency flag to multiple packages in package-lock.json
+- 35a1153 Add validateSecurityConfig call
+- 23f9349 Update server/src/index.ts
+- ca78761 Update server/src/config.ts
+- f64be12 Merge branch 'main' into auth-fix
+- ec53121 Merge branch 'main' into auth-fix
+- b4334c9 Merge pull request #68 from thetigeregg/copilot/sub-pr-66-again
+- cdca632 Merge branch 'auth-fix' into copilot/sub-pr-66-again
+- 408510d Merge pull request #67 from thetigeregg/copilot/sub-pr-66
+- f73398e fix(security): use timingSafeEqual for token comparison in request-security.ts
+- 076bdf9 fix(security): use constant-time comparison for token validation
+- 0851e57 Initial plan
+- c6ccb63 Initial plan
+- 021957a Initial plan
+- 3dc5f50 Add client write interceptor tests
+- c56c71d Remove proxy auth header injection
+- bb426de Merge branch 'main' into auth-fix
+- d3147ec Clarify auth headers for edge
+

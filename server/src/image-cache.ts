@@ -39,23 +39,14 @@ export async function registerImageProxyRoute(
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = Number.isInteger(options.timeoutMs) ? Number(options.timeoutMs) : 12_000;
   const maxBytes = Number.isInteger(options.maxBytes) ? Number(options.maxBytes) : 8 * 1024 * 1024;
-  const rateLimitWindowMs = Number.isInteger(options.rateLimitWindowMs)
-    ? Number(options.rateLimitWindowMs)
-    : 60_000;
-  const imageProxyMaxRequestsPerWindow = Number.isInteger(options.imageProxyMaxRequestsPerWindow)
-    ? Number(options.imageProxyMaxRequestsPerWindow)
-    : 120;
-  const imagePurgeMaxRequestsPerWindow = Number.isInteger(options.imagePurgeMaxRequestsPerWindow)
-    ? Number(options.imagePurgeMaxRequestsPerWindow)
-    : 30;
   await ensureRouteRateLimitRegistered(app);
   app.post(
     '/v1/images/cache/purge',
     {
       config: {
         rateLimit: {
-          max: imagePurgeMaxRequestsPerWindow,
-          timeWindow: rateLimitWindowMs
+          max: 10,
+          timeWindow: '1 minute'
         }
       }
     },
@@ -119,8 +110,8 @@ export async function registerImageProxyRoute(
     {
       config: {
         rateLimit: {
-          max: imageProxyMaxRequestsPerWindow,
-          timeWindow: rateLimitWindowMs
+          max: 50,
+          timeWindow: '1 minute'
         }
       }
     },

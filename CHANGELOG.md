@@ -707,3 +707,7 @@
 - 95a84d1 Implement rate limit plugin
 - 434323b Fix rate limit for HLTB search
 
+## v0.1.13 - 2026-02-21
+- 37fe429 Merge pull request #73 from thetigeregg/test
+- b17c9c6 Re-enable CodeQL
+

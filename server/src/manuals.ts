@@ -138,149 +138,179 @@ export function registerManualRoutes(
   let cachedCatalog: ManualCatalog | null = null;
   let cacheExpiresAt = 0;
 
-  app.get('/v1/manuals/resolve', async (request, reply) => {
-    setNoStoreCacheHeaders(reply);
+  app.route({
+    method: 'GET',
+    url: '/v1/manuals/resolve',
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
+    handler: async (request, reply) => {
+      setNoStoreCacheHeaders(reply);
 
-    const query = request.query as ResolveQuery;
-    const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
-    const title = String(query.title ?? '').trim();
-    const preferredRelativePath = normalizeManualRelativePath(query.preferredRelativePath);
+      const query = request.query as ResolveQuery;
+      const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
+      const title = String(query.title ?? '').trim();
+      const preferredRelativePath = normalizeManualRelativePath(query.preferredRelativePath);
 
-    if (platformIgdbId === null) {
-      reply.code(400).send({ error: 'platformIgdbId is required.' });
-      return;
-    }
+      if (platformIgdbId === null) {
+        reply.code(400).send({ error: 'platformIgdbId is required.' });
+        return;
+      }
 
-    const catalog = await readCatalog({ force: false });
+      const catalog = await readCatalog({ force: false });
 
-    if (catalog.unavailable) {
-      reply.send({
-        status: 'none',
-        candidates: [],
-        unavailable: true,
-        reason: catalog.reason ?? 'Manual catalog unavailable.'
-      });
-      return;
-    }
-
-    const equivalentPlatformIds = buildEquivalentManualPlatformIds(platformIgdbId);
-    const platformEntries = catalog.entries.filter((entry) =>
-      equivalentPlatformIds.has(entry.platformIgdbId)
-    );
-
-    if (platformEntries.length === 0) {
-      reply.send({ status: 'none', candidates: [] });
-      return;
-    }
-
-    if (preferredRelativePath) {
-      const preferred = platformEntries.find(
-        (entry) => entry.relativePath === preferredRelativePath
-      );
-
-      if (preferred) {
+      if (catalog.unavailable) {
         reply.send({
-          status: 'matched',
-          bestMatch: {
-            ...toCandidateResponse(preferred, normalizedManualsPublicBaseUrl, 1),
-            source: 'override'
-          },
-          candidates: []
+          status: 'none',
+          candidates: [],
+          unavailable: true,
+          reason: catalog.reason ?? 'Manual catalog unavailable.'
         });
         return;
       }
-    }
 
-    if (title.length === 0) {
-      reply.send({ status: 'none', candidates: [] });
-      return;
-    }
+      const equivalentPlatformIds = buildEquivalentManualPlatformIds(platformIgdbId);
+      const platformEntries = catalog.entries.filter((entry) =>
+        equivalentPlatformIds.has(entry.platformIgdbId)
+      );
 
-    const scored = rankEntriesByTitle(title, platformEntries);
-    const candidates = scored
-      .slice(0, MAX_CANDIDATES)
-      .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
-    const top = scored[0];
-    const runnerUp = scored[1];
-    const scoreGap = top ? top.score - (runnerUp?.score ?? 0) : 0;
+      if (platformEntries.length === 0) {
+        reply.send({ status: 'none', candidates: [] });
+        return;
+      }
 
-    if (top && top.score >= AUTO_MATCH_MIN_SCORE && scoreGap >= AUTO_MATCH_MIN_GAP) {
+      if (preferredRelativePath) {
+        const preferred = platformEntries.find(
+          (entry) => entry.relativePath === preferredRelativePath
+        );
+
+        if (preferred) {
+          reply.send({
+            status: 'matched',
+            bestMatch: {
+              ...toCandidateResponse(preferred, normalizedManualsPublicBaseUrl, 1),
+              source: 'override'
+            },
+            candidates: []
+          });
+          return;
+        }
+      }
+
+      if (title.length === 0) {
+        reply.send({ status: 'none', candidates: [] });
+        return;
+      }
+
+      const scored = rankEntriesByTitle(title, platformEntries);
+      const candidates = scored
+        .slice(0, MAX_CANDIDATES)
+        .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
+      const top = scored[0];
+      const runnerUp = scored[1];
+      const scoreGap = top ? top.score - (runnerUp?.score ?? 0) : 0;
+
+      if (top && top.score >= AUTO_MATCH_MIN_SCORE && scoreGap >= AUTO_MATCH_MIN_GAP) {
+        reply.send({
+          status: 'matched',
+          bestMatch: {
+            ...toCandidateResponse(top.entry, normalizedManualsPublicBaseUrl, top.score),
+            source: 'fuzzy'
+          },
+          candidates
+        });
+        return;
+      }
+
       reply.send({
-        status: 'matched',
-        bestMatch: {
-          ...toCandidateResponse(top.entry, normalizedManualsPublicBaseUrl, top.score),
-          source: 'fuzzy'
-        },
+        status: 'none',
         candidates
       });
-      return;
     }
-
-    reply.send({
-      status: 'none',
-      candidates
-    });
   });
 
-  app.get('/v1/manuals/search', async (request, reply) => {
-    setNoStoreCacheHeaders(reply);
+  app.route({
+    method: 'GET',
+    url: '/v1/manuals/search',
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
+    handler: async (request, reply) => {
+      setNoStoreCacheHeaders(reply);
 
-    const query = request.query as SearchQuery;
-    const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
-    const searchQuery = String(query.q ?? '').trim();
+      const query = request.query as SearchQuery;
+      const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
+      const searchQuery = String(query.q ?? '').trim();
 
-    if (platformIgdbId === null) {
-      reply.code(400).send({ error: 'platformIgdbId is required.' });
-      return;
-    }
+      if (platformIgdbId === null) {
+        reply.code(400).send({ error: 'platformIgdbId is required.' });
+        return;
+      }
 
-    const catalog = await readCatalog({ force: false });
+      const catalog = await readCatalog({ force: false });
 
-    if (catalog.unavailable) {
-      reply.send({
-        items: [],
-        unavailable: true,
-        reason: catalog.reason ?? 'Manual catalog unavailable.'
-      });
-      return;
-    }
+      if (catalog.unavailable) {
+        reply.send({
+          items: [],
+          unavailable: true,
+          reason: catalog.reason ?? 'Manual catalog unavailable.'
+        });
+        return;
+      }
 
-    const equivalentPlatformIds = buildEquivalentManualPlatformIds(platformIgdbId);
-    const platformEntries = catalog.entries.filter((entry) =>
-      equivalentPlatformIds.has(entry.platformIgdbId)
-    );
+      const equivalentPlatformIds = buildEquivalentManualPlatformIds(platformIgdbId);
+      const platformEntries = catalog.entries.filter((entry) =>
+        equivalentPlatformIds.has(entry.platformIgdbId)
+      );
 
-    if (searchQuery.length === 0) {
-      const items = [...platformEntries]
-        .sort((left, right) =>
-          left.fileName.localeCompare(right.fileName, undefined, { sensitivity: 'base' })
-        )
+      if (searchQuery.length === 0) {
+        const items = [...platformEntries]
+          .sort((left, right) =>
+            left.fileName.localeCompare(right.fileName, undefined, { sensitivity: 'base' })
+          )
+          .slice(0, MAX_SEARCH_RESULTS)
+          .map((entry) => toCandidateResponse(entry, normalizedManualsPublicBaseUrl, 0));
+        reply.send({ items });
+        return;
+      }
+
+      const items = rankEntriesByTitle(searchQuery, platformEntries)
         .slice(0, MAX_SEARCH_RESULTS)
-        .map((entry) => toCandidateResponse(entry, normalizedManualsPublicBaseUrl, 0));
+        .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
       reply.send({ items });
-      return;
     }
-
-    const items = rankEntriesByTitle(searchQuery, platformEntries)
-      .slice(0, MAX_SEARCH_RESULTS)
-      .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
-    reply.send({ items });
   });
 
-  app.post('/v1/manuals/refresh', async (request, reply) => {
-    setNoStoreCacheHeaders(reply);
+  app.route({
+    method: 'POST',
+    url: '/v1/manuals/refresh',
+    config: {
+      rateLimit: {
+        max: 50,
+        timeWindow: '1 minute'
+      }
+    },
+    handler: async (request, reply) => {
+      setNoStoreCacheHeaders(reply);
 
-    const query = request.query as RefreshQuery;
-    const force = query.force === '1' || query.force === 'true';
-    const catalog = await readCatalog({ force });
+      const query = request.query as RefreshQuery;
+      const force = query.force === '1' || query.force === 'true';
+      const catalog = await readCatalog({ force });
 
-    reply.send({
-      ok: true,
-      unavailable: catalog.unavailable,
-      reason: catalog.reason,
-      count: catalog.entries.length,
-      refreshedAt: new Date().toISOString()
-    });
+      reply.send({
+        ok: true,
+        unavailable: catalog.unavailable,
+        reason: catalog.reason,
+        count: catalog.entries.length,
+        refreshedAt: new Date().toISOString()
+      });
+    }
   });
 
   async function readCatalog(params: { force: boolean }): Promise<ManualCatalog> {

@@ -27,6 +27,7 @@ Before first deploy, publish images from GitHub Actions:
 Required app secrets (one secret per file):
 
 - `api_token`
+- `client_write_tokens` (required for browser sync when `REQUIRE_AUTH=true`)
 - `database_url`
 - `twitch_client_id`
 - `twitch_client_secret`
@@ -43,6 +44,7 @@ Common stack env vars:
 - `DATABASE_URL_FILE`
 - `CORS_ORIGIN`
 - `API_TOKEN_FILE`
+- `CLIENT_WRITE_TOKENS_FILE`
 - `REQUIRE_AUTH` (defaults to true)
 - `HLTB_SCRAPER_TOKEN_FILE` (optional, but recommended)
 - `TWITCH_CLIENT_ID_FILE`
@@ -73,10 +75,20 @@ Rate limiting env vars (optional):
 
 > **Note:** The rate limiter is in-memory and scoped to a single `api` container instance. If you scale the `api` service to multiple replicas, each replica maintains its own independent counter, so the effective per-IP limit is multiplied by the number of running replicas. This deployment guide assumes a single `api` replica, which is the expected use case for a personal NAS. If you require multi-instance deployments, a shared rate-limiting backend (e.g. Redis) would be needed.
 
-Protected POST endpoints (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`, `/api/v1/manuals/refresh`) require:
+Protected POST endpoints require:
 
-- `Authorization: Bearer <API_TOKEN>`
-- The bundled `edge` service injects this header automatically for `/api/*` requests from `API_TOKEN_FILE`.
+- one of:
+  - `Authorization: Bearer <API_TOKEN>`
+  - `X-Game-Shelf-Client-Token: <device-token>`
+- `edge` does not inject auth headers for `/api/*`.
+- Browser write operations (`/api/v1/sync/push`, `/api/v1/sync/pull`, `/api/v1/images/cache/purge`) rely on a per-device token configured in app Settings.
+
+Create one or more device write tokens in `client_write_tokens` (newline or comma separated), for example:
+
+```text
+device-token-phone
+device-token-tablet
+```
 
 Example:
 
@@ -86,6 +98,7 @@ Example:
 Create one file per secret under `SECRETS_HOST_DIR`:
 
 - `/volume1/docker/secrets/gameshelf/api_token`
+- `/volume1/docker/secrets/gameshelf/client_write_tokens`
 - `/volume1/docker/secrets/gameshelf/database_url`
 - `/volume1/docker/secrets/gameshelf/twitch_client_id`
 - `/volume1/docker/secrets/gameshelf/twitch_client_secret`
@@ -131,6 +144,7 @@ Local development runs `api` in Docker (no host-run API process).
 
 `nas-secrets/database_url`
 `nas-secrets/api_token`
+`nas-secrets/client_write_tokens` (required if `REQUIRE_AUTH=true` and you use browser sync)
 `nas-secrets/twitch_client_id`
 `nas-secrets/twitch_client_secret`
 `nas-secrets/thegamesdb_api_key`
@@ -157,6 +171,7 @@ npm start
 ```
 
 In local dev, Angular proxies `/manuals/...` requests to `edge` on `http://127.0.0.1:8080` so manual PDF links resolve without a separate host script.
+After first launch on each device, open `Settings -> Debug -> Device Write Token` and set a token listed in `client_write_tokens`.
 
 ## 4. Publish over Tailscale only
 

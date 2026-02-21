@@ -36,6 +36,7 @@ cp .env.example .env
 
 - `nas-secrets/database_url`
 - `nas-secrets/api_token`
+- `nas-secrets/client_write_tokens` (required if `REQUIRE_AUTH=true` and browser sync is enabled)
 - `nas-secrets/twitch_client_id`
 - `nas-secrets/twitch_client_secret`
 - `nas-secrets/thegamesdb_api_key`
@@ -63,6 +64,7 @@ npm start
 
 Frontend dev server runs on `http://localhost:8100`.
 Manual URLs resolve from the API to `http://127.0.0.1:8080/manuals/...` during dev (served by local `edge`).
+When `REQUIRE_AUTH=true`, set `Settings -> Debug -> Device Write Token` on each device using a token from `nas-secrets/client_write_tokens`.
 For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-deployment.md) (`Local Docker-based API development`).
 
 ## Build

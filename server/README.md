@@ -17,6 +17,12 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `POST /v1/sync/push`
 - `POST /v1/sync/pull`
 
+Mutating routes (`POST`, `PUT`, `PATCH`, `DELETE`) require auth when `REQUIRE_AUTH=true`.
+Provide either:
+
+- `Authorization: Bearer <API_TOKEN>`
+- `X-Game-Shelf-Client-Token: <device-token>` (must match configured `CLIENT_WRITE_TOKENS`)
+
 ## Run locally
 
 ```bash

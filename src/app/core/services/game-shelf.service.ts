@@ -24,6 +24,10 @@ import { environment } from '../../../environments/environment';
 import { AppDb } from '../data/app-db';
 import { DebugLogService } from './debug-log.service';
 import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  ClientWriteAuthService
+} from './client-write-auth.service';
+import {
   hasCompletionTimes,
   normalizeGameId,
   normalizePlatform,
@@ -63,6 +67,7 @@ export class GameShelfService {
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly db = inject(AppDb);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly clientWriteAuthService = inject(ClientWriteAuthService);
 
   watchList(listType: ListType): Observable<GameEntry[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
@@ -921,9 +926,18 @@ export class GameShelfService {
     }
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      const clientWriteToken = this.clientWriteAuthService.getToken();
+
+      if (clientWriteToken) {
+        headers[CLIENT_WRITE_TOKEN_HEADER_NAME] = clientWriteToken;
+      }
+
       await fetch(`${environment.gameApiBaseUrl}/v1/images/cache/purge`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ urls: normalizedUrls })
       });
     } catch {

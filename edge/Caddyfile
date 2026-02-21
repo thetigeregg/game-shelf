@@ -2,9 +2,7 @@
   encode gzip zstd
 
   handle_path /api/* {
-    reverse_proxy api:3000 {
-      header_up Authorization "Bearer {$API_TOKEN}"
-    }
+    reverse_proxy api:3000
   }
 
   handle_path /manuals/* {

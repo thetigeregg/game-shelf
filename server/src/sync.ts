@@ -28,10 +28,6 @@ interface PullBody {
   cursor?: string | null;
 }
 
-const SYNC_RATE_LIMIT_WINDOW_MS = 60_000;
-const SYNC_PUSH_MAX_REQUESTS_PER_WINDOW = 120;
-const SYNC_PULL_MAX_REQUESTS_PER_WINDOW = 120;
-
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
   await ensureRouteRateLimitRegistered(app);
   app.post(
@@ -39,8 +35,8 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     {
       config: {
         rateLimit: {
-          max: SYNC_PUSH_MAX_REQUESTS_PER_WINDOW,
-          timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
+          max: 10,
+          timeWindow: '1 minute'
         }
       }
     },
@@ -115,8 +111,8 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     {
       config: {
         rateLimit: {
-          max: SYNC_PULL_MAX_REQUESTS_PER_WINDOW,
-          timeWindow: SYNC_RATE_LIMIT_WINDOW_MS
+          max: 10,
+          timeWindow: '1 minute'
         }
       }
     },

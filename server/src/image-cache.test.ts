@@ -484,8 +484,6 @@ test('Image proxy route rate limits by client IP', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-rate-limit-test-'));
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    rateLimitWindowMs: 60_000,
-    imageProxyMaxRequestsPerWindow: 2,
     fetchImpl: async () =>
       new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
@@ -493,21 +491,17 @@ test('Image proxy route rate limits by client IP', async () => {
       })
   });
 
-  const one = await app.inject({
-    method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-1.jpg'
-  });
-  assert.equal(one.statusCode, 200);
-
-  const two = await app.inject({
-    method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-2.jpg'
-  });
-  assert.equal(two.statusCode, 200);
+  for (let index = 0; index < 50; index += 1) {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-${index}.jpg`
+    });
+    assert.equal(response.statusCode, 200);
+  }
 
   const limited = await app.inject({
     method: 'GET',
-    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-3.jpg'
+    url: '/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-final.jpg'
   });
   assert.equal(limited.statusCode, 429);
   assert.ok(typeof limited.headers['retry-after'] === 'string');
@@ -522,31 +516,22 @@ test('Image purge route rate limits by client IP', async () => {
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-purge-rate-limit-test-'));
 
-  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    rateLimitWindowMs: 60_000,
-    imagePurgeMaxRequestsPerWindow: 2
-  });
+  await registerImageProxyRoute(app, pool as unknown as Pool, tempDir);
 
   const url = 'https://images.igdb.com/igdb/image/upload/purge-rate-limit.jpg';
-
-  const one = await app.inject({
-    method: 'POST',
-    url: '/v1/images/cache/purge',
-    payload: { urls: [url] }
-  });
-  assert.equal(one.statusCode, 200);
-
-  const two = await app.inject({
-    method: 'POST',
-    url: '/v1/images/cache/purge',
-    payload: { urls: [url] }
-  });
-  assert.equal(two.statusCode, 200);
+  for (let index = 0; index < 10; index += 1) {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/images/cache/purge',
+      payload: { urls: [`${url}-${index}`] }
+    });
+    assert.equal(response.statusCode, 200);
+  }
 
   const limited = await app.inject({
     method: 'POST',
     url: '/v1/images/cache/purge',
-    payload: { urls: [url] }
+    payload: { urls: [`${url}-final`] }
   });
   assert.equal(limited.statusCode, 429);
   assert.ok(typeof limited.headers['retry-after'] === 'string');

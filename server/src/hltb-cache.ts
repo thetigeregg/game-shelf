@@ -28,8 +28,6 @@ interface HltbCacheRouteOptions {
 
 const DEFAULT_HLTB_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS = 86400 * 90;
-const HLTB_RATE_LIMIT_WINDOW_MS = 60_000;
-const HLTB_MAX_REQUESTS_PER_WINDOW = 120;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
 
 export async function registerHltbCachedRoute(
@@ -62,8 +60,8 @@ export async function registerHltbCachedRoute(
     {
       config: {
         rateLimit: {
-          max: HLTB_MAX_REQUESTS_PER_WINDOW,
-          timeWindow: HLTB_RATE_LIMIT_WINDOW_MS
+          max: 50,
+          timeWindow: '1 minute'
         }
       }
     },

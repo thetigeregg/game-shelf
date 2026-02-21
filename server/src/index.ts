@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
@@ -14,7 +15,6 @@ import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
 import { shouldRequireAuth } from './request-security.js';
 import { registerSyncRoutes } from './sync.js';
-import rateLimitPlugin from '../plugins/rate-limit.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HEALTH_RATE_LIMIT_WINDOW_MS = 60_000;
 const HEALTH_MAX_REQUESTS_PER_WINDOW = 1000;
@@ -97,7 +97,11 @@ async function main(): Promise<void> {
     credentials: true
   });
 
-  await app.register(rateLimitPlugin);
+  await app.register(rateLimit, {
+    global: true,
+    max: 100,
+    timeWindow: '15 minutes'
+  });
 
   await ensureMiddieRegistered(app);
 

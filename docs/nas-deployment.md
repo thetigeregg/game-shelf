@@ -56,7 +56,7 @@ Common stack env vars:
 - `PGPASSWORD_FILE` (backup service DB password)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
-- `FIREBASE_SERVICE_ACCOUNT_JSON` (required for FCM notifications)
+- `FIREBASE_SERVICE_ACCOUNT_JSON_FILE` (required for FCM notifications; defaults to `/run/secrets/firebase_service_account_json`)
 - `RELEASE_MONITOR_ENABLED` (optional; defaults `true`)
 - `RELEASE_MONITOR_INTERVAL_SECONDS` (optional; defaults `900`)
 - `RELEASE_MONITOR_BATCH_SIZE` (optional; defaults `100`)
@@ -113,6 +113,7 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
 - `/volume1/docker/secrets/gameshelf/postgres_password`
+- `/volume1/docker/secrets/gameshelf/firebase_service_account_json` (required for FCM notifications)
 
 You can override individual directories if needed:
 
@@ -158,6 +159,7 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/postgres_user`
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
+`nas-secrets/firebase_service_account_json` (required for FCM notifications)
 
 2. Create local non-secret env file:
 

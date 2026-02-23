@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: game-shelf-pr-${{ github.event.pull_request.number }}
@@ -42,6 +43,36 @@ jobs:
 
       - name: Backend tests
         run: npm run test:backend:coverage
+
+      - name: Upload frontend coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/app/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: true
+
+      - name: Upload server coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./server/coverage/lcov.info
+          flags: server
+          name: server-coverage
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: true
+
+      - name: Upload worker coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./worker/coverage/lcov.info
+          flags: worker
+          name: worker-coverage
+          disable_search: true
+          use_oidc: true
+          fail_ci_if_error: true
 
       - name: Backup ops smoke test
         run: npm run test:backup:ops

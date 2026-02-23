@@ -757,3 +757,12 @@
 - 74d2e8d Merge branch 'main' into codex/cov
 - 74f854f Add Codecov uploads for monorepo
 
+## v0.1.20 - 2026-02-23
+- ea85963 Merge pull request #80 from thetigeregg/codex/preserve-last-view-filters-on
+- a046d2a Add tests for invalid prefs handling
+- 2d2c9a3 Add wishlist filter persistence test
+- 39e1152 Preserve filters across launches
+- 5c20391 Add persistence tests for filters
+- d48d220 Add list view preference tests
+- 9df18f4 Restore preserved list filters
+

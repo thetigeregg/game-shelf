@@ -61,6 +61,7 @@ export class GameDetailContentComponent {
   @Output() developerClick = new EventEmitter<void>();
   @Output() seriesClick = new EventEmitter<void>();
   @Output() franchiseClick = new EventEmitter<void>();
+  @Output() genreClick = new EventEmitter<void>();
   @Output() publisherClick = new EventEmitter<void>();
   @Output() addToLibrary = new EventEmitter<void>();
 
@@ -321,6 +322,12 @@ export class GameDetailContentComponent {
   onPublisherClick(): void {
     if (this.showLibrarySections && this.hasMetadataValue(this.game.publishers)) {
       this.publisherClick.emit();
+    }
+  }
+
+  onGenreClick(): void {
+    if (this.showLibrarySections && this.hasMetadataValue(this.game.genres)) {
+      this.genreClick.emit();
     }
   }
 

@@ -752,3 +752,8 @@
 - c59efff Merge pull request #78 from thetigeregg/codex/move-device-write-token-to
 - 95c06d3 Relocate device write token section
 
+## v0.1.19 - 2026-02-23
+- e3707b5 Merge pull request #79 from thetigeregg/codex/cov
+- 74d2e8d Merge branch 'main' into codex/cov
+- 74f854f Add Codecov uploads for monorepo
+

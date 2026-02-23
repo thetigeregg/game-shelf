@@ -32,6 +32,7 @@ import {
   GameStatus
 } from '../../core/models/game.models';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
+import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
@@ -61,6 +62,7 @@ export class GameDetailContentComponent {
   @Output() developerClick = new EventEmitter<void>();
   @Output() seriesClick = new EventEmitter<void>();
   @Output() franchiseClick = new EventEmitter<void>();
+  @Output() genreClick = new EventEmitter<void>();
   @Output() publisherClick = new EventEmitter<void>();
   @Output() addToLibrary = new EventEmitter<void>();
 
@@ -301,26 +303,32 @@ export class GameDetailContentComponent {
   }
 
   onDeveloperClick(): void {
-    if (this.showLibrarySections && this.hasMetadataValue(this.game.developers)) {
+    if (canOpenMetadataFilter(this.showLibrarySections, this.game.developers)) {
       this.developerClick.emit();
     }
   }
 
   onSeriesClick(): void {
-    if (this.showLibrarySections && this.hasMetadataValue(this.game.collections)) {
+    if (canOpenMetadataFilter(this.showLibrarySections, this.game.collections)) {
       this.seriesClick.emit();
     }
   }
 
   onFranchiseClick(): void {
-    if (this.showLibrarySections && this.hasMetadataValue(this.game.franchises)) {
+    if (canOpenMetadataFilter(this.showLibrarySections, this.game.franchises)) {
       this.franchiseClick.emit();
     }
   }
 
   onPublisherClick(): void {
-    if (this.showLibrarySections && this.hasMetadataValue(this.game.publishers)) {
+    if (canOpenMetadataFilter(this.showLibrarySections, this.game.publishers)) {
       this.publisherClick.emit();
+    }
+  }
+
+  onGenreClick(): void {
+    if (canOpenMetadataFilter(this.showLibrarySections, this.game.genres)) {
+      this.genreClick.emit();
     }
   }
 

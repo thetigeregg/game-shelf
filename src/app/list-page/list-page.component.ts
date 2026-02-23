@@ -33,9 +33,12 @@ import {
 } from '../core/models/game.models';
 import {
   GameListComponent,
-  GameListSelectionState,
-  MetadataFilterSelection
+  GameListSelectionState
 } from '../features/game-list/game-list.component';
+import {
+  MetadataFilterSelection,
+  applyMetadataSelectionToFilters
+} from '../features/game-list/metadata-filter.utils';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -431,22 +434,8 @@ export class ListPageComponent {
       return;
     }
 
-    const nextFilters: GameListFilters = {
-      ...DEFAULT_GAME_LIST_FILTERS
-    };
-
-    if (selection.kind === 'series') {
-      nextFilters.collections = [normalized];
-    } else if (selection.kind === 'developer') {
-      nextFilters.developers = [normalized];
-    } else if (selection.kind === 'franchise') {
-      nextFilters.franchises = [normalized];
-    } else if (selection.kind === 'publisher') {
-      nextFilters.publishers = [normalized];
-    }
-
     this.filters = {
-      ...nextFilters
+      ...applyMetadataSelectionToFilters(selection, DEFAULT_GAME_LIST_FILTERS)
     };
     this.listSearchQueryInput = '';
     this.listSearchQuery = '';

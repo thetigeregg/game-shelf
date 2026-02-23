@@ -112,6 +112,23 @@ describe('PlatformCustomizationService', () => {
     expect(service.getDisplayNameWithAliasSource('Nintendo Switch', 6)).toBe('Nintendo Switch');
   });
 
+  it('resolves canonical platform ids for direct and aliased platforms', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+
+    expect(service.resolveCanonicalPlatformIgdbId('Nintendo Entertainment System', 18)).toBe(18);
+    expect(service.resolveCanonicalPlatformIgdbId('Family Computer', 99)).toBe(18);
+    expect(service.resolveCanonicalPlatformIgdbId('Family Computer Disk System', 51)).toBe(18);
+    expect(service.resolveCanonicalPlatformIgdbId('unknown', 9999)).toBeNull();
+  });
+
+  it('resolves canonical platform id from alias fallback name when id is missing', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+
+    expect(service.resolveCanonicalPlatformIgdbId('Super Famicom', null)).toBe(19);
+    expect(service.resolveCanonicalPlatformIgdbId('Nintendo Switch', null)).toBe(130);
+    expect(service.resolveCanonicalPlatformIgdbId('totally unknown platform', null)).toBeNull();
+  });
+
   it('removes custom display names when set to empty', () => {
     const service = TestBed.inject(PlatformCustomizationService);
     service.setCustomName(130, 'Switch');

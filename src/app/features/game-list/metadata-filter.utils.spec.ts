@@ -32,6 +32,30 @@ describe('metadata-filter utils', () => {
     expect(getMetadataSelectionTitle('genre')).toBe('Select Genre');
   });
 
+  it('returns the expected selector title for each metadata kind', () => {
+    expect(getMetadataSelectionTitle('series')).toBe('Select Series');
+    expect(getMetadataSelectionTitle('developer')).toBe('Select Developer');
+    expect(getMetadataSelectionTitle('franchise')).toBe('Select Franchise');
+    expect(getMetadataSelectionTitle('genre')).toBe('Select Genre');
+    expect(getMetadataSelectionTitle('publisher')).toBe('Select Publisher');
+  });
+
+  it('returns values for each metadata kind', () => {
+    const game = makeGame({
+      collections: ['Series A'],
+      developers: ['Dev A'],
+      franchises: ['Franchise A'],
+      genres: ['Action'],
+      publishers: ['Publisher A']
+    });
+
+    expect(getMetadataSelectionValues(game, 'series')).toEqual(['Series A']);
+    expect(getMetadataSelectionValues(game, 'developer')).toEqual(['Dev A']);
+    expect(getMetadataSelectionValues(game, 'franchise')).toEqual(['Franchise A']);
+    expect(getMetadataSelectionValues(game, 'genre')).toEqual(['Action']);
+    expect(getMetadataSelectionValues(game, 'publisher')).toEqual(['Publisher A']);
+  });
+
   it('applies genre metadata selection to list filters', () => {
     const nextFilters = applyMetadataSelectionToFilters(
       { kind: 'genre', value: '  RPG ' },
@@ -51,5 +75,47 @@ describe('metadata-filter utils', () => {
     );
 
     expect(nextFilters).toEqual(DEFAULT_GAME_LIST_FILTERS);
+  });
+
+  it('applies series/developer/franchise/publisher metadata selections', () => {
+    expect(
+      applyMetadataSelectionToFilters(
+        { kind: 'series', value: '  Zelda ' },
+        DEFAULT_GAME_LIST_FILTERS
+      )
+    ).toEqual({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      collections: ['Zelda']
+    });
+
+    expect(
+      applyMetadataSelectionToFilters(
+        { kind: 'developer', value: '  Nintendo ' },
+        DEFAULT_GAME_LIST_FILTERS
+      )
+    ).toEqual({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      developers: ['Nintendo']
+    });
+
+    expect(
+      applyMetadataSelectionToFilters(
+        { kind: 'franchise', value: '  Mario ' },
+        DEFAULT_GAME_LIST_FILTERS
+      )
+    ).toEqual({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      franchises: ['Mario']
+    });
+
+    expect(
+      applyMetadataSelectionToFilters(
+        { kind: 'publisher', value: '  Nintendo ' },
+        DEFAULT_GAME_LIST_FILTERS
+      )
+    ).toEqual({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      publishers: ['Nintendo']
+    });
   });
 });

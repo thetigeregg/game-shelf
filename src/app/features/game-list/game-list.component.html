@@ -2,14 +2,21 @@
   @if (!groupedView.grouped && groupedView.totalCount > 0) {
     <cdk-virtual-scroll-viewport
       class="game-list-virtual-viewport"
-      style="height: 100%; width: 100%;"
+      style="height: 100%; width: 100%"
       [itemSize]="virtualRowHeight"
       [minBufferPx]="virtualMinBufferPx"
       [maxBufferPx]="virtualMaxBufferPx"
-      >
+    >
       <ion-list>
-        <ng-container *cdkVirtualFor="let game of groupedView.sections[0]?.games || []; trackBy: trackByExternalId">
-          <ng-container *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"></ng-container>
+        <ng-container
+          *cdkVirtualFor="
+            let game of groupedView.sections[0]?.games || [];
+            trackBy: trackByExternalId
+          "
+        >
+          <ng-container
+            *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"
+          ></ng-container>
         </ng-container>
       </ion-list>
     </cdk-virtual-scroll-viewport>
@@ -26,21 +33,29 @@
       [multiple]="true"
       [value]="expandedSectionKeys"
       (ionChange)="onGroupedAccordionChange($event)"
-      >
+    >
       @for (section of groupedView.sections; track trackBySectionKey($index, section)) {
         <ion-accordion [value]="section.key">
           <ion-item slot="header" color="light">
             <ion-label>
               <div class="group-header-title">{{ section.title }}</div>
-              <div class="group-header-subtitle">{{ getGroupCountLabel(section.games.length) }}</div>
+              <div class="group-header-subtitle">
+                {{ getGroupCountLabel(section.games.length) }}
+              </div>
             </ion-label>
           </ion-item>
           <div slot="content">
-            <ion-list>
-              @for (game of section.games; track trackByExternalId($index, game)) {
-                <ng-container *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"></ng-container>
-              }
-            </ion-list>
+            @if (isSectionRendered(section.key)) {
+              <div class="group-section-content">
+                <ion-list>
+                  @for (game of section.games; track trackByExternalId($index, game)) {
+                    <ng-container
+                      *ngTemplateOutlet="gameRowTemplate; context: { $implicit: game }"
+                    ></ng-container>
+                  }
+                </ion-list>
+              </div>
+            }
           </div>
         </ion-accordion>
       }
@@ -64,7 +79,7 @@
       detail="false"
       [class.game-row-selected]="isGameSelected(getGameKey(game))"
       (click)="onGameRowClick(game, fromSimilarDetailSection === true)"
-      >
+    >
       @if (getStatusIconName(game); as statusIconName) {
         <ion-icon
           class="status-icon"
@@ -86,7 +101,13 @@
       }
 
       <div slot="start" class="game-art">
-        <img [src]="getRowCoverUrl(game)" [alt]="getGameDisplayTitle(game)" (error)="onImageError($event, game)" />
+        <img
+          [src]="getRowCoverUrl(game)"
+          [alt]="getGameDisplayTitle(game)"
+          loading="lazy"
+          decoding="async"
+          (error)="onImageError($event, game)"
+        />
       </div>
 
       <ion-label>
@@ -104,7 +125,7 @@
               <ion-badge
                 [style.--background]="tag.color"
                 [style.color]="getTagTextColor(tag.color)"
-                >
+              >
                 {{ tag.name }}
               </ion-badge>
             }
@@ -115,9 +136,7 @@
 
     @if (!selectionModeActive) {
       <ion-item-options side="end" (ionSwipe)="onActionsOptionSwipe(game, slidingItem, $event)">
-        <ion-item-option
-          (click)="openRowActionsPopover(game, $event, slidingItem)"
-          >
+        <ion-item-option (click)="openRowActionsPopover(game, $event, slidingItem)">
           Options
         </ion-item-option>
       </ion-item-options>
@@ -133,23 +152,44 @@
   side="bottom"
   alignment="end"
   (didDismiss)="onRowActionsPopoverDismiss()"
-  >
+>
   <ng-template>
     <ion-content>
       <ion-list lines="none">
-        <ion-item button detail="false" (click)="rowActionsGame && openStatusForGameFromPopover(rowActionsGame)">
+        <ion-item
+          button
+          detail="false"
+          (click)="rowActionsGame && openStatusForGameFromPopover(rowActionsGame)"
+        >
           Set status
         </ion-item>
-        <ion-item button detail="false" (click)="rowActionsGame && openRatingForGameFromPopover(rowActionsGame)">
+        <ion-item
+          button
+          detail="false"
+          (click)="rowActionsGame && openRatingForGameFromPopover(rowActionsGame)"
+        >
           Set rating
         </ion-item>
-        <ion-item button detail="false" (click)="rowActionsGame && openTagsForGameFromPopover(rowActionsGame)">
+        <ion-item
+          button
+          detail="false"
+          (click)="rowActionsGame && openTagsForGameFromPopover(rowActionsGame)"
+        >
           Set tags
         </ion-item>
-        <ion-item button detail="false" (click)="rowActionsGame && moveGameFromPopover(rowActionsGame)">
+        <ion-item
+          button
+          detail="false"
+          (click)="rowActionsGame && moveGameFromPopover(rowActionsGame)"
+        >
           Move to {{ getOtherListLabel() }}
         </ion-item>
-        <ion-item button detail="false" color="danger" (click)="rowActionsGame && removeGameFromPopover(rowActionsGame)">
+        <ion-item
+          button
+          detail="false"
+          color="danger"
+          (click)="rowActionsGame && removeGameFromPopover(rowActionsGame)"
+        >
           Delete
         </ion-item>
       </ion-list>
@@ -164,22 +204,28 @@
   (didDismiss)="closeGameDetailModal()"
 >
   <ng-template>
-    <ion-header>
+    <ion-header [translucent]="true">
       <ion-toolbar>
         @if (detailNavigationStack.length > 0) {
           <ion-buttons slot="start">
-            <ion-button fill="clear" aria-label="Back to previous game" (click)="goBackInDetailNavigation()">
+            <ion-button
+              fill="clear"
+              aria-label="Back to previous game"
+              (click)="goBackInDetailNavigation()"
+            >
               <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
             </ion-button>
           </ion-buttons>
         }
-        <ion-title>{{ (selectedGame ? getGameDisplayTitle(selectedGame) : '') || 'Game Details' }}</ion-title>
+        <ion-title>{{
+          (selectedGame ? getGameDisplayTitle(selectedGame) : '') || 'Game Details'
+        }}</ion-title>
         <ion-buttons slot="end">
           <ion-button
             fill="clear"
             aria-label="Game detail actions"
             [id]="getDetailActionsTriggerId()"
-            >
+          >
             <ion-icon name="ellipsis-horizontal" slot="icon-only"></ion-icon>
           </ion-button>
           <ion-button fill="clear" aria-label="Close game details" (click)="closeGameDetailModal()">
@@ -189,26 +235,42 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-popover [id]="getDetailActionsPopoverId()" [trigger]="getDetailActionsTriggerId()" triggerAction="click">
+    <ion-popover
+      [id]="getDetailActionsPopoverId()"
+      [trigger]="getDetailActionsTriggerId()"
+      triggerAction="click"
+    >
       <ng-template>
         <ion-content>
           <ion-list lines="none">
             <ion-item button detail="false" (click)="refreshSelectedGameMetadataFromPopover()">
               Refresh metadata
             </ion-item>
-            <ion-item button detail="false" (click)="refreshSelectedGameCompletionTimesFromPopover()">
+            <ion-item
+              button
+              detail="false"
+              (click)="refreshSelectedGameCompletionTimesFromPopover()"
+            >
               Update HLTB data
+            </ion-item>
+            <ion-item button detail="false" (click)="openFixHltbMatchFromPopover()">
+              Fix HLTB match
             </ion-item>
             <ion-item button detail="false" (click)="openImagePickerFromPopover()">
               Update image
             </ion-item>
             <ion-item button detail="false" (click)="openFixMatchFromPopover()">
-              Fix game match
+              Fix IGDB match
             </ion-item>
             <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
               Edit metadata
             </ion-item>
-            <ion-item button detail="false" color="danger" (click)="deleteSelectedGameFromPopover()">
+            <ion-item
+              button
+              detail="false"
+              color="danger"
+              (click)="deleteSelectedGameFromPopover()"
+            >
               Delete
             </ion-item>
           </ion-list>
@@ -217,7 +279,12 @@
     </ion-popover>
 
     @if (selectedGame; as game) {
-      <ion-content #detailContent class="detail-content">
+      <ion-content
+        #detailContent
+        class="detail-content gs-safe-bottom-with-offset"
+        [fullscreen]="true"
+        appAutoContentOffsets
+      >
         <div class="detail-content-inner">
           <app-game-detail-content
             [game]="getDetailGamePayload(game)"
@@ -232,6 +299,7 @@
             (developerClick)="onDetailDeveloperClick()"
             (seriesClick)="onDetailSeriesClick()"
             (franchiseClick)="onDetailFranchiseClick()"
+            (genreClick)="onDetailGenreClick()"
             (publisherClick)="onDetailPublisherClick()"
           ></app-game-detail-content>
           <ion-list lines="full">
@@ -250,23 +318,37 @@
               </ion-item>
             }
             @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
-              @for (similarGame of similarLibraryGames; track trackByExternalId($index, similarGame)) {
-                <ng-container *ngTemplateOutlet="gameRowTemplate; context: { $implicit: similarGame, fromSimilarDetailSection: true }"></ng-container>
+              @for (
+                similarGame of similarLibraryGames;
+                track trackByExternalId($index, similarGame)
+              ) {
+                <ng-container
+                  *ngTemplateOutlet="
+                    gameRowTemplate;
+                    context: { $implicit: similarGame, fromSimilarDetailSection: true }
+                  "
+                ></ng-container>
               }
             }
           </ion-list>
         </div>
-        <ion-fab slot="fixed" vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
-          <ion-fab-button aria-label="Open web shortcuts">
-            <ion-icon name="search" aria-hidden="true"></ion-icon>
+        <ion-fab
+          #detailShortcutsFab
+          slot="fixed"
+          vertical="bottom"
+          horizontal="end"
+          class="detail-shortcuts-fab"
+        >
+          <ion-fab-button size="small" aria-label="Open web shortcuts">
+            <ion-icon name="globe" aria-hidden="true"></ion-icon>
           </ion-fab-button>
-          <ion-fab-list side="start">
+          <ion-fab-list side="top" (click)="closeDetailShortcutsFab()">
             @if (shouldShowOpenManualButton) {
               <ion-fab-button
                 class="shortcut-manual"
                 aria-label="Open game manual PDF"
                 (click)="openManualPdf()"
-                >
+              >
                 <ion-icon name="document-text" aria-hidden="true"></ion-icon>
               </ion-fab-button>
             }
@@ -275,20 +357,36 @@
                 class="shortcut-manual-find"
                 aria-label="Find game manual PDF"
                 (click)="openManualPickerModal()"
-                >
+              >
                 <ion-icon name="search" aria-hidden="true"></ion-icon>
               </ion-fab-button>
             }
-            <ion-fab-button class="shortcut-google" aria-label="Search on Google" (click)="openShortcutSearch('google')">
+            <ion-fab-button
+              class="shortcut-google"
+              aria-label="Search on Google"
+              (click)="openShortcutSearch('google')"
+            >
               <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
             </ion-fab-button>
-            <ion-fab-button class="shortcut-youtube" aria-label="Search on YouTube" (click)="openShortcutSearch('youtube')">
+            <ion-fab-button
+              class="shortcut-youtube"
+              aria-label="Search on YouTube"
+              (click)="openShortcutSearch('youtube')"
+            >
               <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
             </ion-fab-button>
-            <ion-fab-button class="shortcut-wikipedia" aria-label="Search on Wikipedia" (click)="openShortcutSearch('wikipedia')">
+            <ion-fab-button
+              class="shortcut-wikipedia"
+              aria-label="Search on Wikipedia"
+              (click)="openShortcutSearch('wikipedia')"
+            >
               <span class="shortcut-text" aria-hidden="true">W</span>
             </ion-fab-button>
-            <ion-fab-button class="shortcut-gamefaqs" aria-label="Search on GameFAQs" (click)="openShortcutSearch('gamefaqs')">
+            <ion-fab-button
+              class="shortcut-gamefaqs"
+              aria-label="Search on GameFAQs"
+              (click)="openShortcutSearch('gamefaqs')"
+            >
               <span class="shortcut-text" aria-hidden="true">G</span>
             </ion-fab-button>
           </ion-fab-list>
@@ -304,7 +402,7 @@
   type="file"
   accept="image/*"
   (change)="onCustomCoverFileSelected($event)"
-  />
+/>
 
 <ion-modal
   [isOpen]="isEditMetadataModalOpen"
@@ -316,13 +414,11 @@
       <ion-toolbar>
         <ion-title>Edit Metadata</ion-title>
         <ion-buttons slot="end">
-          <ion-button fill="clear" (click)="closeEditMetadataModal()">
-            Close
-          </ion-button>
+          <ion-button fill="clear" (click)="closeEditMetadataModal()"> Close </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content>
+    <ion-content class="gs-safe-bottom">
       <ion-list lines="full">
         <ion-item>
           <ion-input
@@ -334,7 +430,12 @@
           ></ion-input>
         </ion-item>
         <ion-item lines="none">
-          <ion-button fill="outline" color="medium" [disabled]="isEditMetadataSaving" (click)="resetEditMetadataTitle()">
+          <ion-button
+            fill="outline"
+            color="medium"
+            [disabled]="isEditMetadataSaving"
+            (click)="resetEditMetadataTitle()"
+          >
             Reset Name
           </ion-button>
         </ion-item>
@@ -346,24 +447,32 @@
             [value]="editMetadataPlatformIgdbId"
             placeholder="Default platform"
             (ionChange)="onEditMetadataPlatformChange($any($event).detail.value)"
-            >
+          >
             <ion-select-option [value]="null">Default platform</ion-select-option>
             @for (platformOption of editMetadataPlatformOptions; track platformOption) {
-              <ion-select-option
-                [value]="platformOption.id"
-                >
+              <ion-select-option [value]="platformOption.id">
                 {{ getPlatformLabel(platformOption.name, platformOption.id) }}
               </ion-select-option>
             }
           </ion-select>
         </ion-item>
         <ion-item lines="none">
-          <ion-button fill="outline" color="medium" [disabled]="isEditMetadataSaving" (click)="resetEditMetadataPlatform()">
+          <ion-button
+            fill="outline"
+            color="medium"
+            [disabled]="isEditMetadataSaving"
+            (click)="resetEditMetadataPlatform()"
+          >
             Reset Platform
           </ion-button>
         </ion-item>
         <ion-item lines="none">
-          <ion-button expand="block" fill="outline" [disabled]="isEditMetadataSaving" (click)="uploadCustomImageFromEditMetadata()">
+          <ion-button
+            expand="block"
+            fill="outline"
+            [disabled]="isEditMetadataSaving"
+            (click)="uploadCustomImageFromEditMetadata()"
+          >
             Upload custom image
           </ion-button>
         </ion-item>
@@ -374,7 +483,7 @@
             color="medium"
             [disabled]="isEditMetadataSaving || !selectedGame?.customCoverUrl"
             (click)="resetCustomImageFromEditMetadata()"
-            >
+          >
             Reset to default image
           </ion-button>
         </ion-item>
@@ -394,13 +503,17 @@
       <ion-toolbar>
         <ion-title>Find Manual</ion-title>
         <ion-buttons slot="end">
-          <ion-button fill="clear" aria-label="Close find manual" (click)="closeManualPickerModal()">
+          <ion-button
+            fill="clear"
+            aria-label="Close find manual"
+            (click)="closeManualPickerModal()"
+          >
             <ion-icon name="close" slot="icon-only"></ion-icon>
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content>
+    <ion-content class="gs-safe-bottom">
       <ion-item>
         <ion-searchbar
           [value]="manualPickerQuery"
@@ -409,22 +522,31 @@
         ></ion-searchbar>
       </ion-item>
       <ion-item lines="none">
-        <ion-button expand="block" [disabled]="isManualPickerLoading" (click)="runManualPickerSearch()">
+        <ion-button
+          expand="block"
+          [disabled]="isManualPickerLoading"
+          (click)="runManualPickerSearch()"
+        >
           {{ isManualPickerLoading ? 'Searching...' : 'Search' }}
         </ion-button>
       </ion-item>
 
       @if (manualPickerError) {
         <ion-item lines="none">
-          <ion-label [color]="manualCatalogUnavailable ? 'warning' : 'medium'">{{ manualPickerError }}</ion-label>
+          <ion-label [color]="manualCatalogUnavailable ? 'warning' : 'medium'">{{
+            manualPickerError
+          }}</ion-label>
         </ion-item>
       }
 
       @if (manualResolvedSource === 'override' && selectedGame) {
-        <ion-item
-          lines="none"
+        <ion-item lines="none">
+          <ion-button
+            color="warning"
+            fill="outline"
+            expand="block"
+            (click)="clearManualMatchOverride()"
           >
-          <ion-button color="warning" fill="outline" expand="block" (click)="clearManualMatchOverride()">
             Clear Custom Match
           </ion-button>
         </ion-item>
@@ -444,43 +566,6 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isMetadataPickerModalOpen" (didDismiss)="closeMetadataPickerModal()">
-  <ng-template>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>{{ metadataPickerTitle }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="closeMetadataPickerModal()">Close</ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content>
-      <ion-list lines="full">
-        <ion-item>
-          <ion-select
-            [label]="metadataPickerFieldLabel"
-            labelPlacement="stacked"
-            [placeholder]="'Choose ' + metadataPickerFieldLabel.toLowerCase()"
-            [value]="metadataPickerSelection || undefined"
-            (ionChange)="onMetadataPickerSelectionChange($any($event).detail.value)"
-            >
-            @for (option of metadataPickerOptions; track option) {
-              <ion-select-option [value]="option">
-                {{ option }}
-              </ion-select-option>
-            }
-          </ion-select>
-        </ion-item>
-      </ion-list>
-      <div class="actions">
-        <ion-button expand="block" [disabled]="!metadataPickerSelection" (click)="applySelectedMetadataFilterFromPicker()">
-          Apply Filter
-        </ion-button>
-      </div>
-    </ion-content>
-  </ng-template>
-</ion-modal>
-
 <ion-modal [isOpen]="isFixMatchModalOpen" (didDismiss)="closeFixMatchModal()">
   <ng-template>
     <ion-header>
@@ -491,7 +576,7 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content>
+    <ion-content class="gs-safe-bottom">
       <app-game-search
         [listType]="listType"
         actionMode="select"
@@ -514,7 +599,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding gs-safe-bottom">
       <ion-item lines="none">
         <ion-searchbar
           [value]="imagePickerQuery"
@@ -522,7 +607,9 @@
           show-clear-button="focus"
           (ionInput)="onImagePickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button slot="end" [disabled]="isImagePickerLoading" (click)="runImagePickerSearch()">Search</ion-button>
+        <ion-button slot="end" [disabled]="isImagePickerLoading" (click)="runImagePickerSearch()"
+          >Search</ion-button
+        >
       </ion-item>
 
       @if (isImagePickerLoading) {
@@ -543,12 +630,13 @@
         </ion-list-header>
       }
 
-      @if (!isImagePickerLoading && !imagePickerError && imagePickerResults.length === 0 && !imagePickerIgdbCoverUrl) {
-        <p
-          class="picker-state ion-text-center"
-          >
-          No 2D box art found.
-        </p>
+      @if (
+        !isImagePickerLoading &&
+        !imagePickerError &&
+        imagePickerResults.length === 0 &&
+        !imagePickerIgdbCoverUrl
+      ) {
+        <p class="picker-state ion-text-center">No 2D box art found.</p>
       }
 
       @if (!isImagePickerLoading && imagePickerResults.length > 0) {
@@ -556,7 +644,11 @@
           <ion-row>
             @for (imageUrl of imagePickerResults; track imageUrl) {
               <ion-col size="4" size-md="3">
-                <ion-button fill="clear" class="box-art-option" (click)="applySelectedImage(imageUrl)">
+                <ion-button
+                  fill="clear"
+                  class="box-art-option"
+                  (click)="applySelectedImage(imageUrl)"
+                >
                   <img [src]="imageUrl" alt="Box art option" />
                 </ion-button>
               </ion-col>
@@ -575,7 +667,11 @@
         <ion-grid>
           <ion-row>
             <ion-col size="4" size-md="3">
-              <ion-button fill="clear" class="box-art-option" (click)="applySelectedImage(imagePickerIgdbCoverUrl!)">
+              <ion-button
+                fill="clear"
+                class="box-art-option"
+                (click)="applySelectedImage(imagePickerIgdbCoverUrl!)"
+              >
                 <img [src]="imagePickerIgdbCoverUrl" alt="IGDB box art option" />
               </ion-button>
             </ion-col>
@@ -597,7 +693,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding gs-safe-bottom">
       <ion-item lines="none">
         <ion-searchbar
           [value]="hltbPickerQuery"
@@ -605,7 +701,9 @@
           show-clear-button="focus"
           (ionInput)="onHltbPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button slot="end" [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">Search</ion-button>
+        <ion-button slot="end" [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()"
+          >Search</ion-button
+        >
       </ion-item>
 
       @if (isHltbPickerLoading) {
@@ -620,10 +718,13 @@
         </p>
       }
 
-      @if (hasHltbPickerSearched && !isHltbPickerLoading && !hltbPickerError && hltbPickerResults.length === 0) {
-        <p class="picker-state ion-text-center">
-          No HLTB results found.
-        </p>
+      @if (
+        hasHltbPickerSearched &&
+        !isHltbPickerLoading &&
+        !hltbPickerError &&
+        hltbPickerResults.length === 0
+      ) {
+        <p class="picker-state ion-text-center">No HLTB results found.</p>
       }
 
       @if (!isHltbPickerLoading && hltbPickerResults.length > 0) {
@@ -644,9 +745,9 @@
                   }
                 </p>
                 <p>
-                  Main: {{ candidate.hltbMainHours ?? '?' }}h ·
-                  Main + Extra: {{ candidate.hltbMainExtraHours ?? '?' }}h ·
-                  Completionist: {{ candidate.hltbCompletionistHours ?? '?' }}h
+                  Main: {{ candidate.hltbMainHours ?? '?' }}h · Main + Extra:
+                  {{ candidate.hltbMainExtraHours ?? '?' }}h · Completionist:
+                  {{ candidate.hltbCompletionistHours ?? '?' }}h
                 </p>
               </ion-label>
             </ion-item>
@@ -660,7 +761,7 @@
           fill="outline"
           [disabled]="isHltbPickerLoading"
           (click)="useOriginalHltbLookup()"
-          >
+        >
           Use Original Match
         </ion-button>
       </ion-item>
@@ -683,7 +784,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding gs-safe-bottom">
       <ion-text color="medium">
         <p>Choose a rating for {{ ratingTargetGame?.title || 'this game' }}.</p>
       </ion-text>
@@ -698,15 +799,13 @@
         [ticks]="true"
         [pin]="true"
         (ionChange)="onRatingRangeChange($event)"
-        >
+      >
         <ion-icon slot="start" name="star-outline" aria-hidden="true"></ion-icon>
         <ion-icon slot="end" name="star" aria-hidden="true"></ion-icon>
       </ion-range>
 
       @if (clearRatingOnSave) {
-        <ion-note color="danger">
-          Rating will be cleared when saved.
-        </ion-note>
+        <ion-note color="danger"> Rating will be cleared when saved. </ion-note>
       }
     </ion-content>
   </ng-template>

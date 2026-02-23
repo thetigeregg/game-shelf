@@ -1,19 +1,17 @@
 import { Component } from '@angular/core';
 import { IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel } from '@ionic/angular/standalone';
-import { addIcons } from "ionicons";
-import { compass, gameController, heart } from "ionicons/icons";
+import { addIcons } from 'ionicons';
+import { compass, gameController, heart } from 'ionicons/icons';
 
 @Component({
-    selector: 'app-tabs',
-    templateUrl: 'tabs.page.html',
-    styleUrls: ['tabs.page.scss'],
-    standalone: true,
-    imports: [IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel],
+  selector: 'app-tabs',
+  templateUrl: 'tabs.page.html',
+  styleUrls: ['tabs.page.scss'],
+  standalone: true,
+  imports: [IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel]
 })
 export class TabsPage {
-
-    constructor() {
-        addIcons({ compass, gameController, heart });
-    }
-
+  constructor() {
+    addIcons({ compass, gameController, heart });
+  }
 }

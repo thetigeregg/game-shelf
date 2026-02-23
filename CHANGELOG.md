@@ -1,0 +1,784 @@
+# Changelog
+
+## v0.0.2 - 2026-02-19
+- 87ca15e Add automatic release bump workflow
+- 86ea3b6 Extend manual lookup aliasing
+- 17958d5 Extend manual lookup aliases
+- d346bbe Investigate secrets in git history
+- fd20321 Check git history for leaked secrets
+- 2d99735 Verify git history and clean secrets
+- 31208b9 Scan history for env secrets
+- bdabbb1 Audit frontend-to-backend gaps
+- 7be6773 Audit full stack for cleanup
+- 92d7c1b Audit frontend-backend gaps
+- 6268bd8 Audit full stack for gaps
+- bee6443 Fix e-Reader platform alias display
+- c44b635 Fix e-Reader alias handling
+- efec0ed Update safe bottom handling
+- f809fb3 Fix forest contrast in dark mode
+- 6af54ca Adjust buffers and forest contrast
+- cea138b Fix accordion border color
+- 73c1394 Adjust virtual buffer handling
+- 364ac4a Ensure fab search opens keyboard
+- f598ad3 Add bottom border to advanced-filers
+- 0fc8970 Add border to advanced filters
+- aff80d1 Add filter accordion header border
+- d08cf69 Tie filters to stable platform names
+- 43bba38 Fix platform alias handling
+- 5162e53 Fix platform aliasing display
+- 1403867 Stop closing search overlay on add
+- 3f0e661 Prevent platform aliasing in search
+- 249f091 Add icons and refine search select
+- 0e0fb9d Add icons and expanders to game info
+- 2ab02a4 Add icons to game detail items
+- 679962f Make detail texts toggleable
+- 442aa84 Restore fab layout on Tags Views
+- 86e5cdc Revert tag view fab move
+- 3c6b386 Restore fab buttons on tags views
+- 2738080 Update game detail layout
+- 86eb9e3 Update IonFab behavior
+- 94a5b1d Adjust game detail header and fab
+- a1bdafe Adjust detail page header and fab
+- 769c271 Adjust detail cover under header
+- 83d96b8 Add auto offsets for IonContent
+- 35d0b72 Add scripts to edge Docker build
+- ec597f1 Update ESLint configuration to ignore additional directories and remove unnecessary comment in zone-flags
+- d643592 Update lint script to use ESLint directly
+- c0aadc1 Update UI smoke tests assertions
+- 05553a0 Replace ESLint configuration with a new module-based setup
+- 76b188e Add ESLint dependencies for improved code quality
+- e307d82 Revert "Update header and fab behaviors"
+- 9691bae Add lint-staged and configure pre-commit hook for linting and formatting
+- 65194d2 Add husky as a development dependency
+- 30e7f7a Format files with Prettier
+- 41fe0b1 Update .prettierignore
+- 6b07fa9 Format .prettierrc for better readability
+- 554ac86 Add Prettier config
+- b3bd413 Add Prettier as a development dependency
+- 7f48d65 Update header and fab behaviors
+- 827fa1b Update header search behavior
+- ea6bc03 Update list header search flow
+- 60c273f Update fab actions to close list
+- 7c65257 Adjust header search focus handling
+- 933cb23 Remove collapse behavior from header
+- 1a6d33b Add header searchbar for list page
+- 9116944 Add fab scroll button and flag
+- c9360ff Fix quick actions fab behavior
+- dce07aa Add forest color and fab scroll top
+- 0a48e6c Add forest colored fab buttons
+- e200d13 Add fixed IonFab quick actions
+- 4793b55 Fix external URL handling by updating anchor element attributes
+- 05b4ba1 Revert "Add @capacitor/browser dependency version 8.0.1"
+- a0c12ea Revert "Use Capacitor Browser to open external URLs in GameListComponent"
+- cb77670 Revert "Improve external URL handling"
+- 8138383 Fix platform alias canonical mapping
+- bf9b09e Improve external URL handling
+- 8fed8f4 Use Capacitor Browser to open external URLs in GameListComponent
+- 38f2045 Add @capacitor/browser dependency version 8.0.1
+- e1ff14a Revert "Add capgo inappbrowser dependency"
+- 1f59198 Update @typescript-eslint packages to version 8.56.0 and tar to version 7.5.9
+- b8aa850 Add capgo inappbrowser dependency
+- f950264 Skip filtering when no constraints
+- 89f00c6 Cache sorted game lists
+- 65373cb Allow open IonAccordion groups
+- 359566a Move add button into header
+- e2953aa Add Fix HLTB match option
+- 3bdf97d Add Fix HLTB match menu item
+- 476a1aa Rename Fix IGDB match menu item
+- 91f105d Fix HLTB match handling
+- 2236ae7 Encode special chars for HLTB search
+- 13a7449 Improve HLTB bulk updates
+- e422525 Remove HLTB search cache entry
+- a5ce03c Exclude logging files from coverage
+- b225811 Increase debug log coverage
+- 849e45d Merge pull request #1 from thetigeregg/new-rel
+- 2d6b8e0 Fix metadata validator bulk HLTB
+- 22da8c4 Handle malformed identity keys
+- f87fa4c Purge gamesdb cache for PS5 and new
+- ae2379e Use effective HLTB hours filter
+- 802d80a Add igdb:id search switch
+- 3ab1f7f Handle umlaut search normalization
+- bd339f7 Fix UI lockups and normalization
+- fe073f4 Add platform aliases for legacy
+- 5593c0c Fix game metadata modal focus
+- 1957614 Update UI placement and warnings
+- ba3c765 Increase SCSS style budget limits
+- 7fead78 Add safe-area inset padding for game
+- 4c95901 Revert "Adjust list page layout"
+- 7618a50 Bypass blob cache in standalone
+- ee2edc3 Adjust list page layout
+- 2ea312e Move views FAB to header button
+- c0cf3a6 Compress oversized client images
+- 33806a1 Compress oversized custom images
+- de6b37c Focus wishlist search modal
+- 98f8b55 Ensure focus on searchbar modal
+- 62660ec Add IGDB cover option to modal
+- 9fd7cc4 Remove share logic add box art upl
+- 47afc66 Add box art upload modal
+- 85090a8 Add custom box art upload
+- 6899c6b Remove capacitor share dependency
+- 0bedd50 Refine multi-select UX and loading
+- 14de27f Rework multi-select activation flow
+- c385d85 Adjust multi-select activation flow
+- 6b83640 Redesign multi-select activation
+- 57d5e61 Update multi-select activation flow
+- 75df01c Fix multi select long press
+- 7d5930e Fix settings cache controls
+- ce3c972 Add purge local image cache button
+- 1a144db Add editable game metadata modal
+- 98a1b6f Add editable game metadata UI
+- 2c48aa7 Add custom game metadata editor
+- 561ad7c Add customizable game metadata
+- 97bd365 Add ESLint Capacitor restriction
+- cd853b0 Fix settings share export flow
+- 639e9cb Add Capacitor share dependency
+- f6d1385 Use URLs for thumbnail cache
+- 6100f0f Stop creating extra export text file
+- c5d170d Add diagnostics for image cache
+- 2caf47f Fix image cache flicker
+- 44bfc71 Debug search image export issues
+- ffc898c Fix semicolon search and image load
+- 02a7a57 Sanitize semicolons in searches
+- d4a7d85 Display platforms summary in modal
+- 435a57e Update platform display logic
+- f340654 Fix resolve modal platform text
+- ef59f89 Update resolver platform summary
+- f735788 Fix MGC import and cache issues
+- a195f3d Update iOS status bar style
+- 74247ac Add NGSW data group caching
+- 25be4f4 Update favicon to icon_new
+- 2405300 Refresh favicon and PWA icons
+- baa8594 Add ionbadge to search icon
+- 1f2d9af Adjust list page header layout
+- ae3e925 Simplify list count summary
+- 94b84f4 Adjust explore search modal styling
+- 860f5d3 Adjust list modal layout
+- 6342b7d Reduce modal height
+- 447aa2d Adjust list search modal layout
+- 7dfc4e3 Adjust header count placement
+- 6bd4cb7 Investigate Ionic header collapse
+- ca52590 Investigate Ionic header overlap
+- 895778c Revert list header changes
+- c55208d Reinstate condensed headers
+- d5abefc Remove custom theming options
+- 595867a Restore header collapse and contrast
+- 0c46fde Update edge Docker base image
+- 572ec2c Fix workflow naming and logs
+- 39ecd6c Fix PWA workflow and docker build
+- b16193c Update CI workflow for PWA
+- 4fb89c8 Update workflow for PWA publishing
+- 82c033e Fix Angular PWA configuration
+- 1f81c7e Add service worker support and update manifest for PWA
+- cc18a98 Explain tailscale serve status
+- c3d68ac Report tailscale service status
+- 9fe36e5 Fix edge image to serve Angular browser output
+- 138445b Document Portainer compose env vars
+- a9bbd11 Clarify docker publish workflow
+- 911e909 Add GHCR publish workflow
+- f872c0b Fix docker compose deploy errors
+- 415c8fe Fix hltb scraper Docker build
+- ce024d6 Clarify dev vs prod docker compose
+- 3028780 Explain docker env vars setup
+- 37ee3de Update docker compose env vars
+- 7925286 Show IonFabList on explore detail
+- 85f40c8 Add explore detail add-to-library
+- 94a1f0a Add library action on game detail
+- eca0475 Add explore detail library button
+- 4ab0bb2 Adjust explore detail page UI
+- 135f81d Adjust explore tabs and detail UI
+- f670f82 Reorder tabs and adjust explore UI
+- eedbd26 Adjust explore page layout
+- ae4d1f7 Add Explore tab using IGDB popularit
+- d0d28a8 Add Explore tab for popularity
+- a182c3d Add Explore tab with IGDB
+- 0a070a8 Add platform alias support
+- 8fbb85a Update platform customization UI
+- 9eb58f0 Update TheGamesDB prioritization
+- a54ede9 Fix api server restart error
+- 34ee7f5 Add DEBUG_HLTB_SCRAPER_LOGS env
+- 0ad7afe Limit custom platform sort order
+- d395207 Refactor logger configuration and improve code formatting
+- e3a283b Add pino-pretty to devDependencies
+- ce6f160 Restrict custom platform sort
+- 34b8f31 Add platform display aliases
+- c7bd36c Configure manuals server setup
+- 08d7074 Update metadata validator layout
+- 7e700ee Validate HLTB update flow
+- 5651fbd Set ng serve start port 8100
+- d2c5715 Add host dev Docker scripts
+- 76318ba Update playwright dependency to version 1.58.2
+- 8841749 Add fuzzy PDF manual support
+- e89296e Add 429 info and clean selectors
+- cb0442a Show platform dropdown on MGC import
+- 206e468 Add platform selector and retry info
+- e303fe6 Fix platform order sync
+- 5134427 Add platform dropdown to MGC settin
+- f375ff4 Fix platform sort order sync
+- ef148b2 Allow custom platform sort order
+- efc5a2e Fix CI coverage thresholds
+- b7f2195 Improve coverage for CI
+- 55b7aab Fix CI coverage threshold failure
+- b3ef0f3 Add CI workflow for UI tests
+- f413f81 Add Playwright UI test deps
+- 5a797b9 Align filter buttons horizontally
+- 4229635 Refine GameList tag actions
+- a43ebc1 Refactor game list picker state
+- d53f53d Fix update game image loading
+- d33c334 Audit and fix game detail UI
+- 435afdd Audit and fix game detail flows
+- f4e29fe Fix game detail UI issues
+- af515d4 Fix series metadata display
+- dc46ec8 Fix similar games loading layout
+- f8b9086 Improve detail text layout
+- 80a0630 Add storyline and summary fields
+- 3d4dead Handle metadata errors for franchise
+- 36ce3e4 Add selectable metadata filters
+- 7b1e9ba Enable metadata item clickability
+- 2eecc7c Update game detail navigation
+- 04ff94c Add series picker modal
+- e4d0a97 Add detail history navigation
+- dbedbe7 Add similar games section
+- 872c855 Display similar games section
+- b815cf9 Display similar games section
+- ca4ada6 Add IGDB series data flow
+- 13fc0ce Add series display and batching
+- b1dabff Add series collection display
+- 77a4f7d Add series collections support
+- 988caf1 Add collections data support
+- a4fb3aa Update game search badges
+- d9367d6 Remove follows field and cover badge
+- 6a8901e Remove deprecated follows field
+- b94568d Verify IGDB game_type usage
+- c4c1b6e Adjust HLTB filter and modals
+- 8eb8581 Remove tags overflow option
+- 671530f Disable auto HLTB search
+- eef5181 Add manual HLTB picker to detail
+- eb81dd4 Show IonLoading during HLTB update
+- ba08f86 Reposition game count display
+- e92d516 Update settings page styling
+- e8a1dc9 Update settings icons layout
+- bbd2171 Fix missing scraper logs
+- 7d1c972 Fix cache path and HLTB revalidate
+- 0d159b8 Fix HLTB cache route behavior
+- 8c3b221 Add HLTB cache route
+- 394d215 Fix server image cache path
+- dfebda3 Fix server image cache
+- 796f581 Validate hltb-scraper gitignores
+- d1dd1f5 Update Playwright docker image
+- 5f5a0fd Update Playwright image
+- c6ca57f Fix dev env configuration
+- fe5db80 Plan Synology NAS PWA migration
+- 678c9aa Show HLTB search dialog for single
+- ff17110 Fix metadata validator errors
+- 0ef76ec Use IGDB covers on Windows
+- 2a49dc1 Fix image flow wiring and spinner
+- b7cbdad Fix image update flows and metadata
+- a551e0d Fix image update change detection
+- 472e8e6 Fix game detail popover behavior
+- 8bd4b00 Update metadata import messaging
+- 1f6c239 Add game detail fab shortcuts
+- cb6490c Add web search shortcut fab
+- 407696d Add detail row with full game name
+- 748e77b Update tag display and filter badge
+- 560bd6b Update game tags row
+- 3140838 Update clear buttons styling
+- 7ef6095 Add debug logging to scraper
+- 7c71724 Add HLTB scraper debug logging
+- 87d8051 Add debugging plus bulk game actions
+- 22aa3d1 Add bulk HLTB metadata actions
+- c7817aa Add Update HLTB data action
+- b727b2c Add auto game search plus HLTB menu
+- d3eb7e2 Fix game match search flow
+- 95a97e7 Fix game match workflow
+- d16bedd Add delete option in header menu
+- 808c432 Improve add-game flow interactions
+- 472b49f Update add game search flow
+- 65ffd28 Filter HLTB scraper entries
+- ade16b9 Handle 403 from hltb API
+- 3de8db7 Configure env for hltb scraper
+- 5abb2b7 Investigate HLTB integration
+- 094009f Add dark mode theming options
+- 4b83456 Reset filters menu to defaults
+- 1209694 Add local game image cache
+- 78fb154 Prevent NG0913 warnings on covers
+- a9af30d Standardize game list grouping
+- 9a1b43b Revert game list group expansion
+- efebbb0 Update game cover sizing
+- 440e93c Set game cover height to 350px
+- 698f91e Update detail cover styling
+- 98156c3 Unify IGDB rate-limit cooldown
+- 7c1250f Unify IGDB rate limit handling
+- 276fb83 Share list page component
+- 0f214ec Fix wishlist search bar colors
+- dfc4662 Force wishlist searchbar white
+- 2a46255 chore: update wrangler and dependencies in package.json and package-lock.json to latest versions
+- 792832f Disable Angular CLI cache
+- 1b95d84 Update for standalone
+- 0aba9ca Remove boilerplate code
+- 45f09f4 Update vitest.config.ts: add '@ionic/angular/standalone' to inline dependencies
+- 5345a30 Refactor app.module.ts: reorganize imports and add HttpClientModule with interceptors
+- 34a9487 Install latest package
+- 397d97f Update to Angular Standalone
+- 8acb3e0 Switch to ESBuild
+- 804de33 Increase retry waits and loaders
+- 36d1380 Fix: Update package.json to include typescript and adjust vitest dependency
+- 45b1eab Update package lock
+- 2555831 Update jsdom
+- ad91362 Fix: Update .ncurc.cjs to ensure 'zone.js' is treated as a patch version
+- a70593b Update zone.js to version 0.15.1 in package.json and package-lock.json
+- 75a95ea Fix: Update .ncurc.cjs to include 'eslint' in minor version target
+- 5f218d1 Update ESLint packages
+- c098dc9 Update Vitest
+- 69a062d Update @types/node to version 22.19.10 in package.json and package-lock.json
+- 262fda7 Add .nvmrc file to specify Node.js version 22.21.1
+- 674c3a6 Update IonIcons
+- ecbf4c4 Update .ncurc.cjs to include @types/node for minor version updates
+- cdc2cbc Run npm update
+- cb0dd59 Update packages
+- 3347ea8 Add .ncurc.cjs configuration for package management
+- c5a73ed Adjust rate-limit retries and tests
+- a995d0f Improve IGDB rate limit handling
+- 11eff53 Improve IGDB rate-limit handling
+- be69078 Align alert icon and handle rate lim
+- 8587aae Align MGC import icon and counters
+- 13a54de Adjust settings headers and buttons
+- 72c376d Add MGC CSV import flow
+- 7435a50 Add MGC CSV import flow
+- 2e4fb6e Add MGC CSV import handling
+- 4f20f82 Add CSV import export flow
+- b4b4af3 Update worker normalize test fields
+- eafb1c1 Update game detail filters layout
+- 8a297ea Add views and rating filter options
+- c49fe85 Add views management support
+- 9b4df89 Handle game row menu swipe
+- ef34be3 Update game row menu labels
+- 84f9499 Add IonRange pin and swipe menu
+- 37a6a8b Add rating support UI enhancements
+- 850f481 Add game rating controls
+- 0ca9791 Add star rating UI with IonRange
+- 15cb8f9 Hide popover in selection mode
+- c8668f2 Prioritize country_id 50 results
+- c9b0a96 Change success toast to primary
+- b664c90 Update success toast color
+- d9afe72 Add IGDB platform ids and rename
+- 3ef1c09 Add duplicate IGDB validation
+- 7f880ea Add duplicate game validation alerts
+- 698c682 Adjust multiselect header menu
+- f6a32d0 Fix multi select header menu
+- ed4116f Update bulk selection header
+- 6f5ad22 Enable collection multi-select att
+- 4c48db5 Reorder tab menus and adjust icons
+- 407bae9 Update game row status icons
+- c16d3af Update game status icons
+- 2829971 Add status filters and icons
+- 4fb12e0 Update status and tag filters
+- 4d7a002 Add game status controls
+- fd917c9 Add game status management
+- 0e435bc Add search styling and status
+- 14c71c4 Adjust wishlist searchbar styling
+- fbe8a35 Align IonSearchbar styling
+- 099a666 Add filters and normalize sorting
+- 835c1f2 Update collection filters search
+- cd8ba15 Fix sorting to ignore leading A or T
+- 59126b4 Add genre and tag filters
+- 5700165 Fix platform select and date buttons
+- 0e09ff8 Update collection sort options
+- 597ff29 Persist sorting and grouping
+- 79e2ac8 Persist and expand collectionsorting
+- 9fef08d Add grouping layouts and sort modes
+- ec4aa0a Add grouped layout options
+- 2bf1fbc Add group-by options to collections
+- 880aeba Adjust game art height to 90px
+- ed9d485 Add tagging UI and year row
+- 3711829 Add tagging system and filters
+- b3681ce Add IGDB platform filter select
+- 1f2d9f6 Add IGDB platform id mapping layer
+- fc8de7c Add IGDB to TheGamesDB mapping
+- 4dca8d7 Handle IGDB search sort conflicts
+- eb2e5e7 Fix header colors and deferred box
+- 9362102 Force white header icons and text
+- b06b2f7 Add collection menus and theming
+- 26bdae8 Add game detail modal page
+- 284cbe7 Add game detail modal view
+- 950da5e Add game detail modal view
+- fb916d7 Update game detail modal layout
+- 3def54c Add game detail modal view
+- 1f000ae Constrain game artwork width
+- 0104515 Select closest TheGamesDB match
+- 3978b5a Adjust game list UI controls
+- b9c5a67 Add filtering and popover controls
+- d148076 Add filtering and search controls
+- eca91f6 Add ion menu filters and modal
+- fe692d2 Handle multi-platform game choice
+- 5efe485 Handle multi-platform game selection
+- 35f44b3 Install packages
+- b1f7bfc Add /.wrangler to .gitignore
+- ad6fd99 Add worker/.dev.vars to .gitignore
+- f137361 Add .gitignore to exclude node_modules directory
+- 1af1021 Remove example Twitch credentials from development variables
+- ed54edf Build Ionic game shelf MVP
+- bc68d91 Initial commit
+
+## v0.0.3 - 2026-02-19
+- a4c3f51 Add version display to settings page
+- 28b33a9 Update settings page with version
+- 776f3d3 Remove @capacitor/app dependency
+- a0b61af Display app version in settings
+
+## v0.0.4 - 2026-02-19
+- 97d8489 Move pino-pretty to dependencies
+- 05685eb Move pino-pretty dependency
+
+## v0.0.6 - 2026-02-19
+- 6b34fde Merge pull request #21 from thetigeregg/test
+- cd348ca Merge branch 'main' into test
+- 20b4fc1 Merge pull request #7 from thetigeregg/dependabot/github_actions/actions/setup-node-6
+- 34b9970 Merge branch 'main' into test
+- 40730e0 Fix release tag handling
+- 0a16cf5 chore(ci): bump actions/setup-node from 4 to 6
+- 3f4aac5 Merge pull request #10 from thetigeregg/dependabot/github_actions/actions/upload-artifact-6
+- b8f6e32 chore(ci): bump actions/upload-artifact from 4 to 6
+- 02ca46e Merge pull request #3 from thetigeregg/test
+- 5e62f66 Add permissions to workflows
+- 089a7ed Update workflow timezone config
+- 077beef Add dependabot config and TZ env
+- 1a1df7e Adjust workflows and TZ defaults
+- 8c07bbb Update dependabot timezone settings
+- c36d743 Add read permissions to workflows
+- 64e840b Add dependabot config for repos
+- 91fff1b Fix secret-scan workflow
+- cf5eaa3 Audit repo for secrets and CI issues
+- 8e1c22e Ensure API key removed from refs
+- 5b355c4 Add public repo secret scan workflow
+- fe9fec3 Enforce 80% coverage minimum
+- d649432 Enforce 80% coverage minimum
+- cf0a424 Enforce 80% coverage minimum
+
+## v0.0.7 - 2026-02-19
+- ca22a2a Merge pull request #11 from thetigeregg/dependabot/github_actions/actions/create-github-app-token-2
+- 04ee9f4 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 3bb4652 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
+- 0b51990 chore(ci): bump actions/create-github-app-token from 1 to 2
+
+## v0.0.8 - 2026-02-19
+- 330f6b8 Merge pull request #22 from thetigeregg/codex/deps
+- df49d37 Add dependabot docker major rules
+
+## v0.0.9 - 2026-02-19
+- b97449a Merge pull request #6 from thetigeregg/dependabot/docker/edge/caddy-2.10-alpine
+- 9f2caae Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- c3530e8 Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
+- 0ec4272 chore(docker): bump caddy from 2.8-alpine to 2.10-alpine in /edge
+
+## v0.0.10 - 2026-02-19
+- 07596a9 Merge pull request #13 from thetigeregg/dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
+- 9bf1d84 Merge branch 'main' into dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
+- 54fe978 chore(deps): bump express from 4.22.1 to 5.2.1 in /hltb-scraper
+
+## v0.0.11 - 2026-02-19
+- d75002d Merge pull request #14 from thetigeregg/dependabot/github_actions/actions/checkout-6
+- 4831b46 Merge branch 'main' into dependabot/github_actions/actions/checkout-6
+- 6e0c2c7 Merge branch 'main' into dependabot/github_actions/actions/checkout-6
+- 887b26f chore(ci): bump actions/checkout from 4 to 6
+
+## v0.0.12 - 2026-02-19
+- 22d2197 Merge pull request #23 from thetigeregg/hltb-fix
+- 692e743 Merge branch 'main' into hltb-fix
+- 9aa2e9b Update backend test coverage command
+- 742502c Bump app version to 0.0.10 in runtime configuration
+- 7f4ed2b Refactor HLTB metadata fetching to use environment variables for base URL and token
+- 94a0166 Potential fix for code scanning alert no. 13: Incomplete URL substring sanitization
+- a77ac05 Merge branch 'main' into hltb-fix
+- 5ab03bf Fix HLTB scraper base URL handling
+- 585cc19 chore: update appVersion to 0.0.9 in runtime config
+
+## v0.0.13 - 2026-02-19
+- dff2ea9 Merge pull request #24 from thetigeregg/dep-rules
+- d0caf81 Update dependabot.yml to ignore specific dependency
+- f6e84bc chore(deps): ignore major version updates for @types/node
+
+## v0.0.14 - 2026-02-19
+- 0e507cf Merge pull request #4 from thetigeregg/dependabot/npm_and_yarn/server/ajv-8.18.0
+- e0fcb7a Merge branch 'main' into dependabot/npm_and_yarn/server/ajv-8.18.0
+- 45da2aa Bump ajv from 8.17.1 to 8.18.0 in /server
+
+## v0.0.15 - 2026-02-19
+- 70e4aa1 Merge pull request #12 from thetigeregg/dependabot/npm_and_yarn/server/dotenv-17.3.1
+- f390b92 chore(deps): bump dotenv from 16.6.1 to 17.3.1 in /server
+
+## v0.0.16 - 2026-02-19
+- c791a92 Merge pull request #26 from thetigeregg/thetigeregg-patch-1
+- 506b541 Add MIT License to the project
+
+## v0.0.17 - 2026-02-19
+- c5614fb Merge pull request #27 from thetigeregg/codex/backup-strategy
+- 93aa388 Merge pull request #30 from thetigeregg/copilot/sub-pr-27
+- b85e23e fix(scripts): derive BACKUP_HOST_DIR from docker compose config in test-backup-flow.sh
+- 419e282 Initial plan
+- dc1e37b Merge pull request #29 from thetigeregg/copilot/sub-pr-27-again
+- 894045b Merge pull request #28 from thetigeregg/copilot/sub-pr-27
+- 4c23736 fix(docker): add missing BACKUP_PGDUMP_RETRIES and BACKUP_PGDUMP_RETRY_DELAY_SECONDS to backup service env
+- fa44d20 Remove volumes after test
+- d69565f Initial plan
+- d442a8d fix(docker): add BACKUP_PGDUMP_RETRIES and BACKUP_PGDUMP_RETRY_DELAY_SECONDS to backup service env
+- 4956abd Add CPU and memory limits
+- 61eee66 Initial plan
+- f602b34 Clarify backup docs and checks
+- 5f513f5 Improve backup validation checks
+- 427a20b Improve backup startup handling
+- 7a3f98e Harden backup reliability workflow
+- 499c285 Ensure backup waits for postgres
+- 0f5066c Fix backup script handling
+- 88a5024 Ensure postgres healthy before using
+- e3349f8 Add backup ops smoke test
+- 9168b43 Fix docker compose backup vars
+- f5a418a Retrieve backup container logs
+- 1b145b1 Fix backup container restart logging
+- 9948ce0 Add manual backup trigger docs
+- bfeec98 Document backup service setup
+
+## v0.0.18 - 2026-02-19
+- e2c6f3f Merge pull request #31 from thetigeregg/codex/backup-strategy
+- 16f47d0 Merge pull request #34 from thetigeregg/copilot/sub-pr-31
+- 24e0a8a Apply suggestions from code review
+- cea0c5f docs(nas-deployment): add backup image to GHCR pre-deploy checklist
+- d49693e Initial plan
+- b926152 Merge pull request #33 from thetigeregg/copilot/sub-pr-31-again
+- dbad985 Merge pull request #32 from thetigeregg/copilot/sub-pr-31
+- ca5f059 fix(docker): remove redundant command override from backup service in compose files
+- 543cd4c fix(docker): remove redundant command override from backup service
+- 2768223 Initial plan
+- 526ae74 Initial plan
+- 901b08f Merge branch 'main' into codex/backup-strategy
+- feb838d Add backup image deployment docs
+
+## v0.0.19 - 2026-02-19
+- 01a6740 Merge pull request #35 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.0
+- 9c4461e chore(deps): update vitest and related dependencies in package-lock.json
+- 36671ba chore(deps): bump hono from 4.11.9 to 4.12.0
+
+## v0.0.20 - 2026-02-19
+- 96658e8 Merge pull request #17 from thetigeregg/dependabot/npm_and_yarn/eslint-plugin-jsdoc-62.6.1
+- c65b476 chore(deps): update vitest and related dependencies in package-lock.json
+- 73795b8 chore(deps): bump eslint-plugin-jsdoc from 62.6.0 to 62.6.1
+
+## v0.0.21 - 2026-02-19
+- 0d65a6d Merge pull request #46 from thetigeregg/codex/manual-match
+- 782f7dc Add manual bind clear option
+
+## v0.0.22 - 2026-02-19
+- 1bf340d Merge pull request #43 from thetigeregg/alert-autofix-11
+- 3fab720 Refactor normalizeProxyImageUrl to construct canonical URLs with server-controlled host and path prefix
+- c995631 Fix image proxy forgery tests
+- 3840082 Merge branch 'main' into alert-autofix-11
+- ff1adcc Merge branch 'main' into alert-autofix-11
+- 6c12791 Merge pull request #45 from thetigeregg/copilot/sub-pr-43-again
+- 875c11d Merge pull request #44 from thetigeregg/copilot/sub-pr-43
+- e1a0fb3 test(image-cache): add port validation tests for normalizeProxyImageUrl
+- 27c6ebc fix(security): prevent SSRF via HTTP redirects in image proxy fetch
+- d665c91 Apply suggestions from code review
+- b9ae1b1 Initial plan
+- f6f0317 Initial plan
+- c6b561c Potential fix for code scanning alert no. 11: Server-side request forgery
+
+## v0.0.23 - 2026-02-20
+- 6fa87de Merge pull request #47 from thetigeregg/alert-autofix-10
+- 7b8c447 Potential fix for code scanning alert no. 10: Incomplete URL substring sanitization
+
+## v0.1.0 - 2026-02-20
+- 1256f30 Merge pull request #48 from thetigeregg/alert-fix-22
+- 8ca2f85 Restore image cache purge rate limit
+- f3dc2ec Merge pull request #52 from thetigeregg/copilot/sub-pr-48-yet-again
+- 71bbc01 Merge pull request #50 from thetigeregg/copilot/sub-pr-48-again
+- 05a9d65 Merge pull request #49 from thetigeregg/copilot/sub-pr-48
+- 400e83d Merge pull request #51 from thetigeregg/copilot/sub-pr-48-another-one
+- 65018f5 docs: document in-memory rate limiter limitation for multi-instance deployments
+- 650b08b fix(image-cache): add periodic cleanup to prevent rate limiter memory leak
+- 4d07ff2 feat(config): expose image cache rate limit options via environment variables
+- 0e075d8 test(image-cache): add rate limit test for purge endpoint
+- af5813f Initial plan
+- 6a91101 Initial plan
+- d3c7ebc Initial plan
+- 5cd8973 Initial plan
+- 70a68f9 Apply suggestions from code review
+- f8f41d5 Add rate limiting to image cache
+
+## v0.1.1 - 2026-02-20
+- 48595b8 Merge pull request #53 from thetigeregg/alert-autofix-2
+- 4bd58a3 Tune cache stats rate limits
+- 6ed3957 Adjust cache observability rate limi
+- f51afe0 Add rate limiting middleware
+- 8fb4028 Add inline rate limit config
+- 25cb48d Fix cache observability registration
+- 4fa3432 Apply suggestions from code review
+- 5be5ff6 refactor: update rate limiting implementation in cache observability routes
+- 876800e refactor: improve formatting and structure of registerCacheObservabilityRoutes function
+- ba7828f Potential fix for code scanning alert no. 19: Missing rate limiting
+- 1ff9bdb Add @fastify/rate-limit dependency to enhance rate limiting functionality
+- f4c03f7 Potential fix for code scanning alert no. 2: Missing rate limiting
+
+## v0.1.2 - 2026-02-20
+- 161e392 Merge pull request #54 from thetigeregg/angular-21
+- 3b88539 Merge branch 'main' into angular-21
+- c0f31f0 chore: refine versioning rules for Angular-related packages in .ncurc.cjs
+- 4db2c65 chore(deps): upgrade @angular/cdk to version 21.1.5
+- 8271f31 chore(deps): update @angular-eslint packages to version 21.2.0
+- 652be68 chore: upgrade Angular dependencies to version 21.x and adjust configurations
+
+## v0.1.3 - 2026-02-20
+- 6d471e1 Merge pull request #55 from thetigeregg/hono-fix
+- 21affc2 chore: update hono package to version 4.12.0
+
+## v0.1.4 - 2026-02-20
+- c8db52c Merge pull request #56 from thetigeregg/auth-fix
+- 0cdb786 Audit rate limiting for endpoints
+- f847eda Apply suggestions from code review
+- bf31666 Add auth rate limiting
+- 3c0e7d6 Merge branch 'main' into auth-fix
+- 23a295a Audit manual refresh endpoint access
+- 5b7a340 Normalize request path for auth
+
+## v0.1.5 - 2026-02-20
+- d54ed48 Merge pull request #57 from thetigeregg/img-c
+- e004df1 Add rate limiting to server routes
+- bde7baf Merge branch 'main' into img-c
+- a1016be Add rate limiting to image cache API
+
+## v0.1.6 - 2026-02-20
+- ed89f22 Merge pull request #59 from thetigeregg/hltb-c
+- ea13022 Add rate limits to server routes
+
+## v0.1.7 - 2026-02-20
+- 6cad856 Merge pull request #60 from thetigeregg/api
+- adec991 Prevent duplicate middie setup
+
+## v0.1.8 - 2026-02-20
+- 6ed034f Merge pull request #61 from thetigeregg/dupe-ci
+- ee3d5ea Prevent duplicate CodeQL runs
+- b50d8fd Prevent duplicate CodeQL runs on
+
+## v0.1.9 - 2026-02-20
+- 9f5191e Merge pull request #62 from thetigeregg/codex/vars
+- 4bbb169 Apply suggestions from code review
+- 3c9ab18 Review env var sweep before merge
+- b3c312d Fix manual load proxy
+- 899ce18 Document manual proxy setup
+- 1e44186 Fix database auth failure
+- da464cd Fix missing DATABASE_URL env
+- 123810b Update dev log watching script
+- ee3f33a Update backend log script
+- c991abb Update dev env scripts and logs
+- 0887b64 Add env setup documentation
+- b24ff1e Document nas secret setup
+- ba2b68c Drop CLI API mode and env files
+- 97a7e45 Update docker dev stack docs
+- dc14e18 Apply suggestions from code review
+- d9aff93 Merge branch 'main' into codex/vars
+- acf4730 Move sensitive vars to secret files
+- acce039 Merge branch 'main' into codex/vars
+- 0d67382 Merge branch 'main' into codex/vars
+- 741373e Move compose secrets from env
+
+## v0.1.10 - 2026-02-20
+- f3095cd Merge pull request #63 from thetigeregg/mans
+- f3a8368 Merge pull request #64 from thetigeregg/copilot/sub-pr-63
+- 4927a7e docs(nas-deployment): mark SECRETS_HOST_DIR as required for Portainer
+- bf4bebf Initial plan
+- bb14cd9 Adjust manual cache headers
+- 6434bf5 fix(docker-compose): standardize secrets directory path across services
+
+## v0.1.11 - 2026-02-20
+- 84ba1a9 Merge pull request #65 from thetigeregg/fix
+- 42943dd Add periodic health snapshot
+- fb6da41 Update health rate limiter
+- 998f715 Refactor health endpoint rate limit
+- ee3d235 Fix missing rate limiting alerts
+- d82233c Fix missing rate limiting
+- 4780811 Merge branch 'main' into fix
+- c909b62 Fix js missing rate limiting issues
+
+## v0.1.12 - 2026-02-21
+- af66dcf Merge pull request #69 from thetigeregg/cov
+- 2341384 Add fastify rate limit dependency
+- 4f70e1d Register rate-limit plugin
+- 4aac3f6 Fix cache rate limit registration
+- 9f14081 Implement rate limit instructions
+- 30537c1 Fix HLTB rate limit config
+- 95a84d1 Implement rate limit plugin
+- 434323b Fix rate limit for HLTB search
+
+## v0.1.13 - 2026-02-21
+- 37fe429 Merge pull request #73 from thetigeregg/test
+- b17c9c6 Re-enable CodeQL
+
+## v0.1.14 - 2026-02-21
+- f49661e Merge pull request #66 from thetigeregg/auth-fix
+- ce3c900 Add peer dependency flag to multiple packages in package-lock.json
+- 35a1153 Add validateSecurityConfig call
+- 23f9349 Update server/src/index.ts
+- ca78761 Update server/src/config.ts
+- f64be12 Merge branch 'main' into auth-fix
+- ec53121 Merge branch 'main' into auth-fix
+- b4334c9 Merge pull request #68 from thetigeregg/copilot/sub-pr-66-again
+- cdca632 Merge branch 'auth-fix' into copilot/sub-pr-66-again
+- 408510d Merge pull request #67 from thetigeregg/copilot/sub-pr-66
+- f73398e fix(security): use timingSafeEqual for token comparison in request-security.ts
+- 076bdf9 fix(security): use constant-time comparison for token validation
+- 0851e57 Initial plan
+- c6ccb63 Initial plan
+- 021957a Initial plan
+- 3dc5f50 Add client write interceptor tests
+- c56c71d Remove proxy auth header injection
+- bb426de Merge branch 'main' into auth-fix
+- d3147ec Clarify auth headers for edge
+
+## v0.1.15 - 2026-02-23
+- 0fe5e4f Merge pull request #74 from thetigeregg/dependabot/npm_and_yarn/types/node-22.19.11
+- f102875 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
+- bada9be chore(deps): bump @types/node from 22.19.10 to 22.19.11
+
+## v0.1.16 - 2026-02-23
+- 55a4f10 Merge pull request #76 from thetigeregg/dependabot/npm_and_yarn/capacitor/cli-8.1.0
+- 6b66dd8 chore(deps): update @capacitor/core to 8.1.0 and @capacitor/status-bar to 8.0.1
+- 8748f40 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
+- a8d4d9e chore(deps): bump @capacitor/cli from 8.0.2 to 8.1.0
+
+## v0.1.17 - 2026-02-23
+- e78b80a Merge pull request #77 from thetigeregg/dependabot/npm_and_yarn/zone.js-0.16.1
+- 1d846a4 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
+- 20528ba chore(deps): bump zone.js from 0.15.1 to 0.16.1
+
+## v0.1.18 - 2026-02-23
+- c59efff Merge pull request #78 from thetigeregg/codex/move-device-write-token-to
+- 95c06d3 Relocate device write token section
+
+## v0.1.19 - 2026-02-23
+- e3707b5 Merge pull request #79 from thetigeregg/codex/cov
+- 74d2e8d Merge branch 'main' into codex/cov
+- 74f854f Add Codecov uploads for monorepo
+
+## v0.1.20 - 2026-02-23
+- ea85963 Merge pull request #80 from thetigeregg/codex/preserve-last-view-filters-on
+- a046d2a Add tests for invalid prefs handling
+- 2d2c9a3 Add wishlist filter persistence test
+- 39e1152 Preserve filters across launches
+- 5c20391 Add persistence tests for filters
+- d48d220 Add list view preference tests
+- 9df18f4 Restore preserved list filters
+
+## v0.1.21 - 2026-02-23
+- 55129d7 Merge pull request #81 from thetigeregg/codex/whitelist-platforms-for-buttons
+- 79fc09c Restrict manual buttons by platform
+- e10105f Merge branch 'main' into codex/whitelist-platforms-for-buttons
+- af42b28 Limit manual buttons to whitelisted
+- 95dc007 Restrict manual buttons to whitelis
+- 8a9770c Whitelist platforms for buttons
+
+## v0.1.22 - 2026-02-23
+- 41ea9cc Merge pull request #82 from thetigeregg/codex/document-game-detail-filtering
+- 7c8267b Add genre metadata filter coverage
+- 3738e7d Add genre metadata filtering
+- c951f63 Merge branch 'main' into codex/document-game-detail-filtering
+- 0b0d88b Add genre filter trigger on detail
+- 8d414c9 Add genre filter navigation
+

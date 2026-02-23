@@ -16,6 +16,7 @@ log.txt
 /.sourcemaps
 /.versions
 /coverage
+/src/environments/environment.local.ts
 
 # Ionic
 /.ionic
@@ -74,5 +75,6 @@ Thumbs.db
 worker/.dev.vars
 server/.env
 server/.env.dev
+.env
 nas-data/
-src/environments/environment.local.ts
+nas-secrets/

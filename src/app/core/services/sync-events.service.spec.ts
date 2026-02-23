@@ -5,7 +5,7 @@ import { SyncEventsService } from './sync-events.service';
 describe('SyncEventsService', () => {
   it('emits changed events', async () => {
     TestBed.configureTestingModule({
-      providers: [SyncEventsService],
+      providers: [SyncEventsService]
     });
 
     const service = TestBed.inject(SyncEventsService);
@@ -15,4 +15,3 @@ describe('SyncEventsService', () => {
     await expect(once).resolves.toBeUndefined();
   });
 });
-

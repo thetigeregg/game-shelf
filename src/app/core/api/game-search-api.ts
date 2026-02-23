@@ -1,16 +1,39 @@
 import { InjectionToken } from '@angular/core';
 import { Observable } from 'rxjs';
-import { GameCatalogPlatformOption, GameCatalogResult, HltbCompletionTimes, HltbMatchCandidate, PopularityGameResult, PopularityTypeOption } from '../models/game.models';
+import {
+  GameCatalogPlatformOption,
+  GameCatalogResult,
+  HltbCompletionTimes,
+  HltbMatchCandidate,
+  PopularityGameResult,
+  PopularityTypeOption
+} from '../models/game.models';
 
 export interface GameSearchApi {
   searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]>;
   getGameById(igdbGameId: string): Observable<GameCatalogResult>;
   listPlatforms(): Observable<GameCatalogPlatformOption[]>;
-  searchBoxArtByTitle(query: string, platform?: string | null, platformIgdbId?: number | null): Observable<string[]>;
-  lookupCompletionTimes(title: string, releaseYear?: number | null, platform?: string | null): Observable<HltbCompletionTimes | null>;
-  lookupCompletionTimeCandidates(title: string, releaseYear?: number | null, platform?: string | null): Observable<HltbMatchCandidate[]>;
+  searchBoxArtByTitle(
+    query: string,
+    platform?: string | null,
+    platformIgdbId?: number | null
+  ): Observable<string[]>;
+  lookupCompletionTimes(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null
+  ): Observable<HltbCompletionTimes | null>;
+  lookupCompletionTimeCandidates(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null
+  ): Observable<HltbMatchCandidate[]>;
   listPopularityTypes(): Observable<PopularityTypeOption[]>;
-  listPopularityGames(popularityTypeId: number, limit?: number, offset?: number): Observable<PopularityGameResult[]>;
+  listPopularityGames(
+    popularityTypeId: number,
+    limit?: number,
+    offset?: number
+  ): Observable<PopularityGameResult[]>;
 }
 
 export const GAME_SEARCH_API = new InjectionToken<GameSearchApi>('GAME_SEARCH_API');

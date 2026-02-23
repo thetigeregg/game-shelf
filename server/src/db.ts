@@ -120,20 +120,20 @@ const MIGRATIONS: string[] = [
     sent_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
-  `,
+  `
 ];
 
 export async function createPool(databaseUrl: string): Promise<Pool> {
   const pool = new Pool({
     connectionString: databaseUrl,
     max: 12,
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis: 30_000
   });
   // Keep the API process alive when Postgres restarts and idle clients are terminated.
   pool.on('error', (error: Error) => {
     console.warn('[db] pool_client_error', {
       message: error.message,
-      code: (error as { code?: unknown }).code ?? null,
+      code: (error as { code?: unknown }).code ?? null
     });
   });
 

@@ -44,11 +44,11 @@ function extractErrorMessage(error: unknown): string {
   return '';
 }
 
-function isRateLimitedMessage(message: string): boolean {
+export function isRateLimitedMessage(message: string): boolean {
   return /rate limit|too many requests|429/i.test(message);
 }
 
-function extractRetryAfterSeconds(message: string): number | null {
+export function extractRetryAfterSeconds(message: string): number | null {
   const match = message.match(/retry after\s+(\d+)\s*s/i);
 
   if (!match) {
@@ -59,3 +59,8 @@ function extractRetryAfterSeconds(message: string): number | null {
   return Number.isInteger(seconds) && seconds > 0 ? seconds : null;
 }
 
+export function isTransientNetworkMessage(message: string): boolean {
+  return /fetch failed|network|timeout|timed out|temporary|temporarily|unavailable|gateway|bad gateway|abort|aborted|offline|502|503|504/i.test(
+    message
+  );
+}

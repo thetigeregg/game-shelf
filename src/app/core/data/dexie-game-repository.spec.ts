@@ -18,12 +18,12 @@ describe('DexieGameRepository', () => {
     platform: 'NES',
     platformIgdbId: 18,
     releaseDate: '1985-09-13T00:00:00.000Z',
-    releaseYear: 1985,
+    releaseYear: 1985
   };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, DexieGameRepository]
     });
 
     db = TestBed.inject(AppDb);
@@ -45,17 +45,23 @@ describe('DexieGameRepository', () => {
   });
 
   it('persists optional HLTB completion times and keeps existing values when absent in updates', async () => {
-    await repository.upsertFromCatalog({
-      ...mario,
-      hltbMainHours: 12.1,
-      hltbMainExtraHours: 18.4,
-      hltbCompletionistHours: 30.2,
-    }, 'collection');
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        hltbMainHours: 12.1,
+        hltbMainExtraHours: 18.4,
+        hltbCompletionistHours: 30.2
+      },
+      'collection'
+    );
 
-    await repository.upsertFromCatalog({
-      ...mario,
-      title: 'Super Mario Bros. Updated',
-    }, 'wishlist');
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        title: 'Super Mario Bros. Updated'
+      },
+      'wishlist'
+    );
 
     const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId!);
     expect(stored?.hltbMainHours).toBe(12.1);
@@ -65,7 +71,10 @@ describe('DexieGameRepository', () => {
 
   it('moves a game to the other list when added again with same identity', async () => {
     await repository.upsertFromCatalog(mario, 'wishlist');
-    const updated = await repository.upsertFromCatalog({ ...mario, title: 'Super Mario Bros. Deluxe' }, 'collection');
+    const updated = await repository.upsertFromCatalog(
+      { ...mario, title: 'Super Mario Bros. Deluxe' },
+      'collection'
+    );
 
     expect(updated.listType).toBe('collection');
     expect(updated.title).toContain('Deluxe');
@@ -84,18 +93,29 @@ describe('DexieGameRepository', () => {
   });
 
   it('returns games sorted alphabetically by title for each list', async () => {
-    await repository.upsertFromCatalog({ ...mario, igdbGameId: '1', platformIgdbId: 18, title: 'Zelda' }, 'collection');
-    await repository.upsertFromCatalog({ ...mario, igdbGameId: '2', platformIgdbId: 19, title: 'Animal Crossing' }, 'collection');
+    await repository.upsertFromCatalog(
+      { ...mario, igdbGameId: '1', platformIgdbId: 18, title: 'Zelda' },
+      'collection'
+    );
+    await repository.upsertFromCatalog(
+      { ...mario, igdbGameId: '2', platformIgdbId: 19, title: 'Animal Crossing' },
+      'collection'
+    );
 
     const collection = await repository.listByType('collection');
 
-    expect(collection.map(game => game.title)).toEqual(['Animal Crossing', 'Zelda']);
+    expect(collection.map((game) => game.title)).toEqual(['Animal Crossing', 'Zelda']);
   });
 
   it('updates cover art for an existing entry', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 
-    const updated = await repository.updateCover('101', 18, 'https://example.com/custom-cover.jpg', 'thegamesdb');
+    const updated = await repository.updateCover(
+      '101',
+      18,
+      'https://example.com/custom-cover.jpg',
+      'thegamesdb'
+    );
 
     expect(updated?.coverUrl).toBe('https://example.com/custom-cover.jpg');
     expect(updated?.coverSource).toBe('thegamesdb');
@@ -179,7 +199,7 @@ describe('DexieGameRepository', () => {
 
     await repository.setGameCustomMetadata('101', 18, {
       title: 'My Mario',
-      platform: { name: 'Nintendo Switch', igdbId: 130 },
+      platform: { name: 'Nintendo Switch', igdbId: 130 }
     });
 
     const customized = await repository.exists('101', 18);
@@ -212,7 +232,11 @@ describe('DexieGameRepository', () => {
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });
-    const byId = await repository.upsertTag({ id: created.id, name: 'Backlog Updated', color: '#333333' });
+    const byId = await repository.upsertTag({
+      id: created.id,
+      name: 'Backlog Updated',
+      color: '#333333'
+    });
     const tags = await repository.listTags();
 
     expect(byName.id).toBe(created.id);
@@ -236,9 +260,9 @@ describe('DexieGameRepository', () => {
         hltbMainHoursMin: 5,
         hltbMainHoursMax: 30,
         releaseDateFrom: '2024-01-01T00:00:00.000Z',
-        releaseDateTo: '2024-12-31T00:00:00.000Z',
+        releaseDateTo: '2024-12-31T00:00:00.000Z'
       },
-      groupBy: 'platform',
+      groupBy: 'platform'
     });
 
     const fetched = await repository.getView(created.id!);
@@ -260,9 +284,9 @@ describe('DexieGameRepository', () => {
         hltbMainHoursMin: null,
         hltbMainHoursMax: null,
         releaseDateFrom: null,
-        releaseDateTo: null,
+        releaseDateTo: null
       },
-      groupBy: 'publisher',
+      groupBy: 'publisher'
     });
 
     expect(updated?.name).toBe('Renamed');
@@ -281,44 +305,48 @@ describe('DexieGameRepository', () => {
   });
 
   it('throws for invalid game and view inputs', async () => {
-    await expect(repository.upsertFromCatalog({ ...mario, igdbGameId: ' ' }, 'collection')).rejects.toThrowError('IGDB game id is required.');
-    await expect(repository.upsertFromCatalog({ ...mario, platformIgdbId: null }, 'collection')).rejects.toThrowError('IGDB platform id is required.');
-    await expect(repository.upsertFromCatalog({ ...mario, platform: ' ' }, 'collection')).rejects.toThrowError('Platform is required.');
-    await expect(repository.createView({
-      name: ' ',
-      listType: 'collection',
-      filters: {
-        sortField: 'title',
-        sortDirection: 'asc',
-        platform: [],
-        genres: [],
-        statuses: [],
-        tags: [],
-        ratings: [],
-        hltbMainHoursMin: null,
-        hltbMainHoursMax: null,
-        releaseDateFrom: null,
-        releaseDateTo: null,
-      },
-      groupBy: 'none',
-    })).rejects.toThrowError('View name is required.');
+    await expect(
+      repository.upsertFromCatalog({ ...mario, igdbGameId: ' ' }, 'collection')
+    ).rejects.toThrowError('IGDB game id is required.');
+    await expect(
+      repository.upsertFromCatalog({ ...mario, platformIgdbId: null }, 'collection')
+    ).rejects.toThrowError('IGDB platform id is required.');
+    await expect(
+      repository.upsertFromCatalog({ ...mario, platform: ' ' }, 'collection')
+    ).rejects.toThrowError('Platform is required.');
+    await expect(
+      repository.createView({
+        name: ' ',
+        listType: 'collection',
+        filters: {
+          sortField: 'title',
+          sortDirection: 'asc',
+          platform: [],
+          genres: [],
+          statuses: [],
+          tags: [],
+          ratings: [],
+          hltbMainHoursMin: null,
+          hltbMainHoursMax: null,
+          releaseDateFrom: null,
+          releaseDateTo: null
+        },
+        groupBy: 'none'
+      })
+    ).rejects.toThrowError('View name is required.');
   });
 
   it('queues outbox operations when sync writer is configured', async () => {
     const calls: Array<Parameters<SyncOutboxWriter['enqueueOperation']>[0]> = [];
     const writer: SyncOutboxWriter = {
-      enqueueOperation: async request => {
+      enqueueOperation: async (request) => {
         calls.push(request);
-      },
+      }
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [
-        AppDb,
-        DexieGameRepository,
-        { provide: SYNC_OUTBOX_WRITER, useValue: writer },
-      ],
+      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }]
     });
 
     const queuedDb = TestBed.inject(AppDb);
@@ -330,16 +358,24 @@ describe('DexieGameRepository', () => {
     const tag = await queuedRepository.upsertTag({ name: 'Queue Tag', color: '#ff0000' });
     await queuedRepository.deleteTag(tag.id!);
 
-    expect(calls.some(call => call.entityType === 'game' && call.operation === 'upsert')).toBe(true);
-    expect(calls.some(call => call.entityType === 'game' && call.operation === 'delete')).toBe(true);
-    expect(calls.some(call => call.entityType === 'tag' && call.operation === 'upsert')).toBe(true);
-    expect(calls.some(call => call.entityType === 'tag' && call.operation === 'delete')).toBe(true);
+    expect(calls.some((call) => call.entityType === 'game' && call.operation === 'upsert')).toBe(
+      true
+    );
+    expect(calls.some((call) => call.entityType === 'game' && call.operation === 'delete')).toBe(
+      true
+    );
+    expect(calls.some((call) => call.entityType === 'tag' && call.operation === 'upsert')).toBe(
+      true
+    );
+    expect(calls.some((call) => call.entityType === 'tag' && call.operation === 'delete')).toBe(
+      true
+    );
 
     await queuedDb.delete();
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, DexieGameRepository]
     });
     db = TestBed.inject(AppDb);
     repository = TestBed.inject(DexieGameRepository);

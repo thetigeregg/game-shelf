@@ -35,7 +35,7 @@ const metrics: CacheMetricSnapshot = {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   },
   image: {
     hits: 0,
@@ -44,8 +44,8 @@ const metrics: CacheMetricSnapshot = {
     readErrors: 0,
     writeErrors: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
-  },
+    invalidRequests: 0
+  }
 };
 
 export function incrementHltbMetric(metric: keyof CacheMetricSnapshot['hltb']): void {
@@ -59,7 +59,7 @@ export function incrementImageMetric(metric: keyof CacheMetricSnapshot['image'])
 export function getCacheMetrics(): CacheMetricSnapshot {
   return {
     hltb: { ...metrics.hltb },
-    image: { ...metrics.image },
+    image: { ...metrics.image }
   };
 }
 
@@ -75,7 +75,7 @@ export function resetCacheMetrics(): void {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   };
   metrics.image = {
     hits: 0,
@@ -84,6 +84,6 @@ export function resetCacheMetrics(): void {
     readErrors: 0,
     writeErrors: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
+    invalidRequests: 0
   };
 }

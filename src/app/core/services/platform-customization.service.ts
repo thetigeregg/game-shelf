@@ -118,6 +118,27 @@ export class PlatformCustomizationService {
     return `${canonicalLabel} (${sourceLabel})`;
   }
 
+  resolveCanonicalPlatformIgdbId(
+    platformName: string | null | undefined,
+    platformIgdbId: number | null | undefined
+  ): number | null {
+    const normalizedId = this.normalizePlatformIgdbId(platformIgdbId);
+
+    if (normalizedId !== null) {
+      const platformNameFromId = this.platformNameById.get(normalizedId) ?? '';
+      const aliasedFromId = this.getAliasedPlatformName(platformNameFromId);
+      const canonicalIdFromId = this.findPlatformIgdbIdByName(aliasedFromId);
+
+      if (canonicalIdFromId !== null) {
+        return canonicalIdFromId;
+      }
+    }
+
+    const fallbackName = String(platformName ?? '').trim();
+    const aliasedFallbackName = this.getAliasedPlatformName(fallbackName);
+    return this.findPlatformIgdbIdByName(aliasedFallbackName);
+  }
+
   private getCanonicalCustomName(canonicalPlatformName: string): string | null {
     const canonicalKey = this.normalizePlatformKey(canonicalPlatformName);
 
@@ -325,6 +346,22 @@ export class PlatformCustomizationService {
       .trim()
       .toLowerCase()
       .replace(/\s+/g, ' ');
+  }
+
+  private findPlatformIgdbIdByName(platformName: string | null | undefined): number | null {
+    const normalizedTarget = this.normalizePlatformKey(platformName);
+
+    if (normalizedTarget.length === 0) {
+      return null;
+    }
+
+    for (const entry of PLATFORM_CATALOG) {
+      if (this.normalizePlatformKey(entry.name) === normalizedTarget) {
+        return entry.id;
+      }
+    }
+
+    return null;
   }
 
   private loadFromStorage(): PlatformDisplayNameMap {

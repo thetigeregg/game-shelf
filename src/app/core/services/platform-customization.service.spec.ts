@@ -4,17 +4,34 @@ import {
   PlatformCustomizationService
 } from './platform-customization.service';
 
-const PLATFORM_ALIAS_CASES: Array<{ source: string; id: number; canonical: string }> = [
-  { source: 'Family Computer', id: 99, canonical: 'Nintendo Entertainment System' },
+const PLATFORM_ALIAS_CASES: Array<{
+  source: string;
+  id: number | null;
+  canonical: string;
+  canonicalId: number;
+}> = [
+  {
+    source: 'Family Computer',
+    id: 99,
+    canonical: 'Nintendo Entertainment System',
+    canonicalId: 18
+  },
   {
     source: 'Family Computer Disk System',
     id: 51,
-    canonical: 'Nintendo Entertainment System'
+    canonical: 'Nintendo Entertainment System',
+    canonicalId: 18
   },
-  { source: 'Super Famicom', id: 58, canonical: 'Super Nintendo Entertainment System' },
-  { source: 'New Nintendo 3DS', id: 137, canonical: 'Nintendo 3DS' },
-  { source: 'Nintendo DSi', id: 159, canonical: 'Nintendo DS' },
-  { source: 'e-Reader / Card-e Reader', id: 510, canonical: 'Game Boy Advance' }
+  {
+    source: 'Super Famicom',
+    id: 58,
+    canonical: 'Super Nintendo Entertainment System',
+    canonicalId: 19
+  },
+  { source: 'New Nintendo 3DS', id: 137, canonical: 'Nintendo 3DS', canonicalId: 37 },
+  { source: 'Nintendo DSi', id: 159, canonical: 'Nintendo DS', canonicalId: 20 },
+  { source: 'e-Reader', id: null, canonical: 'Game Boy Advance', canonicalId: 24 },
+  { source: 'e-Reader / Card-e Reader', id: 510, canonical: 'Game Boy Advance', canonicalId: 24 }
 ];
 
 describe('PlatformCustomizationService', () => {
@@ -71,6 +88,10 @@ describe('PlatformCustomizationService', () => {
     const service = TestBed.inject(PlatformCustomizationService);
 
     for (const testCase of PLATFORM_ALIAS_CASES) {
+      if (testCase.id === null) {
+        continue;
+      }
+
       expect(service.getDisplayNameWithAliasSource(testCase.source, testCase.id)).toBe(
         `${testCase.canonical} (${testCase.source})`
       );
@@ -98,6 +119,10 @@ describe('PlatformCustomizationService', () => {
     const service = TestBed.inject(PlatformCustomizationService);
 
     for (const testCase of PLATFORM_ALIAS_CASES) {
+      if (testCase.id === null) {
+        continue;
+      }
+
       expect(service.getDisplayNameWithoutAlias(testCase.source, testCase.id)).toBe(
         testCase.source
       );
@@ -112,12 +137,16 @@ describe('PlatformCustomizationService', () => {
     expect(service.getDisplayNameWithAliasSource('Nintendo Switch', 6)).toBe('Nintendo Switch');
   });
 
-  it('resolves canonical platform ids for direct and aliased platforms', () => {
+  it('resolves canonical platform ids for all aliased systems', () => {
     const service = TestBed.inject(PlatformCustomizationService);
 
+    for (const testCase of PLATFORM_ALIAS_CASES) {
+      expect(service.resolveCanonicalPlatformIgdbId(testCase.source, testCase.id)).toBe(
+        testCase.canonicalId
+      );
+    }
+
     expect(service.resolveCanonicalPlatformIgdbId('Nintendo Entertainment System', 18)).toBe(18);
-    expect(service.resolveCanonicalPlatformIgdbId('Family Computer', 99)).toBe(18);
-    expect(service.resolveCanonicalPlatformIgdbId('Family Computer Disk System', 51)).toBe(18);
     expect(service.resolveCanonicalPlatformIgdbId('unknown', 9999)).toBeNull();
   });
 

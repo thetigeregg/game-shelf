@@ -6,7 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node --enable-source-maps --import tsx src/index.ts",
     "test": "node --test --import tsx src/**/*.test.ts",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/**/*.test.ts' --import tsx src/**/*.test.ts"
+    "test:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/**/*.test.ts' --test-reporter=spec --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=coverage/lcov.info --import tsx src/**/*.test.ts && node ../scripts/coverage/normalize-lcov-paths.mjs coverage/lcov.info server"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",

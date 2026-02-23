@@ -766,3 +766,11 @@
 - d48d220 Add list view preference tests
 - 9df18f4 Restore preserved list filters
 
+## v0.1.21 - 2026-02-23
+- 55129d7 Merge pull request #81 from thetigeregg/codex/whitelist-platforms-for-buttons
+- 79fc09c Restrict manual buttons by platform
+- e10105f Merge branch 'main' into codex/whitelist-platforms-for-buttons
+- af42b28 Limit manual buttons to whitelisted
+- 95dc007 Restrict manual buttons to whitelis
+- 8a9770c Whitelist platforms for buttons
+

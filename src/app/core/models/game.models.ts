@@ -182,7 +182,16 @@ export interface SyncPushResult {
 
 export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';
 export type SortDirection = 'asc' | 'desc';
-export type GameGroupByField = 'none' | 'platform' | 'developer' | 'franchise' | 'collection' | 'tag' | 'genre' | 'publisher' | 'releaseYear';
+export type GameGroupByField =
+  | 'none'
+  | 'platform'
+  | 'developer'
+  | 'franchise'
+  | 'collection'
+  | 'tag'
+  | 'genre'
+  | 'publisher'
+  | 'releaseYear';
 
 export interface GameListFilters {
   sortField: GameSortField;
@@ -219,7 +228,7 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   hltbMainHoursMin: null,
   hltbMainHoursMax: null,
   releaseDateFrom: null,
-  releaseDateTo: null,
+  releaseDateTo: null
 };
 
 export interface GameListView {

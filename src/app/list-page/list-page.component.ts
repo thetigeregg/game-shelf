@@ -1,12 +1,8 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import {
-  MenuController,
-  PopoverController,
-  ToastController,
-} from '@ionic/angular/standalone';
+import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
   IonHeader,
   IonToolbar,
@@ -19,11 +15,12 @@ import {
   IonPopover,
   IonList,
   IonItem,
-  IonFab,
-  IonFabButton,
   IonModal,
   IonBadge,
   IonLoading,
+  IonFab,
+  IonFabButton,
+  IonFabList
 } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -32,13 +29,16 @@ import {
   GameGroupByField,
   GameListFilters,
   GameType,
-  ListType,
+  ListType
 } from '../core/models/game.models';
 import {
   GameListComponent,
-  GameListSelectionState,
-  MetadataFilterSelection,
+  GameListSelectionState
 } from '../features/game-list/game-list.component';
+import {
+  MetadataFilterSelection,
+  applyMetadataSelectionToFilters
+} from '../features/game-list/metadata-filter.utils';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -48,8 +48,14 @@ import {
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
   normalizeStringList,
-  normalizeTagFilterList,
+  normalizeTagFilterList
 } from '../core/utils/game-filter-utils';
+import {
+  normalizeListPageGroupBy,
+  normalizeListPageStoredFilters,
+  parseListPagePreferences,
+  serializeListPagePreferences
+} from './list-page-preferences';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -59,6 +65,8 @@ import {
   squareOutline,
   add,
   search,
+  chevronUp,
+  arrowUp
 } from 'ionicons/icons';
 
 type ListPageConfig = {
@@ -78,7 +86,7 @@ function buildConfig(listType: ListType): ListPageConfig {
       menuId: 'wishlist-filters-menu',
       pageTitle: 'Wishlist',
       preferenceStorageKey: 'game-shelf:preferences:wishlist',
-      searchPlaceholder: 'Search wishlist',
+      searchPlaceholder: 'Search wishlist'
     };
   }
 
@@ -88,7 +96,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     menuId: 'collection-filters-menu',
     pageTitle: 'Collection',
     preferenceStorageKey: 'game-shelf:preferences:collection',
-    searchPlaceholder: 'Search collection',
+    searchPlaceholder: 'Search collection'
   };
 }
 
@@ -115,13 +123,15 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonList,
     IonItem,
     IonBadge,
-    IonFab,
-    IonFabButton,
     IonModal,
     IonLoading,
-  ],
+    IonFab,
+    IonFabButton,
+    IonFabList
+  ]
 })
 export class ListPageComponent {
+  private static readonly SEARCH_DEBOUNCE_MS = 180;
   readonly noneTagFilterValue = '__none__';
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
@@ -132,7 +142,7 @@ export class ListPageComponent {
     { value: 'tag', label: 'Tag' },
     { value: 'genre', label: 'Genre' },
     { value: 'publisher', label: 'Publisher' },
-    { value: 'releaseYear', label: 'Release Year' },
+    { value: 'releaseYear', label: 'Release Year' }
   ];
   readonly listType: ListType;
   readonly preferenceStorageKey: string;
@@ -150,9 +160,9 @@ export class ListPageComponent {
   displayedGames: GameEntry[] = [];
   totalGamesCount = 0;
   listSearchQuery = '';
+  listSearchQueryInput = '';
   groupBy: GameGroupByField = 'none';
   isAddGameModalOpen = false;
-  isSearchModalOpen = false;
   isSelectionMode = false;
   isInitialListLoading = true;
   selectedGamesCount = 0;
@@ -162,9 +172,9 @@ export class ListPageComponent {
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
-  @ViewChild('modalSearchbar') private modalSearchbar?: IonSearchbar;
-  @ViewChild('pageContent', { read: ElementRef })
-  private pageContentRef?: ElementRef<HTMLElement & { resize?: () => Promise<void> }>;
+  @ViewChild('quickActionsFab') private quickActionsFab?: IonFab;
+  @ViewChild('pageContent') private pageContent?: IonContent;
+  @ViewChild('headerSearchbar') private headerSearchbar?: IonSearchbar;
   private readonly menuController = inject(MenuController);
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
@@ -173,13 +183,11 @@ export class ListPageComponent {
   private readonly gameShelfService = inject(GameShelfService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
-  private contentResizeRetryHandle: ReturnType<typeof setTimeout> | null = null;
+  private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const rawListType = this.route.snapshot.data['listType'];
-    const config = buildConfig(
-      rawListType === 'wishlist' ? 'wishlist' : 'collection',
-    );
+    const config = buildConfig(rawListType === 'wishlist' ? 'wishlist' : 'collection');
     this.listType = config.listType;
     this.preferenceStorageKey = config.preferenceStorageKey;
     this.menuId = config.menuId;
@@ -209,6 +217,8 @@ export class ListPageComponent {
       squareOutline,
       add,
       search,
+      chevronUp,
+      arrowUp
     });
   }
 
@@ -221,17 +231,10 @@ export class ListPageComponent {
     const normalizedPublishers = normalizeStringList(filters.publishers);
     const normalizedGameTypes = normalizeGameTypeList(filters.gameTypes);
     const normalizedStatuses = normalizeGameStatusFilterList(filters.statuses);
-    const normalizedTags = normalizeTagFilterList(
-      filters.tags,
-      this.noneTagFilterValue,
-    );
+    const normalizedTags = normalizeTagFilterList(filters.tags, this.noneTagFilterValue);
     const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);
-    const hltbMainHoursMin = normalizeNonNegativeNumber(
-      filters.hltbMainHoursMin,
-    );
-    const hltbMainHoursMax = normalizeNonNegativeNumber(
-      filters.hltbMainHoursMax,
-    );
+    const hltbMainHoursMin = normalizeNonNegativeNumber(filters.hltbMainHoursMin);
+    const hltbMainHoursMax = normalizeNonNegativeNumber(filters.hltbMainHoursMax);
 
     this.filters = {
       ...filters,
@@ -260,7 +263,7 @@ export class ListPageComponent {
       sortField: this.isValidSortField(filters.sortField)
         ? filters.sortField
         : DEFAULT_GAME_LIST_FILTERS.sortField,
-      sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',
+      sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc'
     };
     this.persistPreferences();
   }
@@ -268,27 +271,25 @@ export class ListPageComponent {
   onPlatformOptionsChange(platformOptions: string[]): void {
     this.platformOptions = platformOptions;
     const normalizedSelection = this.filters.platform.filter((platform) =>
-      platformOptions.includes(platform),
+      platformOptions.includes(platform)
     );
 
     if (normalizedSelection.length !== this.filters.platform.length) {
       this.filters = {
         ...this.filters,
-        platform: normalizedSelection,
+        platform: normalizedSelection
       };
     }
   }
 
   onGenreOptionsChange(genreOptions: string[]): void {
     this.genreOptions = genreOptions;
-    const normalizedSelection = this.filters.genres.filter((genre) =>
-      genreOptions.includes(genre),
-    );
+    const normalizedSelection = this.filters.genres.filter((genre) => genreOptions.includes(genre));
 
     if (normalizedSelection.length !== this.filters.genres.length) {
       this.filters = {
         ...this.filters,
-        genres: normalizedSelection,
+        genres: normalizedSelection
       };
     }
   }
@@ -296,13 +297,13 @@ export class ListPageComponent {
   onCollectionOptionsChange(collectionOptions: string[]): void {
     this.collectionOptions = collectionOptions;
     const normalizedSelection = this.filters.collections.filter((collection) =>
-      collectionOptions.includes(collection),
+      collectionOptions.includes(collection)
     );
 
     if (normalizedSelection.length !== this.filters.collections.length) {
       this.filters = {
         ...this.filters,
-        collections: normalizedSelection,
+        collections: normalizedSelection
       };
     }
   }
@@ -310,13 +311,13 @@ export class ListPageComponent {
   onGameTypeOptionsChange(gameTypeOptions: GameType[]): void {
     this.gameTypeOptions = gameTypeOptions;
     const normalizedSelection = this.filters.gameTypes.filter((gameType) =>
-      gameTypeOptions.includes(gameType),
+      gameTypeOptions.includes(gameType)
     );
 
     if (normalizedSelection.length !== this.filters.gameTypes.length) {
       this.filters = {
         ...this.filters,
-        gameTypes: normalizedSelection,
+        gameTypes: normalizedSelection
       };
     }
   }
@@ -324,87 +325,96 @@ export class ListPageComponent {
   onTagOptionsChange(tagOptions: string[]): void {
     this.tagOptions = tagOptions;
     const normalizedSelection = this.filters.tags.filter(
-      (tag) => tag === this.noneTagFilterValue || tagOptions.includes(tag),
+      (tag) => tag === this.noneTagFilterValue || tagOptions.includes(tag)
     );
 
     if (normalizedSelection.length !== this.filters.tags.length) {
       this.filters = {
         ...this.filters,
-        tags: normalizedSelection,
+        tags: normalizedSelection
       };
     }
   }
 
   onListSearchChange(value: string | null | undefined): void {
-    this.listSearchQuery = (value ?? '').replace(/^\s+/, '');
+    this.listSearchQueryInput = (value ?? '').replace(/^\s+/, '');
+
+    if (this.searchDebounceHandle !== null) {
+      clearTimeout(this.searchDebounceHandle);
+    }
+
+    this.searchDebounceHandle = setTimeout(() => {
+      this.listSearchQuery = this.listSearchQueryInput;
+      this.searchDebounceHandle = null;
+    }, ListPageComponent.SEARCH_DEBOUNCE_MS);
   }
 
-  openSearchModal(): void {
-    this.isSearchModalOpen = true;
+  closeBottomFab(): void {
+    if (this.quickActionsFab) {
+      this.quickActionsFab.activated = false;
+    }
   }
 
-  closeSearchModal(): void {
-    this.isSearchModalOpen = false;
-    if (this.searchbarFocusRetryHandle !== null) {
-      clearTimeout(this.searchbarFocusRetryHandle);
-      this.searchbarFocusRetryHandle = null;
-    }
-    if (this.contentResizeRetryHandle !== null) {
-      clearTimeout(this.contentResizeRetryHandle);
-      this.contentResizeRetryHandle = null;
-    }
+  onBottomFabSearch(): void {
+    this.closeBottomFab();
+    this.focusHeaderSearchbarFromUserGesture();
+    window.setTimeout(() => {
+      void this.focusHeaderSearchbar();
+    }, 140);
+  }
+
+  onBottomFabAddGame(): void {
+    this.closeBottomFab();
+    this.openAddGameModal();
+  }
+
+  async onBottomFabScrollTop(): Promise<void> {
+    this.closeBottomFab();
+    this.gameListComponent?.scrollToTop();
+    await this.pageContent?.scrollToTop(220);
   }
 
   clearSearch(): void {
+    if (this.searchDebounceHandle !== null) {
+      clearTimeout(this.searchDebounceHandle);
+      this.searchDebounceHandle = null;
+    }
+
+    this.listSearchQueryInput = '';
     this.listSearchQuery = '';
   }
 
-  async focusSearchbar(): Promise<void> {
-    if (!this.isSearchModalOpen) {
-      return;
-    }
-
-    await this.modalSearchbar?.setFocus();
+  private async focusHeaderSearchbar(): Promise<void> {
+    await this.headerSearchbar?.setFocus();
 
     if (this.searchbarFocusRetryHandle !== null) {
       clearTimeout(this.searchbarFocusRetryHandle);
     }
 
     this.searchbarFocusRetryHandle = setTimeout(() => {
-      if (!this.isSearchModalOpen) {
-        return;
-      }
-
-      void this.modalSearchbar?.setFocus();
+      void this.headerSearchbar?.setFocus();
       this.searchbarFocusRetryHandle = null;
     }, 120);
   }
 
-  async onSearchModalDidPresent(): Promise<void> {
-    this.resizePageContent();
-    await this.focusSearchbar();
-  }
+  private focusHeaderSearchbarFromUserGesture(): void {
+    const searchbar = this.headerSearchbar;
 
-  onSearchModalDidDismiss(): void {
-    this.closeSearchModal();
-    this.resizePageContent();
-  }
-
-  private resizePageContent(): void {
-    void this.pageContentRef?.nativeElement.resize?.();
-
-    if (this.contentResizeRetryHandle !== null) {
-      clearTimeout(this.contentResizeRetryHandle);
+    if (!searchbar) {
+      return;
     }
 
-    this.contentResizeRetryHandle = setTimeout(() => {
-      void this.pageContentRef?.nativeElement.resize?.();
-      this.contentResizeRetryHandle = null;
-    }, 120);
+    // On iOS PWA, keyboard opening is more reliable when focus is triggered
+    // directly from the user gesture on the underlying native input.
+    void searchbar.setFocus();
+    void searchbar.getInputElement().then((input) => {
+      input.focus();
+      input.click();
+    });
   }
 
   onDisplayedGamesChange(games: GameEntry[]): void {
-    this.displayedGames = [...games];
+    this.displayedGames = games;
   }
 
   onSelectionStateChange(state: GameListSelectionState): void {
@@ -418,31 +428,16 @@ export class ListPageComponent {
   }
 
   onMetadataFilterSelected(selection: MetadataFilterSelection): void {
-    const normalized =
-      typeof selection.value === 'string' ? selection.value.trim() : '';
+    const normalized = typeof selection.value === 'string' ? selection.value.trim() : '';
 
     if (normalized.length === 0) {
       return;
     }
 
-    const nextFilters: GameListFilters = {
-      ...DEFAULT_GAME_LIST_FILTERS,
-    };
-
-    if (selection.kind === 'series') {
-      nextFilters.collections = [normalized];
-    } else if (selection.kind === 'developer') {
-      nextFilters.developers = [normalized];
-    } else if (selection.kind === 'franchise') {
-      nextFilters.franchises = [normalized];
-    } else if (selection.kind === 'publisher') {
-      nextFilters.publishers = [normalized];
-    }
-
     this.filters = {
-      ...nextFilters,
+      ...applyMetadataSelectionToFilters(selection, DEFAULT_GAME_LIST_FILTERS)
     };
-    this.groupBy = 'none';
+    this.listSearchQueryInput = '';
     this.listSearchQuery = '';
     this.persistPreferences();
   }
@@ -463,10 +458,7 @@ export class ListPageComponent {
     await this.closeHeaderActionsPopover();
 
     if (this.displayedGames.length === 0) {
-      await this.presentToast(
-        'No games available in current results.',
-        'warning',
-      );
+      await this.presentToast('No games available in current results.', 'warning');
       return;
     }
 
@@ -491,8 +483,8 @@ export class ListPageComponent {
       state: {
         listType: this.listType,
         filters: this.filters,
-        groupBy: this.groupBy,
-      },
+        groupBy: this.groupBy
+      }
     });
   }
 
@@ -502,9 +494,7 @@ export class ListPageComponent {
   }
 
   getSelectionHeaderLabel(): string {
-    return this.selectedGamesCount === 1
-      ? '1 selected'
-      : `${this.selectedGamesCount} selected`;
+    return this.selectedGamesCount === 1 ? '1 selected' : `${this.selectedGamesCount} selected`;
   }
 
   getMoveTargetLabel(): 'Collection' | 'Wishlist' {
@@ -558,17 +548,11 @@ export class ListPageComponent {
       count += 1;
     }
 
-    if (
-      this.filters.hltbMainHoursMin !== null ||
-      this.filters.hltbMainHoursMax !== null
-    ) {
+    if (this.filters.hltbMainHoursMin !== null || this.filters.hltbMainHoursMax !== null) {
       count += 1;
     }
 
-    if (
-      this.filters.releaseDateFrom !== null ||
-      this.filters.releaseDateTo !== null
-    ) {
+    if (this.filters.releaseDateFrom !== null || this.filters.releaseDateTo !== null) {
       count += 1;
     }
 
@@ -640,9 +624,7 @@ export class ListPageComponent {
   }
 
   getDisplayedGamesLabel(): string {
-    return this.displayedGames.length === 1
-      ? '1 game'
-      : `${this.displayedGames.length} games`;
+    return this.displayedGames.length === 1 ? '1 game' : `${this.displayedGames.length} games`;
   }
 
   getListCountSummary(): string {
@@ -652,13 +634,13 @@ export class ListPageComponent {
 
   private async presentToast(
     message: string,
-    color: 'primary' | 'warning' = 'primary',
+    color: 'primary' | 'warning' = 'primary'
   ): Promise<void> {
     const toast = await this.toastController.create({
       message,
       duration: 1500,
       position: 'bottom',
-      color,
+      color
     });
 
     await toast.present();
@@ -666,36 +648,17 @@ export class ListPageComponent {
 
   private restorePreferences(): void {
     try {
-      const raw = localStorage.getItem(this.preferenceStorageKey);
+      const preferences = parseListPagePreferences(
+        localStorage.getItem(this.preferenceStorageKey),
+        this.noneTagFilterValue
+      );
 
-      if (!raw) {
+      if (!preferences) {
         return;
       }
 
-      const parsed = JSON.parse(raw) as Partial<{
-        sortField: GameListFilters['sortField'];
-        sortDirection: GameListFilters['sortDirection'];
-        groupBy: GameGroupByField;
-      }>;
-
-      const sortField = this.isValidSortField(parsed.sortField)
-        ? parsed.sortField
-        : DEFAULT_GAME_LIST_FILTERS.sortField;
-      const sortDirection = parsed.sortDirection === 'desc' ? 'desc' : 'asc';
-      const validGroupByValues = this.groupByOptions.map(
-        (option) => option.value,
-      );
-      const groupBy =
-        parsed.groupBy && validGroupByValues.includes(parsed.groupBy)
-          ? parsed.groupBy
-          : 'none';
-
-      this.filters = {
-        ...this.filters,
-        sortField,
-        sortDirection,
-      };
-      this.groupBy = groupBy;
+      this.filters = preferences.filters;
+      this.groupBy = preferences.groupBy;
     } catch {
       // Ignore invalid or unavailable storage and keep defaults.
     }
@@ -705,31 +668,23 @@ export class ListPageComponent {
     try {
       localStorage.setItem(
         this.preferenceStorageKey,
-        JSON.stringify({
-          sortField: this.filters.sortField,
-          sortDirection: this.filters.sortDirection,
-          groupBy: this.groupBy,
-        }),
+        serializeListPagePreferences({
+          filters: this.filters,
+          groupBy: this.groupBy
+        })
       );
     } catch {
       // Ignore storage failures.
     }
   }
 
-  private isValidSortField(
-    value: unknown,
-  ): value is GameListFilters['sortField'] {
+  private isValidSortField(value: unknown): value is GameListFilters['sortField'] {
     return (
-      value === 'title' ||
-      value === 'releaseDate' ||
-      value === 'createdAt' ||
-      value === 'platform'
+      value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform'
     );
   }
 
-  private async applyViewFromQueryParam(
-    rawViewId: string | null,
-  ): Promise<void> {
+  private async applyViewFromQueryParam(rawViewId: string | null): Promise<void> {
     const parsed = Number.parseInt(String(rawViewId ?? ''), 10);
 
     if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -743,18 +698,17 @@ export class ListPageComponent {
         return;
       }
 
-      this.filters = {
-        ...DEFAULT_GAME_LIST_FILTERS,
-        ...view.filters,
-      };
-      this.groupBy = view.groupBy;
+      this.filters = normalizeListPageStoredFilters(view.filters, this.noneTagFilterValue);
+      this.groupBy = normalizeListPageGroupBy(view.groupBy);
+      this.listSearchQueryInput = '';
+      this.listSearchQuery = '';
       this.persistPreferences();
     } finally {
       void this.router.navigate([], {
         relativeTo: this.route,
         queryParams: { applyView: null },
         queryParamsHandling: 'merge',
-        replaceUrl: true,
+        replaceUrl: true
       });
     }
   }

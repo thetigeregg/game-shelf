@@ -19,14 +19,16 @@ import {
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
-  normalizeStringList,
+  normalizeStringList
 } from '../utils/game-filter-utils';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
   private readonly db = inject(AppDb);
-  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
+  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
+    optional: true
+  });
 
   async listByType(listType: ListType): Promise<GameEntry[]> {
     return this.db.games.where('listType').equals(listType).sortBy('title');
@@ -56,9 +58,18 @@ export class DexieGameRepository implements GameRepository {
         summary: this.normalizeTextValue(result.summary),
         gameType: this.resolveGameType(result.gameType, existing.gameType),
         hltbMainHours: this.resolveCompletionHours(result.hltbMainHours, existing.hltbMainHours),
-        hltbMainExtraHours: this.resolveCompletionHours(result.hltbMainExtraHours, existing.hltbMainExtraHours),
-        hltbCompletionistHours: this.resolveCompletionHours(result.hltbCompletionistHours, existing.hltbCompletionistHours),
-        similarGameIgdbIds: this.resolveGameIdList(result.similarGameIgdbIds, existing.similarGameIgdbIds),
+        hltbMainExtraHours: this.resolveCompletionHours(
+          result.hltbMainExtraHours,
+          existing.hltbMainExtraHours
+        ),
+        hltbCompletionistHours: this.resolveCompletionHours(
+          result.hltbCompletionistHours,
+          existing.hltbCompletionistHours
+        ),
+        similarGameIgdbIds: this.resolveGameIdList(
+          result.similarGameIgdbIds,
+          existing.similarGameIgdbIds
+        ),
         collections: this.normalizeTextList(result.collections),
         developers: this.normalizeTextList(result.developers),
         franchises: this.normalizeTextList(result.franchises),
@@ -70,16 +81,21 @@ export class DexieGameRepository implements GameRepository {
           existing.customPlatform,
           existing.customPlatformIgdbId,
           normalizedPlatformName,
-          normalizedPlatformIgdbId,
+          normalizedPlatformIgdbId
         ),
-        customPlatformIgdbId: this.resolveCustomPlatformIgdbId(existing.customPlatformIgdbId, existing.customPlatform, normalizedPlatformName, normalizedPlatformIgdbId),
+        customPlatformIgdbId: this.resolveCustomPlatformIgdbId(
+          existing.customPlatformIgdbId,
+          existing.customPlatform,
+          normalizedPlatformName,
+          normalizedPlatformIgdbId
+        ),
         tagIds: this.normalizeTagIds(existing.tagIds),
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
         status: this.normalizeStatus(existing.status),
         rating: this.normalizeRating(existing.rating),
         listType: targetList,
-        updatedAt: now,
+        updatedAt: now
       };
 
       await this.db.games.put(updated);
@@ -117,7 +133,7 @@ export class DexieGameRepository implements GameRepository {
       rating: null,
       listType: targetList,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     };
 
     const id = await this.db.games.add(created);
@@ -126,7 +142,11 @@ export class DexieGameRepository implements GameRepository {
     return stored;
   }
 
-  async moveToList(igdbGameId: string, platformIgdbId: number, targetList: ListType): Promise<void> {
+  async moveToList(
+    igdbGameId: string,
+    platformIgdbId: number,
+    targetList: ListType
+  ): Promise<void> {
     const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
@@ -135,7 +155,7 @@ export class DexieGameRepository implements GameRepository {
 
     await this.db.games.update(existing.id, {
       listType: targetList,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
 
     const updated = await this.exists(igdbGameId, platformIgdbId);
@@ -163,14 +183,26 @@ export class DexieGameRepository implements GameRepository {
       return undefined;
     }
 
-    if (typeof platformIgdbId !== 'number' || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+    if (
+      typeof platformIgdbId !== 'number' ||
+      !Number.isInteger(platformIgdbId) ||
+      platformIgdbId <= 0
+    ) {
       return undefined;
     }
 
-    return this.db.games.where('[igdbGameId+platformIgdbId]').equals([normalizedGameId, platformIgdbId]).first();
+    return this.db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals([normalizedGameId, platformIgdbId])
+      .first();
   }
 
-  async updateCover(igdbGameId: string, platformIgdbId: number, coverUrl: string | null, coverSource: CoverSource): Promise<GameEntry | undefined> {
+  async updateCover(
+    igdbGameId: string,
+    platformIgdbId: number,
+    coverUrl: string | null,
+    coverSource: CoverSource
+  ): Promise<GameEntry | undefined> {
     const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
@@ -181,7 +213,7 @@ export class DexieGameRepository implements GameRepository {
       ...existing,
       coverUrl,
       coverSource,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.games.put(updated);
@@ -189,7 +221,11 @@ export class DexieGameRepository implements GameRepository {
     return updated;
   }
 
-  async setGameStatus(igdbGameId: string, platformIgdbId: number, status: GameStatus | null): Promise<GameEntry | undefined> {
+  async setGameStatus(
+    igdbGameId: string,
+    platformIgdbId: number,
+    status: GameStatus | null
+  ): Promise<GameEntry | undefined> {
     const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
@@ -199,7 +235,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       status: this.normalizeStatus(status),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.games.put(updated);
@@ -207,7 +243,11 @@ export class DexieGameRepository implements GameRepository {
     return updated;
   }
 
-  async setGameRating(igdbGameId: string, platformIgdbId: number, rating: GameRating | null): Promise<GameEntry | undefined> {
+  async setGameRating(
+    igdbGameId: string,
+    platformIgdbId: number,
+    rating: GameRating | null
+  ): Promise<GameEntry | undefined> {
     const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
@@ -217,7 +257,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       rating: this.normalizeRating(rating),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.games.put(updated);
@@ -225,7 +265,11 @@ export class DexieGameRepository implements GameRepository {
     return updated;
   }
 
-  async setGameTags(igdbGameId: string, platformIgdbId: number, tagIds: number[]): Promise<GameEntry | undefined> {
+  async setGameTags(
+    igdbGameId: string,
+    platformIgdbId: number,
+    tagIds: number[]
+  ): Promise<GameEntry | undefined> {
     const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
@@ -235,7 +279,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       tagIds: this.normalizeTagIds(tagIds),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.games.put(updated);
@@ -243,7 +287,11 @@ export class DexieGameRepository implements GameRepository {
     return updated;
   }
 
-  async setGameCustomCover(igdbGameId: string, platformIgdbId: number, customCoverUrl: string | null): Promise<GameEntry | undefined> {
+  async setGameCustomCover(
+    igdbGameId: string,
+    platformIgdbId: number,
+    customCoverUrl: string | null
+  ): Promise<GameEntry | undefined> {
     const existing = await this.exists(igdbGameId, platformIgdbId);
 
     if (existing?.id === undefined) {
@@ -253,7 +301,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       customCoverUrl: this.normalizeCustomCoverUrl(customCoverUrl),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.games.put(updated);
@@ -267,7 +315,7 @@ export class DexieGameRepository implements GameRepository {
     customizations: {
       title?: string | null;
       platform?: { name: string; igdbId: number } | null;
-    },
+    }
   ): Promise<GameEntry | undefined> {
     const existing = await this.exists(igdbGameId, platformIgdbId);
 
@@ -275,27 +323,45 @@ export class DexieGameRepository implements GameRepository {
       return undefined;
     }
 
-    const nextCustomTitle = customizations.title === undefined
-      ? this.normalizeCustomTitle(existing.customTitle, existing.title)
-      : this.normalizeCustomTitle(customizations.title, existing.title);
-    const nextCustomPlatformName = customizations.platform === undefined
-      ? this.normalizeCustomPlatformName(existing.customPlatform, existing.platform, existing.platformIgdbId, existing.platformIgdbId)
-      : this.normalizeCustomPlatformName(
-        customizations.platform?.name ?? null,
-        existing.platform,
-        customizations.platform?.igdbId ?? null,
-        existing.platformIgdbId,
-      );
-    const nextCustomPlatformIgdbId = customizations.platform === undefined
-      ? this.normalizeCustomPlatformIgdbId(existing.customPlatformIgdbId, existing.customPlatform, existing.platform, existing.platformIgdbId)
-      : this.normalizeCustomPlatformIgdbId(customizations.platform?.igdbId ?? null, customizations.platform?.name ?? null, existing.platform, existing.platformIgdbId);
+    const nextCustomTitle =
+      customizations.title === undefined
+        ? this.normalizeCustomTitle(existing.customTitle, existing.title)
+        : this.normalizeCustomTitle(customizations.title, existing.title);
+    const nextCustomPlatformName =
+      customizations.platform === undefined
+        ? this.normalizeCustomPlatformName(
+            existing.customPlatform,
+            existing.platform,
+            existing.platformIgdbId,
+            existing.platformIgdbId
+          )
+        : this.normalizeCustomPlatformName(
+            customizations.platform?.name ?? null,
+            existing.platform,
+            customizations.platform?.igdbId ?? null,
+            existing.platformIgdbId
+          );
+    const nextCustomPlatformIgdbId =
+      customizations.platform === undefined
+        ? this.normalizeCustomPlatformIgdbId(
+            existing.customPlatformIgdbId,
+            existing.customPlatform,
+            existing.platform,
+            existing.platformIgdbId
+          )
+        : this.normalizeCustomPlatformIgdbId(
+            customizations.platform?.igdbId ?? null,
+            customizations.platform?.name ?? null,
+            existing.platform,
+            existing.platformIgdbId
+          );
 
     const updated: GameEntry = {
       ...existing,
       customTitle: nextCustomTitle,
       customPlatform: nextCustomPlatformName,
       customPlatformIgdbId: nextCustomPlatformIgdbId,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.games.put(updated);
@@ -310,13 +376,16 @@ export class DexieGameRepository implements GameRepository {
   async upsertTag(tag: { id?: number; name: string; color: string }): Promise<Tag> {
     const normalizedName = tag.name.trim();
     const now = new Date().toISOString();
-    const existingByName = await this.db.tags.where('name').equalsIgnoreCase(normalizedName).first();
+    const existingByName = await this.db.tags
+      .where('name')
+      .equalsIgnoreCase(normalizedName)
+      .first();
 
     if (existingByName?.id !== undefined && existingByName.id !== tag.id) {
       const updatedByName: Tag = {
         ...existingByName,
         color: tag.color,
-        updatedAt: now,
+        updatedAt: now
       };
 
       await this.db.tags.put(updatedByName);
@@ -332,7 +401,7 @@ export class DexieGameRepository implements GameRepository {
           ...existingById,
           name: normalizedName,
           color: tag.color,
-          updatedAt: now,
+          updatedAt: now
         };
 
         await this.db.tags.put(updatedById);
@@ -345,7 +414,7 @@ export class DexieGameRepository implements GameRepository {
       name: normalizedName,
       color: tag.color,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     };
     const createdId = await this.db.tags.add(created);
     const stored = { ...created, id: createdId };
@@ -362,7 +431,7 @@ export class DexieGameRepository implements GameRepository {
 
     for (const game of games) {
       const currentTagIds = this.normalizeTagIds(game.tagIds);
-      const nextTagIds = currentTagIds.filter(id => id !== tagId);
+      const nextTagIds = currentTagIds.filter((id) => id !== tagId);
 
       if (nextTagIds.length === currentTagIds.length || game.id === undefined) {
         continue;
@@ -370,29 +439,31 @@ export class DexieGameRepository implements GameRepository {
 
       await this.db.games.update(game.id, {
         tagIds: nextTagIds,
-        updatedAt: now,
+        updatedAt: now
       });
 
       this.queueGameUpsert({
         ...game,
         tagIds: nextTagIds,
-        updatedAt: now,
+        updatedAt: now
       });
     }
   }
 
   async listViews(listType: ListType): Promise<GameListView[]> {
-    return this.db.views
-      .where('listType')
-      .equals(listType)
-      .sortBy('name');
+    return this.db.views.where('listType').equals(listType).sortBy('name');
   }
 
   async getView(viewId: number): Promise<GameListView | undefined> {
     return this.db.views.get(viewId);
   }
 
-  async createView(view: { name: string; listType: ListType; filters: GameListFilters; groupBy: GameGroupByField }): Promise<GameListView> {
+  async createView(view: {
+    name: string;
+    listType: ListType;
+    filters: GameListFilters;
+    groupBy: GameGroupByField;
+  }): Promise<GameListView> {
     const now = new Date().toISOString();
     const created: GameListView = {
       name: this.normalizeViewName(view.name),
@@ -400,7 +471,7 @@ export class DexieGameRepository implements GameRepository {
       filters: this.normalizeViewFilters(view.filters),
       groupBy: this.normalizeGroupBy(view.groupBy),
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     };
     const id = await this.db.views.add(created);
     const stored = { ...created, id };
@@ -408,7 +479,10 @@ export class DexieGameRepository implements GameRepository {
     return stored;
   }
 
-  async updateView(viewId: number, updates: { name?: string; filters?: GameListFilters; groupBy?: GameGroupByField }): Promise<GameListView | undefined> {
+  async updateView(
+    viewId: number,
+    updates: { name?: string; filters?: GameListFilters; groupBy?: GameGroupByField }
+  ): Promise<GameListView | undefined> {
     const existing = await this.db.views.get(viewId);
 
     if (!existing) {
@@ -418,9 +492,15 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameListView = {
       ...existing,
       name: updates.name !== undefined ? this.normalizeViewName(updates.name) : existing.name,
-      filters: updates.filters !== undefined ? this.normalizeViewFilters(updates.filters) : this.normalizeViewFilters(existing.filters),
-      groupBy: updates.groupBy !== undefined ? this.normalizeGroupBy(updates.groupBy) : this.normalizeGroupBy(existing.groupBy),
-      updatedAt: new Date().toISOString(),
+      filters:
+        updates.filters !== undefined
+          ? this.normalizeViewFilters(updates.filters)
+          : this.normalizeViewFilters(existing.filters),
+      groupBy:
+        updates.groupBy !== undefined
+          ? this.normalizeGroupBy(updates.groupBy)
+          : this.normalizeGroupBy(existing.groupBy),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.views.put(updated);
@@ -441,7 +521,7 @@ export class DexieGameRepository implements GameRepository {
     void this.outboxWriter.enqueueOperation({
       entityType: 'game',
       operation: 'upsert',
-      payload: game,
+      payload: game
     });
   }
 
@@ -453,7 +533,7 @@ export class DexieGameRepository implements GameRepository {
     void this.outboxWriter.enqueueOperation({
       entityType: 'game',
       operation: 'delete',
-      payload: { igdbGameId, platformIgdbId },
+      payload: { igdbGameId, platformIgdbId }
     });
   }
 
@@ -465,7 +545,7 @@ export class DexieGameRepository implements GameRepository {
     void this.outboxWriter.enqueueOperation({
       entityType: 'tag',
       operation: 'upsert',
-      payload: tag,
+      payload: tag
     });
   }
 
@@ -477,7 +557,7 @@ export class DexieGameRepository implements GameRepository {
     void this.outboxWriter.enqueueOperation({
       entityType: 'tag',
       operation: 'delete',
-      payload: { id },
+      payload: { id }
     });
   }
 
@@ -489,7 +569,7 @@ export class DexieGameRepository implements GameRepository {
     void this.outboxWriter.enqueueOperation({
       entityType: 'view',
       operation: 'upsert',
-      payload: view,
+      payload: view
     });
   }
 
@@ -501,7 +581,7 @@ export class DexieGameRepository implements GameRepository {
     void this.outboxWriter.enqueueOperation({
       entityType: 'view',
       operation: 'delete',
-      payload: { id },
+      payload: { id }
     });
   }
 
@@ -510,11 +590,9 @@ export class DexieGameRepository implements GameRepository {
       return [];
     }
 
-    return [...new Set(
-      tagIds
-        .filter(id => Number.isInteger(id) && id > 0)
-        .map(id => Math.trunc(id))
-    )];
+    return [
+      ...new Set(tagIds.filter((id) => Number.isInteger(id) && id > 0).map((id) => Math.trunc(id)))
+    ];
   }
 
   private normalizeTextList(values: string[] | undefined): string[] {
@@ -522,11 +600,13 @@ export class DexieGameRepository implements GameRepository {
       return [];
     }
 
-    return [...new Set(
-      values
-        .map(value => (typeof value === 'string' ? value.trim() : ''))
-        .filter(value => value.length > 0)
-    )];
+    return [
+      ...new Set(
+        values
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter((value) => value.length > 0)
+      )
+    ];
   }
 
   private normalizeGameIdList(values: string[] | undefined): string[] {
@@ -534,11 +614,13 @@ export class DexieGameRepository implements GameRepository {
       return [];
     }
 
-    return [...new Set(
-      values
-        .map(value => (typeof value === 'string' ? value.trim() : ''))
-        .filter(value => /^\d+$/.test(value))
-    )];
+    return [
+      ...new Set(
+        values
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter((value) => /^\d+$/.test(value))
+      )
+    ];
   }
 
   private normalizeCompletionHours(value: number | null | undefined): number | null {
@@ -550,21 +632,23 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeGameType(value: unknown): GameEntry['gameType'] {
-    if (value === 'main_game'
-      || value === 'dlc_addon'
-      || value === 'expansion'
-      || value === 'bundle'
-      || value === 'standalone_expansion'
-      || value === 'mod'
-      || value === 'episode'
-      || value === 'season'
-      || value === 'remake'
-      || value === 'remaster'
-      || value === 'expanded_game'
-      || value === 'port'
-      || value === 'fork'
-      || value === 'pack'
-      || value === 'update') {
+    if (
+      value === 'main_game' ||
+      value === 'dlc_addon' ||
+      value === 'expansion' ||
+      value === 'bundle' ||
+      value === 'standalone_expansion' ||
+      value === 'mod' ||
+      value === 'episode' ||
+      value === 'season' ||
+      value === 'remake' ||
+      value === 'remaster' ||
+      value === 'expanded_game' ||
+      value === 'port' ||
+      value === 'fork' ||
+      value === 'pack' ||
+      value === 'update'
+    ) {
       return value;
     }
 
@@ -573,7 +657,7 @@ export class DexieGameRepository implements GameRepository {
 
   private resolveGameType(
     incoming: GameCatalogResult['gameType'] | undefined,
-    existing: GameEntry['gameType'] | undefined,
+    existing: GameEntry['gameType'] | undefined
   ): GameEntry['gameType'] {
     if (incoming === undefined) {
       return this.normalizeGameType(existing);
@@ -582,7 +666,10 @@ export class DexieGameRepository implements GameRepository {
     return this.normalizeGameType(incoming);
   }
 
-  private resolveCompletionHours(incoming: number | null | undefined, existing: number | null | undefined): number | null {
+  private resolveCompletionHours(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
     if (incoming === undefined) {
       return this.normalizeCompletionHours(existing);
     }
@@ -590,7 +677,10 @@ export class DexieGameRepository implements GameRepository {
     return this.normalizeCompletionHours(incoming);
   }
 
-  private resolveGameIdList(incoming: string[] | undefined, existing: string[] | undefined): string[] {
+  private resolveGameIdList(
+    incoming: string[] | undefined,
+    existing: string[] | undefined
+  ): string[] {
     if (incoming === undefined) {
       return this.normalizeGameIdList(existing);
     }
@@ -599,7 +689,14 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeStatus(value: GameStatus | null | undefined): GameStatus | null {
-    if (value === 'completed' || value === 'dropped' || value === 'playing' || value === 'paused' || value === 'replay' || value === 'wantToPlay') {
+    if (
+      value === 'completed' ||
+      value === 'dropped' ||
+      value === 'playing' ||
+      value === 'paused' ||
+      value === 'replay' ||
+      value === 'wantToPlay'
+    ) {
       return value;
     }
 
@@ -657,7 +754,10 @@ export class DexieGameRepository implements GameRepository {
     return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
   }
 
-  private normalizeCustomTitle(value: string | null | undefined, defaultTitle: string): string | null {
+  private normalizeCustomTitle(
+    value: string | null | undefined,
+    defaultTitle: string
+  ): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
 
     if (normalized.length === 0) {
@@ -671,7 +771,7 @@ export class DexieGameRepository implements GameRepository {
     value: string | null | undefined,
     defaultPlatformName: string,
     candidatePlatformId: number | null | undefined,
-    defaultPlatformIgdbId: number,
+    defaultPlatformIgdbId: number
   ): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     const normalizedCandidateId = this.normalizeOptionalPlatformIgdbId(candidatePlatformId);
@@ -680,17 +780,20 @@ export class DexieGameRepository implements GameRepository {
       return null;
     }
 
-    return normalized === defaultPlatformName && normalizedCandidateId === defaultPlatformIgdbId ? null : normalized;
+    return normalized === defaultPlatformName && normalizedCandidateId === defaultPlatformIgdbId
+      ? null
+      : normalized;
   }
 
   private normalizeCustomPlatformIgdbId(
     value: number | null | undefined,
     candidatePlatformName: string | null | undefined,
     defaultPlatformName: string,
-    defaultPlatformIgdbId: number,
+    defaultPlatformIgdbId: number
   ): number | null {
     const normalizedId = this.normalizeOptionalPlatformIgdbId(value);
-    const normalizedName = typeof candidatePlatformName === 'string' ? candidatePlatformName.trim() : '';
+    const normalizedName =
+      typeof candidatePlatformName === 'string' ? candidatePlatformName.trim() : '';
 
     if (normalizedId === null || normalizedName.length === 0) {
       return null;
@@ -711,7 +814,10 @@ export class DexieGameRepository implements GameRepository {
     return value;
   }
 
-  private resolveCustomTitle(existingCustomTitle: string | null | undefined, incomingTitle: string): string | null {
+  private resolveCustomTitle(
+    existingCustomTitle: string | null | undefined,
+    incomingTitle: string
+  ): string | null {
     return this.normalizeCustomTitle(existingCustomTitle, incomingTitle);
   }
 
@@ -719,13 +825,13 @@ export class DexieGameRepository implements GameRepository {
     existingCustomPlatformName: string | null | undefined,
     existingCustomPlatformIgdbId: number | null | undefined,
     incomingPlatformName: string,
-    incomingPlatformIgdbId: number,
+    incomingPlatformIgdbId: number
   ): string | null {
     return this.normalizeCustomPlatformName(
       existingCustomPlatformName,
       incomingPlatformName,
       existingCustomPlatformIgdbId,
-      incomingPlatformIgdbId,
+      incomingPlatformIgdbId
     );
   }
 
@@ -733,13 +839,13 @@ export class DexieGameRepository implements GameRepository {
     existingCustomPlatformIgdbId: number | null | undefined,
     existingCustomPlatformName: string | null | undefined,
     incomingPlatformName: string,
-    incomingPlatformIgdbId: number,
+    incomingPlatformIgdbId: number
   ): number | null {
     return this.normalizeCustomPlatformIgdbId(
       existingCustomPlatformIgdbId,
       existingCustomPlatformName,
       incomingPlatformName,
-      incomingPlatformIgdbId,
+      incomingPlatformIgdbId
     );
   }
 
@@ -755,14 +861,14 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeGroupBy(value: GameGroupByField | null | undefined): GameGroupByField {
     if (
-      value === 'none'
-      || value === 'platform'
-      || value === 'developer'
-      || value === 'franchise'
-      || value === 'tag'
-      || value === 'genre'
-      || value === 'publisher'
-      || value === 'releaseYear'
+      value === 'none' ||
+      value === 'platform' ||
+      value === 'developer' ||
+      value === 'franchise' ||
+      value === 'tag' ||
+      value === 'genre' ||
+      value === 'publisher' ||
+      value === 'releaseYear'
     ) {
       return value;
     }
@@ -772,9 +878,13 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeViewFilters(value: GameListFilters | null | undefined): GameListFilters {
     const source = value ?? DEFAULT_GAME_LIST_FILTERS;
-    const sortField = source.sortField === 'title' || source.sortField === 'releaseDate' || source.sortField === 'createdAt' || source.sortField === 'platform'
-      ? source.sortField
-      : 'title';
+    const sortField =
+      source.sortField === 'title' ||
+      source.sortField === 'releaseDate' ||
+      source.sortField === 'createdAt' ||
+      source.sortField === 'platform'
+        ? source.sortField
+        : 'title';
     const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
     const platform = normalizeStringList(source.platform);
     const collections = normalizeStringList(source.collections);
@@ -788,12 +898,14 @@ export class DexieGameRepository implements GameRepository {
     const ratings = normalizeGameRatingFilterList(source.ratings);
     const hltbMainHoursMin = normalizeNonNegativeNumber(source.hltbMainHoursMin);
     const hltbMainHoursMax = normalizeNonNegativeNumber(source.hltbMainHoursMax);
-    const releaseDateFrom = typeof source.releaseDateFrom === 'string' && source.releaseDateFrom.length >= 10
-      ? source.releaseDateFrom.slice(0, 10)
-      : null;
-    const releaseDateTo = typeof source.releaseDateTo === 'string' && source.releaseDateTo.length >= 10
-      ? source.releaseDateTo.slice(0, 10)
-      : null;
+    const releaseDateFrom =
+      typeof source.releaseDateFrom === 'string' && source.releaseDateFrom.length >= 10
+        ? source.releaseDateFrom.slice(0, 10)
+        : null;
+    const releaseDateTo =
+      typeof source.releaseDateTo === 'string' && source.releaseDateTo.length >= 10
+        ? source.releaseDateTo.slice(0, 10)
+        : null;
 
     return {
       sortField,
@@ -808,15 +920,20 @@ export class DexieGameRepository implements GameRepository {
       statuses,
       tags,
       ratings,
-      hltbMainHoursMin: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
-        ? hltbMainHoursMax
-        : hltbMainHoursMin,
-      hltbMainHoursMax: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
-        ? hltbMainHoursMin
-        : hltbMainHoursMax,
+      hltbMainHoursMin:
+        hltbMainHoursMin !== null &&
+        hltbMainHoursMax !== null &&
+        hltbMainHoursMin > hltbMainHoursMax
+          ? hltbMainHoursMax
+          : hltbMainHoursMin,
+      hltbMainHoursMax:
+        hltbMainHoursMin !== null &&
+        hltbMainHoursMax !== null &&
+        hltbMainHoursMin > hltbMainHoursMax
+          ? hltbMainHoursMin
+          : hltbMainHoursMax,
       releaseDateFrom,
-      releaseDateTo,
+      releaseDateTo
     };
   }
-
 }

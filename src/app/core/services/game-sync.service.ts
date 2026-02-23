@@ -3,11 +3,21 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AppDb, OutboxEntry, SyncMetaEntry } from '../data/app-db';
 import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-writer';
-import { ClientSyncOperation, GameEntry, GameListView, SyncChangeEvent, SyncPushResult, Tag } from '../models/game.models';
+import {
+  ClientSyncOperation,
+  GameEntry,
+  GameListView,
+  SyncChangeEvent,
+  SyncPushResult,
+  Tag
+} from '../models/game.models';
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
 import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from './platform-order.service';
-import { PlatformCustomizationService, PLATFORM_DISPLAY_NAMES_STORAGE_KEY } from './platform-customization.service';
+import {
+  PlatformCustomizationService,
+  PLATFORM_DISPLAY_NAMES_STORAGE_KEY
+} from './platform-customization.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -62,23 +72,27 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     void this.requestPersistentStorage();
-    void this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, this.isOnline() ? 'online' : 'offline');
+    void this.setMeta(
+      GameSyncService.META_CONNECTIVITY_KEY,
+      this.isOnline() ? 'online' : 'offline'
+    );
     void this.syncNow();
   }
 
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
     const now = new Date().toISOString();
     const entry: OutboxEntry = {
-      opId: (typeof request.opId === 'string' && request.opId.trim().length > 0)
-        ? request.opId.trim()
-        : this.generateOperationId(),
+      opId:
+        typeof request.opId === 'string' && request.opId.trim().length > 0
+          ? request.opId.trim()
+          : this.generateOperationId(),
       entityType: request.entityType,
       operation: request.operation,
       payload: request.payload,
       clientTimestamp: request.clientTimestamp ?? now,
       createdAt: now,
       attemptCount: 0,
-      lastError: null,
+      lastError: null
     };
 
     await this.db.outbox.put(entry);
@@ -111,21 +125,26 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
-    const operations: ClientSyncOperation[] = entries.map(entry => ({
+    const operations: ClientSyncOperation[] = entries.map((entry) => ({
       opId: entry.opId,
       entityType: entry.entityType,
       operation: entry.operation,
       payload: entry.payload,
-      clientTimestamp: entry.clientTimestamp,
+      clientTimestamp: entry.clientTimestamp
     }));
-    const operationBatches = this.buildPushOperationBatches(operations, GameSyncService.MAX_PUSH_BODY_BYTES);
+    const operationBatches = this.buildPushOperationBatches(
+      operations,
+      GameSyncService.MAX_PUSH_BODY_BYTES
+    );
     const ackedIds = new Set<string>();
     const failedResults: SyncPushResult[] = [];
     let latestCursor: string | null = null;
 
     for (const batch of operationBatches) {
       const response = await firstValueFrom(
-        this.httpClient.post<SyncPushResponse>(`${this.baseUrl}/v1/sync/push`, { operations: batch }),
+        this.httpClient.post<SyncPushResponse>(`${this.baseUrl}/v1/sync/push`, {
+          operations: batch
+        })
       );
 
       if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
@@ -135,12 +154,12 @@ export class GameSyncService implements SyncOutboxWriter {
       const batchResults = Array.isArray(response.results) ? response.results : [];
 
       batchResults
-        .filter(result => result.status === 'applied' || result.status === 'duplicate')
-        .map(result => result.opId)
-        .filter(opId => typeof opId === 'string' && opId.trim().length > 0)
-        .forEach(opId => ackedIds.add(opId));
+        .filter((result) => result.status === 'applied' || result.status === 'duplicate')
+        .map((result) => result.opId)
+        .filter((opId) => typeof opId === 'string' && opId.trim().length > 0)
+        .forEach((opId) => ackedIds.add(opId));
 
-      failedResults.push(...batchResults.filter(result => result.status === 'failed'));
+      failedResults.push(...batchResults.filter((result) => result.status === 'failed'));
     }
 
     if (latestCursor) {
@@ -161,18 +180,19 @@ export class GameSyncService implements SyncOutboxWriter {
       await this.db.outbox.put({
         ...existing,
         attemptCount: existing.attemptCount + 1,
-        lastError: failure.message ?? 'Failed to push operation.',
+        lastError: failure.message ?? 'Failed to push operation.'
       });
     }
   }
 
   private buildPushOperationBatches(
     operations: ClientSyncOperation[],
-    maxBodyBytes: number,
+    maxBodyBytes: number
   ): ClientSyncOperation[][] {
     const batches: ClientSyncOperation[][] = [];
     let currentBatch: ClientSyncOperation[] = [];
-    let currentBatchBytes = GameSyncService.PUSH_BODY_PREFIX_BYTES + GameSyncService.PUSH_BODY_SUFFIX_BYTES;
+    let currentBatchBytes =
+      GameSyncService.PUSH_BODY_PREFIX_BYTES + GameSyncService.PUSH_BODY_SUFFIX_BYTES;
 
     for (const operation of operations) {
       const operationBytes = JSON.stringify(operation).length;
@@ -187,7 +207,10 @@ export class GameSyncService implements SyncOutboxWriter {
 
       batches.push(currentBatch);
       currentBatch = [operation];
-      currentBatchBytes = GameSyncService.PUSH_BODY_PREFIX_BYTES + GameSyncService.PUSH_BODY_SUFFIX_BYTES + operationBytes;
+      currentBatchBytes =
+        GameSyncService.PUSH_BODY_PREFIX_BYTES +
+        GameSyncService.PUSH_BODY_SUFFIX_BYTES +
+        operationBytes;
     }
 
     if (currentBatch.length > 0) {
@@ -201,8 +224,8 @@ export class GameSyncService implements SyncOutboxWriter {
     const cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
     const response = await firstValueFrom(
       this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
-        cursor: cursor ?? null,
-      }),
+        cursor: cursor ?? null
+      })
     );
     const changes = Array.isArray(response.changes) ? response.changes : [];
 
@@ -215,9 +238,10 @@ export class GameSyncService implements SyncOutboxWriter {
 
     await this.applyPulledChanges(changes);
 
-    const nextCursor = typeof response.cursor === 'string' && response.cursor.trim().length > 0
-      ? response.cursor.trim()
-      : changes[changes.length - 1].eventId;
+    const nextCursor =
+      typeof response.cursor === 'string' && response.cursor.trim().length > 0
+        ? response.cursor.trim()
+        : changes[changes.length - 1].eventId;
     await this.setMeta(GameSyncService.META_CURSOR_KEY, nextCursor);
     this.syncEvents.emitChanged();
   }
@@ -258,7 +282,10 @@ export class GameSyncService implements SyncOutboxWriter {
         return;
       }
 
-      const existing = await this.db.games.where('[igdbGameId+platformIgdbId]').equals([igdbGameId, platformIgdbId]).first();
+      const existing = await this.db.games
+        .where('[igdbGameId+platformIgdbId]')
+        .equals([igdbGameId, platformIgdbId])
+        .first();
 
       if (existing?.id !== undefined) {
         await this.db.games.delete(existing.id);
@@ -278,21 +305,44 @@ export class GameSyncService implements SyncOutboxWriter {
       ...payload,
       igdbGameId,
       platformIgdbId,
-      title: typeof payload.title === 'string' && payload.title.trim().length > 0 ? payload.title.trim() : 'Unknown title',
-      customTitle: this.normalizeCustomTitle(payload.customTitle, typeof payload.title === 'string' ? payload.title : ''),
-      platform: typeof payload.platform === 'string' && payload.platform.trim().length > 0 ? payload.platform.trim() : 'Unknown platform',
-      customPlatform: this.normalizeCustomPlatform(payload.customPlatform, payload.customPlatformIgdbId, payload.platform),
-      customPlatformIgdbId: this.normalizeCustomPlatformIgdbId(payload.customPlatformIgdbId, payload.customPlatform, payload.platformIgdbId, payload.platform),
+      title:
+        typeof payload.title === 'string' && payload.title.trim().length > 0
+          ? payload.title.trim()
+          : 'Unknown title',
+      customTitle: this.normalizeCustomTitle(
+        payload.customTitle,
+        typeof payload.title === 'string' ? payload.title : ''
+      ),
+      platform:
+        typeof payload.platform === 'string' && payload.platform.trim().length > 0
+          ? payload.platform.trim()
+          : 'Unknown platform',
+      customPlatform: this.normalizeCustomPlatform(
+        payload.customPlatform,
+        payload.customPlatformIgdbId,
+        payload.platform
+      ),
+      customPlatformIgdbId: this.normalizeCustomPlatformIgdbId(
+        payload.customPlatformIgdbId,
+        payload.customPlatform,
+        payload.platformIgdbId,
+        payload.platform
+      ),
       customCoverUrl: this.normalizeCustomCoverUrl(payload.customCoverUrl),
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
-      createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
-      updatedAt: typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
-      coverSource: payload.coverSource === 'thegamesdb' || payload.coverSource === 'igdb' || payload.coverSource === 'none'
-        ? payload.coverSource
-        : 'none',
+      createdAt:
+        typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
+      updatedAt:
+        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
+      coverSource:
+        payload.coverSource === 'thegamesdb' ||
+        payload.coverSource === 'igdb' ||
+        payload.coverSource === 'none'
+          ? payload.coverSource
+          : 'none',
       tagIds: Array.isArray(payload.tagIds)
-        ? [...new Set(payload.tagIds.filter(value => Number.isInteger(value) && value > 0))]
-        : [],
+        ? [...new Set(payload.tagIds.filter((value) => Number.isInteger(value) && value > 0))]
+        : []
     } as GameEntry;
 
     await this.db.games.put(normalized);
@@ -312,13 +362,18 @@ export class GameSyncService implements SyncOutboxWriter {
   private normalizeCustomPlatform(
     platformName: unknown,
     platformIgdbId: unknown,
-    defaultPlatformName: unknown,
+    defaultPlatformName: unknown
   ): string | null {
     const normalizedName = typeof platformName === 'string' ? platformName.trim() : '';
     const normalizedPlatformId = this.normalizeOptionalPlatformIgdbId(platformIgdbId);
-    const normalizedDefaultPlatformName = typeof defaultPlatformName === 'string' ? defaultPlatformName.trim() : '';
+    const normalizedDefaultPlatformName =
+      typeof defaultPlatformName === 'string' ? defaultPlatformName.trim() : '';
 
-    if (normalizedName.length === 0 || normalizedPlatformId === null || normalizedName === normalizedDefaultPlatformName) {
+    if (
+      normalizedName.length === 0 ||
+      normalizedPlatformId === null ||
+      normalizedName === normalizedDefaultPlatformName
+    ) {
       return null;
     }
 
@@ -329,18 +384,23 @@ export class GameSyncService implements SyncOutboxWriter {
     platformIgdbId: unknown,
     platformName: unknown,
     defaultPlatformIgdbId: unknown,
-    defaultPlatformName: unknown,
+    defaultPlatformName: unknown
   ): number | null {
     const normalizedPlatformId = this.normalizeOptionalPlatformIgdbId(platformIgdbId);
     const normalizedPlatformName = typeof platformName === 'string' ? platformName.trim() : '';
     const normalizedDefaultPlatformId = this.normalizeOptionalPlatformIgdbId(defaultPlatformIgdbId);
-    const normalizedDefaultPlatformName = typeof defaultPlatformName === 'string' ? defaultPlatformName.trim() : '';
+    const normalizedDefaultPlatformName =
+      typeof defaultPlatformName === 'string' ? defaultPlatformName.trim() : '';
 
     if (normalizedPlatformId === null || normalizedPlatformName.length === 0) {
       return null;
     }
 
-    if (normalizedDefaultPlatformId !== null && normalizedPlatformId === normalizedDefaultPlatformId && normalizedPlatformName === normalizedDefaultPlatformName) {
+    if (
+      normalizedDefaultPlatformId !== null &&
+      normalizedPlatformId === normalizedDefaultPlatformId &&
+      normalizedPlatformName === normalizedDefaultPlatformName
+    ) {
       return null;
     }
 
@@ -386,7 +446,7 @@ export class GameSyncService implements SyncOutboxWriter {
           continue;
         }
 
-        const nextTagIds = game.tagIds.filter(tagId => tagId !== id);
+        const nextTagIds = game.tagIds.filter((tagId) => tagId !== id);
 
         if (nextTagIds.length === game.tagIds.length) {
           continue;
@@ -394,7 +454,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
         await this.db.games.update(game.id, {
           tagIds: nextTagIds,
-          updatedAt: now,
+          updatedAt: now
         });
       }
 
@@ -410,10 +470,18 @@ export class GameSyncService implements SyncOutboxWriter {
 
     const normalized: Tag = {
       id,
-      name: typeof payload.name === 'string' && payload.name.trim().length > 0 ? payload.name.trim() : `Tag ${id}`,
-      color: typeof payload.color === 'string' && payload.color.trim().length > 0 ? payload.color.trim() : '#3880ff',
-      createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
-      updatedAt: typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
+      name:
+        typeof payload.name === 'string' && payload.name.trim().length > 0
+          ? payload.name.trim()
+          : `Tag ${id}`,
+      color:
+        typeof payload.color === 'string' && payload.color.trim().length > 0
+          ? payload.color.trim()
+          : '#3880ff',
+      createdAt:
+        typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
+      updatedAt:
+        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString()
     };
 
     await this.db.tags.put(normalized);
@@ -434,9 +502,12 @@ export class GameSyncService implements SyncOutboxWriter {
     const id = Number.parseInt(String(payload?.id ?? ''), 10);
     const normalized: GameListView = {
       id: Number.isInteger(id) && id > 0 ? id : undefined,
-      name: typeof payload.name === 'string' && payload.name.trim().length > 0 ? payload.name.trim() : 'Saved View',
+      name:
+        typeof payload.name === 'string' && payload.name.trim().length > 0
+          ? payload.name.trim()
+          : 'Saved View',
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
-      filters: (payload.filters ?? {
+      filters: payload.filters ?? {
         sortField: 'title',
         sortDirection: 'asc',
         platform: [],
@@ -452,11 +523,13 @@ export class GameSyncService implements SyncOutboxWriter {
         hltbMainHoursMin: null,
         hltbMainHoursMax: null,
         releaseDateFrom: null,
-        releaseDateTo: null,
-      }),
+        releaseDateTo: null
+      },
       groupBy: payload.groupBy ?? 'none',
-      createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
-      updatedAt: typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
+      createdAt:
+        typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
+      updatedAt:
+        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString()
     };
 
     await this.db.views.put(normalized);
@@ -519,7 +592,7 @@ export class GameSyncService implements SyncOutboxWriter {
     const entry: SyncMetaEntry = {
       key,
       value,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.syncMeta.put(entry);

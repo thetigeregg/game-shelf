@@ -44,7 +44,7 @@ export class ImageCacheService {
   }
 
   async purgeLocalCache(): Promise<void> {
-    this.objectUrlsByCacheKey.forEach(url => {
+    this.objectUrlsByCacheKey.forEach((url) => {
       try {
         URL.revokeObjectURL(url);
       } catch {
@@ -64,7 +64,7 @@ export class ImageCacheService {
 
     const entries = await this.db.imageCache.where('gameKey').equals(normalizedGameKey).toArray();
 
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       const objectUrl = this.objectUrlsByCacheKey.get(entry.cacheKey);
 
       if (!objectUrl) {
@@ -83,16 +83,24 @@ export class ImageCacheService {
     await this.db.imageCache.where('gameKey').equals(normalizedGameKey).delete();
   }
 
-  async resolveImageUrl(gameKey: string, sourceUrl: string | null | undefined, variant: ImageCacheVariant): Promise<string> {
+  async resolveImageUrl(
+    gameKey: string,
+    sourceUrl: string | null | undefined,
+    variant: ImageCacheVariant
+  ): Promise<string> {
     const normalizedSourceUrl = this.normalizeSourceUrl(sourceUrl, variant);
     this.debugLogService.trace('image_cache.resolve_start', {
       gameKey,
       variant,
-      sourceUrl: normalizedSourceUrl,
+      sourceUrl: normalizedSourceUrl
     });
 
     if (!normalizedSourceUrl) {
-      this.debugLogService.trace('image_cache.resolve_placeholder', { gameKey, variant, reason: 'missing_source_url' });
+      this.debugLogService.trace('image_cache.resolve_placeholder', {
+        gameKey,
+        variant,
+        reason: 'missing_source_url'
+      });
       return 'assets/icon/placeholder.png';
     }
 
@@ -100,7 +108,11 @@ export class ImageCacheService {
     // when persisted as IndexedDB blobs on some clients (notably iOS/PWA contexts).
     // Use direct URL rendering for thumbs and reserve blob cache for detail art.
     if (variant === 'thumb') {
-      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'thumb_variant' });
+      this.debugLogService.trace('image_cache.resolve_direct', {
+        gameKey,
+        variant,
+        reason: 'thumb_variant'
+      });
       return normalizedSourceUrl;
     }
 
@@ -108,7 +120,11 @@ export class ImageCacheService {
     // can intermittently fail after first paint and trigger placeholder fallbacks.
     // Prefer direct source URLs in that environment for rendering stability.
     if (this.shouldBypassDetailBlobCache()) {
-      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'pwa_blob_bypass' });
+      this.debugLogService.trace('image_cache.resolve_direct', {
+        gameKey,
+        variant,
+        reason: 'pwa_blob_bypass'
+      });
       return normalizedSourceUrl;
     }
 
@@ -117,16 +133,16 @@ export class ImageCacheService {
 
     if (existing) {
       if (
-        !(existing.blob instanceof Blob)
-        || existing.blob.size <= 0
-        || !(await this.isCacheableImageBlob(existing.blob))
+        !(existing.blob instanceof Blob) ||
+        existing.blob.size <= 0 ||
+        !(await this.isCacheableImageBlob(existing.blob))
       ) {
         this.logImageDiagnostic('image_cache_rejected_existing_blob', {
           cacheKey,
           gameKey,
           variant,
           blobType: existing.blob instanceof Blob ? existing.blob.type : null,
-          blobSize: existing.blob instanceof Blob ? existing.blob.size : null,
+          blobSize: existing.blob instanceof Blob ? existing.blob.size : null
         });
         if (existing.id !== undefined) {
           await this.db.imageCache.delete(existing.id);
@@ -136,7 +152,7 @@ export class ImageCacheService {
           cacheKey,
           gameKey,
           variant,
-          blobSize: existing.blob.size,
+          blobSize: existing.blob.size
         });
         await this.touchEntry(existing);
         return this.toObjectUrl(existing);
@@ -153,7 +169,7 @@ export class ImageCacheService {
           gameKey,
           variant,
           status: response.status,
-          statusText: response.statusText,
+          statusText: response.statusText
         });
         return normalizedSourceUrl;
       }
@@ -166,7 +182,7 @@ export class ImageCacheService {
           gameKey,
           variant,
           blobType: blob instanceof Blob ? blob.type : null,
-          blobSize: blob instanceof Blob ? blob.size : null,
+          blobSize: blob instanceof Blob ? blob.size : null
         });
         return normalizedSourceUrl;
       }
@@ -180,7 +196,7 @@ export class ImageCacheService {
         blob,
         sizeBytes: blob.size,
         updatedAt: now,
-        lastAccessedAt: now,
+        lastAccessedAt: now
       };
 
       const limitBytes = this.getLimitMb() * 1024 * 1024;
@@ -192,7 +208,7 @@ export class ImageCacheService {
           gameKey,
           variant,
           sizeBytes: entry.sizeBytes,
-          limitBytes,
+          limitBytes
         });
         await this.enforceLimitBytes(limitBytes);
         const stored = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
@@ -202,21 +218,29 @@ export class ImageCacheService {
             cacheKey,
             gameKey,
             variant,
-            blobSize: stored.blob.size,
+            blobSize: stored.blob.size
           });
           return this.toObjectUrl(stored);
         }
       }
 
-      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'store_skipped_or_missing' });
+      this.debugLogService.trace('image_cache.resolve_direct', {
+        gameKey,
+        variant,
+        reason: 'store_skipped_or_missing'
+      });
       return normalizedSourceUrl;
     } catch {
       this.logImageDiagnostic('image_cache_fetch_failed', {
         cacheKey,
         gameKey,
-        variant,
+        variant
       });
-      this.debugLogService.trace('image_cache.resolve_direct', { gameKey, variant, reason: 'fetch_failed' });
+      this.debugLogService.trace('image_cache.resolve_direct', {
+        gameKey,
+        variant,
+        reason: 'fetch_failed'
+      });
       return normalizedSourceUrl;
     }
   }
@@ -227,7 +251,7 @@ export class ImageCacheService {
     }
 
     await this.db.imageCache.update(entry.id, {
-      lastAccessedAt: new Date().toISOString(),
+      lastAccessedAt: new Date().toISOString()
     });
   }
 
@@ -243,7 +267,10 @@ export class ImageCacheService {
     return url;
   }
 
-  private normalizeSourceUrl(sourceUrl: string | null | undefined, variant: ImageCacheVariant): string | null {
+  private normalizeSourceUrl(
+    sourceUrl: string | null | undefined,
+    variant: ImageCacheVariant
+  ): string | null {
     const normalized = typeof sourceUrl === 'string' ? sourceUrl.trim() : '';
 
     if (!normalized) {
@@ -258,13 +285,16 @@ export class ImageCacheService {
   }
 
   private withIgdbRetinaVariant(url: string): string {
-    return url.replace(/(\/igdb\/image\/upload\/)(t_[^/]+)(\/)/, (_match, prefix: string, sizeToken: string, suffix: string) => {
-      if (sizeToken.endsWith('_2x')) {
-        return `${prefix}${sizeToken}${suffix}`;
-      }
+    return url.replace(
+      /(\/igdb\/image\/upload\/)(t_[^/]+)(\/)/,
+      (_match, prefix: string, sizeToken: string, suffix: string) => {
+        if (sizeToken.endsWith('_2x')) {
+          return `${prefix}${sizeToken}${suffix}`;
+        }
 
-      return `${prefix}${sizeToken}_2x${suffix}`;
-    });
+        return `${prefix}${sizeToken}_2x${suffix}`;
+      }
+    );
   }
 
   private buildFetchUrl(sourceUrl: string): string {
@@ -288,8 +318,11 @@ export class ImageCacheService {
       }
 
       const hostname = parsed.hostname.toLowerCase();
-      const isTheGamesDb = hostname === ImageCacheService.THE_GAMES_DB_HOST && parsed.pathname.startsWith('/images/');
-      const isIgdb = hostname === ImageCacheService.IGDB_HOST && parsed.pathname.startsWith('/igdb/image/upload/');
+      const isTheGamesDb =
+        hostname === ImageCacheService.THE_GAMES_DB_HOST && parsed.pathname.startsWith('/images/');
+      const isIgdb =
+        hostname === ImageCacheService.IGDB_HOST &&
+        parsed.pathname.startsWith('/igdb/image/upload/');
 
       if (!isTheGamesDb && !isIgdb) {
         return null;
@@ -311,7 +344,8 @@ export class ImageCacheService {
     }
 
     const nav = navigator as Navigator & { standalone?: boolean };
-    const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches === true || nav.standalone === true;
+    const isStandalone =
+      window.matchMedia?.('(display-mode: standalone)').matches === true || nav.standalone === true;
 
     if (!isStandalone) {
       return false;
@@ -322,7 +356,10 @@ export class ImageCacheService {
 
   private clampLimitMb(value: number): number {
     const rounded = Math.round(value);
-    return Math.max(ImageCacheService.MIN_LIMIT_MB, Math.min(rounded, ImageCacheService.MAX_LIMIT_MB));
+    return Math.max(
+      ImageCacheService.MIN_LIMIT_MB,
+      Math.min(rounded, ImageCacheService.MAX_LIMIT_MB)
+    );
   }
 
   private async isCacheableImageBlob(blob: Blob): Promise<boolean> {
@@ -345,14 +382,15 @@ export class ImageCacheService {
       const bytes = new Uint8Array(buffer);
 
       if (bytes.length >= 8) {
-        const isPng = bytes[0] === 0x89
-          && bytes[1] === 0x50
-          && bytes[2] === 0x4e
-          && bytes[3] === 0x47
-          && bytes[4] === 0x0d
-          && bytes[5] === 0x0a
-          && bytes[6] === 0x1a
-          && bytes[7] === 0x0a;
+        const isPng =
+          bytes[0] === 0x89 &&
+          bytes[1] === 0x50 &&
+          bytes[2] === 0x4e &&
+          bytes[3] === 0x47 &&
+          bytes[4] === 0x0d &&
+          bytes[5] === 0x0a &&
+          bytes[6] === 0x1a &&
+          bytes[7] === 0x0a;
 
         if (isPng) {
           return true;
@@ -368,12 +406,13 @@ export class ImageCacheService {
       }
 
       if (bytes.length >= 6) {
-        const isGif = bytes[0] === 0x47
-          && bytes[1] === 0x49
-          && bytes[2] === 0x46
-          && bytes[3] === 0x38
-          && (bytes[4] === 0x37 || bytes[4] === 0x39)
-          && bytes[5] === 0x61;
+        const isGif =
+          bytes[0] === 0x47 &&
+          bytes[1] === 0x49 &&
+          bytes[2] === 0x46 &&
+          bytes[3] === 0x38 &&
+          (bytes[4] === 0x37 || bytes[4] === 0x39) &&
+          bytes[5] === 0x61;
 
         if (isGif) {
           return true;
@@ -381,14 +420,15 @@ export class ImageCacheService {
       }
 
       if (bytes.length >= 12) {
-        const isWebp = bytes[0] === 0x52
-          && bytes[1] === 0x49
-          && bytes[2] === 0x46
-          && bytes[3] === 0x46
-          && bytes[8] === 0x57
-          && bytes[9] === 0x45
-          && bytes[10] === 0x42
-          && bytes[11] === 0x50;
+        const isWebp =
+          bytes[0] === 0x52 &&
+          bytes[1] === 0x49 &&
+          bytes[2] === 0x46 &&
+          bytes[3] === 0x46 &&
+          bytes[8] === 0x57 &&
+          bytes[9] === 0x45 &&
+          bytes[10] === 0x42 &&
+          bytes[11] === 0x50;
 
         if (isWebp) {
           return true;

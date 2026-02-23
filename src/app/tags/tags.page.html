@@ -4,11 +4,6 @@
       <ion-back-button defaultHref="/tabs/collection"></ion-back-button>
     </ion-buttons>
     <ion-title>Tags</ion-title>
-    <ion-buttons slot="end">
-      <ion-button aria-label="Add tag" (click)="openNewTagModal()">
-        <ion-icon slot="icon-only" name="add"></ion-icon>
-      </ion-button>
-    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -25,14 +20,14 @@
           ></div>
           <ion-label>
             <h2>{{ tag.name }}</h2>
-            <p>{{ tag.gameCount === 1 ? '1 game' : (tag.gameCount + ' games') }}</p>
+            <p>{{ tag.gameCount === 1 ? '1 game' : tag.gameCount + ' games' }}</p>
           </ion-label>
           <ion-button
             slot="end"
             fill="clear"
             aria-label="Tag actions"
             [id]="getActionsTriggerId(tag)"
-            >
+          >
             <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
           </ion-button>
           <ion-popover [trigger]="getActionsTriggerId(tag)" triggerAction="click">
@@ -42,7 +37,12 @@
                   <ion-item button detail="false" (click)="openEditTagFromPopover(tag)">
                     Edit
                   </ion-item>
-                  <ion-item button detail="false" color="danger" (click)="deleteTagFromPopover(tag)">
+                  <ion-item
+                    button
+                    detail="false"
+                    color="danger"
+                    (click)="deleteTagFromPopover(tag)"
+                  >
                     Delete
                   </ion-item>
                 </ion-list>
@@ -59,6 +59,11 @@
     </ion-list>
   }
 
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button size="small" aria-label="Add tag" (click)="openNewTagModal()">
+      <ion-icon name="add" aria-hidden="true"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
 </ion-content>
 
 <ion-modal [isOpen]="isTagModalOpen" (didDismiss)="closeTagModal()">
@@ -90,12 +95,10 @@
           type="color"
           [value]="draftColor"
           (change)="draftColor = $any($event.target).value || '#3880ff'"
-          />
+        />
       </ion-item>
 
-      <ion-button expand="block" class="ion-margin-top" (click)="saveTag()">
-        Save
-      </ion-button>
+      <ion-button expand="block" class="ion-margin-top" (click)="saveTag()"> Save </ion-button>
     </ion-content>
   </ng-template>
 </ion-modal>

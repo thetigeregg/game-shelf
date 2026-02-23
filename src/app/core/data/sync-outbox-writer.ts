@@ -14,4 +14,3 @@ export interface SyncOutboxWriter {
 }
 
 export const SYNC_OUTBOX_WRITER = new InjectionToken<SyncOutboxWriter>('SYNC_OUTBOX_WRITER');
-

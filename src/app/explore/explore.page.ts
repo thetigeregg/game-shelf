@@ -1,4 +1,3 @@
-
 import { Component, OnInit, inject } from '@angular/core';
 import {
   AlertController,
@@ -23,16 +22,29 @@ import {
   IonFab,
   IonFabButton,
   IonFabList,
-  IonIcon,
+  IonIcon
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
-import { GameCatalogResult, GameEntry, GameRating, GameStatus, ListType, PopularityGameResult, PopularityTypeOption } from '../core/models/game.models';
+import {
+  GameCatalogResult,
+  GameEntry,
+  GameRating,
+  GameStatus,
+  ListType,
+  PopularityGameResult,
+  PopularityTypeOption
+} from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
-import { buildTagInput, normalizeGameRating, normalizeGameStatus, parseTagSelection } from '../features/game-list/game-list-detail-actions';
+import {
+  buildTagInput,
+  normalizeGameRating,
+  normalizeGameStatus,
+  parseTagSelection
+} from '../features/game-list/game-list-detail-actions';
 import { addIcons } from 'ionicons';
 import { search, logoGoogle, logoYoutube } from 'ionicons/icons';
 
@@ -64,7 +76,7 @@ import { search, logoGoogle, logoYoutube } from 'ionicons/icons';
     IonFabList,
     IonIcon,
     GameDetailContentComponent
-],
+  ]
 })
 export class ExplorePage implements OnInit {
   private static readonly PAGE_SIZE = 20;
@@ -90,7 +102,7 @@ export class ExplorePage implements OnInit {
     { value: 'completed', label: 'Completed' },
     { value: 'paused', label: 'Paused' },
     { value: 'dropped', label: 'Dropped' },
-    { value: 'replay', label: 'Replay' },
+    { value: 'replay', label: 'Replay' }
   ];
 
   private readonly igdbProxyService = inject(IgdbProxyService);
@@ -164,7 +176,8 @@ export class ExplorePage implements OnInit {
       const detail = await firstValueFrom(this.igdbProxyService.getGameById(item.game.igdbGameId));
       this.selectedGameDetail = detail;
     } catch (error) {
-      this.detailErrorMessage = error instanceof Error ? error.message : 'Unable to load game details.';
+      this.detailErrorMessage =
+        error instanceof Error ? error.message : 'Unable to load game details.';
     } finally {
       this.isLoadingDetail = false;
     }
@@ -180,7 +193,11 @@ export class ExplorePage implements OnInit {
   }
 
   async addSelectedGameToLibrary(): Promise<void> {
-    if (this.detailContext !== 'explore' || this.isAddToLibraryLoading || !this.selectedGameDetail) {
+    if (
+      this.detailContext !== 'explore' ||
+      this.isAddToLibraryLoading ||
+      !this.selectedGameDetail
+    ) {
       return;
     }
 
@@ -193,7 +210,10 @@ export class ExplorePage implements OnInit {
     this.isAddToLibraryLoading = true;
 
     try {
-      const addResult = await this.addToLibraryWorkflow.addToLibrary(this.selectedGameDetail as GameCatalogResult, listType);
+      const addResult = await this.addToLibraryWorkflow.addToLibrary(
+        this.selectedGameDetail as GameCatalogResult,
+        listType
+      );
 
       if (addResult.status === 'added' && addResult.entry) {
         this.selectedGameDetail = addResult.entry;
@@ -214,7 +234,11 @@ export class ExplorePage implements OnInit {
     const normalized = normalizeGameStatus(value);
 
     try {
-      const updated = await this.gameShelfService.setGameStatus(selected.igdbGameId, selected.platformIgdbId, normalized);
+      const updated = await this.gameShelfService.setGameStatus(
+        selected.igdbGameId,
+        selected.platformIgdbId,
+        normalized
+      );
       this.selectedGameDetail = updated;
     } catch {
       await this.presentToast('Unable to update game status.', 'danger');
@@ -229,7 +253,11 @@ export class ExplorePage implements OnInit {
     }
 
     try {
-      const updated = await this.gameShelfService.setGameStatus(selected.igdbGameId, selected.platformIgdbId, null);
+      const updated = await this.gameShelfService.setGameStatus(
+        selected.igdbGameId,
+        selected.platformIgdbId,
+        null
+      );
       this.selectedGameDetail = updated;
       await this.presentToast('Game status cleared.');
     } catch {
@@ -251,7 +279,11 @@ export class ExplorePage implements OnInit {
     }
 
     try {
-      const updated = await this.gameShelfService.setGameRating(selected.igdbGameId, selected.platformIgdbId, normalized);
+      const updated = await this.gameShelfService.setGameRating(
+        selected.igdbGameId,
+        selected.platformIgdbId,
+        normalized
+      );
       this.selectedGameDetail = updated;
       await this.presentToast('Game rating updated.');
     } catch {
@@ -267,7 +299,11 @@ export class ExplorePage implements OnInit {
     }
 
     try {
-      const updated = await this.gameShelfService.setGameRating(selected.igdbGameId, selected.platformIgdbId, null);
+      const updated = await this.gameShelfService.setGameRating(
+        selected.igdbGameId,
+        selected.platformIgdbId,
+        null
+      );
       this.selectedGameDetail = updated;
       await this.presentToast('Game rating cleared.');
     } catch {
@@ -290,13 +326,13 @@ export class ExplorePage implements OnInit {
     }
 
     const existingTagIds = Array.isArray(selected.tagIds)
-      ? selected.tagIds.filter(id => Number.isInteger(id) && id > 0)
+      ? selected.tagIds.filter((id) => Number.isInteger(id) && id > 0)
       : [];
     let nextTagIds = existingTagIds;
     const alert = await this.alertController.create({
       header: 'Set Tags',
       message: `Update tags for ${selected.title}.`,
-      inputs: tags.map(tag => buildTagInput(tag, existingTagIds)),
+      inputs: tags.map((tag) => buildTagInput(tag, existingTagIds)),
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
@@ -304,9 +340,9 @@ export class ExplorePage implements OnInit {
           role: 'confirm',
           handler: (value: string[] | string | null | undefined) => {
             nextTagIds = parseTagSelection(value);
-          },
-        },
-      ],
+          }
+        }
+      ]
     });
 
     await alert.present();
@@ -317,7 +353,11 @@ export class ExplorePage implements OnInit {
     }
 
     try {
-      const updated = await this.gameShelfService.setGameTags(selected.igdbGameId, selected.platformIgdbId, nextTagIds);
+      const updated = await this.gameShelfService.setGameTags(
+        selected.igdbGameId,
+        selected.platformIgdbId,
+        nextTagIds
+      );
       this.selectedGameDetail = updated;
       await this.presentToast('Tags updated.');
     } catch {
@@ -358,14 +398,18 @@ export class ExplorePage implements OnInit {
 
   getPlatformLabel(item: PopularityGameResult): string {
     const preferredPlatform = this.resolvePreferredPlatform(item);
-    return this.getAliasedPlatformLabel(preferredPlatform.name, preferredPlatform.id);
+    return this.getPlatformDisplayName(preferredPlatform.name, preferredPlatform.id);
   }
 
-  private resolvePreferredPlatform(item: PopularityGameResult): { id: number | null; name: string } {
+  private resolvePreferredPlatform(item: PopularityGameResult): {
+    id: number | null;
+    name: string;
+  } {
     const fromPrimaryName = typeof item.game.platform === 'string' ? item.game.platform.trim() : '';
-    const fromPrimaryId = Number.isInteger(item.game.platformIgdbId) && (item.game.platformIgdbId as number) > 0
-      ? item.game.platformIgdbId as number
-      : null;
+    const fromPrimaryId =
+      Number.isInteger(item.game.platformIgdbId) && (item.game.platformIgdbId as number) > 0
+        ? (item.game.platformIgdbId as number)
+        : null;
 
     if (fromPrimaryName.length > 0) {
       return { id: fromPrimaryId, name: fromPrimaryName };
@@ -374,7 +418,8 @@ export class ExplorePage implements OnInit {
     if (Array.isArray(item.game.platformOptions) && item.game.platformOptions.length > 0) {
       const first = item.game.platformOptions[0];
       const name = typeof first?.name === 'string' ? first.name.trim() : '';
-      const id = Number.isInteger(first?.id) && (first.id as number) > 0 ? first.id as number : null;
+      const id =
+        Number.isInteger(first?.id) && (first.id as number) > 0 ? (first.id as number) : null;
 
       if (name.length > 0) {
         return { id, name };
@@ -392,9 +437,11 @@ export class ExplorePage implements OnInit {
     return { id: null, name: '' };
   }
 
-  private getAliasedPlatformLabel(name: string, platformIgdbId: number | null): string {
+  private getPlatformDisplayName(name: string, platformIgdbId: number | null): string {
     if (name.trim().length > 0) {
-      const aliased = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+      const aliased = this.platformCustomizationService
+        .getDisplayNameWithoutAlias(name, platformIgdbId)
+        .trim();
 
       if (aliased.length > 0) {
         return aliased;
@@ -414,14 +461,14 @@ export class ExplorePage implements OnInit {
           type: 'radio',
           label: 'Collection',
           value: 'collection',
-          checked: true,
+          checked: true
         },
         {
           type: 'radio',
           label: 'Wishlist',
           value: 'wishlist',
-          checked: false,
-        },
+          checked: false
+        }
       ],
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -430,9 +477,9 @@ export class ExplorePage implements OnInit {
           role: 'confirm',
           handler: (value: string) => {
             selected = value === 'wishlist' ? 'wishlist' : 'collection';
-          },
-        },
-      ],
+          }
+        }
+      ]
     });
 
     await alert.present();
@@ -450,15 +497,20 @@ export class ExplorePage implements OnInit {
       return false;
     }
 
-    return (value as GameEntry).listType === 'collection' || (value as GameEntry).listType === 'wishlist';
+    return (
+      (value as GameEntry).listType === 'collection' || (value as GameEntry).listType === 'wishlist'
+    );
   }
 
-  private async presentToast(message: string, color: 'primary' | 'danger' = 'primary'): Promise<void> {
+  private async presentToast(
+    message: string,
+    color: 'primary' | 'danger' = 'primary'
+  ): Promise<void> {
     const toast = await this.toastController.create({
       message,
       duration: 1600,
       position: 'bottom',
-      color,
+      color
     });
 
     await toast.present();
@@ -486,7 +538,8 @@ export class ExplorePage implements OnInit {
         await this.loadGamesPage(false);
       }
     } catch (error) {
-      this.errorMessage = error instanceof Error ? error.message : 'Unable to load popularity categories.';
+      this.errorMessage =
+        error instanceof Error ? error.message : 'Unable to load popularity categories.';
       this.popularityTypes = [];
       this.selectedPopularityTypeId = null;
       this.games = [];
@@ -511,8 +564,8 @@ export class ExplorePage implements OnInit {
         this.igdbProxyService.listPopularityGames(
           this.selectedPopularityTypeId,
           ExplorePage.PAGE_SIZE,
-          this.offset,
-        ),
+          this.offset
+        )
       );
 
       this.games = append ? [...this.games, ...items] : items;

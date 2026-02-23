@@ -1,0 +1,26 @@
+# Dependencies
+**/node_modules
+
+# Build output and caches
+.angular
+dist
+www
+coverage
+out-tsc
+tmp
+
+# Test artifacts
+playwright-report
+test-results
+.playwright
+
+# Local/editor/system artifacts
+.DS_Store
+.vscode
+*.log
+
+# Runtime/generated files
+src/assets/runtime-config.js
+
+# Local data directories
+nas-data

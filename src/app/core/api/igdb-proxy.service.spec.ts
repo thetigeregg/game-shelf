@@ -13,7 +13,7 @@ describe('IgdbProxyService', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [IgdbProxyService],
+      providers: [IgdbProxyService]
     });
 
     localStorage.clear();
@@ -33,9 +33,11 @@ describe('IgdbProxyService', () => {
   it('maps API response and sends q query param', async () => {
     const promise = firstValueFrom(service.searchGames('mario'));
 
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/games/search`
-        && request.params.get('q') === 'mario';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/games/search` &&
+        request.params.get('q') === 'mario'
+      );
     });
 
     req.flush({
@@ -48,9 +50,9 @@ describe('IgdbProxyService', () => {
           platforms: ['Nintendo Switch'],
           platform: 'Nintendo Switch',
           releaseDate: '2017-10-27T00:00:00.000Z',
-          releaseYear: 2017,
-        },
-      ],
+          releaseYear: 2017
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -76,18 +78,20 @@ describe('IgdbProxyService', () => {
         platform: 'Nintendo Switch',
         platformIgdbId: null,
         releaseDate: '2017-10-27T00:00:00.000Z',
-        releaseYear: 2017,
-      },
+        releaseYear: 2017
+      }
     ]);
   });
 
   it('includes IGDB platform id in search query params when provided', async () => {
     const promise = firstValueFrom(service.searchGames('mario', 130));
 
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/games/search`
-        && request.params.get('q') === 'mario'
-        && request.params.get('platformIgdbId') === '130';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/games/search` &&
+        request.params.get('q') === 'mario' &&
+        request.params.get('platformIgdbId') === '130'
+      );
     });
 
     req.flush({
@@ -100,9 +104,9 @@ describe('IgdbProxyService', () => {
           platforms: ['Nintendo Switch'],
           platform: 'Nintendo Switch',
           releaseDate: '2017-10-27T00:00:00.000Z',
-          releaseYear: 2017,
-        },
-      ],
+          releaseYear: 2017
+        }
+      ]
     });
 
     await expect(promise).resolves.toHaveLength(1);
@@ -123,8 +127,8 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '9' }),
-      },
+        headers: new HttpHeaders({ 'Retry-After': '9' })
+      }
     );
     await expect(withRetryAfter).rejects.toThrowError('Rate limit exceeded. Retry after 9s.');
 
@@ -145,8 +149,8 @@ describe('IgdbProxyService', () => {
         platforms: ['Nintendo Switch', 'Wii U'],
         platform: null,
         releaseDate: '2017-10-27T00:00:00.000Z',
-        releaseYear: 2017,
-      },
+        releaseYear: 2017
+      }
     });
 
     await expect(promise).resolves.toEqual({
@@ -169,12 +173,12 @@ describe('IgdbProxyService', () => {
       platforms: ['Nintendo Switch', 'Wii U'],
       platformOptions: [
         { id: null, name: 'Nintendo Switch' },
-        { id: null, name: 'Wii U' },
+        { id: null, name: 'Wii U' }
       ],
       platform: null,
       platformIgdbId: null,
       releaseDate: '2017-10-27T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     });
   });
 
@@ -186,20 +190,26 @@ describe('IgdbProxyService', () => {
   });
 
   it('rejects invalid IGDB game ids before HTTP call', async () => {
-    await expect(firstValueFrom(service.getGameById('abc'))).rejects.toThrowError('Unable to refresh game metadata.');
-    httpMock.expectNone(request => request.url.startsWith(`${environment.gameApiBaseUrl}/v1/games/`));
+    await expect(firstValueFrom(service.getGameById('abc'))).rejects.toThrowError(
+      'Unable to refresh game metadata.'
+    );
+    httpMock.expectNone((request) =>
+      request.url.startsWith(`${environment.gameApiBaseUrl}/v1/games/`)
+    );
   });
 
   it('loads platform filters from bundled snapshot without HTTP', async () => {
     const promise = firstValueFrom(service.listPlatforms());
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/platforms`);
 
-    await expect(promise).resolves.toEqual(expect.arrayContaining([
-      { id: 130, name: 'Nintendo Switch' },
-      { id: 6, name: 'PC (Microsoft Windows)' },
-      { id: 167, name: 'PlayStation 5' },
-      { id: 169, name: 'Xbox Series X|S' },
-    ]));
+    await expect(promise).resolves.toEqual(
+      expect.arrayContaining([
+        { id: 130, name: 'Nintendo Switch' },
+        { id: 6, name: 'PC (Microsoft Windows)' },
+        { id: 167, name: 'PlayStation 5' },
+        { id: 169, name: 'Xbox Series X|S' }
+      ])
+    );
   });
 
   it('loads popularity categories', async () => {
@@ -208,23 +218,25 @@ describe('IgdbProxyService', () => {
     req.flush({
       items: [
         { id: 7, name: 'Most visited games on IGDB', externalPopularitySource: 20 },
-        { id: 9, name: 'Most played in the last 24h', externalPopularitySource: 33 },
-      ],
+        { id: 9, name: 'Most played in the last 24h', externalPopularitySource: 33 }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       { id: 9, name: 'Most played in the last 24h', externalPopularitySource: 33 },
-      { id: 7, name: 'Most visited games on IGDB', externalPopularitySource: 20 },
+      { id: 7, name: 'Most visited games on IGDB', externalPopularitySource: 20 }
     ]);
   });
 
   it('loads popularity games with paging params and normalizes payload', async () => {
     const promise = firstValueFrom(service.listPopularityGames(7, 20, 40));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives`
-        && request.params.get('popularityTypeId') === '7'
-        && request.params.get('limit') === '20'
-        && request.params.get('offset') === '40';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives` &&
+        request.params.get('popularityTypeId') === '7' &&
+        request.params.get('limit') === '20' &&
+        request.params.get('offset') === '40'
+      );
     });
 
     req.flush({
@@ -242,10 +254,10 @@ describe('IgdbProxyService', () => {
             platforms: ['Nintendo Switch'],
             platform: 'Nintendo Switch',
             releaseDate: '2017-10-27T00:00:00.000Z',
-            releaseYear: 2017,
-          },
-        },
-      ],
+            releaseYear: 2017
+          }
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -276,9 +288,9 @@ describe('IgdbProxyService', () => {
           platform: 'Nintendo Switch',
           platformIgdbId: null,
           releaseDate: '2017-10-27T00:00:00.000Z',
-          releaseYear: 2017,
-        },
-      },
+          releaseYear: 2017
+        }
+      }
     ]);
   });
 
@@ -289,9 +301,11 @@ describe('IgdbProxyService', () => {
 
   it('maps popularity game endpoint failures to user-safe error', async () => {
     const promise = firstValueFrom(service.listPopularityGames(7, 20, 0));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives`
-        && request.params.get('popularityTypeId') === '7';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives` &&
+        request.params.get('popularityTypeId') === '7'
+      );
     });
 
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
@@ -300,9 +314,11 @@ describe('IgdbProxyService', () => {
 
   it('normalizes popularity payload with invalid and string values', async () => {
     const promise = firstValueFrom(service.listPopularityGames(9, 20, 0));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives`
-        && request.params.get('popularityTypeId') === '9';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives` &&
+        request.params.get('popularityTypeId') === '9'
+      );
     });
 
     req.flush({
@@ -320,8 +336,8 @@ describe('IgdbProxyService', () => {
             platforms: ['Nintendo GameCube'],
             platform: 'Nintendo GameCube',
             releaseDate: null,
-            releaseYear: 2002,
-          },
+            releaseYear: 2002
+          }
         },
         {
           popularityType: 9,
@@ -336,8 +352,8 @@ describe('IgdbProxyService', () => {
             platforms: ['Nintendo GameCube'],
             platform: 'Nintendo GameCube',
             releaseDate: null,
-            releaseYear: 2004,
-          },
+            releaseYear: 2004
+          }
         },
         {
           popularityType: null,
@@ -350,10 +366,10 @@ describe('IgdbProxyService', () => {
             platforms: ['Nintendo GameCube'],
             platform: 'Nintendo GameCube',
             releaseDate: null,
-            releaseYear: 2005,
-          },
-        },
-      ],
+            releaseYear: 2005
+          }
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -361,22 +377,24 @@ describe('IgdbProxyService', () => {
         popularityType: 9,
         value: 333.5,
         calculatedAt: null,
-        game: expect.objectContaining({ igdbGameId: '200' }),
+        game: expect.objectContaining({ igdbGameId: '200' })
       }),
       expect.objectContaining({
         popularityType: 9,
         value: null,
         calculatedAt: null,
-        game: expect.objectContaining({ igdbGameId: '201' }),
-      }),
+        game: expect.objectContaining({ igdbGameId: '201' })
+      })
     ]);
   });
 
   it('searches box art results and normalizes URLs', async () => {
     const promise = firstValueFrom(service.searchBoxArtByTitle('mario'));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/images/boxart/search`
-        && request.params.get('q') === 'mario';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/images/boxart/search` &&
+        request.params.get('q') === 'mario'
+      );
     });
 
     req.flush({
@@ -384,31 +402,33 @@ describe('IgdbProxyService', () => {
         'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
         '   https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg   ',
         'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
-        '/relative/path.jpg',
-      ],
+        '/relative/path.jpg'
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
-      'https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg',
+      'https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg'
     ]);
   });
 
   it('includes platform in box art search query params when provided', async () => {
     const promise = firstValueFrom(service.searchBoxArtByTitle('mario', 'Nintendo Switch', 130));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/images/boxart/search`
-        && request.params.get('q') === 'mario'
-        && request.params.get('platform') === 'Nintendo Switch'
-        && request.params.get('platformIgdbId') === '130';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/images/boxart/search` &&
+        request.params.get('q') === 'mario' &&
+        request.params.get('platform') === 'Nintendo Switch' &&
+        request.params.get('platformIgdbId') === '130'
+      );
     });
 
     req.flush({
-      items: ['https://cdn.thegamesdb.net/images/original/box/front/mario.jpg'],
+      items: ['https://cdn.thegamesdb.net/images/original/box/front/mario.jpg']
     });
 
     await expect(promise).resolves.toEqual([
-      'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
+      'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg'
     ]);
   });
 
@@ -432,8 +452,8 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '15' }),
-      },
+        headers: new HttpHeaders({ 'Retry-After': '15' })
+      }
     );
     await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 15s.');
   });
@@ -463,14 +483,14 @@ describe('IgdbProxyService', () => {
           platformOptions: [
             { id: 130, name: 'Switch' },
             { id: 130, name: 'Switch' },
-            { id: null, name: '' },
+            { id: null, name: '' }
           ],
           platform: 'Switch',
           platformIgdbId: 130,
           releaseDate: 'not-a-date',
-          releaseYear: 2024,
-        },
-      ],
+          releaseYear: 2024
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -496,50 +516,83 @@ describe('IgdbProxyService', () => {
         platform: 'Switch',
         platformIgdbId: 130,
         releaseDate: null,
-        releaseYear: 2024,
-      },
+        releaseYear: 2024
+      }
     ]);
   });
 
   it('looks up HLTB completion times and normalizes the payload', async () => {
     const promise = firstValueFrom(service.lookupCompletionTimes('Super Metroid', 1994, 'SNES'));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`
-        && request.params.get('q') === 'Super Metroid'
-        && request.params.get('releaseYear') === '1994'
-        && request.params.get('platform') === 'SNES';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Super Metroid' &&
+        request.params.get('releaseYear') === '1994' &&
+        request.params.get('platform') === 'SNES'
+      );
     });
 
     req.flush({
       item: {
         hltbMainHours: 7.53,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13.04,
-      },
+        hltbCompletionistHours: 13.04
+      }
     });
 
     await expect(promise).resolves.toEqual({
       hltbMainHours: 7.5,
       hltbMainExtraHours: 10,
-      hltbCompletionistHours: 13,
+      hltbCompletionistHours: 13
     });
   });
 
   it('returns null for HLTB lookup failures', async () => {
     const promise = firstValueFrom(service.lookupCompletionTimes('Super Metroid'));
-    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/hltb/search?q=Super%20Metroid`);
+    const req = httpMock.expectOne(
+      `${environment.gameApiBaseUrl}/v1/hltb/search?q=Super%20Metroid`
+    );
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
     await expect(promise).resolves.toBeNull();
   });
 
+  it('encodes semicolons in HLTB lookup query params', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Chaos;Child', 2014, 'PlayStation Vita')
+    );
+    const req = httpMock.expectOne(
+      (request) =>
+        request.urlWithParams ===
+        `${environment.gameApiBaseUrl}/v1/hltb/search?q=Chaos%3BChild&releaseYear=2014&platform=PlayStation%20Vita`
+    );
+
+    req.flush({
+      item: {
+        hltbMainHours: 40.4,
+        hltbMainExtraHours: 52.2,
+        hltbCompletionistHours: 70.6
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 40.4,
+      hltbMainExtraHours: 52.2,
+      hltbCompletionistHours: 70.6
+    });
+  });
+
   it('looks up HLTB candidates and normalizes candidate payload', async () => {
-    const promise = firstValueFrom(service.lookupCompletionTimeCandidates('Super Metroid', 1994, 'SNES'));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`
-        && request.params.get('q') === 'Super Metroid'
-        && request.params.get('includeCandidates') === 'true'
-        && request.params.get('releaseYear') === '1994'
-        && request.params.get('platform') === 'SNES';
+    const promise = firstValueFrom(
+      service.lookupCompletionTimeCandidates('Super Metroid', 1994, 'SNES')
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Super Metroid' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('releaseYear') === '1994' &&
+        request.params.get('platform') === 'SNES'
+      );
     });
 
     req.flush({
@@ -550,7 +603,7 @@ describe('IgdbProxyService', () => {
           platform: ' SNES ',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 13.04,
+          hltbCompletionistHours: 13.04
         },
         {
           title: 'Super Metroid',
@@ -558,7 +611,7 @@ describe('IgdbProxyService', () => {
           platform: 'SNES',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 13.04,
+          hltbCompletionistHours: 13.04
         },
         {
           title: '',
@@ -566,9 +619,9 @@ describe('IgdbProxyService', () => {
           platform: null,
           hltbMainHours: null,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null,
-        },
-      ],
+          hltbCompletionistHours: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -578,8 +631,8 @@ describe('IgdbProxyService', () => {
         platform: 'SNES',
         hltbMainHours: 7.5,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13,
-      },
+        hltbCompletionistHours: 13
+      }
     ]);
   });
 
@@ -588,10 +641,12 @@ describe('IgdbProxyService', () => {
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/hltb/search`);
 
     const promise = firstValueFrom(service.lookupCompletionTimeCandidates('Super Metroid'));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`
-        && request.params.get('q') === 'Super Metroid'
-        && request.params.get('includeCandidates') === 'true';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Super Metroid' &&
+        request.params.get('includeCandidates') === 'true'
+      );
     });
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
 
@@ -610,7 +665,7 @@ describe('IgdbProxyService', () => {
           coverSource: 'igdb',
           platform: 'Switch',
           releaseDate: null,
-          releaseYear: null,
+          releaseYear: null
         },
         {
           igdbGameId: '2',
@@ -619,29 +674,33 @@ describe('IgdbProxyService', () => {
           coverSource: 'igdb',
           platform: 'Switch',
           releaseDate: null,
-          releaseYear: null,
-        },
-      ],
+          releaseYear: null
+        }
+      ]
     });
 
-    await expect(promise).resolves.toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        igdbGameId: '1',
-        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash.jpg',
-      }),
-      expect.objectContaining({
-        igdbGameId: '2',
-        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash2.jpg',
-      }),
-    ]));
+    await expect(promise).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          igdbGameId: '1',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash.jpg'
+        }),
+        expect.objectContaining({
+          igdbGameId: '2',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash2.jpg'
+        })
+      ])
+    );
   });
 
   it('normalizes hltb candidates with coverUrl fallback and protocol-relative image URL', async () => {
     const promise = firstValueFrom(service.lookupCompletionTimeCandidates('Okami'));
-    const req = httpMock.expectOne(request => {
-      return request.url === `${environment.gameApiBaseUrl}/v1/hltb/search`
-        && request.params.get('q') === 'Okami'
-        && request.params.get('includeCandidates') === 'true';
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
     });
 
     req.flush({
@@ -653,16 +712,16 @@ describe('IgdbProxyService', () => {
           coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
           hltbMainHours: 15,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null,
-        },
-      ],
+          hltbCompletionistHours: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
         title: 'Okami',
-        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
-      }),
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+      })
     ]);
   });
 
@@ -671,11 +730,14 @@ describe('IgdbProxyService', () => {
       loadCachedPlatformList: () => Array<{ id: number; name: string }>;
     };
 
-    localStorage.setItem('game-shelf-platform-list-cache-v1', JSON.stringify([
-      { id: 130, name: ' Nintendo Switch ' },
-      { id: 130, name: 'Nintendo Switch Duplicate' },
-      { id: null, name: 'Invalid' },
-    ]));
+    localStorage.setItem(
+      'game-shelf-platform-list-cache-v1',
+      JSON.stringify([
+        { id: 130, name: ' Nintendo Switch ' },
+        { id: 130, name: 'Nintendo Switch Duplicate' },
+        { id: null, name: 'Invalid' }
+      ])
+    );
 
     expect(privateService.loadCachedPlatformList()).toEqual([{ id: 130, name: 'Nintendo Switch' }]);
 
@@ -696,8 +758,8 @@ describe('IgdbProxyService', () => {
         {
           status: 429,
           statusText: 'Too Many Requests',
-          headers: new HttpHeaders({ 'Retry-After': 'Thu, 12 Feb 2026 00:00:10 GMT' }),
-        },
+          headers: new HttpHeaders({ 'Retry-After': 'Thu, 12 Feb 2026 00:00:10 GMT' })
+        }
       );
 
       await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
@@ -727,8 +789,8 @@ describe('IgdbProxyService', () => {
         {
           status: 429,
           statusText: 'Too Many Requests',
-          headers: new HttpHeaders({ 'Retry-After': 'not-a-date' }),
-        },
+          headers: new HttpHeaders({ 'Retry-After': 'not-a-date' })
+        }
       );
 
       await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
@@ -750,16 +812,16 @@ describe('IgdbProxyService', () => {
           similarGameIgdbIds: ['10', ' 11 ', 'bad', 12, null, '10'],
           platform: 'PS2',
           releaseDate: null,
-          releaseYear: null,
-        },
-      ],
+          releaseYear: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
         igdbGameId: '300',
-        similarGameIgdbIds: ['10', '11', '12'],
-      }),
+        similarGameIgdbIds: ['10', '11', '12']
+      })
     ]);
   });
 

@@ -22,7 +22,10 @@ export class ThemeService {
     this.initializeSystemColorSchemeListener();
 
     const storedColorSchemePreference = this.readStoredColorSchemePreference();
-    this.applyColorSchemePreference(storedColorSchemePreference ?? DEFAULT_COLOR_SCHEME_PREFERENCE, false);
+    this.applyColorSchemePreference(
+      storedColorSchemePreference ?? DEFAULT_COLOR_SCHEME_PREFERENCE,
+      false
+    );
   }
 
   getColorSchemePreference(): ColorSchemePreference {
@@ -112,5 +115,4 @@ export class ThemeService {
       // Ignore storage failures in constrained environments.
     }
   }
-
 }

@@ -14,6 +14,41 @@ async function openFiltersMenu(page: Page): Promise<void> {
   await expect(page.locator('ion-menu .actions ion-button', { hasText: 'Done' })).toBeVisible();
 }
 
+async function closeFiltersMenu(page: Page): Promise<void> {
+  await page.locator('ion-menu .actions ion-button', { hasText: 'Done' }).click();
+  await expect(page.locator('ion-menu .actions ion-button', { hasText: 'Done' })).toBeHidden();
+}
+
+async function setSingleSelectValue(
+  page: Page,
+  selectLabel: 'Sort' | 'Group by',
+  optionLabel: string
+): Promise<void> {
+  const select = page.locator(`ion-menu ion-select[label="${selectLabel}"]`);
+  await select.click();
+
+  const alert = page.locator('ion-alert').last();
+  await expect(alert).toBeVisible();
+  await alert.getByRole('radio', { name: optionLabel }).click();
+  await alert.getByRole('button', { name: 'OK' }).click();
+  await expect(alert).toBeHidden();
+}
+
+async function setMultiSelectValue(
+  page: Page,
+  selectLabel: 'Status',
+  optionLabel: string
+): Promise<void> {
+  const select = page.locator(`ion-menu ion-select[label="${selectLabel}"]`);
+  await select.click();
+
+  const alert = page.locator('ion-alert').last();
+  await expect(alert).toBeVisible();
+  await alert.getByRole('checkbox', { name: optionLabel }).click();
+  await alert.getByRole('button', { name: 'OK' }).click();
+  await expect(alert).toBeHidden();
+}
+
 async function expectPersistedFilterControls(page: Page): Promise<void> {
   const sortSelect = page.locator('ion-menu ion-select[label="Sort"]');
   const groupBySelect = page.locator('ion-menu ion-select[label="Group by"]');
@@ -40,6 +75,28 @@ async function expectPersistedFilterControls(page: Page): Promise<void> {
       releaseDateFrom.evaluate((element) => String((element as { value: unknown }).value))
     )
     .toBe('2020-01-01');
+}
+
+async function expectUiUpdatedFilterControls(page: Page): Promise<void> {
+  const sortSelect = page.locator('ion-menu ion-select[label="Sort"]');
+  const groupBySelect = page.locator('ion-menu ion-select[label="Group by"]');
+  const statusSelect = page.locator('ion-menu ion-select[label="Status"]');
+
+  await expect
+    .poll(async () =>
+      sortSelect.evaluate((element) => String((element as { value: unknown }).value))
+    )
+    .toBe('releaseDate:desc');
+  await expect
+    .poll(async () =>
+      groupBySelect.evaluate((element) => String((element as { value: unknown }).value))
+    )
+    .toBe('publisher');
+  await expect
+    .poll(async () =>
+      statusSelect.evaluate((element) => JSON.stringify((element as { value: unknown }).value))
+    )
+    .toContain('playing');
 }
 
 test('collection page loads core controls', async ({ page }) => {
@@ -132,4 +189,22 @@ test('restores persisted sort/group/filter controls after reload', async ({ page
 
   await openFiltersMenu(page);
   await expectPersistedFilterControls(page);
+});
+
+test('persists sort/group/filter changes made from UI after reload', async ({ page }) => {
+  await page.goto('/tabs/collection');
+  await dismissVersionAlertIfPresent(page);
+
+  await openFiltersMenu(page);
+
+  await setSingleSelectValue(page, 'Sort', 'Release date ↓');
+  await setSingleSelectValue(page, 'Group by', 'Publisher');
+  await setMultiSelectValue(page, 'Status', 'Playing');
+
+  await closeFiltersMenu(page);
+  await page.reload();
+  await dismissVersionAlertIfPresent(page);
+
+  await openFiltersMenu(page);
+  await expectUiUpdatedFilterControls(page);
 });

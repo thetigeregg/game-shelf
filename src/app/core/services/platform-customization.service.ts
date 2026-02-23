@@ -28,6 +28,18 @@ export class PlatformCustomizationService {
 
     return map;
   }, new Map<number, string>());
+  private readonly platformIdByName = PLATFORM_CATALOG.reduce((map, entry) => {
+    const platformId =
+      typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0 ? entry.id : null;
+    const platformName = String(entry.name ?? '').trim();
+    const platformKey = this.normalizePlatformKey(platformName);
+
+    if (platformId !== null && platformKey.length > 0 && !map.has(platformKey)) {
+      map.set(platformKey, platformId);
+    }
+
+    return map;
+  }, new Map<string, number>());
   private readonly displayNamesSubject = new BehaviorSubject<PlatformDisplayNameMap>(
     this.loadFromStorage()
   );
@@ -116,6 +128,28 @@ export class PlatformCustomizationService {
     }
 
     return `${canonicalLabel} (${sourceLabel})`;
+  }
+
+  resolveCanonicalPlatformIgdbId(
+    platformName: string | null | undefined,
+    platformIgdbId: number | null | undefined
+  ): number | null {
+    const normalizedId = this.normalizePlatformIgdbId(platformIgdbId);
+
+    if (normalizedId !== null) {
+      const platformNameFromId = this.platformNameById.get(normalizedId) ?? '';
+      const aliasedFromId = this.getAliasedPlatformName(platformNameFromId);
+      const canonicalIdFromId =
+        this.platformIdByName.get(this.normalizePlatformKey(aliasedFromId)) ?? null;
+
+      if (canonicalIdFromId !== null) {
+        return canonicalIdFromId;
+      }
+    }
+
+    const fallbackName = String(platformName ?? '').trim();
+    const aliasedFallbackName = this.getAliasedPlatformName(fallbackName);
+    return this.platformIdByName.get(this.normalizePlatformKey(aliasedFallbackName)) ?? null;
   }
 
   private getCanonicalCustomName(canonicalPlatformName: string): string | null {

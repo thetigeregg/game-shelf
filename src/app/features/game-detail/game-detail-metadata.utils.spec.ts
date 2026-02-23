@@ -12,4 +12,8 @@ describe('game-detail metadata utils', () => {
   it('prevents opening metadata filter outside library context', () => {
     expect(canOpenMetadataFilter(false, ['RPG'])).toBe(false);
   });
+
+  it('prevents opening metadata filter when metadata is not an array', () => {
+    expect(canOpenMetadataFilter(true, undefined)).toBe(false);
+  });
 });

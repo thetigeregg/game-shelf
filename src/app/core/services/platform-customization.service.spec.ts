@@ -30,7 +30,6 @@ const PLATFORM_ALIAS_CASES: Array<{
   },
   { source: 'New Nintendo 3DS', id: 137, canonical: 'Nintendo 3DS', canonicalId: 37 },
   { source: 'Nintendo DSi', id: 159, canonical: 'Nintendo DS', canonicalId: 20 },
-  { source: 'e-Reader', id: null, canonical: 'Game Boy Advance', canonicalId: 24 },
   { source: 'e-Reader / Card-e Reader', id: 510, canonical: 'Game Boy Advance', canonicalId: 24 }
 ];
 
@@ -88,10 +87,6 @@ describe('PlatformCustomizationService', () => {
     const service = TestBed.inject(PlatformCustomizationService);
 
     for (const testCase of PLATFORM_ALIAS_CASES) {
-      if (testCase.id === null) {
-        continue;
-      }
-
       expect(service.getDisplayNameWithAliasSource(testCase.source, testCase.id)).toBe(
         `${testCase.canonical} (${testCase.source})`
       );
@@ -119,10 +114,6 @@ describe('PlatformCustomizationService', () => {
     const service = TestBed.inject(PlatformCustomizationService);
 
     for (const testCase of PLATFORM_ALIAS_CASES) {
-      if (testCase.id === null) {
-        continue;
-      }
-
       expect(service.getDisplayNameWithoutAlias(testCase.source, testCase.id)).toBe(
         testCase.source
       );

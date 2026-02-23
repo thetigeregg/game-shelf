@@ -208,3 +208,21 @@ test('persists sort/group/filter changes made from UI after reload', async ({ pa
   await openFiltersMenu(page);
   await expectUiUpdatedFilterControls(page);
 });
+
+test('persists sort/group/filter changes on wishlist after reload', async ({ page }) => {
+  await page.goto('/tabs/wishlist');
+  await dismissVersionAlertIfPresent(page);
+
+  await openFiltersMenu(page);
+
+  await setSingleSelectValue(page, 'Sort', 'Release date ↓');
+  await setSingleSelectValue(page, 'Group by', 'Publisher');
+  await setMultiSelectValue(page, 'Status', 'Playing');
+
+  await closeFiltersMenu(page);
+  await page.reload();
+  await dismissVersionAlertIfPresent(page);
+
+  await openFiltersMenu(page);
+  await expectUiUpdatedFilterControls(page);
+});

@@ -1,35 +1,11 @@
-import { GameDetailContentComponent } from './game-detail-content.component';
+import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 
-describe('GameDetailContentComponent genre metadata click', () => {
-  it('emits genreClick in library context when genres are present', () => {
-    const genreClick = { emit: vi.fn() };
-    const componentLike = {
-      context: 'library',
-      game: {
-        genres: [' Action ']
-      },
-      genreClick,
-      hasMetadataValue: GameDetailContentComponent.prototype.hasMetadataValue
-    };
-
-    GameDetailContentComponent.prototype.onGenreClick.call(componentLike);
-
-    expect(genreClick.emit).toHaveBeenCalledTimes(1);
+describe('game detail metadata interactions', () => {
+  it('opens genre metadata filter in library context when genres are present', () => {
+    expect(canOpenMetadataFilter(true, [' Action '])).toBe(true);
   });
 
-  it('does not emit genreClick when no genre metadata is available', () => {
-    const genreClick = { emit: vi.fn() };
-    const componentLike = {
-      context: 'library',
-      game: {
-        genres: [' ', '']
-      },
-      genreClick,
-      hasMetadataValue: GameDetailContentComponent.prototype.hasMetadataValue
-    };
-
-    GameDetailContentComponent.prototype.onGenreClick.call(componentLike);
-
-    expect(genreClick.emit).not.toHaveBeenCalled();
+  it('does not open genre metadata filter when genre metadata is missing', () => {
+    expect(canOpenMetadataFilter(true, [' ', ''])).toBe(false);
   });
 });

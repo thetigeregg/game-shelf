@@ -1,39 +1,39 @@
-import { GameListComponent } from './game-list.component';
+import { DEFAULT_GAME_LIST_FILTERS } from '../../core/models/game.models';
+import {
+  applyMetadataSelectionToFilters,
+  getMetadataSelectionTitle,
+  getMetadataSelectionValues
+} from './metadata-filter.utils';
 
-describe('GameListComponent genre metadata selection', () => {
-  it('opens genre selector from detail when a selected game exists', () => {
-    const openMetadataFilterSelection = vi.fn().mockResolvedValue(undefined);
-    const selectedGame = {
-      genres: ['RPG']
-    };
-    const componentLike = {
-      selectedGame,
-      onGenreItemClick: GameListComponent.prototype.onGenreItemClick,
-      openMetadataFilterSelection
-    };
-
-    GameListComponent.prototype.onDetailGenreClick.call(componentLike);
-
-    expect(openMetadataFilterSelection).toHaveBeenCalledWith('genre', ['RPG'], 'Select Genre');
+describe('game list metadata filter selection', () => {
+  it('returns genre selector title and values', () => {
+    expect(getMetadataSelectionTitle('genre')).toBe('Select Genre');
+    expect(
+      getMetadataSelectionValues(
+        {
+          collections: ['Series'],
+          developers: ['Dev'],
+          franchises: ['Franchise'],
+          genres: ['RPG'],
+          publishers: ['Pub']
+        },
+        'genre'
+      )
+    ).toEqual(['RPG']);
   });
 
-  it('emits a normalized genre metadata filter selection', () => {
-    const closeGameDetailModal = vi.fn();
-    const emit = vi.fn();
-    const componentLike = {
-      closeGameDetailModal,
-      metadataFilterSelected: {
-        emit
-      }
-    };
-
-    (GameListComponent.prototype as any).applyMetadataFilterSelection.call(
-      componentLike,
-      'genre',
-      '  Action  '
-    );
-
-    expect(closeGameDetailModal).toHaveBeenCalledTimes(1);
-    expect(emit).toHaveBeenCalledWith({ kind: 'genre', value: 'Action' });
+  it('normalizes and applies selected genre filter', () => {
+    expect(
+      applyMetadataSelectionToFilters(
+        {
+          kind: 'genre',
+          value: '  Action  '
+        },
+        DEFAULT_GAME_LIST_FILTERS
+      )
+    ).toEqual({
+      ...DEFAULT_GAME_LIST_FILTERS,
+      genres: ['Action']
+    });
   });
 });

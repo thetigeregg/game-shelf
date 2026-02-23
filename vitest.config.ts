@@ -19,7 +19,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage/app',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'lcov'],
       exclude: ['src/app/core/services/debug-log.service.ts'],
       thresholds: {
         statements: 80,

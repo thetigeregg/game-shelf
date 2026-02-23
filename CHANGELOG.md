@@ -737,3 +737,9 @@
 - f102875 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
 - bada9be chore(deps): bump @types/node from 22.19.10 to 22.19.11
 
+## v0.1.16 - 2026-02-23
+- 55a4f10 Merge pull request #76 from thetigeregg/dependabot/npm_and_yarn/capacitor/cli-8.1.0
+- 6b66dd8 chore(deps): update @capacitor/core to 8.1.0 and @capacitor/status-bar to 8.0.1
+- 8748f40 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
+- a8d4d9e chore(deps): bump @capacitor/cli from 8.0.2 to 8.1.0
+

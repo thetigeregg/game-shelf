@@ -748,3 +748,7 @@
 - 1d846a4 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
 - 20528ba chore(deps): bump zone.js from 0.15.1 to 0.16.1
 
+## v0.1.18 - 2026-02-23
+- c59efff Merge pull request #78 from thetigeregg/codex/move-device-write-token-to
+- 95c06d3 Relocate device write token section
+

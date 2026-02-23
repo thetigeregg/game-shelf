@@ -13,6 +13,11 @@ describe('list-page-preferences', () => {
     expect(parseListPagePreferences('  ', '__none__')).toBeNull();
   });
 
+  it('returns null when stored preferences are invalid JSON or non-object JSON', () => {
+    expect(parseListPagePreferences('{bad-json', '__none__')).toBeNull();
+    expect(parseListPagePreferences('123', '__none__')).toBeNull();
+  });
+
   it('parses legacy sort/group preference shape', () => {
     const parsed = parseListPagePreferences(
       JSON.stringify({
@@ -74,6 +79,11 @@ describe('list-page-preferences', () => {
       releaseDateFrom: '2025-02-01',
       releaseDateTo: null
     });
+  });
+
+  it('falls back to defaults when stored filters are not an object', () => {
+    const normalized = normalizeListPageStoredFilters(null, '__none__');
+    expect(normalized).toEqual(DEFAULT_GAME_LIST_FILTERS);
   });
 
   it('serializes and restores preferences without dropping filters', () => {

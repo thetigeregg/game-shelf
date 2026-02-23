@@ -47,6 +47,12 @@ import {
   normalizeStringList,
   normalizeTagFilterList
 } from '../core/utils/game-filter-utils';
+import {
+  normalizeListPageGroupBy,
+  normalizeListPageStoredFilters,
+  parseListPagePreferences,
+  serializeListPagePreferences
+} from './list-page-preferences';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -653,32 +659,17 @@ export class ListPageComponent {
 
   private restorePreferences(): void {
     try {
-      const raw = localStorage.getItem(this.preferenceStorageKey);
+      const preferences = parseListPagePreferences(
+        localStorage.getItem(this.preferenceStorageKey),
+        this.noneTagFilterValue
+      );
 
-      if (!raw) {
+      if (!preferences) {
         return;
       }
 
-      const parsed = JSON.parse(raw) as Partial<{
-        sortField: GameListFilters['sortField'];
-        sortDirection: GameListFilters['sortDirection'];
-        groupBy: GameGroupByField;
-      }>;
-
-      const sortField = this.isValidSortField(parsed.sortField)
-        ? parsed.sortField
-        : DEFAULT_GAME_LIST_FILTERS.sortField;
-      const sortDirection = parsed.sortDirection === 'desc' ? 'desc' : 'asc';
-      const validGroupByValues = this.groupByOptions.map((option) => option.value);
-      const groupBy =
-        parsed.groupBy && validGroupByValues.includes(parsed.groupBy) ? parsed.groupBy : 'none';
-
-      this.filters = {
-        ...this.filters,
-        sortField,
-        sortDirection
-      };
-      this.groupBy = groupBy;
+      this.filters = preferences.filters;
+      this.groupBy = preferences.groupBy;
     } catch {
       // Ignore invalid or unavailable storage and keep defaults.
     }
@@ -688,9 +679,8 @@ export class ListPageComponent {
     try {
       localStorage.setItem(
         this.preferenceStorageKey,
-        JSON.stringify({
-          sortField: this.filters.sortField,
-          sortDirection: this.filters.sortDirection,
+        serializeListPagePreferences({
+          filters: this.filters,
           groupBy: this.groupBy
         })
       );
@@ -719,11 +709,8 @@ export class ListPageComponent {
         return;
       }
 
-      this.filters = {
-        ...DEFAULT_GAME_LIST_FILTERS,
-        ...view.filters
-      };
-      this.groupBy = view.groupBy;
+      this.filters = normalizeListPageStoredFilters(view.filters, this.noneTagFilterValue);
+      this.groupBy = normalizeListPageGroupBy(view.groupBy);
       this.listSearchQueryInput = '';
       this.listSearchQuery = '';
       this.persistPreferences();

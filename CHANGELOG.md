@@ -774,3 +774,11 @@
 - 95dc007 Restrict manual buttons to whitelis
 - 8a9770c Whitelist platforms for buttons
 
+## v0.1.22 - 2026-02-23
+- 41ea9cc Merge pull request #82 from thetigeregg/codex/document-game-detail-filtering
+- 7c8267b Add genre metadata filter coverage
+- 3738e7d Add genre metadata filtering
+- c951f63 Merge branch 'main' into codex/document-game-detail-filtering
+- 0b0d88b Add genre filter trigger on detail
+- 8d414c9 Add genre filter navigation
+

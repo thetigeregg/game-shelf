@@ -183,7 +183,10 @@ export const config: AppConfig = {
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
-  firebaseServiceAccountJson: readEnv('FIREBASE_SERVICE_ACCOUNT_JSON', ''),
+  firebaseServiceAccountJson: readSecretFile(
+    'FIREBASE_SERVICE_ACCOUNT_JSON',
+    'firebase_service_account_json'
+  ),
   releaseMonitorEnabled: readBooleanEnv('RELEASE_MONITOR_ENABLED', true),
   releaseMonitorIntervalSeconds: readIntegerEnv('RELEASE_MONITOR_INTERVAL_SECONDS', 900),
   releaseMonitorBatchSize: readIntegerEnv('RELEASE_MONITOR_BATCH_SIZE', 100),

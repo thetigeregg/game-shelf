@@ -109,6 +109,12 @@ import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
+import {
+  MetadataFilterKind,
+  MetadataFilterSelection,
+  getMetadataSelectionTitle,
+  getMetadataSelectionValues
+} from './metadata-filter.utils';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -134,13 +140,6 @@ export interface GameListSelectionState {
   active: boolean;
   selectedCount: number;
   allDisplayedSelected: boolean;
-}
-
-export type MetadataFilterKind = 'series' | 'developer' | 'franchise' | 'publisher';
-
-export interface MetadataFilterSelection {
-  kind: MetadataFilterKind;
-  value: string;
 }
 
 @Component({
@@ -836,19 +835,43 @@ export class GameListComponent implements OnChanges {
   }
 
   onSeriesItemClick(game: GameEntry): void {
-    void this.openMetadataFilterSelection('series', game.collections, 'Select Series');
+    void this.openMetadataFilterSelection(
+      'series',
+      getMetadataSelectionValues(game, 'series'),
+      getMetadataSelectionTitle('series')
+    );
   }
 
   onDeveloperItemClick(game: GameEntry): void {
-    void this.openMetadataFilterSelection('developer', game.developers, 'Select Developer');
+    void this.openMetadataFilterSelection(
+      'developer',
+      getMetadataSelectionValues(game, 'developer'),
+      getMetadataSelectionTitle('developer')
+    );
   }
 
   onFranchiseItemClick(game: GameEntry): void {
-    void this.openMetadataFilterSelection('franchise', game.franchises, 'Select Franchise');
+    void this.openMetadataFilterSelection(
+      'franchise',
+      getMetadataSelectionValues(game, 'franchise'),
+      getMetadataSelectionTitle('franchise')
+    );
   }
 
   onPublisherItemClick(game: GameEntry): void {
-    void this.openMetadataFilterSelection('publisher', game.publishers, 'Select Publisher');
+    void this.openMetadataFilterSelection(
+      'publisher',
+      getMetadataSelectionValues(game, 'publisher'),
+      getMetadataSelectionTitle('publisher')
+    );
+  }
+
+  onGenreItemClick(game: GameEntry): void {
+    void this.openMetadataFilterSelection(
+      'genre',
+      getMetadataSelectionValues(game, 'genre'),
+      getMetadataSelectionTitle('genre')
+    );
   }
 
   onDetailDeveloperClick(): void {
@@ -872,6 +895,12 @@ export class GameListComponent implements OnChanges {
   onDetailPublisherClick(): void {
     if (this.selectedGame) {
       this.onPublisherItemClick(this.selectedGame);
+    }
+  }
+
+  onDetailGenreClick(): void {
+    if (this.selectedGame) {
+      this.onGenreItemClick(this.selectedGame);
     }
   }
 

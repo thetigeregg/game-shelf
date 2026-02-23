@@ -743,3 +743,8 @@
 - 8748f40 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
 - a8d4d9e chore(deps): bump @capacitor/cli from 8.0.2 to 8.1.0
 
+## v0.1.17 - 2026-02-23
+- e78b80a Merge pull request #77 from thetigeregg/dependabot/npm_and_yarn/zone.js-0.16.1
+- 1d846a4 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
+- 20528ba chore(deps): bump zone.js from 0.15.1 to 0.16.1
+

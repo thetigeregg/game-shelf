@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test ./test/*.test.mjs",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 ./test/*.test.mjs"
+    "test:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 --test-reporter=spec --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=coverage/lcov.info ./test/*.test.mjs && node ../scripts/coverage/normalize-lcov-paths.mjs coverage/lcov.info worker"
   }
 }

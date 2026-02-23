@@ -149,6 +149,13 @@ describe('PlatformCustomizationService', () => {
     expect(service.resolveCanonicalPlatformIgdbId('totally unknown platform', null)).toBeNull();
   });
 
+  it('returns null canonical platform id for empty platform input', () => {
+    const service = TestBed.inject(PlatformCustomizationService);
+
+    expect(service.resolveCanonicalPlatformIgdbId('', null)).toBeNull();
+    expect(service.resolveCanonicalPlatformIgdbId(null, null)).toBeNull();
+  });
+
   it('removes custom display names when set to empty', () => {
     const service = TestBed.inject(PlatformCustomizationService);
     service.setCustomName(130, 'Switch');

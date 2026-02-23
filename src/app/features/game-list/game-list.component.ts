@@ -207,6 +207,10 @@ export class GameListComponent implements OnChanges {
   private static readonly MAX_CUSTOM_COVER_QUALITY = 0.98;
   private static readonly CUSTOM_COVER_QUALITY_STEPS = 8;
   private static readonly CUSTOM_COVER_SCALE_FACTORS = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
+  private static readonly MANUAL_SHORTCUT_PLATFORM_WHITELIST = new Set<number>([
+    4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
+    5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120
+  ]);
 
   readonly noneTagFilterValue = '__none__';
   readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
@@ -1746,11 +1750,15 @@ export class GameListComponent implements OnChanges {
   }
 
   get shouldShowOpenManualButton(): boolean {
-    return this.manualResolvedUrl !== null;
+    return this.manualResolvedUrl !== null && this.canShowManualButtonsForSelectedGame();
   }
 
   get shouldShowFindManualButton(): boolean {
     if (!this.selectedGame) {
+      return false;
+    }
+
+    if (!this.canShowManualButtonsForSelectedGame()) {
       return false;
     }
 
@@ -2506,6 +2514,26 @@ export class GameListComponent implements OnChanges {
       .getDisplayNameWithoutAlias(platform, platformIgdbId)
       .trim();
     return label.length > 0 ? label : 'Unknown platform';
+  }
+
+  private canShowManualButtonsForSelectedGame(): boolean {
+    const game = this.selectedGame;
+
+    if (!game) {
+      return false;
+    }
+
+    const displayPlatform = this.getGameDisplayPlatform(game);
+    const canonicalPlatformIgdbId =
+      this.platformCustomizationService.resolveCanonicalPlatformIgdbId(
+        displayPlatform.name,
+        displayPlatform.igdbId
+      );
+
+    return (
+      canonicalPlatformIgdbId !== null &&
+      GameListComponent.MANUAL_SHORTCUT_PLATFORM_WHITELIST.has(canonicalPlatformIgdbId)
+    );
   }
 
   private normalizeFilterHours(value: number | null | undefined): number | null {

@@ -10,7 +10,8 @@ ion-content::part(scroll) {
 
 app-game-list {
   --game-list-bottom-inset: calc(
-    var(--game-shelf-tab-bar-height, 56px) + var(--ion-safe-area-bottom, env(safe-area-inset-bottom))
+    var(--game-shelf-tab-bar-height, 56px) +
+      var(--ion-safe-area-bottom, env(safe-area-inset-bottom))
   );
   flex: 1 1 auto;
   min-height: 0;
@@ -41,11 +42,6 @@ app-game-list {
   color: var(--ion-color-dark);
   opacity: 0.95;
   line-height: 1.1;
-}
-
-ion-fab {
-  margin-bottom: 12px;
-  margin-right: 8px;
 }
 
 ion-header ion-button {

@@ -3,8 +3,14 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
-import { GameEntry, ManualCandidate, ManualOverrideMap, ManualResolveResult } from '../models/game.models';
+import {
+  GameEntry,
+  ManualCandidate,
+  ManualOverrideMap,
+  ManualResolveResult
+} from '../models/game.models';
 
 interface ResolveManualApiResponse {
   status?: unknown;
@@ -24,35 +30,50 @@ export const MANUAL_OVERRIDES_STORAGE_KEY = 'game-shelf:manual-overrides-v1';
 
 @Injectable({ providedIn: 'root' })
 export class ManualService {
+  private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
   private readonly httpClient = inject(HttpClient);
-  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
+  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
+    optional: true
+  });
   private readonly apiBaseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private readonly manualsBaseUrl = this.normalizeBaseUrl(environment.manualsBaseUrl);
   private readonly resolveManualUrl = `${this.apiBaseUrl}/v1/manuals/resolve`;
   private readonly searchManualsUrl = `${this.apiBaseUrl}/v1/manuals/search`;
 
-  resolveManual(game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId' | 'title'>, preferredRelativePath?: string | null): Observable<ManualResolveResult> {
+  resolveManual(
+    game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId' | 'title'>,
+    preferredRelativePath?: string | null
+  ): Observable<ManualResolveResult> {
     const params = this.buildResolveParams(game, preferredRelativePath);
 
     return this.httpClient.get<ResolveManualApiResponse>(this.resolveManualUrl, { params }).pipe(
-      map(response => this.normalizeResolveResponse(response)),
-      catchError(() => of({
-        status: 'none' as const,
-        candidates: [],
-        unavailable: true,
-        reason: 'Unable to resolve manuals right now.',
-      })),
+      map((response) => this.normalizeResolveResponse(response)),
+      catchError(() =>
+        of({
+          status: 'none' as const,
+          candidates: [],
+          unavailable: true,
+          reason: 'Unable to resolve manuals right now.'
+        })
+      )
     );
   }
 
-  searchManuals(platformIgdbId: number, query: string): Observable<{ items: ManualCandidate[]; unavailable: boolean; reason: string | null }> {
-    const normalizedPlatformId = Number.isInteger(platformIgdbId) && platformIgdbId > 0 ? platformIgdbId : null;
+  searchManuals(
+    platformIgdbId: number,
+    query: string
+  ): Observable<{ items: ManualCandidate[]; unavailable: boolean; reason: string | null }> {
+    const normalizedPlatformId =
+      Number.isInteger(platformIgdbId) && platformIgdbId > 0 ? platformIgdbId : null;
 
     if (normalizedPlatformId === null) {
       return of({ items: [], unavailable: false, reason: null });
     }
 
-    let params = new HttpParams().set('platformIgdbId', String(normalizedPlatformId));
+    let params = new HttpParams({ encoder: ManualService.STRICT_HTTP_PARAM_ENCODER }).set(
+      'platformIgdbId',
+      String(normalizedPlatformId)
+    );
     const normalizedQuery = query.trim();
 
     if (normalizedQuery.length > 0) {
@@ -60,36 +81,47 @@ export class ManualService {
     }
 
     return this.httpClient.get<SearchManualsApiResponse>(this.searchManualsUrl, { params }).pipe(
-      map(response => {
+      map((response) => {
         const rawUnavailable = response?.unavailable;
         const unavailable = rawUnavailable === true;
-        const reason = typeof response?.reason === 'string' && response.reason.trim().length > 0 ? response.reason.trim() : null;
+        const reason =
+          typeof response?.reason === 'string' && response.reason.trim().length > 0
+            ? response.reason.trim()
+            : null;
         return {
           items: this.normalizeCandidateList(response?.items),
           unavailable,
-          reason,
+          reason
         };
       }),
-      catchError(() => of({
-        items: [],
-        unavailable: true,
-        reason: 'Unable to search manuals right now.',
-      })),
+      catchError(() =>
+        of({
+          items: [],
+          unavailable: true,
+          reason: 'Unable to search manuals right now.'
+        })
+      )
     );
   }
 
-  getOverride(game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId'>): { relativePath: string; updatedAt: string } | null {
+  getOverride(
+    game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId'>
+  ): { relativePath: string; updatedAt: string } | null {
     const key = this.getGameIdentityKey(game);
     const map = this.readOverridesFromStorage();
     const entry = map[key];
 
-    if (!entry || typeof entry.relativePath !== 'string' || entry.relativePath.trim().length === 0) {
+    if (
+      !entry ||
+      typeof entry.relativePath !== 'string' ||
+      entry.relativePath.trim().length === 0
+    ) {
       return null;
     }
 
     return {
       relativePath: entry.relativePath.trim(),
-      updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : new Date().toISOString(),
+      updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : new Date().toISOString()
     };
   }
 
@@ -104,7 +136,7 @@ export class ManualService {
     const nextMap = this.readOverridesFromStorage();
     nextMap[key] = {
       relativePath: normalizedPath,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
     this.persistOverrides(nextMap);
   }
@@ -125,12 +157,16 @@ export class ManualService {
     return `${String(game.igdbGameId ?? '').trim()}::${String(game.platformIgdbId ?? '').trim()}`;
   }
 
-  private buildResolveParams(game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId' | 'title'>, preferredRelativePath?: string | null): HttpParams {
+  private buildResolveParams(
+    game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId' | 'title'>,
+    preferredRelativePath?: string | null
+  ): HttpParams {
     const normalizedGameId = String(game.igdbGameId ?? '').trim();
-    const normalizedPlatformId = Number.isInteger(game.platformIgdbId) && game.platformIgdbId > 0 ? game.platformIgdbId : null;
+    const normalizedPlatformId =
+      Number.isInteger(game.platformIgdbId) && game.platformIgdbId > 0 ? game.platformIgdbId : null;
     const normalizedTitle = String(game.title ?? '').trim();
 
-    let params = new HttpParams()
+    let params = new HttpParams({ encoder: ManualService.STRICT_HTTP_PARAM_ENCODER })
       .set('igdbGameId', normalizedGameId)
       .set('platformIgdbId', normalizedPlatformId === null ? '' : String(normalizedPlatformId))
       .set('title', normalizedTitle);
@@ -150,9 +186,9 @@ export class ManualService {
     const source = (response?.bestMatch as { source?: unknown } | undefined)?.source;
     const bestMatch = bestMatchRaw
       ? {
-        ...bestMatchRaw,
-        source: source === 'override' ? 'override' as const : 'fuzzy' as const,
-      }
+          ...bestMatchRaw,
+          source: source === 'override' ? ('override' as const) : ('fuzzy' as const)
+        }
       : null;
 
     return {
@@ -160,7 +196,10 @@ export class ManualService {
       bestMatch,
       candidates,
       unavailable: response?.unavailable === true,
-      reason: typeof response?.reason === 'string' && response.reason.trim().length > 0 ? response.reason.trim() : null,
+      reason:
+        typeof response?.reason === 'string' && response.reason.trim().length > 0
+          ? response.reason.trim()
+          : null
     };
   }
 
@@ -170,7 +209,7 @@ export class ManualService {
     }
 
     return value
-      .map(item => this.normalizeCandidate(item))
+      .map((item) => this.normalizeCandidate(item))
       .filter((item): item is ManualCandidate => item !== null);
   }
 
@@ -183,12 +222,21 @@ export class ManualService {
     const platformIgdbId = Number.parseInt(String(candidate['platformIgdbId'] ?? ''), 10);
     const fileName = String(candidate['fileName'] ?? '').trim();
     const relativePath = this.normalizeRelativePath(candidate['relativePath']);
-    const scoreValue = typeof candidate['score'] === 'number' && Number.isFinite(candidate['score']) ? candidate['score'] : 0;
+    const scoreValue =
+      typeof candidate['score'] === 'number' && Number.isFinite(candidate['score'])
+        ? candidate['score']
+        : 0;
     const score = Number(Math.max(0, Math.min(1, scoreValue)).toFixed(4));
     const rawUrl = typeof candidate['url'] === 'string' ? candidate['url'].trim() : '';
     const url = rawUrl.length > 0 ? rawUrl : this.buildManualUrl(relativePath);
 
-    if (!Number.isInteger(platformIgdbId) || platformIgdbId <= 0 || fileName.length === 0 || relativePath.length === 0 || url.length === 0) {
+    if (
+      !Number.isInteger(platformIgdbId) ||
+      platformIgdbId <= 0 ||
+      fileName.length === 0 ||
+      relativePath.length === 0 ||
+      url.length === 0
+    ) {
       return null;
     }
 
@@ -197,7 +245,7 @@ export class ManualService {
       fileName,
       relativePath,
       score,
-      url,
+      url
     };
   }
 
@@ -209,10 +257,10 @@ export class ManualService {
     const parts = value
       .replace(/\\/g, '/')
       .split('/')
-      .map(part => part.trim())
-      .filter(part => part.length > 0 && part !== '.');
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0 && part !== '.');
 
-    if (parts.length === 0 || parts.some(part => part === '..')) {
+    if (parts.length === 0 || parts.some((part) => part === '..')) {
       return '';
     }
 
@@ -222,7 +270,7 @@ export class ManualService {
   private buildManualUrl(relativePath: string): string {
     const encodedPath = relativePath
       .split('/')
-      .map(segment => encodeURIComponent(segment))
+      .map((segment) => encodeURIComponent(segment))
       .join('/');
     return `${this.manualsBaseUrl}/${encodedPath}`;
   }
@@ -248,9 +296,10 @@ export class ManualService {
 
         const entry = value as Record<string, unknown>;
         const relativePath = this.normalizeRelativePath(entry['relativePath']);
-        const updatedAt = typeof entry['updatedAt'] === 'string' && entry['updatedAt'].trim().length > 0
-          ? entry['updatedAt']
-          : new Date().toISOString();
+        const updatedAt =
+          typeof entry['updatedAt'] === 'string' && entry['updatedAt'].trim().length > 0
+            ? entry['updatedAt']
+            : new Date().toISOString();
 
         if (!relativePath) {
           return;
@@ -299,8 +348,8 @@ export class ManualService {
       operation: 'upsert',
       payload: {
         key: MANUAL_OVERRIDES_STORAGE_KEY,
-        value: serializedValue,
-      },
+        value: serializedValue
+      }
     });
   }
 
@@ -313,8 +362,8 @@ export class ManualService {
       entityType: 'setting',
       operation: 'delete',
       payload: {
-        key: MANUAL_OVERRIDES_STORAGE_KEY,
-      },
+        key: MANUAL_OVERRIDES_STORAGE_KEY
+      }
     });
   }
 

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
@@ -18,6 +19,27 @@ function readRequiredEnv(name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
 
+  return value;
+}
+
+function readSecretFile(name: string, fallbackSecretName: string): string {
+  const filePath = readEnv(`${name}_FILE`, `/run/secrets/${fallbackSecretName}`);
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      return fs.readFileSync(filePath, 'utf8').trim();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Unable to read ${name}_FILE: ${message}`);
+    }
+  }
+  return '';
+}
+
+function readRequiredSecretFile(name: string, fallbackSecretName: string): string {
+  const value = readSecretFile(name, fallbackSecretName);
+  if (!value) {
+    throw new Error(`Missing required secret file for ${name} (${name}_FILE)`);
+  }
   return value;
 }
 
@@ -53,10 +75,20 @@ export interface AppConfig {
   host: string;
   port: number;
   requestBodyLimitBytes: number;
-  corsOrigin: string;
+  corsAllowedOrigins: string[];
   postgresUrl: string;
+  apiToken: string;
+  clientWriteTokens: string[];
+  requireAuth: boolean;
   imageCacheDir: string;
   imageCacheTtlSeconds: number;
+  imageProxyTimeoutMs: number;
+  imageProxyMaxBytes: number;
+  imageProxyRateLimitWindowMs: number;
+  imageProxyMaxRequestsPerWindow: number;
+  imagePurgeMaxRequestsPerWindow: number;
+  cacheStatsRateLimitWindowMs: number;
+  cacheStatsMaxRequestsPerWindow: number;
   twitchClientId: string;
   twitchClientSecret: string;
   theGamesDbApiKey: string;
@@ -76,6 +108,23 @@ export interface AppConfig {
   hltbPeriodicRefreshDays: number;
 }
 
+function readTokenList(name: string, fallbackSecretName: string): string[] {
+  const source = readSecretFile(name, fallbackSecretName);
+
+  if (!source) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      source
+        .split(/[\r\n,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  ];
+}
+
 function readPathEnv(name: string, fallbackAbsolutePath: string): string {
   const value = readEnv(name);
 
@@ -90,24 +139,50 @@ function readPathEnv(name: string, fallbackAbsolutePath: string): string {
   return path.resolve(serverRootDir, value);
 }
 
+function readListEnv(name: string, fallback: string[]): string[] {
+  const raw = readEnv(name);
+  const source = raw.length > 0 ? raw : fallback.join(',');
+  return source
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
   requestBodyLimitBytes: readIntegerEnv('REQUEST_BODY_LIMIT_BYTES', 10 * 1024 * 1024),
-  corsOrigin: readEnv('CORS_ORIGIN', '*'),
-  postgresUrl: readRequiredEnv('DATABASE_URL'),
+  corsAllowedOrigins: readListEnv('CORS_ORIGIN', [
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:8100',
+    'http://127.0.0.1:8100'
+  ]),
+  postgresUrl: readRequiredSecretFile('DATABASE_URL', 'database_url'),
+  apiToken: readSecretFile('API_TOKEN', 'api_token'),
+  clientWriteTokens: readTokenList('CLIENT_WRITE_TOKENS', 'client_write_tokens'),
+  requireAuth: readBooleanEnv('REQUIRE_AUTH', true),
   imageCacheDir: readPathEnv('IMAGE_CACHE_DIR', path.resolve(serverRootDir, '.data/image-cache')),
   imageCacheTtlSeconds: readIntegerEnv('IMAGE_CACHE_TTL_SECONDS', 86400 * 30),
-  twitchClientId: readRequiredEnv('TWITCH_CLIENT_ID'),
-  twitchClientSecret: readRequiredEnv('TWITCH_CLIENT_SECRET'),
-  theGamesDbApiKey: readRequiredEnv('THEGAMESDB_API_KEY'),
+  imageProxyTimeoutMs: readIntegerEnv('IMAGE_PROXY_TIMEOUT_MS', 12_000),
+  imageProxyMaxBytes: readIntegerEnv('IMAGE_PROXY_MAX_BYTES', 8 * 1024 * 1024),
+  twitchClientId: readRequiredSecretFile('TWITCH_CLIENT_ID', 'twitch_client_id'),
+  twitchClientSecret: readRequiredSecretFile('TWITCH_CLIENT_SECRET', 'twitch_client_secret'),
+  theGamesDbApiKey: readRequiredSecretFile('THEGAMESDB_API_KEY', 'thegamesdb_api_key'),
+  imageProxyRateLimitWindowMs: readIntegerEnv('IMAGE_PROXY_RATE_LIMIT_WINDOW_MS', 60_000),
+  imageProxyMaxRequestsPerWindow: readIntegerEnv('IMAGE_PROXY_MAX_REQUESTS_PER_WINDOW', 120),
+  imagePurgeMaxRequestsPerWindow: readIntegerEnv('IMAGE_PURGE_MAX_REQUESTS_PER_WINDOW', 30),
+  cacheStatsRateLimitWindowMs: readIntegerEnv('CACHE_STATS_RATE_LIMIT_WINDOW_MS', 60_000),
+  cacheStatsMaxRequestsPerWindow: readIntegerEnv('CACHE_STATS_MAX_REQUESTS_PER_WINDOW', 60),
   hltbScraperBaseUrl: readEnv('HLTB_SCRAPER_BASE_URL', ''),
-  hltbScraperToken: readEnv('HLTB_SCRAPER_TOKEN', ''),
-  hltbCacheEnableStaleWhileRevalidate: readBooleanEnv('HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE', true),
+  hltbScraperToken: readSecretFile('HLTB_SCRAPER_TOKEN', 'hltb_scraper_token'),
+  hltbCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
-  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
   firebaseServiceAccountJson: readEnv('FIREBASE_SERVICE_ACCOUNT_JSON', ''),
   releaseMonitorEnabled: readBooleanEnv('RELEASE_MONITOR_ENABLED', true),
   releaseMonitorIntervalSeconds: readIntegerEnv('RELEASE_MONITOR_INTERVAL_SECONDS', 900),
@@ -115,4 +190,5 @@ export const config: AppConfig = {
   releaseMonitorDebugLogs: readBooleanEnv('RELEASE_MONITOR_DEBUG_LOGS', false),
   hltbPeriodicRefreshYears: readIntegerEnv('HLTB_PERIODIC_REFRESH_YEARS', 3),
   hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
+  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')
 };

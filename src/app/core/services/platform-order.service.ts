@@ -16,7 +16,7 @@ export class PlatformOrderService {
 
       return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
     })
-    .map(item => item.name);
+    .map((item) => item.name);
   readonly order$ = this.orderSubject.asObservable();
 
   getOrder(): string[] {
@@ -61,39 +61,51 @@ export class PlatformOrderService {
   }
 
   sortPlatformNamesByCustomOrder(platformNames: string[]): string[] {
-    const deduped = [...new Set(
-      platformNames
-        .map(name => String(name ?? '').trim())
-        .filter(name => name.length > 0),
-    )];
+    const deduped = [
+      ...new Set(
+        platformNames.map((name) => String(name ?? '').trim()).filter((name) => name.length > 0)
+      )
+    ];
 
     return deduped.sort((left, right) => this.comparePlatformNamesByCustomOrder(left, right));
   }
 
   sortPlatformNames(platformNames: string[]): string[] {
-    const deduped = [...new Set(
-      platformNames
-        .map(name => String(name ?? '').trim())
-        .filter(name => name.length > 0),
-    )];
+    const deduped = [
+      ...new Set(
+        platformNames.map((name) => String(name ?? '').trim()).filter((name) => name.length > 0)
+      )
+    ];
 
     return deduped.sort((left, right) => this.comparePlatformNames(left, right));
   }
 
   sortPlatformOptions(options: GameCatalogPlatformOption[]): GameCatalogPlatformOption[] {
     const deduped = options.filter((option, index, all) => {
-      return all.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
+      return (
+        all.findIndex(
+          (candidate) => candidate.id === option.id && candidate.name === option.name
+        ) === index
+      );
     });
 
     return [...deduped].sort((left, right) => this.comparePlatformNames(left.name, right.name));
   }
 
-  sortPlatformOptionsByCustomOrder(options: GameCatalogPlatformOption[]): GameCatalogPlatformOption[] {
+  sortPlatformOptionsByCustomOrder(
+    options: GameCatalogPlatformOption[]
+  ): GameCatalogPlatformOption[] {
     const deduped = options.filter((option, index, all) => {
-      return all.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
+      return (
+        all.findIndex(
+          (candidate) => candidate.id === option.id && candidate.name === option.name
+        ) === index
+      );
     });
 
-    return [...deduped].sort((left, right) => this.comparePlatformNamesByCustomOrder(left.name, right.name));
+    return [...deduped].sort((left, right) =>
+      this.comparePlatformNamesByCustomOrder(left.name, right.name)
+    );
   }
 
   private comparePlatformNamesByOrder(left: string, right: string, order: string[]): number {
@@ -128,11 +140,11 @@ export class PlatformOrderService {
   }
 
   private normalizeOrder(platformNames: string[]): string[] {
-    return [...new Set(
-      platformNames
-        .map(name => String(name ?? '').trim())
-        .filter(name => name.length > 0),
-    )];
+    return [
+      ...new Set(
+        platformNames.map((name) => String(name ?? '').trim()).filter((name) => name.length > 0)
+      )
+    ];
   }
 
   private normalizeKey(value: string): string {

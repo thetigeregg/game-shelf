@@ -31,12 +31,15 @@ export class AddToLibraryWorkflowService {
       return { status: 'cancelled' };
     }
 
-    const existingEntry = await this.gameShelfService.findGameByIdentity(result.igdbGameId, platformSelection.id);
+    const existingEntry = await this.gameShelfService.findGameByIdentity(
+      result.igdbGameId,
+      platformSelection.id
+    );
 
     if (existingEntry) {
       await this.presentDuplicateAlert(
         result.title,
-        this.getPlatformDisplayName(platformSelection.name, platformSelection.id),
+        this.getPlatformDisplayName(platformSelection.name, platformSelection.id)
       );
       return { status: 'duplicate' };
     }
@@ -46,7 +49,7 @@ export class AddToLibraryWorkflowService {
       ...resolvedForAdd,
       igdbGameId: result.igdbGameId,
       platform: platformSelection.name,
-      platformIgdbId: platformSelection.id,
+      platformIgdbId: platformSelection.id
     };
 
     const entry = await this.gameShelfService.addGame(resolvedCatalog, listType);
@@ -54,12 +57,19 @@ export class AddToLibraryWorkflowService {
     return { status: 'added', entry };
   }
 
-  private getPlatformDisplayName(name: string | null | undefined, platformIgdbId: number | null | undefined): string {
-    const label = this.platformCustomizationService.getDisplayName(name, platformIgdbId).trim();
+  private getPlatformDisplayName(
+    name: string | null | undefined,
+    platformIgdbId: number | null | undefined
+  ): string {
+    const label = this.platformCustomizationService
+      .getDisplayNameWithoutAlias(name, platformIgdbId)
+      .trim();
     return label.length > 0 ? label : 'Unknown platform';
   }
 
-  private async resolvePlatformSelection(result: GameCatalogResult): Promise<SelectedPlatform | undefined> {
+  private async resolvePlatformSelection(
+    result: GameCatalogResult
+  ): Promise<SelectedPlatform | undefined> {
     const platforms = this.getPlatformOptions(result);
 
     if (platforms.length === 0) {
@@ -79,12 +89,12 @@ export class AddToLibraryWorkflowService {
         type: 'radio',
         label: this.getPlatformDisplayName(platform.name, platform.id),
         value: String(index),
-        checked: index === selectedIndex,
+        checked: index === selectedIndex
       })),
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Add',
@@ -95,9 +105,9 @@ export class AddToLibraryWorkflowService {
             if (Number.isInteger(parsed) && parsed >= 0 && parsed < platforms.length) {
               selectedIndex = parsed;
             }
-          },
-        },
-      ],
+          }
+        }
+      ]
     });
 
     await alert.present();
@@ -113,30 +123,50 @@ export class AddToLibraryWorkflowService {
   private getPlatformOptions(result: GameCatalogResult): SelectedPlatform[] {
     if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
       return result.platformOptions
-        .map(option => {
+        .map((option) => {
           const name = typeof option?.name === 'string' ? option.name.trim() : '';
-          const id = typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0 ? option.id : null;
+          const id =
+            typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+              ? option.id
+              : null;
           return { id, name };
         })
-        .filter(option => option.name.length > 0 && option.id !== null)
+        .filter((option) => option.name.length > 0 && option.id !== null)
         .filter((option, index, items) => {
-          return items.findIndex(candidate => candidate.id === option.id && candidate.name === option.name) === index;
+          return (
+            items.findIndex(
+              (candidate) => candidate.id === option.id && candidate.name === option.name
+            ) === index
+          );
         })
-        .map(option => ({
+        .map((option) => ({
           id: option.id as number,
-          name: option.name,
+          name: option.name
         }))
-        .sort((left, right) => this.platformOrderService.comparePlatformNames(left.name, right.name));
+        .sort((left, right) =>
+          this.platformOrderService.comparePlatformNames(left.name, right.name)
+        );
     }
 
     return [];
   }
 
-  private async resolveCoverForAdd(result: GameCatalogResult, platform: SelectedPlatform): Promise<GameCatalogResult> {
+  private async resolveCoverForAdd(
+    result: GameCatalogResult,
+    platform: SelectedPlatform
+  ): Promise<GameCatalogResult> {
     try {
-      const useIgdbCover = this.gameShelfService.shouldUseIgdbCoverForPlatform(platform.name, platform.id);
+      const useIgdbCover = this.gameShelfService.shouldUseIgdbCoverForPlatform(
+        platform.name,
+        platform.id
+      );
       const candidates = await firstValueFrom(
-        this.gameShelfService.searchBoxArtByTitle(result.title, platform.name, platform.id, result.igdbGameId)
+        this.gameShelfService.searchBoxArtByTitle(
+          result.title,
+          platform.name,
+          platform.id,
+          result.igdbGameId
+        )
       );
       const boxArtUrl = candidates[0];
 
@@ -147,7 +177,7 @@ export class AddToLibraryWorkflowService {
       return {
         ...result,
         coverUrl: boxArtUrl,
-        coverSource: useIgdbCover ? 'igdb' : 'thegamesdb',
+        coverSource: useIgdbCover ? 'igdb' : 'thegamesdb'
       };
     } catch {
       return result;
@@ -159,7 +189,7 @@ export class AddToLibraryWorkflowService {
       message,
       duration: 1600,
       position: 'bottom',
-      color: 'primary',
+      color: 'primary'
     });
 
     await toast.present();
@@ -170,7 +200,7 @@ export class AddToLibraryWorkflowService {
     const alert = await this.alertController.create({
       header: 'Duplicate Game',
       message: `${title}${platformSuffix} is already in your game shelf.`,
-      buttons: ['OK'],
+      buttons: ['OK']
     });
 
     await alert.present();
@@ -180,7 +210,7 @@ export class AddToLibraryWorkflowService {
     const alert = await this.alertController.create({
       header: 'Platform Required',
       message: `A valid IGDB platform is required to add ${title}.`,
-      buttons: ['OK'],
+      buttons: ['OK']
     });
 
     await alert.present();

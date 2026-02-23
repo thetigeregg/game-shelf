@@ -20,24 +20,27 @@ const IGDB_CATEGORY_REMASTER = 9;
 
 const tokenCache = {
   accessToken: null,
-  expiresAt: 0,
+  expiresAt: 0
 };
 
 const rateLimitCache = new Map();
+const RATE_LIMIT_CACHE_SWEEP_INTERVAL = 250;
+const RATE_LIMIT_CACHE_MAX_SIZE = 5000;
+let rateLimitSweepCounter = 0;
 const igdbSearchVariantCache = {
   preferredVariantIndex: 0,
-  disabledVariants: new Set(),
+  disabledVariants: new Set()
 };
 const igdbPlatformCache = {
   items: null,
-  expiresAt: 0,
+  expiresAt: 0
 };
 const igdbPopularityTypeCache = {
   items: null,
-  expiresAt: 0,
+  expiresAt: 0
 };
 const igdbRateLimitState = {
-  cooldownUntilMs: 0,
+  cooldownUntilMs: 0
 };
 
 export function resetCaches() {
@@ -58,11 +61,8 @@ function jsonResponse(body, status = 200, extraHeaders = {}) {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      ...extraHeaders,
-    },
+      ...extraHeaders
+    }
   });
 }
 
@@ -88,27 +88,6 @@ function normalizePlatformIgdbIdQuery(url) {
   }
 
   return parsed;
-}
-
-function normalizeReleaseYearQuery(url) {
-  const raw = (url.searchParams.get('releaseYear') ?? '').trim();
-
-  if (!/^\d{4}$/.test(raw)) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(raw, 10);
-
-  if (!Number.isInteger(parsed) || parsed < 1970 || parsed > 2100) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function normalizeIncludeCandidatesQuery(url) {
-  const raw = String(url.searchParams.get('includeCandidates') ?? '').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
 function normalizePopularityTypeIdQuery(url) {
@@ -165,7 +144,7 @@ function resolveTheGamesDbPlatformId(igdbPlatformId) {
 
 function getMappedIgdbPlatformIds() {
   return [...IGDB_TO_THEGAMESDB_PLATFORM_ID.keys()]
-    .filter(id => Number.isInteger(id) && id > 0)
+    .filter((id) => Number.isInteger(id) && id > 0)
     .sort((left, right) => left - right);
 }
 
@@ -178,7 +157,7 @@ function sanitizeUrlForLogs(urlInput) {
     const parsed = new URL(String(urlInput));
     const sensitiveKeys = ['client_secret', 'apikey', 'client_id'];
 
-    sensitiveKeys.forEach(key => {
+    sensitiveKeys.forEach((key) => {
       if (parsed.searchParams.has(key)) {
         parsed.searchParams.set(key, '***');
       }
@@ -203,31 +182,20 @@ function shouldLogHttp(env, requestUrl) {
   return hostname === 'localhost' || hostname === '127.0.0.1';
 }
 
-function shouldLogHltb(env, debugHttpEnabled) {
-  if (debugHttpEnabled) {
-    return true;
-  }
-
-  if (typeof env.DEBUG_HLTB_LOGS === 'string') {
-    return env.DEBUG_HLTB_LOGS.toLowerCase() === 'true';
-  }
-
-  return false;
-}
-
 function createLoggedFetch(fetchImpl, debugHttpEnabled) {
   if (!debugHttpEnabled) {
     return fetchImpl;
   }
 
   return async (url, options = {}) => {
-    const method = typeof options?.method === 'string' && options.method.length > 0 ? options.method : 'GET';
+    const method =
+      typeof options?.method === 'string' && options.method.length > 0 ? options.method : 'GET';
     const sanitizedUrl = sanitizeUrlForLogs(url);
 
     console.info('[http] request', {
       method,
       url: sanitizedUrl,
-      body: buildBodyPreview(options?.body),
+      body: buildBodyPreview(options?.body)
     });
 
     const response = await fetchImpl(url, options);
@@ -245,7 +213,7 @@ function createLoggedFetch(fetchImpl, debugHttpEnabled) {
       method,
       url: sanitizedUrl,
       status: response.status,
-      body: responsePreview,
+      body: responsePreview
     });
 
     return response;
@@ -273,7 +241,7 @@ function normalizeIgdbRankScore(game) {
     game?.total_rating_count,
     game?.rating_count,
     game?.hypes,
-    game?.aggregated_rating_count,
+    game?.aggregated_rating_count
   ];
 
   for (const value of candidates) {
@@ -308,10 +276,12 @@ function normalizeGameTypeValue(gameType) {
     return null;
   }
 
-  return normalizedLabel
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .trim() || null;
+  return (
+    normalizedLabel
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+      .trim() || null
+  );
 }
 
 function isRemakeOrRemaster(gameType, categoryFallback) {
@@ -323,7 +293,9 @@ function isRemakeOrRemaster(gameType, categoryFallback) {
 
   // Backward-compatible fallback while game_type rollout is validated.
   const normalizedCategory = typeof categoryFallback === 'number' ? categoryFallback : Number.NaN;
-  return normalizedCategory === IGDB_CATEGORY_REMAKE || normalizedCategory === IGDB_CATEGORY_REMASTER;
+  return (
+    normalizedCategory === IGDB_CATEGORY_REMAKE || normalizedCategory === IGDB_CATEGORY_REMASTER
+  );
 }
 
 function getOriginalGameId(game) {
@@ -347,10 +319,10 @@ function sortIgdbSearchResults(games) {
     id: normalizeIgdbReferenceId(game?.id),
     rankScore: normalizeIgdbRankScore(game),
     originalId: getOriginalGameId(game),
-    isRemakeOrRemaster: isRemakeOrRemaster(game?.game_type, game?.category),
+    isRemakeOrRemaster: isRemakeOrRemaster(game?.game_type, game?.category)
   }));
 
-  const idSet = new Set(indexed.map(entry => entry.id).filter(Boolean));
+  const idSet = new Set(indexed.map((entry) => entry.id).filter(Boolean));
 
   indexed.sort((left, right) => {
     if (left.rankScore !== right.rankScore) {
@@ -362,7 +334,7 @@ function sortIgdbSearchResults(games) {
 
   const byId = new Map(indexed.map((entry, index) => [entry.id, index]));
 
-  indexed.forEach(entry => {
+  indexed.forEach((entry) => {
     if (!entry.isRemakeOrRemaster || !entry.originalId || !idSet.has(entry.originalId)) {
       return;
     }
@@ -370,7 +342,11 @@ function sortIgdbSearchResults(games) {
     let remakeIndex = byId.get(entry.id);
     let originalIndex = byId.get(entry.originalId);
 
-    if (typeof remakeIndex !== 'number' || typeof originalIndex !== 'number' || remakeIndex > originalIndex) {
+    if (
+      typeof remakeIndex !== 'number' ||
+      typeof originalIndex !== 'number' ||
+      remakeIndex > originalIndex
+    ) {
       return;
     }
 
@@ -388,22 +364,15 @@ function sortIgdbSearchResults(games) {
     });
   });
 
-  return indexed.map(entry => entry.game);
+  return indexed.map((entry) => entry.game);
 }
 
 function isBoxArtSearchPath(pathname) {
   return pathname === '/v1/images/boxart/search';
 }
 
-function isHltbSearchPath(pathname) {
-  return pathname === '/v1/hltb/search';
-}
-
-function isImageProxyPath(pathname) {
-  return pathname === '/v1/images/proxy';
-}
-
 function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
+  sweepLocalRateLimitCache(nowMs);
   const key = ipAddress || 'unknown';
   const entry = rateLimitCache.get(key);
 
@@ -421,6 +390,21 @@ function getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs) {
   return null;
 }
 
+function sweepLocalRateLimitCache(nowMs) {
+  rateLimitSweepCounter += 1;
+  const shouldSweepByInterval = rateLimitSweepCounter % RATE_LIMIT_CACHE_SWEEP_INTERVAL === 0;
+
+  if (!shouldSweepByInterval && rateLimitCache.size <= RATE_LIMIT_CACHE_MAX_SIZE) {
+    return;
+  }
+
+  for (const [key, entry] of rateLimitCache.entries()) {
+    if (nowMs - entry.startedAt > RATE_LIMIT_WINDOW_MS) {
+      rateLimitCache.delete(key);
+    }
+  }
+}
+
 function parseRetryAfterSeconds(value, nowMs) {
   if (!value) {
     return null;
@@ -429,7 +413,10 @@ function parseRetryAfterSeconds(value, nowMs) {
   const seconds = Number.parseInt(String(value).trim(), 10);
 
   if (Number.isInteger(seconds) && seconds >= 0) {
-    return Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, Math.min(seconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+    return Math.max(
+      IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
+      Math.min(seconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS)
+    );
   }
 
   const dateMs = Date.parse(String(value));
@@ -439,12 +426,18 @@ function parseRetryAfterSeconds(value, nowMs) {
   }
 
   const deltaSeconds = Math.ceil(Math.max(dateMs - nowMs, 0) / 1000);
-  return Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, Math.min(deltaSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS));
+  return Math.max(
+    IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
+    Math.min(deltaSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS)
+  );
 }
 
 function resolveRetryAfterSecondsFromHeaders(headers, nowMs) {
   const parsed = parseRetryAfterSeconds(headers?.get('Retry-After') ?? null, nowMs);
-  return parsed ?? Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS);
+  return (
+    parsed ??
+    Math.max(IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS, IGDB_RATE_LIMIT_DEFAULT_COOLDOWN_SECONDS)
+  );
 }
 
 function getUpstreamCooldownRemainingSeconds(nowMs) {
@@ -459,10 +452,13 @@ function getUpstreamCooldownRemainingSeconds(nowMs) {
 function setUpstreamCooldown(retryAfterSeconds, nowMs) {
   const clampedSeconds = Math.max(
     IGDB_RATE_LIMIT_MIN_COOLDOWN_SECONDS,
-    Math.min(retryAfterSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS),
+    Math.min(retryAfterSeconds, IGDB_RATE_LIMIT_MAX_COOLDOWN_SECONDS)
   );
   const nextCooldownUntilMs = nowMs + clampedSeconds * 1000;
-  igdbRateLimitState.cooldownUntilMs = Math.max(igdbRateLimitState.cooldownUntilMs, nextCooldownUntilMs);
+  igdbRateLimitState.cooldownUntilMs = Math.max(
+    igdbRateLimitState.cooldownUntilMs,
+    nextCooldownUntilMs
+  );
   return getUpstreamCooldownRemainingSeconds(nowMs);
 }
 
@@ -473,6 +469,41 @@ class UpstreamRateLimitError extends Error {
     this.retryAfterSeconds = retryAfterSeconds;
   }
 }
+
+export const __testables = {
+  normalizePlatformIgdbIdQuery,
+  normalizePopularityTypeIdQuery,
+  normalizeLimitQuery,
+  normalizeOffsetQuery,
+  normalizeIgdbReferenceId,
+  normalizeIgdbRankScore,
+  normalizeGameTypeLabel,
+  normalizeGameTypeValue,
+  isRemakeOrRemaster,
+  getOriginalGameId,
+  sortIgdbSearchResults,
+  resolveTheGamesDbPlatformId,
+  sanitizeUrlForLogs,
+  buildBodyPreview,
+  parseRetryAfterSeconds,
+  resolveRetryAfterSecondsFromHeaders,
+  normalizeOptionalText,
+  normalizeNumericValue,
+  normalizeIgdbNamedCollection,
+  normalizeIgdbReferenceIds,
+  normalizeIgdbCompanyNames,
+  getIgdbRequestTimeoutMs,
+  getTheGamesDbRequestTimeoutMs,
+  normalizeTheGamesDbUrl,
+  foldToAsciiForSearch,
+  buildQueryFallbacks,
+  escapeQuery,
+  getTitleSimilarityScore,
+  findTheGamesDbBoxArtCandidates,
+  getTheGamesDbRegionPreferenceScoreFromIds,
+  getTheGamesDbRegionId,
+  getTheGamesDbCountryId
+};
 
 function escapeQuery(query) {
   return String(query ?? '')
@@ -494,20 +525,24 @@ export function buildCoverUrl(imageId) {
 export function normalizeIgdbGame(game) {
   const platformOptions = Array.isArray(game.platforms)
     ? game.platforms
-      .map(platform => {
-        const name = typeof platform?.name === 'string' ? platform.name.trim() : '';
-        const id = Number.isFinite(platform?.id) ? Math.trunc(platform.id) : null;
-        return {
-          id: Number.isInteger(id) && id > 0 ? id : null,
-          name,
-        };
-      })
-      .filter(platform => platform.name.length > 0)
-      .filter((platform, index, items) => {
-        return items.findIndex(candidate => candidate.id === platform.id && candidate.name === platform.name) === index;
-      })
+        .map((platform) => {
+          const name = typeof platform?.name === 'string' ? platform.name.trim() : '';
+          const id = Number.isFinite(platform?.id) ? Math.trunc(platform.id) : null;
+          return {
+            id: Number.isInteger(id) && id > 0 ? id : null,
+            name
+          };
+        })
+        .filter((platform) => platform.name.length > 0)
+        .filter((platform, index, items) => {
+          return (
+            items.findIndex(
+              (candidate) => candidate.id === platform.id && candidate.name === platform.name
+            ) === index
+          );
+        })
     : [];
-  const platforms = [...new Set(platformOptions.map(platform => platform.name))];
+  const platforms = [...new Set(platformOptions.map((platform) => platform.name))];
   const releaseYear = Number.isFinite(game.first_release_date)
     ? new Date(game.first_release_date * 1000).getUTCFullYear()
     : null;
@@ -525,7 +560,10 @@ export function normalizeIgdbGame(game) {
 
   return {
     externalId: String(game.id ?? '').trim(),
-    title: typeof game.name === 'string' && game.name.trim().length > 0 ? game.name.trim() : 'Unknown title',
+    title:
+      typeof game.name === 'string' && game.name.trim().length > 0
+        ? game.name.trim()
+        : 'Unknown title',
     coverUrl: buildCoverUrl(game.cover?.image_id ?? null),
     coverSource: game.cover?.image_id ? 'igdb' : 'none',
     storyline,
@@ -542,7 +580,7 @@ export function normalizeIgdbGame(game) {
     platform: platforms.length === 1 ? platforms[0] : null,
     platformIgdbId: platformOptions.length === 1 ? platformOptions[0].id : null,
     releaseDate,
-    releaseYear,
+    releaseYear
   };
 }
 
@@ -583,11 +621,13 @@ function normalizeIgdbNamedCollection(values) {
     return [];
   }
 
-  return [...new Set(
-    values
-      .map(value => (typeof value?.name === 'string' ? value.name.trim() : ''))
-      .filter(value => value.length > 0)
-  )];
+  return [
+    ...new Set(
+      values
+        .map((value) => (typeof value?.name === 'string' ? value.name.trim() : ''))
+        .filter((value) => value.length > 0)
+    )
+  ];
 }
 
 function normalizeIgdbReferenceIds(values) {
@@ -595,11 +635,13 @@ function normalizeIgdbReferenceIds(values) {
     return [];
   }
 
-  return [...new Set(
-    values
-      .map(value => normalizeIgdbReferenceId(value))
-      .filter(value => typeof value === 'string' && value.length > 0)
-  )];
+  return [
+    ...new Set(
+      values
+        .map((value) => normalizeIgdbReferenceId(value))
+        .filter((value) => typeof value === 'string' && value.length > 0)
+    )
+  ];
 }
 
 function normalizeIgdbCompanyNames(game, roleKey) {
@@ -607,48 +649,22 @@ function normalizeIgdbCompanyNames(game, roleKey) {
     return [];
   }
 
-  return [...new Set(
-    game.involved_companies
-      .filter(company => company?.[roleKey] === true)
-      .map(company => (typeof company?.company?.name === 'string' ? company.company.name.trim() : ''))
-      .filter(name => name.length > 0)
-  )];
+  return [
+    ...new Set(
+      game.involved_companies
+        .filter((company) => company?.[roleKey] === true)
+        .map((company) =>
+          typeof company?.company?.name === 'string' ? company.company.name.trim() : ''
+        )
+        .filter((name) => name.length > 0)
+    )
+  ];
 }
 
 function getTheGamesDbApiKey(env) {
   return typeof env.THEGAMESDB_API_KEY === 'string' && env.THEGAMESDB_API_KEY.trim().length > 0
     ? env.THEGAMESDB_API_KEY.trim()
     : null;
-}
-
-function getHltbScraperBaseUrl(env) {
-  const value = typeof env.HLTB_SCRAPER_BASE_URL === 'string' ? env.HLTB_SCRAPER_BASE_URL.trim() : '';
-
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(value);
-    return parsed.toString().replace(/\/+$/, '');
-  } catch {
-    return null;
-  }
-}
-
-function getHltbScraperToken(env) {
-  const value = typeof env.HLTB_SCRAPER_TOKEN === 'string' ? env.HLTB_SCRAPER_TOKEN.trim() : '';
-  return value.length > 0 ? value : null;
-}
-
-function getHltbScraperRequestTimeoutMs(env) {
-  const raw = Number.parseInt(String(env.HLTB_SCRAPER_TIMEOUT_MS ?? ''), 10);
-
-  if (!Number.isInteger(raw) || raw < 1000) {
-    return 30_000;
-  }
-
-  return Math.min(raw, 120_000);
 }
 
 function getIgdbRequestTimeoutMs(env) {
@@ -678,7 +694,7 @@ async function fetchWithTimeout(fetchImpl, url, options, timeoutMs) {
   try {
     return await fetchImpl(url, {
       ...options,
-      signal: controller.signal,
+      signal: controller.signal
     });
   } finally {
     clearTimeout(timeoutId);
@@ -736,9 +752,7 @@ function foldToAsciiForSearch(value) {
   }
 
   try {
-    return normalized
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
+    return normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   } catch {
     return normalized;
   }
@@ -749,7 +763,7 @@ function buildQueryFallbacks(query) {
   const folded = foldToAsciiForSearch(primary);
   const unique = [];
 
-  [primary, folded].forEach(candidate => {
+  [primary, folded].forEach((candidate) => {
     if (!candidate || unique.includes(candidate)) {
       return;
     }
@@ -766,11 +780,11 @@ function getTheGamesDbPlatformText(game) {
     game?.platform_name,
     game?.platformName,
     game?.system,
-    game?.system_name,
+    game?.system_name
   ];
 
   return candidates
-    .filter(value => typeof value === 'string' && value.trim().length > 0)
+    .filter((value) => typeof value === 'string' && value.trim().length > 0)
     .join(' ');
 }
 
@@ -833,7 +847,9 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   const candidateTokens = candidate.split(' ').filter(Boolean);
   const expectedTokenSet = new Set(expectedTokens);
   const candidateTokenSet = new Set(candidateTokens);
-  const intersectionCount = [...expectedTokenSet].filter(token => candidateTokenSet.has(token)).length;
+  const intersectionCount = [...expectedTokenSet].filter((token) =>
+    candidateTokenSet.has(token)
+  ).length;
   const unionCount = new Set([...expectedTokenSet, ...candidateTokenSet]).size;
 
   if (unionCount > 0) {
@@ -863,12 +879,15 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
   }
 
   const rankedGames = games
-    .map(game => {
+    .map((game) => {
       const gameTitle = getTheGamesDbGameTitle(game);
       const normalizedTitle = normalizeTitleForMatch(gameTitle);
       const regionId = getTheGamesDbRegionId(game);
       const countryId = getTheGamesDbCountryId(game);
-      const regionPreferenceScore = getTheGamesDbRegionPreferenceScoreFromIds({ regionId, countryId });
+      const regionPreferenceScore = getTheGamesDbRegionPreferenceScoreFromIds({
+        regionId,
+        countryId
+      });
 
       return {
         gameId: getTheGamesDbGameId(game),
@@ -877,10 +896,10 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
         regionPreferenceScore,
         countryId,
         regionId,
-        platformText: getTheGamesDbPlatformText(game),
+        platformText: getTheGamesDbPlatformText(game)
       };
     })
-    .filter(entry => entry.gameId.length > 0 && Number.isFinite(entry.score))
+    .filter((entry) => entry.gameId.length > 0 && Number.isFinite(entry.score))
     .sort((left, right) => {
       const byScore = right.score - left.score;
 
@@ -888,10 +907,10 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
         return byScore;
       }
 
-      const sameNormalizedTitle = left.normalizedTitle.length > 0
-        && left.normalizedTitle === right.normalizedTitle;
-      const matchesExpected = left.normalizedTitle.length > 0
-        && left.normalizedTitle === normalizedExpectedTitle;
+      const sameNormalizedTitle =
+        left.normalizedTitle.length > 0 && left.normalizedTitle === right.normalizedTitle;
+      const matchesExpected =
+        left.normalizedTitle.length > 0 && left.normalizedTitle === normalizedExpectedTitle;
 
       if (sameNormalizedTitle && matchesExpected) {
         const byRegionPreference = right.regionPreferenceScore - left.regionPreferenceScore;
@@ -909,10 +928,11 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
   }
 
   const boxartRoot = includeRoot?.boxart;
-  const baseUrl = boxartRoot?.base_url?.large
-    || boxartRoot?.base_url?.medium
-    || boxartRoot?.base_url?.original
-    || null;
+  const baseUrl =
+    boxartRoot?.base_url?.large ||
+    boxartRoot?.base_url?.medium ||
+    boxartRoot?.base_url?.original ||
+    null;
 
   if (!baseUrl) {
     return [];
@@ -922,9 +942,11 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
   const scoredByUrl = new Map();
 
   rankedGames.forEach((gameEntry, gameIndex) => {
-    const candidates = Array.isArray(dataByGame[gameEntry.gameId]) ? dataByGame[gameEntry.gameId] : [];
+    const candidates = Array.isArray(dataByGame[gameEntry.gameId])
+      ? dataByGame[gameEntry.gameId]
+      : [];
 
-    candidates.forEach(candidate => {
+    candidates.forEach((candidate) => {
       const imageType = typeof candidate?.type === 'string' ? candidate.type.toLowerCase() : '';
       const imageSide = typeof candidate?.side === 'string' ? candidate.side.toLowerCase() : '';
       const filename = candidate?.filename ?? candidate?.thumb ?? null;
@@ -937,7 +959,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
       // Keep title similarity as the dominant ranking signal.
       // Region/platform/image-side preferences are secondary tie-breakers.
       const titleRankScore = Math.max(0, rankedGames.length - gameIndex);
-      const majorScore = (gameEntry.score * 100000) + (titleRankScore * 1000);
+      const majorScore = gameEntry.score * 100000 + titleRankScore * 1000;
       let minorScore = 0;
 
       if (imageSide === 'front') {
@@ -966,7 +988,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
 
   return [...scoredByUrl.entries()]
     .sort((left, right) => right[1] - left[1])
-    .map(entry => entry[0])
+    .map((entry) => entry[0])
     .slice(0, MAX_BOX_ART_RESULTS);
 }
 
@@ -976,12 +998,10 @@ function getTheGamesDbRegionPreferenceScore(candidate, gameEntry) {
 }
 
 function getTheGamesDbRegionPreferenceScoreFromIds(gameEntry) {
-  const regionId = Number.isInteger(gameEntry?.regionId) && gameEntry.regionId > 0
-    ? gameEntry.regionId
-    : null;
-  const countryId = Number.isInteger(gameEntry?.countryId) && gameEntry.countryId >= 0
-    ? gameEntry.countryId
-    : null;
+  const regionId =
+    Number.isInteger(gameEntry?.regionId) && gameEntry.regionId > 0 ? gameEntry.regionId : null;
+  const countryId =
+    Number.isInteger(gameEntry?.countryId) && gameEntry.countryId >= 0 ? gameEntry.countryId : null;
 
   if (countryId !== null && THE_GAMES_DB_PREFERRED_COUNTRY_IDS.has(countryId)) {
     return 40;
@@ -1015,9 +1035,10 @@ function getTheGamesDbCountryId(game) {
 async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fetchImpl) {
   const apiKey = getTheGamesDbApiKey(env);
   const timeoutMs = getTheGamesDbRequestTimeoutMs(env);
-  const normalizedPlatformId = Number.isInteger(theGamesDbPlatformId) && theGamesDbPlatformId > 0
-    ? theGamesDbPlatformId
-    : null;
+  const normalizedPlatformId =
+    Number.isInteger(theGamesDbPlatformId) && theGamesDbPlatformId > 0
+      ? theGamesDbPlatformId
+      : null;
 
   if (!apiKey) {
     console.warn('[thegamesdb] missing_api_key');
@@ -1034,7 +1055,12 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
   }
 
   try {
-    const response = await fetchWithTimeout(fetchImpl, searchUrl.toString(), { method: 'GET' }, timeoutMs);
+    const response = await fetchWithTimeout(
+      fetchImpl,
+      searchUrl.toString(),
+      { method: 'GET' },
+      timeoutMs
+    );
 
     if (!response.ok) {
       let payloadSnippet = '';
@@ -1049,7 +1075,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
         status: response.status,
         title,
         hasPlatformFilter: normalizedPlatformId !== null,
-        payload: payloadSnippet,
+        payload: payloadSnippet
       });
       return null;
     }
@@ -1059,7 +1085,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
     } catch {
       console.warn('[thegamesdb] invalid_json', {
         title,
-        hasPlatformFilter: normalizedPlatformId !== null,
+        hasPlatformFilter: normalizedPlatformId !== null
       });
       return null;
     }
@@ -1067,7 +1093,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
     console.warn('[thegamesdb] request_exception', {
       title,
       hasPlatformFilter: normalizedPlatformId !== null,
-      message: error instanceof Error ? error.message : String(error),
+      message: error instanceof Error ? error.message : String(error)
     });
     return null;
   }
@@ -1075,29 +1101,43 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
 
 async function searchTheGamesDbBoxArtCandidates(title, platform, platformIgdbId, env, fetchImpl) {
   const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
-  const normalizedPlatformIgdbId = Number.isInteger(platformIgdbId) && platformIgdbId > 0
-    ? platformIgdbId
-    : null;
-  const mappedPlatformId = normalizedPlatformIgdbId !== null
-    ? resolveTheGamesDbPlatformId(normalizedPlatformIgdbId)
-    : null;
+  const normalizedPlatformIgdbId =
+    Number.isInteger(platformIgdbId) && platformIgdbId > 0 ? platformIgdbId : null;
+  const mappedPlatformId =
+    normalizedPlatformIgdbId !== null
+      ? resolveTheGamesDbPlatformId(normalizedPlatformIgdbId)
+      : null;
 
   if (normalizedPlatformIgdbId !== null && mappedPlatformId === null) {
     console.warn('[thegamesdb] missing_platform_mapping', {
       igdbPlatformId: normalizedPlatformIgdbId,
-      platform: normalizedPlatform || null,
+      platform: normalizedPlatform || null
     });
   }
 
   const queryCandidates = buildQueryFallbacks(title);
 
   for (const queryCandidate of queryCandidates) {
-    const payload = await fetchTheGamesDbBoxArtPayload(queryCandidate, mappedPlatformId, env, fetchImpl);
-    let candidates = payload ? findTheGamesDbBoxArtCandidates(payload, title, normalizedPlatform) : [];
+    const payload = await fetchTheGamesDbBoxArtPayload(
+      queryCandidate,
+      mappedPlatformId,
+      env,
+      fetchImpl
+    );
+    let candidates = payload
+      ? findTheGamesDbBoxArtCandidates(payload, title, normalizedPlatform)
+      : [];
 
     if (candidates.length === 0 && mappedPlatformId !== null) {
-      const fallbackPayload = await fetchTheGamesDbBoxArtPayload(queryCandidate, null, env, fetchImpl);
-      candidates = fallbackPayload ? findTheGamesDbBoxArtCandidates(fallbackPayload, title, null) : [];
+      const fallbackPayload = await fetchTheGamesDbBoxArtPayload(
+        queryCandidate,
+        null,
+        env,
+        fetchImpl
+      );
+      candidates = fallbackPayload
+        ? findTheGamesDbBoxArtCandidates(fallbackPayload, title, null)
+        : [];
     }
 
     if (candidates.length > 0) {
@@ -1108,267 +1148,8 @@ async function searchTheGamesDbBoxArtCandidates(title, platform, platformIgdbId,
   return [];
 }
 
-function normalizeHltbHoursValue(value) {
-  const numeric = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-
-  return Math.round(numeric * 10) / 10;
-}
-
-
-async function searchHltbCompletionTimesViaScraperService(title, releaseYear, platform, env, fetchImpl, debugLogs = false) {
-  const baseUrl = getHltbScraperBaseUrl(env);
-
-  if (!baseUrl) {
-    return null;
-  }
-
-  const url = new URL(`${baseUrl}/v1/hltb/search`);
-  url.searchParams.set('q', title);
-
-  if (Number.isInteger(releaseYear) && releaseYear > 0) {
-    url.searchParams.set('releaseYear', String(releaseYear));
-  }
-
-  if (typeof platform === 'string' && platform.trim().length > 0) {
-    url.searchParams.set('platform', platform.trim());
-  }
-
-  const headers = {
-    Accept: 'application/json',
-  };
-  const token = getHltbScraperToken(env);
-  const timeoutMs = getHltbScraperRequestTimeoutMs(env);
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  if (debugLogs) {
-    console.info('[hltb] scraper_lookup_start', {
-      title,
-      releaseYear: releaseYear ?? null,
-      platform: platform ?? null,
-      baseUrl,
-      timeoutMs,
-    });
-  }
-
-  try {
-    const response = await fetchWithTimeout(fetchImpl, url.toString(), {
-      method: 'GET',
-      headers,
-    }, timeoutMs);
-
-    if (!response.ok) {
-      if (debugLogs) {
-        console.warn('[hltb] scraper_lookup_failed', {
-          title,
-          status: response.status,
-        });
-      }
-      return null;
-    }
-
-    const payload = await response.json();
-    const normalized = {
-      hltbMainHours: normalizeHltbHoursValue(payload?.item?.hltbMainHours),
-      hltbMainExtraHours: normalizeHltbHoursValue(payload?.item?.hltbMainExtraHours),
-      hltbCompletionistHours: normalizeHltbHoursValue(payload?.item?.hltbCompletionistHours),
-    };
-
-    if (
-      normalized.hltbMainHours === null
-      && normalized.hltbMainExtraHours === null
-      && normalized.hltbCompletionistHours === null
-    ) {
-      if (debugLogs) {
-        console.info('[hltb] scraper_lookup_match', {
-          title,
-          found: false,
-        });
-      }
-      return null;
-    }
-
-    if (debugLogs) {
-      console.info('[hltb] scraper_lookup_match', {
-        title,
-        found: true,
-      });
-    }
-
-    return normalized;
-  } catch (error) {
-    if (debugLogs) {
-      const cause = error && typeof error === 'object' ? error.cause : undefined;
-      console.warn('[hltb] scraper_lookup_exception', {
-        title,
-        timeoutMs,
-        message: error instanceof Error ? error.message : String(error),
-        causeMessage: cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : undefined,
-        causeCode: cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : undefined,
-      });
-    }
-    return null;
-  }
-}
-
-async function searchHltbCandidatesViaScraperService(title, releaseYear, platform, env, fetchImpl, debugLogs = false) {
-  const baseUrl = getHltbScraperBaseUrl(env);
-
-  if (!baseUrl) {
-    return [];
-  }
-
-  const url = new URL(`${baseUrl}/v1/hltb/search`);
-  url.searchParams.set('q', title);
-  url.searchParams.set('includeCandidates', 'true');
-
-  if (Number.isInteger(releaseYear) && releaseYear > 0) {
-    url.searchParams.set('releaseYear', String(releaseYear));
-  }
-
-  if (typeof platform === 'string' && platform.trim().length > 0) {
-    url.searchParams.set('platform', platform.trim());
-  }
-
-  const headers = {
-    Accept: 'application/json',
-  };
-  const token = getHltbScraperToken(env);
-  const timeoutMs = getHltbScraperRequestTimeoutMs(env);
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await fetchWithTimeout(fetchImpl, url.toString(), {
-      method: 'GET',
-      headers,
-    }, timeoutMs);
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = await response.json();
-
-    if (!Array.isArray(payload?.candidates)) {
-      return [];
-    }
-
-    return payload.candidates
-      .map(candidate => ({
-        title: typeof candidate?.title === 'string' ? candidate.title.trim() : '',
-        releaseYear: Number.isInteger(candidate?.releaseYear) ? candidate.releaseYear : null,
-        platform: typeof candidate?.platform === 'string' && candidate.platform.trim().length > 0
-          ? candidate.platform.trim()
-          : null,
-        imageUrl: normalizeHltbCandidateImageUrl(candidate?.imageUrl ?? candidate?.coverUrl ?? null),
-        hltbMainHours: normalizeHltbHoursValue(candidate?.hltbMainHours),
-        hltbMainExtraHours: normalizeHltbHoursValue(candidate?.hltbMainExtraHours),
-        hltbCompletionistHours: normalizeHltbHoursValue(candidate?.hltbCompletionistHours),
-      }))
-      .filter(candidate => candidate.title.length > 0);
-  } catch (error) {
-    if (debugLogs) {
-      const cause = error && typeof error === 'object' ? error.cause : undefined;
-      console.warn('[hltb] scraper_candidates_exception', {
-        title,
-        timeoutMs,
-        message: error instanceof Error ? error.message : String(error),
-        causeMessage: cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : undefined,
-        causeCode: cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : undefined,
-      });
-    }
-    return [];
-  }
-}
-
-async function searchHltbCompletionTimes(title, releaseYear, platform, env, fetchImpl, debugLogs = false) {
-  const normalizedTitle = String(title ?? '').trim();
-  const normalizedPlatform = String(platform ?? '').trim();
-  const normalizedReleaseYear = Number.isInteger(releaseYear) && releaseYear > 0 ? releaseYear : null;
-
-  if (normalizedTitle.length < 2) {
-    return null;
-  }
-
-  const scraperMatch = await searchHltbCompletionTimesViaScraperService(
-    normalizedTitle,
-    normalizedReleaseYear,
-    normalizedPlatform,
-    env,
-    fetchImpl,
-    debugLogs,
-  );
-
-  if (scraperMatch !== null) {
-    return scraperMatch;
-  }
-  if (debugLogs) {
-    console.info('[hltb] lookup_unresolved', {
-      title: normalizedTitle,
-      reason: getHltbScraperBaseUrl(env) ? 'scraper_no_match' : 'scraper_not_configured',
-    });
-  }
-  return null;
-}
-
-function normalizeProxyImageUrl(url) {
-  try {
-    const parsed = new URL(String(url ?? ''));
-
-    if (parsed.protocol !== 'https:') {
-      return null;
-    }
-
-    if (parsed.hostname !== 'cdn.thegamesdb.net') {
-      return null;
-    }
-
-    if (!parsed.pathname.startsWith('/images/')) {
-      return null;
-    }
-
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
-
-function normalizeHltbCandidateImageUrl(url) {
-  const normalized = String(url ?? '').trim();
-
-  if (normalized.length === 0) {
-    return null;
-  }
-
-  if (normalized.startsWith('//')) {
-    return `https:${normalized}`;
-  }
-
-  if (normalized.startsWith('/')) {
-    return `https://howlongtobeat.com${normalized}`;
-  }
-
-  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-    return normalized;
-  }
-
-  return null;
-}
-
 async function fetchAppToken(env, fetchImpl, nowMs) {
-  if (
-    tokenCache.accessToken
-    && tokenCache.expiresAt - TOKEN_EXPIRY_BUFFER_MS > nowMs
-  ) {
+  if (tokenCache.accessToken && tokenCache.expiresAt - TOKEN_EXPIRY_BUFFER_MS > nowMs) {
     return tokenCache.accessToken;
   }
 
@@ -1416,18 +1197,23 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
   const body = [
     `where id = (${platformIds.join(',')});`,
     'fields id,name;',
-    `limit ${platformIds.length};`,
+    `limit ${platformIds.length};`
   ].join(' ');
 
-  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/platforms', {
-    method: 'POST',
-    headers: {
-      'Client-ID': env.TWITCH_CLIENT_ID,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    'https://api.igdb.com/v4/platforms',
+    {
+      method: 'POST',
+      headers: {
+        'Client-ID': env.TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body
     },
-    body,
-  }, timeoutMs);
+    timeoutMs
+  );
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1446,12 +1232,12 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
   }
 
   const items = payload
-    .map(item => ({
+    .map((item) => ({
       id: Number.isInteger(item?.id) && item.id > 0 ? item.id : null,
-      name: typeof item?.name === 'string' ? item.name.trim() : '',
+      name: typeof item?.name === 'string' ? item.name.trim() : ''
     }))
-    .filter(item => item.id !== null && item.name.length > 0)
-    .filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)
+    .filter((item) => item.id !== null && item.name.length > 0)
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
 
   igdbPlatformCache.items = items;
@@ -1465,21 +1251,24 @@ async function listPopularityTypes(env, token, fetchImpl, nowMs) {
     return igdbPopularityTypeCache.items;
   }
 
-  const body = [
-    'fields id,name,external_popularity_source;',
-    'sort name asc;',
-    'limit 500;',
-  ].join(' ');
+  const body = ['fields id,name,external_popularity_source;', 'sort name asc;', 'limit 500;'].join(
+    ' '
+  );
 
-  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/popularity_types', {
-    method: 'POST',
-    headers: {
-      'Client-ID': env.TWITCH_CLIENT_ID,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    'https://api.igdb.com/v4/popularity_types',
+    {
+      method: 'POST',
+      headers: {
+        'Client-ID': env.TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body
     },
-    body,
-  }, timeoutMs);
+    timeoutMs
+  );
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1498,19 +1287,20 @@ async function listPopularityTypes(env, token, fetchImpl, nowMs) {
   }
 
   const items = payload
-    .map(item => ({
+    .map((item) => ({
       id: Number.isInteger(item?.id) && item.id > 0 ? item.id : null,
       name: typeof item?.name === 'string' ? item.name.trim() : '',
-      externalPopularitySource: Number.isInteger(item?.external_popularity_source) && item.external_popularity_source > 0
-        ? item.external_popularity_source
-        : null,
+      externalPopularitySource:
+        Number.isInteger(item?.external_popularity_source) && item.external_popularity_source > 0
+          ? item.external_popularity_source
+          : null
     }))
-    .filter(item => item.id !== null && item.name.length > 0)
-    .filter((item, index, all) => all.findIndex(candidate => candidate.id === item.id) === index)
-    .map(item => ({
+    .filter((item) => item.id !== null && item.name.length > 0)
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
+    .map((item) => ({
       id: item.id,
       name: item.name,
-      externalPopularitySource: item.externalPopularitySource,
+      externalPopularitySource: item.externalPopularitySource
     }));
 
   igdbPopularityTypeCache.items = items;
@@ -1524,11 +1314,13 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
     return [];
   }
 
-  const uniqueIds = [...new Set(
-    gameIds
-      .map(value => Number.parseInt(String(value ?? ''), 10))
-      .filter(value => Number.isInteger(value) && value > 0)
-  )];
+  const uniqueIds = [
+    ...new Set(
+      gameIds
+        .map((value) => Number.parseInt(String(value ?? ''), 10))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )
+  ];
 
   if (uniqueIds.length === 0) {
     return [];
@@ -1537,18 +1329,23 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
   const body = [
     `where id = (${uniqueIds.join(',')});`,
     'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
-    `limit ${uniqueIds.length};`,
+    `limit ${uniqueIds.length};`
   ].join(' ');
 
-  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
-    method: 'POST',
-    headers: {
-      'Client-ID': env.TWITCH_CLIENT_ID,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    'https://api.igdb.com/v4/games',
+    {
+      method: 'POST',
+      headers: {
+        'Client-ID': env.TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body
     },
-    body,
-  }, timeoutMs);
+    timeoutMs
+  );
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1562,11 +1359,18 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
   return Array.isArray(payload) ? payload : [];
 }
 
-async function listPopularityPrimitives(popularityTypeId, limit, offset, env, token, fetchImpl, nowMs) {
+async function listPopularityPrimitives(
+  popularityTypeId,
+  limit,
+  offset,
+  env,
+  token,
+  fetchImpl,
+  nowMs
+) {
   const timeoutMs = getIgdbRequestTimeoutMs(env);
-  const normalizedPopularityTypeId = Number.isInteger(popularityTypeId) && popularityTypeId > 0
-    ? popularityTypeId
-    : null;
+  const normalizedPopularityTypeId =
+    Number.isInteger(popularityTypeId) && popularityTypeId > 0 ? popularityTypeId : null;
 
   if (normalizedPopularityTypeId === null) {
     return [];
@@ -1580,21 +1384,28 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
     'fields game_id,popularity_type,external_popularity_source,value,calculated_at;',
     'sort value desc;',
     `limit ${normalizedLimit};`,
-    `offset ${normalizedOffset};`,
+    `offset ${normalizedOffset};`
   ].join(' ');
 
-  const primitivesResponse = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/popularity_primitives', {
-    method: 'POST',
-    headers: {
-      'Client-ID': env.TWITCH_CLIENT_ID,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
+  const primitivesResponse = await fetchWithTimeout(
+    fetchImpl,
+    'https://api.igdb.com/v4/popularity_primitives',
+    {
+      method: 'POST',
+      headers: {
+        'Client-ID': env.TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body: primitivesBody
     },
-    body: primitivesBody,
-  }, timeoutMs);
+    timeoutMs
+  );
 
   if (primitivesResponse.status === 429) {
-    throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(primitivesResponse.headers, nowMs));
+    throw new UpstreamRateLimitError(
+      resolveRetryAfterSecondsFromHeaders(primitivesResponse.headers, nowMs)
+    );
   }
 
   if (!primitivesResponse.ok) {
@@ -1604,16 +1415,21 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
   const primitivePayload = await primitivesResponse.json();
   const primitives = Array.isArray(primitivePayload)
     ? primitivePayload
-      .map(item => ({
-        gameId: Number.isInteger(item?.game_id) && item.game_id > 0 ? item.game_id : null,
-        popularityType: Number.isInteger(item?.popularity_type) && item.popularity_type > 0 ? item.popularity_type : null,
-        externalPopularitySource: Number.isInteger(item?.external_popularity_source) && item.external_popularity_source > 0
-          ? item.external_popularity_source
-          : null,
-        value: normalizeNumericValue(item?.value),
-        calculatedAt: normalizeIgdbUnixDatetime(item?.calculated_at),
-      }))
-      .filter(item => item.gameId !== null && item.popularityType !== null)
+        .map((item) => ({
+          gameId: Number.isInteger(item?.game_id) && item.game_id > 0 ? item.game_id : null,
+          popularityType:
+            Number.isInteger(item?.popularity_type) && item.popularity_type > 0
+              ? item.popularity_type
+              : null,
+          externalPopularitySource:
+            Number.isInteger(item?.external_popularity_source) &&
+            item.external_popularity_source > 0
+              ? item.external_popularity_source
+              : null,
+          value: normalizeNumericValue(item?.value),
+          calculatedAt: normalizeIgdbUnixDatetime(item?.calculated_at)
+        }))
+        .filter((item) => item.gameId !== null && item.popularityType !== null)
     : [];
 
   if (primitives.length === 0) {
@@ -1621,15 +1437,15 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
   }
 
   const rawGames = await fetchIgdbGamesByIds(
-    primitives.map(item => item.gameId),
+    primitives.map((item) => item.gameId),
     env,
     token,
     fetchImpl,
-    nowMs,
+    nowMs
   );
   const gamesById = new Map(
     rawGames
-      .map(item => {
+      .map((item) => {
         const id = Number.isInteger(item?.id) && item.id > 0 ? item.id : null;
 
         if (id === null) {
@@ -1642,7 +1458,7 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
   );
 
   return primitives
-    .map(item => {
+    .map((item) => {
       const game = gamesById.get(item.gameId);
 
       if (!game) {
@@ -1654,7 +1470,7 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
         popularityType: item.popularityType,
         externalPopularitySource: item.externalPopularitySource,
         value: item.value,
-        calculatedAt: item.calculatedAt,
+        calculatedAt: item.calculatedAt
       };
     })
     .filter(Boolean);
@@ -1662,35 +1478,36 @@ async function listPopularityPrimitives(popularityTypeId, limit, offset, env, to
 
 async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
   const timeoutMs = getIgdbRequestTimeoutMs(env);
-  const normalizedPlatformIgdbId = Number.isInteger(platformIgdbId) && platformIgdbId > 0
-    ? platformIgdbId
-    : null;
+  const normalizedPlatformIgdbId =
+    Number.isInteger(platformIgdbId) && platformIgdbId > 0 ? platformIgdbId : null;
   const queryVariants = [
     {
-      fields: 'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
-      sort: null,
+      fields:
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+      sort: null
     },
     {
-      fields: 'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
-      sort: null,
+      fields:
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+      sort: null
     },
     {
-      fields: 'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
-      sort: null,
-    },
+      fields:
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+      sort: null
+    }
   ];
   const requestHeaders = {
     'Client-ID': env.TWITCH_CLIENT_ID,
     Authorization: `Bearer ${token}`,
-    'Content-Type': 'text/plain',
+    'Content-Type': 'text/plain'
   };
   const queryCandidates = buildQueryFallbacks(query);
   const mergedResults = [];
   const mergedResultIds = new Set();
   let hadSuccessfulPayload = false;
-  const platformConstraints = normalizedPlatformIgdbId !== null
-    ? [normalizedPlatformIgdbId, null]
-    : [null];
+  const platformConstraints =
+    normalizedPlatformIgdbId !== null ? [normalizedPlatformIgdbId, null] : [null];
 
   if (igdbSearchVariantCache.disabledVariants.size >= queryVariants.length) {
     igdbSearchVariantCache.disabledVariants.clear();
@@ -1699,15 +1516,21 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
 
   const variantIndexes = queryVariants
     .map((_, index) => index)
-    .filter(index => !igdbSearchVariantCache.disabledVariants.has(index));
-  const preferredIndexPosition = variantIndexes.indexOf(igdbSearchVariantCache.preferredVariantIndex);
+    .filter((index) => !igdbSearchVariantCache.disabledVariants.has(index));
+  const preferredIndexPosition = variantIndexes.indexOf(
+    igdbSearchVariantCache.preferredVariantIndex
+  );
 
   if (preferredIndexPosition > 0) {
     variantIndexes.splice(preferredIndexPosition, 1);
     variantIndexes.unshift(igdbSearchVariantCache.preferredVariantIndex);
   }
 
-  for (let platformConstraintAttempt = 0; platformConstraintAttempt < platformConstraints.length; platformConstraintAttempt += 1) {
+  for (
+    let platformConstraintAttempt = 0;
+    platformConstraintAttempt < platformConstraints.length;
+    platformConstraintAttempt += 1
+  ) {
     const platformConstraint = platformConstraints[platformConstraintAttempt];
 
     for (let queryAttempt = 0; queryAttempt < queryCandidates.length; queryAttempt += 1) {
@@ -1716,10 +1539,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
       for (let attempt = 0; attempt < variantIndexes.length; attempt += 1) {
         const variantIndex = variantIndexes[attempt];
         const variant = queryVariants[variantIndex];
-        const bodyParts = [
-          `search "${escapeQuery(queryCandidate)}";`,
-          `fields ${variant.fields};`,
-        ];
+        const bodyParts = [`search "${escapeQuery(queryCandidate)}";`, `fields ${variant.fields};`];
 
         if (platformConstraint !== null) {
           bodyParts.push(`where platforms = (${platformConstraint});`);
@@ -1729,19 +1549,24 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
           bodyParts.push(`sort ${variant.sort};`);
         }
 
-        bodyParts.push(
-          'limit 25;',
-        );
+        bodyParts.push('limit 25;');
 
         const body = bodyParts.join(' ');
-        const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
-          method: 'POST',
-          headers: requestHeaders,
-          body,
-        }, timeoutMs);
+        const response = await fetchWithTimeout(
+          fetchImpl,
+          'https://api.igdb.com/v4/games',
+          {
+            method: 'POST',
+            headers: requestHeaders,
+            body
+          },
+          timeoutMs
+        );
 
         if (response.status === 429) {
-          throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
+          throw new UpstreamRateLimitError(
+            resolveRetryAfterSecondsFromHeaders(response.headers, nowMs)
+          );
         }
 
         if (!response.ok) {
@@ -1761,7 +1586,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
             variantIndex: variantIndex + 1,
             status: response.status,
             payload: payloadSnippet,
-            sort: variant.sort,
+            sort: variant.sort
           });
 
           if (response.status === 400 && payloadSnippet.toLowerCase().includes('invalid field')) {
@@ -1781,7 +1606,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
             queryAttempt: queryAttempt + 1,
             platformConstraintAttempt: platformConstraintAttempt + 1,
             platformConstraint,
-            variantIndex: variantIndex + 1,
+            variantIndex: variantIndex + 1
           });
           continue;
         }
@@ -1792,7 +1617,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
             queryAttempt: queryAttempt + 1,
             platformConstraintAttempt: platformConstraintAttempt + 1,
             platformConstraint,
-            variantIndex: variantIndex + 1,
+            variantIndex: variantIndex + 1
           });
           continue;
         }
@@ -1801,7 +1626,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
         igdbSearchVariantCache.preferredVariantIndex = variantIndex;
         const normalizedResults = sortIgdbSearchResults(data).map(normalizeIgdbGame);
 
-        normalizedResults.forEach(result => {
+        normalizedResults.forEach((result) => {
           const resultId = String(result?.igdbGameId ?? result?.externalId ?? '').trim();
 
           if (!resultId || mergedResultIds.has(resultId)) {
@@ -1837,18 +1662,23 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   const body = [
     `where id = ${gameId};`,
     'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
-    'limit 1;',
+    'limit 1;'
   ].join(' ');
 
-  const response = await fetchWithTimeout(fetchImpl, 'https://api.igdb.com/v4/games', {
-    method: 'POST',
-    headers: {
-      'Client-ID': env.TWITCH_CLIENT_ID,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'text/plain',
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    'https://api.igdb.com/v4/games',
+    {
+      method: 'POST',
+      headers: {
+        'Client-ID': env.TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body
     },
-    body,
-  }, timeoutMs);
+    timeoutMs
+  );
 
   if (response.status === 429) {
     throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
@@ -1868,10 +1698,6 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
 }
 
 export async function handleRequest(request, env, fetchImpl = fetch, now = () => Date.now()) {
-  if (request.method === 'OPTIONS') {
-    return jsonResponse({}, 204);
-  }
-
   if (request.method !== 'GET') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
@@ -1885,24 +1711,21 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const isPopularityPrimitivesPath = url.pathname === '/v1/popularity/primitives';
   const isGameByIdPath = gameId !== null;
   const isBoxArtSearchRoute = isBoxArtSearchPath(url.pathname);
-  const isHltbSearchRoute = isHltbSearchPath(url.pathname);
-  const isImageProxyRoute = isImageProxyPath(url.pathname);
   const debugHttp = shouldLogHttp(env, url);
-  const debugHltb = shouldLogHltb(env, debugHttp);
   const loggedFetch = createLoggedFetch(fetchImpl, debugHttp);
 
-  if (!isGameSearchPath
-    && !isPlatformListPath
-    && !isPopularityTypesPath
-    && !isPopularityPrimitivesPath
-    && !isGameByIdPath
-    && !isBoxArtSearchRoute
-    && !isHltbSearchRoute
-    && !isImageProxyRoute) {
+  if (
+    !isGameSearchPath &&
+    !isPlatformListPath &&
+    !isPopularityTypesPath &&
+    !isPopularityPrimitivesPath &&
+    !isGameByIdPath &&
+    !isBoxArtSearchRoute
+  ) {
     return jsonResponse({ error: 'Not found' }, 404);
   }
 
-  if (isGameSearchPath || isBoxArtSearchRoute || isHltbSearchRoute) {
+  if (isGameSearchPath || isBoxArtSearchRoute) {
     const query = normalizeSearchQuery(url);
 
     if (query.length < 2) {
@@ -1911,20 +1734,22 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   }
 
   const nowMs = now();
-  const ipAddress = request.headers.get('CF-Connecting-IP') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
-  const isIgdbRoute = isGameSearchPath
-    || isPlatformListPath
-    || isPopularityTypesPath
-    || isPopularityPrimitivesPath
-    || isGameByIdPath;
+  const ipAddress =
+    request.headers.get('CF-Connecting-IP') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
+  const isIgdbRoute =
+    isGameSearchPath ||
+    isPlatformListPath ||
+    isPopularityTypesPath ||
+    isPopularityPrimitivesPath ||
+    isGameByIdPath;
 
   const localRetryAfterSeconds = getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs);
 
-  if (localRetryAfterSeconds !== null && !isImageProxyRoute) {
+  if (localRetryAfterSeconds !== null) {
     return jsonResponse(
       { error: `Rate limit exceeded. Retry after ${localRetryAfterSeconds}s.` },
       429,
-      { 'Retry-After': String(localRetryAfterSeconds) },
+      { 'Retry-After': String(localRetryAfterSeconds) }
     );
   }
 
@@ -1935,63 +1760,24 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       return jsonResponse(
         { error: `Rate limit exceeded. Retry after ${upstreamRetryAfterSeconds}s.` },
         429,
-        { 'Retry-After': String(upstreamRetryAfterSeconds) },
+        { 'Retry-After': String(upstreamRetryAfterSeconds) }
       );
     }
   }
 
   try {
-    if (isImageProxyRoute) {
-      const targetUrl = normalizeProxyImageUrl(url.searchParams.get('url'));
-
-      if (!targetUrl) {
-        return jsonResponse({ error: 'Invalid image URL.' }, 400);
-      }
-
-      const upstream = await loggedFetch(targetUrl, { method: 'GET' });
-
-      if (!upstream.ok) {
-        return jsonResponse({ error: 'Unable to fetch image.' }, 502);
-      }
-
-      const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Cache-Control': 'public, max-age=86400',
-      };
-      const contentType = upstream.headers.get('Content-Type');
-
-      if (contentType) {
-        headers['Content-Type'] = contentType;
-      }
-
-      return new Response(upstream.body, {
-        status: 200,
-        headers,
-      });
-    }
-
     if (isBoxArtSearchRoute) {
       const query = normalizeSearchQuery(url);
       const platform = normalizePlatformQuery(url);
       const platformIgdbId = normalizePlatformIgdbIdQuery(url);
-      const items = await searchTheGamesDbBoxArtCandidates(query, platform, platformIgdbId, env, loggedFetch);
+      const items = await searchTheGamesDbBoxArtCandidates(
+        query,
+        platform,
+        platformIgdbId,
+        env,
+        loggedFetch
+      );
       return jsonResponse({ items }, 200);
-    }
-
-    if (isHltbSearchRoute) {
-      const query = normalizeSearchQuery(url);
-      const releaseYear = normalizeReleaseYearQuery(url);
-      const platform = normalizePlatformQuery(url);
-      const includeCandidates = normalizeIncludeCandidatesQuery(url);
-      const item = await searchHltbCompletionTimes(query, releaseYear, platform, env, loggedFetch, debugHltb);
-      if (!includeCandidates) {
-        return jsonResponse({ item }, 200);
-      }
-
-      const candidates = await searchHltbCandidatesViaScraperService(query, releaseYear, platform, env, loggedFetch, debugHltb);
-      return jsonResponse({ item, candidates }, 200);
     }
 
     const token = await fetchAppToken(env, loggedFetch, nowMs);
@@ -2015,7 +1801,15 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
       const limit = normalizeLimitQuery(url, 20);
       const offset = normalizeOffsetQuery(url);
-      const items = await listPopularityPrimitives(popularityTypeId, limit, offset, env, token, loggedFetch, nowMs);
+      const items = await listPopularityPrimitives(
+        popularityTypeId,
+        limit,
+        offset,
+        env,
+        token,
+        loggedFetch,
+        nowMs
+      );
       return jsonResponse({ items }, 200);
     }
 
@@ -2040,7 +1834,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
       return jsonResponse(
         { error: `Rate limit exceeded. Retry after ${retryAfterSeconds}s.` },
         429,
-        { 'Retry-After': String(retryAfterSeconds) },
+        { 'Retry-After': String(retryAfterSeconds) }
       );
     }
 
@@ -2048,9 +1842,3 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
     return jsonResponse({ error: 'Unable to fetch game data.' }, 502);
   }
 }
-
-export default {
-  fetch(request, env) {
-    return handleRequest(request, env);
-  },
-};

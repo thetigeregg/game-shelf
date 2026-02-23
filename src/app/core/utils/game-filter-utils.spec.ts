@@ -7,7 +7,7 @@ import {
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
   normalizeStringList,
-  normalizeTagFilterList,
+  normalizeTagFilterList
 } from './game-filter-utils';
 
 describe('game-filter-utils', () => {
@@ -19,7 +19,10 @@ describe('game-filter-utils', () => {
   it('validates and normalizes game types', () => {
     expect(isGameType('main_game')).toBe(true);
     expect(isGameType('unknown')).toBe(false);
-    expect(normalizeGameTypeList(['main_game', 'expansion', 'main_game', 'bad'])).toEqual(['main_game', 'expansion']);
+    expect(normalizeGameTypeList(['main_game', 'expansion', 'main_game', 'bad'])).toEqual([
+      'main_game',
+      'expansion'
+    ]);
     expect(normalizeGameTypeList('not-array')).toEqual([]);
   });
 
@@ -27,7 +30,10 @@ describe('game-filter-utils', () => {
     expect(isGameStatusFilterOption('none')).toBe(true);
     expect(isGameStatusFilterOption('playing')).toBe(true);
     expect(isGameStatusFilterOption('invalid')).toBe(false);
-    expect(normalizeGameStatusFilterList(['playing', 'none', 'playing', 'x'])).toEqual(['playing', 'none']);
+    expect(normalizeGameStatusFilterList(['playing', 'none', 'playing', 'x'])).toEqual([
+      'playing',
+      'none'
+    ]);
     expect(normalizeGameStatusFilterList(null)).toEqual([]);
   });
 
@@ -48,7 +54,10 @@ describe('game-filter-utils', () => {
   });
 
   it('normalizes tag filter list and keeps none first', () => {
-    expect(normalizeTagFilterList(['Action', '__none__', ' Action '], '__none__')).toEqual(['__none__', 'Action']);
+    expect(normalizeTagFilterList(['Action', '__none__', ' Action '], '__none__')).toEqual([
+      '__none__',
+      'Action'
+    ]);
     expect(normalizeTagFilterList(['Action', 'RPG'], '__none__')).toEqual(['Action', 'RPG']);
   });
 });

@@ -6,25 +6,19 @@ interface WorkerEnvLike {
   TWITCH_CLIENT_ID: string;
   TWITCH_CLIENT_SECRET: string;
   THEGAMESDB_API_KEY: string;
-  HLTB_SCRAPER_BASE_URL?: string;
-  HLTB_SCRAPER_TOKEN?: string;
   DEBUG_HTTP_LOGS?: string;
-  DEBUG_HLTB_LOGS?: string;
 }
 
 const workerEnv: WorkerEnvLike = {
   TWITCH_CLIENT_ID: config.twitchClientId,
   TWITCH_CLIENT_SECRET: config.twitchClientSecret,
   THEGAMESDB_API_KEY: config.theGamesDbApiKey,
-  HLTB_SCRAPER_BASE_URL: config.hltbScraperBaseUrl,
-  HLTB_SCRAPER_TOKEN: config.hltbScraperToken,
-  DEBUG_HTTP_LOGS: process.env.DEBUG_HTTP_LOGS ?? '',
-  DEBUG_HLTB_LOGS: process.env.DEBUG_HLTB_LOGS ?? '',
+  DEBUG_HTTP_LOGS: process.env.DEBUG_HTTP_LOGS ?? ''
 };
 
 export async function proxyMetadataToWorker(
   request: FastifyRequest,
-  reply: FastifyReply,
+  reply: FastifyReply
 ): Promise<void> {
   const response = await fetchMetadataFromWorker(request);
   await sendWebResponse(reply, response);
@@ -34,15 +28,20 @@ export async function fetchMetadataFromWorker(request: FastifyRequest): Promise<
   const requestUrl = new URL(request.url, 'http://game-shelf.local');
   const proxiedRequest = new Request(requestUrl.toString(), {
     method: request.method,
-    headers: request.headers as HeadersInit,
+    headers: request.headers as HeadersInit
   });
 
-  return handleWorkerRequest(proxiedRequest, workerEnv as unknown as Record<string, unknown>, fetch, () => Date.now());
+  return handleWorkerRequest(
+    proxiedRequest,
+    workerEnv as unknown as Record<string, unknown>,
+    fetch,
+    () => Date.now()
+  );
 }
 
 export async function fetchMetadataPathFromWorker(
   pathname: string,
-  query?: Record<string, string | number | boolean | null | undefined>,
+  query?: Record<string, string | number | boolean | null | undefined>
 ): Promise<Response> {
   const requestUrl = new URL(pathname, 'http://game-shelf.local');
 
@@ -57,10 +56,15 @@ export async function fetchMetadataPathFromWorker(
   }
 
   const proxiedRequest = new Request(requestUrl.toString(), {
-    method: 'GET',
+    method: 'GET'
   });
 
-  return handleWorkerRequest(proxiedRequest, workerEnv as unknown as Record<string, unknown>, fetch, () => Date.now());
+  return handleWorkerRequest(
+    proxiedRequest,
+    workerEnv as unknown as Record<string, unknown>,
+    fetch,
+    () => Date.now()
+  );
 }
 
 export async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {

@@ -4,15 +4,6 @@
       <ion-back-button [defaultHref]="backHref"></ion-back-button>
     </ion-buttons>
     <ion-title>Views</ion-title>
-    <ion-buttons slot="end">
-      <ion-button
-        aria-label="Save current as view"
-        [disabled]="!hasCurrentConfiguration"
-        (click)="openCreateViewModal()"
-        >
-        <ion-icon slot="icon-only" name="add"></ion-icon>
-      </ion-button>
-    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -31,7 +22,7 @@
             aria-label="View actions"
             [id]="getActionsTriggerId(view)"
             (click)="$event.stopPropagation()"
-            >
+          >
             <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
           </ion-button>
           <ion-popover [trigger]="getActionsTriggerId(view)" triggerAction="click">
@@ -44,7 +35,12 @@
                   <ion-item button detail="false" (click)="updateViewFromPopover(view)">
                     Update from current
                   </ion-item>
-                  <ion-item button detail="false" color="danger" (click)="deleteViewFromPopover(view)">
+                  <ion-item
+                    button
+                    detail="false"
+                    color="danger"
+                    (click)="deleteViewFromPopover(view)"
+                  >
                     Delete
                   </ion-item>
                 </ion-list>
@@ -61,6 +57,16 @@
     </ion-list>
   }
 
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button
+      size="small"
+      aria-label="Save current as view"
+      [disabled]="!hasCurrentConfiguration"
+      (click)="openCreateViewModal()"
+    >
+      <ion-icon name="add" aria-hidden="true"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
 </ion-content>
 
 <ion-modal [isOpen]="isNameModalOpen" (didDismiss)="closeNameModal()">

@@ -3,6 +3,12 @@
   z-index: 1;
 }
 
+.detail-content-inner-under-header .detail-cover {
+  margin-top: calc(var(--offset-top, 0px) * -1);
+  padding-top: calc(16px + var(--offset-top, 0px));
+  height: calc(350px + var(--offset-top, 0px));
+}
+
 .detail-cover {
   position: relative;
   display: flex;

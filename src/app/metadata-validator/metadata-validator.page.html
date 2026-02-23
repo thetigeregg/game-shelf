@@ -21,7 +21,7 @@
         placeholder="Select game list"
         [value]="selectedListType"
         (ionChange)="onListTypeChange($any($event).detail.value)"
-        >
+      >
         <ion-select-option value="collection">Collection</ion-select-option>
         <ion-select-option value="wishlist">Wishlist</ion-select-option>
       </ion-select>
@@ -35,7 +35,7 @@
         [multiple]="true"
         [value]="selectedMissingFilters"
         (ionChange)="onMissingFiltersChange($any($event).detail.value)"
-        >
+      >
         @for (option of missingFilterOptions; track option) {
           <ion-select-option [value]="option.value">
             {{ option.label }}
@@ -50,10 +50,7 @@
     </ion-item>
 
     <div class="bulk-actions-row">
-      <ion-button
-        fill="outline"
-        (click)="toggleSelectAllDisplayed()"
-        >
+      <ion-button fill="outline" (click)="toggleSelectAllDisplayed()">
         {{ isAllDisplayedSelected() ? 'Unselect all' : 'Select all' }}
       </ion-button>
       <ion-button
@@ -61,7 +58,7 @@
         color="medium"
         [disabled]="selectedGamesCount === 0"
         (click)="clearSelection()"
-        >
+      >
         Clear
       </ion-button>
     </div>
@@ -70,7 +67,7 @@
       <ion-button
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingHltb"
         (click)="refreshHltbForSelectedGames()"
-        >
+      >
         @if (isBulkRefreshingHltb) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
         }
@@ -80,7 +77,7 @@
         color="secondary"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingImage"
         (click)="refreshImageForSelectedGames()"
-        >
+      >
         @if (isBulkRefreshingImage) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
         }
@@ -115,22 +112,18 @@
                 </ion-badge>
               }
               @if (isNonPcImageNotApplicable(game)) {
-                <ion-badge color="medium">
-                  Image N/A (PC)
-                </ion-badge>
+                <ion-badge color="medium"> Image N/A (PC) </ion-badge>
               }
             </div>
           </ion-label>
           <div slot="end" class="row-actions">
-            <ion-button fill="outline" (click)="refreshHltbForGame(game)">
-              HLTB
-            </ion-button>
+            <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
             <ion-button
               fill="outline"
               color="secondary"
               [disabled]="isNonPcImageNotApplicable(game)"
               (click)="refreshImageForGame(game)"
-              >
+            >
               Image
             </ion-button>
           </div>
@@ -140,11 +133,11 @@
         <ion-item lines="none">
           <ion-label color="medium">
             {{
-            !selectedListType
-            ? 'Select Collection or Wishlist to load games.'
-            : (selectedMissingFilters.length === 0
-            ? 'Select at least one missing metadata filter to display games.'
-            : 'No games match current metadata filters.')
+              !selectedListType
+                ? 'Select Collection or Wishlist to load games.'
+                : selectedMissingFilters.length === 0
+                  ? 'Select at least one missing metadata filter to display games.'
+                  : 'No games match current metadata filters.'
             }}
           </ion-label>
         </ion-item>
@@ -172,7 +165,9 @@
           show-clear-button="focus"
           (ionInput)="onHltbPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">Search</ion-button>
+        <ion-button [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()"
+          >Search</ion-button
+        >
       </div>
 
       @if (isHltbPickerLoading) {
@@ -188,9 +183,7 @@
       }
 
       @if (!isHltbPickerLoading && !hltbPickerError && hltbPickerResults.length === 0) {
-        <p class="picker-state ion-text-center">
-          No HLTB results found.
-        </p>
+        <p class="picker-state ion-text-center">No HLTB results found.</p>
       }
 
       @if (!isHltbPickerLoading && hltbPickerResults.length > 0) {
@@ -211,9 +204,9 @@
                   }
                 </p>
                 <p>
-                  Main: {{ candidate.hltbMainHours ?? '?' }}h ·
-                  Main + Extra: {{ candidate.hltbMainExtraHours ?? '?' }}h ·
-                  Completionist: {{ candidate.hltbCompletionistHours ?? '?' }}h
+                  Main: {{ candidate.hltbMainHours ?? '?' }}h · Main + Extra:
+                  {{ candidate.hltbMainExtraHours ?? '?' }}h · Completionist:
+                  {{ candidate.hltbCompletionistHours ?? '?' }}h
                 </p>
               </ion-label>
             </ion-item>
@@ -227,7 +220,7 @@
           fill="outline"
           [disabled]="isHltbPickerLoading"
           (click)="useOriginalHltbLookup()"
-          >
+        >
           Use Original Match
         </ion-button>
       </div>

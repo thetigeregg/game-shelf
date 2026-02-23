@@ -1,11 +1,31 @@
 import express from 'express';
+import fs from 'node:fs';
 import { chromium } from 'playwright';
+
+function readEnvOrFile(name) {
+  const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
+  const resolved = filePath.length > 0 ? filePath : `/run/secrets/${name.toLowerCase()}`;
+  if (fs.existsSync(resolved)) {
+    try {
+      return fs.readFileSync(resolved, 'utf8').trim();
+    } catch (error) {
+      throw new Error(
+        `Failed to read configuration secret for "${name}" from path "${resolved}": ${error.message}`
+      );
+    }
+  }
+  return '';
+}
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '8788', 10);
-const apiToken = (process.env.HLTB_SCRAPER_TOKEN ?? '').trim();
+const apiToken = readEnvOrFile('HLTB_SCRAPER_TOKEN');
 const browserTimeoutMs = Number.parseInt(process.env.HLTB_SCRAPER_TIMEOUT_MS ?? '25000', 10);
+const browserIdleTtlMs = Number.parseInt(process.env.HLTB_SCRAPER_BROWSER_IDLE_MS ?? '30000', 10);
 const debugLogsEnabled = String(process.env.DEBUG_HLTB_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
+let sharedBrowser = null;
+let sharedBrowserPromise = null;
+let browserIdleTimer = null;
 
 function normalizeSearchQuery(req) {
   return String(req.query.q ?? '').trim();
@@ -27,7 +47,9 @@ function normalizePlatform(req) {
 }
 
 function normalizeIncludeCandidates(req) {
-  const raw = String(req.query.includeCandidates ?? '').trim().toLowerCase();
+  const raw = String(req.query.includeCandidates ?? '')
+    .trim()
+    .toLowerCase();
   return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
@@ -50,10 +72,10 @@ function buildSearchTitleVariants(title) {
   const titleCaseNormalized = normalized
     .split(' ')
     .filter(Boolean)
-    .map(token => token.charAt(0).toUpperCase() + token.slice(1))
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
     .join(' ');
 
-  return [...new Set([base, titleCaseNormalized].filter(value => value.length > 0))];
+  return [...new Set([base, titleCaseNormalized].filter((value) => value.length > 0))];
 }
 
 function levenshteinDistance(left, right) {
@@ -84,7 +106,7 @@ function levenshteinDistance(left, right) {
       matrix[i][j] = Math.min(
         matrix[i - 1][j] + 1,
         matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost,
+        matrix[i - 1][j - 1] + cost
       );
     }
   }
@@ -114,7 +136,9 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   const candidateTokens = candidate.split(' ').filter(Boolean);
   const expectedTokenSet = new Set(expectedTokens);
   const candidateTokenSet = new Set(candidateTokens);
-  const intersectionCount = [...expectedTokenSet].filter(token => candidateTokenSet.has(token)).length;
+  const intersectionCount = [...expectedTokenSet].filter((token) =>
+    candidateTokenSet.has(token)
+  ).length;
   const unionCount = new Set([...expectedTokenSet, ...candidateTokenSet]).size;
 
   if (unionCount > 0) {
@@ -132,7 +156,8 @@ function getTitleSimilarityScore(expectedTitle, candidateTitle) {
 }
 
 function normalizeHours(minutesValue) {
-  const numeric = typeof minutesValue === 'number' ? minutesValue : Number.parseFloat(String(minutesValue ?? ''));
+  const numeric =
+    typeof minutesValue === 'number' ? minutesValue : Number.parseFloat(String(minutesValue ?? ''));
 
   if (!Number.isFinite(numeric) || numeric <= 0) {
     return null;
@@ -196,9 +221,12 @@ function normalizeEntry(entry) {
     return null;
   }
 
-  const title = typeof entry.game_name === 'string' && entry.game_name.trim().length > 0
-    ? entry.game_name.trim()
-    : (typeof entry.name === 'string' ? entry.name.trim() : '');
+  const title =
+    typeof entry.game_name === 'string' && entry.game_name.trim().length > 0
+      ? entry.game_name.trim()
+      : typeof entry.name === 'string'
+        ? entry.name.trim()
+        : '';
 
   if (!title) {
     return null;
@@ -206,15 +234,25 @@ function normalizeEntry(entry) {
 
   const normalized = {
     title,
-    releaseYear: normalizeReleaseYear(entry.release_world ?? entry.release_na ?? entry.release_eu ?? entry.release_jp),
-    platformText: normalizePlatformText(entry.profile_platform ?? entry.platform ?? entry.profile_platforms ?? entry.platforms),
-    imageUrl: normalizeImageUrl(entry.game_image ?? entry.image_url ?? entry.image ?? entry.cover_url ?? entry.cover),
+    releaseYear: normalizeReleaseYear(
+      entry.release_world ?? entry.release_na ?? entry.release_eu ?? entry.release_jp
+    ),
+    platformText: normalizePlatformText(
+      entry.profile_platform ?? entry.platform ?? entry.profile_platforms ?? entry.platforms
+    ),
+    imageUrl: normalizeImageUrl(
+      entry.game_image ?? entry.image_url ?? entry.image ?? entry.cover_url ?? entry.cover
+    ),
     hltbMainHours: normalizeHours(entry.comp_main),
     hltbMainExtraHours: normalizeHours(entry.comp_plus),
-    hltbCompletionistHours: normalizeHours(entry.comp_100),
+    hltbCompletionistHours: normalizeHours(entry.comp_100)
   };
 
-  if (normalized.hltbMainHours === null && normalized.hltbMainExtraHours === null && normalized.hltbCompletionistHours === null) {
+  if (
+    normalized.hltbMainHours === null &&
+    normalized.hltbMainExtraHours === null &&
+    normalized.hltbCompletionistHours === null
+  ) {
     return null;
   }
 
@@ -222,7 +260,7 @@ function normalizeEntry(entry) {
 }
 
 function filterEntriesByTitle(entries, expectedTitle) {
-  return entries.filter(entry => {
+  return entries.filter((entry) => {
     const normalized = normalizeEntry(entry);
 
     if (!normalized) {
@@ -239,7 +277,7 @@ function collectCandidateEntriesFromUnknown(value, sink, depth = 0) {
   }
 
   if (Array.isArray(value)) {
-    value.forEach(item => collectCandidateEntriesFromUnknown(item, sink, depth + 1));
+    value.forEach((item) => collectCandidateEntriesFromUnknown(item, sink, depth + 1));
     return;
   }
 
@@ -253,7 +291,7 @@ function collectCandidateEntriesFromUnknown(value, sink, depth = 0) {
     sink.push(value);
   }
 
-  Object.values(value).forEach(nested => {
+  Object.values(value).forEach((nested) => {
     collectCandidateEntriesFromUnknown(nested, sink, depth + 1);
   });
 }
@@ -290,7 +328,7 @@ async function collectCandidatesFromNextData(page, sink) {
   const added = sink.length - before;
   const sampleTitles = sink
     .slice(before, before + 5)
-    .map(entry => normalizeEntry(entry)?.title)
+    .map((entry) => normalizeEntry(entry)?.title)
     .filter(Boolean);
 
   return { added, sampleTitles };
@@ -298,7 +336,12 @@ async function collectCandidatesFromNextData(page, sink) {
 
 function findBestMatch(entries, expectedTitle, expectedReleaseYear, expectedPlatform) {
   const normalizedExpectedPlatform = normalizeTitle(expectedPlatform);
-  const rankedCandidates = rankCandidateEntries(entries, expectedTitle, expectedReleaseYear, normalizedExpectedPlatform);
+  const rankedCandidates = rankCandidateEntries(
+    entries,
+    expectedTitle,
+    expectedReleaseYear,
+    normalizedExpectedPlatform
+  );
   const best = rankedCandidates[0] ?? null;
 
   if (!best) {
@@ -308,11 +351,16 @@ function findBestMatch(entries, expectedTitle, expectedReleaseYear, expectedPlat
   return {
     hltbMainHours: best.hltbMainHours,
     hltbMainExtraHours: best.hltbMainExtraHours,
-    hltbCompletionistHours: best.hltbCompletionistHours,
+    hltbCompletionistHours: best.hltbCompletionistHours
   };
 }
 
-function rankCandidateEntries(entries, expectedTitle, expectedReleaseYear, normalizedExpectedPlatform) {
+function rankCandidateEntries(
+  entries,
+  expectedTitle,
+  expectedReleaseYear,
+  normalizedExpectedPlatform
+) {
   const ranked = [];
 
   for (const entry of entries) {
@@ -362,18 +410,21 @@ function rankCandidateEntries(entries, expectedTitle, expectedReleaseYear, norma
       imageUrl: normalized.imageUrl,
       hltbMainHours: normalized.hltbMainHours,
       hltbMainExtraHours: normalized.hltbMainExtraHours,
-      hltbCompletionistHours: normalized.hltbCompletionistHours,
+      hltbCompletionistHours: normalized.hltbCompletionistHours
     });
   }
 
   return ranked
     .sort((left, right) => right.score - left.score)
     .filter((candidate, index, all) => {
-      return all.findIndex(entry => (
-        entry.title === candidate.title
-        && entry.releaseYear === candidate.releaseYear
-        && entry.platform === candidate.platform
-      )) === index;
+      return (
+        all.findIndex(
+          (entry) =>
+            entry.title === candidate.title &&
+            entry.releaseYear === candidate.releaseYear &&
+            entry.platform === candidate.platform
+        ) === index
+      );
     })
     .slice(0, 12)
     .map(({ score: _score, ...candidate }) => candidate);
@@ -382,7 +433,7 @@ function rankCandidateEntries(entries, expectedTitle, expectedReleaseYear, norma
 async function searchHltbInBrowser(page, title, releaseYear, platform) {
   const capturedEntries = [];
   const networkEvents = [];
-  const responseListener = async response => {
+  const responseListener = async (response) => {
     const request = response.request();
     const resourceType = request.resourceType();
 
@@ -399,10 +450,13 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     let shouldParsePayload = false;
     try {
       const parsedUrl = new URL(url);
-      const isHltbDomain = parsedUrl.hostname.toLowerCase().includes('howlongtobeat.com');
-      const isLikelySearchPayload = parsedUrl.pathname.includes('/api/')
-        || parsedUrl.pathname.includes('/_next/data/')
-        || parsedUrl.pathname.includes('/search');
+      const hostname = parsedUrl.hostname.toLowerCase();
+      const isHltbDomain =
+        hostname === 'howlongtobeat.com' || hostname.endsWith('.howlongtobeat.com');
+      const isLikelySearchPayload =
+        parsedUrl.pathname.includes('/api/') ||
+        parsedUrl.pathname.includes('/_next/data/') ||
+        parsedUrl.pathname.includes('/search');
       shouldParsePayload = isHltbDomain && isLikelySearchPayload && status >= 200 && status < 300;
     } catch {
       shouldParsePayload = false;
@@ -418,7 +472,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
         if (debugLogsEnabled && candidatesAdded > 0) {
           const sampleTitles = capturedEntries
             .slice(before, before + 5)
-            .map(entry => normalizeEntry(entry)?.title)
+            .map((entry) => normalizeEntry(entry)?.title)
             .filter(Boolean);
 
           console.info('[hltb-scraper] candidate_batch', {
@@ -426,7 +480,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
             url,
             status,
             candidatesAdded,
-            sampleTitles,
+            sampleTitles
           });
         }
       } catch {
@@ -439,11 +493,14 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
 
   try {
     // Load the shell first without collecting data so homepage preloads don't pollute candidates.
-    await page.goto('https://howlongtobeat.com/', { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
+    await page.goto('https://howlongtobeat.com/', {
+      waitUntil: 'domcontentloaded',
+      timeout: browserTimeoutMs
+    });
 
     const searchInput = page.locator('input[name="site-search"]').first();
 
-    if (await searchInput.count() > 0) {
+    if ((await searchInput.count()) > 0) {
       page.on('response', responseListener);
       await searchInput.fill(title);
       await searchInput.press('Enter');
@@ -459,7 +516,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
           source: 'next_data',
           url: page.url(),
           candidatesAdded: nextDataBatch.added,
-          sampleTitles: nextDataBatch.sampleTitles,
+          sampleTitles: nextDataBatch.sampleTitles
         });
       }
       page.off('response', responseListener);
@@ -468,7 +525,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     if (capturedEntries.length === 0) {
       const directUrls = [
         `https://howlongtobeat.com/search?q=${encodeURIComponent(title)}`,
-        `https://howlongtobeat.com/?q=${encodeURIComponent(title)}`,
+        `https://howlongtobeat.com/?q=${encodeURIComponent(title)}`
       ];
 
       for (const directUrl of directUrls) {
@@ -486,7 +543,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
             source: 'next_data',
             url: page.url(),
             candidatesAdded: nextDataBatch.added,
-            sampleTitles: nextDataBatch.sampleTitles,
+            sampleTitles: nextDataBatch.sampleTitles
           });
         }
         page.off('response', responseListener);
@@ -501,31 +558,40 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     const entriesForMatch = relevantEntries;
     const item = findBestMatch(entriesForMatch, title, releaseYear, platform);
     const normalizedExpectedPlatform = normalizeTitle(platform);
-    const candidates = rankCandidateEntries(entriesForMatch, title, releaseYear, normalizedExpectedPlatform);
-    const sampledTimes = entriesForMatch
-      .slice(0, 5)
-      .map(entry => ({
-        title: typeof entry?.game_name === 'string' ? entry.game_name : (typeof entry?.name === 'string' ? entry.name : null),
-        rawMain: entry?.comp_main ?? null,
-        rawMainExtra: entry?.comp_plus ?? null,
-        rawCompletionist: entry?.comp_100 ?? null,
-        normalizedMain: normalizeHours(entry?.comp_main),
-        normalizedMainExtra: normalizeHours(entry?.comp_plus),
-        normalizedCompletionist: normalizeHours(entry?.comp_100),
-      }));
-    const lastStatus = networkEvents.length > 0 ? networkEvents[networkEvents.length - 1].status : 0;
+    const candidates = rankCandidateEntries(
+      entriesForMatch,
+      title,
+      releaseYear,
+      normalizedExpectedPlatform
+    );
+    const sampledTimes = entriesForMatch.slice(0, 5).map((entry) => ({
+      title:
+        typeof entry?.game_name === 'string'
+          ? entry.game_name
+          : typeof entry?.name === 'string'
+            ? entry.name
+            : null,
+      rawMain: entry?.comp_main ?? null,
+      rawMainExtra: entry?.comp_plus ?? null,
+      rawCompletionist: entry?.comp_100 ?? null,
+      normalizedMain: normalizeHours(entry?.comp_main),
+      normalizedMainExtra: normalizeHours(entry?.comp_plus),
+      normalizedCompletionist: normalizeHours(entry?.comp_100)
+    }));
+    const lastStatus =
+      networkEvents.length > 0 ? networkEvents[networkEvents.length - 1].status : 0;
 
     if (debugLogsEnabled) {
       const relevantSampleTitles = relevantEntries
         .slice(0, 8)
-        .map(entry => normalizeEntry(entry)?.title)
+        .map((entry) => normalizeEntry(entry)?.title)
         .filter(Boolean);
 
       console.info('[hltb-scraper] candidate_summary', {
         query: title,
         rawCandidates: capturedEntries.length,
         relevantCandidates: relevantEntries.length,
-        relevantSampleTitles,
+        relevantSampleTitles
       });
     }
 
@@ -538,8 +604,8 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
         candidates: entriesForMatch.length,
         rawCandidates: capturedEntries.length,
         finalUrl: page.url(),
-        sampledTimes,
-      },
+        sampledTimes
+      }
     };
   } finally {
     page.off('response', responseListener);
@@ -571,14 +637,13 @@ app.get('/v1/hltb/search', async (req, res) => {
     return;
   }
 
-  let browser;
-
   try {
     const titleVariants = buildSearchTitleVariants(query);
 
-    browser = await chromium.launch({ headless: true });
+    const browser = await getSharedBrowser();
     const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
     });
     const page = await context.newPage();
     let item = null;
@@ -599,7 +664,7 @@ app.get('/v1/hltb/search', async (req, res) => {
           matched: result.item !== null,
           sampledTimes: result.diagnostic.sampledTimes,
           matchedItem: result.item,
-          finalUrl: result.diagnostic.finalUrl,
+          finalUrl: result.diagnostic.finalUrl
         });
       }
 
@@ -611,21 +676,86 @@ app.get('/v1/hltb/search', async (req, res) => {
     }
 
     await context.close();
+    scheduleBrowserIdleClose();
 
     res.json(includeCandidates ? { item, candidates } : { item });
   } catch (error) {
     console.error('[hltb-scraper] request_failed', {
       query,
-      message: error instanceof Error ? error.message : String(error),
+      message: error instanceof Error ? error.message : String(error)
     });
     res.status(502).json({ error: 'Unable to fetch HLTB data.' });
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 });
 
 app.listen(port, () => {
   console.log(`[hltb-scraper] listening on http://localhost:${port}`);
 });
+
+async function getSharedBrowser() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+    browserIdleTimer = null;
+  }
+
+  if (sharedBrowser) {
+    return sharedBrowser;
+  }
+
+  if (!sharedBrowserPromise) {
+    sharedBrowserPromise = chromium
+      .launch({ headless: true })
+      .then((browser) => {
+        sharedBrowser = browser;
+        sharedBrowserPromise = null;
+        return browser;
+      })
+      .catch((error) => {
+        sharedBrowserPromise = null;
+        throw error;
+      });
+  }
+
+  return sharedBrowserPromise;
+}
+
+function scheduleBrowserIdleClose() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+  }
+
+  browserIdleTimer = setTimeout(() => {
+    closeSharedBrowser().catch((error) => {
+      console.warn('[hltb-scraper] browser_close_failed', {
+        message: error instanceof Error ? error.message : String(error)
+      });
+    });
+  }, browserIdleTtlMs);
+}
+
+async function closeSharedBrowser() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+    browserIdleTimer = null;
+  }
+
+  if (!sharedBrowser) {
+    return;
+  }
+
+  const browser = sharedBrowser;
+  sharedBrowser = null;
+  await browser.close();
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    closeSharedBrowser()
+      .catch(() => {
+        // Ignore shutdown cleanup errors.
+      })
+      .finally(() => {
+        process.exit(0);
+      });
+  });
+}

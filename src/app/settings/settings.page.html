@@ -8,52 +8,50 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-list lines="full">
-    <ion-list-header>
-      <ion-label>Theme</ion-label>
-    </ion-list-header>
+  <div class="settings-content">
+    <ion-list lines="full">
+      <ion-list-header>
+        <ion-label>Theme</ion-label>
+      </ion-list-header>
 
-    <ion-item>
-      <ion-label>Theme Mode</ion-label>
-      <ion-select
-        labelPlacement="end"
-        interface="popover"
-        [value]="selectedColorScheme"
-        (ionChange)="onColorSchemePreferenceChange($any($event).detail.value)"
+      <ion-item>
+        <ion-label>Theme Mode</ion-label>
+        <ion-select
+          labelPlacement="end"
+          interface="popover"
+          [value]="selectedColorScheme"
+          (ionChange)="onColorSchemePreferenceChange($any($event).detail.value)"
         >
-        @for (option of colorSchemeOptions; track option) {
-          <ion-select-option
-            [value]="option.value"
-            >
-            {{ option.label }}
-          </ion-select-option>
-        }
-      </ion-select>
-    </ion-item>
-  </ion-list>
+          @for (option of colorSchemeOptions; track option) {
+            <ion-select-option [value]="option.value">
+              {{ option.label }}
+            </ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+    </ion-list>
 
-  <ion-list lines="full">
-    <ion-list-header>
-      <ion-label>Data</ion-label>
-    </ion-list-header>
+    <ion-list lines="full">
+      <ion-list-header>
+        <ion-label>Data</ion-label>
+      </ion-list-header>
 
-    <ion-item>
-      <ion-input
-        label="Image Cache Limit (MB)"
-        class="ion-text-end"
-        type="number"
-        min="20"
-        max="2048"
-        step="10"
-        [ngModel]="imageCacheLimitMb"
-        (ngModelChange)="onImageCacheLimitChange($event)"
-        inputmode="numeric"
-      ></ion-input>
-    </ion-item>
-    <ion-item class="cache-usage-item">
-      <ion-label color="medium"
-        >Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }}
-        MB</ion-label
+      <ion-item>
+        <ion-input
+          label="Image Cache Limit (MB)"
+          class="ion-text-end"
+          type="number"
+          min="20"
+          max="2048"
+          step="10"
+          [ngModel]="imageCacheLimitMb"
+          (ngModelChange)="onImageCacheLimitChange($event)"
+          inputmode="numeric"
+        ></ion-input>
+      </ion-item>
+      <ion-item class="cache-usage-item">
+        <ion-label color="medium"
+          >Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label
         >
       </ion-item>
       <ion-item button detail="false" (click)="purgeLocalImageCache()">
@@ -74,14 +72,7 @@
         type="file"
         accept=".csv,text/csv"
         (change)="onImportFileSelected($event)"
-        />
-      <input
-        #mgcCsvFileInput
-        class="hidden-file-input"
-        type="file"
-        accept=".csv,text/csv"
-        (change)="onMgcImportFileSelected($event)"
-        />
+      />
     </ion-list>
 
     <ion-list lines="full">
@@ -148,6 +139,32 @@
 
     <ion-list lines="full">
       <ion-list-header>
+        <ion-label>Advanced</ion-label>
+      </ion-list-header>
+
+      <ion-item>
+        <ion-icon slot="start" color="medium" name="key"></ion-icon>
+        <ion-label>
+          <h2>Device Write Token</h2>
+          <p>{{ clientWriteTokenConfigured ? 'Configured on this device' : 'Not configured' }}</p>
+        </ion-label>
+        <ion-button fill="outline" size="small" slot="end" (click)="promptClientWriteToken()"
+          >Set</ion-button
+        >
+        <ion-button
+          fill="clear"
+          color="danger"
+          size="small"
+          slot="end"
+          [disabled]="!clientWriteTokenConfigured"
+          (click)="clearClientWriteToken()"
+          >Clear</ion-button
+        >
+      </ion-item>
+    </ion-list>
+
+    <ion-list lines="full">
+      <ion-list-header>
         <ion-label>Debug</ion-label>
       </ion-list-header>
 
@@ -160,10 +177,19 @@
           (ionChange)="onVerboseTracingToggleChange($any($event).detail.checked)"
         ></ion-toggle>
       </ion-item>
-      <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
-        <ion-icon slot="start" color="primary" name="download"></ion-icon>
-        <ion-label>Import MGC CSV</ion-label>
-      </ion-item>
+      @if (isMgcImportFeatureEnabled) {
+        <input
+          #mgcCsvFileInput
+          class="hidden-file-input"
+          type="file"
+          accept=".csv,text/csv"
+          (change)="onMgcImportFileSelected($event)"
+        />
+        <ion-item button detail="true" (click)="triggerMgcImport(mgcCsvFileInput)">
+          <ion-icon slot="start" color="primary" name="download"></ion-icon>
+          <ion-label>Import MGC CSV</ion-label>
+        </ion-item>
+      }
       <ion-item button detail="true" (click)="exportDebugLogs()">
         <ion-icon slot="start" color="primary" name="bug"></ion-icon>
         <ion-label>Export Debug Logs</ion-label>
@@ -173,18 +199,162 @@
         <ion-label>Clear Debug Logs</ion-label>
       </ion-item>
     </ion-list>
-  </ion-content>
 
-  <ion-modal
-    [isOpen]="isPlatformOrderModalOpen"
-    (didDismiss)="closePlatformOrderModal()"
-    >
+    <div class="settings-version">
+      <ion-label color="medium">Version {{ appVersion }}</ion-label>
+    </div>
+  </div>
+</ion-content>
+
+<ion-modal [isOpen]="isPlatformOrderModalOpen" (didDismiss)="closePlatformOrderModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Platform Customizations</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closePlatformOrderModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ion-item lines="none">
+        <ion-label color="medium"
+          >Reorder platforms and set custom display names for UI labels.</ion-label
+        >
+      </ion-item>
+
+      @if (isPlatformOrderLoading) {
+        <ion-item lines="none">
+          <ion-label>Loading platforms...</ion-label>
+        </ion-item>
+      }
+
+      @if (!isPlatformOrderLoading) {
+        <ion-list lines="full">
+          <ion-reorder-group [disabled]="false" (ionItemReorder)="onPlatformOrderReorder($event)">
+            @for (
+              platform of platformOrderItems;
+              track trackByPlatformOrderItem($index, platform)
+            ) {
+              <ion-item>
+                <ion-label>
+                  <h3>{{ getPlatformCustomizationDisplayName(platform) }}</h3>
+                  <p>{{ platform.name }}</p>
+                </ion-label>
+                <ion-button
+                  fill="clear"
+                  size="small"
+                  slot="end"
+                  (click)="editPlatformDisplayName(platform)"
+                >
+                  Rename
+                </ion-button>
+                <ion-reorder slot="end"></ion-reorder>
+              </ion-item>
+            }
+          </ion-reorder-group>
+        </ion-list>
+      }
+    </ion-content>
+
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button fill="outline" color="medium" (click)="clearPlatformDisplayNames()">
+            Clear Names
+          </ion-button>
+          <ion-button fill="outline" (click)="resetPlatformOrder()">
+            <ion-icon slot="start" name="refresh"></ion-icon>
+            Reset Order
+          </ion-button>
+          <ion-button (click)="closePlatformOrderModal()">Done</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isImportPreviewOpen" (didDismiss)="closeImportPreview()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Import Preview</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closeImportPreview()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ion-list lines="full">
+        @for (row of importPreviewRows; track row) {
+          <ion-item
+            [class.import-row-error]="row.error"
+            [class.import-row-warning]="!row.error && row.warning"
+          >
+            <ion-label>
+              <h2>Row {{ row.rowNumber }} · {{ row.type }}</h2>
+              <p>{{ row.summary }}</p>
+              @if (row.error) {
+                <p class="error-text">{{ row.error }}</p>
+              }
+              @if (!row.error && row.warning) {
+                <p class="warning-text">
+                  {{ row.warning }}
+                </p>
+              }
+            </ion-label>
+            <ion-button
+              fill="clear"
+              color="danger"
+              slot="end"
+              (click)="confirmRemoveImportRow(row.id)"
+            >
+              <ion-icon slot="icon-only" name="trash"></ion-icon>
+            </ion-button>
+          </ion-item>
+        }
+      </ion-list>
+
+      @if (importPreviewRows.length === 0) {
+        <ion-item lines="none">
+          <ion-label>No rows to import.</ion-label>
+        </ion-item>
+      }
+    </ion-content>
+
+    <ion-footer>
+      <ion-toolbar>
+        <ion-title size="small">
+          {{ importPreviewRows.length }} rows · {{ importErrorCount }} error{{
+            importErrorCount === 1 ? '' : 's'
+          }}
+          · {{ importWarningCount }} warning{{ importWarningCount === 1 ? '' : 's' }}
+        </ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="outline" (click)="closeImportPreview()">Cancel</ion-button>
+          <ion-button [disabled]="!canApplyImport" (click)="applyImport()">
+            {{ isApplyingImport ? 'Importing...' : 'Apply Import' }}
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
+
+@if (isMgcImportFeatureEnabled) {
+  <ion-modal [isOpen]="isMgcImportOpen" (didDismiss)="closeMgcImport()">
     <ng-template>
       <ion-header>
         <ion-toolbar>
-          <ion-title>Platform Customizations</ion-title>
+          <ion-title>MGC Import</ion-title>
           <ion-buttons slot="end">
-            <ion-button fill="clear" (click)="closePlatformOrderModal()">
+            <ion-button fill="clear" (click)="closeMgcImport()">
               <ion-icon slot="icon-only" name="close"></ion-icon>
             </ion-button>
           </ion-buttons>
@@ -192,406 +362,237 @@
       </ion-header>
 
       <ion-content>
-        <ion-item lines="none">
-          <ion-label color="medium"
-            >Reorder platforms and set custom display names for UI
-            labels.</ion-label
+        <ion-list lines="full">
+          <ion-item>
+            <ion-select
+              label="Target list"
+              labelPlacement="stacked"
+              [ngModel]="mgcTargetListType"
+              (ngModelChange)="onMgcTargetListTypeChange($event)"
+              placeholder="Select a target list"
             >
+              <ion-select-option value="collection">Collection</ion-select-option>
+              <ion-select-option value="wishlist">Wishlist</ion-select-option>
+            </ion-select>
           </ion-item>
 
-          @if (isPlatformOrderLoading) {
-            <ion-item lines="none">
-              <ion-label>Loading platforms...</ion-label>
-            </ion-item>
-          }
+          <ion-item>
+            <ion-select
+              label="Rows per page"
+              labelPlacement="stacked"
+              [ngModel]="mgcPageSize"
+              (ngModelChange)="onMgcPageSizeChange($event)"
+            >
+              @for (size of mgcPageSizeOptions; track size) {
+                <ion-select-option [value]="size">{{ size }}</ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+        </ion-list>
 
-          @if (!isPlatformOrderLoading) {
-            <ion-list lines="full">
-              <ion-reorder-group
-                [disabled]="false"
-                (ionItemReorder)="onPlatformOrderReorder($event)"
-                >
-                @for (platform of platformOrderItems; track trackByPlatformOrderItem($index, platform)) {
-                  <ion-item
-                    >
-                    <ion-label>
-                      <h3>{{ getPlatformCustomizationDisplayName(platform) }}</h3>
-                      <p>{{ platform.name }}</p>
-                    </ion-label>
-                    <ion-button
-                      fill="clear"
-                      size="small"
-                      slot="end"
-                      (click)="editPlatformDisplayName(platform)"
-                      >
-                      Rename
-                    </ion-button>
-                    <ion-reorder slot="end"></ion-reorder>
-                  </ion-item>
+        <ion-item lines="none" class="mgc-page-toolbar">
+          <ion-button fill="outline" (click)="goToPreviousMgcPage()" [disabled]="mgcPageIndex === 0"
+            >Prev</ion-button
+          >
+          <ion-label class="mgc-page-counter"
+            >Page {{ mgcPageIndex + 1 }} / {{ mgcPageCount }}</ion-label
+          >
+          <ion-button
+            fill="outline"
+            (click)="goToNextMgcPage()"
+            [disabled]="mgcPageIndex >= mgcPageCount - 1"
+            >Next</ion-button
+          >
+        </ion-item>
+
+        <ion-item lines="none" class="mgc-page-toolbar">
+          <ion-button
+            expand="block"
+            [disabled]="isResolvingMgcPage || isApplyingMgcImport"
+            (click)="resolveCurrentMgcPage()"
+          >
+            {{ isResolvingMgcPage ? 'Resolving...' : 'Resolve Current Page' }}
+          </ion-button>
+        </ion-item>
+
+        <ion-list lines="full">
+          @for (row of mgcCurrentPageRows; track trackByMgcRowId($index, row)) {
+            <ion-item
+              [ngClass]="getMgcRowClass(row)"
+              [button]="!row.error && !isApplyingMgcImport"
+              [detail]="!row.error && !isApplyingMgcImport"
+              (click)="openMgcRowResolver(row)"
+            >
+              <ion-label>
+                <h2 class="mgc-title-row">
+                  <span class="mgc-title-text">{{ row.name }}</span>
+                  @if (isMgcAutoSelectedMultiple(row)) {
+                    <ion-icon name="alert-circle" class="mgc-auto-selected-icon"></ion-icon>
+                  }
+                </h2>
+                <p>{{ row.platform }}</p>
+                <p class="mgc-status-text">{{ getMgcRowStatusText(row) }}</p>
+                @if (row.warning) {
+                  <p class="warning-text">{{ row.warning }}</p>
                 }
-              </ion-reorder-group>
-            </ion-list>
-          }
-        </ion-content>
-
-        <ion-footer>
-          <ion-toolbar>
-            <ion-buttons slot="end">
+                @if (row.error || row.duplicateError) {
+                  <p class="error-text">
+                    {{ row.error || row.duplicateError }}
+                  </p>
+                }
+              </ion-label>
               <ion-button
-                fill="outline"
-                color="medium"
-                (click)="clearPlatformDisplayNames()"
-                >
-                Clear Names
+                fill="clear"
+                color="danger"
+                slot="end"
+                (click)="$event.stopPropagation(); confirmRemoveMgcRow(row.id)"
+                [disabled]="isApplyingMgcImport"
+              >
+                <ion-icon slot="icon-only" name="trash"></ion-icon>
               </ion-button>
-              <ion-button fill="outline" (click)="resetPlatformOrder()">
-                <ion-icon slot="start" name="refresh"></ion-icon>
-                Reset Order
-              </ion-button>
-              <ion-button (click)="closePlatformOrderModal()">Done</ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-footer>
-      </ng-template>
-    </ion-modal>
-
-    <ion-modal [isOpen]="isImportPreviewOpen" (didDismiss)="closeImportPreview()">
-      <ng-template>
-        <ion-header>
-          <ion-toolbar>
-            <ion-title>Import Preview</ion-title>
-            <ion-buttons slot="end">
-              <ion-button fill="clear" (click)="closeImportPreview()">
-                <ion-icon slot="icon-only" name="close"></ion-icon>
-              </ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
-
-        <ion-content>
-          <ion-list lines="full">
-            @for (row of importPreviewRows; track row) {
-              <ion-item
-                [class.import-row-error]="row.error"
-                [class.import-row-warning]="!row.error && row.warning"
-                >
-                <ion-label>
-                  <h2>Row {{ row.rowNumber }} · {{ row.type }}</h2>
-                  <p>{{ row.summary }}</p>
-                  @if (row.error) {
-                    <p class="error-text">{{ row.error }}</p>
-                  }
-                  @if (!row.error && row.warning) {
-                    <p class="warning-text">
-                      {{ row.warning }}
-                    </p>
-                  }
-                </ion-label>
-                <ion-button
-                  fill="clear"
-                  color="danger"
-                  slot="end"
-                  (click)="confirmRemoveImportRow(row.id)"
-                  >
-                  <ion-icon slot="icon-only" name="trash"></ion-icon>
-                </ion-button>
-              </ion-item>
-            }
-          </ion-list>
-
-          @if (importPreviewRows.length === 0) {
-            <ion-item lines="none">
-              <ion-label>No rows to import.</ion-label>
             </ion-item>
           }
-        </ion-content>
+        </ion-list>
 
-        <ion-footer>
-          <ion-toolbar>
-            <ion-title size="small">
-              {{ importPreviewRows.length }} rows · {{ importErrorCount }} error{{
-              importErrorCount === 1 ? '' : 's' }} · {{ importWarningCount }}
-              warning{{ importWarningCount === 1 ? '' : 's' }}
-            </ion-title>
-            <ion-buttons slot="end">
-              <ion-button fill="outline" (click)="closeImportPreview()"
-                >Cancel</ion-button
-                >
-                <ion-button [disabled]="!canApplyImport" (click)="applyImport()">
-                  {{ isApplyingImport ? 'Importing...' : 'Apply Import' }}
-                </ion-button>
-              </ion-buttons>
-            </ion-toolbar>
-          </ion-footer>
-        </ng-template>
-      </ion-modal>
+        @if (mgcRows.length === 0) {
+          <ion-item lines="none">
+            <ion-label>No rows loaded.</ion-label>
+          </ion-item>
+        }
+      </ion-content>
 
-      <ion-modal [isOpen]="isMgcImportOpen" (didDismiss)="closeMgcImport()">
-        <ng-template>
-          <ion-header>
-            <ion-toolbar>
-              <ion-title>MGC Import</ion-title>
-              <ion-buttons slot="end">
-                <ion-button fill="clear" (click)="closeMgcImport()">
-                  <ion-icon slot="icon-only" name="close"></ion-icon>
-                </ion-button>
-              </ion-buttons>
-            </ion-toolbar>
-          </ion-header>
+      <ion-footer>
+        <ion-toolbar>
+          <ion-title size="small">
+            {{ mgcRows.length }} rows · {{ mgcResolvedCount }} resolved ·
+            {{ mgcBlockedCount }} blocked
+          </ion-title>
+          <ion-buttons slot="end">
+            <ion-button fill="outline" (click)="closeMgcImport()" [disabled]="isApplyingMgcImport"
+              >Cancel</ion-button
+            >
+            <ion-button [disabled]="!canApplyMgcImport" (click)="confirmApplyMgcImport()">
+              {{ isApplyingMgcImport ? 'Importing...' : 'Import' }}
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-footer>
+    </ng-template>
+  </ion-modal>
+}
 
-          <ion-content>
-            <ion-list lines="full">
-              <ion-item>
-                <ion-select
-                  label="Target list"
-                  labelPlacement="stacked"
-                  [ngModel]="mgcTargetListType"
-                  (ngModelChange)="onMgcTargetListTypeChange($event)"
-                  placeholder="Select a target list"
-                  >
-                  <ion-select-option value="collection">Collection</ion-select-option>
-                  <ion-select-option value="wishlist">Wishlist</ion-select-option>
-                </ion-select>
-              </ion-item>
+<ion-modal [isOpen]="isMgcResolverOpen" (didDismiss)="closeMgcResolver()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Resolve Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closeMgcResolver()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
-              <ion-item>
-                <ion-select
-                  label="Rows per page"
-                  labelPlacement="stacked"
-                  [ngModel]="mgcPageSize"
-                  (ngModelChange)="onMgcPageSizeChange($event)"
-                  >
-                  @for (size of mgcPageSizeOptions; track size) {
-                    <ion-select-option
-                      [value]="size"
-                      >{{ size }}</ion-select-option
-                      >
-                    }
-                  </ion-select>
-                </ion-item>
-              </ion-list>
+    <ion-content class="gs-safe-bottom">
+      <ion-item>
+        <ion-select
+          label="Platform"
+          labelPlacement="stacked"
+          interface="popover"
+          [value]="mgcResolverPlatformIgdbId === null ? '' : mgcResolverPlatformIgdbId"
+          (ionChange)="onMgcResolverPlatformChange($any($event).detail.value)"
+        >
+          <ion-select-option value="">All platforms</ion-select-option>
+          @for (platform of mgcResolverPlatformOptions; track platform) {
+            <ion-select-option [value]="platform.id">
+              {{ getPlatformDisplayName(platform.name, platform.id) }}
+            </ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
 
-              <ion-item lines="none" class="mgc-page-toolbar">
-                <ion-button
-                  fill="outline"
-                  (click)="goToPreviousMgcPage()"
-                  [disabled]="mgcPageIndex === 0"
-                  >Prev</ion-button
-                  >
-                  <ion-label class="mgc-page-counter"
-                    >Page {{ mgcPageIndex + 1 }} / {{ mgcPageCount }}</ion-label
-                    >
-                    <ion-button
-                      fill="outline"
-                      (click)="goToNextMgcPage()"
-                      [disabled]="mgcPageIndex >= mgcPageCount - 1"
-                      >Next</ion-button
-                      >
-                    </ion-item>
+      <ion-item>
+        <ion-searchbar
+          [value]="mgcResolverQuery"
+          (ionInput)="onMgcResolverQueryChange($any($event).detail.value)"
+          placeholder="Search IGDB"
+        ></ion-searchbar>
+      </ion-item>
+      <ion-item lines="none">
+        <ion-button
+          expand="block"
+          (click)="searchMgcResolver()"
+          [disabled]="isMgcResolverSearching"
+        >
+          {{ isMgcResolverSearching ? 'Searching...' : 'Search' }}
+        </ion-button>
+      </ion-item>
 
-                    <ion-item lines="none" class="mgc-page-toolbar">
-                      <ion-button
-                        expand="block"
-                        [disabled]="isResolvingMgcPage || isApplyingMgcImport"
-                        (click)="resolveCurrentMgcPage()"
-                        >
-                        {{ isResolvingMgcPage ? 'Resolving...' : 'Resolve Current Page' }}
-                      </ion-button>
-                    </ion-item>
+      @if (mgcResolverError) {
+        <ion-item lines="none">
+          <ion-label class="error-text">{{ mgcResolverError }}</ion-label>
+        </ion-item>
+      }
 
-                    <ion-list lines="full">
-                      @for (row of mgcCurrentPageRows; track trackByMgcRowId($index, row)) {
-                        <ion-item
-                          [ngClass]="getMgcRowClass(row)"
-                          [button]="!row.error && !isApplyingMgcImport"
-                          [detail]="!row.error && !isApplyingMgcImport"
-                          (click)="openMgcRowResolver(row)"
-                          >
-                          <ion-label>
-                            <h2 class="mgc-title-row">
-                              <span class="mgc-title-text">{{ row.name }}</span>
-                              @if (isMgcAutoSelectedMultiple(row)) {
-                                <ion-icon
-                                  name="alert-circle"
-                                  class="mgc-auto-selected-icon"
-                                ></ion-icon>
-                              }
-                            </h2>
-                            <p>{{ row.platform }}</p>
-                            <p class="mgc-status-text">{{ getMgcRowStatusText(row) }}</p>
-                            @if (row.warning) {
-                              <p class="warning-text">{{ row.warning }}</p>
-                            }
-                            @if (row.error || row.duplicateError) {
-                              <p class="error-text">
-                                {{ row.error || row.duplicateError }}
-                              </p>
-                            }
-                          </ion-label>
-                          <ion-button
-                            fill="clear"
-                            color="danger"
-                            slot="end"
-                            (click)="$event.stopPropagation(); confirmRemoveMgcRow(row.id)"
-                            [disabled]="isApplyingMgcImport"
-                            >
-                            <ion-icon slot="icon-only" name="trash"></ion-icon>
-                          </ion-button>
-                        </ion-item>
-                      }
-                    </ion-list>
+      @if (isMgcResolverEmptyStateVisible) {
+        <ion-item lines="none">
+          <ion-label>No results found for this search. Try a different query.</ion-label>
+        </ion-item>
+      }
 
-                    @if (mgcRows.length === 0) {
-                      <ion-item lines="none">
-                        <ion-label>No rows loaded.</ion-label>
-                      </ion-item>
-                    }
-                  </ion-content>
+      <ion-list lines="full">
+        @for (result of mgcResolverResults; track trackByMgcResolverResult($index, result)) {
+          <ion-item>
+            <ion-thumbnail slot="start">
+              <img
+                [src]="result.coverUrl || 'assets/icon/placeholder.png'"
+                (error)="onMgcResultImageError($event)"
+                alt="Game cover"
+              />
+            </ion-thumbnail>
+            <ion-label>
+              <h2>{{ result.title }}</h2>
+              <p>{{ getMgcResolverPlatformSummary(result) }}</p>
+              @if (result.releaseYear) {
+                <p>{{ result.releaseYear }}</p>
+              }
+            </ion-label>
+            <ion-button slot="end" (click)="chooseMgcResolverResult(result)">Select</ion-button>
+          </ion-item>
+        }
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-modal>
 
-                  <ion-footer>
-                    <ion-toolbar>
-                      <ion-title size="small">
-                        {{ mgcRows.length }} rows · {{ mgcResolvedCount }} resolved · {{
-                        mgcBlockedCount }} blocked
-                      </ion-title>
-                      <ion-buttons slot="end">
-                        <ion-button
-                          fill="outline"
-                          (click)="closeMgcImport()"
-                          [disabled]="isApplyingMgcImport"
-                          >Cancel</ion-button
-                          >
-                          <ion-button
-                            [disabled]="!canApplyMgcImport"
-                            (click)="confirmApplyMgcImport()"
-                            >
-                            {{ isApplyingMgcImport ? 'Importing...' : 'Import' }}
-                          </ion-button>
-                        </ion-buttons>
-                      </ion-toolbar>
-                    </ion-footer>
-                  </ng-template>
-                </ion-modal>
+<ion-modal [isOpen]="isSummaryModalOpen" (didDismiss)="closeSummaryModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ summaryModalTitle }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" (click)="closeSummaryModal()">
+            <ion-icon slot="icon-only" name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
-                <ion-modal [isOpen]="isMgcResolverOpen" (didDismiss)="closeMgcResolver()">
-                  <ng-template>
-                    <ion-header>
-                      <ion-toolbar>
-                        <ion-title>Resolve Match</ion-title>
-                        <ion-buttons slot="end">
-                          <ion-button fill="clear" (click)="closeMgcResolver()">
-                            <ion-icon slot="icon-only" name="close"></ion-icon>
-                          </ion-button>
-                        </ion-buttons>
-                      </ion-toolbar>
-                    </ion-header>
+    <ion-content class="gs-safe-bottom">
+      <ion-list lines="full">
+        @for (line of summaryModalLines; track line) {
+          <ion-item>
+            <ion-label>{{ line }}</ion-label>
+          </ion-item>
+        }
+      </ion-list>
+    </ion-content>
+  </ng-template>
+</ion-modal>
 
-                    <ion-content>
-                      <ion-item>
-                        <ion-select
-                          label="Platform"
-                          labelPlacement="stacked"
-                          interface="popover"
-                          [value]="mgcResolverPlatformIgdbId === null ? '' : mgcResolverPlatformIgdbId"
-                          (ionChange)="onMgcResolverPlatformChange($any($event).detail.value)"
-                          >
-                          <ion-select-option value="">All platforms</ion-select-option>
-                          @for (platform of mgcResolverPlatformOptions; track platform) {
-                            <ion-select-option
-                              [value]="platform.id"
-                              >
-                              {{ getPlatformDisplayName(platform.name, platform.id) }}
-                            </ion-select-option>
-                          }
-                        </ion-select>
-                      </ion-item>
-
-                      <ion-item>
-                        <ion-searchbar
-                          [value]="mgcResolverQuery"
-                          (ionInput)="onMgcResolverQueryChange($any($event).detail.value)"
-                          placeholder="Search IGDB"
-                        ></ion-searchbar>
-                      </ion-item>
-                      <ion-item lines="none">
-                        <ion-button
-                          expand="block"
-                          (click)="searchMgcResolver()"
-                          [disabled]="isMgcResolverSearching"
-                          >
-                          {{ isMgcResolverSearching ? 'Searching...' : 'Search' }}
-                        </ion-button>
-                      </ion-item>
-
-                      @if (mgcResolverError) {
-                        <ion-item lines="none">
-                          <ion-label class="error-text">{{ mgcResolverError }}</ion-label>
-                        </ion-item>
-                      }
-
-                      @if (isMgcResolverEmptyStateVisible) {
-                        <ion-item lines="none">
-                          <ion-label
-                            >No results found for this search. Try a different query.</ion-label
-                            >
-                          </ion-item>
-                        }
-
-                        <ion-list lines="full">
-                          @for (result of mgcResolverResults; track trackByMgcResolverResult($index, result)) {
-                            <ion-item
-                              >
-                              <ion-thumbnail slot="start">
-                                <img
-                                  [src]="result.coverUrl || 'assets/icon/placeholder.png'"
-                                  (error)="onMgcResultImageError($event)"
-                                  alt="Game cover"
-                                  />
-                              </ion-thumbnail>
-                              <ion-label>
-                                <h2>{{ result.title }}</h2>
-                                <p>{{ getMgcResolverPlatformSummary(result) }}</p>
-                                @if (result.releaseYear) {
-                                  <p>{{ result.releaseYear }}</p>
-                                }
-                              </ion-label>
-                              <ion-button slot="end" (click)="chooseMgcResolverResult(result)"
-                                >Select</ion-button
-                                >
-                              </ion-item>
-                            }
-                          </ion-list>
-                        </ion-content>
-                      </ng-template>
-                    </ion-modal>
-
-                    <ion-modal [isOpen]="isSummaryModalOpen" (didDismiss)="closeSummaryModal()">
-                      <ng-template>
-                        <ion-header>
-                          <ion-toolbar>
-                            <ion-title>{{ summaryModalTitle }}</ion-title>
-                            <ion-buttons slot="end">
-                              <ion-button fill="clear" (click)="closeSummaryModal()">
-                                <ion-icon slot="icon-only" name="close"></ion-icon>
-                              </ion-button>
-                            </ion-buttons>
-                          </ion-toolbar>
-                        </ion-header>
-
-                        <ion-content>
-                          <ion-list lines="full">
-                            @for (line of summaryModalLines; track line) {
-                              <ion-item>
-                                <ion-label>{{ line }}</ion-label>
-                              </ion-item>
-                            }
-                          </ion-list>
-                        </ion-content>
-                      </ng-template>
-                    </ion-modal>
-
-                    <ion-loading
-                      [isOpen]="isImportLoadingOpen"
-                      [message]="importLoadingMessage"
-                      spinner="crescent"
-                    ></ion-loading>
+<ion-loading
+  [isOpen]="isImportLoadingOpen"
+  [message]="importLoadingMessage"
+  spinner="crescent"
+></ion-loading>

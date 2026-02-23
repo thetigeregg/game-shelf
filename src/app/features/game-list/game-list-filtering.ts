@@ -7,14 +7,14 @@ import {
   GameRatingFilterOption,
   GameStatus,
   GameStatusFilterOption,
-  GameType,
+  GameType
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
   normalizeStringList,
-  normalizeTagFilterList,
+  normalizeTagFilterList
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
 
@@ -56,15 +56,21 @@ export class GameListFilteringEngine {
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
-    'e-reader / card-e reader': 'Game Boy Advance',
+    'e-reader': 'Game Boy Advance',
+    'e-reader / card-e reader': 'Game Boy Advance'
   };
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
+  private sortedGamesCache: {
+    sourceGames: GameEntry[];
+    sortField: GameListFilters['sortField'];
+    sortDirection: GameListFilters['sortDirection'];
+    sortedGames: GameEntry[];
+  } | null = null;
   private readonly platformOrderByKey = new Map<string, number>();
   private platformDisplayNameById = new Map<number, string>();
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
-    const platformId = typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0
-      ? entry.id
-      : null;
+    const platformId =
+      typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0 ? entry.id : null;
     const platformName = String(entry.name ?? '').trim();
 
     if (platformId !== null && platformName.length > 0) {
@@ -75,6 +81,7 @@ export class GameListFilteringEngine {
   }, new Map<number, string>());
   private readonly canonicalCustomByPlatformNameKey = new Map<string, string>();
   private readonly canonicalPlatformNameKeyByCustomLabelKey = new Map<string, string>();
+  private readonly canonicalPlatformLabelByCustomLabelKey = new Map<string, string>();
 
   constructor(private readonly noneTagFilterValue: string) {}
 
@@ -94,6 +101,12 @@ export class GameListFilteringEngine {
     const nextMap = new Map<number, string>();
     const nextCanonicalCustomByPlatformNameKey = new Map<string, string>();
     const nextCanonicalPlatformNameKeyByCustomLabelKey = new Map<string, string>();
+    const nextCanonicalPlatformLabelByCustomLabelKey = new Map<string, string>();
+    const customPlatformEntries: {
+      customLabel: string;
+      canonicalPlatformName: string;
+      canonicalPlatformNameKey: string;
+    }[] = [];
 
     Object.entries(displayNames ?? {}).forEach(([rawKey, rawValue]) => {
       const platformId = Number.parseInt(String(rawKey ?? ''), 10);
@@ -103,18 +116,60 @@ export class GameListFilteringEngine {
         nextMap.set(platformId, normalizedName);
 
         const platformName = this.platformNameById.get(platformId) ?? '';
+        const platformNameKey = this.normalizePlatformKey(platformName);
         const canonicalPlatformName = this.getAliasedPlatformName(platformName);
         const canonicalPlatformNameKey = this.normalizePlatformKey(canonicalPlatformName);
 
-        if (canonicalPlatformNameKey.length > 0 && !nextCanonicalCustomByPlatformNameKey.has(canonicalPlatformNameKey)) {
+        if (canonicalPlatformNameKey.length > 0) {
+          customPlatformEntries.push({
+            customLabel: normalizedName,
+            canonicalPlatformName,
+            canonicalPlatformNameKey
+          });
+        }
+
+        // Only treat custom labels on the canonical destination platform as canonical aliases.
+        if (
+          canonicalPlatformNameKey.length > 0 &&
+          platformNameKey === canonicalPlatformNameKey &&
+          !nextCanonicalCustomByPlatformNameKey.has(canonicalPlatformNameKey)
+        ) {
           nextCanonicalCustomByPlatformNameKey.set(canonicalPlatformNameKey, normalizedName);
-          nextCanonicalPlatformNameKeyByCustomLabelKey.set(this.normalizePlatformKey(normalizedName), canonicalPlatformNameKey);
         }
       }
     });
 
-    const unchanged = nextMap.size === this.platformDisplayNameById.size
-      && [...nextMap.entries()].every(([platformId, name]) => this.platformDisplayNameById.get(platformId) === name);
+    customPlatformEntries.forEach((entry) => {
+      const customLabelKey = this.normalizePlatformKey(entry.customLabel);
+      const canonicalLabel =
+        nextCanonicalCustomByPlatformNameKey.get(entry.canonicalPlatformNameKey) ??
+        entry.canonicalPlatformName;
+
+      if (
+        customLabelKey.length > 0 &&
+        canonicalLabel.trim().length > 0 &&
+        !nextCanonicalPlatformNameKeyByCustomLabelKey.has(customLabelKey)
+      ) {
+        nextCanonicalPlatformNameKeyByCustomLabelKey.set(
+          customLabelKey,
+          entry.canonicalPlatformNameKey
+        );
+      }
+
+      if (
+        customLabelKey.length > 0 &&
+        canonicalLabel.trim().length > 0 &&
+        !nextCanonicalPlatformLabelByCustomLabelKey.has(customLabelKey)
+      ) {
+        nextCanonicalPlatformLabelByCustomLabelKey.set(customLabelKey, canonicalLabel.trim());
+      }
+    });
+
+    const unchanged =
+      nextMap.size === this.platformDisplayNameById.size &&
+      [...nextMap.entries()].every(
+        ([platformId, name]) => this.platformDisplayNameById.get(platformId) === name
+      );
 
     if (unchanged) {
       return;
@@ -122,18 +177,29 @@ export class GameListFilteringEngine {
 
     this.platformDisplayNameById = nextMap;
     this.canonicalCustomByPlatformNameKey.clear();
-    nextCanonicalCustomByPlatformNameKey.forEach((value, key) => this.canonicalCustomByPlatformNameKey.set(key, value));
+    nextCanonicalCustomByPlatformNameKey.forEach((value, key) =>
+      this.canonicalCustomByPlatformNameKey.set(key, value)
+    );
     this.canonicalPlatformNameKeyByCustomLabelKey.clear();
-    nextCanonicalPlatformNameKeyByCustomLabelKey.forEach((value, key) => this.canonicalPlatformNameKeyByCustomLabelKey.set(key, value));
+    nextCanonicalPlatformNameKeyByCustomLabelKey.forEach((value, key) =>
+      this.canonicalPlatformNameKeyByCustomLabelKey.set(key, value)
+    );
+    this.canonicalPlatformLabelByCustomLabelKey.clear();
+    nextCanonicalPlatformLabelByCustomLabelKey.forEach((value, key) =>
+      this.canonicalPlatformLabelByCustomLabelKey.set(key, value)
+    );
     this.normalizedFilterGameByKey.clear();
+    this.sortedGamesCache = null;
   }
 
   normalizeFilters(filters: GameListFilters): GameListFilters {
-    const normalizedPlatforms = [...new Set(
-      normalizeStringList(filters.platform)
-        .map(platform => this.getCanonicalPlatformLabel(platform))
-        .filter(platform => platform.length > 0),
-    )];
+    const normalizedPlatforms = [
+      ...new Set(
+        normalizeStringList(filters.platform)
+          .map((platform) => this.getCanonicalPlatformLabel(platform))
+          .filter((platform) => platform.length > 0)
+      )
+    ];
     const normalizedGenres = normalizeStringList(filters.genres);
     const normalizedCollections = normalizeStringList(filters.collections);
     const normalizedDevelopers = normalizeStringList(filters.developers);
@@ -159,28 +225,41 @@ export class GameListFilteringEngine {
       statuses: normalizedStatuses,
       tags: normalizedTags,
       ratings: normalizedRatings,
-      hltbMainHoursMin: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
-        ? hltbMainHoursMax
-        : hltbMainHoursMin,
-      hltbMainHoursMax: hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
-        ? hltbMainHoursMin
-        : hltbMainHoursMax,
+      hltbMainHoursMin:
+        hltbMainHoursMin !== null &&
+        hltbMainHoursMax !== null &&
+        hltbMainHoursMin > hltbMainHoursMax
+          ? hltbMainHoursMax
+          : hltbMainHoursMin,
+      hltbMainHoursMax:
+        hltbMainHoursMin !== null &&
+        hltbMainHoursMax !== null &&
+        hltbMainHoursMin > hltbMainHoursMax
+          ? hltbMainHoursMin
+          : hltbMainHoursMax
     };
   }
 
   extractPlatforms(games: GameEntry[]): string[] {
-    return [...new Set(
-      games
-        .map(game => this.getCanonicalPlatformLabel(this.getDisplayPlatformName(game), this.getDisplayPlatformIgdbId(game)))
-        .filter(platform => platform.length > 0),
-    )].sort((a, b) => this.comparePlatformNames(a, b));
+    return [
+      ...new Set(
+        games
+          .map((game) =>
+            this.getCanonicalPlatformLabel(
+              this.getDisplayPlatformName(game),
+              this.getDisplayPlatformIgdbId(game)
+            )
+          )
+          .filter((platform) => platform.length > 0)
+      )
+    ].sort((a, b) => this.comparePlatformNames(a, b));
   }
 
   extractGenres(games: GameEntry[]): string[] {
     const genreSet = new Set<string>();
 
-    games.forEach(game => {
-      normalizeStringList(game.genres).forEach(genre => genreSet.add(genre));
+    games.forEach((game) => {
+      normalizeStringList(game.genres).forEach((genre) => genreSet.add(genre));
     });
 
     return Array.from(genreSet).sort((a, b) => this.compareTitles(a, b));
@@ -189,8 +268,8 @@ export class GameListFilteringEngine {
   extractCollections(games: GameEntry[]): string[] {
     const collectionSet = new Set<string>();
 
-    games.forEach(game => {
-      normalizeStringList(game.collections).forEach(collection => collectionSet.add(collection));
+    games.forEach((game) => {
+      normalizeStringList(game.collections).forEach((collection) => collectionSet.add(collection));
     });
 
     return Array.from(collectionSet).sort((a, b) => this.compareTitles(a, b));
@@ -199,7 +278,7 @@ export class GameListFilteringEngine {
   extractGameTypes(games: GameEntry[]): GameType[] {
     const gameTypeSet = new Set<GameType>();
 
-    games.forEach(game => {
+    games.forEach((game) => {
       const gameType = game.gameType ?? null;
 
       if (gameType && normalizeGameTypeList([gameType]).length > 0) {
@@ -213,18 +292,36 @@ export class GameListFilteringEngine {
   extractTags(games: GameEntry[]): string[] {
     const tagSet = new Set<string>();
 
-    games.forEach(game => {
-      normalizeStringList((game.tags ?? []).map(tag => tag.name)).forEach(tagName => tagSet.add(tagName));
+    games.forEach((game) => {
+      normalizeStringList((game.tags ?? []).map((tag) => tag.name)).forEach((tagName) =>
+        tagSet.add(tagName)
+      );
     });
 
     return Array.from(tagSet).sort((a, b) => this.compareTitles(a, b));
   }
 
-  applyFiltersAndSort(games: GameEntry[], filters: GameListFilters, searchQuery: string): GameEntry[] {
+  applyFiltersAndSort(
+    games: GameEntry[],
+    filters: GameListFilters,
+    searchQuery: string
+  ): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
-    const filtered = games.filter(game => this.matchesFilters(game, filters, searchQuery));
-    const sorted = [...filtered].sort((left, right) => this.compareGames(left, right, filters.sortField));
-    return filters.sortDirection === 'desc' ? sorted.reverse() : sorted;
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+    const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
+    const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
+    const sortedGames = this.getSortedGames(games, filters.sortField, filters.sortDirection);
+
+    if (
+      normalizedSearchQuery.length === 0 &&
+      !this.hasActiveFilterConstraints(filters, minMainHours, maxMainHours)
+    ) {
+      return sortedGames;
+    }
+
+    return sortedGames.filter((game) =>
+      this.matchesFilters(game, filters, normalizedSearchQuery, minMainHours, maxMainHours)
+    );
   }
 
   buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {
@@ -232,14 +329,14 @@ export class GameListFilteringEngine {
       return {
         grouped: false,
         sections: [{ key: 'none', title: 'All Games', games }],
-        totalCount: games.length,
+        totalCount: games.length
       };
     }
 
     const sectionsMap = new Map<string, GameEntry[]>();
 
-    games.forEach(game => {
-      this.getGroupTitlesForGame(game, groupBy).forEach(title => {
+    games.forEach((game) => {
+      this.getGroupTitlesForGame(game, groupBy).forEach((title) => {
         const normalized = title.trim();
 
         if (!sectionsMap.has(normalized)) {
@@ -255,13 +352,13 @@ export class GameListFilteringEngine {
       .map(([title, groupedGames]) => ({
         key: `${groupBy}-${title}`,
         title,
-        games: groupedGames,
+        games: groupedGames
       }));
 
     return {
       grouped: true,
       sections: sortedSections,
-      totalCount: games.length,
+      totalCount: games.length
     };
   }
 
@@ -269,7 +366,12 @@ export class GameListFilteringEngine {
     const noGroupLabel = this.getNoGroupLabel(groupBy);
 
     if (groupBy === 'platform') {
-      return [this.getCanonicalPlatformLabel(this.getDisplayPlatformName(game), this.getDisplayPlatformIgdbId(game)) || noGroupLabel];
+      return [
+        this.getCanonicalPlatformLabel(
+          this.getDisplayPlatformName(game),
+          this.getDisplayPlatformIgdbId(game)
+        ) || noGroupLabel
+      ];
     }
 
     if (groupBy === 'releaseYear') {
@@ -277,7 +379,7 @@ export class GameListFilteringEngine {
     }
 
     if (groupBy === 'tag') {
-      const tagNames = normalizeStringList((game.tags ?? []).map(tag => tag.name));
+      const tagNames = normalizeStringList((game.tags ?? []).map((tag) => tag.name));
       return tagNames.length > 0 ? tagNames : [noGroupLabel];
     }
 
@@ -376,24 +478,44 @@ export class GameListFilteringEngine {
     return this.normalizePlatformKey(this.getAliasedPlatformName(value));
   }
 
-  private getCanonicalPlatformLabel(value: string | null | undefined, platformIgdbId?: number | null): string {
+  private getCanonicalPlatformLabel(
+    value: string | null | undefined,
+    platformIgdbId?: number | null
+  ): string {
     const trimmed = String(value ?? '').trim();
 
     if (trimmed.length === 0) {
       return '';
     }
 
+    const trimmedKey = this.normalizePlatformKey(trimmed);
+    const canonicalLabelFromCustom = this.canonicalPlatformLabelByCustomLabelKey.get(trimmedKey);
+
+    if (
+      typeof canonicalLabelFromCustom === 'string' &&
+      canonicalLabelFromCustom.trim().length > 0
+    ) {
+      return canonicalLabelFromCustom.trim();
+    }
+
     const aliased = this.getAliasedPlatformName(trimmed);
     const aliasedKey = this.normalizePlatformKey(aliased);
+    const aliasWasApplied =
+      trimmedKey.length > 0 && aliasedKey.length > 0 && trimmedKey !== aliasedKey;
     const canonicalCustomName = this.canonicalCustomByPlatformNameKey.get(aliasedKey);
 
     if (typeof canonicalCustomName === 'string' && canonicalCustomName.trim().length > 0) {
       return canonicalCustomName.trim();
     }
 
-    const platformId = typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
-      ? platformIgdbId
-      : null;
+    if (aliasWasApplied) {
+      return aliased;
+    }
+
+    const platformId =
+      typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
+        ? platformIgdbId
+        : null;
 
     if (platformId !== null) {
       const customName = this.platformDisplayNameById.get(platformId);
@@ -460,11 +582,19 @@ export class GameListFilteringEngine {
     return '[No Group]';
   }
 
-  private matchesFilters(game: GameEntry, filters: GameListFilters, searchQuery: string): boolean {
+  private matchesFilters(
+    game: GameEntry,
+    filters: GameListFilters,
+    normalizedSearchQuery: string,
+    minMainHours: number | null,
+    maxMainHours: number | null
+  ): boolean {
     const normalized = this.getNormalizedFilterGame(game);
-    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
-    if (normalizedSearchQuery.length > 0 && !normalized.titleLower.includes(normalizedSearchQuery)) {
+    if (
+      normalizedSearchQuery.length > 0 &&
+      !normalized.titleLower.includes(normalizedSearchQuery)
+    ) {
       return false;
     }
 
@@ -472,23 +602,40 @@ export class GameListFilteringEngine {
       return false;
     }
 
-    if (filters.genres.length > 0 && !filters.genres.some(selectedGenre => normalized.genres.has(selectedGenre))) {
+    if (
+      filters.genres.length > 0 &&
+      !filters.genres.some((selectedGenre) => normalized.genres.has(selectedGenre))
+    ) {
       return false;
     }
 
-    if (filters.collections.length > 0 && !filters.collections.some(selectedCollection => normalized.collections.has(selectedCollection))) {
+    if (
+      filters.collections.length > 0 &&
+      !filters.collections.some((selectedCollection) =>
+        normalized.collections.has(selectedCollection)
+      )
+    ) {
       return false;
     }
 
-    if (filters.developers.length > 0 && !filters.developers.some(selectedDeveloper => normalized.developers.has(selectedDeveloper))) {
+    if (
+      filters.developers.length > 0 &&
+      !filters.developers.some((selectedDeveloper) => normalized.developers.has(selectedDeveloper))
+    ) {
       return false;
     }
 
-    if (filters.franchises.length > 0 && !filters.franchises.some(selectedFranchise => normalized.franchises.has(selectedFranchise))) {
+    if (
+      filters.franchises.length > 0 &&
+      !filters.franchises.some((selectedFranchise) => normalized.franchises.has(selectedFranchise))
+    ) {
       return false;
     }
 
-    if (filters.publishers.length > 0 && !filters.publishers.some(selectedPublisher => normalized.publishers.has(selectedPublisher))) {
+    if (
+      filters.publishers.length > 0 &&
+      !filters.publishers.some((selectedPublisher) => normalized.publishers.has(selectedPublisher))
+    ) {
       return false;
     }
 
@@ -503,7 +650,8 @@ export class GameListFilteringEngine {
     if (filters.statuses.length > 0) {
       const gameStatus = normalized.status;
       const matchesNone = gameStatus === null && filters.statuses.includes('none');
-      const matchesStatus = gameStatus !== null && filters.statuses.includes(gameStatus as GameStatusFilterOption);
+      const matchesStatus =
+        gameStatus !== null && filters.statuses.includes(gameStatus as GameStatusFilterOption);
 
       if (!matchesNone && !matchesStatus) {
         return false;
@@ -512,8 +660,10 @@ export class GameListFilteringEngine {
 
     if (filters.tags.length > 0) {
       const matchesNoneTagFilter = filters.tags.includes(this.noneTagFilterValue);
-      const selectedTagNames = filters.tags.filter(tag => tag !== this.noneTagFilterValue);
-      const matchesSelectedTag = selectedTagNames.some(selectedTag => normalized.tagNames.has(selectedTag));
+      const selectedTagNames = filters.tags.filter((tag) => tag !== this.noneTagFilterValue);
+      const matchesSelectedTag = selectedTagNames.some((selectedTag) =>
+        normalized.tagNames.has(selectedTag)
+      );
       const matchesNoTags = matchesNoneTagFilter && normalized.tagNames.size === 0;
 
       if (!matchesSelectedTag && !matchesNoTags) {
@@ -524,15 +674,14 @@ export class GameListFilteringEngine {
     if (filters.ratings.length > 0) {
       const gameRating = normalized.rating;
       const matchesNone = gameRating === null && filters.ratings.includes('none');
-      const matchesRating = gameRating !== null && filters.ratings.includes(gameRating as GameRatingFilterOption);
+      const matchesRating =
+        gameRating !== null && filters.ratings.includes(gameRating as GameRatingFilterOption);
 
       if (!matchesNone && !matchesRating) {
         return false;
       }
     }
 
-    const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
-    const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
     const gameMainHours = normalized.effectiveHltbHours;
 
     if (gameMainHours !== null) {
@@ -558,8 +707,58 @@ export class GameListFilteringEngine {
     return true;
   }
 
+  private getSortedGames(
+    games: GameEntry[],
+    sortField: GameListFilters['sortField'],
+    sortDirection: GameListFilters['sortDirection']
+  ): GameEntry[] {
+    const existingCache = this.sortedGamesCache;
+
+    if (
+      existingCache &&
+      existingCache.sourceGames === games &&
+      existingCache.sortField === sortField &&
+      existingCache.sortDirection === sortDirection
+    ) {
+      return existingCache.sortedGames;
+    }
+
+    const sortedAsc = [...games].sort((left, right) => this.compareGames(left, right, sortField));
+    const sortedGames = sortDirection === 'desc' ? sortedAsc.reverse() : sortedAsc;
+    this.sortedGamesCache = {
+      sourceGames: games,
+      sortField,
+      sortDirection,
+      sortedGames
+    };
+    return sortedGames;
+  }
+
+  private hasActiveFilterConstraints(
+    filters: GameListFilters,
+    minMainHours: number | null,
+    maxMainHours: number | null
+  ): boolean {
+    return (
+      filters.platform.length > 0 ||
+      filters.genres.length > 0 ||
+      filters.collections.length > 0 ||
+      filters.developers.length > 0 ||
+      filters.franchises.length > 0 ||
+      filters.publishers.length > 0 ||
+      filters.gameTypes.length > 0 ||
+      filters.statuses.length > 0 ||
+      filters.tags.length > 0 ||
+      filters.ratings.length > 0 ||
+      minMainHours !== null ||
+      maxMainHours !== null ||
+      !!filters.releaseDateFrom ||
+      !!filters.releaseDateTo
+    );
+  }
+
   private pruneNormalizedFilterCache(games: GameEntry[]): void {
-    const activeKeys = new Set(games.map(game => this.getGameKey(game)));
+    const activeKeys = new Set(games.map((game) => this.getGameKey(game)));
 
     this.normalizedFilterGameByKey.forEach((_value, key) => {
       if (!activeKeys.has(key)) {
@@ -580,18 +779,21 @@ export class GameListFilteringEngine {
     const normalized: NormalizedFilterGame = {
       updatedAt: gameUpdatedAt,
       titleLower: this.getDisplayTitle(game).toLowerCase(),
-      platform: this.getCanonicalPlatformLabel(this.getDisplayPlatformName(game), this.getDisplayPlatformIgdbId(game)),
+      platform: this.getCanonicalPlatformLabel(
+        this.getDisplayPlatformName(game),
+        this.getDisplayPlatformIgdbId(game)
+      ),
       collections: new Set(normalizeStringList(game.collections)),
       developers: new Set(normalizeStringList(game.developers)),
       franchises: new Set(normalizeStringList(game.franchises)),
       publishers: new Set(normalizeStringList(game.publishers)),
       genres: new Set(normalizeStringList(game.genres)),
-      tagNames: new Set(normalizeStringList((game.tags ?? []).map(tag => tag.name))),
+      tagNames: new Set(normalizeStringList((game.tags ?? []).map((tag) => tag.name))),
       gameType: game.gameType ?? null,
       status: this.normalizeStatus(game.status),
       rating: this.normalizeRating(game.rating),
       effectiveHltbHours: this.selectEffectiveHltbHours(game),
-      releaseDate: this.getDateOnly(game.releaseDate),
+      releaseDate: this.getDateOnly(game.releaseDate)
     };
 
     this.normalizedFilterGameByKey.set(gameKey, normalized);
@@ -602,15 +804,29 @@ export class GameListFilteringEngine {
     return this.compareTitles(this.getDisplayTitle(left), this.getDisplayTitle(right));
   }
 
-  private compareGames(left: GameEntry, right: GameEntry, sortField: GameListFilters['sortField']): number {
+  private compareGames(
+    left: GameEntry,
+    right: GameEntry,
+    sortField: GameListFilters['sortField']
+  ): number {
     if (sortField === 'title') {
       return this.sortGamesByTitleFallback(left, right);
     }
 
     if (sortField === 'platform') {
-      const leftPlatform = this.getCanonicalPlatformLabel(this.getDisplayPlatformName(left), this.getDisplayPlatformIgdbId(left)) || 'Unknown platform';
-      const rightPlatform = this.getCanonicalPlatformLabel(this.getDisplayPlatformName(right), this.getDisplayPlatformIgdbId(right)) || 'Unknown platform';
-      const platformCompare = leftPlatform.localeCompare(rightPlatform, undefined, { sensitivity: 'base' });
+      const leftPlatform =
+        this.getCanonicalPlatformLabel(
+          this.getDisplayPlatformName(left),
+          this.getDisplayPlatformIgdbId(left)
+        ) || 'Unknown platform';
+      const rightPlatform =
+        this.getCanonicalPlatformLabel(
+          this.getDisplayPlatformName(right),
+          this.getDisplayPlatformIgdbId(right)
+        ) || 'Unknown platform';
+      const platformCompare = leftPlatform.localeCompare(rightPlatform, undefined, {
+        sensitivity: 'base'
+      });
 
       if (platformCompare !== 0) {
         return platformCompare;
@@ -661,7 +877,9 @@ export class GameListFilteringEngine {
   private compareTitles(leftTitle: string, rightTitle: string): number {
     const normalizedLeft = this.normalizeTitleForSort(leftTitle);
     const normalizedRight = this.normalizeTitleForSort(rightTitle);
-    const normalizedCompare = normalizedLeft.localeCompare(normalizedRight, undefined, { sensitivity: 'base' });
+    const normalizedCompare = normalizedLeft.localeCompare(normalizedRight, undefined, {
+      sensitivity: 'base'
+    });
 
     if (normalizedCompare !== 0) {
       return normalizedCompare;
@@ -708,14 +926,23 @@ export class GameListFilteringEngine {
   }
 
   private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {
-    if (value === 'playing' || value === 'wantToPlay' || value === 'completed' || value === 'paused' || value === 'dropped' || value === 'replay') {
+    if (
+      value === 'playing' ||
+      value === 'wantToPlay' ||
+      value === 'completed' ||
+      value === 'paused' ||
+      value === 'dropped' ||
+      value === 'replay'
+    ) {
       return value;
     }
 
     return null;
   }
 
-  private normalizeRating(value: number | string | GameRating | null | undefined): GameRating | null {
+  private normalizeRating(
+    value: number | string | GameRating | null | undefined
+  ): GameRating | null {
     const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
 
     if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
@@ -736,7 +963,8 @@ export class GameListFilteringEngine {
   }
 
   private getDisplayPlatformName(game: GameEntry): string {
-    const customPlatform = typeof game.customPlatform === 'string' ? game.customPlatform.trim() : '';
+    const customPlatform =
+      typeof game.customPlatform === 'string' ? game.customPlatform.trim() : '';
     const customPlatformIgdbId = this.normalizeOptionalPlatformIgdbId(game.customPlatformIgdbId);
 
     if (customPlatform.length > 0 && customPlatformIgdbId !== null) {
@@ -747,7 +975,8 @@ export class GameListFilteringEngine {
   }
 
   private getDisplayPlatformIgdbId(game: GameEntry): number | null {
-    const customPlatform = typeof game.customPlatform === 'string' ? game.customPlatform.trim() : '';
+    const customPlatform =
+      typeof game.customPlatform === 'string' ? game.customPlatform.trim() : '';
     const customPlatformIgdbId = this.normalizeOptionalPlatformIgdbId(game.customPlatformIgdbId);
 
     if (customPlatform.length > 0 && customPlatformIgdbId !== null) {

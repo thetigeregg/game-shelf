@@ -732,3 +732,8 @@
 - bb426de Merge branch 'main' into auth-fix
 - d3147ec Clarify auth headers for edge
 
+## v0.1.15 - 2026-02-23
+- 0fe5e4f Merge pull request #74 from thetigeregg/dependabot/npm_and_yarn/types/node-22.19.11
+- f102875 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
+- bada9be chore(deps): bump @types/node from 22.19.10 to 22.19.11
+

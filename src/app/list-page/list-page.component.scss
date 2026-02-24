@@ -5,14 +5,19 @@ app-game-list {
 
 .list-page-split-pane {
   height: 100%;
-  --side-width: min(360px, 34vw);
-  --side-max-width: 380px;
+  --side-width: 360px;
+  --side-min-width: 360px;
+  --side-max-width: 360px;
 }
 
 .list-page-split-pane > app-game-filters-menu {
   display: block;
+  width: 360px;
+  min-width: 360px;
+  max-width: 360px;
+  flex: 0 0 360px;
   height: 100%;
-  border-left: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
+  border-right: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
   background: var(--ion-color-step-50, var(--ion-background-color));
 }
 

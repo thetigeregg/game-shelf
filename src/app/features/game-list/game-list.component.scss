@@ -385,12 +385,15 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
   align-items: stretch;
 }
 
-.detail-note-textarea {
+.detail-note-editor {
   width: 100%;
   min-height: 60vh;
-  --padding-start: 12px;
-  --padding-end: 12px;
-  --padding-top: 12px;
-  --padding-bottom: 12px;
+  padding: 12px;
   font-family: var(--ion-font-family, inherit);
+}
+
+.detail-note-editor .ProseMirror {
+  min-height: calc(60vh - 24px);
+  outline: none;
+  white-space: pre-wrap;
 }

@@ -294,21 +294,21 @@
               <ion-toolbar class="detail-notes-toolbar">
                 <ion-buttons slot="start">
                   <ion-button fill="clear" aria-label="Bold" (click)="applyNotesToolbar('bold')">
-                    <ion-icon slot="icon-only" name="text"></ion-icon>
+                    <span class="format-glyph format-glyph-bold" aria-hidden="true">B</span>
                   </ion-button>
                   <ion-button
                     fill="clear"
                     aria-label="Italic"
                     (click)="applyNotesToolbar('italic')"
                   >
-                    <ion-icon slot="icon-only" name="text-outline"></ion-icon>
+                    <span class="format-glyph format-glyph-italic" aria-hidden="true">I</span>
                   </ion-button>
                   <ion-button
                     fill="clear"
                     aria-label="Underline"
                     (click)="applyNotesToolbar('underline')"
                   >
-                    <ion-icon slot="icon-only" name="text-sharp"></ion-icon>
+                    <span class="format-glyph format-glyph-underline" aria-hidden="true">U</span>
                   </ion-button>
                   <ion-button
                     fill="clear"
@@ -513,13 +513,13 @@
       <ion-toolbar class="detail-notes-toolbar">
         <ion-buttons slot="start">
           <ion-button fill="clear" aria-label="Bold" (click)="applyNotesToolbar('bold')">
-            <ion-icon slot="icon-only" name="text"></ion-icon>
+            <span class="format-glyph format-glyph-bold" aria-hidden="true">B</span>
           </ion-button>
           <ion-button fill="clear" aria-label="Italic" (click)="applyNotesToolbar('italic')">
-            <ion-icon slot="icon-only" name="text-outline"></ion-icon>
+            <span class="format-glyph format-glyph-italic" aria-hidden="true">I</span>
           </ion-button>
           <ion-button fill="clear" aria-label="Underline" (click)="applyNotesToolbar('underline')">
-            <ion-icon slot="icon-only" name="text-sharp"></ion-icon>
+            <span class="format-glyph format-glyph-underline" aria-hidden="true">U</span>
           </ion-button>
           <ion-button fill="clear" aria-label="Bullet list" (click)="applyNotesToolbar('bullet')">
             <ion-icon slot="icon-only" name="list"></ion-icon>

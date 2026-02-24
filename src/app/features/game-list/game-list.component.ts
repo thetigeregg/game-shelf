@@ -141,10 +141,7 @@ import {
   book,
   list,
   listCircle,
-  checkboxOutline,
-  text,
-  textOutline,
-  textSharp
+  checkboxOutline
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -3397,10 +3394,7 @@ export class GameListComponent implements OnChanges {
       book,
       list,
       listCircle,
-      checkboxOutline,
-      text,
-      textOutline,
-      textSharp
+      checkboxOutline
     });
   }
 }

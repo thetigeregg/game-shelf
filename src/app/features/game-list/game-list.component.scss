@@ -342,12 +342,39 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
   --padding-end: 8px;
 }
 
+.detail-notes-toolbar ion-buttons {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
 .detail-notes-toolbar ion-button {
-  margin-right: 4px;
+  margin: 0;
 }
 
 .detail-notes-toolbar ion-icon {
   font-size: 1rem;
+}
+
+.format-glyph {
+  display: inline-flex;
+  width: 1rem;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.format-glyph-bold {
+  font-weight: 700;
+}
+
+.format-glyph-italic {
+  font-style: italic;
+}
+
+.format-glyph-underline {
+  text-decoration: underline;
 }
 
 .detail-notes-textarea-item {

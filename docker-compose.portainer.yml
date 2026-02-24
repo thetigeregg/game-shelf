@@ -16,7 +16,8 @@ services:
       grep -v '^window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport:' \"$$config_path\" > \"$$tmp_path\" || true;
       mv \"$$tmp_path\" \"$$config_path\";
       fi;
-      printf '%s\n' \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: $$feature_bool } });\" >> \"$$config_path\";
+      printf '%s' \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: $$feature_bool } });\" >> \"$$config_path\";
+      echo >> \"$$config_path\";
       exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     depends_on:
       - api

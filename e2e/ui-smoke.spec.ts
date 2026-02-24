@@ -176,6 +176,17 @@ test('filter menu shows reset and done on same row', async ({ page }) => {
   expect(Math.abs(resetBox.y - doneBox.y)).toBeLessThan(8);
 });
 
+test('mobile viewport uses overlay filters menu and Done closes it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/tabs/collection');
+  await dismissVersionAlertIfPresent(page);
+
+  await expect(page.locator('ion-split-pane.list-page-split-pane')).toHaveCount(0);
+
+  await openFiltersMenu(page);
+  await closeFiltersMenu(page);
+});
+
 test('desktop renders split pane while mobile does not render split pane', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/tabs/collection');

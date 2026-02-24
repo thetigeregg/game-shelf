@@ -347,6 +347,27 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
   margin-right: 4px;
 }
 
+.detail-notes-toolbar ion-icon {
+  font-size: 1rem;
+}
+
+.format-glyph {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.format-glyph-bold {
+  font-weight: 700;
+}
+
+.format-glyph-italic {
+  font-style: italic;
+}
+
+.format-glyph-underline {
+  text-decoration: underline;
+}
+
 .detail-notes-textarea-item {
   --inner-padding-start: 0;
   --inner-padding-end: 0;

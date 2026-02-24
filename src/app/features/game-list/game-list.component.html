@@ -493,14 +493,11 @@
 <ng-template #noteEditorCoreTemplate>
   <div class="detail-notes-editor">
     <ion-item lines="none" class="detail-notes-textarea-item">
-      <ion-textarea
-        #noteTextarea
-        class="detail-note-textarea"
-        [value]="noteDraft"
-        autoGrow="true"
-        placeholder="Add notes for this game..."
-        (ionInput)="onNoteInput($event)"
-      ></ion-textarea>
+      <tiptap-editor
+        class="detail-note-editor"
+        [editor]="notesEditorInstance"
+        [(ngModel)]="noteDraft"
+      ></tiptap-editor>
     </ion-item>
   </div>
 </ng-template>

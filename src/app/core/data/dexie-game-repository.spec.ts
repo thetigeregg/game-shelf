@@ -229,6 +229,31 @@ describe('DexieGameRepository', () => {
     expect(reset?.customCoverUrl).toBeNull();
   });
 
+  it('stores notes, normalizes line endings, and clears empty notes', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameNotes('101', 18, 'Line 1\r\nLine 2');
+    const withNotes = await repository.exists('101', 18);
+    expect(withNotes?.notes).toBe('Line 1\nLine 2');
+
+    await repository.setGameNotes('101', 18, '');
+    const cleared = await repository.exists('101', 18);
+    expect(cleared?.notes).toBeNull();
+  });
+
+  it('preserves existing notes when catalog metadata is refreshed', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+    await repository.setGameNotes('101', 18, 'Track hidden item locations');
+
+    await repository.upsertFromCatalog(
+      { ...mario, title: 'Super Mario Bros. Updated' },
+      'collection'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.notes).toBe('Track hidden item locations');
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });

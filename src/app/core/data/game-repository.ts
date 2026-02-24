@@ -40,6 +40,11 @@ export interface GameRepository {
     platformIgdbId: number,
     tagIds: number[]
   ): Promise<GameEntry | undefined>;
+  setGameNotes(
+    igdbGameId: string,
+    platformIgdbId: number,
+    notes: string | null
+  ): Promise<GameEntry | undefined>;
   setGameCustomCover(
     igdbGameId: string,
     platformIgdbId: number,

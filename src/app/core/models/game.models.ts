@@ -87,6 +87,7 @@ export interface GameEntry {
   id?: number;
   igdbGameId: string;
   title: string;
+  notes?: string | null;
   customTitle?: string | null;
   coverUrl: string | null;
   customCoverUrl?: string | null;

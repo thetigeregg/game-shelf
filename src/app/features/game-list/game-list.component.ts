@@ -12,6 +12,7 @@ import {
   ViewChild,
   inject
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import {
@@ -54,7 +55,9 @@ import {
   IonFab,
   IonFabButton,
   IonFabList,
-  IonInput
+  IonInput,
+  IonSplitPane,
+  IonTextarea
 } from '@ionic/angular/standalone';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
@@ -80,6 +83,7 @@ import { ManualService } from '../../core/services/manual.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { DebugLogService } from '../../core/services/debug-log.service';
+import { LayoutModeService } from '../../core/services/layout-mode.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
@@ -185,6 +189,8 @@ export interface GameListSelectionState {
     IonFabButton,
     IonFabList,
     IonInput,
+    IonSplitPane,
+    IonTextarea,
     AutoContentOffsetsDirective,
     GameSearchComponent,
     GameDetailContentComponent
@@ -263,6 +269,13 @@ export class GameListComponent implements OnChanges {
   hltbPickerTargetGame: GameEntry | null = null;
   isEditMetadataModalOpen = false;
   isEditMetadataSaving = false;
+  isNotesOpen = false;
+  isNotesModalOpen = false;
+  isNoteDirty = false;
+  isNoteSaving = false;
+  noteDraft = '';
+  savedNoteValue = '';
+  isDesktopDetailLayout = false;
   editMetadataTitle = '';
   editMetadataPlatformIgdbId: number | null = null;
   editMetadataPlatformOptions: GameCatalogPlatformOption[] = [];
@@ -309,6 +322,7 @@ export class GameListComponent implements OnChanges {
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly layoutModeService = inject(LayoutModeService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
@@ -322,6 +336,7 @@ export class GameListComponent implements OnChanges {
   @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('gameDetailModal', { read: ElementRef })
   private gameDetailModalRef?: ElementRef<HTMLElement>;
+  @ViewChild('noteTextarea') private noteTextarea?: IonTextarea;
   private imageErrorLogCount = 0;
 
   readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
@@ -329,6 +344,8 @@ export class GameListComponent implements OnChanges {
     GameListComponent.VIRTUAL_ROW_HEIGHT_PX * GameListComponent.VIRTUAL_BUFFER_ROWS;
   readonly virtualMaxBufferPx =
     GameListComponent.VIRTUAL_ROW_HEIGHT_PX * (GameListComponent.VIRTUAL_BUFFER_ROWS * 3);
+  readonly canDismissGameDetailModal = async (): Promise<boolean> => this.canDismissNotesGuard();
+  readonly canDismissNotesModal = async (): Promise<boolean> => this.canDismissNotesGuard();
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['listType']?.currentValue) {
@@ -740,11 +757,21 @@ export class GameListComponent implements OnChanges {
   }
 
   openGameDetail(game: GameEntry): void {
+    if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
+      void this.presentToast('Save or revert your note changes before switching games.', 'warning');
+      return;
+    }
+
     this.detailNavigationStack = [];
     this.openGameDetailInternal(game);
   }
 
   goBackInDetailNavigation(): void {
+    if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
+      void this.presentToast('Save or revert your note changes before switching games.', 'warning');
+      return;
+    }
+
     const previous = this.detailNavigationStack.pop();
 
     if (!previous) {
@@ -760,6 +787,157 @@ export class GameListComponent implements OnChanges {
     }
   }
 
+  get shouldShowNotesShortcut(): boolean {
+    return this.listType === 'collection' && this.selectedGame !== null;
+  }
+
+  get detailPrimaryPaneContentId(): string {
+    return `game-detail-primary-content-${this.listType}`;
+  }
+
+  get isDesktopNotesPaneVisible(): boolean {
+    return this.isDesktopDetailLayout && this.isNotesOpen;
+  }
+
+  openNotesEditor(): void {
+    if (!this.selectedGame || this.listType !== 'collection') {
+      return;
+    }
+
+    this.savedNoteValue = this.normalizeNotesValue(this.selectedGame.notes);
+    this.noteDraft = this.savedNoteValue;
+    this.isNoteDirty = false;
+    this.isNotesOpen = true;
+    this.isNotesModalOpen = !this.isDesktopDetailLayout;
+    this.closeDetailShortcutsFab();
+    this.changeDetectorRef.markForCheck();
+  }
+
+  async closeNotesEditor(): Promise<void> {
+    if (this.isNoteDirty) {
+      await this.presentToast('Save or revert your note changes before closing.', 'warning');
+      return;
+    }
+
+    this.isNotesOpen = false;
+    this.isNotesModalOpen = false;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  onNotesModalDidDismiss(): void {
+    this.isNotesModalOpen = false;
+    this.isNotesOpen = false;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  onNoteInput(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: string | null }>;
+    this.noteDraft = String(customEvent.detail?.value ?? '');
+    this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+  }
+
+  async saveNotes(): Promise<void> {
+    if (!this.selectedGame || this.isNoteSaving) {
+      return;
+    }
+
+    this.isNoteSaving = true;
+
+    try {
+      const updated = await this.gameShelfService.setGameNotes(
+        this.selectedGame.igdbGameId,
+        this.selectedGame.platformIgdbId,
+        this.noteDraft
+      );
+      this.applyUpdatedGame(updated);
+      this.savedNoteValue = this.normalizeNotesValue(updated.notes);
+      this.noteDraft = this.savedNoteValue;
+      this.isNoteDirty = false;
+      await this.presentToast('Notes saved.');
+    } catch {
+      await this.presentToast('Unable to save notes.', 'danger');
+    } finally {
+      this.isNoteSaving = false;
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
+  revertNotes(): void {
+    this.noteDraft = this.savedNoteValue;
+    this.isNoteDirty = false;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  async applyNotesToolbar(
+    action: 'bold' | 'italic' | 'underline' | 'bullet' | 'number' | 'check'
+  ): Promise<void> {
+    const textarea = await this.noteTextarea?.getInputElement();
+
+    if (!textarea) {
+      return;
+    }
+
+    const currentValue = this.noteDraft;
+    const selectionStart = textarea.selectionStart ?? 0;
+    const selectionEnd = textarea.selectionEnd ?? selectionStart;
+    const selectedText = currentValue.slice(selectionStart, selectionEnd);
+    let nextValue = currentValue;
+    let nextSelectionStart = selectionStart;
+    let nextSelectionEnd = selectionEnd;
+
+    if (action === 'bold' || action === 'italic' || action === 'underline') {
+      const marker = action === 'bold' ? '**' : action === 'italic' ? '*' : '<u>';
+      const suffix = action === 'underline' ? '</u>' : marker;
+      nextValue =
+        currentValue.slice(0, selectionStart) +
+        marker +
+        selectedText +
+        suffix +
+        currentValue.slice(selectionEnd);
+      nextSelectionStart = selectionStart + marker.length;
+      nextSelectionEnd = nextSelectionStart + selectedText.length;
+    } else {
+      const blockSelection =
+        selectedText.length > 0
+          ? selectedText
+          : this.resolveCurrentLine(currentValue, selectionStart, selectionEnd).text;
+      const blockBounds =
+        selectedText.length > 0
+          ? { start: selectionStart, end: selectionEnd }
+          : this.resolveCurrentLine(currentValue, selectionStart, selectionEnd);
+      const lines = blockSelection.split('\n');
+      const formatted = lines.map((line, index) => {
+        const trimmed = line.length === 0 ? '' : line;
+
+        if (action === 'bullet') {
+          return `- ${trimmed}`;
+        }
+
+        if (action === 'number') {
+          return `${index + 1}. ${trimmed}`;
+        }
+
+        return `- [ ] ${trimmed}`;
+      });
+
+      nextValue =
+        currentValue.slice(0, blockBounds.start) +
+        formatted.join('\n') +
+        currentValue.slice(blockBounds.end);
+      nextSelectionStart = blockBounds.start;
+      nextSelectionEnd = nextSelectionStart + formatted.join('\n').length;
+    }
+
+    this.noteDraft = nextValue;
+    this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+    this.changeDetectorRef.markForCheck();
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextSelectionStart, nextSelectionEnd);
+    });
+  }
+
   private openSimilarGameDetail(game: GameEntry): void {
     if (!this.selectedGame) {
       this.openGameDetail(game);
@@ -770,13 +948,26 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
+    if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
+      void this.presentToast('Save or revert your note changes before switching games.', 'warning');
+      return;
+    }
+
     this.detailNavigationStack.push(this.selectedGame);
     this.openGameDetailInternal(game);
   }
 
   private openGameDetailInternal(game: GameEntry): void {
+    const keepDesktopNotesPaneOpen = this.isDesktopNotesPaneVisible;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.resetNoteEditorState();
+    if (keepDesktopNotesPaneOpen && this.listType === 'collection') {
+      this.savedNoteValue = this.normalizeNotesValue(game.notes);
+      this.noteDraft = this.savedNoteValue;
+      this.isNoteDirty = false;
+      this.isNotesOpen = true;
+    }
     this.resetDetailTextExpansion();
     this.resetImagePickerState();
     this.resetManualPickerState();
@@ -793,13 +984,24 @@ export class GameListComponent implements OnChanges {
     });
   }
 
-  closeGameDetailModal(): void {
+  async closeGameDetailModal(): Promise<void> {
+    if (this.isNoteDirty) {
+      await this.presentToast('Save or revert your note changes before closing.', 'warning');
+      return;
+    }
+
+    this.closeGameDetailModalInternal();
+  }
+
+  private closeGameDetailModalInternal(): void {
     this.isGameDetailModalOpen = false;
     this.isImagePickerModalOpen = false;
     this.isHltbPickerModalOpen = false;
     this.isEditMetadataModalOpen = false;
     this.isEditMetadataSaving = false;
     this.isManualPickerModalOpen = false;
+    this.isNotesOpen = false;
+    this.isNotesModalOpen = false;
     this.selectedGame = null;
     this.detailNavigationStack = [];
     this.similarLibraryGames = [];
@@ -810,10 +1012,15 @@ export class GameListComponent implements OnChanges {
     this.resetImagePickerState();
     this.resetHltbPickerState();
     this.resetManualPickerState();
+    this.resetNoteEditorState();
     this.editMetadataTitle = '';
     this.editMetadataPlatformIgdbId = null;
     this.editMetadataPlatformOptions = [];
     this.changeDetectorRef.markForCheck();
+  }
+
+  onGameDetailModalDidDismiss(): void {
+    this.closeGameDetailModalInternal();
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
@@ -1170,7 +1377,7 @@ export class GameListComponent implements OnChanges {
     }
 
     await this.removeGame(target);
-    this.closeGameDetailModal();
+    this.closeGameDetailModalInternal();
   }
 
   openFixMatchModal(): void {
@@ -2431,7 +2638,12 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    this.closeGameDetailModal();
+    if (this.isNoteDirty) {
+      void this.presentToast('Save or revert your note changes before closing.', 'warning');
+      return;
+    }
+
+    this.closeGameDetailModalInternal();
     this.metadataFilterSelected.emit({ kind, value: normalized });
   }
 
@@ -2915,6 +3127,13 @@ export class GameListComponent implements OnChanges {
   private applyUpdatedGame(updated: GameEntry, options: { refreshCover?: boolean } = {}): void {
     if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
       this.selectedGame = updated;
+      const normalizedUpdatedNotes = this.normalizeNotesValue(updated.notes);
+      this.savedNoteValue = normalizedUpdatedNotes;
+
+      if (!this.isNoteDirty) {
+        this.noteDraft = normalizedUpdatedNotes;
+      }
+
       void this.loadSimilarLibraryGamesForDetail(updated);
       void this.resolveManualForGame(updated);
     }
@@ -2928,6 +3147,53 @@ export class GameListComponent implements OnChanges {
     }
 
     this.changeDetectorRef.markForCheck();
+  }
+
+  private resolveCurrentLine(
+    value: string,
+    selectionStart: number,
+    selectionEnd: number
+  ): { start: number; end: number; text: string } {
+    const lineStartIndex = value.lastIndexOf('\n', Math.max(0, selectionStart - 1));
+    const start = lineStartIndex >= 0 ? lineStartIndex + 1 : 0;
+    const lineEndIndex = value.indexOf('\n', selectionEnd);
+    const end = lineEndIndex >= 0 ? lineEndIndex : value.length;
+
+    return {
+      start,
+      end,
+      text: value.slice(start, end)
+    };
+  }
+
+  private normalizeNotesValue(value: string | null | undefined): string {
+    if (typeof value !== 'string') {
+      return '';
+    }
+
+    return value.replace(/\r\n?/g, '\n');
+  }
+
+  private shouldBlockDetailNavigationForUnsavedNotes(): boolean {
+    return this.isGameDetailModalOpen && this.isNoteDirty;
+  }
+
+  private async canDismissNotesGuard(): Promise<boolean> {
+    if (!this.isNoteDirty) {
+      return true;
+    }
+
+    await this.presentToast('Save or revert your note changes before closing.', 'warning');
+    return false;
+  }
+
+  private resetNoteEditorState(): void {
+    this.isNotesOpen = false;
+    this.isNotesModalOpen = false;
+    this.isNoteDirty = false;
+    this.isNoteSaving = false;
+    this.noteDraft = '';
+    this.savedNoteValue = '';
   }
 
   private async openRatingPicker(game: GameEntry): Promise<void> {
@@ -3092,6 +3358,17 @@ export class GameListComponent implements OnChanges {
   }
 
   constructor() {
+    this.layoutModeService.mode$.pipe(takeUntilDestroyed()).subscribe((mode) => {
+      const nextDesktop = mode === 'desktop';
+
+      if (!nextDesktop) {
+        this.isNotesOpen = false;
+      }
+
+      this.isDesktopDetailLayout = nextDesktop;
+      this.changeDetectorRef.markForCheck();
+    });
+
     addIcons({
       star,
       ellipsisHorizontal,

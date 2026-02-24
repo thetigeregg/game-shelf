@@ -488,6 +488,7 @@ function normalizeGamePayload(
   const customPlatformIgdbIdRaw = Number.parseInt(String(payload.customPlatformIgdbId ?? ''), 10);
   const customCoverUrlRaw =
     typeof payload.customCoverUrl === 'string' ? payload.customCoverUrl.trim() : '';
+  const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId =
     Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
@@ -500,6 +501,8 @@ function normalizeGamePayload(
   const customCoverUrl = /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw)
     ? customCoverUrlRaw
     : null;
+  const normalizedNotes = notesRaw.replace(/\r\n?/g, '\n');
+  const notes = normalizedNotes.length > 0 ? normalizedNotes : null;
 
   return {
     ...payload,
@@ -509,6 +512,7 @@ function normalizeGamePayload(
     customPlatform,
     customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
     customCoverUrl,
+    notes,
     updatedAt
   };
 }

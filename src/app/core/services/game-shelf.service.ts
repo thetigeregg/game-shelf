@@ -259,11 +259,23 @@ export class GameShelfService {
       }
     }
 
+    let withNotes = withTags;
+    if (typeof current.notes === 'string') {
+      const next = await this.repository.setGameNotes(
+        withTags.igdbGameId,
+        withTags.platformIgdbId,
+        current.notes
+      );
+      if (next) {
+        withNotes = next;
+      }
+    }
+
     this.listRefresh$.next();
     void this.enrichCatalogWithCompletionTimesInBackground(normalizedReplacement, current.listType);
 
     const tags = await this.repository.listTags();
-    return this.attachTags([withTags], tags)[0];
+    return this.attachTags([withNotes], tags)[0];
   }
 
   async refreshGameMetadata(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -528,6 +540,22 @@ export class GameShelfService {
     const tags = await this.repository.listTags();
     this.listRefresh$.next();
 
+    return this.attachTags([updated], tags)[0];
+  }
+
+  async setGameNotes(
+    igdbGameId: string,
+    platformIgdbId: number,
+    notes: string | null
+  ): Promise<GameEntry> {
+    const updated = await this.repository.setGameNotes(igdbGameId, platformIgdbId, notes);
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const tags = await this.repository.listTags();
+    this.listRefresh$.next();
     return this.attachTags([updated], tags)[0];
   }
 

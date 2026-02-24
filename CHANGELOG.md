@@ -782,3 +782,9 @@
 - 0b0d88b Add genre filter trigger on detail
 - 8d414c9 Add genre filter navigation
 
+## v0.1.23 - 2026-02-24
+- fc5b412 Merge pull request #83 from thetigeregg/deps
+- c73f620 Update package-lock.json
+- 059cfa4 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, and ajv to latest versions
+- 1169131 chore(deps): update Angular and ESLint dependencies to latest versions
+

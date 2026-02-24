@@ -198,6 +198,7 @@
 </ion-popover>
 
 <ion-modal
+  class="desktop-fullscreen-modal"
   #gameDetailModal
   [isOpen]="isGameDetailModalOpen"
   [focusTrap]="!isEditMetadataModalOpen"
@@ -405,6 +406,7 @@
 />
 
 <ion-modal
+  class="desktop-fullscreen-modal"
   [isOpen]="isEditMetadataModalOpen"
   [presentingElement]="gameDetailModalElement"
   (didDismiss)="closeEditMetadataModal()"
@@ -497,7 +499,11 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isManualPickerModalOpen" (didDismiss)="closeManualPickerModal()">
+<ion-modal
+  class="desktop-fullscreen-modal"
+  [isOpen]="isManualPickerModalOpen"
+  (didDismiss)="closeManualPickerModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>
@@ -566,7 +572,11 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isFixMatchModalOpen" (didDismiss)="closeFixMatchModal()">
+<ion-modal
+  class="desktop-fullscreen-modal"
+  [isOpen]="isFixMatchModalOpen"
+  (didDismiss)="closeFixMatchModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>
@@ -588,7 +598,11 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isImagePickerModalOpen" (didDismiss)="closeImagePickerModal()">
+<ion-modal
+  class="desktop-fullscreen-modal"
+  [isOpen]="isImagePickerModalOpen"
+  (didDismiss)="closeImagePickerModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>
@@ -682,7 +696,11 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isHltbPickerModalOpen" (didDismiss)="closeHltbPickerModal()">
+<ion-modal
+  class="desktop-fullscreen-modal"
+  [isOpen]="isHltbPickerModalOpen"
+  (didDismiss)="closeHltbPickerModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>
@@ -769,7 +787,11 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isRatingModalOpen" (didDismiss)="closeRatingModal()">
+<ion-modal
+  class="desktop-fullscreen-modal"
+  [isOpen]="isRatingModalOpen"
+  (didDismiss)="closeRatingModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>

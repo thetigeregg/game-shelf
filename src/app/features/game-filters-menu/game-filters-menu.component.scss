@@ -14,6 +14,29 @@
   flex: 1 1 0;
 }
 
+.split-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.split-panel ion-header {
+  flex: 0 0 auto;
+}
+
+.split-panel ion-content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.split-actions {
+  padding-bottom: calc(12px + var(--ion-safe-area-bottom, env(safe-area-inset-bottom)));
+}
+
+.split-actions ion-button {
+  flex: 0 0 auto;
+}
+
 ion-accordion-group > ion-accordion:last-of-type ion-item[slot='header'] {
   --border-width: 0 0 0.55px 0;
   border-bottom: 0.55px solid var(--border-color);

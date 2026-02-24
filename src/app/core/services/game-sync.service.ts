@@ -329,6 +329,7 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.platform
       ),
       customCoverUrl: this.normalizeCustomCoverUrl(payload.customCoverUrl),
+      notes: this.normalizeNotes(payload.notes),
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
       createdAt:
         typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
@@ -425,6 +426,15 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
+  }
+
+  private normalizeNotes(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.replace(/\r\n?/g, '\n');
+    return normalized.length > 0 ? normalized : null;
   }
 
   private async applyTagChange(change: SyncChangeEvent): Promise<void> {

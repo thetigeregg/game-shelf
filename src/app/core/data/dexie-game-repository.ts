@@ -90,6 +90,7 @@ export class DexieGameRepository implements GameRepository {
           normalizedPlatformIgdbId
         ),
         tagIds: this.normalizeTagIds(existing.tagIds),
+        notes: this.normalizeNotes(existing.notes),
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
         status: this.normalizeStatus(existing.status),
@@ -127,6 +128,7 @@ export class DexieGameRepository implements GameRepository {
       customPlatform: null,
       customPlatformIgdbId: null,
       tagIds: [],
+      notes: null,
       releaseDate: result.releaseDate,
       releaseYear: result.releaseYear,
       status: null,
@@ -279,6 +281,28 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       tagIds: this.normalizeTagIds(tagIds),
+      updatedAt: new Date().toISOString()
+    };
+
+    await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
+    return updated;
+  }
+
+  async setGameNotes(
+    igdbGameId: string,
+    platformIgdbId: number,
+    notes: string | null
+  ): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      notes: this.normalizeNotes(notes),
       updatedAt: new Date().toISOString()
     };
 
@@ -752,6 +776,15 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
+  }
+
+  private normalizeNotes(value: string | null | undefined): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.replace(/\r\n?/g, '\n');
+    return normalized.length > 0 ? normalized : null;
   }
 
   private normalizeCustomTitle(

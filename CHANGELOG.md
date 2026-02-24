@@ -833,3 +833,8 @@
 - fb97924 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
 - 329d179 Fix runtime config append error
 
+## v0.1.31 - 2026-02-24
+- 325673a Merge pull request #91 from thetigeregg/codex/fix-runtimeconfig-referenceerror
+- f61b043 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
+- 5734c82 Fix runtime config stray n
+

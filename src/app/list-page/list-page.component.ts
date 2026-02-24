@@ -20,7 +20,8 @@ import {
   IonLoading,
   IonFab,
   IonFabButton,
-  IonFabList
+  IonFabList,
+  IonSplitPane
 } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -42,6 +43,7 @@ import {
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
@@ -56,6 +58,7 @@ import {
   parseListPagePreferences,
   serializeListPagePreferences
 } from './list-page-preferences';
+import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -127,7 +130,8 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonLoading,
     IonFab,
     IonFabButton,
-    IonFabList
+    IonFabList,
+    IonSplitPane
   ]
 })
 export class ListPageComponent {
@@ -150,6 +154,7 @@ export class ListPageComponent {
   readonly contentId: string;
   readonly pageTitle: 'Collection' | 'Wishlist';
   readonly searchPlaceholder: string;
+  readonly desktopMediaQuery = DESKTOP_LAYOUT_MEDIA_QUERY;
 
   filters: GameListFilters = { ...DEFAULT_GAME_LIST_FILTERS };
   platformOptions: string[] = [];
@@ -171,6 +176,7 @@ export class ListPageComponent {
   bulkActionsPopoverEvent: Event | undefined = undefined;
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
+  isDesktop = false;
   @ViewChild(GameListComponent) private gameListComponent?: GameListComponent;
   @ViewChild('quickActionsFab') private quickActionsFab?: IonFab;
   @ViewChild('pageContent') private pageContent?: IonContent;
@@ -181,6 +187,7 @@ export class ListPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
+  private readonly layoutModeService = inject(LayoutModeService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
@@ -196,6 +203,9 @@ export class ListPageComponent {
     this.searchPlaceholder = config.searchPlaceholder;
 
     this.restorePreferences();
+    this.layoutModeService.mode$.pipe(takeUntilDestroyed()).subscribe((mode) => {
+      this.isDesktop = mode === 'desktop';
+    });
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyViewFromQueryParam(params.get('applyView'));
     });
@@ -451,6 +461,10 @@ export class ListPageComponent {
   }
 
   async openFiltersMenu(): Promise<void> {
+    if (this.isDesktop) {
+      return;
+    }
+
     await this.menuController.open(this.menuId);
   }
 

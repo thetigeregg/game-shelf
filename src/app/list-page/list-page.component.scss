@@ -3,6 +3,19 @@ app-game-list {
   display: block;
 }
 
+.list-page-split-pane {
+  height: 100%;
+  --side-width: min(360px, 34vw);
+  --side-max-width: 380px;
+}
+
+.list-page-split-pane > app-game-filters-menu {
+  display: block;
+  height: 100%;
+  border-left: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
+  background: var(--ion-color-step-50, var(--ion-background-color));
+}
+
 ion-content::part(scroll) {
   display: flex;
   flex-direction: column;
@@ -84,4 +97,10 @@ ion-header[collapse='condense'] ion-toolbar {
   --border-width: 0 0 0.55px;
   --border-style: solid;
   --border-color: rgba(var(--ion-color-medium-rgb), 0.35);
+}
+
+@media (min-width: 1024px) {
+  app-game-list {
+    --game-list-bottom-inset: 16px;
+  }
 }

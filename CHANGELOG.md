@@ -813,3 +813,9 @@
 - 6bc4372 Add IonSplitPane desktop layout
 - 242fcaf Plan desktop responsive layout
 
+## v0.1.27 - 2026-02-24
+- 20c18e4 Merge pull request #87 from thetigeregg/codex/responsive-layout-support
+- 49cc006 Apply suggestions from code review
+- 1b331a2 Merge branch 'main' into codex/responsive-layout-support
+- 30b3528 Add mobile filters e2e coverage
+

@@ -357,25 +357,10 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
   font-size: 1rem;
 }
 
-.format-glyph {
-  display: inline-flex;
-  width: 1rem;
-  justify-content: center;
-  align-items: center;
-  font-size: 0.95rem;
+.detail-notes-toolbar [class^='ri-'],
+.detail-notes-toolbar [class*=' ri-'] {
+  font-size: 1rem;
   line-height: 1;
-}
-
-.format-glyph-bold {
-  font-weight: 700;
-}
-
-.format-glyph-italic {
-  font-style: italic;
-}
-
-.format-glyph-underline {
-  text-decoration: underline;
 }
 
 .detail-note-editor {

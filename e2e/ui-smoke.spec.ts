@@ -183,15 +183,8 @@ test('mobile viewport uses overlay filters menu and Done closes it', async ({ pa
 
   await expect(page.locator('ion-split-pane.list-page-split-pane')).toHaveCount(0);
 
-  const filtersButton = page.locator('ion-button.filters-button');
-  const doneButton = page.locator('ion-menu .actions ion-button', { hasText: 'Done' });
-
-  await expect(filtersButton).toBeVisible();
-  await filtersButton.click();
-  await expect(doneButton).toBeVisible();
-
-  await doneButton.click();
-  await expect(doneButton).toBeHidden();
+  await openFiltersMenu(page);
+  await closeFiltersMenu(page);
 });
 
 test('desktop renders split pane while mobile does not render split pane', async ({ page }) => {

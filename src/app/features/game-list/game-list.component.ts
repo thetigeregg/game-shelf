@@ -140,7 +140,6 @@ import {
   documentText,
   book,
   list,
-  listCircle,
   checkboxOutline
 } from 'ionicons/icons';
 
@@ -3393,7 +3392,6 @@ export class GameListComponent implements OnChanges {
       documentText,
       book,
       list,
-      listCircle,
       checkboxOutline
     });
   }

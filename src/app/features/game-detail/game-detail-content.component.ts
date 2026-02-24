@@ -149,6 +149,19 @@ export class GameDetailContentComponent {
     return 'Unknown platform';
   }
 
+  get platformHeadingLabel(): string {
+    return this.context === 'explore' ? 'Platforms' : 'Platform';
+  }
+
+  get platformValueLabel(): string {
+    if (this.context !== 'explore') {
+      return this.platformLabel;
+    }
+
+    const labels = this.getExplorePlatformLabels();
+    return labels.length > 0 ? labels.join(', ') : 'Unknown platform';
+  }
+
   get gameTypeBadgeLabel(): string | null {
     const gameType = this.normalizeGameType(this.game.gameType);
 
@@ -399,6 +412,58 @@ export class GameDetailContentComponent {
     }
 
     return 'Unknown platform';
+  }
+
+  private getExplorePlatformLabels(): string[] {
+    const gameCatalogLike = this.game as Partial<GameCatalogResult>;
+
+    if (
+      Array.isArray(gameCatalogLike.platformOptions) &&
+      gameCatalogLike.platformOptions.length > 0
+    ) {
+      return gameCatalogLike.platformOptions
+        .map((option): { id: number | null; name: string } => {
+          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const id =
+            Number.isInteger(option?.id) && (option.id as number) > 0
+              ? (option.id as number)
+              : null;
+          return { id, name };
+        })
+        .filter((option) => option.name.length > 0)
+        .filter((option, index, items) => {
+          return (
+            items.findIndex(
+              (candidate) => candidate.id === option.id && candidate.name === option.name
+            ) === index
+          );
+        })
+        .map((option) => this.getAliasedPlatformLabel(option.name, option.id));
+    }
+
+    if (Array.isArray(gameCatalogLike.platforms) && gameCatalogLike.platforms.length > 0) {
+      return [
+        ...new Set(
+          gameCatalogLike.platforms
+            .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
+            .filter((platform) => platform.length > 0)
+        )
+      ].map((platform) => this.getAliasedPlatformLabel(platform, null));
+    }
+
+    if (
+      typeof gameCatalogLike.platform === 'string' &&
+      gameCatalogLike.platform.trim().length > 0
+    ) {
+      return [
+        this.getAliasedPlatformLabel(
+          gameCatalogLike.platform,
+          gameCatalogLike.platformIgdbId ?? null
+        )
+      ];
+    }
+
+    return [];
   }
 
   private normalizeGameType(value: unknown): string | null {

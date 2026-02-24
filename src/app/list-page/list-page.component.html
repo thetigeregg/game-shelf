@@ -48,13 +48,8 @@
   }
 </ion-header>
 
-<ion-split-pane
-  class="list-page-split-pane"
-  [contentId]="contentId"
-  [when]="desktopMediaQuery"
-  [disabled]="!isDesktop"
->
-  @if (isDesktop) {
+@if (isDesktop) {
+  <ion-split-pane class="list-page-split-pane" [contentId]="contentId" [when]="desktopMediaQuery">
     <app-game-filters-menu
       [presentation]="'split'"
       [menuId]="menuId"
@@ -69,126 +64,134 @@
       (filtersChange)="onFiltersChange($event)"
       (groupByChange)="onGroupByChange($event)"
     ></app-game-filters-menu>
-  }
 
-  <ion-content #pageContent [fullscreen]="!isDesktop" [id]="contentId">
-    <ion-loading
-      [isOpen]="isInitialListLoading"
-      message="Loading games..."
-      spinner="crescent"
-    ></ion-loading>
+    <ion-content #pageContent [fullscreen]="false" [id]="contentId">
+      <ng-container [ngTemplateOutlet]="listPageContent"></ng-container>
+    </ion-content>
+  </ion-split-pane>
+}
 
-    <ion-popover
-      [isOpen]="isBulkActionsPopoverOpen"
-      [arrow]="false"
-      [event]="bulkActionsPopoverEvent"
-      side="bottom"
-      alignment="end"
-      (didDismiss)="closeBulkActionsPopover()"
-    >
-      <ng-template>
-        <ion-content>
-          <ion-list lines="none">
-            <ion-item button detail="false" (click)="moveSelectedGamesFromPopover()">
-              Move to {{ getMoveTargetLabel() }}
-            </ion-item>
-            <ion-item button detail="false" (click)="setTagsForSelectedGamesFromPopover()">
-              Set tags
-            </ion-item>
-            <ion-item button detail="false" (click)="setStatusForSelectedGamesFromPopover()">
-              Set status
-            </ion-item>
-            <ion-item button detail="false" (click)="refreshMetadataForSelectedGamesFromPopover()">
-              Refresh metadata
-            </ion-item>
-            <ion-item button detail="false" (click)="updateHltbForSelectedGamesFromPopover()">
-              Update HLTB data
-            </ion-item>
-            <ion-item button detail="false" color="danger" (click)="deleteSelectedGames()">
-              Delete
-            </ion-item>
-          </ion-list>
-        </ion-content>
-      </ng-template>
-    </ion-popover>
-
-    <ion-popover
-      [isOpen]="isHeaderActionsPopoverOpen"
-      [event]="headerActionsPopoverEvent"
-      [arrow]="false"
-      side="bottom"
-      alignment="end"
-      (didDismiss)="closeHeaderActionsPopover()"
-    >
-      <ng-template>
-        <ion-content>
-          <ion-list lines="none">
-            <ion-item button detail="false" (click)="openViewsFromPopover()"> Views </ion-item>
-            <ion-item button detail="false" (click)="openTagsFromPopover()"> Tags </ion-item>
-            <ion-item button detail="false" (click)="activateMultiSelectFromPopover()">
-              Multi-select
-            </ion-item>
-            <ion-item button detail="false" (click)="pickRandomGameFromPopover()">
-              Pick random game
-            </ion-item>
-            <ion-item button detail="false" (click)="openSettingsFromPopover()">
-              Settings
-            </ion-item>
-          </ion-list>
-        </ion-content>
-      </ng-template>
-    </ion-popover>
-
-    <app-game-list
-      [listType]="listType"
-      [filters]="filters"
-      [searchQuery]="listSearchQuery"
-      [groupBy]="groupBy"
-      (platformOptionsChange)="onPlatformOptionsChange($event)"
-      (collectionOptionsChange)="onCollectionOptionsChange($event)"
-      (gameTypeOptionsChange)="onGameTypeOptionsChange($event)"
-      (genreOptionsChange)="onGenreOptionsChange($event)"
-      (tagOptionsChange)="onTagOptionsChange($event)"
-      (displayedGamesChange)="onDisplayedGamesChange($event)"
-      (selectionStateChange)="onSelectionStateChange($event)"
-      (metadataFilterSelected)="onMetadataFilterSelected($event)"
-    ></app-game-list>
-
-    @if (!isSelectionMode && !isDesktop) {
-      <ion-fab #quickActionsFab slot="fixed" vertical="bottom" horizontal="end">
-        <ion-fab-button size="small" color="primary" aria-label="Open quick actions">
-          <ion-icon name="chevron-up"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-list side="top" (click)="closeBottomFab()">
-          <ion-fab-button
-            size="small"
-            color="tertiary"
-            aria-label="Search games"
-            (click)="onBottomFabSearch()"
-          >
-            <ion-icon name="search"></ion-icon>
-          </ion-fab-button>
-          <ion-fab-button
-            size="small"
-            color="forest"
-            aria-label="Add game"
-            (click)="onBottomFabAddGame()"
-          >
-            <ion-icon name="add"></ion-icon>
-          </ion-fab-button>
-          <ion-fab-button
-            size="small"
-            color="medium"
-            aria-label="Scroll to top"
-            (click)="onBottomFabScrollTop()"
-          >
-            <ion-icon name="arrow-up"></ion-icon>
-          </ion-fab-button>
-        </ion-fab-list>
-      </ion-fab>
-    }
+@if (!isDesktop) {
+  <ion-content #pageContent [fullscreen]="true" [id]="contentId">
+    <ng-container [ngTemplateOutlet]="listPageContent"></ng-container>
   </ion-content>
-</ion-split-pane>
+}
+
+<ng-template #listPageContent>
+  <ion-loading
+    [isOpen]="isInitialListLoading"
+    message="Loading games..."
+    spinner="crescent"
+  ></ion-loading>
+
+  <ion-popover
+    [isOpen]="isBulkActionsPopoverOpen"
+    [arrow]="false"
+    [event]="bulkActionsPopoverEvent"
+    side="bottom"
+    alignment="end"
+    (didDismiss)="closeBulkActionsPopover()"
+  >
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none">
+          <ion-item button detail="false" (click)="moveSelectedGamesFromPopover()">
+            Move to {{ getMoveTargetLabel() }}
+          </ion-item>
+          <ion-item button detail="false" (click)="setTagsForSelectedGamesFromPopover()">
+            Set tags
+          </ion-item>
+          <ion-item button detail="false" (click)="setStatusForSelectedGamesFromPopover()">
+            Set status
+          </ion-item>
+          <ion-item button detail="false" (click)="refreshMetadataForSelectedGamesFromPopover()">
+            Refresh metadata
+          </ion-item>
+          <ion-item button detail="false" (click)="updateHltbForSelectedGamesFromPopover()">
+            Update HLTB data
+          </ion-item>
+          <ion-item button detail="false" color="danger" (click)="deleteSelectedGames()">
+            Delete
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+
+  <ion-popover
+    [isOpen]="isHeaderActionsPopoverOpen"
+    [event]="headerActionsPopoverEvent"
+    [arrow]="false"
+    side="bottom"
+    alignment="end"
+    (didDismiss)="closeHeaderActionsPopover()"
+  >
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none">
+          <ion-item button detail="false" (click)="openViewsFromPopover()"> Views </ion-item>
+          <ion-item button detail="false" (click)="openTagsFromPopover()"> Tags </ion-item>
+          <ion-item button detail="false" (click)="activateMultiSelectFromPopover()">
+            Multi-select
+          </ion-item>
+          <ion-item button detail="false" (click)="pickRandomGameFromPopover()">
+            Pick random game
+          </ion-item>
+          <ion-item button detail="false" (click)="openSettingsFromPopover()"> Settings </ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+
+  <app-game-list
+    [listType]="listType"
+    [filters]="filters"
+    [searchQuery]="listSearchQuery"
+    [groupBy]="groupBy"
+    (platformOptionsChange)="onPlatformOptionsChange($event)"
+    (collectionOptionsChange)="onCollectionOptionsChange($event)"
+    (gameTypeOptionsChange)="onGameTypeOptionsChange($event)"
+    (genreOptionsChange)="onGenreOptionsChange($event)"
+    (tagOptionsChange)="onTagOptionsChange($event)"
+    (displayedGamesChange)="onDisplayedGamesChange($event)"
+    (selectionStateChange)="onSelectionStateChange($event)"
+    (metadataFilterSelected)="onMetadataFilterSelected($event)"
+  ></app-game-list>
+
+  @if (!isSelectionMode && !isDesktop) {
+    <ion-fab #quickActionsFab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button size="small" color="primary" aria-label="Open quick actions">
+        <ion-icon name="chevron-up"></ion-icon>
+      </ion-fab-button>
+      <ion-fab-list side="top" (click)="closeBottomFab()">
+        <ion-fab-button
+          size="small"
+          color="tertiary"
+          aria-label="Search games"
+          (click)="onBottomFabSearch()"
+        >
+          <ion-icon name="search"></ion-icon>
+        </ion-fab-button>
+        <ion-fab-button
+          size="small"
+          color="forest"
+          aria-label="Add game"
+          (click)="onBottomFabAddGame()"
+        >
+          <ion-icon name="add"></ion-icon>
+        </ion-fab-button>
+        <ion-fab-button
+          size="small"
+          color="medium"
+          aria-label="Scroll to top"
+          (click)="onBottomFabScrollTop()"
+        >
+          <ion-icon name="arrow-up"></ion-icon>
+        </ion-fab-button>
+      </ion-fab-list>
+    </ion-fab>
+  }
+</ng-template>
 
 <ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">
   <ng-template>

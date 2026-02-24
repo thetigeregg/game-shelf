@@ -94,6 +94,7 @@ export class ExplorePage implements OnInit {
   detailErrorMessage = '';
   selectedGameDetail: GameCatalogResult | GameEntry | null = null;
   detailContext: 'explore' | 'library' = 'explore';
+  isSelectedGameInLibrary = false;
   isAddToLibraryLoading = false;
   readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
   readonly statusOptions: { value: GameStatus; label: string }[] = [
@@ -169,12 +170,15 @@ export class ExplorePage implements OnInit {
     this.isLoadingDetail = true;
     this.detailErrorMessage = '';
     this.detailContext = 'explore';
+    this.isSelectedGameInLibrary = false;
     this.isAddToLibraryLoading = false;
     this.selectedGameDetail = item.game;
 
     try {
+      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(item.game);
       const detail = await firstValueFrom(this.igdbProxyService.getGameById(item.game.igdbGameId));
       this.selectedGameDetail = detail;
+      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(detail);
     } catch (error) {
       this.detailErrorMessage =
         error instanceof Error ? error.message : 'Unable to load game details.';
@@ -189,12 +193,14 @@ export class ExplorePage implements OnInit {
     this.detailErrorMessage = '';
     this.selectedGameDetail = null;
     this.detailContext = 'explore';
+    this.isSelectedGameInLibrary = false;
     this.isAddToLibraryLoading = false;
   }
 
   async addSelectedGameToLibrary(): Promise<void> {
     if (
       this.detailContext !== 'explore' ||
+      this.isSelectedGameInLibrary ||
       this.isAddToLibraryLoading ||
       !this.selectedGameDetail
     ) {
@@ -218,6 +224,9 @@ export class ExplorePage implements OnInit {
       if (addResult.status === 'added' && addResult.entry) {
         this.selectedGameDetail = addResult.entry;
         this.detailContext = 'library';
+        this.isSelectedGameInLibrary = true;
+      } else if (addResult.status === 'duplicate') {
+        this.isSelectedGameInLibrary = true;
       }
     } finally {
       this.isAddToLibraryLoading = false;
@@ -397,44 +406,17 @@ export class ExplorePage implements OnInit {
   }
 
   getPlatformLabel(item: PopularityGameResult): string {
-    const preferredPlatform = this.resolvePreferredPlatform(item);
-    return this.getPlatformDisplayName(preferredPlatform.name, preferredPlatform.id);
-  }
+    const platforms = this.getPlatformOptions(item.game);
 
-  private resolvePreferredPlatform(item: PopularityGameResult): {
-    id: number | null;
-    name: string;
-  } {
-    const fromPrimaryName = typeof item.game.platform === 'string' ? item.game.platform.trim() : '';
-    const fromPrimaryId =
-      Number.isInteger(item.game.platformIgdbId) && (item.game.platformIgdbId as number) > 0
-        ? (item.game.platformIgdbId as number)
-        : null;
-
-    if (fromPrimaryName.length > 0) {
-      return { id: fromPrimaryId, name: fromPrimaryName };
+    if (platforms.length === 0) {
+      return 'Unknown platform';
     }
 
-    if (Array.isArray(item.game.platformOptions) && item.game.platformOptions.length > 0) {
-      const first = item.game.platformOptions[0];
-      const name = typeof first?.name === 'string' ? first.name.trim() : '';
-      const id =
-        Number.isInteger(first?.id) && (first.id as number) > 0 ? (first.id as number) : null;
-
-      if (name.length > 0) {
-        return { id, name };
-      }
+    if (platforms.length === 1) {
+      return this.getPlatformDisplayName(platforms[0].name, platforms[0].id);
     }
 
-    if (Array.isArray(item.game.platforms) && item.game.platforms.length > 0) {
-      const name = typeof item.game.platforms[0] === 'string' ? item.game.platforms[0].trim() : '';
-
-      if (name.length > 0) {
-        return { id: null, name };
-      }
-    }
-
-    return { id: null, name: '' };
+    return `${platforms.length} platforms`;
   }
 
   private getPlatformDisplayName(name: string, platformIgdbId: number | null): string {
@@ -490,6 +472,99 @@ export class ExplorePage implements OnInit {
     }
 
     return selected;
+  }
+
+  private getPlatformOptions(
+    game: GameCatalogResult | GameEntry
+  ): { id: number | null; name: string }[] {
+    const catalogLike = game as Partial<GameCatalogResult>;
+
+    if (Array.isArray(catalogLike.platformOptions) && catalogLike.platformOptions.length > 0) {
+      return catalogLike.platformOptions
+        .map((option): { id: number | null; name: string } => {
+          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const id =
+            Number.isInteger(option?.id) && (option.id as number) > 0
+              ? (option.id as number)
+              : null;
+          return { id, name };
+        })
+        .filter((option: { id: number | null; name: string }) => option.name.length > 0)
+        .filter(
+          (
+            option: { id: number | null; name: string },
+            index: number,
+            items: { id: number | null; name: string }[]
+          ) => {
+            return (
+              items.findIndex(
+                (candidate: { id: number | null; name: string }) =>
+                  candidate.id === option.id && candidate.name === option.name
+              ) === index
+            );
+          }
+        );
+    }
+
+    if (Array.isArray(catalogLike.platforms) && catalogLike.platforms.length > 0) {
+      return [
+        ...new Set(
+          catalogLike.platforms
+            .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
+            .filter((platform) => platform.length > 0)
+        )
+      ].map((name) => ({ id: null, name }));
+    }
+
+    if (typeof game.platform === 'string' && game.platform.trim().length > 0) {
+      return [{ id: null, name: game.platform.trim() }];
+    }
+
+    return [];
+  }
+
+  private async checkGameAlreadyInLibrary(game: GameCatalogResult | GameEntry): Promise<boolean> {
+    if (this.isLibraryEntry(game)) {
+      return true;
+    }
+
+    const platformIgdbIds = this.collectPlatformIgdbIds(game);
+
+    if (platformIgdbIds.length === 0) {
+      return false;
+    }
+
+    for (const platformIgdbId of platformIgdbIds) {
+      const existing = await this.gameShelfService.findGameByIdentity(
+        game.igdbGameId,
+        platformIgdbId
+      );
+
+      if (existing) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private collectPlatformIgdbIds(game: GameCatalogResult | GameEntry): number[] {
+    const ids = new Set<number>();
+    const catalogLike = game as Partial<GameCatalogResult>;
+
+    if (Number.isInteger(game.platformIgdbId) && (game.platformIgdbId as number) > 0) {
+      ids.add(game.platformIgdbId as number);
+    }
+
+    if (Array.isArray(catalogLike.platformOptions)) {
+      for (const option of catalogLike.platformOptions) {
+        if (Number.isInteger(option?.id) && (option.id as number) > 0) {
+          ids.add(option.id as number);
+        }
+      }
+    }
+
+    return Array.from(ids);
   }
 
   private isLibraryEntry(value: GameCatalogResult | GameEntry | null): value is GameEntry {

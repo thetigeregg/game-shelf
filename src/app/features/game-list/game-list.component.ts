@@ -2552,6 +2552,10 @@ export class GameListComponent implements OnChanges {
       return false;
     }
 
+    return this.canShowManualButtonsForGame(game);
+  }
+
+  private canShowManualButtonsForGame(game: GameEntry): boolean {
     const displayPlatform = this.getGameDisplayPlatform(game);
     const canonicalPlatformIgdbId =
       this.platformCustomizationService.resolveCanonicalPlatformIgdbId(
@@ -2757,6 +2761,19 @@ export class GameListComponent implements OnChanges {
   }
 
   private async resolveManualForGame(game: GameEntry): Promise<void> {
+    if (!this.canShowManualButtonsForGame(game)) {
+      if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
+        this.manualResolvedUrl = null;
+        this.manualResolvedRelativePath = null;
+        this.manualResolvedSource = null;
+        this.manualCatalogUnavailable = false;
+        this.manualCatalogUnavailableReason = null;
+        this.changeDetectorRef.markForCheck();
+      }
+
+      return;
+    }
+
     const requestId = ++this.manualResolutionRequestId;
     const override = this.manualService.getOverride(game);
 

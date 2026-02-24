@@ -59,7 +59,7 @@ bootstrapApplication(AppComponent, {
     { provide: GAME_SEARCH_API, useExisting: IgdbProxyService },
     { provide: SYNC_OUTBOX_WRITER, useExisting: GameSyncService },
     { provide: HTTP_INTERCEPTORS, useClass: ClientWriteTokenInterceptor, multi: true },
-    provideIonicAngular(),
+    provideIonicAngular({ mode: 'ios' }),
     provideHttpClient(withInterceptorsFromDi()),
     ...firebaseProviders,
     provideServiceWorker('ngsw-worker.js', {

@@ -7,6 +7,7 @@ import {
   Input,
   NgZone,
   OnChanges,
+  OnDestroy,
   Output,
   SimpleChanges,
   ViewChild,
@@ -14,6 +15,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import {
   AlertController,
@@ -57,9 +59,12 @@ import {
   IonFabButton,
   IonFabList,
   IonInput,
-  IonSplitPane,
-  IonTextarea
+  IonSplitPane
 } from '@ionic/angular/standalone';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import { TiptapEditorDirective } from 'ngx-tiptap';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import {
@@ -158,6 +163,7 @@ export interface GameListSelectionState {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ScrollingModule,
     IonList,
     IonListHeader,
@@ -195,13 +201,13 @@ export interface GameListSelectionState {
     IonFabList,
     IonInput,
     IonSplitPane,
-    IonTextarea,
+    TiptapEditorDirective,
     AutoContentOffsetsDirective,
     GameSearchComponent,
     GameDetailContentComponent
   ]
 })
-export class GameListComponent implements OnChanges {
+export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly BULK_METADATA_CONCURRENCY = 3;
   private static readonly BULK_HLTB_CONCURRENCY = 2;
   private static readonly BULK_MAX_ATTEMPTS = 3;
@@ -280,6 +286,7 @@ export class GameListComponent implements OnChanges {
   isNoteSaving = false;
   noteDraft = '';
   savedNoteValue = '';
+  notesEditor: Editor | null = null;
   isDesktopDetailLayout = false;
   editMetadataTitle = '';
   editMetadataPlatformIgdbId: number | null = null;
@@ -341,7 +348,6 @@ export class GameListComponent implements OnChanges {
   @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('gameDetailModal', { read: ElementRef })
   private gameDetailModalRef?: ElementRef<HTMLElement>;
-  @ViewChild('noteTextarea') private noteTextarea?: IonTextarea;
   private imageErrorLogCount = 0;
 
   readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
@@ -402,6 +408,11 @@ export class GameListComponent implements OnChanges {
     if (changes['groupBy']) {
       this.groupBy$.next(this.groupBy ?? 'none');
     }
+  }
+
+  ngOnDestroy(): void {
+    this.notesEditor?.destroy();
+    this.notesEditor = null;
   }
 
   async moveGame(game: GameEntry): Promise<void> {
@@ -804,6 +815,11 @@ export class GameListComponent implements OnChanges {
     return this.isDesktopDetailLayout && this.isNotesOpen;
   }
 
+  get notesEditorInstance(): Editor {
+    this.ensureNotesEditor();
+    return this.notesEditor!;
+  }
+
   openNotesEditor(): void {
     if (!this.selectedGame || this.listType !== 'collection') {
       return;
@@ -811,6 +827,10 @@ export class GameListComponent implements OnChanges {
 
     this.savedNoteValue = this.normalizeNotesValue(this.selectedGame.notes);
     this.noteDraft = this.savedNoteValue;
+    this.ensureNotesEditor();
+    this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
+      emitUpdate: false
+    });
     this.isNoteDirty = false;
     this.isNotesOpen = true;
     this.isNotesModalOpen = !this.isDesktopDetailLayout;
@@ -835,12 +855,6 @@ export class GameListComponent implements OnChanges {
     this.changeDetectorRef.markForCheck();
   }
 
-  onNoteInput(event: Event): void {
-    const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.noteDraft = String(customEvent.detail?.value ?? '');
-    this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
-  }
-
   async saveNotes(): Promise<void> {
     if (!this.selectedGame || this.isNoteSaving) {
       return;
@@ -849,14 +863,19 @@ export class GameListComponent implements OnChanges {
     this.isNoteSaving = true;
 
     try {
+      const html = this.notesEditor ? this.notesEditor.getHTML() : this.noteDraft;
+      const normalizedNotes = this.normalizeNotesValue(html);
       const updated = await this.gameShelfService.setGameNotes(
         this.selectedGame.igdbGameId,
         this.selectedGame.platformIgdbId,
-        this.noteDraft
+        normalizedNotes
       );
       this.applyUpdatedGame(updated);
       this.savedNoteValue = this.normalizeNotesValue(updated.notes);
       this.noteDraft = this.savedNoteValue;
+      this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
+        emitUpdate: false
+      });
       this.isNoteDirty = false;
       await this.presentToast('Notes saved.');
     } catch {
@@ -869,78 +888,47 @@ export class GameListComponent implements OnChanges {
 
   revertNotes(): void {
     this.noteDraft = this.savedNoteValue;
+    this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
+      emitUpdate: false
+    });
     this.isNoteDirty = false;
     this.changeDetectorRef.markForCheck();
   }
 
-  async applyNotesToolbar(
-    action: 'bold' | 'italic' | 'underline' | 'bullet' | 'number' | 'check'
-  ): Promise<void> {
-    const textarea = await this.noteTextarea?.getInputElement();
+  applyNotesToolbar(action: 'bold' | 'italic' | 'underline' | 'bullet' | 'number' | 'check'): void {
+    const editor = this.notesEditor;
 
-    if (!textarea) {
+    if (!editor) {
+      return;
+    }
+    const chain = editor.chain().focus();
+
+    if (action === 'bold') {
+      chain.toggleBold().run();
       return;
     }
 
-    const currentValue = this.noteDraft;
-    const selectionStart = textarea.selectionStart ?? 0;
-    const selectionEnd = textarea.selectionEnd ?? selectionStart;
-    const selectedText = currentValue.slice(selectionStart, selectionEnd);
-    let nextValue = currentValue;
-    let nextSelectionStart = selectionStart;
-    let nextSelectionEnd = selectionEnd;
-
-    if (action === 'bold' || action === 'italic' || action === 'underline') {
-      const marker = action === 'bold' ? '**' : action === 'italic' ? '*' : '<u>';
-      const suffix = action === 'underline' ? '</u>' : marker;
-      nextValue =
-        currentValue.slice(0, selectionStart) +
-        marker +
-        selectedText +
-        suffix +
-        currentValue.slice(selectionEnd);
-      nextSelectionStart = selectionStart + marker.length;
-      nextSelectionEnd = nextSelectionStart + selectedText.length;
-    } else {
-      const blockSelection =
-        selectedText.length > 0
-          ? selectedText
-          : this.resolveCurrentLine(currentValue, selectionStart, selectionEnd).text;
-      const blockBounds =
-        selectedText.length > 0
-          ? { start: selectionStart, end: selectionEnd }
-          : this.resolveCurrentLine(currentValue, selectionStart, selectionEnd);
-      const lines = blockSelection.split('\n');
-      const formatted = lines.map((line, index) => {
-        const trimmed = line.length === 0 ? '' : line;
-
-        if (action === 'bullet') {
-          return `- ${trimmed}`;
-        }
-
-        if (action === 'number') {
-          return `${index + 1}. ${trimmed}`;
-        }
-
-        return `- [ ] ${trimmed}`;
-      });
-
-      nextValue =
-        currentValue.slice(0, blockBounds.start) +
-        formatted.join('\n') +
-        currentValue.slice(blockBounds.end);
-      nextSelectionStart = blockBounds.start;
-      nextSelectionEnd = nextSelectionStart + formatted.join('\n').length;
+    if (action === 'italic') {
+      chain.toggleItalic().run();
+      return;
     }
 
-    this.noteDraft = nextValue;
-    this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
-    this.changeDetectorRef.markForCheck();
+    if (action === 'underline') {
+      chain.toggleUnderline().run();
+      return;
+    }
 
-    window.requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(nextSelectionStart, nextSelectionEnd);
-    });
+    if (action === 'bullet') {
+      chain.toggleBulletList().run();
+      return;
+    }
+
+    if (action === 'number') {
+      chain.toggleOrderedList().run();
+      return;
+    }
+
+    chain.insertContent('[ ] ').run();
   }
 
   private openSimilarGameDetail(game: GameEntry): void {
@@ -970,6 +958,9 @@ export class GameListComponent implements OnChanges {
     if (keepDesktopNotesPaneOpen && this.listType === 'collection') {
       this.savedNoteValue = this.normalizeNotesValue(game.notes);
       this.noteDraft = this.savedNoteValue;
+      this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
+        emitUpdate: false
+      });
       this.isNoteDirty = false;
       this.isNotesOpen = true;
     }
@@ -3154,29 +3145,24 @@ export class GameListComponent implements OnChanges {
     this.changeDetectorRef.markForCheck();
   }
 
-  private resolveCurrentLine(
-    value: string,
-    selectionStart: number,
-    selectionEnd: number
-  ): { start: number; end: number; text: string } {
-    const lineStartIndex = value.lastIndexOf('\n', Math.max(0, selectionStart - 1));
-    const start = lineStartIndex >= 0 ? lineStartIndex + 1 : 0;
-    const lineEndIndex = value.indexOf('\n', selectionEnd);
-    const end = lineEndIndex >= 0 ? lineEndIndex : value.length;
-
-    return {
-      start,
-      end,
-      text: value.slice(start, end)
-    };
-  }
-
   private normalizeNotesValue(value: string | null | undefined): string {
     if (typeof value !== 'string') {
       return '';
     }
 
-    return value.replace(/\r\n?/g, '\n');
+    const normalized = value.replace(/\r\n?/g, '\n').trim();
+    const compact = normalized.replace(/\s+/g, '');
+
+    if (
+      normalized.length === 0 ||
+      compact === '<p></p>' ||
+      compact === '<p><br></p>' ||
+      compact === '<p></p><p></p>'
+    ) {
+      return '';
+    }
+
+    return normalized;
   }
 
   private shouldBlockDetailNavigationForUnsavedNotes(): boolean {
@@ -3199,6 +3185,46 @@ export class GameListComponent implements OnChanges {
     this.isNoteSaving = false;
     this.noteDraft = '';
     this.savedNoteValue = '';
+    this.notesEditor?.commands.setContent('<p></p>', { emitUpdate: false });
+  }
+
+  private ensureNotesEditor(): void {
+    if (this.notesEditor) {
+      return;
+    }
+
+    this.notesEditor = new Editor({
+      extensions: [StarterKit, Underline],
+      content: '<p></p>',
+      onUpdate: ({ editor }) => {
+        this.noteDraft = this.normalizeNotesValue(editor.getHTML());
+        this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+        this.changeDetectorRef.markForCheck();
+      }
+    });
+  }
+
+  private toEditorContent(value: string): string {
+    const normalized = this.normalizeNotesValue(value);
+
+    if (normalized.length === 0) {
+      return '<p></p>';
+    }
+
+    if (normalized.includes('<')) {
+      return normalized;
+    }
+
+    return `<p>${this.escapeHtml(normalized).replace(/\n/g, '<br>')}</p>`;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private async openRatingPicker(game: GameEntry): Promise<void> {

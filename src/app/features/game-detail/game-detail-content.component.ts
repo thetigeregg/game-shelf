@@ -52,6 +52,7 @@ export class GameDetailContentComponent {
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
   @Input() ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
   @Input() showAddToLibraryAction = false;
+  @Input() isInLibrary = false;
   @Input() isAddToLibraryLoading = false;
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();

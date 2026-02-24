@@ -377,16 +377,17 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
   text-decoration: underline;
 }
 
-.detail-notes-textarea-item {
-  padding: 0;
-  align-items: stretch;
+.detail-note-editor {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  font-family: var(--ion-font-family, inherit);
 }
 
-.detail-note-editor {
+.detail-note-editor > div {
   width: 100%;
-  min-height: 60vh;
-  padding: 12px;
-  font-family: var(--ion-font-family, inherit);
+  height: 100%;
 }
 
 .detail-note-editor .ProseMirror {

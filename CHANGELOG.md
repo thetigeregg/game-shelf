@@ -788,3 +788,10 @@
 - 059cfa4 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, and ajv to latest versions
 - 1169131 chore(deps): update Angular and ESLint dependencies to latest versions
 
+## v0.1.24 - 2026-02-24
+- ac7b425 Merge pull request #84 from thetigeregg/codex/add-to-library-conditions
+- f035295 Merge branch 'main' into codex/add-to-library-conditions
+- 743a0b9 Display platforms on explore detail
+- 463014e Show extra platforms on explore
+- 99f6561 Document explore game add button
+

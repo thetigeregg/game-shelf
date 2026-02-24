@@ -193,11 +193,7 @@
   }
 </ng-template>
 
-<ion-modal
-  class="desktop-fullscreen-modal"
-  [isOpen]="isAddGameModalOpen"
-  (didDismiss)="closeAddGameModal()"
->
+<ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">
   <ng-template>
     <ion-header>
       <ion-toolbar>

@@ -48,7 +48,36 @@
   }
 </ion-header>
 
-<ion-content #pageContent [fullscreen]="true" [id]="contentId">
+@if (isDesktop) {
+  <ion-split-pane class="list-page-split-pane" [contentId]="contentId" [when]="desktopMediaQuery">
+    <app-game-filters-menu
+      [presentation]="'split'"
+      [menuId]="menuId"
+      [contentId]="contentId"
+      [platformOptions]="platformOptions"
+      [collectionOptions]="collectionOptions"
+      [gameTypeOptions]="gameTypeOptions"
+      [genreOptions]="genreOptions"
+      [tagOptions]="tagOptions"
+      [filters]="filters"
+      [groupBy]="groupBy"
+      (filtersChange)="onFiltersChange($event)"
+      (groupByChange)="onGroupByChange($event)"
+    ></app-game-filters-menu>
+
+    <ion-content #pageContent [fullscreen]="false" [id]="contentId">
+      <ng-container [ngTemplateOutlet]="listPageContent"></ng-container>
+    </ion-content>
+  </ion-split-pane>
+}
+
+@if (!isDesktop) {
+  <ion-content #pageContent [fullscreen]="true" [id]="contentId">
+    <ng-container [ngTemplateOutlet]="listPageContent"></ng-container>
+  </ion-content>
+}
+
+<ng-template #listPageContent>
   <ion-loading
     [isOpen]="isInitialListLoading"
     message="Loading games..."
@@ -129,7 +158,7 @@
     (metadataFilterSelected)="onMetadataFilterSelected($event)"
   ></app-game-list>
 
-  @if (!isSelectionMode) {
+  @if (!isSelectionMode && !isDesktop) {
     <ion-fab #quickActionsFab slot="fixed" vertical="bottom" horizontal="end">
       <ion-fab-button size="small" color="primary" aria-label="Open quick actions">
         <ion-icon name="chevron-up"></ion-icon>
@@ -162,7 +191,7 @@
       </ion-fab-list>
     </ion-fab>
   }
-</ion-content>
+</ng-template>
 
 <ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">
   <ng-template>
@@ -180,30 +209,35 @@
   </ng-template>
 </ion-modal>
 
-<app-game-filters-menu
-  [menuId]="menuId"
-  [contentId]="contentId"
-  [platformOptions]="platformOptions"
-  [collectionOptions]="collectionOptions"
-  [gameTypeOptions]="gameTypeOptions"
-  [genreOptions]="genreOptions"
-  [tagOptions]="tagOptions"
-  [filters]="filters"
-  [groupBy]="groupBy"
-  (filtersChange)="onFiltersChange($event)"
-  (groupByChange)="onGroupByChange($event)"
-></app-game-filters-menu>
+@if (!isDesktop) {
+  <app-game-filters-menu
+    [presentation]="'menu'"
+    [menuId]="menuId"
+    [contentId]="contentId"
+    [platformOptions]="platformOptions"
+    [collectionOptions]="collectionOptions"
+    [gameTypeOptions]="gameTypeOptions"
+    [genreOptions]="genreOptions"
+    [tagOptions]="tagOptions"
+    [filters]="filters"
+    [groupBy]="groupBy"
+    (filtersChange)="onFiltersChange($event)"
+    (groupByChange)="onGroupByChange($event)"
+  ></app-game-filters-menu>
+}
 
 <ng-template #browseHeaderActions>
   <ion-buttons slot="end">
-    <ion-button aria-label="Open filters" (click)="openFiltersMenu()" class="filters-button">
-      <ion-icon slot="icon-only" name="filter"></ion-icon>
-      @if (getActiveFilterCount() > 0) {
-        <ion-badge color="danger" class="filters-active-count">
-          {{ getActiveFilterCount() }}
-        </ion-badge>
-      }
-    </ion-button>
+    @if (!isDesktop) {
+      <ion-button aria-label="Open filters" (click)="openFiltersMenu()" class="filters-button">
+        <ion-icon slot="icon-only" name="filter"></ion-icon>
+        @if (getActiveFilterCount() > 0) {
+          <ion-badge color="danger" class="filters-active-count">
+            {{ getActiveFilterCount() }}
+          </ion-badge>
+        }
+      </ion-button>
+    }
     <ion-button
       [attr.aria-label]="getHeaderActionsAriaLabel()"
       (click)="openHeaderActionsPopover($event)"

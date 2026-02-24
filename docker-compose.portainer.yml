@@ -10,7 +10,14 @@ services:
       "feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
       case \"$$feature_raw\" in 1|true|yes|on) feature_bool=true ;; *) feature_bool=false ;; esac;
       mkdir -p /srv/assets;
-      printf \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: %s } });\n\" \"$$feature_bool\" >> /srv/assets/runtime-config.js;
+      config_path=/srv/assets/runtime-config.js;
+      tmp_path=/tmp/runtime-config.js;
+      if [ -f \"$$config_path\" ]; then
+      grep -v '^window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport:' \"$$config_path\" > \"$$tmp_path\" || true;
+      mv \"$$tmp_path\" \"$$config_path\";
+      fi;
+      printf '%s' \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: $$feature_bool } });\" >> \"$$config_path\";
+      echo >> \"$$config_path\";
       exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     depends_on:
       - api

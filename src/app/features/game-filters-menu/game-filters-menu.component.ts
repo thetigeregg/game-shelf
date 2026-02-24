@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   IonMenu,
@@ -47,12 +48,15 @@ type SortOption =
   | 'platform:asc'
   | 'platform:desc';
 
+type FiltersPresentation = 'menu' | 'split';
+
 @Component({
   selector: 'app-game-filters-menu',
   templateUrl: './game-filters-menu.component.html',
   styleUrls: ['./game-filters-menu.component.scss'],
   standalone: true,
   imports: [
+    CommonModule,
     FormsModule,
     IonMenu,
     IonHeader,
@@ -101,6 +105,7 @@ export class GameFiltersMenuComponent implements OnChanges {
 
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
+  @Input() presentation: FiltersPresentation = 'menu';
   @Input() platformOptions: string[] = [];
   @Input() collectionOptions: string[] = [];
   @Input() gameTypeOptions: GameType[] = [];

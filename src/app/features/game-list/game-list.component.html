@@ -435,20 +435,49 @@
 <ng-template #noteEditorCoreTemplate>
   <div class="detail-notes-editor">
     <ion-item lines="none" class="detail-notes-toolbar">
-      <ion-button fill="clear" size="small" (click)="applyNotesToolbar('bold')">Bold</ion-button>
-      <ion-button fill="clear" size="small" (click)="applyNotesToolbar('italic')"
-        >Italic</ion-button
+      <ion-button fill="clear" size="small" aria-label="Bold" (click)="applyNotesToolbar('bold')">
+        <span class="format-glyph format-glyph-bold">B</span>
+      </ion-button>
+      <ion-button
+        fill="clear"
+        size="small"
+        aria-label="Italic"
+        (click)="applyNotesToolbar('italic')"
       >
-      <ion-button fill="clear" size="small" (click)="applyNotesToolbar('underline')"
-        >Underline</ion-button
+        <span class="format-glyph format-glyph-italic">I</span>
+      </ion-button>
+      <ion-button
+        fill="clear"
+        size="small"
+        aria-label="Underline"
+        (click)="applyNotesToolbar('underline')"
       >
-      <ion-button fill="clear" size="small" (click)="applyNotesToolbar('bullet')"
-        >• List</ion-button
+        <span class="format-glyph format-glyph-underline">U</span>
+      </ion-button>
+      <ion-button
+        fill="clear"
+        size="small"
+        aria-label="Bullet list"
+        (click)="applyNotesToolbar('bullet')"
       >
-      <ion-button fill="clear" size="small" (click)="applyNotesToolbar('number')"
-        >1. List</ion-button
+        <ion-icon name="list" aria-hidden="true"></ion-icon>
+      </ion-button>
+      <ion-button
+        fill="clear"
+        size="small"
+        aria-label="Numbered list"
+        (click)="applyNotesToolbar('number')"
       >
-      <ion-button fill="clear" size="small" (click)="applyNotesToolbar('check')">[ ]</ion-button>
+        <ion-icon name="list-circle" aria-hidden="true"></ion-icon>
+      </ion-button>
+      <ion-button
+        fill="clear"
+        size="small"
+        aria-label="Checklist"
+        (click)="applyNotesToolbar('check')"
+      >
+        <ion-icon name="checkbox-outline" aria-hidden="true"></ion-icon>
+      </ion-button>
     </ion-item>
     <ion-item lines="none" class="detail-notes-textarea-item">
       <ion-textarea

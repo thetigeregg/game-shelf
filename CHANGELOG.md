@@ -799,3 +799,17 @@
 - 681b7e1 Merge pull request #85 from thetigeregg/codex/add-drop-shadow-to-game
 - d7b0af6 Add game detail image shadow
 
+## v0.1.26 - 2026-02-24
+- acec45e Merge pull request #86 from thetigeregg/codex/responsive-layout-support
+- 4f0e7cf Switch explore header to normal
+- 04b4bc1 Fix split pane smoke test
+- 07309cd Fix phone layout cutoff regression
+- 84b3b90 Reapply "Fix split pane overflow"
+- 9cb7eba Revert "Fix split pane overflow"
+- 8a1e374 Bump app version to 0.1.25 in runtime config
+- 6e46bbf Fix split pane overflow
+- 705c700 Fix split pane layout scrolling
+- 9111be8 Implement IonSplitPane desktop mode
+- 6bc4372 Add IonSplitPane desktop layout
+- 242fcaf Plan desktop responsive layout
+

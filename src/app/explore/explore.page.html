@@ -129,6 +129,7 @@
           [statusOptions]="statusOptions"
           [ratingOptions]="ratingOptions"
           [showAddToLibraryAction]="detailContext === 'explore'"
+          [isInLibrary]="isSelectedGameInLibrary"
           [isAddToLibraryLoading]="isAddToLibraryLoading"
           (addToLibrary)="addSelectedGameToLibrary()"
           (statusChange)="onDetailStatusChange($event)"

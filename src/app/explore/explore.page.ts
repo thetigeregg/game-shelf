@@ -94,6 +94,7 @@ export class ExplorePage implements OnInit {
   detailErrorMessage = '';
   selectedGameDetail: GameCatalogResult | GameEntry | null = null;
   detailContext: 'explore' | 'library' = 'explore';
+  isSelectedGameInLibrary = false;
   isAddToLibraryLoading = false;
   readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
   readonly statusOptions: { value: GameStatus; label: string }[] = [
@@ -169,12 +170,15 @@ export class ExplorePage implements OnInit {
     this.isLoadingDetail = true;
     this.detailErrorMessage = '';
     this.detailContext = 'explore';
+    this.isSelectedGameInLibrary = false;
     this.isAddToLibraryLoading = false;
     this.selectedGameDetail = item.game;
 
     try {
+      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(item.game);
       const detail = await firstValueFrom(this.igdbProxyService.getGameById(item.game.igdbGameId));
       this.selectedGameDetail = detail;
+      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(detail);
     } catch (error) {
       this.detailErrorMessage =
         error instanceof Error ? error.message : 'Unable to load game details.';
@@ -189,12 +193,14 @@ export class ExplorePage implements OnInit {
     this.detailErrorMessage = '';
     this.selectedGameDetail = null;
     this.detailContext = 'explore';
+    this.isSelectedGameInLibrary = false;
     this.isAddToLibraryLoading = false;
   }
 
   async addSelectedGameToLibrary(): Promise<void> {
     if (
       this.detailContext !== 'explore' ||
+      this.isSelectedGameInLibrary ||
       this.isAddToLibraryLoading ||
       !this.selectedGameDetail
     ) {
@@ -218,6 +224,9 @@ export class ExplorePage implements OnInit {
       if (addResult.status === 'added' && addResult.entry) {
         this.selectedGameDetail = addResult.entry;
         this.detailContext = 'library';
+        this.isSelectedGameInLibrary = true;
+      } else if (addResult.status === 'duplicate') {
+        this.isSelectedGameInLibrary = true;
       }
     } finally {
       this.isAddToLibraryLoading = false;
@@ -490,6 +499,50 @@ export class ExplorePage implements OnInit {
     }
 
     return selected;
+  }
+
+  private async checkGameAlreadyInLibrary(game: GameCatalogResult | GameEntry): Promise<boolean> {
+    if (this.isLibraryEntry(game)) {
+      return true;
+    }
+
+    const platformIgdbIds = this.collectPlatformIgdbIds(game);
+
+    if (platformIgdbIds.length === 0) {
+      return false;
+    }
+
+    for (const platformIgdbId of platformIgdbIds) {
+      const existing = await this.gameShelfService.findGameByIdentity(
+        game.igdbGameId,
+        platformIgdbId
+      );
+
+      if (existing) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private collectPlatformIgdbIds(game: GameCatalogResult | GameEntry): number[] {
+    const ids = new Set<number>();
+    const catalogLike = game as Partial<GameCatalogResult>;
+
+    if (Number.isInteger(game.platformIgdbId) && (game.platformIgdbId as number) > 0) {
+      ids.add(game.platformIgdbId as number);
+    }
+
+    if (Array.isArray(catalogLike.platformOptions)) {
+      for (const option of catalogLike.platformOptions) {
+        if (Number.isInteger(option?.id) && (option.id as number) > 0) {
+          ids.add(option.id as number);
+        }
+      }
+    }
+
+    return Array.from(ids);
   }
 
   private isLibraryEntry(value: GameCatalogResult | GameEntry | null): value is GameEntry {

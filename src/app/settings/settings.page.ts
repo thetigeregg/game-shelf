@@ -138,6 +138,7 @@ interface ExportCsvRow {
   customTitle: string;
   summary: string;
   storyline: string;
+  notes: string;
   coverUrl: string;
   customCoverUrl: string;
   coverSource: string;
@@ -175,6 +176,7 @@ interface ParsedGameImportRow {
   kind: 'game';
   listType: ListType;
   catalog: GameCatalogResult;
+  notes: string | null;
   status: GameStatus | null;
   rating: GameRating | null;
   customTitle: string | null;
@@ -234,6 +236,7 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'customTitle',
   'summary',
   'storyline',
+  'notes',
   'coverUrl',
   'customCoverUrl',
   'coverSource',
@@ -1289,6 +1292,7 @@ export class SettingsPage {
       let gameStatusesApplied = 0;
       let gameRatingsApplied = 0;
       let gameTagAssignmentsApplied = 0;
+      let gameNotesApplied = 0;
       let viewsApplied = 0;
       let tagsRenamed = 0;
       let viewsRenamed = 0;
@@ -1388,6 +1392,15 @@ export class SettingsPage {
             gameRatingsApplied += 1;
           }
 
+          if (gameRow.notes !== null) {
+            await this.gameShelfService.setGameNotes(
+              gameRow.catalog.igdbGameId,
+              platformIgdbId,
+              gameRow.notes
+            );
+            gameNotesApplied += 1;
+          }
+
           const tagIds = gameRow.tagNames
             .map((tagName) => tagMap.get(tagName.toLowerCase()))
             .filter(
@@ -1464,6 +1477,7 @@ export class SettingsPage {
         gameRatingsApplied,
         gameCustomMetadataApplied,
         gameTagAssignmentsApplied,
+        gameNotesApplied,
         viewsApplied,
         tagsRenamed,
         viewsRenamed,
@@ -1486,6 +1500,7 @@ export class SettingsPage {
     gameRatingsApplied: number;
     gameCustomMetadataApplied: number;
     gameTagAssignmentsApplied: number;
+    gameNotesApplied: number;
     viewsApplied: number;
     tagsRenamed: number;
     viewsRenamed: number;
@@ -1502,6 +1517,7 @@ export class SettingsPage {
       `Game ratings set: ${summary.gameRatingsApplied}`,
       `Game custom metadata updates: ${summary.gameCustomMetadataApplied}`,
       `Game tag assignments: ${summary.gameTagAssignmentsApplied}`,
+      `Game notes set: ${summary.gameNotesApplied}`,
       `Tags auto-renamed: ${summary.tagsRenamed}`,
       `Views auto-renamed: ${summary.viewsRenamed}`,
       `Failed rows: ${summary.failedRows}`,
@@ -2392,6 +2408,7 @@ export class SettingsPage {
         customTitle: game.customTitle ?? '',
         summary: game.summary ?? '',
         storyline: game.storyline ?? '',
+        notes: game.notes ?? '',
         coverUrl: game.coverUrl ?? '',
         customCoverUrl: game.customCoverUrl ?? '',
         coverSource: game.coverSource,
@@ -2451,6 +2468,7 @@ export class SettingsPage {
         customTitle: '',
         summary: '',
         storyline: '',
+        notes: '',
         coverUrl: '',
         customCoverUrl: '',
         coverSource: '',
@@ -2495,6 +2513,7 @@ export class SettingsPage {
         customTitle: '',
         summary: '',
         storyline: '',
+        notes: '',
         coverUrl: '',
         customCoverUrl: '',
         coverSource: '',
@@ -2539,6 +2558,7 @@ export class SettingsPage {
         customTitle: '',
         summary: '',
         storyline: '',
+        notes: '',
         coverUrl: '',
         customCoverUrl: '',
         coverSource: '',
@@ -2879,6 +2899,7 @@ export class SettingsPage {
 
     const tagNames = parseStringArray(record.tags);
     const tagIds = parsePositiveIntegerArray(record.gameTagIds);
+    const notes = this.normalizeImportedNotes(record.notes);
 
     return {
       id: rowNumber,
@@ -2891,6 +2912,7 @@ export class SettingsPage {
         kind: 'game',
         listType,
         catalog,
+        notes,
         status,
         rating,
         customTitle,
@@ -3003,6 +3025,7 @@ export class SettingsPage {
       customTitle: getValue('customTitle'),
       summary: getValue('summary'),
       storyline: getValue('storyline'),
+      notes: getValue('notes'),
       coverUrl: getValue('coverUrl'),
       customCoverUrl: getValue('customCoverUrl'),
       coverSource: getValue('coverSource'),
@@ -3035,6 +3058,11 @@ export class SettingsPage {
       createdAt: getValue('createdAt'),
       updatedAt: getValue('updatedAt')
     };
+  }
+
+  private normalizeImportedNotes(value: string): string | null {
+    const normalized = String(value ?? '').replace(/\r\n?/g, '\n');
+    return normalized.length > 0 ? normalized : null;
   }
 
   private readExportableSettings(): Array<[string, string]> {

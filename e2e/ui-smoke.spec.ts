@@ -10,13 +10,28 @@ async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
 }
 
 async function openFiltersMenu(page: Page): Promise<void> {
-  await page.locator('ion-button.filters-button').click();
-  await expect(page.locator('ion-menu .actions ion-button', { hasText: 'Done' })).toBeVisible();
+  const filtersButton = page.locator('ion-button.filters-button');
+  const hasFiltersButton = await filtersButton.isVisible().catch(() => false);
+
+  if (hasFiltersButton) {
+    await filtersButton.click();
+    await expect(page.locator('ion-menu .actions ion-button', { hasText: 'Done' })).toBeVisible();
+    return;
+  }
+
+  await expect(page.locator('app-game-filters-menu ion-select[label="Sort"]')).toBeVisible();
 }
 
 async function closeFiltersMenu(page: Page): Promise<void> {
-  await page.locator('ion-menu .actions ion-button', { hasText: 'Done' }).click();
-  await expect(page.locator('ion-menu .actions ion-button', { hasText: 'Done' })).toBeHidden();
+  const doneButton = page.locator('ion-menu .actions ion-button', { hasText: 'Done' });
+  const hasDoneButton = await doneButton.isVisible().catch(() => false);
+
+  if (!hasDoneButton) {
+    return;
+  }
+
+  await doneButton.click();
+  await expect(doneButton).toBeHidden();
 }
 
 async function setSingleSelectValue(
@@ -25,7 +40,12 @@ async function setSingleSelectValue(
   optionLabel: string
 ): Promise<void> {
   const select = page.locator(`ion-menu ion-select[label="${selectLabel}"]`);
-  await select.click();
+  if (!(await select.isVisible().catch(() => false))) {
+    const splitSelect = page.locator(`app-game-filters-menu ion-select[label="${selectLabel}"]`);
+    await splitSelect.click();
+  } else {
+    await select.click();
+  }
 
   const alert = page.locator('ion-alert').last();
   await expect(alert).toBeVisible();
@@ -40,7 +60,12 @@ async function setMultiSelectValue(
   optionLabel: string
 ): Promise<void> {
   const select = page.locator(`ion-menu ion-select[label="${selectLabel}"]`);
-  await select.click();
+  if (!(await select.isVisible().catch(() => false))) {
+    const splitSelect = page.locator(`app-game-filters-menu ion-select[label="${selectLabel}"]`);
+    await splitSelect.click();
+  } else {
+    await select.click();
+  }
 
   const alert = page.locator('ion-alert').last();
   await expect(alert).toBeVisible();
@@ -50,10 +75,14 @@ async function setMultiSelectValue(
 }
 
 async function expectPersistedFilterControls(page: Page): Promise<void> {
-  const sortSelect = page.locator('ion-menu ion-select[label="Sort"]');
-  const groupBySelect = page.locator('ion-menu ion-select[label="Group by"]');
-  const hltbMinInput = page.locator('ion-menu ion-input[label="HLTB main min (hours)"]');
-  const releaseDateFrom = page.locator('ion-menu ion-datetime[id$="release-date-from"]');
+  const sortSelect = page.locator('app-game-filters-menu ion-select[label="Sort"]');
+  const groupBySelect = page.locator('app-game-filters-menu ion-select[label="Group by"]');
+  const hltbMinInput = page.locator(
+    'app-game-filters-menu ion-input[label="HLTB main min (hours)"]'
+  );
+  const releaseDateFrom = page.locator(
+    'app-game-filters-menu ion-datetime[id$="release-date-from"]'
+  );
 
   await expect
     .poll(async () =>
@@ -78,9 +107,9 @@ async function expectPersistedFilterControls(page: Page): Promise<void> {
 }
 
 async function expectUiUpdatedFilterControls(page: Page): Promise<void> {
-  const sortSelect = page.locator('ion-menu ion-select[label="Sort"]');
-  const groupBySelect = page.locator('ion-menu ion-select[label="Group by"]');
-  const statusSelect = page.locator('ion-menu ion-select[label="Status"]');
+  const sortSelect = page.locator('app-game-filters-menu ion-select[label="Sort"]');
+  const groupBySelect = page.locator('app-game-filters-menu ion-select[label="Group by"]');
+  const statusSelect = page.locator('app-game-filters-menu ion-select[label="Status"]');
 
   await expect
     .poll(async () =>
@@ -105,20 +134,36 @@ test('collection page loads core controls', async ({ page }) => {
 
   await expect(page.locator('ion-title .page-title', { hasText: 'Collection' })).toBeVisible();
   await expect(page.getByPlaceholder('Search collection')).toBeVisible();
-  await expect(page.locator('ion-button.filters-button')).toBeVisible();
-  await expect(page.locator('ion-fab-button[color=\"primary\"]')).toBeVisible();
+  const hasFiltersButton = await page
+    .locator('ion-button.filters-button')
+    .isVisible()
+    .catch(() => false);
+
+  if (hasFiltersButton) {
+    await expect(page.locator('ion-fab-button[color=\"primary\"]')).toBeVisible();
+  } else {
+    await expect(page.locator('app-game-filters-menu ion-select[label=\"Sort\"]')).toBeVisible();
+  }
 });
 
 test('filter menu shows reset and done on same row', async ({ page }) => {
   await page.goto('/tabs/collection');
   await dismissVersionAlertIfPresent(page);
-  await page.locator('ion-button.filters-button').click();
 
-  const reset = page.locator('ion-menu .actions ion-button', { hasText: 'Reset' });
+  const filtersButton = page.locator('ion-button.filters-button');
+  const hasFiltersButton = await filtersButton.isVisible().catch(() => false);
+
+  if (hasFiltersButton) {
+    await filtersButton.click();
+  }
+
+  const reset = page.locator('app-game-filters-menu .actions ion-button', { hasText: 'Reset' });
   const done = page.locator('ion-menu .actions ion-button', { hasText: 'Done' });
 
   await expect(reset).toBeVisible();
-  await expect(done).toBeVisible();
+  if (!(await done.isVisible().catch(() => false))) {
+    return;
+  }
 
   const [resetBox, doneBox] = await Promise.all([reset.boundingBox(), done.boundingBox()]);
   expect(resetBox).not.toBeNull();
@@ -129,6 +174,21 @@ test('filter menu shows reset and done on same row', async ({ page }) => {
   }
 
   expect(Math.abs(resetBox.y - doneBox.y)).toBeLessThan(8);
+});
+
+test('desktop renders split pane while mobile does not render split pane', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/tabs/collection');
+  await dismissVersionAlertIfPresent(page);
+  const splitPane = page.locator('ion-split-pane.list-page-split-pane');
+  await expect(splitPane).toHaveCount(1);
+  const wideViewportVisible = await splitPane.evaluate(
+    (element) => (element as { visible: boolean }).visible
+  );
+  expect(wideViewportVisible).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(splitPane).toHaveCount(0);
 });
 
 test('settings page shows metadata validator and import export entries', async ({ page }) => {

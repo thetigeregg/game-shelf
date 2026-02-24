@@ -819,3 +819,7 @@
 - 1b331a2 Merge branch 'main' into codex/responsive-layout-support
 - 30b3528 Add mobile filters e2e coverage
 
+## v0.1.28 - 2026-02-24
+- dcbadd4 Merge pull request #88 from thetigeregg/codex/hiding-manual-buttons
+- a59c2cb Hide manual buttons behind platform
+

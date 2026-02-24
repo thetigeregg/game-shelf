@@ -491,15 +491,11 @@
 </ng-template>
 
 <ng-template #noteEditorCoreTemplate>
-  <div class="detail-notes-editor">
-    <div class="detail-notes-textarea-item">
-      <tiptap-editor
-        class="detail-note-editor"
-        [editor]="notesEditorInstance"
-        [(ngModel)]="noteDraft"
-      ></tiptap-editor>
-    </div>
-  </div>
+  <tiptap-editor
+    class="detail-note-editor"
+    [editor]="notesEditorInstance"
+    [(ngModel)]="noteDraft"
+  ></tiptap-editor>
 </ng-template>
 
 <ion-modal
@@ -538,7 +534,7 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    <ion-content class="gs-safe-bottom">
+    <ion-content [scrollY]="false">
       <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
     </ion-content>
     <ion-footer>

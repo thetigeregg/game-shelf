@@ -337,6 +337,22 @@
             <ion-content class="detail-notes-pane-content gs-safe-bottom">
               <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
             </ion-content>
+            <ion-footer>
+              <ion-toolbar>
+                <ion-buttons slot="end">
+                  <ion-button
+                    fill="outline"
+                    [disabled]="!isNoteDirty || isNoteSaving"
+                    (click)="revertNotes()"
+                  >
+                    Revert
+                  </ion-button>
+                  <ion-button [disabled]="!isNoteDirty || isNoteSaving" (click)="saveNotes()">
+                    {{ isNoteSaving ? 'Saving...' : 'Save' }}
+                  </ion-button>
+                </ion-buttons>
+              </ion-toolbar>
+            </ion-footer>
           </div>
           <ng-container
             *ngTemplateOutlet="detailPrimaryPaneTemplate; context: { $implicit: game }"
@@ -486,14 +502,6 @@
         (ionInput)="onNoteInput($event)"
       ></ion-textarea>
     </ion-item>
-    <ion-item lines="none" class="detail-notes-actions">
-      <ion-button fill="outline" [disabled]="!isNoteDirty || isNoteSaving" (click)="revertNotes()"
-        >Revert</ion-button
-      >
-      <ion-button [disabled]="!isNoteDirty || isNoteSaving" (click)="saveNotes()">
-        {{ isNoteSaving ? 'Saving...' : 'Save' }}
-      </ion-button>
-    </ion-item>
   </div>
 </ng-template>
 
@@ -536,6 +544,22 @@
     <ion-content class="gs-safe-bottom">
       <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
     </ion-content>
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            [disabled]="!isNoteDirty || isNoteSaving"
+            (click)="revertNotes()"
+          >
+            Revert
+          </ion-button>
+          <ion-button [disabled]="!isNoteDirty || isNoteSaving" (click)="saveNotes()">
+            {{ isNoteSaving ? 'Saving...' : 'Save' }}
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 

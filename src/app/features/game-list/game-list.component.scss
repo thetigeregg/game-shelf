@@ -334,6 +334,7 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
 .detail-notes-editor {
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 100%;
 }
 
@@ -385,13 +386,19 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
   font-family: var(--ion-font-family, inherit);
 }
 
-.detail-note-editor > div {
+tiptap-editor.detail-note-editor .tiptap.ProseMirror {
+  display: block;
   width: 100%;
   height: 100%;
-}
-
-.detail-note-editor .ProseMirror {
   min-height: calc(60vh - 24px);
   outline: none;
   white-space: pre-wrap;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+tiptap-editor.detail-note-editor .tiptap.ProseMirror p {
+  padding: 0;
+  margin: 0;
 }

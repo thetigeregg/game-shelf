@@ -338,9 +338,8 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
 }
 
 .detail-notes-toolbar {
-  --inner-padding-start: 8px;
-  --inner-padding-end: 8px;
-  flex-wrap: wrap;
+  --padding-start: 8px;
+  --padding-end: 8px;
 }
 
 .detail-notes-toolbar ion-button {
@@ -349,23 +348,6 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
 
 .detail-notes-toolbar ion-icon {
   font-size: 1rem;
-}
-
-.format-glyph {
-  font-size: 0.95rem;
-  line-height: 1;
-}
-
-.format-glyph-bold {
-  font-weight: 700;
-}
-
-.format-glyph-italic {
-  font-style: italic;
-}
-
-.format-glyph-underline {
-  text-decoration: underline;
 }
 
 .detail-notes-textarea-item {

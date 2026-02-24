@@ -137,7 +137,8 @@ import {
   logoGoogle,
   logoYoutube,
   chevronBack,
-  documentText
+  documentText,
+  book
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -3386,7 +3387,8 @@ export class GameListComponent implements OnChanges {
       logoGoogle,
       logoYoutube,
       chevronBack,
-      documentText
+      documentText,
+      book
     });
   }
 }

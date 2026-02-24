@@ -819,3 +819,12 @@
 - 1b331a2 Merge branch 'main' into codex/responsive-layout-support
 - 30b3528 Add mobile filters e2e coverage
 
+## v0.1.28 - 2026-02-24
+- dcbadd4 Merge pull request #88 from thetigeregg/codex/hiding-manual-buttons
+- a59c2cb Hide manual buttons behind platform
+
+## v0.1.29 - 2026-02-24
+- 7951ff3 Merge pull request #89 from thetigeregg/codex/fix-runtimeconfig-referenceerror
+- 4e8f4a9 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
+- 2256919 Fix runtime-config feature flag
+

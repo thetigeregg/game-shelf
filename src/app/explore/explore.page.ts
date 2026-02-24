@@ -406,44 +406,17 @@ export class ExplorePage implements OnInit {
   }
 
   getPlatformLabel(item: PopularityGameResult): string {
-    const preferredPlatform = this.resolvePreferredPlatform(item);
-    return this.getPlatformDisplayName(preferredPlatform.name, preferredPlatform.id);
-  }
+    const platforms = this.getPlatformOptions(item.game);
 
-  private resolvePreferredPlatform(item: PopularityGameResult): {
-    id: number | null;
-    name: string;
-  } {
-    const fromPrimaryName = typeof item.game.platform === 'string' ? item.game.platform.trim() : '';
-    const fromPrimaryId =
-      Number.isInteger(item.game.platformIgdbId) && (item.game.platformIgdbId as number) > 0
-        ? (item.game.platformIgdbId as number)
-        : null;
-
-    if (fromPrimaryName.length > 0) {
-      return { id: fromPrimaryId, name: fromPrimaryName };
+    if (platforms.length === 0) {
+      return 'Unknown platform';
     }
 
-    if (Array.isArray(item.game.platformOptions) && item.game.platformOptions.length > 0) {
-      const first = item.game.platformOptions[0];
-      const name = typeof first?.name === 'string' ? first.name.trim() : '';
-      const id =
-        Number.isInteger(first?.id) && (first.id as number) > 0 ? (first.id as number) : null;
-
-      if (name.length > 0) {
-        return { id, name };
-      }
+    if (platforms.length === 1) {
+      return this.getPlatformDisplayName(platforms[0].name, platforms[0].id);
     }
 
-    if (Array.isArray(item.game.platforms) && item.game.platforms.length > 0) {
-      const name = typeof item.game.platforms[0] === 'string' ? item.game.platforms[0].trim() : '';
-
-      if (name.length > 0) {
-        return { id: null, name };
-      }
-    }
-
-    return { id: null, name: '' };
+    return `${platforms.length} platforms`;
   }
 
   private getPlatformDisplayName(name: string, platformIgdbId: number | null): string {
@@ -499,6 +472,55 @@ export class ExplorePage implements OnInit {
     }
 
     return selected;
+  }
+
+  private getPlatformOptions(
+    game: GameCatalogResult | GameEntry
+  ): { id: number | null; name: string }[] {
+    const catalogLike = game as Partial<GameCatalogResult>;
+
+    if (Array.isArray(catalogLike.platformOptions) && catalogLike.platformOptions.length > 0) {
+      return catalogLike.platformOptions
+        .map((option): { id: number | null; name: string } => {
+          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const id =
+            Number.isInteger(option?.id) && (option.id as number) > 0
+              ? (option.id as number)
+              : null;
+          return { id, name };
+        })
+        .filter((option: { id: number | null; name: string }) => option.name.length > 0)
+        .filter(
+          (
+            option: { id: number | null; name: string },
+            index: number,
+            items: { id: number | null; name: string }[]
+          ) => {
+            return (
+              items.findIndex(
+                (candidate: { id: number | null; name: string }) =>
+                  candidate.id === option.id && candidate.name === option.name
+              ) === index
+            );
+          }
+        );
+    }
+
+    if (Array.isArray(catalogLike.platforms) && catalogLike.platforms.length > 0) {
+      return [
+        ...new Set(
+          catalogLike.platforms
+            .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
+            .filter((platform) => platform.length > 0)
+        )
+      ].map((name) => ({ id: null, name }));
+    }
+
+    if (typeof game.platform === 'string' && game.platform.trim().length > 0) {
+      return [{ id: null, name: game.platform.trim() }];
+    }
+
+    return [];
   }
 
   private async checkGameAlreadyInLibrary(game: GameCatalogResult | GameEntry): Promise<boolean> {

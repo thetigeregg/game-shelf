@@ -795,3 +795,7 @@
 - 463014e Show extra platforms on explore
 - 99f6561 Document explore game add button
 
+## v0.1.25 - 2026-02-24
+- 681b7e1 Merge pull request #85 from thetigeregg/codex/add-drop-shadow-to-game
+- d7b0af6 Add game detail image shadow
+

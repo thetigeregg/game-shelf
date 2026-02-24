@@ -828,3 +828,8 @@
 - 4e8f4a9 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
 - 2256919 Fix runtime-config feature flag
 
+## v0.1.30 - 2026-02-24
+- b6bb056 Merge pull request #90 from thetigeregg/codex/fix-runtimeconfig-referenceerror
+- fb97924 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
+- 329d179 Fix runtime config append error
+

@@ -3,6 +3,23 @@ app-game-list {
   display: block;
 }
 
+.list-page-split-pane {
+  --side-width: 360px;
+  --side-min-width: 360px;
+  --side-max-width: 360px;
+}
+
+.list-page-split-pane > app-game-filters-menu {
+  display: block;
+  width: 360px;
+  min-width: 360px;
+  max-width: 360px;
+  flex: 0 0 360px;
+  height: 100%;
+  border-right: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
+  background: var(--ion-color-step-50, var(--ion-background-color));
+}
+
 ion-content::part(scroll) {
   display: flex;
   flex-direction: column;
@@ -11,7 +28,7 @@ ion-content::part(scroll) {
 app-game-list {
   --game-list-bottom-inset: calc(
     var(--game-shelf-tab-bar-height, 56px) +
-      var(--ion-safe-area-bottom, env(safe-area-inset-bottom))
+      var(--ion-safe-area-bottom, env(safe-area-inset-bottom)) + 16px
   );
   flex: 1 1 auto;
   min-height: 0;
@@ -84,4 +101,25 @@ ion-header[collapse='condense'] ion-toolbar {
   --border-width: 0 0 0.55px;
   --border-style: solid;
   --border-color: rgba(var(--ion-color-medium-rgb), 0.35);
+}
+
+@media (min-width: 1024px) {
+  :host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .list-page-split-pane {
+    position: relative;
+    inset: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  app-game-list {
+    --game-list-bottom-inset: 16px;
+  }
 }

@@ -1,263 +1,287 @@
-<ion-menu [menuId]="menuId" [contentId]="contentId" side="end" type="overlay">
-  <ion-header>
-    <ion-toolbar>
-      <ion-title>Filters & Sort</ion-title>
-      <ion-buttons slot="end">
-        <ion-menu-toggle>
-          <ion-button fill="clear">Close</ion-button>
-        </ion-menu-toggle>
-      </ion-buttons>
-    </ion-toolbar>
-  </ion-header>
+<ng-template #filtersForm>
+  <ion-list lines="full">
+    <ion-item>
+      <ion-select
+        label="Sort"
+        labelPlacement="stacked"
+        [ngModel]="sortOption"
+        (ngModelChange)="onSortOptionChange($event)"
+      >
+        <ion-select-option value="title:asc">Title ↑</ion-select-option>
+        <ion-select-option value="title:desc">Title ↓</ion-select-option>
+        <ion-select-option value="platform:asc">Platform ↑</ion-select-option>
+        <ion-select-option value="platform:desc">Platform ↓</ion-select-option>
+        <ion-select-option value="releaseDate:asc">Release date ↑</ion-select-option>
+        <ion-select-option value="releaseDate:desc">Release date ↓</ion-select-option>
+        <ion-select-option value="createdAt:asc">Date added ↑</ion-select-option>
+        <ion-select-option value="createdAt:desc">Date added ↓</ion-select-option>
+      </ion-select>
+    </ion-item>
 
-  <ion-content>
-    <ion-list lines="full">
-      <ion-item>
-        <ion-select
-          label="Sort"
-          labelPlacement="stacked"
-          [ngModel]="sortOption"
-          (ngModelChange)="onSortOptionChange($event)"
-        >
-          <ion-select-option value="title:asc">Title ↑</ion-select-option>
-          <ion-select-option value="title:desc">Title ↓</ion-select-option>
-          <ion-select-option value="platform:asc">Platform ↑</ion-select-option>
-          <ion-select-option value="platform:desc">Platform ↓</ion-select-option>
-          <ion-select-option value="releaseDate:asc">Release date ↑</ion-select-option>
-          <ion-select-option value="releaseDate:desc">Release date ↓</ion-select-option>
-          <ion-select-option value="createdAt:asc">Date added ↑</ion-select-option>
-          <ion-select-option value="createdAt:desc">Date added ↓</ion-select-option>
-        </ion-select>
-      </ion-item>
+    <ion-item>
+      <ion-select
+        label="Group by"
+        labelPlacement="stacked"
+        [ngModel]="groupBy"
+        (ngModelChange)="onGroupBySelectionChange($event)"
+      >
+        @for (option of groupByOptions; track option) {
+          <ion-select-option [value]="option.value">
+            {{ option.label }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
 
-      <ion-item>
-        <ion-select
-          label="Group by"
-          labelPlacement="stacked"
-          [ngModel]="groupBy"
-          (ngModelChange)="onGroupBySelectionChange($event)"
-        >
-          @for (option of groupByOptions; track option) {
-            <ion-select-option [value]="option.value">
-              {{ option.label }}
-            </ion-select-option>
-          }
-        </ion-select>
-      </ion-item>
+    <ion-item>
+      <ion-select
+        label="Platform"
+        labelPlacement="stacked"
+        placeholder="All platforms"
+        [multiple]="true"
+        [ngModel]="draftFilters.platform"
+        (ngModelChange)="onPlatformSelectionChange($event)"
+      >
+        @for (platform of platformOptions; track platform) {
+          <ion-select-option [value]="platform">
+            {{ platform }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
 
-      <ion-item>
-        <ion-select
-          label="Platform"
-          labelPlacement="stacked"
-          placeholder="All platforms"
-          [multiple]="true"
-          [ngModel]="draftFilters.platform"
-          (ngModelChange)="onPlatformSelectionChange($event)"
-        >
-          @for (platform of platformOptions; track platform) {
-            <ion-select-option [value]="platform">
-              {{ platform }}
-            </ion-select-option>
-          }
-        </ion-select>
-      </ion-item>
+    <ion-item>
+      <ion-select
+        label="Series"
+        labelPlacement="stacked"
+        placeholder="All series"
+        [multiple]="true"
+        [ngModel]="draftFilters.collections"
+        (ngModelChange)="onCollectionSelectionChange($event)"
+      >
+        @for (collection of collectionOptions; track collection) {
+          <ion-select-option [value]="collection">
+            {{ collection }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
 
-      <ion-item>
-        <ion-select
-          label="Series"
-          labelPlacement="stacked"
-          placeholder="All series"
-          [multiple]="true"
-          [ngModel]="draftFilters.collections"
-          (ngModelChange)="onCollectionSelectionChange($event)"
-        >
-          @for (collection of collectionOptions; track collection) {
-            <ion-select-option [value]="collection">
-              {{ collection }}
-            </ion-select-option>
-          }
-        </ion-select>
-      </ion-item>
+    <ion-item>
+      <ion-select
+        label="Status"
+        labelPlacement="stacked"
+        placeholder="All statuses"
+        [multiple]="true"
+        [ngModel]="draftFilters.statuses"
+        (ngModelChange)="onStatusSelectionChange($event)"
+      >
+        @for (status of statusOptions; track status) {
+          <ion-select-option [value]="status">
+            {{ getStatusLabel(status) }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
 
-      <ion-item>
-        <ion-select
-          label="Status"
-          labelPlacement="stacked"
-          placeholder="All statuses"
-          [multiple]="true"
-          [ngModel]="draftFilters.statuses"
-          (ngModelChange)="onStatusSelectionChange($event)"
-        >
-          @for (status of statusOptions; track status) {
-            <ion-select-option [value]="status">
-              {{ getStatusLabel(status) }}
-            </ion-select-option>
-          }
-        </ion-select>
-      </ion-item>
+    <ion-item>
+      <ion-select
+        label="Tags"
+        labelPlacement="stacked"
+        placeholder="All tags"
+        [multiple]="true"
+        [ngModel]="draftFilters.tags"
+        (ngModelChange)="onTagSelectionChange($event)"
+      >
+        <ion-select-option [value]="noneTagFilterValue">None</ion-select-option>
+        @for (tag of tagOptions; track tag) {
+          <ion-select-option [value]="tag">
+            {{ tag }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
 
-      <ion-item>
-        <ion-select
-          label="Tags"
-          labelPlacement="stacked"
-          placeholder="All tags"
-          [multiple]="true"
-          [ngModel]="draftFilters.tags"
-          (ngModelChange)="onTagSelectionChange($event)"
-        >
-          <ion-select-option [value]="noneTagFilterValue">None</ion-select-option>
-          @for (tag of tagOptions; track tag) {
-            <ion-select-option [value]="tag">
-              {{ tag }}
-            </ion-select-option>
-          }
-        </ion-select>
-      </ion-item>
+    <ion-item>
+      <ion-select
+        label="Genre"
+        labelPlacement="stacked"
+        placeholder="All genres"
+        [multiple]="true"
+        [ngModel]="draftFilters.genres"
+        (ngModelChange)="onGenreSelectionChange($event)"
+      >
+        @for (genre of genreOptions; track genre) {
+          <ion-select-option [value]="genre">
+            {{ genre }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
 
-      <ion-item>
-        <ion-select
-          label="Genre"
-          labelPlacement="stacked"
-          placeholder="All genres"
-          [multiple]="true"
-          [ngModel]="draftFilters.genres"
-          (ngModelChange)="onGenreSelectionChange($event)"
-        >
-          @for (genre of genreOptions; track genre) {
-            <ion-select-option [value]="genre">
-              {{ genre }}
-            </ion-select-option>
-          }
-        </ion-select>
-      </ion-item>
-
-      <ion-accordion-group>
-        <ion-accordion value="advanced">
-          <ion-item slot="header" color="light">
-            <ion-label>Advanced filters</ion-label>
+    <ion-accordion-group>
+      <ion-accordion value="advanced">
+        <ion-item slot="header" color="light">
+          <ion-label>Advanced filters</ion-label>
+        </ion-item>
+        <div slot="content">
+          <ion-item>
+            <ion-select
+              label="Game type"
+              labelPlacement="stacked"
+              placeholder="All game types"
+              [multiple]="true"
+              [ngModel]="draftFilters.gameTypes"
+              (ngModelChange)="onGameTypeSelectionChange($event)"
+            >
+              @for (gameType of gameTypeOptions; track gameType) {
+                <ion-select-option [value]="gameType">
+                  {{ getGameTypeLabel(gameType) }}
+                </ion-select-option>
+              }
+            </ion-select>
           </ion-item>
-          <div slot="content">
-            <ion-item>
-              <ion-select
-                label="Game type"
-                labelPlacement="stacked"
-                placeholder="All game types"
-                [multiple]="true"
-                [ngModel]="draftFilters.gameTypes"
-                (ngModelChange)="onGameTypeSelectionChange($event)"
-              >
-                @for (gameType of gameTypeOptions; track gameType) {
-                  <ion-select-option [value]="gameType">
-                    {{ getGameTypeLabel(gameType) }}
-                  </ion-select-option>
-                }
-              </ion-select>
-            </ion-item>
 
-            <ion-item>
-              <ion-select
-                label="Rating"
-                labelPlacement="stacked"
-                placeholder="All ratings"
-                [multiple]="true"
-                [ngModel]="draftFilters.ratings"
-                (ngModelChange)="onRatingSelectionChange($event)"
-              >
-                @for (rating of ratingOptions; track rating) {
-                  <ion-select-option [value]="rating">
-                    {{ getRatingLabel(rating) }}
-                  </ion-select-option>
-                }
-              </ion-select>
-            </ion-item>
+          <ion-item>
+            <ion-select
+              label="Rating"
+              labelPlacement="stacked"
+              placeholder="All ratings"
+              [multiple]="true"
+              [ngModel]="draftFilters.ratings"
+              (ngModelChange)="onRatingSelectionChange($event)"
+            >
+              @for (rating of ratingOptions; track rating) {
+                <ion-select-option [value]="rating">
+                  {{ getRatingLabel(rating) }}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
 
-            <ion-item>
-              <ion-input
-                type="number"
-                min="0"
-                step="0.5"
-                inputmode="decimal"
-                label="HLTB main min (hours)"
-                labelPlacement="stacked"
-                placeholder="No min"
-                [ngModel]="draftFilters.hltbMainHoursMin"
-                (ngModelChange)="onHltbMainHoursMinChange($event)"
-              ></ion-input>
-            </ion-item>
+          <ion-item>
+            <ion-input
+              type="number"
+              min="0"
+              step="0.5"
+              inputmode="decimal"
+              label="HLTB main min (hours)"
+              labelPlacement="stacked"
+              placeholder="No min"
+              [ngModel]="draftFilters.hltbMainHoursMin"
+              (ngModelChange)="onHltbMainHoursMinChange($event)"
+            ></ion-input>
+          </ion-item>
 
-            <ion-item>
-              <ion-input
-                type="number"
-                min="0"
-                step="0.5"
-                inputmode="decimal"
-                label="HLTB main max (hours)"
-                labelPlacement="stacked"
-                placeholder="No max"
-                [ngModel]="draftFilters.hltbMainHoursMax"
-                (ngModelChange)="onHltbMainHoursMaxChange($event)"
-              ></ion-input>
-            </ion-item>
+          <ion-item>
+            <ion-input
+              type="number"
+              min="0"
+              step="0.5"
+              inputmode="decimal"
+              label="HLTB main max (hours)"
+              labelPlacement="stacked"
+              placeholder="No max"
+              [ngModel]="draftFilters.hltbMainHoursMax"
+              (ngModelChange)="onHltbMainHoursMaxChange($event)"
+            ></ion-input>
+          </ion-item>
 
-            <ion-item>
-              <ion-label>Release date from</ion-label>
-              <ion-datetime-button
-                slot="end"
-                [datetime]="releaseDateFromDatetimeId"
-              ></ion-datetime-button>
-            </ion-item>
-            <ion-modal [keepContentsMounted]="true">
-              <ng-template>
-                <ion-header>
-                  <ion-toolbar>
-                    <ion-title>Release date from</ion-title>
-                  </ion-toolbar>
-                </ion-header>
-                <ion-datetime
-                  [id]="releaseDateFromDatetimeId"
-                  presentation="date"
-                  [showClearButton]="true"
-                  [showDefaultButtons]="true"
-                  [value]="draftFilters.releaseDateFrom || undefined"
-                  (ionChange)="onReleaseDateFromChange($event.detail.value)"
-                ></ion-datetime>
-              </ng-template>
-            </ion-modal>
+          <ion-item>
+            <ion-label>Release date from</ion-label>
+            <ion-datetime-button
+              slot="end"
+              [datetime]="releaseDateFromDatetimeId"
+            ></ion-datetime-button>
+          </ion-item>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-header>
+                <ion-toolbar>
+                  <ion-title>Release date from</ion-title>
+                </ion-toolbar>
+              </ion-header>
+              <ion-datetime
+                [id]="releaseDateFromDatetimeId"
+                presentation="date"
+                [showClearButton]="true"
+                [showDefaultButtons]="true"
+                [value]="draftFilters.releaseDateFrom || undefined"
+                (ionChange)="onReleaseDateFromChange($event.detail.value)"
+              ></ion-datetime>
+            </ng-template>
+          </ion-modal>
 
-            <ion-item>
-              <ion-label>Release date to</ion-label>
-              <ion-datetime-button
-                slot="end"
-                [datetime]="releaseDateToDatetimeId"
-              ></ion-datetime-button>
-            </ion-item>
-            <ion-modal [keepContentsMounted]="true">
-              <ng-template>
-                <ion-header>
-                  <ion-toolbar>
-                    <ion-title>Release date to</ion-title>
-                  </ion-toolbar>
-                </ion-header>
-                <ion-datetime
-                  [id]="releaseDateToDatetimeId"
-                  presentation="date"
-                  [showClearButton]="true"
-                  [showDefaultButtons]="true"
-                  [value]="draftFilters.releaseDateTo || undefined"
-                  (ionChange)="onReleaseDateToChange($event.detail.value)"
-                ></ion-datetime>
-              </ng-template>
-            </ion-modal>
-          </div>
-        </ion-accordion>
-      </ion-accordion-group>
-    </ion-list>
+          <ion-item>
+            <ion-label>Release date to</ion-label>
+            <ion-datetime-button
+              slot="end"
+              [datetime]="releaseDateToDatetimeId"
+            ></ion-datetime-button>
+          </ion-item>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-header>
+                <ion-toolbar>
+                  <ion-title>Release date to</ion-title>
+                </ion-toolbar>
+              </ion-header>
+              <ion-datetime
+                [id]="releaseDateToDatetimeId"
+                presentation="date"
+                [showClearButton]="true"
+                [showDefaultButtons]="true"
+                [value]="draftFilters.releaseDateTo || undefined"
+                (ionChange)="onReleaseDateToChange($event.detail.value)"
+              ></ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </div>
+      </ion-accordion>
+    </ion-accordion-group>
+  </ion-list>
+</ng-template>
 
-    <div class="actions">
-      <ion-button fill="outline" (click)="resetFilters()">Reset</ion-button>
-      <ion-menu-toggle>
-        <ion-button>Done</ion-button>
-      </ion-menu-toggle>
-    </div>
-  </ion-content>
-</ion-menu>
+@if (presentation === 'menu') {
+  <ion-menu [menuId]="menuId" [contentId]="contentId" side="end" type="overlay">
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Filters & Sort</ion-title>
+        <ion-buttons slot="end">
+          <ion-menu-toggle>
+            <ion-button fill="clear">Close</ion-button>
+          </ion-menu-toggle>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ng-container [ngTemplateOutlet]="filtersForm"></ng-container>
+
+      <div class="actions">
+        <ion-button fill="outline" (click)="resetFilters()">Reset</ion-button>
+        <ion-menu-toggle>
+          <ion-button>Done</ion-button>
+        </ion-menu-toggle>
+      </div>
+    </ion-content>
+  </ion-menu>
+}
+
+@if (presentation === 'split') {
+  <section class="split-panel" aria-label="Filters and sort">
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Filters & Sort</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <ng-container [ngTemplateOutlet]="filtersForm"></ng-container>
+
+      <div class="actions split-actions">
+        <ion-button fill="outline" (click)="resetFilters()">Reset</ion-button>
+      </div>
+    </ion-content>
+  </section>
+}

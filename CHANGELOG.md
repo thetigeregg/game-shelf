@@ -782,3 +782,59 @@
 - 0b0d88b Add genre filter trigger on detail
 - 8d414c9 Add genre filter navigation
 
+## v0.1.23 - 2026-02-24
+- fc5b412 Merge pull request #83 from thetigeregg/deps
+- c73f620 Update package-lock.json
+- 059cfa4 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, and ajv to latest versions
+- 1169131 chore(deps): update Angular and ESLint dependencies to latest versions
+
+## v0.1.24 - 2026-02-24
+- ac7b425 Merge pull request #84 from thetigeregg/codex/add-to-library-conditions
+- f035295 Merge branch 'main' into codex/add-to-library-conditions
+- 743a0b9 Display platforms on explore detail
+- 463014e Show extra platforms on explore
+- 99f6561 Document explore game add button
+
+## v0.1.25 - 2026-02-24
+- 681b7e1 Merge pull request #85 from thetigeregg/codex/add-drop-shadow-to-game
+- d7b0af6 Add game detail image shadow
+
+## v0.1.26 - 2026-02-24
+- acec45e Merge pull request #86 from thetigeregg/codex/responsive-layout-support
+- 4f0e7cf Switch explore header to normal
+- 04b4bc1 Fix split pane smoke test
+- 07309cd Fix phone layout cutoff regression
+- 84b3b90 Reapply "Fix split pane overflow"
+- 9cb7eba Revert "Fix split pane overflow"
+- 8a1e374 Bump app version to 0.1.25 in runtime config
+- 6e46bbf Fix split pane overflow
+- 705c700 Fix split pane layout scrolling
+- 9111be8 Implement IonSplitPane desktop mode
+- 6bc4372 Add IonSplitPane desktop layout
+- 242fcaf Plan desktop responsive layout
+
+## v0.1.27 - 2026-02-24
+- 20c18e4 Merge pull request #87 from thetigeregg/codex/responsive-layout-support
+- 49cc006 Apply suggestions from code review
+- 1b331a2 Merge branch 'main' into codex/responsive-layout-support
+- 30b3528 Add mobile filters e2e coverage
+
+## v0.1.28 - 2026-02-24
+- dcbadd4 Merge pull request #88 from thetigeregg/codex/hiding-manual-buttons
+- a59c2cb Hide manual buttons behind platform
+
+## v0.1.29 - 2026-02-24
+- 7951ff3 Merge pull request #89 from thetigeregg/codex/fix-runtimeconfig-referenceerror
+- 4e8f4a9 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
+- 2256919 Fix runtime-config feature flag
+
+## v0.1.30 - 2026-02-24
+- b6bb056 Merge pull request #90 from thetigeregg/codex/fix-runtimeconfig-referenceerror
+- fb97924 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
+- 329d179 Fix runtime config append error
+
+## v0.1.31 - 2026-02-24
+- 325673a Merge pull request #91 from thetigeregg/codex/fix-runtimeconfig-referenceerror
+- f61b043 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
+- 5734c82 Fix runtime config stray n
+

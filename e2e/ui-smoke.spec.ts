@@ -176,22 +176,19 @@ test('filter menu shows reset and done on same row', async ({ page }) => {
   expect(Math.abs(resetBox.y - doneBox.y)).toBeLessThan(8);
 });
 
-test('desktop split pane activates at wide viewport and disables on narrow viewport', async ({
-  page
-}) => {
+test('desktop renders split pane while mobile does not render split pane', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/tabs/collection');
   await dismissVersionAlertIfPresent(page);
-  const wideViewportVisible = await page
-    .locator('ion-split-pane.list-page-split-pane')
-    .evaluate((element) => (element as { visible: boolean }).visible);
+  const splitPane = page.locator('ion-split-pane.list-page-split-pane');
+  await expect(splitPane).toHaveCount(1);
+  const wideViewportVisible = await splitPane.evaluate(
+    (element) => (element as { visible: boolean }).visible
+  );
   expect(wideViewportVisible).toBe(true);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  const narrowViewportVisible = await page
-    .locator('ion-split-pane.list-page-split-pane')
-    .evaluate((element) => (element as { visible: boolean }).visible);
-  expect(narrowViewportVisible).toBe(false);
+  await expect(splitPane).toHaveCount(0);
 });
 
 test('settings page shows metadata validator and import export entries', async ({ page }) => {

@@ -28,10 +28,10 @@
         <ion-button
           slot="end"
           size="default"
-          [disabled]="isAddToLibraryLoading"
+          [disabled]="isAddToLibraryLoading || isInLibrary"
           (click)="addToLibrary.emit()"
         >
-          {{ isAddToLibraryLoading ? 'Adding...' : 'Add to Library' }}
+          {{ isInLibrary ? 'In Library' : isAddToLibraryLoading ? 'Adding...' : 'Add to Library' }}
         </ion-button>
       }
     </ion-item>

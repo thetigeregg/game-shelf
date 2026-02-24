@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
+type ViewportMode = 'desktop' | 'mobile';
+
+const viewportByMode: Record<ViewportMode, { width: number; height: number }> = {
+  desktop: { width: 1280, height: 900 },
+  mobile: { width: 390, height: 844 }
+};
+
 async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
   const versionAlert = page.getByRole('alertdialog', { name: 'App Updated' });
 
@@ -32,6 +39,13 @@ async function closeFiltersMenu(page: Page): Promise<void> {
 
   await doneButton.click();
   await expect(doneButton).toBeHidden();
+}
+
+async function openCollectionInMode(page: Page, mode: ViewportMode): Promise<void> {
+  const viewport = viewportByMode[mode];
+  await page.setViewportSize(viewport);
+  await page.goto('/tabs/collection');
+  await dismissVersionAlertIfPresent(page);
 }
 
 async function setSingleSelectValue(
@@ -200,7 +214,44 @@ test('desktop renders split pane while mobile does not render split pane', async
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(splitPane).toHaveCount(0);
+  await expect(page.locator('ion-tab-bar[slot="bottom"]')).toBeVisible();
 });
+
+for (const mode of ['desktop', 'mobile'] as const) {
+  test(`collection search input updates and clears (${mode})`, async ({ page }) => {
+    await openCollectionInMode(page, mode);
+    const searchbar = page.getByPlaceholder('Search collection');
+    await expect(searchbar).toBeVisible();
+    await searchbar.fill('metroid');
+    await expect(searchbar).toHaveValue('metroid');
+
+    await searchbar.fill('');
+    await expect(searchbar).toHaveValue('');
+  });
+
+  test(`collection filter sort persists after reload (${mode})`, async ({ page }) => {
+    await openCollectionInMode(page, mode);
+    await openFiltersMenu(page);
+    await setSingleSelectValue(page, 'Sort', 'Release date ↓');
+    await closeFiltersMenu(page);
+
+    await page.reload();
+    await dismissVersionAlertIfPresent(page);
+    await openFiltersMenu(page);
+
+    const sortSelect = page.locator('app-game-filters-menu ion-select[label="Sort"]');
+    await expect
+      .poll(async () =>
+        sortSelect.evaluate((element) => String((element as { value: unknown }).value))
+      )
+      .toBe('releaseDate:desc');
+  });
+
+  test(`collection does not render inline detail pane by default (${mode})`, async ({ page }) => {
+    await openCollectionInMode(page, mode);
+    await expect(page.locator('app-game-list app-game-detail-content')).toHaveCount(0);
+  });
+}
 
 test('settings page shows metadata validator and import export entries', async ({ page }) => {
   await page.goto('/settings');

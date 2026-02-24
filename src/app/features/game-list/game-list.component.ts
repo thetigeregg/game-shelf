@@ -138,7 +138,10 @@ import {
   logoYoutube,
   chevronBack,
   documentText,
-  book
+  book,
+  list,
+  listCircle,
+  checkboxOutline
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -3388,7 +3391,10 @@ export class GameListComponent implements OnChanges {
       logoYoutube,
       chevronBack,
       documentText,
-      book
+      book,
+      list,
+      listCircle,
+      checkboxOutline
     });
   }
 }

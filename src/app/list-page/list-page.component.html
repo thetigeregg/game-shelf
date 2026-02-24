@@ -54,6 +54,23 @@
   [when]="desktopMediaQuery"
   [disabled]="!isDesktop"
 >
+  @if (isDesktop) {
+    <app-game-filters-menu
+      [presentation]="'split'"
+      [menuId]="menuId"
+      [contentId]="contentId"
+      [platformOptions]="platformOptions"
+      [collectionOptions]="collectionOptions"
+      [gameTypeOptions]="gameTypeOptions"
+      [genreOptions]="genreOptions"
+      [tagOptions]="tagOptions"
+      [filters]="filters"
+      [groupBy]="groupBy"
+      (filtersChange)="onFiltersChange($event)"
+      (groupByChange)="onGroupByChange($event)"
+    ></app-game-filters-menu>
+  }
+
   <ion-content #pageContent [fullscreen]="true" [id]="contentId">
     <ion-loading
       [isOpen]="isInitialListLoading"
@@ -171,23 +188,6 @@
       </ion-fab>
     }
   </ion-content>
-
-  @if (isDesktop) {
-    <app-game-filters-menu
-      [presentation]="'split'"
-      [menuId]="menuId"
-      [contentId]="contentId"
-      [platformOptions]="platformOptions"
-      [collectionOptions]="collectionOptions"
-      [gameTypeOptions]="gameTypeOptions"
-      [genreOptions]="genreOptions"
-      [tagOptions]="tagOptions"
-      [filters]="filters"
-      [groupBy]="groupBy"
-      (filtersChange)="onFiltersChange($event)"
-      (groupByChange)="onGroupByChange($event)"
-    ></app-game-filters-menu>
-  }
 </ion-split-pane>
 
 <ion-modal [isOpen]="isAddGameModalOpen" (didDismiss)="closeAddGameModal()">

@@ -2,10 +2,13 @@ import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import {
   IonBadge,
   IonButton,
+  IonCol,
+  IonGrid,
   IonIcon,
   IonItem,
   IonLabel,
   IonList,
+  IonRow,
   IonSelect,
   IonSelectOption
 } from '@ionic/angular/standalone';
@@ -42,7 +45,19 @@ type DetailGame = GameCatalogResult | GameEntry;
   templateUrl: './game-detail-content.component.html',
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
-  imports: [IonList, IonItem, IonLabel, IonBadge, IonButton, IonSelect, IonSelectOption, IonIcon]
+  imports: [
+    IonGrid,
+    IonRow,
+    IonCol,
+    IonList,
+    IonItem,
+    IonLabel,
+    IonBadge,
+    IonButton,
+    IonSelect,
+    IonSelectOption,
+    IonIcon
+  ]
 })
 export class GameDetailContentComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';

@@ -373,6 +373,7 @@
         @if (shouldShowNotesShortcut) {
           <ion-fab-button
             class="shortcut-notes"
+            color="deep-ocean"
             aria-label="Open notes editor"
             (click)="openNotesEditor()"
           >
@@ -382,6 +383,7 @@
         @if (shouldShowOpenManualButton) {
           <ion-fab-button
             class="shortcut-manual"
+            color="ocean"
             aria-label="Open game manual PDF"
             (click)="openManualPdf()"
           >
@@ -391,6 +393,7 @@
         @if (shouldShowFindManualButton) {
           <ion-fab-button
             class="shortcut-manual-find"
+            color="dark-gray"
             aria-label="Find game manual PDF"
             (click)="openManualPickerModal()"
           >
@@ -399,6 +402,7 @@
         }
         <ion-fab-button
           class="shortcut-google"
+          color="forest"
           aria-label="Search on Google"
           (click)="openShortcutSearch('google')"
         >
@@ -406,6 +410,7 @@
         </ion-fab-button>
         <ion-fab-button
           class="shortcut-youtube"
+          color="firetruck"
           aria-label="Search on YouTube"
           (click)="openShortcutSearch('youtube')"
         >
@@ -413,6 +418,7 @@
         </ion-fab-button>
         <ion-fab-button
           class="shortcut-wikipedia"
+          color="white"
           aria-label="Search on Wikipedia"
           (click)="openShortcutSearch('wikipedia')"
         >
@@ -420,6 +426,7 @@
         </ion-fab-button>
         <ion-fab-button
           class="shortcut-gamefaqs"
+          color="royal"
           aria-label="Search on GameFAQs"
           (click)="openShortcutSearch('gamefaqs')"
         >

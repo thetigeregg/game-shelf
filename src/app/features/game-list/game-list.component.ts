@@ -66,6 +66,7 @@ import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { TiptapEditorDirective } from 'ngx-tiptap';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
@@ -898,7 +899,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.changeDetectorRef.markForCheck();
   }
 
-  applyNotesToolbar(action: 'bold' | 'italic' | 'underline' | 'bullet' | 'number' | 'check'): void {
+  applyNotesToolbar(
+    action: 'bold' | 'italic' | 'underline' | 'bullet' | 'number' | 'check' | 'details'
+  ): void {
     const editor = this.notesEditor;
 
     if (!editor) {
@@ -931,7 +934,17 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    chain.toggleTaskList().run();
+    if (action === 'check') {
+      chain.toggleTaskList().run();
+      return;
+    }
+
+    if (editor.isActive('details')) {
+      chain.unsetDetails().run();
+      return;
+    }
+
+    chain.setDetails().run();
   }
 
   private openSimilarGameDetail(game: GameEntry): void {
@@ -3197,7 +3210,15 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.notesEditor = new Editor({
-      extensions: [StarterKit, Underline, TaskList, TaskItem.configure({ nested: true })],
+      extensions: [
+        StarterKit,
+        Underline,
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Details,
+        DetailsSummary,
+        DetailsContent
+      ],
       content: '<p></p>',
       onUpdate: ({ editor }) => {
         this.noteDraft = this.normalizeNotesValue(editor.getHTML());

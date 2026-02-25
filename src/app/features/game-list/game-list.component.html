@@ -331,6 +331,13 @@
                   >
                     <i class="ri-list-check-3" aria-hidden="true"></i>
                   </ion-button>
+                  <ion-button
+                    fill="clear"
+                    aria-label="Details"
+                    (click)="applyNotesToolbar('details')"
+                  >
+                    <i class="ri-t-box-line" aria-hidden="true"></i>
+                  </ion-button>
                 </ion-buttons>
               </ion-toolbar>
             </ion-header>
@@ -530,6 +537,9 @@
           </ion-button>
           <ion-button fill="clear" aria-label="Checklist" (click)="applyNotesToolbar('check')">
             <i class="ri-list-check-3" aria-hidden="true"></i>
+          </ion-button>
+          <ion-button fill="clear" aria-label="Details" (click)="applyNotesToolbar('details')">
+            <i class="ri-t-box-line" aria-hidden="true"></i>
           </ion-button>
         </ion-buttons>
       </ion-toolbar>

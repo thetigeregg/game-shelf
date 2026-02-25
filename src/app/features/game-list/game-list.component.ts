@@ -3515,9 +3515,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
       if (nextDesktop) {
         this.isNotesModalOpen = false;
       }
-
-      if (!nextDesktop) {
-        this.isNotesOpen = false;
+      if (!nextDesktop && this.isNotesOpen) {
+        this.isNotesModalOpen = true;
       }
 
       this.isDesktopDetailLayout = nextDesktop;

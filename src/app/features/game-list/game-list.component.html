@@ -292,53 +292,7 @@
                 </ion-buttons>
               </ion-toolbar>
               <ion-toolbar class="detail-notes-toolbar">
-                <ion-buttons slot="start">
-                  <ion-button fill="clear" aria-label="Bold" (click)="applyNotesToolbar('bold')">
-                    <i class="ri-bold" aria-hidden="true"></i>
-                  </ion-button>
-                  <ion-button
-                    fill="clear"
-                    aria-label="Italic"
-                    (click)="applyNotesToolbar('italic')"
-                  >
-                    <i class="ri-italic" aria-hidden="true"></i>
-                  </ion-button>
-                  <ion-button
-                    fill="clear"
-                    aria-label="Underline"
-                    (click)="applyNotesToolbar('underline')"
-                  >
-                    <i class="ri-underline" aria-hidden="true"></i>
-                  </ion-button>
-                  <ion-button
-                    fill="clear"
-                    aria-label="Bullet list"
-                    (click)="applyNotesToolbar('bullet')"
-                  >
-                    <i class="ri-list-unordered" aria-hidden="true"></i>
-                  </ion-button>
-                  <ion-button
-                    fill="clear"
-                    aria-label="Numbered list"
-                    (click)="applyNotesToolbar('number')"
-                  >
-                    <i class="ri-list-ordered-2" aria-hidden="true"></i>
-                  </ion-button>
-                  <ion-button
-                    fill="clear"
-                    aria-label="Checklist"
-                    (click)="applyNotesToolbar('check')"
-                  >
-                    <i class="ri-list-check-3" aria-hidden="true"></i>
-                  </ion-button>
-                  <ion-button
-                    fill="clear"
-                    aria-label="Details"
-                    (click)="applyNotesToolbar('details')"
-                  >
-                    <i class="ri-t-box-line" aria-hidden="true"></i>
-                  </ion-button>
-                </ion-buttons>
+                <ng-container [ngTemplateOutlet]="noteEditorToolbarTemplate"></ng-container>
               </ion-toolbar>
             </ion-header>
             <ion-content class="detail-notes-pane-content gs-safe-bottom">
@@ -501,6 +455,32 @@
   <tiptap-editor class="detail-note-editor" [editor]="notesEditorInstance"></tiptap-editor>
 </ng-template>
 
+<ng-template #noteEditorToolbarTemplate>
+  <ion-buttons slot="start">
+    <ion-button fill="clear" aria-label="Bold" (click)="applyNotesToolbar('bold')">
+      <i class="ri-bold" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button fill="clear" aria-label="Italic" (click)="applyNotesToolbar('italic')">
+      <i class="ri-italic" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button fill="clear" aria-label="Underline" (click)="applyNotesToolbar('underline')">
+      <i class="ri-underline" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button fill="clear" aria-label="Bullet list" (click)="applyNotesToolbar('bullet')">
+      <i class="ri-list-unordered" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button fill="clear" aria-label="Numbered list" (click)="applyNotesToolbar('number')">
+      <i class="ri-list-ordered-2" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button fill="clear" aria-label="Checklist" (click)="applyNotesToolbar('check')">
+      <i class="ri-list-check-3" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button fill="clear" aria-label="Details" (click)="applyNotesToolbar('details')">
+      <i class="ri-t-box-line" aria-hidden="true"></i>
+    </ion-button>
+  </ion-buttons>
+</ng-template>
+
 <ion-modal
   [isOpen]="isNotesModalOpen"
   [canDismiss]="canDismissNotesModal"
@@ -515,29 +495,7 @@
         </ion-buttons>
       </ion-toolbar>
       <ion-toolbar class="detail-notes-toolbar">
-        <ion-buttons slot="start">
-          <ion-button fill="clear" aria-label="Bold" (click)="applyNotesToolbar('bold')">
-            <i class="ri-bold" aria-hidden="true"></i>
-          </ion-button>
-          <ion-button fill="clear" aria-label="Italic" (click)="applyNotesToolbar('italic')">
-            <i class="ri-italic" aria-hidden="true"></i>
-          </ion-button>
-          <ion-button fill="clear" aria-label="Underline" (click)="applyNotesToolbar('underline')">
-            <i class="ri-underline" aria-hidden="true"></i>
-          </ion-button>
-          <ion-button fill="clear" aria-label="Bullet list" (click)="applyNotesToolbar('bullet')">
-            <i class="ri-list-unordered" aria-hidden="true"></i>
-          </ion-button>
-          <ion-button fill="clear" aria-label="Numbered list" (click)="applyNotesToolbar('number')">
-            <i class="ri-list-ordered-2" aria-hidden="true"></i>
-          </ion-button>
-          <ion-button fill="clear" aria-label="Checklist" (click)="applyNotesToolbar('check')">
-            <i class="ri-list-check-3" aria-hidden="true"></i>
-          </ion-button>
-          <ion-button fill="clear" aria-label="Details" (click)="applyNotesToolbar('details')">
-            <i class="ri-t-box-line" aria-hidden="true"></i>
-          </ion-button>
-        </ion-buttons>
+        <ng-container [ngTemplateOutlet]="noteEditorToolbarTemplate"></ng-container>
       </ion-toolbar>
     </ion-header>
     <ion-content [scrollY]="false">

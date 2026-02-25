@@ -33,6 +33,7 @@ function isLikelyHtmlContent(value: string): boolean {
   return trimmed.startsWith('<') && /<\/?[a-z][^>]*>/i.test(trimmed);
 }
 
+// Escapes raw plain text before wrapping it in editor HTML; sanitization is handled on persistence.
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

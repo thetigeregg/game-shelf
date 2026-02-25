@@ -502,7 +502,11 @@ function normalizeGamePayload(
     ? customCoverUrlRaw
     : null;
   const normalizedNotes = notesRaw.replace(/\r\n?/g, '\n');
-  const notes = normalizedNotes.length > 0 ? normalizedNotes : null;
+  const normalizedNotesTrimmed = normalizedNotes.trim();
+  const isEmptyHtmlPlaceholder =
+    /^<(p|div)>(\s|&nbsp;|<br\s*\/?>)*<\/\1>$/i.test(normalizedNotesTrimmed);
+  const notes =
+    normalizedNotesTrimmed.length > 0 && !isEmptyHtmlPlaceholder ? normalizedNotes : null;
 
   return {
     ...payload,

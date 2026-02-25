@@ -146,6 +146,17 @@ ion-item.game-row-selected {
   z-index: 1;
 }
 
+@media (min-width: 1024px) {
+  .detail-content-inner {
+    height: 100%;
+  }
+
+  .detail-content-inner > app-game-detail-content {
+    display: block;
+    height: 100%;
+  }
+}
+
 .similar-games-header {
   border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
   margin-bottom: 6px;

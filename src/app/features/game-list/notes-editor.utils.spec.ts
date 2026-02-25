@@ -6,6 +6,11 @@ describe('notes-editor utils', () => {
     expect(normalizeEditorNotesValue('  line 1\r\nline 2  ')).toBe('  line 1\nline 2  ');
   });
 
+  it('returns empty string for non-string note values', () => {
+    expect(normalizeEditorNotesValue(undefined)).toBe('');
+    expect(normalizeEditorNotesValue(null)).toBe('');
+  });
+
   it('normalizes tiptap empty placeholders to empty string', () => {
     expect(normalizeEditorNotesValue('<p><br></p>')).toBe('');
     expect(normalizeEditorNotesValue('   <p></p>   ')).toBe('');
@@ -19,5 +24,9 @@ describe('notes-editor utils', () => {
     expect(toNotesEditorContent('<p><strong>Boss notes</strong></p>')).toBe(
       '<p><strong>Boss notes</strong></p>'
     );
+  });
+
+  it('returns empty paragraph for empty normalized content', () => {
+    expect(toNotesEditorContent('   ')).toBe('<p></p>');
   });
 });

@@ -65,6 +65,43 @@ test('isAuthorizedMutatingRequest rejects missing or invalid auth when required'
   );
 });
 
+test('isAuthorizedMutatingRequest allows bypass when auth is not required', () => {
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: false,
+      apiToken: '',
+      clientWriteTokens: [],
+      authorizationHeader: undefined,
+      clientWriteTokenHeader: undefined
+    }),
+    true
+  );
+});
+
+test('isAuthorizedMutatingRequest handles normalized headers and empty configured tokens', () => {
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: '   ',
+      clientWriteTokens: ['device-a'],
+      authorizationHeader: ['Bearer api-secret'],
+      clientWriteTokenHeader: ['device-a']
+    }),
+    true
+  );
+
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: '',
+      clientWriteTokens: ['device-a'],
+      authorizationHeader: ['Token api-secret'],
+      clientWriteTokenHeader: ['   ']
+    }),
+    false
+  );
+});
+
 test('server route inventory remains audited and mutating routes require auth', async () => {
   const routeSourceFiles = [
     './index.ts',

@@ -22,10 +22,12 @@ import {
   normalizeStringList
 } from '../utils/game-filter-utils';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
+import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
   private readonly db = inject(AppDb);
+  private readonly htmlSanitizer = inject(HtmlSanitizerService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true
   });
@@ -784,8 +786,9 @@ export class DexieGameRepository implements GameRepository {
     }
 
     const normalized = value.replace(/\r\n?/g, '\n');
-    const textContent = normalized.replace(/<[^>]*>/g, '').trim();
-    return textContent.length > 0 ? normalized : null;
+    const safeHtml = this.htmlSanitizer.sanitizeHtml(normalized).trim();
+    const plainText = this.htmlSanitizer.sanitizeToPlainText(safeHtml).trim();
+    return plainText.length > 0 ? safeHtml : null;
   }
 
   private normalizeCustomTitle(

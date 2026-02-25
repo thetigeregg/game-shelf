@@ -503,8 +503,9 @@ function normalizeGamePayload(
     : null;
   const normalizedNotes = notesRaw.replace(/\r\n?/g, '\n');
   const normalizedNotesTrimmed = normalizedNotes.trim();
-  const isEmptyHtmlPlaceholder =
-    /^<(p|div)>(\s|&nbsp;|<br\s*\/?>)*<\/\1>$/i.test(normalizedNotesTrimmed);
+  const emptyHtmlBlockPattern = /<(p|div)>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi;
+  const strippedNotes = normalizedNotesTrimmed.replace(emptyHtmlBlockPattern, '').trim();
+  const isEmptyHtmlPlaceholder = strippedNotes.length === 0;
   const notes =
     normalizedNotesTrimmed.length > 0 && !isEmptyHtmlPlaceholder ? normalizedNotes : null;
 

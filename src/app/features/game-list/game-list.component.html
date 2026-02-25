@@ -283,6 +283,9 @@
     @if (selectedGame; as game) {
       @if (isDesktopNotesPaneVisible) {
         <ion-split-pane class="detail-notes-split-pane" [contentId]="detailPrimaryPaneContentId">
+          <ng-container
+            *ngTemplateOutlet="detailPrimaryPaneTemplate; context: { $implicit: game }"
+          ></ng-container>
           <div class="detail-notes-pane">
             <ion-header>
               <ion-toolbar>
@@ -299,9 +302,6 @@
               <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
             </ion-content>
           </div>
-          <ng-container
-            *ngTemplateOutlet="detailPrimaryPaneTemplate; context: { $implicit: game }"
-          ></ng-container>
         </ion-split-pane>
       } @else {
         <ng-container

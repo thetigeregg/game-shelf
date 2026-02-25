@@ -63,6 +63,7 @@ import {
   isRateLimitedMessage,
   isTransientNetworkMessage
 } from '../core/utils/rate-limit-ui-error';
+import { normalizeNotesValueOrNull } from '../core/utils/notes-normalization.utils';
 import {
   escapeCsvValue,
   normalizeColor,
@@ -3061,18 +3062,7 @@ export class SettingsPage {
   }
 
   private normalizeImportedNotes(value: string): string | null {
-    const normalized = String(value ?? '').replace(/\r\n?/g, '\n');
-    const compact = normalized.replace(/\s+/g, '').toLowerCase();
-    const emptyRichTextPattern = /^(<p>(<br\/?>)?<\/p>)+$/;
-
-    // Treat whitespace-only notes and rich-text placeholders consisting only
-    // of one or more empty paragraphs as empty, to stay consistent with the
-    // notes editor's notion of "empty".
-    if (compact.length === 0 || emptyRichTextPattern.test(compact)) {
-      return null;
-    }
-
-    return normalized;
+    return normalizeNotesValueOrNull(value);
   }
 
   private readExportableSettings(): Array<[string, string]> {

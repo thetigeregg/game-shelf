@@ -1,17 +1,7 @@
+import { normalizeNotesValue } from '../../core/utils/notes-normalization.utils';
+
 export function normalizeEditorNotesValue(value: string | null | undefined): string {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  const normalized = value.replace(/\r\n?/g, '\n');
-  const compactLower = normalized.replace(/\s+/g, '').toLowerCase();
-  const emptyRichTextPattern = /^(<p>(<br\/?>)?<\/p>)+$/;
-
-  if (compactLower.length === 0 || emptyRichTextPattern.test(compactLower)) {
-    return '';
-  }
-
-  return normalized;
+  return normalizeNotesValue(value);
 }
 
 export function toNotesEditorContent(value: string): string {

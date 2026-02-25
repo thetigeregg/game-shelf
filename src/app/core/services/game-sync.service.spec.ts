@@ -118,6 +118,20 @@ describe('GameSyncService', () => {
     expect(stored?.notes).toBeNull();
   });
 
+  it('normalizes pulled repeated empty paragraph placeholders to null', async () => {
+    const change: SyncChangeEvent = {
+      eventId: '1',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ notes: '<p></p><p></p>' }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    };
+
+    await (service as any).applyGameChange(change);
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.notes).toBeNull();
+  });
+
   it('sanitizes pulled notes HTML and preserves meaningful whitespace', async () => {
     const change: SyncChangeEvent = {
       eventId: '1',

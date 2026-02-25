@@ -3234,7 +3234,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
         normalizedNotes
       );
       this.applyUpdatedGame(updated, { refreshManual: false, refreshSimilar: false });
-      this.savedNoteValue = this.normalizeNotesValue(updated.notes);
+      const persistedNotes = this.normalizeNotesValue(updated.notes);
+      this.savedNoteValue = persistedNotes;
+      this.noteDraft = persistedNotes;
+      this.notesEditor?.commands.setContent(toNotesEditorContent(persistedNotes), {
+        emitUpdate: false
+      });
     } catch {
       await this.presentToast('Unable to auto-save notes.', 'danger');
     } finally {

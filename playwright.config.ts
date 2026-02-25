@@ -10,7 +10,7 @@ export default defineConfig({
     trace: 'on-first-retry'
   },
   webServer: {
-    command: 'npm run start -- --host 127.0.0.1 --port 8100',
+    command: 'FEATURE_E2E_FIXTURES=true npm run start -- --host 127.0.0.1 --port 8100',
     url: 'http://127.0.0.1:8100',
     reuseExistingServer: !process.env.CI,
     timeout: 120000

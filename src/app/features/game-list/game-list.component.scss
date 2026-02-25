@@ -351,6 +351,12 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
 
 .detail-notes-toolbar ion-button {
   margin: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  --padding-start: 0;
+  --padding-end: 0;
 }
 
 .detail-notes-toolbar ion-icon {

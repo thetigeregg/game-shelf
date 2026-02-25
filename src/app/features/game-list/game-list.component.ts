@@ -10,7 +10,6 @@ import {
   OnDestroy,
   Output,
   SimpleChanges,
-  ViewEncapsulation,
   ViewChild,
   inject
 } from '@angular/core';
@@ -170,7 +169,6 @@ type NotesToolbarAction =
   selector: 'app-game-list',
   templateUrl: './game-list.component.html',
   styleUrls: ['./game-list.component.scss'],
-  encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [

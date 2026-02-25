@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { AppDb } from '../data/app-db';
 import { CoverSource, GameEntry, ListType } from '../models/game.models';
 import { isE2eFixturesEnabled } from '../config/runtime-config';
+import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 
 const E2E_FIXTURE_STORAGE_KEY = 'game-shelf:e2e-fixture';
 
@@ -22,6 +23,7 @@ interface E2eFixtureGame {
 @Injectable({ providedIn: 'root' })
 export class E2eFixtureService {
   private readonly db = inject(AppDb);
+  private readonly htmlSanitizer = inject(HtmlSanitizerService);
 
   async applyFixtureFromStorage(): Promise<void> {
     if (typeof window === 'undefined' || !isE2eFixturesEnabled()) {
@@ -87,12 +89,7 @@ export class E2eFixtureService {
       return null;
     }
 
-    const notes =
-      typeof fixture.notes === 'string'
-        ? fixture.notes.replace(/\r\n?/g, '\n')
-        : fixture.notes === null
-          ? null
-          : null;
+    const notes = this.normalizeFixtureNotes(fixture.notes);
 
     const normalizedCoverSource: CoverSource = 'none';
 
@@ -128,5 +125,16 @@ export class E2eFixtureService {
       createdAt: now,
       updatedAt: now
     };
+  }
+
+  private normalizeFixtureNotes(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.replace(/\r\n?/g, '\n');
+    const safeHtml = this.htmlSanitizer.sanitizeHtml(normalized);
+    const plainText = this.htmlSanitizer.sanitizeToPlainText(safeHtml).trim();
+    return plainText.length > 0 ? safeHtml : null;
   }
 }

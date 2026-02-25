@@ -3307,7 +3307,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         Underline,
         TaskList,
         TaskItem.configure({ nested: true }),
-        Details,
+        Details.configure({ persist: true }),
         DetailsSummary,
         DetailsContent
       ],

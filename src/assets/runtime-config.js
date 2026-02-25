@@ -5,7 +5,7 @@ window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
     appVersion: "0.1.32",
     featureFlags: {
       showMgcImport: false,
-      e2eFixtures: false,
+      e2eFixtures: true,
     },
   },
 );

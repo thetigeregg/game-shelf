@@ -63,14 +63,14 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
-let envValues = {};
+let dotenvValues = {};
 let appVersion = '0.0.0';
 
 try {
   const envContent = readFileSync(ENV_PATH, 'utf8');
-  envValues = parseDotEnv(envContent);
+  dotenvValues = parseDotEnv(envContent);
 } catch {
-  envValues = {};
+  dotenvValues = {};
 }
 
 try {
@@ -81,6 +81,11 @@ try {
 } catch {
   appVersion = '0.0.0';
 }
+
+const envValues = {
+  ...dotenvValues,
+  ...process.env
+};
 
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);

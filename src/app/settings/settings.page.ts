@@ -3063,15 +3063,12 @@ export class SettingsPage {
   private normalizeImportedNotes(value: string): string | null {
     const normalized = String(value ?? '').replace(/\r\n?/g, '\n');
     const compact = normalized.replace(/\s+/g, '').toLowerCase();
+    const emptyRichTextPattern = /^(<p>(<br\/?>)?<\/p>)+$/;
 
-    // Treat whitespace-only notes and known rich-text placeholders as empty,
-    // to stay consistent with the notes editor's notion of "empty".
-    if (
-      compact.length === 0 ||
-      compact === '<p></p>' ||
-      compact === '<p><br></p>' ||
-      compact === '<p><br/></p>'
-    ) {
+    // Treat whitespace-only notes and rich-text placeholders consisting only
+    // of one or more empty paragraphs as empty, to stay consistent with the
+    // notes editor's notion of "empty".
+    if (compact.length === 0 || emptyRichTextPattern.test(compact)) {
       return null;
     }
 

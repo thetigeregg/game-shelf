@@ -128,6 +128,7 @@ import {
   getMetadataSelectionTitle,
   getMetadataSelectionValues
 } from './metadata-filter.utils';
+import { normalizeEditorNotesValue, toNotesEditorContent } from './notes-editor.utils';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -147,9 +148,7 @@ import {
   logoYoutube,
   chevronBack,
   documentText,
-  book,
-  list,
-  checkboxOutline
+  book
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -847,7 +846,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.savedNoteValue = this.normalizeNotesValue(this.selectedGame.notes);
     this.noteDraft = this.savedNoteValue;
     this.ensureNotesEditor();
-    this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
+    this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
       emitUpdate: false
     });
     this.isNoteDirty = false;
@@ -988,7 +987,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     if (keepDesktopNotesPaneOpen && this.listType === 'collection') {
       this.savedNoteValue = this.normalizeNotesValue(game.notes);
       this.noteDraft = this.savedNoteValue;
-      this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
+      this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
         emitUpdate: false
       });
       this.isNoteDirty = false;
@@ -3250,23 +3249,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private normalizeNotesValue(value: string | null | undefined): string {
-    if (typeof value !== 'string') {
-      return '';
-    }
-
-    const normalized = value.replace(/\r\n?/g, '\n').trim();
-    const compact = normalized.replace(/\s+/g, '');
-
-    if (
-      normalized.length === 0 ||
-      compact === '<p></p>' ||
-      compact === '<p><br></p>' ||
-      compact === '<p></p><p></p>'
-    ) {
-      return '';
-    }
-
-    return normalized;
+    return normalizeEditorNotesValue(value);
   }
 
   private shouldBlockDetailNavigationForUnsavedNotes(): boolean {
@@ -3322,29 +3305,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.changeDetectorRef.markForCheck();
       }
     });
-  }
-
-  private toEditorContent(value: string): string {
-    const normalized = this.normalizeNotesValue(value);
-
-    if (normalized.length === 0) {
-      return '<p></p>';
-    }
-
-    if (normalized.includes('<')) {
-      return normalized;
-    }
-
-    return `<p>${this.escapeHtml(normalized).replace(/\n/g, '<br>')}</p>`;
-  }
-
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 
   private async openRatingPicker(game: GameEntry): Promise<void> {
@@ -3538,9 +3498,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       logoYoutube,
       chevronBack,
       documentText,
-      book,
-      list,
-      checkboxOutline
+      book
     });
   }
 }

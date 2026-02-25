@@ -18,15 +18,30 @@ async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
 
 async function openFiltersMenu(page: Page): Promise<void> {
   const filtersButton = page.locator('ion-button.filters-button');
-  const hasFiltersButton = await filtersButton.isVisible().catch(() => false);
+  const splitSortSelect = page.locator('app-game-filters-menu ion-select[label="Sort"]');
+  const doneButton = page.locator('ion-menu .actions ion-button', { hasText: 'Done' });
 
-  if (hasFiltersButton) {
+  await expect
+    .poll(async () => {
+      if (await filtersButton.isVisible().catch(() => false)) {
+        return 'overlay';
+      }
+
+      if (await splitSortSelect.isVisible().catch(() => false)) {
+        return 'split';
+      }
+
+      return 'pending';
+    })
+    .not.toBe('pending');
+
+  if (await filtersButton.isVisible().catch(() => false)) {
     await filtersButton.click();
-    await expect(page.locator('ion-menu .actions ion-button', { hasText: 'Done' })).toBeVisible();
+    await expect(doneButton).toBeVisible();
     return;
   }
 
-  await expect(page.locator('app-game-filters-menu ion-select[label="Sort"]')).toBeVisible();
+  await expect(splitSortSelect).toBeVisible();
 }
 
 async function closeFiltersMenu(page: Page): Promise<void> {
@@ -46,6 +61,31 @@ async function openCollectionInMode(page: Page, mode: ViewportMode): Promise<voi
   await page.setViewportSize(viewport);
   await page.goto('/tabs/collection');
   await dismissVersionAlertIfPresent(page);
+}
+
+async function openFirstGameDetailOrSkip(
+  page: Page,
+  listType: 'collection' | 'wishlist'
+): Promise<void> {
+  await page.goto(`/tabs/${listType}`);
+  await dismissVersionAlertIfPresent(page);
+
+  const firstGameRow = page.locator('app-game-list ion-item-sliding ion-item[button]').first();
+  const hasGameRows = (await firstGameRow.count()) > 0;
+  test.skip(!hasGameRows, `No ${listType} game rows available for detail notes assertions.`);
+
+  await firstGameRow.click();
+  await expect(page.locator('ion-modal.desktop-fullscreen-modal')).toBeVisible();
+}
+
+async function openDetailShortcuts(page: Page): Promise<void> {
+  const shortcutsToggle = page.getByRole('button', { name: 'Open web shortcuts' });
+  await shortcutsToggle.click();
+}
+
+async function openNotesFromDetail(page: Page): Promise<void> {
+  await openDetailShortcuts(page);
+  await page.getByRole('button', { name: 'Open notes editor' }).click();
 }
 
 async function setSingleSelectValue(
@@ -347,4 +387,66 @@ test('persists sort/group/filter changes on wishlist after reload', async ({ pag
 
   await openFiltersMenu(page);
   await expectUiUpdatedFilterControls(page);
+});
+
+test('collection detail shows notes shortcut while wishlist detail hides it', async ({ page }) => {
+  await page.setViewportSize(viewportByMode.desktop);
+
+  await openFirstGameDetailOrSkip(page, 'collection');
+  await openDetailShortcuts(page);
+  await expect(page.getByRole('button', { name: 'Open notes editor' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close game details' }).click();
+  await expect(page.locator('ion-modal.desktop-fullscreen-modal')).toBeHidden();
+
+  await openFirstGameDetailOrSkip(page, 'wishlist');
+  await openDetailShortcuts(page);
+  await expect(page.getByRole('button', { name: 'Open notes editor' })).toHaveCount(0);
+});
+
+test('mobile notes modal blocks close while dirty and closes after autosave', async ({ page }) => {
+  await page.setViewportSize(viewportByMode.mobile);
+  await openFirstGameDetailOrSkip(page, 'collection');
+  await openNotesFromDetail(page);
+
+  const notesHeader = page.locator('ion-title', { hasText: 'Notes' });
+  await expect(notesHeader).toBeVisible();
+
+  const editor = page.locator('tiptap-editor.detail-note-editor .tiptap.ProseMirror');
+  await editor.click();
+  await page.keyboard.type('Unsaved mobile note change');
+
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(notesHeader).toBeVisible();
+  await expect(
+    page.locator('ion-toast', { hasText: 'Notes are still saving. Please wait a moment.' })
+  ).toBeVisible();
+
+  await page.waitForTimeout(1200);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(notesHeader).toBeHidden();
+});
+
+test('desktop notes pane blocks notes/detail close while dirty and allows close after autosave', async ({
+  page
+}) => {
+  await page.setViewportSize(viewportByMode.desktop);
+  await openFirstGameDetailOrSkip(page, 'collection');
+  await openNotesFromDetail(page);
+
+  const notesHeader = page.locator('ion-title', { hasText: 'Notes' });
+  await expect(notesHeader).toBeVisible();
+
+  const editor = page.locator('tiptap-editor.detail-note-editor .tiptap.ProseMirror');
+  await editor.click();
+  await page.keyboard.type('Unsaved desktop note change');
+
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(notesHeader).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close game details' }).click();
+  await expect(page.locator('ion-modal.desktop-fullscreen-modal')).toBeVisible();
+
+  await page.waitForTimeout(1200);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(notesHeader).toBeHidden();
 });

@@ -899,7 +899,34 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
-  revertNotes(): void {
+  async revertNotes(): Promise<void> {
+    if (!this.isNoteDirty || this.isNoteSaving) {
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Discard Note Changes?',
+      message: 'This will discard all unsaved note edits and restore the last saved version.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Revert',
+          role: 'confirm',
+          cssClass: 'alert-button-danger'
+        }
+      ]
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role !== 'confirm') {
+      return;
+    }
+
     this.noteDraft = this.savedNoteValue;
     this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
       emitUpdate: false

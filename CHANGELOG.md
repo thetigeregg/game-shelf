@@ -838,3 +838,10 @@
 - f61b043 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
 - 5734c82 Fix runtime config stray n
 
+## v0.1.32 - 2026-02-25
+- 21f53ec Merge pull request #92 from thetigeregg/codex/responsive-layout-support
+- 0c79b6d Add desktop and mobile e2e matrix
+- 154ea57 Limit desktop fullscreen modals
+- d2bff0c Add mobile filters test coverage
+- 50b1f95 Add desktop fullscreen modals
+

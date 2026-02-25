@@ -319,18 +319,18 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
   height: 100%;
 }
 
-.detail-notes-pane {
-  display: flex;
-  flex: 0 0 40vw;
-  flex-direction: column;
+.detail-notes-split-pane > ion-menu.detail-notes-menu {
+  display: block;
   width: 40vw;
+  min-width: 40vw;
   max-width: 40vw;
+  flex: 0 0 40vw;
   height: 100%;
   border-left: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
   background: var(--ion-color-step-50, var(--ion-background-color));
 }
 
-.detail-notes-pane-content {
+.detail-notes-content {
   --padding-bottom: 8px;
 }
 

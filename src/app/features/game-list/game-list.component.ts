@@ -59,6 +59,7 @@ import {
   IonFabButton,
   IonFabList,
   IonInput,
+  IonMenu,
   IonSplitPane
 } from '@ionic/angular/standalone';
 import { Editor } from '@tiptap/core';
@@ -211,6 +212,7 @@ type NotesToolbarAction =
     IonFabButton,
     IonFabList,
     IonInput,
+    IonMenu,
     IonSplitPane,
     TiptapEditorDirective,
     AutoContentOffsetsDirective,
@@ -828,8 +830,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return `game-detail-primary-content-${this.listType}`;
   }
 
-  get isDesktopNotesPaneVisible(): boolean {
-    return this.isDesktopDetailLayout && this.isNotesOpen;
+  get notesMenuId(): string {
+    return `detail-notes-menu-${this.listType}`;
   }
 
   get notesEditorInstance(): Editor {
@@ -851,6 +853,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isNoteDirty = false;
     this.isNotesOpen = true;
     this.isNotesModalOpen = !this.isDesktopDetailLayout;
+    if (this.isDesktopDetailLayout) {
+      this.isNotesModalOpen = false;
+    }
     this.closeDetailShortcutsFab();
     this.changeDetectorRef.markForCheck();
   }
@@ -976,7 +981,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private openGameDetailInternal(game: GameEntry): void {
-    const keepDesktopNotesPaneOpen = this.isDesktopNotesPaneVisible;
+    const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
     this.resetNoteEditorState();

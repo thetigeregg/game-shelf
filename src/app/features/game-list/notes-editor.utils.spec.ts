@@ -15,6 +15,7 @@ describe('notes-editor utils', () => {
     expect(normalizeEditorNotesValue('<p><br></p>')).toBe('');
     expect(normalizeEditorNotesValue('<p><br/></p>')).toBe('');
     expect(normalizeEditorNotesValue('   <p></p>   ')).toBe('');
+    expect(normalizeEditorNotesValue('<p></p><p></p>')).toBe('');
   });
 
   it('treats plain text containing angle brackets as plain text', () => {

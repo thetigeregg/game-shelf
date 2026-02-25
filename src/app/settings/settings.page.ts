@@ -3062,7 +3062,20 @@ export class SettingsPage {
 
   private normalizeImportedNotes(value: string): string | null {
     const normalized = String(value ?? '').replace(/\r\n?/g, '\n');
-    return normalized.length > 0 ? normalized : null;
+    const compact = normalized.replace(/\s+/g, '').toLowerCase();
+
+    // Treat whitespace-only notes and known rich-text placeholders as empty,
+    // to stay consistent with the notes editor's notion of "empty".
+    if (
+      compact.length === 0 ||
+      compact === '<p></p>' ||
+      compact === '<p><br></p>' ||
+      compact === '<p><br/></p>'
+    ) {
+      return null;
+    }
+
+    return normalized;
   }
 
   private readExportableSettings(): Array<[string, string]> {

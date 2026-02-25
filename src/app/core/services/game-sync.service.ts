@@ -433,7 +433,18 @@ export class GameSyncService implements SyncOutboxWriter {
       return null;
     }
 
-    const normalized = value.replace(/\r\n?/g, '\n');
+    // Normalize newlines and trim surrounding whitespace
+    let normalized = value.replace(/\r\n?/g, '\n').trim();
+
+    // Treat common TipTap "empty" HTML placeholders as empty
+    const emptyHtmlPatterns = [
+      /^<p>\s*<\/p>$/i,
+      /^<p>\s*<br\s*\/?>\s*<\/p>$/i
+    ];
+
+    if (emptyHtmlPatterns.some((pattern) => pattern.test(normalized))) {
+      return null;
+    }
     return normalized.length > 0 ? normalized : null;
   }
 

@@ -3472,8 +3472,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.layoutModeService.mode$.pipe(takeUntilDestroyed()).subscribe((mode) => {
       const nextDesktop = mode === 'desktop';
 
-      if (!nextDesktop) {
+      if (nextDesktop) {
+        this.isNotesModalOpen = false;
+      } else {
         this.isNotesOpen = false;
+        this.isNotesModalOpen = false;
       }
 
       this.isDesktopDetailLayout = nextDesktop;

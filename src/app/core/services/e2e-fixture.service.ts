@@ -69,13 +69,18 @@ export class E2eFixtureService {
     }
   }
 
-  private normalizeFixtureGame(value: E2eFixtureGame): GameEntry | null {
-    const igdbGameId = typeof value.igdbGameId === 'string' ? value.igdbGameId.trim() : '';
-    const platformIgdbId = Number.parseInt(String(value.platformIgdbId ?? ''), 10);
-    const title = typeof value.title === 'string' ? value.title.trim() : '';
+  private normalizeFixtureGame(value: unknown): GameEntry | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const fixture = value as Partial<E2eFixtureGame>;
+    const igdbGameId = typeof fixture.igdbGameId === 'string' ? fixture.igdbGameId.trim() : '';
+    const platformIgdbId = Number.parseInt(String(fixture.platformIgdbId ?? ''), 10);
+    const title = typeof fixture.title === 'string' ? fixture.title.trim() : '';
     const platform =
-      typeof value.platform === 'string' ? value.platform.trim() : 'Unknown platform';
-    const listType: ListType = value.listType === 'wishlist' ? 'wishlist' : 'collection';
+      typeof fixture.platform === 'string' ? fixture.platform.trim() : 'Unknown platform';
+    const listType: ListType = fixture.listType === 'wishlist' ? 'wishlist' : 'collection';
     const now = new Date().toISOString();
 
     if (!igdbGameId || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0 || !title) {
@@ -83,9 +88,9 @@ export class E2eFixtureService {
     }
 
     const notes =
-      typeof value.notes === 'string'
-        ? value.notes.replace(/\r\n?/g, '\n')
-        : value.notes === null
+      typeof fixture.notes === 'string'
+        ? fixture.notes.replace(/\r\n?/g, '\n')
+        : fixture.notes === null
           ? null
           : null;
 

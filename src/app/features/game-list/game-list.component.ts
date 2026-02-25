@@ -3197,7 +3197,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.notesEditor = new Editor({
-      extensions: [StarterKit, Underline, TaskList, TaskItem],
+      extensions: [StarterKit, Underline, TaskList, TaskItem.configure({ nested: true })],
       content: '<p></p>',
       onUpdate: ({ editor }) => {
         this.noteDraft = this.normalizeNotesValue(editor.getHTML());

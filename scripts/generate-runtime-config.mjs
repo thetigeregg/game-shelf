@@ -82,6 +82,7 @@ try {
   appVersion = '0.0.0';
 }
 
+// Allow CI/e2e/runtime environment variables to override local .env values.
 const envValues = {
   ...dotenvValues,
   ...process.env

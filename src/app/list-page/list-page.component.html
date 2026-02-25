@@ -158,7 +158,7 @@
     (metadataFilterSelected)="onMetadataFilterSelected($event)"
   ></app-game-list>
 
-  @if (!isSelectionMode && !isDesktop) {
+  @if (!isSelectionMode) {
     <ion-fab #quickActionsFab slot="fixed" vertical="bottom" horizontal="end">
       <ion-fab-button size="small" color="primary" aria-label="Open quick actions">
         <ion-icon name="chevron-up"></ion-icon>

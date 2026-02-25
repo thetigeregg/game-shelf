@@ -49,3 +49,13 @@ ion-content.gs-safe-bottom-with-offset {
     16px + var(--offset-bottom, 0px) + var(--ion-safe-area-bottom, env(safe-area-inset-bottom))
   );
 }
+
+@media (min-width: 1024px) {
+  ion-modal.desktop-fullscreen-modal {
+    --width: 100vw;
+    --max-width: 100vw;
+    --height: 100vh;
+    --max-height: 100vh;
+    --border-radius: 0;
+  }
+}

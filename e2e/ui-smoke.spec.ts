@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 type ViewportMode = 'desktop' | 'mobile';
 
@@ -137,6 +137,23 @@ async function openDetailShortcuts(page: Page): Promise<void> {
 async function openNotesFromDetail(page: Page): Promise<void> {
   await openDetailShortcuts(page);
   await page.getByRole('button', { name: 'Open notes editor' }).click();
+}
+
+async function closeNotesWhenSaveCompletes(notesCloseButton: Locator): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        try {
+          await notesCloseButton.click({ timeout: 300 });
+        } catch {
+          return false;
+        }
+
+        return notesCloseButton.isVisible().catch(() => false);
+      },
+      { timeout: 12000, intervals: [250, 400, 600, 800, 1000] }
+    )
+    .toBe(false);
 }
 
 async function setSingleSelectValue(
@@ -489,9 +506,7 @@ test('mobile notes modal blocks close while dirty and closes after autosave', as
     page.locator('ion-toast', { hasText: 'Notes are still saving. Please wait a moment.' })
   ).toBeVisible();
 
-  await page.waitForTimeout(1200);
-  await notesCloseButton.click();
-  await expect(notesCloseButton).toBeHidden();
+  await closeNotesWhenSaveCompletes(notesCloseButton);
 });
 
 test('desktop notes pane blocks notes/detail close while dirty and allows close after autosave', async ({
@@ -522,7 +537,5 @@ test('desktop notes pane blocks notes/detail close while dirty and allows close 
   await page.getByRole('button', { name: 'Close game details' }).click();
   await expect(page.locator('ion-modal.desktop-fullscreen-modal')).toBeVisible();
 
-  await page.waitForTimeout(1200);
-  await notesCloseButton.click();
-  await expect(notesCloseButton).toBeHidden();
+  await closeNotesWhenSaveCompletes(notesCloseButton);
 });

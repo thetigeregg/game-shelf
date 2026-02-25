@@ -13,6 +13,7 @@ describe('notes-editor utils', () => {
 
   it('normalizes tiptap empty placeholders to empty string', () => {
     expect(normalizeEditorNotesValue('<p><br></p>')).toBe('');
+    expect(normalizeEditorNotesValue('<p><br/></p>')).toBe('');
     expect(normalizeEditorNotesValue('   <p></p>   ')).toBe('');
   });
 

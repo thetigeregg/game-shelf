@@ -21,6 +21,10 @@ describe('notes-editor utils', () => {
     expect(toNotesEditorContent('1 < 2')).toBe('<p>1 &lt; 2</p>');
   });
 
+  it('converts plain-text line breaks to html breaks', () => {
+    expect(toNotesEditorContent('Line 1\nLine 2')).toBe('<p>Line 1<br>Line 2</p>');
+  });
+
   it('preserves existing html notes payloads', () => {
     expect(toNotesEditorContent('<p><strong>Boss notes</strong></p>')).toBe(
       '<p><strong>Boss notes</strong></p>'

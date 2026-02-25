@@ -14,6 +14,18 @@
 }
 
 @media (min-width: 1200px) {
+  .detail-content-inner {
+    height: 100%;
+  }
+
+  .detail-layout-grid {
+    height: 100%;
+  }
+
+  .detail-layout-grid ion-row {
+    height: 100%;
+  }
+
   .detail-layout-grid ion-col:first-child {
     border-right: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
   }

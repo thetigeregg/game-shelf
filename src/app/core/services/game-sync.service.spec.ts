@@ -118,6 +118,20 @@ describe('GameSyncService', () => {
     expect(stored?.notes).toBeNull();
   });
 
+  it('sanitizes pulled notes HTML and preserves meaningful whitespace', async () => {
+    const change: SyncChangeEvent = {
+      eventId: '1',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ notes: '  hello<script>alert(1)</script>  ' }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    };
+
+    await (service as any).applyGameChange(change);
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.notes).toBe('  hello  ');
+  });
+
   it('applies game delete changes for existing records and ignores invalid identity', async () => {
     await db.games.put({
       igdbGameId: '123',
@@ -386,7 +400,7 @@ describe('GameSyncService', () => {
       'https://api.example.com'
     );
     expect((service as any).normalizeNotes('   ')).toBeNull();
-    expect((service as any).normalizeNotes('\r\nLine 1\r\n')).toBe('Line 1');
+    expect((service as any).normalizeNotes('\r\nLine 1\r\n')).toBe('\nLine 1\n');
   });
 
   it('normalizes custom title/platform helper branches', () => {

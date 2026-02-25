@@ -18,6 +18,7 @@ import {
   PlatformCustomizationService,
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY
 } from './platform-customization.service';
+import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -44,6 +45,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly syncEvents = inject(SyncEventsService);
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
+  private readonly htmlSanitizer = inject(HtmlSanitizerService);
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
@@ -433,19 +435,11 @@ export class GameSyncService implements SyncOutboxWriter {
       return null;
     }
 
-    // Normalize newlines and trim surrounding whitespace
-    let normalized = value.replace(/\r\n?/g, '\n').trim();
+    const normalized = value.replace(/\r\n?/g, '\n');
+    const safeHtml = this.htmlSanitizer.sanitizeHtml(normalized);
+    const plainText = this.htmlSanitizer.sanitizeToPlainText(safeHtml).trim();
 
-    // Treat common TipTap "empty" HTML placeholders as empty
-    const emptyHtmlPatterns = [
-      /^<p>\s*<\/p>$/i,
-      /^<p>\s*<br\s*\/?>\s*<\/p>$/i
-    ];
-
-    if (emptyHtmlPatterns.some((pattern) => pattern.test(normalized))) {
-      return null;
-    }
-    return normalized.length > 0 ? normalized : null;
+    return plainText.length > 0 ? safeHtml : null;
   }
 
   private async applyTagChange(change: SyncChangeEvent): Promise<void> {

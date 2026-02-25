@@ -3287,6 +3287,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private ensureNotesEditor(): void {
     if (this.notesEditor) {
+      // Reuse a single editor instance across open/close cycles for session performance.
       return;
     }
 

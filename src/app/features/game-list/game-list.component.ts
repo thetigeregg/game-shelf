@@ -3145,7 +3145,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
-  private applyUpdatedGame(updated: GameEntry, options: { refreshCover?: boolean } = {}): void {
+  private applyUpdatedGame(
+    updated: GameEntry,
+    options: { refreshCover?: boolean; refreshManual?: boolean; refreshSimilar?: boolean } = {}
+  ): void {
+    const shouldRefreshManual = options.refreshManual ?? true;
+    const shouldRefreshSimilar = options.refreshSimilar ?? true;
+
     if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
       this.selectedGame = updated;
       const normalizedUpdatedNotes = this.normalizeNotesValue(updated.notes);
@@ -3155,8 +3161,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.noteDraft = normalizedUpdatedNotes;
       }
 
-      void this.loadSimilarLibraryGamesForDetail(updated);
-      void this.resolveManualForGame(updated);
+      if (shouldRefreshSimilar) {
+        void this.loadSimilarLibraryGamesForDetail(updated);
+      }
+
+      if (shouldRefreshManual) {
+        void this.resolveManualForGame(updated);
+      }
     }
 
     if (options.refreshCover) {
@@ -3218,7 +3229,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.selectedGame.platformIgdbId,
         normalizedNotes
       );
-      this.applyUpdatedGame(updated);
+      this.applyUpdatedGame(updated, { refreshManual: false, refreshSimilar: false });
       this.savedNoteValue = this.normalizeNotesValue(updated.notes);
     } catch {
       await this.presentToast('Unable to auto-save notes.', 'danger');

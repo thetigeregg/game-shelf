@@ -40,7 +40,6 @@ import {
   IonContent,
   IonModal,
   IonHeader,
-  IonFooter,
   IonToolbar,
   IonTitle,
   IonButtons,
@@ -193,7 +192,6 @@ type NotesToolbarAction =
     IonContent,
     IonModal,
     IonHeader,
-    IonFooter,
     IonToolbar,
     IonTitle,
     IonButtons,
@@ -231,6 +229,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
   private static readonly VIRTUAL_BUFFER_ROWS = 10;
   private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
+  private static readonly NOTES_AUTOSAVE_DEBOUNCE_MS = 450;
   private static readonly MAX_CUSTOM_COVER_DATA_URL_BYTES = 1024 * 1024;
   private static readonly MIN_CUSTOM_COVER_QUALITY = 0.5;
   private static readonly MAX_CUSTOM_COVER_QUALITY = 0.98;
@@ -362,6 +361,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   @ViewChild('gameDetailModal', { read: ElementRef })
   private gameDetailModalRef?: ElementRef<HTMLElement>;
   private imageErrorLogCount = 0;
+  private notesAutosaveTimeoutId: number | null = null;
 
   readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
   readonly virtualMinBufferPx =
@@ -424,6 +424,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.notesAutosaveTimeoutId !== null) {
+      window.clearTimeout(this.notesAutosaveTimeoutId);
+      this.notesAutosaveTimeoutId = null;
+    }
     this.notesEditor?.destroy();
     this.notesEditor = null;
   }
@@ -787,7 +791,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   openGameDetail(game: GameEntry): void {
     if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
-      void this.presentToast('Save or revert your note changes before switching games.', 'warning');
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
       return;
     }
 
@@ -797,7 +801,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   goBackInDetailNavigation(): void {
     if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
-      void this.presentToast('Save or revert your note changes before switching games.', 'warning');
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
       return;
     }
 
@@ -852,8 +856,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async closeNotesEditor(): Promise<void> {
-    if (this.isNoteDirty) {
-      await this.presentToast('Save or revert your note changes before closing.', 'warning');
+    if (this.isNoteDirty || this.isNoteSaving) {
+      await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
       return;
     }
 
@@ -865,73 +869,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
   onNotesModalDidDismiss(): void {
     this.isNotesModalOpen = false;
     this.isNotesOpen = false;
-    this.changeDetectorRef.markForCheck();
-  }
-
-  async saveNotes(): Promise<void> {
-    if (!this.selectedGame || this.isNoteSaving) {
-      return;
-    }
-
-    this.isNoteSaving = true;
-
-    try {
-      const html = this.notesEditor ? this.notesEditor.getHTML() : this.noteDraft;
-      const normalizedNotes = this.normalizeNotesValue(html);
-      const updated = await this.gameShelfService.setGameNotes(
-        this.selectedGame.igdbGameId,
-        this.selectedGame.platformIgdbId,
-        normalizedNotes
-      );
-      this.applyUpdatedGame(updated);
-      this.savedNoteValue = this.normalizeNotesValue(updated.notes);
-      this.noteDraft = this.savedNoteValue;
-      this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
-        emitUpdate: false
-      });
-      this.isNoteDirty = false;
-      await this.presentToast('Notes saved.');
-    } catch {
-      await this.presentToast('Unable to save notes.', 'danger');
-    } finally {
-      this.isNoteSaving = false;
-      this.changeDetectorRef.markForCheck();
-    }
-  }
-
-  async revertNotes(): Promise<void> {
-    if (!this.isNoteDirty || this.isNoteSaving) {
-      return;
-    }
-
-    const alert = await this.alertController.create({
-      header: 'Discard Note Changes?',
-      message: 'This will discard all unsaved note edits and restore the last saved version.',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Revert',
-          role: 'confirm',
-          cssClass: 'alert-button-danger'
-        }
-      ]
-    });
-
-    await alert.present();
-    const { role } = await alert.onDidDismiss();
-
-    if (role !== 'confirm') {
-      return;
-    }
-
-    this.noteDraft = this.savedNoteValue;
-    this.notesEditor?.commands.setContent(this.toEditorContent(this.savedNoteValue), {
-      emitUpdate: false
-    });
-    this.isNoteDirty = false;
     this.changeDetectorRef.markForCheck();
   }
 
@@ -1030,7 +967,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
-      void this.presentToast('Save or revert your note changes before switching games.', 'warning');
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
       return;
     }
 
@@ -1069,8 +1006,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async closeGameDetailModal(): Promise<void> {
-    if (this.isNoteDirty) {
-      await this.presentToast('Save or revert your note changes before closing.', 'warning');
+    if (this.isNoteDirty || this.isNoteSaving) {
+      await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
       return;
     }
 
@@ -2722,8 +2659,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (this.isNoteDirty) {
-      void this.presentToast('Save or revert your note changes before closing.', 'warning');
+    if (this.isNoteDirty || this.isNoteSaving) {
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
       return;
     }
 
@@ -3233,6 +3170,69 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.changeDetectorRef.markForCheck();
   }
 
+  private scheduleNotesAutosave(): void {
+    if (!this.isNotesOpen || !this.selectedGame) {
+      return;
+    }
+
+    if (this.notesAutosaveTimeoutId !== null) {
+      window.clearTimeout(this.notesAutosaveTimeoutId);
+      this.notesAutosaveTimeoutId = null;
+    }
+
+    if (!this.isNoteDirty) {
+      return;
+    }
+
+    this.notesAutosaveTimeoutId = window.setTimeout(() => {
+      this.notesAutosaveTimeoutId = null;
+      void this.persistNotesAutosave();
+    }, GameListComponent.NOTES_AUTOSAVE_DEBOUNCE_MS);
+  }
+
+  private async persistNotesAutosave(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    if (this.isNoteSaving) {
+      this.scheduleNotesAutosave();
+      return;
+    }
+
+    const html = this.notesEditor ? this.notesEditor.getHTML() : this.noteDraft;
+    const normalizedNotes = this.normalizeNotesValue(html);
+
+    if (normalizedNotes === this.savedNoteValue) {
+      this.isNoteDirty = false;
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    this.isNoteSaving = true;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const updated = await this.gameShelfService.setGameNotes(
+        this.selectedGame.igdbGameId,
+        this.selectedGame.platformIgdbId,
+        normalizedNotes
+      );
+      this.applyUpdatedGame(updated);
+      this.savedNoteValue = this.normalizeNotesValue(updated.notes);
+    } catch {
+      await this.presentToast('Unable to auto-save notes.', 'danger');
+    } finally {
+      this.isNoteSaving = false;
+      const currentNotes = this.normalizeNotesValue(this.notesEditor?.getHTML() ?? this.noteDraft);
+      this.isNoteDirty = currentNotes !== this.savedNoteValue;
+      if (this.isNoteDirty) {
+        this.scheduleNotesAutosave();
+      }
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
   private normalizeNotesValue(value: string | null | undefined): string {
     if (typeof value !== 'string') {
       return '';
@@ -3254,19 +3254,23 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private shouldBlockDetailNavigationForUnsavedNotes(): boolean {
-    return this.isGameDetailModalOpen && this.isNoteDirty;
+    return this.isGameDetailModalOpen && (this.isNoteDirty || this.isNoteSaving);
   }
 
   private async canDismissNotesGuard(): Promise<boolean> {
-    if (!this.isNoteDirty) {
+    if (!this.isNoteDirty && !this.isNoteSaving) {
       return true;
     }
 
-    await this.presentToast('Save or revert your note changes before closing.', 'warning');
+    await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
     return false;
   }
 
   private resetNoteEditorState(): void {
+    if (this.notesAutosaveTimeoutId !== null) {
+      window.clearTimeout(this.notesAutosaveTimeoutId);
+      this.notesAutosaveTimeoutId = null;
+    }
     this.isNotesOpen = false;
     this.isNotesModalOpen = false;
     this.isNoteDirty = false;
@@ -3295,6 +3299,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       onUpdate: ({ editor }) => {
         this.noteDraft = this.normalizeNotesValue(editor.getHTML());
         this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+        this.scheduleNotesAutosave();
         this.changeDetectorRef.markForCheck();
       },
       onSelectionUpdate: () => {

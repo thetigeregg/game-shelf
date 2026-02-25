@@ -391,6 +391,11 @@ tiptap-editor.detail-note-editor .tiptap ul[data-type='taskList'] {
   padding-inline-start: 40px;
 }
 
+tiptap-editor.detail-note-editor .tiptap.ProseMirror ul,
+tiptap-editor.detail-note-editor .tiptap.ProseMirror ol {
+  padding-inline-start: 20px;
+}
+
 tiptap-editor.detail-note-editor .tiptap ul[data-type='taskList'] li {
   display: flex;
   align-items: flex-start;

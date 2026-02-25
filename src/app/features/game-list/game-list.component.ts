@@ -882,10 +882,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
       }
     }
 
-    if (this.isNoteDirty) {
-      return;
-    }
-
     this.isNotesOpen = false;
     this.isNotesModalOpen = false;
     this.changeDetectorRef.markForCheck();
@@ -1046,10 +1042,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
         );
         return;
       }
-    }
-
-    if (this.isNoteDirty) {
-      return;
     }
 
     this.closeGameDetailModalInternal();

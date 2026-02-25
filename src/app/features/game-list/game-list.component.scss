@@ -313,10 +313,12 @@ ion-accordion-group ion-accordion ion-item[slot='header'] {
 }
 
 .detail-notes-split-pane {
+  --detail-modal-header-offset: 44px;
   --side-width: 40vw;
   --side-min-width: 40vw;
   --side-max-width: 40vw;
-  height: 100%;
+  margin-top: var(--detail-modal-header-offset);
+  height: calc(100% - var(--detail-modal-header-offset));
 }
 
 .detail-notes-split-pane > ion-menu.detail-notes-menu {

@@ -52,6 +52,15 @@ ion-content.gs-safe-bottom-with-offset {
   );
 }
 
+ion-fab-list {
+  padding: 6px;
+  border-radius: 18px;
+  border: 1px solid rgba(var(--ion-color-medium-rgb), 0.22);
+  background: rgba(var(--ion-background-color-rgb, 255, 255, 255), 0.38);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+}
+
 @media (min-width: 1024px) {
   ion-modal.desktop-fullscreen-modal {
     --width: 100vw;

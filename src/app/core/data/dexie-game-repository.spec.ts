@@ -241,6 +241,14 @@ describe('DexieGameRepository', () => {
     expect(cleared?.notes).toBeNull();
   });
 
+  it('preserves meaningful note whitespace while sanitizing unsafe html', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameNotes('101', 18, '  hello<script>alert(1)</script>  ');
+    const stored = await repository.exists('101', 18);
+    expect(stored?.notes).toBe('  hello  ');
+  });
+
   it('preserves existing notes when catalog metadata is refreshed', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
     await repository.setGameNotes('101', 18, 'Track hidden item locations');

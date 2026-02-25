@@ -786,7 +786,7 @@ export class DexieGameRepository implements GameRepository {
     }
 
     const normalized = value.replace(/\r\n?/g, '\n');
-    const safeHtml = this.htmlSanitizer.sanitizeHtml(normalized).trim();
+    const safeHtml = this.htmlSanitizer.sanitizeHtml(normalized);
     const plainText = this.htmlSanitizer.sanitizeToPlainText(safeHtml).trim();
     return plainText.length > 0 ? safeHtml : null;
   }

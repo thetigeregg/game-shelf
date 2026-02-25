@@ -281,27 +281,22 @@
     </ion-popover>
 
     @if (selectedGame; as game) {
-      @if (isDesktopNotesPaneVisible) {
+      @if (isDesktopDetailLayout) {
         <ion-split-pane class="detail-notes-split-pane" [contentId]="detailPrimaryPaneContentId">
+          @if (isNotesOpen) {
+            <ion-menu
+              class="detail-notes-menu"
+              side="end"
+              [contentId]="detailPrimaryPaneContentId"
+              [menuId]="notesMenuId"
+              [swipeGesture]="false"
+            >
+              <ng-container [ngTemplateOutlet]="notesPanelTemplate"></ng-container>
+            </ion-menu>
+          }
           <ng-container
             *ngTemplateOutlet="detailPrimaryPaneTemplate; context: { $implicit: game }"
           ></ng-container>
-          <div class="detail-notes-pane">
-            <ion-header>
-              <ion-toolbar>
-                <ion-title>Notes</ion-title>
-                <ion-buttons slot="end">
-                  <ion-button fill="clear" (click)="closeNotesEditor()">Close</ion-button>
-                </ion-buttons>
-              </ion-toolbar>
-              <ion-toolbar class="detail-notes-toolbar">
-                <ng-container [ngTemplateOutlet]="noteEditorToolbarTemplate"></ng-container>
-              </ion-toolbar>
-            </ion-header>
-            <ion-content class="detail-notes-pane-content gs-safe-bottom">
-              <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
-            </ion-content>
-          </div>
         </ion-split-pane>
       } @else {
         <ng-container
@@ -493,26 +488,30 @@
   </ion-buttons>
 </ng-template>
 
+<ng-template #notesPanelTemplate>
+  <ion-header>
+    <ion-toolbar>
+      <ion-title>Notes</ion-title>
+      <ion-buttons slot="end">
+        <ion-button fill="clear" (click)="closeNotesEditor()">Close</ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+    <ion-toolbar class="detail-notes-toolbar">
+      <ng-container [ngTemplateOutlet]="noteEditorToolbarTemplate"></ng-container>
+    </ion-toolbar>
+  </ion-header>
+  <ion-content class="detail-notes-content" [scrollY]="false">
+    <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
+  </ion-content>
+</ng-template>
+
 <ion-modal
   [isOpen]="isNotesModalOpen"
   [canDismiss]="canDismissNotesModal"
   (didDismiss)="onNotesModalDidDismiss()"
 >
   <ng-template>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Notes</ion-title>
-        <ion-buttons slot="end">
-          <ion-button fill="clear" (click)="closeNotesEditor()">Close</ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-      <ion-toolbar class="detail-notes-toolbar">
-        <ng-container [ngTemplateOutlet]="noteEditorToolbarTemplate"></ng-container>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content [scrollY]="false">
-      <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
-    </ion-content>
+    <ng-container [ngTemplateOutlet]="notesPanelTemplate"></ng-container>
   </ng-template>
 </ion-modal>
 

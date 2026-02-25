@@ -4,6 +4,7 @@ import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';
 import { GameShelfService } from './core/services/game-shelf.service';
+import { E2eFixtureService } from './core/services/e2e-fixture.service';
 import { getAppVersion } from './core/config/runtime-config';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
@@ -20,9 +21,15 @@ export class AppComponent {
   private readonly gameSyncService = inject(GameSyncService);
   private readonly debugLogService = inject(DebugLogService);
   private readonly gameShelfService = inject(GameShelfService);
+  private readonly e2eFixtureService = inject(E2eFixtureService);
   private readonly alertController = inject(AlertController);
 
   constructor() {
+    void this.initializeApp();
+  }
+
+  private async initializeApp(): Promise<void> {
+    await this.e2eFixtureService.applyFixtureFromStorage();
     this.debugLogService.initialize();
     this.themeService.initialize();
     this.gameSyncService.initialize();

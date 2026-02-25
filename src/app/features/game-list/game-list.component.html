@@ -331,33 +331,37 @@
         (franchiseClick)="onDetailFranchiseClick()"
         (genreClick)="onDetailGenreClick()"
         (publisherClick)="onDetailPublisherClick()"
-      ></app-game-detail-content>
-      <ion-list lines="full">
-        <ion-list-header class="similar-games-header">
-          <ion-label>Similar Games In Your Library</ion-label>
-        </ion-list-header>
-        @if (isSimilarLibraryGamesLoading) {
-          <ion-item>
-            <ion-spinner slot="start" name="crescent"></ion-spinner>
-            <ion-label>Loading similar games...</ion-label>
-          </ion-item>
-        }
-        @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length === 0) {
-          <ion-item>
-            <ion-label color="medium">No similar games found in your library.</ion-label>
-          </ion-item>
-        }
-        @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
-          @for (similarGame of similarLibraryGames; track trackByExternalId($index, similarGame)) {
-            <ng-container
-              *ngTemplateOutlet="
-                gameRowTemplate;
-                context: { $implicit: similarGame, fromSimilarDetailSection: true }
-              "
-            ></ng-container>
+      >
+        <ion-list lines="full" detail-secondary-content>
+          <ion-list-header class="similar-games-header">
+            <ion-label>Similar Games In Your Library</ion-label>
+          </ion-list-header>
+          @if (isSimilarLibraryGamesLoading) {
+            <ion-item>
+              <ion-spinner slot="start" name="crescent"></ion-spinner>
+              <ion-label>Loading similar games...</ion-label>
+            </ion-item>
           }
-        }
-      </ion-list>
+          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length === 0) {
+            <ion-item>
+              <ion-label color="medium">No similar games found in your library.</ion-label>
+            </ion-item>
+          }
+          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
+            @for (
+              similarGame of similarLibraryGames;
+              track trackByExternalId($index, similarGame)
+            ) {
+              <ng-container
+                *ngTemplateOutlet="
+                  gameRowTemplate;
+                  context: { $implicit: similarGame, fromSimilarDetailSection: true }
+                "
+              ></ng-container>
+            }
+          }
+        </ion-list>
+      </app-game-detail-content>
     </div>
     <ion-fab
       #detailShortcutsFab

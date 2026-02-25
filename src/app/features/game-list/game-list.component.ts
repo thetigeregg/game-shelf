@@ -865,8 +865,24 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async closeNotesEditor(): Promise<void> {
-    if (this.isNoteDirty || this.isNoteSaving) {
+    if (this.isNoteSaving) {
       await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
+    if (this.isNoteDirty) {
+      if (await this.confirmDiscardPausedNotes()) {
+        this.resetNotesToLastSaved();
+      } else {
+        await this.presentToast(
+          'Notes have unsaved changes. Please wait for auto-save.',
+          'warning'
+        );
+        return;
+      }
+    }
+
+    if (this.isNoteDirty) {
       return;
     }
 
@@ -1015,8 +1031,24 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async closeGameDetailModal(): Promise<void> {
-    if (this.isNoteDirty || this.isNoteSaving) {
+    if (this.isNoteSaving) {
       await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
+    if (this.isNoteDirty) {
+      if (await this.confirmDiscardPausedNotes()) {
+        this.resetNotesToLastSaved();
+      } else {
+        await this.presentToast(
+          'Notes have unsaved changes. Please wait for auto-save.',
+          'warning'
+        );
+        return;
+      }
+    }
+
+    if (this.isNoteDirty) {
       return;
     }
 
@@ -3298,8 +3330,56 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return true;
     }
 
-    await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+    if (this.isNoteSaving) {
+      await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return false;
+    }
+
+    if (await this.confirmDiscardPausedNotes()) {
+      this.resetNotesToLastSaved();
+      return true;
+    }
+
+    await this.presentToast('Notes have unsaved changes. Please wait for auto-save.', 'warning');
     return false;
+  }
+
+  private async confirmDiscardPausedNotes(): Promise<boolean> {
+    if (!this.isNotesAutosavePaused()) {
+      return false;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Discard unsaved notes?',
+      message:
+        'Auto-save is paused after repeated failures. Discard unsaved note changes and close?',
+      buttons: [
+        { text: 'Keep editing', role: 'cancel' },
+        { text: 'Discard', role: 'destructive' }
+      ]
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    return role === 'destructive';
+  }
+
+  private resetNotesToLastSaved(): void {
+    this.noteDraft = this.savedNoteValue;
+    this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
+      emitUpdate: false
+    });
+    this.isNoteDirty = false;
+    this.notesAutosaveFailureCount = 0;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  private isNotesAutosavePaused(): boolean {
+    return (
+      this.isNoteDirty &&
+      !this.isNoteSaving &&
+      this.notesAutosaveFailureCount >= GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES
+    );
   }
 
   private resetNoteEditorState(): void {

@@ -5,7 +5,7 @@ import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';
 import { GameShelfService } from './core/services/game-shelf.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
-import { getAppVersion } from './core/config/runtime-config';
+import { getAppVersion, isE2eFixturesEnabled } from './core/config/runtime-config';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
 
@@ -29,7 +29,9 @@ export class AppComponent {
   }
 
   private async initializeApp(): Promise<void> {
-    await this.e2eFixtureService.applyFixtureFromStorage();
+    if (isE2eFixturesEnabled()) {
+      await this.e2eFixtureService.applyFixtureFromStorage();
+    }
     this.debugLogService.initialize();
     this.themeService.initialize();
     this.gameSyncService.initialize();

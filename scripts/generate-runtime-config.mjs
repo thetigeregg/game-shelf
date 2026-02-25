@@ -83,6 +83,7 @@ try {
 }
 
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
+const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);
 
 const output = `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
@@ -91,6 +92,7 @@ const output = `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
     appVersion: ${JSON.stringify(appVersion)},
     featureFlags: {
       showMgcImport: ${showMgcImport},
+      e2eFixtures: ${e2eFixtures},
     },
   },
 );

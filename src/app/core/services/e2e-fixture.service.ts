@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AppDb } from '../data/app-db';
 import { CoverSource, GameEntry, ListType } from '../models/game.models';
+import { isE2eFixturesEnabled } from '../config/runtime-config';
 
 const E2E_FIXTURE_STORAGE_KEY = 'game-shelf:e2e-fixture';
 
@@ -23,7 +24,7 @@ export class E2eFixtureService {
   private readonly db = inject(AppDb);
 
   async applyFixtureFromStorage(): Promise<void> {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !isE2eFixturesEnabled()) {
       return;
     }
 

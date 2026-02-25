@@ -2,6 +2,7 @@ import { environment } from '../../../environments/environment';
 
 interface RuntimeFeatureFlags {
   showMgcImport?: boolean;
+  e2eFixtures?: boolean;
 }
 
 interface RuntimeConfig {
@@ -49,6 +50,20 @@ export function isMgcImportFeatureEnabled(): boolean {
   }
 
   return environment.featureFlags?.showMgcImport === true;
+}
+
+export function isE2eFixturesEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    const runtimeValue = parseBoolean(
+      window.__GAME_SHELF_RUNTIME_CONFIG__?.featureFlags?.e2eFixtures
+    );
+
+    if (runtimeValue !== null) {
+      return runtimeValue;
+    }
+  }
+
+  return environment.featureFlags?.e2eFixtures === true;
 }
 
 export function getAppVersion(): string {

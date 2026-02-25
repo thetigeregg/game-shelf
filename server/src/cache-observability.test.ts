@@ -126,3 +126,27 @@ test('Cache stats endpoint is rate limited', async () => {
 
   await app.close();
 });
+
+test('Cache stats endpoint honors custom rate-limit options', async () => {
+  resetCacheMetrics();
+
+  const app = Fastify();
+  await registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool, {
+    cacheStatsRateLimitWindowMs: 1000,
+    cacheStatsMaxRequestsPerWindow: 1
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/cache/stats'
+  });
+  assert.equal(first.statusCode, 200);
+
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/cache/stats'
+  });
+  assert.equal(second.statusCode, 429);
+
+  await app.close();
+});

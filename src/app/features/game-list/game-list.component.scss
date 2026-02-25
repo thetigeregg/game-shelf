@@ -156,15 +156,6 @@ ion-item.game-row-selected {
   margin-right: 8px;
 }
 
-.detail-shortcuts-fab ion-fab-list {
-  padding: 6px;
-  border-radius: 18px;
-  border: 1px solid rgba(var(--ion-color-medium-rgb), 0.22);
-  background: rgba(var(--ion-background-color-rgb, 255, 255, 255), 0.38);
-  backdrop-filter: saturate(160%) blur(14px);
-  -webkit-backdrop-filter: saturate(160%) blur(14px);
-}
-
 .detail-shortcuts-fab .shortcut-text {
   font-size: 0.9rem;
   font-weight: 700;

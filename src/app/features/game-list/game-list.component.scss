@@ -463,3 +463,17 @@ tiptap-editor.detail-note-editor
   > :first-child {
   margin-top: 0.45rem;
 }
+
+tiptap-editor.detail-note-editor .tiptap [data-type='details'] [data-type='detailsContent'] > ul,
+tiptap-editor.detail-note-editor .tiptap [data-type='details'] [data-type='detailsContent'] > ol {
+  margin-inline-start: 0;
+  padding-inline-start: 0;
+}
+
+tiptap-editor.detail-note-editor
+  .tiptap
+  [data-type='details']
+  [data-type='detailsContent']
+  > ul[data-type='taskList'] {
+  padding-inline-start: 0;
+}

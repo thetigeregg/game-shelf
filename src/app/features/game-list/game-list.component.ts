@@ -231,6 +231,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly VIRTUAL_BUFFER_ROWS = 10;
   private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
   private static readonly NOTES_AUTOSAVE_DEBOUNCE_MS = 450;
+  private static readonly NOTES_AUTOSAVE_RETRY_BASE_DELAY_MS = 1000;
+  private static readonly NOTES_AUTOSAVE_RETRY_MAX_DELAY_MS = 15000;
+  private static readonly NOTES_AUTOSAVE_MAX_FAILURES = 6;
   private static readonly MAX_CUSTOM_COVER_DATA_URL_BYTES = 1024 * 1024;
   private static readonly MIN_CUSTOM_COVER_QUALITY = 0.5;
   private static readonly MAX_CUSTOM_COVER_QUALITY = 0.98;
@@ -363,6 +366,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private gameDetailModalRef?: ElementRef<HTMLElement>;
   private imageErrorLogCount = 0;
   private notesAutosaveTimeoutId: number | null = null;
+  private notesAutosaveFailureCount = 0;
 
   readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
   readonly virtualMinBufferPx =
@@ -845,6 +849,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     this.savedNoteValue = this.normalizeNotesValue(this.selectedGame.notes);
     this.noteDraft = this.savedNoteValue;
+    this.notesAutosaveFailureCount = 0;
     this.ensureNotesEditor();
     this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
       emitUpdate: false
@@ -3185,7 +3190,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.changeDetectorRef.markForCheck();
   }
 
-  private scheduleNotesAutosave(): void {
+  private scheduleNotesAutosave(delayMs = GameListComponent.NOTES_AUTOSAVE_DEBOUNCE_MS): void {
     if (!this.isNotesOpen || !this.selectedGame) {
       return;
     }
@@ -3202,7 +3207,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.notesAutosaveTimeoutId = window.setTimeout(() => {
       this.notesAutosaveTimeoutId = null;
       void this.persistNotesAutosave();
-    }, GameListComponent.NOTES_AUTOSAVE_DEBOUNCE_MS);
+    }, delayMs);
   }
 
   private async persistNotesAutosave(): Promise<void> {
@@ -3219,6 +3224,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const normalizedNotes = this.normalizeNotesValue(html);
 
     if (normalizedNotes === this.savedNoteValue) {
+      this.notesAutosaveFailureCount = 0;
       this.isNoteDirty = false;
       this.changeDetectorRef.markForCheck();
       return;
@@ -3241,17 +3247,42 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.notesEditor?.commands.setContent(toNotesEditorContent(persistedNotes), {
         emitUpdate: false
       });
+      this.notesAutosaveFailureCount = 0;
     } catch {
-      await this.presentToast('Unable to auto-save notes.', 'danger');
+      this.notesAutosaveFailureCount += 1;
+      if (
+        this.notesAutosaveFailureCount === 1 ||
+        this.notesAutosaveFailureCount === GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES
+      ) {
+        const message =
+          this.notesAutosaveFailureCount === GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES
+            ? 'Auto-save paused after repeated failures. Edit notes to retry.'
+            : 'Unable to auto-save notes.';
+        await this.presentToast(message, 'danger');
+      }
     } finally {
       this.isNoteSaving = false;
       const currentNotes = this.normalizeNotesValue(this.notesEditor?.getHTML() ?? this.noteDraft);
       this.isNoteDirty = currentNotes !== this.savedNoteValue;
       if (this.isNoteDirty) {
-        this.scheduleNotesAutosave();
+        if (this.notesAutosaveFailureCount < GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES) {
+          this.scheduleNotesAutosave(this.getNotesAutosaveRetryDelayMs());
+        }
       }
       this.changeDetectorRef.markForCheck();
     }
+  }
+
+  private getNotesAutosaveRetryDelayMs(): number {
+    if (this.notesAutosaveFailureCount <= 0) {
+      return GameListComponent.NOTES_AUTOSAVE_DEBOUNCE_MS;
+    }
+
+    return Math.min(
+      GameListComponent.NOTES_AUTOSAVE_RETRY_MAX_DELAY_MS,
+      GameListComponent.NOTES_AUTOSAVE_RETRY_BASE_DELAY_MS *
+        2 ** (this.notesAutosaveFailureCount - 1)
+    );
   }
 
   private normalizeNotesValue(value: string | null | undefined): string {
@@ -3280,6 +3311,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isNotesModalOpen = false;
     this.isNoteDirty = false;
     this.isNoteSaving = false;
+    this.notesAutosaveFailureCount = 0;
     this.noteDraft = '';
     this.savedNoteValue = '';
     this.notesEditor?.commands.setContent('<p></p>', { emitUpdate: false });
@@ -3305,6 +3337,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       onUpdate: ({ editor }) => {
         this.noteDraft = this.normalizeNotesValue(editor.getHTML());
         this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+        this.notesAutosaveFailureCount = 0;
         this.scheduleNotesAutosave();
         this.changeDetectorRef.markForCheck();
       },

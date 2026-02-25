@@ -4,13 +4,14 @@ export function normalizeEditorNotesValue(value: string | null | undefined): str
   }
 
   const normalized = value.replace(/\r\n?/g, '\n');
-  const compact = normalized.replace(/\s+/g, '');
+  const compactLower = normalized.replace(/\s+/g, '').toLowerCase();
 
   if (
-    compact.length === 0 ||
-    compact === '<p></p>' ||
-    compact === '<p><br></p>' ||
-    compact === '<p></p><p></p>'
+    compactLower.length === 0 ||
+    compactLower === '<p></p>' ||
+    compactLower === '<p><br></p>' ||
+    compactLower === '<p><br/></p>' ||
+    compactLower === '<p></p><p></p>'
   ) {
     return '';
   }

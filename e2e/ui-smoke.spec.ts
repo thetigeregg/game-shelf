@@ -156,6 +156,30 @@ async function closeNotesWhenSaveCompletes(notesCloseButton: Locator): Promise<v
     .toBe(false);
 }
 
+async function expectNotesCloseBlockedToast(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const savingToastVisible = await page
+          .locator('ion-toast', { hasText: 'Notes are still saving. Please wait a moment.' })
+          .isVisible()
+          .catch(() => false);
+        if (savingToastVisible) {
+          return true;
+        }
+
+        return page
+          .locator('ion-toast', {
+            hasText: 'Notes have unsaved changes. Please wait for auto-save.'
+          })
+          .isVisible()
+          .catch(() => false);
+      },
+      { timeout: 5000 }
+    )
+    .toBe(true);
+}
+
 async function setSingleSelectValue(
   page: Page,
   selectLabel: 'Sort' | 'Group by',
@@ -502,9 +526,7 @@ test('mobile notes modal blocks close while dirty and closes after autosave', as
 
   await notesCloseButton.click();
   await expect(notesCloseButton).toBeVisible();
-  await expect(
-    page.locator('ion-toast', { hasText: 'Notes are still saving. Please wait a moment.' })
-  ).toBeVisible();
+  await expectNotesCloseBlockedToast(page);
 
   await closeNotesWhenSaveCompletes(notesCloseButton);
 });

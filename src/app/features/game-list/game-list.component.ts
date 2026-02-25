@@ -3233,6 +3233,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.selectedGame.platformIgdbId,
         normalizedNotes
       );
+      // Notes edits do not affect manuals/similar games; skip those refreshes for frequent autosaves.
       this.applyUpdatedGame(updated, { refreshManual: false, refreshSimilar: false });
       const persistedNotes = this.normalizeNotesValue(updated.notes);
       this.savedNoteValue = persistedNotes;

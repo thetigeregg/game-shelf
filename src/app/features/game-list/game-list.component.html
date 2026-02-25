@@ -457,25 +457,53 @@
 
 <ng-template #noteEditorToolbarTemplate>
   <ion-buttons slot="start">
-    <ion-button fill="clear" aria-label="Bold" (click)="applyNotesToolbar('bold')">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('bold')"
+      aria-label="Bold"
+      (click)="applyNotesToolbar('bold')"
+    >
       <i class="ri-bold" aria-hidden="true"></i>
     </ion-button>
-    <ion-button fill="clear" aria-label="Italic" (click)="applyNotesToolbar('italic')">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('italic')"
+      aria-label="Italic"
+      (click)="applyNotesToolbar('italic')"
+    >
       <i class="ri-italic" aria-hidden="true"></i>
     </ion-button>
-    <ion-button fill="clear" aria-label="Underline" (click)="applyNotesToolbar('underline')">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('underline')"
+      aria-label="Underline"
+      (click)="applyNotesToolbar('underline')"
+    >
       <i class="ri-underline" aria-hidden="true"></i>
     </ion-button>
-    <ion-button fill="clear" aria-label="Bullet list" (click)="applyNotesToolbar('bullet')">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('bullet')"
+      aria-label="Bullet list"
+      (click)="applyNotesToolbar('bullet')"
+    >
       <i class="ri-list-unordered" aria-hidden="true"></i>
     </ion-button>
-    <ion-button fill="clear" aria-label="Numbered list" (click)="applyNotesToolbar('number')">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('number')"
+      aria-label="Numbered list"
+      (click)="applyNotesToolbar('number')"
+    >
       <i class="ri-list-ordered-2" aria-hidden="true"></i>
     </ion-button>
-    <ion-button fill="clear" aria-label="Checklist" (click)="applyNotesToolbar('check')">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('check')"
+      aria-label="Checklist"
+      (click)="applyNotesToolbar('check')"
+    >
       <i class="ri-list-check-3" aria-hidden="true"></i>
     </ion-button>
-    <ion-button fill="clear" aria-label="Details" (click)="applyNotesToolbar('details')">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('details')"
+      aria-label="Details"
+      (click)="applyNotesToolbar('details')"
+    >
       <i class="ri-t-box-line" aria-hidden="true"></i>
     </ion-button>
   </ion-buttons>

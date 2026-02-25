@@ -158,6 +158,15 @@ export interface GameListSelectionState {
   allDisplayedSelected: boolean;
 }
 
+type NotesToolbarAction =
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'bullet'
+  | 'number'
+  | 'check'
+  | 'details';
+
 @Component({
   selector: 'app-game-list',
   templateUrl: './game-list.component.html',
@@ -899,9 +908,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.changeDetectorRef.markForCheck();
   }
 
-  applyNotesToolbar(
-    action: 'bold' | 'italic' | 'underline' | 'bullet' | 'number' | 'check' | 'details'
-  ): void {
+  getNotesToolbarButtonFill(action: NotesToolbarAction): 'solid' | 'outline' {
+    return this.isNotesToolbarActionActive(action) ? 'solid' : 'outline';
+  }
+
+  applyNotesToolbar(action: NotesToolbarAction): void {
     const editor = this.notesEditor;
 
     if (!editor) {
@@ -945,6 +956,40 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     chain.setDetails().run();
+  }
+
+  private isNotesToolbarActionActive(action: NotesToolbarAction): boolean {
+    const editor = this.notesEditor;
+
+    if (!editor) {
+      return false;
+    }
+
+    if (action === 'bold') {
+      return editor.isActive('bold');
+    }
+
+    if (action === 'italic') {
+      return editor.isActive('italic');
+    }
+
+    if (action === 'underline') {
+      return editor.isActive('underline');
+    }
+
+    if (action === 'bullet') {
+      return editor.isActive('bulletList');
+    }
+
+    if (action === 'number') {
+      return editor.isActive('orderedList');
+    }
+
+    if (action === 'check') {
+      return editor.isActive('taskList');
+    }
+
+    return editor.isActive('details');
   }
 
   private openSimilarGameDetail(game: GameEntry): void {
@@ -3223,6 +3268,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
       onUpdate: ({ editor }) => {
         this.noteDraft = this.normalizeNotesValue(editor.getHTML());
         this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+        this.changeDetectorRef.markForCheck();
+      },
+      onSelectionUpdate: () => {
         this.changeDetectorRef.markForCheck();
       }
     });

@@ -65,6 +65,7 @@ import {
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { TiptapEditorDirective } from 'ngx-tiptap';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
@@ -930,7 +931,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    chain.insertContent('[ ] ').run();
+    chain.toggleTaskList().run();
   }
 
   private openSimilarGameDetail(game: GameEntry): void {
@@ -3196,7 +3197,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.notesEditor = new Editor({
-      extensions: [StarterKit, Underline],
+      extensions: [StarterKit, Underline, TaskList, TaskItem],
       content: '<p></p>',
       onUpdate: ({ editor }) => {
         this.noteDraft = this.normalizeNotesValue(editor.getHTML());

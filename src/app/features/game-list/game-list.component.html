@@ -310,7 +310,8 @@
 <ng-template #detailPrimaryPaneTemplate let-game>
   <ion-content
     #detailContent
-    class="detail-content gs-safe-bottom-with-offset"
+    class="detail-content"
+    [class.gs-safe-bottom-with-offset]="!isDesktopDetailLayout"
     [id]="detailPrimaryPaneContentId"
     [fullscreen]="true"
     appAutoContentOffsets

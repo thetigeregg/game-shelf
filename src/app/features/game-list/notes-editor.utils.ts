@@ -5,14 +5,9 @@ export function normalizeEditorNotesValue(value: string | null | undefined): str
 
   const normalized = value.replace(/\r\n?/g, '\n');
   const compactLower = normalized.replace(/\s+/g, '').toLowerCase();
+  const emptyRichTextPattern = /^(<p>(<br\/?>)?<\/p>)+$/;
 
-  if (
-    compactLower.length === 0 ||
-    compactLower === '<p></p>' ||
-    compactLower === '<p><br></p>' ||
-    compactLower === '<p><br/></p>' ||
-    compactLower === '<p></p><p></p>'
-  ) {
+  if (compactLower.length === 0 || emptyRichTextPattern.test(compactLower)) {
     return '';
   }
 

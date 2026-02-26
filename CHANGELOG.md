@@ -960,3 +960,15 @@
 - 01387df Merge pull request #98 from thetigeregg/codex/prevent-notes-page-header-from
 - b598eac Fix notes page scrolling
 
+## v0.1.35 - 2026-02-26
+- 3245dcf Merge pull request #97 from thetigeregg/codex/fix-notes-toolbar-button-newline
+- a88951f Add edge-case tests for notes normal
+- 23b7919 Remove i flag from regex
+- c11b850 Merge branch 'main' into codex/fix-notes-toolbar-button-newline
+- fa8cabe Merge branch 'main' into codex/fix-notes-toolbar-button-newline
+- b481c5d Revert initial notes fix
+- c8848e9 Fix notes regex sanitization
+- 4ae755d Fix notes sanitization regex
+- 8dfbc36 Fix notes regex flag
+- fd55cb4 Revert notes sanitization fix
+

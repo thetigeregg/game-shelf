@@ -99,7 +99,7 @@ void test('Cache stats endpoint stringifies non-Error db failures', async () => 
 
   assert.equal(response.statusCode, 200);
   const payload = parseJson(response.body) as CacheStatsPayload;
-  assert.equal(payload.dbError, 'Error: db_string_failure');
+  assert.equal(payload.dbError, 'db_string_failure');
 
   await app.close();
 });

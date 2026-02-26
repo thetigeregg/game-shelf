@@ -391,7 +391,8 @@ void test('sync push handles non-Error failures with default failed message', as
   pool.client.query = (sql: string, params?: unknown[]) => {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
     if (normalized.startsWith('insert into games')) {
-      throw new Error('non-error-failure');
+      const nonErrorFailure = 'non-error-failure' as unknown as Error;
+      return Promise.reject(nonErrorFailure);
     }
     return originalQuery(sql, params ?? []);
   };

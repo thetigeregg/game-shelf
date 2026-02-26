@@ -23,9 +23,7 @@ import {
   IonItemSliding,
   LoadingController,
   PopoverController,
-  ToastController
-} from '@ionic/angular/standalone';
-import {
+  ToastController,
   IonList,
   IonListHeader,
   IonItem,
@@ -78,9 +76,7 @@ import {
   GameGroupByField,
   GameListFilters,
   HltbMatchCandidate,
-  GameRatingFilterOption,
   GameRating,
-  GameStatusFilterOption,
   GameStatus,
   GameType,
   ListType,

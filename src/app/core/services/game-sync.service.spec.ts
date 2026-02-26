@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { AppDb } from '../data/app-db';
 import { GameSyncService } from './game-sync.service';
 import { SyncEventsService } from './sync-events.service';

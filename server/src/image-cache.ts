@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
+import fs, { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
-import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';

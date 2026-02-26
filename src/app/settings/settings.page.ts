@@ -1,8 +1,7 @@
 import { Component, inject } from '@angular/core';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import {
+  AlertController,
+  ToastController,
   IonHeader,
   IonToolbar,
   IonButtons,
@@ -27,6 +26,8 @@ import {
   IonInput,
   IonToggle
 } from '@ionic/angular/standalone';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
 import {
@@ -35,7 +36,6 @@ import {
   GameCatalogResult,
   GameGroupByField,
   GameListFilters,
-  GameListView,
   GameRating,
   GameStatus,
   ListType,

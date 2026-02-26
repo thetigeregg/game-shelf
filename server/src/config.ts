@@ -1,25 +1,15 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
+import { config as loadDotenv } from 'dotenv';
 
 const envFile = readEnvFilePath();
-dotenv.config({ path: envFile });
+loadDotenv({ path: envFile });
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function readEnv(name: string, fallback = ''): string {
   const value = process.env[name];
   return typeof value === 'string' ? value.trim() : fallback;
-}
-
-function readRequiredEnv(name: string): string {
-  const value = readEnv(name);
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-
-  return value;
 }
 
 function readSecretFile(name: string, fallbackSecretName: string): string {

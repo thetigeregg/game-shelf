@@ -838,3 +838,125 @@
 - f61b043 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
 - 5734c82 Fix runtime config stray n
 
+## v0.1.32 - 2026-02-25
+- 21f53ec Merge pull request #92 from thetigeregg/codex/responsive-layout-support
+- 0c79b6d Add desktop and mobile e2e matrix
+- 154ea57 Limit desktop fullscreen modals
+- d2bff0c Add mobile filters test coverage
+- 50b1f95 Add desktop fullscreen modals
+
+## v0.1.33 - 2026-02-26
+- f51d0f4 Merge pull request #93 from thetigeregg/codex/notes-system-for-games
+- cc91faf Update env feature flags
+- 1db4fb7 Prune coverage artifacts from git
+- 05e3723 Centralize notes sanitization helper
+- c87ee61 Centralize note sanitization
+- 99a46bf Centralize note sanitization helper
+- b7f41de Add window declaration for zone flag
+- 165f739 Fix server lint failures
+- bb1e750 Update eslint config and lint
+- 8706d8c chore: update ESLint configuration to use TypeScript ESLint configs and improve test environment setup
+- aacd729 chore: update eslint and typescript-eslint dependencies to latest versions
+- fcfb1c4 chore: add vitest types to tsconfig for improved type support
+- 4ac044d Validate eslint config updates
+- 5b771d5 Lint codebase
+- 6b70b04 chore: enhance ESLint configuration with TypeScript parser and file patterns
+- a842ac8 chore: integrate eslint-plugin-import-x and eslint-plugin-unused-imports for improved linting
+- 5d12082 chore: add eslint-plugin-unused-imports to devDependencies
+- d494747 chore: update ESLint dependencies and add TypeScript resolver
+- 44b5a1b Remove redundant note dirty return
+- 7b4722d Check runtime env override order
+- 44d7ab0 Guard notes on breakpoint change
+- b6cb9f9 Prevent notes data loss during resiz
+- 5b3cd68 Guard notes across breakpoints
+- b4ffb93 Default e2eFixtures flag off
+- 7818845 Set e2eFixtures flag false
+- 1198dc2 Align notes normalization trimming
+- 24a8feb Consolidate notes normalization
+- 67ba094 Extract shared note normalization
+- b3a8f35 Evaluate Copilot AI feedback
+- dcfbea2 Add newline to <br> test
+- 0a7907d Limit autosave retries
+- 8cb679a Limit autosave retry attempts
+- 67590c5 Clarify notes editor reuse
+- 5730d27 Document escapeHtml purpose
+- 484f278 Clarify autosave timeout handling
+- 88be6b9 Assess Copilot suggestions
+- 01fac96 Disable e2e fixtures flag
+- 0828ae3 Validate fixture game input
+- 55d9508 Normalize notes before compare
+- 725f2d0 Expand normalizeNotes empty patterns
+- 75d41df Preserve whitespace during note sync
+- 19f1aba Add @tiptap/extension-underline dependency
+- d8d2944 Review notes normalization logic
+- c1d95d2 Preserve note whitespace on sync
+- 07a894e Handle empty paragraph variants
+- 04792dc Expand notes import empty detection
+- d6af6f4 Gate fixture reset behind flag
+- 43c44b9 Gate fixture DB init
+- 73151f9 Gate applyFixtureFromStorage
+- 3d96add Gate fixture initialization flag
+- 72a5532 Gate e2e fixture initialization
+- 41291c2 Sanitize normalized text output
+- fd2cb8d Add dompurify and its types as dependencies
+- 6ecb31a Fix backend coverage failures
+- d9e15d1 Align notes normalization with the
+- e1a9af2 Merge branch 'main' into codex/notes-system-for-games
+- 7793b99 Apply suggestions from code review
+- 96fc648 Audit notes implementation
+- 59d47cc Review notes implementation
+- 9624ce9 Align desktop detail layout heights
+- 1a2bcb5 Adjust detail layout column widths
+- 471ed63 Adjust game detail column widths
+- b0091ba Move similar games content
+- bd92831 Reapply IonGrid layout in GameDetail
+- 26dcb8e Register themed colors for fab
+- 152ce0e Register ocean palette colors
+- 1b65882 Register IonFabList color vars
+- 706935f Register ocean palette colors
+- 7947a46 Adjust split pane header offset
+- bef2b28 Update desktop notes menu
+- 36cd496 Set notes pane size to 40vw
+- b202c9a Automate note saving behavior
+- 27f4f68 Auto-save editor notes
+- 2d3b56d Update toolbar button styles
+- d5ed664 Update toolbar button styling
+- eae54d6 Update toolbar toggle styles
+- 1b81c28 Update toolbar button fill states
+- 5210ee6 Prefill tiptap editor notes
+- 32fbde7 Fix tiptap note prefill
+- e0d13da Adjust list padding in editor
+- 889adfd Adjust detail list spacing
+- 0f96feb Fix details layout padding
+- 576e2b3 Fix detail summary rendering
+- 7291494 Adjust details block spacing
+- 1b12959 Fix details block rendering
+- 85fbd50 Add Details toolbar button
+- d95e52a Add @tiptap/extension-details dependency
+- 34bef11 Add @tiptap/extension-list dependency
+- 20dc3ef Restore task list indentation
+- f6c51f8 Restore task list indentation
+- 4e6c6a1 Enable nested TaskItem support
+- b2b1004 Update toolbar icons
+- a70add5 Update toolbar icons and tasks
+- fa4f101 Update toolbar icons
+- 939016c Add remixicon dependency to package.json and package-lock.json
+- 689e588 Fix tiptap editor height
+- 7c6bd83 Fix tiptap editor styling issues
+- 6372990 Simplify note modal editor styling
+- eae67ab Update note editor layout
+- 832f4b3 Integrate TipTap rich editor
+- 77dd546 chore: update dependencies to include Tiptap packages
+- e45dcd0 Align note actions in footer
+- 48b1154 Replace numbered list icon glyph
+- c179d0c Update formatting toolbar icons
+- 69b3d00 Move format toolbar into header
+- 6363aae Use icons in notes toolbar
+- e9e50da Add per-game notes support
+- 34b3265 Add per-game notes system
+- 5e608f7 Add per-game notes system
+
+## v0.1.34 - 2026-02-26
+- 01387df Merge pull request #98 from thetigeregg/codex/prevent-notes-page-header-from
+- b598eac Fix notes page scrolling
+

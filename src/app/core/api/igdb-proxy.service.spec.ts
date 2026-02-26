@@ -1,6 +1,5 @@
-import { HttpHeaders } from '@angular/common/http';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpHeaders, HttpErrorResponse, provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -12,8 +11,7 @@ describe('IgdbProxyService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [IgdbProxyService]
+      providers: [provideHttpClient(), provideHttpClientTesting(), IgdbProxyService]
     });
 
     localStorage.clear();
@@ -372,20 +370,20 @@ describe('IgdbProxyService', () => {
       ]
     });
 
-    await expect(promise).resolves.toEqual([
-      expect.objectContaining({
-        popularityType: 9,
-        value: 333.5,
-        calculatedAt: null,
-        game: expect.objectContaining({ igdbGameId: '200' })
-      }),
-      expect.objectContaining({
-        popularityType: 9,
-        value: null,
-        calculatedAt: null,
-        game: expect.objectContaining({ igdbGameId: '201' })
-      })
-    ]);
+    const results = await promise;
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({
+      popularityType: 9,
+      value: 333.5,
+      calculatedAt: null
+    });
+    expect(results[1]).toMatchObject({
+      popularityType: 9,
+      value: null,
+      calculatedAt: null
+    });
+    expect(results[0]?.game?.igdbGameId).toBe('200');
+    expect(results[1]?.game?.igdbGameId).toBe('201');
   });
 
   it('searches box art results and normalizes URLs', async () => {

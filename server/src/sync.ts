@@ -164,11 +164,7 @@ async function applyOperation(
     return applyViewOperation(client, operation);
   }
 
-  if (operation.entityType === 'setting') {
-    return applySettingOperation(client, operation);
-  }
-
-  throw new Error(`Unsupported entity type: ${operation.entityType}`);
+  return applySettingOperation(client, operation);
 }
 
 async function applyGameOperation(
@@ -185,7 +181,7 @@ async function applyGameOperation(
     await appendSyncEvent(
       client,
       'game',
-      `${payload.igdbGameId}::${payload.platformIgdbId}`,
+      `${payload.igdbGameId}::${String(payload.platformIgdbId)}`,
       'delete',
       payload
     );
@@ -198,7 +194,7 @@ async function applyGameOperation(
   }
 
   const payload = normalizeGamePayload(operation.payload);
-  const gameKey = `${payload.igdbGameId}::${payload.platformIgdbId}`;
+  const gameKey = `${payload.igdbGameId}::${String(payload.platformIgdbId)}`;
 
   await client.query(
     `
@@ -431,7 +427,7 @@ function normalizeOperations(value: unknown): ClientSyncOperation[] | null {
 }
 
 function normalizeCursor(value: string | null | undefined): number {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
+  const parsed = Number.parseInt(value ?? '', 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
@@ -459,12 +455,25 @@ function normalizeObjectPayload(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function parseInteger(value: unknown): number {
+  if (typeof value === 'string') {
+    return Number.parseInt(value, 10);
+  }
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? value : Number.NaN;
+  }
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+  return Number.NaN;
+}
+
 function normalizeGamePayload(
   value: unknown
 ): Record<string, unknown> & { igdbGameId: string; platformIgdbId: number } {
   const payload = normalizeObjectPayload(value);
   const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
-  const platformIgdbId = Number.parseInt(String(payload.platformIgdbId ?? ''), 10);
+  const platformIgdbId = parseInteger(payload.platformIgdbId);
 
   if (!igdbGameId || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
     throw new Error('Invalid game payload identity.');
@@ -485,9 +494,10 @@ function normalizeGamePayload(
   const customTitleRaw = typeof payload.customTitle === 'string' ? payload.customTitle.trim() : '';
   const customPlatformRaw =
     typeof payload.customPlatform === 'string' ? payload.customPlatform.trim() : '';
-  const customPlatformIgdbIdRaw = Number.parseInt(String(payload.customPlatformIgdbId ?? ''), 10);
+  const customPlatformIgdbIdRaw = parseInteger(payload.customPlatformIgdbId);
   const customCoverUrlRaw =
     typeof payload.customCoverUrl === 'string' ? payload.customCoverUrl.trim() : '';
+  const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId =
     Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
@@ -500,6 +510,13 @@ function normalizeGamePayload(
   const customCoverUrl = /^data:image\/[a-z0-9.+-]+;base64,/i.test(customCoverUrlRaw)
     ? customCoverUrlRaw
     : null;
+  const normalizedNotes = notesRaw.replace(/\r\n?/g, '\n');
+  const normalizedNotesTrimmed = normalizedNotes.trim();
+  const emptyHtmlBlockPattern = /<(p|div)>(\s|&nbsp;|<br\s*\/?>)*<\/\1>/gi;
+  const strippedNotes = normalizedNotesTrimmed.replace(emptyHtmlBlockPattern, '').trim();
+  const isEmptyHtmlPlaceholder = strippedNotes.length === 0;
+  const notes =
+    normalizedNotesTrimmed.length > 0 && !isEmptyHtmlPlaceholder ? normalizedNotes : null;
 
   return {
     ...payload,
@@ -509,6 +526,7 @@ function normalizeGamePayload(
     customPlatform,
     customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
     customCoverUrl,
+    notes,
     updatedAt
   };
 }
@@ -519,7 +537,7 @@ function normalizeGameIdentityPayload(value: unknown): {
 } {
   const payload = normalizeObjectPayload(value);
   const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
-  const platformIgdbId = Number.parseInt(String(payload.platformIgdbId ?? ''), 10);
+  const platformIgdbId = parseInteger(payload.platformIgdbId);
 
   if (!igdbGameId || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
     throw new Error('Invalid game delete payload.');
@@ -530,7 +548,7 @@ function normalizeGameIdentityPayload(value: unknown): {
 
 function normalizeIdPayload(value: unknown, label: string): { id: number } {
   const payload = normalizeObjectPayload(value);
-  const id = Number.parseInt(String(payload.id ?? ''), 10);
+  const id = parseInteger(payload.id);
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error(`Invalid ${label} payload id.`);

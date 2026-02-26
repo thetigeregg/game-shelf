@@ -198,10 +198,12 @@
 </ion-popover>
 
 <ion-modal
+  class="desktop-fullscreen-modal"
   #gameDetailModal
   [isOpen]="isGameDetailModalOpen"
+  [canDismiss]="canDismissGameDetailModal"
   [focusTrap]="!isEditMetadataModalOpen"
-  (didDismiss)="closeGameDetailModal()"
+  (didDismiss)="onGameDetailModalDidDismiss()"
 >
   <ng-template>
     <ion-header [translucent]="true">
@@ -279,120 +281,249 @@
     </ion-popover>
 
     @if (selectedGame; as game) {
-      <ion-content
-        #detailContent
-        class="detail-content gs-safe-bottom-with-offset"
-        [fullscreen]="true"
-        appAutoContentOffsets
-      >
-        <div class="detail-content-inner">
-          <app-game-detail-content
-            [game]="getDetailGamePayload(game)"
-            context="library"
-            [statusOptions]="statusOptions"
-            [ratingOptions]="ratingOptions"
-            (statusChange)="onSelectedGameStatusChange($event)"
-            (clearStatus)="clearSelectedGameStatus()"
-            (ratingChange)="onSelectedGameRatingChange($event)"
-            (clearRating)="clearSelectedGameRating()"
-            (openTags)="openSelectedGameTagsFromDetail()"
-            (developerClick)="onDetailDeveloperClick()"
-            (seriesClick)="onDetailSeriesClick()"
-            (franchiseClick)="onDetailFranchiseClick()"
-            (genreClick)="onDetailGenreClick()"
-            (publisherClick)="onDetailPublisherClick()"
-          ></app-game-detail-content>
-          <ion-list lines="full">
-            <ion-list-header class="similar-games-header">
-              <ion-label>Similar Games In Your Library</ion-label>
-            </ion-list-header>
-            @if (isSimilarLibraryGamesLoading) {
-              <ion-item>
-                <ion-spinner slot="start" name="crescent"></ion-spinner>
-                <ion-label>Loading similar games...</ion-label>
-              </ion-item>
-            }
-            @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length === 0) {
-              <ion-item>
-                <ion-label color="medium">No similar games found in your library.</ion-label>
-              </ion-item>
-            }
-            @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
-              @for (
-                similarGame of similarLibraryGames;
-                track trackByExternalId($index, similarGame)
-              ) {
-                <ng-container
-                  *ngTemplateOutlet="
-                    gameRowTemplate;
-                    context: { $implicit: similarGame, fromSimilarDetailSection: true }
-                  "
-                ></ng-container>
-              }
-            }
-          </ion-list>
-        </div>
-        <ion-fab
-          #detailShortcutsFab
-          slot="fixed"
-          vertical="bottom"
-          horizontal="end"
-          class="detail-shortcuts-fab"
-        >
-          <ion-fab-button size="small" aria-label="Open web shortcuts">
-            <ion-icon name="globe" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-          <ion-fab-list side="top" (click)="closeDetailShortcutsFab()">
-            @if (shouldShowOpenManualButton) {
-              <ion-fab-button
-                class="shortcut-manual"
-                aria-label="Open game manual PDF"
-                (click)="openManualPdf()"
-              >
-                <ion-icon name="document-text" aria-hidden="true"></ion-icon>
-              </ion-fab-button>
-            }
-            @if (shouldShowFindManualButton) {
-              <ion-fab-button
-                class="shortcut-manual-find"
-                aria-label="Find game manual PDF"
-                (click)="openManualPickerModal()"
-              >
-                <ion-icon name="search" aria-hidden="true"></ion-icon>
-              </ion-fab-button>
-            }
-            <ion-fab-button
-              class="shortcut-google"
-              aria-label="Search on Google"
-              (click)="openShortcutSearch('google')"
+      @if (isDesktopDetailLayout) {
+        <ion-split-pane class="detail-notes-split-pane" [contentId]="detailPrimaryPaneContentId">
+          @if (isNotesOpen) {
+            <ion-menu
+              class="detail-notes-menu"
+              side="end"
+              [contentId]="detailPrimaryPaneContentId"
+              [menuId]="notesMenuId"
+              [swipeGesture]="false"
             >
-              <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
-            </ion-fab-button>
-            <ion-fab-button
-              class="shortcut-youtube"
-              aria-label="Search on YouTube"
-              (click)="openShortcutSearch('youtube')"
-            >
-              <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
-            </ion-fab-button>
-            <ion-fab-button
-              class="shortcut-wikipedia"
-              aria-label="Search on Wikipedia"
-              (click)="openShortcutSearch('wikipedia')"
-            >
-              <span class="shortcut-text" aria-hidden="true">W</span>
-            </ion-fab-button>
-            <ion-fab-button
-              class="shortcut-gamefaqs"
-              aria-label="Search on GameFAQs"
-              (click)="openShortcutSearch('gamefaqs')"
-            >
-              <span class="shortcut-text" aria-hidden="true">G</span>
-            </ion-fab-button>
-          </ion-fab-list>
-        </ion-fab>
-      </ion-content>
+              <ng-container [ngTemplateOutlet]="notesPanelTemplate"></ng-container>
+            </ion-menu>
+          }
+          <ng-container
+            *ngTemplateOutlet="detailPrimaryPaneTemplate; context: { $implicit: game }"
+          ></ng-container>
+        </ion-split-pane>
+      } @else {
+        <ng-container
+          *ngTemplateOutlet="detailPrimaryPaneTemplate; context: { $implicit: game }"
+        ></ng-container>
+      }
     }
+  </ng-template>
+</ion-modal>
+
+<ng-template #detailPrimaryPaneTemplate let-game>
+  <ion-content
+    #detailContent
+    class="detail-content"
+    [class.gs-safe-bottom-with-offset]="!isDesktopDetailLayout"
+    [id]="detailPrimaryPaneContentId"
+    [fullscreen]="true"
+    appAutoContentOffsets
+  >
+    <div class="detail-content-inner">
+      <app-game-detail-content
+        [game]="getDetailGamePayload(game)"
+        context="library"
+        [statusOptions]="statusOptions"
+        [ratingOptions]="ratingOptions"
+        (statusChange)="onSelectedGameStatusChange($event)"
+        (clearStatus)="clearSelectedGameStatus()"
+        (ratingChange)="onSelectedGameRatingChange($event)"
+        (clearRating)="clearSelectedGameRating()"
+        (openTags)="openSelectedGameTagsFromDetail()"
+        (developerClick)="onDetailDeveloperClick()"
+        (seriesClick)="onDetailSeriesClick()"
+        (franchiseClick)="onDetailFranchiseClick()"
+        (genreClick)="onDetailGenreClick()"
+        (publisherClick)="onDetailPublisherClick()"
+      >
+        <ion-list lines="full" detail-secondary-content>
+          <ion-list-header class="similar-games-header">
+            <ion-label>Similar Games In Your Library</ion-label>
+          </ion-list-header>
+          @if (isSimilarLibraryGamesLoading) {
+            <ion-item>
+              <ion-spinner slot="start" name="crescent"></ion-spinner>
+              <ion-label>Loading similar games...</ion-label>
+            </ion-item>
+          }
+          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length === 0) {
+            <ion-item>
+              <ion-label color="medium">No similar games found in your library.</ion-label>
+            </ion-item>
+          }
+          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
+            @for (
+              similarGame of similarLibraryGames;
+              track trackByExternalId($index, similarGame)
+            ) {
+              <ng-container
+                *ngTemplateOutlet="
+                  gameRowTemplate;
+                  context: { $implicit: similarGame, fromSimilarDetailSection: true }
+                "
+              ></ng-container>
+            }
+          }
+        </ion-list>
+      </app-game-detail-content>
+    </div>
+    <ion-fab
+      #detailShortcutsFab
+      slot="fixed"
+      vertical="bottom"
+      horizontal="end"
+      class="detail-shortcuts-fab"
+    >
+      <ion-fab-button size="small" aria-label="Open web shortcuts">
+        <ion-icon name="globe" aria-hidden="true"></ion-icon>
+      </ion-fab-button>
+      <ion-fab-list side="top" (click)="closeDetailShortcutsFab()">
+        @if (shouldShowNotesShortcut) {
+          <ion-fab-button
+            class="shortcut-notes"
+            color="deep-ocean"
+            aria-label="Open notes editor"
+            (click)="openNotesEditor()"
+          >
+            <ion-icon name="document-text" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        @if (shouldShowOpenManualButton) {
+          <ion-fab-button
+            class="shortcut-manual"
+            color="ocean"
+            aria-label="Open game manual PDF"
+            (click)="openManualPdf()"
+          >
+            <ion-icon name="book" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        @if (shouldShowFindManualButton) {
+          <ion-fab-button
+            class="shortcut-manual-find"
+            color="dark-gray"
+            aria-label="Find game manual PDF"
+            (click)="openManualPickerModal()"
+          >
+            <ion-icon name="search" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        <ion-fab-button
+          class="shortcut-google"
+          color="forest"
+          aria-label="Search on Google"
+          (click)="openShortcutSearch('google')"
+        >
+          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
+        </ion-fab-button>
+        <ion-fab-button
+          class="shortcut-youtube"
+          color="firetruck"
+          aria-label="Search on YouTube"
+          (click)="openShortcutSearch('youtube')"
+        >
+          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
+        </ion-fab-button>
+        <ion-fab-button
+          class="shortcut-wikipedia"
+          color="white"
+          aria-label="Search on Wikipedia"
+          (click)="openShortcutSearch('wikipedia')"
+        >
+          <span class="shortcut-text" aria-hidden="true">W</span>
+        </ion-fab-button>
+        <ion-fab-button
+          class="shortcut-gamefaqs"
+          color="royal"
+          aria-label="Search on GameFAQs"
+          (click)="openShortcutSearch('gamefaqs')"
+        >
+          <span class="shortcut-text" aria-hidden="true">G</span>
+        </ion-fab-button>
+      </ion-fab-list>
+    </ion-fab>
+  </ion-content>
+</ng-template>
+
+<ng-template #noteEditorCoreTemplate>
+  <tiptap-editor class="detail-note-editor" [editor]="notesEditorInstance"></tiptap-editor>
+</ng-template>
+
+<ng-template #noteEditorToolbarTemplate>
+  <ion-buttons slot="start">
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('bold')"
+      aria-label="Bold"
+      (click)="applyNotesToolbar('bold')"
+    >
+      <i class="ri-bold" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('italic')"
+      aria-label="Italic"
+      (click)="applyNotesToolbar('italic')"
+    >
+      <i class="ri-italic" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('underline')"
+      aria-label="Underline"
+      (click)="applyNotesToolbar('underline')"
+    >
+      <i class="ri-underline" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('bullet')"
+      aria-label="Bullet list"
+      (click)="applyNotesToolbar('bullet')"
+    >
+      <i class="ri-list-unordered" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('number')"
+      aria-label="Numbered list"
+      (click)="applyNotesToolbar('number')"
+    >
+      <i class="ri-list-ordered-2" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('check')"
+      aria-label="Checklist"
+      (click)="applyNotesToolbar('check')"
+    >
+      <i class="ri-list-check-3" aria-hidden="true"></i>
+    </ion-button>
+    <ion-button
+      [fill]="getNotesToolbarButtonFill('details')"
+      aria-label="Details"
+      (click)="applyNotesToolbar('details')"
+    >
+      <i class="ri-t-box-line" aria-hidden="true"></i>
+    </ion-button>
+  </ion-buttons>
+</ng-template>
+
+<ng-template #notesPanelTemplate>
+  <ion-header>
+    <ion-toolbar>
+      <ion-title>Notes</ion-title>
+      <ion-buttons slot="end">
+        <ion-button fill="clear" (click)="closeNotesEditor()">Close</ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+    <ion-toolbar class="detail-notes-toolbar">
+      <ng-container [ngTemplateOutlet]="noteEditorToolbarTemplate"></ng-container>
+    </ion-toolbar>
+  </ion-header>
+  <ion-content class="detail-notes-content">
+    <ng-container [ngTemplateOutlet]="noteEditorCoreTemplate"></ng-container>
+  </ion-content>
+</ng-template>
+
+<ion-modal
+  [isOpen]="isNotesModalOpen"
+  [canDismiss]="canDismissNotesModal"
+  (didDismiss)="onNotesModalDidDismiss()"
+>
+  <ng-template>
+    <ng-container [ngTemplateOutlet]="notesPanelTemplate"></ng-container>
   </ng-template>
 </ion-modal>
 

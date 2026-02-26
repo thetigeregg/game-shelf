@@ -2,8 +2,10 @@ import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
+  MenuController,
+  PopoverController,
+  ToastController,
   IonHeader,
   IonToolbar,
   IonButtons,
@@ -193,7 +195,7 @@ export class ListPageComponent {
   private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    const rawListType = this.route.snapshot.data['listType'];
+    const rawListType = this.route.snapshot.data['listType'] as unknown;
     const config = buildConfig(rawListType === 'wishlist' ? 'wishlist' : 'collection');
     this.listType = config.listType;
     this.preferenceStorageKey = config.preferenceStorageKey;
@@ -508,7 +510,9 @@ export class ListPageComponent {
   }
 
   getSelectionHeaderLabel(): string {
-    return this.selectedGamesCount === 1 ? '1 selected' : `${this.selectedGamesCount} selected`;
+    return this.selectedGamesCount === 1
+      ? '1 selected'
+      : `${String(this.selectedGamesCount)} selected`;
   }
 
   getMoveTargetLabel(): 'Collection' | 'Wishlist' {
@@ -573,11 +577,11 @@ export class ListPageComponent {
     return count;
   }
 
-  async clearSelectionMode(): Promise<void> {
+  clearSelectionMode(): void {
     this.gameListComponent?.clearSelectionMode();
   }
 
-  async toggleSelectAll(): Promise<void> {
+  toggleSelectAll(): void {
     this.gameListComponent?.toggleSelectAllDisplayed();
   }
 
@@ -638,12 +642,14 @@ export class ListPageComponent {
   }
 
   getDisplayedGamesLabel(): string {
-    return this.displayedGames.length === 1 ? '1 game' : `${this.displayedGames.length} games`;
+    return this.displayedGames.length === 1
+      ? '1 game'
+      : `${String(this.displayedGames.length)} games`;
   }
 
   getListCountSummary(): string {
     const count = Math.max(0, this.displayedGames.length);
-    return count === 1 ? '1 game' : `${count} games`;
+    return count === 1 ? '1 game' : `${String(count)} games`;
   }
 
   private async presentToast(
@@ -699,7 +705,7 @@ export class ListPageComponent {
   }
 
   private async applyViewFromQueryParam(rawViewId: string | null): Promise<void> {
-    const parsed = Number.parseInt(String(rawViewId ?? ''), 10);
+    const parsed = Number.parseInt(rawViewId ?? '', 10);
 
     if (!Number.isInteger(parsed) || parsed <= 0) {
       return;

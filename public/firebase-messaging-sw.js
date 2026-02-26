@@ -1,11 +1,10 @@
-/* eslint-disable no-undef */
 const defaultConfig = {
   apiKey: '',
   authDomain: '',
   projectId: '',
   storageBucket: '',
   messagingSenderId: '',
-  appId: '',
+  appId: ''
 };
 const configFromQuery = (() => {
   try {
@@ -38,18 +37,18 @@ try {
 }
 
 if (messaging) {
-  messaging.onBackgroundMessage(payload => {
+  messaging.onBackgroundMessage((payload) => {
     const notification = payload.notification || {};
     const title = notification.title || 'Game Shelf';
     const options = {
       body: notification.body || '',
-      data: payload.data || {},
+      data: payload.data || {}
     };
     self.registration.showNotification(title, options);
   });
 }
 
-self.addEventListener('notificationclick', event => {
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const route = event.notification?.data?.route || '/tabs/wishlist';
   event.waitUntil(clients.openWindow(route));

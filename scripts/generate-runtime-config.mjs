@@ -63,14 +63,14 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
-let envValues = {};
+let dotenvValues = {};
 let appVersion = '0.0.0';
 
 try {
   const envContent = readFileSync(ENV_PATH, 'utf8');
-  envValues = parseDotEnv(envContent);
+  dotenvValues = parseDotEnv(envContent);
 } catch {
-  envValues = {};
+  dotenvValues = {};
 }
 
 try {
@@ -82,7 +82,14 @@ try {
   appVersion = '0.0.0';
 }
 
+// Allow CI/e2e/runtime environment variables to override local .env values.
+const envValues = {
+  ...dotenvValues,
+  ...process.env
+};
+
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
+const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);
 
 const output = `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
@@ -91,6 +98,7 @@ const output = `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
     appVersion: ${JSON.stringify(appVersion)},
     featureFlags: {
       showMgcImport: ${showMgcImport},
+      e2eFixtures: ${e2eFixtures},
     },
   },
 );

@@ -7,13 +7,17 @@ const RELEASE_NOTIFICATIONS_ENABLED_KEY = 'game-shelf:notifications:release:enab
 const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-type ReleaseEventType = 'release_date_set' | 'release_date_changed' | 'release_date_removed' | 'release_day';
+type ReleaseEventType =
+  | 'release_date_set'
+  | 'release_date_changed'
+  | 'release_date_removed'
+  | 'release_day';
 type ReleaseState = 'unknown' | 'scheduled' | 'released';
 
 interface DueGameRow {
   igdb_game_id: string;
   platform_igdb_id: number;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | null;
   watch_exists: boolean;
   last_known_release_date: string | null;
   last_known_release_year: number | null;
@@ -74,7 +78,9 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   }, intervalMs);
 
   return {
-    stop: () => clearInterval(timer),
+    stop: () => {
+      clearInterval(timer);
+    }
   };
 }
 
@@ -98,7 +104,7 @@ async function processDueGames(pool: Pool): Promise<void> {
     ORDER BY COALESCE(rws.next_check_at, NOW()) ASC
     LIMIT $1
     `,
-    [config.releaseMonitorBatchSize],
+    [config.releaseMonitorBatchSize]
   );
 
   if (dueRows.rows.length === 0) {
@@ -107,9 +113,9 @@ async function processDueGames(pool: Pool): Promise<void> {
 
   const preferences = await readNotificationPreferences(pool);
   const tokenRows = await pool.query<{ token: string }>(
-    'SELECT token FROM fcm_tokens WHERE is_active = TRUE',
+    'SELECT token FROM fcm_tokens WHERE is_active = TRUE'
   );
-  const activeTokens = tokenRows.rows.map(row => row.token);
+  const activeTokens = tokenRows.rows.map((row) => row.token);
 
   for (const row of dueRows.rows) {
     await processGameRow(pool, row, preferences, activeTokens);
@@ -120,7 +126,7 @@ async function processGameRow(
   pool: Pool,
   row: DueGameRow,
   preferences: NotificationPreferences,
-  activeTokens: string[],
+  activeTokens: string[]
 ): Promise<void> {
   const now = new Date();
   const nowIso = now.toISOString();
@@ -130,8 +136,12 @@ async function processGameRow(
   const title = stringOrFallback(originalPayload['title'], 'Unknown title');
   const platformName = stringOrNull(originalPayload['platform']);
   const platformIgdbId = row.platform_igdb_id;
-  const releaseDateBefore = normalizeDateString(row.last_known_release_date ?? stringOrNull(originalPayload['releaseDate']));
-  const releaseYearBefore = integerOrNull(row.last_known_release_year ?? originalPayload['releaseYear']);
+  const releaseDateBefore = normalizeDateString(
+    row.last_known_release_date ?? stringOrNull(originalPayload['releaseDate'])
+  );
+  const releaseYearBefore = integerOrNull(
+    row.last_known_release_year ?? originalPayload['releaseYear']
+  );
 
   let lastHltbRefreshAt = row.last_hltb_refresh_at;
 
@@ -146,7 +156,8 @@ async function processGameRow(
     const releaseDateAfter = normalizeDateString(stringOrNull(mergedPayload['releaseDate']));
     const releaseYearAfter = integerOrNull(mergedPayload['releaseYear']);
     const releaseStateAfter = deriveReleaseState(releaseDateAfter, now);
-    const releaseStateBefore = normalizeReleaseState(row.last_seen_state) ?? deriveReleaseState(releaseDateBefore, now);
+    const releaseStateBefore =
+      normalizeReleaseState(row.last_seen_state) ?? deriveReleaseState(releaseDateBefore, now);
     const hltbEligible = isWithinPastYears(releaseDateAfter, now, config.hltbPeriodicRefreshYears);
     const hasExistingHltb = hasHltbValues(mergedPayload);
 
@@ -161,7 +172,7 @@ async function processGameRow(
       const refreshedHltb = await fetchHltbPayload({
         title: stringOrFallback(mergedPayload['title'], title),
         releaseYear: integerOrNull(mergedPayload['releaseYear']),
-        platform: stringOrNull(mergedPayload['platform']) ?? platformName,
+        platform: stringOrNull(mergedPayload['platform']) ?? platformName
       });
 
       if (refreshedHltb) {
@@ -169,7 +180,7 @@ async function processGameRow(
           ...mergedPayload,
           hltbMainHours: numberOrNull(refreshedHltb.hltbMainHours),
           hltbMainExtraHours: numberOrNull(refreshedHltb.hltbMainExtraHours),
-          hltbCompletionistHours: numberOrNull(refreshedHltb.hltbCompletionistHours),
+          hltbCompletionistHours: numberOrNull(refreshedHltb.hltbCompletionistHours)
         };
       }
       lastHltbRefreshAt = nowIso;
@@ -182,13 +193,13 @@ async function processGameRow(
     const releaseEvents = isBootstrap
       ? []
       : buildReleaseEvents({
-        igdbGameId: row.igdb_game_id,
-        platformIgdbId,
-        title: stringOrFallback(mergedPayload['title'], title),
-        releaseDateBefore,
-        releaseDateAfter,
-        now,
-      });
+          igdbGameId: row.igdb_game_id,
+          platformIgdbId,
+          title: stringOrFallback(mergedPayload['title'], title),
+          releaseDateBefore,
+          releaseDateAfter,
+          now
+        });
 
     const sentEventTypes = new Set<ReleaseEventType>();
     const lastNotifiedReleaseDay = normalizeDateString(row.last_notified_release_day);
@@ -198,8 +209,9 @@ async function processGameRow(
         continue;
       }
 
-      const shouldSkipReleaseDay = event.type === 'release_day'
-        && lastNotifiedReleaseDay === normalizeDateString(event.releaseDate);
+      const shouldSkipReleaseDay =
+        event.type === 'release_day' &&
+        lastNotifiedReleaseDay === normalizeDateString(event.releaseDate);
       if (shouldSkipReleaseDay) {
         continue;
       }
@@ -222,8 +234,8 @@ async function processGameRow(
           igdbGameId: row.igdb_game_id,
           platformIgdbId: String(platformIgdbId),
           releaseDate: event.releaseDate ?? '',
-          route: '/tabs/wishlist',
-        },
+          route: '/tabs/wishlist'
+        }
       });
 
       if (sendResult.successCount <= 0) {
@@ -232,7 +244,13 @@ async function processGameRow(
 
       sentEventTypes.add(event.type);
 
-      await insertNotificationLog(pool, event, row.igdb_game_id, platformIgdbId, sendResult.successCount);
+      await insertNotificationLog(
+        pool,
+        event,
+        row.igdb_game_id,
+        platformIgdbId,
+        sendResult.successCount
+      );
 
       if (sendResult.invalidTokens.length > 0) {
         await pool.query(
@@ -241,7 +259,7 @@ async function processGameRow(
           SET is_active = FALSE, updated_at = NOW()
           WHERE token = ANY($1::text[])
           `,
-          [sendResult.invalidTokens],
+          [sendResult.invalidTokens]
         );
       }
     }
@@ -258,7 +276,7 @@ async function processGameRow(
       nextCheckAt,
       sentEventTypes,
       releaseDateBefore,
-      releaseStateBefore,
+      releaseStateBefore
     });
   } catch (error) {
     const nextCheckAt = new Date(Date.now() + ONE_DAY_MS).toISOString();
@@ -288,14 +306,14 @@ async function processGameRow(
         releaseYearBefore,
         normalizeReleaseState(row.last_seen_state) ?? 'unknown',
         nextCheckAt,
-        error instanceof Error ? error.message : String(error),
-      ],
+        error instanceof Error ? error.message : String(error)
+      ]
     );
     if (config.releaseMonitorDebugLogs) {
       console.warn('[release-monitor] game_failed', {
         igdbGameId: row.igdb_game_id,
         platformIgdbId: row.platform_igdb_id,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
@@ -307,7 +325,7 @@ async function fetchGameById(igdbGameId: string): Promise<Record<string, unknown
     return null;
   }
 
-  const payload = await response.json() as { item?: unknown };
+  const payload = (await response.json()) as { item?: unknown };
   return isRecord(payload.item) ? payload.item : null;
 }
 
@@ -319,7 +337,11 @@ interface HltbApiResponse {
   } | null;
 }
 
-async function fetchHltbPayload(params: { title: string; releaseYear: number | null; platform: string | null }): Promise<HltbApiResponse['item'] | null> {
+async function fetchHltbPayload(params: {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+}): Promise<HltbApiResponse['item'] | null> {
   if (params.title.trim().length < 2) {
     return null;
   }
@@ -327,20 +349,26 @@ async function fetchHltbPayload(params: { title: string; releaseYear: number | n
   const response = await fetchMetadataPathFromWorker('/v1/hltb/search', {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
-    platform: params.platform ?? undefined,
+    platform: params.platform ?? undefined
   });
   if (!response.ok) {
     return null;
   }
 
-  const payload = await response.json() as HltbApiResponse;
+  const payload = (await response.json()) as HltbApiResponse;
   return payload.item ?? null;
 }
 
-function mergePayloadForRefresh(existing: Record<string, unknown>, refreshed: Record<string, unknown>): Record<string, unknown> {
+function mergePayloadForRefresh(
+  existing: Record<string, unknown>,
+  refreshed: Record<string, unknown>
+): Record<string, unknown> {
   return {
     ...existing,
-    title: stringOrFallback(refreshed['title'], stringOrFallback(existing['title'], 'Unknown title')),
+    title: stringOrFallback(
+      refreshed['title'],
+      stringOrFallback(existing['title'], 'Unknown title')
+    ),
     storyline: stringOrNull(refreshed['storyline']),
     summary: stringOrNull(refreshed['summary']),
     gameType: stringOrNull(refreshed['gameType']),
@@ -352,11 +380,16 @@ function mergePayloadForRefresh(existing: Record<string, unknown>, refreshed: Re
     publishers: arrayOfStringsOrEmpty(refreshed['publishers']),
     releaseDate: stringOrNull(refreshed['releaseDate']),
     releaseYear: integerOrNull(refreshed['releaseYear']),
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 }
 
-async function upsertGamePayload(pool: Pool, igdbGameId: string, platformIgdbId: number, payload: Record<string, unknown>): Promise<void> {
+async function upsertGamePayload(
+  pool: Pool,
+  igdbGameId: string,
+  platformIgdbId: number,
+  payload: Record<string, unknown>
+): Promise<void> {
   const client = await pool.connect();
 
   try {
@@ -368,9 +401,15 @@ async function upsertGamePayload(pool: Pool, igdbGameId: string, platformIgdbId:
       ON CONFLICT (igdb_game_id, platform_igdb_id)
       DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
       `,
-      [igdbGameId, platformIgdbId, JSON.stringify(payload)],
+      [igdbGameId, platformIgdbId, JSON.stringify(payload)]
     );
-    await appendSyncEvent(client, 'game', `${igdbGameId}::${platformIgdbId}`, 'upsert', payload);
+    await appendSyncEvent(
+      client,
+      'game',
+      `${igdbGameId}::${String(platformIgdbId)}`,
+      'upsert',
+      payload
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -385,14 +424,14 @@ async function appendSyncEvent(
   entityType: 'game',
   entityKey: string,
   operation: 'upsert',
-  payload: unknown,
+  payload: unknown
 ): Promise<void> {
   await client.query(
     `
     INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)
     VALUES ($1, $2, $3, $4::jsonb, NOW())
     `,
-    [entityType, entityKey, operation, JSON.stringify(payload)],
+    [entityType, entityKey, operation, JSON.stringify(payload)]
   );
 }
 
@@ -403,11 +442,13 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
     FROM settings
     WHERE setting_key = ANY($1::text[])
     `,
-    [[RELEASE_NOTIFICATIONS_ENABLED_KEY, RELEASE_NOTIFICATION_EVENTS_KEY]],
+    [[RELEASE_NOTIFICATIONS_ENABLED_KEY, RELEASE_NOTIFICATION_EVENTS_KEY]]
   );
 
-  const valueByKey = new Map(result.rows.map(row => [row.setting_key, row.setting_value]));
-  const enabledRaw = String(valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY) ?? 'true').trim().toLowerCase();
+  const valueByKey = new Map(result.rows.map((row) => [row.setting_key, row.setting_value]));
+  const enabledRaw = (valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY) ?? 'true')
+    .trim()
+    .toLowerCase();
   const enabled = enabledRaw !== 'false' && enabledRaw !== '0' && enabledRaw !== 'no';
   const eventDefaults = { set: true, changed: true, removed: true, day: true };
   const eventsRaw = valueByKey.get(RELEASE_NOTIFICATION_EVENTS_KEY);
@@ -424,8 +465,8 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
         set: parsed['set'] === false ? false : true,
         changed: parsed['changed'] === false ? false : true,
         removed: parsed['removed'] === false ? false : true,
-        day: parsed['day'] === false ? false : true,
-      },
+        day: parsed['day'] === false ? false : true
+      }
     };
   } catch {
     return { enabled, events: eventDefaults };
@@ -469,8 +510,8 @@ function buildReleaseEvents(args: {
       type: 'release_date_set',
       title: `${args.title}: Release date set`,
       body: `${args.title} now has a release date (${after}).`,
-      eventKey: `release_date_set:${args.igdbGameId}:${args.platformIgdbId}:${after}`,
-      releaseDate: after,
+      eventKey: `release_date_set:${args.igdbGameId}:${String(args.platformIgdbId)}:${after}`,
+      releaseDate: after
     });
   }
 
@@ -479,8 +520,8 @@ function buildReleaseEvents(args: {
       type: 'release_date_changed',
       title: `${args.title}: Release date changed`,
       body: `${args.title} moved from ${before} to ${after}.`,
-      eventKey: `release_date_changed:${args.igdbGameId}:${args.platformIgdbId}:${before}:${after}`,
-      releaseDate: after,
+      eventKey: `release_date_changed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before}:${after}`,
+      releaseDate: after
     });
   }
 
@@ -489,8 +530,8 @@ function buildReleaseEvents(args: {
       type: 'release_date_removed',
       title: `${args.title}: Release date removed`,
       body: `${args.title} no longer has a confirmed release date.`,
-      eventKey: `release_date_removed:${args.igdbGameId}:${args.platformIgdbId}:${before}`,
-      releaseDate: null,
+      eventKey: `release_date_removed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before}`,
+      releaseDate: null
     });
   }
 
@@ -499,8 +540,8 @@ function buildReleaseEvents(args: {
       type: 'release_day',
       title: `${args.title} releases today`,
       body: `${args.title} has reached its scheduled release date.`,
-      eventKey: `release_day:${args.igdbGameId}:${args.platformIgdbId}:${after}`,
-      releaseDate: after,
+      eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after}`,
+      releaseDate: after
     });
   }
 
@@ -510,10 +551,10 @@ function buildReleaseEvents(args: {
 async function hasNotificationLog(pool: Pool, eventKey: string): Promise<boolean> {
   const result = await pool.query<{ exists: boolean }>(
     'SELECT EXISTS(SELECT 1 FROM release_notification_log WHERE event_key = $1) AS exists',
-    [eventKey],
+    [eventKey]
   );
 
-  return result.rows[0]?.exists === true;
+  return result.rows[0]?.exists ?? false;
 }
 
 async function insertNotificationLog(
@@ -521,7 +562,7 @@ async function insertNotificationLog(
   event: ReleaseEvent,
   igdbGameId: string,
   platformIgdbId: number,
-  sentCount: number,
+  sentCount: number
 ): Promise<boolean> {
   try {
     await pool.query(
@@ -537,10 +578,10 @@ async function insertNotificationLog(
         JSON.stringify({
           title: event.title,
           body: event.body,
-          releaseDate: event.releaseDate,
+          releaseDate: event.releaseDate
         }),
-        sentCount,
-      ],
+        sentCount
+      ]
     );
     return true;
   } catch {
@@ -562,12 +603,17 @@ async function upsertWatchState(
     sentEventTypes: Set<ReleaseEventType>;
     releaseDateBefore: string | null;
     releaseStateBefore: ReleaseState;
-  },
+  }
 ): Promise<void> {
   const updateSetAt = args.sentEventTypes.has('release_date_set') ? new Date().toISOString() : null;
-  const updateChangeAt = args.sentEventTypes.has('release_date_changed') ? new Date().toISOString() : null;
-  const updateUnsetAt = args.sentEventTypes.has('release_date_removed') ? new Date().toISOString() : null;
-  const updateReleaseDay = args.sentEventTypes.has('release_day') && args.releaseDate ? args.releaseDate : null;
+  const updateChangeAt = args.sentEventTypes.has('release_date_changed')
+    ? new Date().toISOString()
+    : null;
+  const updateUnsetAt = args.sentEventTypes.has('release_date_removed')
+    ? new Date().toISOString()
+    : null;
+  const updateReleaseDay =
+    args.sentEventTypes.has('release_day') && args.releaseDate ? args.releaseDate : null;
 
   await pool.query(
     `
@@ -615,8 +661,8 @@ async function upsertWatchState(
       updateSetAt,
       updateChangeAt,
       updateUnsetAt,
-      updateReleaseDay,
-    ],
+      updateReleaseDay
+    ]
   );
 
   if (config.releaseMonitorDebugLogs) {
@@ -628,7 +674,7 @@ async function upsertWatchState(
       releaseStateBefore: args.releaseStateBefore,
       releaseStateAfter: args.releaseState,
       nextCheckAt: args.nextCheckAt,
-      sentEvents: [...args.sentEventTypes],
+      sentEvents: [...args.sentEventTypes]
     });
   }
 }
@@ -637,7 +683,7 @@ function computeNextCheckAt(
   releaseDate: string | null,
   now: Date,
   hltbEligible: boolean,
-  lastHltbRefreshAt: string | null,
+  lastHltbRefreshAt: string | null
 ): string {
   const nowMs = now.getTime();
   let nextReleaseCheckMs = nowMs + ONE_DAY_MS;
@@ -670,7 +716,11 @@ function computeNextCheckAt(
   return new Date(Math.min(nextReleaseCheckMs, nextHltbCheckMs)).toISOString();
 }
 
-function isHltbRefreshDue(lastHltbRefreshAt: string | null, payload: Record<string, unknown>, now: Date): boolean {
+function isHltbRefreshDue(
+  lastHltbRefreshAt: string | null,
+  payload: Record<string, unknown>,
+  now: Date
+): boolean {
   const hasHltb = hasHltbValues(payload);
   if (!hasHltb) {
     return true;
@@ -690,9 +740,11 @@ function isHltbRefreshDue(lastHltbRefreshAt: string | null, payload: Record<stri
 }
 
 function hasHltbValues(payload: Record<string, unknown>): boolean {
-  return numberOrNull(payload['hltbMainHours']) !== null
-    || numberOrNull(payload['hltbMainExtraHours']) !== null
-    || numberOrNull(payload['hltbCompletionistHours']) !== null;
+  return (
+    numberOrNull(payload['hltbMainHours']) !== null ||
+    numberOrNull(payload['hltbMainExtraHours']) !== null ||
+    numberOrNull(payload['hltbCompletionistHours']) !== null
+  );
 }
 
 function deriveReleaseState(releaseDate: string | null, now: Date): ReleaseState {
@@ -753,8 +805,16 @@ function stringOrFallback(value: unknown, fallback: string): string {
 }
 
 function integerOrNull(value: unknown): number | null {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  return Number.isInteger(parsed) ? parsed : null;
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -771,8 +831,8 @@ function arrayOfStringsOrEmpty(value: unknown): string[] {
   }
 
   return value
-    .map(entry => (typeof entry === 'string' ? entry.trim() : ''))
-    .filter(entry => entry.length > 0);
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter((entry) => entry.length > 0);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

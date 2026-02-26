@@ -21,7 +21,9 @@ export interface ReleaseNotificationEventsPreference {
 export class NotificationService {
   private readonly httpClient = inject(HttpClient);
   private readonly messaging = inject(Messaging, { optional: true });
-  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, { optional: true });
+  private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
+    optional: true
+  });
   private initialized = false;
 
   async initialize(): Promise<void> {
@@ -41,7 +43,7 @@ export class NotificationService {
       return;
     }
 
-    onMessage(this.messaging, payload => {
+    onMessage(this.messaging, (payload) => {
       console.info('[notifications] foreground_message', payload);
     });
 
@@ -85,7 +87,7 @@ export class NotificationService {
           set: true,
           changed: true,
           removed: true,
-          day: true,
+          day: true
         };
       }
 
@@ -94,14 +96,14 @@ export class NotificationService {
         set: parsed['set'] === false ? false : true,
         changed: parsed['changed'] === false ? false : true,
         removed: parsed['removed'] === false ? false : true,
-        day: parsed['day'] === false ? false : true,
+        day: parsed['day'] === false ? false : true
       };
     } catch {
       return {
         set: true,
         changed: true,
         removed: true,
-        day: true,
+        day: true
       };
     }
   }
@@ -191,10 +193,9 @@ export class NotificationService {
 
     if (storedToken) {
       await firstValueFrom(
-        this.httpClient.post(
-          `${environment.gameApiBaseUrl}/v1/notifications/fcm/unregister`,
-          { token: storedToken },
-        ),
+        this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/unregister`, {
+          token: storedToken
+        })
       ).catch(() => undefined);
     }
 
@@ -209,13 +210,15 @@ export class NotificationService {
     }
   }
 
-  private async registerCurrentDevice(): Promise<{ ok: true; token: string } | { ok: false; message: string }> {
+  private async registerCurrentDevice(): Promise<
+    { ok: true; token: string } | { ok: false; message: string }
+  > {
     if (!this.messaging) {
       return { ok: false, message: 'Notifications are not available in this app session.' };
     }
 
     const serviceWorkerRegistration = await this.resolveServiceWorkerRegistration();
-    const vapidKey = String(environment.firebaseVapidKey ?? '').trim();
+    const vapidKey = environment.firebaseVapidKey.trim();
 
     if (!serviceWorkerRegistration) {
       return { ok: false, message: 'Unable to register notification service worker.' };
@@ -227,27 +230,28 @@ export class NotificationService {
 
     const token = await getToken(this.messaging, {
       vapidKey,
-      serviceWorkerRegistration,
+      serviceWorkerRegistration
     }).catch((error: unknown) => {
       console.error('[notifications] token_registration_failed', error);
       return null;
     });
 
     if (!token) {
-      return { ok: false, message: 'Unable to register the device for notifications. Check Firebase web config/VAPID values.' };
+      return {
+        ok: false,
+        message:
+          'Unable to register the device for notifications. Check Firebase web config/VAPID values.'
+      };
     }
 
     await firstValueFrom(
-      this.httpClient.post(
-        `${environment.gameApiBaseUrl}/v1/notifications/fcm/register`,
-        {
-          token,
-          platform: this.resolveDevicePlatform(),
-          appVersion: this.resolveUserAgentPlatform(),
-          userAgent: navigator.userAgent,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
-        },
-      ),
+      this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/register`, {
+        token,
+        platform: this.resolveDevicePlatform(),
+        appVersion: this.resolveUserAgentPlatform(),
+        userAgent: navigator.userAgent,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      })
     ).catch((error: unknown) => {
       console.error('[notifications] backend_register_failed', error);
       return null;
@@ -263,10 +267,6 @@ export class NotificationService {
   }
 
   private async resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
-    if (typeof navigator === 'undefined' || !navigator.serviceWorker) {
-      return null;
-    }
-
     const workerUrl = this.buildFirebaseWorkerUrl();
 
     try {
@@ -327,7 +327,7 @@ export class NotificationService {
     void this.outboxWriter.enqueueOperation({
       entityType: 'setting',
       operation: 'upsert',
-      payload: { key, value },
+      payload: { key, value }
     });
   }
 }

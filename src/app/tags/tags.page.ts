@@ -1,8 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import {
+  AlertController,
+  PopoverController,
+  ToastController,
   IonHeader,
   IonToolbar,
   IonButtons,
@@ -20,6 +20,8 @@ import {
   IonModal,
   IonInput
 } from '@ionic/angular/standalone';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { TagSummary } from '../core/models/game.models';
@@ -145,7 +147,7 @@ export class TagsPage implements OnInit {
   }
 
   getActionsTriggerId(tag: TagSummary): string {
-    return `tag-actions-trigger-${tag.id ?? tag.name}`;
+    return `tag-actions-trigger-${typeof tag.id === 'number' ? String(tag.id) : tag.name}`;
   }
 
   getTagTextColor(color: string): string {

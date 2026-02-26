@@ -61,8 +61,8 @@ import {
   IonSplitPane
 } from '@ionic/angular/standalone';
 import { Editor } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
+import tiptapStarterKit from '@tiptap/starter-kit';
+import tiptapUnderline from '@tiptap/extension-underline';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { TiptapEditorDirective } from 'ngx-tiptap';
@@ -3390,8 +3390,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     this.notesEditor = new Editor({
       extensions: [
-        StarterKit,
-        Underline,
+        tiptapStarterKit,
+        tiptapUnderline,
         TaskList,
         TaskItem.configure({ nested: true }),
         Details.configure({ persist: true }),

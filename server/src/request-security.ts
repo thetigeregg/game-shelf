@@ -27,9 +27,7 @@ interface MutatingRequestAuthOptions {
  * protected even as routes evolve over time.
  */
 export function shouldRequireAuth(method: string): boolean {
-  const normalized = String(method ?? '')
-    .trim()
-    .toUpperCase();
+  const normalized = method.trim().toUpperCase();
 
   if (!normalized) {
     return true;
@@ -54,7 +52,7 @@ function isAuthorizedBearerToken(
   authorizationHeader: string | string[] | undefined,
   apiToken: string
 ): boolean {
-  const configuredToken = String(apiToken ?? '').trim();
+  const configuredToken = apiToken.trim();
 
   if (configuredToken.length === 0) {
     return false;
@@ -85,7 +83,7 @@ function isAuthorizedClientWriteToken(
 
 function normalizeHeaderValue(value: string | string[] | undefined): string {
   const raw = Array.isArray(value) ? value[0] : value;
-  return String(raw ?? '').trim();
+  return (raw ?? '').trim();
 }
 
 function timingSafeStringEqual(a: string, b: string): boolean {

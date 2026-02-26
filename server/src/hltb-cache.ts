@@ -77,9 +77,9 @@ export async function registerHltbCachedRoute(
             'SELECT response_json, updated_at FROM hltb_search_cache WHERE cache_key = $1 LIMIT 1',
             [cacheKey]
           );
-          const cachedRow = cached.rows[0];
+          const cachedRow = cached.rows[0] as HltbCacheRow | undefined;
 
-          if (cachedRow && normalized) {
+          if (cachedRow) {
             if (!isCacheableHltbPayload(normalized, cachedRow.response_json)) {
               await deleteHltbCacheEntry(pool, cacheKey, request);
             } else {
@@ -92,7 +92,7 @@ export async function registerHltbCachedRoute(
                 return;
               }
 
-              if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds && normalized) {
+              if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds) {
                 incrementHltbMetric('hits');
                 incrementHltbMetric('staleServed');
                 const scheduled = scheduleHltbRevalidation(
@@ -150,7 +150,7 @@ function normalizeHltbQuery(rawUrl: string): NormalizedHltbQuery | null {
   const releaseYear = /^\d{4}$/.test(rawYear) ? Number.parseInt(rawYear, 10) : null;
   const rawPlatform = (url.searchParams.get('platform') ?? '').trim();
   const platform = rawPlatform.length > 0 ? rawPlatform : null;
-  const rawIncludeCandidates = String(url.searchParams.get('includeCandidates') ?? '')
+  const rawIncludeCandidates = (url.searchParams.get('includeCandidates') ?? '')
     .trim()
     .toLowerCase();
   const includeCandidates =
@@ -191,7 +191,7 @@ function getAgeSeconds(updatedAt: string, nowMs: number): number {
   return Math.max(0, (nowMs - updatedMs) / 1000);
 }
 
-async function safeReadJson(response: Response): Promise<unknown | null> {
+async function safeReadJson(response: Response): Promise<unknown> {
   try {
     return await response.clone().json();
   } catch {

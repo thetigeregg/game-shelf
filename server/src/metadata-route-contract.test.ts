@@ -12,61 +12,74 @@ function createJsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-async function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = String(input);
+function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url =
+    input instanceof URL
+      ? input.href
+      : typeof input === 'string'
+        ? input
+        : input instanceof Request
+          ? input.url
+          : '';
   const parsedUrl = new URL(url);
 
   if (url.includes('id.twitch.tv/oauth2/token')) {
-    return createJsonResponse({
-      access_token: 'stub-token',
-      expires_in: 3600
-    });
+    return Promise.resolve(
+      createJsonResponse({
+        access_token: 'stub-token',
+        expires_in: 3600
+      })
+    );
   }
 
   if (url.includes('/v4/games')) {
-    const body = String(init?.body ?? '');
+    const body = typeof init?.body === 'string' ? init.body : '';
 
     if (body.includes('where id =')) {
-      return createJsonResponse([
-        {
-          id: 1,
-          name: 'Stub Game',
-          first_release_date: 0,
-          platforms: []
-        }
-      ]);
+      return Promise.resolve(
+        createJsonResponse([
+          {
+            id: 1,
+            name: 'Stub Game',
+            first_release_date: 0,
+            platforms: []
+          }
+        ])
+      );
     }
 
-    return createJsonResponse([]);
+    return Promise.resolve(createJsonResponse([]));
   }
 
   if (url.includes('/v4/platforms')) {
-    return createJsonResponse([]);
+    return Promise.resolve(createJsonResponse([]));
   }
 
   if (url.includes('/v4/popularity_types')) {
-    return createJsonResponse([]);
+    return Promise.resolve(createJsonResponse([]));
   }
 
   if (url.includes('/v4/popularity_primitives')) {
-    return createJsonResponse([]);
+    return Promise.resolve(createJsonResponse([]));
   }
 
   if (parsedUrl.hostname === 'thegamesdb.net') {
-    return createJsonResponse({
-      data: {
-        games: [],
-        boxart: {
-          base_url: {
-            small: '',
-            thumb: ''
+    return Promise.resolve(
+      createJsonResponse({
+        data: {
+          games: [],
+          boxart: {
+            base_url: {
+              small: '',
+              thumb: ''
+            }
           }
         }
-      }
-    });
+      })
+    );
   }
 
-  return createJsonResponse({});
+  return Promise.resolve(createJsonResponse({}));
 }
 
 function sampleUrlForServerProxyPath(path: string): string {
@@ -87,7 +100,7 @@ function sampleUrlForServerProxyPath(path: string): string {
   return normalizedPath;
 }
 
-test('all server metadata proxy routes are implemented by worker handler', async () => {
+void test('all server metadata proxy routes are implemented by worker handler', async () => {
   const indexSource = await readFile(new URL('./index.ts', import.meta.url), 'utf8');
   const proxyGetMatches = [
     ...indexSource.matchAll(/app\.get\('([^']+)',\s*proxyMetadataToWorker\);/g)

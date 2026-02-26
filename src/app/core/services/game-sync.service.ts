@@ -433,15 +433,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private normalizeNotes(value: unknown): string | null {
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    const normalized = value.replace(/\r\n?/g, '\n');
-    const safeHtml = this.htmlSanitizer.sanitizeHtml(normalized);
-    const plainText = this.htmlSanitizer.sanitizeToPlainText(safeHtml).trim();
-
-    return plainText.length > 0 ? safeHtml : null;
+    return this.htmlSanitizer.sanitizeNotesOrNull(value);
   }
 
   private async applyTagChange(change: SyncChangeEvent): Promise<void> {

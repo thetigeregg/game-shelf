@@ -2,8 +2,10 @@ import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MenuController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import {
+  MenuController,
+  PopoverController,
+  ToastController,
   IonHeader,
   IonToolbar,
   IonButtons,

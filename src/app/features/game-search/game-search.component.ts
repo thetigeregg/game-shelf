@@ -10,8 +10,8 @@ import {
   inject
 } from '@angular/core';
 
-import { AlertController } from '@ionic/angular/standalone';
 import {
+  AlertController,
   IonItem,
   IonSelect,
   IonSelectOption,

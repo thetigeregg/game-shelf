@@ -6,32 +6,32 @@ import { registerSyncRoutes } from './sync.js';
 class FakeSyncClient {
   private latestEventId = 0;
 
-  async query<T>(sql: string): Promise<{ rows: T[] }> {
+  query(sql: string): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalized.startsWith('select result from idempotency_keys')) {
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('insert into games')) {
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('insert into sync_events')) {
       this.latestEventId += 1;
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('insert into idempotency_keys')) {
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('select coalesce(max(event_id), 0) as event_id from sync_events')) {
-      return { rows: [{ event_id: this.latestEventId }] as T[] };
+      return Promise.resolve({ rows: [{ event_id: this.latestEventId }] });
     }
 
     if (normalized === 'begin' || normalized === 'commit' || normalized === 'rollback') {
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     throw new Error(`Unexpected SQL: ${sql}`);
@@ -45,12 +45,12 @@ class FakeSyncClient {
 class FakePool {
   private readonly client = new FakeSyncClient();
 
-  async connect(): Promise<FakeSyncClient> {
-    return this.client;
+  connect(): Promise<FakeSyncClient> {
+    return Promise.resolve(this.client);
   }
 
-  async query<T>(): Promise<{ rows: T[] }> {
-    return { rows: [] };
+  query(): Promise<{ rows: unknown[] }> {
+    return Promise.resolve({ rows: [] });
   }
 }
 
@@ -60,7 +60,7 @@ async function createSyncApp(): Promise<FastifyInstance> {
   return app;
 }
 
-test('sync push normalizes game notes line endings', async () => {
+void test('sync push normalizes game notes line endings', async () => {
   const app = await createSyncApp();
 
   const response = await app.inject({
@@ -87,8 +87,8 @@ test('sync push normalizes game notes line endings', async () => {
   });
 
   assert.equal(response.statusCode, 200);
-  const body = response.json() as {
-    results: Array<{ normalizedPayload?: { notes?: string | null } }>;
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: { notes?: string } }>;
   };
   assert.equal(body.results[0]?.normalizedPayload?.notes, 'Line 1\nLine 2');
 

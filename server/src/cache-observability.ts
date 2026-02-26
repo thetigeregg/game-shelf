@@ -69,7 +69,7 @@ export async function registerCacheObservabilityRoutes(
   }, 30_000);
   refreshHandle.unref();
 
-  app.addHook('onClose', async () => {
+  app.addHook('onClose', () => {
     clearInterval(refreshHandle);
   });
 
@@ -79,7 +79,7 @@ export async function registerCacheObservabilityRoutes(
     config: {
       rateLimit: {
         max: cacheStatsMaxRequestsPerWindow,
-        timeWindow: `${Math.floor(cacheStatsRateLimitWindowMs / 1000)} seconds`
+        timeWindow: `${String(Math.floor(cacheStatsRateLimitWindowMs / 1000))} seconds`
       }
     },
     handler: async (_request, reply) => {

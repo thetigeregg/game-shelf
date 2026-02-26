@@ -5,16 +5,38 @@ import type { Pool } from 'pg';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { incrementHltbMetric, incrementImageMetric, resetCacheMetrics } from './cache-metrics.js';
 
+type CacheStatsPayload = {
+  counts: {
+    imageAssets: number | null;
+    hltbEntries: number | null;
+  };
+  metrics: {
+    image: {
+      hits: number;
+      misses: number;
+    };
+    hltb: {
+      hits: number;
+      writes: number;
+    };
+  };
+  dbError: string | null;
+};
+
+function parseJson(body: string): unknown {
+  return JSON.parse(body) as unknown;
+}
+
 class CacheStatsPoolMock {
-  async query<T>(sql: string): Promise<{ rows: T[] }> {
+  query(sql: string): Promise<{ rows: Array<{ count: string }> }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalized.includes('from image_assets')) {
-      return { rows: [{ count: '7' } as T] };
+      return Promise.resolve({ rows: [{ count: '7' }] });
     }
 
     if (normalized.includes('from hltb_search_cache')) {
-      return { rows: [{ count: '13' } as T] };
+      return Promise.resolve({ rows: [{ count: '13' }] });
     }
 
     throw new Error(`Unsupported SQL in CacheStatsPoolMock: ${sql}`);
@@ -22,18 +44,18 @@ class CacheStatsPoolMock {
 }
 
 class CacheStatsFailingPoolMock {
-  async query<T>(): Promise<{ rows: T[] }> {
-    throw new Error('db_unavailable');
+  query(): Promise<{ rows: unknown[] }> {
+    return Promise.reject(new Error('db_unavailable'));
   }
 }
 
 class CacheStatsNonErrorFailingPoolMock {
-  async query<T>(): Promise<{ rows: T[] }> {
-    throw 'db_string_failure';
+  query(): Promise<{ rows: unknown[] }> {
+    return Promise.reject(new Error('db_string_failure'));
   }
 }
 
-test('Cache stats endpoint returns counters and db counts', async () => {
+void test('Cache stats endpoint returns counters and db counts', async () => {
   resetCacheMetrics();
   incrementImageMetric('hits');
   incrementImageMetric('misses');
@@ -49,7 +71,7 @@ test('Cache stats endpoint returns counters and db counts', async () => {
   });
 
   assert.equal(response.statusCode, 200);
-  const payload = response.json() as Record<string, any>;
+  const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, 7);
   assert.equal(payload.counts.hltbEntries, 13);
   assert.equal(payload.metrics.image.hits, 1);
@@ -61,7 +83,7 @@ test('Cache stats endpoint returns counters and db counts', async () => {
   await app.close();
 });
 
-test('Cache stats endpoint stringifies non-Error db failures', async () => {
+void test('Cache stats endpoint stringifies non-Error db failures', async () => {
   resetCacheMetrics();
 
   const app = Fastify();
@@ -76,13 +98,13 @@ test('Cache stats endpoint stringifies non-Error db failures', async () => {
   });
 
   assert.equal(response.statusCode, 200);
-  const payload = response.json() as Record<string, any>;
-  assert.equal(payload.dbError, 'db_string_failure');
+  const payload = parseJson(response.body) as CacheStatsPayload;
+  assert.equal(payload.dbError, 'Error: db_string_failure');
 
   await app.close();
 });
 
-test('Cache stats endpoint returns dbError when count queries fail', async () => {
+void test('Cache stats endpoint returns dbError when count queries fail', async () => {
   resetCacheMetrics();
 
   const app = Fastify();
@@ -94,7 +116,7 @@ test('Cache stats endpoint returns dbError when count queries fail', async () =>
   });
 
   assert.equal(response.statusCode, 200);
-  const payload = response.json() as Record<string, any>;
+  const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, null);
   assert.equal(payload.counts.hltbEntries, null);
   assert.equal(payload.dbError, 'db_unavailable');
@@ -102,7 +124,7 @@ test('Cache stats endpoint returns dbError when count queries fail', async () =>
   await app.close();
 });
 
-test('Cache stats endpoint is rate limited', async () => {
+void test('Cache stats endpoint is rate limited', async () => {
   resetCacheMetrics();
 
   const app = Fastify();
@@ -127,7 +149,7 @@ test('Cache stats endpoint is rate limited', async () => {
   await app.close();
 });
 
-test('Cache stats endpoint honors custom rate-limit options', async () => {
+void test('Cache stats endpoint honors custom rate-limit options', async () => {
   resetCacheMetrics();
 
   const app = Fastify();

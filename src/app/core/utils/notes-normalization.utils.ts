@@ -1,7 +1,5 @@
 const EMPTY_RICH_TEXT_PATTERN = /^(<p>(<br\/?>)?<\/p>)+$/;
 const HTML_TAG_PATTERN = /<\/?[a-z][^>]*>/i;
-const MEANINGFUL_STRUCTURE_SELECTOR =
-  'ul,ol,li,details,summary,hr,blockquote,pre,table,thead,tbody,tr,th,td,img,video,audio,iframe';
 const MEANINGFUL_STRUCTURE_TAG_PATTERN =
   /<(ul|ol|li|details|summary|hr|blockquote|pre|table|thead|tbody|tr|th|td|img|video|audio|iframe)\b/i;
 
@@ -36,18 +34,15 @@ function isHtmlWithoutMeaningfulContent(value: string): boolean {
     return false;
   }
 
-  if (typeof document !== 'undefined') {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(trimmed, 'text/html');
-    const hasTextContent = (doc.body.textContent || '').trim().length > 0;
+  const strippedText = trimmed.replace(/<[^>]*>/g, '').trim();
 
-    if (hasTextContent) {
-      return false;
-    }
-
-    return doc.body.querySelector(MEANINGFUL_STRUCTURE_SELECTOR) === null;
+  if (strippedText.length > 0) {
+    return false;
   }
 
-  const strippedText = trimmed.replace(/<[^>]*>/g, '').trim();
-  return strippedText.length === 0 && !MEANINGFUL_STRUCTURE_TAG_PATTERN.test(trimmed);
+  if (MEANINGFUL_STRUCTURE_TAG_PATTERN.test(trimmed)) {
+    return false;
+  }
+
+  return true;
 }

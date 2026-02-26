@@ -126,11 +126,12 @@ export class ManualService {
 
     return this.httpClient.get<SearchManualsApiResponse>(this.searchManualsUrl, { params }).pipe(
       tap((response) => {
+        const safeResponse = response as SearchManualsApiResponse | null | undefined;
         this.debugLogService.debug('manual.service.search.http_success', {
           url: this.searchManualsUrl,
           queryString: params.toString(),
           hasResponse: Boolean(response),
-          unavailable: response.unavailable === true
+          unavailable: safeResponse?.unavailable === true
         });
       }),
       map((response) => {

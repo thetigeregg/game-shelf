@@ -43,7 +43,7 @@ export class ClientWriteTokenInterceptor implements HttpInterceptor {
   }
 
   private normalizeBaseUrl(value: string): string {
-    const normalized = String(value ?? '').trim();
+    const normalized = value.trim();
     return normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
   }
 
@@ -52,7 +52,7 @@ export class ClientWriteTokenInterceptor implements HttpInterceptor {
       return false;
     }
 
-    const normalizedUrl = String(url ?? '').trim();
+    const normalizedUrl = url.trim();
     return normalizedUrl === this.apiBaseUrl || normalizedUrl.startsWith(`${this.apiBaseUrl}/`);
   }
 }

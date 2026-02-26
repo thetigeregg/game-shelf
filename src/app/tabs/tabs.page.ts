@@ -3,6 +3,8 @@ import { IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel } from '@ionic/angu
 import { addIcons } from 'ionicons';
 import { compass, gameController, heart } from 'ionicons/icons';
 
+addIcons({ compass, gameController, heart });
+
 @Component({
   selector: 'app-tabs',
   templateUrl: 'tabs.page.html',
@@ -11,7 +13,5 @@ import { compass, gameController, heart } from 'ionicons/icons';
   imports: [IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel]
 })
 export class TabsPage {
-  constructor() {
-    addIcons({ compass, gameController, heart });
-  }
+  readonly tabRoot = 'tabs';
 }

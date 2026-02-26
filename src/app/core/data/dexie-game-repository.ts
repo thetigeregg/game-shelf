@@ -22,10 +22,12 @@ import {
   normalizeStringList
 } from '../utils/game-filter-utils';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
+import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
   private readonly db = inject(AppDb);
+  private readonly htmlSanitizer = inject(HtmlSanitizerService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true
   });
@@ -90,6 +92,7 @@ export class DexieGameRepository implements GameRepository {
           normalizedPlatformIgdbId
         ),
         tagIds: this.normalizeTagIds(existing.tagIds),
+        notes: this.normalizeNotes(existing.notes),
         releaseDate: result.releaseDate,
         releaseYear: result.releaseYear,
         status: this.normalizeStatus(existing.status),
@@ -127,6 +130,7 @@ export class DexieGameRepository implements GameRepository {
       customPlatform: null,
       customPlatformIgdbId: null,
       tagIds: [],
+      notes: null,
       releaseDate: result.releaseDate,
       releaseYear: result.releaseYear,
       status: null,
@@ -279,6 +283,28 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       tagIds: this.normalizeTagIds(tagIds),
+      updatedAt: new Date().toISOString()
+    };
+
+    await this.db.games.put(updated);
+    this.queueGameUpsert(updated);
+    return updated;
+  }
+
+  async setGameNotes(
+    igdbGameId: string,
+    platformIgdbId: number,
+    notes: string | null
+  ): Promise<GameEntry | undefined> {
+    const existing = await this.exists(igdbGameId, platformIgdbId);
+
+    if (existing?.id === undefined) {
+      return undefined;
+    }
+
+    const updated: GameEntry = {
+      ...existing,
+      notes: this.normalizeNotes(notes),
       updatedAt: new Date().toISOString()
     };
 
@@ -712,7 +738,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeGameId(value: string): string {
-    const normalized = String(value ?? '').trim();
+    const normalized = value.trim();
 
     if (normalized.length === 0) {
       throw new Error('IGDB game id is required.');
@@ -752,6 +778,10 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
+  }
+
+  private normalizeNotes(value: string | null | undefined): string | null {
+    return this.htmlSanitizer.sanitizeNotesOrNull(value);
   }
 
   private normalizeCustomTitle(
@@ -850,7 +880,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeViewName(value: string): string {
-    const normalized = String(value ?? '').trim();
+    const normalized = value.trim();
 
     if (normalized.length === 0) {
       throw new Error('View name is required.');
@@ -878,13 +908,7 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeViewFilters(value: GameListFilters | null | undefined): GameListFilters {
     const source = value ?? DEFAULT_GAME_LIST_FILTERS;
-    const sortField =
-      source.sortField === 'title' ||
-      source.sortField === 'releaseDate' ||
-      source.sortField === 'createdAt' ||
-      source.sortField === 'platform'
-        ? source.sortField
-        : 'title';
+    const sortField = source.sortField;
     const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
     const platform = normalizeStringList(source.platform);
     const collections = normalizeStringList(source.collections);

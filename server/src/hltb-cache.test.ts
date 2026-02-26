@@ -5,6 +5,16 @@ import type { Pool } from 'pg';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 
+function toPrimitiveString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return '';
+}
+
 class HltbPoolMock {
   private readonly rowsByKey = new Map<string, { response_json: unknown; updated_at: string }>();
 
@@ -15,7 +25,7 @@ class HltbPoolMock {
     } = {}
   ) {}
 
-  async query<T>(sql: string, params: unknown[]): Promise<{ rows: T[] }> {
+  query(sql: string, params: unknown[]): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalized.startsWith('select response_json, updated_at from hltb_search_cache')) {
@@ -23,26 +33,26 @@ class HltbPoolMock {
         throw new Error('read_failed');
       }
 
-      const key = String(params[0] ?? '');
+      const key = toPrimitiveString(params[0]);
       const row = this.rowsByKey.get(key);
-      return { rows: row ? [row as T] : [] };
+      return Promise.resolve({ rows: row ? [row] : [] });
     }
 
     if (normalized.startsWith('insert into hltb_search_cache')) {
-      const key = String(params[0] ?? '');
-      const payload = JSON.parse(String(params[5] ?? 'null'));
+      const key = toPrimitiveString(params[0]);
+      const payload = JSON.parse(toPrimitiveString(params[5]) || 'null') as unknown;
       const nowMs = this.options.now ? this.options.now() : Date.now();
       this.rowsByKey.set(key, {
         response_json: payload,
         updated_at: new Date(nowMs).toISOString()
       });
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('delete from hltb_search_cache where cache_key')) {
-      const key = String(params[0] ?? '');
+      const key = toPrimitiveString(params[0]);
       this.rowsByKey.delete(key);
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     throw new Error(`Unsupported SQL in HltbPoolMock: ${sql}`);
@@ -60,14 +70,14 @@ class HltbPoolMock {
   }
 }
 
-test('HLTB cache stores on miss and serves on hit', async () => {
+void test('HLTB cache stores on miss and serves on hit', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
   const app = Fastify();
   let fetchCalls = 0;
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { hltbMainHours: 20 }, candidates: [] }), {
         status: 200,
@@ -100,14 +110,14 @@ test('HLTB cache stores on miss and serves on hit', async () => {
   await app.close();
 });
 
-test('HLTB cache supports candidates when includeCandidates is enabled', async () => {
+void test('HLTB cache supports candidates when includeCandidates is enabled', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
   const app = Fastify();
   let fetchCalls = 0;
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       return new Response(
         JSON.stringify({
@@ -141,7 +151,7 @@ test('HLTB cache supports candidates when includeCandidates is enabled', async (
   await app.close();
 });
 
-test('HLTB cache stale revalidation handles failures and skip when already in-flight', async () => {
+void test('HLTB cache stale revalidation handles failures and skip when already in-flight', async () => {
   resetCacheMetrics();
   let nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);
   const pool = new HltbPoolMock({ now: () => nowMs });
@@ -150,7 +160,7 @@ test('HLTB cache stale revalidation handles failures and skip when already in-fl
   let pendingTask: (() => Promise<void>) | null = null;
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       if (fetchCalls === 1) {
         return new Response(JSON.stringify({ item: { hltbMainHours: 5 } }), {
@@ -197,9 +207,7 @@ test('HLTB cache stale revalidation handles failures and skip when already in-fl
   assert.equal(staleTwo.headers['x-gameshelf-hltb-revalidate'], 'skipped');
 
   const task = pendingTask;
-  if (!task) {
-    throw new Error('Expected revalidation task');
-  }
+  assert.ok(task);
   await task();
 
   nowMs += 2_000;
@@ -208,9 +216,7 @@ test('HLTB cache stale revalidation handles failures and skip when already in-fl
     url: '/v1/hltb/search?q=chrono'
   });
   const taskTwo = pendingTask;
-  if (!taskTwo) {
-    throw new Error('Expected second revalidation task');
-  }
+  assert.ok(taskTwo);
   await taskTwo();
 
   const metrics = getCacheMetrics();
@@ -221,14 +227,14 @@ test('HLTB cache stale revalidation handles failures and skip when already in-fl
   await app.close();
 });
 
-test('HLTB cache bypasses cache when query is too short', async () => {
+void test('HLTB cache bypasses cache when query is too short', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
   const app = Fastify();
   let fetchCalls = 0;
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
         status: 200,
@@ -256,7 +262,7 @@ test('HLTB cache bypasses cache when query is too short', async () => {
   await app.close();
 });
 
-test('HLTB cache deletes stale invalid payload and fetches fresh response', async () => {
+void test('HLTB cache deletes stale invalid payload and fetches fresh response', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
   const app = Fastify();
@@ -270,7 +276,7 @@ test('HLTB cache deletes stale invalid payload and fetches fresh response', asyn
   );
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: { hltbMainHours: 12 }, candidates: [] }), {
         status: 200,
@@ -291,7 +297,7 @@ test('HLTB cache deletes stale invalid payload and fetches fresh response', asyn
   await app.close();
 });
 
-test('HLTB cache serves stale and revalidates in background', async () => {
+void test('HLTB cache serves stale and revalidates in background', async () => {
   resetCacheMetrics();
   let nowMs = Date.UTC(2026, 1, 11, 18, 0, 0);
   const pool = new HltbPoolMock({ now: () => nowMs });
@@ -300,7 +306,7 @@ test('HLTB cache serves stale and revalidates in background', async () => {
   let pendingRefreshTask: (() => Promise<void>) | null = null;
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       return new Response(
         JSON.stringify({
@@ -342,11 +348,9 @@ test('HLTB cache serves stale and revalidates in background', async () => {
 
   const refreshTask = pendingRefreshTask;
 
-  if (!refreshTask) {
-    throw new Error('Expected background refresh task to be scheduled');
-  }
+  assert.ok(refreshTask);
 
-  await (refreshTask as () => Promise<void>)();
+  await refreshTask();
   assert.equal(fetchCalls, 2);
 
   const freshAfterRefresh = await app.inject({
@@ -354,7 +358,7 @@ test('HLTB cache serves stale and revalidates in background', async () => {
     url: '/v1/hltb/search?q=Silent%20Hill&releaseYear=1999&platform=PS1'
   });
   assert.equal(freshAfterRefresh.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
-  const payload = freshAfterRefresh.json() as { item: { hltbMainHours: number } };
+  const payload = JSON.parse(freshAfterRefresh.body) as { item: { hltbMainHours: number } };
   assert.equal(payload.item.hltbMainHours, 11);
 
   const metrics = getCacheMetrics();
@@ -365,14 +369,14 @@ test('HLTB cache serves stale and revalidates in background', async () => {
   await app.close();
 });
 
-test('HLTB cache is fail-open when cache read throws', async () => {
+void test('HLTB cache is fail-open when cache read throws', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock({ failReads: true });
   const app = Fastify();
   let fetchCalls = 0;
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null, candidates: [] }), {
         status: 200,
@@ -397,14 +401,14 @@ test('HLTB cache is fail-open when cache read throws', async () => {
   await app.close();
 });
 
-test('HLTB null item responses are not cached', async () => {
+void test('HLTB null item responses are not cached', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
   const app = Fastify();
   let fetchCalls = 0;
 
   await registerHltbCachedRoute(app, pool as unknown as Pool, {
-    fetchMetadata: async () => {
+    fetchMetadata: () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ item: null }), {
         status: 200,

@@ -45,7 +45,11 @@ export class AppDb extends Dexie {
           .table('games')
           .toCollection()
           .modify((game: Record<string, unknown>) => {
-            const rawExternalId = String(game['externalId'] ?? '').trim();
+            const externalIdRaw = game['externalId'];
+            const rawExternalId =
+              typeof externalIdRaw === 'string' || typeof externalIdRaw === 'number'
+                ? String(externalIdRaw).trim()
+                : '';
             const separatorIndex = rawExternalId.indexOf('::');
             const parsedGameId =
               separatorIndex > 0 ? rawExternalId.slice(0, separatorIndex) : rawExternalId;
@@ -53,8 +57,11 @@ export class AppDb extends Dexie {
               separatorIndex > 0
                 ? Number.parseInt(rawExternalId.slice(separatorIndex + 2), 10)
                 : Number.NaN;
+            const platformIgdbIdRaw = game['platformIgdbId'];
             const existingPlatformIgdbId = Number.parseInt(
-              String(game['platformIgdbId'] ?? ''),
+              typeof platformIgdbIdRaw === 'string' || typeof platformIgdbIdRaw === 'number'
+                ? String(platformIgdbIdRaw)
+                : '',
               10
             );
             const normalizedPlatformIgdbId =
@@ -66,7 +73,12 @@ export class AppDb extends Dexie {
 
             game['igdbGameId'] = parsedGameId;
             game['platformIgdbId'] = normalizedPlatformIgdbId;
-            game['platform'] = String(game['platform'] ?? '').trim() || 'Unknown platform';
+            const platformRaw = game['platform'];
+            const normalizedPlatform =
+              typeof platformRaw === 'string' || typeof platformRaw === 'number'
+                ? String(platformRaw).trim()
+                : '';
+            game['platform'] = normalizedPlatform || 'Unknown platform';
             delete game['externalId'];
           });
       });

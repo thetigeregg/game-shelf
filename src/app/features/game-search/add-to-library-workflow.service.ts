@@ -124,9 +124,9 @@ export class AddToLibraryWorkflowService {
     if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
       return result.platformOptions
         .map((option) => {
-          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const name = typeof option.name === 'string' ? option.name.trim() : '';
           const id =
-            typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+            typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0
               ? option.id
               : null;
           return { id, name };

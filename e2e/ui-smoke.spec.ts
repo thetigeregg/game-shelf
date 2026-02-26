@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 type ViewportMode = 'desktop' | 'mobile';
 
@@ -9,24 +9,70 @@ const viewportByMode: Record<ViewportMode, { width: number; height: number }> = 
 
 async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
   const versionAlert = page.getByRole('alertdialog', { name: 'App Updated' });
+  const okButton = page.getByRole('button', { name: 'OK' });
 
-  if (await versionAlert.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await page.getByRole('button', { name: 'OK' }).click();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const visible = await versionAlert.isVisible({ timeout: 2500 }).catch(() => false);
+    if (!visible) {
+      return;
+    }
+
+    await okButton.click();
     await expect(versionAlert).toBeHidden();
+  }
+}
+
+async function dismissAnyVisibleAlertIfPresent(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const alert = page.locator('ion-alert').last();
+    const isVisible = await alert.isVisible({ timeout: 1200 }).catch(() => false);
+
+    if (!isVisible) {
+      return;
+    }
+
+    const okButton = page.getByRole('button', { name: 'OK' });
+    if (await okButton.isVisible().catch(() => false)) {
+      await okButton.click();
+      await expect(alert).toBeHidden();
+      continue;
+    }
+
+    return;
   }
 }
 
 async function openFiltersMenu(page: Page): Promise<void> {
   const filtersButton = page.locator('ion-button.filters-button');
-  const hasFiltersButton = await filtersButton.isVisible().catch(() => false);
+  const splitSortSelect = page.locator('app-game-filters-menu ion-select[label="Sort"]');
 
-  if (hasFiltersButton) {
+  const mode = await expect
+    .poll(
+      async () => {
+        if (await filtersButton.isVisible().catch(() => false)) {
+          return 'overlay';
+        }
+
+        if (await splitSortSelect.isVisible().catch(() => false)) {
+          return 'split';
+        }
+
+        return 'pending';
+      },
+      { timeout: 10000 }
+    )
+    .not.toBe('pending')
+    .then(() => {
+      return filtersButton.isVisible().catch(() => false);
+    });
+
+  if (mode) {
     await filtersButton.click();
     await expect(page.locator('ion-menu .actions ion-button', { hasText: 'Done' })).toBeVisible();
     return;
   }
 
-  await expect(page.locator('app-game-filters-menu ion-select[label="Sort"]')).toBeVisible();
+  await expect(splitSortSelect).toBeVisible();
 }
 
 async function closeFiltersMenu(page: Page): Promise<void> {
@@ -46,6 +92,92 @@ async function openCollectionInMode(page: Page, mode: ViewportMode): Promise<voi
   await page.setViewportSize(viewport);
   await page.goto('/tabs/collection');
   await dismissVersionAlertIfPresent(page);
+}
+
+async function setE2eFixtureGames(
+  page: Page,
+  games: Array<{
+    igdbGameId: string;
+    platformIgdbId: number;
+    title: string;
+    platform?: string;
+    listType?: 'collection' | 'wishlist';
+    notes?: string | null;
+  }>
+): Promise<void> {
+  await page.addInitScript(
+    (payload) => {
+      window.localStorage.setItem('game-shelf:e2e-fixture', JSON.stringify(payload));
+    },
+    { resetDb: true, games }
+  );
+}
+
+async function openFirstGameDetail(page: Page, listType: 'collection' | 'wishlist'): Promise<void> {
+  await page.goto(`/tabs/${listType}`);
+  await dismissVersionAlertIfPresent(page);
+  await dismissAnyVisibleAlertIfPresent(page);
+
+  const firstGameRow = page.locator('app-game-list ion-item-sliding ion-item[button]').first();
+  await expect(firstGameRow).toBeVisible();
+  try {
+    await firstGameRow.click({ timeout: 5000 });
+  } catch {
+    await dismissAnyVisibleAlertIfPresent(page);
+    await firstGameRow.click();
+  }
+  await expect(page.locator('ion-modal.desktop-fullscreen-modal')).toBeVisible();
+}
+
+async function openDetailShortcuts(page: Page): Promise<void> {
+  const shortcutsToggle = page.getByRole('button', { name: 'Open web shortcuts' });
+  await shortcutsToggle.click();
+}
+
+async function openNotesFromDetail(page: Page): Promise<void> {
+  await openDetailShortcuts(page);
+  await page.getByRole('button', { name: 'Open notes editor' }).click();
+}
+
+async function closeNotesWhenSaveCompletes(notesCloseButton: Locator): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        try {
+          await notesCloseButton.click({ timeout: 300 });
+        } catch {
+          return false;
+        }
+
+        return notesCloseButton.isVisible().catch(() => false);
+      },
+      { timeout: 12000, intervals: [250, 400, 600, 800, 1000] }
+    )
+    .toBe(false);
+}
+
+async function expectNotesCloseBlockedToast(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const savingToastVisible = await page
+          .locator('ion-toast', { hasText: 'Notes are still saving. Please wait a moment.' })
+          .isVisible()
+          .catch(() => false);
+        if (savingToastVisible) {
+          return true;
+        }
+
+        return page
+          .locator('ion-toast', {
+            hasText: 'Notes have unsaved changes. Please wait for auto-save.'
+          })
+          .isVisible()
+          .catch(() => false);
+      },
+      { timeout: 5000 }
+    )
+    .toBe(true);
 }
 
 async function setSingleSelectValue(
@@ -347,4 +479,85 @@ test('persists sort/group/filter changes on wishlist after reload', async ({ pag
 
   await openFiltersMenu(page);
   await expectUiUpdatedFilterControls(page);
+});
+
+test('collection detail shows notes shortcut while wishlist detail hides it', async ({ page }) => {
+  await page.setViewportSize(viewportByMode.desktop);
+  await setE2eFixtureGames(page, [
+    {
+      igdbGameId: '900001',
+      platformIgdbId: 130,
+      title: 'E2E Collection Game',
+      listType: 'collection'
+    },
+    { igdbGameId: '900002', platformIgdbId: 130, title: 'E2E Wishlist Game', listType: 'wishlist' }
+  ]);
+
+  await openFirstGameDetail(page, 'collection');
+  await openDetailShortcuts(page);
+  await expect(page.getByRole('button', { name: 'Open notes editor' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close game details' }).click();
+  await expect(page.locator('ion-modal.desktop-fullscreen-modal')).toBeHidden();
+
+  await openFirstGameDetail(page, 'wishlist');
+  await openDetailShortcuts(page);
+  await expect(page.getByRole('button', { name: 'Open notes editor' })).toHaveCount(0);
+});
+
+test('mobile notes modal blocks close while dirty and closes after autosave', async ({ page }) => {
+  await page.setViewportSize(viewportByMode.mobile);
+  await setE2eFixtureGames(page, [
+    {
+      igdbGameId: '900011',
+      platformIgdbId: 130,
+      title: 'E2E Mobile Notes Game',
+      listType: 'collection'
+    }
+  ]);
+  await openFirstGameDetail(page, 'collection');
+  await openNotesFromDetail(page);
+
+  const notesCloseButton = page.getByRole('button', { name: 'Close', exact: true });
+  await expect(notesCloseButton).toBeVisible();
+
+  const editor = page.locator('tiptap-editor.detail-note-editor .tiptap.ProseMirror');
+  await editor.click();
+  await page.keyboard.type('Unsaved mobile note change');
+
+  await notesCloseButton.click();
+  await expect(notesCloseButton).toBeVisible();
+  await expectNotesCloseBlockedToast(page);
+
+  await closeNotesWhenSaveCompletes(notesCloseButton);
+});
+
+test('desktop notes pane blocks notes/detail close while dirty and allows close after autosave', async ({
+  page
+}) => {
+  await page.setViewportSize(viewportByMode.desktop);
+  await setE2eFixtureGames(page, [
+    {
+      igdbGameId: '900021',
+      platformIgdbId: 130,
+      title: 'E2E Desktop Notes Game',
+      listType: 'collection'
+    }
+  ]);
+  await openFirstGameDetail(page, 'collection');
+  await openNotesFromDetail(page);
+
+  const notesCloseButton = page.getByRole('button', { name: 'Close', exact: true });
+  await expect(notesCloseButton).toBeVisible();
+
+  const editor = page.locator('tiptap-editor.detail-note-editor .tiptap.ProseMirror');
+  await editor.click();
+  await page.keyboard.type('Unsaved desktop note change');
+
+  await notesCloseButton.click();
+  await expect(notesCloseButton).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close game details' }).click();
+  await expect(page.locator('ion-modal.desktop-fullscreen-modal')).toBeVisible();
+
+  await closeNotesWhenSaveCompletes(notesCloseButton);
 });

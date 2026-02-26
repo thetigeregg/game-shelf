@@ -37,15 +37,15 @@ function isHtmlWithoutMeaningfulContent(value: string): boolean {
   }
 
   if (typeof document !== 'undefined') {
-    const container = document.createElement('div');
-    container.innerHTML = trimmed;
-    const hasTextContent = (container.textContent || '').trim().length > 0;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(trimmed, 'text/html');
+    const hasTextContent = (doc.body.textContent || '').trim().length > 0;
 
     if (hasTextContent) {
       return false;
     }
 
-    return container.querySelector(MEANINGFUL_STRUCTURE_SELECTOR) === null;
+    return doc.body.querySelector(MEANINGFUL_STRUCTURE_SELECTOR) === null;
   }
 
   const strippedText = trimmed.replace(/<[^>]*>/g, '').trim();

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import fastify, { FastifyInstance } from 'fastify';
+import fastifyFactory, { FastifyInstance } from 'fastify';
 import { registerSyncRoutes } from './sync.js';
 
 class FakeSyncClient {
@@ -55,7 +55,7 @@ class FakePool {
 }
 
 async function createSyncApp(): Promise<FastifyInstance> {
-  const app = fastify({ logger: false });
+  const app = fastifyFactory({ logger: false });
   await registerSyncRoutes(app, new FakePool() as never);
   return app;
 }

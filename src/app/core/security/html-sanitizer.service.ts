@@ -1,16 +1,16 @@
 import { Injectable } from '@angular/core';
-import DOMPurify from 'dompurify';
+import domPurify from 'dompurify';
 
 @Injectable({ providedIn: 'root' })
 export class HtmlSanitizerService {
   sanitizeHtml(html: string): string {
-    return DOMPurify.sanitize(html, {
+    return domPurify.sanitize(html, {
       USE_PROFILES: { html: true }
     });
   }
 
   sanitizeToPlainText(html: string): string {
-    const clean = DOMPurify.sanitize(html, {
+    const clean = domPurify.sanitize(html, {
       ALLOWED_TAGS: [],
       ALLOWED_ATTR: []
     });

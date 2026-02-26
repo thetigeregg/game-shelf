@@ -19,27 +19,51 @@ class InMemorySyncStore {
   viewIdSeq = 200;
 }
 
+type SyncPushResponseBody = {
+  cursor: string;
+  results: Array<{ status?: string; message?: string }>;
+};
+
+type SyncPullResponseBody = {
+  cursor: string;
+  changes: unknown[];
+};
+
+function parseJson(body: string): unknown {
+  return JSON.parse(body) as unknown;
+}
+
+function toPrimitiveString(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return '';
+}
+
 class CoverageSyncClient {
   constructor(private readonly store: InMemorySyncStore) {}
 
-  async query<T>(sql: string, params: unknown[] = []): Promise<{ rows: T[] }> {
+  query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalized === 'begin' || normalized === 'commit' || normalized === 'rollback') {
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('select result from idempotency_keys')) {
-      const opId = String(params[0] ?? '');
+      const opId = toPrimitiveString(params[0]);
       const result = this.store.idempotency.get(opId);
-      return { rows: result ? ([{ result }] as T[]) : [] };
+      return Promise.resolve({ rows: result ? [{ result }] : [] });
     }
 
     if (normalized.startsWith('insert into idempotency_keys')) {
-      const opId = String(params[0] ?? '');
-      const result = JSON.parse(String(params[1] ?? '{}')) as SyncPushResult;
+      const opId = toPrimitiveString(params[0]);
+      const result = JSON.parse(toPrimitiveString(params[1]) || '{}') as SyncPushResult;
       this.store.idempotency.set(opId, result);
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('insert into sync_events')) {
@@ -48,32 +72,32 @@ class CoverageSyncClient {
         event_id: eventId,
         entity_type: params[0] as SyncEventRow['entity_type'],
         operation: params[2] as SyncEventRow['operation'],
-        payload: JSON.parse(String(params[3] ?? '{}')),
+        payload: JSON.parse(toPrimitiveString(params[3]) || '{}'),
         server_timestamp: new Date().toISOString()
       });
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('select coalesce(max(event_id), 0) as event_id from sync_events')) {
-      return { rows: [{ event_id: this.store.syncEvents.length }] as T[] };
+      return Promise.resolve({ rows: [{ event_id: this.store.syncEvents.length }] });
     }
 
     if (normalized.startsWith('insert into tags (id, payload')) {
-      return { rows: [{ id: Number(params[0]) }] as T[] };
+      return Promise.resolve({ rows: [{ id: Number(params[0]) }] });
     }
 
     if (normalized.startsWith('insert into tags (payload')) {
       this.store.tagIdSeq += 1;
-      return { rows: [{ id: this.store.tagIdSeq }] as T[] };
+      return Promise.resolve({ rows: [{ id: this.store.tagIdSeq }] });
     }
 
     if (normalized.startsWith('insert into views (id, payload')) {
-      return { rows: [{ id: Number(params[0]) }] as T[] };
+      return Promise.resolve({ rows: [{ id: Number(params[0]) }] });
     }
 
     if (normalized.startsWith('insert into views (payload')) {
       this.store.viewIdSeq += 1;
-      return { rows: [{ id: this.store.viewIdSeq }] as T[] };
+      return Promise.resolve({ rows: [{ id: this.store.viewIdSeq }] });
     }
 
     if (
@@ -86,7 +110,7 @@ class CoverageSyncClient {
       normalized.startsWith('insert into settings') ||
       normalized.startsWith('delete from settings')
     ) {
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     throw new Error(`Unexpected SQL: ${sql}`);
@@ -101,11 +125,11 @@ class CoverageSyncPool {
   readonly store = new InMemorySyncStore();
   readonly client = new CoverageSyncClient(this.store);
 
-  async connect(): Promise<CoverageSyncClient> {
-    return this.client;
+  connect(): Promise<CoverageSyncClient> {
+    return Promise.resolve(this.client);
   }
 
-  async query<T>(sql: string, params: unknown[] = []): Promise<{ rows: T[] }> {
+  query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (
@@ -115,10 +139,10 @@ class CoverageSyncPool {
     ) {
       const cursor = Number(params[0] ?? 0);
       const rows = this.store.syncEvents.filter((row) => row.event_id > cursor).slice(0, 1000);
-      return { rows: rows as T[] };
+      return Promise.resolve({ rows });
     }
 
-    return { rows: [] };
+    return Promise.resolve({ rows: [] });
   }
 }
 
@@ -128,7 +152,7 @@ async function createSyncApp(pool: CoverageSyncPool): Promise<FastifyInstance> {
   return app;
 }
 
-test('sync push returns 400 for invalid operations payloads', async () => {
+void test('sync push returns 400 for invalid operations payloads', async () => {
   const pool = new CoverageSyncPool();
   const app = await createSyncApp(pool);
 
@@ -149,7 +173,7 @@ test('sync push returns 400 for invalid operations payloads', async () => {
   await app.close();
 });
 
-test('sync push covers applied, duplicate, and failed operation statuses', async () => {
+void test('sync push covers applied, duplicate, and failed operation statuses', async () => {
   const pool = new CoverageSyncPool();
   pool.store.idempotency.set('dup-1', {
     opId: 'dup-1',
@@ -195,7 +219,7 @@ test('sync push covers applied, duplicate, and failed operation statuses', async
   });
 
   assert.equal(response.statusCode, 200);
-  const body = response.json() as { results: SyncPushResult[]; cursor: string };
+  const body = parseJson(response.body) as SyncPushResponseBody;
   assert.equal(body.results.length, 3);
   assert.equal(body.results[0]?.status, 'duplicate');
   assert.equal(body.results[1]?.status, 'applied');
@@ -206,7 +230,7 @@ test('sync push covers applied, duplicate, and failed operation statuses', async
   await app.close();
 });
 
-test('sync push covers tag/view/setting upsert and delete branches', async () => {
+void test('sync push covers tag/view/setting upsert and delete branches', async () => {
   const pool = new CoverageSyncPool();
   const app = await createSyncApp(pool);
 
@@ -276,7 +300,7 @@ test('sync push covers tag/view/setting upsert and delete branches', async () =>
   });
 
   assert.equal(response.statusCode, 200);
-  const body = response.json() as { results: SyncPushResult[] };
+  const body = parseJson(response.body) as SyncPushResponseBody;
   assert.equal(
     body.results.every((result) => result.status === 'applied'),
     true
@@ -286,7 +310,7 @@ test('sync push covers tag/view/setting upsert and delete branches', async () =>
   await app.close();
 });
 
-test('sync pull normalizes cursor and returns changes with last event id cursor', async () => {
+void test('sync pull normalizes cursor and returns changes with last event id cursor', async () => {
   const pool = new CoverageSyncPool();
   pool.store.syncEvents.push(
     {
@@ -312,7 +336,7 @@ test('sync pull normalizes cursor and returns changes with last event id cursor'
     payload: { cursor: 'invalid' }
   });
   assert.equal(invalidCursor.statusCode, 200);
-  const invalidBody = invalidCursor.json() as { cursor: string; changes: unknown[] };
+  const invalidBody = parseJson(invalidCursor.body) as SyncPullResponseBody;
   assert.equal(invalidBody.cursor, '2');
   assert.equal(invalidBody.changes.length, 2);
 
@@ -321,14 +345,14 @@ test('sync pull normalizes cursor and returns changes with last event id cursor'
     url: '/v1/sync/pull',
     payload: { cursor: '2' }
   });
-  const withCursorBody = withCursor.json() as { cursor: string; changes: unknown[] };
+  const withCursorBody = parseJson(withCursor.body) as SyncPullResponseBody;
   assert.equal(withCursorBody.cursor, '2');
   assert.equal(withCursorBody.changes.length, 0);
 
   await app.close();
 });
 
-test('sync push returns cursor 0 when only duplicate operations are processed', async () => {
+void test('sync push returns cursor 0 when only duplicate operations are processed', async () => {
   const pool = new CoverageSyncPool();
   pool.store.idempotency.set('dup-only', {
     opId: 'dup-only',
@@ -354,22 +378,22 @@ test('sync push returns cursor 0 when only duplicate operations are processed', 
   });
 
   assert.equal(response.statusCode, 200);
-  const body = response.json() as { cursor: string; results: SyncPushResult[] };
+  const body = parseJson(response.body) as SyncPushResponseBody;
   assert.equal(body.cursor, '0');
   assert.equal(body.results[0]?.status, 'duplicate');
 
   await app.close();
 });
 
-test('sync push handles non-Error failures with default failed message', async () => {
+void test('sync push handles non-Error failures with default failed message', async () => {
   const pool = new CoverageSyncPool();
   const originalQuery = pool.client.query.bind(pool.client);
-  pool.client.query = async <T>(sql: string, params: unknown[] = []) => {
+  pool.client.query = (sql: string, params?: unknown[]) => {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
     if (normalized.startsWith('insert into games')) {
-      throw 'non-error-failure';
+      throw new Error('non-error-failure');
     }
-    return originalQuery<T>(sql, params);
+    return originalQuery(sql, params ?? []);
   };
   const app = await createSyncApp(pool);
 
@@ -390,22 +414,22 @@ test('sync push handles non-Error failures with default failed message', async (
   });
 
   assert.equal(response.statusCode, 200);
-  const body = response.json() as { results: SyncPushResult[] };
+  const body = parseJson(response.body) as SyncPushResponseBody;
   assert.equal(body.results[0]?.status, 'failed');
   assert.equal(body.results[0]?.message, 'Failed to apply operation.');
 
   await app.close();
 });
 
-test('sync push rollback path returns 500 when transaction-level query fails', async () => {
+void test('sync push rollback path returns 500 when transaction-level query fails', async () => {
   const pool = new CoverageSyncPool();
   const originalQuery = pool.client.query.bind(pool.client);
-  pool.client.query = async <T>(sql: string, params: unknown[] = []) => {
+  pool.client.query = (sql: string, params?: unknown[]) => {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
     if (normalized === 'commit') {
       throw new Error('commit failed');
     }
-    return originalQuery<T>(sql, params);
+    return originalQuery(sql, params ?? []);
   };
   const app = await createSyncApp(pool);
 
@@ -426,12 +450,15 @@ test('sync push rollback path returns 500 when transaction-level query fails', a
   });
 
   assert.equal(response.statusCode, 500);
-  assert.equal(response.json().error, 'Unable to process sync push.');
+  assert.equal(
+    (parseJson(response.body) as { error?: string }).error,
+    'Unable to process sync push.'
+  );
 
   await app.close();
 });
 
-test('sync push rejects invalid entity type and operation type entries', async () => {
+void test('sync push rejects invalid entity type and operation type entries', async () => {
   const pool = new CoverageSyncPool();
   const app = await createSyncApp(pool);
 

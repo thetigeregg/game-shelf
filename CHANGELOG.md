@@ -980,3 +980,15 @@
 - 9f6eb18 Store structure-only rich notes
 - 2e530ae Prevent empty notes from clearing
 
+## v0.1.37 - 2026-02-26
+- 7e9a312 Merge pull request #100 from thetigeregg/codex/logerr
+- cbf3201 Increase coverage for sync/manual
+- aac1aea Normalize manual debug errors
+- 8b9d3f5 Add ok field to normalizeUnknownErro
+- 86ccf40 Extract shared error normalizer
+- a5c320e test(core): add sync/manual diagnostics coverage
+- 9c1ea7c refactor(game-list): normalize manual resolve errors in debug logs
+- 37102a4 refactor(core): share HTTP error normalization utility
+- 69f5709 fix(game-list): remove getter-based manual visibility logging
+- 05dee8f fix(debug): prevent XHR recursion and add sync/manual diagnostics
+

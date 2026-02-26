@@ -26,10 +26,6 @@ import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.i
 function hasFirebaseMessagingConfig(): boolean {
   const firebase = environment.firebase;
 
-  if (!firebase || typeof firebase !== 'object') {
-    return false;
-  }
-
   const requiredKeys: Array<keyof typeof firebase> = [
     'apiKey',
     'appId',
@@ -67,4 +63,6 @@ bootstrapApplication(AppComponent, {
       registrationStrategy: 'registerWhenStable:30000'
     })
   ]
-}).catch((err) => console.error(err));
+}).catch((err: unknown) => {
+  console.error(err);
+});

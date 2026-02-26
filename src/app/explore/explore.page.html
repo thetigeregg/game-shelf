@@ -91,7 +91,11 @@
   </ion-infinite-scroll>
 </ion-content>
 
-<ion-modal [isOpen]="isGameDetailModalOpen" (didDismiss)="closeGameDetailModal()">
+<ion-modal
+  class="desktop-fullscreen-modal"
+  [isOpen]="isGameDetailModalOpen"
+  (didDismiss)="closeGameDetailModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>

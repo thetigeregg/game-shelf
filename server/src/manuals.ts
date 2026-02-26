@@ -61,7 +61,7 @@ interface RegisterManualRoutesOptions {
 }
 
 export function parsePlatformIdFromFolderName(folderName: string): number | null {
-  const normalized = String(folderName ?? '').trim();
+  const normalized = folderName.trim();
   const match = normalized.match(/__pid-(\d+)$/i);
 
   if (!match) {
@@ -73,13 +73,11 @@ export function parsePlatformIdFromFolderName(folderName: string): number | null
 }
 
 export function normalizeManualTitle(title: string): string {
-  const strippedDiacritics = String(title ?? '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '');
+  const strippedDiacritics = title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
   const withoutParentheticalNoise = strippedDiacritics.replace(
     /\(([^)]*)\)/g,
     (_match, group: string) => {
-      const normalizedGroup = String(group ?? '').toLowerCase();
+      const normalizedGroup = group.toLowerCase();
       const isNoise = /(usa|eur|jpn|jp|us|eu|rev|revision|manual|instruction|scan|v\d+)/.test(
         normalizedGroup
       );
@@ -152,7 +150,7 @@ export function registerManualRoutes(
 
       const query = request.query as ResolveQuery;
       const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
-      const title = String(query.title ?? '').trim();
+      const title = (query.title ?? '').trim();
       const preferredRelativePath = normalizeManualRelativePath(query.preferredRelativePath);
 
       if (platformIgdbId === null) {
@@ -210,10 +208,9 @@ export function registerManualRoutes(
         .slice(0, MAX_CANDIDATES)
         .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
       const top = scored[0];
-      const runnerUp = scored[1];
-      const scoreGap = top ? top.score - (runnerUp?.score ?? 0) : 0;
+      const scoreGap = scored.length > 1 ? top.score - scored[1].score : top.score;
 
-      if (top && top.score >= AUTO_MATCH_MIN_SCORE && scoreGap >= AUTO_MATCH_MIN_GAP) {
+      if (top.score >= AUTO_MATCH_MIN_SCORE && scoreGap >= AUTO_MATCH_MIN_GAP) {
         reply.send({
           status: 'matched',
           bestMatch: {
@@ -246,7 +243,7 @@ export function registerManualRoutes(
 
       const query = request.query as SearchQuery;
       const platformIgdbId = parsePositiveInteger(query.platformIgdbId);
-      const searchQuery = String(query.q ?? '').trim();
+      const searchQuery = (query.q ?? '').trim();
 
       if (platformIgdbId === null) {
         reply.code(400).send({ error: 'platformIgdbId is required.' });
@@ -524,7 +521,13 @@ function normalizeManualRelativePath(value: unknown): string {
 }
 
 function parsePositiveInteger(value: unknown): number | null {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
+  const raw =
+    typeof value === 'string'
+      ? value
+      : typeof value === 'number' || typeof value === 'bigint'
+        ? String(value)
+        : '';
+  const parsed = Number.parseInt(raw, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
@@ -570,7 +573,7 @@ function buildManualUrl(baseUrl: string, relativePath: string): string {
 }
 
 function normalizeManualsPublicBaseUrl(value: string): string {
-  const normalized = String(value ?? '').trim();
+  const normalized = value.trim();
 
   if (!normalized) {
     return '/manuals';

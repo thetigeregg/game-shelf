@@ -62,9 +62,15 @@ export class DebugLogService {
       this.error('window.unhandledrejection', this.normalizeUnknown(event.reason));
     });
 
-    window.addEventListener('online', () => this.info('network.online'));
-    window.addEventListener('offline', () => this.warn('network.offline'));
-    window.addEventListener('beforeunload', () => this.persist(true));
+    window.addEventListener('online', () => {
+      this.info('network.online');
+    });
+    window.addEventListener('offline', () => {
+      this.warn('network.offline');
+    });
+    window.addEventListener('beforeunload', () => {
+      this.persist(true);
+    });
 
     this.info('debug_logger_initialized');
   }
@@ -98,7 +104,7 @@ export class DebugLogService {
   }
 
   setVerboseTracingEnabled(enabled: boolean): void {
-    this.verboseTracingEnabled = Boolean(enabled);
+    this.verboseTracingEnabled = enabled;
 
     try {
       localStorage.setItem(
@@ -120,7 +126,9 @@ export class DebugLogService {
 
     try {
       localStorage.removeItem(DebugLogService.STORAGE_KEY);
-      DebugLogService.LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+      DebugLogService.LEGACY_STORAGE_KEYS.forEach((key) => {
+        localStorage.removeItem(key);
+      });
     } catch {
       // Ignore storage failures.
     }
@@ -130,7 +138,7 @@ export class DebugLogService {
     const header = [
       `Game Shelf Debug Logs`,
       `Generated: ${new Date().toISOString()}`,
-      `Entries: ${this.entries.length}`,
+      `Entries: ${String(this.entries.length)}`,
       ''
     ];
     const lines = this.entries.map((entry) => {
@@ -142,7 +150,7 @@ export class DebugLogService {
   }
 
   private append(level: DebugLogLevel, message: string, payload?: unknown): void {
-    const normalizedMessage = String(message ?? '').trim() || 'log';
+    const normalizedMessage = message.trim() || 'log';
     const details = payload === undefined ? undefined : this.safeStringify(payload);
     const now = Date.now();
     const fingerprint = `${level}|${normalizedMessage}|${details ?? ''}`;
@@ -221,7 +229,7 @@ export class DebugLogService {
         return;
       }
 
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(raw) as unknown;
 
       if (!Array.isArray(parsed)) {
         return;
@@ -229,16 +237,17 @@ export class DebugLogService {
 
       const normalized = parsed
         .map((item) => {
-          const ts = typeof item?.ts === 'string' ? item.ts : '';
+          const entry = item as Partial<DebugLogEntry> | null;
+          const ts = typeof entry?.ts === 'string' ? entry.ts : '';
           const level =
-            item?.level === 'debug' ||
-            item?.level === 'info' ||
-            item?.level === 'warn' ||
-            item?.level === 'error'
-              ? item.level
+            entry?.level === 'debug' ||
+            entry?.level === 'info' ||
+            entry?.level === 'warn' ||
+            entry?.level === 'error'
+              ? entry.level
               : null;
-          const message = typeof item?.message === 'string' ? item.message : '';
-          const details = typeof item?.details === 'string' ? item.details : undefined;
+          const message = typeof entry?.message === 'string' ? entry.message : '';
+          const details = typeof entry?.details === 'string' ? entry.details : undefined;
 
           if (ts.length === 0 || level === null || message.length === 0) {
             return null;
@@ -360,10 +369,6 @@ export class DebugLogService {
       return;
     }
 
-    const open = XMLHttpRequest.prototype.open;
-    const send = XMLHttpRequest.prototype.send;
-    const setRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
-
     XMLHttpRequest.prototype.open = function (
       this: XMLHttpRequest & {
         __gsMethod?: string;
@@ -376,9 +381,9 @@ export class DebugLogService {
       username?: string | null,
       password?: string | null
     ): void {
-      this.__gsMethod = String(method ?? 'GET').toUpperCase();
-      this.__gsUrl = String(url ?? '');
-      return open.call(
+      this.__gsMethod = method.toUpperCase();
+      this.__gsUrl = typeof url === 'string' ? url : url.toString();
+      XMLHttpRequest.prototype.open.call(
         this,
         method,
         url,
@@ -393,7 +398,7 @@ export class DebugLogService {
       name: string,
       value: string
     ): void {
-      return setRequestHeader.call(this, name, value);
+      XMLHttpRequest.prototype.setRequestHeader.call(this, name, value);
     };
 
     XMLHttpRequest.prototype.send = function (
@@ -427,7 +432,7 @@ export class DebugLogService {
         });
       });
 
-      return send.call(this, body ?? null);
+      XMLHttpRequest.prototype.send.call(this, body ?? null);
     };
 
     (window as Window & { __gsDebugLogger?: DebugLogService }).__gsDebugLogger = this;
@@ -472,7 +477,7 @@ export class DebugLogService {
     try {
       const cache = new Set<unknown>();
 
-      const serialized = JSON.stringify(value, (_key, current) => {
+      const serialized = JSON.stringify(value, (_key, current: unknown) => {
         if (typeof current === 'bigint') {
           return current.toString();
         }
@@ -511,7 +516,7 @@ export class DebugLogService {
       return input.url;
     }
 
-    return String(input ?? '');
+    return '';
   }
 
   private normalizeUnknown(value: unknown): unknown {

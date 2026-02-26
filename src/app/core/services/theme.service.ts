@@ -59,15 +59,7 @@ export class ThemeService {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     this.systemColorSchemeMediaQuery = mediaQuery;
-
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', this.onSystemColorSchemeChange);
-      return;
-    }
-
-    if (typeof mediaQuery.addListener === 'function') {
-      mediaQuery.addListener(this.onSystemColorSchemeChange);
-    }
+    mediaQuery.addEventListener('change', this.onSystemColorSchemeChange);
   }
 
   private prefersSystemDarkMode(): boolean {

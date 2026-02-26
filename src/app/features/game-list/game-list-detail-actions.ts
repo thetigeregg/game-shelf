@@ -8,9 +8,7 @@ export function hasHltbData(game: GameEntry): boolean {
   );
 }
 
-export function normalizeGameStatus(
-  value: string | GameStatus | null | undefined
-): GameStatus | null {
+export function normalizeGameStatus(value: string | null | undefined): GameStatus | null {
   if (
     value === 'playing' ||
     value === 'wantToPlay' ||
@@ -25,10 +23,8 @@ export function normalizeGameStatus(
   return null;
 }
 
-export function normalizeGameRating(
-  value: number | string | GameRating | null | undefined
-): GameRating | null {
-  const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+export function normalizeGameRating(value: number | string | null | undefined): GameRating | null {
+  const numeric = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
 
   if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
     return numeric;

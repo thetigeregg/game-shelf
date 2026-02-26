@@ -71,7 +71,7 @@ export class GameListFilteringEngine {
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
     const platformId =
       typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0 ? entry.id : null;
-    const platformName = String(entry.name ?? '').trim();
+    const platformName = entry.name.trim();
 
     if (platformId !== null && platformName.length > 0) {
       map.set(platformId, platformName);
@@ -108,9 +108,9 @@ export class GameListFilteringEngine {
       canonicalPlatformNameKey: string;
     }[] = [];
 
-    Object.entries(displayNames ?? {}).forEach(([rawKey, rawValue]) => {
-      const platformId = Number.parseInt(String(rawKey ?? ''), 10);
-      const normalizedName = String(rawValue ?? '').trim();
+    Object.entries(displayNames).forEach(([rawKey, rawValue]) => {
+      const platformId = Number.parseInt(rawKey, 10);
+      const normalizedName = rawValue.trim();
 
       if (Number.isInteger(platformId) && platformId > 0 && normalizedName.length > 0) {
         nextMap.set(platformId, normalizedName);
@@ -482,7 +482,7 @@ export class GameListFilteringEngine {
     value: string | null | undefined,
     platformIgdbId?: number | null
   ): string {
-    const trimmed = String(value ?? '').trim();
+    const trimmed = (value ?? '').trim();
 
     if (trimmed.length === 0) {
       return '';
@@ -529,7 +529,7 @@ export class GameListFilteringEngine {
   }
 
   private getAliasedPlatformName(value: string | null | undefined): string {
-    const trimmed = String(value ?? '').trim();
+    const trimmed = (value ?? '').trim();
 
     if (trimmed.length === 0) {
       return '';
@@ -540,10 +540,7 @@ export class GameListFilteringEngine {
   }
 
   private normalizePlatformKey(value: string | null | undefined): string {
-    return String(value ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
+    return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   private getNoGroupLabel(groupBy: GameGroupByField): string {
@@ -925,7 +922,7 @@ export class GameListFilteringEngine {
     return this.normalizeFilterHours(game.hltbCompletionistHours);
   }
 
-  private normalizeStatus(value: string | GameStatus | null | undefined): GameStatus | null {
+  private normalizeStatus(value: string | null | undefined): GameStatus | null {
     if (
       value === 'playing' ||
       value === 'wantToPlay' ||
@@ -940,10 +937,8 @@ export class GameListFilteringEngine {
     return null;
   }
 
-  private normalizeRating(
-    value: number | string | GameRating | null | undefined
-  ): GameRating | null {
-    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  private normalizeRating(value: number | string | null | undefined): GameRating | null {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
 
     if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
       return numeric;
@@ -953,7 +948,7 @@ export class GameListFilteringEngine {
   }
 
   private getGameKey(game: GameEntry): string {
-    return `${game.igdbGameId}::${game.platformIgdbId}`;
+    return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
   }
 
   private getDisplayTitle(game: GameEntry): string {
@@ -987,7 +982,10 @@ export class GameListFilteringEngine {
   }
 
   private normalizeOptionalPlatformIgdbId(value: unknown): number | null {
-    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (typeof value !== 'number' && typeof value !== 'string') {
+      return null;
+    }
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 }

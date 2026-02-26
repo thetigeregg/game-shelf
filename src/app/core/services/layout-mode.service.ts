@@ -23,20 +23,10 @@ export class LayoutModeService {
 
     fromEventPattern<MediaQueryListEvent>(
       (handler) => {
-        if (typeof mediaQueryList.addEventListener === 'function') {
-          mediaQueryList.addEventListener('change', handler);
-          return;
-        }
-
-        mediaQueryList.addListener(handler);
+        mediaQueryList.addEventListener('change', handler);
       },
       (handler) => {
-        if (typeof mediaQueryList.removeEventListener === 'function') {
-          mediaQueryList.removeEventListener('change', handler);
-          return;
-        }
-
-        mediaQueryList.removeListener(handler);
+        mediaQueryList.removeEventListener('change', handler);
       }
     )
       .pipe(takeUntilDestroyed(this.destroyRef))

@@ -84,7 +84,7 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return this.httpClient.get<SearchResponse>(this.searchUrl, { params }).pipe(
-      map((response) => (response.items ?? []).map((item) => this.normalizeResult(item))),
+      map((response) => response.items.map((item) => this.normalizeResult(item))),
       catchError((error: unknown) => {
         const rateLimitError = this.toRateLimitError(error);
 
@@ -120,10 +120,6 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<GameByIdResponse>(url).pipe(
       map((response) => {
-        if (!response?.item) {
-          throw new Error('Missing game payload');
-        }
-
         return this.normalizeResult(response.item);
       }),
       catchError((error: unknown) => {
@@ -225,9 +221,9 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<HltbSearchResponse>(this.hltbSearchUrl, { params }).pipe(
       map((response) => {
-        const normalized = this.normalizeCompletionTimes(response?.item ?? null);
+        const normalized = this.normalizeCompletionTimes(response.item ?? null);
         this.debugLogService.trace('igdb_proxy.hltb.lookup_response', {
-          hasItem: response?.item !== null && response?.item !== undefined,
+          hasItem: response.item !== null,
           normalized,
           hasNormalizedResult: normalized !== null
         });
@@ -277,9 +273,9 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<HltbSearchResponse>(this.hltbSearchUrl, { params }).pipe(
       map((response) => {
-        const normalized = this.normalizeHltbCandidates(response?.candidates ?? []);
+        const normalized = this.normalizeHltbCandidates(response.candidates ?? []);
         this.debugLogService.trace('igdb_proxy.hltb_candidates.lookup_response', {
-          candidateCountRaw: Array.isArray(response?.candidates) ? response.candidates.length : 0,
+          candidateCountRaw: Array.isArray(response.candidates) ? response.candidates.length : 0,
           candidateCountNormalized: normalized.length
         });
         return normalized;
@@ -302,7 +298,7 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return this.httpClient.get<PopularityTypesResponse>(this.popularityTypesUrl).pipe(
-      map((response) => this.normalizePopularityTypes(response?.items ?? [])),
+      map((response) => this.normalizePopularityTypes(response.items)),
       catchError((error: unknown) => {
         const rateLimitError = this.toRateLimitError(error);
 
@@ -343,7 +339,7 @@ export class IgdbProxyService implements GameSearchApi {
     return this.httpClient
       .get<PopularityGamesResponse>(this.popularityPrimitivesUrl, { params })
       .pipe(
-        map((response) => this.normalizePopularityGames(response?.items ?? [])),
+        map((response) => this.normalizePopularityGames(response.items)),
         catchError((error: unknown) => {
           const rateLimitError = this.toRateLimitError(error);
 
@@ -362,8 +358,8 @@ export class IgdbProxyService implements GameSearchApi {
     const platforms = [...new Set(platformOptions.map((platform) => platform.name))];
 
     return {
-      igdbGameId: String(payload.igdbGameId ?? payload.externalId ?? '').trim(),
-      title: String(result.title ?? '').trim() || 'Unknown title',
+      igdbGameId: payload.igdbGameId.trim(),
+      title: result.title.trim() || 'Unknown title',
       coverUrl: this.normalizeCoverUrl(result.coverUrl),
       coverSource: this.normalizeCoverSource(result.coverSource),
       storyline: this.normalizeOptionalText(
@@ -461,9 +457,9 @@ export class IgdbProxyService implements GameSearchApi {
     const fromOptions = Array.isArray(result.platformOptions)
       ? result.platformOptions
           .map((option) => {
-            const name = typeof option?.name === 'string' ? option.name.trim() : '';
+            const name = typeof option.name === 'string' ? option.name.trim() : '';
             const id =
-              typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+              typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0
                 ? option.id
                 : null;
             return { id, name };
@@ -538,15 +534,15 @@ export class IgdbProxyService implements GameSearchApi {
 
     return candidates
       .map((candidate) => {
-        const title = typeof candidate?.title === 'string' ? candidate.title.trim() : '';
-        const releaseYear = Number.isInteger(candidate?.releaseYear) ? candidate.releaseYear : null;
+        const title = typeof candidate.title === 'string' ? candidate.title.trim() : '';
+        const releaseYear = Number.isInteger(candidate.releaseYear) ? candidate.releaseYear : null;
         const platform =
-          typeof candidate?.platform === 'string' && candidate.platform.trim().length > 0
+          typeof candidate.platform === 'string' && candidate.platform.trim().length > 0
             ? candidate.platform.trim()
             : null;
         const candidateRecord = candidate as unknown as Record<string, unknown>;
         const imageUrl = this.normalizeExternalImageUrl(
-          typeof candidate?.imageUrl === 'string'
+          typeof candidate.imageUrl === 'string'
             ? candidate.imageUrl
             : typeof candidateRecord['coverUrl'] === 'string'
               ? candidateRecord['coverUrl']
@@ -557,9 +553,9 @@ export class IgdbProxyService implements GameSearchApi {
           title,
           releaseYear,
           platform,
-          hltbMainHours: this.normalizeCompletionHours(candidate?.hltbMainHours),
-          hltbMainExtraHours: this.normalizeCompletionHours(candidate?.hltbMainExtraHours),
-          hltbCompletionistHours: this.normalizeCompletionHours(candidate?.hltbCompletionistHours),
+          hltbMainHours: this.normalizeCompletionHours(candidate.hltbMainHours),
+          hltbMainExtraHours: this.normalizeCompletionHours(candidate.hltbMainExtraHours),
+          hltbCompletionistHours: this.normalizeCompletionHours(candidate.hltbCompletionistHours),
           ...(imageUrl ? { imageUrl } : {})
         };
       })
@@ -663,9 +659,9 @@ export class IgdbProxyService implements GameSearchApi {
 
     const normalized = items
       .map((option) => {
-        const name = typeof option?.name === 'string' ? option.name.trim() : '';
+        const name = typeof option.name === 'string' ? option.name.trim() : '';
         const id =
-          typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+          typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0
             ? option.id
             : null;
 
@@ -721,10 +717,10 @@ export class IgdbProxyService implements GameSearchApi {
 
     return values
       .map((value) => {
-        const id = Number.isInteger(value?.id) && value.id > 0 ? value.id : null;
-        const name = typeof value?.name === 'string' ? value.name.trim() : '';
+        const id = Number.isInteger(value.id) && value.id > 0 ? value.id : null;
+        const name = typeof value.name === 'string' ? value.name.trim() : '';
         const externalPopularitySource =
-          typeof value?.externalPopularitySource === 'number' &&
+          typeof value.externalPopularitySource === 'number' &&
           Number.isInteger(value.externalPopularitySource) &&
           value.externalPopularitySource > 0
             ? value.externalPopularitySource
@@ -755,19 +751,19 @@ export class IgdbProxyService implements GameSearchApi {
 
     return values
       .map((value) => {
-        const game = this.normalizeResult((value?.game ?? null) as GameCatalogResult);
+        const game = this.normalizeResult(value.game);
         const popularityType =
-          Number.isInteger(value?.popularityType) && value.popularityType > 0
+          Number.isInteger(value.popularityType) && value.popularityType > 0
             ? value.popularityType
             : null;
         const externalPopularitySource =
-          typeof value?.externalPopularitySource === 'number' &&
+          typeof value.externalPopularitySource === 'number' &&
           Number.isInteger(value.externalPopularitySource) &&
           value.externalPopularitySource > 0
             ? value.externalPopularitySource
             : null;
-        const popularityValue = this.normalizePopularityValue(value?.value);
-        const calculatedAt = this.normalizeReleaseDate(value?.calculatedAt ?? null);
+        const popularityValue = this.normalizePopularityValue(value.value);
+        const calculatedAt = this.normalizeReleaseDate(value.calculatedAt ?? null);
 
         return {
           game,
@@ -827,7 +823,7 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private parseRetryAfterMs(error: HttpErrorResponse): number | null {
-    const value = error.headers?.get('Retry-After');
+    const value = error.headers.get('Retry-After');
 
     if (!value) {
       return null;
@@ -863,7 +859,7 @@ export class IgdbProxyService implements GameSearchApi {
       1,
       Math.ceil((this.rateLimitCooldownUntilMs - Date.now()) / 1000)
     );
-    return new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`);
+    return new Error(`Rate limit exceeded. Retry after ${String(retryAfterSeconds)}s.`);
   }
 
   private createCooldownErrorIfActive(): Error | null {
@@ -874,6 +870,6 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     const retryAfterSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
-    return new Error(`Rate limit exceeded. Retry after ${retryAfterSeconds}s.`);
+    return new Error(`Rate limit exceeded. Retry after ${String(retryAfterSeconds)}s.`);
   }
 }

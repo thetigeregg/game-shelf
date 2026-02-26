@@ -20,7 +20,7 @@ export class PlatformCustomizationService {
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
     const platformId =
       typeof entry.id === 'number' && Number.isInteger(entry.id) && entry.id > 0 ? entry.id : null;
-    const platformName = String(entry.name ?? '').trim();
+    const platformName = entry.name.trim();
 
     if (platformId !== null && platformName.length > 0) {
       map.set(platformId, platformName);
@@ -41,7 +41,7 @@ export class PlatformCustomizationService {
     platformName: string | null | undefined,
     platformIgdbId: number | null | undefined
   ): string {
-    const fallback = String(platformName ?? '').trim();
+    const fallback = (platformName ?? '').trim();
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const { aliasedName: aliasedFallback, aliasWasApplied } = this.resolveAlias({
       displayName: fallback,
@@ -71,7 +71,7 @@ export class PlatformCustomizationService {
     platformName: string | null | undefined,
     platformIgdbId: number | null | undefined
   ): string {
-    const fallback = String(platformName ?? '').trim();
+    const fallback = (platformName ?? '').trim();
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const custom =
       platformId !== null ? this.displayNamesSubject.value[String(platformId)] : undefined;
@@ -88,7 +88,7 @@ export class PlatformCustomizationService {
     platformName: string | null | undefined,
     platformIgdbId: number | null | undefined
   ): string {
-    const fallback = String(platformName ?? '').trim();
+    const fallback = (platformName ?? '').trim();
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const { aliasedName: aliasedFallback, aliasWasApplied } = this.resolveAlias({
       displayName: fallback,
@@ -134,7 +134,7 @@ export class PlatformCustomizationService {
       }
     }
 
-    const fallbackName = String(platformName ?? '').trim();
+    const fallbackName = (platformName ?? '').trim();
     const aliasedFallbackName = this.getAliasedPlatformName(fallbackName);
     return this.findPlatformIgdbIdByName(aliasedFallbackName);
   }
@@ -150,7 +150,7 @@ export class PlatformCustomizationService {
 
     for (const [platformIdKey, customName] of Object.entries(this.displayNamesSubject.value)) {
       const platformId = Number.parseInt(platformIdKey, 10);
-      const normalizedCustom = String(customName ?? '').trim();
+      const normalizedCustom = customName.trim();
 
       if (!Number.isInteger(platformId) || platformId <= 0 || normalizedCustom.length === 0) {
         continue;
@@ -191,7 +191,7 @@ export class PlatformCustomizationService {
 
     for (const [platformIdKey, customName] of Object.entries(this.displayNamesSubject.value)) {
       const platformId = Number.parseInt(platformIdKey, 10);
-      const normalizedCustom = String(customName ?? '').trim();
+      const normalizedCustom = customName.trim();
 
       if (!Number.isInteger(platformId) || platformId <= 0 || normalizedCustom.length === 0) {
         continue;
@@ -236,16 +236,17 @@ export class PlatformCustomizationService {
     }
 
     const next = { ...this.displayNamesSubject.value };
-    const normalizedName = String(customName ?? '').trim();
+    const normalizedName = (customName ?? '').trim();
     const key = String(platformId);
 
-    if (normalizedName.length === 0) {
-      delete next[key];
-    } else {
-      next[key] = normalizedName;
-    }
+    const merged: PlatformDisplayNameMap =
+      normalizedName.length === 0
+        ? (Object.fromEntries(
+            Object.entries(next).filter(([entryKey]) => entryKey !== key)
+          ) as PlatformDisplayNameMap)
+        : { ...next, [key]: normalizedName };
 
-    const normalized = this.normalizeMap(next);
+    const normalized = this.normalizeMap(merged);
     this.displayNamesSubject.next(normalized);
     this.saveToStorage(normalized);
   }
@@ -275,14 +276,14 @@ export class PlatformCustomizationService {
     const normalized: PlatformDisplayNameMap = {};
 
     Object.entries(source).forEach(([rawKey, rawValue]) => {
-      const platformId = Number.parseInt(String(rawKey ?? ''), 10);
+      const platformId = Number.parseInt(rawKey, 10);
       const key = Number.isInteger(platformId) && platformId > 0 ? String(platformId) : null;
 
       if (!key) {
         return;
       }
 
-      const value = String(rawValue ?? '').trim();
+      const value = typeof rawValue === 'string' ? rawValue.trim() : '';
 
       if (value.length > 0) {
         normalized[key] = value;
@@ -301,7 +302,7 @@ export class PlatformCustomizationService {
   }
 
   private getAliasedPlatformName(value: string | null | undefined): string {
-    const trimmed = String(value ?? '').trim();
+    const trimmed = (value ?? '').trim();
 
     if (trimmed.length === 0) {
       return '';
@@ -315,7 +316,7 @@ export class PlatformCustomizationService {
     aliasedName: string;
     aliasWasApplied: boolean;
   } {
-    const normalizedDisplayName = String(input.displayName ?? '').trim();
+    const normalizedDisplayName = input.displayName.trim();
     const aliasedFromDisplayName = this.getAliasedPlatformName(normalizedDisplayName);
 
     if (
@@ -342,10 +343,7 @@ export class PlatformCustomizationService {
   }
 
   private normalizePlatformKey(value: string | null | undefined): string {
-    return String(value ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
+    return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   private findPlatformIgdbIdByName(platformName: string | null | undefined): number | null {

@@ -118,8 +118,8 @@ export class ExplorePage implements OnInit {
     addIcons({ search, logoGoogle, logoYoutube });
   }
 
-  async ngOnInit(): Promise<void> {
-    await this.loadPopularityTypes();
+  ngOnInit(): void {
+    void this.loadPopularityTypes();
   }
 
   async onPopularityTypeChange(value: string | number | null | undefined): Promise<void> {
@@ -162,7 +162,7 @@ export class ExplorePage implements OnInit {
   }
 
   trackByGameId(index: number, item: PopularityGameResult): string {
-    return `${item.game.igdbGameId}:${index}`;
+    return `${item.game.igdbGameId}:${String(index)}`;
   }
 
   async openGameDetail(item: PopularityGameResult): Promise<void> {
@@ -375,7 +375,7 @@ export class ExplorePage implements OnInit {
   }
 
   openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const query = this.selectedGameDetail?.title?.trim();
+    const query = this.selectedGameDetail?.title.trim();
 
     if (!query) {
       return;
@@ -416,7 +416,7 @@ export class ExplorePage implements OnInit {
       return this.getPlatformDisplayName(platforms[0].name, platforms[0].id);
     }
 
-    return `${platforms.length} platforms`;
+    return `${String(platforms.length)} platforms`;
   }
 
   private getPlatformDisplayName(name: string, platformIgdbId: number | null): string {
@@ -482,11 +482,9 @@ export class ExplorePage implements OnInit {
     if (Array.isArray(catalogLike.platformOptions) && catalogLike.platformOptions.length > 0) {
       return catalogLike.platformOptions
         .map((option): { id: number | null; name: string } => {
-          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const name = typeof option.name === 'string' ? option.name.trim() : '';
           const id =
-            Number.isInteger(option?.id) && (option.id as number) > 0
-              ? (option.id as number)
-              : null;
+            Number.isInteger(option.id) && (option.id as number) > 0 ? (option.id as number) : null;
           return { id, name };
         })
         .filter((option: { id: number | null; name: string }) => option.name.length > 0)
@@ -558,7 +556,7 @@ export class ExplorePage implements OnInit {
 
     if (Array.isArray(catalogLike.platformOptions)) {
       for (const option of catalogLike.platformOptions) {
-        if (Number.isInteger(option?.id) && (option.id as number) > 0) {
+        if (Number.isInteger(option.id) && (option.id as number) > 0) {
           ids.add(option.id as number);
         }
       }

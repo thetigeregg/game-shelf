@@ -2,10 +2,13 @@ import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import {
   IonBadge,
   IonButton,
+  IonCol,
+  IonGrid,
   IonIcon,
   IonItem,
   IonLabel,
   IonList,
+  IonRow,
   IonSelect,
   IonSelectOption
 } from '@ionic/angular/standalone';
@@ -42,7 +45,19 @@ type DetailGame = GameCatalogResult | GameEntry;
   templateUrl: './game-detail-content.component.html',
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
-  imports: [IonList, IonItem, IonLabel, IonBadge, IonButton, IonSelect, IonSelectOption, IonIcon]
+  imports: [
+    IonGrid,
+    IonRow,
+    IonCol,
+    IonList,
+    IonItem,
+    IonLabel,
+    IonBadge,
+    IonButton,
+    IonSelect,
+    IonSelectOption,
+    IonIcon
+  ]
 })
 export class GameDetailContentComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
@@ -128,9 +143,9 @@ export class GameDetailContentComponent {
       gameCatalogLike.platformOptions.length > 0
     ) {
       const first = gameCatalogLike.platformOptions[0];
-      const name = typeof first?.name === 'string' ? first.name.trim() : '';
+      const name = typeof first.name === 'string' ? first.name.trim() : '';
       const id =
-        Number.isInteger(first?.id) && (first.id as number) > 0 ? (first.id as number) : null;
+        Number.isInteger(first.id) && (first.id as number) > 0 ? (first.id as number) : null;
 
       if (name.length > 0) {
         return this.getAliasedPlatformLabel(name, id);
@@ -223,9 +238,9 @@ export class GameDetailContentComponent {
 
     return tags
       .map((tag) => ({
-        name: typeof tag?.name === 'string' ? tag.name.trim() : '',
+        name: typeof tag.name === 'string' ? tag.name.trim() : '',
         color:
-          typeof tag?.color === 'string' && tag.color.trim().length > 0
+          typeof tag.color === 'string' && tag.color.trim().length > 0
             ? tag.color.trim()
             : '#808080'
       }))
@@ -281,16 +296,14 @@ export class GameDetailContentComponent {
     }
 
     const normalized = [
-      ...new Set(
-        values.map((value) => String(value ?? '').trim()).filter((value) => value.length > 0)
-      )
+      ...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))
     ];
 
     return normalized.length > 0 ? normalized.join(', ') : 'None';
   }
 
   hasMetadataValue(values: string[] | null | undefined): boolean {
-    return Array.isArray(values) && values.some((value) => String(value ?? '').trim().length > 0);
+    return Array.isArray(values) && values.some((value) => value.trim().length > 0);
   }
 
   getTagTextColor(backgroundColor: string | null | undefined): string {
@@ -350,7 +363,7 @@ export class GameDetailContentComponent {
     const target = event.target;
 
     if (target instanceof HTMLImageElement) {
-      delete target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY];
+      target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY] = '';
     }
   }
 
@@ -423,11 +436,9 @@ export class GameDetailContentComponent {
     ) {
       return gameCatalogLike.platformOptions
         .map((option): { id: number | null; name: string } => {
-          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const name = typeof option.name === 'string' ? option.name.trim() : '';
           const id =
-            Number.isInteger(option?.id) && (option.id as number) > 0
-              ? (option.id as number)
-              : null;
+            Number.isInteger(option.id) && (option.id as number) > 0 ? (option.id as number) : null;
           return { id, name };
         })
         .filter((option) => option.name.length > 0)
@@ -486,7 +497,7 @@ export class GameDetailContentComponent {
     }
 
     const rounded = Math.round(value * 10) / 10;
-    return `${rounded}h`;
+    return `${String(rounded)}h`;
   }
 
   get displayTitle(): string {

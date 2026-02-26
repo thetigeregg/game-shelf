@@ -31,7 +31,17 @@ class ImagePoolMock {
     } = {}
   ) {}
 
-  async query<T>(sql: string, params: unknown[]): Promise<{ rows: T[] }> {
+  private toSafeString(value: unknown): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+      return String(value);
+    }
+    return '';
+  }
+
+  query(sql: string, params: unknown[]): Promise<{ rows: ImageRow[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (
@@ -40,43 +50,49 @@ class ImagePoolMock {
       )
     ) {
       if (this.options.failReads) {
-        throw this.options.readFailureValue ?? new Error('read_failed');
+        throw this.options.readFailureValue instanceof Error
+          ? this.options.readFailureValue
+          : new Error('read_failed');
       }
-      const key = String(params[0] ?? '');
+      const key = this.toSafeString(params[0]);
       const row = this.rowsByKey.get(key);
-      return { rows: row ? [row as T] : [] };
+      return Promise.resolve({ rows: row ? [row] : [] });
     }
 
     if (normalized.startsWith('delete from image_assets where cache_key')) {
       if (this.options.failDeletes) {
-        throw this.options.deleteFailureValue ?? new Error('delete_failed');
+        throw this.options.deleteFailureValue instanceof Error
+          ? this.options.deleteFailureValue
+          : new Error('delete_failed');
       }
-      const key = String(params[0] ?? '');
+      const key = this.toSafeString(params[0]);
       this.rowsByKey.delete(key);
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     if (normalized.startsWith('insert into image_assets')) {
       if (this.options.failWrites) {
-        throw this.options.writeFailureValue ?? new Error('write_failed');
+        throw this.options.writeFailureValue instanceof Error
+          ? this.options.writeFailureValue
+          : new Error('write_failed');
       }
       const row: ImageRow = {
-        cache_key: String(params[0] ?? ''),
-        source_url: String(params[1] ?? ''),
-        content_type: String(params[2] ?? ''),
-        file_path: String(params[3] ?? ''),
+        cache_key: this.toSafeString(params[0]),
+        source_url: this.toSafeString(params[1]),
+        content_type: this.toSafeString(params[2]),
+        file_path: this.toSafeString(params[3]),
         size_bytes: Number(params[4] ?? 0),
         updated_at: new Date().toISOString()
       };
       this.rowsByKey.set(row.cache_key, row);
-      return { rows: [] };
+      return Promise.resolve({ rows: [] });
     }
 
     throw new Error(`Unsupported SQL in ImagePoolMock: ${sql}`);
   }
 }
 
-test('Image cache stores on miss and serves on hit', async () => {
+void test('Image cache stores on miss and serves on hit', async () => {
   resetCacheMetrics();
   const pool = new ImagePoolMock();
   const app = Fastify();
@@ -84,7 +100,7 @@ test('Image cache stores on miss and serves on hit', async () => {
   let fetchCalls = 0;
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    fetchImpl: async () => {
+    fetchImpl: () => {
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
@@ -121,15 +137,16 @@ test('Image cache stores on miss and serves on hit', async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image proxy validates URLs and handles upstream timeout/errors', async () => {
+void test('Image proxy validates URLs and handles upstream timeout/errors', async () => {
   resetCacheMetrics();
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-invalid-test-'));
   const pool = new ImagePoolMock();
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    fetchImpl: async (url) => {
-      if (String(url).includes('timeout')) {
+    fetchImpl: (url) => {
+      const urlValue = url instanceof URL ? url.href : typeof url === 'string' ? url : '';
+      if (urlValue.includes('timeout')) {
         throw new Error('timeout');
       }
       return new Response('oops', { status: 503 });
@@ -187,7 +204,7 @@ test('Image proxy validates URLs and handles upstream timeout/errors', async () 
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image proxy enforces size limits and rejects empty upstream payloads', async () => {
+void test('Image proxy enforces size limits and rejects empty upstream payloads', async () => {
   resetCacheMetrics();
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-size-test-'));
@@ -196,7 +213,7 @@ test('Image proxy enforces size limits and rejects empty upstream payloads', asy
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
     maxBytes: 3,
-    fetchImpl: async () => {
+    fetchImpl: () => {
       call += 1;
       if (call === 1) {
         return new Response(Buffer.from([1, 2, 3, 4]), {
@@ -232,7 +249,7 @@ test('Image proxy enforces size limits and rejects empty upstream payloads', asy
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image proxy tolerates cache read/write/delete failures and still serves response', async () => {
+void test('Image proxy tolerates cache read/write/delete failures and still serves response', async () => {
   resetCacheMetrics();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-fail-open-test-'));
   const sourceUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/fail-open.jpg';
@@ -245,7 +262,7 @@ test('Image proxy tolerates cache read/write/delete failures and still serves re
       new ImagePoolMock({ failReads: true }) as unknown as Pool,
       tempDir,
       {
-        fetchImpl: async () =>
+        fetchImpl: () =>
           new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
             status: 200,
             headers: { 'content-type': 'image/jpeg' }
@@ -268,7 +285,7 @@ test('Image proxy tolerates cache read/write/delete failures and still serves re
       new ImagePoolMock({ failWrites: true }) as unknown as Pool,
       tempDir,
       {
-        fetchImpl: async () =>
+        fetchImpl: () =>
           new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
             status: 200,
             headers: { 'content-type': 'image/jpeg' }
@@ -291,7 +308,7 @@ test('Image proxy tolerates cache read/write/delete failures and still serves re
       new ImagePoolMock({ failDeletes: true, failWrites: true }) as unknown as Pool,
       tempDir,
       {
-        fetchImpl: async () =>
+        fetchImpl: () =>
           new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
             status: 200,
             headers: { 'content-type': 'image/jpeg' }
@@ -314,7 +331,7 @@ test('Image proxy tolerates cache read/write/delete failures and still serves re
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image proxy handles stale DB record with missing file and fallback extension', async () => {
+void test('Image proxy handles stale DB record with missing file and fallback extension', async () => {
   resetCacheMetrics();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-stale-record-test-'));
   const sourceUrl = 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/no-ext';
@@ -325,7 +342,7 @@ test('Image proxy handles stale DB record with missing file and fallback extensi
   // Prime cache metadata with a missing file path by making one request, then deleting the file.
   const primingApp = Fastify();
   await registerImageProxyRoute(primingApp, stalePool as unknown as Pool, tempDir, {
-    fetchImpl: async () =>
+    fetchImpl: () =>
       new Response(Buffer.from([1, 2, 3]), {
         status: 200,
         headers: {
@@ -346,7 +363,7 @@ test('Image proxy handles stale DB record with missing file and fallback extensi
 
   const app = Fastify();
   await registerImageProxyRoute(app, stalePool as unknown as Pool, tempDir, {
-    fetchImpl: async () =>
+    fetchImpl: () =>
       new Response(Buffer.from([9, 9, 9]), {
         status: 200,
         headers: {
@@ -366,7 +383,7 @@ test('Image proxy handles stale DB record with missing file and fallback extensi
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image proxy logs non-Error database failures and still responds', async () => {
+void test('Image proxy logs non-Error database failures and still responds', async () => {
   resetCacheMetrics();
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-nonerror-test-'));
@@ -378,7 +395,7 @@ test('Image proxy logs non-Error database failures and still responds', async ()
   });
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    fetchImpl: async () =>
+    fetchImpl: () =>
       new Response(Buffer.from([0xaa, 0xbb, 0xcc]), {
         status: 200,
         headers: {
@@ -398,14 +415,14 @@ test('Image proxy logs non-Error database failures and still responds', async ()
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image proxy handles missing url parameter and null upstream body', async () => {
+void test('Image proxy handles missing url parameter and null upstream body', async () => {
   resetCacheMetrics();
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-null-body-test-'));
   const pool = new ImagePoolMock();
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    fetchImpl: async () =>
+    fetchImpl: () =>
       new Response(null, {
         status: 200,
         headers: {
@@ -430,7 +447,7 @@ test('Image proxy handles missing url parameter and null upstream body', async (
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image cache purge endpoint removes cached assets by source URL', async () => {
+void test('Image cache purge endpoint removes cached assets by source URL', async () => {
   resetCacheMetrics();
   const pool = new ImagePoolMock();
   const app = Fastify();
@@ -438,7 +455,7 @@ test('Image cache purge endpoint removes cached assets by source URL', async () 
   let fetchCalls = 0;
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    fetchImpl: async () => {
+    fetchImpl: () => {
       fetchCalls += 1;
       return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
@@ -477,14 +494,14 @@ test('Image cache purge endpoint removes cached assets by source URL', async () 
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image proxy route rate limits by client IP', async () => {
+void test('Image proxy route rate limits by client IP', async () => {
   resetCacheMetrics();
   const pool = new ImagePoolMock();
   const app = Fastify();
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gs-image-cache-rate-limit-test-'));
 
   await registerImageProxyRoute(app, pool as unknown as Pool, tempDir, {
-    fetchImpl: async () =>
+    fetchImpl: () =>
       new Response(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), {
         status: 200,
         headers: { 'content-type': 'image/jpeg' }
@@ -494,7 +511,7 @@ test('Image proxy route rate limits by client IP', async () => {
   for (let index = 0; index < 50; index += 1) {
     const response = await app.inject({
       method: 'GET',
-      url: `/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-${index}.jpg`
+      url: `/v1/images/proxy?url=https://images.igdb.com/igdb/image/upload/rate-limit-${String(index)}.jpg`
     });
     assert.equal(response.statusCode, 200);
   }
@@ -510,7 +527,7 @@ test('Image proxy route rate limits by client IP', async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-test('Image purge route rate limits by client IP', async () => {
+void test('Image purge route rate limits by client IP', async () => {
   resetCacheMetrics();
   const pool = new ImagePoolMock();
   const app = Fastify();
@@ -523,7 +540,7 @@ test('Image purge route rate limits by client IP', async () => {
     const response = await app.inject({
       method: 'POST',
       url: '/v1/images/cache/purge',
-      payload: { urls: [`${url}-${index}`] }
+      payload: { urls: [`${url}-${String(index)}`] }
     });
     assert.equal(response.statusCode, 200);
   }

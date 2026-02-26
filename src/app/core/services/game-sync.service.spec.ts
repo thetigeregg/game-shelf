@@ -38,6 +38,9 @@ type GameSyncServicePrivate = {
   generateOperationId(): string;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
+  syncInFlight: boolean;
+  initialized: boolean;
+  baseUrl: string;
   httpClient: {
     post: (url: string, body: unknown) => Observable<unknown>;
   };
@@ -655,5 +658,47 @@ describe('GameSyncService', () => {
 
     const connectivity = await db.syncMeta.get('connectivity');
     expect(connectivity?.value).toBe('degraded');
+  });
+
+  it('syncNow skips when baseUrl is missing, in flight, or offline', async () => {
+    const pushSpy = vi.spyOn(servicePrivate, 'pushOutbox');
+    const pullSpy = vi.spyOn(servicePrivate, 'pullChanges');
+
+    servicePrivate.baseUrl = '';
+    await service.syncNow();
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(pullSpy).not.toHaveBeenCalled();
+
+    servicePrivate.baseUrl = 'http://localhost:3000';
+    servicePrivate.syncInFlight = true;
+    await service.syncNow();
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(pullSpy).not.toHaveBeenCalled();
+
+    servicePrivate.syncInFlight = false;
+    const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
+      onLine: false
+    } as Navigator);
+    await service.syncNow();
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(pullSpy).not.toHaveBeenCalled();
+    navigatorSpy.mockRestore();
+  });
+
+  it('initialize short-circuits when already initialized', () => {
+    servicePrivate.initialized = true;
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+
+    service.initialize();
+
+    expect(syncNowSpy).not.toHaveBeenCalled();
+  });
+
+  it('pushOutbox exits when outbox is empty', async () => {
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+
+    await servicePrivate.pushOutbox();
+
+    expect(postSpy).not.toHaveBeenCalled();
   });
 });

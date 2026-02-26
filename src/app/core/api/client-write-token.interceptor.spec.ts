@@ -2,7 +2,8 @@ import {
   HTTP_INTERCEPTORS,
   HttpClient,
   HttpHeaders,
-  provideHttpClient
+  provideHttpClient,
+  withInterceptorsFromDi
 } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -22,7 +23,7 @@ describe('ClientWriteTokenInterceptor', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withInterceptorsFromDi()),
         provideHttpClientTesting(),
         ClientWriteAuthService,
         {

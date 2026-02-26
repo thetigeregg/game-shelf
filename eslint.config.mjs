@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import js from '@eslint/js';
 import { FlatCompat } from '@eslint/eslintrc';
 import { importX } from 'eslint-plugin-import-x';
+import tsParser from '@typescript-eslint/parser';
 import unusedImports from 'eslint-plugin-unused-imports';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +14,7 @@ const compat = new FlatCompat({
   recommendedConfig: js.configs.recommended,
   allConfig: js.configs.all
 });
+const jsTsFiles = ['**/*.{js,mjs,cjs,jsx,mjsx,ts,tsx,mtsx}'];
 
 export default defineConfig([
   globalIgnores([
@@ -24,9 +26,22 @@ export default defineConfig([
     'test-results/**/*'
   ]),
 
-  importX.flatConfigs.recommended,
-  importX.flatConfigs.typescript,
-
+  {
+    ...importX.flatConfigs.recommended,
+    files: jsTsFiles
+  },
+  {
+    ...importX.flatConfigs.typescript,
+    files: jsTsFiles
+  },
+  {
+    files: jsTsFiles,
+    languageOptions: {
+      parser: tsParser,
+      ecmaVersion: 'latest',
+      sourceType: 'module'
+    }
+  },
   {
     files: ['**/*.ts'],
 

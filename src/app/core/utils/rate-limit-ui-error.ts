@@ -12,7 +12,7 @@ export function formatRateLimitedUiError(error: unknown, fallbackMessage: string
   const retryAfterSeconds = extractRetryAfterSeconds(message);
 
   if (retryAfterSeconds !== null) {
-    return `Rate limited. Retry after ${retryAfterSeconds}s.`;
+    return `Rate limited. Retry after ${String(retryAfterSeconds)}s.`;
   }
 
   return 'Rate limited. Please retry shortly.';

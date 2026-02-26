@@ -3,6 +3,34 @@
   z-index: 1;
 }
 
+.detail-layout-grid {
+  padding: 0;
+  width: 100%;
+}
+
+.detail-layout-grid ion-col {
+  min-width: 0;
+  padding: 0;
+}
+
+@media (min-width: 1200px) {
+  .detail-content-inner {
+    height: 100%;
+  }
+
+  .detail-layout-grid {
+    height: 100%;
+  }
+
+  .detail-layout-grid ion-row {
+    height: 100%;
+  }
+
+  .detail-layout-grid ion-col:first-child {
+    border-right: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
+  }
+}
+
 .detail-content-inner-under-header .detail-cover {
   margin-top: calc(var(--offset-top, 0px) * -1);
   padding-top: calc(16px + var(--offset-top, 0px));

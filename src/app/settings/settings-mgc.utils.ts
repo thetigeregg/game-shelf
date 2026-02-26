@@ -87,10 +87,7 @@ export function normalizeLookupKey(value: string): string {
 }
 
 export function normalizeMgcTitleForMatch(value: string): string {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 export function resolveRateLimitRetryDelayMs(statusDetail: string): number {
@@ -136,7 +133,7 @@ export function hasHltbData(game: GameEntry): boolean {
 }
 
 export function getGameKey(igdbGameId: string, platformIgdbId: number): string {
-  return `${igdbGameId}::${platformIgdbId}`;
+  return `${igdbGameId}::${String(platformIgdbId)}`;
 }
 
 export function getMgcRowGameKey(row: MgcImportRow): string | null {
@@ -145,7 +142,7 @@ export function getMgcRowGameKey(row: MgcImportRow): string | null {
   }
 
   const platformIgdbId = row.selected.platformIgdbId;
-  const igdbGameId = String(row.selected.igdbGameId ?? '').trim();
+  const igdbGameId = row.selected.igdbGameId.trim();
 
   if (
     !/^\d+$/.test(igdbGameId) ||

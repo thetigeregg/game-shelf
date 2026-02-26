@@ -1,8 +1,7 @@
 import { Component, inject } from '@angular/core';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import {
+  AlertController,
+  ToastController,
   IonHeader,
   IonToolbar,
   IonButtons,
@@ -27,6 +26,8 @@ import {
   IonInput,
   IonToggle
 } from '@ionic/angular/standalone';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Router } from '@angular/router';
 import {
@@ -35,7 +36,6 @@ import {
   GameCatalogResult,
   GameGroupByField,
   GameListFilters,
-  GameListView,
   GameRating,
   GameStatus,
   ListType,
@@ -63,6 +63,7 @@ import {
   isRateLimitedMessage,
   isTransientNetworkMessage
 } from '../core/utils/rate-limit-ui-error';
+import { normalizeNotesValueOrNull } from '../core/utils/notes-normalization.utils';
 import {
   escapeCsvValue,
   normalizeColor,
@@ -138,6 +139,7 @@ interface ExportCsvRow {
   customTitle: string;
   summary: string;
   storyline: string;
+  notes: string;
   coverUrl: string;
   customCoverUrl: string;
   coverSource: string;
@@ -175,6 +177,7 @@ interface ParsedGameImportRow {
   kind: 'game';
   listType: ListType;
   catalog: GameCatalogResult;
+  notes: string | null;
   status: GameStatus | null;
   rating: GameRating | null;
   customTitle: string | null;
@@ -234,6 +237,7 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'customTitle',
   'summary',
   'storyline',
+  'notes',
   'coverUrl',
   'customCoverUrl',
   'coverSource',
@@ -411,7 +415,7 @@ export class SettingsPage {
     });
   }
 
-  onColorSchemePreferenceChange(value: ColorSchemePreference | string): void {
+  onColorSchemePreferenceChange(value: string): void {
     if (value !== 'system' && value !== 'light' && value !== 'dark') {
       return;
     }
@@ -421,7 +425,7 @@ export class SettingsPage {
   }
 
   onImageCacheLimitChange(value: number | string | null | undefined): void {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
 
     if (!Number.isInteger(parsed)) {
       this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
@@ -437,7 +441,7 @@ export class SettingsPage {
   }
 
   onVerboseTracingToggleChange(enabled: boolean): void {
-    this.verboseTracingEnabled = Boolean(enabled);
+    this.verboseTracingEnabled = enabled;
     this.debugLogService.setVerboseTracingEnabled(this.verboseTracingEnabled);
   }
 
@@ -466,7 +470,7 @@ export class SettingsPage {
       return;
     }
 
-    const token = String(data?.values?.token ?? '').trim();
+    const token = typeof data?.values?.token === 'string' ? data.values.token.trim() : '';
 
     if (token.length === 0) {
       await this.presentToast('Device write token was empty.', 'warning');
@@ -561,7 +565,7 @@ export class SettingsPage {
     this.platformOrderItems = await this.buildPlatformCustomizationItems();
   }
 
-  async clearPlatformDisplayNames(): Promise<void> {
+  clearPlatformDisplayNames(): void {
     this.platformCustomizationService.clearCustomNames();
     this.queueSettingDelete(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
     this.platformOrderItems = this.platformOrderItems.map((platform) => ({
@@ -571,7 +575,7 @@ export class SettingsPage {
   }
 
   trackByPlatformOrderItem(_index: number, item: GameCatalogPlatformOption): string {
-    return `${item.id ?? 'none'}::${item.name}`;
+    return `${String(item.id ?? 'none')}::${item.name}`;
   }
 
   onPlatformOrderReorder(event: CustomEvent): void {
@@ -599,7 +603,7 @@ export class SettingsPage {
   }
 
   getPlatformCustomizationDisplayName(platform: PlatformCustomizationItem): string {
-    const customName = String(platform.customName ?? '').trim();
+    const customName = platform.customName.trim();
     return customName.length > 0 ? customName : platform.name;
   }
 
@@ -633,14 +637,14 @@ export class SettingsPage {
         return selectedLabel;
       }
 
-      return `${selectedLabel} + ${options.length - 1} more`;
+      return `${selectedLabel} + ${String(options.length - 1)} more`;
     }
 
     return options.map((option) => this.getPlatformDisplayName(option.name, option.id)).join(', ');
   }
 
   async editPlatformDisplayName(platform: PlatformCustomizationItem): Promise<void> {
-    let draftName = String(platform.customName ?? '');
+    let draftName = platform.customName;
 
     const alert = await this.alertController.create({
       header: `Display Name (${platform.name})`,
@@ -668,7 +672,7 @@ export class SettingsPage {
           text: 'Save',
           role: 'confirm',
           handler: (value: { displayName?: string } | undefined) => {
-            draftName = String(value?.displayName ?? '').trim();
+            draftName = (value?.displayName ?? '').trim();
           }
         }
       ]
@@ -942,7 +946,7 @@ export class SettingsPage {
     }
   }
 
-  onMgcTargetListTypeChange(value: ListType | string | null | undefined): void {
+  onMgcTargetListTypeChange(value: string | null | undefined): void {
     if (value === 'collection' || value === 'wishlist') {
       this.mgcTargetListType = value;
       return;
@@ -952,7 +956,7 @@ export class SettingsPage {
   }
 
   onMgcPageSizeChange(value: number | string | null | undefined): void {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
 
     if (!Number.isInteger(parsed) || !this.mgcPageSizeOptions.includes(parsed)) {
       return;
@@ -1038,7 +1042,7 @@ export class SettingsPage {
         resolvedRows: rowsToResolve.length
       });
       await this.presentToast(
-        `Resolved ${rowsToResolve.length} row${rowsToResolve.length === 1 ? '' : 's'} on this page.`
+        `Resolved ${String(rowsToResolve.length)} row${rowsToResolve.length === 1 ? '' : 's'} on this page.`
       );
     } catch {
       this.debugLogService.error('mgc.resolve_page_failed', {
@@ -1165,7 +1169,7 @@ export class SettingsPage {
     const targetLabel = this.mgcTargetListType === 'collection' ? 'Collection' : 'Wishlist';
     const alert = await this.alertController.create({
       header: 'Confirm MGC Import',
-      message: `Import ${this.mgcResolvedCount} game${this.mgcResolvedCount === 1 ? '' : 's'} into ${targetLabel}?`,
+      message: `Import ${String(this.mgcResolvedCount)} game${this.mgcResolvedCount === 1 ? '' : 's'} into ${targetLabel}?`,
       buttons: [
         {
           text: 'Cancel',
@@ -1221,10 +1225,10 @@ export class SettingsPage {
 
     if (row.status === 'multiple') {
       if (row.selected) {
-        return `${row.candidates.length} possible matches found.\nAuto-selected exact title match: ${row.selected.title}.`;
+        return `${String(row.candidates.length)} possible matches found.\nAuto-selected exact title match: ${row.selected.title}.`;
       }
 
-      return `${row.candidates.length} possible matches found.`;
+      return `${String(row.candidates.length)} possible matches found.`;
     }
 
     if (row.status === 'noMatch') {
@@ -1289,6 +1293,7 @@ export class SettingsPage {
       let gameStatusesApplied = 0;
       let gameRatingsApplied = 0;
       let gameTagAssignmentsApplied = 0;
+      let gameNotesApplied = 0;
       let viewsApplied = 0;
       let tagsRenamed = 0;
       let viewsRenamed = 0;
@@ -1388,6 +1393,15 @@ export class SettingsPage {
             gameRatingsApplied += 1;
           }
 
+          if (gameRow.notes !== null) {
+            await this.gameShelfService.setGameNotes(
+              gameRow.catalog.igdbGameId,
+              platformIgdbId,
+              gameRow.notes
+            );
+            gameNotesApplied += 1;
+          }
+
           const tagIds = gameRow.tagNames
             .map((tagName) => tagMap.get(tagName.toLowerCase()))
             .filter(
@@ -1455,7 +1469,7 @@ export class SettingsPage {
       this.importPreviewRows = [];
       this.isImportPreviewOpen = false;
       await this.presentToast('CSV import completed.');
-      await this.presentImportSummary({
+      this.presentImportSummary({
         totalRows,
         settingsApplied,
         tagsApplied,
@@ -1464,6 +1478,7 @@ export class SettingsPage {
         gameRatingsApplied,
         gameCustomMetadataApplied,
         gameTagAssignmentsApplied,
+        gameNotesApplied,
         viewsApplied,
         tagsRenamed,
         viewsRenamed,
@@ -1477,7 +1492,7 @@ export class SettingsPage {
     }
   }
 
-  private async presentImportSummary(summary: {
+  private presentImportSummary(summary: {
     totalRows: number;
     settingsApplied: number;
     tagsApplied: number;
@@ -1486,26 +1501,28 @@ export class SettingsPage {
     gameRatingsApplied: number;
     gameCustomMetadataApplied: number;
     gameTagAssignmentsApplied: number;
+    gameNotesApplied: number;
     viewsApplied: number;
     tagsRenamed: number;
     viewsRenamed: number;
     failedRows: number;
     skippedRows: number;
-  }): Promise<void> {
+  }): void {
     this.presentSummaryModal('Import Summary', [
-      `Total rows: ${summary.totalRows}`,
-      `Games imported: ${summary.gamesApplied}`,
-      `Tags imported: ${summary.tagsApplied}`,
-      `Views imported: ${summary.viewsApplied}`,
-      `Settings imported: ${summary.settingsApplied}`,
-      `Game statuses set: ${summary.gameStatusesApplied}`,
-      `Game ratings set: ${summary.gameRatingsApplied}`,
-      `Game custom metadata updates: ${summary.gameCustomMetadataApplied}`,
-      `Game tag assignments: ${summary.gameTagAssignmentsApplied}`,
-      `Tags auto-renamed: ${summary.tagsRenamed}`,
-      `Views auto-renamed: ${summary.viewsRenamed}`,
-      `Failed rows: ${summary.failedRows}`,
-      `Skipped rows: ${summary.skippedRows}`
+      `Total rows: ${String(summary.totalRows)}`,
+      `Games imported: ${String(summary.gamesApplied)}`,
+      `Tags imported: ${String(summary.tagsApplied)}`,
+      `Views imported: ${String(summary.viewsApplied)}`,
+      `Settings imported: ${String(summary.settingsApplied)}`,
+      `Game statuses set: ${String(summary.gameStatusesApplied)}`,
+      `Game ratings set: ${String(summary.gameRatingsApplied)}`,
+      `Game custom metadata updates: ${String(summary.gameCustomMetadataApplied)}`,
+      `Game tag assignments: ${String(summary.gameTagAssignmentsApplied)}`,
+      `Game notes set: ${String(summary.gameNotesApplied)}`,
+      `Tags auto-renamed: ${String(summary.tagsRenamed)}`,
+      `Views auto-renamed: ${String(summary.viewsRenamed)}`,
+      `Failed rows: ${String(summary.failedRows)}`,
+      `Skipped rows: ${String(summary.skippedRows)}`
     ]);
   }
 
@@ -1556,9 +1573,9 @@ export class SettingsPage {
       }
 
       const rowNumber = index + 1;
-      const name = String(values[nameIndex] ?? '').trim();
-      const platformInput = String(values[platformIndex] ?? '').trim();
-      const labelsRaw = labelsIndex !== undefined ? String(values[labelsIndex] ?? '') : '';
+      const name = (values[nameIndex] ?? '').trim();
+      const platformInput = (values[platformIndex] ?? '').trim();
+      const labelsRaw = labelsIndex !== undefined ? (values[labelsIndex] ?? '') : '';
       const labels = parseMgcLabels(labelsRaw);
 
       let error: string | null = null;
@@ -1646,7 +1663,7 @@ export class SettingsPage {
       for (let index = 0; index < rowsToImport.length; index += 1) {
         const row = rowsToImport[index];
         const selected = row.selected;
-        this.importLoadingMessage = `Importing games ${index + 1}/${rowsToImport.length}...`;
+        this.importLoadingMessage = `Importing games ${String(index + 1)}/${String(rowsToImport.length)}...`;
 
         if (
           !selected ||
@@ -1685,7 +1702,7 @@ export class SettingsPage {
         }
 
         lastBoxArtRequestStartedAt = Date.now();
-        this.importLoadingMessage = `Resolving additional metadata ${index + 1}/${rowsToImport.length}...`;
+        this.importLoadingMessage = `Resolving additional metadata ${String(index + 1)}/${String(rowsToImport.length)}...`;
         const boxArt = await this.resolveBoxArtWithRetry(selected, index + 1, rowsToImport.length);
         const useIgdbCover = this.gameShelfService.shouldUseIgdbCoverForPlatform(
           selected.platform,
@@ -1733,7 +1750,7 @@ export class SettingsPage {
           }
 
           lastHltbRequestStartedAt = Date.now();
-          this.importLoadingMessage = `Resolving HLTB ${index + 1}/${rowsToImport.length}...`;
+          this.importLoadingMessage = `Resolving HLTB ${String(index + 1)}/${String(rowsToImport.length)}...`;
           const hltbOutcome = await this.resolveMgcHltbWithRetry(
             selected,
             index + 1,
@@ -1762,7 +1779,7 @@ export class SettingsPage {
         duplicateSkipped,
         failed
       });
-      await this.presentMgcImportSummary({
+      this.presentMgcImportSummary({
         rowsSelected: rowsToImport.length,
         gamesImported,
         tagsAssigned,
@@ -1784,7 +1801,7 @@ export class SettingsPage {
     }
   }
 
-  private async presentMgcImportSummary(summary: {
+  private presentMgcImportSummary(summary: {
     rowsSelected: number;
     gamesImported: number;
     tagsAssigned: number;
@@ -1794,17 +1811,17 @@ export class SettingsPage {
     hltbFailed: number;
     duplicateSkipped: number;
     failed: number;
-  }): Promise<void> {
+  }): void {
     this.presentSummaryModal('MGC Import Summary', [
-      `Rows selected: ${summary.rowsSelected}`,
-      `Games imported: ${summary.gamesImported}`,
-      `Games with tags applied: ${summary.tagsAssigned}`,
-      `New tags created: ${summary.tagsCreated}`,
-      `2D box art resolved: ${summary.boxArtResolved}`,
-      `HLTB data resolved: ${summary.hltbResolved}`,
-      `HLTB lookup failures: ${summary.hltbFailed}`,
-      `Duplicates skipped: ${summary.duplicateSkipped}`,
-      `Failed: ${summary.failed}`
+      `Rows selected: ${String(summary.rowsSelected)}`,
+      `Games imported: ${String(summary.gamesImported)}`,
+      `Games with tags applied: ${String(summary.tagsAssigned)}`,
+      `New tags created: ${String(summary.tagsCreated)}`,
+      `2D box art resolved: ${String(summary.boxArtResolved)}`,
+      `HLTB data resolved: ${String(summary.hltbResolved)}`,
+      `HLTB lookup failures: ${String(summary.hltbFailed)}`,
+      `Duplicates skipped: ${String(summary.duplicateSkipped)}`,
+      `Failed: ${String(summary.failed)}`
     ]);
   }
 
@@ -2005,8 +2022,8 @@ export class SettingsPage {
         row.selected = exactTitleMatch;
         row.status = 'multiple';
         row.statusDetail = exactTitleMatch
-          ? `${candidates.length} possible matches found. Exact title match auto-selected.`
-          : `${candidates.length} possible matches found.`;
+          ? `${String(candidates.length)} possible matches found. Exact title match auto-selected.`
+          : `${String(candidates.length)} possible matches found.`;
         return;
       }
 
@@ -2069,8 +2086,8 @@ export class SettingsPage {
         await this.waitWithLoadingCountdown(
           retryDelay,
           isRateLimited
-            ? `Box art rate limited for row ${rowIndex}/${totalRows}. Retrying`
-            : `Box art lookup failed for row ${rowIndex}/${totalRows}. Retrying`
+            ? `Box art rate limited for row ${String(rowIndex)}/${String(totalRows)}. Retrying`
+            : `Box art lookup failed for row ${String(rowIndex)}/${String(totalRows)}. Retrying`
         );
         attempt += 1;
       }
@@ -2119,8 +2136,8 @@ export class SettingsPage {
         await this.waitWithLoadingCountdown(
           retryDelay,
           isRateLimited
-            ? `HLTB rate limited for row ${rowIndex}/${totalRows}. Retrying`
-            : `HLTB lookup failed for row ${rowIndex}/${totalRows}. Retrying`
+            ? `HLTB rate limited for row ${String(rowIndex)}/${String(totalRows)}. Retrying`
+            : `HLTB lookup failed for row ${String(rowIndex)}/${String(totalRows)}. Retrying`
         );
         attempt += 1;
       }
@@ -2180,13 +2197,13 @@ export class SettingsPage {
     });
 
     await alert.present();
-    const { role, data } = await alert.onDidDismiss();
+    const { role, data } = await alert.onDidDismiss<{ data?: string }>();
 
     if (role !== 'confirm') {
       return null;
     }
 
-    const index = Number.parseInt(String(data ?? ''), 10);
+    const index = Number.parseInt(data?.data ?? '', 10);
 
     if (!Number.isInteger(index) || index < 0 || index >= options.length) {
       return null;
@@ -2263,10 +2280,10 @@ export class SettingsPage {
       return result.platformOptions
         .map((option) => {
           const id =
-            typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+            typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0
               ? option.id
               : null;
-          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const name = typeof option.name === 'string' ? option.name.trim() : '';
           return { id, name };
         })
         .filter(
@@ -2340,7 +2357,7 @@ export class SettingsPage {
 
     while (remainingMs > 0) {
       const secondsLeft = Math.max(1, Math.ceil(remainingMs / 1000));
-      row.statusDetail = `${reason}. Retrying in ${secondsLeft}s...`;
+      row.statusDetail = `${reason}. Retrying in ${String(secondsLeft)}s...`;
       const stepMs = Math.min(1000, remainingMs);
       await this.delay(stepMs);
       remainingMs -= stepMs;
@@ -2352,7 +2369,7 @@ export class SettingsPage {
 
     while (remainingMs > 0) {
       const secondsLeft = Math.max(1, Math.ceil(remainingMs / 1000));
-      this.importLoadingMessage = `${prefix} in ${secondsLeft}s...`;
+      this.importLoadingMessage = `${prefix} in ${String(secondsLeft)}s...`;
       const stepMs = Math.min(1000, remainingMs);
       await this.delay(stepMs);
       remainingMs -= stepMs;
@@ -2392,6 +2409,7 @@ export class SettingsPage {
         customTitle: game.customTitle ?? '',
         summary: game.summary ?? '',
         storyline: game.storyline ?? '',
+        notes: game.notes ?? '',
         coverUrl: game.coverUrl ?? '',
         customCoverUrl: game.customCoverUrl ?? '',
         coverSource: game.coverSource,
@@ -2404,10 +2422,7 @@ export class SettingsPage {
             : '',
         collections: JSON.stringify(game.collections ?? []),
         releaseDate: game.releaseDate ?? '',
-        releaseYear:
-          game.releaseYear !== null && game.releaseYear !== undefined
-            ? String(game.releaseYear)
-            : '',
+        releaseYear: game.releaseYear !== null ? String(game.releaseYear) : '',
         hltbMainHours:
           game.hltbMainHours !== null && game.hltbMainHours !== undefined
             ? String(game.hltbMainHours)
@@ -2451,6 +2466,7 @@ export class SettingsPage {
         customTitle: '',
         summary: '',
         storyline: '',
+        notes: '',
         coverUrl: '',
         customCoverUrl: '',
         coverSource: '',
@@ -2495,6 +2511,7 @@ export class SettingsPage {
         customTitle: '',
         summary: '',
         storyline: '',
+        notes: '',
         coverUrl: '',
         customCoverUrl: '',
         coverSource: '',
@@ -2539,6 +2556,7 @@ export class SettingsPage {
         customTitle: '',
         summary: '',
         storyline: '',
+        notes: '',
         coverUrl: '',
         customCoverUrl: '',
         coverSource: '',
@@ -2597,7 +2615,7 @@ export class SettingsPage {
 
     const gamesInDb = await this.repository.listAll();
     const existingKeys = new Set(
-      gamesInDb.map((game) => `${game.igdbGameId}::${game.platformIgdbId}`)
+      gamesInDb.map((game) => `${game.igdbGameId}::${String(game.platformIgdbId)}`)
     );
     const pendingKeys = new Set<string>();
     const existingTags = await this.repository.listTags();
@@ -2653,18 +2671,6 @@ export class SettingsPage {
     pendingViewNames: Set<string>
   ): ImportPreviewRow {
     const type = record.type;
-
-    if (type !== 'game' && type !== 'tag' && type !== 'view' && type !== 'setting') {
-      return {
-        id: rowNumber,
-        rowNumber,
-        type: 'unknown',
-        summary: `Row ${rowNumber}`,
-        error: 'Unknown row type.',
-        warning: null,
-        parsed: null
-      };
-    }
 
     if (type === 'setting') {
       if (record.key.trim().length === 0) {
@@ -2785,7 +2791,7 @@ export class SettingsPage {
       );
     }
 
-    const key = `${igdbGameId}::${platformIgdbId}`;
+    const key = `${igdbGameId}::${String(platformIgdbId)}`;
 
     if (existingKeys.has(key)) {
       return this.errorRow(
@@ -2831,7 +2837,7 @@ export class SettingsPage {
 
     const customPlatform =
       hasCustomPlatformName && hasCustomPlatformId
-        ? { name: customPlatformName!, igdbId: customPlatformIgdbId! }
+        ? { name: customPlatformName, igdbId: customPlatformIgdbId }
         : null;
 
     const status = normalizeStatus(record.status);
@@ -2879,6 +2885,7 @@ export class SettingsPage {
 
     const tagNames = parseStringArray(record.tags);
     const tagIds = parsePositiveIntegerArray(record.gameTagIds);
+    const notes = this.normalizeImportedNotes(record.notes);
 
     return {
       id: rowNumber,
@@ -2891,6 +2898,7 @@ export class SettingsPage {
         kind: 'game',
         listType,
         catalog,
+        notes,
         status,
         rating,
         customTitle,
@@ -2907,7 +2915,7 @@ export class SettingsPage {
       id: rowNumber,
       rowNumber,
       type,
-      summary: `${type.toUpperCase()} row ${rowNumber}`,
+      summary: `${type.toUpperCase()} row ${String(rowNumber)}`,
       error,
       warning: null,
       parsed: null
@@ -2921,7 +2929,6 @@ export class SettingsPage {
     entityLabel: 'tag' | 'view'
   ): string | null {
     const trimmed = name.trim();
-    const lower = trimmed.toLowerCase();
 
     if (trimmed.length === 0) {
       return null;
@@ -2995,7 +3002,7 @@ export class SettingsPage {
     };
 
     return {
-      type: (getValue('type') as ExportRowType) ?? 'game',
+      type: getValue('type') as ExportRowType,
       listType: getValue('listType'),
       igdbGameId: getValue('igdbGameId'),
       platformIgdbId: getValue('platformIgdbId'),
@@ -3003,6 +3010,7 @@ export class SettingsPage {
       customTitle: getValue('customTitle'),
       summary: getValue('summary'),
       storyline: getValue('storyline'),
+      notes: getValue('notes'),
       coverUrl: getValue('coverUrl'),
       customCoverUrl: getValue('customCoverUrl'),
       coverSource: getValue('coverSource'),
@@ -3035,6 +3043,10 @@ export class SettingsPage {
       createdAt: getValue('createdAt'),
       updatedAt: getValue('updatedAt')
     };
+  }
+
+  private normalizeImportedNotes(value: string): string | null {
+    return normalizeNotesValueOrNull(value);
   }
 
   private readExportableSettings(): Array<[string, string]> {
@@ -3112,7 +3124,7 @@ export class SettingsPage {
         typeof platform.id === 'number' && Number.isInteger(platform.id) && platform.id > 0
           ? platform.id
           : null;
-      const customName = String(platform.customName ?? '').trim();
+      const customName = platform.customName.trim();
 
       if (platformId !== null && customName.length > 0) {
         next[String(platformId)] = customName;
@@ -3200,7 +3212,7 @@ export class SettingsPage {
 
     let suffix = 2;
     while (suffix < 10000) {
-      const candidate = `${baseName} (${suffix})`;
+      const candidate = `${baseName} (${String(suffix)})`;
       const candidateLower = candidate.toLowerCase();
       if (!usedNamesLowercase.has(candidateLower)) {
         usedNamesLowercase.add(candidateLower);
@@ -3209,7 +3221,7 @@ export class SettingsPage {
       suffix += 1;
     }
 
-    const fallback = `${baseName} (${Date.now()})`;
+    const fallback = `${baseName} (${String(Date.now())})`;
     usedNamesLowercase.add(fallback.toLowerCase());
     return fallback;
   }
@@ -3277,7 +3289,7 @@ export class SettingsPage {
       return true;
     }
 
-    const message = error instanceof Error ? error.message : String(error ?? '');
+    const message = error instanceof Error ? error.message : '';
     return /abort|cancel/i.test(message);
   }
 

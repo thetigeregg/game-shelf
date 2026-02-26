@@ -17,6 +17,7 @@ log.txt
 /.versions
 /coverage
 /src/environments/environment.local.ts
+/src/assets/runtime-config.js
 
 # Ionic
 /.ionic
@@ -62,6 +63,8 @@ yarn-error.log
 /.nx/cache
 /connect.lock
 /coverage
+/server/coverage
+/worker/coverage
 /libpeerconnection.log
 testem.log
 /typings

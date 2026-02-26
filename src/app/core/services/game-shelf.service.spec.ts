@@ -40,6 +40,7 @@ describe('GameShelfService', () => {
       setGameStatus: vi.fn(),
       setGameRating: vi.fn(),
       setGameTags: vi.fn(),
+      setGameNotes: vi.fn(),
       setGameCustomCover: vi.fn(),
       setGameCustomMetadata: vi.fn(),
       listTags: vi.fn(),
@@ -1026,6 +1027,7 @@ describe('GameShelfService', () => {
       releaseYear: 2020,
       status: 'playing',
       rating: 4,
+      notes: 'remember to try hard mode',
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z'
@@ -1066,6 +1068,13 @@ describe('GameShelfService', () => {
       rating: 4,
       tagIds: [1, 2]
     });
+    repository.setGameNotes.mockResolvedValue({
+      ...upserted,
+      status: 'playing',
+      rating: 4,
+      tagIds: [1, 2],
+      notes: 'remember to try hard mode'
+    });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
       { id: 2, name: 'Favorite', color: '#222222', createdAt: 'x', updatedAt: 'x' }
@@ -1089,7 +1098,9 @@ describe('GameShelfService', () => {
     expect(repository.setGameStatus).toHaveBeenCalledWith('456', 130, 'playing');
     expect(repository.setGameRating).toHaveBeenCalledWith('456', 130, 4);
     expect(repository.setGameTags).toHaveBeenCalledWith('456', 130, [1, 2]);
+    expect(repository.setGameNotes).toHaveBeenCalledWith('456', 130, 'remember to try hard mode');
     expect(result.tags?.map((tag) => tag.name)).toEqual(['Backlog', 'Favorite']);
+    expect(result.notes).toBe('remember to try hard mode');
   });
 
   it('does not remove entry during rematch when identity is unchanged', async () => {
@@ -1179,6 +1190,7 @@ describe('GameShelfService', () => {
     repository.setGameTags.mockResolvedValue(base);
     repository.setGameStatus.mockResolvedValue({ ...base, status: 'playing' });
     repository.setGameRating.mockResolvedValue({ ...base, rating: 3 });
+    repository.setGameNotes.mockResolvedValue({ ...base, notes: 'checkpoint before boss' });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
       { id: 2, name: 'Co-op', color: '#222222', createdAt: 'x', updatedAt: 'x' }
@@ -1187,10 +1199,12 @@ describe('GameShelfService', () => {
     const tagged = await service.setGameTags('123', 130, [1, 2]);
     const statused = await service.setGameStatus('123', 130, 'playing');
     const rated = await service.setGameRating('123', 130, 3);
+    const noted = await service.setGameNotes('123', 130, 'checkpoint before boss');
 
     expect(tagged.tags?.map((tag) => tag.name)).toEqual(['Backlog', 'Co-op']);
     expect(statused.status).toBe('playing');
     expect(rated.rating).toBe(3);
+    expect(noted.notes).toBe('checkpoint before boss');
   });
 
   it('coerces invalid rating to null and throws for missing entries on set operations', async () => {
@@ -1215,6 +1229,7 @@ describe('GameShelfService', () => {
     expect(repository.setGameRating).toHaveBeenCalledWith('123', 130, null);
 
     repository.setGameTags.mockResolvedValue(undefined);
+    repository.setGameNotes.mockResolvedValue(undefined);
     repository.setGameStatus.mockResolvedValue(undefined);
     repository.setGameRating.mockResolvedValue(undefined);
     await expect(service.setGameTags('123', 130, [1])).rejects.toThrowError(
@@ -1224,6 +1239,9 @@ describe('GameShelfService', () => {
       'Game entry no longer exists.'
     );
     await expect(service.setGameRating('123', 130, 4)).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
+    await expect(service.setGameNotes('123', 130, 'a note')).rejects.toThrowError(
       'Game entry no longer exists.'
     );
   });
@@ -1387,18 +1405,18 @@ describe('GameShelfService', () => {
 
     repository.exists.mockResolvedValue(existingEntry);
     searchApi.getGameById.mockReturnValue(of(refreshedCatalog));
-    repository.upsertFromCatalog.mockImplementation(
-      async (catalog) =>
-        ({
-          ...existingEntry,
-          ...catalog,
-          listType: 'collection',
-          createdAt: existingEntry.createdAt,
-          updatedAt: existingEntry.updatedAt,
-          platform: catalog.platform,
-          platformIgdbId: catalog.platformIgdbId as number
-        }) as GameEntry
-    );
+    repository.upsertFromCatalog.mockImplementation((catalog: GameCatalogResult) => {
+      const merged: GameEntry = {
+        ...existingEntry,
+        ...catalog,
+        listType: 'collection',
+        createdAt: existingEntry.createdAt,
+        updatedAt: existingEntry.updatedAt,
+        platform: catalog.platform,
+        platformIgdbId: catalog.platformIgdbId
+      };
+      return merged;
+    });
 
     const result = await service.refreshGameMetadata('333', 130);
 

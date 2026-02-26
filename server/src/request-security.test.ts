@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { isAuthorizedMutatingRequest, shouldRequireAuth } from './request-security.js';
 
-test('shouldRequireAuth protects all mutating HTTP methods by default', () => {
+void test('shouldRequireAuth protects all mutating HTTP methods by default', () => {
   assert.equal(shouldRequireAuth('GET'), false);
   assert.equal(shouldRequireAuth('HEAD'), false);
   assert.equal(shouldRequireAuth('OPTIONS'), false);
@@ -15,7 +15,7 @@ test('shouldRequireAuth protects all mutating HTTP methods by default', () => {
   assert.equal(shouldRequireAuth(''), true);
 });
 
-test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {
+void test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {
   assert.equal(
     isAuthorizedMutatingRequest({
       requireAuth: true,
@@ -28,7 +28,7 @@ test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {
   );
 });
 
-test('isAuthorizedMutatingRequest accepts client write token auth', () => {
+void test('isAuthorizedMutatingRequest accepts client write token auth', () => {
   assert.equal(
     isAuthorizedMutatingRequest({
       requireAuth: true,
@@ -41,7 +41,7 @@ test('isAuthorizedMutatingRequest accepts client write token auth', () => {
   );
 });
 
-test('isAuthorizedMutatingRequest rejects missing or invalid auth when required', () => {
+void test('isAuthorizedMutatingRequest rejects missing or invalid auth when required', () => {
   assert.equal(
     isAuthorizedMutatingRequest({
       requireAuth: true,
@@ -65,7 +65,44 @@ test('isAuthorizedMutatingRequest rejects missing or invalid auth when required'
   );
 });
 
-test('server route inventory remains audited and mutating routes require auth', async () => {
+void test('isAuthorizedMutatingRequest allows bypass when auth is not required', () => {
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: false,
+      apiToken: '',
+      clientWriteTokens: [],
+      authorizationHeader: undefined,
+      clientWriteTokenHeader: undefined
+    }),
+    true
+  );
+});
+
+void test('isAuthorizedMutatingRequest handles normalized headers and empty configured tokens', () => {
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: '   ',
+      clientWriteTokens: ['device-a'],
+      authorizationHeader: ['Bearer api-secret'],
+      clientWriteTokenHeader: ['device-a']
+    }),
+    true
+  );
+
+  assert.equal(
+    isAuthorizedMutatingRequest({
+      requireAuth: true,
+      apiToken: '',
+      clientWriteTokens: ['device-a'],
+      authorizationHeader: ['Token api-secret'],
+      clientWriteTokenHeader: ['   ']
+    }),
+    false
+  );
+});
+
+void test('server route inventory remains audited and mutating routes require auth', async () => {
   const routeSourceFiles = [
     './index.ts',
     './sync.ts',

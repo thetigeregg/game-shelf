@@ -10,7 +10,9 @@ export class AutoContentOffsetsDirective implements AfterViewInit, OnDestroy {
   private resizeObserver?: ResizeObserver;
   private mutationObserver?: MutationObserver;
   private frameHandle: number | null = null;
-  private readonly onWindowResize = () => this.scheduleRefresh();
+  private readonly onWindowResize = () => {
+    this.scheduleRefresh();
+  };
 
   ngAfterViewInit(): void {
     this.ngZone.runOutsideAngular(() => {
@@ -22,12 +24,16 @@ export class AutoContentOffsetsDirective implements AfterViewInit, OnDestroy {
       const footerElements = this.getDirectChildren(container, 'ION-FOOTER');
       observedElements.push(...footerElements);
 
-      this.resizeObserver = new ResizeObserver(() => this.scheduleRefresh());
+      this.resizeObserver = new ResizeObserver(() => {
+        this.scheduleRefresh();
+      });
       for (const element of observedElements) {
         this.resizeObserver.observe(element);
       }
 
-      this.mutationObserver = new MutationObserver(() => this.scheduleRefresh());
+      this.mutationObserver = new MutationObserver(() => {
+        this.scheduleRefresh();
+      });
       this.mutationObserver.observe(container, {
         childList: true,
         subtree: true,
@@ -64,8 +70,8 @@ export class AutoContentOffsetsDirective implements AfterViewInit, OnDestroy {
     const topOffset = this.sumHeights(this.getDirectChildren(container, 'ION-HEADER'));
     const bottomOffset = this.sumHeights(this.getDirectChildren(container, 'ION-FOOTER'));
 
-    host.style.setProperty('--offset-top', `${topOffset}px`);
-    host.style.setProperty('--offset-bottom', `${bottomOffset}px`);
+    host.style.setProperty('--offset-top', `${String(topOffset)}px`);
+    host.style.setProperty('--offset-bottom', `${String(bottomOffset)}px`);
   }
 
   private findContainer(): HTMLElement {

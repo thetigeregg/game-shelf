@@ -7,21 +7,23 @@ import {
   Input,
   NgZone,
   OnChanges,
+  OnDestroy,
   Output,
   SimpleChanges,
+  ViewEncapsulation,
   ViewChild,
   inject
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import {
   AlertController,
   IonItemSliding,
   LoadingController,
   PopoverController,
-  ToastController
-} from '@ionic/angular/standalone';
-import {
+  ToastController,
   IonList,
   IonListHeader,
   IonItem,
@@ -54,8 +56,16 @@ import {
   IonFab,
   IonFabButton,
   IonFabList,
-  IonInput
+  IonInput,
+  IonMenu,
+  IonSplitPane
 } from '@ionic/angular/standalone';
+import { Editor } from '@tiptap/core';
+import tiptapStarterKit from '@tiptap/starter-kit';
+import tiptapUnderline from '@tiptap/extension-underline';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
+import { TiptapEditorDirective } from 'ngx-tiptap';
 import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import {
@@ -66,9 +76,7 @@ import {
   GameGroupByField,
   GameListFilters,
   HltbMatchCandidate,
-  GameRatingFilterOption,
   GameRating,
-  GameStatusFilterOption,
   GameStatus,
   GameType,
   ListType,
@@ -80,6 +88,7 @@ import { ManualService } from '../../core/services/manual.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { DebugLogService } from '../../core/services/debug-log.service';
+import { LayoutModeService } from '../../core/services/layout-mode.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
@@ -115,6 +124,7 @@ import {
   getMetadataSelectionTitle,
   getMetadataSelectionValues
 } from './metadata-filter.utils';
+import { normalizeEditorNotesValue, toNotesEditorContent } from './notes-editor.utils';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -133,7 +143,8 @@ import {
   logoGoogle,
   logoYoutube,
   chevronBack,
-  documentText
+  documentText,
+  book
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -142,14 +153,25 @@ export interface GameListSelectionState {
   allDisplayedSelected: boolean;
 }
 
+type NotesToolbarAction =
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'bullet'
+  | 'number'
+  | 'check'
+  | 'details';
+
 @Component({
   selector: 'app-game-list',
   templateUrl: './game-list.component.html',
   styleUrls: ['./game-list.component.scss'],
+  encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ScrollingModule,
     IonList,
     IonListHeader,
@@ -185,12 +207,15 @@ export interface GameListSelectionState {
     IonFabButton,
     IonFabList,
     IonInput,
+    IonMenu,
+    IonSplitPane,
+    TiptapEditorDirective,
     AutoContentOffsetsDirective,
     GameSearchComponent,
     GameDetailContentComponent
   ]
 })
-export class GameListComponent implements OnChanges {
+export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly BULK_METADATA_CONCURRENCY = 3;
   private static readonly BULK_HLTB_CONCURRENCY = 2;
   private static readonly BULK_MAX_ATTEMPTS = 3;
@@ -201,6 +226,10 @@ export class GameListComponent implements OnChanges {
   private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
   private static readonly VIRTUAL_BUFFER_ROWS = 10;
   private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
+  private static readonly NOTES_AUTOSAVE_DEBOUNCE_MS = 450;
+  private static readonly NOTES_AUTOSAVE_RETRY_BASE_DELAY_MS = 1000;
+  private static readonly NOTES_AUTOSAVE_RETRY_MAX_DELAY_MS = 15000;
+  private static readonly NOTES_AUTOSAVE_MAX_FAILURES = 6;
   private static readonly MAX_CUSTOM_COVER_DATA_URL_BYTES = 1024 * 1024;
   private static readonly MIN_CUSTOM_COVER_QUALITY = 0.5;
   private static readonly MAX_CUSTOM_COVER_QUALITY = 0.98;
@@ -263,6 +292,14 @@ export class GameListComponent implements OnChanges {
   hltbPickerTargetGame: GameEntry | null = null;
   isEditMetadataModalOpen = false;
   isEditMetadataSaving = false;
+  isNotesOpen = false;
+  isNotesModalOpen = false;
+  isNoteDirty = false;
+  isNoteSaving = false;
+  noteDraft = '';
+  savedNoteValue = '';
+  notesEditor: Editor | null = null;
+  isDesktopDetailLayout = false;
   editMetadataTitle = '';
   editMetadataPlatformIgdbId: number | null = null;
   editMetadataPlatformOptions: GameCatalogPlatformOption[] = [];
@@ -309,6 +346,7 @@ export class GameListComponent implements OnChanges {
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly layoutModeService = inject(LayoutModeService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
@@ -323,15 +361,19 @@ export class GameListComponent implements OnChanges {
   @ViewChild('gameDetailModal', { read: ElementRef })
   private gameDetailModalRef?: ElementRef<HTMLElement>;
   private imageErrorLogCount = 0;
+  private notesAutosaveTimeoutId: number | null = null;
+  private notesAutosaveFailureCount = 0;
 
   readonly virtualRowHeight = GameListComponent.VIRTUAL_ROW_HEIGHT_PX;
   readonly virtualMinBufferPx =
     GameListComponent.VIRTUAL_ROW_HEIGHT_PX * GameListComponent.VIRTUAL_BUFFER_ROWS;
   readonly virtualMaxBufferPx =
     GameListComponent.VIRTUAL_ROW_HEIGHT_PX * (GameListComponent.VIRTUAL_BUFFER_ROWS * 3);
+  readonly canDismissGameDetailModal = async (): Promise<boolean> => this.canDismissNotesGuard();
+  readonly canDismissNotesModal = async (): Promise<boolean> => this.canDismissNotesGuard();
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['listType']?.currentValue) {
+    if ('listType' in changes && changes['listType'].currentValue) {
       const allGames$ = this.gameShelfService.watchList(this.listType).pipe(
         tap((games) => {
           this.platformOptionsChange.emit(this.extractPlatforms(games));
@@ -369,17 +411,26 @@ export class GameListComponent implements OnChanges {
       );
     }
 
-    if (changes['filters']?.currentValue) {
+    if ('filters' in changes && changes['filters'].currentValue) {
       this.filters$.next(this.normalizeFilters(this.filters));
     }
 
-    if (changes['searchQuery']) {
-      this.searchQuery$.next((this.searchQuery ?? '').trim());
+    if ('searchQuery' in changes) {
+      this.searchQuery$.next(this.searchQuery.trim());
     }
 
-    if (changes['groupBy']) {
-      this.groupBy$.next(this.groupBy ?? 'none');
+    if ('groupBy' in changes) {
+      this.groupBy$.next(this.groupBy);
     }
+  }
+
+  ngOnDestroy(): void {
+    if (this.notesAutosaveTimeoutId !== null) {
+      window.clearTimeout(this.notesAutosaveTimeoutId);
+      this.notesAutosaveTimeoutId = null;
+    }
+    this.notesEditor?.destroy();
+    this.notesEditor = null;
   }
 
   async moveGame(game: GameEntry): Promise<void> {
@@ -425,7 +476,7 @@ export class GameListComponent implements OnChanges {
 
   async openRatingForGameFromPopover(game: GameEntry): Promise<void> {
     await this.popoverController.dismiss();
-    await this.openRatingPicker(game);
+    this.openRatingPicker(game);
   }
 
   getOtherListLabel(): string {
@@ -506,7 +557,7 @@ export class GameListComponent implements OnChanges {
 
     const confirmed = await this.confirmDelete({
       header: 'Delete Selected Games',
-      message: `Delete ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}?`,
+      message: `Delete ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}?`,
       confirmText: 'Delete'
     });
 
@@ -521,7 +572,7 @@ export class GameListComponent implements OnChanges {
     );
     this.clearSelectionMode();
     await this.presentToast(
-      `${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'} deleted.`
+      `${String(selectedGames.length)} game${selectedGames.length === 1 ? '' : 's'} deleted.`
     );
   }
 
@@ -540,7 +591,7 @@ export class GameListComponent implements OnChanges {
     );
     this.clearSelectionMode();
     await this.presentToast(
-      `Moved ${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'} to ${this.getListLabel(targetList)}.`
+      `Moved ${String(selectedGames.length)} game${selectedGames.length === 1 ? '' : 's'} to ${this.getListLabel(targetList)}.`
     );
   }
 
@@ -554,7 +605,7 @@ export class GameListComponent implements OnChanges {
     let nextStatus: GameStatus | null = null;
     const alert = await this.alertController.create({
       header: 'Set Status',
-      message: `Apply status to ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}.`,
+      message: `Apply status to ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}.`,
       inputs: this.statusOptions.map((option) => ({
         type: 'radio' as const,
         label: option.label,
@@ -613,7 +664,7 @@ export class GameListComponent implements OnChanges {
     let nextTagIds: number[] = [];
     const alert = await this.alertController.create({
       header: 'Set Tags',
-      message: `Apply tags to ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}.`,
+      message: `Apply tags to ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}.`,
       inputs: tags.map((tag) => buildTagInput(tag, [])),
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -672,13 +723,13 @@ export class GameListComponent implements OnChanges {
 
     if (updatedCount > 0) {
       await this.presentToast(
-        `Refreshed metadata for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`
+        `Refreshed metadata for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
       );
     }
 
     if (failedNonRateLimitCount > 0) {
       await this.presentToast(
-        `Unable to refresh metadata for ${failedNonRateLimitCount} game${failedNonRateLimitCount === 1 ? '' : 's'}.`,
+        `Unable to refresh metadata for ${String(failedNonRateLimitCount)} game${failedNonRateLimitCount === 1 ? '' : 's'}.`,
         'danger'
       );
       return;
@@ -686,7 +737,7 @@ export class GameListComponent implements OnChanges {
 
     if (failedRateLimitCount > 0) {
       await this.presentToast(
-        `Rate limited for ${failedRateLimitCount} game${failedRateLimitCount === 1 ? '' : 's'} after retries. Try again shortly.`,
+        `Rate limited for ${String(failedRateLimitCount)} game${failedRateLimitCount === 1 ? '' : 's'} after retries. Try again shortly.`,
         'warning'
       );
       return;
@@ -725,7 +776,7 @@ export class GameListComponent implements OnChanges {
 
     if (updatedCount > 0) {
       await this.presentToast(
-        `Updated HLTB data for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`
+        `Updated HLTB data for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
       );
     } else if (missingCount > 0 && failedCount === 0) {
       await this.presentToast('No HLTB matches found for selected games.', 'warning');
@@ -733,18 +784,28 @@ export class GameListComponent implements OnChanges {
 
     if (failedCount > 0) {
       await this.presentToast(
-        `Unable to update HLTB data for ${failedCount} selected game${failedCount === 1 ? '' : 's'}.`,
+        `Unable to update HLTB data for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
         'danger'
       );
     }
   }
 
   openGameDetail(game: GameEntry): void {
+    if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
     this.detailNavigationStack = [];
     this.openGameDetailInternal(game);
   }
 
   goBackInDetailNavigation(): void {
+    if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
     const previous = this.detailNavigationStack.pop();
 
     if (!previous) {
@@ -760,6 +821,158 @@ export class GameListComponent implements OnChanges {
     }
   }
 
+  get shouldShowNotesShortcut(): boolean {
+    return this.listType === 'collection' && this.selectedGame !== null;
+  }
+
+  get detailPrimaryPaneContentId(): string {
+    return `game-detail-primary-content-${this.listType}`;
+  }
+
+  get notesMenuId(): string {
+    return `detail-notes-menu-${this.listType}`;
+  }
+
+  get notesEditorInstance(): Editor {
+    this.ensureNotesEditor();
+    if (!this.notesEditor) {
+      throw new Error('Notes editor unavailable.');
+    }
+    return this.notesEditor;
+  }
+
+  openNotesEditor(): void {
+    if (!this.selectedGame || this.listType !== 'collection') {
+      return;
+    }
+
+    this.savedNoteValue = this.normalizeNotesValue(this.selectedGame.notes);
+    this.noteDraft = this.savedNoteValue;
+    this.notesAutosaveFailureCount = 0;
+    this.ensureNotesEditor();
+    this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
+      emitUpdate: false
+    });
+    this.isNoteDirty = false;
+    this.isNotesOpen = true;
+    this.isNotesModalOpen = !this.isDesktopDetailLayout;
+    this.closeDetailShortcutsFab();
+    this.changeDetectorRef.markForCheck();
+  }
+
+  async closeNotesEditor(): Promise<void> {
+    if (this.isNoteSaving) {
+      await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
+    if (this.isNoteDirty) {
+      if (await this.confirmDiscardPausedNotes()) {
+        this.resetNotesToLastSaved();
+      } else {
+        await this.presentToast(
+          'Notes have unsaved changes. Please wait for auto-save.',
+          'warning'
+        );
+        return;
+      }
+    }
+
+    this.isNotesOpen = false;
+    this.isNotesModalOpen = false;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  onNotesModalDidDismiss(): void {
+    this.isNotesModalOpen = false;
+    this.isNotesOpen = false;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  getNotesToolbarButtonFill(action: NotesToolbarAction): 'solid' | 'outline' {
+    return this.isNotesToolbarActionActive(action) ? 'solid' : 'outline';
+  }
+
+  applyNotesToolbar(action: NotesToolbarAction): void {
+    const editor = this.notesEditor;
+
+    if (!editor) {
+      return;
+    }
+    const chain = editor.chain().focus();
+
+    if (action === 'bold') {
+      chain.toggleBold().run();
+      return;
+    }
+
+    if (action === 'italic') {
+      chain.toggleItalic().run();
+      return;
+    }
+
+    if (action === 'underline') {
+      chain.toggleUnderline().run();
+      return;
+    }
+
+    if (action === 'bullet') {
+      chain.toggleBulletList().run();
+      return;
+    }
+
+    if (action === 'number') {
+      chain.toggleOrderedList().run();
+      return;
+    }
+
+    if (action === 'check') {
+      chain.toggleTaskList().run();
+      return;
+    }
+
+    if (editor.isActive('details')) {
+      chain.unsetDetails().run();
+      return;
+    }
+
+    chain.setDetails().run();
+  }
+
+  private isNotesToolbarActionActive(action: NotesToolbarAction): boolean {
+    const editor = this.notesEditor;
+
+    if (!editor) {
+      return false;
+    }
+
+    if (action === 'bold') {
+      return editor.isActive('bold');
+    }
+
+    if (action === 'italic') {
+      return editor.isActive('italic');
+    }
+
+    if (action === 'underline') {
+      return editor.isActive('underline');
+    }
+
+    if (action === 'bullet') {
+      return editor.isActive('bulletList');
+    }
+
+    if (action === 'number') {
+      return editor.isActive('orderedList');
+    }
+
+    if (action === 'check') {
+      return editor.isActive('taskList');
+    }
+
+    return editor.isActive('details');
+  }
+
   private openSimilarGameDetail(game: GameEntry): void {
     if (!this.selectedGame) {
       this.openGameDetail(game);
@@ -770,13 +983,29 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
+    if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
     this.detailNavigationStack.push(this.selectedGame);
     this.openGameDetailInternal(game);
   }
 
   private openGameDetailInternal(game: GameEntry): void {
+    const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.resetNoteEditorState();
+    if (keepDesktopNotesPaneOpen && this.listType === 'collection') {
+      this.savedNoteValue = this.normalizeNotesValue(game.notes);
+      this.noteDraft = this.savedNoteValue;
+      this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
+        emitUpdate: false
+      });
+      this.isNoteDirty = false;
+      this.isNotesOpen = true;
+    }
     this.resetDetailTextExpansion();
     this.resetImagePickerState();
     this.resetManualPickerState();
@@ -793,13 +1022,36 @@ export class GameListComponent implements OnChanges {
     });
   }
 
-  closeGameDetailModal(): void {
+  async closeGameDetailModal(): Promise<void> {
+    if (this.isNoteSaving) {
+      await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
+    if (this.isNoteDirty) {
+      if (await this.confirmDiscardPausedNotes()) {
+        this.resetNotesToLastSaved();
+      } else {
+        await this.presentToast(
+          'Notes have unsaved changes. Please wait for auto-save.',
+          'warning'
+        );
+        return;
+      }
+    }
+
+    this.closeGameDetailModalInternal();
+  }
+
+  private closeGameDetailModalInternal(): void {
     this.isGameDetailModalOpen = false;
     this.isImagePickerModalOpen = false;
     this.isHltbPickerModalOpen = false;
     this.isEditMetadataModalOpen = false;
     this.isEditMetadataSaving = false;
     this.isManualPickerModalOpen = false;
+    this.isNotesOpen = false;
+    this.isNotesModalOpen = false;
     this.selectedGame = null;
     this.detailNavigationStack = [];
     this.similarLibraryGames = [];
@@ -810,10 +1062,15 @@ export class GameListComponent implements OnChanges {
     this.resetImagePickerState();
     this.resetHltbPickerState();
     this.resetManualPickerState();
+    this.resetNoteEditorState();
     this.editMetadataTitle = '';
     this.editMetadataPlatformIgdbId = null;
     this.editMetadataPlatformOptions = [];
     this.changeDetectorRef.markForCheck();
+  }
+
+  onGameDetailModalDidDismiss(): void {
+    this.closeGameDetailModalInternal();
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
@@ -927,7 +1184,7 @@ export class GameListComponent implements OnChanges {
 
   onRatingRangeChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: number | null }>;
-    const normalized = normalizeGameRating(customEvent.detail?.value);
+    const normalized = normalizeGameRating(customEvent.detail.value);
 
     if (normalized !== null) {
       this.ratingDraft = normalized;
@@ -978,7 +1235,7 @@ export class GameListComponent implements OnChanges {
   }
 
   trackByExternalId(_: number, game: GameEntry): string {
-    return `${game.igdbGameId}::${game.platformIgdbId}`;
+    return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
   }
 
   trackBySectionKey(_: number, section: GameGroupSection): string {
@@ -987,7 +1244,7 @@ export class GameListComponent implements OnChanges {
 
   onGroupedAccordionChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | string[] | null }>;
-    const rawValue = customEvent.detail?.value;
+    const rawValue = customEvent.detail.value;
 
     if (Array.isArray(rawValue)) {
       this.expandedSectionKeys = rawValue
@@ -1011,7 +1268,7 @@ export class GameListComponent implements OnChanges {
   }
 
   isSectionRendered(sectionKey: string): boolean {
-    const normalized = String(sectionKey ?? '').trim();
+    const normalized = sectionKey.trim();
     return normalized.length > 0 && this.renderedSectionKeys.has(normalized);
   }
 
@@ -1107,7 +1364,7 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    await this.openHltbPickerModal(this.selectedGame);
+    this.openHltbPickerModal(this.selectedGame);
   }
 
   async openImagePickerFromPopover(): Promise<void> {
@@ -1170,7 +1427,7 @@ export class GameListComponent implements OnChanges {
     }
 
     await this.removeGame(target);
-    this.closeGameDetailModal();
+    this.closeGameDetailModalInternal();
   }
 
   openFixMatchModal(): void {
@@ -1202,7 +1459,7 @@ export class GameListComponent implements OnChanges {
       const platforms = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
       this.editMetadataPlatformOptions = platforms.filter((option) => {
         return typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0;
-      }) as GameCatalogPlatformOption[];
+      });
     } catch {
       this.editMetadataPlatformOptions = [];
       await this.presentToast('Unable to load platforms.', 'danger');
@@ -1227,7 +1484,7 @@ export class GameListComponent implements OnChanges {
 
   onEditMetadataTitleChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.editMetadataTitle = String(customEvent.detail?.value ?? '');
+    this.editMetadataTitle = customEvent.detail.value ?? '';
   }
 
   onEditMetadataPlatformChange(value: number | string | null | undefined): void {
@@ -1369,7 +1626,7 @@ export class GameListComponent implements OnChanges {
     }
   }
 
-  async onSelectedGameRatingChange(value: GameRating | number | null | undefined): Promise<void> {
+  async onSelectedGameRatingChange(value: number | null | undefined): Promise<void> {
     if (!this.selectedGame) {
       return;
     }
@@ -1447,7 +1704,7 @@ export class GameListComponent implements OnChanges {
       if (hasHltbData(updated)) {
         await this.presentToast('HLTB data updated.');
       } else {
-        await this.openHltbPickerModal(updated);
+        this.openHltbPickerModal(updated);
       }
     } catch {
       await loading.dismiss().catch(() => undefined);
@@ -1546,12 +1803,12 @@ export class GameListComponent implements OnChanges {
 
   onImagePickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string }>;
-    this.imagePickerQuery = (customEvent.detail?.value ?? '').replace(/^\s+/, '');
+    this.imagePickerQuery = (customEvent.detail.value ?? '').replace(/^\s+/, '');
   }
 
   onHltbPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.hltbPickerQuery = String(customEvent.detail?.value ?? '');
+    this.hltbPickerQuery = customEvent.detail.value ?? '';
   }
 
   async applySelectedImage(url: string): Promise<void> {
@@ -1756,7 +2013,7 @@ export class GameListComponent implements OnChanges {
   }
 
   openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const query = this.selectedGame?.title?.trim();
+    const query = this.selectedGame?.title.trim();
 
     if (!query) {
       return;
@@ -1837,7 +2094,7 @@ export class GameListComponent implements OnChanges {
 
   onManualPickerQueryInput(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.manualPickerQuery = (customEvent.detail?.value ?? '').replace(/^\s+/, '');
+    this.manualPickerQuery = (customEvent.detail.value ?? '').replace(/^\s+/, '');
   }
 
   async runManualPickerSearch(): Promise<void> {
@@ -1914,7 +2171,7 @@ export class GameListComponent implements OnChanges {
   }
 
   getGroupCountLabel(count: number): string {
-    return count === 1 ? '1 game' : `${count} games`;
+    return count === 1 ? '1 game' : `${String(count)} games`;
   }
 
   getStatusIconName(game: GameEntry): string | null {
@@ -1982,7 +2239,7 @@ export class GameListComponent implements OnChanges {
   }
 
   getGameKey(game: GameEntry): string {
-    return `${game.igdbGameId}::${game.platformIgdbId}`;
+    return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
   }
 
   getRowCoverUrl(game: GameEntry): string {
@@ -2220,7 +2477,7 @@ export class GameListComponent implements OnChanges {
 
   private markExpandedSectionsAsRendered(sectionKeys: readonly string[]): void {
     sectionKeys.forEach((sectionKey) => {
-      const normalized = String(sectionKey ?? '').trim();
+      const normalized = sectionKey.trim();
 
       if (normalized.length > 0) {
         this.renderedSectionKeys.add(normalized);
@@ -2431,7 +2688,12 @@ export class GameListComponent implements OnChanges {
       return;
     }
 
-    this.closeGameDetailModal();
+    if (this.isNoteDirty || this.isNoteSaving) {
+      void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return;
+    }
+
+    this.closeGameDetailModalInternal();
     this.metadataFilterSelected.emit({ kind, value: normalized });
   }
 
@@ -2737,7 +2999,7 @@ export class GameListComponent implements OnChanges {
     return /^https:\/\/images\.igdb\.com\/igdb\/image\/upload\//i.test(url.trim());
   }
 
-  private async openHltbPickerModal(game: GameEntry): Promise<void> {
+  private openHltbPickerModal(game: GameEntry): void {
     const nextState = createOpenedHltbPickerState(game);
     this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
     this.isHltbPickerLoading = nextState.isHltbPickerLoading;
@@ -2806,11 +3068,7 @@ export class GameListComponent implements OnChanges {
       if (override && result.bestMatch?.source !== 'override' && !this.manualCatalogUnavailable) {
         const shouldRemove = await this.confirmManualOverrideRemoval(game);
 
-        if (
-          shouldRemove &&
-          this.selectedGame &&
-          this.getGameKey(this.selectedGame) === this.getGameKey(game)
-        ) {
+        if (shouldRemove && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
           this.manualService.clearOverride(game);
           await this.resolveManualForGame(game);
           return;
@@ -2912,11 +3170,29 @@ export class GameListComponent implements OnChanges {
     }
   }
 
-  private applyUpdatedGame(updated: GameEntry, options: { refreshCover?: boolean } = {}): void {
+  private applyUpdatedGame(
+    updated: GameEntry,
+    options: { refreshCover?: boolean; refreshManual?: boolean; refreshSimilar?: boolean } = {}
+  ): void {
+    const shouldRefreshManual = options.refreshManual ?? true;
+    const shouldRefreshSimilar = options.refreshSimilar ?? true;
+
     if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(updated)) {
       this.selectedGame = updated;
-      void this.loadSimilarLibraryGamesForDetail(updated);
-      void this.resolveManualForGame(updated);
+      const normalizedUpdatedNotes = this.normalizeNotesValue(updated.notes);
+      this.savedNoteValue = normalizedUpdatedNotes;
+
+      if (!this.isNoteDirty) {
+        this.noteDraft = normalizedUpdatedNotes;
+      }
+
+      if (shouldRefreshSimilar) {
+        void this.loadSimilarLibraryGamesForDetail(updated);
+      }
+
+      if (shouldRefreshManual) {
+        void this.resolveManualForGame(updated);
+      }
     }
 
     if (options.refreshCover) {
@@ -2930,7 +3206,212 @@ export class GameListComponent implements OnChanges {
     this.changeDetectorRef.markForCheck();
   }
 
-  private async openRatingPicker(game: GameEntry): Promise<void> {
+  private scheduleNotesAutosave(delayMs = GameListComponent.NOTES_AUTOSAVE_DEBOUNCE_MS): void {
+    if (!this.isNotesOpen || !this.selectedGame) {
+      return;
+    }
+
+    if (this.notesAutosaveTimeoutId !== null) {
+      window.clearTimeout(this.notesAutosaveTimeoutId);
+      this.notesAutosaveTimeoutId = null;
+    }
+
+    if (!this.isNoteDirty) {
+      return;
+    }
+
+    this.notesAutosaveTimeoutId = window.setTimeout(() => {
+      this.notesAutosaveTimeoutId = null;
+      void this.persistNotesAutosave();
+    }, delayMs);
+  }
+
+  private async persistNotesAutosave(): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    if (this.isNoteSaving) {
+      this.scheduleNotesAutosave();
+      return;
+    }
+
+    const html = this.notesEditor ? this.notesEditor.getHTML() : this.noteDraft;
+    const normalizedNotes = this.normalizeNotesValue(html);
+
+    if (normalizedNotes === this.savedNoteValue) {
+      this.notesAutosaveFailureCount = 0;
+      this.isNoteDirty = false;
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    this.isNoteSaving = true;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const updated = await this.gameShelfService.setGameNotes(
+        this.selectedGame.igdbGameId,
+        this.selectedGame.platformIgdbId,
+        normalizedNotes
+      );
+      // Notes edits do not affect manuals/similar games; skip those refreshes for frequent autosaves.
+      this.applyUpdatedGame(updated, { refreshManual: false, refreshSimilar: false });
+      const persistedNotes = this.normalizeNotesValue(updated.notes);
+      this.savedNoteValue = persistedNotes;
+      this.noteDraft = persistedNotes;
+      this.notesEditor?.commands.setContent(toNotesEditorContent(persistedNotes), {
+        emitUpdate: false
+      });
+      this.notesAutosaveFailureCount = 0;
+    } catch {
+      this.notesAutosaveFailureCount += 1;
+      if (
+        this.notesAutosaveFailureCount === 1 ||
+        this.notesAutosaveFailureCount === GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES
+      ) {
+        const message =
+          this.notesAutosaveFailureCount === GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES
+            ? 'Auto-save paused after repeated failures. Edit notes to retry.'
+            : 'Unable to auto-save notes.';
+        await this.presentToast(message, 'danger');
+      }
+    } finally {
+      this.isNoteSaving = false;
+      const currentNotes = this.normalizeNotesValue(this.notesEditor?.getHTML() ?? this.noteDraft);
+      this.isNoteDirty = currentNotes !== this.savedNoteValue;
+      if (this.isNoteDirty) {
+        if (this.notesAutosaveFailureCount < GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES) {
+          this.scheduleNotesAutosave(this.getNotesAutosaveRetryDelayMs());
+        }
+      }
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
+  private getNotesAutosaveRetryDelayMs(): number {
+    if (this.notesAutosaveFailureCount <= 0) {
+      return GameListComponent.NOTES_AUTOSAVE_DEBOUNCE_MS;
+    }
+
+    return Math.min(
+      GameListComponent.NOTES_AUTOSAVE_RETRY_MAX_DELAY_MS,
+      GameListComponent.NOTES_AUTOSAVE_RETRY_BASE_DELAY_MS *
+        2 ** (this.notesAutosaveFailureCount - 1)
+    );
+  }
+
+  private normalizeNotesValue(value: string | null | undefined): string {
+    return normalizeEditorNotesValue(value);
+  }
+
+  private shouldBlockDetailNavigationForUnsavedNotes(): boolean {
+    return this.isGameDetailModalOpen && (this.isNoteDirty || this.isNoteSaving);
+  }
+
+  private async canDismissNotesGuard(): Promise<boolean> {
+    if (!this.isNoteDirty && !this.isNoteSaving) {
+      return true;
+    }
+
+    if (this.isNoteSaving) {
+      await this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
+      return false;
+    }
+
+    if (await this.confirmDiscardPausedNotes()) {
+      this.resetNotesToLastSaved();
+      return true;
+    }
+
+    await this.presentToast('Notes have unsaved changes. Please wait for auto-save.', 'warning');
+    return false;
+  }
+
+  private async confirmDiscardPausedNotes(): Promise<boolean> {
+    if (!this.isNotesAutosavePaused()) {
+      return false;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Discard unsaved notes?',
+      message:
+        'Auto-save is paused after repeated failures. Discard unsaved note changes and close?',
+      buttons: [
+        { text: 'Keep editing', role: 'cancel' },
+        { text: 'Discard', role: 'destructive' }
+      ]
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    return role === 'destructive';
+  }
+
+  private resetNotesToLastSaved(): void {
+    this.noteDraft = this.savedNoteValue;
+    this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
+      emitUpdate: false
+    });
+    this.isNoteDirty = false;
+    this.notesAutosaveFailureCount = 0;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  private isNotesAutosavePaused(): boolean {
+    return (
+      this.isNoteDirty &&
+      !this.isNoteSaving &&
+      this.notesAutosaveFailureCount >= GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES
+    );
+  }
+
+  private resetNoteEditorState(): void {
+    if (this.notesAutosaveTimeoutId !== null) {
+      window.clearTimeout(this.notesAutosaveTimeoutId);
+      this.notesAutosaveTimeoutId = null;
+    }
+    this.isNotesOpen = false;
+    this.isNotesModalOpen = false;
+    this.isNoteDirty = false;
+    this.isNoteSaving = false;
+    this.notesAutosaveFailureCount = 0;
+    this.noteDraft = '';
+    this.savedNoteValue = '';
+    this.notesEditor?.commands.setContent('<p></p>', { emitUpdate: false });
+  }
+
+  private ensureNotesEditor(): void {
+    if (this.notesEditor) {
+      // Reuse a single editor instance across open/close cycles for session performance.
+      return;
+    }
+
+    this.notesEditor = new Editor({
+      extensions: [
+        tiptapStarterKit,
+        tiptapUnderline,
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Details.configure({ persist: true }),
+        DetailsSummary,
+        DetailsContent
+      ],
+      content: '<p></p>',
+      onUpdate: ({ editor }) => {
+        this.noteDraft = this.normalizeNotesValue(editor.getHTML());
+        this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+        this.notesAutosaveFailureCount = 0;
+        this.scheduleNotesAutosave();
+        this.changeDetectorRef.markForCheck();
+      },
+      onSelectionUpdate: () => {
+        this.changeDetectorRef.markForCheck();
+      }
+    });
+  }
+
+  private openRatingPicker(game: GameEntry): void {
     const currentRating = normalizeGameRating(game.rating);
     this.ratingTargetGame = game;
     this.ratingDraft = currentRating ?? 3;
@@ -2986,7 +3467,10 @@ export class GameListComponent implements OnChanges {
   }
 
   private normalizePlatformSelectionValue(value: unknown): number | null {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (typeof value !== 'number' && typeof value !== 'string') {
+      return null;
+    }
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
@@ -3031,8 +3515,12 @@ export class GameListComponent implements OnChanges {
         const dataUrl = typeof reader.result === 'string' ? reader.result : '';
         resolve(/^data:image\/[a-z0-9.+-]+;base64,/i.test(dataUrl) ? dataUrl : null);
       };
-      reader.onerror = () => resolve(null);
-      reader.onabort = () => resolve(null);
+      reader.onerror = () => {
+        resolve(null);
+      };
+      reader.onabort = () => {
+        resolve(null);
+      };
       reader.readAsDataURL(file);
     });
   }
@@ -3092,6 +3580,20 @@ export class GameListComponent implements OnChanges {
   }
 
   constructor() {
+    this.layoutModeService.mode$.pipe(takeUntilDestroyed()).subscribe((mode) => {
+      const nextDesktop = mode === 'desktop';
+
+      if (nextDesktop) {
+        this.isNotesModalOpen = false;
+      }
+      if (!nextDesktop && this.isNotesOpen) {
+        this.isNotesModalOpen = true;
+      }
+
+      this.isDesktopDetailLayout = nextDesktop;
+      this.changeDetectorRef.markForCheck();
+    });
+
     addIcons({
       star,
       ellipsisHorizontal,
@@ -3109,7 +3611,8 @@ export class GameListComponent implements OnChanges {
       logoGoogle,
       logoYoutube,
       chevronBack,
-      documentText
+      documentText,
+      book
     });
   }
 }

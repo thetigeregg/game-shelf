@@ -7,7 +7,8 @@ export const environment = {
   gameApiBaseUrl: 'http://localhost:3000',
   manualsBaseUrl: '/manuals',
   featureFlags: {
-    showMgcImport: false
+    showMgcImport: false,
+    e2eFixtures: false
   }
 };
 

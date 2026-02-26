@@ -259,11 +259,23 @@ export class GameShelfService {
       }
     }
 
+    let withNotes = withTags;
+    if (typeof current.notes === 'string') {
+      const next = await this.repository.setGameNotes(
+        withTags.igdbGameId,
+        withTags.platformIgdbId,
+        current.notes
+      );
+      if (next) {
+        withNotes = next;
+      }
+    }
+
     this.listRefresh$.next();
     void this.enrichCatalogWithCompletionTimesInBackground(normalizedReplacement, current.listType);
 
     const tags = await this.repository.listTags();
-    return this.attachTags([withTags], tags)[0];
+    return this.attachTags([withNotes], tags)[0];
   }
 
   async refreshGameMetadata(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -345,7 +357,7 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
-    const title = String(query.title ?? '').trim() || existing.title;
+    const title = query.title.trim() || existing.title;
     const releaseYear = Number.isInteger(query.releaseYear)
       ? (query.releaseYear as number)
       : existing.releaseYear;
@@ -364,7 +376,7 @@ export class GameShelfService {
     platform: string
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.hltb.lookup_start', {
-      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       lookupTitle: title,
       lookupReleaseYear: releaseYear,
       lookupPlatform: platform
@@ -373,7 +385,7 @@ export class GameShelfService {
       this.searchApi.lookupCompletionTimes(title, releaseYear, platform)
     );
     this.debugLogService.trace('game_shelf.hltb.lookup_complete', {
-      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       completionTimes,
       hasCompletionTimes: completionTimes !== null
     });
@@ -408,7 +420,7 @@ export class GameShelfService {
 
     this.listRefresh$.next();
     this.debugLogService.trace('game_shelf.hltb.refresh_complete', {
-      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       updatedHltbMainHours: updated.hltbMainHours,
       updatedHltbMainExtraHours: updated.hltbMainExtraHours,
       updatedHltbCompletionistHours: updated.hltbCompletionistHours
@@ -528,6 +540,22 @@ export class GameShelfService {
     const tags = await this.repository.listTags();
     this.listRefresh$.next();
 
+    return this.attachTags([updated], tags)[0];
+  }
+
+  async setGameNotes(
+    igdbGameId: string,
+    platformIgdbId: number,
+    notes: string | null
+  ): Promise<GameEntry> {
+    const updated = await this.repository.setGameNotes(igdbGameId, platformIgdbId, notes);
+
+    if (!updated) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const tags = await this.repository.listTags();
+    this.listRefresh$.next();
     return this.attachTags([updated], tags)[0];
   }
 
@@ -708,7 +736,7 @@ export class GameShelfService {
     let updatedCount = 0;
 
     for (const game of candidates) {
-      const gameKey = `${game.igdbGameId}::${game.platformIgdbId}`;
+      const gameKey = `${game.igdbGameId}::${String(game.platformIgdbId)}`;
       await this.db.imageCache.where('gameKey').equals(gameKey).delete();
 
       const staleUrl = normalizeTheGamesDbUrl(game.coverUrl);

@@ -192,16 +192,7 @@ function validateSecurityConfig(): void {
   }
 }
 
-function isCorsOriginAllowed(origin: string): boolean {
-  return config.corsAllowedOrigins.some((allowedOrigin) => allowedOrigin === origin);
-}
-
-function resolveHealthRateLimitKey(ip: string | undefined): string {
-  const normalized = String(ip ?? '').trim();
-  return normalized.length > 0 ? normalized : 'unknown';
-}
-
-main().catch((error) => {
+main().catch((error: unknown) => {
   console.error(error);
   process.exit(1);
 });

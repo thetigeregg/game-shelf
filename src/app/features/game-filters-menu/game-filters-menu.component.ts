@@ -139,7 +139,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.updateFilters();
   }
 
-  onSortOptionChange(value: SortOption | string): void {
+  onSortOptionChange(value: string): void {
     if (!this.isSortOption(value)) {
       return;
     }
@@ -309,7 +309,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       return 'None';
     }
 
-    return `${rating}`;
+    return String(rating);
   }
 
   getGameTypeLabel(gameType: GameType): string {
@@ -349,7 +349,11 @@ export class GameFiltersMenuComponent implements OnChanges {
       return null;
     }
 
-    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    if (typeof value !== 'number' && typeof value !== 'string') {
+      return null;
+    }
+
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(value);
 
     if (!Number.isFinite(parsed) || parsed < 0) {
       return null;

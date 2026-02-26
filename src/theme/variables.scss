@@ -2,6 +2,48 @@
 // https://ionicframework.com/docs/theming/
 
 :root {
+  --ion-color-ocean: #1976d2;
+  --ion-color-ocean-rgb: 25, 118, 210;
+  --ion-color-ocean-contrast: #ffffff;
+  --ion-color-ocean-contrast-rgb: 255, 255, 255;
+  --ion-color-ocean-shade: #1668b9;
+  --ion-color-ocean-tint: #3084d7;
+
+  --ion-color-deep-ocean: #3949ab;
+  --ion-color-deep-ocean-rgb: 57, 73, 171;
+  --ion-color-deep-ocean-contrast: #ffffff;
+  --ion-color-deep-ocean-contrast-rgb: 255, 255, 255;
+  --ion-color-deep-ocean-shade: #324096;
+  --ion-color-deep-ocean-tint: #4d5bb3;
+
+  --ion-color-dark-gray: #455a64;
+  --ion-color-dark-gray-rgb: 69, 90, 100;
+  --ion-color-dark-gray-contrast: #ffffff;
+  --ion-color-dark-gray-contrast-rgb: 255, 255, 255;
+  --ion-color-dark-gray-shade: #3d4f58;
+  --ion-color-dark-gray-tint: #586b74;
+
+  --ion-color-firetruck: #ff0000;
+  --ion-color-firetruck-rgb: 255, 0, 0;
+  --ion-color-firetruck-contrast: #ffffff;
+  --ion-color-firetruck-contrast-rgb: 255, 255, 255;
+  --ion-color-firetruck-shade: #e00000;
+  --ion-color-firetruck-tint: #ff1a1a;
+
+  --ion-color-white: #ffffff;
+  --ion-color-white-rgb: 255, 255, 255;
+  --ion-color-white-contrast: #000000;
+  --ion-color-white-contrast-rgb: 0, 0, 0;
+  --ion-color-white-shade: #e0e0e0;
+  --ion-color-white-tint: #ffffff;
+
+  --ion-color-royal: #6a1b9a;
+  --ion-color-royal-rgb: 106, 27, 154;
+  --ion-color-royal-contrast: #ffffff;
+  --ion-color-royal-contrast-rgb: 255, 255, 255;
+  --ion-color-royal-shade: #5d1888;
+  --ion-color-royal-tint: #7932a4;
+
   --ion-color-forest: #3aac3c;
   --ion-color-forest-rgb: 58, 172, 60;
   --ion-color-forest-contrast: #ffffff;
@@ -11,8 +53,64 @@
 }
 
 .ion-palette-dark {
+  --ion-color-white-contrast: #111111;
+  --ion-color-white-contrast-rgb: 17, 17, 17;
   --ion-color-forest-contrast: #111111;
   --ion-color-forest-contrast-rgb: 17, 17, 17;
+}
+
+.ion-color-ocean {
+  --ion-color-base: var(--ion-color-ocean);
+  --ion-color-base-rgb: var(--ion-color-ocean-rgb);
+  --ion-color-contrast: var(--ion-color-ocean-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-ocean-contrast-rgb);
+  --ion-color-shade: var(--ion-color-ocean-shade);
+  --ion-color-tint: var(--ion-color-ocean-tint);
+}
+
+.ion-color-deep-ocean {
+  --ion-color-base: var(--ion-color-deep-ocean);
+  --ion-color-base-rgb: var(--ion-color-deep-ocean-rgb);
+  --ion-color-contrast: var(--ion-color-deep-ocean-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-deep-ocean-contrast-rgb);
+  --ion-color-shade: var(--ion-color-deep-ocean-shade);
+  --ion-color-tint: var(--ion-color-deep-ocean-tint);
+}
+
+.ion-color-dark-gray {
+  --ion-color-base: var(--ion-color-dark-gray);
+  --ion-color-base-rgb: var(--ion-color-dark-gray-rgb);
+  --ion-color-contrast: var(--ion-color-dark-gray-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-dark-gray-contrast-rgb);
+  --ion-color-shade: var(--ion-color-dark-gray-shade);
+  --ion-color-tint: var(--ion-color-dark-gray-tint);
+}
+
+.ion-color-firetruck {
+  --ion-color-base: var(--ion-color-firetruck);
+  --ion-color-base-rgb: var(--ion-color-firetruck-rgb);
+  --ion-color-contrast: var(--ion-color-firetruck-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-firetruck-contrast-rgb);
+  --ion-color-shade: var(--ion-color-firetruck-shade);
+  --ion-color-tint: var(--ion-color-firetruck-tint);
+}
+
+.ion-color-white {
+  --ion-color-base: var(--ion-color-white);
+  --ion-color-base-rgb: var(--ion-color-white-rgb);
+  --ion-color-contrast: var(--ion-color-white-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-white-contrast-rgb);
+  --ion-color-shade: var(--ion-color-white-shade);
+  --ion-color-tint: var(--ion-color-white-tint);
+}
+
+.ion-color-royal {
+  --ion-color-base: var(--ion-color-royal);
+  --ion-color-base-rgb: var(--ion-color-royal-rgb);
+  --ion-color-contrast: var(--ion-color-royal-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-royal-contrast-rgb);
+  --ion-color-shade: var(--ion-color-royal-shade);
+  --ion-color-tint: var(--ion-color-royal-tint);
 }
 
 .ion-color-forest {

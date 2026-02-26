@@ -738,7 +738,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeGameId(value: string): string {
-    const normalized = String(value ?? '').trim();
+    const normalized = value.trim();
 
     if (normalized.length === 0) {
       throw new Error('IGDB game id is required.');
@@ -887,7 +887,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeViewName(value: string): string {
-    const normalized = String(value ?? '').trim();
+    const normalized = value.trim();
 
     if (normalized.length === 0) {
       throw new Error('View name is required.');
@@ -915,13 +915,7 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeViewFilters(value: GameListFilters | null | undefined): GameListFilters {
     const source = value ?? DEFAULT_GAME_LIST_FILTERS;
-    const sortField =
-      source.sortField === 'title' ||
-      source.sortField === 'releaseDate' ||
-      source.sortField === 'createdAt' ||
-      source.sortField === 'platform'
-        ? source.sortField
-        : 'title';
+    const sortField = source.sortField;
     const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
     const platform = normalizeStringList(source.platform);
     const collections = normalizeStringList(source.collections);

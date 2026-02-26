@@ -18,6 +18,6 @@ export class HtmlSanitizerService {
     const div = document.createElement('div');
     div.innerHTML = clean;
 
-    return div.textContent ?? '';
+    return div.textContent || '';
   }
 }

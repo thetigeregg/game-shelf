@@ -1,4 +1,5 @@
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -8,12 +9,13 @@ import { ManualService, MANUAL_OVERRIDES_STORAGE_KEY } from './manual.service';
 class OutboxWriterMock implements SyncOutboxWriter {
   calls: Array<{ entityType: string; operation: string; payload: unknown }> = [];
 
-  async enqueueOperation(request: {
+  enqueueOperation(request: {
     entityType: string;
     operation: string;
     payload: unknown;
   }): Promise<void> {
     this.calls.push(request);
+    return Promise.resolve();
   }
 }
 
@@ -25,8 +27,12 @@ describe('ManualService', () => {
   beforeEach(() => {
     outboxWriter = new OutboxWriterMock();
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [ManualService, { provide: SYNC_OUTBOX_WRITER, useValue: outboxWriter }]
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        ManualService,
+        { provide: SYNC_OUTBOX_WRITER, useValue: outboxWriter }
+      ]
     });
 
     localStorage.clear();
@@ -101,7 +107,7 @@ describe('ManualService', () => {
     const raw = localStorage.getItem(MANUAL_OVERRIDES_STORAGE_KEY);
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(String(raw)) as Record<string, { relativePath: string }>;
-    expect(parsed['100::8']?.relativePath).toBe('PlayStation 2__pid-8/God of War II.pdf');
+    expect(parsed['100::8'].relativePath).toBe('PlayStation 2__pid-8/God of War II.pdf');
     expect(
       outboxWriter.calls.some((call) => {
         return (

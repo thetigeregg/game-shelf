@@ -49,7 +49,7 @@ export function isMgcImportFeatureEnabled(): boolean {
     }
   }
 
-  return environment.featureFlags?.showMgcImport === true;
+  return environment.featureFlags.showMgcImport;
 }
 
 export function isE2eFixturesEnabled(): boolean {
@@ -63,7 +63,7 @@ export function isE2eFixturesEnabled(): boolean {
     }
   }
 
-  return environment.featureFlags?.e2eFixtures === true;
+  return environment.featureFlags.e2eFixtures;
 }
 
 export function getAppVersion(): string {

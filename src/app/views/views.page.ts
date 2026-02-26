@@ -175,7 +175,7 @@ export class ViewsPage implements OnInit {
     }
 
     const targetUrl = view.listType === 'wishlist' ? '/tabs/wishlist' : '/tabs/collection';
-    await this.router.navigateByUrl(`${targetUrl}?applyView=${view.id}`);
+    await this.router.navigateByUrl(`${targetUrl}?applyView=${String(view.id)}`);
   }
 
   async renameViewFromPopover(view: GameListView): Promise<void> {
@@ -299,7 +299,7 @@ export class ViewsPage implements OnInit {
     return groupBy.charAt(0).toUpperCase() + groupBy.slice(1);
   }
 
-  private normalizeGroupBy(value: GameGroupByField): GameGroupByField {
+  private normalizeGroupBy(value: unknown): GameGroupByField {
     if (
       value === 'none' ||
       value === 'platform' ||

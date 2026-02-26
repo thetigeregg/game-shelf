@@ -20,6 +20,7 @@ import {
 } from './platform-customization.service';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { DebugLogService } from './debug-log.service';
+import { normalizeHttpError } from '../utils/normalize-http-error';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -141,7 +142,7 @@ export class GameSyncService implements SyncOutboxWriter {
     } catch (error: unknown) {
       await this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'degraded');
       this.debugLogService.error('sync.sync_now.failed', {
-        error: this.normalizeUnknownError(error)
+        error: normalizeHttpError(error)
       });
     } finally {
       this.syncInFlight = false;
@@ -674,21 +675,6 @@ export class GameSyncService implements SyncOutboxWriter {
   private normalizeBaseUrl(value: string | null | undefined): string {
     const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
-  }
-
-  private normalizeUnknownError(error: unknown): Record<string, unknown> {
-    if (!error || typeof error !== 'object') {
-      return { value: String(error) };
-    }
-
-    const source = error as Record<string, unknown>;
-    return {
-      name: typeof source['name'] === 'string' ? source['name'] : null,
-      message: typeof source['message'] === 'string' ? source['message'] : null,
-      status: typeof source['status'] === 'number' ? source['status'] : null,
-      statusText: typeof source['statusText'] === 'string' ? source['statusText'] : null,
-      url: typeof source['url'] === 'string' ? source['url'] : null
-    };
   }
 
   private generateOperationId(): string {

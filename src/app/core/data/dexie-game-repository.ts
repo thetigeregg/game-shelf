@@ -781,14 +781,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeNotes(value: string | null | undefined): string | null {
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    const normalized = value.replace(/\r\n?/g, '\n');
-    const safeHtml = this.htmlSanitizer.sanitizeHtml(normalized);
-    const plainText = this.htmlSanitizer.sanitizeToPlainText(safeHtml).trim();
-    return plainText.length > 0 ? safeHtml : null;
+    return this.htmlSanitizer.sanitizeNotesOrNull(value);
   }
 
   private normalizeCustomTitle(

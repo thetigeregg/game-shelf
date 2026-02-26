@@ -20,4 +20,15 @@ export class HtmlSanitizerService {
 
     return div.textContent || '';
   }
+
+  sanitizeNotesOrNull(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.replace(/\r\n?/g, '\n');
+    const safeHtml = this.sanitizeHtml(normalized);
+    const plainText = this.sanitizeToPlainText(safeHtml).trim();
+    return plainText.length > 0 ? safeHtml : null;
+  }
 }

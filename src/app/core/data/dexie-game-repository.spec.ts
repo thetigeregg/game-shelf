@@ -249,6 +249,22 @@ describe('DexieGameRepository', () => {
     expect(cleared?.notes).toBeNull();
   });
 
+  it('stores structure-only rich-text notes', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameNotes('101', 18, '<ul><li><p></p></li></ul>');
+    const withList = await repository.exists('101', 18);
+    expect(withList?.notes).toContain('<ul');
+
+    await repository.setGameNotes(
+      '101',
+      18,
+      '<details><summary><p></p></summary><div data-type="detailsContent"><p></p></div></details>'
+    );
+    const withDetails = await repository.exists('101', 18);
+    expect(withDetails?.notes).toContain('<details');
+  });
+
   it('preserves meaningful note whitespace while sanitizing unsafe html', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 

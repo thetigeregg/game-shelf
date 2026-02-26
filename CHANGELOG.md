@@ -972,3 +972,11 @@
 - 8dfbc36 Fix notes regex flag
 - fd55cb4 Revert notes sanitization fix
 
+## v0.1.36 - 2026-02-26
+- 4175f3a Merge pull request #99 from thetigeregg/codex/fix-note-content-clearing-issue
+- 2dcb1a6 Sanitize notes normalization input
+- 5a7cf0a Fix empty note clearing bug
+- 17bd960 Fix notes normalization parser
+- 9f6eb18 Store structure-only rich notes
+- 2e530ae Prevent empty notes from clearing
+

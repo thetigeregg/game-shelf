@@ -124,7 +124,11 @@ import {
   getMetadataSelectionTitle,
   getMetadataSelectionValues
 } from './metadata-filter.utils';
-import { normalizeEditorNotesValue, toNotesEditorContent } from './notes-editor.utils';
+import {
+  normalizeEditorNotesComparable,
+  normalizeEditorNotesValue,
+  toNotesEditorContent
+} from './notes-editor.utils';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -3239,7 +3243,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const html = this.notesEditor ? this.notesEditor.getHTML() : this.noteDraft;
     const normalizedNotes = this.normalizeNotesValue(html);
 
-    if (normalizedNotes === this.savedNoteValue) {
+    if (this.areNotesEquivalent(normalizedNotes, this.savedNoteValue)) {
       this.notesAutosaveFailureCount = 0;
       this.isNoteDirty = false;
       this.changeDetectorRef.markForCheck();
@@ -3257,12 +3261,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
       );
       // Notes edits do not affect manuals/similar games; skip those refreshes for frequent autosaves.
       this.applyUpdatedGame(updated, { refreshManual: false, refreshSimilar: false });
-      const persistedNotes = this.normalizeNotesValue(updated.notes);
-      this.savedNoteValue = persistedNotes;
+      // applyUpdatedGame() sets savedNoteValue from the normalized persisted payload.
+      const persistedNotes = this.savedNoteValue;
       this.noteDraft = persistedNotes;
-      this.notesEditor?.commands.setContent(toNotesEditorContent(persistedNotes), {
-        emitUpdate: false
-      });
+      const currentEditorNotes = this.normalizeNotesValue(
+        this.notesEditor?.getHTML() ?? this.noteDraft
+      );
+
+      if (!this.areNotesEquivalent(currentEditorNotes, persistedNotes)) {
+        this.notesEditor?.commands.setContent(toNotesEditorContent(persistedNotes), {
+          emitUpdate: false
+        });
+      }
       this.notesAutosaveFailureCount = 0;
     } catch {
       this.notesAutosaveFailureCount += 1;
@@ -3279,7 +3289,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     } finally {
       this.isNoteSaving = false;
       const currentNotes = this.normalizeNotesValue(this.notesEditor?.getHTML() ?? this.noteDraft);
-      this.isNoteDirty = currentNotes !== this.savedNoteValue;
+      this.isNoteDirty = !this.areNotesEquivalent(currentNotes, this.savedNoteValue);
       if (this.isNoteDirty) {
         if (this.notesAutosaveFailureCount < GameListComponent.NOTES_AUTOSAVE_MAX_FAILURES) {
           this.scheduleNotesAutosave(this.getNotesAutosaveRetryDelayMs());
@@ -3303,6 +3313,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private normalizeNotesValue(value: string | null | undefined): string {
     return normalizeEditorNotesValue(value);
+  }
+
+  private areNotesEquivalent(
+    left: string | null | undefined,
+    right: string | null | undefined
+  ): boolean {
+    return normalizeEditorNotesComparable(left) === normalizeEditorNotesComparable(right);
   }
 
   private shouldBlockDetailNavigationForUnsavedNotes(): boolean {
@@ -3400,7 +3417,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       content: '<p></p>',
       onUpdate: ({ editor }) => {
         this.noteDraft = this.normalizeNotesValue(editor.getHTML());
-        this.isNoteDirty = this.noteDraft !== this.savedNoteValue;
+        this.isNoteDirty = !this.areNotesEquivalent(this.noteDraft, this.savedNoteValue);
         this.notesAutosaveFailureCount = 0;
         this.scheduleNotesAutosave();
         this.changeDetectorRef.markForCheck();

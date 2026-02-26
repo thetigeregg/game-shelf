@@ -2824,10 +2824,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private canShowManualButtonsForSelectedGame(): boolean {
     const game = this.selectedGame;
-
-    this.logManualDebug('manual.visibility.check_selected_game', {
-      hasSelectedGame: game !== null
-    });
     if (!game) {
       return false;
     }
@@ -2842,13 +2838,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
         displayPlatform.name,
         displayPlatform.igdbId
       );
-
-    this.logManualDebug('manual.eligibility', {
-      gameKey: this.getGameKey(game),
-      displayPlatformName: displayPlatform.name,
-      displayPlatformIgdbId: displayPlatform.igdbId,
-      canonicalPlatformIgdbId
-    });
 
     return (
       canonicalPlatformIgdbId !== null &&

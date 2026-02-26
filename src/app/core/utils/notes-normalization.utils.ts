@@ -1,5 +1,9 @@
 const EMPTY_RICH_TEXT_PATTERN = /^(<p>(<br\/?>)?<\/p>)+$/;
 const HTML_TAG_PATTERN = /<\/?[a-z][^>]*>/i;
+const MEANINGFUL_STRUCTURE_SELECTOR =
+  'ul,ol,li,details,summary,hr,blockquote,pre,table,thead,tbody,tr,th,td,img,video,audio,iframe';
+const MEANINGFUL_STRUCTURE_TAG_PATTERN =
+  /<(ul|ol|li|details|summary|hr|blockquote|pre|table|thead|tbody|tr|th|td|img|video|audio|iframe)\b/i;
 
 export function normalizeNotesValue(value: string | null | undefined): string {
   if (typeof value !== 'string') {
@@ -12,7 +16,7 @@ export function normalizeNotesValue(value: string | null | undefined): string {
   if (
     compactLower.length === 0 ||
     EMPTY_RICH_TEXT_PATTERN.test(compactLower) ||
-    isHtmlWithoutTextContent(normalized)
+    isHtmlWithoutMeaningfulContent(normalized)
   ) {
     return '';
   }
@@ -25,7 +29,7 @@ export function normalizeNotesValueOrNull(value: string | null | undefined): str
   return normalized.length > 0 ? normalized : null;
 }
 
-function isHtmlWithoutTextContent(value: string): boolean {
+function isHtmlWithoutMeaningfulContent(value: string): boolean {
   const trimmed = value.trim();
 
   if (!trimmed.startsWith('<') || !HTML_TAG_PATTERN.test(trimmed)) {
@@ -35,8 +39,15 @@ function isHtmlWithoutTextContent(value: string): boolean {
   if (typeof document !== 'undefined') {
     const container = document.createElement('div');
     container.innerHTML = trimmed;
-    return (container.textContent || '').trim().length === 0;
+    const hasTextContent = (container.textContent || '').trim().length > 0;
+
+    if (hasTextContent) {
+      return false;
+    }
+
+    return container.querySelector(MEANINGFUL_STRUCTURE_SELECTOR) === null;
   }
 
-  return trimmed.replace(/<[^>]*>/g, '').trim().length === 0;
+  const strippedText = trimmed.replace(/<[^>]*>/g, '').trim();
+  return strippedText.length === 0 && !MEANINGFUL_STRUCTURE_TAG_PATTERN.test(trimmed);
 }

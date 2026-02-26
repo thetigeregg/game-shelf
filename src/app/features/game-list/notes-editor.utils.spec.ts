@@ -20,12 +20,21 @@ describe('notes-editor utils', () => {
     expect(normalizeEditorNotesValue('<p><br/></p>')).toBe('');
     expect(normalizeEditorNotesValue('   <p></p>   ')).toBe('');
     expect(normalizeEditorNotesValue('<p></p><p></p>')).toBe('');
-    expect(normalizeEditorNotesValue('<ul><li><p></p></li></ul>')).toBe('');
+    expect(normalizeEditorNotesValue('<p><strong></strong></p>')).toBe('');
+  });
+
+  it('preserves meaningful structure-only html in editor notes', () => {
+    expect(normalizeEditorNotesValue('<ul><li><p></p></li></ul>')).toBe(
+      '<ul><li><p></p></li></ul>'
+    );
     expect(
       normalizeEditorNotesValue(
         '<details><summary><p></p></summary><div data-type="detailsContent"><p></p></div></details>'
       )
-    ).toBe('');
+    ).toBe(
+      '<details><summary><p></p></summary><div data-type="detailsContent"><p></p></div></details>'
+    );
+    expect(normalizeEditorNotesValue('<hr>')).toBe('<hr>');
   });
 
   it('treats plain text containing angle brackets as plain text', () => {

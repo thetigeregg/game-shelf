@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeEditorNotesValue, toNotesEditorContent } from './notes-editor.utils';
+import {
+  normalizeEditorNotesComparable,
+  normalizeEditorNotesValue,
+  toNotesEditorContent
+} from './notes-editor.utils';
 
 describe('notes-editor utils', () => {
   it('normalizes CRLF to LF without trimming user whitespace', () => {
@@ -30,6 +34,17 @@ describe('notes-editor utils', () => {
     expect(toNotesEditorContent('<p><strong>Boss notes</strong></p>')).toBe(
       '<p><strong>Boss notes</strong></p>'
     );
+  });
+
+  it('normalizes trailing empty block placeholders for notes comparisons', () => {
+    expect(normalizeEditorNotesComparable('<ul><li>Item</li></ul><p></p>')).toBe(
+      '<ul><li>Item</li></ul>'
+    );
+    expect(
+      normalizeEditorNotesComparable(
+        '<details><summary>Title</summary><div>Body</div></details><p><br></p>'
+      )
+    ).toBe('<details><summary>Title</summary><div>Body</div></details>');
   });
 
   it('returns empty paragraph for empty normalized content', () => {

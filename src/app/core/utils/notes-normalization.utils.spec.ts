@@ -18,6 +18,19 @@ describe('notes-normalization utils', () => {
     expect(normalizeNotesValue('<p><br></p>')).toBe('');
     expect(normalizeNotesValue('<p><br/></p>')).toBe('');
     expect(normalizeNotesValue('<p></p><p></p>')).toBe('');
+    expect(normalizeNotesValue('<p><strong></strong></p>')).toBe('');
+  });
+
+  it('preserves meaningful structure-only rich text content', () => {
+    expect(normalizeNotesValue('<ul><li><p></p></li></ul>')).toBe('<ul><li><p></p></li></ul>');
+    expect(
+      normalizeNotesValue(
+        '<details><summary><p></p></summary><div data-type="detailsContent"><p></p></div></details>'
+      )
+    ).toBe(
+      '<details><summary><p></p></summary><div data-type="detailsContent"><p></p></div></details>'
+    );
+    expect(normalizeNotesValue('<hr>')).toBe('<hr>');
   });
 
   it('preserves meaningful whitespace for non-empty content', () => {

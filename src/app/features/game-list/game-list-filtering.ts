@@ -985,7 +985,7 @@ export class GameListFilteringEngine {
     if (typeof value !== 'number' && typeof value !== 'string') {
       return null;
     }
-    const parsed = Number.parseInt(value, 10);
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 }

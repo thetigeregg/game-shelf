@@ -3,6 +3,7 @@ export const environment = {
   gameApiBaseUrl: '/api',
   manualsBaseUrl: '/manuals',
   featureFlags: {
-    showMgcImport: false
+    showMgcImport: false,
+    e2eFixtures: false
   }
 };

@@ -21,14 +21,14 @@ export function findSimilarLibraryGames(params: {
   compareTitles: (leftTitle: string, rightTitle: string) => number;
 }): GameEntry[] {
   const { currentGame, libraryGames, similarIds, compareTitles } = params;
-  const currentGameKey = `${currentGame.igdbGameId}::${currentGame.platformIgdbId}`;
+  const currentGameKey = `${currentGame.igdbGameId}::${String(currentGame.platformIgdbId)}`;
   const similarIdSet = new Set(similarIds);
 
   return libraryGames
     .filter(
       (candidate) =>
-        `${candidate.igdbGameId}::${candidate.platformIgdbId}` !== currentGameKey &&
-        similarIdSet.has(String(candidate.igdbGameId).trim())
+        `${candidate.igdbGameId}::${String(candidate.platformIgdbId)}` !== currentGameKey &&
+        similarIdSet.has(candidate.igdbGameId.trim())
     )
     .sort((left, right) => compareTitles(left.title, right.title));
 }

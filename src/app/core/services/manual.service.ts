@@ -82,14 +82,14 @@ export class ManualService {
 
     return this.httpClient.get<SearchManualsApiResponse>(this.searchManualsUrl, { params }).pipe(
       map((response) => {
-        const rawUnavailable = response?.unavailable;
+        const rawUnavailable = response.unavailable;
         const unavailable = rawUnavailable === true;
         const reason =
-          typeof response?.reason === 'string' && response.reason.trim().length > 0
+          typeof response.reason === 'string' && response.reason.trim().length > 0
             ? response.reason.trim()
             : null;
         return {
-          items: this.normalizeCandidateList(response?.items),
+          items: this.normalizeCandidateList(response.items),
           unavailable,
           reason
         };
@@ -109,13 +109,12 @@ export class ManualService {
   ): { relativePath: string; updatedAt: string } | null {
     const key = this.getGameIdentityKey(game);
     const map = this.readOverridesFromStorage();
+    if (!Object.prototype.hasOwnProperty.call(map, key)) {
+      return null;
+    }
     const entry = map[key];
 
-    if (
-      !entry ||
-      typeof entry.relativePath !== 'string' ||
-      entry.relativePath.trim().length === 0
-    ) {
+    if (entry.relativePath.trim().length === 0) {
       return null;
     }
 
@@ -145,26 +144,28 @@ export class ManualService {
     const key = this.getGameIdentityKey(game);
     const nextMap = this.readOverridesFromStorage();
 
-    if (!nextMap[key]) {
+    if (!Object.prototype.hasOwnProperty.call(nextMap, key)) {
       return;
     }
 
-    delete nextMap[key];
-    this.persistOverrides(nextMap);
+    const filtered = Object.fromEntries(
+      Object.entries(nextMap).filter(([entryKey]) => entryKey !== key)
+    ) as ManualOverrideMap;
+    this.persistOverrides(filtered);
   }
 
   getGameIdentityKey(game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId'>): string {
-    return `${String(game.igdbGameId ?? '').trim()}::${String(game.platformIgdbId ?? '').trim()}`;
+    return `${game.igdbGameId.trim()}::${String(game.platformIgdbId).trim()}`;
   }
 
   private buildResolveParams(
     game: Pick<GameEntry, 'igdbGameId' | 'platformIgdbId' | 'title'>,
     preferredRelativePath?: string | null
   ): HttpParams {
-    const normalizedGameId = String(game.igdbGameId ?? '').trim();
+    const normalizedGameId = game.igdbGameId.trim();
     const normalizedPlatformId =
       Number.isInteger(game.platformIgdbId) && game.platformIgdbId > 0 ? game.platformIgdbId : null;
-    const normalizedTitle = String(game.title ?? '').trim();
+    const normalizedTitle = game.title.trim();
 
     let params = new HttpParams({ encoder: ManualService.STRICT_HTTP_PARAM_ENCODER })
       .set('igdbGameId', normalizedGameId)
@@ -180,10 +181,10 @@ export class ManualService {
   }
 
   private normalizeResolveResponse(response: ResolveManualApiResponse): ManualResolveResult {
-    const status = response?.status === 'matched' ? 'matched' : 'none';
-    const candidates = this.normalizeCandidateList(response?.candidates);
-    const bestMatchRaw = this.normalizeCandidate(response?.bestMatch);
-    const source = (response?.bestMatch as { source?: unknown } | undefined)?.source;
+    const status = response.status === 'matched' ? 'matched' : 'none';
+    const candidates = this.normalizeCandidateList(response.candidates);
+    const bestMatchRaw = this.normalizeCandidate(response.bestMatch);
+    const source = (response.bestMatch as { source?: unknown } | undefined)?.source;
     const bestMatch = bestMatchRaw
       ? {
           ...bestMatchRaw,
@@ -195,9 +196,9 @@ export class ManualService {
       status,
       bestMatch,
       candidates,
-      unavailable: response?.unavailable === true,
+      unavailable: response.unavailable === true,
       reason:
-        typeof response?.reason === 'string' && response.reason.trim().length > 0
+        typeof response.reason === 'string' && response.reason.trim().length > 0
           ? response.reason.trim()
           : null
     };
@@ -219,8 +220,15 @@ export class ManualService {
     }
 
     const candidate = value as Record<string, unknown>;
-    const platformIgdbId = Number.parseInt(String(candidate['platformIgdbId'] ?? ''), 10);
-    const fileName = String(candidate['fileName'] ?? '').trim();
+    const platformIgdbIdRaw = candidate['platformIgdbId'];
+    const platformIgdbId = Number.parseInt(
+      typeof platformIgdbIdRaw === 'string' || typeof platformIgdbIdRaw === 'number'
+        ? String(platformIgdbIdRaw)
+        : '',
+      10
+    );
+    const fileNameRaw = candidate['fileName'];
+    const fileName = typeof fileNameRaw === 'string' ? fileNameRaw.trim() : '';
     const relativePath = this.normalizeRelativePath(candidate['relativePath']);
     const scoreValue =
       typeof candidate['score'] === 'number' && Number.isFinite(candidate['score'])
@@ -368,7 +376,7 @@ export class ManualService {
   }
 
   private normalizeBaseUrl(value: string | null | undefined): string {
-    const normalized = String(value ?? '').trim();
+    const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
   }
 }

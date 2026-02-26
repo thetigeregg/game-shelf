@@ -8,7 +8,7 @@ export class ClientWriteAuthService {
   getToken(): string | null {
     try {
       const token = localStorage.getItem(CLIENT_WRITE_TOKEN_STORAGE_KEY);
-      const normalized = String(token ?? '').trim();
+      const normalized = (token ?? '').trim();
       return normalized.length > 0 ? normalized : null;
     } catch {
       return null;
@@ -20,7 +20,7 @@ export class ClientWriteAuthService {
   }
 
   setToken(token: string): void {
-    const normalized = String(token ?? '').trim();
+    const normalized = token.trim();
 
     if (normalized.length === 0) {
       this.clearToken();

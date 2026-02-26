@@ -114,16 +114,14 @@ export class MetadataValidatorPage {
     })
   );
 
-  onListTypeChange(value: ListType | string | null | undefined): void {
+  onListTypeChange(value: string | null | undefined): void {
     const next = value === 'collection' || value === 'wishlist' ? value : null;
     this.selectedListType = next;
     this.selectedListType$.next(next);
     this.selectedGameKeys.clear();
   }
 
-  onMissingFiltersChange(
-    value: MissingMetadataFilter[] | MissingMetadataFilter | string[] | string | null | undefined
-  ): void {
+  onMissingFiltersChange(value: string[] | string | null | undefined): void {
     const raw = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
     const normalized = raw.filter(
       (entry): entry is MissingMetadataFilter =>
@@ -134,11 +132,13 @@ export class MetadataValidatorPage {
   }
 
   trackByGameKey(_: number, game: GameEntry): string {
-    return `${game.igdbGameId}::${game.platformIgdbId}`;
+    return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
   }
 
   getDisplayedGamesLabel(): string {
-    return this.displayedGames.length === 1 ? '1 game' : `${this.displayedGames.length} games`;
+    return this.displayedGames.length === 1
+      ? '1 game'
+      : `${String(this.displayedGames.length)} games`;
   }
 
   getPlatformLabel(game: GameEntry): string {
@@ -301,7 +301,7 @@ export class MetadataValidatorPage {
 
       if (updatedCount > 0) {
         await this.presentToast(
-          `Updated HLTB for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`
+          `Updated HLTB for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
         );
       } else if (missingCount > 0 && failedCount === 0) {
         await this.presentToast('No HLTB matches found for selected games.', 'warning');
@@ -309,7 +309,7 @@ export class MetadataValidatorPage {
 
       if (failedCount > 0) {
         await this.presentToast(
-          `Unable to update HLTB for ${failedCount} selected game${failedCount === 1 ? '' : 's'}.`,
+          `Unable to update HLTB for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
           'danger'
         );
       }
@@ -360,7 +360,7 @@ export class MetadataValidatorPage {
       }
 
       await this.presentToast(
-        `Updated images for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`
+        `Updated images for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
       );
     } catch {
       await this.presentToast('Unable to update images for selected games.', 'danger');
@@ -384,7 +384,7 @@ export class MetadataValidatorPage {
 
   onHltbPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.hltbPickerQuery = String(customEvent.detail?.value ?? '');
+    this.hltbPickerQuery = customEvent.detail.value ?? '';
   }
 
   async runHltbPickerSearch(): Promise<void> {
@@ -514,7 +514,7 @@ export class MetadataValidatorPage {
   }
 
   private getGameKey(game: GameEntry): string {
-    return `${game.igdbGameId}::${game.platformIgdbId}`;
+    return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
   }
 
   private toPositiveNumber(value: number | null | undefined): number | null {
@@ -539,7 +539,7 @@ export class MetadataValidatorPage {
     const byKey = new Map<string, HltbMatchCandidate>();
 
     candidates.forEach((candidate) => {
-      const key = `${candidate.title}::${candidate.releaseYear ?? ''}::${candidate.platform ?? ''}`;
+      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
 
       if (!byKey.has(key)) {
         byKey.set(key, candidate);
@@ -570,20 +570,21 @@ export class MetadataValidatorPage {
         const candidates = await firstValueFrom(
           this.gameShelfService.searchHltbCandidates(title, game.releaseYear, game.platform)
         );
-        const candidate = candidates[0];
+        const candidate = candidates.length > 0 ? candidates[0] : null;
         this.debugLogService.trace('metadata_validator.bulk_hltb.candidate_search_complete', {
           gameKey: this.getGameKey(game),
           candidates: candidates.length,
-          selectedCandidate: candidate
-            ? {
-                title: candidate.title,
-                releaseYear: candidate.releaseYear,
-                platform: candidate.platform
-              }
-            : null
+          selectedCandidate:
+            candidate !== null
+              ? {
+                  title: candidate.title,
+                  releaseYear: candidate.releaseYear,
+                  platform: candidate.platform
+                }
+              : null
         });
 
-        if (candidate) {
+        if (candidate !== null) {
           this.debugLogService.trace('metadata_validator.bulk_hltb.apply_candidate', {
             gameKey: this.getGameKey(game),
             candidateTitle: candidate.title,

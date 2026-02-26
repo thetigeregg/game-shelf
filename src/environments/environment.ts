@@ -16,7 +16,8 @@ export const environment = {
   },
   firebaseVapidKey: '',
   featureFlags: {
-    showMgcImport: false
+    showMgcImport: false,
+    e2eFixtures: false
   }
 };
 

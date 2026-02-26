@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
+import fs, { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
-import { promises as fsPromises } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
@@ -71,34 +70,31 @@ export async function registerImageProxyRoute(
 
       for (const sourceUrl of normalizedUrls) {
         const cacheKey = sha256(sourceUrl);
-        let existing: ImageAssetRow | undefined;
-
         try {
           const cached = await pool.query<ImageAssetRow>(
             'SELECT cache_key, source_url, content_type, file_path, size_bytes, updated_at FROM image_assets WHERE cache_key = $1 LIMIT 1',
             [cacheKey]
           );
-          existing = cached.rows[0];
+          const existing = cached.rows[0] as ImageAssetRow | undefined;
+          if (!existing) {
+            continue;
+          }
+
+          try {
+            await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
+          } catch {
+            continue;
+          }
+
+          deleted += 1;
+
+          try {
+            await fsPromises.unlink(existing.file_path);
+          } catch {
+            // Ignore filesystem cleanup failures. DB metadata is already removed.
+          }
         } catch {
           continue;
-        }
-
-        if (!existing) {
-          continue;
-        }
-
-        try {
-          await pool.query('DELETE FROM image_assets WHERE cache_key = $1', [cacheKey]);
-        } catch {
-          continue;
-        }
-
-        deleted += 1;
-
-        try {
-          await fsPromises.unlink(existing.file_path);
-        } catch {
-          // Ignore filesystem cleanup failures. DB metadata is already removed.
         }
       }
 
@@ -167,7 +163,9 @@ export async function registerImageProxyRoute(
 
       incrementImageMetric('misses');
       const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+      const timeoutHandle = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
       let upstream: Response;
 
       try {
@@ -191,7 +189,7 @@ export async function registerImageProxyRoute(
       }
 
       const contentType =
-        String(upstream.headers.get('content-type') ?? '').trim() || 'application/octet-stream';
+        (upstream.headers.get('content-type') ?? '').trim() || 'application/octet-stream';
       const bytes = await readResponseBytesWithLimit(upstream, maxBytes);
 
       if (!bytes) {
@@ -250,7 +248,8 @@ interface NormalizedProxyImageUrl {
 
 function normalizeProxyImageUrl(raw: unknown): NormalizedProxyImageUrl | null {
   try {
-    const parsed = new URL(String(raw ?? ''));
+    const parsed =
+      typeof raw === 'string' ? new URL(raw) : raw instanceof URL ? new URL(raw.href) : new URL('');
 
     // Only allow HTTPS requests
     if (parsed.protocol !== 'https:') {
@@ -387,15 +386,11 @@ async function readResponseBytesWithLimit(
   const chunks: Uint8Array[] = [];
   let total = 0;
 
-  while (true) {
+  for (;;) {
     const { done, value } = await reader.read();
 
     if (done) {
       break;
-    }
-
-    if (!value) {
-      continue;
     }
 
     total += value.byteLength;

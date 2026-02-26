@@ -3,7 +3,8 @@ export const environment = {
   gameApiBaseUrl: 'http://localhost:3000',
   manualsBaseUrl: '/manuals',
   featureFlags: {
-    showMgcImport: false
+    showMgcImport: false,
+    e2eFixtures: false
   },
   firebase: {
     apiKey: 'REPLACE_WITH_FIREBASE_API_KEY',

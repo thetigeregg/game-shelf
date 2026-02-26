@@ -36,13 +36,16 @@ export async function runBulkActionWithRetry<T>(params: {
 }): Promise<BulkActionResult<T>[]> {
   const { loadingController, games, options, retryConfig, action, delay } = params;
   const loading = await loadingController.create({
-    message: `${options.loadingPrefix} 0/${games.length}...`,
+    message: `${options.loadingPrefix} 0/${String(games.length)}...`,
     spinner: 'crescent',
     backdropDismiss: false
   });
   await loading.present();
 
-  const results: BulkActionResult<T>[] = new Array(games.length);
+  const results = Array.from(
+    { length: games.length },
+    (): BulkActionResult<T> | undefined => undefined
+  );
   const queue = games.map((game, index) => ({ game, index }));
   const workerCount = Math.max(1, Math.min(options.concurrency, queue.length));
   let completed = 0;
@@ -69,7 +72,9 @@ export async function runBulkActionWithRetry<T>(params: {
       );
       results[entry.index] = outcome;
       completed += 1;
-      updateLoadingMessage(`${options.loadingPrefix} ${completed}/${games.length}...`);
+      updateLoadingMessage(
+        `${options.loadingPrefix} ${String(completed)}/${String(games.length)}...`
+      );
 
       if (options.interItemDelayMs > 0 && completed < games.length) {
         await delay(options.interItemDelayMs);
@@ -79,7 +84,10 @@ export async function runBulkActionWithRetry<T>(params: {
 
   await Promise.all(workers);
   await loading.dismiss().catch(() => undefined);
-  return results;
+  if (results.some((result) => result === undefined)) {
+    throw new Error('Bulk action did not complete for all items.');
+  }
+  return results as BulkActionResult<T>[];
 }
 
 async function executeBulkActionWithRetry<T>(
@@ -92,10 +100,11 @@ async function executeBulkActionWithRetry<T>(
 ): Promise<BulkActionResult<T>> {
   for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt += 1) {
     try {
+      const timeoutLabel = typeof itemTimeoutMs === 'number' ? String(itemTimeoutMs) : '0';
       const value = await withOptionalTimeout(
         action(game),
         itemTimeoutMs,
-        `Bulk action timed out after ${itemTimeoutMs}ms`
+        `Bulk action timed out after ${timeoutLabel}ms`
       );
       return { game, ok: true, value };
     } catch (error: unknown) {
@@ -107,7 +116,7 @@ async function executeBulkActionWithRetry<T>(
       const reason = isRateLimitError(error) ? 'rate limit' : 'temporary error';
       const safeTitle = truncateTitleForLoading(game.title);
       setLoadingMessage(
-        `Retrying ${safeTitle} due to ${reason} in ${Math.max(1, Math.ceil(retryDelayMs / 1000))}s...`
+        `Retrying ${safeTitle} due to ${reason} in ${String(Math.max(1, Math.ceil(retryDelayMs / 1000)))}s...`
       );
       await delay(retryDelayMs);
     }
@@ -125,7 +134,7 @@ async function withOptionalTimeout<T>(
     return task;
   }
 
-  let timeoutId: number | null = null;
+  let timeoutId = 0;
 
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = window.setTimeout(() => {
@@ -136,9 +145,7 @@ async function withOptionalTimeout<T>(
   try {
     return await Promise.race([task, timeoutPromise]);
   } finally {
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-    }
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -202,7 +209,7 @@ function resolveBulkRetryDelayMs(
 }
 
 function truncateTitleForLoading(title: string): string {
-  const normalized = String(title ?? '').trim();
+  const normalized = title.trim();
 
   if (normalized.length <= 32) {
     return normalized || 'game';

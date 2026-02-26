@@ -6,8 +6,8 @@ import { runBulkActionWithRetry } from './game-list-bulk-actions';
 function createGame(id: number): GameEntry {
   const now = new Date().toISOString();
   return {
-    igdbGameId: String(id),
-    title: `Game ${id}`,
+    igdbGameId: id.toString(),
+    title: `Game ${id.toString()}`,
     coverUrl: null,
     coverSource: 'none',
     platform: 'PC',
@@ -23,12 +23,12 @@ function createGame(id: number): GameEntry {
 function createLoadingControllerStub(): LoadingController {
   const loading = {
     message: '',
-    present: vi.fn(async () => undefined),
-    dismiss: vi.fn(async () => undefined)
+    present: vi.fn(() => Promise.resolve(undefined)),
+    dismiss: vi.fn(() => Promise.resolve(undefined))
   };
 
   return {
-    create: vi.fn(async () => loading)
+    create: vi.fn(() => Promise.resolve(loading))
   } as unknown as LoadingController;
 }
 
@@ -61,7 +61,7 @@ describe('runBulkActionWithRetry', () => {
         rateLimitFallbackCooldownMs: 100
       },
       action,
-      delay: async () => undefined
+      delay: () => Promise.resolve(undefined)
     });
 
     await vi.advanceTimersByTimeAsync(60);
@@ -78,13 +78,13 @@ describe('runBulkActionWithRetry', () => {
   it('retries transient failures and eventually succeeds', async () => {
     const loadingController = createLoadingControllerStub();
     const game = createGame(11);
-    const delay = vi.fn(async () => undefined);
-    const action = vi.fn(async () => {
+    const delay = vi.fn(() => Promise.resolve(undefined));
+    const action = vi.fn(() => {
       if (action.mock.calls.length === 1) {
-        throw new Error('network unavailable');
+        return Promise.reject(new Error('network unavailable'));
       }
 
-      return game;
+      return Promise.resolve(game);
     });
 
     const [result] = await runBulkActionWithRetry({
@@ -113,10 +113,8 @@ describe('runBulkActionWithRetry', () => {
   it('honors retry-after on rate-limits and classifies final failures', async () => {
     const loadingController = createLoadingControllerStub();
     const game = createGame(12);
-    const delay = vi.fn(async () => undefined);
-    const action = vi.fn(async () => {
-      throw new Error('429 too many requests, retry after 4 s');
-    });
+    const delay = vi.fn(() => Promise.resolve(undefined));
+    const action = vi.fn(() => Promise.reject(new Error('429 too many requests, retry after 4 s')));
 
     const [result] = await runBulkActionWithRetry({
       loadingController,
@@ -144,10 +142,8 @@ describe('runBulkActionWithRetry', () => {
   it('classifies non-retryable failures as other', async () => {
     const loadingController = createLoadingControllerStub();
     const game = createGame(13);
-    const delay = vi.fn(async () => undefined);
-    const action = vi.fn(async () => {
-      throw new Error('validation failed');
-    });
+    const delay = vi.fn(() => Promise.resolve(undefined));
+    const action = vi.fn(() => Promise.reject(new Error('validation failed')));
 
     const [result] = await runBulkActionWithRetry({
       loadingController,

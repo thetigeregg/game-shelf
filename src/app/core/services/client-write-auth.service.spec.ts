@@ -45,9 +45,13 @@ describe('ClientWriteAuthService', () => {
       throw new Error('remove failed');
     });
 
-    expect(() => service.setToken('device-token-3')).not.toThrow();
+    expect(() => {
+      service.setToken('device-token-3');
+    }).not.toThrow();
     expect(service.getToken()).toBeNull();
     expect(service.hasToken()).toBe(false);
-    expect(() => service.clearToken()).not.toThrow();
+    expect(() => {
+      service.clearToken();
+    }).not.toThrow();
   });
 });

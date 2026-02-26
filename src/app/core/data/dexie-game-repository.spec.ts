@@ -21,6 +21,11 @@ describe('DexieGameRepository', () => {
     releaseYear: 1985
   };
 
+  function requireValue<T>(value: T | null | undefined): T {
+    expect(value).toBeDefined();
+    return value as T;
+  }
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [AppDb, DexieGameRepository]
@@ -40,7 +45,7 @@ describe('DexieGameRepository', () => {
     expect(created.id).toBeDefined();
     expect(created.listType).toBe('wishlist');
 
-    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId!);
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
     expect(stored?.title).toBe(mario.title);
   });
 
@@ -63,7 +68,7 @@ describe('DexieGameRepository', () => {
       'wishlist'
     );
 
-    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId!);
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
     expect(stored?.hltbMainHours).toBe(12.1);
     expect(stored?.hltbMainExtraHours).toBe(18.4);
     expect(stored?.hltbCompletionistHours).toBe(30.2);
@@ -86,9 +91,9 @@ describe('DexieGameRepository', () => {
   it('removes a game by identity', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 
-    await repository.remove(mario.igdbGameId, mario.platformIgdbId!);
+    await repository.remove(mario.igdbGameId, mario.platformIgdbId);
 
-    const existing = await repository.exists(mario.igdbGameId, mario.platformIgdbId!);
+    const existing = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
     expect(existing).toBeUndefined();
   });
 
@@ -137,10 +142,13 @@ describe('DexieGameRepository', () => {
     const multiplayer = await repository.upsertTag({ name: 'Multiplayer', color: '#ff0000' });
     const backlog = await repository.upsertTag({ name: 'Backlog', color: '#00ff00' });
 
-    await repository.setGameTags('101', 18, [multiplayer.id!, backlog.id!]);
+    await repository.setGameTags('101', 18, [
+      requireValue(multiplayer.id),
+      requireValue(backlog.id)
+    ]);
 
     const stored = await repository.exists('101', 18);
-    expect(stored?.tagIds).toEqual([multiplayer.id!, backlog.id!]);
+    expect(stored?.tagIds).toEqual([requireValue(multiplayer.id), requireValue(backlog.id)]);
   });
 
   it('removes deleted tags from all games', async () => {
@@ -148,11 +156,11 @@ describe('DexieGameRepository', () => {
     const coop = await repository.upsertTag({ name: 'Co-op', color: '#123456' });
     const rpg = await repository.upsertTag({ name: 'RPG', color: '#654321' });
 
-    await repository.setGameTags('101', 18, [coop.id!, rpg.id!]);
-    await repository.deleteTag(coop.id!);
+    await repository.setGameTags('101', 18, [requireValue(coop.id), requireValue(rpg.id)]);
+    await repository.deleteTag(requireValue(coop.id));
 
     const stored = await repository.exists('101', 18);
-    expect(stored?.tagIds).toEqual([rpg.id!]);
+    expect(stored?.tagIds).toEqual([requireValue(rpg.id)]);
   });
 
   it('no-ops when move/remove/update operations target missing entries', async () => {
@@ -298,13 +306,14 @@ describe('DexieGameRepository', () => {
       groupBy: 'platform'
     });
 
-    const fetched = await repository.getView(created.id!);
+    const createdId = requireValue(created.id);
+    const fetched = await repository.getView(createdId);
     expect(fetched?.name).toBe('My View');
     expect(fetched?.filters.platform).toEqual(['Switch']);
     expect(fetched?.filters.releaseDateFrom).toBe('2024-01-01');
     expect(fetched?.groupBy).toBe('platform');
 
-    const updated = await repository.updateView(created.id!, {
+    const updated = await repository.updateView(createdId, {
       name: ' Renamed ',
       filters: {
         sortField: 'title',
@@ -328,8 +337,8 @@ describe('DexieGameRepository', () => {
     const list = await repository.listViews('collection');
     expect(list).toHaveLength(1);
 
-    await repository.deleteView(created.id!);
-    expect(await repository.getView(created.id!)).toBeUndefined();
+    await repository.deleteView(createdId);
+    expect(await repository.getView(createdId)).toBeUndefined();
   });
 
   it('returns undefined when updating a missing view', async () => {
@@ -374,6 +383,7 @@ describe('DexieGameRepository', () => {
     const writer: SyncOutboxWriter = {
       enqueueOperation: async (request) => {
         calls.push(request);
+        return Promise.resolve();
       }
     };
 
@@ -389,7 +399,7 @@ describe('DexieGameRepository', () => {
     await queuedRepository.setGameStatus('101', 18, 'playing');
     await queuedRepository.remove('101', 18);
     const tag = await queuedRepository.upsertTag({ name: 'Queue Tag', color: '#ff0000' });
-    await queuedRepository.deleteTag(tag.id!);
+    await queuedRepository.deleteTag(requireValue(tag.id));
 
     expect(calls.some((call) => call.entityType === 'game' && call.operation === 'upsert')).toBe(
       true

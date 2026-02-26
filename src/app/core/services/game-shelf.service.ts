@@ -357,7 +357,7 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
-    const title = String(query.title ?? '').trim() || existing.title;
+    const title = query.title.trim() || existing.title;
     const releaseYear = Number.isInteger(query.releaseYear)
       ? (query.releaseYear as number)
       : existing.releaseYear;
@@ -376,7 +376,7 @@ export class GameShelfService {
     platform: string
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.hltb.lookup_start', {
-      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       lookupTitle: title,
       lookupReleaseYear: releaseYear,
       lookupPlatform: platform
@@ -385,7 +385,7 @@ export class GameShelfService {
       this.searchApi.lookupCompletionTimes(title, releaseYear, platform)
     );
     this.debugLogService.trace('game_shelf.hltb.lookup_complete', {
-      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       completionTimes,
       hasCompletionTimes: completionTimes !== null
     });
@@ -420,7 +420,7 @@ export class GameShelfService {
 
     this.listRefresh$.next();
     this.debugLogService.trace('game_shelf.hltb.refresh_complete', {
-      gameKey: `${existing.igdbGameId}::${existing.platformIgdbId}`,
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       updatedHltbMainHours: updated.hltbMainHours,
       updatedHltbMainExtraHours: updated.hltbMainExtraHours,
       updatedHltbCompletionistHours: updated.hltbCompletionistHours
@@ -736,7 +736,7 @@ export class GameShelfService {
     let updatedCount = 0;
 
     for (const game of candidates) {
-      const gameKey = `${game.igdbGameId}::${game.platformIgdbId}`;
+      const gameKey = `${game.igdbGameId}::${String(game.platformIgdbId)}`;
       await this.db.imageCache.where('gameKey').equals(gameKey).delete();
 
       const staleUrl = normalizeTheGamesDbUrl(game.coverUrl);

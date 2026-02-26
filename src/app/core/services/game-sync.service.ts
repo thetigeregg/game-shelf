@@ -266,21 +266,29 @@ export class GameSyncService implements SyncOutboxWriter {
           continue;
         }
 
-        if (change.entityType === 'setting') {
-          await this.applySettingChange(change);
-          continue;
-        }
+        this.applySettingChange(change);
       }
     });
+  }
+
+  private parsePositiveInteger(value: unknown): number | null {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number.parseInt(value, 10)
+          : Number.NaN;
+
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
   private async applyGameChange(change: SyncChangeEvent): Promise<void> {
     if (change.operation === 'delete') {
       const payload = change.payload as { igdbGameId?: unknown; platformIgdbId?: unknown };
-      const igdbGameId = typeof payload?.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
-      const platformIgdbId = Number.parseInt(String(payload?.platformIgdbId ?? ''), 10);
+      const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
+      const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
 
-      if (!igdbGameId || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+      if (!igdbGameId || platformIgdbId === null) {
         return;
       }
 
@@ -296,10 +304,10 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     const payload = change.payload as Partial<GameEntry>;
-    const igdbGameId = typeof payload?.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
-    const platformIgdbId = Number.parseInt(String(payload?.platformIgdbId ?? ''), 10);
+    const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
+    const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
 
-    if (!igdbGameId || !Number.isInteger(platformIgdbId) || platformIgdbId <= 0) {
+    if (!igdbGameId || platformIgdbId === null) {
       return;
     }
 
@@ -411,13 +419,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private normalizeOptionalPlatformIgdbId(value: unknown): number | null {
-    const parsed = Number.parseInt(String(value ?? ''), 10);
-
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      return null;
-    }
-
-    return parsed;
+    return this.parsePositiveInteger(value);
   }
 
   private normalizeCustomCoverUrl(value: unknown): string | null {
@@ -445,9 +447,9 @@ export class GameSyncService implements SyncOutboxWriter {
   private async applyTagChange(change: SyncChangeEvent): Promise<void> {
     if (change.operation === 'delete') {
       const payload = change.payload as { id?: unknown };
-      const id = Number.parseInt(String(payload?.id ?? ''), 10);
+      const id = this.parsePositiveInteger(payload.id);
 
-      if (!Number.isInteger(id) || id <= 0) {
+      if (id === null) {
         return;
       }
 
@@ -477,9 +479,9 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     const payload = change.payload as Partial<Tag>;
-    const id = Number.parseInt(String(payload?.id ?? ''), 10);
+    const id = this.parsePositiveInteger(payload.id);
 
-    if (!Number.isInteger(id) || id <= 0) {
+    if (id === null) {
       return;
     }
 
@@ -488,7 +490,7 @@ export class GameSyncService implements SyncOutboxWriter {
       name:
         typeof payload.name === 'string' && payload.name.trim().length > 0
           ? payload.name.trim()
-          : `Tag ${id}`,
+          : `Tag ${String(id)}`,
       color:
         typeof payload.color === 'string' && payload.color.trim().length > 0
           ? payload.color.trim()
@@ -505,18 +507,18 @@ export class GameSyncService implements SyncOutboxWriter {
   private async applyViewChange(change: SyncChangeEvent): Promise<void> {
     if (change.operation === 'delete') {
       const payload = change.payload as { id?: unknown };
-      const id = Number.parseInt(String(payload?.id ?? ''), 10);
+      const id = this.parsePositiveInteger(payload.id);
 
-      if (Number.isInteger(id) && id > 0) {
+      if (id !== null) {
         await this.db.views.delete(id);
       }
       return;
     }
 
     const payload = change.payload as Partial<GameListView>;
-    const id = Number.parseInt(String(payload?.id ?? ''), 10);
+    const id = this.parsePositiveInteger(payload.id);
     const normalized: GameListView = {
-      id: Number.isInteger(id) && id > 0 ? id : undefined,
+      id: id ?? undefined,
       name:
         typeof payload.name === 'string' && payload.name.trim().length > 0
           ? payload.name.trim()
@@ -550,10 +552,10 @@ export class GameSyncService implements SyncOutboxWriter {
     await this.db.views.put(normalized);
   }
 
-  private async applySettingChange(change: SyncChangeEvent): Promise<void> {
+  private applySettingChange(change: SyncChangeEvent): void {
     if (change.operation === 'delete') {
       const payload = change.payload as { key?: unknown };
-      const key = typeof payload?.key === 'string' ? payload.key.trim() : '';
+      const key = typeof payload.key === 'string' ? payload.key.trim() : '';
 
       if (key.length === 0) {
         return;
@@ -576,8 +578,8 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     const payload = change.payload as { key?: unknown; value?: unknown };
-    const key = typeof payload?.key === 'string' ? payload.key.trim() : '';
-    const value = typeof payload?.value === 'string' ? payload.value : '';
+    const key = typeof payload.key === 'string' ? payload.key.trim() : '';
+    const value = typeof payload.value === 'string' ? payload.value : '';
 
     if (key.length === 0) {
       return;
@@ -615,7 +617,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private async requestPersistentStorage(): Promise<void> {
     try {
-      if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+      if (typeof navigator !== 'undefined') {
         await navigator.storage.persist();
       }
     } catch {
@@ -628,11 +630,11 @@ export class GameSyncService implements SyncOutboxWriter {
       return true;
     }
 
-    return navigator.onLine !== false;
+    return navigator.onLine;
   }
 
   private normalizeBaseUrl(value: string | null | undefined): string {
-    const normalized = String(value ?? '').trim();
+    const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
   }
 
@@ -641,6 +643,6 @@ export class GameSyncService implements SyncOutboxWriter {
       return crypto.randomUUID();
     }
 
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    return `${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
   }
 }

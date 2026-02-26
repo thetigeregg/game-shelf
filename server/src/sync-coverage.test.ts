@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import fastify, { FastifyInstance } from 'fastify';
+import fastifyFactory, { FastifyInstance } from 'fastify';
 import { registerSyncRoutes } from './sync.js';
 import type { SyncPushResult } from './types.js';
 
@@ -123,7 +123,7 @@ class CoverageSyncPool {
 }
 
 async function createSyncApp(pool: CoverageSyncPool): Promise<FastifyInstance> {
-  const app = fastify({ logger: false });
+  const app = fastifyFactory({ logger: false });
   await registerSyncRoutes(app, pool as never);
   return app;
 }

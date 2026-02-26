@@ -2944,7 +2944,6 @@ export class SettingsPage {
     entityLabel: 'tag' | 'view'
   ): string | null {
     const trimmed = name.trim();
-    const lower = trimmed.toLowerCase();
 
     if (trimmed.length === 0) {
       return null;

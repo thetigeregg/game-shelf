@@ -129,6 +129,7 @@ import {
   normalizeEditorNotesValue,
   toNotesEditorContent
 } from './notes-editor.utils';
+import { normalizeHttpError } from '../../core/utils/normalize-http-error';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -3131,7 +3132,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     } catch (error: unknown) {
       this.logManualDebug('manual.resolve.failed', {
         gameKey: this.getGameKey(game),
-        error
+        error: normalizeHttpError(error)
       });
       if (requestId !== this.manualResolutionRequestId) {
         return;

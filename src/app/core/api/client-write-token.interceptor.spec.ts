@@ -1,5 +1,10 @@
-import { HTTP_INTERCEPTORS, HttpClient, HttpHeaders } from '@angular/common/http';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import {
+  HTTP_INTERCEPTORS,
+  HttpClient,
+  HttpHeaders,
+  provideHttpClient
+} from '@angular/common/http';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -16,8 +21,9 @@ describe('ClientWriteTokenInterceptor', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         ClientWriteAuthService,
         {
           provide: HTTP_INTERCEPTORS,
@@ -53,9 +59,9 @@ describe('ClientWriteTokenInterceptor', () => {
 
   it('adds client write token when request targets API base URL exactly', async () => {
     clientWriteAuth.setToken('device-token-b');
-    const promise = firstValueFrom(httpClient.post(`${environment.gameApiBaseUrl}`, {}));
+    const promise = firstValueFrom(httpClient.post(environment.gameApiBaseUrl, {}));
 
-    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}`);
+    const req = httpMock.expectOne(environment.gameApiBaseUrl);
     expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-b');
     req.flush({ ok: true });
 

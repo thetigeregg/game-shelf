@@ -78,7 +78,7 @@ export function applyMetadataSelectionToFilters(
     nextFilters.franchises = [normalized];
   } else if (selection.kind === 'genre') {
     nextFilters.genres = [normalized];
-  } else if (selection.kind === 'publisher') {
+  } else {
     nextFilters.publishers = [normalized];
   }
 

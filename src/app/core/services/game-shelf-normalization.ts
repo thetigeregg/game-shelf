@@ -20,7 +20,7 @@ export function normalizeTagColor(value: string): string {
 }
 
 export function normalizeGameId(value: string): string {
-  const normalized = String(value ?? '').trim();
+  const normalized = value.trim();
 
   if (normalized.length === 0) {
     throw new Error('IGDB game id is required.');

@@ -22,7 +22,7 @@ export class ImageCacheService {
 
   getLimitMb(): number {
     const raw = localStorage.getItem(ImageCacheService.LIMIT_STORAGE_KEY);
-    const parsed = Number.parseInt(String(raw ?? ''), 10);
+    const parsed = Number.parseInt(raw ?? '', 10);
 
     if (!Number.isFinite(parsed)) {
       return ImageCacheService.DEFAULT_LIMIT_MB;
@@ -56,7 +56,7 @@ export class ImageCacheService {
   }
 
   async purgeGameCache(gameKey: string): Promise<void> {
-    const normalizedGameKey = String(gameKey ?? '').trim();
+    const normalizedGameKey = gameKey.trim();
 
     if (normalizedGameKey.length === 0) {
       return;
@@ -345,7 +345,7 @@ export class ImageCacheService {
 
     const nav = navigator as Navigator & { standalone?: boolean };
     const isStandalone =
-      window.matchMedia?.('(display-mode: standalone)').matches === true || nav.standalone === true;
+      window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true;
 
     if (!isStandalone) {
       return false;

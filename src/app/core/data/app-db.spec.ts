@@ -22,7 +22,7 @@ describe('AppDb', () => {
       'views'
     ]);
 
-    await db.close();
+    db.close();
   });
 
   it('migrates externalId to igdbGameId/platformIgdbId on upgrade to v4+', async () => {
@@ -41,7 +41,7 @@ describe('AppDb', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z'
     });
-    await legacy.close();
+    legacy.close();
 
     const db = new AppDb();
     await db.open();
@@ -53,7 +53,7 @@ describe('AppDb', () => {
     expect(games[0].platform).toBe('Unknown platform');
     expect((games[0] as unknown as { externalId?: string }).externalId).toBeUndefined();
 
-    await db.close();
+    db.close();
   });
 
   it('handles migration edge cases for externalId/platform fallback rules', async () => {
@@ -83,7 +83,7 @@ describe('AppDb', () => {
         updatedAt: '2026-01-01T00:00:00.000Z'
       }
     ]);
-    await legacy.close();
+    legacy.close();
 
     const db = new AppDb();
     await db.open();
@@ -98,6 +98,6 @@ describe('AppDb', () => {
     expect(games[1].platformIgdbId).toBe(42);
     expect(games[1].platform).toBe('Nintendo Switch');
 
-    await db.close();
+    db.close();
   });
 });

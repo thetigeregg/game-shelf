@@ -31,7 +31,7 @@ export function parseStringArray(raw: string): string[] {
   }
 
   try {
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
 
     if (!Array.isArray(parsed)) {
       return [];
@@ -55,7 +55,7 @@ export function parseGameIdArray(raw: string): string[] {
   }
 
   try {
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
 
     if (!Array.isArray(parsed)) {
       return [];
@@ -139,7 +139,7 @@ export function parsePositiveIntegerArray(raw: string): number[] {
   }
 
   try {
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
 
     if (!Array.isArray(parsed)) {
       return [];
@@ -285,7 +285,7 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
               value === 'completed' ||
               value === 'paused' ||
               value === 'dropped' ||
-              value === 'replay'
+              normalizeStatus(value) === 'replay'
           )
         : [],
       tags: Array.isArray(parsed.tags)
@@ -299,7 +299,7 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
               value === 2 ||
               value === 3 ||
               value === 4 ||
-              value === 5
+              normalizeRating(String(value)) === 5
           )
         : [],
       sortField:

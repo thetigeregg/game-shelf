@@ -62,9 +62,7 @@ export class PlatformOrderService {
 
   sortPlatformNamesByCustomOrder(platformNames: string[]): string[] {
     const deduped = [
-      ...new Set(
-        platformNames.map((name) => String(name ?? '').trim()).filter((name) => name.length > 0)
-      )
+      ...new Set(platformNames.map((name) => name.trim()).filter((name) => name.length > 0))
     ];
 
     return deduped.sort((left, right) => this.comparePlatformNamesByCustomOrder(left, right));
@@ -72,9 +70,7 @@ export class PlatformOrderService {
 
   sortPlatformNames(platformNames: string[]): string[] {
     const deduped = [
-      ...new Set(
-        platformNames.map((name) => String(name ?? '').trim()).filter((name) => name.length > 0)
-      )
+      ...new Set(platformNames.map((name) => name.trim()).filter((name) => name.length > 0))
     ];
 
     return deduped.sort((left, right) => this.comparePlatformNames(left, right));
@@ -140,18 +136,11 @@ export class PlatformOrderService {
   }
 
   private normalizeOrder(platformNames: string[]): string[] {
-    return [
-      ...new Set(
-        platformNames.map((name) => String(name ?? '').trim()).filter((name) => name.length > 0)
-      )
-    ];
+    return [...new Set(platformNames.map((name) => name.trim()).filter((name) => name.length > 0))];
   }
 
   private normalizeKey(value: string): string {
-    return String(value ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
+    return value.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   private loadOrderFromStorage(): string[] {
@@ -162,8 +151,10 @@ export class PlatformOrderService {
         return [];
       }
 
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? this.normalizeOrder(parsed as string[]) : [];
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed)
+        ? this.normalizeOrder(parsed.filter((value): value is string => typeof value === 'string'))
+        : [];
     } catch {
       return [];
     }

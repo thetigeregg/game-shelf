@@ -1405,18 +1405,18 @@ describe('GameShelfService', () => {
 
     repository.exists.mockResolvedValue(existingEntry);
     searchApi.getGameById.mockReturnValue(of(refreshedCatalog));
-    repository.upsertFromCatalog.mockImplementation(
-      async (catalog) =>
-        ({
-          ...existingEntry,
-          ...catalog,
-          listType: 'collection',
-          createdAt: existingEntry.createdAt,
-          updatedAt: existingEntry.updatedAt,
-          platform: catalog.platform,
-          platformIgdbId: catalog.platformIgdbId as number
-        }) as GameEntry
-    );
+    repository.upsertFromCatalog.mockImplementation((catalog: GameCatalogResult) => {
+      const merged: GameEntry = {
+        ...existingEntry,
+        ...catalog,
+        listType: 'collection',
+        createdAt: existingEntry.createdAt,
+        updatedAt: existingEntry.updatedAt,
+        platform: catalog.platform,
+        platformIgdbId: catalog.platformIgdbId
+      };
+      return merged;
+    });
 
     const result = await service.refreshGameMetadata('333', 130);
 

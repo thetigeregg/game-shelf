@@ -373,7 +373,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   readonly canDismissNotesModal = async (): Promise<boolean> => this.canDismissNotesGuard();
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['listType']?.currentValue) {
+    if ('listType' in changes && changes['listType'].currentValue) {
       const allGames$ = this.gameShelfService.watchList(this.listType).pipe(
         tap((games) => {
           this.platformOptionsChange.emit(this.extractPlatforms(games));
@@ -411,16 +411,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
       );
     }
 
-    if (changes['filters']?.currentValue) {
+    if ('filters' in changes && changes['filters'].currentValue) {
       this.filters$.next(this.normalizeFilters(this.filters));
     }
 
-    if (changes['searchQuery']) {
-      this.searchQuery$.next((this.searchQuery ?? '').trim());
+    if ('searchQuery' in changes) {
+      this.searchQuery$.next(this.searchQuery.trim());
     }
 
-    if (changes['groupBy']) {
-      this.groupBy$.next(this.groupBy ?? 'none');
+    if ('groupBy' in changes) {
+      this.groupBy$.next(this.groupBy);
     }
   }
 
@@ -476,7 +476,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   async openRatingForGameFromPopover(game: GameEntry): Promise<void> {
     await this.popoverController.dismiss();
-    await this.openRatingPicker(game);
+    this.openRatingPicker(game);
   }
 
   getOtherListLabel(): string {
@@ -557,7 +557,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     const confirmed = await this.confirmDelete({
       header: 'Delete Selected Games',
-      message: `Delete ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}?`,
+      message: `Delete ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}?`,
       confirmText: 'Delete'
     });
 
@@ -572,7 +572,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
     this.clearSelectionMode();
     await this.presentToast(
-      `${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'} deleted.`
+      `${String(selectedGames.length)} game${selectedGames.length === 1 ? '' : 's'} deleted.`
     );
   }
 
@@ -591,7 +591,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
     this.clearSelectionMode();
     await this.presentToast(
-      `Moved ${selectedGames.length} game${selectedGames.length === 1 ? '' : 's'} to ${this.getListLabel(targetList)}.`
+      `Moved ${String(selectedGames.length)} game${selectedGames.length === 1 ? '' : 's'} to ${this.getListLabel(targetList)}.`
     );
   }
 
@@ -605,7 +605,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     let nextStatus: GameStatus | null = null;
     const alert = await this.alertController.create({
       header: 'Set Status',
-      message: `Apply status to ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}.`,
+      message: `Apply status to ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}.`,
       inputs: this.statusOptions.map((option) => ({
         type: 'radio' as const,
         label: option.label,
@@ -664,7 +664,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     let nextTagIds: number[] = [];
     const alert = await this.alertController.create({
       header: 'Set Tags',
-      message: `Apply tags to ${selectedGames.length} selected game${selectedGames.length === 1 ? '' : 's'}.`,
+      message: `Apply tags to ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}.`,
       inputs: tags.map((tag) => buildTagInput(tag, [])),
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -723,13 +723,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     if (updatedCount > 0) {
       await this.presentToast(
-        `Refreshed metadata for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`
+        `Refreshed metadata for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
       );
     }
 
     if (failedNonRateLimitCount > 0) {
       await this.presentToast(
-        `Unable to refresh metadata for ${failedNonRateLimitCount} game${failedNonRateLimitCount === 1 ? '' : 's'}.`,
+        `Unable to refresh metadata for ${String(failedNonRateLimitCount)} game${failedNonRateLimitCount === 1 ? '' : 's'}.`,
         'danger'
       );
       return;
@@ -737,7 +737,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     if (failedRateLimitCount > 0) {
       await this.presentToast(
-        `Rate limited for ${failedRateLimitCount} game${failedRateLimitCount === 1 ? '' : 's'} after retries. Try again shortly.`,
+        `Rate limited for ${String(failedRateLimitCount)} game${failedRateLimitCount === 1 ? '' : 's'} after retries. Try again shortly.`,
         'warning'
       );
       return;
@@ -776,7 +776,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     if (updatedCount > 0) {
       await this.presentToast(
-        `Updated HLTB data for ${updatedCount} game${updatedCount === 1 ? '' : 's'}.`
+        `Updated HLTB data for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
       );
     } else if (missingCount > 0 && failedCount === 0) {
       await this.presentToast('No HLTB matches found for selected games.', 'warning');
@@ -784,7 +784,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     if (failedCount > 0) {
       await this.presentToast(
-        `Unable to update HLTB data for ${failedCount} selected game${failedCount === 1 ? '' : 's'}.`,
+        `Unable to update HLTB data for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
         'danger'
       );
     }
@@ -835,7 +835,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   get notesEditorInstance(): Editor {
     this.ensureNotesEditor();
-    return this.notesEditor!;
+    if (!this.notesEditor) {
+      throw new Error('Notes editor unavailable.');
+    }
+    return this.notesEditor;
   }
 
   openNotesEditor(): void {
@@ -1181,7 +1184,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onRatingRangeChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: number | null }>;
-    const normalized = normalizeGameRating(customEvent.detail?.value);
+    const normalized = normalizeGameRating(customEvent.detail.value);
 
     if (normalized !== null) {
       this.ratingDraft = normalized;
@@ -1232,7 +1235,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   trackByExternalId(_: number, game: GameEntry): string {
-    return `${game.igdbGameId}::${game.platformIgdbId}`;
+    return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
   }
 
   trackBySectionKey(_: number, section: GameGroupSection): string {
@@ -1241,7 +1244,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onGroupedAccordionChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | string[] | null }>;
-    const rawValue = customEvent.detail?.value;
+    const rawValue = customEvent.detail.value;
 
     if (Array.isArray(rawValue)) {
       this.expandedSectionKeys = rawValue
@@ -1265,7 +1268,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   isSectionRendered(sectionKey: string): boolean {
-    const normalized = String(sectionKey ?? '').trim();
+    const normalized = sectionKey.trim();
     return normalized.length > 0 && this.renderedSectionKeys.has(normalized);
   }
 
@@ -1361,7 +1364,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    await this.openHltbPickerModal(this.selectedGame);
+    this.openHltbPickerModal(this.selectedGame);
   }
 
   async openImagePickerFromPopover(): Promise<void> {
@@ -1456,7 +1459,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       const platforms = await firstValueFrom(this.gameShelfService.listSearchPlatforms());
       this.editMetadataPlatformOptions = platforms.filter((option) => {
         return typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0;
-      }) as GameCatalogPlatformOption[];
+      });
     } catch {
       this.editMetadataPlatformOptions = [];
       await this.presentToast('Unable to load platforms.', 'danger');
@@ -1481,7 +1484,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onEditMetadataTitleChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.editMetadataTitle = String(customEvent.detail?.value ?? '');
+    this.editMetadataTitle = customEvent.detail.value ?? '';
   }
 
   onEditMetadataPlatformChange(value: number | string | null | undefined): void {
@@ -1623,7 +1626,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
-  async onSelectedGameRatingChange(value: GameRating | number | null | undefined): Promise<void> {
+  async onSelectedGameRatingChange(value: number | null | undefined): Promise<void> {
     if (!this.selectedGame) {
       return;
     }
@@ -1701,7 +1704,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       if (hasHltbData(updated)) {
         await this.presentToast('HLTB data updated.');
       } else {
-        await this.openHltbPickerModal(updated);
+        this.openHltbPickerModal(updated);
       }
     } catch {
       await loading.dismiss().catch(() => undefined);
@@ -1800,12 +1803,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onImagePickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string }>;
-    this.imagePickerQuery = (customEvent.detail?.value ?? '').replace(/^\s+/, '');
+    this.imagePickerQuery = (customEvent.detail.value ?? '').replace(/^\s+/, '');
   }
 
   onHltbPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.hltbPickerQuery = String(customEvent.detail?.value ?? '');
+    this.hltbPickerQuery = customEvent.detail.value ?? '';
   }
 
   async applySelectedImage(url: string): Promise<void> {
@@ -2010,7 +2013,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   openShortcutSearch(provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs'): void {
-    const query = this.selectedGame?.title?.trim();
+    const query = this.selectedGame?.title.trim();
 
     if (!query) {
       return;
@@ -2091,7 +2094,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onManualPickerQueryInput(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.manualPickerQuery = (customEvent.detail?.value ?? '').replace(/^\s+/, '');
+    this.manualPickerQuery = (customEvent.detail.value ?? '').replace(/^\s+/, '');
   }
 
   async runManualPickerSearch(): Promise<void> {
@@ -2168,7 +2171,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   getGroupCountLabel(count: number): string {
-    return count === 1 ? '1 game' : `${count} games`;
+    return count === 1 ? '1 game' : `${String(count)} games`;
   }
 
   getStatusIconName(game: GameEntry): string | null {
@@ -2236,7 +2239,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   getGameKey(game: GameEntry): string {
-    return `${game.igdbGameId}::${game.platformIgdbId}`;
+    return `${game.igdbGameId}::${String(game.platformIgdbId)}`;
   }
 
   getRowCoverUrl(game: GameEntry): string {
@@ -2474,7 +2477,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private markExpandedSectionsAsRendered(sectionKeys: readonly string[]): void {
     sectionKeys.forEach((sectionKey) => {
-      const normalized = String(sectionKey ?? '').trim();
+      const normalized = sectionKey.trim();
 
       if (normalized.length > 0) {
         this.renderedSectionKeys.add(normalized);
@@ -2996,7 +2999,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return /^https:\/\/images\.igdb\.com\/igdb\/image\/upload\//i.test(url.trim());
   }
 
-  private async openHltbPickerModal(game: GameEntry): Promise<void> {
+  private openHltbPickerModal(game: GameEntry): void {
     const nextState = createOpenedHltbPickerState(game);
     this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
     this.isHltbPickerLoading = nextState.isHltbPickerLoading;
@@ -3065,11 +3068,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       if (override && result.bestMatch?.source !== 'override' && !this.manualCatalogUnavailable) {
         const shouldRemove = await this.confirmManualOverrideRemoval(game);
 
-        if (
-          shouldRemove &&
-          this.selectedGame &&
-          this.getGameKey(this.selectedGame) === this.getGameKey(game)
-        ) {
+        if (shouldRemove && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
           this.manualService.clearOverride(game);
           await this.resolveManualForGame(game);
           return;
@@ -3412,7 +3411,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     });
   }
 
-  private async openRatingPicker(game: GameEntry): Promise<void> {
+  private openRatingPicker(game: GameEntry): void {
     const currentRating = normalizeGameRating(game.rating);
     this.ratingTargetGame = game;
     this.ratingDraft = currentRating ?? 3;
@@ -3468,7 +3467,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private normalizePlatformSelectionValue(value: unknown): number | null {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (typeof value !== 'number' && typeof value !== 'string') {
+      return null;
+    }
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
@@ -3513,8 +3515,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
         const dataUrl = typeof reader.result === 'string' ? reader.result : '';
         resolve(/^data:image\/[a-z0-9.+-]+;base64,/i.test(dataUrl) ? dataUrl : null);
       };
-      reader.onerror = () => resolve(null);
-      reader.onabort = () => resolve(null);
+      reader.onerror = () => {
+        resolve(null);
+      };
+      reader.onabort = () => {
+        resolve(null);
+      };
       reader.readAsDataURL(file);
     });
   }

@@ -147,11 +147,11 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['initialQuery'] || changes['initialPlatformIgdbId']) {
+    if ('initialQuery' in changes || 'initialPlatformIgdbId' in changes) {
       this.applyInitialSearchInputs();
     }
 
-    if (changes['actionMode'] && this.searchPlatforms.length > 0) {
+    if ('actionMode' in changes && this.searchPlatforms.length > 0) {
       this.searchPlatforms =
         this.actionMode === 'add'
           ? this.platformOrderService.sortPlatformOptionsByCustomOrder(this.searchPlatforms)
@@ -260,7 +260,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       return this.getPlatformDisplayName(platforms[0].name, platforms[0].id);
     }
 
-    return `${platforms.length} platforms`;
+    return `${String(platforms.length)} platforms`;
   }
 
   getPlatformDisplayName(
@@ -375,9 +375,9 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     if (Array.isArray(result.platformOptions) && result.platformOptions.length > 0) {
       return result.platformOptions
         .map((option) => {
-          const name = typeof option?.name === 'string' ? option.name.trim() : '';
+          const name = typeof option.name === 'string' ? option.name.trim() : '';
           const id =
-            typeof option?.id === 'number' && Number.isInteger(option.id) && option.id > 0
+            typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0
               ? option.id
               : null;
           return { id, name };
@@ -492,7 +492,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private applyInitialSearchInputs(): void {
-    this.query = this.initialQuery ?? '';
+    this.query = this.initialQuery;
     this.selectedSearchPlatformIgdbId =
       typeof this.initialPlatformIgdbId === 'number' &&
       Number.isInteger(this.initialPlatformIgdbId) &&

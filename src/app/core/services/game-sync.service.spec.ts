@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { of } from 'rxjs';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { Observable, of } from 'rxjs';
 import { AppDb } from '../data/app-db';
 import { GameSyncService } from './game-sync.service';
 import { SyncEventsService } from './sync-events.service';
@@ -10,11 +11,45 @@ import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
   PlatformCustomizationService
 } from './platform-customization.service';
-import { SyncChangeEvent } from '../models/game.models';
+import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
+
+type GameSyncServicePrivate = {
+  applyGameChange(change: SyncChangeEvent): Promise<void>;
+  applyTagChange(change: SyncChangeEvent): Promise<void>;
+  applyViewChange(change: SyncChangeEvent): Promise<void>;
+  applySettingChange(change: SyncChangeEvent): Promise<void>;
+  buildPushOperationBatches(operations: OutboxRecord[], maxBatchBytes: number): OutboxRecord[][];
+  normalizeOptionalPlatformIgdbId(value: unknown): number | null;
+  normalizeBaseUrl(value: string): string;
+  normalizeNotes(value: unknown): string | null;
+  normalizeCustomTitle(custom: unknown, title: string): string | null;
+  normalizeCustomPlatform(
+    custom: unknown,
+    customPlatformIgdbId: number | null,
+    platform: string
+  ): string | null;
+  normalizeCustomPlatformIgdbId(
+    customPlatformIgdbId: number | null,
+    customPlatform: string | null,
+    platformIgdbId: number,
+    platform: string
+  ): number | null;
+  isOnline(): boolean;
+  generateOperationId(): string;
+  pushOutbox(): Promise<void>;
+  pullChanges(): Promise<void>;
+  httpClient: {
+    post: (url: string, body: unknown) => Observable<unknown>;
+  };
+  syncEvents: {
+    emitChanged: () => void;
+  };
+};
 
 describe('GameSyncService', () => {
   let db: AppDb;
   let service: GameSyncService;
+  let servicePrivate: GameSyncServicePrivate;
   let platformOrderService: PlatformOrderService;
   let platformCustomizationService: PlatformCustomizationService;
 
@@ -36,8 +71,9 @@ describe('GameSyncService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         AppDb,
         GameSyncService,
         SyncEventsService,
@@ -48,6 +84,7 @@ describe('GameSyncService', () => {
 
     db = TestBed.inject(AppDb);
     service = TestBed.inject(GameSyncService);
+    servicePrivate = service as unknown as GameSyncServicePrivate;
     platformOrderService = TestBed.inject(PlatformOrderService);
     platformCustomizationService = TestBed.inject(PlatformCustomizationService);
   });
@@ -74,7 +111,7 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
-    await (service as any).applyGameChange(change);
+    await servicePrivate.applyGameChange(change);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.notes).toBe('Line 1\nLine 2');
@@ -98,7 +135,7 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
-    await (service as any).applyGameChange(change);
+    await servicePrivate.applyGameChange(change);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.notes).toBeNull();
@@ -113,7 +150,7 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
-    await (service as any).applyGameChange(change);
+    await servicePrivate.applyGameChange(change);
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.notes).toBeNull();
   });
@@ -127,7 +164,7 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
-    await (service as any).applyGameChange(change);
+    await servicePrivate.applyGameChange(change);
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.notes).toBeNull();
   });
@@ -141,7 +178,7 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
-    await (service as any).applyGameChange(change);
+    await servicePrivate.applyGameChange(change);
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.notes).toBe('  hello  ');
   });
@@ -161,7 +198,7 @@ describe('GameSyncService', () => {
       updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
-    await (service as any).applyGameChange({
+    await servicePrivate.applyGameChange({
       eventId: '2',
       entityType: 'game',
       operation: 'delete',
@@ -189,7 +226,7 @@ describe('GameSyncService', () => {
       updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
-    await (service as any).applyGameChange({
+    await servicePrivate.applyGameChange({
       eventId: '3',
       entityType: 'game',
       operation: 'delete',
@@ -205,7 +242,7 @@ describe('GameSyncService', () => {
   });
 
   it('normalizes game upsert fallbacks for title/platform/list type/cover source and tag ids', async () => {
-    await (service as any).applyGameChange({
+    await servicePrivate.applyGameChange({
       eventId: '4',
       entityType: 'game',
       operation: 'upsert',
@@ -230,7 +267,7 @@ describe('GameSyncService', () => {
   });
 
   it('normalizes custom metadata in game upserts', async () => {
-    await (service as any).applyGameChange({
+    await servicePrivate.applyGameChange({
       eventId: '5',
       entityType: 'game',
       operation: 'upsert',
@@ -251,7 +288,7 @@ describe('GameSyncService', () => {
   });
 
   it('drops custom metadata when equivalent to defaults or invalid', async () => {
-    await (service as any).applyGameChange({
+    await servicePrivate.applyGameChange({
       eventId: '6',
       entityType: 'game',
       operation: 'upsert',
@@ -296,7 +333,7 @@ describe('GameSyncService', () => {
       updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
-    await (service as any).applyTagChange({
+    await servicePrivate.applyTagChange({
       eventId: '7',
       entityType: 'tag',
       operation: 'delete',
@@ -311,7 +348,7 @@ describe('GameSyncService', () => {
   });
 
   it('normalizes tag upsert defaults', async () => {
-    await (service as any).applyTagChange({
+    await servicePrivate.applyTagChange({
       eventId: '8',
       entityType: 'tag',
       operation: 'upsert',
@@ -325,7 +362,7 @@ describe('GameSyncService', () => {
   });
 
   it('normalizes view upsert defaults and supports delete', async () => {
-    await (service as any).applyViewChange({
+    await servicePrivate.applyViewChange({
       eventId: '9',
       entityType: 'view',
       operation: 'upsert',
@@ -339,7 +376,7 @@ describe('GameSyncService', () => {
     expect(stored?.groupBy).toBe('none');
     expect(stored?.filters.sortField).toBe('title');
 
-    await (service as any).applyViewChange({
+    await servicePrivate.applyViewChange({
       eventId: '10',
       entityType: 'view',
       operation: 'delete',
@@ -354,7 +391,7 @@ describe('GameSyncService', () => {
     const orderRefreshSpy = vi.spyOn(platformOrderService, 'refreshFromStorage');
     const displayRefreshSpy = vi.spyOn(platformCustomizationService, 'refreshFromStorage');
 
-    await (service as any).applySettingChange({
+    await servicePrivate.applySettingChange({
       eventId: '11',
       entityType: 'setting',
       operation: 'upsert',
@@ -364,7 +401,7 @@ describe('GameSyncService', () => {
     expect(localStorage.getItem(PLATFORM_ORDER_STORAGE_KEY)).toBe('["130"]');
     expect(orderRefreshSpy).toHaveBeenCalled();
 
-    await (service as any).applySettingChange({
+    await servicePrivate.applySettingChange({
       eventId: '12',
       entityType: 'setting',
       operation: 'upsert',
@@ -374,7 +411,7 @@ describe('GameSyncService', () => {
     expect(localStorage.getItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY)).toBe('{"130":"Switch"}');
     expect(displayRefreshSpy).toHaveBeenCalled();
 
-    await (service as any).applySettingChange({
+    await servicePrivate.applySettingChange({
       eventId: '13',
       entityType: 'setting',
       operation: 'delete',
@@ -402,45 +439,43 @@ describe('GameSyncService', () => {
       }
     ];
 
-    const batches = (service as any).buildPushOperationBatches(operations, 140);
+    const batches = servicePrivate.buildPushOperationBatches(operations as OutboxRecord[], 140);
     expect(batches.length).toBeGreaterThan(1);
     expect(batches.flat().map((entry: { opId: string }) => entry.opId)).toEqual(['1', '2']);
   });
 
   it('normalizes helper values for ids/base url and notes', () => {
-    expect((service as any).normalizeOptionalPlatformIgdbId('abc')).toBeNull();
-    expect((service as any).normalizeOptionalPlatformIgdbId('130')).toBe(130);
-    expect((service as any).normalizeBaseUrl('https://api.example.com///')).toBe(
+    expect(servicePrivate.normalizeOptionalPlatformIgdbId('abc')).toBeNull();
+    expect(servicePrivate.normalizeOptionalPlatformIgdbId('130')).toBe(130);
+    expect(servicePrivate.normalizeBaseUrl('https://api.example.com///')).toBe(
       'https://api.example.com'
     );
-    expect((service as any).normalizeNotes('   ')).toBeNull();
-    expect((service as any).normalizeNotes('\r\nLine 1\r\n')).toBe('\nLine 1\n');
+    expect(servicePrivate.normalizeNotes('   ')).toBeNull();
+    expect(servicePrivate.normalizeNotes('\r\nLine 1\r\n')).toBe('\nLine 1\n');
   });
 
   it('normalizes custom title/platform helper branches', () => {
-    expect((service as any).normalizeCustomTitle(' Game ', 'Game')).toBeNull();
-    expect((service as any).normalizeCustomTitle(' Custom ', 'Game')).toBe('Custom');
+    expect(servicePrivate.normalizeCustomTitle(' Game ', 'Game')).toBeNull();
+    expect(servicePrivate.normalizeCustomTitle(' Custom ', 'Game')).toBe('Custom');
 
-    expect((service as any).normalizeCustomPlatform(' Switch ', 130, 'Switch')).toBeNull();
-    expect((service as any).normalizeCustomPlatform('', 130, 'Switch')).toBeNull();
-    expect((service as any).normalizeCustomPlatform(' Custom ', 130, 'Switch')).toBe('Custom');
+    expect(servicePrivate.normalizeCustomPlatform(' Switch ', 130, 'Switch')).toBeNull();
+    expect(servicePrivate.normalizeCustomPlatform('', 130, 'Switch')).toBeNull();
+    expect(servicePrivate.normalizeCustomPlatform(' Custom ', 130, 'Switch')).toBe('Custom');
 
-    expect((service as any).normalizeCustomPlatformIgdbId(130, 'Switch', 130, 'Switch')).toBeNull();
-    expect(
-      (service as any).normalizeCustomPlatformIgdbId(null, 'Custom', 130, 'Switch')
-    ).toBeNull();
-    expect((service as any).normalizeCustomPlatformIgdbId(999, 'Custom', 130, 'Switch')).toBe(999);
+    expect(servicePrivate.normalizeCustomPlatformIgdbId(130, 'Switch', 130, 'Switch')).toBeNull();
+    expect(servicePrivate.normalizeCustomPlatformIgdbId(null, 'Custom', 130, 'Switch')).toBeNull();
+    expect(servicePrivate.normalizeCustomPlatformIgdbId(999, 'Custom', 130, 'Switch')).toBe(999);
   });
 
   it('ignores invalid game upsert identity payloads', async () => {
-    await (service as any).applyGameChange({
+    await servicePrivate.applyGameChange({
       eventId: '14',
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ igdbGameId: '', platformIgdbId: 130 }),
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
-    await (service as any).applyGameChange({
+    await servicePrivate.applyGameChange({
       eventId: '15',
       entityType: 'game',
       operation: 'upsert',
@@ -453,7 +488,7 @@ describe('GameSyncService', () => {
   });
 
   it('ignores invalid tag delete/upsert payloads', async () => {
-    await (service as any).applyTagChange({
+    await servicePrivate.applyTagChange({
       eventId: '16',
       entityType: 'tag',
       operation: 'delete',
@@ -461,7 +496,7 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
-    await (service as any).applyTagChange({
+    await servicePrivate.applyTagChange({
       eventId: '17',
       entityType: 'tag',
       operation: 'upsert',
@@ -474,7 +509,7 @@ describe('GameSyncService', () => {
   });
 
   it('handles invalid view delete payloads and wishlist upserts', async () => {
-    await (service as any).applyViewChange({
+    await servicePrivate.applyViewChange({
       eventId: '18',
       entityType: 'view',
       operation: 'delete',
@@ -482,7 +517,7 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
-    await (service as any).applyViewChange({
+    await servicePrivate.applyViewChange({
       eventId: '19',
       entityType: 'view',
       operation: 'upsert',
@@ -495,14 +530,14 @@ describe('GameSyncService', () => {
   });
 
   it('ignores setting changes with empty keys', async () => {
-    await (service as any).applySettingChange({
+    await servicePrivate.applySettingChange({
       eventId: '20',
       entityType: 'setting',
       operation: 'upsert',
       payload: { key: '   ', value: 'x' },
       serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
-    await (service as any).applySettingChange({
+    await servicePrivate.applySettingChange({
       eventId: '21',
       entityType: 'setting',
       operation: 'delete',
@@ -519,8 +554,8 @@ describe('GameSyncService', () => {
       onLine: false
     } as Navigator);
 
-    expect((service as any).isOnline()).toBe(false);
-    expect((service as any).generateOperationId()).toMatch(/^\d+-[a-z0-9]+$/);
+    expect(servicePrivate.isOnline()).toBe(false);
+    expect(servicePrivate.generateOperationId()).toMatch(/^\d+-[a-z0-9]+$/);
 
     navigatorSpy.mockRestore();
     cryptoSpy.mockRestore();
@@ -551,7 +586,7 @@ describe('GameSyncService', () => {
       }
     ]);
 
-    vi.spyOn((service as any).httpClient, 'post').mockReturnValue(
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
       of({
         cursor: 'cursor-1',
         results: [
@@ -561,7 +596,7 @@ describe('GameSyncService', () => {
       })
     );
 
-    await (service as any).pushOutbox();
+    await servicePrivate.pushOutbox();
 
     const opA = await db.outbox.get('op-a');
     const opB = await db.outbox.get('op-b');
@@ -574,22 +609,22 @@ describe('GameSyncService', () => {
   });
 
   it('pullChanges updates cursor when response has no changes', async () => {
-    vi.spyOn((service as any).httpClient, 'post').mockReturnValue(
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
       of({
         cursor: 'next-cursor',
         changes: []
       })
     );
 
-    await (service as any).pullChanges();
+    await servicePrivate.pullChanges();
 
     const cursor = await db.syncMeta.get('cursor');
     expect(cursor?.value).toBe('next-cursor');
   });
 
   it('pullChanges applies changes, emits event, and falls back cursor to last event id', async () => {
-    const emitChangedSpy = vi.spyOn((service as any).syncEvents, 'emitChanged');
-    vi.spyOn((service as any).httpClient, 'post').mockReturnValue(
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
       of({
         cursor: '',
         changes: [
@@ -604,7 +639,7 @@ describe('GameSyncService', () => {
       })
     );
 
-    await (service as any).pullChanges();
+    await servicePrivate.pullChanges();
 
     const cursor = await db.syncMeta.get('cursor');
     expect(cursor?.value).toBe('42');
@@ -613,8 +648,8 @@ describe('GameSyncService', () => {
   });
 
   it('syncNow marks connectivity degraded when push fails', async () => {
-    vi.spyOn(service as any, 'pushOutbox').mockRejectedValue(new Error('push failed'));
-    vi.spyOn(service as any, 'pullChanges').mockResolvedValue(undefined);
+    vi.spyOn(servicePrivate, 'pushOutbox').mockRejectedValue(new Error('push failed'));
+    vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
 
     await service.syncNow();
 

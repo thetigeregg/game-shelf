@@ -45,10 +45,6 @@ export class E2eFixtureService {
       return;
     }
 
-    if (!payload || typeof payload !== 'object') {
-      return;
-    }
-
     const shouldResetDb = payload.resetDb !== false;
     const games = Array.isArray(payload.games) ? payload.games : [];
     const normalizedGames = games

@@ -147,7 +147,7 @@ export class TagsPage implements OnInit {
   }
 
   getActionsTriggerId(tag: TagSummary): string {
-    return `tag-actions-trigger-${tag.id ?? tag.name}`;
+    return `tag-actions-trigger-${typeof tag.id === 'number' ? String(tag.id) : tag.name}`;
   }
 
   getTagTextColor(color: string): string {

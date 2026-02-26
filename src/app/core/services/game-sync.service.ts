@@ -19,6 +19,7 @@ import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY
 } from './platform-customization.service';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
+import { DebugLogService } from './debug-log.service';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -46,6 +47,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly htmlSanitizer = inject(HtmlSanitizerService);
+  private readonly debugLogService = inject(DebugLogService);
   private readonly baseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private initialized = false;
   private syncInFlight = false;
@@ -60,10 +62,15 @@ export class GameSyncService implements SyncOutboxWriter {
 
   initialize(): void {
     if (this.initialized) {
+      this.debugLogService.debug('sync.initialize.skipped_already_initialized');
       return;
     }
 
     this.initialized = true;
+    this.debugLogService.debug('sync.initialize.start', {
+      baseUrl: this.baseUrl,
+      online: this.isOnline()
+    });
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', this.onlineHandler);
@@ -98,14 +105,31 @@ export class GameSyncService implements SyncOutboxWriter {
     };
 
     await this.db.outbox.put(entry);
+    this.debugLogService.debug('sync.outbox.enqueued', {
+      opId: entry.opId,
+      entityType: entry.entityType,
+      operation: entry.operation
+    });
     void this.syncNow();
   }
 
   async syncNow(): Promise<void> {
-    if (!this.baseUrl || this.syncInFlight || !this.isOnline()) {
+    if (!this.baseUrl) {
+      this.debugLogService.warn('sync.sync_now.skipped_missing_base_url');
       return;
     }
 
+    if (this.syncInFlight) {
+      this.debugLogService.debug('sync.sync_now.skipped_in_flight');
+      return;
+    }
+
+    if (!this.isOnline()) {
+      this.debugLogService.debug('sync.sync_now.skipped_offline');
+      return;
+    }
+
+    this.debugLogService.debug('sync.sync_now.start');
     this.syncInFlight = true;
 
     try {
@@ -113,8 +137,12 @@ export class GameSyncService implements SyncOutboxWriter {
       await this.pullChanges();
       await this.setMeta(GameSyncService.META_LAST_SYNC_KEY, new Date().toISOString());
       await this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'online');
-    } catch {
+      this.debugLogService.debug('sync.sync_now.success');
+    } catch (error: unknown) {
       await this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'degraded');
+      this.debugLogService.error('sync.sync_now.failed', {
+        error: this.normalizeUnknownError(error)
+      });
     } finally {
       this.syncInFlight = false;
     }
@@ -124,8 +152,10 @@ export class GameSyncService implements SyncOutboxWriter {
     const entries = await this.db.outbox.orderBy('createdAt').toArray();
 
     if (entries.length === 0) {
+      this.debugLogService.debug('sync.push.skipped_empty_outbox');
       return;
     }
+    this.debugLogService.debug('sync.push.start', { count: entries.length });
 
     const operations: ClientSyncOperation[] = entries.map((entry) => ({
       opId: entry.opId,
@@ -143,11 +173,17 @@ export class GameSyncService implements SyncOutboxWriter {
     let latestCursor: string | null = null;
 
     for (const batch of operationBatches) {
+      this.debugLogService.debug('sync.push.batch.request', { batchSize: batch.length });
       const response = await firstValueFrom(
         this.httpClient.post<SyncPushResponse>(`${this.baseUrl}/v1/sync/push`, {
           operations: batch
         })
       );
+      this.debugLogService.debug('sync.push.batch.response', {
+        batchSize: batch.length,
+        results: Array.isArray(response.results) ? response.results.length : 0,
+        hasCursor: typeof response.cursor === 'string' && response.cursor.trim().length > 0
+      });
 
       if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
         latestCursor = response.cursor.trim();
@@ -171,6 +207,10 @@ export class GameSyncService implements SyncOutboxWriter {
     if (ackedIds.size > 0) {
       await this.db.outbox.bulkDelete([...ackedIds]);
     }
+    this.debugLogService.debug('sync.push.complete', {
+      acked: ackedIds.size,
+      failed: failedResults.length
+    });
 
     for (const failure of failedResults) {
       const existing = await this.db.outbox.get(failure.opId);
@@ -224,12 +264,17 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private async pullChanges(): Promise<void> {
     const cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
+    this.debugLogService.debug('sync.pull.request', { hasCursor: Boolean(cursor) });
     const response = await firstValueFrom(
       this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
         cursor: cursor ?? null
       })
     );
     const changes = Array.isArray(response.changes) ? response.changes : [];
+    this.debugLogService.debug('sync.pull.response', {
+      changes: changes.length,
+      hasCursor: typeof response.cursor === 'string' && response.cursor.trim().length > 0
+    });
 
     if (changes.length === 0) {
       if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
@@ -246,6 +291,7 @@ export class GameSyncService implements SyncOutboxWriter {
         : changes[changes.length - 1].eventId;
     await this.setMeta(GameSyncService.META_CURSOR_KEY, nextCursor);
     this.syncEvents.emitChanged();
+    this.debugLogService.debug('sync.pull.applied', { changes: changes.length });
   }
 
   private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
@@ -628,6 +674,21 @@ export class GameSyncService implements SyncOutboxWriter {
   private normalizeBaseUrl(value: string | null | undefined): string {
     const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
+  }
+
+  private normalizeUnknownError(error: unknown): Record<string, unknown> {
+    if (!error || typeof error !== 'object') {
+      return { value: String(error) };
+    }
+
+    const source = error as Record<string, unknown>;
+    return {
+      name: typeof source['name'] === 'string' ? source['name'] : null,
+      message: typeof source['message'] === 'string' ? source['message'] : null,
+      status: typeof source['status'] === 'number' ? source['status'] : null,
+      statusText: typeof source['statusText'] === 'string' ? source['statusText'] : null,
+      url: typeof source['url'] === 'string' ? source['url'] : null
+    };
   }
 
   private generateOperationId(): string {

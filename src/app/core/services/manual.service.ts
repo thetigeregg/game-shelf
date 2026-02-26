@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 import { DebugLogService } from './debug-log.service';
+import { normalizeHttpError } from '../utils/normalize-http-error';
 import {
   GameEntry,
   ManualCandidate,
@@ -80,7 +81,7 @@ export class ManualService {
         this.debugLogService.error('manual.service.resolve.http_error', {
           url: this.resolveManualUrl,
           query: params.toString(),
-          error: this.normalizeHttpError(error)
+          error: normalizeHttpError(error)
         });
         return of({
           status: 'none' as const,
@@ -156,7 +157,7 @@ export class ManualService {
         this.debugLogService.error('manual.service.search.http_error', {
           url: this.searchManualsUrl,
           queryString: params.toString(),
-          error: this.normalizeHttpError(error)
+          error: normalizeHttpError(error)
         });
         return of({
           items: [],
@@ -441,21 +442,5 @@ export class ManualService {
   private normalizeBaseUrl(value: string | null | undefined): string {
     const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
-  }
-
-  private normalizeHttpError(error: unknown): Record<string, unknown> {
-    if (!error || typeof error !== 'object') {
-      return { value: String(error) };
-    }
-
-    const source = error as Record<string, unknown>;
-    return {
-      name: typeof source['name'] === 'string' ? source['name'] : null,
-      message: typeof source['message'] === 'string' ? source['message'] : null,
-      status: typeof source['status'] === 'number' ? source['status'] : null,
-      statusText: typeof source['statusText'] === 'string' ? source['statusText'] : null,
-      url: typeof source['url'] === 'string' ? source['url'] : null,
-      ok: typeof source['ok'] === 'boolean' ? source['ok'] : null
-    };
   }
 }

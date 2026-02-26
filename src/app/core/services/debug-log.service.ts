@@ -369,6 +369,21 @@ export class DebugLogService {
       return;
     }
 
+    const openImpl = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'open')?.value as
+      | ((this: XMLHttpRequest, ...args: unknown[]) => unknown)
+      | undefined;
+    const setRequestHeaderImpl = Object.getOwnPropertyDescriptor(
+      XMLHttpRequest.prototype,
+      'setRequestHeader'
+    )?.value as ((this: XMLHttpRequest, ...args: unknown[]) => unknown) | undefined;
+    const sendImpl = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'send')?.value as
+      | ((this: XMLHttpRequest, ...args: unknown[]) => unknown)
+      | undefined;
+
+    if (!openImpl || !setRequestHeaderImpl || !sendImpl) {
+      return;
+    }
+
     const callOriginalOpen = (
       xhr: XMLHttpRequest,
       method: string,
@@ -377,20 +392,20 @@ export class DebugLogService {
       username?: string,
       password?: string
     ): void => {
-      XMLHttpRequest.prototype.open.call(xhr, method, url, async, username, password);
+      Reflect.apply(openImpl, xhr, [method, url, async, username, password]);
     };
     const callOriginalSetRequestHeader = (
       xhr: XMLHttpRequest,
       name: string,
       value: string
     ): void => {
-      XMLHttpRequest.prototype.setRequestHeader.call(xhr, name, value);
+      Reflect.apply(setRequestHeaderImpl, xhr, [name, value]);
     };
     const callOriginalSend = (
       xhr: XMLHttpRequest,
       body?: Document | XMLHttpRequestBodyInit | null
     ): void => {
-      XMLHttpRequest.prototype.send.call(xhr, body ?? null);
+      Reflect.apply(sendImpl, xhr, [body ?? null]);
     };
 
     XMLHttpRequest.prototype.open = function (

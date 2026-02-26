@@ -8,9 +8,7 @@ export function normalizeEditorNotesValue(value: string | null | undefined): str
 }
 
 export function normalizeEditorNotesComparable(value: string | null | undefined): string {
-  return normalizeEditorNotesValue(value)
-    .replace(TRAILING_EMPTY_RICH_TEXT_BLOCKS_PATTERN, '')
-    .trimEnd();
+  return normalizeEditorNotesValue(value).replace(TRAILING_EMPTY_RICH_TEXT_BLOCKS_PATTERN, '');
 }
 
 export function toNotesEditorContent(value: string): string {

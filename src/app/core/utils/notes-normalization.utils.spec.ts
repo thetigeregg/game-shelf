@@ -18,6 +18,12 @@ describe('notes-normalization utils', () => {
     expect(normalizeNotesValue('<p><br></p>')).toBe('');
     expect(normalizeNotesValue('<p><br/></p>')).toBe('');
     expect(normalizeNotesValue('<p></p><p></p>')).toBe('');
+    expect(normalizeNotesValue('<ul><li><p></p></li></ul>')).toBe('');
+    expect(
+      normalizeNotesValue(
+        '<details><summary><p></p></summary><div data-type="detailsContent"><p></p></div></details>'
+      )
+    ).toBe('');
   });
 
   it('preserves meaningful whitespace for non-empty content', () => {

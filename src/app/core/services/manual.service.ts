@@ -60,12 +60,13 @@ export class ManualService {
 
     return this.httpClient.get<ResolveManualApiResponse>(this.resolveManualUrl, { params }).pipe(
       tap((response) => {
+        const safeResponse = response as ResolveManualApiResponse | null | undefined;
         this.debugLogService.debug('manual.service.resolve.http_success', {
           url: this.resolveManualUrl,
           query: params.toString(),
           hasResponse: Boolean(response),
-          status: response.status ?? null,
-          unavailable: response.unavailable === true
+          status: safeResponse?.status ?? null,
+          unavailable: safeResponse?.unavailable === true
         });
       }),
       map((response) => this.normalizeResolveResponse(response)),
@@ -245,11 +246,16 @@ export class ManualService {
     return params;
   }
 
-  private normalizeResolveResponse(response: ResolveManualApiResponse): ManualResolveResult {
-    const status = response.status === 'matched' ? 'matched' : 'none';
-    const candidates = this.normalizeCandidateList(response.candidates);
-    const bestMatchRaw = this.normalizeCandidate(response.bestMatch);
-    const source = (response.bestMatch as { source?: unknown } | undefined)?.source;
+  private normalizeResolveResponse(response: unknown): ManualResolveResult {
+    const source =
+      response && typeof response === 'object'
+        ? (response as { bestMatch?: { source?: unknown } }).bestMatch?.source
+        : undefined;
+    const safeResponse =
+      response && typeof response === 'object' ? (response as ResolveManualApiResponse) : {};
+    const status = safeResponse.status === 'matched' ? 'matched' : 'none';
+    const candidates = this.normalizeCandidateList(safeResponse.candidates);
+    const bestMatchRaw = this.normalizeCandidate(safeResponse.bestMatch);
     const bestMatch = bestMatchRaw
       ? {
           ...bestMatchRaw,
@@ -261,10 +267,10 @@ export class ManualService {
       status,
       bestMatch,
       candidates,
-      unavailable: response.unavailable === true,
+      unavailable: safeResponse.unavailable === true,
       reason:
-        typeof response.reason === 'string' && response.reason.trim().length > 0
-          ? response.reason.trim()
+        typeof safeResponse.reason === 'string' && safeResponse.reason.trim().length > 0
+          ? safeResponse.reason.trim()
           : null
     };
   }

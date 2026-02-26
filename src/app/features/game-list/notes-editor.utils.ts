@@ -1,7 +1,7 @@
 import { normalizeNotesValue } from '../../core/utils/notes-normalization.utils';
 
 const TRAILING_EMPTY_RICH_TEXT_BLOCKS_PATTERN =
-  /(?:\s|&nbsp;)*(?:<(p|div)>(?:\s|&nbsp;|<br\s*\/?>)*<\/\1>)+\s*$/g;
+  /(?:\s|&nbsp;)*(?:<(p|div)>(?:\s|&nbsp;|<br\s*\/?>)*<\/\1>)+\s*$/;
 
 export function normalizeEditorNotesValue(value: string | null | undefined): string {
   return normalizeNotesValue(value);

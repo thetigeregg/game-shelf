@@ -997,6 +997,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private openGameDetailInternal(game: GameEntry): void {
+    this.logManualDebug('detail.open', {
+      gameKey: this.getGameKey(game),
+      gameTitle: this.getGameDisplayTitle(game),
+      listType: this.listType,
+      isDesktopDetailLayout: this.isDesktopDetailLayout
+    });
+
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
@@ -1017,6 +1024,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     void this.loadDetailCoverUrl(game);
     void this.loadSimilarLibraryGamesForDetail(game);
     void this.resolveManualForGame(game);
+    this.logManualDebug('detail.open.manual_resolution_queued', {
+      gameKey: this.getGameKey(game)
+    });
     this.scrollDetailToTop();
   }
 
@@ -2040,6 +2050,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   get shouldShowOpenManualButton(): boolean {
+    this.debugLogService.debug('manual_button_visibility');
     return this.manualResolvedUrl !== null && this.canShowManualButtonsForSelectedGame();
   }
 
@@ -2814,6 +2825,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private canShowManualButtonsForSelectedGame(): boolean {
     const game = this.selectedGame;
 
+    this.logManualDebug('manual.visibility.check_selected_game', {
+      hasSelectedGame: game !== null
+    });
     if (!game) {
       return false;
     }
@@ -2828,6 +2842,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
         displayPlatform.name,
         displayPlatform.igdbId
       );
+
+    this.logManualDebug('manual.eligibility', {
+      gameKey: this.getGameKey(game),
+      displayPlatformName: displayPlatform.name,
+      displayPlatformIgdbId: displayPlatform.igdbId,
+      canonicalPlatformIgdbId
+    });
 
     return (
       canonicalPlatformIgdbId !== null &&
@@ -3027,7 +3048,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async resolveManualForGame(game: GameEntry): Promise<void> {
+    this.logManualDebug('manual.resolve.enter', {
+      gameKey: this.getGameKey(game)
+    });
+
     if (!this.canShowManualButtonsForGame(game)) {
+      this.logManualDebug('manual.resolve.skipped_not_eligible', {
+        gameKey: this.getGameKey(game)
+      });
       if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
         this.manualResolvedUrl = null;
         this.manualResolvedRelativePath = null;
@@ -3042,6 +3070,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     const requestId = ++this.manualResolutionRequestId;
     const override = this.manualService.getOverride(game);
+    this.logManualDebug('manual.resolve.request', {
+      gameKey: this.getGameKey(game),
+      requestId,
+      hasOverride: Boolean(override?.relativePath)
+    });
 
     try {
       const result = await firstValueFrom(
@@ -3049,15 +3082,31 @@ export class GameListComponent implements OnChanges, OnDestroy {
       );
 
       if (requestId !== this.manualResolutionRequestId) {
+        this.logManualDebug('manual.resolve.stale_request', {
+          gameKey: this.getGameKey(game),
+          requestId,
+          currentRequestId: this.manualResolutionRequestId
+        });
         return;
       }
 
       if (!this.selectedGame || this.getGameKey(this.selectedGame) !== this.getGameKey(game)) {
+        this.logManualDebug('manual.resolve.skipped_selected_game_mismatch', {
+          gameKey: this.getGameKey(game),
+          selectedGameKey: this.selectedGame ? this.getGameKey(this.selectedGame) : null
+        });
         return;
       }
 
       this.manualCatalogUnavailable = result.unavailable === true;
       this.manualCatalogUnavailableReason = result.reason ?? null;
+      this.logManualDebug('manual.resolve.response', {
+        gameKey: this.getGameKey(game),
+        status: result.status,
+        unavailable: this.manualCatalogUnavailable,
+        reason: this.manualCatalogUnavailableReason,
+        bestMatchRelativePath: result.bestMatch?.relativePath ?? null
+      });
 
       if (result.bestMatch) {
         this.manualResolvedUrl = result.bestMatch.url;
@@ -3080,7 +3129,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       }
 
       this.changeDetectorRef.markForCheck();
-    } catch {
+    } catch (error: unknown) {
+      this.logManualDebug('manual.resolve.failed', {
+        gameKey: this.getGameKey(game),
+        error
+      });
       if (requestId !== this.manualResolutionRequestId) {
         return;
       }
@@ -3092,6 +3145,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.manualCatalogUnavailableReason = 'Manual catalog is unavailable.';
       this.changeDetectorRef.markForCheck();
     }
+  }
+
+  private logManualDebug(eventName: string, payload: Record<string, unknown>): void {
+    this.debugLogService.debug(eventName, payload);
   }
 
   private async confirmManualOverrideRemoval(game: GameEntry): Promise<boolean> {

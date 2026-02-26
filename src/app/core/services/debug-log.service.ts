@@ -369,6 +369,30 @@ export class DebugLogService {
       return;
     }
 
+    const callOriginalOpen = (
+      xhr: XMLHttpRequest,
+      method: string,
+      url: string | URL,
+      async: boolean,
+      username?: string,
+      password?: string
+    ): void => {
+      XMLHttpRequest.prototype.open.call(xhr, method, url, async, username, password);
+    };
+    const callOriginalSetRequestHeader = (
+      xhr: XMLHttpRequest,
+      name: string,
+      value: string
+    ): void => {
+      XMLHttpRequest.prototype.setRequestHeader.call(xhr, name, value);
+    };
+    const callOriginalSend = (
+      xhr: XMLHttpRequest,
+      body?: Document | XMLHttpRequestBodyInit | null
+    ): void => {
+      XMLHttpRequest.prototype.send.call(xhr, body ?? null);
+    };
+
     XMLHttpRequest.prototype.open = function (
       this: XMLHttpRequest & {
         __gsMethod?: string;
@@ -383,7 +407,7 @@ export class DebugLogService {
     ): void {
       this.__gsMethod = method.toUpperCase();
       this.__gsUrl = typeof url === 'string' ? url : url.toString();
-      XMLHttpRequest.prototype.open.call(
+      callOriginalOpen(
         this,
         method,
         url,
@@ -398,7 +422,7 @@ export class DebugLogService {
       name: string,
       value: string
     ): void {
-      XMLHttpRequest.prototype.setRequestHeader.call(this, name, value);
+      callOriginalSetRequestHeader(this, name, value);
     };
 
     XMLHttpRequest.prototype.send = function (
@@ -432,7 +456,7 @@ export class DebugLogService {
         });
       });
 
-      XMLHttpRequest.prototype.send.call(this, body ?? null);
+      callOriginalSend(this, body ?? null);
     };
 
     (window as Window & { __gsDebugLogger?: DebugLogService }).__gsDebugLogger = this;

@@ -1,10 +1,11 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
 import { SyncOutboxWriter, SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
+import { DebugLogService } from './debug-log.service';
 import {
   GameEntry,
   ManualCandidate,
@@ -35,6 +36,7 @@ export class ManualService {
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true
   });
+  private readonly debugLogService = inject(DebugLogService);
   private readonly apiBaseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private readonly manualsBaseUrl = this.normalizeBaseUrl(environment.manualsBaseUrl);
   private readonly resolveManualUrl = `${this.apiBaseUrl}/v1/manuals/resolve`;
@@ -45,17 +47,48 @@ export class ManualService {
     preferredRelativePath?: string | null
   ): Observable<ManualResolveResult> {
     const params = this.buildResolveParams(game, preferredRelativePath);
+    this.debugLogService.debug('manual.service.resolve.request', {
+      url: this.resolveManualUrl,
+      apiBaseUrl: this.apiBaseUrl,
+      gameId: game.igdbGameId,
+      platformIgdbId: game.platformIgdbId,
+      title: game.title,
+      preferredRelativePath: preferredRelativePath ?? null,
+      query: params.toString()
+    });
 
     return this.httpClient.get<ResolveManualApiResponse>(this.resolveManualUrl, { params }).pipe(
+      tap((response) => {
+        this.debugLogService.debug('manual.service.resolve.http_success', {
+          url: this.resolveManualUrl,
+          query: params.toString(),
+          hasResponse: Boolean(response),
+          status: response.status ?? null,
+          unavailable: response.unavailable === true
+        });
+      }),
       map((response) => this.normalizeResolveResponse(response)),
-      catchError(() =>
-        of({
+      tap((result) => {
+        this.debugLogService.debug('manual.service.resolve.normalized', {
+          status: result.status,
+          unavailable: result.unavailable === true,
+          reason: result.reason ?? null,
+          bestMatchRelativePath: result.bestMatch?.relativePath ?? null
+        });
+      }),
+      catchError((error: unknown) => {
+        this.debugLogService.error('manual.service.resolve.http_error', {
+          url: this.resolveManualUrl,
+          query: params.toString(),
+          error: this.normalizeHttpError(error)
+        });
+        return of({
           status: 'none' as const,
           candidates: [],
           unavailable: true,
           reason: 'Unable to resolve manuals right now.'
-        })
-      )
+        });
+      })
     );
   }
 
@@ -67,6 +100,9 @@ export class ManualService {
       Number.isInteger(platformIgdbId) && platformIgdbId > 0 ? platformIgdbId : null;
 
     if (normalizedPlatformId === null) {
+      this.debugLogService.debug('manual.service.search.skipped_invalid_platform', {
+        platformIgdbId
+      });
       return of({ items: [], unavailable: false, reason: null });
     }
 
@@ -79,8 +115,23 @@ export class ManualService {
     if (normalizedQuery.length > 0) {
       params = params.set('q', normalizedQuery);
     }
+    this.debugLogService.debug('manual.service.search.request', {
+      url: this.searchManualsUrl,
+      apiBaseUrl: this.apiBaseUrl,
+      platformIgdbId: normalizedPlatformId,
+      query: normalizedQuery,
+      queryString: params.toString()
+    });
 
     return this.httpClient.get<SearchManualsApiResponse>(this.searchManualsUrl, { params }).pipe(
+      tap((response) => {
+        this.debugLogService.debug('manual.service.search.http_success', {
+          url: this.searchManualsUrl,
+          queryString: params.toString(),
+          hasResponse: Boolean(response),
+          unavailable: response.unavailable === true
+        });
+      }),
       map((response) => {
         const rawUnavailable = response.unavailable;
         const unavailable = rawUnavailable === true;
@@ -94,13 +145,25 @@ export class ManualService {
           reason
         };
       }),
-      catchError(() =>
-        of({
+      tap((result) => {
+        this.debugLogService.debug('manual.service.search.normalized', {
+          items: result.items.length,
+          unavailable: result.unavailable,
+          reason: result.reason
+        });
+      }),
+      catchError((error: unknown) => {
+        this.debugLogService.error('manual.service.search.http_error', {
+          url: this.searchManualsUrl,
+          queryString: params.toString(),
+          error: this.normalizeHttpError(error)
+        });
+        return of({
           items: [],
           unavailable: true,
           reason: 'Unable to search manuals right now.'
-        })
-      )
+        });
+      })
     );
   }
 
@@ -378,5 +441,21 @@ export class ManualService {
   private normalizeBaseUrl(value: string | null | undefined): string {
     const normalized = (value ?? '').trim();
     return normalized.replace(/\/+$/, '');
+  }
+
+  private normalizeHttpError(error: unknown): Record<string, unknown> {
+    if (!error || typeof error !== 'object') {
+      return { value: String(error) };
+    }
+
+    const source = error as Record<string, unknown>;
+    return {
+      name: typeof source['name'] === 'string' ? source['name'] : null,
+      message: typeof source['message'] === 'string' ? source['message'] : null,
+      status: typeof source['status'] === 'number' ? source['status'] : null,
+      statusText: typeof source['statusText'] === 'string' ? source['statusText'] : null,
+      url: typeof source['url'] === 'string' ? source['url'] : null,
+      ok: typeof source['ok'] === 'boolean' ? source['ok'] : null
+    };
   }
 }

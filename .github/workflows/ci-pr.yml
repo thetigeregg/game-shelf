@@ -32,14 +32,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install backend package dependencies
+        run: npm --prefix server ci && npm --prefix worker ci
+
       - name: Lint
         run: npm run lint
 
       - name: Unit tests
         run: npm run test
-
-      - name: Install backend package dependencies
-        run: npm --prefix server ci && npm --prefix worker ci
 
       - name: Backend tests
         run: npm run test:backend:coverage

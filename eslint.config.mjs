@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import js from '@eslint/js';
 import { FlatCompat } from '@eslint/eslintrc';
+import { importX } from 'eslint-plugin-import-x';
+import unusedImports from 'eslint-plugin-unused-imports';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +23,10 @@ export default defineConfig([
     '.angular/**/*',
     'test-results/**/*'
   ]),
+
+  importX.flatConfigs.recommended,
+  importX.flatConfigs.typescript,
+
   {
     files: ['**/*.ts'],
 
@@ -28,6 +34,11 @@ export default defineConfig([
       'plugin:@angular-eslint/recommended',
       'plugin:@angular-eslint/template/process-inline-templates'
     ),
+
+    plugins: {
+      'import-x': importX,
+      'unused-imports': unusedImports
+    },
 
     languageOptions: {
       ecmaVersion: 5,
@@ -40,6 +51,19 @@ export default defineConfig([
     },
 
     rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'unused-imports/no-unused-imports': 'error',
+      'unused-imports/no-unused-vars': [
+        'warn',
+        {
+          vars: 'all',
+          varsIgnorePattern: '^_',
+          args: 'after-used',
+          argsIgnorePattern: '^_'
+        }
+      ],
+
       '@angular-eslint/prefer-standalone': 'off',
 
       '@angular-eslint/component-class-suffix': [

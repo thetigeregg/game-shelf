@@ -53,6 +53,7 @@ describe('notes-editor utils', () => {
     expect(normalizeEditorNotesComparable('<p>Content</p><p>&nbsp;</p>')).toBe('<p>Content</p>');
     expect(normalizeEditorNotesComparable('<p>Content</p><p><br></p>')).toBe('<p>Content</p>');
     expect(normalizeEditorNotesComparable('<p>Content </p><p></p>')).toBe('<p>Content </p>');
+    expect(normalizeEditorNotesComparable('plain note  ')).toBe('plain note  ');
   });
 
   it('returns empty paragraph for empty normalized content', () => {

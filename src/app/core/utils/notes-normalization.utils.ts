@@ -1,3 +1,5 @@
+import domPurify from 'dompurify';
+
 const EMPTY_RICH_TEXT_PATTERN = /^(<p>(<br\/?>)?<\/p>)+$/;
 const HTML_TAG_PATTERN = /<\/?[a-z][^>]*>/i;
 const MEANINGFUL_STRUCTURE_TAG_PATTERN =
@@ -34,9 +36,14 @@ function isHtmlWithoutMeaningfulContent(value: string): boolean {
     return false;
   }
 
-  const strippedText = trimmed.replace(/<[^>]*>/g, '').trim();
+  const sanitizedText = domPurify
+    .sanitize(trimmed, {
+      ALLOWED_TAGS: [],
+      ALLOWED_ATTR: []
+    })
+    .trim();
 
-  if (strippedText.length > 0) {
+  if (sanitizedText.length > 0) {
     return false;
   }
 

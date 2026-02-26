@@ -2050,7 +2050,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   get shouldShowOpenManualButton(): boolean {
-    this.debugLogService.debug('manual_button_visibility');
     return this.manualResolvedUrl !== null && this.canShowManualButtonsForSelectedGame();
   }
 

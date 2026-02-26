@@ -956,3 +956,7 @@
 - 34b3265 Add per-game notes system
 - 5e608f7 Add per-game notes system
 
+## v0.1.34 - 2026-02-26
+- 01387df Merge pull request #98 from thetigeregg/codex/prevent-notes-page-header-from
+- b598eac Fix notes page scrolling
+

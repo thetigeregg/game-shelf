@@ -181,7 +181,7 @@ export interface SyncPushResult {
   normalizedPayload?: unknown;
 }
 
-export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';
+export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'hltb' | 'platform';
 export type SortDirection = 'asc' | 'desc';
 export type GameGroupByField =
   | 'none'

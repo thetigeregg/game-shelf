@@ -627,6 +627,103 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
+  it('sorts by hltb using row fallback order and treats missing values as less-than', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'No HLTB' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Main', hltbMainHours: 8 }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Main+Extra',
+        hltbMainHours: 0,
+        hltbMainExtraHours: 12
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'Completionist',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: 15
+      }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Zero Main', hltbMainHours: 0 })
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'No HLTB',
+      'Zero Main',
+      'Main',
+      'Main+Extra',
+      'Completionist'
+    ]);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    expect(desc.map((game) => game.title)).toEqual([
+      'Completionist',
+      'Main+Extra',
+      'Main',
+      'Zero Main',
+      'No HLTB'
+    ]);
+  });
+
+  it('uses title fallback when effective hltb values are equal or both missing', () => {
+    const equalNumeric: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Bravo',
+        hltbMainHours: null,
+        hltbMainExtraHours: 10
+      }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Alpha', hltbMainHours: 10 })
+    ];
+
+    const sortedEqualNumeric = engine.applyFiltersAndSort(
+      equalNumeric,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(sortedEqualNumeric.map((game) => game.title)).toEqual(['Alpha', 'Bravo']);
+
+    const equalMissing: GameEntry[] = [
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'B Missing', hltbMainHours: null }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'A Missing', hltbMainHours: null })
+    ];
+
+    const sortedEqualMissing = engine.applyFiltersAndSort(
+      equalMissing,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(sortedEqualMissing.map((game) => game.title)).toEqual(['B Missing', 'A Missing']);
+  });
+
   it('sorts by createdAt and handles invalid timestamps', () => {
     const games: GameEntry[] = [
       makeGame({

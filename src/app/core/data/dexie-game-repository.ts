@@ -969,7 +969,7 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeViewFilters(value: GameListFilters | null | undefined): GameListFilters {
     const source = value ?? DEFAULT_GAME_LIST_FILTERS;
-    const sortField = source.sortField;
+    const sortField = this.normalizeViewSortField(source.sortField);
     const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
     const platform = normalizeStringList(source.platform);
     const collections = normalizeStringList(source.collections);
@@ -1034,5 +1034,22 @@ export class DexieGameRepository implements GameRepository {
       releaseDateFrom,
       releaseDateTo
     };
+  }
+
+  private normalizeViewSortField(
+    value: GameListFilters['sortField'] | null | undefined
+  ): GameListFilters['sortField'] {
+    if (
+      value === 'title' ||
+      value === 'releaseDate' ||
+      value === 'createdAt' ||
+      value === 'hltb' ||
+      value === 'metacritic' ||
+      value === 'platform'
+    ) {
+      return value;
+    }
+
+    return DEFAULT_GAME_LIST_FILTERS.sortField;
   }
 }

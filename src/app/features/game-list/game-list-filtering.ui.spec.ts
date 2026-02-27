@@ -30,6 +30,8 @@ function makeGame(
     rating: partial.rating ?? null,
     status: partial.status ?? null,
     gameType: partial.gameType ?? null,
+    metacriticScore: partial.metacriticScore,
+    metacriticUrl: partial.metacriticUrl,
     similarGameIgdbIds: partial.similarGameIgdbIds,
     hltbMainExtraHours: partial.hltbMainExtraHours,
     hltbCompletionistHours: partial.hltbCompletionistHours,
@@ -800,6 +802,43 @@ describe('GameListFilteringEngine UI behavior', () => {
       ''
     );
     expect(sortedEqualMissing.map((game) => game.title)).toEqual(['B Missing', 'A Missing']);
+  });
+
+  it('sorts by metacritic and always keeps missing scores last in both directions', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'No Score' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'High', metacriticScore: 90 }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Mid', metacriticScore: 70 }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'Invalid',
+        metacriticScore: 101
+      }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Low', metacriticScore: 45 })
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(asc.map((game) => game.title)).toEqual(['Low', 'Mid', 'High', 'Invalid', 'No Score']);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    expect(desc.map((game) => game.title)).toEqual(['High', 'Mid', 'Low', 'Invalid', 'No Score']);
   });
 
   it('sorts by createdAt and handles invalid timestamps', () => {

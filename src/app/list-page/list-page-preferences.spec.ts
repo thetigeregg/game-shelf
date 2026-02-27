@@ -122,6 +122,19 @@ describe('list-page-preferences', () => {
     expect(normalized.sortDirection).toBe('asc');
   });
 
+  it('accepts metacritic as a valid sort field from stored preferences', () => {
+    const normalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      '__none__'
+    );
+
+    expect(normalized.sortField).toBe('metacritic');
+    expect(normalized.sortDirection).toBe('desc');
+  });
+
   it('normalizes unknown group values to none', () => {
     expect(normalizeListPageGroupBy('genre')).toBe('genre');
     expect(normalizeListPageGroupBy('not-a-group')).toBe('none');

@@ -216,10 +216,11 @@ export class GameListFilteringEngine {
       )
     ];
     const normalizedExcludedGenres = normalizeStringList(filters.excludedGenres);
-    const normalizedExcludedStatuses = normalizeGameStatusFilterList(filters.excludedStatuses);
-    const normalizedExcludedTags = normalizeTagFilterList(
-      filters.excludedTags,
-      this.noneTagFilterValue
+    const normalizedExcludedStatuses = normalizeGameStatusFilterList(
+      filters.excludedStatuses
+    ).filter((status) => status !== 'none');
+    const normalizedExcludedTags = normalizeStringList(filters.excludedTags).filter(
+      (tag) => tag !== this.noneTagFilterValue
     );
     const normalizedExcludedGameTypes = normalizeGameTypeList(filters.excludedGameTypes);
     const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);

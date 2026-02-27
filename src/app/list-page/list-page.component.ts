@@ -246,10 +246,11 @@ export class ListPageComponent {
     const normalizedTags = normalizeTagFilterList(filters.tags, this.noneTagFilterValue);
     const normalizedExcludedPlatforms = normalizeStringList(filters.excludedPlatform);
     const normalizedExcludedGenres = normalizeStringList(filters.excludedGenres);
-    const normalizedExcludedStatuses = normalizeGameStatusFilterList(filters.excludedStatuses);
-    const normalizedExcludedTags = normalizeTagFilterList(
-      filters.excludedTags,
-      this.noneTagFilterValue
+    const normalizedExcludedStatuses = normalizeGameStatusFilterList(
+      filters.excludedStatuses
+    ).filter((status) => status !== 'none');
+    const normalizedExcludedTags = normalizeStringList(filters.excludedTags).filter(
+      (tag) => tag !== this.noneTagFilterValue
     );
     const normalizedExcludedGameTypes = normalizeGameTypeList(filters.excludedGameTypes);
     const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);

@@ -61,8 +61,12 @@ export function normalizeListPageStoredFilters(
     tags: normalizeTagFilterList(parsed['tags'], noneTagFilterValue),
     excludedPlatform: normalizeStringList(parsed['excludedPlatform']),
     excludedGenres: normalizeStringList(parsed['excludedGenres']),
-    excludedStatuses: normalizeGameStatusFilterList(parsed['excludedStatuses']),
-    excludedTags: normalizeTagFilterList(parsed['excludedTags'], noneTagFilterValue),
+    excludedStatuses: normalizeGameStatusFilterList(parsed['excludedStatuses']).filter(
+      (status) => status !== 'none'
+    ),
+    excludedTags: normalizeStringList(parsed['excludedTags']).filter(
+      (tag) => tag !== noneTagFilterValue
+    ),
     excludedGameTypes: normalizeGameTypeList(parsed['excludedGameTypes']),
     ratings: normalizeGameRatingFilterList(parsed['ratings']),
     hltbMainHoursMin:

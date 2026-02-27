@@ -839,6 +839,20 @@ describe('GameListFilteringEngine UI behavior', () => {
       ''
     );
     expect(desc.map((game) => game.title)).toEqual(['High', 'Mid', 'Low', 'Invalid', 'No Score']);
+
+    const equalScores = engine.applyFiltersAndSort(
+      [
+        makeGame({ igdbGameId: '6', platformIgdbId: 130, title: 'Beta', metacriticScore: 70 }),
+        makeGame({ igdbGameId: '7', platformIgdbId: 130, title: 'Alpha', metacriticScore: 70 })
+      ],
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(equalScores.map((game) => game.title)).toEqual(['Alpha', 'Beta']);
   });
 
   it('sorts by createdAt and handles invalid timestamps', () => {

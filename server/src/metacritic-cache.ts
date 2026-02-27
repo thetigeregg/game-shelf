@@ -462,3 +462,11 @@ async function sendWebResponse(reply: FastifyReply, response: Response): Promise
   const bytes = Buffer.from(await response.arrayBuffer());
   reply.send(bytes);
 }
+
+export const __metacriticCacheTestables = {
+  normalizeMetacriticQuery,
+  getAgeSeconds,
+  scheduleMetacriticRevalidation,
+  persistMetacriticCacheEntry,
+  isCacheableMetacriticPayload
+};

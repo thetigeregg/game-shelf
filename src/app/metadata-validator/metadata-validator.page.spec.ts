@@ -1,5 +1,8 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { of, throwError } from 'rxjs';
+import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
+import { LoadingController, ToastController } from '@ionic/angular/standalone';
 import type {
   GameEntry,
   HltbMatchCandidate,
@@ -41,6 +44,9 @@ vi.mock('../features/game-list/game-list-bulk-actions', () => ({
 
 import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
 import { MetadataValidatorPage } from './metadata-validator.page';
+import { GameShelfService } from '../core/services/game-shelf.service';
+import { PlatformCustomizationService } from '../core/services/platform-customization.service';
+import { DebugLogService } from '../core/services/debug-log.service';
 
 interface ShelfServiceStub {
   shouldUseIgdbCoverForPlatform: ReturnType<typeof vi.fn>;
@@ -156,6 +162,41 @@ function createPageHarness(): {
 describe('MetadataValidatorPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('initializes default state via dependency injection context', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: GameShelfService,
+          useValue: {
+            watchList: vi.fn(() => of([]))
+          }
+        },
+        {
+          provide: PlatformCustomizationService,
+          useValue: { getDisplayNameWithoutAlias: vi.fn((name: string) => name) }
+        },
+        { provide: ToastController, useValue: { create: vi.fn() } },
+        { provide: LoadingController, useValue: { create: vi.fn() } },
+        { provide: Router, useValue: { navigateByUrl: vi.fn() } },
+        { provide: DebugLogService, useValue: { trace: vi.fn() } }
+      ]
+    });
+
+    const page = TestBed.runInInjectionContext(() => new MetadataValidatorPage());
+    expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
+      'hltb',
+      'metacritic',
+      'nonPcTheGamesDbImage'
+    ]);
+    expect(page.isBulkRefreshingMetacritic).toBe(false);
+    expect(page.isMetacriticPickerModalOpen).toBe(false);
+    expect(page.metacriticPickerQuery).toBe('');
+    expect(page.metacriticPickerResults).toEqual([]);
+    expect(page.metacriticPickerError).toBeNull();
+    expect(page.metacriticPickerTargetGame).toBeNull();
+    expect(page.selectedGamesCount).toBe(0);
   });
 
   it('normalizes list and missing filter selections', () => {
@@ -327,6 +368,17 @@ describe('MetadataValidatorPage', () => {
 
     await page.refreshMetacriticForSelectedGames();
     expect(runBulkMock).toHaveBeenCalledOnce();
+    const firstCall = runBulkMock.mock.calls[0] as [
+      {
+        action: (game: GameEntry) => Promise<GameEntry | null>;
+        delay: (ms: number) => Promise<void>;
+      }
+    ];
+    const firstBulkCall = firstCall[0];
+    expect(typeof firstBulkCall.action).toBe('function');
+    expect(typeof firstBulkCall.delay).toBe('function');
+    await firstBulkCall.action(supported);
+    await firstBulkCall.delay(0);
     expect(presentToast).toHaveBeenCalledWith('Updated Metacritic for 1 game.');
     expect(presentToast).toHaveBeenCalledWith(
       'Unable to update Metacritic for 1 selected game.',
@@ -675,6 +727,55 @@ describe('MetadataValidatorPage', () => {
     );
     await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
     expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalled();
+  });
+
+  it('handles metacritic picker short query, no-match, success, and error paths', async () => {
+    const { page, shelf, presentToast } = createPageHarness();
+    const target = createGame({ igdbGameId: '11', platformIgdbId: 6, title: 'Target' });
+
+    setField(page, 'metacriticPickerQuery', 'x');
+    await page.runMetacriticPickerSearch();
+    expect(
+      (page as unknown as { metacriticPickerResults: MetacriticMatchCandidate[] })
+        .metacriticPickerResults
+    ).toEqual([]);
+    expect(
+      (page as unknown as { metacriticPickerError: string | null }).metacriticPickerError
+    ).toBe('Enter at least 2 characters.');
+
+    shelf.refreshGameMetacriticScoreWithQuery.mockResolvedValueOnce(
+      createGame({ metacriticScore: null, metacriticUrl: null })
+    );
+    setField(page, 'metacriticPickerTargetGame', target);
+    await page.applySelectedMetacriticCandidate({
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PC',
+      metacriticScore: 10,
+      metacriticUrl: null
+    });
+    expect(presentToast).toHaveBeenCalledWith('No Metacritic match found for Target.', 'warning');
+
+    shelf.refreshGameMetacriticScore.mockResolvedValueOnce(
+      createGame({ metacriticScore: 80, metacriticUrl: 'https://www.metacritic.com/game/target/' })
+    );
+    setField(page, 'metacriticPickerTargetGame', target);
+    await page.useOriginalMetacriticLookup();
+    expect(presentToast).toHaveBeenCalledWith('Updated Metacritic for Target.');
+
+    shelf.refreshGameMetacriticScoreWithQuery.mockRejectedValueOnce(new Error('down'));
+    setField(page, 'metacriticPickerTargetGame', target);
+    await page.applySelectedMetacriticCandidate({
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PC',
+      metacriticScore: 80,
+      metacriticUrl: null
+    });
+    expect(presentToast).toHaveBeenCalledWith('Unable to update Metacritic for Target.', 'danger');
+    expect(
+      (page as unknown as { isMetacriticPickerLoading: boolean }).isMetacriticPickerLoading
+    ).toBe(false);
   });
 
   it('covers real private delay/presentToast implementations', async () => {

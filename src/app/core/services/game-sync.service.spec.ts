@@ -279,7 +279,7 @@ describe('GameSyncService', () => {
         hltbMainExtraHours: 21.234,
         hltbCompletionistHours: 'not-a-number',
         metacriticScore: 777,
-        metacriticUrl: '//www.metacritic.com/game/example/',
+        metacriticUrl: 'https://www.metacritic.com/game/example/',
         collections: [' Series A ', 'Series A', '', 3],
         genres: [' Action ', 'Action', ''],
         similarGameIgdbIds: ['123', '123', 'bad', 456],
@@ -498,6 +498,11 @@ describe('GameSyncService', () => {
     );
     expect(servicePrivate.normalizeNotes('   ')).toBeNull();
     expect(servicePrivate.normalizeNotes('\r\nLine 1\r\n')).toBe('\nLine 1\n');
+    expect(
+      (
+        service as unknown as { normalizeExternalUrl: (value: unknown) => string | null }
+      ).normalizeExternalUrl('//www.metacritic.com/game/example/')
+    ).toBe('https://www.metacritic.com/game/example/');
   });
 
   it('normalizes custom title/platform helper branches', () => {

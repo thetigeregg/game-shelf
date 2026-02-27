@@ -1060,3 +1060,7 @@
 - ec09885 Add Metacritic pipeline parity
 - 5bac7ed Add metacritic pipeline parity
 
+## v0.1.43 - 2026-02-27
+- 1359a62 Merge pull request #107 from thetigeregg/codex/fix-build-fail-issue
+- b5c49b3 Add config copy to edge build
+

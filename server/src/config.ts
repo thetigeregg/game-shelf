@@ -28,6 +28,9 @@ function readSecretFile(name: string, fallbackSecretName: string): string {
 function readRequiredSecretFile(name: string, fallbackSecretName: string): string {
   const value = readSecretFile(name, fallbackSecretName);
   if (!value) {
+    if (readEnv('NODE_ENV') === 'test') {
+      return `test_${name.toLowerCase()}`;
+    }
     throw new Error(`Missing required secret file for ${name} (${name}_FILE)`);
   }
   return value;

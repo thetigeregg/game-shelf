@@ -18,6 +18,7 @@ import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
 import { DebugLogService } from '../services/debug-log.service';
 import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
+import { isMetacriticPlatformSupported } from '../utils/metacritic-platform-support';
 
 interface SearchResponse {
   items: GameCatalogResult[];
@@ -41,6 +42,19 @@ interface MetacriticSearchResponse {
   candidates?: MetacriticMatchCandidate[] | null;
 }
 
+interface MobyGamesSearchResponse {
+  games?: MobyGamesGameResult[] | null;
+}
+
+interface MobyGamesGameResult {
+  title?: string | null;
+  moby_url?: string | null;
+  critic_score?: number | null;
+  moby_score?: number | null;
+  release_date?: string | null;
+  platforms?: Array<{ name?: string | null }> | null;
+}
+
 interface PopularityTypesResponse {
   items: PopularityTypeOption[];
 }
@@ -59,6 +73,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly boxArtSearchUrl = `${environment.gameApiBaseUrl}/v1/images/boxart/search`;
   private readonly hltbSearchUrl = `${environment.gameApiBaseUrl}/v1/hltb/search`;
   private readonly metacriticSearchUrl = `${environment.gameApiBaseUrl}/v1/metacritic/search`;
+  private readonly mobygamesSearchUrl = `${environment.gameApiBaseUrl}/v1/mobygames/search`;
   private readonly popularityTypesUrl = `${environment.gameApiBaseUrl}/v1/popularity/types`;
   private readonly popularityPrimitivesUrl = `${environment.gameApiBaseUrl}/v1/popularity/primitives`;
   private readonly httpClient = inject(HttpClient);
@@ -344,6 +359,47 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedPlatformIgdbId !== null) {
       params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
     }
+
+    if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {
+      const mobygamesParams = this.buildMobyGamesParams({
+        query: normalizedTitle,
+        releaseYear: normalizedYear,
+        platform: normalizedPlatform,
+        limit: 20
+      });
+      this.debugLogService.trace('igdb_proxy.mobygames.lookup_request', {
+        title: normalizedTitle,
+        releaseYear: normalizedYear,
+        platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
+        platformIgdbId: normalizedPlatformIgdbId
+      });
+
+      return this.httpClient
+        .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
+        .pipe(
+          map((response) => {
+            const normalized = this.normalizeMobygamesScoreResult(response.games ?? null);
+            this.debugLogService.trace('igdb_proxy.mobygames.lookup_response', {
+              gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
+              normalized,
+              hasNormalizedResult: normalized !== null
+            });
+            return normalized;
+          }),
+          catchError((error) => {
+            const rateLimitError = this.toRateLimitError(error);
+            if (rateLimitError) {
+              return throwError(() => rateLimitError);
+            }
+            this.debugLogService.trace(
+              'igdb_proxy.mobygames.lookup_error',
+              this.normalizeUnknown(error)
+            );
+            return of(null);
+          })
+        );
+    }
+
     this.debugLogService.trace('igdb_proxy.metacritic.lookup_request', {
       title: normalizedTitle,
       releaseYear: normalizedYear,
@@ -412,6 +468,46 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedPlatformIgdbId !== null) {
       params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
     }
+
+    if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {
+      const mobygamesParams = this.buildMobyGamesParams({
+        query: normalizedTitle,
+        releaseYear: normalizedYear,
+        platform: normalizedPlatform,
+        limit: 100
+      });
+      this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_request', {
+        title: normalizedTitle,
+        releaseYear: normalizedYear,
+        platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
+        platformIgdbId: normalizedPlatformIgdbId
+      });
+
+      return this.httpClient
+        .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
+        .pipe(
+          map((response) => {
+            const normalized = this.normalizeMobygamesCandidates(response.games ?? null);
+            this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_response', {
+              gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
+              candidateCountNormalized: normalized.length
+            });
+            return normalized;
+          }),
+          catchError((error) => {
+            const rateLimitError = this.toRateLimitError(error);
+            if (rateLimitError) {
+              return throwError(() => rateLimitError);
+            }
+            this.debugLogService.trace(
+              'igdb_proxy.mobygames_candidates.lookup_error',
+              this.normalizeUnknown(error)
+            );
+            return of([]);
+          })
+        );
+    }
+
     this.debugLogService.trace('igdb_proxy.metacritic_candidates.lookup_request', {
       title: normalizedTitle,
       releaseYear: normalizedYear,
@@ -799,6 +895,127 @@ export class IgdbProxyService implements GameSearchApi {
           ) === index
         );
       });
+  }
+
+  private buildMobyGamesParams(options: {
+    query: string;
+    releaseYear: number | null;
+    platform: string;
+    limit: number;
+  }): HttpParams {
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('q', options.query)
+      .set('fuzzy', 'true')
+      .set('limit', String(options.limit))
+      .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date');
+
+    if (options.releaseYear !== null) {
+      params = params.set('releaseYear', String(options.releaseYear));
+    }
+
+    if (options.platform.length > 0) {
+      params = params.set('platform', options.platform);
+    }
+
+    return params;
+  }
+
+  private normalizeMobygamesScoreResult(
+    games: MobyGamesGameResult[] | null | undefined
+  ): MetacriticScoreResult | null {
+    const normalizedCandidates = this.normalizeMobygamesCandidates(games);
+    const best = normalizedCandidates.at(0);
+
+    if (!best) {
+      return null;
+    }
+
+    return {
+      metacriticScore: best.metacriticScore,
+      metacriticUrl: best.metacriticUrl
+    };
+  }
+
+  private normalizeMobygamesCandidates(
+    games: MobyGamesGameResult[] | null | undefined
+  ): MetacriticMatchCandidate[] {
+    if (!Array.isArray(games)) {
+      return [];
+    }
+
+    return games
+      .map((game) => {
+        const title = typeof game.title === 'string' ? game.title.trim() : '';
+        const releaseYear = this.normalizeMobygamesReleaseYear(game.release_date);
+        const platform = this.normalizeMobygamesPlatform(game.platforms);
+        const metacriticScore = this.normalizeMobygamesScore(game);
+        const metacriticUrl = this.normalizeExternalUrl(game.moby_url ?? null);
+
+        return {
+          title,
+          releaseYear,
+          platform,
+          metacriticScore,
+          metacriticUrl
+        };
+      })
+      .filter((candidate) => candidate.title.length > 0)
+      .filter((candidate) => candidate.metacriticScore !== null || candidate.metacriticUrl !== null)
+      .filter((candidate, index, all) => {
+        return (
+          all.findIndex(
+            (entry) =>
+              entry.title === candidate.title &&
+              entry.releaseYear === candidate.releaseYear &&
+              entry.platform === candidate.platform
+          ) === index
+        );
+      });
+  }
+
+  private normalizeMobygamesReleaseYear(releaseDate: string | null | undefined): number | null {
+    if (typeof releaseDate !== 'string' || releaseDate.trim().length === 0) {
+      return null;
+    }
+
+    const raw = releaseDate.trim();
+    const isoYearMatch = raw.match(/^(\d{4})/);
+    if (isoYearMatch) {
+      const year = Number.parseInt(isoYearMatch[1], 10);
+      return Number.isInteger(year) ? year : null;
+    }
+
+    const parsedDate = Date.parse(raw);
+    if (!Number.isFinite(parsedDate)) {
+      return null;
+    }
+    const year = new Date(parsedDate).getUTCFullYear();
+    return Number.isInteger(year) ? year : null;
+  }
+
+  private normalizeMobygamesPlatform(
+    platforms: Array<{ name?: string | null }> | null | undefined
+  ): string | null {
+    if (!Array.isArray(platforms)) {
+      return null;
+    }
+
+    for (const entry of platforms) {
+      const normalized = typeof entry.name === 'string' ? entry.name.trim() : '';
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeMobygamesScore(game: MobyGamesGameResult): number | null {
+    const criticScore = this.normalizeMetacriticScore(game.critic_score ?? null);
+    if (criticScore !== null) {
+      return criticScore;
+    }
+    return this.normalizeMetacriticScore(game.moby_score ?? null);
   }
 
   private normalizeExternalImageUrl(value: string | null): string | null {

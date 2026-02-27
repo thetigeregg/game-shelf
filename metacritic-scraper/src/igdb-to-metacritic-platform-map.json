@@ -1,12 +1,4 @@
 {
-  "3": {
-    "metacriticSlug": "pc",
-    "metacriticDisplay": "PC"
-  },
-  "4": {
-    "metacriticSlug": "n64",
-    "metacriticDisplay": "Nintendo 64"
-  },
   "5": {
     "metacriticSlug": "wii",
     "metacriticDisplay": "Wii"
@@ -14,10 +6,6 @@
   "6": {
     "metacriticSlug": "pc",
     "metacriticDisplay": "PC"
-  },
-  "7": {
-    "metacriticSlug": "ps",
-    "metacriticDisplay": "PlayStation"
   },
   "8": {
     "metacriticSlug": "ps2",
@@ -35,10 +23,6 @@
     "metacriticSlug": "xbox-360",
     "metacriticDisplay": "Xbox 360"
   },
-  "14": {
-    "metacriticSlug": "pc",
-    "metacriticDisplay": "PC"
-  },
   "20": {
     "metacriticSlug": "ds",
     "metacriticDisplay": "Nintendo DS"
@@ -51,10 +35,6 @@
     "metacriticSlug": "gba",
     "metacriticDisplay": "Game Boy Advance"
   },
-  "34": {
-    "metacriticSlug": "android",
-    "metacriticDisplay": "Android"
-  },
   "37": {
     "metacriticSlug": "3ds",
     "metacriticDisplay": "3DS"
@@ -62,10 +42,6 @@
   "38": {
     "metacriticSlug": "psp",
     "metacriticDisplay": "PlayStation Portable"
-  },
-  "39": {
-    "metacriticSlug": "ios",
-    "metacriticDisplay": "iOS"
   },
   "41": {
     "metacriticSlug": "wii-u",
@@ -87,6 +63,14 @@
     "metacriticSlug": "switch",
     "metacriticDisplay": "Nintendo Switch"
   },
+  "137": {
+    "metacriticSlug": "new-nintendo-3ds",
+    "metacriticDisplay": "New Nintendo 3DS"
+  },
+  "159": {
+    "metacriticSlug": "dsi",
+    "metacriticDisplay": "Nintendo DSi"
+  },
   "167": {
     "metacriticSlug": "ps5",
     "metacriticDisplay": "PlayStation 5"
@@ -95,8 +79,8 @@
     "metacriticSlug": "xbox-series-x",
     "metacriticDisplay": "Xbox Series X"
   },
-  "471": {
-    "metacriticSlug": "meta-quest",
-    "metacriticDisplay": "Meta Quest"
+  "508": {
+    "metacriticSlug": "switch-2",
+    "metacriticDisplay": "Nintendo Switch 2"
   }
 }

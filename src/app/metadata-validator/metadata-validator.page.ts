@@ -524,7 +524,8 @@ export class MetadataValidatorPage {
         {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
-          platform: candidate.platform
+          platform: candidate.platform,
+          platformIgdbId: target.platformIgdbId
         }
       );
       this.closeHltbPickerModal();
@@ -848,7 +849,12 @@ export class MetadataValidatorPage {
     if (title.length >= 2) {
       try {
         const candidates = await firstValueFrom(
-          this.gameShelfService.searchMetacriticCandidates(title, game.releaseYear, game.platform)
+          this.gameShelfService.searchMetacriticCandidates(
+            title,
+            game.releaseYear,
+            game.platform,
+            game.platformIgdbId
+          )
         );
         const candidate = candidates.length > 0 ? candidates[0] : null;
 
@@ -859,7 +865,8 @@ export class MetadataValidatorPage {
             {
               title: candidate.title,
               releaseYear: candidate.releaseYear,
-              platform: candidate.platform
+              platform: candidate.platform,
+              platformIgdbId: game.platformIgdbId
             }
           );
         }

@@ -21,6 +21,7 @@ const browserIdleTtlMs = Number.parseInt(
 );
 const debugLogsEnabled =
   String(process.env.DEBUG_METACRITIC_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
+const igdbToMetacriticPlatformDisplayById = loadIgdbToMetacriticPlatformDisplayById();
 
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
@@ -45,6 +46,16 @@ function normalizePlatform(req) {
   return value.length > 0 ? value : null;
 }
 
+function normalizePlatformIgdbId(req) {
+  const raw = String(req.query.platformIgdbId ?? '').trim();
+  if (!/^\d+$/.test(raw)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 function normalizeIncludeCandidates(req) {
   const raw = String(req.query.includeCandidates ?? '')
     .trim()
@@ -60,6 +71,37 @@ function normalizeTitle(value) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function loadIgdbToMetacriticPlatformDisplayById() {
+  try {
+    const jsonPath = new URL('./igdb-to-metacritic-platform-map.json', import.meta.url);
+    const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+
+    if (!parsed || typeof parsed !== 'object') {
+      return new Map();
+    }
+
+    return new Map(
+      Object.entries(parsed)
+        .map(([rawId, value]) => {
+          const platformIgdbId = Number.parseInt(String(rawId), 10);
+          const metacriticDisplay =
+            value && typeof value === 'object' ? String(value.metacriticDisplay ?? '').trim() : '';
+          if (
+            !Number.isInteger(platformIgdbId) ||
+            platformIgdbId <= 0 ||
+            metacriticDisplay.length === 0
+          ) {
+            return null;
+          }
+          return [platformIgdbId, metacriticDisplay];
+        })
+        .filter((entry) => Array.isArray(entry))
+    );
+  } catch {
+    return new Map();
+  }
 }
 
 const variantTokens = new Set([
@@ -196,6 +238,15 @@ function canonicalizePlatform(value) {
     return 'ps4';
   }
 
+  if (
+    normalized === 'playstation vita' ||
+    normalized === 'ps vita' ||
+    normalized === 'psvita' ||
+    normalized === 'vita'
+  ) {
+    return 'ps vita';
+  }
+
   if (normalized === 'xbox one') {
     return 'xbox one';
   }
@@ -219,6 +270,26 @@ function canonicalizePlatform(value) {
   return normalized;
 }
 
+function resolveExpectedPlatformAliases(expectedPlatform, expectedPlatformIgdbId) {
+  const aliases = new Set();
+
+  const byId =
+    typeof expectedPlatformIgdbId === 'number' && Number.isInteger(expectedPlatformIgdbId)
+      ? (igdbToMetacriticPlatformDisplayById.get(expectedPlatformIgdbId) ?? '')
+      : '';
+  const normalizedById = canonicalizePlatform(byId);
+  if (normalizedById.length > 0) {
+    aliases.add(normalizedById);
+  }
+
+  const normalizedByName = canonicalizePlatform(expectedPlatform);
+  if (normalizedByName.length > 0) {
+    aliases.add(normalizedByName);
+  }
+
+  return aliases;
+}
+
 function buildSearchTitleVariants(title) {
   const base = String(title ?? '').trim();
   if (base.length === 0) {
@@ -235,7 +306,13 @@ function buildSearchTitleVariants(title) {
   return [...new Set([base, titleCase].filter((value) => value.length > 0))];
 }
 
-function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate) {
+function rankCandidate(
+  expectedTitle,
+  expectedYear,
+  expectedPlatform,
+  expectedPlatformIgdbId,
+  candidate
+) {
   const normalizedExpected = normalizeTitleForMatching(expectedTitle);
   const normalizedCandidate = normalizeTitleForMatching(candidate.title);
 
@@ -319,15 +396,21 @@ function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate)
     }
   }
 
-  const normalizedExpectedPlatform = canonicalizePlatform(expectedPlatform);
+  const expectedPlatformAliases = resolveExpectedPlatformAliases(
+    expectedPlatform,
+    expectedPlatformIgdbId
+  );
   const normalizedCandidatePlatform = canonicalizePlatform(candidate.platform);
 
-  if (normalizedExpectedPlatform.length > 0 && normalizedCandidatePlatform.length > 0) {
-    if (
-      normalizedCandidatePlatform === normalizedExpectedPlatform ||
-      normalizedCandidatePlatform.includes(normalizedExpectedPlatform) ||
-      normalizedExpectedPlatform.includes(normalizedCandidatePlatform)
-    ) {
+  if (expectedPlatformAliases.size > 0 && normalizedCandidatePlatform.length > 0) {
+    const isPlatformMatch = [...expectedPlatformAliases].some(
+      (expectedAlias) =>
+        normalizedCandidatePlatform === expectedAlias ||
+        normalizedCandidatePlatform.includes(expectedAlias) ||
+        expectedAlias.includes(normalizedCandidatePlatform)
+    );
+
+    if (isPlatformMatch) {
       score += 12;
     }
   }
@@ -459,6 +542,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
   const query = normalizeSearchQuery(req);
   const releaseYear = normalizeReleaseYearQuery(req);
   const platform = normalizePlatform(req);
+  const platformIgdbId = normalizePlatformIgdbId(req);
   const includeCandidates = normalizeIncludeCandidates(req);
 
   if (query.length < 2) {
@@ -485,6 +569,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
           variant,
           releaseYear,
           platform,
+          platformIgdbId,
           includeCandidates,
           candidateCount: candidates.length
         });
@@ -498,7 +583,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
     const ranked = allCandidates
       .map((candidate) => ({
         candidate,
-        score: rankCandidate(query, releaseYear, platform, candidate)
+        score: rankCandidate(query, releaseYear, platform, platformIgdbId, candidate)
       }))
       .filter((entry) => entry.score >= 0)
       .sort((left, right) => right.score - left.score)
@@ -506,7 +591,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
       .slice(0, 30);
 
     const best = ranked[0] ?? null;
-    const bestScore = best ? rankCandidate(query, releaseYear, platform, best) : -1;
+    const bestScore = best ? rankCandidate(query, releaseYear, platform, platformIgdbId, best) : -1;
     const confidenceThreshold = 115;
 
     const item =
@@ -522,6 +607,7 @@ app.get('/v1/metacritic/search', async (req, res) => {
         query,
         releaseYear,
         platform,
+        platformIgdbId,
         includeCandidates,
         rankedCount: ranked.length,
         bestScore,

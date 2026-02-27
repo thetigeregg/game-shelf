@@ -301,7 +301,8 @@ export class IgdbProxyService implements GameSearchApi {
   lookupMetacriticScore(
     title: string,
     releaseYear?: number | null,
-    platform?: string | null
+    platform?: string | null,
+    platformIgdbId?: number | null
   ): Observable<MetacriticScoreResult | null> {
     const normalizedTitle = title.trim();
 
@@ -320,6 +321,10 @@ export class IgdbProxyService implements GameSearchApi {
     const normalizedYear =
       Number.isInteger(releaseYear) && (releaseYear as number) > 0 ? (releaseYear as number) : null;
     const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
+    const normalizedPlatformIgdbId =
+      typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
+        ? platformIgdbId
+        : null;
 
     if (normalizedYear !== null) {
       params = params.set('releaseYear', String(normalizedYear));
@@ -328,10 +333,14 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedPlatform.length > 0) {
       params = params.set('platform', normalizedPlatform);
     }
+    if (normalizedPlatformIgdbId !== null) {
+      params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
+    }
     this.debugLogService.trace('igdb_proxy.metacritic.lookup_request', {
       title: normalizedTitle,
       releaseYear: normalizedYear,
-      platform: normalizedPlatform.length > 0 ? normalizedPlatform : null
+      platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
+      platformIgdbId: normalizedPlatformIgdbId
     });
 
     return this.httpClient.get<MetacriticSearchResponse>(this.metacriticSearchUrl, { params }).pipe(
@@ -357,7 +366,8 @@ export class IgdbProxyService implements GameSearchApi {
   lookupMetacriticCandidates(
     title: string,
     releaseYear?: number | null,
-    platform?: string | null
+    platform?: string | null,
+    platformIgdbId?: number | null
   ): Observable<MetacriticMatchCandidate[]> {
     const normalizedTitle = title.trim();
 
@@ -375,6 +385,10 @@ export class IgdbProxyService implements GameSearchApi {
     const normalizedYear =
       Number.isInteger(releaseYear) && (releaseYear as number) > 0 ? (releaseYear as number) : null;
     const normalizedPlatform = typeof platform === 'string' ? platform.trim() : '';
+    const normalizedPlatformIgdbId =
+      typeof platformIgdbId === 'number' && Number.isInteger(platformIgdbId) && platformIgdbId > 0
+        ? platformIgdbId
+        : null;
 
     if (normalizedYear !== null) {
       params = params.set('releaseYear', String(normalizedYear));
@@ -383,10 +397,14 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedPlatform.length > 0) {
       params = params.set('platform', normalizedPlatform);
     }
+    if (normalizedPlatformIgdbId !== null) {
+      params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
+    }
     this.debugLogService.trace('igdb_proxy.metacritic_candidates.lookup_request', {
       title: normalizedTitle,
       releaseYear: normalizedYear,
-      platform: normalizedPlatform.length > 0 ? normalizedPlatform : null
+      platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
+      platformIgdbId: normalizedPlatformIgdbId
     });
 
     return this.httpClient.get<MetacriticSearchResponse>(this.metacriticSearchUrl, { params }).pipe(

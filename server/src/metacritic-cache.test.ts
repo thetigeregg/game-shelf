@@ -270,7 +270,7 @@ void test('METACRITIC cache deletes stale invalid payload and fetches fresh resp
 
   // Cache key for q=okami with default query params.
   pool.seed(
-    '8e1ab85d0a4683234ba346eebe701b9506defc4f93464723461226ace18cd84a',
+    'e8ac7720f010ff28fe7aa9a5be0c4cdf2bb4da8b2fcf5ec8dbde76375f787bf4',
     { item: null, candidates: [] },
     new Date(Date.UTC(2026, 1, 1, 0, 0, 0)).toISOString()
   );

@@ -959,9 +959,9 @@
           @for (candidate of metacriticPickerResults; track candidate) {
             <ion-item button detail="false" (click)="applySelectedMetacriticCandidate(candidate)">
               @if (candidate.imageUrl) {
-                <ion-thumbnail slot="start">
+                <div slot="start" class="candidate-thumbnail">
                   <img [src]="candidate.imageUrl" alt="Metacritic result cover" />
-                </ion-thumbnail>
+                </div>
               }
               <ion-label>
                 <h2>{{ candidate.title }}</h2>

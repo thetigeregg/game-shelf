@@ -436,6 +436,23 @@ async function searchMetacriticInBrowser(page, query) {
   await page.waitForTimeout(300);
 
   const items = await page.evaluate(() => {
+    const parseMetacriticScoreInPage = (rawValue) => {
+      const text = String(rawValue ?? '')
+        .toLowerCase()
+        .trim();
+      if (text.length === 0 || text.includes('tbd') || text.includes('null')) {
+        return null;
+      }
+
+      const match = text.match(/\b([1-9]\d?|100)\b/);
+      if (!match) {
+        return null;
+      }
+
+      const parsed = Number.parseInt(match[1], 10);
+      return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
+    };
+
     const rows = Array.from(
       document.querySelectorAll(
         '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard'
@@ -493,7 +510,7 @@ async function searchMetacriticInBrowser(page, query) {
               ''
           ).trim()
         : '';
-      const scoreValue = parseMetacriticScore(scoreRaw);
+      const scoreValue = parseMetacriticScoreInPage(scoreRaw);
 
       const releaseDateText = String(
         row.querySelector('[data-testid="product-release-date"], time, .c-finderProductCard_meta')

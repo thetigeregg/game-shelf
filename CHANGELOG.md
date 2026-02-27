@@ -1005,3 +1005,10 @@
 - c833710 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, ajv, and minimatch to latest versions
 - 1d6d7ff chore(deps): update Angular and Capacitor dependencies to latest versions
 
+## v0.1.40 - 2026-02-27
+- 0a7dce3 Merge pull request #104 from thetigeregg/codex/add-exclusion-filters-accordion
+- 8115ac3 Generate PR title and summary
+- b0be461 Add exclusion filters accordion
+- ae225c7 Add exclusion filters accordion
+- 5eb88d8 Add exclusion filters accordion
+

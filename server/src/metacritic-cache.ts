@@ -14,6 +14,7 @@ interface NormalizedMetacriticQuery {
   query: string;
   releaseYear: number | null;
   platform: string | null;
+  platformIgdbId: number | null;
   includeCandidates: boolean;
 }
 
@@ -153,6 +154,10 @@ function normalizeMetacriticQuery(rawUrl: string): NormalizedMetacriticQuery | n
   const releaseYear = /^\d{4}$/.test(rawYear) ? Number.parseInt(rawYear, 10) : null;
   const rawPlatform = (url.searchParams.get('platform') ?? '').trim();
   const platform = rawPlatform.length > 0 ? rawPlatform : null;
+  const rawPlatformIgdbId = (url.searchParams.get('platformIgdbId') ?? '').trim();
+  const platformIgdbId = /^\d+$/.test(rawPlatformIgdbId)
+    ? Number.parseInt(rawPlatformIgdbId, 10)
+    : null;
   const rawIncludeCandidates = (url.searchParams.get('includeCandidates') ?? '')
     .trim()
     .toLowerCase();
@@ -165,6 +170,10 @@ function normalizeMetacriticQuery(rawUrl: string): NormalizedMetacriticQuery | n
     query,
     releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
     platform,
+    platformIgdbId:
+      Number.isInteger(platformIgdbId) && (platformIgdbId as number) > 0
+        ? (platformIgdbId as number)
+        : null,
     includeCandidates
   };
 }
@@ -174,6 +183,7 @@ function buildCacheKey(query: NormalizedMetacriticQuery): string {
     query.query.toLowerCase(),
     query.releaseYear,
     query.platform?.toLowerCase() ?? null,
+    query.platformIgdbId,
     query.includeCandidates
   ]);
 

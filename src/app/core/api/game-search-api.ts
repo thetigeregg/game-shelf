@@ -33,12 +33,14 @@ export interface GameSearchApi {
   lookupMetacriticScore(
     title: string,
     releaseYear?: number | null,
-    platform?: string | null
+    platform?: string | null,
+    platformIgdbId?: number | null
   ): Observable<MetacriticScoreResult | null>;
   lookupMetacriticCandidates(
     title: string,
     releaseYear?: number | null,
-    platform?: string | null
+    platform?: string | null,
+    platformIgdbId?: number | null
   ): Observable<MetacriticMatchCandidate[]>;
   listPopularityTypes(): Observable<PopularityTypeOption[]>;
   listPopularityGames(

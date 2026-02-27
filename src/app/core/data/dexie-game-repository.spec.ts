@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
 import { AppDb } from './app-db';
 import { DexieGameRepository } from './dexie-game-repository';
-import { GameCatalogResult } from '../models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult } from '../models/game.models';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 
 describe('DexieGameRepository', () => {
@@ -286,6 +286,45 @@ describe('DexieGameRepository', () => {
     expect(stored?.notes).toBe('Track hidden item locations');
   });
 
+  it('normalizes metacritic score/url on create and update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 87.6,
+        metacriticUrl: '//www.metacritic.com/game/super-mario-bros/'
+      },
+      'collection'
+    );
+
+    const created = await repository.exists('101', 18);
+    expect(created?.metacriticScore).toBe(88);
+    expect(created?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 101,
+        metacriticUrl: 'ftp://invalid'
+      },
+      'collection'
+    );
+    const invalidUpdated = await repository.exists('101', 18);
+    expect(invalidUpdated?.metacriticScore).toBeNull();
+    expect(invalidUpdated?.metacriticUrl).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/'
+      },
+      'collection'
+    );
+    const httpsUpdated = await repository.exists('101', 18);
+    expect(httpsUpdated?.metacriticScore).toBe(95);
+    expect(httpsUpdated?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });
@@ -374,6 +413,19 @@ describe('DexieGameRepository', () => {
   it('returns undefined when updating a missing view', async () => {
     const updated = await repository.updateView(404, { name: 'Missing' });
     expect(updated).toBeUndefined();
+  });
+
+  it('falls back to default sort field when view sort field is invalid', async () => {
+    const created = await repository.createView({
+      name: 'Sort fallback',
+      listType: 'collection',
+      filters: {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'unsupported' as never
+      },
+      groupBy: 'none'
+    });
+    expect(created.filters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
   });
 
   it('throws for invalid game and view inputs', async () => {

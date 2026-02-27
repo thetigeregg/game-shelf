@@ -865,6 +865,26 @@ describe('GameShelfService', () => {
     expect(result).toEqual(updatedEntry);
   });
 
+  it('returns empty metacritic candidates for short queries and trims valid queries', async () => {
+    await expect(firstValueFrom(service.searchMetacriticCandidates('x'))).resolves.toEqual([]);
+    expect(searchApi.lookupMetacriticCandidates).not.toHaveBeenCalled();
+
+    searchApi.lookupMetacriticCandidates.mockReturnValue(of([]));
+    await firstValueFrom(service.searchMetacriticCandidates('  Okami  ', 2006, 'Wii', 19));
+    expect(searchApi.lookupMetacriticCandidates).toHaveBeenCalledWith('Okami', 2006, 'Wii', 19);
+  });
+
+  it('throws for metacritic refresh when target game no longer exists', async () => {
+    repository.exists.mockResolvedValue(undefined);
+
+    await expect(service.refreshGameMetacriticScore('123', 5)).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
+    await expect(
+      service.refreshGameMetacriticScoreWithQuery('123', 5, { title: 'Any' })
+    ).rejects.toThrowError('Game entry no longer exists.');
+  });
+
   it('returns empty box art results for short queries', async () => {
     const results = await firstValueFrom(service.searchBoxArtByTitle('m'));
     expect(results).toEqual([]);

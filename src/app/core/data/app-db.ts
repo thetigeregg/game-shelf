@@ -107,6 +107,50 @@ export class AppDb extends Dexie {
       outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
       syncMeta: '&key,updatedAt'
     });
+
+    this.version(8)
+      .stores({
+        games:
+          '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+        tags: '++id,&name,createdAt,updatedAt',
+        views: '++id,listType,name,updatedAt,createdAt',
+        imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+        outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+        syncMeta: '&key,updatedAt'
+      })
+      .upgrade((tx) => {
+        return tx
+          .table('games')
+          .toCollection()
+          .modify((game: Record<string, unknown>) => {
+            const reviewScoreRaw = game['reviewScore'];
+            const reviewUrlRaw = game['reviewUrl'];
+            const reviewSourceRaw = game['reviewSource'];
+            const metacriticScoreRaw = game['metacriticScore'];
+            const metacriticUrlRaw = game['metacriticUrl'];
+
+            if (reviewScoreRaw === undefined) {
+              game['reviewScore'] = metacriticScoreRaw ?? null;
+            }
+            if (reviewUrlRaw === undefined) {
+              game['reviewUrl'] = metacriticUrlRaw ?? null;
+            }
+            if (
+              reviewSourceRaw === undefined ||
+              reviewSourceRaw === null ||
+              reviewSourceRaw === ''
+            ) {
+              game['reviewSource'] = game['reviewUrl'] ? 'metacritic' : null;
+            }
+
+            if (metacriticScoreRaw === undefined) {
+              game['metacriticScore'] = game['reviewScore'] ?? null;
+            }
+            if (metacriticUrlRaw === undefined) {
+              game['metacriticUrl'] = game['reviewUrl'] ?? null;
+            }
+          });
+      });
   }
 }
 

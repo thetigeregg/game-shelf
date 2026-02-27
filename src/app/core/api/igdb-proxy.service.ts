@@ -11,6 +11,8 @@ import {
   HltbMatchCandidate,
   MetacriticMatchCandidate,
   MetacriticScoreResult,
+  ReviewMatchCandidate,
+  ReviewScoreResult,
   PopularityGameResult,
   PopularityTypeOption
 } from '../models/game.models';
@@ -327,6 +329,17 @@ export class IgdbProxyService implements GameSearchApi {
     platform?: string | null,
     platformIgdbId?: number | null
   ): Observable<MetacriticScoreResult | null> {
+    return this.lookupReviewScore(title, releaseYear, platform, platformIgdbId).pipe(
+      map((result) => this.toLegacyMetacriticScoreResult(result))
+    );
+  }
+
+  lookupReviewScore(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null,
+    platformIgdbId?: number | null
+  ): Observable<ReviewScoreResult | null> {
     const normalizedTitle = title.trim();
 
     if (normalizedTitle.length < 2) {
@@ -378,7 +391,7 @@ export class IgdbProxyService implements GameSearchApi {
         .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
         .pipe(
           map((response) => {
-            const normalized = this.normalizeMobygamesScoreResult(response.games ?? null);
+            const normalized = this.normalizeMobygamesReviewScoreResult(response.games ?? null);
             this.debugLogService.trace('igdb_proxy.mobygames.lookup_response', {
               gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
               normalized,
@@ -409,7 +422,7 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<MetacriticSearchResponse>(this.metacriticSearchUrl, { params }).pipe(
       map((response) => {
-        const normalized = this.normalizeMetacriticScoreResult(response.item ?? null);
+        const normalized = this.normalizeReviewScoreResult(response.item ?? null, 'metacritic');
         this.debugLogService.trace('igdb_proxy.metacritic.lookup_response', {
           hasItem: response.item !== null,
           normalized,
@@ -437,6 +450,19 @@ export class IgdbProxyService implements GameSearchApi {
     platform?: string | null,
     platformIgdbId?: number | null
   ): Observable<MetacriticMatchCandidate[]> {
+    return this.lookupReviewCandidates(title, releaseYear, platform, platformIgdbId).pipe(
+      map((candidates) =>
+        candidates.map((candidate) => this.toLegacyMetacriticCandidate(candidate))
+      )
+    );
+  }
+
+  lookupReviewCandidates(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null,
+    platformIgdbId?: number | null
+  ): Observable<ReviewMatchCandidate[]> {
     const normalizedTitle = title.trim();
 
     if (normalizedTitle.length < 2) {
@@ -487,7 +513,7 @@ export class IgdbProxyService implements GameSearchApi {
         .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
         .pipe(
           map((response) => {
-            const normalized = this.normalizeMobygamesCandidates(response.games ?? null);
+            const normalized = this.normalizeMobygamesReviewCandidates(response.games ?? null);
             this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_response', {
               gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
               candidateCountNormalized: normalized.length
@@ -517,7 +543,7 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<MetacriticSearchResponse>(this.metacriticSearchUrl, { params }).pipe(
       map((response) => {
-        const normalized = this.normalizeMetacriticCandidates(response.candidates ?? []);
+        const normalized = this.normalizeReviewCandidates(response.candidates ?? [], 'metacritic');
         this.debugLogService.trace('igdb_proxy.metacritic_candidates.lookup_response', {
           candidateCountRaw: Array.isArray(response.candidates) ? response.candidates.length : 0,
           candidateCountNormalized: normalized.length
@@ -612,6 +638,17 @@ export class IgdbProxyService implements GameSearchApi {
     const platformOptions = this.normalizePlatformOptions(result);
     const platforms = [...new Set(platformOptions.map((platform) => platform.name))];
 
+    const normalizedReviewScore = this.normalizeMetacriticScore(
+      result.reviewScore ?? result.metacriticScore
+    );
+    const normalizedReviewUrl = this.normalizeExternalUrl(result.reviewUrl ?? result.metacriticUrl);
+    const normalizedReviewSource =
+      result.reviewSource === 'metacritic' || result.reviewSource === 'mobygames'
+        ? result.reviewSource
+        : normalizedReviewScore !== null || normalizedReviewUrl !== null
+          ? 'metacritic'
+          : null;
+
     return {
       igdbGameId,
       title: title.length > 0 ? title : 'Unknown title',
@@ -629,8 +666,11 @@ export class IgdbProxyService implements GameSearchApi {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
-      metacriticScore: this.normalizeMetacriticScore(result.metacriticScore),
-      metacriticUrl: this.normalizeExternalUrl(result.metacriticUrl),
+      ...(normalizedReviewScore !== null ? { reviewScore: normalizedReviewScore } : {}),
+      ...(normalizedReviewUrl !== null ? { reviewUrl: normalizedReviewUrl } : {}),
+      ...(normalizedReviewSource !== null ? { reviewSource: normalizedReviewSource } : {}),
+      metacriticScore: normalizedReviewScore,
+      metacriticUrl: normalizedReviewUrl,
       similarGameIgdbIds: this.normalizeGameIdList(
         (result as GameCatalogResult & { similarGameIgdbIds?: unknown }).similarGameIgdbIds
       ),
@@ -829,28 +869,35 @@ export class IgdbProxyService implements GameSearchApi {
       });
   }
 
-  private normalizeMetacriticScoreResult(
-    value: MetacriticScoreResult | null
-  ): MetacriticScoreResult | null {
+  private normalizeReviewScoreResult(
+    value: MetacriticScoreResult | null,
+    source: 'metacritic'
+  ): ReviewScoreResult | null {
     if (!value) {
       return null;
     }
 
-    const normalized: MetacriticScoreResult = {
-      metacriticScore: this.normalizeMetacriticScore(value.metacriticScore),
-      metacriticUrl: this.normalizeExternalUrl(value.metacriticUrl)
+    const reviewScore = this.normalizeMetacriticScore(value.metacriticScore);
+    const reviewUrl = this.normalizeExternalUrl(value.metacriticUrl);
+    const normalized: ReviewScoreResult = {
+      reviewScore,
+      reviewUrl,
+      reviewSource: source,
+      metacriticScore: reviewScore,
+      metacriticUrl: reviewUrl
     };
 
-    if (normalized.metacriticScore === null && normalized.metacriticUrl === null) {
+    if (normalized.reviewScore === null && normalized.reviewUrl === null) {
       return null;
     }
 
     return normalized;
   }
 
-  private normalizeMetacriticCandidates(
-    candidates: MetacriticMatchCandidate[] | null | undefined
-  ): MetacriticMatchCandidate[] {
+  private normalizeReviewCandidates(
+    candidates: MetacriticMatchCandidate[] | null | undefined,
+    source: 'metacritic'
+  ): ReviewMatchCandidate[] {
     if (!Array.isArray(candidates)) {
       return [];
     }
@@ -871,20 +918,23 @@ export class IgdbProxyService implements GameSearchApi {
               ? candidateRecord['coverUrl']
               : null
         );
-        const metacriticScore = this.normalizeMetacriticScore(candidate.metacriticScore);
-        const metacriticUrl = this.normalizeExternalUrl(candidate.metacriticUrl);
+        const reviewScore = this.normalizeMetacriticScore(candidate.metacriticScore);
+        const reviewUrl = this.normalizeExternalUrl(candidate.metacriticUrl);
 
         return {
           title,
           releaseYear,
           platform,
-          metacriticScore,
-          metacriticUrl,
+          reviewScore,
+          reviewUrl,
+          reviewSource: source,
+          metacriticScore: reviewScore,
+          metacriticUrl: reviewUrl,
           ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0)
-      .filter((candidate) => candidate.metacriticScore !== null || candidate.metacriticUrl !== null)
+      .filter((candidate) => candidate.reviewScore !== null || candidate.reviewUrl !== null)
       .filter((candidate, index, all) => {
         return (
           all.findIndex(
@@ -920,10 +970,10 @@ export class IgdbProxyService implements GameSearchApi {
     return params;
   }
 
-  private normalizeMobygamesScoreResult(
+  private normalizeMobygamesReviewScoreResult(
     games: MobyGamesGameResult[] | null | undefined
-  ): MetacriticScoreResult | null {
-    const normalizedCandidates = this.normalizeMobygamesCandidates(games);
+  ): ReviewScoreResult | null {
+    const normalizedCandidates = this.normalizeMobygamesReviewCandidates(games);
     const best = normalizedCandidates.at(0);
 
     if (!best) {
@@ -931,14 +981,17 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return {
+      reviewScore: best.reviewScore,
+      reviewUrl: best.reviewUrl,
+      reviewSource: best.reviewSource,
       metacriticScore: best.metacriticScore,
       metacriticUrl: best.metacriticUrl
     };
   }
 
-  private normalizeMobygamesCandidates(
+  private normalizeMobygamesReviewCandidates(
     games: MobyGamesGameResult[] | null | undefined
-  ): MetacriticMatchCandidate[] {
+  ): ReviewMatchCandidate[] {
     if (!Array.isArray(games)) {
       return [];
     }
@@ -948,19 +1001,22 @@ export class IgdbProxyService implements GameSearchApi {
         const title = typeof game.title === 'string' ? game.title.trim() : '';
         const releaseYear = this.normalizeMobygamesReleaseYear(game.release_date);
         const platform = this.normalizeMobygamesPlatform(game.platforms);
-        const metacriticScore = this.normalizeMobygamesScore(game);
-        const metacriticUrl = this.normalizeExternalUrl(game.moby_url ?? null);
+        const reviewScore = this.normalizeMobygamesScore(game);
+        const reviewUrl = this.normalizeExternalUrl(game.moby_url ?? null);
 
         return {
           title,
           releaseYear,
           platform,
-          metacriticScore,
-          metacriticUrl
+          reviewScore,
+          reviewUrl,
+          reviewSource: 'mobygames',
+          metacriticScore: reviewScore,
+          metacriticUrl: reviewUrl
         };
       })
       .filter((candidate) => candidate.title.length > 0)
-      .filter((candidate) => candidate.metacriticScore !== null || candidate.metacriticUrl !== null)
+      .filter((candidate) => candidate.reviewScore !== null || candidate.reviewUrl !== null)
       .filter((candidate, index, all) => {
         return (
           all.findIndex(
@@ -971,6 +1027,30 @@ export class IgdbProxyService implements GameSearchApi {
           ) === index
         );
       });
+  }
+
+  private toLegacyMetacriticScoreResult(
+    result: ReviewScoreResult | null
+  ): MetacriticScoreResult | null {
+    if (!result) {
+      return null;
+    }
+
+    return {
+      metacriticScore: this.normalizeMetacriticScore(result.reviewScore),
+      metacriticUrl: this.normalizeExternalUrl(result.reviewUrl)
+    };
+  }
+
+  private toLegacyMetacriticCandidate(candidate: ReviewMatchCandidate): MetacriticMatchCandidate {
+    return {
+      title: candidate.title,
+      releaseYear: candidate.releaseYear,
+      platform: candidate.platform,
+      metacriticScore: this.normalizeMetacriticScore(candidate.reviewScore),
+      metacriticUrl: this.normalizeExternalUrl(candidate.reviewUrl),
+      ...(candidate.imageUrl ? { imageUrl: candidate.imageUrl } : {})
+    };
   }
 
   private normalizeMobygamesReleaseYear(releaseDate: string | null | undefined): number | null {

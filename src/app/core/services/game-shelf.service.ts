@@ -12,6 +12,8 @@ import {
   GameListView,
   HltbMatchCandidate,
   MetacriticMatchCandidate,
+  ReviewMatchCandidate,
+  ReviewScoreResult,
   GameRating,
   GameStatus,
   GameTag,
@@ -150,18 +152,50 @@ export class GameShelfService {
     platform?: string | null,
     platformIgdbId?: number | null
   ): Observable<MetacriticMatchCandidate[]> {
+    return this.searchReviewCandidates(title, releaseYear, platform, platformIgdbId).pipe(
+      map((candidates) =>
+        candidates.map((candidate) => ({
+          title: candidate.title,
+          releaseYear: candidate.releaseYear,
+          platform: candidate.platform,
+          metacriticScore: candidate.reviewScore,
+          metacriticUrl: candidate.reviewUrl,
+          ...(candidate.imageUrl ? { imageUrl: candidate.imageUrl } : {})
+        }))
+      )
+    );
+  }
+
+  searchReviewCandidates(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null,
+    platformIgdbId?: number | null
+  ): Observable<ReviewMatchCandidate[]> {
     const normalized = title.trim();
 
     if (normalized.length < 2) {
       return of([]);
     }
 
-    return this.searchApi.lookupMetacriticCandidates(
-      normalized,
-      releaseYear,
-      platform,
-      platformIgdbId
-    );
+    const reviewLookup = (this.searchApi as Partial<GameSearchApi>).lookupReviewCandidates;
+
+    if (typeof reviewLookup === 'function') {
+      return reviewLookup.call(this.searchApi, normalized, releaseYear, platform, platformIgdbId);
+    }
+
+    return this.searchApi
+      .lookupMetacriticCandidates(normalized, releaseYear, platform, platformIgdbId)
+      .pipe(
+        map((candidates) =>
+          candidates.map((candidate) => ({
+            ...candidate,
+            reviewScore: candidate.metacriticScore,
+            reviewUrl: candidate.metacriticUrl,
+            reviewSource: 'metacritic'
+          }))
+        )
+      );
   }
 
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
@@ -227,6 +261,9 @@ export class GameShelfService {
       hltbMainHours: null,
       hltbMainExtraHours: null,
       hltbCompletionistHours: null,
+      reviewScore: null,
+      reviewUrl: null,
+      reviewSource: null,
       metacriticScore: null,
       metacriticUrl: null
     };
@@ -393,6 +430,10 @@ export class GameShelfService {
   }
 
   async refreshGameMetacriticScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
+    return this.refreshGameReviewScore(igdbGameId, platformIgdbId);
+  }
+
+  async refreshGameReviewScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
       igdbGameId,
       platformIgdbId,
@@ -408,7 +449,7 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
-    return this.refreshGameMetacriticWithLookup(
+    return this.refreshGameReviewWithLookup(
       existing,
       existing.title,
       existing.releaseYear,
@@ -418,6 +459,19 @@ export class GameShelfService {
   }
 
   async refreshGameMetacriticScoreWithQuery(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query: {
+      title: string;
+      releaseYear?: number | null;
+      platform?: string | null;
+      platformIgdbId?: number | null;
+    }
+  ): Promise<GameEntry> {
+    return this.refreshGameReviewScoreWithQuery(igdbGameId, platformIgdbId, query);
+  }
+
+  async refreshGameReviewScoreWithQuery(
     igdbGameId: string,
     platformIgdbId: number,
     query: {
@@ -459,7 +513,7 @@ export class GameShelfService {
         ? query.platformIgdbId
         : existing.platformIgdbId;
 
-    return this.refreshGameMetacriticWithLookup(
+    return this.refreshGameReviewWithLookup(
       existing,
       title,
       releaseYear,
@@ -501,6 +555,9 @@ export class GameShelfService {
         hltbMainHours: completionTimes?.hltbMainHours ?? null,
         hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,
         hltbCompletionistHours: completionTimes?.hltbCompletionistHours ?? null,
+        reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
+        reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
+        reviewSource: existing.reviewSource ?? null,
         metacriticScore: existing.metacriticScore ?? null,
         metacriticUrl: existing.metacriticUrl ?? null,
         similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
@@ -529,7 +586,7 @@ export class GameShelfService {
     return updated;
   }
 
-  private async refreshGameMetacriticWithLookup(
+  private async refreshGameReviewWithLookup(
     existing: GameEntry,
     title: string,
     releaseYear: number | null,
@@ -543,9 +600,26 @@ export class GameShelfService {
       lookupPlatform: platform,
       lookupPlatformIgdbId: platformIgdbId
     });
-    const scoreResult = await firstValueFrom(
-      this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId)
-    );
+    const reviewLookup = (this.searchApi as Partial<GameSearchApi>).lookupReviewScore;
+    const scoreResult: ReviewScoreResult | null =
+      typeof reviewLookup === 'function'
+        ? await firstValueFrom(
+            reviewLookup.call(this.searchApi, title, releaseYear, platform, platformIgdbId)
+          )
+        : await firstValueFrom(
+            this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId).pipe(
+              map((result) =>
+                result
+                  ? {
+                      ...result,
+                      reviewScore: result.metacriticScore,
+                      reviewUrl: result.metacriticUrl,
+                      reviewSource: 'metacritic'
+                    }
+                  : null
+              )
+            )
+          );
     this.debugLogService.trace('game_shelf.metacritic.lookup_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       scoreResult,
@@ -564,8 +638,11 @@ export class GameShelfService {
         hltbMainHours: existing.hltbMainHours ?? null,
         hltbMainExtraHours: existing.hltbMainExtraHours ?? null,
         hltbCompletionistHours: existing.hltbCompletionistHours ?? null,
-        metacriticScore: scoreResult?.metacriticScore ?? null,
-        metacriticUrl: scoreResult?.metacriticUrl ?? null,
+        reviewScore: scoreResult?.reviewScore ?? null,
+        reviewUrl: scoreResult?.reviewUrl ?? null,
+        reviewSource: scoreResult?.reviewSource ?? null,
+        metacriticScore: scoreResult?.reviewScore ?? scoreResult?.metacriticScore ?? null,
+        metacriticUrl: scoreResult?.reviewUrl ?? scoreResult?.metacriticUrl ?? null,
         similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
         collections: existing.collections ?? [],
         developers: existing.developers ?? [],

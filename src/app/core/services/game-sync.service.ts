@@ -389,8 +389,17 @@ export class GameSyncService implements SyncOutboxWriter {
       hltbMainHours: this.normalizeCompletionHours(payload.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(payload.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(payload.hltbCompletionistHours),
-      metacriticScore: this.normalizeMetacriticScore(payload.metacriticScore),
-      metacriticUrl: this.normalizeExternalUrl(payload.metacriticUrl),
+      reviewScore: this.normalizeMetacriticScore(payload.reviewScore ?? payload.metacriticScore),
+      reviewUrl: this.normalizeExternalUrl(payload.reviewUrl ?? payload.metacriticUrl),
+      reviewSource: this.normalizeReviewSource(
+        payload.reviewSource,
+        payload.reviewScore ?? payload.metacriticScore,
+        payload.reviewUrl ?? payload.metacriticUrl
+      ),
+      metacriticScore: this.normalizeMetacriticScore(
+        payload.reviewScore ?? payload.metacriticScore
+      ),
+      metacriticUrl: this.normalizeExternalUrl(payload.reviewUrl ?? payload.metacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(payload.similarGameIgdbIds),
       collections: this.normalizeStringList(payload.collections),
       developers: this.normalizeStringList(payload.developers),
@@ -534,6 +543,20 @@ export class GameSyncService implements SyncOutboxWriter {
 
     const normalized = Math.round(value);
     return Number.isInteger(normalized) && normalized >= 1 && normalized <= 100 ? normalized : null;
+  }
+
+  private normalizeReviewSource(
+    value: unknown,
+    score: unknown,
+    url: unknown
+  ): 'metacritic' | 'mobygames' | null {
+    if (value === 'metacritic' || value === 'mobygames') {
+      return value;
+    }
+
+    const normalizedScore = this.normalizeMetacriticScore(score);
+    const normalizedUrl = this.normalizeExternalUrl(url);
+    return normalizedScore !== null || normalizedUrl !== null ? 'metacritic' : null;
   }
 
   private normalizeGameType(value: unknown): GameEntry['gameType'] {

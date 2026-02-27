@@ -774,7 +774,7 @@ export class GameListFilteringEngine {
     }
 
     const sortedGames =
-      sortField === 'metacritic'
+      sortField === 'metacritic' || sortField === 'review'
         ? [...games].sort((left, right) =>
             this.compareGamesByMetacritic(left, right, sortDirection)
           )
@@ -1046,8 +1046,10 @@ export class GameListFilteringEngine {
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection']
   ): number {
-    const leftScore = this.normalizeMetacriticSortScore(left.metacriticScore);
-    const rightScore = this.normalizeMetacriticSortScore(right.metacriticScore);
+    const leftScore = this.normalizeMetacriticSortScore(left.reviewScore ?? left.metacriticScore);
+    const rightScore = this.normalizeMetacriticSortScore(
+      right.reviewScore ?? right.metacriticScore
+    );
 
     if (leftScore === null && rightScore === null) {
       return this.sortGamesByTitleFallback(left, right);

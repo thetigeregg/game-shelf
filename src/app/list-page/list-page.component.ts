@@ -244,6 +244,15 @@ export class ListPageComponent {
     const normalizedGameTypes = normalizeGameTypeList(filters.gameTypes);
     const normalizedStatuses = normalizeGameStatusFilterList(filters.statuses);
     const normalizedTags = normalizeTagFilterList(filters.tags, this.noneTagFilterValue);
+    const normalizedExcludedPlatforms = normalizeStringList(filters.excludedPlatform);
+    const normalizedExcludedGenres = normalizeStringList(filters.excludedGenres);
+    const normalizedExcludedStatuses = normalizeGameStatusFilterList(
+      filters.excludedStatuses
+    ).filter((status) => status !== 'none');
+    const normalizedExcludedTags = normalizeStringList(filters.excludedTags).filter(
+      (tag) => tag !== this.noneTagFilterValue
+    );
+    const normalizedExcludedGameTypes = normalizeGameTypeList(filters.excludedGameTypes);
     const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);
     const hltbMainHoursMin = normalizeNonNegativeNumber(filters.hltbMainHoursMin);
     const hltbMainHoursMax = normalizeNonNegativeNumber(filters.hltbMainHoursMax);
@@ -259,6 +268,11 @@ export class ListPageComponent {
       genres: normalizedGenres,
       statuses: normalizedStatuses,
       tags: normalizedTags,
+      excludedPlatform: normalizedExcludedPlatforms,
+      excludedGenres: normalizedExcludedGenres,
+      excludedStatuses: normalizedExcludedStatuses,
+      excludedTags: normalizedExcludedTags,
+      excludedGameTypes: normalizedExcludedGameTypes,
       ratings: normalizedRatings,
       hltbMainHoursMin:
         hltbMainHoursMin !== null &&
@@ -285,11 +299,18 @@ export class ListPageComponent {
     const normalizedSelection = this.filters.platform.filter((platform) =>
       platformOptions.includes(platform)
     );
+    const normalizedExcludedSelection = this.filters.excludedPlatform.filter((platform) =>
+      platformOptions.includes(platform)
+    );
 
-    if (normalizedSelection.length !== this.filters.platform.length) {
+    if (
+      normalizedSelection.length !== this.filters.platform.length ||
+      normalizedExcludedSelection.length !== this.filters.excludedPlatform.length
+    ) {
       this.filters = {
         ...this.filters,
-        platform: normalizedSelection
+        platform: normalizedSelection,
+        excludedPlatform: normalizedExcludedSelection
       };
     }
   }
@@ -297,11 +318,18 @@ export class ListPageComponent {
   onGenreOptionsChange(genreOptions: string[]): void {
     this.genreOptions = genreOptions;
     const normalizedSelection = this.filters.genres.filter((genre) => genreOptions.includes(genre));
+    const normalizedExcludedSelection = this.filters.excludedGenres.filter((genre) =>
+      genreOptions.includes(genre)
+    );
 
-    if (normalizedSelection.length !== this.filters.genres.length) {
+    if (
+      normalizedSelection.length !== this.filters.genres.length ||
+      normalizedExcludedSelection.length !== this.filters.excludedGenres.length
+    ) {
       this.filters = {
         ...this.filters,
-        genres: normalizedSelection
+        genres: normalizedSelection,
+        excludedGenres: normalizedExcludedSelection
       };
     }
   }
@@ -325,11 +353,18 @@ export class ListPageComponent {
     const normalizedSelection = this.filters.gameTypes.filter((gameType) =>
       gameTypeOptions.includes(gameType)
     );
+    const normalizedExcludedSelection = this.filters.excludedGameTypes.filter((gameType) =>
+      gameTypeOptions.includes(gameType)
+    );
 
-    if (normalizedSelection.length !== this.filters.gameTypes.length) {
+    if (
+      normalizedSelection.length !== this.filters.gameTypes.length ||
+      normalizedExcludedSelection.length !== this.filters.excludedGameTypes.length
+    ) {
       this.filters = {
         ...this.filters,
-        gameTypes: normalizedSelection
+        gameTypes: normalizedSelection,
+        excludedGameTypes: normalizedExcludedSelection
       };
     }
   }
@@ -339,11 +374,18 @@ export class ListPageComponent {
     const normalizedSelection = this.filters.tags.filter(
       (tag) => tag === this.noneTagFilterValue || tagOptions.includes(tag)
     );
+    const normalizedExcludedSelection = this.filters.excludedTags.filter(
+      (tag) => tag === this.noneTagFilterValue || tagOptions.includes(tag)
+    );
 
-    if (normalizedSelection.length !== this.filters.tags.length) {
+    if (
+      normalizedSelection.length !== this.filters.tags.length ||
+      normalizedExcludedSelection.length !== this.filters.excludedTags.length
+    ) {
       this.filters = {
         ...this.filters,
-        tags: normalizedSelection
+        tags: normalizedSelection,
+        excludedTags: normalizedExcludedSelection
       };
     }
   }
@@ -559,6 +601,26 @@ export class ListPageComponent {
     }
 
     if (this.filters.statuses.length > 0) {
+      count += 1;
+    }
+
+    if (this.filters.excludedPlatform.length > 0) {
+      count += 1;
+    }
+
+    if (this.filters.excludedTags.length > 0) {
+      count += 1;
+    }
+
+    if (this.filters.excludedGenres.length > 0) {
+      count += 1;
+    }
+
+    if (this.filters.excludedStatuses.length > 0) {
+      count += 1;
+    }
+
+    if (this.filters.excludedGameTypes.length > 0) {
       count += 1;
     }
 

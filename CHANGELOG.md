@@ -1064,3 +1064,8 @@
 - 1359a62 Merge pull request #107 from thetigeregg/codex/fix-build-fail-issue
 - b5c49b3 Add config copy to edge build
 
+## v0.1.44 - 2026-02-27
+- 64eacdb Merge pull request #108 from thetigeregg/codex/fix-build-fail-issue
+- cbce0cf Merge branch 'main' into codex/fix-build-fail-issue
+- 0dc66ab Copy metacritic scraper src
+

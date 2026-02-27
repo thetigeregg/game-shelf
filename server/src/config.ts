@@ -28,6 +28,9 @@ function readSecretFile(name: string, fallbackSecretName: string): string {
 function readRequiredSecretFile(name: string, fallbackSecretName: string): string {
   const value = readSecretFile(name, fallbackSecretName);
   if (!value) {
+    if (readEnv('NODE_ENV') === 'test') {
+      return `test_${name.toLowerCase()}`;
+    }
     throw new Error(`Missing required secret file for ${name} (${name}_FILE)`);
   }
   return value;
@@ -87,6 +90,13 @@ export interface AppConfig {
   hltbCacheEnableStaleWhileRevalidate: boolean;
   hltbCacheFreshTtlSeconds: number;
   hltbCacheStaleTtlSeconds: number;
+  metacriticScraperBaseUrl: string;
+  metacriticScraperToken: string;
+  metacriticCacheEnableStaleWhileRevalidate: boolean;
+  metacriticCacheFreshTtlSeconds: number;
+  metacriticCacheStaleTtlSeconds: number;
+  hltbSearchRateLimitMaxPerMinute: number;
+  metacriticSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
 }
@@ -165,6 +175,19 @@ export const config: AppConfig = {
   ),
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  hltbSearchRateLimitMaxPerMinute: readIntegerEnv('HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE', 240),
+  metacriticScraperBaseUrl: readEnv('METACRITIC_SCRAPER_BASE_URL', ''),
+  metacriticScraperToken: readSecretFile('METACRITIC_SCRAPER_TOKEN', 'metacritic_scraper_token'),
+  metacriticCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  metacriticCacheFreshTtlSeconds: readIntegerEnv('METACRITIC_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
+  metacriticCacheStaleTtlSeconds: readIntegerEnv('METACRITIC_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  metacriticSearchRateLimitMaxPerMinute: readIntegerEnv(
+    'METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
+    240
+  ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')
 };

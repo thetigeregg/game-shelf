@@ -280,6 +280,10 @@ export class ViewsPage implements OnInit {
       return `HLTB ${direction}`;
     }
 
+    if (sortField === 'metacritic') {
+      return `Metacritic ${direction}`;
+    }
+
     if (sortField === 'platform') {
       return `Platform ${direction}`;
     }

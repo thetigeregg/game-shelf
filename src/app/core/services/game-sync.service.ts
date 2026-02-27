@@ -359,22 +359,45 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
-    const normalized = {
-      ...payload,
+    const title =
+      typeof payload.title === 'string' && payload.title.trim().length > 0
+        ? payload.title.trim()
+        : 'Unknown title';
+    const platform =
+      typeof payload.platform === 'string' && payload.platform.trim().length > 0
+        ? payload.platform.trim()
+        : 'Unknown platform';
+    const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
+    const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
+    const normalized: GameEntry = {
+      id: this.parsePositiveInteger(payload.id) ?? undefined,
       igdbGameId,
       platformIgdbId,
-      title:
-        typeof payload.title === 'string' && payload.title.trim().length > 0
-          ? payload.title.trim()
-          : 'Unknown title',
-      customTitle: this.normalizeCustomTitle(
-        payload.customTitle,
-        typeof payload.title === 'string' ? payload.title : ''
-      ),
-      platform:
-        typeof payload.platform === 'string' && payload.platform.trim().length > 0
-          ? payload.platform.trim()
-          : 'Unknown platform',
+      title,
+      customTitle: this.normalizeCustomTitle(payload.customTitle, title),
+      coverUrl: this.normalizeExternalUrl(payload.coverUrl),
+      customCoverUrl: this.normalizeCustomCoverUrl(payload.customCoverUrl),
+      coverSource:
+        payload.coverSource === 'thegamesdb' ||
+        payload.coverSource === 'igdb' ||
+        payload.coverSource === 'none'
+          ? payload.coverSource
+          : 'none',
+      storyline: this.normalizeOptionalText(payload.storyline),
+      summary: this.normalizeOptionalText(payload.summary),
+      gameType: this.normalizeGameType(payload.gameType),
+      hltbMainHours: this.normalizeCompletionHours(payload.hltbMainHours),
+      hltbMainExtraHours: this.normalizeCompletionHours(payload.hltbMainExtraHours),
+      hltbCompletionistHours: this.normalizeCompletionHours(payload.hltbCompletionistHours),
+      metacriticScore: this.normalizeMetacriticScore(payload.metacriticScore),
+      metacriticUrl: this.normalizeExternalUrl(payload.metacriticUrl),
+      similarGameIgdbIds: this.normalizeGameIdList(payload.similarGameIgdbIds),
+      collections: this.normalizeStringList(payload.collections),
+      developers: this.normalizeStringList(payload.developers),
+      franchises: this.normalizeStringList(payload.franchises),
+      genres: this.normalizeStringList(payload.genres),
+      publishers: this.normalizeStringList(payload.publishers),
+      platform,
       customPlatform: this.normalizeCustomPlatform(
         payload.customPlatform,
         payload.customPlatformIgdbId,
@@ -386,23 +409,16 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.platformIgdbId,
         payload.platform
       ),
-      customCoverUrl: this.normalizeCustomCoverUrl(payload.customCoverUrl),
-      notes: this.normalizeNotes(payload.notes),
+      tagIds: this.normalizeTagIds(payload.tagIds),
+      releaseDate: this.normalizeReleaseDate(payload.releaseDate),
+      releaseYear: this.normalizeReleaseYear(payload.releaseYear),
+      status: this.normalizeStatus(payload.status),
+      rating: this.normalizeRating(payload.rating),
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
-      createdAt:
-        typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
-      updatedAt:
-        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
-      coverSource:
-        payload.coverSource === 'thegamesdb' ||
-        payload.coverSource === 'igdb' ||
-        payload.coverSource === 'none'
-          ? payload.coverSource
-          : 'none',
-      tagIds: Array.isArray(payload.tagIds)
-        ? [...new Set(payload.tagIds.filter((value) => Number.isInteger(value) && value > 0))]
-        : []
-    } as GameEntry;
+      notes: this.normalizeNotes(payload.notes),
+      createdAt,
+      updatedAt
+    };
 
     await this.db.games.put(normalized);
   }
@@ -478,6 +494,160 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     return /^data:image\/[a-z0-9.+-]+;base64,/i.test(normalized) ? normalized : null;
+  }
+
+  private normalizeOptionalText(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeExternalUrl(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('//')) {
+      return `https:${normalized}`;
+    }
+
+    return null;
+  }
+
+  private normalizeCompletionHours(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
+  }
+
+  private normalizeMetacriticScore(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const normalized = Math.round(value);
+    return Number.isInteger(normalized) && normalized >= 1 && normalized <= 100 ? normalized : null;
+  }
+
+  private normalizeGameType(value: unknown): GameEntry['gameType'] {
+    return value === 'main_game' ||
+      value === 'dlc_addon' ||
+      value === 'expansion' ||
+      value === 'bundle' ||
+      value === 'standalone_expansion' ||
+      value === 'mod' ||
+      value === 'episode' ||
+      value === 'season' ||
+      value === 'remake' ||
+      value === 'remaster' ||
+      value === 'expanded_game' ||
+      value === 'port' ||
+      value === 'fork' ||
+      value === 'pack' ||
+      value === 'update'
+      ? value
+      : null;
+  }
+
+  private normalizeGameIdList(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        value.map((entry) => String(entry ?? '').trim()).filter((entry) => /^\d+$/.test(entry))
+      )
+    ];
+  }
+
+  private normalizeStringList(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        value
+          .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+          .filter((entry) => entry.length > 0)
+      )
+    ];
+  }
+
+  private normalizeTagIds(value: unknown): number[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        value
+          .map((entry) =>
+            typeof entry === 'number'
+              ? entry
+              : typeof entry === 'string'
+                ? Number.parseInt(entry, 10)
+                : Number.NaN
+          )
+          .filter((entry) => Number.isInteger(entry) && entry > 0)
+      )
+    ];
+  }
+
+  private normalizeReleaseDate(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeReleaseYear(value: unknown): number | null {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number.parseInt(value, 10)
+          : Number.NaN;
+
+    return Number.isInteger(parsed) && parsed >= 1950 && parsed <= 2100 ? parsed : null;
+  }
+
+  private normalizeStatus(value: unknown): GameEntry['status'] {
+    return value === 'playing' ||
+      value === 'wantToPlay' ||
+      value === 'completed' ||
+      value === 'paused' ||
+      value === 'dropped' ||
+      value === 'replay'
+      ? value
+      : null;
+  }
+
+  private normalizeRating(value: unknown): GameEntry['rating'] {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number.parseInt(value, 10)
+          : Number.NaN;
+
+    return parsed === 1 || parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5
+      ? parsed
+      : null;
+  }
+
+  private normalizeIsoTimestamp(value: unknown): string {
+    if (typeof value === 'string' && Number.isFinite(Date.parse(value))) {
+      return value;
+    }
+
+    return new Date().toISOString();
   }
 
   private normalizeNotes(value: unknown): string | null {

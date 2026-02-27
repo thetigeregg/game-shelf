@@ -14,3 +14,7 @@ services:
   hltb-scraper:
     ports:
       - '127.0.0.1:8788:8788'
+
+  metacritic-scraper:
+    ports:
+      - '127.0.0.1:8789:8789'

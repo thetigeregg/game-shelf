@@ -153,6 +153,8 @@ interface ExportCsvRow {
   hltbMainHours: string;
   hltbMainExtraHours: string;
   hltbCompletionistHours: string;
+  metacriticScore: string;
+  metacriticUrl: string;
   similarGameIgdbIds: string;
   status: string;
   rating: string;
@@ -251,6 +253,8 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'hltbMainHours',
   'hltbMainExtraHours',
   'hltbCompletionistHours',
+  'metacriticScore',
+  'metacriticUrl',
   'similarGameIgdbIds',
   'status',
   'rating',
@@ -2435,6 +2439,11 @@ export class SettingsPage {
           game.hltbCompletionistHours !== null && game.hltbCompletionistHours !== undefined
             ? String(game.hltbCompletionistHours)
             : '',
+        metacriticScore:
+          game.metacriticScore !== null && game.metacriticScore !== undefined
+            ? String(game.metacriticScore)
+            : '',
+        metacriticUrl: game.metacriticUrl ?? '',
         similarGameIgdbIds: JSON.stringify(game.similarGameIgdbIds ?? []),
         status: game.status ?? '',
         rating: game.rating !== null && game.rating !== undefined ? String(game.rating) : '',
@@ -2480,6 +2489,8 @@ export class SettingsPage {
         hltbMainHours: '',
         hltbMainExtraHours: '',
         hltbCompletionistHours: '',
+        metacriticScore: '',
+        metacriticUrl: '',
         similarGameIgdbIds: '',
         status: '',
         rating: '',
@@ -2525,6 +2536,8 @@ export class SettingsPage {
         hltbMainHours: '',
         hltbMainExtraHours: '',
         hltbCompletionistHours: '',
+        metacriticScore: '',
+        metacriticUrl: '',
         similarGameIgdbIds: '',
         status: '',
         rating: '',
@@ -2570,6 +2583,8 @@ export class SettingsPage {
         hltbMainHours: '',
         hltbMainExtraHours: '',
         hltbCompletionistHours: '',
+        metacriticScore: '',
+        metacriticUrl: '',
         similarGameIgdbIds: '',
         status: '',
         rating: '',
@@ -2858,6 +2873,19 @@ export class SettingsPage {
       return this.errorRow(type, rowNumber, 'Invalid gameType value.');
     }
 
+    const metacriticScore = parseOptionalNumber(record.metacriticScore);
+
+    if (
+      record.metacriticScore.trim().length > 0 &&
+      (metacriticScore === null || metacriticScore < 1 || metacriticScore > 100)
+    ) {
+      return this.errorRow(
+        type,
+        rowNumber,
+        'Metacritic score must be an integer between 1 and 100.'
+      );
+    }
+
     const catalog: GameCatalogResult = {
       igdbGameId,
       title: record.title.trim() || 'Unknown title',
@@ -2869,6 +2897,8 @@ export class SettingsPage {
       hltbMainHours: parseOptionalDecimal(record.hltbMainHours),
       hltbMainExtraHours: parseOptionalDecimal(record.hltbMainExtraHours),
       hltbCompletionistHours: parseOptionalDecimal(record.hltbCompletionistHours),
+      metacriticScore,
+      metacriticUrl: parseOptionalText(record.metacriticUrl),
       similarGameIgdbIds: parseGameIdArray(record.similarGameIgdbIds),
       collections: parseStringArray(record.collections),
       developers: parseStringArray(record.developers),
@@ -3024,6 +3054,8 @@ export class SettingsPage {
       hltbMainHours: getValue('hltbMainHours'),
       hltbMainExtraHours: getValue('hltbMainExtraHours'),
       hltbCompletionistHours: getValue('hltbCompletionistHours'),
+      metacriticScore: getValue('metacriticScore'),
+      metacriticUrl: getValue('metacriticUrl'),
       similarGameIgdbIds: getValue('similarGameIgdbIds'),
       status: getValue('status'),
       rating: getValue('rating'),

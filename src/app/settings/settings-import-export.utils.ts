@@ -332,6 +332,7 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
         parsed.sortField === 'releaseDate' ||
         parsed.sortField === 'createdAt' ||
         parsed.sortField === 'hltb' ||
+        parsed.sortField === 'metacritic' ||
         parsed.sortField === 'platform'
           ? parsed.sortField
           : defaultFilters.sortField,

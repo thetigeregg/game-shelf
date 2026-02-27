@@ -74,6 +74,16 @@ jobs:
           use_oidc: true
           fail_ci_if_error: true
 
+      - name: Upload raw coverage artifacts for Codex
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage/app/lcov.info
+            server/coverage/lcov.info
+            worker/coverage/lcov.info
+          if-no-files-found: error
+
       - name: Backup ops smoke test
         run: npm run test:backup:ops
 

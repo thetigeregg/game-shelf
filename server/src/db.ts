@@ -72,6 +72,17 @@ const MIGRATIONS: string[] = [
     response_json JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS metacritic_search_cache (
+    cache_key TEXT PRIMARY KEY,
+    query_title TEXT NOT NULL,
+    release_year INTEGER,
+    platform TEXT,
+    include_candidates BOOLEAN NOT NULL DEFAULT FALSE,
+    response_json JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
   `
 ];
 

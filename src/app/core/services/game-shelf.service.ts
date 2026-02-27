@@ -11,6 +11,7 @@ import {
   GameListFilters,
   GameListView,
   HltbMatchCandidate,
+  MetacriticMatchCandidate,
   GameRating,
   GameStatus,
   GameTag,
@@ -143,6 +144,26 @@ export class GameShelfService {
     return this.searchApi.lookupCompletionTimeCandidates(normalized, releaseYear, platform);
   }
 
+  searchMetacriticCandidates(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null,
+    platformIgdbId?: number | null
+  ): Observable<MetacriticMatchCandidate[]> {
+    const normalized = title.trim();
+
+    if (normalized.length < 2) {
+      return of([]);
+    }
+
+    return this.searchApi.lookupMetacriticCandidates(
+      normalized,
+      releaseYear,
+      platform,
+      platformIgdbId
+    );
+  }
+
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
     const normalizedGameId = normalizeGameId(result.igdbGameId);
     const normalizedPlatformIgdbId = normalizePlatformIgdbId(result.platformIgdbId);
@@ -205,7 +226,9 @@ export class GameShelfService {
       // Reset manual metadata so it can be regenerated from the selected match.
       hltbMainHours: null,
       hltbMainExtraHours: null,
-      hltbCompletionistHours: null
+      hltbCompletionistHours: null,
+      metacriticScore: null,
+      metacriticUrl: null
     };
 
     const updated = await this.repository.upsertFromCatalog(
@@ -369,6 +392,82 @@ export class GameShelfService {
     return this.refreshGameCompletionTimesWithLookup(existing, title, releaseYear, platform);
   }
 
+  async refreshGameMetacriticScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
+    this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
+      igdbGameId,
+      platformIgdbId,
+      mode: 'default'
+    });
+    const existing = await this.repository.exists(igdbGameId, platformIgdbId);
+
+    if (!existing) {
+      this.debugLogService.trace('game_shelf.metacritic.refresh_missing_game', {
+        igdbGameId,
+        platformIgdbId
+      });
+      throw new Error('Game entry no longer exists.');
+    }
+
+    return this.refreshGameMetacriticWithLookup(
+      existing,
+      existing.title,
+      existing.releaseYear,
+      existing.platform,
+      existing.platformIgdbId
+    );
+  }
+
+  async refreshGameMetacriticScoreWithQuery(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query: {
+      title: string;
+      releaseYear?: number | null;
+      platform?: string | null;
+      platformIgdbId?: number | null;
+    }
+  ): Promise<GameEntry> {
+    this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
+      igdbGameId,
+      platformIgdbId,
+      mode: 'query',
+      query
+    });
+    const existing = await this.repository.exists(igdbGameId, platformIgdbId);
+
+    if (!existing) {
+      this.debugLogService.trace('game_shelf.metacritic.refresh_missing_game', {
+        igdbGameId,
+        platformIgdbId,
+        mode: 'query'
+      });
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const title = query.title.trim() || existing.title;
+    const releaseYear = Number.isInteger(query.releaseYear)
+      ? (query.releaseYear as number)
+      : existing.releaseYear;
+    const platform =
+      typeof query.platform === 'string' && query.platform.trim().length > 0
+        ? query.platform.trim()
+        : existing.platform;
+    const lookupPlatformIgdbId =
+      typeof query.platformIgdbId === 'number' &&
+      Number.isInteger(query.platformIgdbId) &&
+      query.platformIgdbId > 0
+        ? query.platformIgdbId
+        : existing.platformIgdbId;
+
+    return this.refreshGameMetacriticWithLookup(
+      existing,
+      title,
+      releaseYear,
+      platform,
+      lookupPlatformIgdbId
+    );
+  }
+
   private async refreshGameCompletionTimesWithLookup(
     existing: GameEntry,
     title: string,
@@ -402,6 +501,8 @@ export class GameShelfService {
         hltbMainHours: completionTimes?.hltbMainHours ?? null,
         hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,
         hltbCompletionistHours: completionTimes?.hltbCompletionistHours ?? null,
+        metacriticScore: existing.metacriticScore ?? null,
+        metacriticUrl: existing.metacriticUrl ?? null,
         similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
         collections: existing.collections ?? [],
         developers: existing.developers ?? [],
@@ -424,6 +525,68 @@ export class GameShelfService {
       updatedHltbMainHours: updated.hltbMainHours,
       updatedHltbMainExtraHours: updated.hltbMainExtraHours,
       updatedHltbCompletionistHours: updated.hltbCompletionistHours
+    });
+    return updated;
+  }
+
+  private async refreshGameMetacriticWithLookup(
+    existing: GameEntry,
+    title: string,
+    releaseYear: number | null,
+    platform: string,
+    platformIgdbId: number | null
+  ): Promise<GameEntry> {
+    this.debugLogService.trace('game_shelf.metacritic.lookup_start', {
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
+      lookupTitle: title,
+      lookupReleaseYear: releaseYear,
+      lookupPlatform: platform,
+      lookupPlatformIgdbId: platformIgdbId
+    });
+    const scoreResult = await firstValueFrom(
+      this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId)
+    );
+    this.debugLogService.trace('game_shelf.metacritic.lookup_complete', {
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
+      scoreResult,
+      hasScoreResult: scoreResult !== null
+    });
+
+    const updated = await this.repository.upsertFromCatalog(
+      {
+        igdbGameId: existing.igdbGameId,
+        title: existing.title,
+        coverUrl: existing.coverUrl,
+        coverSource: existing.coverSource,
+        storyline: existing.storyline ?? null,
+        summary: existing.summary ?? null,
+        gameType: existing.gameType ?? null,
+        hltbMainHours: existing.hltbMainHours ?? null,
+        hltbMainExtraHours: existing.hltbMainExtraHours ?? null,
+        hltbCompletionistHours: existing.hltbCompletionistHours ?? null,
+        metacriticScore: scoreResult?.metacriticScore ?? null,
+        metacriticUrl: scoreResult?.metacriticUrl ?? null,
+        similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
+        collections: existing.collections ?? [],
+        developers: existing.developers ?? [],
+        franchises: existing.franchises ?? [],
+        genres: existing.genres ?? [],
+        publishers: existing.publishers ?? [],
+        platforms: [existing.platform],
+        platformOptions: [{ id: existing.platformIgdbId, name: existing.platform }],
+        platform: existing.platform,
+        platformIgdbId: existing.platformIgdbId,
+        releaseDate: existing.releaseDate,
+        releaseYear: existing.releaseYear
+      },
+      existing.listType
+    );
+
+    this.listRefresh$.next();
+    this.debugLogService.trace('game_shelf.metacritic.refresh_complete', {
+      gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
+      updatedMetacriticScore: updated.metacriticScore,
+      updatedMetacriticUrl: updated.metacriticUrl
     });
     return updated;
   }

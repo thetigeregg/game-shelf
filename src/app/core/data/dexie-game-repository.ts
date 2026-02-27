@@ -68,6 +68,11 @@ export class DexieGameRepository implements GameRepository {
           result.hltbCompletionistHours,
           existing.hltbCompletionistHours
         ),
+        metacriticScore: this.resolveMetacriticScore(
+          result.metacriticScore,
+          existing.metacriticScore
+        ),
+        metacriticUrl: this.resolveMetacriticUrl(result.metacriticUrl, existing.metacriticUrl),
         similarGameIgdbIds: this.resolveGameIdList(
           result.similarGameIgdbIds,
           existing.similarGameIgdbIds
@@ -119,6 +124,8 @@ export class DexieGameRepository implements GameRepository {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
+      metacriticScore: this.normalizeMetacriticScore(result.metacriticScore),
+      metacriticUrl: this.normalizeMetacriticUrl(result.metacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
       collections: this.normalizeTextList(result.collections),
       developers: this.normalizeTextList(result.developers),
@@ -657,6 +664,38 @@ export class DexieGameRepository implements GameRepository {
     return Math.round(value * 10) / 10;
   }
 
+  private normalizeMetacriticScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const normalized = Math.round(value);
+
+    if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 100) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeMetacriticUrl(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('//')) {
+      return `https:${normalized}`;
+    }
+
+    return null;
+  }
+
   private normalizeGameType(value: unknown): GameEntry['gameType'] {
     if (
       value === 'main_game' ||
@@ -701,6 +740,28 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeCompletionHours(incoming);
+  }
+
+  private resolveMetacriticScore(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizeMetacriticScore(existing);
+    }
+
+    return this.normalizeMetacriticScore(incoming);
+  }
+
+  private resolveMetacriticUrl(
+    incoming: string | null | undefined,
+    existing: string | null | undefined
+  ): string | null {
+    if (incoming === undefined) {
+      return this.normalizeMetacriticUrl(existing);
+    }
+
+    return this.normalizeMetacriticUrl(incoming);
   }
 
   private resolveGameIdList(
@@ -908,7 +969,7 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeViewFilters(value: GameListFilters | null | undefined): GameListFilters {
     const source = value ?? DEFAULT_GAME_LIST_FILTERS;
-    const sortField = source.sortField;
+    const sortField = this.normalizeViewSortField(source.sortField);
     const sortDirection = source.sortDirection === 'desc' ? 'desc' : 'asc';
     const platform = normalizeStringList(source.platform);
     const collections = normalizeStringList(source.collections);
@@ -973,5 +1034,22 @@ export class DexieGameRepository implements GameRepository {
       releaseDateFrom,
       releaseDateTo
     };
+  }
+
+  private normalizeViewSortField(
+    value: GameListFilters['sortField'] | null | undefined
+  ): GameListFilters['sortField'] {
+    if (
+      value === 'title' ||
+      value === 'releaseDate' ||
+      value === 'createdAt' ||
+      value === 'hltb' ||
+      value === 'metacritic' ||
+      value === 'platform'
+    ) {
+      return value;
+    }
+
+    return DEFAULT_GAME_LIST_FILTERS.sortField;
   }
 }

@@ -10,6 +10,7 @@ interface CacheCountRow {
 interface CacheCountSnapshot {
   imageAssetCount: number | null;
   hltbEntryCount: number | null;
+  metacriticEntryCount: number | null;
   dbError: string | null;
 }
 
@@ -36,6 +37,7 @@ export async function registerCacheObservabilityRoutes(
   let snapshot: CacheCountSnapshot = {
     imageAssetCount: null,
     hltbEntryCount: null,
+    metacriticEntryCount: null,
     dbError: null
   };
 
@@ -47,16 +49,21 @@ export async function registerCacheObservabilityRoutes(
       const hltbCountResult = await pool.query<CacheCountRow>(
         'SELECT COUNT(*)::text AS count FROM hltb_search_cache'
       );
+      const metacriticCountResult = await pool.query<CacheCountRow>(
+        'SELECT COUNT(*)::text AS count FROM metacritic_search_cache'
+      );
 
       snapshot = {
         imageAssetCount: Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10),
         hltbEntryCount: Number.parseInt(hltbCountResult.rows[0]?.count ?? '0', 10),
+        metacriticEntryCount: Number.parseInt(metacriticCountResult.rows[0]?.count ?? '0', 10),
         dbError: null
       };
     } catch (error) {
       snapshot = {
         imageAssetCount: null,
         hltbEntryCount: null,
+        metacriticEntryCount: null,
         dbError: error instanceof Error ? error.message : String(error)
       };
     }
@@ -90,7 +97,8 @@ export async function registerCacheObservabilityRoutes(
         metrics,
         counts: {
           imageAssets: snapshot.imageAssetCount,
-          hltbEntries: snapshot.hltbEntryCount
+          hltbEntries: snapshot.hltbEntryCount,
+          metacriticEntries: snapshot.metacriticEntryCount
         },
         dbError: snapshot.dbError
       });

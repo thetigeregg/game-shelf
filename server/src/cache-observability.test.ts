@@ -3,17 +3,27 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
-import { incrementHltbMetric, incrementImageMetric, resetCacheMetrics } from './cache-metrics.js';
+import {
+  incrementHltbMetric,
+  incrementImageMetric,
+  incrementMetacriticMetric,
+  resetCacheMetrics
+} from './cache-metrics.js';
 
 type CacheStatsPayload = {
   counts: {
     imageAssets: number | null;
     hltbEntries: number | null;
+    metacriticEntries: number | null;
   };
   metrics: {
     image: {
       hits: number;
       misses: number;
+    };
+    metacritic: {
+      hits: number;
+      writes: number;
     };
     hltb: {
       hits: number;
@@ -39,6 +49,10 @@ class CacheStatsPoolMock {
       return Promise.resolve({ rows: [{ count: '13' }] });
     }
 
+    if (normalized.includes('from metacritic_search_cache')) {
+      return Promise.resolve({ rows: [{ count: '17' }] });
+    }
+
     throw new Error(`Unsupported SQL in CacheStatsPoolMock: ${sql}`);
   }
 }
@@ -61,6 +75,8 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   incrementImageMetric('misses');
   incrementHltbMetric('hits');
   incrementHltbMetric('writes');
+  incrementMetacriticMetric('hits');
+  incrementMetacriticMetric('writes');
 
   const app = Fastify();
   await registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool);
@@ -74,8 +90,11 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, 7);
   assert.equal(payload.counts.hltbEntries, 13);
+  assert.equal(payload.counts.metacriticEntries, 17);
   assert.equal(payload.metrics.image.hits, 1);
   assert.equal(payload.metrics.image.misses, 1);
+  assert.equal(payload.metrics.metacritic.hits, 1);
+  assert.equal(payload.metrics.metacritic.writes, 1);
   assert.equal(payload.metrics.hltb.hits, 1);
   assert.equal(payload.metrics.hltb.writes, 1);
   assert.equal(payload.dbError, null);
@@ -119,6 +138,7 @@ void test('Cache stats endpoint returns dbError when count queries fail', async 
   const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, null);
   assert.equal(payload.counts.hltbEntries, null);
+  assert.equal(payload.counts.metacriticEntries, null);
   assert.equal(payload.dbError, 'db_unavailable');
 
   await app.close();

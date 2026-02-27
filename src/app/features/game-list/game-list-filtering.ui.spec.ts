@@ -55,6 +55,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       tags: ['Action', noneTagFilterValue, ' Action '],
       excludedPlatform: [' Family Computer ', 'Nintendo Entertainment System'],
       excludedTags: [' RPG ', noneTagFilterValue, 'RPG'],
+      excludedStatuses: ['playing', 'none'],
       hltbMainHoursMin: 20,
       hltbMainHoursMax: 10
     });
@@ -62,7 +63,8 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(normalized.platform).toEqual(['Switch']);
     expect(normalized.tags).toEqual([noneTagFilterValue, 'Action']);
     expect(normalized.excludedPlatform).toEqual(['Nintendo Entertainment System']);
-    expect(normalized.excludedTags).toEqual([noneTagFilterValue, 'RPG']);
+    expect(normalized.excludedTags).toEqual(['RPG']);
+    expect(normalized.excludedStatuses).toEqual(['playing']);
     expect(normalized.hltbMainHoursMin).toBe(10);
     expect(normalized.hltbMainHoursMax).toBe(20);
   });
@@ -572,7 +574,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       ...DEFAULT_GAME_LIST_FILTERS,
       excludedPlatform: ['Nintendo Switch'],
       excludedGenres: ['Action'],
-      excludedStatuses: ['none'],
+      excludedStatuses: ['playing'],
       excludedTags: ['Backlog'],
       excludedGameTypes: ['expansion']
     };

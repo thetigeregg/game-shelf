@@ -773,8 +773,15 @@ export class GameListFilteringEngine {
       return existingCache.sortedGames;
     }
 
-    const sortedAsc = [...games].sort((left, right) => this.compareGames(left, right, sortField));
-    const sortedGames = this.applySortDirection(sortedAsc, sortDirection);
+    const sortedGames =
+      sortField === 'metacritic'
+        ? [...games].sort((left, right) =>
+            this.compareGamesByMetacritic(left, right, sortDirection)
+          )
+        : this.applySortDirection(
+            [...games].sort((left, right) => this.compareGames(left, right, sortField)),
+            sortDirection
+          );
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
@@ -953,6 +960,29 @@ export class GameListFilteringEngine {
       return this.sortGamesByTitleFallback(left, right);
     }
 
+    if (sortField === 'metacritic') {
+      const leftScore = this.normalizeMetacriticSortScore(left.metacriticScore);
+      const rightScore = this.normalizeMetacriticSortScore(right.metacriticScore);
+
+      if (leftScore === null && rightScore === null) {
+        return this.sortGamesByTitleFallback(left, right);
+      }
+
+      if (leftScore === null) {
+        return 1;
+      }
+
+      if (rightScore === null) {
+        return -1;
+      }
+
+      if (leftScore !== rightScore) {
+        return leftScore - rightScore;
+      }
+
+      return this.sortGamesByTitleFallback(left, right);
+    }
+
     const leftDate = this.getDateOnly(left.releaseDate);
     const rightDate = this.getDateOnly(right.releaseDate);
 
@@ -1032,6 +1062,45 @@ export class GameListFilteringEngine {
     }
 
     return null;
+  }
+
+  private compareGamesByMetacritic(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection']
+  ): number {
+    const leftScore = this.normalizeMetacriticSortScore(left.metacriticScore);
+    const rightScore = this.normalizeMetacriticSortScore(right.metacriticScore);
+
+    if (leftScore === null && rightScore === null) {
+      return this.sortGamesByTitleFallback(left, right);
+    }
+
+    if (leftScore === null) {
+      return 1;
+    }
+
+    if (rightScore === null) {
+      return -1;
+    }
+
+    if (leftScore !== rightScore) {
+      return sortDirection === 'desc' ? rightScore - leftScore : leftScore - rightScore;
+    }
+
+    return this.sortGamesByTitleFallback(left, right);
+  }
+
+  private normalizeMetacriticSortScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+      return null;
+    }
+
+    if (value < 0 || value > 100) {
+      return null;
+    }
+
+    return value;
   }
 
   private normalizeStatus(value: string | null | undefined): GameStatus | null {

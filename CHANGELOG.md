@@ -1018,3 +1018,45 @@
 - 678ebdc Fix frontend contract response
 - 12547d1 Fix contract mismatch handling
 
+## v0.1.42 - 2026-02-27
+- 72e9267 Merge pull request #106 from thetigeregg/codex/metacritic
+- 35b5b76 Add missing tests for coverage
+- 8f7fe00 Improve metacritic integration tests
+- 342b946 Add metadata validator coverage
+- 67e2401 Update metacritic platform support
+- a7b148f Add Metacritic score sorting
+- f6c5725 Audit Metacritic sync gaps
+- 93d95ca Add Metacritic sorting option
+- 23a30d4 Handle IGDB rate limit errors
+- 7659df4 Handle metacritic bulk rate limits
+- 433c07f Skip unsupported Metacritic games
+- 860fdaf Display metacritic score badge
+- ee7ac29 Add Metacritic score badge styles
+- e01f531 Update Metacritic display and colors
+- b1e7e7a Update Metacritic UI colors
+- fdcfe91 Fix platformIgdbId type error
+- 70bf5f2 Add platformIgdbId typing fix
+- 2beb972 Fix platform IgdbId build error
+- ad5b7ed Fix metadata validator build
+- e36b1ea Describe new mapping behavior
+- ddbde69 Add IGDB platform display mapping
+- 653ad6e Refine Metacritic scraper filtering
+- 083239f Normalize roman numeral titles
+- c82dffb Normalize Metacritic score parsing
+- ab7379b Normalize accented metacritic titles
+- 055476c Adjust series ranking penalties
+- 13ff3d5 Add edition variant token
+- 6c9a841 Refine variant detection logic
+- 48a938e Adjust variant token scoring
+- 78a5e84 Improve Metacritic platform parsing
+- 656957d Filter Metacritic results to games
+- 04a48e6 Preserve Metacritic UI aspect ratio
+- 1aefe0c Improve Metacritic platform matching
+- e49df5b Restore Metacritic cover aspect
+- d13e385 Use category param in search
+- 769fddd Normalize Metacritic search queries
+- 3e6bc9c Implement Metacritic pipeline
+- eec6843 Add package lock
+- ec09885 Add Metacritic pipeline parity
+- 5bac7ed Add metacritic pipeline parity
+

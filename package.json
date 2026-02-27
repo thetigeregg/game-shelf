@@ -26,6 +26,9 @@
     "test:ui:e2e:install": "npx playwright install --with-deps chromium",
     "lint": "npx eslint .",
     "prepare": "husky",
+    "i:all": "npm i && npm --prefix server i && npm --prefix worker i && npm --prefix hltb-scraper i",
+    "ci:all": "npm ci && npm --prefix server ci && npm --prefix worker ci && npm --prefix hltb-scraper ci",
+    "audit:all": "npm audit && npm --prefix server audit && npm --prefix worker audit && npm --prefix hltb-scraper audit",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh"
   },

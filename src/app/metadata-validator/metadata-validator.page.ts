@@ -219,10 +219,7 @@ export class MetadataValidatorPage {
   }
 
   hasMetacriticMetadata(game: GameEntry): boolean {
-    return (
-      this.toMetacriticScore(game.metacriticScore) !== null ||
-      this.toNonEmptyUrl(game.metacriticUrl) !== null
-    );
+    return this.toMetacriticScore(game.metacriticScore) !== null;
   }
 
   isNonPcTheGamesDbImagePresent(game: GameEntry): boolean {
@@ -740,11 +737,6 @@ export class MetadataValidatorPage {
     }
 
     return normalized;
-  }
-
-  private toNonEmptyUrl(value: string | null | undefined): string | null {
-    const normalized = typeof value === 'string' ? value.trim() : '';
-    return normalized.length > 0 ? normalized : null;
   }
 
   private async openHltbPickerModal(game: GameEntry): Promise<void> {

@@ -327,6 +327,8 @@ describe('DexieGameRepository', () => {
     expect(fetched?.name).toBe('My View');
     expect(fetched?.filters.platform).toEqual(['Switch']);
     expect(fetched?.filters.releaseDateFrom).toBe('2024-01-01');
+    expect(fetched?.filters.excludedStatuses).toEqual([]);
+    expect(fetched?.filters.excludedTags).toEqual([]);
     expect(fetched?.groupBy).toBe('platform');
 
     const updated = await repository.updateView(createdId, {
@@ -335,9 +337,19 @@ describe('DexieGameRepository', () => {
         sortField: 'title',
         sortDirection: 'asc',
         platform: [],
+        collections: [],
+        developers: [],
+        franchises: [],
+        publishers: [],
+        gameTypes: [],
         genres: [],
         statuses: [],
         tags: [],
+        excludedPlatform: [],
+        excludedGenres: [],
+        excludedStatuses: ['none', 'playing'],
+        excludedTags: ['__none__', 'Spoilers'],
+        excludedGameTypes: [],
         ratings: [],
         hltbMainHoursMin: null,
         hltbMainHoursMax: null,
@@ -349,6 +361,8 @@ describe('DexieGameRepository', () => {
 
     expect(updated?.name).toBe('Renamed');
     expect(updated?.groupBy).toBe('publisher');
+    expect(updated?.filters.excludedStatuses).toEqual(['playing']);
+    expect(updated?.filters.excludedTags).toEqual(['Spoilers']);
 
     const list = await repository.listViews('collection');
     expect(list).toHaveLength(1);

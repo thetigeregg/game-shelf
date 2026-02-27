@@ -291,6 +291,31 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
       tags: Array.isArray(parsed.tags)
         ? parsed.tags.filter((value) => typeof value === 'string')
         : [],
+      excludedPlatform: Array.isArray(parsed.excludedPlatform)
+        ? parsed.excludedPlatform.filter((value) => typeof value === 'string')
+        : [],
+      excludedGenres: Array.isArray(parsed.excludedGenres)
+        ? parsed.excludedGenres.filter((value) => typeof value === 'string')
+        : [],
+      excludedStatuses: Array.isArray(parsed.excludedStatuses)
+        ? parsed.excludedStatuses.filter(
+            (value) =>
+              value === 'playing' ||
+              value === 'wantToPlay' ||
+              value === 'completed' ||
+              value === 'paused' ||
+              value === 'dropped' ||
+              normalizeStatus(value) === 'replay'
+          )
+        : [],
+      excludedTags: Array.isArray(parsed.excludedTags)
+        ? parsed.excludedTags.filter((value) => typeof value === 'string' && value !== '__none__')
+        : [],
+      excludedGameTypes: Array.isArray(parsed.excludedGameTypes)
+        ? parsed.excludedGameTypes.filter((value) =>
+            VALID_GAME_TYPES.includes(value as NonNullable<GameCatalogResult['gameType']>)
+          )
+        : [],
       ratings: Array.isArray(parsed.ratings)
         ? parsed.ratings.filter(
             (value) =>

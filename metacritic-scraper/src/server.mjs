@@ -128,6 +128,33 @@ function normalizeTitleForMatching(value) {
     .join(' ');
 }
 
+function hasAddonQualifier(rawTitle, normalizedTitle) {
+  const raw = String(rawTitle ?? '').toLowerCase();
+  const normalized = String(normalizedTitle ?? '');
+
+  if (
+    /\b(dlc|expansion|expansions|season pass|expansion pass|add on|add-on|addon|downloadable content)\b/.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+
+  if (/\b(dual pack|bundle)\b/.test(normalized)) {
+    return true;
+  }
+
+  if (/\bpart\s+[0-9ivx]+\b/.test(normalized)) {
+    return true;
+  }
+
+  if (raw.includes(' / ') || raw.includes(' + ')) {
+    return true;
+  }
+
+  return false;
+}
+
 function parseMetacriticScore(rawValue) {
   const text = String(rawValue ?? '')
     .toLowerCase()
@@ -222,11 +249,27 @@ function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate)
     score += 100;
   }
 
+  const expectedTokensList = normalizedExpected.split(' ').filter(Boolean);
+  const candidateTokensList = normalizedCandidate.split(' ').filter(Boolean);
+  if (expectedTokensList.length === 1 && normalizedExpected !== normalizedCandidate) {
+    // Generic single-token queries (for example "control") are noisy.
+    // Down-rank non-exact multi-word titles to avoid aggressive auto-matches.
+    if (candidateTokensList.length > 1) {
+      score -= 18;
+    }
+  }
+
   if (
     normalizedExpected.includes(normalizedCandidate) ||
     normalizedCandidate.includes(normalizedExpected)
   ) {
     score += 20;
+  }
+
+  const expectedHasAddonQualifier = hasAddonQualifier(expectedTitle, normalizedExpected);
+  const candidateHasAddonQualifier = hasAddonQualifier(candidate.title, normalizedCandidate);
+  if (expectedHasAddonQualifier !== candidateHasAddonQualifier) {
+    score -= candidateHasAddonQualifier ? 30 : 20;
   }
 
   const expectedHasVariant = hasVariantToken(normalizedExpected);
@@ -255,8 +298,8 @@ function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate)
     score -= 6;
   }
 
-  const expectedTokens = new Set(normalizedExpected.split(' ').filter(Boolean));
-  const candidateTokens = new Set(normalizedCandidate.split(' ').filter(Boolean));
+  const expectedTokens = new Set(expectedTokensList);
+  const candidateTokens = new Set(candidateTokensList);
   let tokenOverlap = 0;
   for (const token of expectedTokens) {
     if (candidateTokens.has(token)) {

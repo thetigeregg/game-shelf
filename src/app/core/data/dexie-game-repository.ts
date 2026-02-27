@@ -68,11 +68,30 @@ export class DexieGameRepository implements GameRepository {
           result.hltbCompletionistHours,
           existing.hltbCompletionistHours
         ),
-        metacriticScore: this.resolveMetacriticScore(
-          result.metacriticScore,
-          existing.metacriticScore
+        reviewScore: this.resolveMetacriticScore(
+          result.reviewScore ?? result.metacriticScore,
+          existing.reviewScore ?? existing.metacriticScore
         ),
-        metacriticUrl: this.resolveMetacriticUrl(result.metacriticUrl, existing.metacriticUrl),
+        reviewUrl: this.resolveMetacriticUrl(
+          result.reviewUrl ?? result.metacriticUrl,
+          existing.reviewUrl ?? existing.metacriticUrl
+        ),
+        reviewSource: this.resolveReviewSource(
+          result.reviewSource,
+          existing.reviewSource,
+          result.reviewScore ?? result.metacriticScore,
+          result.reviewUrl ?? result.metacriticUrl,
+          existing.reviewScore ?? existing.metacriticScore,
+          existing.reviewUrl ?? existing.metacriticUrl
+        ),
+        metacriticScore: this.resolveMetacriticScore(
+          result.reviewScore ?? result.metacriticScore,
+          existing.reviewScore ?? existing.metacriticScore
+        ),
+        metacriticUrl: this.resolveMetacriticUrl(
+          result.reviewUrl ?? result.metacriticUrl,
+          existing.reviewUrl ?? existing.metacriticUrl
+        ),
         similarGameIgdbIds: this.resolveGameIdList(
           result.similarGameIgdbIds,
           existing.similarGameIgdbIds
@@ -124,8 +143,15 @@ export class DexieGameRepository implements GameRepository {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
-      metacriticScore: this.normalizeMetacriticScore(result.metacriticScore),
-      metacriticUrl: this.normalizeMetacriticUrl(result.metacriticUrl),
+      reviewScore: this.normalizeMetacriticScore(result.reviewScore ?? result.metacriticScore),
+      reviewUrl: this.normalizeMetacriticUrl(result.reviewUrl ?? result.metacriticUrl),
+      reviewSource: this.normalizeReviewSource(
+        result.reviewSource,
+        result.reviewScore ?? result.metacriticScore,
+        result.reviewUrl ?? result.metacriticUrl
+      ),
+      metacriticScore: this.normalizeMetacriticScore(result.reviewScore ?? result.metacriticScore),
+      metacriticUrl: this.normalizeMetacriticUrl(result.reviewUrl ?? result.metacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
       collections: this.normalizeTextList(result.collections),
       developers: this.normalizeTextList(result.developers),
@@ -696,6 +722,20 @@ export class DexieGameRepository implements GameRepository {
     return null;
   }
 
+  private normalizeReviewSource(
+    value: GameCatalogResult['reviewSource'] | undefined,
+    score: number | null | undefined,
+    url: string | null | undefined
+  ): GameEntry['reviewSource'] {
+    if (value === 'metacritic' || value === 'mobygames') {
+      return value;
+    }
+
+    const normalizedScore = this.normalizeMetacriticScore(score);
+    const normalizedUrl = this.normalizeMetacriticUrl(url);
+    return normalizedScore !== null || normalizedUrl !== null ? 'metacritic' : null;
+  }
+
   private normalizeGameType(value: unknown): GameEntry['gameType'] {
     if (
       value === 'main_game' ||
@@ -762,6 +802,21 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeMetacriticUrl(incoming);
+  }
+
+  private resolveReviewSource(
+    incoming: GameCatalogResult['reviewSource'] | undefined,
+    existing: GameEntry['reviewSource'] | undefined,
+    incomingScore: number | null | undefined,
+    incomingUrl: string | null | undefined,
+    existingScore: number | null | undefined,
+    existingUrl: string | null | undefined
+  ): GameEntry['reviewSource'] {
+    if (incoming === undefined) {
+      return this.normalizeReviewSource(existing, existingScore, existingUrl);
+    }
+
+    return this.normalizeReviewSource(incoming, incomingScore, incomingUrl);
   }
 
   private resolveGameIdList(

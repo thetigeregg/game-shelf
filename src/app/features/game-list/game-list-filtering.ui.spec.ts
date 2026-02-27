@@ -53,12 +53,16 @@ describe('GameListFilteringEngine UI behavior', () => {
       ...DEFAULT_GAME_LIST_FILTERS,
       platform: ['  Switch ', 'Switch', ''],
       tags: ['Action', noneTagFilterValue, ' Action '],
+      excludedPlatform: [' Family Computer ', 'Nintendo Entertainment System'],
+      excludedTags: [' RPG ', noneTagFilterValue, 'RPG'],
       hltbMainHoursMin: 20,
       hltbMainHoursMax: 10
     });
 
     expect(normalized.platform).toEqual(['Switch']);
     expect(normalized.tags).toEqual([noneTagFilterValue, 'Action']);
+    expect(normalized.excludedPlatform).toEqual(['Nintendo Entertainment System']);
+    expect(normalized.excludedTags).toEqual([noneTagFilterValue, 'RPG']);
     expect(normalized.hltbMainHoursMin).toBe(10);
     expect(normalized.hltbMainHoursMax).toBe(20);
   });
@@ -531,6 +535,50 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     const result = engine.applyFiltersAndSort(games, filters, '');
     expect(result.map((game) => game.title)).toEqual(['Target']);
+  });
+
+  it('excludes games that match exclusion filters', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Excluded By Tag',
+        tags: [{ id: 1, name: 'Backlog', color: '#fff' }],
+        genres: ['Action'],
+        status: 'playing',
+        gameType: 'main_game'
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Excluded By None Status',
+        tags: [],
+        genres: ['RPG'],
+        status: null,
+        gameType: 'expansion'
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 6,
+        title: 'Allowed',
+        tags: [{ id: 2, name: 'Favorite', color: '#000' }],
+        genres: ['Strategy'],
+        status: 'completed',
+        gameType: 'season',
+        platform: 'PC (Microsoft Windows)'
+      })
+    ];
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      excludedPlatform: ['Nintendo Switch'],
+      excludedGenres: ['Action'],
+      excludedStatuses: ['none'],
+      excludedTags: ['Backlog'],
+      excludedGameTypes: ['expansion']
+    };
+
+    const result = engine.applyFiltersAndSort(games, filters, '');
+    expect(result.map((game) => game.title)).toEqual(['Allowed']);
   });
 
   it('supports none status and none rating filters', () => {

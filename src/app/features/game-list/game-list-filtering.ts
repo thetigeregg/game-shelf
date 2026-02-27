@@ -208,6 +208,20 @@ export class GameListFilteringEngine {
     const normalizedGameTypes = normalizeGameTypeList(filters.gameTypes);
     const normalizedStatuses = normalizeGameStatusFilterList(filters.statuses);
     const normalizedTags = normalizeTagFilterList(filters.tags, this.noneTagFilterValue);
+    const normalizedExcludedPlatforms = [
+      ...new Set(
+        normalizeStringList(filters.excludedPlatform)
+          .map((platform) => this.getCanonicalPlatformLabel(platform))
+          .filter((platform) => platform.length > 0)
+      )
+    ];
+    const normalizedExcludedGenres = normalizeStringList(filters.excludedGenres);
+    const normalizedExcludedStatuses = normalizeGameStatusFilterList(filters.excludedStatuses);
+    const normalizedExcludedTags = normalizeTagFilterList(
+      filters.excludedTags,
+      this.noneTagFilterValue
+    );
+    const normalizedExcludedGameTypes = normalizeGameTypeList(filters.excludedGameTypes);
     const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);
     const hltbMainHoursMin = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const hltbMainHoursMax = this.normalizeFilterHours(filters.hltbMainHoursMax);
@@ -224,6 +238,11 @@ export class GameListFilteringEngine {
       genres: normalizedGenres,
       statuses: normalizedStatuses,
       tags: normalizedTags,
+      excludedPlatform: normalizedExcludedPlatforms,
+      excludedGenres: normalizedExcludedGenres,
+      excludedStatuses: normalizedExcludedStatuses,
+      excludedTags: normalizedExcludedTags,
+      excludedGameTypes: normalizedExcludedGameTypes,
       ratings: normalizedRatings,
       hltbMainHoursMin:
         hltbMainHoursMin !== null &&
@@ -656,14 +675,48 @@ export class GameListFilteringEngine {
     }
 
     if (filters.tags.length > 0) {
-      const matchesNoneTagFilter = filters.tags.includes(this.noneTagFilterValue);
-      const selectedTagNames = filters.tags.filter((tag) => tag !== this.noneTagFilterValue);
-      const matchesSelectedTag = selectedTagNames.some((selectedTag) =>
-        normalized.tagNames.has(selectedTag)
-      );
-      const matchesNoTags = matchesNoneTagFilter && normalized.tagNames.size === 0;
+      if (!this.matchesTagFilter(normalized.tagNames, filters.tags)) {
+        return false;
+      }
+    }
 
-      if (!matchesSelectedTag && !matchesNoTags) {
+    if (
+      filters.excludedPlatform.length > 0 &&
+      filters.excludedPlatform.includes(normalized.platform)
+    ) {
+      return false;
+    }
+
+    if (
+      filters.excludedGenres.length > 0 &&
+      filters.excludedGenres.some((excludedGenre) => normalized.genres.has(excludedGenre))
+    ) {
+      return false;
+    }
+
+    if (filters.excludedStatuses.length > 0) {
+      const gameStatus = normalized.status;
+      const matchesNone = gameStatus === null && filters.excludedStatuses.includes('none');
+      const matchesStatus =
+        gameStatus !== null &&
+        filters.excludedStatuses.includes(gameStatus as GameStatusFilterOption);
+
+      if (matchesNone || matchesStatus) {
+        return false;
+      }
+    }
+
+    if (
+      filters.excludedTags.length > 0 &&
+      this.matchesTagFilter(normalized.tagNames, filters.excludedTags)
+    ) {
+      return false;
+    }
+
+    if (filters.excludedGameTypes.length > 0) {
+      const gameType = normalized.gameType;
+
+      if (gameType && filters.excludedGameTypes.includes(gameType)) {
         return false;
       }
     }
@@ -757,6 +810,11 @@ export class GameListFilteringEngine {
       filters.gameTypes.length > 0 ||
       filters.statuses.length > 0 ||
       filters.tags.length > 0 ||
+      filters.excludedPlatform.length > 0 ||
+      filters.excludedGenres.length > 0 ||
+      filters.excludedStatuses.length > 0 ||
+      filters.excludedTags.length > 0 ||
+      filters.excludedGameTypes.length > 0 ||
       filters.ratings.length > 0 ||
       minMainHours !== null ||
       maxMainHours !== null ||
@@ -806,6 +864,14 @@ export class GameListFilteringEngine {
 
     this.normalizedFilterGameByKey.set(gameKey, normalized);
     return normalized;
+  }
+
+  private matchesTagFilter(tagNames: Set<string>, filterTags: string[]): boolean {
+    const matchesNoneTagFilter = filterTags.includes(this.noneTagFilterValue);
+    const selectedTagNames = filterTags.filter((tag) => tag !== this.noneTagFilterValue);
+    const matchesSelectedTag = selectedTagNames.some((selectedTag) => tagNames.has(selectedTag));
+    const matchesNoTags = matchesNoneTagFilter && tagNames.size === 0;
+    return matchesSelectedTag || matchesNoTags;
   }
 
   private sortGamesByTitleFallback(left: GameEntry, right: GameEntry): number {

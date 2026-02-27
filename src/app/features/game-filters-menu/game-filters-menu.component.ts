@@ -210,6 +210,53 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.updateFilters();
   }
 
+  onExcludedPlatformSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedPlatform: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedGenreSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedGenres: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedGameTypeSelectionChange(value: GameType[] | GameType | null | undefined): void {
+    const normalized = this.normalizeGameTypeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedGameTypes: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedTagSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedTags: this.normalizeTagSelection(normalized)
+    };
+    this.updateFilters();
+  }
+
+  onExcludedStatusSelectionChange(
+    value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined
+  ): void {
+    const normalized = this.normalizeStatusSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedStatuses: normalized
+    };
+    this.updateFilters();
+  }
+
   onStatusSelectionChange(
     value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined
   ): void {

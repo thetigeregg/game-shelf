@@ -92,6 +92,9 @@ export class GameFiltersMenuComponent implements OnChanges {
     'dropped',
     'replay'
   ];
+  readonly excludedStatusOptions: GameStatusFilterOption[] = this.statusOptions.filter(
+    (status) => status !== 'none'
+  );
   readonly ratingOptions: GameRatingFilterOption[] = ['none', 1, 2, 3, 4, 5];
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
@@ -206,6 +209,53 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       tags: this.normalizeTagSelection(normalized)
+    };
+    this.updateFilters();
+  }
+
+  onExcludedPlatformSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedPlatform: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedGenreSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedGenres: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedGameTypeSelectionChange(value: GameType[] | GameType | null | undefined): void {
+    const normalized = this.normalizeGameTypeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedGameTypes: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedTagSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedTags: this.normalizeTagSelection(normalized)
+    };
+    this.updateFilters();
+  }
+
+  onExcludedStatusSelectionChange(
+    value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined
+  ): void {
+    const normalized = this.normalizeStatusSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedStatuses: normalized
     };
     this.updateFilters();
   }

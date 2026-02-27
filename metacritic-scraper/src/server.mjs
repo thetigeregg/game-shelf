@@ -90,13 +90,42 @@ function hasVariantToken(normalizedTitle) {
 }
 
 const seriesIndexTokens = new Set(['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x']);
+const romanToArabicSeriesMap = new Map([
+  ['i', '1'],
+  ['ii', '2'],
+  ['iii', '3'],
+  ['iv', '4'],
+  ['v', '5'],
+  ['vi', '6'],
+  ['vii', '7'],
+  ['viii', '8'],
+  ['ix', '9'],
+  ['x', '10']
+]);
+
+function canonicalizeSeriesToken(token) {
+  if (/^\d+$/.test(token)) {
+    return String(Number.parseInt(token, 10));
+  }
+
+  return romanToArabicSeriesMap.get(token) ?? null;
+}
 
 function extractSeriesTokens(normalizedTitle) {
   return new Set(
     String(normalizedTitle ?? '')
       .split(' ')
-      .filter((token) => /^\d+$/.test(token) || seriesIndexTokens.has(token))
+      .map((token) => canonicalizeSeriesToken(token))
+      .filter((token) => Boolean(token))
   );
+}
+
+function normalizeTitleForMatching(value) {
+  return normalizeTitle(value)
+    .split(' ')
+    .filter(Boolean)
+    .map((token) => canonicalizeSeriesToken(token) ?? token)
+    .join(' ');
 }
 
 function parseMetacriticScore(rawValue) {
@@ -180,8 +209,8 @@ function buildSearchTitleVariants(title) {
 }
 
 function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate) {
-  const normalizedExpected = normalizeTitle(expectedTitle);
-  const normalizedCandidate = normalizeTitle(candidate.title);
+  const normalizedExpected = normalizeTitleForMatching(expectedTitle);
+  const normalizedCandidate = normalizeTitleForMatching(candidate.title);
 
   if (!normalizedExpected || !normalizedCandidate) {
     return -1;

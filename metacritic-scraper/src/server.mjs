@@ -213,7 +213,9 @@ async function searchMetacriticInBrowser(page, query) {
         continue;
       }
 
-      const linkEl = row.querySelector('a[href*="/game/"]');
+      const linkEl = row.matches('a[href*="/game/"]')
+        ? row
+        : row.querySelector('a[href*="/game/"]');
       const href = linkEl ? String(linkEl.getAttribute('href') ?? '').trim() : '';
       const url = href.startsWith('http')
         ? href
@@ -221,14 +223,26 @@ async function searchMetacriticInBrowser(page, query) {
           ? `https://www.metacritic.com${href}`
           : null;
 
-      const scoreEl = row.querySelector(
-        '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w'
-      );
-      const scoreRaw = scoreEl ? String(scoreEl.textContent ?? '').trim() : '';
+      const scoreEl =
+        row.querySelector(
+          '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w'
+        ) ??
+        row.querySelector(
+          '[data-testid="product-metascore"] [aria-label*="Metascore"], [data-testid="product-metascore"] [title*="Metascore"], [aria-label*="Metascore"], [title*="Metascore"]'
+        );
+      const scoreRaw = scoreEl
+        ? String(
+            scoreEl.textContent ??
+              scoreEl.getAttribute('aria-label') ??
+              scoreEl.getAttribute('title') ??
+              ''
+          ).trim()
+        : '';
       const scoreValue = Number.parseInt(scoreRaw, 10);
 
       const releaseDateText = String(
-        row.querySelector('[data-testid="product-release-date"]')?.textContent ?? ''
+        row.querySelector('[data-testid="product-release-date"], time, .c-finderProductCard_meta')
+          ?.textContent ?? ''
       ).trim();
       const metaText = String(row.textContent ?? '');
       const yearMatch =

@@ -95,16 +95,21 @@
         </div>
       }
       @if (getRowHltbHoursLabel(game); as mainHours) {
-        <div
-          class="hltb-main-indicator"
-          [class.hltb-main-indicator-with-metacritic]="hasValidRowMetacriticScore(game)"
-        >
-          {{ mainHours }}
+        <div class="row-metadata-indicators">
+          <div class="hltb-main-indicator">
+            {{ mainHours }}
+          </div>
+          @if (hasValidRowMetacriticScore(game)) {
+            <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
+              {{ getRowMetacriticScore(game) }}
+            </div>
+          }
         </div>
-      }
-      @if (hasValidRowMetacriticScore(game)) {
-        <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
-          {{ getRowMetacriticScore(game) }}
+      } @else if (hasValidRowMetacriticScore(game)) {
+        <div class="row-metadata-indicators">
+          <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
+            {{ getRowMetacriticScore(game) }}
+          </div>
         </div>
       }
 

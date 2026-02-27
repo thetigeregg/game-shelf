@@ -127,6 +127,7 @@ function isValidSortField(value: unknown): value is GameListFilters['sortField']
     value === 'releaseDate' ||
     value === 'createdAt' ||
     value === 'hltb' ||
+    value === 'metacritic' ||
     value === 'platform'
   );
 }

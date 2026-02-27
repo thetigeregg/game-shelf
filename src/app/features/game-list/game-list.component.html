@@ -95,8 +95,21 @@
         </div>
       }
       @if (getRowHltbHoursLabel(game); as mainHours) {
-        <div class="hltb-main-indicator">
-          {{ mainHours }}
+        <div class="row-metadata-indicators">
+          <div class="hltb-main-indicator">
+            {{ mainHours }}
+          </div>
+          @if (hasValidRowMetacriticScore(game)) {
+            <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
+              {{ getRowMetacriticScore(game) }}
+            </div>
+          }
+        </div>
+      } @else if (hasValidRowMetacriticScore(game)) {
+        <div class="row-metadata-indicators">
+          <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
+            {{ getRowMetacriticScore(game) }}
+          </div>
         </div>
       }
 
@@ -255,8 +268,14 @@
             >
               Update HLTB data
             </ion-item>
+            <ion-item button detail="false" (click)="refreshSelectedGameMetacriticFromPopover()">
+              Update Metacritic data
+            </ion-item>
             <ion-item button detail="false" (click)="openFixHltbMatchFromPopover()">
               Fix HLTB match
+            </ion-item>
+            <ion-item button detail="false" (click)="openFixMetacriticMatchFromPopover()">
+              Fix Metacritic match
             </ion-item>
             <ion-item button detail="false" (click)="openImagePickerFromPopover()">
               Update image
@@ -892,6 +911,94 @@
           fill="outline"
           [disabled]="isHltbPickerLoading"
           (click)="useOriginalHltbLookup()"
+        >
+          Use Original Match
+        </ion-button>
+      </ion-item>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isMetacriticPickerModalOpen" (didDismiss)="closeMetacriticPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select Metacritic Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeMetacriticPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding gs-safe-bottom">
+      <ion-item lines="none">
+        <ion-searchbar
+          [value]="metacriticPickerQuery"
+          placeholder="Search Metacritic"
+          show-clear-button="focus"
+          (ionInput)="onMetacriticPickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button
+          slot="end"
+          [disabled]="isMetacriticPickerLoading"
+          (click)="runMetacriticPickerSearch()"
+          >Search</ion-button
+        >
+      </ion-item>
+
+      @if (isMetacriticPickerLoading) {
+        <div class="picker-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (!isMetacriticPickerLoading && metacriticPickerError) {
+        <p class="picker-state ion-text-center">
+          {{ metacriticPickerError }}
+        </p>
+      }
+
+      @if (
+        hasMetacriticPickerSearched &&
+        !isMetacriticPickerLoading &&
+        !metacriticPickerError &&
+        metacriticPickerResults.length === 0
+      ) {
+        <p class="picker-state ion-text-center">No Metacritic results found.</p>
+      }
+
+      @if (!isMetacriticPickerLoading && metacriticPickerResults.length > 0) {
+        <ion-list>
+          @for (candidate of metacriticPickerResults; track candidate) {
+            <ion-item button detail="false" (click)="applySelectedMetacriticCandidate(candidate)">
+              @if (candidate.imageUrl) {
+                <div slot="start" class="candidate-thumbnail">
+                  <img [src]="candidate.imageUrl" alt="Metacritic result cover" />
+                </div>
+              }
+              <ion-label>
+                <h2>{{ candidate.title }}</h2>
+                <p>
+                  {{ candidate.releaseYear || 'Unknown year' }}
+                  @if (candidate.platform) {
+                    <span> · {{ candidate.platform }}</span>
+                  }
+                </p>
+                <p>
+                  Score: <strong>{{ candidate.metacriticScore ?? '?' }}</strong>
+                </p>
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+
+      <ion-item lines="none">
+        <ion-button
+          expand="block"
+          fill="outline"
+          [disabled]="isMetacriticPickerLoading"
+          (click)="useOriginalMetacriticLookup()"
         >
           Use Original Match
         </ion-button>

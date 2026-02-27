@@ -5,6 +5,8 @@ import {
   GameCatalogResult,
   HltbCompletionTimes,
   HltbMatchCandidate,
+  MetacriticMatchCandidate,
+  MetacriticScoreResult,
   PopularityGameResult,
   PopularityTypeOption
 } from '../models/game.models';
@@ -28,6 +30,18 @@ export interface GameSearchApi {
     releaseYear?: number | null,
     platform?: string | null
   ): Observable<HltbMatchCandidate[]>;
+  lookupMetacriticScore(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null,
+    platformIgdbId?: number | null
+  ): Observable<MetacriticScoreResult | null>;
+  lookupMetacriticCandidates(
+    title: string,
+    releaseYear?: number | null,
+    platform?: string | null,
+    platformIgdbId?: number | null
+  ): Observable<MetacriticMatchCandidate[]>;
   listPopularityTypes(): Observable<PopularityTypeOption[]>;
   listPopularityGames(
     popularityTypeId: number,

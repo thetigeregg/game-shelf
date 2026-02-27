@@ -93,6 +93,8 @@ jobs:
             dockerfile: server/Dockerfile
           - image_name: game-shelf-hltb-scraper
             dockerfile: hltb-scraper/Dockerfile
+          - image_name: game-shelf-metacritic-scraper
+            dockerfile: metacritic-scraper/Dockerfile
           - image_name: game-shelf-backup
             dockerfile: backup/Dockerfile
 

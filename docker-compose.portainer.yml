@@ -58,11 +58,19 @@ services:
       HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
       HLTB_CACHE_FRESH_TTL_SECONDS: ${HLTB_CACHE_FRESH_TTL_SECONDS:-604800}
       HLTB_CACHE_STALE_TTL_SECONDS: ${HLTB_CACHE_STALE_TTL_SECONDS:-7776000}
+      HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE: ${HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE:-240}
+      METACRITIC_SCRAPER_BASE_URL: ${METACRITIC_SCRAPER_BASE_URL:-http://metacritic-scraper:8789}
+      METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
+      METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
+      METACRITIC_CACHE_FRESH_TTL_SECONDS: ${METACRITIC_CACHE_FRESH_TTL_SECONDS:-604800}
+      METACRITIC_CACHE_STALE_TTL_SECONDS: ${METACRITIC_CACHE_STALE_TTL_SECONDS:-7776000}
+      METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE: ${METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE:-240}
       MANUALS_DIR: ${MANUALS_DIR:-/data/manuals}
       MANUALS_PUBLIC_BASE_URL: ${MANUALS_PUBLIC_BASE_URL:-/manuals}
     depends_on:
       - postgres
       - hltb-scraper
+      - metacritic-scraper
     volumes:
       - ${IMAGE_CACHE_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/image-cache}:/data/images
       - ${MANUALS_HOST_DIR:-${NAS_DATA_ROOT:-./nas-data}/manuals}:/data/manuals:ro
@@ -101,6 +109,20 @@ services:
       HLTB_SCRAPER_BROWSER_IDLE_MS: ${HLTB_SCRAPER_BROWSER_IDLE_MS:-30000}
       HLTB_SCRAPER_TOKEN_FILE: ${HLTB_SCRAPER_TOKEN_FILE:-/run/secrets/hltb_scraper_token}
       DEBUG_HLTB_SCRAPER_LOGS: ${DEBUG_HLTB_SCRAPER_LOGS:-false}
+    volumes:
+      - ${SECRETS_HOST_DIR}:/run/secrets:ro
+    restart: unless-stopped
+
+  metacritic-scraper:
+    container_name: gameshelf-metacritic-scraper
+    image: ${METACRITIC_SCRAPER_IMAGE:-ghcr.io/thetigeregg/game-shelf-metacritic-scraper:main}
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+      PORT: ${METACRITIC_SCRAPER_PORT:-8789}
+      METACRITIC_SCRAPER_TIMEOUT_MS: ${METACRITIC_SCRAPER_TIMEOUT_MS:-25000}
+      METACRITIC_SCRAPER_BROWSER_IDLE_MS: ${METACRITIC_SCRAPER_BROWSER_IDLE_MS:-30000}
+      METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
+      DEBUG_METACRITIC_SCRAPER_LOGS: ${DEBUG_METACRITIC_SCRAPER_LOGS:-false}
     volumes:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
     restart: unless-stopped

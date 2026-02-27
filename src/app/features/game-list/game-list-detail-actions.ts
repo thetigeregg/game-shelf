@@ -8,6 +8,10 @@ export function hasHltbData(game: GameEntry): boolean {
   );
 }
 
+export function hasMetacriticData(game: GameEntry): boolean {
+  return isPositiveIntegerScore(game.metacriticScore);
+}
+
 export function normalizeGameStatus(value: string | null | undefined): GameStatus | null {
   if (
     value === 'playing' ||
@@ -75,4 +79,14 @@ export function normalizeTagIds(tagIds: number[] | undefined): number[] {
 
 function isPositiveNumber(value: number | null | undefined): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isPositiveIntegerScore(value: number | null | undefined): boolean {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    value <= 100
+  );
 }

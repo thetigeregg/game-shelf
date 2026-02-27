@@ -259,6 +259,11 @@ export class GameDetailContentComponent {
     return this.formatCompletionHours(this.game.hltbCompletionistHours);
   }
 
+  get metacriticScoreLabel(): string {
+    const score = this.normalizeMetacriticScore(this.game.metacriticScore);
+    return score === null ? 'Unknown' : String(score);
+  }
+
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
     return this.detailTextExpanded[field];
   }
@@ -300,6 +305,19 @@ export class GameDetailContentComponent {
     ];
 
     return normalized.length > 0 ? normalized.join(', ') : 'None';
+  }
+
+  private normalizeMetacriticScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const normalized = Math.round(value);
+    if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 100) {
+      return null;
+    }
+
+    return normalized;
   }
 
   hasMetadataValue(values: string[] | null | undefined): boolean {

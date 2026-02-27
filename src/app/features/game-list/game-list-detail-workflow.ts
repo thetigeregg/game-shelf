@@ -1,4 +1,8 @@
-import { GameEntry, HltbMatchCandidate } from '../../core/models/game.models';
+import {
+  GameEntry,
+  HltbMatchCandidate,
+  MetacriticMatchCandidate
+} from '../../core/models/game.models';
 
 export interface ImagePickerState {
   imagePickerSearchRequestId: number;
@@ -17,6 +21,16 @@ export interface HltbPickerState {
   hltbPickerResults: HltbMatchCandidate[];
   hltbPickerError: string | null;
   hltbPickerTargetGame: GameEntry | null;
+}
+
+export interface MetacriticPickerState {
+  isMetacriticPickerModalOpen: boolean;
+  isMetacriticPickerLoading: boolean;
+  hasMetacriticPickerSearched: boolean;
+  metacriticPickerQuery: string;
+  metacriticPickerResults: MetacriticMatchCandidate[];
+  metacriticPickerError: string | null;
+  metacriticPickerTargetGame: GameEntry | null;
 }
 
 export function normalizeMetadataOptions(values: string[] | undefined): string[] {
@@ -93,5 +107,45 @@ export function createClosedHltbPickerState(): HltbPickerState {
     hltbPickerResults: [],
     hltbPickerError: null,
     hltbPickerTargetGame: null
+  };
+}
+
+export function dedupeMetacriticCandidates(
+  candidates: MetacriticMatchCandidate[]
+): MetacriticMatchCandidate[] {
+  const byKey = new Map<string, MetacriticMatchCandidate>();
+
+  candidates.forEach((candidate) => {
+    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.metacriticScore ?? '')}`;
+
+    if (!byKey.has(key)) {
+      byKey.set(key, candidate);
+    }
+  });
+
+  return [...byKey.values()];
+}
+
+export function createOpenedMetacriticPickerState(game: GameEntry): MetacriticPickerState {
+  return {
+    isMetacriticPickerModalOpen: true,
+    isMetacriticPickerLoading: false,
+    hasMetacriticPickerSearched: false,
+    metacriticPickerQuery: game.title,
+    metacriticPickerResults: [],
+    metacriticPickerError: null,
+    metacriticPickerTargetGame: game
+  };
+}
+
+export function createClosedMetacriticPickerState(): MetacriticPickerState {
+  return {
+    isMetacriticPickerModalOpen: false,
+    isMetacriticPickerLoading: false,
+    hasMetacriticPickerSearched: false,
+    metacriticPickerQuery: '',
+    metacriticPickerResults: [],
+    metacriticPickerError: null,
+    metacriticPickerTargetGame: null
   };
 }

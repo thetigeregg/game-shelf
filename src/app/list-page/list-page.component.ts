@@ -676,6 +676,11 @@ export class ListPageComponent {
     await this.gameListComponent?.updateHltbForSelectedGames();
   }
 
+  async updateMetacriticForSelectedGamesFromPopover(): Promise<void> {
+    this.closeBulkActionsPopover();
+    await this.gameListComponent?.updateMetacriticForSelectedGames();
+  }
+
   openBulkActionsPopover(event: Event): void {
     this.bulkActionsPopoverEvent = event;
     this.isBulkActionsPopoverOpen = true;
@@ -766,6 +771,7 @@ export class ListPageComponent {
       value === 'releaseDate' ||
       value === 'createdAt' ||
       value === 'hltb' ||
+      value === 'metacritic' ||
       value === 'platform'
     );
   }

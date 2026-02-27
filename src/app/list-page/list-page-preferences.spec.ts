@@ -102,6 +102,19 @@ describe('list-page-preferences', () => {
     expect(restored).toEqual(original);
   });
 
+  it('accepts hltb as a valid sort field from stored preferences', () => {
+    const normalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      '__none__'
+    );
+
+    expect(normalized.sortField).toBe('hltb');
+    expect(normalized.sortDirection).toBe('asc');
+  });
+
   it('normalizes unknown group values to none', () => {
     expect(normalizeListPageGroupBy('genre')).toBe('genre');
     expect(normalizeListPageGroupBy('not-a-group')).toBe('none');

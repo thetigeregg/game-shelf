@@ -114,7 +114,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isValidSortField(value: unknown): value is GameListFilters['sortField'] {
   return (
-    value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform'
+    value === 'title' ||
+    value === 'releaseDate' ||
+    value === 'createdAt' ||
+    value === 'hltb' ||
+    value === 'platform'
   );
 }
 

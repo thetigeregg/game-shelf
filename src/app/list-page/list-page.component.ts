@@ -700,7 +700,11 @@ export class ListPageComponent {
 
   private isValidSortField(value: unknown): value is GameListFilters['sortField'] {
     return (
-      value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform'
+      value === 'title' ||
+      value === 'releaseDate' ||
+      value === 'createdAt' ||
+      value === 'hltb' ||
+      value === 'platform'
     );
   }
 

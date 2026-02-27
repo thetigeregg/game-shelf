@@ -583,6 +583,34 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['Allowed']);
   });
 
+  it('strips legacy none exclusion values during normalization', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'No Status No Tags',
+        status: null,
+        tags: []
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Playing With Tag',
+        status: 'playing',
+        tags: [{ id: 1, name: 'Backlog', color: '#fff' }]
+      })
+    ];
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      excludedStatuses: ['none', 'playing'],
+      excludedTags: [noneTagFilterValue, 'Backlog']
+    };
+    const normalizedFilters = engine.normalizeFilters(filters);
+
+    const result = engine.applyFiltersAndSort(games, normalizedFilters, '');
+    expect(result.map((game) => game.title)).toEqual(['No Status No Tags']);
+  });
+
   it('supports none status and none rating filters', () => {
     const games: GameEntry[] = [
       makeGame({

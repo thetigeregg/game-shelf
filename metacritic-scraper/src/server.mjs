@@ -145,7 +145,10 @@ function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate)
 }
 
 async function searchMetacriticInBrowser(page, query) {
-  const searchUrl = `https://www.metacritic.com/search/${encodeURIComponent(query)}/`;
+  const normalizedQuery = normalizeTitle(query);
+  const queryForPath = normalizedQuery.length > 0 ? normalizedQuery : String(query ?? '').trim();
+  const encodedPathQuery = encodeURIComponent(queryForPath);
+  const searchUrl = `https://www.metacritic.com/search/${encodedPathQuery}/?category=13`;
 
   await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
   await page.waitForTimeout(300);

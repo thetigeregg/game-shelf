@@ -55,6 +55,8 @@ export interface GameCatalogResult {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  metacriticScore?: number | null;
+  metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
   collections?: string[];
   developers?: string[];
@@ -98,6 +100,8 @@ export interface GameEntry {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  metacriticScore?: number | null;
+  metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
   collections?: string[];
   developers?: string[];
@@ -126,6 +130,18 @@ export interface HltbCompletionTimes {
 }
 
 export interface HltbMatchCandidate extends HltbCompletionTimes {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  imageUrl?: string | null;
+}
+
+export interface MetacriticScoreResult {
+  metacriticScore: number | null;
+  metacriticUrl: string | null;
+}
+
+export interface MetacriticMatchCandidate extends MetacriticScoreResult {
   title: string;
   releaseYear: number | null;
   platform: string | null;
@@ -181,7 +197,13 @@ export interface SyncPushResult {
   normalizedPayload?: unknown;
 }
 
-export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'hltb' | 'platform';
+export type GameSortField =
+  | 'title'
+  | 'releaseDate'
+  | 'createdAt'
+  | 'hltb'
+  | 'metacritic'
+  | 'platform';
 export type SortDirection = 'asc' | 'desc';
 export type GameGroupByField =
   | 'none'

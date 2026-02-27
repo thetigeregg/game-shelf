@@ -1,0 +1,102 @@
+{
+  "3": {
+    "metacriticSlug": "pc",
+    "metacriticDisplay": "PC"
+  },
+  "4": {
+    "metacriticSlug": "n64",
+    "metacriticDisplay": "Nintendo 64"
+  },
+  "5": {
+    "metacriticSlug": "wii",
+    "metacriticDisplay": "Wii"
+  },
+  "6": {
+    "metacriticSlug": "pc",
+    "metacriticDisplay": "PC"
+  },
+  "7": {
+    "metacriticSlug": "ps",
+    "metacriticDisplay": "PlayStation"
+  },
+  "8": {
+    "metacriticSlug": "ps2",
+    "metacriticDisplay": "PlayStation 2"
+  },
+  "9": {
+    "metacriticSlug": "ps3",
+    "metacriticDisplay": "PlayStation 3"
+  },
+  "11": {
+    "metacriticSlug": "xbox",
+    "metacriticDisplay": "Xbox"
+  },
+  "12": {
+    "metacriticSlug": "xbox-360",
+    "metacriticDisplay": "Xbox 360"
+  },
+  "14": {
+    "metacriticSlug": "pc",
+    "metacriticDisplay": "PC"
+  },
+  "20": {
+    "metacriticSlug": "ds",
+    "metacriticDisplay": "Nintendo DS"
+  },
+  "21": {
+    "metacriticSlug": "gamecube",
+    "metacriticDisplay": "GameCube"
+  },
+  "24": {
+    "metacriticSlug": "gba",
+    "metacriticDisplay": "Game Boy Advance"
+  },
+  "34": {
+    "metacriticSlug": "android",
+    "metacriticDisplay": "Android"
+  },
+  "37": {
+    "metacriticSlug": "3ds",
+    "metacriticDisplay": "3DS"
+  },
+  "38": {
+    "metacriticSlug": "psp",
+    "metacriticDisplay": "PlayStation Portable"
+  },
+  "39": {
+    "metacriticSlug": "ios",
+    "metacriticDisplay": "iOS"
+  },
+  "41": {
+    "metacriticSlug": "wii-u",
+    "metacriticDisplay": "Wii U"
+  },
+  "46": {
+    "metacriticSlug": "psvita",
+    "metacriticDisplay": "PlayStation Vita"
+  },
+  "48": {
+    "metacriticSlug": "ps4",
+    "metacriticDisplay": "PlayStation 4"
+  },
+  "49": {
+    "metacriticSlug": "xbox-one",
+    "metacriticDisplay": "Xbox One"
+  },
+  "130": {
+    "metacriticSlug": "switch",
+    "metacriticDisplay": "Nintendo Switch"
+  },
+  "167": {
+    "metacriticSlug": "ps5",
+    "metacriticDisplay": "PlayStation 5"
+  },
+  "169": {
+    "metacriticSlug": "xbox-series-x",
+    "metacriticDisplay": "Xbox Series X"
+  },
+  "471": {
+    "metacriticSlug": "meta-quest",
+    "metacriticDisplay": "Meta Quest"
+  }
+}

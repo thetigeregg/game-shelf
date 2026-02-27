@@ -280,6 +280,15 @@
               </ion-label>
             </ion-item>
           }
+
+          @if (showLibrarySections) {
+            <ion-item>
+              <ion-label>
+                <h2>Metacritic Score</h2>
+                <p>{{ metacriticScoreLabel }}</p>
+              </ion-label>
+            </ion-item>
+          }
         </ion-list>
         <ng-content select="[detail-secondary-content]"></ng-content>
       </ion-col>

@@ -91,6 +91,8 @@ describe('IgdbProxyService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        metacriticScore: null,
+        metacriticUrl: null,
         similarGameIgdbIds: [],
         developers: [],
         franchises: [],
@@ -188,6 +190,8 @@ describe('IgdbProxyService', () => {
       hltbMainHours: null,
       hltbMainExtraHours: null,
       hltbCompletionistHours: null,
+      metacriticScore: null,
+      metacriticUrl: null,
       similarGameIgdbIds: [],
       developers: [],
       franchises: [],
@@ -301,6 +305,8 @@ describe('IgdbProxyService', () => {
           hltbMainHours: null,
           hltbMainExtraHours: null,
           hltbCompletionistHours: null,
+          metacriticScore: null,
+          metacriticUrl: null,
           similarGameIgdbIds: [],
           developers: [],
           franchises: [],
@@ -529,6 +535,8 @@ describe('IgdbProxyService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        metacriticScore: null,
+        metacriticUrl: null,
         similarGameIgdbIds: [],
         developers: ['Nintendo'],
         franchises: ['The Legend of Zelda'],
@@ -675,6 +683,238 @@ describe('IgdbProxyService', () => {
     });
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
 
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('propagates 429 errors for HLTB lookup and candidate search', async () => {
+    const lookupPromise = firstValueFrom(service.lookupCompletionTimes('Super Metroid'));
+    const lookupReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Super Metroid'
+      );
+    });
+    lookupReq.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '3' })
+      }
+    );
+    await expect(lookupPromise).rejects.toThrowError('Rate limit exceeded. Retry after 3s.');
+
+    const candidatePromise = firstValueFrom(
+      service.lookupCompletionTimeCandidates('Super Metroid')
+    );
+    const candidateReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Super Metroid' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    candidateReq.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '3' })
+      }
+    );
+    await expect(candidatePromise).rejects.toThrowError('Rate limit exceeded. Retry after 3s.');
+  });
+
+  it('looks up Metacritic score and normalizes payload', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('releaseYear') === '2006' &&
+        request.params.get('platform') === 'Wii'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 92.4,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 92,
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
+    });
+  });
+
+  it('returns null for Metacritic lookup failures', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticScore('Okami'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`);
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('handles short metacritic queries and propagates 429 responses', async () => {
+    await expect(firstValueFrom(service.lookupMetacriticScore('x'))).resolves.toBeNull();
+    await expect(firstValueFrom(service.lookupMetacriticCandidates('x'))).resolves.toEqual([]);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/metacritic/search`);
+
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 19));
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '19'
+      );
+    });
+    scoreReq.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '4' })
+      }
+    );
+    await expect(scorePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
+
+    const candidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 19)
+    );
+    const candidateReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('platformIgdbId') === '19'
+      );
+    });
+    candidateReq.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '4' })
+      }
+    );
+    await expect(candidatePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
+  });
+
+  it('looks up Metacritic candidates and normalizes candidate payload', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii'));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('releaseYear') === '2006' &&
+        request.params.get('platform') === 'Wii'
+      );
+    });
+
+    req.flush({
+      candidates: [
+        {
+          title: ' Okami ',
+          releaseYear: 2006,
+          platform: ' Wii ',
+          metacriticScore: 93.2,
+          metacriticUrl: '//www.metacritic.com/game/okami/',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+        },
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 93,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticScore: 93,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+      }
+    ]);
+  });
+
+  it('drops empty metacritic payloads and invalid metacritic candidates', async () => {
+    const nullItemPromise = firstValueFrom(service.lookupMetacriticScore('Okami'));
+    const nullItemReq = httpMock.expectOne(
+      `${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`
+    );
+    nullItemReq.flush({ item: null });
+    await expect(nullItemPromise).resolves.toBeNull();
+
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami'));
+    const scoreReq = httpMock.expectOne(
+      `${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`
+    );
+    scoreReq.flush({
+      item: {
+        metacriticScore: null,
+        metacriticUrl: 'ftp://invalid'
+      }
+    });
+    await expect(scorePromise).resolves.toBeNull();
+
+    const nonArrayCandidatePromise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const nonArrayCandidateReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    nonArrayCandidateReq.flush({ candidates: {} });
+    await expect(nonArrayCandidatePromise).resolves.toEqual([]);
+
+    const candidatePromise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const candidateReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    candidateReq.flush({
+      candidates: [
+        {
+          title: '   ',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 93,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        },
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 200,
+          metacriticUrl: null
+        }
+      ]
+    });
+    await expect(candidatePromise).resolves.toEqual([]);
+  });
+
+  it('returns empty metacritic candidate list for non-rate-limit failures', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
     await expect(promise).resolves.toEqual([]);
   });
 

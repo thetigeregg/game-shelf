@@ -126,6 +126,7 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
   });
 
   assert.deepEqual(normalized, {
+    igdbGameId: '42',
     externalId: '42',
     title: 'Super Mario Odyssey',
     coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/abc123.jpg',
@@ -146,6 +147,16 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     releaseDate: '2017-10-20T00:00:00.000Z',
     releaseYear: 2017
   });
+});
+
+test('normalizeIgdbGame defaults missing game id to empty identifiers', () => {
+  const normalized = normalizeIgdbGame({
+    name: 'Untitled Prototype',
+    platforms: [{ id: 6, name: 'PC (Microsoft Windows)' }]
+  });
+
+  assert.equal(normalized.igdbGameId, '');
+  assert.equal(normalized.externalId, '');
 });
 
 test('returns 400 for short query', async () => {
@@ -185,7 +196,7 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
 
   const payload = await response.json();
   assert.equal(payload.items.length, 1);
-  assert.equal(payload.items[0].externalId, '99');
+  assert.equal(payload.items[0].igdbGameId, '99');
   assert.equal(payload.items[0].title, 'Mario Kart 8 Deluxe');
   assert.deepEqual(payload.items[0].platforms, ['Nintendo Switch']);
   assert.deepEqual(payload.items[0].platformOptions, [{ id: 130, name: 'Nintendo Switch' }]);
@@ -278,9 +289,9 @@ test('demotes remakes/remasters below their original game when both are in resul
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.items.length, 2);
-  assert.equal(payload.items[0].externalId, '200');
+  assert.equal(payload.items[0].igdbGameId, '200');
   assert.equal(payload.items[0].title, 'Epic Mickey');
-  assert.equal(payload.items[1].externalId, '201');
+  assert.equal(payload.items[1].igdbGameId, '201');
   assert.equal(payload.items[1].title, 'Epic Mickey: Rebrushed');
 });
 
@@ -320,7 +331,7 @@ test('falls back to reduced IGDB fields when first search variant fails', async 
 
   const payload = await response.json();
   assert.equal(payload.items.length, 1);
-  assert.equal(payload.items[0].externalId, '500');
+  assert.equal(payload.items[0].igdbGameId, '500');
   assert.equal(payload.items[0].title, 'The Legend of Zelda');
 });
 
@@ -466,7 +477,7 @@ test('returns IGDB popularity primitives enriched with game metadata', async () 
   assert.equal(payload.items.length, 1);
   assert.equal(payload.items[0].popularityType, 7);
   assert.equal(payload.items[0].value, 987.65);
-  assert.equal(payload.items[0].game.externalId, '42');
+  assert.equal(payload.items[0].game.igdbGameId, '42');
   assert.equal(payload.items[0].game.title, 'Super Metroid');
 });
 
@@ -560,7 +571,7 @@ test('returns normalized game metadata for IGDB id endpoint', async () => {
 
   assert.equal(response.status, 200);
   const payload = await response.json();
-  assert.equal(payload.item.externalId, '321');
+  assert.equal(payload.item.igdbGameId, '321');
   assert.equal(payload.item.title, 'Super Metroid');
   assert.equal(payload.item.coverSource, 'igdb');
   assert.equal(

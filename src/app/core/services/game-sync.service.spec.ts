@@ -269,6 +269,49 @@ describe('GameSyncService', () => {
     expect(stored?.tagIds).toEqual([1, 2]);
   });
 
+  it('strict-normalizes pulled metacritic/hltb and list metadata fields', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4b',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        hltbMainHours: -4,
+        hltbMainExtraHours: 21.234,
+        hltbCompletionistHours: 'not-a-number',
+        metacriticScore: 777,
+        metacriticUrl: '//www.metacritic.com/game/example/',
+        collections: [' Series A ', 'Series A', '', 3],
+        genres: [' Action ', 'Action', ''],
+        similarGameIgdbIds: ['123', '123', 'bad', 456],
+        releaseYear: 1700,
+        releaseDate: '',
+        rating: '6',
+        status: 'invalid',
+        gameType: 'invalid',
+        coverUrl: 'not-a-url',
+        createdAt: 'not-a-date'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.hltbMainHours).toBeNull();
+    expect(stored?.hltbMainExtraHours).toBe(21.2);
+    expect(stored?.hltbCompletionistHours).toBeNull();
+    expect(stored?.metacriticScore).toBeNull();
+    expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/example/');
+    expect(stored?.collections).toEqual(['Series A']);
+    expect(stored?.genres).toEqual(['Action']);
+    expect(stored?.similarGameIgdbIds).toEqual(['123', '456']);
+    expect(stored?.releaseYear).toBeNull();
+    expect(stored?.releaseDate).toBeNull();
+    expect(stored?.rating).toBeNull();
+    expect(stored?.status).toBeNull();
+    expect(stored?.gameType).toBeNull();
+    expect(stored?.coverUrl).toBeNull();
+    expect(stored?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
   it('normalizes custom metadata in game upserts', async () => {
     await servicePrivate.applyGameChange({
       eventId: '5',

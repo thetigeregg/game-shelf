@@ -1,6 +1,11 @@
 import express from 'express';
 import fs from 'node:fs';
 import { chromium } from 'playwright';
+import {
+  buildMetacriticSearchUrl,
+  buildSearchTitleVariants,
+  normalizeTitle
+} from './search-utils.mjs';
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -61,16 +66,6 @@ function normalizeIncludeCandidates(req) {
     .trim()
     .toLowerCase();
   return raw === '1' || raw === 'true' || raw === 'yes';
-}
-
-function normalizeTitle(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function loadIgdbToMetacriticPlatformDisplayById() {
@@ -197,23 +192,6 @@ function hasAddonQualifier(rawTitle, normalizedTitle) {
   return false;
 }
 
-function parseMetacriticScore(rawValue) {
-  const text = String(rawValue ?? '')
-    .toLowerCase()
-    .trim();
-  if (text.length === 0 || text.includes('tbd') || text.includes('null')) {
-    return null;
-  }
-
-  const match = text.match(/\b([1-9]\d?|100)\b/);
-  if (!match) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(match[1], 10);
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
-}
-
 function normalizePlatformValue(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -288,22 +266,6 @@ function resolveExpectedPlatformAliases(expectedPlatform, expectedPlatformIgdbId
   }
 
   return aliases;
-}
-
-function buildSearchTitleVariants(title) {
-  const base = String(title ?? '').trim();
-  if (base.length === 0) {
-    return [];
-  }
-
-  const normalized = normalizeTitle(base);
-  const titleCase = normalized
-    .split(' ')
-    .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
-    .join(' ');
-
-  return [...new Set([base, titleCase].filter((value) => value.length > 0))];
 }
 
 function rankCandidate(
@@ -427,10 +389,7 @@ function rankCandidate(
 }
 
 async function searchMetacriticInBrowser(page, query) {
-  const normalizedQuery = normalizeTitle(query);
-  const queryForPath = normalizedQuery.length > 0 ? normalizedQuery : String(query ?? '').trim();
-  const encodedPathQuery = encodeURIComponent(queryForPath);
-  const searchUrl = `https://www.metacritic.com/search/${encodedPathQuery}/?category=13`;
+  const searchUrl = buildMetacriticSearchUrl(query);
 
   await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
   await page.waitForTimeout(300);
@@ -589,7 +548,8 @@ app.get('/v1/metacritic/search', async (req, res) => {
     });
     const page = await context.newPage();
 
-    let allCandidates = [];
+    const allCandidates = [];
+    const seenCandidateKeys = new Set();
 
     for (const variant of titleVariants) {
       const candidates = await searchMetacriticInBrowser(page, variant);
@@ -604,24 +564,34 @@ app.get('/v1/metacritic/search', async (req, res) => {
           candidateCount: candidates.length
         });
       }
-      if (candidates.length > 0) {
-        allCandidates = candidates;
-        break;
+      for (const candidate of candidates) {
+        const key = [
+          candidate.metacriticUrl ?? '',
+          candidate.title ?? '',
+          String(candidate.releaseYear ?? ''),
+          candidate.platform ?? '',
+          String(candidate.metacriticScore ?? '')
+        ].join('::');
+        if (seenCandidateKeys.has(key)) {
+          continue;
+        }
+
+        seenCandidateKeys.add(key);
+        allCandidates.push(candidate);
       }
     }
 
-    const ranked = allCandidates
+    const rankedWithScores = allCandidates
       .map((candidate) => ({
         candidate,
         score: rankCandidate(query, releaseYear, platform, platformIgdbId, candidate)
       }))
       .filter((entry) => entry.score >= 0)
-      .sort((left, right) => right.score - left.score)
-      .map((entry) => entry.candidate)
-      .slice(0, 30);
+      .sort((left, right) => right.score - left.score);
+    const ranked = rankedWithScores.map((entry) => entry.candidate).slice(0, 30);
 
     const best = ranked[0] ?? null;
-    const bestScore = best ? rankCandidate(query, releaseYear, platform, platformIgdbId, best) : -1;
+    const bestScore = rankedWithScores[0]?.score ?? -1;
     const confidenceThreshold = 115;
 
     const item =

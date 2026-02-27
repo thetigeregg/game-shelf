@@ -9,7 +9,7 @@ export function hasHltbData(game: GameEntry): boolean {
 }
 
 export function hasMetacriticData(game: GameEntry): boolean {
-  return isPositiveIntegerScore(game.metacriticScore) || hasNonEmptyUrl(game.metacriticUrl);
+  return isPositiveIntegerScore(game.metacriticScore);
 }
 
 export function normalizeGameStatus(value: string | null | undefined): GameStatus | null {
@@ -89,8 +89,4 @@ function isPositiveIntegerScore(value: number | null | undefined): boolean {
     value > 0 &&
     value <= 100
   );
-}
-
-function hasNonEmptyUrl(value: string | null | undefined): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
 }

@@ -20,6 +20,7 @@ export type GameType =
   | 'fork'
   | 'pack'
   | 'update';
+export type ReviewSource = 'metacritic' | 'mobygames';
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -55,6 +56,9 @@ export interface GameCatalogResult {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  reviewScore?: number | null;
+  reviewUrl?: string | null;
+  reviewSource?: ReviewSource | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
@@ -100,6 +104,9 @@ export interface GameEntry {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  reviewScore?: number | null;
+  reviewUrl?: string | null;
+  reviewSource?: ReviewSource | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
@@ -142,6 +149,22 @@ export interface MetacriticScoreResult {
 }
 
 export interface MetacriticMatchCandidate extends MetacriticScoreResult {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  imageUrl?: string | null;
+}
+
+export interface ReviewScoreResult {
+  reviewScore: number | null;
+  reviewUrl: string | null;
+  reviewSource: ReviewSource | null;
+  // Compatibility aliases for legacy call sites.
+  metacriticScore?: number | null;
+  metacriticUrl?: string | null;
+}
+
+export interface ReviewMatchCandidate extends ReviewScoreResult {
   title: string;
   releaseYear: number | null;
   platform: string | null;
@@ -202,6 +225,7 @@ export type GameSortField =
   | 'releaseDate'
   | 'createdAt'
   | 'hltb'
+  | 'review'
   | 'metacritic'
   | 'platform';
 export type SortDirection = 'asc' | 'desc';

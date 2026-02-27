@@ -59,6 +59,11 @@ export function normalizeListPageStoredFilters(
     genres: normalizeStringList(parsed['genres']),
     statuses: normalizeGameStatusFilterList(parsed['statuses']),
     tags: normalizeTagFilterList(parsed['tags'], noneTagFilterValue),
+    excludedPlatform: normalizeStringList(parsed['excludedPlatform']),
+    excludedGenres: normalizeStringList(parsed['excludedGenres']),
+    excludedStatuses: normalizeGameStatusFilterList(parsed['excludedStatuses']),
+    excludedTags: normalizeTagFilterList(parsed['excludedTags'], noneTagFilterValue),
+    excludedGameTypes: normalizeGameTypeList(parsed['excludedGameTypes']),
     ratings: normalizeGameRatingFilterList(parsed['ratings']),
     hltbMainHoursMin:
       hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax

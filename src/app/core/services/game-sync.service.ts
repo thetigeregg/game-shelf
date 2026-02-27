@@ -5,6 +5,7 @@ import { AppDb, OutboxEntry, SyncMetaEntry } from '../data/app-db';
 import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-writer';
 import {
   ClientSyncOperation,
+  DEFAULT_GAME_LIST_FILTERS,
   GameEntry,
   GameListView,
   SyncChangeEvent,
@@ -563,24 +564,7 @@ export class GameSyncService implements SyncOutboxWriter {
           ? payload.name.trim()
           : 'Saved View',
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
-      filters: payload.filters ?? {
-        sortField: 'title',
-        sortDirection: 'asc',
-        platform: [],
-        collections: [],
-        developers: [],
-        franchises: [],
-        publishers: [],
-        gameTypes: [],
-        genres: [],
-        statuses: [],
-        tags: [],
-        ratings: [],
-        hltbMainHoursMin: null,
-        hltbMainHoursMax: null,
-        releaseDateFrom: null,
-        releaseDateTo: null
-      },
+      filters: payload.filters ?? { ...DEFAULT_GAME_LIST_FILTERS },
       groupBy: payload.groupBy ?? 'none',
       createdAt:
         typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),

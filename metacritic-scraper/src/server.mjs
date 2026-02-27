@@ -393,6 +393,10 @@ function rankCandidate(
       score += 10;
     } else if (delta <= 3) {
       score += 4;
+    } else if (delta >= 10) {
+      score -= 20;
+    } else if (delta >= 5) {
+      score -= 10;
     }
   }
 

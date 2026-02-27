@@ -42,6 +42,40 @@ ion-item-sliding ion-item ion-label {
   line-height: 1;
 }
 
+.hltb-main-indicator-with-metacritic {
+  right: 48px;
+}
+
+.metacritic-score-indicator {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  z-index: 2;
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #000000;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.metacritic-score-indicator.mc-good {
+  background: var(--ion-color-mc-good);
+}
+
+.metacritic-score-indicator.mc-okay {
+  background: var(--ion-color-mc-okay);
+}
+
+.metacritic-score-indicator.mc-bad {
+  background: var(--ion-color-mc-bad);
+}
+
 .detail-clear-button {
   margin-left: 8px;
 }

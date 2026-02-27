@@ -354,12 +354,19 @@ export class IgdbProxyService implements GameSearchApi {
 
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
     const payload = result as GameCatalogResult & { externalId?: string };
+    const igdbGameId =
+      typeof payload.igdbGameId === 'string'
+        ? payload.igdbGameId.trim()
+        : typeof payload.externalId === 'string'
+          ? payload.externalId.trim()
+          : '';
+    const title = typeof result.title === 'string' ? result.title.trim() : '';
     const platformOptions = this.normalizePlatformOptions(result);
     const platforms = [...new Set(platformOptions.map((platform) => platform.name))];
 
     return {
-      igdbGameId: payload.igdbGameId.trim(),
-      title: result.title.trim() || 'Unknown title',
+      igdbGameId,
+      title: title.length > 0 ? title : 'Unknown title',
       coverUrl: this.normalizeCoverUrl(result.coverUrl),
       coverSource: this.normalizeCoverSource(result.coverSource),
       storyline: this.normalizeOptionalText(

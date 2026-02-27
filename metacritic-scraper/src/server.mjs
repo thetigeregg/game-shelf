@@ -60,6 +60,32 @@ function normalizeTitle(value) {
     .trim();
 }
 
+const variantTokens = new Set([
+  'remaster',
+  'remastered',
+  'remake',
+  'redux',
+  'definitive',
+  'special',
+  'ultimate',
+  'anniversary',
+  'game',
+  'year',
+  'goty',
+  'collection',
+  'complete',
+  'director',
+  'deluxe',
+  'hd'
+]);
+
+function hasVariantToken(normalizedTitle) {
+  const tokens = String(normalizedTitle ?? '')
+    .split(' ')
+    .filter(Boolean);
+  return tokens.some((token) => variantTokens.has(token));
+}
+
 function normalizePlatformValue(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -142,6 +168,12 @@ function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate)
     normalizedCandidate.includes(normalizedExpected)
   ) {
     score += 20;
+  }
+
+  const expectedHasVariant = hasVariantToken(normalizedExpected);
+  const candidateHasVariant = hasVariantToken(normalizedCandidate);
+  if (expectedHasVariant !== candidateHasVariant) {
+    score -= 18;
   }
 
   const expectedTokens = new Set(normalizedExpected.split(' ').filter(Boolean));

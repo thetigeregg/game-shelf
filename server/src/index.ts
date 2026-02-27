@@ -11,6 +11,7 @@ import { createPool } from './db.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
+import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
@@ -175,6 +176,11 @@ async function main(): Promise<void> {
   });
   await registerHltbCachedRoute(app, pool);
   await registerMetacriticCachedRoute(app, pool);
+  await registerMobyGamesCachedRoute(app, pool, {
+    enableStaleWhileRevalidate: config.mobygamesCacheEnableStaleWhileRevalidate,
+    freshTtlSeconds: config.mobygamesCacheFreshTtlSeconds,
+    staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds
+  });
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({ error: 'Not found' });

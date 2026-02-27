@@ -10,6 +10,8 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/platforms`
 - `GET /v1/images/boxart/search`
 - `GET /v1/hltb/search`
+- `GET /v1/metacritic/search`
+- `GET /v1/mobygames/search`
 - `GET /v1/images/proxy`
 - `GET /v1/manuals/resolve`
 - `GET /v1/manuals/search`
@@ -32,6 +34,7 @@ npm run dev:stack:up
 
 This starts the API in Docker with Postgres + HLTB scraper dependencies.
 Provide file-based secrets in `./nas-secrets` (see `docs/nas-deployment.md` for the full list).
+For MobyGames lookups, provide `mobygames_api_key` in the same secrets directory.
 
 ## Notes
 

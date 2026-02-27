@@ -156,7 +156,7 @@ async function searchMetacriticInBrowser(page, query) {
   const items = await page.evaluate(() => {
     const rows = Array.from(
       document.querySelectorAll(
-        '[data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard'
+        '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard'
       )
     );
 
@@ -164,8 +164,9 @@ async function searchMetacriticInBrowser(page, query) {
 
     for (const row of rows) {
       const titleEl =
-        row.querySelector('h3, .c-finderProductCard_title, a.c-finderProductCard_container') ||
-        row.querySelector('a[href*="/game/"]');
+        row.querySelector(
+          '[data-testid="product-title"], h3, .c-finderProductCard_title, a.c-finderProductCard_container'
+        ) || row.querySelector('a[href*="/game/"]');
       const title = titleEl ? String(titleEl.textContent ?? '').trim() : '';
       if (!title) {
         continue;
@@ -180,16 +181,22 @@ async function searchMetacriticInBrowser(page, query) {
           : null;
 
       const scoreEl = row.querySelector(
-        '[data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w'
+        '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w'
       );
       const scoreRaw = scoreEl ? String(scoreEl.textContent ?? '').trim() : '';
       const scoreValue = Number.parseInt(scoreRaw, 10);
 
+      const releaseDateText = String(
+        row.querySelector('[data-testid="product-release-date"]')?.textContent ?? ''
+      ).trim();
       const metaText = String(row.textContent ?? '');
-      const yearMatch = metaText.match(/\b(19|20)\d{2}\b/);
+      const yearMatch =
+        releaseDateText.match(/\b(19|20)\d{2}\b/) ?? metaText.match(/\b(19|20)\d{2}\b/);
       const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
-      const platformEl = row.querySelector('[data-testid="platform"], .c-finderProductCard_meta');
+      const platformEl = row.querySelector(
+        '[data-testid="product-platform"], [data-testid="platform"], .c-finderProductCard_meta'
+      );
       const platform = platformEl ? String(platformEl.textContent ?? '').trim() : null;
 
       const imageEl = row.querySelector('img');

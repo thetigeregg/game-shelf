@@ -992,3 +992,10 @@
 - 69f5709 fix(game-list): remove getter-based manual visibility logging
 - 05dee8f fix(debug): prevent XHR recursion and add sync/manual diagnostics
 
+## v0.1.38 - 2026-02-27
+- 0a5981e Merge pull request #101 from thetigeregg/codex/adjust-collection-sort-options
+- 193ef1b Review missing coverage for filters
+- d1761ee Add title fallback sorting test
+- caba72c Add HLTB sort and repositionPlatform
+- 9bdb8ed Add HLTB sort ordering option
+

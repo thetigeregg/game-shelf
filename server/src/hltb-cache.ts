@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
+import { config } from './config.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -62,7 +63,7 @@ export async function registerHltbCachedRoute(
     url: '/v1/hltb/search',
     config: {
       rateLimit: {
-        max: 50,
+        max: config.hltbSearchRateLimitMaxPerMinute,
         timeWindow: '1 minute'
       }
     },

@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementMetacriticMetric } from './cache-metrics.js';
+import { config } from './config.js';
 
 interface MetacriticCacheRow {
   response_json: unknown;
@@ -63,7 +64,7 @@ export async function registerMetacriticCachedRoute(
     url: '/v1/metacritic/search',
     config: {
       rateLimit: {
-        max: 50,
+        max: config.metacriticSearchRateLimitMaxPerMinute,
         timeWindow: '1 minute'
       }
     },

@@ -238,11 +238,20 @@ export class MetadataValidatorPage {
     return this.isPcPlatform(game);
   }
 
+  isMetacriticSupported(game: GameEntry): boolean {
+    return isMetacriticPlatformSupported(game.platformIgdbId);
+  }
+
   async refreshHltbForGame(game: GameEntry): Promise<void> {
     await this.openHltbPickerModal(game);
   }
 
   async refreshMetacriticForGame(game: GameEntry): Promise<void> {
+    if (!this.isMetacriticSupported(game)) {
+      await this.presentToast('Metacritic is not supported for this platform.', 'warning');
+      return;
+    }
+
     await this.openMetacriticPickerModal(game);
   }
 
@@ -585,6 +594,7 @@ export class MetadataValidatorPage {
 
   async runMetacriticPickerSearch(): Promise<void> {
     const normalized = this.metacriticPickerQuery.trim();
+    const target = this.metacriticPickerTargetGame;
 
     if (normalized.length < 2) {
       this.metacriticPickerResults = [];
@@ -597,7 +607,12 @@ export class MetadataValidatorPage {
 
     try {
       const candidates = await firstValueFrom(
-        this.gameShelfService.searchMetacriticCandidates(normalized, null, null)
+        this.gameShelfService.searchMetacriticCandidates(
+          normalized,
+          target?.releaseYear ?? null,
+          target?.platform ?? null,
+          target?.platformIgdbId ?? null
+        )
       );
       this.metacriticPickerResults = this.dedupeMetacriticCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
@@ -750,6 +765,11 @@ export class MetadataValidatorPage {
   }
 
   private async openMetacriticPickerModal(game: GameEntry): Promise<void> {
+    if (!this.isMetacriticSupported(game)) {
+      await this.presentToast('Metacritic is not supported for this platform.', 'warning');
+      return;
+    }
+
     this.metacriticPickerTargetGame = game;
     this.metacriticPickerQuery = game.title;
     this.metacriticPickerResults = [];

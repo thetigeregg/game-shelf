@@ -1831,6 +1831,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    if (!isMetacriticPlatformSupported(this.selectedGame.platformIgdbId)) {
+      await this.presentToast('Metacritic is not supported for this platform.', 'warning');
+      return;
+    }
+
     this.isMetacriticUpdateLoading = true;
     const loading = await this.loadingController.create({
       message: 'Updating Metacritic data...',
@@ -2088,6 +2093,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   async runMetacriticPickerSearch(): Promise<void> {
     const normalized = this.metacriticPickerQuery.trim();
+    const target = this.metacriticPickerTargetGame;
     this.hasMetacriticPickerSearched = true;
 
     if (normalized.length < 2) {
@@ -2103,7 +2109,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     try {
       const candidates = await firstValueFrom(
-        this.gameShelfService.searchMetacriticCandidates(normalized, null, null)
+        this.gameShelfService.searchMetacriticCandidates(
+          normalized,
+          target?.releaseYear ?? null,
+          target?.platform ?? null,
+          target?.platformIgdbId ?? null
+        )
       );
       this.metacriticPickerResults = dedupeMetacriticCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
@@ -3296,6 +3307,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private openMetacriticPickerModal(game: GameEntry): void {
+    if (!isMetacriticPlatformSupported(game.platformIgdbId)) {
+      void this.presentToast('Metacritic is not supported for this platform.', 'warning');
+      return;
+    }
+
     const nextState = createOpenedMetacriticPickerState(game);
     this.isMetacriticPickerModalOpen = nextState.isMetacriticPickerModalOpen;
     this.isMetacriticPickerLoading = nextState.isMetacriticPickerLoading;

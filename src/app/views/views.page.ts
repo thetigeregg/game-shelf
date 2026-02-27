@@ -276,6 +276,10 @@ export class ViewsPage implements OnInit {
       return `Date added ${direction}`;
     }
 
+    if (sortField === 'hltb') {
+      return `HLTB ${direction}`;
+    }
+
     if (sortField === 'platform') {
       return `Platform ${direction}`;
     }

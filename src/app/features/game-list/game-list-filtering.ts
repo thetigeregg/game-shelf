@@ -721,7 +721,7 @@ export class GameListFilteringEngine {
     }
 
     const sortedAsc = [...games].sort((left, right) => this.compareGames(left, right, sortField));
-    const sortedGames = sortDirection === 'desc' ? sortedAsc.reverse() : sortedAsc;
+    const sortedGames = this.applySortDirection(sortedAsc, sortField, sortDirection);
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
@@ -729,6 +729,25 @@ export class GameListFilteringEngine {
       sortedGames
     };
     return sortedGames;
+  }
+
+  private applySortDirection(
+    sortedAsc: GameEntry[],
+    sortField: GameListFilters['sortField'],
+    sortDirection: GameListFilters['sortDirection']
+  ): GameEntry[] {
+    if (sortDirection !== 'desc') {
+      return sortedAsc;
+    }
+
+    if (sortField !== 'hltb') {
+      return [...sortedAsc].reverse();
+    }
+
+    const missingHltb = sortedAsc.filter((game) => this.selectSortHltbHours(game) === null);
+    const withHltb = sortedAsc.filter((game) => this.selectSortHltbHours(game) !== null);
+
+    return [...missingHltb, ...withHltb.reverse()];
   }
 
   private hasActiveFilterConstraints(
@@ -853,6 +872,29 @@ export class GameListFilteringEngine {
       return this.sortGamesByTitleFallback(left, right);
     }
 
+    if (sortField === 'hltb') {
+      const leftHltb = this.selectSortHltbHours(left);
+      const rightHltb = this.selectSortHltbHours(right);
+
+      if (leftHltb === null && rightHltb === null) {
+        return this.sortGamesByTitleFallback(left, right);
+      }
+
+      if (leftHltb === null) {
+        return -1;
+      }
+
+      if (rightHltb === null) {
+        return 1;
+      }
+
+      if (leftHltb !== rightHltb) {
+        return leftHltb - rightHltb;
+      }
+
+      return this.sortGamesByTitleFallback(left, right);
+    }
+
     const leftDate = this.getDateOnly(left.releaseDate);
     const rightDate = this.getDateOnly(right.releaseDate);
 
@@ -920,6 +962,18 @@ export class GameListFilteringEngine {
     }
 
     return this.normalizeFilterHours(game.hltbCompletionistHours);
+  }
+
+  private selectSortHltbHours(game: GameEntry): number | null {
+    const candidates = [game.hltbMainHours, game.hltbMainExtraHours, game.hltbCompletionistHours];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
   }
 
   private normalizeStatus(value: string | null | undefined): GameStatus | null {

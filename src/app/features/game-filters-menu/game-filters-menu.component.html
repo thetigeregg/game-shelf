@@ -122,6 +122,99 @@
     </ion-item>
 
     <ion-accordion-group>
+      <ion-accordion value="exclusions">
+        <ion-item slot="header" color="light">
+          <ion-label>Exclusion filters</ion-label>
+        </ion-item>
+        <div slot="content">
+          <ion-item>
+            <ion-select
+              label="Excluded platforms"
+              labelPlacement="stacked"
+              placeholder="No excluded platforms"
+              [multiple]="true"
+              [ngModel]="draftFilters.excludedPlatform"
+              (ngModelChange)="onExcludedPlatformSelectionChange($event)"
+            >
+              @for (platform of platformOptions; track platform) {
+                <ion-select-option [value]="platform">
+                  {{ platform }}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-select
+              label="Excluded statuses"
+              labelPlacement="stacked"
+              placeholder="No excluded statuses"
+              [multiple]="true"
+              [ngModel]="draftFilters.excludedStatuses"
+              (ngModelChange)="onExcludedStatusSelectionChange($event)"
+            >
+              @for (status of statusOptions; track status) {
+                <ion-select-option [value]="status">
+                  {{ getStatusLabel(status) }}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-select
+              label="Excluded tags"
+              labelPlacement="stacked"
+              placeholder="No excluded tags"
+              [multiple]="true"
+              [ngModel]="draftFilters.excludedTags"
+              (ngModelChange)="onExcludedTagSelectionChange($event)"
+            >
+              <ion-select-option [value]="noneTagFilterValue">None</ion-select-option>
+              @for (tag of tagOptions; track tag) {
+                <ion-select-option [value]="tag">
+                  {{ tag }}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-select
+              label="Excluded genres"
+              labelPlacement="stacked"
+              placeholder="No excluded genres"
+              [multiple]="true"
+              [ngModel]="draftFilters.excludedGenres"
+              (ngModelChange)="onExcludedGenreSelectionChange($event)"
+            >
+              @for (genre of genreOptions; track genre) {
+                <ion-select-option [value]="genre">
+                  {{ genre }}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-select
+              label="Excluded game types"
+              labelPlacement="stacked"
+              placeholder="No excluded game types"
+              [multiple]="true"
+              [ngModel]="draftFilters.excludedGameTypes"
+              (ngModelChange)="onExcludedGameTypeSelectionChange($event)"
+            >
+              @for (gameType of gameTypeOptions; track gameType) {
+                <ion-select-option [value]="gameType">
+                  {{ getGameTypeLabel(gameType) }}
+                </ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+        </div>
+      </ion-accordion>
+
       <ion-accordion value="advanced">
         <ion-item slot="header" color="light">
           <ion-label>Advanced filters</ion-label>

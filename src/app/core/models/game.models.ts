@@ -206,6 +206,11 @@ export interface GameListFilters {
   genres: string[];
   statuses: GameStatusFilterOption[];
   tags: string[];
+  excludedPlatform: string[];
+  excludedGenres: string[];
+  excludedStatuses: GameStatusFilterOption[];
+  excludedTags: string[];
+  excludedGameTypes: GameType[];
   ratings: GameRatingFilterOption[];
   hltbMainHoursMin: number | null;
   hltbMainHoursMax: number | null;
@@ -225,6 +230,11 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   genres: [],
   statuses: [],
   tags: [],
+  excludedPlatform: [],
+  excludedGenres: [],
+  excludedStatuses: [],
+  excludedTags: [],
+  excludedGameTypes: [],
   ratings: [],
   hltbMainHoursMin: null,
   hltbMainHoursMax: null,

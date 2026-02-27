@@ -919,6 +919,11 @@ export class DexieGameRepository implements GameRepository {
     const genres = normalizeStringList(source.genres);
     const statuses = normalizeGameStatusFilterList(source.statuses);
     const tags = normalizeStringList(source.tags);
+    const excludedPlatform = normalizeStringList(source.excludedPlatform);
+    const excludedGenres = normalizeStringList(source.excludedGenres);
+    const excludedStatuses = normalizeGameStatusFilterList(source.excludedStatuses);
+    const excludedTags = normalizeStringList(source.excludedTags);
+    const excludedGameTypes = normalizeGameTypeList(source.excludedGameTypes);
     const ratings = normalizeGameRatingFilterList(source.ratings);
     const hltbMainHoursMin = normalizeNonNegativeNumber(source.hltbMainHoursMin);
     const hltbMainHoursMax = normalizeNonNegativeNumber(source.hltbMainHoursMax);
@@ -943,6 +948,11 @@ export class DexieGameRepository implements GameRepository {
       genres,
       statuses,
       tags,
+      excludedPlatform,
+      excludedGenres,
+      excludedStatuses,
+      excludedTags,
+      excludedGameTypes,
       ratings,
       hltbMainHoursMin:
         hltbMainHoursMin !== null &&

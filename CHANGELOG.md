@@ -999,3 +999,9 @@
 - caba72c Add HLTB sort and repositionPlatform
 - 9bdb8ed Add HLTB sort ordering option
 
+## v0.1.39 - 2026-02-27
+- ecaf13d Merge pull request #103 from thetigeregg/deps
+- 11f5e94 Add repo-wide npm scripts
+- c833710 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, ajv, and minimatch to latest versions
+- 1d6d7ff chore(deps): update Angular and Capacitor dependencies to latest versions
+

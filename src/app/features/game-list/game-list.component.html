@@ -95,8 +95,16 @@
         </div>
       }
       @if (getRowHltbHoursLabel(game); as mainHours) {
-        <div class="hltb-main-indicator">
+        <div
+          class="hltb-main-indicator"
+          [class.hltb-main-indicator-with-metacritic]="hasValidRowMetacriticScore(game)"
+        >
           {{ mainHours }}
+        </div>
+      }
+      @if (hasValidRowMetacriticScore(game)) {
+        <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
+          {{ getRowMetacriticScore(game) }}
         </div>
       }
 

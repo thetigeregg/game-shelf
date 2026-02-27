@@ -2215,6 +2215,40 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.formatRowMainHours(preferred);
   }
 
+  getRowMetacriticScore(game: GameEntry): number | null {
+    const score = game.metacriticScore;
+
+    if (
+      typeof score !== 'number' ||
+      !Number.isFinite(score) ||
+      !Number.isInteger(score) ||
+      score < 0 ||
+      score > 100
+    ) {
+      return null;
+    }
+
+    return score;
+  }
+
+  hasValidRowMetacriticScore(game: GameEntry): boolean {
+    return this.getRowMetacriticScore(game) !== null;
+  }
+
+  getRowMetacriticBadgeClass(game: GameEntry): 'mc-good' | 'mc-okay' | 'mc-bad' {
+    const score = this.getRowMetacriticScore(game);
+
+    if (score !== null && score >= 75) {
+      return 'mc-good';
+    }
+
+    if (score !== null && score >= 50) {
+      return 'mc-okay';
+    }
+
+    return 'mc-bad';
+  }
+
   getGameTypeBadgeLabel(game: GameEntry): string | null {
     const gameType = game.gameType ?? null;
 

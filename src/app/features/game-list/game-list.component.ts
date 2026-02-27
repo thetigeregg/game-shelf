@@ -120,6 +120,7 @@ import {
   parseTagSelection
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
+import { isMetacriticPlatformSupported } from '../../core/utils/metacritic-platform-support';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
@@ -818,8 +819,22 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    const supportedGames = selectedGames.filter((game) =>
+      isMetacriticPlatformSupported(game.platformIgdbId)
+    );
+    const skippedCount = selectedGames.length - supportedGames.length;
+
+    if (supportedGames.length === 0) {
+      this.clearSelectionMode();
+      await this.presentToast(
+        `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
+        'warning'
+      );
+      return;
+    }
+
     const results = await this.runBulkAction(
-      selectedGames,
+      supportedGames,
       {
         loadingPrefix: 'Updating Metacritic data',
         concurrency: GameListComponent.BULK_METACRITIC_CONCURRENCY,
@@ -849,6 +864,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
       await this.presentToast(
         `Unable to update Metacritic data for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
         'danger'
+      );
+    }
+
+    if (skippedCount > 0) {
+      await this.presentToast(
+        `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
+        'warning'
       );
     }
   }

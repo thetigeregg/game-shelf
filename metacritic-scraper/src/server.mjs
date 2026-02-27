@@ -204,6 +204,20 @@ async function searchMetacriticInBrowser(page, query) {
     const parsed = [];
 
     for (const row of rows) {
+      const hrefOnRow = String(row.getAttribute('href') ?? '').trim();
+      const resultTypeTag = String(
+        row.querySelector(
+          '[data-testid="tag-list"] .c-tagList_button, [data-testid="tag-list"] span'
+        )?.textContent ?? ''
+      )
+        .toLowerCase()
+        .trim();
+      const isGameByHref = hrefOnRow.startsWith('/game/') || hrefOnRow.includes('/game/');
+      const isGameByTag = resultTypeTag === 'game';
+      if (!isGameByHref && !isGameByTag) {
+        continue;
+      }
+
       const titleEl =
         row.querySelector(
           '[data-testid="product-title"], h3, .c-finderProductCard_title, a.c-finderProductCard_container'

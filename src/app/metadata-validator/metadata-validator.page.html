@@ -130,7 +130,11 @@
           </ion-label>
           <div slot="end" class="row-actions">
             <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
-            <ion-button fill="outline" (click)="refreshMetacriticForGame(game)">
+            <ion-button
+              fill="outline"
+              [disabled]="!isMetacriticSupported(game)"
+              (click)="refreshMetacriticForGame(game)"
+            >
               Metacritic
             </ion-button>
             <ion-button

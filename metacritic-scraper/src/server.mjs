@@ -546,80 +546,82 @@ app.get('/v1/metacritic/search', async (req, res) => {
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
     });
-    const page = await context.newPage();
+    try {
+      const page = await context.newPage();
 
-    const allCandidates = [];
-    const seenCandidateKeys = new Set();
+      const allCandidates = [];
+      const seenCandidateKeys = new Set();
 
-    for (const variant of titleVariants) {
-      const candidates = await searchMetacriticInBrowser(page, variant);
+      for (const variant of titleVariants) {
+        const candidates = await searchMetacriticInBrowser(page, variant);
+        if (debugLogsEnabled) {
+          console.info('[metacritic-scraper] search_attempt', {
+            query,
+            variant,
+            releaseYear,
+            platform,
+            platformIgdbId,
+            includeCandidates,
+            candidateCount: candidates.length
+          });
+        }
+        for (const candidate of candidates) {
+          const key = [
+            candidate.metacriticUrl ?? '',
+            candidate.title ?? '',
+            String(candidate.releaseYear ?? ''),
+            candidate.platform ?? '',
+            String(candidate.metacriticScore ?? '')
+          ].join('::');
+          if (seenCandidateKeys.has(key)) {
+            continue;
+          }
+
+          seenCandidateKeys.add(key);
+          allCandidates.push(candidate);
+        }
+      }
+
+      const rankedWithScores = allCandidates
+        .map((candidate) => ({
+          candidate,
+          score: rankCandidate(query, releaseYear, platform, platformIgdbId, candidate)
+        }))
+        .filter((entry) => entry.score >= 0)
+        .sort((left, right) => right.score - left.score);
+      const ranked = rankedWithScores.map((entry) => entry.candidate).slice(0, 30);
+
+      const best = ranked[0] ?? null;
+      const bestScore = rankedWithScores[0]?.score ?? -1;
+      const confidenceThreshold = 115;
+
+      const item =
+        best && bestScore >= confidenceThreshold
+          ? {
+              metacriticScore: best.metacriticScore ?? null,
+              metacriticUrl: best.metacriticUrl ?? null
+            }
+          : null;
+
       if (debugLogsEnabled) {
-        console.info('[metacritic-scraper] search_attempt', {
+        console.info('[metacritic-scraper] request_complete', {
           query,
-          variant,
           releaseYear,
           platform,
           platformIgdbId,
           includeCandidates,
-          candidateCount: candidates.length
+          rankedCount: ranked.length,
+          bestScore,
+          matched: item !== null,
+          bestCandidate: best
         });
       }
-      for (const candidate of candidates) {
-        const key = [
-          candidate.metacriticUrl ?? '',
-          candidate.title ?? '',
-          String(candidate.releaseYear ?? ''),
-          candidate.platform ?? '',
-          String(candidate.metacriticScore ?? '')
-        ].join('::');
-        if (seenCandidateKeys.has(key)) {
-          continue;
-        }
 
-        seenCandidateKeys.add(key);
-        allCandidates.push(candidate);
-      }
+      res.json(includeCandidates ? { item, candidates: ranked } : { item });
+    } finally {
+      await context.close().catch(() => undefined);
+      scheduleBrowserIdleClose();
     }
-
-    const rankedWithScores = allCandidates
-      .map((candidate) => ({
-        candidate,
-        score: rankCandidate(query, releaseYear, platform, platformIgdbId, candidate)
-      }))
-      .filter((entry) => entry.score >= 0)
-      .sort((left, right) => right.score - left.score);
-    const ranked = rankedWithScores.map((entry) => entry.candidate).slice(0, 30);
-
-    const best = ranked[0] ?? null;
-    const bestScore = rankedWithScores[0]?.score ?? -1;
-    const confidenceThreshold = 115;
-
-    const item =
-      best && bestScore >= confidenceThreshold
-        ? {
-            metacriticScore: best.metacriticScore ?? null,
-            metacriticUrl: best.metacriticUrl ?? null
-          }
-        : null;
-
-    if (debugLogsEnabled) {
-      console.info('[metacritic-scraper] request_complete', {
-        query,
-        releaseYear,
-        platform,
-        platformIgdbId,
-        includeCandidates,
-        rankedCount: ranked.length,
-        bestScore,
-        matched: item !== null,
-        bestCandidate: best
-      });
-    }
-
-    await context.close();
-    scheduleBrowserIdleClose();
-
-    res.json(includeCandidates ? { item, candidates: ranked } : { item });
   } catch (error) {
     console.error('[metacritic-scraper] request_failed', {
       query,

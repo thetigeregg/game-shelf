@@ -1012,3 +1012,9 @@
 - ae225c7 Add exclusion filters accordion
 - 5eb88d8 Add exclusion filters accordion
 
+## v0.1.41 - 2026-02-27
+- e611a1b Merge pull request #105 from thetigeregg/codex/fix-production-search-execution
+- dc5c539 Fix frontend game fetch response
+- 678ebdc Fix frontend contract response
+- 12547d1 Fix contract mismatch handling
+

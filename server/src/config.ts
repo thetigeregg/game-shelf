@@ -204,7 +204,7 @@ export const config: AppConfig = {
   mobygamesCacheStaleTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   mobygamesSearchRateLimitMaxPerMinute: readIntegerEnv(
     'MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
-    240
+    12
   ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')

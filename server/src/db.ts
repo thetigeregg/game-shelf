@@ -83,6 +83,15 @@ const MIGRATIONS: string[] = [
     response_json JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS mobygames_search_cache (
+    cache_key TEXT PRIMARY KEY,
+    query_title TEXT NOT NULL,
+    platform TEXT,
+    response_json JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
   `
 ];
 

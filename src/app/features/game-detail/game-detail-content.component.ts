@@ -261,11 +261,7 @@ export class GameDetailContentComponent {
 
   get metacriticScoreLabel(): string {
     const score = this.normalizeMetacriticScore(this.game.metacriticScore);
-    return score === null ? 'Unknown' : `${String(score)}/100`;
-  }
-
-  get metacriticUrl(): string | null {
-    return this.normalizeMetacriticUrl(this.game.metacriticUrl);
+    return score === null ? 'Unknown' : String(score);
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
@@ -322,20 +318,6 @@ export class GameDetailContentComponent {
     }
 
     return normalized;
-  }
-
-  private normalizeMetacriticUrl(value: string | null | undefined): string | null {
-    const normalized = typeof value === 'string' ? value.trim() : '';
-
-    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
-      return normalized;
-    }
-
-    if (normalized.startsWith('//')) {
-      return `https:${normalized}`;
-    }
-
-    return null;
   }
 
   hasMetadataValue(values: string[] | null | undefined): boolean {

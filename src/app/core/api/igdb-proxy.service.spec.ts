@@ -28,6 +28,33 @@ describe('IgdbProxyService', () => {
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/games/search`);
   });
 
+  it('accepts legacy externalId values in search payloads', async () => {
+    const promise = firstValueFrom(service.searchGames('sonic'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=sonic`);
+
+    req.flush({
+      items: [
+        {
+          externalId: '6231',
+          title: 'Sonic the Hedgehog',
+          coverUrl: '',
+          coverSource: 'igdb',
+          platforms: ['PlayStation 3', 'Xbox 360'],
+          platform: null,
+          releaseDate: '2006-11-14T00:00:00.000Z',
+          releaseYear: 2006
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        igdbGameId: '6231',
+        title: 'Sonic the Hedgehog'
+      })
+    ]);
+  });
+
   it('maps API response and sends q query param', async () => {
     const promise = firstValueFrom(service.searchGames('mario'));
 

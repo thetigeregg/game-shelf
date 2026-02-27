@@ -1,7 +1,8 @@
 import {
   GameEntry,
   HltbMatchCandidate,
-  MetacriticMatchCandidate
+  MetacriticMatchCandidate,
+  ReviewMatchCandidate
 } from '../../core/models/game.models';
 
 export interface ImagePickerState {
@@ -31,6 +32,16 @@ export interface MetacriticPickerState {
   metacriticPickerResults: MetacriticMatchCandidate[];
   metacriticPickerError: string | null;
   metacriticPickerTargetGame: GameEntry | null;
+}
+
+export interface ReviewPickerState {
+  isReviewPickerModalOpen: boolean;
+  isReviewPickerLoading: boolean;
+  hasReviewPickerSearched: boolean;
+  reviewPickerQuery: string;
+  reviewPickerResults: ReviewMatchCandidate[];
+  reviewPickerError: string | null;
+  reviewPickerTargetGame: GameEntry | null;
 }
 
 export function normalizeMetadataOptions(values: string[] | undefined): string[] {
@@ -113,10 +124,14 @@ export function createClosedHltbPickerState(): HltbPickerState {
 export function dedupeMetacriticCandidates(
   candidates: MetacriticMatchCandidate[]
 ): MetacriticMatchCandidate[] {
-  const byKey = new Map<string, MetacriticMatchCandidate>();
+  return dedupeReviewCandidates(candidates);
+}
+
+export function dedupeReviewCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
+  const byKey = new Map<string, ReviewMatchCandidate>();
 
   candidates.forEach((candidate) => {
-    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.metacriticScore ?? '')}`;
+    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.reviewScore ?? candidate.metacriticScore ?? '')}`;
 
     if (!byKey.has(key)) {
       byKey.set(key, candidate);
@@ -127,25 +142,51 @@ export function dedupeMetacriticCandidates(
 }
 
 export function createOpenedMetacriticPickerState(game: GameEntry): MetacriticPickerState {
+  const nextState = createOpenedReviewPickerState(game);
   return {
-    isMetacriticPickerModalOpen: true,
-    isMetacriticPickerLoading: false,
-    hasMetacriticPickerSearched: false,
-    metacriticPickerQuery: game.title,
-    metacriticPickerResults: [],
-    metacriticPickerError: null,
-    metacriticPickerTargetGame: game
+    isMetacriticPickerModalOpen: nextState.isReviewPickerModalOpen,
+    isMetacriticPickerLoading: nextState.isReviewPickerLoading,
+    hasMetacriticPickerSearched: nextState.hasReviewPickerSearched,
+    metacriticPickerQuery: nextState.reviewPickerQuery,
+    metacriticPickerResults: nextState.reviewPickerResults as MetacriticMatchCandidate[],
+    metacriticPickerError: nextState.reviewPickerError,
+    metacriticPickerTargetGame: nextState.reviewPickerTargetGame
+  };
+}
+
+export function createOpenedReviewPickerState(game: GameEntry): ReviewPickerState {
+  return {
+    isReviewPickerModalOpen: true,
+    isReviewPickerLoading: false,
+    hasReviewPickerSearched: false,
+    reviewPickerQuery: game.title,
+    reviewPickerResults: [],
+    reviewPickerError: null,
+    reviewPickerTargetGame: game
   };
 }
 
 export function createClosedMetacriticPickerState(): MetacriticPickerState {
+  const nextState = createClosedReviewPickerState();
   return {
-    isMetacriticPickerModalOpen: false,
-    isMetacriticPickerLoading: false,
-    hasMetacriticPickerSearched: false,
-    metacriticPickerQuery: '',
-    metacriticPickerResults: [],
-    metacriticPickerError: null,
-    metacriticPickerTargetGame: null
+    isMetacriticPickerModalOpen: nextState.isReviewPickerModalOpen,
+    isMetacriticPickerLoading: nextState.isReviewPickerLoading,
+    hasMetacriticPickerSearched: nextState.hasReviewPickerSearched,
+    metacriticPickerQuery: nextState.reviewPickerQuery,
+    metacriticPickerResults: nextState.reviewPickerResults as MetacriticMatchCandidate[],
+    metacriticPickerError: nextState.reviewPickerError,
+    metacriticPickerTargetGame: nextState.reviewPickerTargetGame
+  };
+}
+
+export function createClosedReviewPickerState(): ReviewPickerState {
+  return {
+    isReviewPickerModalOpen: false,
+    isReviewPickerLoading: false,
+    hasReviewPickerSearched: false,
+    reviewPickerQuery: '',
+    reviewPickerResults: [],
+    reviewPickerError: null,
+    reviewPickerTargetGame: null
   };
 }

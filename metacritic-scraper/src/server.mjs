@@ -258,9 +258,9 @@ async function searchMetacriticInBrowser(page, query) {
         row.querySelector('[data-testid="product-release-date"], time, .c-finderProductCard_meta')
           ?.textContent ?? ''
       ).trim();
-      const metaText = String(row.textContent ?? '');
       const yearMatch =
-        releaseDateText.match(/\b(19|20)\d{2}\b/) ?? metaText.match(/\b(19|20)\d{2}\b/);
+        releaseDateText.match(/\b(19|20)\d{2}\b/) ??
+        title.match(/\((19|20)\d{2}\)|\b(19|20)\d{2}\b/);
       const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
 
       const platformEl = row.querySelector(

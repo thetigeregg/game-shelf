@@ -70,6 +70,7 @@ const variantTokens = new Set([
   'ultimate',
   'anniversary',
   'goty',
+  'edition',
   'collection',
   'complete',
   'director',

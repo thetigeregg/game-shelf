@@ -9,7 +9,7 @@ export function hasHltbData(game: GameEntry): boolean {
 }
 
 export function hasMetacriticData(game: GameEntry): boolean {
-  return isPositiveIntegerScore(game.metacriticScore);
+  return isPositiveIntegerScore(game.reviewScore ?? game.metacriticScore);
 }
 
 export function normalizeGameStatus(value: string | null | undefined): GameStatus | null {

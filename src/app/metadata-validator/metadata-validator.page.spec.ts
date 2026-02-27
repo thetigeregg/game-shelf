@@ -273,20 +273,17 @@ describe('MetadataValidatorPage', () => {
     ).toBe(true);
   });
 
-  it('refreshMetacriticForGame enforces platform support', async () => {
+  it('refreshMetacriticForGame opens review picker for all platforms', async () => {
     const { page, presentToast } = createPageHarness();
     const openPicker = vi.fn(() => Promise.resolve(undefined));
     setField(page, 'openMetacriticPickerModal', openPicker);
 
     await page.refreshMetacriticForGame(createGame({ platformIgdbId: 999999, platform: 'Saturn' }));
-    expect(openPicker).not.toHaveBeenCalled();
-    expect(presentToast).toHaveBeenCalledWith(
-      'Metacritic is not supported for this platform.',
-      'warning'
-    );
+    expect(openPicker).toHaveBeenCalledTimes(1);
+    expect(presentToast).not.toHaveBeenCalled();
 
     await page.refreshMetacriticForGame(createGame({ platformIgdbId: 6, platform: 'PC' }));
-    expect(openPicker).toHaveBeenCalledTimes(1);
+    expect(openPicker).toHaveBeenCalledTimes(2);
   });
 
   it('refreshImageForGame handles pc/no-match/success/error', async () => {
@@ -353,7 +350,7 @@ describe('MetadataValidatorPage', () => {
     );
   });
 
-  it('bulk Metacritic handles unsupported/missing/failed/skipped', async () => {
+  it('bulk Metacritic handles missing and failed review updates', async () => {
     const { page, runBulkMock, presentToast } = createPageHarness();
     const supported = createGame({ igdbGameId: '1', platformIgdbId: 6 });
     const unsupported = createGame({ igdbGameId: '2', platformIgdbId: 999999 });
@@ -379,34 +376,28 @@ describe('MetadataValidatorPage', () => {
     expect(typeof firstBulkCall.delay).toBe('function');
     await firstBulkCall.action(supported);
     await firstBulkCall.delay(0);
-    expect(presentToast).toHaveBeenCalledWith('Updated Metacritic for 1 game.');
+    expect(presentToast).toHaveBeenCalledWith('Updated review for 1 game.');
     expect(presentToast).toHaveBeenCalledWith(
-      'Unable to update Metacritic for 1 selected game.',
+      'Unable to update review for 1 selected game.',
       'danger'
-    );
-    expect(presentToast).toHaveBeenCalledWith(
-      'Skipped 1 game: unsupported Metacritic platform.',
-      'warning'
     );
 
     setField(page, 'displayedGames', [unsupported]);
     setField(page, 'selectedGameKeys', new Set(['2::999999']));
+    runBulkMock.mockResolvedValueOnce([]);
     await page.refreshMetacriticForSelectedGames();
-    expect(presentToast).toHaveBeenCalledWith(
-      'Skipped 1 game: unsupported Metacritic platform.',
-      'warning'
-    );
+    expect(runBulkMock).toHaveBeenCalledTimes(2);
 
     setField(page, 'selectedGameKeys', new Set<string>());
     await page.refreshMetacriticForSelectedGames();
-    expect(runBulkMock).toHaveBeenCalledTimes(1);
+    expect(runBulkMock).toHaveBeenCalledTimes(2);
 
     setField(page, 'displayedGames', [supported]);
     setField(page, 'selectedGameKeys', new Set(['1::6']));
     runBulkMock.mockResolvedValueOnce([{ game: supported, ok: true, value: createGame() }]);
     await page.refreshMetacriticForSelectedGames();
     expect(presentToast).toHaveBeenCalledWith(
-      'No Metacritic matches found for selected games.',
+      'No review matches found for selected games.',
       'warning'
     );
   });
@@ -539,17 +530,17 @@ describe('MetadataValidatorPage', () => {
       metacriticScore: 90,
       metacriticUrl: 'https://www.metacritic.com/game/target/'
     });
-    expect(presentToast).toHaveBeenCalledWith('Updated Metacritic for Target.');
+    expect(presentToast).toHaveBeenCalledWith('Updated review for Target.');
 
     shelf.refreshGameMetacriticScore.mockResolvedValueOnce(createGame());
     setField(page, 'metacriticPickerTargetGame', target);
     await page.useOriginalMetacriticLookup();
-    expect(presentToast).toHaveBeenCalledWith('No Metacritic match found for Target.', 'warning');
+    expect(presentToast).toHaveBeenCalledWith('No review match found for Target.', 'warning');
 
     shelf.refreshGameMetacriticScore.mockRejectedValueOnce(new Error('down'));
     setField(page, 'metacriticPickerTargetGame', target);
     await page.useOriginalMetacriticLookup();
-    expect(presentToast).toHaveBeenCalledWith('Unable to update Metacritic for Target.', 'danger');
+    expect(presentToast).toHaveBeenCalledWith('Unable to update review for Target.', 'danger');
   });
 
   it('early-returns picker apply/original handlers when target is missing', async () => {
@@ -677,7 +668,7 @@ describe('MetadataValidatorPage', () => {
   });
 
   it('covers private modal opening and candidate branches', async () => {
-    const { page, shelf, presentToast } = createPageHarness();
+    const { page, shelf } = createPageHarness();
     const game = createGame({ igdbGameId: '9', platformIgdbId: 6, title: 'Test' });
     const unsupported = createGame({ igdbGameId: '10', platformIgdbId: 999999, title: 'Test2' });
 
@@ -690,14 +681,10 @@ describe('MetadataValidatorPage', () => {
     expect(runHltbPickerSearch).toHaveBeenCalledOnce();
 
     await (callPrivate(page, 'openMetacriticPickerModal', unsupported) as Promise<void>);
-    expect(runMetacriticPickerSearch).not.toHaveBeenCalled();
-    expect(presentToast).toHaveBeenCalledWith(
-      'Metacritic is not supported for this platform.',
-      'warning'
-    );
+    expect(runMetacriticPickerSearch).toHaveBeenCalledOnce();
 
     await (callPrivate(page, 'openMetacriticPickerModal', game) as Promise<void>);
-    expect(runMetacriticPickerSearch).toHaveBeenCalledOnce();
+    expect(runMetacriticPickerSearch).toHaveBeenCalledTimes(2);
 
     shelf.searchHltbCandidates.mockReturnValueOnce(
       of([
@@ -754,14 +741,14 @@ describe('MetadataValidatorPage', () => {
       metacriticScore: 10,
       metacriticUrl: null
     });
-    expect(presentToast).toHaveBeenCalledWith('No Metacritic match found for Target.', 'warning');
+    expect(presentToast).toHaveBeenCalledWith('No review match found for Target.', 'warning');
 
     shelf.refreshGameMetacriticScore.mockResolvedValueOnce(
       createGame({ metacriticScore: 80, metacriticUrl: 'https://www.metacritic.com/game/target/' })
     );
     setField(page, 'metacriticPickerTargetGame', target);
     await page.useOriginalMetacriticLookup();
-    expect(presentToast).toHaveBeenCalledWith('Updated Metacritic for Target.');
+    expect(presentToast).toHaveBeenCalledWith('Updated review for Target.');
 
     shelf.refreshGameMetacriticScoreWithQuery.mockRejectedValueOnce(new Error('down'));
     setField(page, 'metacriticPickerTargetGame', target);
@@ -772,7 +759,7 @@ describe('MetadataValidatorPage', () => {
       metacriticScore: 80,
       metacriticUrl: null
     });
-    expect(presentToast).toHaveBeenCalledWith('Unable to update Metacritic for Target.', 'danger');
+    expect(presentToast).toHaveBeenCalledWith('Unable to update review for Target.', 'danger');
     expect(
       (page as unknown as { isMetacriticPickerLoading: boolean }).isMetacriticPickerLoading
     ).toBe(false);

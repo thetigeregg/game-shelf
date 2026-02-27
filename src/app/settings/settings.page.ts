@@ -449,6 +449,25 @@ export class SettingsPage {
     this.debugLogService.setVerboseTracingEnabled(this.verboseTracingEnabled);
   }
 
+  async showAttributions(): Promise<void> {
+    const alert = await this.alertController.create({
+      header: 'Attributions',
+      message: [
+        '<p>Game Shelf uses data from:</p>',
+        '<p>',
+        '• IGDB<br>',
+        '• TheGamesDB<br>',
+        '• HowLongToBeat (HLTB)<br>',
+        '• Metacritic<br>',
+        '• MobyGames',
+        '</p>'
+      ].join(''),
+      buttons: ['OK']
+    });
+
+    await alert.present();
+  }
+
   async promptClientWriteToken(): Promise<void> {
     const alert = await this.alertController.create({
       header: 'Set Device Write Token',

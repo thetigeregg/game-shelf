@@ -120,7 +120,6 @@ import {
   parseTagSelection
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
-import { isMetacriticPlatformSupported } from '../../core/utils/metacritic-platform-support';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
@@ -819,24 +818,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    const supportedGames = selectedGames.filter((game) =>
-      isMetacriticPlatformSupported(game.platformIgdbId)
-    );
-    const skippedCount = selectedGames.length - supportedGames.length;
-
-    if (supportedGames.length === 0) {
-      this.clearSelectionMode();
-      await this.presentToast(
-        `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
-        'warning'
-      );
-      return;
-    }
-
     const results = await this.runBulkAction(
-      supportedGames,
+      selectedGames,
       {
-        loadingPrefix: 'Updating Metacritic data',
+        loadingPrefix: 'Updating review data',
         concurrency: GameListComponent.BULK_METACRITIC_CONCURRENCY,
         interItemDelayMs: GameListComponent.BULK_METACRITIC_INTER_ITEM_DELAY_MS,
         itemTimeoutMs: GameListComponent.BULK_METACRITIC_ITEM_TIMEOUT_MS
@@ -854,23 +839,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     if (updatedCount > 0) {
       await this.presentToast(
-        `Updated Metacritic data for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
+        `Updated review data for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
       );
     } else if (missingCount > 0 && failedCount === 0) {
-      await this.presentToast('No Metacritic matches found for selected games.', 'warning');
+      await this.presentToast('No review matches found for selected games.', 'warning');
     }
 
     if (failedCount > 0) {
       await this.presentToast(
-        `Unable to update Metacritic data for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
+        `Unable to update review data for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
         'danger'
-      );
-    }
-
-    if (skippedCount > 0) {
-      await this.presentToast(
-        `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
-        'warning'
       );
     }
   }
@@ -1831,14 +1809,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (!isMetacriticPlatformSupported(this.selectedGame.platformIgdbId)) {
-      await this.presentToast('Metacritic is not supported for this platform.', 'warning');
-      return;
-    }
-
     this.isMetacriticUpdateLoading = true;
     const loading = await this.loadingController.create({
-      message: 'Updating Metacritic data...',
+      message: 'Updating review data...',
       spinner: 'crescent'
     });
     await loading.present();
@@ -1852,13 +1825,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
       await loading.dismiss().catch(() => undefined);
 
       if (hasMetacriticData(updated)) {
-        await this.presentToast('Metacritic data updated.');
+        await this.presentToast('Review data updated.');
       } else {
         this.openMetacriticPickerModal(updated);
       }
     } catch {
       await loading.dismiss().catch(() => undefined);
-      await this.presentToast('Unable to update Metacritic data.', 'danger');
+      await this.presentToast('Unable to update review data.', 'danger');
     } finally {
       this.isMetacriticUpdateLoading = false;
     }
@@ -2121,7 +2094,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.metacriticPickerResults = [];
       this.metacriticPickerError = formatRateLimitedUiError(
         error,
-        'Unable to search Metacritic right now.'
+        'Unable to search reviews right now.'
       );
     } finally {
       this.isMetacriticPickerLoading = false;
@@ -2153,14 +2126,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.applyUpdatedGame(updated);
       this.closeMetacriticPickerModal();
       if (hasMetacriticData(updated)) {
-        await this.presentToast('Metacritic data updated.');
+        await this.presentToast('Review data updated.');
       } else {
-        await this.presentToast('No Metacritic match found for this game.', 'warning');
+        await this.presentToast('No review match found for this game.', 'warning');
       }
     } catch {
       this.isMetacriticPickerLoading = false;
       this.changeDetectorRef.markForCheck();
-      await this.presentToast('Unable to update Metacritic data.', 'danger');
+      await this.presentToast('Unable to update review data.', 'danger');
     }
   }
 
@@ -2182,14 +2155,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.applyUpdatedGame(updated);
       this.closeMetacriticPickerModal();
       if (hasMetacriticData(updated)) {
-        await this.presentToast('Metacritic data updated.');
+        await this.presentToast('Review data updated.');
       } else {
-        await this.presentToast('No Metacritic match found for this game.', 'warning');
+        await this.presentToast('No review match found for this game.', 'warning');
       }
     } catch {
       this.isMetacriticPickerLoading = false;
       this.changeDetectorRef.markForCheck();
-      await this.presentToast('Unable to update Metacritic data.', 'danger');
+      await this.presentToast('Unable to update review data.', 'danger');
     }
   }
 
@@ -2249,7 +2222,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   getRowMetacriticScore(game: GameEntry): number | null {
-    const score = game.metacriticScore;
+    const score = game.reviewScore ?? game.metacriticScore;
 
     if (
       typeof score !== 'number' ||
@@ -3307,11 +3280,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private openMetacriticPickerModal(game: GameEntry): void {
-    if (!isMetacriticPlatformSupported(game.platformIgdbId)) {
-      void this.presentToast('Metacritic is not supported for this platform.', 'warning');
-      return;
-    }
-
     const nextState = createOpenedMetacriticPickerState(game);
     this.isMetacriticPickerModalOpen = nextState.isMetacriticPickerModalOpen;
     this.isMetacriticPickerLoading = nextState.isMetacriticPickerLoading;

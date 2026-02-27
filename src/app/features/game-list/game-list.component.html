@@ -269,13 +269,13 @@
               Update HLTB data
             </ion-item>
             <ion-item button detail="false" (click)="refreshSelectedGameMetacriticFromPopover()">
-              Update Metacritic data
+              Update review data
             </ion-item>
             <ion-item button detail="false" (click)="openFixHltbMatchFromPopover()">
               Fix HLTB match
             </ion-item>
             <ion-item button detail="false" (click)="openFixMetacriticMatchFromPopover()">
-              Fix Metacritic match
+              Fix review match
             </ion-item>
             <ion-item button detail="false" (click)="openImagePickerFromPopover()">
               Update image
@@ -923,7 +923,7 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Select Metacritic Match</ion-title>
+        <ion-title>Select Review Match</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="closeMetacriticPickerModal()">Close</ion-button>
         </ion-buttons>
@@ -934,7 +934,7 @@
       <ion-item lines="none">
         <ion-searchbar
           [value]="metacriticPickerQuery"
-          placeholder="Search Metacritic"
+          placeholder="Search Review"
           show-clear-button="focus"
           (ionInput)="onMetacriticPickerQueryChange($event)"
         ></ion-searchbar>
@@ -964,7 +964,7 @@
         !metacriticPickerError &&
         metacriticPickerResults.length === 0
       ) {
-        <p class="picker-state ion-text-center">No Metacritic results found.</p>
+        <p class="picker-state ion-text-center">No review results found.</p>
       }
 
       @if (!isMetacriticPickerLoading && metacriticPickerResults.length > 0) {
@@ -973,7 +973,7 @@
             <ion-item button detail="false" (click)="applySelectedMetacriticCandidate(candidate)">
               @if (candidate.imageUrl) {
                 <div slot="start" class="candidate-thumbnail">
-                  <img [src]="candidate.imageUrl" alt="Metacritic result cover" />
+                  <img [src]="candidate.imageUrl" alt="Review result cover" />
                 </div>
               }
               <ion-label>

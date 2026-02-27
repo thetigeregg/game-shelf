@@ -972,10 +972,7 @@
                   }
                 </p>
                 <p>
-                  Score: {{ candidate.metacriticScore ?? '?' }}/100
-                  @if (candidate.metacriticUrl) {
-                    <span> · Link available</span>
-                  }
+                  Score: <strong>{{ candidate.metacriticScore ?? '?' }}</strong>
                 </p>
               </ion-label>
             </ion-item>

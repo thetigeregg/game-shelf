@@ -627,7 +627,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
-  it('sorts by hltb using row fallback order and keeps missing values first', () => {
+  it('sorts by hltb using row fallback order and treats missing values as less-than', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'No HLTB' }),
       makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Main', hltbMainHours: 8 }),
@@ -676,11 +676,11 @@ describe('GameListFilteringEngine UI behavior', () => {
       ''
     );
     expect(desc.map((game) => game.title)).toEqual([
-      'No HLTB',
-      'Zero Main',
       'Completionist',
       'Main+Extra',
-      'Main'
+      'Main',
+      'Zero Main',
+      'No HLTB'
     ]);
   });
 

@@ -740,14 +740,7 @@ export class GameListFilteringEngine {
       return sortedAsc;
     }
 
-    if (sortField !== 'hltb') {
-      return [...sortedAsc].reverse();
-    }
-
-    const missingHltb = sortedAsc.filter((game) => this.selectSortHltbHours(game) === null);
-    const withHltb = sortedAsc.filter((game) => this.selectSortHltbHours(game) !== null);
-
-    return [...missingHltb, ...withHltb.reverse()];
+    return [...sortedAsc].reverse();
   }
 
   private hasActiveFilterConstraints(

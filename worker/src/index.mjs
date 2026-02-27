@@ -523,6 +523,7 @@ export function buildCoverUrl(imageId) {
 }
 
 export function normalizeIgdbGame(game) {
+  const igdbGameId = String(game.id ?? '').trim();
   const platformOptions = Array.isArray(game.platforms)
     ? game.platforms
         .map((platform) => {
@@ -559,7 +560,9 @@ export function normalizeIgdbGame(game) {
   const summary = normalizeOptionalText(game?.summary);
 
   return {
-    externalId: String(game.id ?? '').trim(),
+    igdbGameId,
+    // Backward-compatibility alias for older clients.
+    externalId: igdbGameId,
     title:
       typeof game.name === 'string' && game.name.trim().length > 0
         ? game.name.trim()

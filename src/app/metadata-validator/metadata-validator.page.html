@@ -80,7 +80,7 @@
         @if (isBulkRefreshingMetacritic) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
         }
-        Bulk Metacritic
+        Bulk Review
       </ion-button>
       <ion-button
         color="secondary"
@@ -115,8 +115,8 @@
               <ion-badge [color]="hasHltbMetadata(game) ? 'success' : 'warning'">
                 HLTB {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
               </ion-badge>
-              <ion-badge [color]="hasMetacriticMetadata(game) ? 'success' : 'warning'">
-                Metacritic {{ hasMetacriticMetadata(game) ? 'OK' : 'Missing' }}
+              <ion-badge [color]="hasReviewMetadata(game) ? 'success' : 'warning'">
+                Review {{ hasReviewMetadata(game) ? 'OK' : 'Missing' }}
               </ion-badge>
               @if (!isNonPcImageNotApplicable(game)) {
                 <ion-badge [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
@@ -130,12 +130,8 @@
           </ion-label>
           <div slot="end" class="row-actions">
             <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
-            <ion-button
-              fill="outline"
-              [disabled]="!isMetacriticSupported(game)"
-              (click)="refreshMetacriticForGame(game)"
-            >
-              Metacritic
+            <ion-button fill="outline" (click)="refreshMetacriticForGame(game)">
+              Review
             </ion-button>
             <ion-button
               fill="outline"
@@ -251,7 +247,7 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Select Metacritic Match</ion-title>
+        <ion-title>Select Review Match</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="closeMetacriticPickerModal()">Close</ion-button>
         </ion-buttons>
@@ -262,7 +258,7 @@
       <div class="picker-search-row">
         <ion-searchbar
           [value]="metacriticPickerQuery"
-          placeholder="Search Metacritic"
+          placeholder="Search Review"
           show-clear-button="focus"
           (ionInput)="onMetacriticPickerQueryChange($event)"
         ></ion-searchbar>
@@ -286,7 +282,7 @@
       @if (
         !isMetacriticPickerLoading && !metacriticPickerError && metacriticPickerResults.length === 0
       ) {
-        <p class="picker-state ion-text-center">No Metacritic results found.</p>
+        <p class="picker-state ion-text-center">No review results found.</p>
       }
 
       @if (!isMetacriticPickerLoading && metacriticPickerResults.length > 0) {
@@ -295,7 +291,7 @@
             <ion-item button detail="false" (click)="applySelectedMetacriticCandidate(candidate)">
               @if (candidate.imageUrl) {
                 <div slot="start" class="candidate-thumbnail">
-                  <img [src]="candidate.imageUrl" alt="Metacritic result cover" />
+                  <img [src]="candidate.imageUrl" alt="Review result cover" />
                 </div>
               }
               <ion-label>
@@ -307,7 +303,8 @@
                   }
                 </p>
                 <p>
-                  Score: <strong>{{ candidate.metacriticScore ?? '?' }}</strong>
+                  Score:
+                  <strong>{{ candidate.reviewScore ?? candidate.metacriticScore ?? '?' }}</strong>
                 </p>
               </ion-label>
             </ion-item>

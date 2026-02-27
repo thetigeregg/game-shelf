@@ -260,7 +260,7 @@ export class GameDetailContentComponent {
   }
 
   get metacriticScoreLabel(): string {
-    const score = this.normalizeMetacriticScore(this.game.metacriticScore);
+    const score = this.normalizeMetacriticScore(this.game.reviewScore ?? this.game.metacriticScore);
     return score === null ? 'Unknown' : String(score);
   }
 

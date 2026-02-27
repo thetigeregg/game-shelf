@@ -32,14 +32,13 @@ import {
   GameEntry,
   HltbMatchCandidate,
   ListType,
-  MetacriticMatchCandidate
+  ReviewMatchCandidate
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { formatRateLimitedUiError, isRateLimitedMessage } from '../core/utils/rate-limit-ui-error';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
-import { isMetacriticPlatformSupported } from '../core/utils/metacritic-platform-support';
 
 type MissingMetadataFilter = 'hltb' | 'metacritic' | 'nonPcTheGamesDbImage';
 
@@ -89,7 +88,7 @@ export class MetadataValidatorPage {
 
   readonly missingFilterOptions: Array<{ value: MissingMetadataFilter; label: string }> = [
     { value: 'hltb', label: 'Missing HLTB' },
-    { value: 'metacritic', label: 'Missing Metacritic' },
+    { value: 'metacritic', label: 'Missing Review' },
     { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image (non-PC)' }
   ];
 
@@ -108,7 +107,7 @@ export class MetadataValidatorPage {
   isMetacriticPickerModalOpen = false;
   isMetacriticPickerLoading = false;
   metacriticPickerQuery = '';
-  metacriticPickerResults: MetacriticMatchCandidate[] = [];
+  metacriticPickerResults: ReviewMatchCandidate[] = [];
   metacriticPickerError: string | null = null;
   metacriticPickerTargetGame: GameEntry | null = null;
   private displayedGames: GameEntry[] = [];
@@ -218,8 +217,12 @@ export class MetadataValidatorPage {
     );
   }
 
+  hasReviewMetadata(game: GameEntry): boolean {
+    return this.toReviewScore(game.reviewScore ?? game.metacriticScore) !== null;
+  }
+
   hasMetacriticMetadata(game: GameEntry): boolean {
-    return this.toMetacriticScore(game.metacriticScore) !== null;
+    return this.hasReviewMetadata(game);
   }
 
   isNonPcTheGamesDbImagePresent(game: GameEntry): boolean {
@@ -238,8 +241,12 @@ export class MetadataValidatorPage {
     return this.isPcPlatform(game);
   }
 
+  isReviewSupported(_game: GameEntry): boolean {
+    return true;
+  }
+
   isMetacriticSupported(game: GameEntry): boolean {
-    return isMetacriticPlatformSupported(game.platformIgdbId);
+    return this.isReviewSupported(game);
   }
 
   async refreshHltbForGame(game: GameEntry): Promise<void> {
@@ -247,11 +254,6 @@ export class MetadataValidatorPage {
   }
 
   async refreshMetacriticForGame(game: GameEntry): Promise<void> {
-    if (!this.isMetacriticSupported(game)) {
-      await this.presentToast('Metacritic is not supported for this platform.', 'warning');
-      return;
-    }
-
     await this.openMetacriticPickerModal(game);
   }
 
@@ -356,33 +358,20 @@ export class MetadataValidatorPage {
   }
 
   async refreshMetacriticForSelectedGames(): Promise<void> {
-    const selectedGames = this.getSelectedGames();
+    const games = this.getSelectedGames();
 
-    if (selectedGames.length === 0 || this.isBulkRefreshingMetacritic) {
+    if (games.length === 0 || this.isBulkRefreshingMetacritic) {
       return;
     }
-
-    const games = selectedGames.filter((game) =>
-      isMetacriticPlatformSupported(game.platformIgdbId)
-    );
-    const skippedCount = selectedGames.length - games.length;
 
     this.isBulkRefreshingMetacritic = true;
 
     try {
-      if (games.length === 0) {
-        await this.presentToast(
-          `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
-          'warning'
-        );
-        return;
-      }
-
       const results = await runBulkActionWithRetry({
         loadingController: this.loadingController,
         games,
         options: {
-          loadingPrefix: 'Updating Metacritic data',
+          loadingPrefix: 'Updating review data',
           concurrency: MetadataValidatorPage.BULK_METACRITIC_CONCURRENCY,
           interItemDelayMs: MetadataValidatorPage.BULK_METACRITIC_INTER_ITEM_DELAY_MS,
           itemTimeoutMs: MetadataValidatorPage.BULK_METACRITIC_ITEM_TIMEOUT_MS
@@ -397,29 +386,22 @@ export class MetadataValidatorPage {
       });
       const failedCount = results.filter((result) => !result.ok).length;
       const updatedCount = results.filter(
-        (result) => result.ok && result.value && this.hasMetacriticMetadata(result.value)
+        (result) => result.ok && result.value && this.hasReviewMetadata(result.value)
       ).length;
       const missingCount = results.length - failedCount - updatedCount;
 
       if (updatedCount > 0) {
         await this.presentToast(
-          `Updated Metacritic for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
+          `Updated review for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
         );
       } else if (missingCount > 0 && failedCount === 0) {
-        await this.presentToast('No Metacritic matches found for selected games.', 'warning');
+        await this.presentToast('No review matches found for selected games.', 'warning');
       }
 
       if (failedCount > 0) {
         await this.presentToast(
-          `Unable to update Metacritic for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
+          `Unable to update review for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
           'danger'
-        );
-      }
-
-      if (skippedCount > 0) {
-        await this.presentToast(
-          `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
-          'warning'
         );
       }
     } finally {
@@ -619,14 +601,14 @@ export class MetadataValidatorPage {
       this.metacriticPickerResults = [];
       this.metacriticPickerError = formatRateLimitedUiError(
         error,
-        'Unable to search Metacritic right now.'
+        'Unable to search reviews right now.'
       );
     } finally {
       this.isMetacriticPickerLoading = false;
     }
   }
 
-  async applySelectedMetacriticCandidate(candidate: MetacriticMatchCandidate): Promise<void> {
+  async applySelectedMetacriticCandidate(candidate: ReviewMatchCandidate): Promise<void> {
     const target = this.metacriticPickerTargetGame;
 
     if (!target) {
@@ -646,14 +628,14 @@ export class MetadataValidatorPage {
         }
       );
       this.closeMetacriticPickerModal();
-      if (this.hasMetacriticMetadata(updated)) {
-        await this.presentToast(`Updated Metacritic for ${target.title}.`);
+      if (this.hasReviewMetadata(updated)) {
+        await this.presentToast(`Updated review for ${target.title}.`);
       } else {
-        await this.presentToast(`No Metacritic match found for ${target.title}.`, 'warning');
+        await this.presentToast(`No review match found for ${target.title}.`, 'warning');
       }
     } catch {
       this.isMetacriticPickerLoading = false;
-      await this.presentToast(`Unable to update Metacritic for ${target.title}.`, 'danger');
+      await this.presentToast(`Unable to update review for ${target.title}.`, 'danger');
     }
   }
 
@@ -672,14 +654,14 @@ export class MetadataValidatorPage {
         target.platformIgdbId
       );
       this.closeMetacriticPickerModal();
-      if (this.hasMetacriticMetadata(updated)) {
-        await this.presentToast(`Updated Metacritic for ${target.title}.`);
+      if (this.hasReviewMetadata(updated)) {
+        await this.presentToast(`Updated review for ${target.title}.`);
       } else {
-        await this.presentToast(`No Metacritic match found for ${target.title}.`, 'warning');
+        await this.presentToast(`No review match found for ${target.title}.`, 'warning');
       }
     } catch {
       this.isMetacriticPickerLoading = false;
-      await this.presentToast(`Unable to update Metacritic for ${target.title}.`, 'danger');
+      await this.presentToast(`Unable to update review for ${target.title}.`, 'danger');
     }
   }
 
@@ -693,7 +675,7 @@ export class MetadataValidatorPage {
 
     return games.filter((game) => {
       const missingHltb = !this.hasHltbMetadata(game);
-      const missingMetacritic = !this.hasMetacriticMetadata(game);
+      const missingMetacritic = !this.hasReviewMetadata(game);
       const missingImage = this.isMissingNonPcTheGamesDbImage(game);
 
       return (
@@ -741,7 +723,7 @@ export class MetadataValidatorPage {
     return value;
   }
 
-  private toMetacriticScore(value: number | null | undefined): number | null {
+  private toReviewScore(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
     }
@@ -752,6 +734,10 @@ export class MetadataValidatorPage {
     }
 
     return normalized;
+  }
+
+  private toMetacriticScore(value: number | null | undefined): number | null {
+    return this.toReviewScore(value);
   }
 
   private async openHltbPickerModal(game: GameEntry): Promise<void> {
@@ -765,11 +751,6 @@ export class MetadataValidatorPage {
   }
 
   private async openMetacriticPickerModal(game: GameEntry): Promise<void> {
-    if (!this.isMetacriticSupported(game)) {
-      await this.presentToast('Metacritic is not supported for this platform.', 'warning');
-      return;
-    }
-
     this.metacriticPickerTargetGame = game;
     this.metacriticPickerQuery = game.title;
     this.metacriticPickerResults = [];
@@ -793,13 +774,11 @@ export class MetadataValidatorPage {
     return [...byKey.values()];
   }
 
-  private dedupeMetacriticCandidates(
-    candidates: MetacriticMatchCandidate[]
-  ): MetacriticMatchCandidate[] {
-    const byKey = new Map<string, MetacriticMatchCandidate>();
+  private dedupeMetacriticCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
+    const byKey = new Map<string, ReviewMatchCandidate>();
 
     candidates.forEach((candidate) => {
-      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.metacriticScore ?? '')}`;
+      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.reviewScore ?? candidate.metacriticScore ?? '')}`;
 
       if (!byKey.has(key)) {
         byKey.set(key, candidate);

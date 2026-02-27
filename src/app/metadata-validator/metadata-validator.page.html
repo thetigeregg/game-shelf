@@ -75,7 +75,7 @@
       </ion-button>
       <ion-button
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingMetacritic"
-        (click)="refreshMetacriticForSelectedGames()"
+        (click)="refreshReviewForSelectedGames()"
       >
         @if (isBulkRefreshingMetacritic) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
@@ -130,9 +130,7 @@
           </ion-label>
           <div slot="end" class="row-actions">
             <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
-            <ion-button fill="outline" (click)="refreshMetacriticForGame(game)">
-              Review
-            </ion-button>
+            <ion-button fill="outline" (click)="refreshReviewForGame(game)"> Review </ion-button>
             <ion-button
               fill="outline"
               color="secondary"
@@ -243,13 +241,13 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isMetacriticPickerModalOpen" (didDismiss)="closeMetacriticPickerModal()">
+<ion-modal [isOpen]="isMetacriticPickerModalOpen" (didDismiss)="closeReviewPickerModal()">
   <ng-template>
     <ion-header>
       <ion-toolbar>
         <ion-title>Select Review Match</ion-title>
         <ion-buttons slot="end">
-          <ion-button (click)="closeMetacriticPickerModal()">Close</ion-button>
+          <ion-button (click)="closeReviewPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -260,9 +258,9 @@
           [value]="metacriticPickerQuery"
           placeholder="Search Review"
           show-clear-button="focus"
-          (ionInput)="onMetacriticPickerQueryChange($event)"
+          (ionInput)="onReviewPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button [disabled]="isMetacriticPickerLoading" (click)="runMetacriticPickerSearch()"
+        <ion-button [disabled]="isMetacriticPickerLoading" (click)="runReviewPickerSearch()"
           >Search</ion-button
         >
       </div>
@@ -288,7 +286,7 @@
       @if (!isMetacriticPickerLoading && metacriticPickerResults.length > 0) {
         <ion-list>
           @for (candidate of metacriticPickerResults; track candidate) {
-            <ion-item button detail="false" (click)="applySelectedMetacriticCandidate(candidate)">
+            <ion-item button detail="false" (click)="applySelectedReviewCandidate(candidate)">
               @if (candidate.imageUrl) {
                 <div slot="start" class="candidate-thumbnail">
                   <img [src]="candidate.imageUrl" alt="Review result cover" />
@@ -317,7 +315,7 @@
           expand="block"
           fill="outline"
           [disabled]="isMetacriticPickerLoading"
-          (click)="useOriginalMetacriticLookup()"
+          (click)="useOriginalReviewLookup()"
         >
           Use Original Match
         </ion-button>

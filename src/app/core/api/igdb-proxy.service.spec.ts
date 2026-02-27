@@ -726,7 +726,7 @@ describe('IgdbProxyService', () => {
   });
 
   it('looks up Metacritic score and normalizes payload', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
+    const promise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 21));
     const req = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -750,8 +750,16 @@ describe('IgdbProxyService', () => {
   });
 
   it('returns null for Metacritic lookup failures', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticScore('Okami'));
-    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`);
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
     await expect(promise).resolves.toBeNull();
   });
@@ -761,12 +769,12 @@ describe('IgdbProxyService', () => {
     await expect(firstValueFrom(service.lookupMetacriticCandidates('x'))).resolves.toEqual([]);
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/metacritic/search`);
 
-    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 19));
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 21));
     const scoreReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
         request.params.get('q') === 'Okami' &&
-        request.params.get('platformIgdbId') === '19'
+        request.params.get('platformIgdbId') === '21'
       );
     });
     scoreReq.flush(
@@ -780,14 +788,14 @@ describe('IgdbProxyService', () => {
     await expect(scorePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
 
     const candidatePromise = firstValueFrom(
-      service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 19)
+      service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21)
     );
     const candidateReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
         request.params.get('q') === 'Okami' &&
         request.params.get('includeCandidates') === 'true' &&
-        request.params.get('platformIgdbId') === '19'
+        request.params.get('platformIgdbId') === '21'
       );
     });
     candidateReq.flush(
@@ -801,8 +809,122 @@ describe('IgdbProxyService', () => {
     await expect(candidatePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
   });
 
+  it('uses MobyGames for unsupported Metacritic platform ids and normalizes payload', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === 'Genesis' &&
+        request.params.get('releaseYear') === '1992' &&
+        request.params.get('fuzzy') === 'true'
+      );
+    });
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ name: 'Genesis' }],
+          critic_score: null,
+          moby_score: 88.2,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        }
+      ]
+    });
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+    });
+
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const candidatesReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === 'Genesis' &&
+        request.params.get('releaseYear') === '1992' &&
+        request.params.get('fuzzy') === 'true'
+      );
+    });
+    candidatesReq.flush({
+      games: [
+        {
+          title: ' Shining Force ',
+          release_date: '1992-03-20',
+          platforms: [{ name: ' Genesis ' }],
+          critic_score: 87.6,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        },
+        {
+          title: 'Shining Force',
+          release_date: '1992',
+          platforms: [{ name: 'Genesis' }],
+          critic_score: 87.1,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        },
+        {
+          title: 'Shining Force CD',
+          release_date: null,
+          platforms: [{ name: 'Sega CD' }],
+          moby_score: 80.2,
+          moby_url: 'https://www.mobygames.com/game/456/shining-force-cd/'
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Shining Force',
+        releaseYear: 1992,
+        platform: 'Genesis',
+        metacriticScore: 88,
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+      },
+      {
+        title: 'Shining Force CD',
+        releaseYear: null,
+        platform: 'Sega CD',
+        metacriticScore: 80,
+        metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/'
+      }
+    ]);
+  });
+
+  it('uses MobyGames when platform id is missing', async () => {
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platform') === 'Wii' &&
+        request.params.get('releaseYear') === '2006'
+      );
+    });
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Okami',
+          release_date: '2006-04-20',
+          platforms: [{ name: 'Wii' }],
+          moby_score: 91,
+          moby_url: 'https://www.mobygames.com/game/okami/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 91,
+      metacriticUrl: 'https://www.mobygames.com/game/okami/'
+    });
+  });
+
   it('looks up Metacritic candidates and normalizes candidate payload', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii'));
+    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21));
     const req = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -846,17 +968,29 @@ describe('IgdbProxyService', () => {
   });
 
   it('drops empty metacritic payloads and invalid metacritic candidates', async () => {
-    const nullItemPromise = firstValueFrom(service.lookupMetacriticScore('Okami'));
-    const nullItemReq = httpMock.expectOne(
-      `${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`
+    const nullItemPromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
     );
+    const nullItemReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
     nullItemReq.flush({ item: null });
     await expect(nullItemPromise).resolves.toBeNull();
 
-    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami'));
-    const scoreReq = httpMock.expectOne(
-      `${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
     );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
     scoreReq.flush({
       item: {
         metacriticScore: null,
@@ -865,7 +999,9 @@ describe('IgdbProxyService', () => {
     });
     await expect(scorePromise).resolves.toBeNull();
 
-    const nonArrayCandidatePromise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const nonArrayCandidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
     const nonArrayCandidateReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -876,7 +1012,9 @@ describe('IgdbProxyService', () => {
     nonArrayCandidateReq.flush({ candidates: {} });
     await expect(nonArrayCandidatePromise).resolves.toEqual([]);
 
-    const candidatePromise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const candidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
     const candidateReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -906,7 +1044,9 @@ describe('IgdbProxyService', () => {
   });
 
   it('returns empty metacritic candidate list for non-rate-limit failures', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const promise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
     const req = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&

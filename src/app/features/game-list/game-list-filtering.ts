@@ -697,12 +697,11 @@ export class GameListFilteringEngine {
 
     if (filters.excludedStatuses.length > 0) {
       const gameStatus = normalized.status;
-      const matchesNone = gameStatus === null && filters.excludedStatuses.includes('none');
       const matchesStatus =
         gameStatus !== null &&
         filters.excludedStatuses.includes(gameStatus as GameStatusFilterOption);
 
-      if (matchesNone || matchesStatus) {
+      if (matchesStatus) {
         return false;
       }
     }

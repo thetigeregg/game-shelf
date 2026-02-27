@@ -459,6 +459,13 @@ async function searchMetacriticInBrowser(page, query) {
       )
     );
 
+    const normalizePlatformTextInPage = (rawValue) =>
+      String(rawValue ?? '')
+        .replace(/^[\s\u2022·\-:]+/u, '')
+        .replace(/\s*,?\s*and more\s*$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
     const parsed = [];
 
     for (const row of rows) {
@@ -524,7 +531,9 @@ async function searchMetacriticInBrowser(page, query) {
       const platformEl = row.querySelector(
         '[data-testid="product-platform"], [data-testid="platform"], .c-finderProductCard_meta'
       );
-      const platform = platformEl ? String(platformEl.textContent ?? '').trim() : null;
+      const platform = platformEl
+        ? normalizePlatformTextInPage(platformEl.textContent ?? '')
+        : null;
 
       const imageEl = row.querySelector('img');
       const imageUrl = imageEl ? String(imageEl.getAttribute('src') ?? '').trim() : null;

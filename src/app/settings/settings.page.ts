@@ -153,6 +153,8 @@ interface ExportCsvRow {
   hltbMainHours: string;
   hltbMainExtraHours: string;
   hltbCompletionistHours: string;
+  reviewScore: string;
+  reviewUrl: string;
   metacriticScore: string;
   metacriticUrl: string;
   similarGameIgdbIds: string;
@@ -253,6 +255,8 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'hltbMainHours',
   'hltbMainExtraHours',
   'hltbCompletionistHours',
+  'reviewScore',
+  'reviewUrl',
   'metacriticScore',
   'metacriticUrl',
   'similarGameIgdbIds',
@@ -2458,11 +2462,20 @@ export class SettingsPage {
           game.hltbCompletionistHours !== null && game.hltbCompletionistHours !== undefined
             ? String(game.hltbCompletionistHours)
             : '',
+        reviewScore:
+          game.reviewScore !== null && game.reviewScore !== undefined
+            ? String(game.reviewScore)
+            : game.metacriticScore !== null && game.metacriticScore !== undefined
+              ? String(game.metacriticScore)
+              : '',
+        reviewUrl: game.reviewUrl ?? game.metacriticUrl ?? '',
         metacriticScore:
-          game.metacriticScore !== null && game.metacriticScore !== undefined
-            ? String(game.metacriticScore)
-            : '',
-        metacriticUrl: game.metacriticUrl ?? '',
+          game.reviewScore !== null && game.reviewScore !== undefined
+            ? String(game.reviewScore)
+            : game.metacriticScore !== null && game.metacriticScore !== undefined
+              ? String(game.metacriticScore)
+              : '',
+        metacriticUrl: game.reviewUrl ?? game.metacriticUrl ?? '',
         similarGameIgdbIds: JSON.stringify(game.similarGameIgdbIds ?? []),
         status: game.status ?? '',
         rating: game.rating !== null && game.rating !== undefined ? String(game.rating) : '',
@@ -2508,6 +2521,8 @@ export class SettingsPage {
         hltbMainHours: '',
         hltbMainExtraHours: '',
         hltbCompletionistHours: '',
+        reviewScore: '',
+        reviewUrl: '',
         metacriticScore: '',
         metacriticUrl: '',
         similarGameIgdbIds: '',
@@ -2555,6 +2570,8 @@ export class SettingsPage {
         hltbMainHours: '',
         hltbMainExtraHours: '',
         hltbCompletionistHours: '',
+        reviewScore: '',
+        reviewUrl: '',
         metacriticScore: '',
         metacriticUrl: '',
         similarGameIgdbIds: '',
@@ -2602,6 +2619,8 @@ export class SettingsPage {
         hltbMainHours: '',
         hltbMainExtraHours: '',
         hltbCompletionistHours: '',
+        reviewScore: '',
+        reviewUrl: '',
         metacriticScore: '',
         metacriticUrl: '',
         similarGameIgdbIds: '',
@@ -2892,18 +2911,20 @@ export class SettingsPage {
       return this.errorRow(type, rowNumber, 'Invalid gameType value.');
     }
 
-    const metacriticScore = parseOptionalNumber(record.metacriticScore);
+    const reviewScoreRaw =
+      record.reviewScore.trim().length > 0 ? record.reviewScore : record.metacriticScore;
+    const reviewUrlRaw =
+      record.reviewUrl.trim().length > 0 ? record.reviewUrl : record.metacriticUrl;
+    const metacriticScore = parseOptionalNumber(reviewScoreRaw);
 
     if (
-      record.metacriticScore.trim().length > 0 &&
+      reviewScoreRaw.trim().length > 0 &&
       (metacriticScore === null || metacriticScore < 1 || metacriticScore > 100)
     ) {
-      return this.errorRow(
-        type,
-        rowNumber,
-        'Metacritic score must be an integer between 1 and 100.'
-      );
+      return this.errorRow(type, rowNumber, 'Review score must be an integer between 1 and 100.');
     }
+
+    const parsedReviewUrl = parseOptionalText(reviewUrlRaw);
 
     const catalog: GameCatalogResult = {
       igdbGameId,
@@ -2916,8 +2937,10 @@ export class SettingsPage {
       hltbMainHours: parseOptionalDecimal(record.hltbMainHours),
       hltbMainExtraHours: parseOptionalDecimal(record.hltbMainExtraHours),
       hltbCompletionistHours: parseOptionalDecimal(record.hltbCompletionistHours),
+      reviewScore: metacriticScore,
+      reviewUrl: parsedReviewUrl,
       metacriticScore,
-      metacriticUrl: parseOptionalText(record.metacriticUrl),
+      metacriticUrl: parsedReviewUrl,
       similarGameIgdbIds: parseGameIdArray(record.similarGameIgdbIds),
       collections: parseStringArray(record.collections),
       developers: parseStringArray(record.developers),
@@ -3073,6 +3096,8 @@ export class SettingsPage {
       hltbMainHours: getValue('hltbMainHours'),
       hltbMainExtraHours: getValue('hltbMainExtraHours'),
       hltbCompletionistHours: getValue('hltbCompletionistHours'),
+      reviewScore: getValue('reviewScore') || getValue('metacriticScore'),
+      reviewUrl: getValue('reviewUrl') || getValue('metacriticUrl'),
       metacriticScore: getValue('metacriticScore'),
       metacriticUrl: getValue('metacriticUrl'),
       similarGameIgdbIds: getValue('similarGameIgdbIds'),

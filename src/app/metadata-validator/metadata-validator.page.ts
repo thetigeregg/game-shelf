@@ -253,8 +253,12 @@ export class MetadataValidatorPage {
     await this.openHltbPickerModal(game);
   }
 
-  async refreshMetacriticForGame(game: GameEntry): Promise<void> {
+  async refreshReviewForGame(game: GameEntry): Promise<void> {
     await this.openMetacriticPickerModal(game);
+  }
+
+  async refreshMetacriticForGame(game: GameEntry): Promise<void> {
+    await this.refreshReviewForGame(game);
   }
 
   async refreshImageForGame(game: GameEntry): Promise<void> {
@@ -357,7 +361,7 @@ export class MetadataValidatorPage {
     }
   }
 
-  async refreshMetacriticForSelectedGames(): Promise<void> {
+  async refreshReviewForSelectedGames(): Promise<void> {
     const games = this.getSelectedGames();
 
     if (games.length === 0 || this.isBulkRefreshingMetacritic) {
@@ -381,7 +385,7 @@ export class MetadataValidatorPage {
           retryBaseDelayMs: MetadataValidatorPage.BULK_METACRITIC_RETRY_BASE_DELAY_MS,
           rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS
         },
-        action: (game) => this.refreshMetacriticForBulkGame(game),
+        action: (game) => this.refreshReviewForBulkGame(game),
         delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
@@ -407,6 +411,10 @@ export class MetadataValidatorPage {
     } finally {
       this.isBulkRefreshingMetacritic = false;
     }
+  }
+
+  async refreshMetacriticForSelectedGames(): Promise<void> {
+    await this.refreshReviewForSelectedGames();
   }
 
   async refreshImageForSelectedGames(): Promise<void> {
@@ -473,7 +481,7 @@ export class MetadataValidatorPage {
     this.hltbPickerTargetGame = null;
   }
 
-  closeMetacriticPickerModal(): void {
+  closeReviewPickerModal(): void {
     this.isMetacriticPickerModalOpen = false;
     this.isMetacriticPickerLoading = false;
     this.metacriticPickerQuery = '';
@@ -482,14 +490,22 @@ export class MetadataValidatorPage {
     this.metacriticPickerTargetGame = null;
   }
 
+  closeMetacriticPickerModal(): void {
+    this.closeReviewPickerModal();
+  }
+
   onHltbPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
     this.hltbPickerQuery = customEvent.detail.value ?? '';
   }
 
-  onMetacriticPickerQueryChange(event: Event): void {
+  onReviewPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
     this.metacriticPickerQuery = customEvent.detail.value ?? '';
+  }
+
+  onMetacriticPickerQueryChange(event: Event): void {
+    this.onReviewPickerQueryChange(event);
   }
 
   async runHltbPickerSearch(): Promise<void> {
@@ -574,7 +590,7 @@ export class MetadataValidatorPage {
     }
   }
 
-  async runMetacriticPickerSearch(): Promise<void> {
+  async runReviewPickerSearch(): Promise<void> {
     const normalized = this.metacriticPickerQuery.trim();
     const target = this.metacriticPickerTargetGame;
 
@@ -596,7 +612,7 @@ export class MetadataValidatorPage {
           target?.platformIgdbId ?? null
         )
       );
-      this.metacriticPickerResults = this.dedupeMetacriticCandidates(candidates).slice(0, 30);
+      this.metacriticPickerResults = this.dedupeReviewCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
       this.metacriticPickerResults = [];
       this.metacriticPickerError = formatRateLimitedUiError(
@@ -608,7 +624,11 @@ export class MetadataValidatorPage {
     }
   }
 
-  async applySelectedMetacriticCandidate(candidate: ReviewMatchCandidate): Promise<void> {
+  async runMetacriticPickerSearch(): Promise<void> {
+    await this.runReviewPickerSearch();
+  }
+
+  async applySelectedReviewCandidate(candidate: ReviewMatchCandidate): Promise<void> {
     const target = this.metacriticPickerTargetGame;
 
     if (!target) {
@@ -627,7 +647,7 @@ export class MetadataValidatorPage {
           platform: candidate.platform
         }
       );
-      this.closeMetacriticPickerModal();
+      this.closeReviewPickerModal();
       if (this.hasReviewMetadata(updated)) {
         await this.presentToast(`Updated review for ${target.title}.`);
       } else {
@@ -639,7 +659,11 @@ export class MetadataValidatorPage {
     }
   }
 
-  async useOriginalMetacriticLookup(): Promise<void> {
+  async applySelectedMetacriticCandidate(candidate: ReviewMatchCandidate): Promise<void> {
+    await this.applySelectedReviewCandidate(candidate);
+  }
+
+  async useOriginalReviewLookup(): Promise<void> {
     const target = this.metacriticPickerTargetGame;
 
     if (!target) {
@@ -653,7 +677,7 @@ export class MetadataValidatorPage {
         target.igdbGameId,
         target.platformIgdbId
       );
-      this.closeMetacriticPickerModal();
+      this.closeReviewPickerModal();
       if (this.hasReviewMetadata(updated)) {
         await this.presentToast(`Updated review for ${target.title}.`);
       } else {
@@ -663,6 +687,10 @@ export class MetadataValidatorPage {
       this.isMetacriticPickerLoading = false;
       await this.presentToast(`Unable to update review for ${target.title}.`, 'danger');
     }
+  }
+
+  async useOriginalMetacriticLookup(): Promise<void> {
+    await this.useOriginalReviewLookup();
   }
 
   private applyMissingMetadataFilters(
@@ -750,6 +778,10 @@ export class MetadataValidatorPage {
     await this.runHltbPickerSearch();
   }
 
+  private async openReviewPickerModal(game: GameEntry): Promise<void> {
+    await this.openMetacriticPickerModal(game);
+  }
+
   private async openMetacriticPickerModal(game: GameEntry): Promise<void> {
     this.metacriticPickerTargetGame = game;
     this.metacriticPickerQuery = game.title;
@@ -774,7 +806,7 @@ export class MetadataValidatorPage {
     return [...byKey.values()];
   }
 
-  private dedupeMetacriticCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
+  private dedupeReviewCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
     const byKey = new Map<string, ReviewMatchCandidate>();
 
     candidates.forEach((candidate) => {
@@ -786,6 +818,10 @@ export class MetadataValidatorPage {
     });
 
     return [...byKey.values()];
+  }
+
+  private dedupeMetacriticCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
+    return this.dedupeReviewCandidates(candidates);
   }
 
   private async refreshHltbForBulkGame(game: GameEntry): Promise<GameEntry> {
@@ -858,7 +894,7 @@ export class MetadataValidatorPage {
     return this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId);
   }
 
-  private async refreshMetacriticForBulkGame(game: GameEntry): Promise<GameEntry> {
+  private async refreshReviewForBulkGame(game: GameEntry): Promise<GameEntry> {
     const title = typeof game.title === 'string' ? game.title.trim() : '';
 
     if (title.length >= 2) {
@@ -895,6 +931,10 @@ export class MetadataValidatorPage {
     }
 
     return this.gameShelfService.refreshGameMetacriticScore(game.igdbGameId, game.platformIgdbId);
+  }
+
+  private async refreshMetacriticForBulkGame(game: GameEntry): Promise<GameEntry> {
+    return this.refreshReviewForBulkGame(game);
   }
 
   private async delay(ms: number): Promise<void> {

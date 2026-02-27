@@ -68,6 +68,11 @@ export class DexieGameRepository implements GameRepository {
           result.hltbCompletionistHours,
           existing.hltbCompletionistHours
         ),
+        metacriticScore: this.resolveMetacriticScore(
+          result.metacriticScore,
+          existing.metacriticScore
+        ),
+        metacriticUrl: this.resolveMetacriticUrl(result.metacriticUrl, existing.metacriticUrl),
         similarGameIgdbIds: this.resolveGameIdList(
           result.similarGameIgdbIds,
           existing.similarGameIgdbIds
@@ -119,6 +124,8 @@ export class DexieGameRepository implements GameRepository {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
+      metacriticScore: this.normalizeMetacriticScore(result.metacriticScore),
+      metacriticUrl: this.normalizeMetacriticUrl(result.metacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
       collections: this.normalizeTextList(result.collections),
       developers: this.normalizeTextList(result.developers),
@@ -657,6 +664,38 @@ export class DexieGameRepository implements GameRepository {
     return Math.round(value * 10) / 10;
   }
 
+  private normalizeMetacriticScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const normalized = Math.round(value);
+
+    if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 100) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeMetacriticUrl(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('//')) {
+      return `https:${normalized}`;
+    }
+
+    return null;
+  }
+
   private normalizeGameType(value: unknown): GameEntry['gameType'] {
     if (
       value === 'main_game' ||
@@ -701,6 +740,28 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeCompletionHours(incoming);
+  }
+
+  private resolveMetacriticScore(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizeMetacriticScore(existing);
+    }
+
+    return this.normalizeMetacriticScore(incoming);
+  }
+
+  private resolveMetacriticUrl(
+    incoming: string | null | undefined,
+    existing: string | null | undefined
+  ): string | null {
+    if (incoming === undefined) {
+      return this.normalizeMetacriticUrl(existing);
+    }
+
+    return this.normalizeMetacriticUrl(incoming);
   }
 
   private resolveGameIdList(

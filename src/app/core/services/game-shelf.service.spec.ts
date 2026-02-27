@@ -60,6 +60,8 @@ describe('GameShelfService', () => {
       searchBoxArtByTitle: vi.fn(),
       lookupCompletionTimes: vi.fn(),
       lookupCompletionTimeCandidates: vi.fn(),
+      lookupMetacriticScore: vi.fn(),
+      lookupMetacriticCandidates: vi.fn(),
       listPopularityTypes: vi.fn(),
       listPopularityGames: vi.fn()
     };
@@ -776,6 +778,91 @@ describe('GameShelfService', () => {
       }),
       'collection'
     );
+  });
+
+  it('refreshes game Metacritic score using lookup values', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Zack & Wiki',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: '2007-10-16T00:00:00.000Z',
+      releaseYear: 2007,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupMetacriticScore.mockReturnValue(
+      of({
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameMetacriticScore('123', 5);
+
+    expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+      }),
+      'collection'
+    );
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('refreshes game Metacritic score using override query values', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      metacriticScore: 90,
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupMetacriticScore.mockReturnValue(
+      of({
+        metacriticScore: 90,
+        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameMetacriticScoreWithQuery('123', 5, {
+      title: 'Zack & Wiki',
+      releaseYear: 2007,
+      platform: 'Wii'
+    });
+
+    expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(result).toEqual(updatedEntry);
   });
 
   it('returns empty box art results for short queries', async () => {

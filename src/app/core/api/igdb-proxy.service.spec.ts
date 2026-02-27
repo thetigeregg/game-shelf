@@ -91,6 +91,8 @@ describe('IgdbProxyService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        metacriticScore: null,
+        metacriticUrl: null,
         similarGameIgdbIds: [],
         developers: [],
         franchises: [],
@@ -188,6 +190,8 @@ describe('IgdbProxyService', () => {
       hltbMainHours: null,
       hltbMainExtraHours: null,
       hltbCompletionistHours: null,
+      metacriticScore: null,
+      metacriticUrl: null,
       similarGameIgdbIds: [],
       developers: [],
       franchises: [],
@@ -301,6 +305,8 @@ describe('IgdbProxyService', () => {
           hltbMainHours: null,
           hltbMainExtraHours: null,
           hltbCompletionistHours: null,
+          metacriticScore: null,
+          metacriticUrl: null,
           similarGameIgdbIds: [],
           developers: [],
           franchises: [],
@@ -529,6 +535,8 @@ describe('IgdbProxyService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        metacriticScore: null,
+        metacriticUrl: null,
         similarGameIgdbIds: [],
         developers: ['Nintendo'],
         franchises: ['The Legend of Zelda'],
@@ -676,6 +684,81 @@ describe('IgdbProxyService', () => {
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
 
     await expect(promise).resolves.toEqual([]);
+  });
+
+  it('looks up Metacritic score and normalizes payload', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('releaseYear') === '2006' &&
+        request.params.get('platform') === 'Wii'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 92.4,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 92,
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
+    });
+  });
+
+  it('returns null for Metacritic lookup failures', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticScore('Okami'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`);
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('looks up Metacritic candidates and normalizes candidate payload', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii'));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('releaseYear') === '2006' &&
+        request.params.get('platform') === 'Wii'
+      );
+    });
+
+    req.flush({
+      candidates: [
+        {
+          title: ' Okami ',
+          releaseYear: 2006,
+          platform: ' Wii ',
+          metacriticScore: 93.2,
+          metacriticUrl: '//www.metacritic.com/game/okami/',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+        },
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 93,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticScore: 93,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+      }
+    ]);
   });
 
   it('normalizes igdb cover urls to retina variants and keeps existing _2x variant', async () => {

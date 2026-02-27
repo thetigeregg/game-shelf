@@ -10,6 +10,7 @@ import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
 import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
+import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
@@ -173,6 +174,7 @@ async function main(): Promise<void> {
     manualsPublicBaseUrl: config.manualsPublicBaseUrl
   });
   await registerHltbCachedRoute(app, pool);
+  await registerMetacriticCachedRoute(app, pool);
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({ error: 'Not found' });

@@ -87,6 +87,11 @@ export interface AppConfig {
   hltbCacheEnableStaleWhileRevalidate: boolean;
   hltbCacheFreshTtlSeconds: number;
   hltbCacheStaleTtlSeconds: number;
+  metacriticScraperBaseUrl: string;
+  metacriticScraperToken: string;
+  metacriticCacheEnableStaleWhileRevalidate: boolean;
+  metacriticCacheFreshTtlSeconds: number;
+  metacriticCacheStaleTtlSeconds: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
 }
@@ -165,6 +170,14 @@ export const config: AppConfig = {
   ),
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  metacriticScraperBaseUrl: readEnv('METACRITIC_SCRAPER_BASE_URL', ''),
+  metacriticScraperToken: readSecretFile('METACRITIC_SCRAPER_TOKEN', 'metacritic_scraper_token'),
+  metacriticCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  metacriticCacheFreshTtlSeconds: readIntegerEnv('METACRITIC_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
+  metacriticCacheStaleTtlSeconds: readIntegerEnv('METACRITIC_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')
 };

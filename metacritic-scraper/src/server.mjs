@@ -1,0 +1,353 @@
+import express from 'express';
+import fs from 'node:fs';
+import { chromium } from 'playwright';
+
+function readEnvOrFile(name) {
+  const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
+  const resolved = filePath.length > 0 ? filePath : `/run/secrets/${name.toLowerCase()}`;
+  if (fs.existsSync(resolved)) {
+    return fs.readFileSync(resolved, 'utf8').trim();
+  }
+  return '';
+}
+
+const app = express();
+const port = Number.parseInt(process.env.PORT ?? '8789', 10);
+const apiToken = readEnvOrFile('METACRITIC_SCRAPER_TOKEN');
+const browserTimeoutMs = Number.parseInt(process.env.METACRITIC_SCRAPER_TIMEOUT_MS ?? '25000', 10);
+const browserIdleTtlMs = Number.parseInt(
+  process.env.METACRITIC_SCRAPER_BROWSER_IDLE_MS ?? '30000',
+  10
+);
+
+let sharedBrowser = null;
+let sharedBrowserPromise = null;
+let browserIdleTimer = null;
+
+function normalizeSearchQuery(req) {
+  return String(req.query.q ?? '').trim();
+}
+
+function normalizeReleaseYearQuery(req) {
+  const raw = String(req.query.releaseYear ?? '').trim();
+  if (!/^\d{4}$/.test(raw)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 1970 && parsed <= 2100 ? parsed : null;
+}
+
+function normalizePlatform(req) {
+  const value = String(req.query.platform ?? '').trim();
+  return value.length > 0 ? value : null;
+}
+
+function normalizeIncludeCandidates(req) {
+  const raw = String(req.query.includeCandidates ?? '')
+    .trim()
+    .toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+function normalizeTitle(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizePlatformValue(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildSearchTitleVariants(title) {
+  const base = String(title ?? '').trim();
+  if (base.length === 0) {
+    return [];
+  }
+
+  const normalized = normalizeTitle(base);
+  const titleCase = normalized
+    .split(' ')
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+
+  return [...new Set([base, titleCase].filter((value) => value.length > 0))];
+}
+
+function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate) {
+  const normalizedExpected = normalizeTitle(expectedTitle);
+  const normalizedCandidate = normalizeTitle(candidate.title);
+
+  if (!normalizedExpected || !normalizedCandidate) {
+    return -1;
+  }
+
+  let score = 0;
+
+  if (normalizedExpected === normalizedCandidate) {
+    score += 100;
+  }
+
+  if (
+    normalizedExpected.includes(normalizedCandidate) ||
+    normalizedCandidate.includes(normalizedExpected)
+  ) {
+    score += 20;
+  }
+
+  const expectedTokens = new Set(normalizedExpected.split(' ').filter(Boolean));
+  const candidateTokens = new Set(normalizedCandidate.split(' ').filter(Boolean));
+  let tokenOverlap = 0;
+  for (const token of expectedTokens) {
+    if (candidateTokens.has(token)) {
+      tokenOverlap += 1;
+    }
+  }
+  score += tokenOverlap * 8;
+
+  if (expectedYear !== null && Number.isInteger(candidate.releaseYear)) {
+    const delta = Math.abs(candidate.releaseYear - expectedYear);
+    if (delta === 0) {
+      score += 20;
+    } else if (delta === 1) {
+      score += 10;
+    } else if (delta <= 3) {
+      score += 4;
+    }
+  }
+
+  const normalizedExpectedPlatform = normalizePlatformValue(expectedPlatform);
+  const normalizedCandidatePlatform = normalizePlatformValue(candidate.platform);
+
+  if (normalizedExpectedPlatform.length > 0 && normalizedCandidatePlatform.length > 0) {
+    if (normalizedCandidatePlatform.includes(normalizedExpectedPlatform)) {
+      score += 18;
+    } else if (normalizedExpectedPlatform.includes(normalizedCandidatePlatform)) {
+      score += 10;
+    }
+  }
+
+  if (typeof candidate.metacriticScore === 'number') {
+    score += 2;
+  }
+
+  return score;
+}
+
+async function searchMetacriticInBrowser(page, query) {
+  const searchUrl = `https://www.metacritic.com/search/${encodeURIComponent(query)}/`;
+
+  await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: browserTimeoutMs });
+  await page.waitForTimeout(300);
+
+  const items = await page.evaluate(() => {
+    const rows = Array.from(
+      document.querySelectorAll(
+        '[data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard'
+      )
+    );
+
+    const parsed = [];
+
+    for (const row of rows) {
+      const titleEl =
+        row.querySelector('h3, .c-finderProductCard_title, a.c-finderProductCard_container') ||
+        row.querySelector('a[href*="/game/"]');
+      const title = titleEl ? String(titleEl.textContent ?? '').trim() : '';
+      if (!title) {
+        continue;
+      }
+
+      const linkEl = row.querySelector('a[href*="/game/"]');
+      const href = linkEl ? String(linkEl.getAttribute('href') ?? '').trim() : '';
+      const url = href.startsWith('http')
+        ? href
+        : href.startsWith('/')
+          ? `https://www.metacritic.com${href}`
+          : null;
+
+      const scoreEl = row.querySelector(
+        '[data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w'
+      );
+      const scoreRaw = scoreEl ? String(scoreEl.textContent ?? '').trim() : '';
+      const scoreValue = Number.parseInt(scoreRaw, 10);
+
+      const metaText = String(row.textContent ?? '');
+      const yearMatch = metaText.match(/\b(19|20)\d{2}\b/);
+      const releaseYear = yearMatch ? Number.parseInt(yearMatch[0], 10) : null;
+
+      const platformEl = row.querySelector('[data-testid="platform"], .c-finderProductCard_meta');
+      const platform = platformEl ? String(platformEl.textContent ?? '').trim() : null;
+
+      const imageEl = row.querySelector('img');
+      const imageUrl = imageEl ? String(imageEl.getAttribute('src') ?? '').trim() : null;
+
+      parsed.push({
+        title,
+        releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
+        platform: platform && platform.length > 0 ? platform : null,
+        metacriticScore:
+          Number.isInteger(scoreValue) && scoreValue > 0 && scoreValue <= 100 ? scoreValue : null,
+        metacriticUrl: url,
+        imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null
+      });
+    }
+
+    return parsed;
+  });
+
+  return items;
+}
+
+app.get('/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.get('/v1/metacritic/search', async (req, res) => {
+  if (apiToken.length > 0) {
+    const authHeader = String(req.headers.authorization ?? '');
+    const expectedHeader = `Bearer ${apiToken}`;
+
+    if (authHeader !== expectedHeader) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+  }
+
+  const query = normalizeSearchQuery(req);
+  const releaseYear = normalizeReleaseYearQuery(req);
+  const platform = normalizePlatform(req);
+  const includeCandidates = normalizeIncludeCandidates(req);
+
+  if (query.length < 2) {
+    res.status(400).json({ error: 'Query must be at least 2 characters.' });
+    return;
+  }
+
+  try {
+    const titleVariants = buildSearchTitleVariants(query);
+    const browser = await getSharedBrowser();
+    const context = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    });
+    const page = await context.newPage();
+
+    let allCandidates = [];
+
+    for (const variant of titleVariants) {
+      const candidates = await searchMetacriticInBrowser(page, variant);
+      if (candidates.length > 0) {
+        allCandidates = candidates;
+        break;
+      }
+    }
+
+    const ranked = allCandidates
+      .map((candidate) => ({
+        candidate,
+        score: rankCandidate(query, releaseYear, platform, candidate)
+      }))
+      .filter((entry) => entry.score >= 0)
+      .sort((left, right) => right.score - left.score)
+      .map((entry) => entry.candidate)
+      .slice(0, 30);
+
+    const best = ranked[0] ?? null;
+    const bestScore = best ? rankCandidate(query, releaseYear, platform, best) : -1;
+    const confidenceThreshold = 115;
+
+    const item =
+      best && bestScore >= confidenceThreshold
+        ? {
+            metacriticScore: best.metacriticScore ?? null,
+            metacriticUrl: best.metacriticUrl ?? null
+          }
+        : null;
+
+    await context.close();
+    scheduleBrowserIdleClose();
+
+    res.json(includeCandidates ? { item, candidates: ranked } : { item });
+  } catch (error) {
+    res.status(502).json({ error: 'Unable to fetch Metacritic data.' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`[metacritic-scraper] listening on http://localhost:${port}`);
+});
+
+async function getSharedBrowser() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+    browserIdleTimer = null;
+  }
+
+  if (sharedBrowser) {
+    return sharedBrowser;
+  }
+
+  if (!sharedBrowserPromise) {
+    sharedBrowserPromise = chromium
+      .launch({ headless: true })
+      .then((browser) => {
+        sharedBrowser = browser;
+        sharedBrowserPromise = null;
+        return browser;
+      })
+      .catch((error) => {
+        sharedBrowserPromise = null;
+        throw error;
+      });
+  }
+
+  return sharedBrowserPromise;
+}
+
+function scheduleBrowserIdleClose() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+  }
+
+  browserIdleTimer = setTimeout(() => {
+    closeSharedBrowser().catch(() => {
+      // Ignore browser shutdown errors.
+    });
+  }, browserIdleTtlMs);
+}
+
+async function closeSharedBrowser() {
+  if (browserIdleTimer !== null) {
+    clearTimeout(browserIdleTimer);
+    browserIdleTimer = null;
+  }
+
+  if (!sharedBrowser) {
+    return;
+  }
+
+  const browser = sharedBrowser;
+  sharedBrowser = null;
+  await browser.close();
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    closeSharedBrowser()
+      .catch(() => {
+        // Ignore shutdown cleanup errors.
+      })
+      .finally(() => {
+        process.exit(0);
+      });
+  });
+}

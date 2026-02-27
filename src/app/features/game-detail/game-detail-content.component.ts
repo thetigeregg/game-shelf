@@ -259,6 +259,15 @@ export class GameDetailContentComponent {
     return this.formatCompletionHours(this.game.hltbCompletionistHours);
   }
 
+  get metacriticScoreLabel(): string {
+    const score = this.normalizeMetacriticScore(this.game.metacriticScore);
+    return score === null ? 'Unknown' : `${String(score)}/100`;
+  }
+
+  get metacriticUrl(): string | null {
+    return this.normalizeMetacriticUrl(this.game.metacriticUrl);
+  }
+
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
     return this.detailTextExpanded[field];
   }
@@ -300,6 +309,33 @@ export class GameDetailContentComponent {
     ];
 
     return normalized.length > 0 ? normalized.join(', ') : 'None';
+  }
+
+  private normalizeMetacriticScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const normalized = Math.round(value);
+    if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 100) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeMetacriticUrl(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('//')) {
+      return `https:${normalized}`;
+    }
+
+    return null;
   }
 
   hasMetadataValue(values: string[] | null | undefined): boolean {

@@ -76,6 +76,7 @@ import {
   GameGroupByField,
   GameListFilters,
   HltbMatchCandidate,
+  MetacriticMatchCandidate,
   GameRating,
   GameStatus,
   GameType,
@@ -94,10 +95,13 @@ import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actio
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
 import {
   createClosedHltbPickerState,
+  createClosedMetacriticPickerState,
   createClosedImagePickerState,
   createOpenedHltbPickerState,
+  createOpenedMetacriticPickerState,
   createOpenedImagePickerState,
   dedupeHltbCandidates,
+  dedupeMetacriticCandidates,
   normalizeMetadataOptions
 } from './game-list-detail-workflow';
 import {
@@ -109,6 +113,7 @@ import {
 import {
   buildTagInput,
   hasHltbData,
+  hasMetacriticData,
   normalizeGameRating,
   normalizeGameStatus,
   normalizeTagIds,
@@ -228,6 +233,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly BULK_RETRY_BASE_DELAY_MS = 1000;
   private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
   private static readonly BULK_HLTB_ITEM_TIMEOUT_MS = 30000;
+  private static readonly BULK_METACRITIC_CONCURRENCY = 2;
+  private static readonly BULK_METACRITIC_INTER_ITEM_DELAY_MS = 125;
+  private static readonly BULK_METACRITIC_ITEM_TIMEOUT_MS = 30000;
   private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
   private static readonly VIRTUAL_BUFFER_ROWS = 10;
   private static readonly IMAGE_ERROR_LOG_LIMIT = 120;
@@ -276,9 +284,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
   isHltbUpdateLoading = false;
+  isMetacriticUpdateLoading = false;
   isHltbPickerModalOpen = false;
   isHltbPickerLoading = false;
   hasHltbPickerSearched = false;
+  isMetacriticPickerModalOpen = false;
+  isMetacriticPickerLoading = false;
+  hasMetacriticPickerSearched = false;
   selectedGame: GameEntry | null = null;
   detailNavigationStack: GameEntry[] = [];
   similarLibraryGames: GameEntry[] = [];
@@ -295,6 +307,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   hltbPickerResults: HltbMatchCandidate[] = [];
   hltbPickerError: string | null = null;
   hltbPickerTargetGame: GameEntry | null = null;
+  metacriticPickerQuery = '';
+  metacriticPickerResults: MetacriticMatchCandidate[] = [];
+  metacriticPickerError: string | null = null;
+  metacriticPickerTargetGame: GameEntry | null = null;
   isEditMetadataModalOpen = false;
   isEditMetadataSaving = false;
   isNotesOpen = false;
@@ -795,6 +811,48 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
+  async updateMetacriticForSelectedGames(): Promise<void> {
+    const selectedGames = this.getSelectedGames();
+
+    if (selectedGames.length === 0) {
+      return;
+    }
+
+    const results = await this.runBulkAction(
+      selectedGames,
+      {
+        loadingPrefix: 'Updating Metacritic data',
+        concurrency: GameListComponent.BULK_METACRITIC_CONCURRENCY,
+        interItemDelayMs: GameListComponent.BULK_METACRITIC_INTER_ITEM_DELAY_MS,
+        itemTimeoutMs: GameListComponent.BULK_METACRITIC_ITEM_TIMEOUT_MS
+      },
+      (game) =>
+        this.gameShelfService.refreshGameMetacriticScore(game.igdbGameId, game.platformIgdbId)
+    );
+    const failedCount = results.filter((result) => !result.ok).length;
+    const updatedCount = results.filter(
+      (result) => result.ok && result.value && hasMetacriticData(result.value)
+    ).length;
+    const missingCount = results.length - failedCount - updatedCount;
+
+    this.clearSelectionMode();
+
+    if (updatedCount > 0) {
+      await this.presentToast(
+        `Updated Metacritic data for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
+      );
+    } else if (missingCount > 0 && failedCount === 0) {
+      await this.presentToast('No Metacritic matches found for selected games.', 'warning');
+    }
+
+    if (failedCount > 0) {
+      await this.presentToast(
+        `Unable to update Metacritic data for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
+        'danger'
+      );
+    }
+  }
+
   openGameDetail(game: GameEntry): void {
     if (this.shouldBlockDetailNavigationForUnsavedNotes()) {
       void this.presentToast('Notes are still saving. Please wait a moment.', 'warning');
@@ -1020,6 +1078,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
     this.resetDetailTextExpansion();
     this.resetImagePickerState();
+    this.resetMetacriticPickerState();
     this.resetManualPickerState();
     this.changeDetectorRef.markForCheck();
     void this.loadDetailCoverUrl(game);
@@ -1076,6 +1135,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.resetDetailTextExpansion();
     this.resetImagePickerState();
     this.resetHltbPickerState();
+    this.resetMetacriticPickerState();
     this.resetManualPickerState();
     this.resetNoteEditorState();
     this.editMetadataTitle = '';
@@ -1372,6 +1432,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.refreshSelectedGameCompletionTimes();
   }
 
+  async refreshSelectedGameMetacriticFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+    await this.refreshSelectedGameMetacriticScore();
+  }
+
   async openFixHltbMatchFromPopover(): Promise<void> {
     await this.dismissDetailActionsPopover();
 
@@ -1380,6 +1445,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.openHltbPickerModal(this.selectedGame);
+  }
+
+  async openFixMetacriticMatchFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+
+    if (!this.selectedGame) {
+      return;
+    }
+
+    this.openMetacriticPickerModal(this.selectedGame);
   }
 
   async openImagePickerFromPopover(): Promise<void> {
@@ -1729,6 +1804,39 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
+  async refreshSelectedGameMetacriticScore(): Promise<void> {
+    if (!this.selectedGame || this.isMetacriticUpdateLoading) {
+      return;
+    }
+
+    this.isMetacriticUpdateLoading = true;
+    const loading = await this.loadingController.create({
+      message: 'Updating Metacritic data...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const updated = await this.gameShelfService.refreshGameMetacriticScore(
+        this.selectedGame.igdbGameId,
+        this.selectedGame.platformIgdbId
+      );
+      this.applyUpdatedGame(updated);
+      await loading.dismiss().catch(() => undefined);
+
+      if (hasMetacriticData(updated)) {
+        await this.presentToast('Metacritic data updated.');
+      } else {
+        this.openMetacriticPickerModal(updated);
+      }
+    } catch {
+      await loading.dismiss().catch(() => undefined);
+      await this.presentToast('Unable to update Metacritic data.', 'danger');
+    } finally {
+      this.isMetacriticUpdateLoading = false;
+    }
+  }
+
   closeImagePickerModal(): void {
     const nextState = createClosedImagePickerState(this.imagePickerSearchRequestId);
     this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
@@ -1742,6 +1850,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   closeHltbPickerModal(): void {
     this.resetHltbPickerState();
+    this.changeDetectorRef.markForCheck();
+  }
+
+  closeMetacriticPickerModal(): void {
+    this.resetMetacriticPickerState();
     this.changeDetectorRef.markForCheck();
   }
 
@@ -1824,6 +1937,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   onHltbPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
     this.hltbPickerQuery = customEvent.detail.value ?? '';
+  }
+
+  onMetacriticPickerQueryChange(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: string | null }>;
+    this.metacriticPickerQuery = customEvent.detail.value ?? '';
   }
 
   async applySelectedImage(url: string): Promise<void> {
@@ -1943,6 +2061,101 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.isHltbPickerLoading = false;
       this.changeDetectorRef.markForCheck();
       await this.presentToast('Unable to update HLTB data.', 'danger');
+    }
+  }
+
+  async runMetacriticPickerSearch(): Promise<void> {
+    const normalized = this.metacriticPickerQuery.trim();
+    this.hasMetacriticPickerSearched = true;
+
+    if (normalized.length < 2) {
+      this.metacriticPickerResults = [];
+      this.metacriticPickerError = 'Enter at least 2 characters.';
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    this.isMetacriticPickerLoading = true;
+    this.metacriticPickerError = null;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const candidates = await firstValueFrom(
+        this.gameShelfService.searchMetacriticCandidates(normalized, null, null)
+      );
+      this.metacriticPickerResults = dedupeMetacriticCandidates(candidates).slice(0, 30);
+    } catch (error: unknown) {
+      this.metacriticPickerResults = [];
+      this.metacriticPickerError = formatRateLimitedUiError(
+        error,
+        'Unable to search Metacritic right now.'
+      );
+    } finally {
+      this.isMetacriticPickerLoading = false;
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
+  async applySelectedMetacriticCandidate(candidate: MetacriticMatchCandidate): Promise<void> {
+    const target = this.metacriticPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isMetacriticPickerLoading = true;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const updated = await this.gameShelfService.refreshGameMetacriticScoreWithQuery(
+        target.igdbGameId,
+        target.platformIgdbId,
+        {
+          title: candidate.title,
+          releaseYear: candidate.releaseYear,
+          platform: candidate.platform
+        }
+      );
+      this.applyUpdatedGame(updated);
+      this.closeMetacriticPickerModal();
+      if (hasMetacriticData(updated)) {
+        await this.presentToast('Metacritic data updated.');
+      } else {
+        await this.presentToast('No Metacritic match found for this game.', 'warning');
+      }
+    } catch {
+      this.isMetacriticPickerLoading = false;
+      this.changeDetectorRef.markForCheck();
+      await this.presentToast('Unable to update Metacritic data.', 'danger');
+    }
+  }
+
+  async useOriginalMetacriticLookup(): Promise<void> {
+    const target = this.metacriticPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isMetacriticPickerLoading = true;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const updated = await this.gameShelfService.refreshGameMetacriticScore(
+        target.igdbGameId,
+        target.platformIgdbId
+      );
+      this.applyUpdatedGame(updated);
+      this.closeMetacriticPickerModal();
+      if (hasMetacriticData(updated)) {
+        await this.presentToast('Metacritic data updated.');
+      } else {
+        await this.presentToast('No Metacritic match found for this game.', 'warning');
+      }
+    } catch {
+      this.isMetacriticPickerLoading = false;
+      this.changeDetectorRef.markForCheck();
+      await this.presentToast('Unable to update Metacritic data.', 'danger');
     }
   }
 
@@ -3025,6 +3238,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.changeDetectorRef.markForCheck();
   }
 
+  private openMetacriticPickerModal(game: GameEntry): void {
+    const nextState = createOpenedMetacriticPickerState(game);
+    this.isMetacriticPickerModalOpen = nextState.isMetacriticPickerModalOpen;
+    this.isMetacriticPickerLoading = nextState.isMetacriticPickerLoading;
+    this.hasMetacriticPickerSearched = nextState.hasMetacriticPickerSearched;
+    this.metacriticPickerQuery = nextState.metacriticPickerQuery;
+    this.metacriticPickerResults = nextState.metacriticPickerResults;
+    this.metacriticPickerError = nextState.metacriticPickerError;
+    this.metacriticPickerTargetGame = nextState.metacriticPickerTargetGame;
+    this.changeDetectorRef.markForCheck();
+  }
+
   private resetHltbPickerState(): void {
     const nextState = createClosedHltbPickerState();
     this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
@@ -3034,6 +3259,17 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.hltbPickerResults = nextState.hltbPickerResults;
     this.hltbPickerError = nextState.hltbPickerError;
     this.hltbPickerTargetGame = nextState.hltbPickerTargetGame;
+  }
+
+  private resetMetacriticPickerState(): void {
+    const nextState = createClosedMetacriticPickerState();
+    this.isMetacriticPickerModalOpen = nextState.isMetacriticPickerModalOpen;
+    this.isMetacriticPickerLoading = nextState.isMetacriticPickerLoading;
+    this.hasMetacriticPickerSearched = nextState.hasMetacriticPickerSearched;
+    this.metacriticPickerQuery = nextState.metacriticPickerQuery;
+    this.metacriticPickerResults = nextState.metacriticPickerResults;
+    this.metacriticPickerError = nextState.metacriticPickerError;
+    this.metacriticPickerTargetGame = nextState.metacriticPickerTargetGame;
   }
 
   private async resolveManualForGame(game: GameEntry): Promise<void> {

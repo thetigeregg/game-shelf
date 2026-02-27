@@ -99,6 +99,23 @@ function extractSeriesTokens(normalizedTitle) {
   );
 }
 
+function parseMetacriticScore(rawValue) {
+  const text = String(rawValue ?? '')
+    .toLowerCase()
+    .trim();
+  if (text.length === 0 || text.includes('tbd') || text.includes('null')) {
+    return null;
+  }
+
+  const match = text.match(/\b([1-9]\d?|100)\b/);
+  if (!match) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
+}
+
 function normalizePlatformValue(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -317,7 +334,7 @@ async function searchMetacriticInBrowser(page, query) {
               ''
           ).trim()
         : '';
-      const scoreValue = Number.parseInt(scoreRaw, 10);
+      const scoreValue = parseMetacriticScore(scoreRaw);
 
       const releaseDateText = String(
         row.querySelector('[data-testid="product-release-date"], time, .c-finderProductCard_meta')
@@ -340,8 +357,7 @@ async function searchMetacriticInBrowser(page, query) {
         title,
         releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
         platform: platform && platform.length > 0 ? platform : null,
-        metacriticScore:
-          Number.isInteger(scoreValue) && scoreValue > 0 && scoreValue <= 100 ? scoreValue : null,
+        metacriticScore: scoreValue,
         metacriticUrl: url,
         imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null
       });

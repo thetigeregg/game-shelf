@@ -19,6 +19,8 @@ const browserIdleTtlMs = Number.parseInt(
   process.env.METACRITIC_SCRAPER_BROWSER_IDLE_MS ?? '30000',
   10
 );
+const debugLogsEnabled =
+  String(process.env.DEBUG_METACRITIC_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
@@ -245,6 +247,16 @@ app.get('/v1/metacritic/search', async (req, res) => {
 
     for (const variant of titleVariants) {
       const candidates = await searchMetacriticInBrowser(page, variant);
+      if (debugLogsEnabled) {
+        console.info('[metacritic-scraper] search_attempt', {
+          query,
+          variant,
+          releaseYear,
+          platform,
+          includeCandidates,
+          candidateCount: candidates.length
+        });
+      }
       if (candidates.length > 0) {
         allCandidates = candidates;
         break;
@@ -273,11 +285,28 @@ app.get('/v1/metacritic/search', async (req, res) => {
           }
         : null;
 
+    if (debugLogsEnabled) {
+      console.info('[metacritic-scraper] request_complete', {
+        query,
+        releaseYear,
+        platform,
+        includeCandidates,
+        rankedCount: ranked.length,
+        bestScore,
+        matched: item !== null,
+        bestCandidate: best
+      });
+    }
+
     await context.close();
     scheduleBrowserIdleClose();
 
     res.json(includeCandidates ? { item, candidates: ranked } : { item });
   } catch (error) {
+    console.error('[metacritic-scraper] request_failed', {
+      query,
+      message: error instanceof Error ? error.message : String(error)
+    });
     res.status(502).json({ error: 'Unable to fetch Metacritic data.' });
   }
 });

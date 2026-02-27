@@ -69,8 +69,6 @@ const variantTokens = new Set([
   'special',
   'ultimate',
   'anniversary',
-  'game',
-  'year',
   'goty',
   'collection',
   'complete',
@@ -80,10 +78,12 @@ const variantTokens = new Set([
 ]);
 
 function hasVariantToken(normalizedTitle) {
-  const tokens = String(normalizedTitle ?? '')
-    .split(' ')
-    .filter(Boolean);
-  return tokens.some((token) => variantTokens.has(token));
+  const title = String(normalizedTitle ?? '');
+  const tokens = title.split(' ').filter(Boolean);
+  if (tokens.some((token) => variantTokens.has(token))) {
+    return true;
+  }
+  return title.includes('game of the year');
 }
 
 function normalizePlatformValue(value) {

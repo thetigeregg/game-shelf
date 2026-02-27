@@ -300,7 +300,6 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
       excludedStatuses: Array.isArray(parsed.excludedStatuses)
         ? parsed.excludedStatuses.filter(
             (value) =>
-              value === 'none' ||
               value === 'playing' ||
               value === 'wantToPlay' ||
               value === 'completed' ||
@@ -310,7 +309,7 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
           )
         : [],
       excludedTags: Array.isArray(parsed.excludedTags)
-        ? parsed.excludedTags.filter((value) => typeof value === 'string')
+        ? parsed.excludedTags.filter((value) => typeof value === 'string' && value !== '__none__')
         : [],
       excludedGameTypes: Array.isArray(parsed.excludedGameTypes)
         ? parsed.excludedGameTypes.filter((value) =>

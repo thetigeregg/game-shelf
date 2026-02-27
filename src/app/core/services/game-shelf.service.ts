@@ -147,7 +147,8 @@ export class GameShelfService {
   searchMetacriticCandidates(
     title: string,
     releaseYear?: number | null,
-    platform?: string | null
+    platform?: string | null,
+    platformIgdbId?: number | null
   ): Observable<MetacriticMatchCandidate[]> {
     const normalized = title.trim();
 
@@ -155,7 +156,12 @@ export class GameShelfService {
       return of([]);
     }
 
-    return this.searchApi.lookupMetacriticCandidates(normalized, releaseYear, platform);
+    return this.searchApi.lookupMetacriticCandidates(
+      normalized,
+      releaseYear,
+      platform,
+      platformIgdbId
+    );
   }
 
   async addGame(result: GameCatalogResult, listType: ListType): Promise<GameEntry> {
@@ -406,14 +412,20 @@ export class GameShelfService {
       existing,
       existing.title,
       existing.releaseYear,
-      existing.platform
+      existing.platform,
+      existing.platformIgdbId
     );
   }
 
   async refreshGameMetacriticScoreWithQuery(
     igdbGameId: string,
     platformIgdbId: number,
-    query: { title: string; releaseYear?: number | null; platform?: string | null }
+    query: {
+      title: string;
+      releaseYear?: number | null;
+      platform?: string | null;
+      platformIgdbId?: number | null;
+    }
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
       igdbGameId,
@@ -440,8 +452,20 @@ export class GameShelfService {
       typeof query.platform === 'string' && query.platform.trim().length > 0
         ? query.platform.trim()
         : existing.platform;
+    const lookupPlatformIgdbId =
+      typeof query.platformIgdbId === 'number' &&
+      Number.isInteger(query.platformIgdbId) &&
+      query.platformIgdbId > 0
+        ? query.platformIgdbId
+        : existing.platformIgdbId;
 
-    return this.refreshGameMetacriticWithLookup(existing, title, releaseYear, platform);
+    return this.refreshGameMetacriticWithLookup(
+      existing,
+      title,
+      releaseYear,
+      platform,
+      lookupPlatformIgdbId
+    );
   }
 
   private async refreshGameCompletionTimesWithLookup(
@@ -509,16 +533,18 @@ export class GameShelfService {
     existing: GameEntry,
     title: string,
     releaseYear: number | null,
-    platform: string
+    platform: string,
+    platformIgdbId: number | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.lookup_start', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       lookupTitle: title,
       lookupReleaseYear: releaseYear,
-      lookupPlatform: platform
+      lookupPlatform: platform,
+      lookupPlatformIgdbId: platformIgdbId
     });
     const scoreResult = await firstValueFrom(
-      this.searchApi.lookupMetacriticScore(title, releaseYear, platform)
+      this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId)
     );
     this.debugLogService.trace('game_shelf.metacritic.lookup_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,

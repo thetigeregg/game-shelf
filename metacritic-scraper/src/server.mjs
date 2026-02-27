@@ -87,6 +87,16 @@ function hasVariantToken(normalizedTitle) {
   return title.includes('game of the year');
 }
 
+const seriesIndexTokens = new Set(['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x']);
+
+function extractSeriesTokens(normalizedTitle) {
+  return new Set(
+    String(normalizedTitle ?? '')
+      .split(' ')
+      .filter((token) => /^\d+$/.test(token) || seriesIndexTokens.has(token))
+  );
+}
+
 function normalizePlatformValue(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -175,6 +185,26 @@ function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate)
   const candidateHasVariant = hasVariantToken(normalizedCandidate);
   if (expectedHasVariant !== candidateHasVariant) {
     score -= 18;
+  }
+
+  const expectedSeriesTokens = extractSeriesTokens(normalizedExpected);
+  const candidateSeriesTokens = extractSeriesTokens(normalizedCandidate);
+  if (expectedSeriesTokens.size > 0) {
+    const candidateMatchesAnyExpected = [...expectedSeriesTokens].some((token) =>
+      candidateSeriesTokens.has(token)
+    );
+    if (!candidateMatchesAnyExpected) {
+      score -= 30;
+    } else {
+      const hasUnexpectedSeriesToken = [...candidateSeriesTokens].some(
+        (token) => !expectedSeriesTokens.has(token)
+      );
+      if (hasUnexpectedSeriesToken) {
+        score -= 12;
+      }
+    }
+  } else if (candidateSeriesTokens.size > 0) {
+    score -= 6;
   }
 
   const expectedTokens = new Set(normalizedExpected.split(' ').filter(Boolean));

@@ -721,7 +721,7 @@ export class GameListFilteringEngine {
     }
 
     const sortedAsc = [...games].sort((left, right) => this.compareGames(left, right, sortField));
-    const sortedGames = this.applySortDirection(sortedAsc, sortField, sortDirection);
+    const sortedGames = this.applySortDirection(sortedAsc, sortDirection);
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
@@ -733,7 +733,6 @@ export class GameListFilteringEngine {
 
   private applySortDirection(
     sortedAsc: GameEntry[],
-    sortField: GameListFilters['sortField'],
     sortDirection: GameListFilters['sortDirection']
   ): GameEntry[] {
     if (sortDirection !== 'desc') {

@@ -149,6 +149,16 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
   });
 });
 
+test('normalizeIgdbGame defaults missing game id to empty identifiers', () => {
+  const normalized = normalizeIgdbGame({
+    name: 'Untitled Prototype',
+    platforms: [{ id: 6, name: 'PC (Microsoft Windows)' }]
+  });
+
+  assert.equal(normalized.igdbGameId, '');
+  assert.equal(normalized.externalId, '');
+});
+
 test('returns 400 for short query', async () => {
   resetCaches();
 

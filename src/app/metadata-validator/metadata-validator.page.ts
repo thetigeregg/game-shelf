@@ -39,6 +39,7 @@ import { PlatformCustomizationService } from '../core/services/platform-customiz
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
+import { isMetacriticPlatformSupported } from '../core/utils/metacritic-platform-support';
 
 type MissingMetadataFilter = 'hltb' | 'metacritic' | 'nonPcTheGamesDbImage';
 
@@ -349,15 +350,28 @@ export class MetadataValidatorPage {
   }
 
   async refreshMetacriticForSelectedGames(): Promise<void> {
-    const games = this.getSelectedGames();
+    const selectedGames = this.getSelectedGames();
 
-    if (games.length === 0 || this.isBulkRefreshingMetacritic) {
+    if (selectedGames.length === 0 || this.isBulkRefreshingMetacritic) {
       return;
     }
+
+    const games = selectedGames.filter((game) =>
+      isMetacriticPlatformSupported(game.platformIgdbId)
+    );
+    const skippedCount = selectedGames.length - games.length;
 
     this.isBulkRefreshingMetacritic = true;
 
     try {
+      if (games.length === 0) {
+        await this.presentToast(
+          `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
+          'warning'
+        );
+        return;
+      }
+
       const results = await runBulkActionWithRetry({
         loadingController: this.loadingController,
         games,
@@ -393,6 +407,13 @@ export class MetadataValidatorPage {
         await this.presentToast(
           `Unable to update Metacritic for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
           'danger'
+        );
+      }
+
+      if (skippedCount > 0) {
+        await this.presentToast(
+          `Skipped ${String(skippedCount)} game${skippedCount === 1 ? '' : 's'}: unsupported Metacritic platform.`,
+          'warning'
         );
       }
     } finally {

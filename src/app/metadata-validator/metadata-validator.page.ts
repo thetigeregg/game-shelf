@@ -36,7 +36,7 @@ import {
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
-import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
+import { formatRateLimitedUiError, isRateLimitedMessage } from '../core/utils/rate-limit-ui-error';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
 import { isMetacriticPlatformSupported } from '../core/utils/metacritic-platform-support';
@@ -849,7 +849,11 @@ export class MetadataValidatorPage {
             }
           );
         }
-      } catch {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '';
+        if (isRateLimitedMessage(message)) {
+          throw error;
+        }
         this.debugLogService.trace('metadata_validator.bulk_hltb.candidate_search_failed', {
           gameKey: this.getGameKey(game)
         });
@@ -890,7 +894,11 @@ export class MetadataValidatorPage {
             }
           );
         }
-      } catch {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '';
+        if (isRateLimitedMessage(message)) {
+          throw error;
+        }
         // Fall back to the default lookup when candidate search fails.
       }
     }

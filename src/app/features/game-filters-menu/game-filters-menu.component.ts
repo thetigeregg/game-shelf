@@ -92,6 +92,9 @@ export class GameFiltersMenuComponent implements OnChanges {
     'dropped',
     'replay'
   ];
+  readonly excludedStatusOptions: GameStatusFilterOption[] = this.statusOptions.filter(
+    (status) => status !== 'none'
+  );
   readonly ratingOptions: GameRatingFilterOption[] = ['none', 1, 2, 3, 4, 5];
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },

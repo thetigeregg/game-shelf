@@ -153,7 +153,7 @@
               [ngModel]="draftFilters.excludedStatuses"
               (ngModelChange)="onExcludedStatusSelectionChange($event)"
             >
-              @for (status of statusOptions; track status) {
+              @for (status of excludedStatusOptions; track status) {
                 <ion-select-option [value]="status">
                   {{ getStatusLabel(status) }}
                 </ion-select-option>
@@ -170,7 +170,6 @@
               [ngModel]="draftFilters.excludedTags"
               (ngModelChange)="onExcludedTagSelectionChange($event)"
             >
-              <ion-select-option [value]="noneTagFilterValue">None</ion-select-option>
               @for (tag of tagOptions; track tag) {
                 <ion-select-option [value]="tag">
                   {{ tag }}

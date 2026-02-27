@@ -238,6 +238,10 @@ export class IgdbProxyService implements GameSearchApi {
         return normalized;
       }),
       catchError((error) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
         this.debugLogService.trace('igdb_proxy.hltb.lookup_error', this.normalizeUnknown(error));
         return of(null);
       })
@@ -289,6 +293,10 @@ export class IgdbProxyService implements GameSearchApi {
         return normalized;
       }),
       catchError((error) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
         this.debugLogService.trace(
           'igdb_proxy.hltb_candidates.lookup_error',
           this.normalizeUnknown(error)
@@ -354,6 +362,10 @@ export class IgdbProxyService implements GameSearchApi {
         return normalized;
       }),
       catchError((error) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
         this.debugLogService.trace(
           'igdb_proxy.metacritic.lookup_error',
           this.normalizeUnknown(error)
@@ -417,6 +429,10 @@ export class IgdbProxyService implements GameSearchApi {
         return normalized;
       }),
       catchError((error) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
         this.debugLogService.trace(
           'igdb_proxy.metacritic_candidates.lookup_error',
           this.normalizeUnknown(error)

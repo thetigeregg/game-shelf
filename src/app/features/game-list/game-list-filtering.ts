@@ -960,29 +960,6 @@ export class GameListFilteringEngine {
       return this.sortGamesByTitleFallback(left, right);
     }
 
-    if (sortField === 'metacritic') {
-      const leftScore = this.normalizeMetacriticSortScore(left.metacriticScore);
-      const rightScore = this.normalizeMetacriticSortScore(right.metacriticScore);
-
-      if (leftScore === null && rightScore === null) {
-        return this.sortGamesByTitleFallback(left, right);
-      }
-
-      if (leftScore === null) {
-        return 1;
-      }
-
-      if (rightScore === null) {
-        return -1;
-      }
-
-      if (leftScore !== rightScore) {
-        return leftScore - rightScore;
-      }
-
-      return this.sortGamesByTitleFallback(left, right);
-    }
-
     const leftDate = this.getDateOnly(left.releaseDate);
     const rightDate = this.getDateOnly(right.releaseDate);
 

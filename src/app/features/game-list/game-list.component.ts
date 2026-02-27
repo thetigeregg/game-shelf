@@ -2244,7 +2244,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       typeof score !== 'number' ||
       !Number.isFinite(score) ||
       !Number.isInteger(score) ||
-      score < 0 ||
+      score < 1 ||
       score > 100
     ) {
       return null;

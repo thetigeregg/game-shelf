@@ -524,8 +524,7 @@ export class MetadataValidatorPage {
         {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
-          platform: candidate.platform,
-          platformIgdbId: target.platformIgdbId
+          platform: candidate.platform
         }
       );
       this.closeHltbPickerModal();

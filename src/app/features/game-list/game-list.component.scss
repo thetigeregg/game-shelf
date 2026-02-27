@@ -31,26 +31,24 @@ ion-item-sliding ion-item ion-label {
   font-size: 0.85rem;
 }
 
-.hltb-main-indicator {
+.row-metadata-indicators {
   position: absolute;
   right: 10px;
   bottom: 10px;
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hltb-main-indicator {
   color: var(--ion-color-medium);
   font-size: 0.76rem;
   font-weight: 600;
   line-height: 1;
 }
 
-.hltb-main-indicator-with-metacritic {
-  right: 48px;
-}
-
 .metacritic-score-indicator {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  z-index: 2;
   min-width: 30px;
   height: 24px;
   padding: 0 6px;

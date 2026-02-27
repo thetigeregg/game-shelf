@@ -63,9 +63,48 @@ function normalizeTitle(value) {
 function normalizePlatformValue(value) {
   return String(value ?? '')
     .toLowerCase()
+    .replace(/\band more\b/g, ' ')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function canonicalizePlatform(value) {
+  const normalized = normalizePlatformValue(value);
+
+  if (normalized === 'nintendo 3ds' || normalized === '3ds' || normalized === 'nintendo 3 ds') {
+    return '3ds';
+  }
+
+  if (normalized === 'playstation 5' || normalized === 'ps5') {
+    return 'ps5';
+  }
+
+  if (normalized === 'playstation 4' || normalized === 'ps4') {
+    return 'ps4';
+  }
+
+  if (normalized === 'xbox one') {
+    return 'xbox one';
+  }
+
+  if (
+    normalized === 'xbox series x' ||
+    normalized === 'xbox series s' ||
+    normalized === 'xbox series x s'
+  ) {
+    return 'xbox series';
+  }
+
+  if (normalized === 'nintendo switch' || normalized === 'switch') {
+    return 'switch';
+  }
+
+  if (normalized === 'pc' || normalized === 'microsoft windows' || normalized === 'windows') {
+    return 'pc';
+  }
+
+  return normalized;
 }
 
 function buildSearchTitleVariants(title) {
@@ -126,14 +165,16 @@ function rankCandidate(expectedTitle, expectedYear, expectedPlatform, candidate)
     }
   }
 
-  const normalizedExpectedPlatform = normalizePlatformValue(expectedPlatform);
-  const normalizedCandidatePlatform = normalizePlatformValue(candidate.platform);
+  const normalizedExpectedPlatform = canonicalizePlatform(expectedPlatform);
+  const normalizedCandidatePlatform = canonicalizePlatform(candidate.platform);
 
   if (normalizedExpectedPlatform.length > 0 && normalizedCandidatePlatform.length > 0) {
-    if (normalizedCandidatePlatform.includes(normalizedExpectedPlatform)) {
-      score += 18;
-    } else if (normalizedExpectedPlatform.includes(normalizedCandidatePlatform)) {
-      score += 10;
+    if (
+      normalizedCandidatePlatform === normalizedExpectedPlatform ||
+      normalizedCandidatePlatform.includes(normalizedExpectedPlatform) ||
+      normalizedExpectedPlatform.includes(normalizedCandidatePlatform)
+    ) {
+      score += 12;
     }
   }
 

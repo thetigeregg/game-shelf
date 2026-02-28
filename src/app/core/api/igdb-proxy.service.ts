@@ -56,13 +56,38 @@ interface MobyGamesGameResult {
   critic_score?: number | string | null;
   moby_score?: number | string | null;
   release_date?: string | null;
-  platforms?: Array<{ name?: string | null; platform_name?: string | null }> | null;
+  platforms?: Array<{
+    platform_id?: number | string | null;
+    name?: string | null;
+    platform_name?: string | null;
+  }> | null;
   covers?: Array<{
+    platforms?: Array<
+      | number
+      | string
+      | {
+          platform_id?: number | string | null;
+          platform_name?: string | null;
+          name?: string | null;
+        }
+    > | null;
     images?: Array<{
       thumbnail_url?: string | null;
       image_url?: string | null;
       original_url?: string | null;
       moby_url?: string | null;
+      caption?: string | null;
+    }> | null;
+  }> | null;
+  screenshots?: Array<{
+    platform_id?: number | string | null;
+    platform_name?: string | null;
+    images?: Array<{
+      thumbnail_url?: string | null;
+      image_url?: string | null;
+      original_url?: string | null;
+      moby_url?: string | null;
+      caption?: string | null;
     }> | null;
   }> | null;
 }
@@ -402,7 +427,10 @@ export class IgdbProxyService implements GameSearchApi {
         .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
         .pipe(
           map((response) => {
-            const normalized = this.normalizeMobygamesReviewScoreResult(response.games ?? null);
+            const normalized = this.normalizeMobygamesReviewScoreResult(response.games ?? null, {
+              preferredMobyPlatformId: mobygamesPlatformId,
+              preferredPlatformName: normalizedPlatform
+            });
             this.debugLogService.trace('igdb_proxy.mobygames.lookup_response', {
               gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
               normalized,
@@ -525,7 +553,10 @@ export class IgdbProxyService implements GameSearchApi {
         .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
         .pipe(
           map((response) => {
-            const normalized = this.normalizeMobygamesReviewCandidates(response.games ?? null);
+            const normalized = this.normalizeMobygamesReviewCandidates(response.games ?? null, {
+              preferredMobyPlatformId: mobygamesPlatformId,
+              preferredPlatformName: normalizedPlatform
+            });
             this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_response', {
               gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
               candidateCountNormalized: normalized.length
@@ -972,7 +1003,10 @@ export class IgdbProxyService implements GameSearchApi {
     params = params
       .set('limit', String(options.limit))
       .set('format', 'normal')
-      .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date,covers');
+      .set(
+        'include',
+        'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
+      );
 
     const mobygamesPlatformId = resolveMobyGamesPlatformId(options.platformIgdbId);
     if (mobygamesPlatformId !== null) {
@@ -983,9 +1017,13 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeMobygamesReviewScoreResult(
-    games: MobyGamesGameResult[] | null | undefined
+    games: MobyGamesGameResult[] | null | undefined,
+    options: {
+      preferredMobyPlatformId: number | null;
+      preferredPlatformName: string;
+    }
   ): ReviewScoreResult | null {
-    const normalizedCandidates = this.normalizeMobygamesReviewCandidates(games);
+    const normalizedCandidates = this.normalizeMobygamesReviewCandidates(games, options);
     const best = normalizedCandidates.at(0);
 
     if (!best) {
@@ -1002,20 +1040,33 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeMobygamesReviewCandidates(
-    games: MobyGamesGameResult[] | null | undefined
+    games: MobyGamesGameResult[] | null | undefined,
+    options: {
+      preferredMobyPlatformId: number | null;
+      preferredPlatformName: string;
+    }
   ): ReviewMatchCandidate[] {
     if (!Array.isArray(games)) {
       return [];
     }
 
-    return games
+    const mapped = games
       .map((game) => {
         const title = typeof game.title === 'string' ? game.title.trim() : '';
         const releaseYear = this.normalizeMobygamesReleaseYear(game.release_date);
-        const platform = this.normalizeMobygamesPlatform(game.platforms);
+        const platform = this.normalizeMobygamesPlatform(
+          game.platforms,
+          options.preferredMobyPlatformId,
+          options.preferredPlatformName
+        );
         const reviewScore = this.normalizeMobygamesScore(game);
         const reviewUrl = this.normalizeExternalUrl(game.moby_url ?? null);
-        const imageUrl = this.normalizeMobygamesImageUrl(game.covers);
+        const imageUrl = this.normalizeMobygamesImageUrl(
+          game.covers,
+          game.screenshots,
+          options.preferredMobyPlatformId,
+          options.preferredPlatformName
+        );
 
         return {
           title,
@@ -1030,17 +1081,28 @@ export class IgdbProxyService implements GameSearchApi {
         };
       })
       .filter((candidate) => candidate.title.length > 0)
-      .filter((candidate) => candidate.reviewScore !== null || candidate.reviewUrl !== null)
-      .filter((candidate, index, all) => {
-        return (
-          all.findIndex(
-            (entry) =>
-              entry.title === candidate.title &&
-              entry.releaseYear === candidate.releaseYear &&
-              entry.platform === candidate.platform
-          ) === index
-        );
-      });
+      .filter((candidate) => candidate.reviewScore !== null || candidate.reviewUrl !== null);
+
+    const byKey = new Map<string, ReviewMatchCandidate>();
+    for (const candidate of mapped) {
+      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
+      const existing = byKey.get(key);
+
+      if (!existing) {
+        byKey.set(key, candidate);
+        continue;
+      }
+
+      const shouldReplace =
+        (existing.imageUrl == null && candidate.imageUrl != null) ||
+        (existing.reviewScore == null && candidate.reviewScore != null);
+
+      if (shouldReplace) {
+        byKey.set(key, candidate);
+      }
+    }
+
+    return [...byKey.values()];
   }
 
   private toLegacyMetacriticScoreResult(
@@ -1088,20 +1150,51 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeMobygamesPlatform(
-    platforms: Array<{ name?: string | null; platform_name?: string | null }> | null | undefined
+    platforms:
+      | Array<{
+          platform_id?: number | string | null;
+          name?: string | null;
+          platform_name?: string | null;
+        }>
+      | null
+      | undefined,
+    preferredMobyPlatformId: number | null,
+    preferredPlatformName: string
   ): string | null {
     if (!Array.isArray(platforms)) {
       return null;
     }
 
+    if (preferredMobyPlatformId !== null) {
+      for (const entry of platforms) {
+        const entryPlatformId = this.normalizeMobygamesGameId(entry.platform_id);
+        if (entryPlatformId !== preferredMobyPlatformId) {
+          continue;
+        }
+
+        const matchedLabel = this.readMobygamesPlatformLabel(entry);
+        if (matchedLabel) {
+          return matchedLabel;
+        }
+      }
+    }
+
+    const preferredPlatformKey = this.normalizePlatformNameKey(preferredPlatformName);
+    if (preferredPlatformKey.length > 0) {
+      for (const entry of platforms) {
+        const candidateLabel = this.readMobygamesPlatformLabel(entry);
+        if (!candidateLabel) {
+          continue;
+        }
+        if (this.normalizePlatformNameKey(candidateLabel) === preferredPlatformKey) {
+          return candidateLabel;
+        }
+      }
+    }
+
     for (const entry of platforms) {
-      const normalized =
-        typeof entry.platform_name === 'string'
-          ? entry.platform_name.trim()
-          : typeof entry.name === 'string'
-            ? entry.name.trim()
-            : '';
-      if (normalized.length > 0) {
+      const normalized = this.readMobygamesPlatformLabel(entry);
+      if (normalized) {
         return normalized;
       }
     }
@@ -1137,25 +1230,155 @@ export class IgdbProxyService implements GameSearchApi {
     return null;
   }
 
+  private normalizeMobygamesGameId(value: number | string | null | undefined): number | null {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      if (!/^\d+$/.test(normalized)) {
+        return null;
+      }
+
+      const parsed = Number.parseInt(normalized, 10);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    return null;
+  }
+
   private normalizeMobygamesImageUrl(
     covers:
       | Array<{
+          platforms?: Array<
+            | number
+            | string
+            | {
+                platform_id?: number | string | null;
+                platform_name?: string | null;
+                name?: string | null;
+              }
+          > | null;
           images?: Array<{
             thumbnail_url?: string | null;
             image_url?: string | null;
             original_url?: string | null;
             moby_url?: string | null;
+            caption?: string | null;
           }> | null;
         }>
       | null
-      | undefined
+      | undefined,
+    screenshots:
+      | Array<{
+          platform_id?: number | string | null;
+          platform_name?: string | null;
+          images?: Array<{
+            thumbnail_url?: string | null;
+            image_url?: string | null;
+            original_url?: string | null;
+            moby_url?: string | null;
+            caption?: string | null;
+          }> | null;
+        }>
+      | null
+      | undefined,
+    preferredMobyPlatformId: number | null,
+    preferredPlatformName: string
   ): string | null {
     if (!Array.isArray(covers)) {
       return null;
     }
 
-    for (const cover of covers) {
+    const prioritizedCovers =
+      preferredMobyPlatformId === null
+        ? covers
+        : [
+            ...covers.filter((cover) =>
+              this.mobygamesCoverMatchesPlatform(
+                cover.platforms,
+                preferredMobyPlatformId,
+                preferredPlatformName
+              )
+            ),
+            ...covers.filter(
+              (cover) =>
+                !this.mobygamesCoverMatchesPlatform(
+                  cover.platforms,
+                  preferredMobyPlatformId,
+                  preferredPlatformName
+                )
+            )
+          ];
+    const preferredTokens = this.expandPlatformTokens(preferredPlatformName);
+    const coverCandidates: Array<{ url: string; score: number }> = [];
+
+    for (let coverIndex = 0; coverIndex < prioritizedCovers.length; coverIndex += 1) {
+      const cover = prioritizedCovers[coverIndex];
       const images = cover.images;
+      if (!Array.isArray(images)) {
+        continue;
+      }
+
+      for (const image of images) {
+        const url =
+          this.normalizeExternalImageUrl(image.thumbnail_url ?? null) ??
+          this.normalizeExternalImageUrl(image.image_url ?? null) ??
+          this.normalizeExternalImageUrl(image.original_url ?? null) ??
+          this.normalizeExternalImageUrl(image.moby_url ?? null);
+        if (!url) {
+          continue;
+        }
+
+        const haystack = `${url} ${typeof image.caption === 'string' ? image.caption : ''}`;
+        const tokenHits = preferredTokens.reduce(
+          (count, token) => (haystack.toLowerCase().includes(token) ? count + 1 : count),
+          0
+        );
+        const score = tokenHits * 1000 - coverIndex;
+        coverCandidates.push({ url, score });
+      }
+    }
+
+    if (coverCandidates.length > 0) {
+      coverCandidates.sort((a, b) => b.score - a.score);
+      return coverCandidates[0].url;
+    }
+
+    if (!Array.isArray(screenshots)) {
+      return null;
+    }
+
+    const preferredPlatformKey = this.normalizePlatformNameKey(preferredPlatformName);
+    const prioritizedScreenshots =
+      preferredMobyPlatformId === null
+        ? screenshots
+        : [
+            ...screenshots.filter((screenshot) => {
+              const screenshotPlatformId = this.normalizeMobygamesGameId(screenshot.platform_id);
+              const screenshotPlatformKey = this.normalizePlatformNameKey(
+                screenshot.platform_name ?? null
+              );
+              return (
+                screenshotPlatformId === preferredMobyPlatformId ||
+                (preferredPlatformKey.length > 0 && screenshotPlatformKey === preferredPlatformKey)
+              );
+            }),
+            ...screenshots.filter((screenshot) => {
+              const screenshotPlatformId = this.normalizeMobygamesGameId(screenshot.platform_id);
+              const screenshotPlatformKey = this.normalizePlatformNameKey(
+                screenshot.platform_name ?? null
+              );
+              return !(
+                screenshotPlatformId === preferredMobyPlatformId ||
+                (preferredPlatformKey.length > 0 && screenshotPlatformKey === preferredPlatformKey)
+              );
+            })
+          ];
+
+    for (const screenshot of prioritizedScreenshots) {
+      const images = screenshot.images;
       if (!Array.isArray(images)) {
         continue;
       }
@@ -1173,6 +1396,106 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return null;
+  }
+
+  private expandPlatformTokens(platformName: string): string[] {
+    const normalized = platformName.trim().toLowerCase();
+    if (normalized.length === 0) {
+      return [];
+    }
+
+    const tokens = new Set<string>(
+      normalized
+        .split(/[^a-z0-9]+/g)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2)
+    );
+
+    if (normalized === 'snes' || normalized.includes('super nintendo')) {
+      tokens.add('snes');
+      tokens.add('supernintendo');
+      tokens.add('super-nintendo');
+    }
+
+    if (normalized === 'nintendo ds' || normalized === 'ds' || normalized.includes('ds')) {
+      tokens.add('nintendods');
+      tokens.add('nintendo-ds');
+      tokens.add('nds');
+    }
+
+    return [...tokens];
+  }
+
+  private mobygamesCoverMatchesPlatform(
+    platforms:
+      | Array<
+          | number
+          | string
+          | {
+              platform_id?: number | string | null;
+              platform_name?: string | null;
+              name?: string | null;
+            }
+        >
+      | null
+      | undefined,
+    preferredMobyPlatformId: number,
+    preferredPlatformName: string
+  ): boolean {
+    if (!Array.isArray(platforms)) {
+      return false;
+    }
+
+    const preferredPlatformKey = this.normalizePlatformNameKey(preferredPlatformName);
+
+    for (const platform of platforms) {
+      const platformId =
+        typeof platform === 'number' || typeof platform === 'string'
+          ? this.normalizeMobygamesGameId(platform)
+          : this.normalizeMobygamesGameId(platform.platform_id);
+      if (platformId === preferredMobyPlatformId) {
+        return true;
+      }
+
+      if (preferredPlatformKey.length > 0 && typeof platform === 'object') {
+        const platformLabel =
+          typeof platform.platform_name === 'string'
+            ? platform.platform_name.trim()
+            : typeof platform.name === 'string'
+              ? platform.name.trim()
+              : '';
+        if (this.normalizePlatformNameKey(platformLabel) === preferredPlatformKey) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private readMobygamesPlatformLabel(entry: {
+    platform_id?: number | string | null;
+    name?: string | null;
+    platform_name?: string | null;
+  }): string | null {
+    const normalized =
+      typeof entry.platform_name === 'string'
+        ? entry.platform_name.trim()
+        : typeof entry.name === 'string'
+          ? entry.name.trim()
+          : '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizePlatformNameKey(value: string | null | undefined): string {
+    if (typeof value !== 'string') {
+      return '';
+    }
+
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '');
   }
 
   private normalizeExternalImageUrl(value: string | null): string | null {

@@ -1069,3 +1069,8 @@
 - cbce0cf Merge branch 'main' into codex/fix-build-fail-issue
 - 0dc66ab Copy metacritic scraper src
 
+## v0.1.45 - 2026-02-28
+- b3c7be8 Merge pull request #115 from thetigeregg/copilot/set-up-copilot-instructions
+- cb0e8a1 docs(copilot): set up comprehensive Copilot instructions
+- b166f8e Initial plan
+

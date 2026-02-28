@@ -1049,11 +1049,13 @@ export class GameListFilteringEngine {
   ): number {
     const leftScore = this.normalizeMetacriticSortScore(
       left.reviewScore ?? left.metacriticScore,
-      left.reviewScore !== null && left.reviewScore !== undefined ? left.reviewSource : null
+      left.reviewScore !== null && left.reviewScore !== undefined ? left.reviewSource : null,
+      left.reviewScore !== null && left.reviewScore !== undefined ? left.mobyScore : null
     );
     const rightScore = this.normalizeMetacriticSortScore(
       right.reviewScore ?? right.metacriticScore,
-      right.reviewScore !== null && right.reviewScore !== undefined ? right.reviewSource : null
+      right.reviewScore !== null && right.reviewScore !== undefined ? right.reviewSource : null,
+      right.reviewScore !== null && right.reviewScore !== undefined ? right.mobyScore : null
     );
 
     if (leftScore === null && rightScore === null) {
@@ -1077,7 +1079,8 @@ export class GameListFilteringEngine {
 
   private normalizeMetacriticSortScore(
     value: number | null | undefined,
-    reviewSource?: ReviewSource | null
+    reviewSource?: ReviewSource | null,
+    mobyScore?: number | null
   ): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
@@ -1087,8 +1090,12 @@ export class GameListFilteringEngine {
       return null;
     }
 
-    // MobyGames scores may be stored on a 0–10 scale; normalize to 0–100 for comparison
-    const normalized = reviewSource === 'mobygames' && value <= 10 ? value * 10 : value;
+    // MobyGames scores may be stored on a 0–10 scale; normalize to 0–100 for comparison.
+    // Use mobyScore as ground truth: scale only when reviewScore matches the raw 0–10 mobyScore.
+    // Fall back to the ≤10 heuristic when mobyScore is absent.
+    const needsScale =
+      reviewSource === 'mobygames' && (mobyScore != null ? value === mobyScore : value <= 10);
+    const normalized = needsScale ? value * 10 : value;
 
     return Math.round(normalized * 10) / 10;
   }

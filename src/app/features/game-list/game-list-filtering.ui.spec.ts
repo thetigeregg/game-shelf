@@ -923,6 +923,48 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
+  it('does not scale MobyGames critic_score ≤10 on 0–100 scale when mobyScore differs', () => {
+    const games: GameEntry[] = [
+      // critic_score=10 on 0–100 scale; mobyScore=1.0 differs → should NOT scale (stays at 10)
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Low Critic',
+        reviewScore: 10,
+        reviewSource: 'mobygames',
+        mobyScore: 1.0
+      }),
+      // moby_score=8.0 on 0–10 scale; reviewScore matches mobyScore → scales to 80
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'High Moby',
+        reviewScore: 8.0,
+        reviewSource: 'mobygames',
+        mobyScore: 8.0
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Mid Normal',
+        reviewScore: 50,
+        reviewSource: 'metacritic'
+      })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    // High Moby (8.0 → 80) > Mid Normal (50) > Low Critic (10, not scaled to 100)
+    expect(desc.map((game) => game.title)).toEqual(['High Moby', 'Mid Normal', 'Low Critic']);
+  });
+
   it('does not scale metacriticScore fallback when reviewScore is null', () => {
     const games: GameEntry[] = [
       // reviewScore is null, falls back to metacriticScore — should NOT scale even if reviewSource is mobygames

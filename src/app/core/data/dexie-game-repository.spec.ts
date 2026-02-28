@@ -325,6 +325,69 @@ describe('DexieGameRepository', () => {
     expect(httpsUpdated?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
   });
 
+  it('normalizes reviewScore preserving decimals on create and update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 88.2,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+
+    const created = await repository.exists('101', 18);
+    expect(created?.reviewScore).toBe(88.2);
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 95,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+    const intUpdated = await repository.exists('101', 18);
+    expect(intUpdated?.reviewScore).toBe(95);
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 101,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+    const outOfRange = await repository.exists('101', 18);
+    expect(outOfRange?.reviewScore).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 0,
+        reviewUrl: null,
+        reviewSource: null
+      },
+      'collection'
+    );
+    const zeroScore = await repository.exists('101', 18);
+    expect(zeroScore?.reviewScore).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 100,
+        reviewUrl: null,
+        reviewSource: null
+      },
+      'collection'
+    );
+    const maxScore = await repository.exists('101', 18);
+    expect(maxScore?.reviewScore).toBe(100);
+  });
+
   it('preserves existing metacritic score/url when absent in partial upsert', async () => {
     await repository.upsertFromCatalog(
       {

@@ -1490,4 +1490,112 @@ describe('IgdbProxyService', () => {
     localStorage.removeItem('game-shelf-platform-list-cache-v1');
     expect(privateService.loadCachedPlatformList()).toEqual([]);
   });
+
+  it('returns empty cached platform list when cache is non-array JSON', () => {
+    const privateService = service as unknown as {
+      loadCachedPlatformList: () => Array<{ id: number; name: string }>;
+    };
+
+    localStorage.setItem('game-shelf-platform-list-cache-v1', JSON.stringify({ foo: 'bar' }));
+    expect(privateService.loadCachedPlatformList()).toEqual([]);
+  });
+
+  it('returns empty popularity types list for non-array items response', async () => {
+    const promise = firstValueFrom(service.listPopularityTypes());
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/popularity/types`);
+    req.flush({ items: null });
+
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('returns empty popularity games list for non-array items response', async () => {
+    const promise = firstValueFrom(service.listPopularityGames(7, 20, 0));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives` &&
+        request.params.get('popularityTypeId') === '7'
+      );
+    });
+    req.flush({ items: 'unexpected-string' });
+
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('uses MobyGames with known game id and sets id param in request', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19, 1597)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Final Fantasy VI' &&
+        request.params.get('id') === '1597' &&
+        request.params.get('platform') === '15'
+      );
+    });
+    req.flush({
+      games: [
+        {
+          game_id: 1597,
+          title: 'Final Fantasy III',
+          release_date: '1994-10-20',
+          platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+          moby_score: 9.1,
+          moby_url: 'https://www.mobygames.com/game/1597/final-fantasy-iii/'
+        }
+      ]
+    });
+
+    const result = await scorePromise;
+    expect(result).not.toBeNull();
+    expect(result?.reviewUrl).toContain('mobygames.com');
+  });
+
+  it('normalizes Moby release date via Date.parse fallback for non-ISO formats', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupReviewCandidates('Chrono Trigger', null, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: 'March 11, 1995',
+          platforms: [{ platform_name: 'SNES' }],
+          moby_score: 9.5,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    const results = await candidatesPromise;
+    expect(results).toHaveLength(1);
+    expect(results[0]?.releaseYear).toBe(1995);
+  });
+
+  it('returns null platform for MobyGames results with no matching platform', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupReviewCandidates('Unknown Game', null, 'Atari 2600', 59)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush({
+      games: [
+        {
+          title: 'Unknown Game',
+          release_date: '1984',
+          platforms: null,
+          moby_score: 7.0,
+          moby_url: 'https://www.mobygames.com/game/9999/unknown-game/'
+        }
+      ]
+    });
+
+    const results = await candidatesPromise;
+    expect(results).toHaveLength(1);
+    expect(results[0]?.platform).toBeNull();
+  });
 });

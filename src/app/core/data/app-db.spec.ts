@@ -169,4 +169,140 @@ describe('AppDb', () => {
 
     db.close();
   });
+
+  it('skips mobygamesGameId backfill on v9 upgrade when id is already valid', async () => {
+    const legacy = new Dexie(dbName);
+    legacy.version(8).stores({
+      games:
+        '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+      outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+      syncMeta: '&key,updatedAt'
+    });
+    await legacy.open();
+    await legacy.table('games').bulkAdd([
+      {
+        igdbGameId: '200',
+        platformIgdbId: 16,
+        listType: 'collection',
+        title: 'Already Has Moby ID',
+        platform: 'Genesis',
+        reviewSource: 'mobygames',
+        reviewUrl: 'https://www.mobygames.com/game/999/shining-force/',
+        mobygamesGameId: 999,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        igdbGameId: '201',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Non-Moby Game',
+        platform: 'Nintendo Switch',
+        reviewSource: 'metacritic',
+        reviewUrl: 'https://www.metacritic.com/game/test/',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      }
+    ]);
+    legacy.close();
+
+    const db = new AppDb();
+    await db.open();
+    const games = await db.games.orderBy('igdbGameId').toArray();
+
+    expect(games).toHaveLength(2);
+    expect(games[0].mobygamesGameId).toBe(999);
+    expect(games[1].mobygamesGameId).toBeNull();
+
+    db.close();
+  });
+
+  it('backfills mobyScore on v10 upgrade with valid and invalid reviewScore values', async () => {
+    const legacy = new Dexie(dbName);
+    legacy.version(9).stores({
+      games:
+        '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+      outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+      syncMeta: '&key,updatedAt'
+    });
+    await legacy.open();
+    await legacy.table('games').bulkAdd([
+      {
+        igdbGameId: '300',
+        platformIgdbId: 16,
+        listType: 'collection',
+        title: 'Already Has MobyScore',
+        platform: 'Genesis',
+        reviewSource: 'mobygames',
+        reviewScore: 88,
+        mobyScore: 8.8,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        igdbGameId: '301',
+        platformIgdbId: 16,
+        listType: 'collection',
+        title: 'Moby With ReviewScore 100-scale',
+        platform: 'Genesis',
+        reviewSource: 'mobygames',
+        reviewScore: 88,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        igdbGameId: '302',
+        platformIgdbId: 16,
+        listType: 'collection',
+        title: 'Moby With 10-scale ReviewScore',
+        platform: 'Genesis',
+        reviewSource: 'mobygames',
+        reviewScore: 8.8,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        igdbGameId: '303',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Metacritic Game No MobyScore',
+        platform: 'Nintendo Switch',
+        reviewSource: 'metacritic',
+        reviewScore: 90,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        igdbGameId: '304',
+        platformIgdbId: 16,
+        listType: 'collection',
+        title: 'Moby With Zero ReviewScore',
+        platform: 'Genesis',
+        reviewSource: 'mobygames',
+        reviewScore: 0,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      }
+    ]);
+    legacy.close();
+
+    const db = new AppDb();
+    await db.open();
+    const games = await db.games.orderBy('igdbGameId').toArray();
+
+    expect(games).toHaveLength(5);
+    expect(games[0].mobyScore).toBe(8.8);
+    expect(games[1].mobyScore).toBe(8.8);
+    expect(games[2].mobyScore).toBe(8.8);
+    expect(games[3].mobyScore).toBeNull();
+    expect(games[4].mobyScore).toBeNull();
+
+    db.close();
+  });
 });

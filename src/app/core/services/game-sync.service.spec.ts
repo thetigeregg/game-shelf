@@ -380,6 +380,27 @@ describe('GameSyncService', () => {
     expect(stored?.metacriticUrl).toBeNull();
   });
 
+  it('preserves decimal precision in reviewScore from sync payload', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7b-decimal-review',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 8.8,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobyScore: 8.8,
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(8.8);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBe(8.8);
+  });
+
   it('normalizes metacritic review source and does not set moby fields', async () => {
     await servicePrivate.applyGameChange({
       eventId: '8-metacritic',

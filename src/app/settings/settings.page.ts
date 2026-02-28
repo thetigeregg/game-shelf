@@ -155,6 +155,9 @@ interface ExportCsvRow {
   hltbCompletionistHours: string;
   reviewScore: string;
   reviewUrl: string;
+  reviewSource: string;
+  mobyScore: string;
+  mobygamesGameId: string;
   metacriticScore: string;
   metacriticUrl: string;
   similarGameIgdbIds: string;
@@ -257,6 +260,9 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'hltbCompletionistHours',
   'reviewScore',
   'reviewUrl',
+  'reviewSource',
+  'mobyScore',
+  'mobygamesGameId',
   'metacriticScore',
   'metacriticUrl',
   'similarGameIgdbIds',
@@ -2469,13 +2475,18 @@ export class SettingsPage {
               ? String(game.metacriticScore)
               : '',
         reviewUrl: game.reviewUrl ?? game.metacriticUrl ?? '',
+        reviewSource: game.reviewSource ?? '',
+        mobyScore:
+          game.mobyScore !== null && game.mobyScore !== undefined ? String(game.mobyScore) : '',
+        mobygamesGameId:
+          game.mobygamesGameId !== null && game.mobygamesGameId !== undefined
+            ? String(game.mobygamesGameId)
+            : '',
         metacriticScore:
-          game.reviewScore !== null && game.reviewScore !== undefined
-            ? String(game.reviewScore)
-            : game.metacriticScore !== null && game.metacriticScore !== undefined
-              ? String(game.metacriticScore)
-              : '',
-        metacriticUrl: game.reviewUrl ?? game.metacriticUrl ?? '',
+          game.metacriticScore !== null && game.metacriticScore !== undefined
+            ? String(game.metacriticScore)
+            : '',
+        metacriticUrl: game.metacriticUrl ?? '',
         similarGameIgdbIds: JSON.stringify(game.similarGameIgdbIds ?? []),
         status: game.status ?? '',
         rating: game.rating !== null && game.rating !== undefined ? String(game.rating) : '',
@@ -2523,6 +2534,9 @@ export class SettingsPage {
         hltbCompletionistHours: '',
         reviewScore: '',
         reviewUrl: '',
+        reviewSource: '',
+        mobyScore: '',
+        mobygamesGameId: '',
         metacriticScore: '',
         metacriticUrl: '',
         similarGameIgdbIds: '',
@@ -2572,6 +2586,9 @@ export class SettingsPage {
         hltbCompletionistHours: '',
         reviewScore: '',
         reviewUrl: '',
+        reviewSource: '',
+        mobyScore: '',
+        mobygamesGameId: '',
         metacriticScore: '',
         metacriticUrl: '',
         similarGameIgdbIds: '',
@@ -2621,6 +2638,9 @@ export class SettingsPage {
         hltbCompletionistHours: '',
         reviewScore: '',
         reviewUrl: '',
+        reviewSource: '',
+        mobyScore: '',
+        mobygamesGameId: '',
         metacriticScore: '',
         metacriticUrl: '',
         similarGameIgdbIds: '',
@@ -2915,16 +2935,65 @@ export class SettingsPage {
       record.reviewScore.trim().length > 0 ? record.reviewScore : record.metacriticScore;
     const reviewUrlRaw =
       record.reviewUrl.trim().length > 0 ? record.reviewUrl : record.metacriticUrl;
-    const metacriticScore = parseOptionalNumber(reviewScoreRaw);
+    const reviewSourceRaw = record.reviewSource.trim().toLowerCase();
+    const reviewSource =
+      reviewSourceRaw === 'metacritic' || reviewSourceRaw === 'mobygames' ? reviewSourceRaw : null;
+
+    if (reviewSourceRaw.length > 0 && reviewSource === null) {
+      return this.errorRow(type, rowNumber, 'Review source must be metacritic or mobygames.');
+    }
+
+    const reviewScore = parseOptionalDecimal(reviewScoreRaw);
 
     if (
       reviewScoreRaw.trim().length > 0 &&
-      (metacriticScore === null || metacriticScore < 1 || metacriticScore > 100)
+      (reviewScore === null || reviewScore < 1 || reviewScore > 100)
     ) {
-      return this.errorRow(type, rowNumber, 'Review score must be an integer between 1 and 100.');
+      return this.errorRow(type, rowNumber, 'Review score must be a number between 1 and 100.');
     }
 
     const parsedReviewUrl = parseOptionalText(reviewUrlRaw);
+    const explicitMetacriticScore = parseOptionalNumber(record.metacriticScore);
+    if (
+      record.metacriticScore.trim().length > 0 &&
+      (explicitMetacriticScore === null ||
+        explicitMetacriticScore < 1 ||
+        explicitMetacriticScore > 100)
+    ) {
+      return this.errorRow(
+        type,
+        rowNumber,
+        'Metacritic score must be an integer between 1 and 100.'
+      );
+    }
+    const explicitMobyScore = parseOptionalDecimal(record.mobyScore);
+    if (
+      record.mobyScore.trim().length > 0 &&
+      (explicitMobyScore === null || explicitMobyScore > 10)
+    ) {
+      return this.errorRow(type, rowNumber, 'Moby score must be a number between 0 and 10.');
+    }
+    const normalizedMobyScore =
+      explicitMobyScore ??
+      (reviewSource === 'mobygames' && reviewScore !== null
+        ? reviewScore <= 10
+          ? reviewScore
+          : reviewScore / 10
+        : null);
+    const mobyScore =
+      normalizedMobyScore !== null &&
+      Number.isFinite(normalizedMobyScore) &&
+      normalizedMobyScore > 0 &&
+      normalizedMobyScore <= 10
+        ? Math.round(normalizedMobyScore * 10) / 10
+        : null;
+    const mobygamesGameId = parsePositiveInteger(record.mobygamesGameId);
+    const metacriticScore =
+      explicitMetacriticScore ??
+      (reviewSource === 'metacritic' && reviewScore !== null ? Math.round(reviewScore) : null);
+    const metacriticUrlRaw = parseOptionalText(record.metacriticUrl);
+    const metacriticUrl =
+      metacriticUrlRaw ?? (reviewSource === 'metacritic' ? parsedReviewUrl : null);
 
     const catalog: GameCatalogResult = {
       igdbGameId,
@@ -2937,10 +3006,16 @@ export class SettingsPage {
       hltbMainHours: parseOptionalDecimal(record.hltbMainHours),
       hltbMainExtraHours: parseOptionalDecimal(record.hltbMainExtraHours),
       hltbCompletionistHours: parseOptionalDecimal(record.hltbCompletionistHours),
-      reviewScore: metacriticScore,
+      reviewScore:
+        reviewScore !== null && Number.isFinite(reviewScore)
+          ? Math.round(reviewScore * 10) / 10
+          : null,
       reviewUrl: parsedReviewUrl,
+      reviewSource,
+      mobyScore,
+      mobygamesGameId,
       metacriticScore,
-      metacriticUrl: parsedReviewUrl,
+      metacriticUrl,
       similarGameIgdbIds: parseGameIdArray(record.similarGameIgdbIds),
       collections: parseStringArray(record.collections),
       developers: parseStringArray(record.developers),
@@ -3098,6 +3173,9 @@ export class SettingsPage {
       hltbCompletionistHours: getValue('hltbCompletionistHours'),
       reviewScore: getValue('reviewScore') || getValue('metacriticScore'),
       reviewUrl: getValue('reviewUrl') || getValue('metacriticUrl'),
+      reviewSource: getValue('reviewSource'),
+      mobyScore: getValue('mobyScore'),
+      mobygamesGameId: getValue('mobygamesGameId'),
       metacriticScore: getValue('metacriticScore'),
       metacriticUrl: getValue('metacriticUrl'),
       similarGameIgdbIds: getValue('similarGameIgdbIds'),

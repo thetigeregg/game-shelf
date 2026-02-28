@@ -2259,10 +2259,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
-  async useOriginalMetacriticLookup(): Promise<void> {
-    await this.useOriginalReviewLookup();
-  }
-
   formatDate(value: string | null): string {
     if (!value) {
       return 'Unknown';
@@ -2321,17 +2317,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   getRowReviewScore(game: GameEntry): number | null {
     const score = game.reviewScore ?? game.metacriticScore;
 
-    if (
-      typeof score !== 'number' ||
-      !Number.isFinite(score) ||
-      !Number.isInteger(score) ||
-      score < 1 ||
-      score > 100
-    ) {
+    if (typeof score !== 'number' || !Number.isFinite(score) || score <= 0 || score > 100) {
       return null;
     }
 
-    return score;
+    return Math.round(score);
   }
 
   hasValidRowReviewScore(game: GameEntry): boolean {
@@ -2350,18 +2340,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     return 'mc-bad';
-  }
-
-  getRowMetacriticScore(game: GameEntry): number | null {
-    return this.getRowReviewScore(game);
-  }
-
-  hasValidRowMetacriticScore(game: GameEntry): boolean {
-    return this.hasValidRowReviewScore(game);
-  }
-
-  getRowMetacriticBadgeClass(game: GameEntry): 'mc-good' | 'mc-okay' | 'mc-bad' {
-    return this.getRowReviewBadgeClass(game);
   }
 
   getGameTypeBadgeLabel(game: GameEntry): string | null {

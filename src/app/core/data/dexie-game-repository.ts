@@ -737,16 +737,25 @@ export class DexieGameRepository implements GameRepository {
 
   private normalizeReviewSource(
     value: GameCatalogResult['reviewSource'] | undefined,
-    score: number | null | undefined,
+    _score: number | null | undefined,
     url: string | null | undefined
   ): GameEntry['reviewSource'] {
     if (value === 'metacritic' || value === 'mobygames') {
       return value;
     }
 
-    const normalizedScore = this.normalizeMetacriticScore(score);
     const normalizedUrl = this.normalizeMetacriticUrl(url);
-    return normalizedScore !== null || normalizedUrl !== null ? 'metacritic' : null;
+    if (normalizedUrl !== null) {
+      const lowerUrl = normalizedUrl.toLowerCase();
+      if (lowerUrl.includes('mobygames.com')) {
+        return 'mobygames';
+      }
+      if (lowerUrl.includes('metacritic.com')) {
+        return 'metacritic';
+      }
+    }
+
+    return null;
   }
 
   private normalizeMobyScore(value: number | null | undefined): number | null {

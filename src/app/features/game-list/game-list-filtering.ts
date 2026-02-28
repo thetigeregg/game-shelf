@@ -1071,15 +1071,15 @@ export class GameListFilteringEngine {
   }
 
   private normalizeMetacriticSortScore(value: number | null | undefined): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
     }
 
-    if (value < 0 || value > 100) {
+    if (value <= 0 || value > 100) {
       return null;
     }
 
-    return value;
+    return Math.round(value * 10) / 10;
   }
 
   private normalizeStatus(value: string | null | undefined): GameStatus | null {

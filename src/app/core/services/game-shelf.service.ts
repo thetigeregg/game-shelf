@@ -1303,12 +1303,11 @@ export class GameShelfService {
       return null;
     }
 
-    const normalized = Math.round(value);
-    if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 100) {
+    if (value <= 0 || value > 100) {
       return null;
     }
 
-    return normalized;
+    return Math.round(value * 10) / 10;
   }
 
   private async purgeServerImageCacheUrls(urls: string[]): Promise<void> {

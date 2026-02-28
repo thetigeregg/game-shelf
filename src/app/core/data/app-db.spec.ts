@@ -161,11 +161,11 @@ describe('AppDb', () => {
         igdbGameId: '101',
         reviewScore: 76,
         reviewUrl: 'https://www.mobygames.com/game/101/review-only/',
-        reviewSource: 'mobygames',
-        metacriticScore: 76,
-        metacriticUrl: 'https://www.mobygames.com/game/101/review-only/'
+        reviewSource: 'mobygames'
       })
     );
+    expect((games[1] as Record<string, unknown>)['metacriticScore']).toBeUndefined();
+    expect((games[1] as Record<string, unknown>)['metacriticUrl']).toBeUndefined();
 
     db.close();
   });

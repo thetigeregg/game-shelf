@@ -110,6 +110,7 @@ import {
 } from './settings-mgc.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
+import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import { addIcons } from 'ionicons';
 import {
@@ -2937,7 +2938,11 @@ export class SettingsPage {
       record.reviewUrl.trim().length > 0 ? record.reviewUrl : record.metacriticUrl;
     const reviewSourceRaw = record.reviewSource.trim().toLowerCase();
     const reviewSource =
-      reviewSourceRaw === 'metacritic' || reviewSourceRaw === 'mobygames' ? reviewSourceRaw : null;
+      reviewSourceRaw === 'metacritic' || reviewSourceRaw === 'mobygames'
+        ? reviewSourceRaw
+        : reviewSourceRaw.length === 0
+          ? detectReviewSourceFromUrl(reviewUrlRaw)
+          : null;
 
     if (reviewSourceRaw.length > 0 && reviewSource === null) {
       return this.errorRow(type, rowNumber, 'Review source must be metacritic or mobygames.');

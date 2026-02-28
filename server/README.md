@@ -66,6 +66,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `MOBYGAMES_CACHE_FRESH_TTL_SECONDS`
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`
 - `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE` (default `12`, matching `0.2` requests/second)
+- `DEBUG_HTTP_LOGS` (`true|false`, default `false`) enables sanitized upstream request/response logs for IGDB/TheGamesDB, HLTB, Metacritic, and MobyGames.
 
 Mutating routes (`POST`, `PUT`, `PATCH`, `DELETE`) require auth when `REQUIRE_AUTH=true`.
 Provide either:

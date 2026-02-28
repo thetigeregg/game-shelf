@@ -5,6 +5,11 @@ import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementMobygamesMetric } from './cache-metrics.js';
 import { config } from './config.js';
+import {
+  logUpstreamRequest,
+  logUpstreamResponse,
+  sanitizeUrlForDebugLogs
+} from './http-debug-log.js';
 
 interface MobyGamesCacheRow {
   response_json: unknown;
@@ -417,13 +422,23 @@ async function fetchMetadataFromMobyGames(request: FastifyRequest): Promise<Resp
   appendNullableString(targetUrl, 'include', normalized.include);
 
   try {
-    return await fetch(targetUrl.toString(), {
+    logUpstreamRequest(request, {
+      method: 'GET',
+      url: targetUrl.toString()
+    });
+    const response = await fetch(targetUrl.toString(), {
       method: 'GET'
     });
+    await logUpstreamResponse(request, {
+      method: 'GET',
+      url: targetUrl.toString(),
+      response
+    });
+    return response;
   } catch (error) {
     request.log.warn({
       msg: 'mobygames_request_failed',
-      url: targetUrl.toString(),
+      url: sanitizeUrlForDebugLogs(targetUrl.toString()),
       error: error instanceof Error ? error.message : String(error)
     });
 

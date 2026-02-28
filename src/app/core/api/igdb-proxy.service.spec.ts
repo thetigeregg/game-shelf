@@ -784,7 +784,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
       );
     });
     mobyReq.flush({
@@ -881,7 +881,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
       );
     });
     scoreReq.flush({
@@ -911,7 +911,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
       );
     });
     candidatesReq.flush({
@@ -968,6 +968,153 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('prefers Moby cover image matching selected platform id', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === '16'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ platform_name: 'Genesis' }],
+          moby_score: 88,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/',
+          covers: [
+            {
+              platforms: [81],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/wrong-platform.webp' }]
+            },
+            {
+              platforms: [16],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/genesis.webp' }]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Shining Force',
+        releaseYear: 1992,
+        platform: 'Genesis',
+        metacriticScore: 88,
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+        imageUrl: 'https://cdn.mobygames.com/covers/genesis.webp'
+      }
+    ]);
+  });
+
+  it('uses matched platform entry instead of first platform entry for Moby candidates', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [
+            { platform_id: 14, platform_name: 'PlayStation' },
+            { platform_id: 15, platform_name: 'SNES' }
+          ],
+          moby_score: 95,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+          covers: [
+            {
+              platforms: [{ platform_name: 'Nintendo DS' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-ds.webp' }]
+            },
+            {
+              platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-snes.webp' }]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Chrono Trigger',
+        releaseYear: 1995,
+        platform: 'SNES',
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+        imageUrl: 'https://cdn.mobygames.com/covers/chrono-snes.webp'
+      }
+    ]);
+  });
+
+  it('prefers Moby cover image URL containing preferred platform token when cover platform tags are missing', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+          moby_score: 95,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+          covers: [
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-nintendo-ds.webp'
+                }
+              ]
+            },
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-snes.webp'
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Chrono Trigger',
+        releaseYear: 1995,
+        platform: 'SNES',
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+        imageUrl: 'https://cdn.mobygames.com/covers/chrono-trigger-snes.webp'
+      }
+    ]);
+  });
+
   it('uses MobyGames when platform id is missing', async () => {
     const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
     const scoreReq = httpMock.expectOne((request) => {
@@ -978,7 +1125,7 @@ describe('IgdbProxyService', () => {
         request.params.get('releaseYear') === null &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
       );
     });
     scoreReq.flush({

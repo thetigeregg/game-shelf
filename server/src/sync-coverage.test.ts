@@ -499,3 +499,206 @@ void test('sync push rejects invalid entity type and operation type entries', as
 
   await app.close();
 });
+
+void test('sync push handles null and array payloads as failed operations', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'null-payload',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: null,
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        },
+        {
+          opId: 'array-payload',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: [1, 2, 3],
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPushResponseBody;
+  assert.equal(body.results[0]?.status, 'failed');
+  assert.equal(body.results[1]?.status, 'failed');
+  assert.match(body.results[0]?.message ?? '', /invalid operation payload/i);
+
+  await app.close();
+});
+
+void test('sync push handles string platformIgdbId in game payload', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'str-platform',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '42',
+            platformIgdbId: '130',
+            title: 'StrPlatform',
+            platform: 'PC'
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPushResponseBody;
+  assert.equal(body.results[0]?.status, 'applied');
+
+  await app.close();
+});
+
+void test('sync push handles mobyScore and mobygamesGameId edge cases', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'moby-score-string',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '50',
+            platformIgdbId: 130,
+            title: 'ScoreGame',
+            platform: 'PC',
+            mobyScore: '7.5',
+            mobygamesGameId: '999'
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        },
+        {
+          opId: 'moby-score-out-of-range',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '51',
+            platformIgdbId: 130,
+            title: 'OutOfRange',
+            platform: 'PC',
+            mobyScore: 11,
+            mobygamesGameId: 0
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        },
+        {
+          opId: 'moby-score-null',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '52',
+            platformIgdbId: 130,
+            title: 'NullScore',
+            platform: 'PC',
+            mobyScore: null,
+            mobygamesGameId: null
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPushResponseBody;
+  assert.equal(body.results[0]?.status, 'applied');
+  assert.equal(body.results[1]?.status, 'applied');
+  assert.equal(body.results[2]?.status, 'applied');
+
+  await app.close();
+});
+
+void test('sync push handles operation without clientTimestamp', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'no-timestamp',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: { igdbGameId: '60', platformIgdbId: 130, title: 'NoTs', platform: 'PC' }
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPushResponseBody;
+  assert.equal(body.results[0]?.status, 'applied');
+
+  await app.close();
+});
+
+void test('sync push handles empty operations array', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: { operations: [] }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPushResponseBody;
+  assert.equal(body.results.length, 0);
+  assert.equal(body.cursor, '0');
+
+  await app.close();
+});
+
+void test('sync push handles invalid float platformIgdbId', async () => {
+  const pool = new CoverageSyncPool();
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'float-platform',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: { igdbGameId: '70', platformIgdbId: 1.5 },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPushResponseBody;
+  assert.equal(body.results[0]?.status, 'failed');
+
+  await app.close();
+});

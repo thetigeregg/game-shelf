@@ -7,7 +7,7 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
-import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
+import { __mobygamesCacheTestables, registerMobyGamesCachedRoute } from './mobygames-cache.js';
 
 function toPrimitiveString(value: unknown): string {
   if (typeof value === 'string') {

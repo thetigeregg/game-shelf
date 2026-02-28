@@ -100,4 +100,73 @@ describe('AppDb', () => {
 
     db.close();
   });
+
+  it('mirrors review and metacritic fields on upgrade to v8', async () => {
+    const legacy = new Dexie(dbName);
+    legacy.version(7).stores({
+      games:
+        '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt',
+      views: '++id,listType,name,updatedAt,createdAt',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+      outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+      syncMeta: '&key,updatedAt'
+    });
+    await legacy.open();
+
+    await legacy.table('games').bulkAdd([
+      {
+        igdbGameId: '100',
+        platformIgdbId: 130,
+        listType: 'collection',
+        title: 'Legacy metacritic-only',
+        platform: 'Nintendo Switch',
+        metacriticScore: 89,
+        metacriticUrl: 'https://www.metacritic.com/game/legacy/',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        igdbGameId: '101',
+        platformIgdbId: 6,
+        listType: 'collection',
+        title: 'Legacy review-only',
+        platform: 'PC (Microsoft Windows)',
+        reviewScore: 76,
+        reviewUrl: 'https://www.mobygames.com/game/101/review-only/',
+        reviewSource: 'mobygames',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      }
+    ]);
+    legacy.close();
+
+    const db = new AppDb();
+    await db.open();
+    const games = await db.games.orderBy('igdbGameId').toArray();
+
+    expect(games).toHaveLength(2);
+    expect(games[0]).toEqual(
+      expect.objectContaining({
+        igdbGameId: '100',
+        reviewScore: 89,
+        reviewUrl: 'https://www.metacritic.com/game/legacy/',
+        reviewSource: 'metacritic',
+        metacriticScore: 89,
+        metacriticUrl: 'https://www.metacritic.com/game/legacy/'
+      })
+    );
+    expect(games[1]).toEqual(
+      expect.objectContaining({
+        igdbGameId: '101',
+        reviewScore: 76,
+        reviewUrl: 'https://www.mobygames.com/game/101/review-only/',
+        reviewSource: 'mobygames',
+        metacriticScore: 76,
+        metacriticUrl: 'https://www.mobygames.com/game/101/review-only/'
+      })
+    );
+
+    db.close();
+  });
 });

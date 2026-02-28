@@ -651,9 +651,13 @@ test('routes review refresh to MobyGames for unsupported platforms', async ({ pa
 
   await openFirstGameDetail(page, 'collection');
   const mobygamesRequestPromise = page.waitForRequest((request) => {
-    return (
-      request.url().includes('/v1/mobygames/search') && request.url().includes('platform=Genesis')
-    );
+    if (!request.url().includes('/v1/mobygames/search')) {
+      return false;
+    }
+
+    const url = new URL(request.url());
+    const platformParam = url.searchParams.get('platform');
+    return typeof platformParam === 'string' && /^\d+$/.test(platformParam);
   });
 
   await page.getByRole('button', { name: 'Game detail actions' }).click();

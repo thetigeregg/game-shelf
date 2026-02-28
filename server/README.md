@@ -29,7 +29,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
   - Optional: `releaseYear` (YYYY), `platform`, `platformIgdbId`, `includeCandidates` (`1|true|yes`)
 - `GET /v1/mobygames/search`
   - Required: `q` (or `title`) (min length 2)
-  - Optional: `platform`, `include`, `limit`, `offset`, `id`, `genre`, `group`, `steam_app_id`, `fuzzy`
+  - Optional: `platform` (MobyGames platform ID), `limit`, `offset`, `id`, `genre`, `group`, `format` (`id|brief|normal`)
 
 ## Configuration
 
@@ -61,10 +61,11 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `METACRITIC_CACHE_STALE_TTL_SECONDS`
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE`
 - `MOBYGAMES_API_BASE_URL`
+  - default: `https://api.mobygames.com/v2`
 - `MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `MOBYGAMES_CACHE_FRESH_TTL_SECONDS`
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`
-- `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE`
+- `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE` (default `12`, matching `0.2` requests/second)
 
 Mutating routes (`POST`, `PUT`, `PATCH`, `DELETE`) require auth when `REQUIRE_AUTH=true`.
 Provide either:

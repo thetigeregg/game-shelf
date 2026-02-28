@@ -781,7 +781,7 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === 'Genesis'
+        request.params.get('platform') === '16'
       );
     });
     mobyReq.flush({
@@ -789,7 +789,7 @@ describe('IgdbProxyService', () => {
         {
           title: 'Shining Force',
           release_date: '1992-03-20',
-          platforms: [{ name: 'Genesis' }],
+          platforms: [{ platform_name: 'Genesis' }],
           moby_score: 88,
           moby_url: 'https://www.mobygames.com/game/123/shining-force/'
         }
@@ -875,9 +875,7 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === 'Genesis' &&
-        request.params.get('releaseYear') === '1992' &&
-        request.params.get('fuzzy') === 'true'
+        request.params.get('platform') === '16'
       );
     });
     scoreReq.flush({
@@ -904,9 +902,7 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === 'Genesis' &&
-        request.params.get('releaseYear') === '1992' &&
-        request.params.get('fuzzy') === 'true'
+        request.params.get('platform') === '16'
       );
     });
     candidatesReq.flush({
@@ -914,14 +910,14 @@ describe('IgdbProxyService', () => {
         {
           title: ' Shining Force ',
           release_date: '1992-03-20',
-          platforms: [{ name: ' Genesis ' }],
+          platforms: [{ platform_name: ' Genesis ' }],
           critic_score: 87.6,
           moby_url: 'https://www.mobygames.com/game/123/shining-force/'
         },
         {
           title: 'Shining Force',
           release_date: '1992',
-          platforms: [{ name: 'Genesis' }],
+          platforms: [{ platform_name: 'Genesis' }],
           critic_score: 87.1,
           moby_url: 'https://www.mobygames.com/game/123/shining-force/'
         },
@@ -959,8 +955,8 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Okami' &&
-        request.params.get('platform') === 'Wii' &&
-        request.params.get('releaseYear') === '2006'
+        request.params.get('platform') === null &&
+        request.params.get('releaseYear') === null
       );
     });
     scoreReq.flush({

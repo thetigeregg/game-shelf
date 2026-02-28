@@ -11,6 +11,7 @@ import {
 } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
 import { PlatformOrderService } from './platform-order.service';
+import { ClientWriteAuthService } from './client-write-auth.service';
 
 describe('GameShelfService', () => {
   let repository: {
@@ -232,6 +233,68 @@ describe('GameShelfService', () => {
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({ hltbMainHours: 12.34 }),
       'collection'
+    );
+  });
+
+  it('skips review score lookup when game already has a valid review score', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '500',
+      title: 'Already Scored',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      reviewScore: 85,
+      reviewUrl: 'https://www.metacritic.com/game/already-scored/',
+      reviewSource: 'metacritic',
+      releaseDate: null,
+      releaseYear: 2022
+    };
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).not.toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it('triggers review score lookup when review score is out of valid range', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '501',
+      title: 'Out Of Range Score',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      reviewScore: 150,
+      releaseDate: null,
+      releaseYear: 2022
+    };
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith(
+      'Out Of Range Score',
+      2022,
+      'Switch',
+      130
     );
   });
 
@@ -616,6 +679,62 @@ describe('GameShelfService', () => {
     await service.migratePreferredPlatformCoversToIgdb();
 
     expect(getItemSpy).toHaveBeenCalled();
+  });
+
+  it('includes client write token in server purge request when token is configured', async () => {
+    const clientWriteAuthService = TestBed.inject(ClientWriteAuthService);
+    vi.spyOn(clientWriteAuthService, 'getToken').mockReturnValue('test-write-token');
+
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '9999',
+        title: 'Token Test',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/token-test.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x'
+      } as GameEntry
+    ]);
+    searchApi.getGameById.mockReturnValue(
+      of({
+        igdbGameId: '9999',
+        title: 'Token Test',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/token-test.jpg',
+        coverSource: 'igdb',
+        platform: 'PlayStation 5',
+        platformIgdbId: 167,
+        platforms: ['PlayStation 5'],
+        releaseDate: null,
+        releaseYear: null
+      } as GameCatalogResult)
+    );
+    repository.updateCover.mockResolvedValue({
+      igdbGameId: '9999',
+      title: 'Token Test',
+      platformIgdbId: 167,
+      platform: 'PlayStation 5',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/token-test.jpg',
+      coverSource: 'igdb',
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x'
+    } as GameEntry);
+
+    let capturedHeaders: HeadersInit | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      capturedHeaders = init?.headers;
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    });
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(capturedHeaders).toBeDefined();
+    const headersRecord = capturedHeaders as Record<string, string>;
+    expect(headersRecord['X-Game-Shelf-Client-Token']).toBe('test-write-token');
   });
 
   it('delegates search platform list retrieval', async () => {

@@ -30,8 +30,24 @@ describe('url-host util', () => {
     expect(parseHttpUrl('/local/path')).toBeNull();
   });
 
+  it('returns null for empty and non-string inputs', () => {
+    expect(parseHttpUrl('')).toBeNull();
+    expect(parseHttpUrl('   ')).toBeNull();
+    expect(parseHttpUrl(null as unknown as string)).toBeNull();
+  });
+
+  it('returns null when URL constructor throws for malformed urls', () => {
+    expect(parseHttpUrl('http://[::1]:notaport')).toBeNull();
+  });
+
   it('validates hostname match against base domain safely', () => {
     expect(hostIsDomainOrSubdomain('www.metacritic.com', 'metacritic.com')).toBe(true);
     expect(hostIsDomainOrSubdomain('metacritic.com.evil.example', 'metacritic.com')).toBe(false);
+  });
+
+  it('returns false for empty hostname or base domain', () => {
+    expect(hostIsDomainOrSubdomain('', 'metacritic.com')).toBe(false);
+    expect(hostIsDomainOrSubdomain('metacritic.com', '')).toBe(false);
+    expect(hostIsDomainOrSubdomain(null as unknown as string, 'metacritic.com')).toBe(false);
   });
 });

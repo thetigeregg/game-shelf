@@ -784,7 +784,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     mobyReq.flush({
@@ -881,7 +881,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     scoreReq.flush({
@@ -911,7 +911,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     candidatesReq.flush({
@@ -955,8 +955,7 @@ describe('IgdbProxyService', () => {
         releaseYear: 1992,
         platform: 'Genesis',
         metacriticScore: 88,
-        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
-        imageUrl: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
       },
       {
         title: 'Shining Force CD',
@@ -1109,8 +1108,7 @@ describe('IgdbProxyService', () => {
         releaseYear: 1995,
         platform: 'SNES',
         metacriticScore: 95,
-        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
-        imageUrl: 'https://cdn.mobygames.com/covers/chrono-trigger-snes.webp'
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
       }
     ]);
   });
@@ -1125,7 +1123,7 @@ describe('IgdbProxyService', () => {
         request.params.get('releaseYear') === null &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     scoreReq.flush({

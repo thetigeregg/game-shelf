@@ -38,6 +38,11 @@ interface MobyGamesCacheRouteOptions {
   staleTtlSeconds?: number;
 }
 
+interface MobyGamesCredentials {
+  baseUrl: string;
+  apiKey: string;
+}
+
 const DEFAULT_MOBYGAMES_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_MOBYGAMES_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
@@ -50,7 +55,10 @@ export async function registerMobyGamesCachedRoute(
   if (!app.hasDecorator('rateLimit')) {
     await app.register(rateLimit, { global: false });
   }
-  const fetchMetadata = options.fetchMetadata ?? fetchMetadataFromMobyGames;
+  const credentials = resolveMobyGamesCredentials();
+  const fetchMetadata =
+    options.fetchMetadata ??
+    ((request: FastifyRequest) => fetchMetadataFromMobyGames(request, credentials));
   const now = options.now ?? (() => Date.now());
   const scheduleBackgroundRefresh =
     options.scheduleBackgroundRefresh ??
@@ -446,11 +454,12 @@ async function deleteMobyGamesCacheEntry(
   }
 }
 
-async function fetchMetadataFromMobyGames(request: FastifyRequest): Promise<Response> {
-  const baseUrl = (readEnv('MOBYGAMES_API_BASE_URL').trim() || config.mobygamesApiBaseUrl).trim();
-  const apiKey = (
-    readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key').trim() || config.mobygamesApiKey
-  ).trim();
+async function fetchMetadataFromMobyGames(
+  request: FastifyRequest,
+  credentials: MobyGamesCredentials
+): Promise<Response> {
+  const baseUrl = credentials.baseUrl;
+  const apiKey = credentials.apiKey;
 
   if (!baseUrl) {
     return new Response(JSON.stringify({ error: 'MobyGames API base URL is not configured' }), {
@@ -521,6 +530,18 @@ async function fetchMetadataFromMobyGames(request: FastifyRequest): Promise<Resp
       }
     });
   }
+}
+
+function resolveMobyGamesCredentials(): MobyGamesCredentials {
+  const baseUrl = (readEnv('MOBYGAMES_API_BASE_URL').trim() || config.mobygamesApiBaseUrl).trim();
+  const apiKey = (
+    readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key').trim() || config.mobygamesApiKey
+  ).trim();
+
+  return {
+    baseUrl,
+    apiKey
+  };
 }
 
 function appendNullableString(targetUrl: URL, key: string, value: string | null): void {

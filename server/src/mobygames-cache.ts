@@ -566,7 +566,11 @@ function readSecretFile(name: string, fallbackSecretName: string): string {
 
 async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {
   reply.code(response.status);
+  const skippedHeaders = new Set(['content-encoding', 'content-length', 'transfer-encoding']);
   response.headers.forEach((value, key) => {
+    if (skippedHeaders.has(key.toLowerCase())) {
+      return;
+    }
     reply.header(key, value);
   });
 

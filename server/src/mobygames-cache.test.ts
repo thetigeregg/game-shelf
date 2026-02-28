@@ -257,6 +257,40 @@ void test('MOBYGAMES cache does not store empty games payloads', async () => {
   await app.close();
 });
 
+void test('MOBYGAMES response forwarding strips upstream encoding headers for JSON bodies', async () => {
+  resetCacheMetrics();
+  const pool = new MobyGamesPoolMock();
+  const app = Fastify();
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 4501, title: 'Chrono Trigger' }] }), {
+          status: 200,
+          headers: {
+            'content-type': 'application/json; charset=utf-8',
+            'content-encoding': 'br',
+            'content-length': '9999'
+          }
+        })
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
+  assert.equal(response.headers['content-encoding'], undefined);
+  assert.deepEqual(JSON.parse(response.body), {
+    games: [{ game_id: 4501, title: 'Chrono Trigger' }]
+  });
+
+  await app.close();
+});
+
 void test('MOBYGAMES default fetch returns 503 when API key is missing', async () => {
   await withEnv(
     {

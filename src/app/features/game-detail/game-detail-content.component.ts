@@ -261,7 +261,17 @@ export class GameDetailContentComponent {
 
   get reviewScoreLabel(): string {
     const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
-    return score === null ? 'Unknown' : String(score);
+    if (score === null) {
+      return 'Unknown';
+    }
+
+    const source = this.resolveReviewSourceLabel();
+    if (source === 'mobygames') {
+      const outOfTen = (score / 10).toFixed(1).replace(/\.0$/, '');
+      return `${outOfTen}/10`;
+    }
+
+    return `${String(score)}/100`;
   }
 
   get reviewScoreHeadingLabel(): string {

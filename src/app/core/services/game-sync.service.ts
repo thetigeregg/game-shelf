@@ -22,6 +22,7 @@ import {
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { DebugLogService } from './debug-log.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
+import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -581,12 +582,9 @@ export class GameSyncService implements SyncOutboxWriter {
 
     const normalizedUrl = this.normalizeExternalUrl(url);
     if (normalizedUrl !== null) {
-      const lowerUrl = normalizedUrl.toLowerCase();
-      if (lowerUrl.includes('mobygames.com')) {
-        return 'mobygames';
-      }
-      if (lowerUrl.includes('metacritic.com')) {
-        return 'metacritic';
+      const detected = detectReviewSourceFromUrl(normalizedUrl);
+      if (detected !== null) {
+        return detected;
       }
     }
 

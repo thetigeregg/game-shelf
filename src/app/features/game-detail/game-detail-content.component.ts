@@ -35,6 +35,7 @@ import {
   GameStatus
 } from '../../core/models/game.models';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
+import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 
 type DetailContext = 'library' | 'explore';
@@ -365,14 +366,8 @@ export class GameDetailContentComponent {
       (this.game as Partial<GameEntry>).reviewUrl ??
       (this.game as Partial<GameEntry>).metacriticUrl ??
       null;
-    const url = typeof urlCandidate === 'string' ? urlCandidate.trim().toLowerCase() : '';
-
-    if (url.includes('mobygames.com')) {
-      return 'mobygames';
-    }
-
-    if (url.includes('metacritic.com')) {
-      return 'metacritic';
+    if (typeof urlCandidate === 'string') {
+      return detectReviewSourceFromUrl(urlCandidate);
     }
 
     return null;

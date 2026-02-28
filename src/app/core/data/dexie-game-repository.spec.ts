@@ -505,4 +505,32 @@ describe('DexieGameRepository', () => {
     db = TestBed.inject(AppDb);
     repository = TestBed.inject(DexieGameRepository);
   });
+
+  it('preserves incoming similarGameIgdbIds when updating an existing game', async () => {
+    await repository.upsertFromCatalog(
+      { ...mario, similarGameIgdbIds: ['200', '300'] },
+      'collection'
+    );
+    const created = await repository.exists('101', 18);
+    expect(created?.similarGameIgdbIds).toEqual(['200', '300']);
+
+    await repository.upsertFromCatalog(
+      { ...mario, similarGameIgdbIds: ['400', '500'] },
+      'collection'
+    );
+    const updated = await repository.exists('101', 18);
+    expect(updated?.similarGameIgdbIds).toEqual(['400', '500']);
+  });
+
+  it('returns null for custom platform igdb id when it matches the default platform', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameCustomMetadata('101', 18, {
+      title: null,
+      platform: { name: 'NES', igdbId: 18 }
+    });
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.customPlatformIgdbId).toBeNull();
+  });
 });

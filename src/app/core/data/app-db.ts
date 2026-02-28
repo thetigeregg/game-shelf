@@ -192,6 +192,58 @@ export class AppDb extends Dexie {
             game['mobygamesGameId'] = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
           });
       });
+
+    this.version(10)
+      .stores({
+        games:
+          '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+        tags: '++id,&name,createdAt,updatedAt',
+        views: '++id,listType,name,updatedAt,createdAt',
+        imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+        outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+        syncMeta: '&key,updatedAt'
+      })
+      .upgrade((tx) => {
+        return tx
+          .table('games')
+          .toCollection()
+          .modify((game: Record<string, unknown>) => {
+            const currentMobyScore = game['mobyScore'];
+            if (
+              typeof currentMobyScore === 'number' &&
+              Number.isFinite(currentMobyScore) &&
+              currentMobyScore > 0 &&
+              currentMobyScore <= 10
+            ) {
+              return;
+            }
+
+            const reviewSource =
+              typeof game['reviewSource'] === 'string' ? game['reviewSource'] : '';
+            if (reviewSource !== 'mobygames') {
+              game['mobyScore'] = null;
+              return;
+            }
+
+            const reviewScore = game['reviewScore'];
+            const legacyScore = game['metacriticScore'];
+            const candidateRaw =
+              typeof reviewScore === 'number' && Number.isFinite(reviewScore)
+                ? reviewScore
+                : typeof legacyScore === 'number' && Number.isFinite(legacyScore)
+                  ? legacyScore
+                  : Number.NaN;
+
+            if (!Number.isFinite(candidateRaw) || candidateRaw <= 0) {
+              game['mobyScore'] = null;
+              return;
+            }
+
+            const normalized = candidateRaw <= 10 ? candidateRaw : candidateRaw / 10;
+            game['mobyScore'] =
+              normalized > 0 && normalized <= 10 ? Math.round(normalized * 10) / 10 : null;
+          });
+      });
   }
 }
 

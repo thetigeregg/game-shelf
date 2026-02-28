@@ -59,6 +59,7 @@ export interface GameCatalogResult {
   reviewScore?: number | null;
   reviewUrl?: string | null;
   reviewSource?: ReviewSource | null;
+  mobyScore?: number | null;
   mobygamesGameId?: number | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
@@ -108,6 +109,7 @@ export interface GameEntry {
   reviewScore?: number | null;
   reviewUrl?: string | null;
   reviewSource?: ReviewSource | null;
+  mobyScore?: number | null;
   mobygamesGameId?: number | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
@@ -161,6 +163,7 @@ export interface ReviewScoreResult {
   reviewScore: number | null;
   reviewUrl: string | null;
   reviewSource: ReviewSource | null;
+  mobyScore?: number | null;
   mobygamesGameId?: number | null;
   // Compatibility aliases for legacy call sites.
   metacriticScore?: number | null;

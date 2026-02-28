@@ -396,6 +396,7 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.reviewScore ?? payload.metacriticScore,
         payload.reviewUrl ?? payload.metacriticUrl
       ),
+      mobyScore: this.normalizeMobyScore(payload.mobyScore),
       mobygamesGameId: this.parsePositiveInteger(payload.mobygamesGameId),
       metacriticScore: this.normalizeMetacriticScore(
         payload.reviewScore ?? payload.metacriticScore
@@ -544,6 +545,14 @@ export class GameSyncService implements SyncOutboxWriter {
 
     const normalized = Math.round(value);
     return Number.isInteger(normalized) && normalized >= 1 && normalized <= 100 ? normalized : null;
+  }
+
+  private normalizeMobyScore(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 10) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
   }
 
   private normalizeReviewSource(

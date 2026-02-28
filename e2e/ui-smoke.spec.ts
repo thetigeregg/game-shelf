@@ -561,3 +561,102 @@ test('desktop notes pane blocks notes/detail close while dirty and allows close 
 
   await closeNotesWhenSaveCompletes(notesCloseButton);
 });
+
+test('routes review refresh to Metacritic for supported platforms', async ({ page }) => {
+  await page.setViewportSize(viewportByMode.desktop);
+  await setE2eFixtureGames(page, [
+    {
+      igdbGameId: '910001',
+      platformIgdbId: 21,
+      title: 'E2E Supported Review Route',
+      platform: 'Wii',
+      listType: 'collection'
+    }
+  ]);
+
+  let mobygamesRequestCount = 0;
+  await page.route('**/v1/mobygames/search**', async (route) => {
+    mobygamesRequestCount += 1;
+    await route.fulfill({ status: 200, json: { games: [] } });
+  });
+  await page.route('**/v1/metacritic/search**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      json: {
+        item: {
+          metacriticScore: 90,
+          metacriticUrl: 'https://www.metacritic.com/game/e2e-supported-review-route/'
+        }
+      }
+    });
+  });
+
+  await openFirstGameDetail(page, 'collection');
+  const metacriticRequestPromise = page.waitForRequest((request) => {
+    return (
+      request.url().includes('/v1/metacritic/search') && request.url().includes('platformIgdbId=21')
+    );
+  });
+
+  await page.getByRole('button', { name: 'Game detail actions' }).click();
+  await page.getByRole('button', { name: 'Update review data' }).click();
+
+  await metacriticRequestPromise;
+  expect(mobygamesRequestCount).toBe(0);
+});
+
+test('routes review refresh to MobyGames for unsupported platforms', async ({ page }) => {
+  await page.setViewportSize(viewportByMode.desktop);
+  await setE2eFixtureGames(page, [
+    {
+      igdbGameId: '910002',
+      platformIgdbId: 29,
+      title: 'E2E Unsupported Review Route',
+      platform: 'Genesis',
+      listType: 'collection'
+    }
+  ]);
+
+  let metacriticRequestCount = 0;
+  await page.route('**/v1/metacritic/search**', async (route) => {
+    metacriticRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      json: {
+        item: {
+          metacriticScore: 0,
+          metacriticUrl: null
+        }
+      }
+    });
+  });
+  await page.route('**/v1/mobygames/search**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      json: {
+        games: [
+          {
+            title: 'E2E Unsupported Review Route',
+            release_date: '1992-03-20',
+            platforms: [{ name: 'Genesis' }],
+            moby_score: 83,
+            moby_url: 'https://www.mobygames.com/game/910002/e2e-unsupported-review-route/'
+          }
+        ]
+      }
+    });
+  });
+
+  await openFirstGameDetail(page, 'collection');
+  const mobygamesRequestPromise = page.waitForRequest((request) => {
+    return (
+      request.url().includes('/v1/mobygames/search') && request.url().includes('platform=Genesis')
+    );
+  });
+
+  await page.getByRole('button', { name: 'Game detail actions' }).click();
+  await page.getByRole('button', { name: 'Update review data' }).click();
+
+  await mobygamesRequestPromise;
+  expect(metacriticRequestCount).toBe(0);
+});

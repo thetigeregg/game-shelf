@@ -7,7 +7,8 @@ import {
   GameRatingFilterOption,
   GameStatus,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  ReviewSource
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -1046,9 +1047,13 @@ export class GameListFilteringEngine {
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection']
   ): number {
-    const leftScore = this.normalizeMetacriticSortScore(left.reviewScore ?? left.metacriticScore);
+    const leftScore = this.normalizeMetacriticSortScore(
+      left.reviewScore ?? left.metacriticScore,
+      left.reviewScore !== null && left.reviewScore !== undefined ? left.reviewSource : null
+    );
     const rightScore = this.normalizeMetacriticSortScore(
-      right.reviewScore ?? right.metacriticScore
+      right.reviewScore ?? right.metacriticScore,
+      right.reviewScore !== null && right.reviewScore !== undefined ? right.reviewSource : null
     );
 
     if (leftScore === null && rightScore === null) {
@@ -1070,7 +1075,10 @@ export class GameListFilteringEngine {
     return this.sortGamesByTitleFallback(left, right);
   }
 
-  private normalizeMetacriticSortScore(value: number | null | undefined): number | null {
+  private normalizeMetacriticSortScore(
+    value: number | null | undefined,
+    reviewSource?: ReviewSource | null
+  ): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
     }
@@ -1079,7 +1087,10 @@ export class GameListFilteringEngine {
       return null;
     }
 
-    return Math.round(value * 10) / 10;
+    // MobyGames scores may be stored on a 0–10 scale; normalize to 0–100 for comparison
+    const normalized = reviewSource === 'mobygames' && value <= 10 ? value * 10 : value;
+
+    return Math.round(normalized * 10) / 10;
   }
 
   private normalizeStatus(value: string | null | undefined): GameStatus | null {

@@ -47,6 +47,8 @@ type SortOption =
   | 'createdAt:desc'
   | 'hltb:asc'
   | 'hltb:desc'
+  | 'review:asc'
+  | 'review:desc'
   | 'metacritic:asc'
   | 'metacritic:desc'
   | 'platform:asc'
@@ -133,7 +135,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       ...this.filters
     };
     this.sortOption =
-      `${this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
+      `${this.draftFilters.sortField === 'metacritic' ? 'review' : this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
   }
 
   updateFilters(): void {
@@ -151,10 +153,11 @@ export class GameFiltersMenuComponent implements OnChanges {
       return;
     }
 
-    const [sortField, sortDirection] = value.split(':') as [
+    const [rawSortField, sortDirection] = value.split(':') as [
       GameListFilters['sortField'],
       GameListFilters['sortDirection']
     ];
+    const sortField = rawSortField === 'metacritic' ? 'review' : rawSortField;
     this.sortOption = value;
     this.draftFilters = {
       ...this.draftFilters,
@@ -472,6 +475,8 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'createdAt:desc' ||
       value === 'hltb:asc' ||
       value === 'hltb:desc' ||
+      value === 'review:asc' ||
+      value === 'review:desc' ||
       value === 'metacritic:asc' ||
       value === 'metacritic:desc' ||
       value === 'platform:asc' ||

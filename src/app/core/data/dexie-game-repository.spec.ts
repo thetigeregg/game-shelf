@@ -325,6 +325,125 @@ describe('DexieGameRepository', () => {
     expect(httpsUpdated?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
   });
 
+  it('normalizes reviewScore preserving decimals on create and update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 88.2,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+
+    const created = await repository.exists('101', 18);
+    expect(created?.reviewScore).toBe(88.2);
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 95,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+    const intUpdated = await repository.exists('101', 18);
+    expect(intUpdated?.reviewScore).toBe(95);
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 101,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+    const outOfRange = await repository.exists('101', 18);
+    expect(outOfRange?.reviewScore).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 0,
+        reviewUrl: null,
+        reviewSource: null
+      },
+      'collection'
+    );
+    const zeroScore = await repository.exists('101', 18);
+    expect(zeroScore?.reviewScore).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 100,
+        reviewUrl: null,
+        reviewSource: null
+      },
+      'collection'
+    );
+    const maxScore = await repository.exists('101', 18);
+    expect(maxScore?.reviewScore).toBe(100);
+  });
+
+  it('preserves existing metacritic score/url when absent in partial upsert', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 92,
+        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/'
+      },
+      'collection'
+    );
+
+    await repository.upsertFromCatalog(
+      { ...mario, title: 'Super Mario Bros. Updated' },
+      'collection'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.metacriticScore).toBe(92);
+    expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
+  });
+
+  it('does not backfill metacritic fields with MobyGames review data on update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 78,
+        reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
+        reviewSource: 'mobygames',
+        metacriticScore: null,
+        metacriticUrl: null
+      },
+      'collection'
+    );
+
+    const initial = await repository.exists('101', 18);
+    expect(initial?.reviewScore).toBe(78);
+    expect(initial?.metacriticScore).toBeNull();
+    expect(initial?.metacriticUrl).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 82,
+        reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
+        reviewSource: 'mobygames',
+        metacriticScore: null,
+        metacriticUrl: null
+      },
+      'collection'
+    );
+
+    const updated = await repository.exists('101', 18);
+    expect(updated?.reviewScore).toBe(82);
+    expect(updated?.metacriticScore).toBeNull();
+    expect(updated?.metacriticUrl).toBeNull();
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });
@@ -504,5 +623,33 @@ describe('DexieGameRepository', () => {
     });
     db = TestBed.inject(AppDb);
     repository = TestBed.inject(DexieGameRepository);
+  });
+
+  it('preserves incoming similarGameIgdbIds when updating an existing game', async () => {
+    await repository.upsertFromCatalog(
+      { ...mario, similarGameIgdbIds: ['200', '300'] },
+      'collection'
+    );
+    const created = await repository.exists('101', 18);
+    expect(created?.similarGameIgdbIds).toEqual(['200', '300']);
+
+    await repository.upsertFromCatalog(
+      { ...mario, similarGameIgdbIds: ['400', '500'] },
+      'collection'
+    );
+    const updated = await repository.exists('101', 18);
+    expect(updated?.similarGameIgdbIds).toEqual(['400', '500']);
+  });
+
+  it('returns null for custom platform igdb id when it matches the default platform', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameCustomMetadata('101', 18, {
+      title: null,
+      platform: { name: 'NES', igdbId: 18 }
+    });
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.customPlatformIgdbId).toBeNull();
   });
 });

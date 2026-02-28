@@ -22,6 +22,7 @@ import {
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { DebugLogService } from './debug-log.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
+import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -369,6 +370,27 @@ export class GameSyncService implements SyncOutboxWriter {
         : 'Unknown platform';
     const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
     const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
+    const normalizedReviewScore = this.normalizeReviewScore(
+      payload.reviewScore ?? payload.metacriticScore
+    );
+    const normalizedReviewUrl = this.normalizeExternalUrl(
+      payload.reviewUrl ?? payload.metacriticUrl
+    );
+    const normalizedReviewSource = this.normalizeReviewSource(
+      payload.reviewSource,
+      normalizedReviewScore,
+      normalizedReviewUrl
+    );
+    const explicitMetacriticScore = this.normalizeMetacriticScore(payload.metacriticScore);
+    const explicitMetacriticUrl = this.normalizeExternalUrl(payload.metacriticUrl);
+    const normalizedMetacriticScore =
+      normalizedReviewSource === 'metacritic'
+        ? (explicitMetacriticScore ?? normalizedReviewScore)
+        : explicitMetacriticScore;
+    const normalizedMetacriticUrl =
+      normalizedReviewSource === 'metacritic'
+        ? (explicitMetacriticUrl ?? normalizedReviewUrl)
+        : explicitMetacriticUrl;
     const normalized: GameEntry = {
       id: this.parsePositiveInteger(payload.id) ?? undefined,
       igdbGameId,
@@ -389,8 +411,13 @@ export class GameSyncService implements SyncOutboxWriter {
       hltbMainHours: this.normalizeCompletionHours(payload.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(payload.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(payload.hltbCompletionistHours),
-      metacriticScore: this.normalizeMetacriticScore(payload.metacriticScore),
-      metacriticUrl: this.normalizeExternalUrl(payload.metacriticUrl),
+      reviewScore: normalizedReviewScore,
+      reviewUrl: normalizedReviewUrl,
+      reviewSource: normalizedReviewSource,
+      mobyScore: this.normalizeMobyScore(payload.mobyScore),
+      mobygamesGameId: this.parsePositiveInteger(payload.mobygamesGameId),
+      metacriticScore: normalizedMetacriticScore,
+      metacriticUrl: normalizedMetacriticUrl,
       similarGameIgdbIds: this.normalizeGameIdList(payload.similarGameIgdbIds),
       collections: this.normalizeStringList(payload.collections),
       developers: this.normalizeStringList(payload.developers),
@@ -534,6 +561,42 @@ export class GameSyncService implements SyncOutboxWriter {
 
     const normalized = Math.round(value);
     return Number.isInteger(normalized) && normalized >= 1 && normalized <= 100 ? normalized : null;
+  }
+
+  private normalizeReviewScore(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 100) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
+  }
+
+  private normalizeMobyScore(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 10) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
+  }
+
+  private normalizeReviewSource(
+    value: unknown,
+    _score: unknown,
+    url: unknown
+  ): 'metacritic' | 'mobygames' | null {
+    if (value === 'metacritic' || value === 'mobygames') {
+      return value;
+    }
+
+    const normalizedUrl = this.normalizeExternalUrl(url);
+    if (normalizedUrl !== null) {
+      const detected = detectReviewSourceFromUrl(normalizedUrl);
+      if (detected !== null) {
+        return detected;
+      }
+    }
+
+    return null;
   }
 
   private normalizeGameType(value: unknown): GameEntry['gameType'] {

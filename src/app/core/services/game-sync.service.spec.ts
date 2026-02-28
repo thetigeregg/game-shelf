@@ -356,6 +356,73 @@ describe('GameSyncService', () => {
     expect(stored?.customCoverUrl).toBeNull();
   });
 
+  it('normalizes mobyScore, mobygamesGameId, and review source fields in game upserts', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7-mobygames',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 88,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobyScore: 8.8,
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(88);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBe(8.8);
+    expect(stored?.mobygamesGameId).toBe(42);
+    expect(stored?.metacriticScore).toBeNull();
+    expect(stored?.metacriticUrl).toBeNull();
+  });
+
+  it('preserves decimal precision in reviewScore from sync payload', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7b-decimal-review',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 8.8,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobyScore: 8.8,
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(8.8);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBe(8.8);
+  });
+
+  it('normalizes metacritic review source and does not set moby fields', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '8-metacritic',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 91,
+        reviewUrl: 'https://www.metacritic.com/game/some-game/',
+        reviewSource: 'metacritic'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(91);
+    expect(stored?.reviewSource).toBe('metacritic');
+    expect(stored?.metacriticScore).toBe(91);
+    expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/some-game/');
+    expect(stored?.mobyScore).toBeNull();
+    expect(stored?.mobygamesGameId).toBeNull();
+  });
+
   it('applies tag delete and updates games containing deleted tag', async () => {
     await db.tags.put({
       id: 7,

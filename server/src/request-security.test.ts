@@ -108,6 +108,8 @@ void test('server route inventory remains audited and mutating routes require au
     './sync.ts',
     './image-cache.ts',
     './hltb-cache.ts',
+    './metacritic-cache.ts',
+    './mobygames-cache.ts',
     './manuals.ts',
     './cache-observability.ts'
   ];
@@ -149,6 +151,8 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'GET', path: '/v1/images/proxy' },
     { method: 'GET', path: '/v1/manuals/resolve' },
     { method: 'GET', path: '/v1/manuals/search' },
+    { method: 'GET', path: '/v1/metacritic/search' },
+    { method: 'GET', path: '/v1/mobygames/search' },
     { method: 'GET', path: '/v1/platforms' },
     { method: 'GET', path: '/v1/popularity/primitives' },
     { method: 'GET', path: '/v1/popularity/types' },

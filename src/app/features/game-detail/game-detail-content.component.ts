@@ -35,6 +35,7 @@ import {
   GameStatus
 } from '../../core/models/game.models';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
+import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 
 type DetailContext = 'library' | 'explore';
@@ -259,9 +260,39 @@ export class GameDetailContentComponent {
     return this.formatCompletionHours(this.game.hltbCompletionistHours);
   }
 
-  get metacriticScoreLabel(): string {
-    const score = this.normalizeMetacriticScore(this.game.metacriticScore);
-    return score === null ? 'Unknown' : String(score);
+  get reviewScoreLabel(): string {
+    const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
+    if (score === null) {
+      return 'Unknown';
+    }
+
+    const source = this.resolveReviewSourceLabel();
+    if (source === 'mobygames') {
+      const rawMobyScore =
+        typeof this.game.mobyScore === 'number' && Number.isFinite(this.game.mobyScore)
+          ? this.game.mobyScore
+          : score <= 10
+            ? score
+            : score / 10;
+      const outOfTen = rawMobyScore.toFixed(1).replace(/\.0$/, '');
+      return `${outOfTen}/10`;
+    }
+
+    return `${String(score)}/100`;
+  }
+
+  get reviewScoreHeadingLabel(): string {
+    const source = this.resolveReviewSourceLabel();
+
+    if (source === 'metacritic') {
+      return 'Metacritic Score';
+    }
+
+    if (source === 'mobygames') {
+      return 'Moby Score';
+    }
+
+    return 'Review Score';
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
@@ -307,7 +338,7 @@ export class GameDetailContentComponent {
     return normalized.length > 0 ? normalized.join(', ') : 'None';
   }
 
-  private normalizeMetacriticScore(value: number | null | undefined): number | null {
+  private normalizeReviewScore(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
     }
@@ -318,6 +349,28 @@ export class GameDetailContentComponent {
     }
 
     return normalized;
+  }
+
+  private resolveReviewSourceLabel(): 'metacritic' | 'mobygames' | null {
+    const reviewSource =
+      (this.game as Partial<GameEntry>).reviewSource === 'metacritic' ||
+      (this.game as Partial<GameEntry>).reviewSource === 'mobygames'
+        ? (this.game as Partial<GameEntry>).reviewSource
+        : null;
+
+    if (reviewSource) {
+      return reviewSource;
+    }
+
+    const urlCandidate =
+      (this.game as Partial<GameEntry>).reviewUrl ??
+      (this.game as Partial<GameEntry>).metacriticUrl ??
+      null;
+    if (typeof urlCandidate === 'string') {
+      return detectReviewSourceFromUrl(urlCandidate);
+    }
+
+    return null;
   }
 
   hasMetadataValue(values: string[] | null | undefined): boolean {

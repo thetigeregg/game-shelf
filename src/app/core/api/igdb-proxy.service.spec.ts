@@ -726,7 +726,7 @@ describe('IgdbProxyService', () => {
   });
 
   it('looks up Metacritic score and normalizes payload', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
+    const promise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 21));
     const req = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -749,9 +749,78 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('routes review score lookup by platform support matrix', async () => {
+    const metacriticPromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', 2006, 'Wii', 21)
+    );
+    const metacriticReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
+    metacriticReq.flush({
+      item: {
+        metacriticScore: 92,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
+    });
+    await expect(metacriticPromise).resolves.toEqual({
+      metacriticScore: 92,
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
+    });
+    httpMock.expectNone(
+      (request) => request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+    );
+
+    const mobyPromise = firstValueFrom(
+      service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
+    );
+    const mobyReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === '16' &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+      );
+    });
+    mobyReq.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ platform_name: 'Genesis' }],
+          moby_score: 88,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        }
+      ]
+    });
+    await expect(mobyPromise).resolves.toEqual({
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+    });
+    httpMock.expectNone((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('platformIgdbId') === '29'
+      );
+    });
+  });
+
   it('returns null for Metacritic lookup failures', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticScore('Okami'));
-    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`);
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
     await expect(promise).resolves.toBeNull();
   });
@@ -761,12 +830,12 @@ describe('IgdbProxyService', () => {
     await expect(firstValueFrom(service.lookupMetacriticCandidates('x'))).resolves.toEqual([]);
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/metacritic/search`);
 
-    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 19));
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 21));
     const scoreReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
         request.params.get('q') === 'Okami' &&
-        request.params.get('platformIgdbId') === '19'
+        request.params.get('platformIgdbId') === '21'
       );
     });
     scoreReq.flush(
@@ -780,14 +849,14 @@ describe('IgdbProxyService', () => {
     await expect(scorePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
 
     const candidatePromise = firstValueFrom(
-      service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 19)
+      service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21)
     );
     const candidateReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
         request.params.get('q') === 'Okami' &&
         request.params.get('includeCandidates') === 'true' &&
-        request.params.get('platformIgdbId') === '19'
+        request.params.get('platformIgdbId') === '21'
       );
     });
     candidateReq.flush(
@@ -801,8 +870,313 @@ describe('IgdbProxyService', () => {
     await expect(candidatePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
   });
 
+  it('uses MobyGames for unsupported Metacritic platform ids and normalizes payload', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === '16' &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+      );
+    });
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ name: 'Genesis' }],
+          critic_score: null,
+          moby_score: 88.2,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        }
+      ]
+    });
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+    });
+
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const candidatesReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === '16' &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+      );
+    });
+    candidatesReq.flush({
+      games: [
+        {
+          title: ' Shining Force ',
+          release_date: '1992-03-20',
+          platforms: [{ platform_name: ' Genesis ' }],
+          critic_score: 87.6,
+          covers: [
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
+                }
+              ]
+            }
+          ],
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        },
+        {
+          title: 'Shining Force',
+          release_date: '1992',
+          platforms: [{ platform_name: 'Genesis' }],
+          critic_score: 87.1,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        },
+        {
+          title: 'Shining Force CD',
+          release_date: null,
+          platforms: [{ name: 'Sega CD' }],
+          moby_score: 80.2,
+          moby_url: 'https://www.mobygames.com/game/456/shining-force-cd/'
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Shining Force',
+        releaseYear: 1992,
+        platform: 'Genesis',
+        metacriticScore: 88,
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+      },
+      {
+        title: 'Shining Force CD',
+        releaseYear: null,
+        platform: 'Sega CD',
+        metacriticScore: 80,
+        metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/'
+      }
+    ]);
+  });
+
+  it('converts Moby score out of 10 to internal 100-point scale', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_name: 'SNES' }],
+          critic_score: null,
+          moby_score: 8.6,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 86,
+      metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+    });
+  });
+
+  it('prefers Moby cover image matching selected platform id', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === '16'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ platform_name: 'Genesis' }],
+          moby_score: 88,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/',
+          covers: [
+            {
+              platforms: [81],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/wrong-platform.webp' }]
+            },
+            {
+              platforms: [16],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/genesis.webp' }]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Shining Force',
+        releaseYear: 1992,
+        platform: 'Genesis',
+        metacriticScore: 88,
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+        imageUrl: 'https://cdn.mobygames.com/covers/genesis.webp'
+      }
+    ]);
+  });
+
+  it('uses matched platform entry instead of first platform entry for Moby candidates', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [
+            { platform_id: 14, platform_name: 'PlayStation' },
+            { platform_id: 15, platform_name: 'SNES' }
+          ],
+          moby_score: 95,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+          covers: [
+            {
+              platforms: [{ platform_name: 'Nintendo DS' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-ds.webp' }]
+            },
+            {
+              platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-snes.webp' }]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Chrono Trigger',
+        releaseYear: 1995,
+        platform: 'SNES',
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+        imageUrl: 'https://cdn.mobygames.com/covers/chrono-snes.webp'
+      }
+    ]);
+  });
+
+  it('prefers Moby cover image URL containing preferred platform token when cover platform tags are missing', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+          moby_score: 95,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+          covers: [
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-nintendo-ds.webp'
+                }
+              ]
+            },
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-snes.webp'
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Chrono Trigger',
+        releaseYear: 1995,
+        platform: 'SNES',
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+      }
+    ]);
+  });
+
+  it('uses MobyGames when platform id is missing', async () => {
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platform') === null &&
+        request.params.get('releaseYear') === null &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+      );
+    });
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Okami',
+          release_date: '2006-04-20',
+          platforms: [{ name: 'Wii' }],
+          moby_score: 91,
+          moby_url: 'https://www.mobygames.com/game/okami/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 91,
+      metacriticUrl: 'https://www.mobygames.com/game/okami/'
+    });
+  });
+
   it('looks up Metacritic candidates and normalizes candidate payload', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii'));
+    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21));
     const req = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -846,17 +1220,29 @@ describe('IgdbProxyService', () => {
   });
 
   it('drops empty metacritic payloads and invalid metacritic candidates', async () => {
-    const nullItemPromise = firstValueFrom(service.lookupMetacriticScore('Okami'));
-    const nullItemReq = httpMock.expectOne(
-      `${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`
+    const nullItemPromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
     );
+    const nullItemReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
     nullItemReq.flush({ item: null });
     await expect(nullItemPromise).resolves.toBeNull();
 
-    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami'));
-    const scoreReq = httpMock.expectOne(
-      `${environment.gameApiBaseUrl}/v1/metacritic/search?q=Okami`
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
     );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
     scoreReq.flush({
       item: {
         metacriticScore: null,
@@ -865,7 +1251,9 @@ describe('IgdbProxyService', () => {
     });
     await expect(scorePromise).resolves.toBeNull();
 
-    const nonArrayCandidatePromise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const nonArrayCandidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
     const nonArrayCandidateReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -876,7 +1264,9 @@ describe('IgdbProxyService', () => {
     nonArrayCandidateReq.flush({ candidates: {} });
     await expect(nonArrayCandidatePromise).resolves.toEqual([]);
 
-    const candidatePromise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const candidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
     const candidateReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -906,7 +1296,9 @@ describe('IgdbProxyService', () => {
   });
 
   it('returns empty metacritic candidate list for non-rate-limit failures', async () => {
-    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami'));
+    const promise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
     const req = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
@@ -1097,5 +1489,113 @@ describe('IgdbProxyService', () => {
 
     localStorage.removeItem('game-shelf-platform-list-cache-v1');
     expect(privateService.loadCachedPlatformList()).toEqual([]);
+  });
+
+  it('returns empty cached platform list when cache is non-array JSON', () => {
+    const privateService = service as unknown as {
+      loadCachedPlatformList: () => Array<{ id: number; name: string }>;
+    };
+
+    localStorage.setItem('game-shelf-platform-list-cache-v1', JSON.stringify({ foo: 'bar' }));
+    expect(privateService.loadCachedPlatformList()).toEqual([]);
+  });
+
+  it('returns empty popularity types list for non-array items response', async () => {
+    const promise = firstValueFrom(service.listPopularityTypes());
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/popularity/types`);
+    req.flush({ items: null });
+
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('returns empty popularity games list for non-array items response', async () => {
+    const promise = firstValueFrom(service.listPopularityGames(7, 20, 0));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives` &&
+        request.params.get('popularityTypeId') === '7'
+      );
+    });
+    req.flush({ items: 'unexpected-string' });
+
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('uses MobyGames with known game id and sets id param in request', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19, 1597)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Final Fantasy VI' &&
+        request.params.get('id') === '1597' &&
+        request.params.get('platform') === '15'
+      );
+    });
+    req.flush({
+      games: [
+        {
+          game_id: 1597,
+          title: 'Final Fantasy III',
+          release_date: '1994-10-20',
+          platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+          moby_score: 9.1,
+          moby_url: 'https://www.mobygames.com/game/1597/final-fantasy-iii/'
+        }
+      ]
+    });
+
+    const result = await scorePromise;
+    expect(result).not.toBeNull();
+    expect(result?.reviewUrl).toContain('mobygames.com');
+  });
+
+  it('normalizes Moby release date via Date.parse fallback for non-ISO formats', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupReviewCandidates('Chrono Trigger', null, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: 'March 11, 1995',
+          platforms: [{ platform_name: 'SNES' }],
+          moby_score: 9.5,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    const results = await candidatesPromise;
+    expect(results).toHaveLength(1);
+    expect(results[0]?.releaseYear).toBe(1995);
+  });
+
+  it('returns null platform for MobyGames results with no matching platform', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupReviewCandidates('Unknown Game', null, 'Atari 2600', 59)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush({
+      games: [
+        {
+          title: 'Unknown Game',
+          release_date: '1984',
+          platforms: null,
+          moby_score: 7.0,
+          moby_url: 'https://www.mobygames.com/game/9999/unknown-game/'
+        }
+      ]
+    });
+
+    const results = await candidatesPromise;
+    expect(results).toHaveLength(1);
+    expect(results[0]?.platform).toBeNull();
   });
 });

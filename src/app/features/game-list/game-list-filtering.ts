@@ -774,7 +774,7 @@ export class GameListFilteringEngine {
     }
 
     const sortedGames =
-      sortField === 'metacritic'
+      sortField === 'metacritic' || sortField === 'review'
         ? [...games].sort((left, right) =>
             this.compareGamesByMetacritic(left, right, sortDirection)
           )
@@ -1046,8 +1046,10 @@ export class GameListFilteringEngine {
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection']
   ): number {
-    const leftScore = this.normalizeMetacriticSortScore(left.metacriticScore);
-    const rightScore = this.normalizeMetacriticSortScore(right.metacriticScore);
+    const leftScore = this.normalizeMetacriticSortScore(left.reviewScore ?? left.metacriticScore);
+    const rightScore = this.normalizeMetacriticSortScore(
+      right.reviewScore ?? right.metacriticScore
+    );
 
     if (leftScore === null && rightScore === null) {
       return this.sortGamesByTitleFallback(left, right);
@@ -1069,15 +1071,15 @@ export class GameListFilteringEngine {
   }
 
   private normalizeMetacriticSortScore(value: number | null | undefined): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
     }
 
-    if (value < 0 || value > 100) {
+    if (value <= 0 || value > 100) {
       return null;
     }
 
-    return value;
+    return Math.round(value * 10) / 10;
   }
 
   private normalizeStatus(value: string | null | undefined): GameStatus | null {

@@ -332,9 +332,12 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
         parsed.sortField === 'releaseDate' ||
         parsed.sortField === 'createdAt' ||
         parsed.sortField === 'hltb' ||
+        parsed.sortField === 'review' ||
         parsed.sortField === 'metacritic' ||
         parsed.sortField === 'platform'
-          ? parsed.sortField
+          ? parsed.sortField === 'metacritic'
+            ? 'review'
+            : parsed.sortField
           : defaultFilters.sortField,
       sortDirection: parsed.sortDirection === 'desc' ? 'desc' : 'asc',
       hltbMainHoursMin:

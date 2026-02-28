@@ -51,9 +51,15 @@ class MobyGamesPoolMock {
   constructor(
     private readonly options: {
       failReads?: boolean;
+      failWrites?: boolean;
+      failDeletes?: boolean;
       now?: () => number;
     } = {}
   ) {}
+
+  seed(key: string, row: { response_json: unknown; updated_at: string }): void {
+    this.rowsByKey.set(key, row);
+  }
 
   query(sql: string, params: unknown[]): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -69,6 +75,9 @@ class MobyGamesPoolMock {
     }
 
     if (normalized.startsWith('insert into mobygames_search_cache')) {
+      if (this.options.failWrites) {
+        throw new Error('write_failed');
+      }
       const key = toPrimitiveString(params[0]);
       const payload = JSON.parse(toPrimitiveString(params[3]) || 'null') as unknown;
       const nowMs = this.options.now ? this.options.now() : Date.now();
@@ -80,6 +89,9 @@ class MobyGamesPoolMock {
     }
 
     if (normalized.startsWith('delete from mobygames_search_cache where cache_key')) {
+      if (this.options.failDeletes) {
+        throw new Error('delete_failed');
+      }
       const key = toPrimitiveString(params[0]);
       this.rowsByKey.delete(key);
       return Promise.resolve({ rows: [] });
@@ -385,4 +397,503 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
     globalThis.fetch = originalFetch;
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+});
+
+void test('MOBYGAMES stale revalidation serves stale and refreshes cache in background', async () => {
+  resetCacheMetrics();
+
+  const staleTimestamp = new Date(0).toISOString();
+  const nowMs = 10_000;
+  const freshTtlSeconds = 1;
+  const staleTtlSeconds = 9999;
+
+  const pool = new MobyGamesPoolMock({ now: () => nowMs });
+  const stalePayload = { games: [{ game_id: 99, title: 'Sonic' }] };
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Sonic',
+    platform: '9',
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
+
+  const app = Fastify();
+  let revalidateCalls = 0;
+  let backgroundTask: (() => Promise<void>) | null = null;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    freshTtlSeconds,
+    staleTtlSeconds,
+    now: () => nowMs,
+    fetchMetadata: () => {
+      revalidateCalls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 99, title: 'Sonic (updated)' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    },
+    scheduleBackgroundRefresh: (task) => {
+      backgroundTask = task;
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Sonic&platform=9'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'HIT_STALE');
+  assert.equal(response.headers['x-gameshelf-mobygames-revalidate'], 'scheduled');
+  assert.deepEqual(JSON.parse(response.body), stalePayload);
+
+  // Run background revalidation
+  assert.ok(backgroundTask !== null, 'background task should be scheduled');
+  await backgroundTask!();
+  assert.equal(revalidateCalls, 1);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.hits, 1);
+  assert.equal(metrics.mobygames.staleServed, 1);
+  assert.equal(metrics.mobygames.revalidateScheduled, 1);
+  assert.equal(metrics.mobygames.revalidateSucceeded, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES stale revalidation skips when already in-flight', async () => {
+  resetCacheMetrics();
+
+  const staleTimestamp = new Date(0).toISOString();
+  const nowMs = 10_000;
+
+  const pool = new MobyGamesPoolMock({ now: () => nowMs });
+  const stalePayload = { games: [{ game_id: 7, title: 'Mega Man' }] };
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Mega Man',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
+
+  const app = Fastify();
+  const capturedTasks: Array<() => Promise<void>> = [];
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 9999,
+    now: () => nowMs,
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 7, title: 'Mega Man' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      ),
+    scheduleBackgroundRefresh: (task) => {
+      capturedTasks.push(task);
+    }
+  });
+
+  const first = await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Mega%20Man' });
+  assert.equal(first.headers['x-gameshelf-mobygames-revalidate'], 'scheduled');
+  assert.equal(capturedTasks.length, 1);
+
+  // Second request while first revalidation is still "in-flight" (task not yet run)
+  const second = await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Mega%20Man' });
+  assert.equal(second.headers['x-gameshelf-mobygames-revalidate'], 'skipped');
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.revalidateScheduled, 1);
+  assert.equal(metrics.mobygames.revalidateSkipped, 1);
+
+  // Complete the first task to clean up in-flight state
+  await capturedTasks[0]();
+
+  await app.close();
+});
+
+void test('MOBYGAMES stale revalidation handles non-ok upstream response', async () => {
+  resetCacheMetrics();
+
+  const staleTimestamp = new Date(0).toISOString();
+  const nowMs = 10_000;
+
+  const pool = new MobyGamesPoolMock({ now: () => nowMs });
+  const stalePayload = { games: [{ game_id: 5, title: 'Castlevania' }] };
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Castlevania',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
+
+  const app = Fastify();
+  let backgroundTask: (() => Promise<void>) | null = null;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 9999,
+    now: () => nowMs,
+    fetchMetadata: () =>
+      Promise.resolve(new Response('upstream error', { status: 503 })),
+    scheduleBackgroundRefresh: (task) => {
+      backgroundTask = task;
+    }
+  });
+
+  await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Castlevania' });
+  assert.ok(backgroundTask !== null);
+  await backgroundTask!();
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.revalidateFailed, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES stale revalidation handles null JSON payload', async () => {
+  resetCacheMetrics();
+
+  const staleTimestamp = new Date(0).toISOString();
+  const nowMs = 10_000;
+
+  const pool = new MobyGamesPoolMock({ now: () => nowMs });
+  const stalePayload = { games: [{ game_id: 6, title: 'Metroid' }] };
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Metroid',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
+
+  const app = Fastify();
+  let backgroundTask: (() => Promise<void>) | null = null;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 9999,
+    now: () => nowMs,
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response('not-json!', {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      ),
+    scheduleBackgroundRefresh: (task) => {
+      backgroundTask = task;
+    }
+  });
+
+  await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Metroid' });
+  assert.ok(backgroundTask !== null);
+  await backgroundTask!();
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.revalidateFailed, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES stale revalidation handles uncacheable payload (empty games)', async () => {
+  resetCacheMetrics();
+
+  const staleTimestamp = new Date(0).toISOString();
+  const nowMs = 10_000;
+
+  const pool = new MobyGamesPoolMock({ now: () => nowMs });
+  const stalePayload = { games: [{ game_id: 8, title: 'Contra' }] };
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Contra',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
+
+  const app = Fastify();
+  let backgroundTask: (() => Promise<void>) | null = null;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 9999,
+    now: () => nowMs,
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ games: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      ),
+    scheduleBackgroundRefresh: (task) => {
+      backgroundTask = task;
+    }
+  });
+
+  await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Contra' });
+  assert.ok(backgroundTask !== null);
+  await backgroundTask!();
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.revalidateFailed, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES stale revalidation handles fetch exception', async () => {
+  resetCacheMetrics();
+
+  const staleTimestamp = new Date(0).toISOString();
+  const nowMs = 10_000;
+
+  const pool = new MobyGamesPoolMock({ now: () => nowMs });
+  const stalePayload = { games: [{ game_id: 9, title: 'Ghosts n Goblins' }] };
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Ghosts',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
+
+  const app = Fastify();
+  let backgroundTask: (() => Promise<void>) | null = null;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 9999,
+    now: () => nowMs,
+    fetchMetadata: () => Promise.reject(new Error('network_error')),
+    scheduleBackgroundRefresh: (task) => {
+      backgroundTask = task;
+    }
+  });
+
+  await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Ghosts' });
+  assert.ok(backgroundTask !== null);
+  await backgroundTask!();
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.revalidateFailed, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES write error is handled gracefully', async () => {
+  resetCacheMetrics();
+
+  const pool = new MobyGamesPoolMock({ failWrites: true });
+  const app = Fastify();
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 10, title: 'Street Fighter' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Street%20Fighter&platform=11'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
+  assert.deepEqual(JSON.parse(response.body), { games: [{ game_id: 10, title: 'Street Fighter' }] });
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.writeErrors, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES invalid cached payload is deleted and fresh response served', async () => {
+  resetCacheMetrics();
+
+  const pool = new MobyGamesPoolMock();
+  const invalidPayload = 'not-an-object';
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Pac-Man',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: invalidPayload, updated_at: new Date().toISOString() });
+
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 11, title: 'Pac-Man' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Pac-Man'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(fetchCalls, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES delete error for invalid cached payload is handled gracefully', async () => {
+  resetCacheMetrics();
+
+  const pool = new MobyGamesPoolMock({ failDeletes: true });
+  const invalidPayload = null;
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Dig Dug',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, { response_json: invalidPayload, updated_at: new Date().toISOString() });
+
+  const app = Fastify();
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 12, title: 'Dig Dug' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Dig%20Dug'
+  });
+
+  assert.equal(response.statusCode, 200);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.writeErrors, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES sendWebResponse forwards binary content type', async () => {
+  resetCacheMetrics();
+
+  const pool = new MobyGamesPoolMock();
+  const app = Fastify();
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(Buffer.from([0xff, 0xd8, 0xff]), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg' }
+        })
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Binary%20Game&platform=3'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.headers['content-type'] as string, /image\/jpeg/);
+
+  await app.close();
+});
+
+void test('MOBYGAMES upstream non-ok response is not cached', async () => {
+  resetCacheMetrics();
+
+  const pool = new MobyGamesPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify({ error: 'not found' }), {
+          status: 404,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Missing%20Game&platform=5'
+  });
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Missing%20Game&platform=5'
+  });
+
+  assert.equal(first.statusCode, 404);
+  assert.equal(second.statusCode, 404);
+  assert.equal(fetchCalls, 2);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.writes, 0);
+
+  await app.close();
 });

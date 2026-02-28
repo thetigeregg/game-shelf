@@ -220,6 +220,43 @@ void test('MOBYGAMES cache is fail-open when cache read throws', async () => {
   await app.close();
 });
 
+void test('MOBYGAMES cache does not store empty games payloads', async () => {
+  resetCacheMetrics();
+  const pool = new MobyGamesPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ games: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15&limit=100'
+  });
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15&limit=100'
+  });
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-mobygames-cache'], 'MISS');
+  assert.equal(second.headers['x-gameshelf-mobygames-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.writes, 0);
+
+  await app.close();
+});
+
 void test('MOBYGAMES default fetch returns 503 when API key is missing', async () => {
   await withEnv(
     {

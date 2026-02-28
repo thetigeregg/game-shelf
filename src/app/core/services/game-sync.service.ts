@@ -396,6 +396,7 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.reviewScore ?? payload.metacriticScore,
         payload.reviewUrl ?? payload.metacriticUrl
       ),
+      mobygamesGameId: this.parsePositiveInteger(payload.mobygamesGameId),
       metacriticScore: this.normalizeMetacriticScore(
         payload.reviewScore ?? payload.metacriticScore
       ),

@@ -700,12 +700,22 @@ export class IgdbProxyService implements GameSearchApi {
       result.reviewScore ?? result.metacriticScore
     );
     const normalizedReviewUrl = this.normalizeExternalUrl(result.reviewUrl ?? result.metacriticUrl);
+    const normalizedMobyScore = this.normalizeRawMobyScore(result.mobyScore);
+    const normalizedMobygamesGameId = this.normalizeMobygamesGameId(result.mobygamesGameId);
+    const explicitMetacriticScore = this.normalizeMetacriticScore(result.metacriticScore);
+    const explicitMetacriticUrl = this.normalizeExternalUrl(result.metacriticUrl);
     const normalizedReviewSource =
       result.reviewSource === 'metacritic' || result.reviewSource === 'mobygames'
         ? result.reviewSource
-        : normalizedReviewScore !== null || normalizedReviewUrl !== null
-          ? 'metacritic'
-          : null;
+        : this.inferReviewSourceFromUrl(normalizedReviewUrl ?? explicitMetacriticUrl);
+    const normalizedMetacriticScore =
+      normalizedReviewSource === 'metacritic'
+        ? (explicitMetacriticScore ?? normalizedReviewScore)
+        : explicitMetacriticScore;
+    const normalizedMetacriticUrl =
+      normalizedReviewSource === 'metacritic'
+        ? (explicitMetacriticUrl ?? normalizedReviewUrl)
+        : explicitMetacriticUrl;
 
     return {
       igdbGameId,
@@ -727,8 +737,10 @@ export class IgdbProxyService implements GameSearchApi {
       ...(normalizedReviewScore !== null ? { reviewScore: normalizedReviewScore } : {}),
       ...(normalizedReviewUrl !== null ? { reviewUrl: normalizedReviewUrl } : {}),
       ...(normalizedReviewSource !== null ? { reviewSource: normalizedReviewSource } : {}),
-      metacriticScore: normalizedReviewScore,
-      metacriticUrl: normalizedReviewUrl,
+      ...(normalizedMobyScore !== null ? { mobyScore: normalizedMobyScore } : {}),
+      ...(normalizedMobygamesGameId !== null ? { mobygamesGameId: normalizedMobygamesGameId } : {}),
+      metacriticScore: normalizedMetacriticScore,
+      metacriticUrl: normalizedMetacriticUrl,
       similarGameIgdbIds: this.normalizeGameIdList(
         (result as GameCatalogResult & { similarGameIgdbIds?: unknown }).similarGameIgdbIds
       ),
@@ -1513,6 +1525,23 @@ export class IgdbProxyService implements GameSearchApi {
 
     if (normalized.startsWith('//')) {
       return `https:${normalized}`;
+    }
+
+    return null;
+  }
+
+  private inferReviewSourceFromUrl(url: string | null): 'metacritic' | 'mobygames' | null {
+    if (typeof url !== 'string' || url.length === 0) {
+      return null;
+    }
+
+    const normalized = url.trim().toLowerCase();
+    if (normalized.includes('mobygames.com')) {
+      return 'mobygames';
+    }
+
+    if (normalized.includes('metacritic.com')) {
+      return 'metacritic';
     }
 
     return null;

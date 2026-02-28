@@ -6,7 +6,8 @@ import { LoadingController, ToastController } from '@ionic/angular/standalone';
 import type {
   GameEntry,
   HltbMatchCandidate,
-  MetacriticMatchCandidate
+  MetacriticMatchCandidate,
+  ReviewMatchCandidate
 } from '../core/models/game.models';
 
 vi.mock('@ionic/angular/standalone', () => {
@@ -53,6 +54,7 @@ interface ShelfServiceStub {
   searchBoxArtByTitle: ReturnType<typeof vi.fn>;
   updateGameCover: ReturnType<typeof vi.fn>;
   searchHltbCandidates: ReturnType<typeof vi.fn>;
+  searchReviewCandidates: ReturnType<typeof vi.fn>;
   refreshGameCompletionTimesWithQuery: ReturnType<typeof vi.fn>;
   refreshGameCompletionTimes: ReturnType<typeof vi.fn>;
   searchMetacriticCandidates: ReturnType<typeof vi.fn>;
@@ -105,6 +107,7 @@ function createPageHarness(): {
     searchBoxArtByTitle: vi.fn(() => of([])),
     updateGameCover: vi.fn(() => Promise.resolve(undefined)),
     searchHltbCandidates: vi.fn(() => of([])),
+    searchReviewCandidates: vi.fn(() => of([])),
     refreshGameCompletionTimesWithQuery: vi.fn((_a, _b, _c) =>
       Promise.resolve(createGame({ hltbMainHours: 3 }))
     ),
@@ -440,10 +443,13 @@ describe('MetadataValidatorPage', () => {
       hltbMainExtraHours: 8,
       hltbCompletionistHours: 12
     };
-    const mcCandidate: MetacriticMatchCandidate = {
+    const reviewCandidate: ReviewMatchCandidate = {
       title: 'Doom',
       releaseYear: 1993,
       platform: 'PC',
+      reviewScore: 87,
+      reviewUrl: 'https://www.metacritic.com/game/doom/',
+      reviewSource: 'metacritic',
       metacriticScore: 87,
       metacriticUrl: 'https://www.metacritic.com/game/doom/'
     };
@@ -470,15 +476,15 @@ describe('MetadataValidatorPage', () => {
     const target = createGame({ platform: 'PC', platformIgdbId: 6, releaseYear: 1993 });
     setField(page, 'metacriticPickerTargetGame', target);
     setField(page, 'metacriticPickerQuery', 'doom');
-    shelf.searchMetacriticCandidates.mockReturnValueOnce(of([mcCandidate, mcCandidate]));
+    shelf.searchReviewCandidates.mockReturnValueOnce(of([reviewCandidate, reviewCandidate]));
     await page.runMetacriticPickerSearch();
-    expect(shelf.searchMetacriticCandidates).toHaveBeenCalledWith('doom', 1993, 'PC', 6);
+    expect(shelf.searchReviewCandidates).toHaveBeenCalledWith('doom', 1993, 'PC', 6);
     expect(
       (page as unknown as { metacriticPickerResults: MetacriticMatchCandidate[] })
         .metacriticPickerResults.length
     ).toBe(1);
 
-    shelf.searchMetacriticCandidates.mockReturnValueOnce(throwError(() => new Error('429')));
+    shelf.searchReviewCandidates.mockReturnValueOnce(throwError(() => new Error('429')));
     await page.runMetacriticPickerSearch();
     expect(
       (page as unknown as { metacriticPickerResults: MetacriticMatchCandidate[] })

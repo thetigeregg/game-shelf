@@ -661,7 +661,7 @@ export class MetadataValidatorPage {
 
     try {
       const candidates = await firstValueFrom(
-        this.gameShelfService.searchMetacriticCandidates(
+        this.gameShelfService.searchReviewCandidates(
           normalized,
           target?.releaseYear ?? null,
           target?.platform ?? null,

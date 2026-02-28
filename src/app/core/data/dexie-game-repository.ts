@@ -46,6 +46,12 @@ export class DexieGameRepository implements GameRepository {
     const normalizedPlatformIgdbId = this.normalizePlatformIgdbId(result.platformIgdbId);
     const normalizedPlatformName = this.normalizePlatformName(result.platform);
     const existing = await this.exists(normalizedGameId, normalizedPlatformIgdbId);
+    const incomingReviewScore = result.reviewScore ?? result.metacriticScore;
+    const incomingReviewUrl = result.reviewUrl ?? result.metacriticUrl;
+    const incomingMetacriticScore =
+      result.reviewSource === 'metacritic' ? incomingReviewScore : (result.metacriticScore ?? null);
+    const incomingMetacriticUrl =
+      result.reviewSource === 'metacritic' ? incomingReviewUrl : (result.metacriticUrl ?? null);
 
     if (existing?.id !== undefined) {
       const updated: GameEntry = {
@@ -69,31 +75,32 @@ export class DexieGameRepository implements GameRepository {
           existing.hltbCompletionistHours
         ),
         reviewScore: this.resolveMetacriticScore(
-          result.reviewScore ?? result.metacriticScore,
+          incomingReviewScore,
           existing.reviewScore ?? existing.metacriticScore
         ),
         reviewUrl: this.resolveMetacriticUrl(
-          result.reviewUrl ?? result.metacriticUrl,
+          incomingReviewUrl,
           existing.reviewUrl ?? existing.metacriticUrl
         ),
         reviewSource: this.resolveReviewSource(
           result.reviewSource,
           existing.reviewSource,
-          result.reviewScore ?? result.metacriticScore,
-          result.reviewUrl ?? result.metacriticUrl,
+          incomingReviewScore,
+          incomingReviewUrl,
           existing.reviewScore ?? existing.metacriticScore,
           existing.reviewUrl ?? existing.metacriticUrl
         ),
+        mobyScore: this.resolveMobyScore(result.mobyScore, existing.mobyScore),
         mobygamesGameId: this.resolveMobygamesGameId(
           result.mobygamesGameId,
           existing.mobygamesGameId
         ),
         metacriticScore: this.resolveMetacriticScore(
-          result.reviewScore ?? result.metacriticScore,
+          incomingMetacriticScore,
           existing.reviewScore ?? existing.metacriticScore
         ),
         metacriticUrl: this.resolveMetacriticUrl(
-          result.reviewUrl ?? result.metacriticUrl,
+          incomingMetacriticUrl,
           existing.reviewUrl ?? existing.metacriticUrl
         ),
         similarGameIgdbIds: this.resolveGameIdList(
@@ -148,15 +155,16 @@ export class DexieGameRepository implements GameRepository {
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
       reviewScore: this.normalizeMetacriticScore(result.reviewScore ?? result.metacriticScore),
-      reviewUrl: this.normalizeMetacriticUrl(result.reviewUrl ?? result.metacriticUrl),
+      reviewUrl: this.normalizeMetacriticUrl(incomingReviewUrl),
       reviewSource: this.normalizeReviewSource(
         result.reviewSource,
-        result.reviewScore ?? result.metacriticScore,
-        result.reviewUrl ?? result.metacriticUrl
+        incomingReviewScore,
+        incomingReviewUrl
       ),
+      mobyScore: this.normalizeMobyScore(result.mobyScore),
       mobygamesGameId: this.normalizeMobygamesGameId(result.mobygamesGameId),
-      metacriticScore: this.normalizeMetacriticScore(result.reviewScore ?? result.metacriticScore),
-      metacriticUrl: this.normalizeMetacriticUrl(result.reviewUrl ?? result.metacriticUrl),
+      metacriticScore: this.normalizeMetacriticScore(incomingMetacriticScore),
+      metacriticUrl: this.normalizeMetacriticUrl(incomingMetacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
       collections: this.normalizeTextList(result.collections),
       developers: this.normalizeTextList(result.developers),
@@ -741,6 +749,14 @@ export class DexieGameRepository implements GameRepository {
     return normalizedScore !== null || normalizedUrl !== null ? 'metacritic' : null;
   }
 
+  private normalizeMobyScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 10) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
+  }
+
   private normalizeMobygamesGameId(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
       return null;
@@ -830,6 +846,17 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeReviewSource(incoming, incomingScore, incomingUrl);
+  }
+
+  private resolveMobyScore(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizeMobyScore(existing);
+    }
+
+    return this.normalizeMobyScore(incoming);
   }
 
   private resolveMobygamesGameId(

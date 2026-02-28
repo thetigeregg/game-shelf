@@ -14,14 +14,12 @@ interface MobyGamesCacheRow {
 interface NormalizedMobyGamesQuery {
   query: string;
   platform: string | null;
-  include: string | null;
   limit: number | null;
   offset: number | null;
   id: string | null;
   genre: string | null;
   group: string | null;
-  steamAppId: string | null;
-  fuzzy: boolean | null;
+  format: 'id' | 'brief' | 'normal' | null;
 }
 
 interface MobyGamesCacheRouteOptions {
@@ -157,26 +155,23 @@ function normalizeMobyGamesQuery(rawUrl: string): NormalizedMobyGamesQuery | nul
   }
 
   const platform = normalizeNullableString(url.searchParams.get('platform'));
-  const include = normalizeNullableString(url.searchParams.get('include'));
+  const platformId = normalizeInteger(platform, 1);
   const limit = normalizeInteger(url.searchParams.get('limit'), 1);
   const offset = normalizeInteger(url.searchParams.get('offset'), 0);
-  const id = normalizeNullableString(url.searchParams.get('id'));
-  const genre = normalizeNullableString(url.searchParams.get('genre'));
-  const group = normalizeNullableString(url.searchParams.get('group'));
-  const steamAppId = normalizeNullableString(url.searchParams.get('steam_app_id'));
-  const fuzzy = normalizeBoolean(url.searchParams.get('fuzzy'));
+  const idValue = normalizeInteger(url.searchParams.get('id'), 1);
+  const genreValue = normalizeInteger(url.searchParams.get('genre'), 1);
+  const groupValue = normalizeInteger(url.searchParams.get('group'), 1);
+  const format = normalizeMobyGamesFormat(url.searchParams.get('format'));
 
   return {
     query,
-    platform,
-    include,
+    platform: platformId === null ? null : String(platformId),
     limit,
     offset,
-    id,
-    genre,
-    group,
-    steamAppId,
-    fuzzy
+    id: idValue === null ? null : String(idValue),
+    genre: genreValue === null ? null : String(genreValue),
+    group: groupValue === null ? null : String(groupValue),
+    format
   };
 }
 
@@ -195,16 +190,10 @@ function normalizeInteger(rawValue: string | null, minimum: number): number | nu
   return Number.isInteger(parsed) && parsed >= minimum ? parsed : null;
 }
 
-function normalizeBoolean(rawValue: string | null): boolean | null {
+function normalizeMobyGamesFormat(rawValue: string | null): 'id' | 'brief' | 'normal' | null {
   const trimmed = (rawValue ?? '').trim().toLowerCase();
-  if (trimmed.length === 0) {
-    return null;
-  }
-  if (trimmed === '1' || trimmed === 'true' || trimmed === 'yes') {
-    return true;
-  }
-  if (trimmed === '0' || trimmed === 'false' || trimmed === 'no') {
-    return false;
+  if (trimmed === 'id' || trimmed === 'brief' || trimmed === 'normal') {
+    return trimmed;
   }
   return null;
 }
@@ -213,14 +202,12 @@ function buildCacheKey(query: NormalizedMobyGamesQuery): string {
   const payload = JSON.stringify([
     query.query.toLowerCase(),
     query.platform?.toLowerCase() ?? null,
-    query.include?.toLowerCase() ?? null,
     query.limit,
     query.offset,
     query.id?.toLowerCase() ?? null,
     query.genre?.toLowerCase() ?? null,
     query.group?.toLowerCase() ?? null,
-    query.steamAppId,
-    query.fuzzy
+    query.format
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -400,14 +387,12 @@ async function fetchMetadataFromMobyGames(request: FastifyRequest): Promise<Resp
   targetUrl.searchParams.set('api_key', apiKey);
   targetUrl.searchParams.set('title', normalized.query);
   appendNullableString(targetUrl, 'platform', normalized.platform);
-  appendNullableString(targetUrl, 'include', normalized.include);
   appendNullableNumber(targetUrl, 'limit', normalized.limit);
   appendNullableNumber(targetUrl, 'offset', normalized.offset);
   appendNullableString(targetUrl, 'id', normalized.id);
   appendNullableString(targetUrl, 'genre', normalized.genre);
   appendNullableString(targetUrl, 'group', normalized.group);
-  appendNullableString(targetUrl, 'steam_app_id', normalized.steamAppId);
-  appendNullableBoolean(targetUrl, 'fuzzy', normalized.fuzzy);
+  appendNullableString(targetUrl, 'format', normalized.format);
 
   try {
     return await fetch(targetUrl.toString(), {
@@ -438,12 +423,6 @@ function appendNullableString(targetUrl: URL, key: string, value: string | null)
 function appendNullableNumber(targetUrl: URL, key: string, value: number | null): void {
   if (value !== null) {
     targetUrl.searchParams.set(key, String(value));
-  }
-}
-
-function appendNullableBoolean(targetUrl: URL, key: string, value: boolean | null): void {
-  if (value !== null) {
-    targetUrl.searchParams.set(key, value ? 'true' : 'false');
   }
 }
 

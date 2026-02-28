@@ -370,7 +370,7 @@ export class GameSyncService implements SyncOutboxWriter {
         : 'Unknown platform';
     const createdAt = this.normalizeIsoTimestamp(payload.createdAt);
     const updatedAt = this.normalizeIsoTimestamp(payload.updatedAt);
-    const normalizedReviewScore = this.normalizeMetacriticScore(
+    const normalizedReviewScore = this.normalizeReviewScore(
       payload.reviewScore ?? payload.metacriticScore
     );
     const normalizedReviewUrl = this.normalizeExternalUrl(
@@ -561,6 +561,14 @@ export class GameSyncService implements SyncOutboxWriter {
 
     const normalized = Math.round(value);
     return Number.isInteger(normalized) && normalized >= 1 && normalized <= 100 ? normalized : null;
+  }
+
+  private normalizeReviewScore(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 100) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
   }
 
   private normalizeMobyScore(value: unknown): number | null {

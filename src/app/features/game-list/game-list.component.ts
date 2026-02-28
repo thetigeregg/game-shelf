@@ -284,13 +284,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
   isHltbUpdateLoading = false;
-  isMetacriticUpdateLoading = false;
+  isReviewUpdateLoading = false;
   isHltbPickerModalOpen = false;
   isHltbPickerLoading = false;
   hasHltbPickerSearched = false;
-  isMetacriticPickerModalOpen = false;
-  isMetacriticPickerLoading = false;
-  hasMetacriticPickerSearched = false;
+  isReviewPickerModalOpen = false;
+  isReviewPickerLoading = false;
+  hasReviewPickerSearched = false;
   selectedGame: GameEntry | null = null;
   detailNavigationStack: GameEntry[] = [];
   similarLibraryGames: GameEntry[] = [];
@@ -307,10 +307,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   hltbPickerResults: HltbMatchCandidate[] = [];
   hltbPickerError: string | null = null;
   hltbPickerTargetGame: GameEntry | null = null;
-  metacriticPickerQuery = '';
-  metacriticPickerResults: ReviewMatchCandidate[] = [];
-  metacriticPickerError: string | null = null;
-  metacriticPickerTargetGame: GameEntry | null = null;
+  reviewPickerQuery = '';
+  reviewPickerResults: ReviewMatchCandidate[] = [];
+  reviewPickerError: string | null = null;
+  reviewPickerTargetGame: GameEntry | null = null;
   isEditMetadataModalOpen = false;
   isEditMetadataSaving = false;
   isNotesOpen = false;
@@ -392,6 +392,70 @@ export class GameListComponent implements OnChanges, OnDestroy {
     GameListComponent.VIRTUAL_ROW_HEIGHT_PX * (GameListComponent.VIRTUAL_BUFFER_ROWS * 3);
   readonly canDismissGameDetailModal = async (): Promise<boolean> => this.canDismissNotesGuard();
   readonly canDismissNotesModal = async (): Promise<boolean> => this.canDismissNotesGuard();
+
+  get isMetacriticUpdateLoading(): boolean {
+    return this.isReviewUpdateLoading;
+  }
+
+  set isMetacriticUpdateLoading(value: boolean) {
+    this.isReviewUpdateLoading = value;
+  }
+
+  get isMetacriticPickerModalOpen(): boolean {
+    return this.isReviewPickerModalOpen;
+  }
+
+  set isMetacriticPickerModalOpen(value: boolean) {
+    this.isReviewPickerModalOpen = value;
+  }
+
+  get isMetacriticPickerLoading(): boolean {
+    return this.isReviewPickerLoading;
+  }
+
+  set isMetacriticPickerLoading(value: boolean) {
+    this.isReviewPickerLoading = value;
+  }
+
+  get hasMetacriticPickerSearched(): boolean {
+    return this.hasReviewPickerSearched;
+  }
+
+  set hasMetacriticPickerSearched(value: boolean) {
+    this.hasReviewPickerSearched = value;
+  }
+
+  get metacriticPickerQuery(): string {
+    return this.reviewPickerQuery;
+  }
+
+  set metacriticPickerQuery(value: string) {
+    this.reviewPickerQuery = value;
+  }
+
+  get metacriticPickerResults(): ReviewMatchCandidate[] {
+    return this.reviewPickerResults;
+  }
+
+  set metacriticPickerResults(value: ReviewMatchCandidate[]) {
+    this.reviewPickerResults = value;
+  }
+
+  get metacriticPickerError(): string | null {
+    return this.reviewPickerError;
+  }
+
+  set metacriticPickerError(value: string | null) {
+    this.reviewPickerError = value;
+  }
+
+  get metacriticPickerTargetGame(): GameEntry | null {
+    return this.reviewPickerTargetGame;
+  }
+
+  set metacriticPickerTargetGame(value: GameEntry | null) {
+    this.reviewPickerTargetGame = value;
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if ('listType' in changes && changes['listType'].currentValue) {
@@ -1817,11 +1881,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async refreshSelectedGameReviewScore(): Promise<void> {
-    if (!this.selectedGame || this.isMetacriticUpdateLoading) {
+    if (!this.selectedGame || this.isReviewUpdateLoading) {
       return;
     }
 
-    this.isMetacriticUpdateLoading = true;
+    this.isReviewUpdateLoading = true;
     const loading = await this.loadingController.create({
       message: 'Updating review data...',
       spinner: 'crescent'
@@ -1845,7 +1909,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       await loading.dismiss().catch(() => undefined);
       await this.presentToast('Unable to update review data.', 'danger');
     } finally {
-      this.isMetacriticUpdateLoading = false;
+      this.isReviewUpdateLoading = false;
     }
   }
 
@@ -1961,7 +2025,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onReviewPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.metacriticPickerQuery = customEvent.detail.value ?? '';
+    this.reviewPickerQuery = customEvent.detail.value ?? '';
   }
 
   onMetacriticPickerQueryChange(event: Event): void {
@@ -2089,19 +2153,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async runReviewPickerSearch(): Promise<void> {
-    const normalized = this.metacriticPickerQuery.trim();
-    const target = this.metacriticPickerTargetGame;
-    this.hasMetacriticPickerSearched = true;
+    const normalized = this.reviewPickerQuery.trim();
+    const target = this.reviewPickerTargetGame;
+    this.hasReviewPickerSearched = true;
 
     if (normalized.length < 2) {
-      this.metacriticPickerResults = [];
-      this.metacriticPickerError = 'Enter at least 2 characters.';
+      this.reviewPickerResults = [];
+      this.reviewPickerError = 'Enter at least 2 characters.';
       this.changeDetectorRef.markForCheck();
       return;
     }
 
-    this.isMetacriticPickerLoading = true;
-    this.metacriticPickerError = null;
+    this.isReviewPickerLoading = true;
+    this.reviewPickerError = null;
     this.changeDetectorRef.markForCheck();
 
     try {
@@ -2113,27 +2177,27 @@ export class GameListComponent implements OnChanges, OnDestroy {
           target?.platformIgdbId ?? null
         )
       );
-      this.metacriticPickerResults = dedupeReviewCandidates(candidates).slice(0, 30);
+      this.reviewPickerResults = dedupeReviewCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
-      this.metacriticPickerResults = [];
-      this.metacriticPickerError = formatRateLimitedUiError(
+      this.reviewPickerResults = [];
+      this.reviewPickerError = formatRateLimitedUiError(
         error,
         'Unable to search reviews right now.'
       );
     } finally {
-      this.isMetacriticPickerLoading = false;
+      this.isReviewPickerLoading = false;
       this.changeDetectorRef.markForCheck();
     }
   }
 
   async applySelectedReviewCandidate(candidate: ReviewMatchCandidate): Promise<void> {
-    const target = this.metacriticPickerTargetGame;
+    const target = this.reviewPickerTargetGame;
 
     if (!target) {
       return;
     }
 
-    this.isMetacriticPickerLoading = true;
+    this.isReviewPickerLoading = true;
     this.changeDetectorRef.markForCheck();
 
     try {
@@ -2155,7 +2219,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         await this.presentToast('No review match found for this game.', 'warning');
       }
     } catch {
-      this.isMetacriticPickerLoading = false;
+      this.isReviewPickerLoading = false;
       this.changeDetectorRef.markForCheck();
       await this.presentToast('Unable to update review data.', 'danger');
     }
@@ -2166,13 +2230,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async useOriginalReviewLookup(): Promise<void> {
-    const target = this.metacriticPickerTargetGame;
+    const target = this.reviewPickerTargetGame;
 
     if (!target) {
       return;
     }
 
-    this.isMetacriticPickerLoading = true;
+    this.isReviewPickerLoading = true;
     this.changeDetectorRef.markForCheck();
 
     try {
@@ -2188,7 +2252,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         await this.presentToast('No review match found for this game.', 'warning');
       }
     } catch {
-      this.isMetacriticPickerLoading = false;
+      this.isReviewPickerLoading = false;
       this.changeDetectorRef.markForCheck();
       await this.presentToast('Unable to update review data.', 'danger');
     }
@@ -2253,7 +2317,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.formatRowMainHours(preferred);
   }
 
-  getRowMetacriticScore(game: GameEntry): number | null {
+  getRowReviewScore(game: GameEntry): number | null {
     const score = game.reviewScore ?? game.metacriticScore;
 
     if (
@@ -2269,12 +2333,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return score;
   }
 
-  hasValidRowMetacriticScore(game: GameEntry): boolean {
-    return this.getRowMetacriticScore(game) !== null;
+  hasValidRowReviewScore(game: GameEntry): boolean {
+    return this.getRowReviewScore(game) !== null;
   }
 
-  getRowMetacriticBadgeClass(game: GameEntry): 'mc-good' | 'mc-okay' | 'mc-bad' {
-    const score = this.getRowMetacriticScore(game);
+  getRowReviewBadgeClass(game: GameEntry): 'mc-good' | 'mc-okay' | 'mc-bad' {
+    const score = this.getRowReviewScore(game);
 
     if (score !== null && score >= 75) {
       return 'mc-good';
@@ -2285,6 +2349,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     return 'mc-bad';
+  }
+
+  getRowMetacriticScore(game: GameEntry): number | null {
+    return this.getRowReviewScore(game);
+  }
+
+  hasValidRowMetacriticScore(game: GameEntry): boolean {
+    return this.hasValidRowReviewScore(game);
+  }
+
+  getRowMetacriticBadgeClass(game: GameEntry): 'mc-good' | 'mc-okay' | 'mc-bad' {
+    return this.getRowReviewBadgeClass(game);
   }
 
   getGameTypeBadgeLabel(game: GameEntry): string | null {
@@ -3313,13 +3389,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private openReviewPickerModal(game: GameEntry): void {
     const nextState = createOpenedReviewPickerState(game);
-    this.isMetacriticPickerModalOpen = nextState.isReviewPickerModalOpen;
-    this.isMetacriticPickerLoading = nextState.isReviewPickerLoading;
-    this.hasMetacriticPickerSearched = nextState.hasReviewPickerSearched;
-    this.metacriticPickerQuery = nextState.reviewPickerQuery;
-    this.metacriticPickerResults = nextState.reviewPickerResults;
-    this.metacriticPickerError = nextState.reviewPickerError;
-    this.metacriticPickerTargetGame = nextState.reviewPickerTargetGame;
+    this.isReviewPickerModalOpen = nextState.isReviewPickerModalOpen;
+    this.isReviewPickerLoading = nextState.isReviewPickerLoading;
+    this.hasReviewPickerSearched = nextState.hasReviewPickerSearched;
+    this.reviewPickerQuery = nextState.reviewPickerQuery;
+    this.reviewPickerResults = nextState.reviewPickerResults;
+    this.reviewPickerError = nextState.reviewPickerError;
+    this.reviewPickerTargetGame = nextState.reviewPickerTargetGame;
     this.changeDetectorRef.markForCheck();
   }
 
@@ -3336,13 +3412,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private resetReviewPickerState(): void {
     const nextState = createClosedReviewPickerState();
-    this.isMetacriticPickerModalOpen = nextState.isReviewPickerModalOpen;
-    this.isMetacriticPickerLoading = nextState.isReviewPickerLoading;
-    this.hasMetacriticPickerSearched = nextState.hasReviewPickerSearched;
-    this.metacriticPickerQuery = nextState.reviewPickerQuery;
-    this.metacriticPickerResults = nextState.reviewPickerResults;
-    this.metacriticPickerError = nextState.reviewPickerError;
-    this.metacriticPickerTargetGame = nextState.reviewPickerTargetGame;
+    this.isReviewPickerModalOpen = nextState.isReviewPickerModalOpen;
+    this.isReviewPickerLoading = nextState.isReviewPickerLoading;
+    this.hasReviewPickerSearched = nextState.hasReviewPickerSearched;
+    this.reviewPickerQuery = nextState.reviewPickerQuery;
+    this.reviewPickerResults = nextState.reviewPickerResults;
+    this.reviewPickerError = nextState.reviewPickerError;
+    this.reviewPickerTargetGame = nextState.reviewPickerTargetGame;
   }
 
   private async resolveManualForGame(game: GameEntry): Promise<void> {

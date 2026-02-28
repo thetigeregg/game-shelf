@@ -99,16 +99,16 @@
           <div class="hltb-main-indicator">
             {{ mainHours }}
           </div>
-          @if (hasValidRowMetacriticScore(game)) {
-            <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
-              {{ getRowMetacriticScore(game) }}
+          @if (hasValidRowReviewScore(game)) {
+            <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
+              {{ getRowReviewScore(game) }}
             </div>
           }
         </div>
-      } @else if (hasValidRowMetacriticScore(game)) {
+      } @else if (hasValidRowReviewScore(game)) {
         <div class="row-metadata-indicators">
-          <div class="metacritic-score-indicator" [ngClass]="getRowMetacriticBadgeClass(game)">
-            {{ getRowMetacriticScore(game) }}
+          <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
+            {{ getRowReviewScore(game) }}
           </div>
         </div>
       }
@@ -919,7 +919,7 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isMetacriticPickerModalOpen" (didDismiss)="closeReviewPickerModal()">
+<ion-modal [isOpen]="isReviewPickerModalOpen" (didDismiss)="closeReviewPickerModal()">
   <ng-template>
     <ion-header>
       <ion-toolbar>
@@ -933,43 +933,40 @@
     <ion-content class="ion-padding gs-safe-bottom">
       <ion-item lines="none">
         <ion-searchbar
-          [value]="metacriticPickerQuery"
+          [value]="reviewPickerQuery"
           placeholder="Search Review"
           show-clear-button="focus"
           (ionInput)="onReviewPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button
-          slot="end"
-          [disabled]="isMetacriticPickerLoading"
-          (click)="runReviewPickerSearch()"
+        <ion-button slot="end" [disabled]="isReviewPickerLoading" (click)="runReviewPickerSearch()"
           >Search</ion-button
         >
       </ion-item>
 
-      @if (isMetacriticPickerLoading) {
+      @if (isReviewPickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>
         </div>
       }
 
-      @if (!isMetacriticPickerLoading && metacriticPickerError) {
+      @if (!isReviewPickerLoading && reviewPickerError) {
         <p class="picker-state ion-text-center">
-          {{ metacriticPickerError }}
+          {{ reviewPickerError }}
         </p>
       }
 
       @if (
-        hasMetacriticPickerSearched &&
-        !isMetacriticPickerLoading &&
-        !metacriticPickerError &&
-        metacriticPickerResults.length === 0
+        hasReviewPickerSearched &&
+        !isReviewPickerLoading &&
+        !reviewPickerError &&
+        reviewPickerResults.length === 0
       ) {
         <p class="picker-state ion-text-center">No review results found.</p>
       }
 
-      @if (!isMetacriticPickerLoading && metacriticPickerResults.length > 0) {
+      @if (!isReviewPickerLoading && reviewPickerResults.length > 0) {
         <ion-list>
-          @for (candidate of metacriticPickerResults; track candidate) {
+          @for (candidate of reviewPickerResults; track candidate) {
             <ion-item button detail="false" (click)="applySelectedReviewCandidate(candidate)">
               @if (candidate.imageUrl) {
                 <div slot="start" class="candidate-thumbnail">
@@ -998,7 +995,7 @@
         <ion-button
           expand="block"
           fill="outline"
-          [disabled]="isMetacriticPickerLoading"
+          [disabled]="isReviewPickerLoading"
           (click)="useOriginalReviewLookup()"
         >
           Use Original Match

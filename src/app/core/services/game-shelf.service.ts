@@ -192,7 +192,8 @@ export class GameShelfService {
             ...candidate,
             reviewScore: candidate.metacriticScore,
             reviewUrl: candidate.metacriticUrl,
-            reviewSource: 'metacritic'
+            reviewSource: 'metacritic',
+            mobygamesGameId: null
           }))
         )
       );
@@ -264,6 +265,7 @@ export class GameShelfService {
       reviewScore: null,
       reviewUrl: null,
       reviewSource: null,
+      mobygamesGameId: null,
       metacriticScore: null,
       metacriticUrl: null
     };
@@ -454,7 +456,8 @@ export class GameShelfService {
       existing.title,
       existing.releaseYear,
       existing.platform,
-      existing.platformIgdbId
+      existing.platformIgdbId,
+      existing.mobygamesGameId ?? null
     );
   }
 
@@ -466,6 +469,7 @@ export class GameShelfService {
       releaseYear?: number | null;
       platform?: string | null;
       platformIgdbId?: number | null;
+      mobygamesGameId?: number | null;
     }
   ): Promise<GameEntry> {
     return this.refreshGameReviewScoreWithQuery(igdbGameId, platformIgdbId, query);
@@ -479,6 +483,7 @@ export class GameShelfService {
       releaseYear?: number | null;
       platform?: string | null;
       platformIgdbId?: number | null;
+      mobygamesGameId?: number | null;
     }
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
@@ -512,13 +517,20 @@ export class GameShelfService {
       query.platformIgdbId > 0
         ? query.platformIgdbId
         : existing.platformIgdbId;
+    const lookupMobyGameId =
+      typeof query.mobygamesGameId === 'number' &&
+      Number.isInteger(query.mobygamesGameId) &&
+      query.mobygamesGameId > 0
+        ? query.mobygamesGameId
+        : (existing.mobygamesGameId ?? null);
 
     return this.refreshGameReviewWithLookup(
       existing,
       title,
       releaseYear,
       platform,
-      lookupPlatformIgdbId
+      lookupPlatformIgdbId,
+      lookupMobyGameId
     );
   }
 
@@ -558,6 +570,7 @@ export class GameShelfService {
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
+        mobygamesGameId: existing.mobygamesGameId ?? null,
         metacriticScore: existing.metacriticScore ?? null,
         metacriticUrl: existing.metacriticUrl ?? null,
         similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
@@ -591,20 +604,29 @@ export class GameShelfService {
     title: string,
     releaseYear: number | null,
     platform: string,
-    platformIgdbId: number | null
+    platformIgdbId: number | null,
+    mobygamesGameId: number | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.lookup_start', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       lookupTitle: title,
       lookupReleaseYear: releaseYear,
       lookupPlatform: platform,
-      lookupPlatformIgdbId: platformIgdbId
+      lookupPlatformIgdbId: platformIgdbId,
+      lookupMobyGameId: mobygamesGameId
     });
     const reviewLookup = (this.searchApi as Partial<GameSearchApi>).lookupReviewScore;
     const scoreResult: ReviewScoreResult | null =
       typeof reviewLookup === 'function'
         ? await firstValueFrom(
-            reviewLookup.call(this.searchApi, title, releaseYear, platform, platformIgdbId)
+            reviewLookup.call(
+              this.searchApi,
+              title,
+              releaseYear,
+              platform,
+              platformIgdbId,
+              mobygamesGameId
+            )
           )
         : await firstValueFrom(
             this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId).pipe(
@@ -614,7 +636,8 @@ export class GameShelfService {
                       ...result,
                       reviewScore: result.metacriticScore,
                       reviewUrl: result.metacriticUrl,
-                      reviewSource: 'metacritic'
+                      reviewSource: 'metacritic',
+                      mobygamesGameId: null
                     }
                   : null
               )
@@ -641,6 +664,8 @@ export class GameShelfService {
         reviewScore: scoreResult?.reviewScore ?? null,
         reviewUrl: scoreResult?.reviewUrl ?? null,
         reviewSource: scoreResult?.reviewSource ?? null,
+        mobygamesGameId:
+          scoreResult?.reviewSource === 'mobygames' ? (scoreResult.mobygamesGameId ?? null) : null,
         metacriticScore: scoreResult?.reviewScore ?? scoreResult?.metacriticScore ?? null,
         metacriticUrl: scoreResult?.reviewUrl ?? scoreResult?.metacriticUrl ?? null,
         similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
@@ -1207,6 +1232,10 @@ export class GameShelfService {
               reviewScore: reviewScore.reviewScore,
               reviewUrl: reviewScore.reviewUrl,
               reviewSource: reviewScore.reviewSource,
+              mobygamesGameId:
+                reviewScore.reviewSource === 'mobygames'
+                  ? (reviewScore.mobygamesGameId ?? null)
+                  : null,
               metacriticScore: reviewScore.reviewScore ?? reviewScore.metacriticScore ?? null,
               metacriticUrl: reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null
             }
@@ -1239,7 +1268,8 @@ export class GameShelfService {
                 ...result,
                 reviewScore: result.metacriticScore,
                 reviewUrl: result.metacriticUrl,
-                reviewSource: 'metacritic'
+                reviewSource: 'metacritic',
+                mobygamesGameId: null
               }
             : null
         )

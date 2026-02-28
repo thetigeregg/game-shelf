@@ -6,6 +6,7 @@ import type { Pool } from 'pg';
 import { incrementMobygamesMetric } from './cache-metrics.js';
 import { config } from './config.js';
 import {
+  isDebugHttpLogsEnabled,
   logUpstreamRequest,
   logUpstreamResponse,
   sanitizeUrlForDebugLogs
@@ -98,6 +99,12 @@ export async function registerMobyGamesCachedRoute(
 
               if (ageSeconds <= freshTtlSeconds) {
                 incrementMobygamesMetric('hits');
+                logMobygamesCacheDecision(
+                  request,
+                  'HIT_FRESH',
+                  normalized,
+                  cachedRow.response_json
+                );
                 reply.header('X-GameShelf-MOBYGAMES-Cache', 'HIT_FRESH');
                 reply.code(200).send(cachedRow.response_json);
                 return;
@@ -113,6 +120,15 @@ export async function registerMobyGamesCachedRoute(
                   fetchMetadata,
                   pool,
                   scheduleBackgroundRefresh
+                );
+                logMobygamesCacheDecision(
+                  request,
+                  'HIT_STALE',
+                  normalized,
+                  cachedRow.response_json,
+                  {
+                    revalidateScheduled: scheduled
+                  }
                 );
                 reply.header('X-GameShelf-MOBYGAMES-Cache', 'HIT_STALE');
                 reply.header(
@@ -136,6 +152,13 @@ export async function registerMobyGamesCachedRoute(
       }
 
       incrementMobygamesMetric('misses');
+      if (!normalized) {
+        logMobygamesCacheDecision(request, 'BYPASS', null, null, {
+          reason: 'query_too_short'
+        });
+      } else {
+        logMobygamesCacheDecision(request, 'MISS', normalized, null);
+      }
       const response = await fetchMetadata(request);
 
       if (cacheKey && normalized && response.ok) {
@@ -150,6 +173,55 @@ export async function registerMobyGamesCachedRoute(
       await sendWebResponse(reply, response);
     }
   });
+}
+
+function logMobygamesCacheDecision(
+  request: FastifyRequest,
+  outcome: 'HIT_FRESH' | 'HIT_STALE' | 'MISS' | 'BYPASS',
+  normalized: NormalizedMobyGamesQuery | null,
+  payload: unknown,
+  extra: Record<string, unknown> = {}
+): void {
+  if (!isDebugHttpLogsEnabled()) {
+    return;
+  }
+
+  request.log.info({
+    msg: 'mobygames_cache_decision',
+    outcome,
+    query: normalized?.query ?? null,
+    platform: normalized?.platform ?? null,
+    limit: normalized?.limit ?? null,
+    offset: normalized?.offset ?? null,
+    id: normalized?.id ?? null,
+    format: normalized?.format ?? null,
+    include: normalized?.include ?? null,
+    ...describeMobygamesPayload(payload),
+    ...extra
+  });
+}
+
+function describeMobygamesPayload(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      gameCount: null,
+      firstTitle: null
+    };
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  const games = Array.isArray(payloadRecord['games']) ? (payloadRecord['games'] as unknown[]) : [];
+
+  let firstTitle: string | null = null;
+  if (games.length > 0 && games[0] && typeof games[0] === 'object') {
+    const firstRecord = games[0] as Record<string, unknown>;
+    firstTitle = typeof firstRecord['title'] === 'string' ? firstRecord['title'] : null;
+  }
+
+  return {
+    gameCount: games.length,
+    firstTitle
+  };
 }
 
 function normalizeMobyGamesQuery(rawUrl: string): NormalizedMobyGamesQuery | null {
@@ -355,7 +427,7 @@ function isCacheableMobyGamesPayload(payload: unknown): boolean {
   }
 
   const payloadRecord = payload as Record<string, unknown>;
-  return Array.isArray(payloadRecord['games']);
+  return Array.isArray(payloadRecord['games']) && payloadRecord['games'].length > 0;
 }
 
 async function deleteMobyGamesCacheEntry(

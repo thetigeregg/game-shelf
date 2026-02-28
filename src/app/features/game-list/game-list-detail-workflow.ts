@@ -132,6 +132,7 @@ export function dedupeReviewCandidates<
     title: string;
     releaseYear: number | null;
     platform: string | null;
+    imageUrl?: string | null;
     reviewScore?: number | null;
     metacriticScore?: number | null;
   }
@@ -141,7 +142,19 @@ export function dedupeReviewCandidates<
   candidates.forEach((candidate) => {
     const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.reviewScore ?? candidate.metacriticScore ?? '')}`;
 
-    if (!byKey.has(key)) {
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, candidate);
+      return;
+    }
+
+    const existingScore = existing.reviewScore ?? existing.metacriticScore ?? null;
+    const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
+    const shouldReplace =
+      (existing.imageUrl == null && candidate.imageUrl != null) ||
+      (existingScore == null && candidateScore != null);
+
+    if (shouldReplace) {
       byKey.set(key, candidate);
     }
   });

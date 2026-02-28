@@ -2208,7 +2208,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
           platform: candidate.platform,
-          platformIgdbId: target.platformIgdbId
+          platformIgdbId: target.platformIgdbId,
+          mobygamesGameId: candidate.mobygamesGameId ?? null
         }
       );
       this.applyUpdatedGame(updated);

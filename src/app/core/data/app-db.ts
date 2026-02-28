@@ -151,6 +151,47 @@ export class AppDb extends Dexie {
             }
           });
       });
+
+    this.version(9)
+      .stores({
+        games:
+          '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
+        tags: '++id,&name,createdAt,updatedAt',
+        views: '++id,listType,name,updatedAt,createdAt',
+        imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+        outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
+        syncMeta: '&key,updatedAt'
+      })
+      .upgrade((tx) => {
+        const mobyUrlPattern = /mobygames\.com\/game\/(\d+)\b/i;
+        return tx
+          .table('games')
+          .toCollection()
+          .modify((game: Record<string, unknown>) => {
+            const mobyIdRaw = game['mobygamesGameId'];
+            if (typeof mobyIdRaw === 'number' && Number.isInteger(mobyIdRaw) && mobyIdRaw > 0) {
+              return;
+            }
+
+            const reviewSource =
+              typeof game['reviewSource'] === 'string' ? game['reviewSource'] : '';
+            const reviewUrl =
+              typeof game['reviewUrl'] === 'string'
+                ? game['reviewUrl']
+                : typeof game['metacriticUrl'] === 'string'
+                  ? game['metacriticUrl']
+                  : '';
+
+            if (reviewSource !== 'mobygames' || reviewUrl.length === 0) {
+              game['mobygamesGameId'] = null;
+              return;
+            }
+
+            const match = mobyUrlPattern.exec(reviewUrl);
+            const parsed = match ? Number.parseInt(match[1], 10) : Number.NaN;
+            game['mobygamesGameId'] = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+          });
+      });
   }
 }
 

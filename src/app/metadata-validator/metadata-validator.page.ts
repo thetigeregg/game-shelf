@@ -868,7 +868,19 @@ export class MetadataValidatorPage {
     candidates.forEach((candidate) => {
       const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.reviewScore ?? candidate.metacriticScore ?? '')}`;
 
-      if (!byKey.has(key)) {
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, candidate);
+        return;
+      }
+
+      const existingScore = existing.reviewScore ?? existing.metacriticScore ?? null;
+      const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
+      const shouldReplace =
+        (existing.imageUrl == null && candidate.imageUrl != null) ||
+        (existingScore == null && candidateScore != null);
+
+      if (shouldReplace) {
         byKey.set(key, candidate);
       }
     });
@@ -973,7 +985,8 @@ export class MetadataValidatorPage {
               title: candidate.title,
               releaseYear: candidate.releaseYear,
               platform: candidate.platform,
-              platformIgdbId: game.platformIgdbId
+              platformIgdbId: game.platformIgdbId,
+              mobygamesGameId: null
             }
           );
         }

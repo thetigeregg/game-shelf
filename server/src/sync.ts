@@ -498,6 +498,7 @@ function normalizeGamePayload(
   const customCoverUrlRaw =
     typeof payload.customCoverUrl === 'string' ? payload.customCoverUrl.trim() : '';
   const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
+  const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId =
     Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
@@ -517,6 +518,8 @@ function normalizeGamePayload(
   const isEmptyHtmlPlaceholder = strippedNotes.length === 0;
   const notes =
     normalizedNotesTrimmed.length > 0 && !isEmptyHtmlPlaceholder ? normalizedNotes : null;
+  const mobygamesGameId =
+    Number.isInteger(mobygamesGameIdRaw) && mobygamesGameIdRaw > 0 ? mobygamesGameIdRaw : null;
 
   return {
     ...payload,
@@ -527,6 +530,7 @@ function normalizeGamePayload(
     customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
     customCoverUrl,
     notes,
+    mobygamesGameId,
     updatedAt
   };
 }

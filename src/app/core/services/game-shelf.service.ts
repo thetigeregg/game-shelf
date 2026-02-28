@@ -215,7 +215,7 @@ export class GameShelfService {
       listType
     );
     this.listRefresh$.next();
-    void this.enrichCatalogWithCompletionTimesInBackground(normalizedCatalog, listType);
+    void this.enrichCatalogWithMetadataInBackground(normalizedCatalog, listType);
     return entry;
   }
 
@@ -332,7 +332,7 @@ export class GameShelfService {
     }
 
     this.listRefresh$.next();
-    void this.enrichCatalogWithCompletionTimesInBackground(normalizedReplacement, current.listType);
+    void this.enrichCatalogWithMetadataInBackground(normalizedReplacement, current.listType);
 
     const tags = await this.repository.listTags();
     return this.attachTags([withNotes], tags)[0];
@@ -1140,44 +1140,124 @@ export class GameShelfService {
     }));
   }
 
-  private async enrichCatalogWithCompletionTimesInBackground(
+  private async enrichCatalogWithMetadataInBackground(
     result: GameCatalogResult,
     listType: ListType
   ): Promise<void> {
-    if (hasCompletionTimes(result)) {
-      return;
-    }
-
     const title = typeof result.title === 'string' ? result.title.trim() : '';
 
     if (title.length < 2) {
       return;
     }
 
-    try {
-      const completionTimes = await firstValueFrom(
-        this.searchApi.lookupCompletionTimes(
-          title,
-          Number.isInteger(result.releaseYear) ? result.releaseYear : null,
-          typeof result.platform === 'string' ? result.platform : null
-        )
-      );
+    const releaseYear = Number.isInteger(result.releaseYear) ? result.releaseYear : null;
+    const platform = typeof result.platform === 'string' ? result.platform : null;
+    const platformIgdbId =
+      Number.isInteger(result.platformIgdbId) && (result.platformIgdbId as number) > 0
+        ? (result.platformIgdbId as number)
+        : null;
+    const shouldLookupCompletionTimes = !hasCompletionTimes(result);
+    const shouldLookupReviewScore =
+      this.normalizeReviewScoreValue(result.reviewScore ?? result.metacriticScore) === null;
 
-      if (!completionTimes) {
-        return;
-      }
-
-      await this.repository.upsertFromCatalog(
-        {
-          ...result,
-          ...completionTimes
-        },
-        listType
-      );
-      this.listRefresh$.next();
-    } catch {
-      // Ignore HLTB enrichment failures. Add flow should stay responsive.
+    if (!shouldLookupCompletionTimes && !shouldLookupReviewScore) {
+      return;
     }
+
+    let completionTimes: {
+      hltbMainHours: number | null;
+      hltbMainExtraHours: number | null;
+      hltbCompletionistHours: number | null;
+    } | null = null;
+    let reviewScore: ReviewScoreResult | null = null;
+
+    if (shouldLookupCompletionTimes) {
+      try {
+        completionTimes = await firstValueFrom(
+          this.searchApi.lookupCompletionTimes(title, releaseYear, platform)
+        );
+      } catch {
+        // Ignore HLTB enrichment failures. Add flow should stay responsive.
+      }
+    }
+
+    if (shouldLookupReviewScore) {
+      try {
+        reviewScore = await this.lookupReviewScoreForCatalog(
+          title,
+          releaseYear,
+          platform,
+          platformIgdbId
+        );
+      } catch {
+        // Ignore review enrichment failures. Add flow should stay responsive.
+      }
+    }
+
+    if (!completionTimes && !reviewScore) {
+      return;
+    }
+
+    await this.repository.upsertFromCatalog(
+      {
+        ...result,
+        ...(completionTimes ? completionTimes : {}),
+        ...(reviewScore
+          ? {
+              reviewScore: reviewScore.reviewScore,
+              reviewUrl: reviewScore.reviewUrl,
+              reviewSource: reviewScore.reviewSource,
+              metacriticScore: reviewScore.reviewScore ?? reviewScore.metacriticScore ?? null,
+              metacriticUrl: reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null
+            }
+          : {})
+      },
+      listType
+    );
+    this.listRefresh$.next();
+  }
+
+  private async lookupReviewScoreForCatalog(
+    title: string,
+    releaseYear: number | null,
+    platform: string | null,
+    platformIgdbId: number | null
+  ): Promise<ReviewScoreResult | null> {
+    const reviewLookup = (this.searchApi as Partial<GameSearchApi>).lookupReviewScore;
+
+    if (typeof reviewLookup === 'function') {
+      return await firstValueFrom(
+        reviewLookup.call(this.searchApi, title, releaseYear, platform, platformIgdbId)
+      );
+    }
+
+    return await firstValueFrom(
+      this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId).pipe(
+        map((result) =>
+          result
+            ? {
+                ...result,
+                reviewScore: result.metacriticScore,
+                reviewUrl: result.metacriticUrl,
+                reviewSource: 'metacritic'
+              }
+            : null
+        )
+      )
+    );
+  }
+
+  private normalizeReviewScoreValue(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const normalized = Math.round(value);
+    if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 100) {
+      return null;
+    }
+
+    return normalized;
   }
 
   private async purgeServerImageCacheUrls(urls: string[]): Promise<void> {

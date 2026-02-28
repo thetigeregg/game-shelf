@@ -62,9 +62,15 @@ describe('GameShelfService', () => {
       lookupCompletionTimeCandidates: vi.fn(),
       lookupMetacriticScore: vi.fn(),
       lookupMetacriticCandidates: vi.fn(),
+      lookupReviewScore: vi.fn(),
+      lookupReviewCandidates: vi.fn(),
       listPopularityTypes: vi.fn(),
       listPopularityGames: vi.fn()
     };
+
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+    searchApi.lookupReviewScore.mockReturnValue(of(null));
+    searchApi.lookupReviewCandidates.mockReturnValue(of([]));
 
     appDb = {
       imageCache: {
@@ -229,6 +235,53 @@ describe('GameShelfService', () => {
     );
   });
 
+  it('enriches games with review score during add when available', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017
+    };
+
+    searchApi.lookupReviewScore.mockReturnValue(
+      of({
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
+        reviewSource: 'metacritic'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Mario Kart', 2017, 'Switch', 130);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(2);
+    expect(repository.upsertFromCatalog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
+        reviewSource: 'metacritic',
+        metacriticScore: 85,
+        metacriticUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/'
+      }),
+      'collection'
+    );
+  });
+
   it('continues add when HLTB lookup fails', async () => {
     const game: GameCatalogResult = {
       igdbGameId: '123',
@@ -256,6 +309,40 @@ describe('GameShelfService', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({ igdbGameId: '123', platform: 'Switch', platformIgdbId: 130 }),
+      'collection'
+    );
+  });
+
+  it('continues add when review lookup fails', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017
+    };
+
+    searchApi.lookupReviewScore.mockReturnValue(throwError(() => new Error('reviews down')));
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Mario Kart', 2017, 'Switch', 130);
     expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({ igdbGameId: '123', platform: 'Switch', platformIgdbId: 130 }),
@@ -803,17 +890,18 @@ describe('GameShelfService', () => {
     };
 
     repository.exists.mockResolvedValue(existingEntry);
-    searchApi.lookupMetacriticScore.mockReturnValue(
+    searchApi.lookupReviewScore.mockReturnValue(
       of({
-        metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+        reviewScore: 87,
+        reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        reviewSource: 'metacritic'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
 
     const result = await service.refreshGameMetacriticScore('123', 5);
 
-    expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5);
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         metacriticScore: 87,
@@ -847,10 +935,11 @@ describe('GameShelfService', () => {
     };
 
     repository.exists.mockResolvedValue(existingEntry);
-    searchApi.lookupMetacriticScore.mockReturnValue(
+    searchApi.lookupReviewScore.mockReturnValue(
       of({
-        metacriticScore: 90,
-        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+        reviewScore: 90,
+        reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        reviewSource: 'metacritic'
       })
     );
     repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
@@ -861,17 +950,17 @@ describe('GameShelfService', () => {
       platform: 'Wii'
     });
 
-    expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5);
     expect(result).toEqual(updatedEntry);
   });
 
   it('returns empty metacritic candidates for short queries and trims valid queries', async () => {
     await expect(firstValueFrom(service.searchMetacriticCandidates('x'))).resolves.toEqual([]);
-    expect(searchApi.lookupMetacriticCandidates).not.toHaveBeenCalled();
+    expect(searchApi.lookupReviewCandidates).not.toHaveBeenCalled();
 
-    searchApi.lookupMetacriticCandidates.mockReturnValue(of([]));
+    searchApi.lookupReviewCandidates.mockReturnValue(of([]));
     await firstValueFrom(service.searchMetacriticCandidates('  Okami  ', 2006, 'Wii', 19));
-    expect(searchApi.lookupMetacriticCandidates).toHaveBeenCalledWith('Okami', 2006, 'Wii', 19);
+    expect(searchApi.lookupReviewCandidates).toHaveBeenCalledWith('Okami', 2006, 'Wii', 19);
   });
 
   it('throws for metacritic refresh when target game no longer exists', async () => {

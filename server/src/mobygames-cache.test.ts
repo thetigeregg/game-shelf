@@ -98,7 +98,7 @@ function withEnv(
   for (const [key, value] of Object.entries(overrides)) {
     original.set(key, process.env[key]);
     if (typeof value === 'undefined') {
-      process.env[key] = undefined;
+      Reflect.deleteProperty(process.env, key);
     } else {
       process.env[key] = value;
     }
@@ -107,7 +107,7 @@ function withEnv(
   return fn().finally(() => {
     for (const [key, value] of original.entries()) {
       if (typeof value === 'undefined') {
-        process.env[key] = undefined;
+        Reflect.deleteProperty(process.env, key);
       } else {
         process.env[key] = value;
       }

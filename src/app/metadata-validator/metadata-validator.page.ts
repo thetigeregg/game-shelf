@@ -96,7 +96,7 @@ export class MetadataValidatorPage {
   selectedMissingFilters: MissingMetadataFilter[] = [];
   selectedGameKeys = new Set<string>();
   isBulkRefreshingHltb = false;
-  isBulkRefreshingMetacritic = false;
+  isBulkRefreshingReview = false;
   isBulkRefreshingImage = false;
   isHltbPickerModalOpen = false;
   isHltbPickerLoading = false;
@@ -104,12 +104,12 @@ export class MetadataValidatorPage {
   hltbPickerResults: HltbMatchCandidate[] = [];
   hltbPickerError: string | null = null;
   hltbPickerTargetGame: GameEntry | null = null;
-  isMetacriticPickerModalOpen = false;
-  isMetacriticPickerLoading = false;
-  metacriticPickerQuery = '';
-  metacriticPickerResults: ReviewMatchCandidate[] = [];
-  metacriticPickerError: string | null = null;
-  metacriticPickerTargetGame: GameEntry | null = null;
+  isReviewPickerModalOpen = false;
+  isReviewPickerLoading = false;
+  reviewPickerQuery = '';
+  reviewPickerResults: ReviewMatchCandidate[] = [];
+  reviewPickerError: string | null = null;
+  reviewPickerTargetGame: GameEntry | null = null;
   private displayedGames: GameEntry[] = [];
   private readonly selectedListType$ = new BehaviorSubject<ListType | null>(null);
   private readonly selectedMissingFilters$ = new BehaviorSubject<MissingMetadataFilter[]>([]);
@@ -132,6 +132,62 @@ export class MetadataValidatorPage {
       this.syncSelectionToDisplayedGames();
     })
   );
+
+  get isBulkRefreshingMetacritic(): boolean {
+    return this.isBulkRefreshingReview;
+  }
+
+  set isBulkRefreshingMetacritic(value: boolean) {
+    this.isBulkRefreshingReview = value;
+  }
+
+  get isMetacriticPickerModalOpen(): boolean {
+    return this.isReviewPickerModalOpen;
+  }
+
+  set isMetacriticPickerModalOpen(value: boolean) {
+    this.isReviewPickerModalOpen = value;
+  }
+
+  get isMetacriticPickerLoading(): boolean {
+    return this.isReviewPickerLoading;
+  }
+
+  set isMetacriticPickerLoading(value: boolean) {
+    this.isReviewPickerLoading = value;
+  }
+
+  get metacriticPickerQuery(): string {
+    return this.reviewPickerQuery;
+  }
+
+  set metacriticPickerQuery(value: string) {
+    this.reviewPickerQuery = value;
+  }
+
+  get metacriticPickerResults(): ReviewMatchCandidate[] {
+    return this.reviewPickerResults;
+  }
+
+  set metacriticPickerResults(value: ReviewMatchCandidate[]) {
+    this.reviewPickerResults = value;
+  }
+
+  get metacriticPickerError(): string | null {
+    return this.reviewPickerError;
+  }
+
+  set metacriticPickerError(value: string | null) {
+    this.reviewPickerError = value;
+  }
+
+  get metacriticPickerTargetGame(): GameEntry | null {
+    return this.reviewPickerTargetGame;
+  }
+
+  set metacriticPickerTargetGame(value: GameEntry | null) {
+    this.reviewPickerTargetGame = value;
+  }
 
   onListTypeChange(value: string | null | undefined): void {
     const next = value === 'collection' || value === 'wishlist' ? value : null;
@@ -364,11 +420,11 @@ export class MetadataValidatorPage {
   async refreshReviewForSelectedGames(): Promise<void> {
     const games = this.getSelectedGames();
 
-    if (games.length === 0 || this.isBulkRefreshingMetacritic) {
+    if (games.length === 0 || this.isBulkRefreshingReview) {
       return;
     }
 
-    this.isBulkRefreshingMetacritic = true;
+    this.isBulkRefreshingReview = true;
 
     try {
       const results = await runBulkActionWithRetry({
@@ -409,7 +465,7 @@ export class MetadataValidatorPage {
         );
       }
     } finally {
-      this.isBulkRefreshingMetacritic = false;
+      this.isBulkRefreshingReview = false;
     }
   }
 
@@ -482,12 +538,12 @@ export class MetadataValidatorPage {
   }
 
   closeReviewPickerModal(): void {
-    this.isMetacriticPickerModalOpen = false;
-    this.isMetacriticPickerLoading = false;
-    this.metacriticPickerQuery = '';
-    this.metacriticPickerResults = [];
-    this.metacriticPickerError = null;
-    this.metacriticPickerTargetGame = null;
+    this.isReviewPickerModalOpen = false;
+    this.isReviewPickerLoading = false;
+    this.reviewPickerQuery = '';
+    this.reviewPickerResults = [];
+    this.reviewPickerError = null;
+    this.reviewPickerTargetGame = null;
   }
 
   closeMetacriticPickerModal(): void {
@@ -501,7 +557,7 @@ export class MetadataValidatorPage {
 
   onReviewPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
-    this.metacriticPickerQuery = customEvent.detail.value ?? '';
+    this.reviewPickerQuery = customEvent.detail.value ?? '';
   }
 
   onMetacriticPickerQueryChange(event: Event): void {
@@ -591,17 +647,17 @@ export class MetadataValidatorPage {
   }
 
   async runReviewPickerSearch(): Promise<void> {
-    const normalized = this.metacriticPickerQuery.trim();
-    const target = this.metacriticPickerTargetGame;
+    const normalized = this.reviewPickerQuery.trim();
+    const target = this.reviewPickerTargetGame;
 
     if (normalized.length < 2) {
-      this.metacriticPickerResults = [];
-      this.metacriticPickerError = 'Enter at least 2 characters.';
+      this.reviewPickerResults = [];
+      this.reviewPickerError = 'Enter at least 2 characters.';
       return;
     }
 
-    this.isMetacriticPickerLoading = true;
-    this.metacriticPickerError = null;
+    this.isReviewPickerLoading = true;
+    this.reviewPickerError = null;
 
     try {
       const candidates = await firstValueFrom(
@@ -612,15 +668,15 @@ export class MetadataValidatorPage {
           target?.platformIgdbId ?? null
         )
       );
-      this.metacriticPickerResults = this.dedupeReviewCandidates(candidates).slice(0, 30);
+      this.reviewPickerResults = this.dedupeReviewCandidates(candidates).slice(0, 30);
     } catch (error: unknown) {
-      this.metacriticPickerResults = [];
-      this.metacriticPickerError = formatRateLimitedUiError(
+      this.reviewPickerResults = [];
+      this.reviewPickerError = formatRateLimitedUiError(
         error,
         'Unable to search reviews right now.'
       );
     } finally {
-      this.isMetacriticPickerLoading = false;
+      this.isReviewPickerLoading = false;
     }
   }
 
@@ -629,13 +685,13 @@ export class MetadataValidatorPage {
   }
 
   async applySelectedReviewCandidate(candidate: ReviewMatchCandidate): Promise<void> {
-    const target = this.metacriticPickerTargetGame;
+    const target = this.reviewPickerTargetGame;
 
     if (!target) {
       return;
     }
 
-    this.isMetacriticPickerLoading = true;
+    this.isReviewPickerLoading = true;
 
     try {
       const updated = await this.gameShelfService.refreshGameMetacriticScoreWithQuery(
@@ -654,7 +710,7 @@ export class MetadataValidatorPage {
         await this.presentToast(`No review match found for ${target.title}.`, 'warning');
       }
     } catch {
-      this.isMetacriticPickerLoading = false;
+      this.isReviewPickerLoading = false;
       await this.presentToast(`Unable to update review for ${target.title}.`, 'danger');
     }
   }
@@ -664,13 +720,13 @@ export class MetadataValidatorPage {
   }
 
   async useOriginalReviewLookup(): Promise<void> {
-    const target = this.metacriticPickerTargetGame;
+    const target = this.reviewPickerTargetGame;
 
     if (!target) {
       return;
     }
 
-    this.isMetacriticPickerLoading = true;
+    this.isReviewPickerLoading = true;
 
     try {
       const updated = await this.gameShelfService.refreshGameMetacriticScore(
@@ -684,7 +740,7 @@ export class MetadataValidatorPage {
         await this.presentToast(`No review match found for ${target.title}.`, 'warning');
       }
     } catch {
-      this.isMetacriticPickerLoading = false;
+      this.isReviewPickerLoading = false;
       await this.presentToast(`Unable to update review for ${target.title}.`, 'danger');
     }
   }
@@ -783,12 +839,12 @@ export class MetadataValidatorPage {
   }
 
   private async openMetacriticPickerModal(game: GameEntry): Promise<void> {
-    this.metacriticPickerTargetGame = game;
-    this.metacriticPickerQuery = game.title;
-    this.metacriticPickerResults = [];
-    this.metacriticPickerError = null;
-    this.isMetacriticPickerLoading = false;
-    this.isMetacriticPickerModalOpen = true;
+    this.reviewPickerTargetGame = game;
+    this.reviewPickerQuery = game.title;
+    this.reviewPickerResults = [];
+    this.reviewPickerError = null;
+    this.isReviewPickerLoading = false;
+    this.isReviewPickerModalOpen = true;
     await this.runMetacriticPickerSearch();
   }
 

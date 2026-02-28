@@ -21,6 +21,7 @@ import { PLATFORM_CATALOG } from '../data/platform-catalog';
 import { DebugLogService } from '../services/debug-log.service';
 import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
 import { isMetacriticPlatformSupported } from '../utils/metacritic-platform-support';
+import { resolveMobyGamesPlatformId } from '../utils/mobygames-platform-map';
 
 interface SearchResponse {
   items: GameCatalogResult[];
@@ -51,10 +52,10 @@ interface MobyGamesSearchResponse {
 interface MobyGamesGameResult {
   title?: string | null;
   moby_url?: string | null;
-  critic_score?: number | null;
-  moby_score?: number | null;
+  critic_score?: number | string | null;
+  moby_score?: number | string | null;
   release_date?: string | null;
-  platforms?: Array<{ name?: string | null }> | null;
+  platforms?: Array<{ name?: string | null; platform_name?: string | null }> | null;
 }
 
 interface PopularityTypesResponse {
@@ -376,15 +377,16 @@ export class IgdbProxyService implements GameSearchApi {
     if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {
       const mobygamesParams = this.buildMobyGamesParams({
         query: normalizedTitle,
-        releaseYear: normalizedYear,
-        platform: normalizedPlatform,
+        platformIgdbId: normalizedPlatformIgdbId,
         limit: 20
       });
+      const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
       this.debugLogService.trace('igdb_proxy.mobygames.lookup_request', {
         title: normalizedTitle,
         releaseYear: normalizedYear,
         platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
-        platformIgdbId: normalizedPlatformIgdbId
+        platformIgdbId: normalizedPlatformIgdbId,
+        mobygamesPlatformId
       });
 
       return this.httpClient
@@ -498,15 +500,16 @@ export class IgdbProxyService implements GameSearchApi {
     if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {
       const mobygamesParams = this.buildMobyGamesParams({
         query: normalizedTitle,
-        releaseYear: normalizedYear,
-        platform: normalizedPlatform,
+        platformIgdbId: normalizedPlatformIgdbId,
         limit: 100
       });
+      const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
       this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_request', {
         title: normalizedTitle,
         releaseYear: normalizedYear,
         platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
-        platformIgdbId: normalizedPlatformIgdbId
+        platformIgdbId: normalizedPlatformIgdbId,
+        mobygamesPlatformId
       });
 
       return this.httpClient
@@ -949,22 +952,19 @@ export class IgdbProxyService implements GameSearchApi {
 
   private buildMobyGamesParams(options: {
     query: string;
-    releaseYear: number | null;
-    platform: string;
+    platformIgdbId: number | null;
     limit: number;
   }): HttpParams {
-    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
-      .set('q', options.query)
-      .set('fuzzy', 'true')
-      .set('limit', String(options.limit))
-      .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date');
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set(
+      'q',
+      options.query
+    );
 
-    if (options.releaseYear !== null) {
-      params = params.set('releaseYear', String(options.releaseYear));
-    }
+    params = params.set('limit', String(options.limit));
 
-    if (options.platform.length > 0) {
-      params = params.set('platform', options.platform);
+    const mobygamesPlatformId = resolveMobyGamesPlatformId(options.platformIgdbId);
+    if (mobygamesPlatformId !== null) {
+      params = params.set('platform', String(mobygamesPlatformId));
     }
 
     return params;
@@ -1074,14 +1074,19 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeMobygamesPlatform(
-    platforms: Array<{ name?: string | null }> | null | undefined
+    platforms: Array<{ name?: string | null; platform_name?: string | null }> | null | undefined
   ): string | null {
     if (!Array.isArray(platforms)) {
       return null;
     }
 
     for (const entry of platforms) {
-      const normalized = typeof entry.name === 'string' ? entry.name.trim() : '';
+      const normalized =
+        typeof entry.platform_name === 'string'
+          ? entry.platform_name.trim()
+          : typeof entry.name === 'string'
+            ? entry.name.trim()
+            : '';
       if (normalized.length > 0) {
         return normalized;
       }
@@ -1091,11 +1096,31 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeMobygamesScore(game: MobyGamesGameResult): number | null {
-    const criticScore = this.normalizeMetacriticScore(game.critic_score ?? null);
+    const criticScore = this.normalizeMetacriticScore(
+      this.normalizeMobygamesNumericScore(game.critic_score)
+    );
     if (criticScore !== null) {
       return criticScore;
     }
-    return this.normalizeMetacriticScore(game.moby_score ?? null);
+    return this.normalizeMetacriticScore(this.normalizeMobygamesNumericScore(game.moby_score));
+  }
+
+  private normalizeMobygamesNumericScore(value: number | string | null | undefined): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      if (normalized.length === 0) {
+        return null;
+      }
+
+      const parsed = Number.parseFloat(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
   }
 
   private normalizeExternalImageUrl(value: string | null): string | null {

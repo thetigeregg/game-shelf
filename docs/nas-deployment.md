@@ -160,6 +160,12 @@ Local development runs `api` in Docker (no host-run API process).
 cp .env.example .env
 ```
 
+Key metadata env vars in `.env`:
+
+- `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=240`
+- `MOBYGAMES_API_BASE_URL=https://api.mobygames.com/v2`
+- `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=12` (0.2 requests/second)
+
 3. Start the dev stack:
 
 ```bash

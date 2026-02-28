@@ -151,6 +151,8 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/postgres_user`
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
+`nas-secrets/metacritic_scraper_token` (optional)
+`nas-secrets/mobygames_api_key` (required for MobyGames review lookups)
 
 2. Create local non-secret env file:
 

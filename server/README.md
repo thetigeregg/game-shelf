@@ -19,6 +19,53 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `POST /v1/sync/push`
 - `POST /v1/sync/pull`
 
+### Metadata query parameters
+
+- `GET /v1/hltb/search`
+  - Required: `q` (min length 2)
+  - Optional: `releaseYear` (YYYY), `platform`, `includeCandidates` (`1|true|yes`)
+- `GET /v1/metacritic/search`
+  - Required: `q` (min length 2)
+  - Optional: `releaseYear` (YYYY), `platform`, `platformIgdbId`, `includeCandidates` (`1|true|yes`)
+- `GET /v1/mobygames/search`
+  - Required: `q` (or `title`) (min length 2)
+  - Optional: `platform`, `include`, `limit`, `offset`, `id`, `genre`, `group`, `steam_app_id`, `fuzzy`
+
+## Configuration
+
+### Required file-based secrets
+
+- `DATABASE_URL_FILE` (defaults to `/run/secrets/database_url`)
+- `TWITCH_CLIENT_ID_FILE` (defaults to `/run/secrets/twitch_client_id`)
+- `TWITCH_CLIENT_SECRET_FILE` (defaults to `/run/secrets/twitch_client_secret`)
+- `THEGAMESDB_API_KEY_FILE` (defaults to `/run/secrets/thegamesdb_api_key`)
+
+### Optional file-based secrets
+
+- `API_TOKEN_FILE` (defaults to `/run/secrets/api_token`)
+- `CLIENT_WRITE_TOKENS_FILE` (defaults to `/run/secrets/client_write_tokens`)
+- `HLTB_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/hltb_scraper_token`)
+- `METACRITIC_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/metacritic_scraper_token`)
+- `MOBYGAMES_API_KEY_FILE` (defaults to `/run/secrets/mobygames_api_key`)
+
+### Non-secret env vars (metadata/caching/rate limit)
+
+- `HLTB_SCRAPER_BASE_URL`
+- `HLTB_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
+- `HLTB_CACHE_FRESH_TTL_SECONDS`
+- `HLTB_CACHE_STALE_TTL_SECONDS`
+- `HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE`
+- `METACRITIC_SCRAPER_BASE_URL`
+- `METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
+- `METACRITIC_CACHE_FRESH_TTL_SECONDS`
+- `METACRITIC_CACHE_STALE_TTL_SECONDS`
+- `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE`
+- `MOBYGAMES_API_BASE_URL`
+- `MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
+- `MOBYGAMES_CACHE_FRESH_TTL_SECONDS`
+- `MOBYGAMES_CACHE_STALE_TTL_SECONDS`
+- `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE`
+
 Mutating routes (`POST`, `PUT`, `PATCH`, `DELETE`) require auth when `REQUIRE_AUTH=true`.
 Provide either:
 

@@ -2969,11 +2969,22 @@ export class SettingsPage {
       reviewScore !== null && Number.isFinite(reviewScore)
         ? Math.round(reviewScore * 10) / 10
         : null;
+    const explicitMobyScore = parseOptionalDecimal(record.mobyScore);
+    if (
+      record.mobyScore.trim().length > 0 &&
+      (explicitMobyScore === null || explicitMobyScore <= 0 || explicitMobyScore > 10)
+    ) {
+      return this.errorRow(type, rowNumber, 'Moby score must be greater than 0 and at most 10.');
+    }
     const reviewScoreForCatalog =
       reviewSource === 'mobygames' && normalizedReviewScore !== null
-        ? normalizedReviewScore <= 10
-          ? Math.round(normalizedReviewScore * 100) / 10
-          : normalizedReviewScore
+        ? explicitMobyScore !== null
+          ? Math.abs(normalizedReviewScore - explicitMobyScore) < 0.05
+            ? Math.round(normalizedReviewScore * 100) / 10
+            : normalizedReviewScore
+          : normalizedReviewScore <= 10
+            ? Math.round(normalizedReviewScore * 100) / 10
+            : normalizedReviewScore
         : normalizedReviewScore;
     const explicitMetacriticScore = parseOptionalNumber(record.metacriticScore);
     if (
@@ -2987,13 +2998,6 @@ export class SettingsPage {
         rowNumber,
         'Metacritic score must be an integer between 1 and 100.'
       );
-    }
-    const explicitMobyScore = parseOptionalDecimal(record.mobyScore);
-    if (
-      record.mobyScore.trim().length > 0 &&
-      (explicitMobyScore === null || explicitMobyScore <= 0 || explicitMobyScore > 10)
-    ) {
-      return this.errorRow(type, rowNumber, 'Moby score must be greater than 0 and at most 10.');
     }
     const normalizedMobyScore =
       explicitMobyScore ??

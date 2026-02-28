@@ -749,6 +749,64 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('routes review score lookup by platform support matrix', async () => {
+    const metacriticPromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', 2006, 'Wii', 21)
+    );
+    const metacriticReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
+    metacriticReq.flush({
+      item: {
+        metacriticScore: 92,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
+    });
+    await expect(metacriticPromise).resolves.toEqual({
+      metacriticScore: 92,
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
+    });
+    httpMock.expectNone(
+      (request) => request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+    );
+
+    const mobyPromise = firstValueFrom(
+      service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
+    );
+    const mobyReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === 'Genesis'
+      );
+    });
+    mobyReq.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ name: 'Genesis' }],
+          moby_score: 88,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        }
+      ]
+    });
+    await expect(mobyPromise).resolves.toEqual({
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+    });
+    httpMock.expectNone((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('platformIgdbId') === '29'
+      );
+    });
+  });
+
   it('returns null for Metacritic lookup failures', async () => {
     const promise = firstValueFrom(
       service.lookupMetacriticScore('Okami', undefined, undefined, 21)

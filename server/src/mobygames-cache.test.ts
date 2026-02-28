@@ -22,26 +22,22 @@ function toPrimitiveString(value: unknown): string {
 function buildExpectedCacheKey(params: {
   query: string;
   platform: string | null;
-  include: string | null;
   limit: number | null;
   offset: number | null;
   id: string | null;
   genre: string | null;
   group: string | null;
-  steamAppId: string | null;
-  fuzzy: boolean | null;
+  format: 'id' | 'brief' | 'normal' | null;
 }): string {
   const payload = JSON.stringify([
     params.query.toLowerCase(),
     params.platform?.toLowerCase() ?? null,
-    params.include?.toLowerCase() ?? null,
     params.limit,
     params.offset,
     params.id?.toLowerCase() ?? null,
     params.genre?.toLowerCase() ?? null,
     params.group?.toLowerCase() ?? null,
-    params.steamAppId,
-    params.fuzzy
+    params.format
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -293,20 +289,18 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
         assert.match(capturedUrl, /title=Okami/);
         assert.match(capturedUrl, /platform=9/);
         assert.match(capturedUrl, /limit=10/);
-        assert.match(capturedUrl, /include=game_id%2Ctitle%2Cmoby_url/);
-        assert.match(capturedUrl, /fuzzy=true/);
+        assert.doesNotMatch(capturedUrl, /include=/);
+        assert.doesNotMatch(capturedUrl, /fuzzy=/);
 
         const expectedCacheKey = buildExpectedCacheKey({
           query: 'Okami',
           platform: '9',
-          include: 'game_id,title,moby_url',
           limit: 10,
           offset: 0,
           id: null,
           genre: null,
           group: null,
-          steamAppId: null,
-          fuzzy: true
+          format: null
         });
         assert.equal(typeof expectedCacheKey, 'string');
 

@@ -140,7 +140,7 @@ export function dedupeReviewCandidates<
   const byKey = new Map<string, T>();
 
   candidates.forEach((candidate) => {
-    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.reviewScore ?? candidate.metacriticScore ?? '')}`;
+    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
 
     const existing = byKey.get(key);
     if (!existing) {

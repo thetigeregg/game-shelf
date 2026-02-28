@@ -380,7 +380,7 @@ describe('GameSyncService', () => {
     expect(stored?.metacriticUrl).toBeNull();
   });
 
-  it('preserves decimal precision in reviewScore from sync payload', async () => {
+  it('scales MobyGames reviewScore from 0–10 to 0–100 when reviewSource is mobygames', async () => {
     await servicePrivate.applyGameChange({
       eventId: '7b-decimal-review',
       entityType: 'game',
@@ -396,9 +396,50 @@ describe('GameSyncService', () => {
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
-    expect(stored?.reviewScore).toBe(8.8);
+    expect(stored?.reviewScore).toBe(88);
     expect(stored?.reviewSource).toBe('mobygames');
     expect(stored?.mobyScore).toBe(8.8);
+  });
+
+  it('does not scale MobyGames reviewScore when it differs from mobyScore (critic_score case)', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7c-critic-score',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 75,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobyScore: 7.5,
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(75);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBe(7.5);
+  });
+
+  it('scales MobyGames reviewScore via ≤10 heuristic when mobyScore is absent', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7d-no-mobyscore',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 8.8,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(88);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBeNull();
   });
 
   it('normalizes metacritic review source and does not set moby fields', async () => {

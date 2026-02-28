@@ -57,6 +57,14 @@ interface MobyGamesGameResult {
   moby_score?: number | string | null;
   release_date?: string | null;
   platforms?: Array<{ name?: string | null; platform_name?: string | null }> | null;
+  covers?: Array<{
+    images?: Array<{
+      thumbnail_url?: string | null;
+      image_url?: string | null;
+      original_url?: string | null;
+      moby_url?: string | null;
+    }> | null;
+  }> | null;
 }
 
 interface PopularityTypesResponse {
@@ -964,7 +972,7 @@ export class IgdbProxyService implements GameSearchApi {
     params = params
       .set('limit', String(options.limit))
       .set('format', 'normal')
-      .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date');
+      .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date,covers');
 
     const mobygamesPlatformId = resolveMobyGamesPlatformId(options.platformIgdbId);
     if (mobygamesPlatformId !== null) {
@@ -1007,6 +1015,7 @@ export class IgdbProxyService implements GameSearchApi {
         const platform = this.normalizeMobygamesPlatform(game.platforms);
         const reviewScore = this.normalizeMobygamesScore(game);
         const reviewUrl = this.normalizeExternalUrl(game.moby_url ?? null);
+        const imageUrl = this.normalizeMobygamesImageUrl(game.covers);
 
         return {
           title,
@@ -1016,7 +1025,8 @@ export class IgdbProxyService implements GameSearchApi {
           reviewUrl,
           reviewSource: 'mobygames' as const,
           metacriticScore: reviewScore,
-          metacriticUrl: reviewUrl
+          metacriticUrl: reviewUrl,
+          ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0)
@@ -1122,6 +1132,44 @@ export class IgdbProxyService implements GameSearchApi {
 
       const parsed = Number.parseFloat(normalized);
       return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+  }
+
+  private normalizeMobygamesImageUrl(
+    covers:
+      | Array<{
+          images?: Array<{
+            thumbnail_url?: string | null;
+            image_url?: string | null;
+            original_url?: string | null;
+            moby_url?: string | null;
+          }> | null;
+        }>
+      | null
+      | undefined
+  ): string | null {
+    if (!Array.isArray(covers)) {
+      return null;
+    }
+
+    for (const cover of covers) {
+      const images = cover.images;
+      if (!Array.isArray(images)) {
+        continue;
+      }
+
+      for (const image of images) {
+        const candidate =
+          this.normalizeExternalImageUrl(image.thumbnail_url ?? null) ??
+          this.normalizeExternalImageUrl(image.image_url ?? null) ??
+          this.normalizeExternalImageUrl(image.original_url ?? null) ??
+          this.normalizeExternalImageUrl(image.moby_url ?? null);
+        if (candidate) {
+          return candidate;
+        }
+      }
     }
 
     return null;

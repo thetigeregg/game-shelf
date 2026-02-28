@@ -276,7 +276,29 @@ describe('SettingsPage CSV review fields', () => {
       new Set<string>()
     ) as { error: string | null };
 
-    expect(preview.error).toBe('Moby score must be a number between 0 and 10.');
+    expect(preview.error).toBe('Moby score must be greater than 0 and at most 10.');
+  });
+
+  it('rejects zero mobygames score values on import', () => {
+    const page = createPage();
+    const record = makeGameRow({
+      reviewScore: '80',
+      reviewSource: 'mobygames',
+      mobyScore: '0'
+    });
+
+    const preview = page['validateImportRecord'](
+      record,
+      2,
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>()
+    ) as { error: string | null };
+
+    expect(preview.error).toBe('Moby score must be greater than 0 and at most 10.');
   });
 
   it('maps reviewSource/mobyScore/mobygamesGameId columns from CSV records', () => {

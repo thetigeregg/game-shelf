@@ -159,12 +159,14 @@ export async function registerMobyGamesCachedRoute(
         }
       }
 
-      incrementMobygamesMetric('misses');
       if (!normalized) {
+        cacheOutcome = 'BYPASS';
+        incrementMobygamesMetric('bypasses');
         logMobygamesCacheDecision(request, 'BYPASS', null, null, {
           reason: 'query_too_short'
         });
       } else {
+        incrementMobygamesMetric('misses');
         logMobygamesCacheDecision(request, 'MISS', normalized, null);
       }
       const response = await fetchMetadata(request);

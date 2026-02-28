@@ -901,7 +901,7 @@ describe('GameShelfService', () => {
 
     const result = await service.refreshGameMetacriticScore('123', 5);
 
-    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, null);
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         metacriticScore: 87,
@@ -950,7 +950,7 @@ describe('GameShelfService', () => {
       platform: 'Wii'
     });
 
-    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, null);
     expect(result).toEqual(updatedEntry);
   });
 

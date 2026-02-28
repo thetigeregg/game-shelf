@@ -48,7 +48,8 @@ export interface GameSearchApi {
     title: string,
     releaseYear?: number | null,
     platform?: string | null,
-    platformIgdbId?: number | null
+    platformIgdbId?: number | null,
+    mobygamesGameId?: number | null
   ): Observable<ReviewScoreResult | null>;
   lookupReviewCandidates(
     title: string,

@@ -84,6 +84,10 @@ export class DexieGameRepository implements GameRepository {
           existing.reviewScore ?? existing.metacriticScore,
           existing.reviewUrl ?? existing.metacriticUrl
         ),
+        mobygamesGameId: this.resolveMobygamesGameId(
+          result.mobygamesGameId,
+          existing.mobygamesGameId
+        ),
         metacriticScore: this.resolveMetacriticScore(
           result.reviewScore ?? result.metacriticScore,
           existing.reviewScore ?? existing.metacriticScore
@@ -150,6 +154,7 @@ export class DexieGameRepository implements GameRepository {
         result.reviewScore ?? result.metacriticScore,
         result.reviewUrl ?? result.metacriticUrl
       ),
+      mobygamesGameId: this.normalizeMobygamesGameId(result.mobygamesGameId),
       metacriticScore: this.normalizeMetacriticScore(result.reviewScore ?? result.metacriticScore),
       metacriticUrl: this.normalizeMetacriticUrl(result.reviewUrl ?? result.metacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
@@ -736,6 +741,14 @@ export class DexieGameRepository implements GameRepository {
     return normalizedScore !== null || normalizedUrl !== null ? 'metacritic' : null;
   }
 
+  private normalizeMobygamesGameId(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+      return null;
+    }
+
+    return value;
+  }
+
   private normalizeGameType(value: unknown): GameEntry['gameType'] {
     if (
       value === 'main_game' ||
@@ -817,6 +830,17 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeReviewSource(incoming, incomingScore, incomingUrl);
+  }
+
+  private resolveMobygamesGameId(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizeMobygamesGameId(existing);
+    }
+
+    return this.normalizeMobygamesGameId(incoming);
   }
 
   private resolveGameIdList(

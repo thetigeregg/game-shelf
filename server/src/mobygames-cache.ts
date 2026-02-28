@@ -396,7 +396,7 @@ async function fetchMetadataFromMobyGames(request: FastifyRequest): Promise<Resp
     });
   }
 
-  const targetUrl = new URL('/games', baseUrl);
+  const targetUrl = buildMobyGamesGamesUrl(baseUrl);
   targetUrl.searchParams.set('api_key', apiKey);
   targetUrl.searchParams.set('title', normalized.query);
   appendNullableString(targetUrl, 'platform', normalized.platform);
@@ -445,6 +445,17 @@ function appendNullableBoolean(targetUrl: URL, key: string, value: boolean | nul
   if (value !== null) {
     targetUrl.searchParams.set(key, value ? 'true' : 'false');
   }
+}
+
+function buildMobyGamesGamesUrl(baseUrl: string): URL {
+  const targetUrl = new URL(baseUrl);
+  const normalizedPath = targetUrl.pathname.endsWith('/')
+    ? targetUrl.pathname
+    : `${targetUrl.pathname}/`;
+  targetUrl.pathname = `${normalizedPath}games`;
+  targetUrl.search = '';
+  targetUrl.hash = '';
+  return targetUrl;
 }
 
 function readEnv(name: string): string {

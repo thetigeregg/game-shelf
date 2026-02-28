@@ -618,7 +618,7 @@ describe('MetadataValidatorPage', () => {
 
     expect(callPrivate(page, 'toPositiveNumber', 2)).toBe(2);
     expect(callPrivate(page, 'toPositiveNumber', 0)).toBeNull();
-    expect(callPrivate(page, 'toMetacriticScore', 88.2)).toBe(88);
+    expect(callPrivate(page, 'toMetacriticScore', 88.2)).toBe(88.2);
     expect(callPrivate(page, 'toMetacriticScore', 0)).toBeNull();
 
     const hltbDeduped = callPrivate(page, 'dedupeHltbCandidates', [

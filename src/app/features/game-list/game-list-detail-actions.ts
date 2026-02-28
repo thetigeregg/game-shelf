@@ -12,10 +12,6 @@ export function hasReviewData(game: GameEntry): boolean {
   return isPositiveScore(game.reviewScore ?? game.metacriticScore);
 }
 
-export function hasMetacriticData(game: GameEntry): boolean {
-  return hasReviewData(game);
-}
-
 export function normalizeGameStatus(value: string | null | undefined): GameStatus | null {
   if (
     value === 'playing' ||

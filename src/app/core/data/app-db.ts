@@ -143,10 +143,10 @@ export class AppDb extends Dexie {
               game['reviewSource'] = game['reviewUrl'] ? 'metacritic' : null;
             }
 
-            if (metacriticScoreRaw === undefined) {
+            if (metacriticScoreRaw === undefined && game['reviewSource'] !== 'mobygames') {
               game['metacriticScore'] = game['reviewScore'] ?? null;
             }
-            if (metacriticUrlRaw === undefined) {
+            if (metacriticUrlRaw === undefined && game['reviewSource'] !== 'mobygames') {
               game['metacriticUrl'] = game['reviewUrl'] ?? null;
             }
           });

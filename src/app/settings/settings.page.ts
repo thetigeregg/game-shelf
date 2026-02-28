@@ -2971,7 +2971,7 @@ export class SettingsPage {
       record.mobyScore.trim().length > 0 &&
       (explicitMobyScore === null || explicitMobyScore > 10)
     ) {
-      return this.errorRow(type, rowNumber, 'Moby score must be a number between 0 and 10.');
+      return this.errorRow(type, rowNumber, 'Moby score must be greater than 0 and at most 10.');
     }
     const normalizedMobyScore =
       explicitMobyScore ??

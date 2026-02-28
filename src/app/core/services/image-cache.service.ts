@@ -339,7 +339,11 @@ export class ImageCacheService {
   }
 
   private shouldBypassDetailBlobCache(): boolean {
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    if (
+      typeof window === 'undefined' ||
+      typeof navigator === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
       return false;
     }
 

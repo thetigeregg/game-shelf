@@ -2952,11 +2952,11 @@ export class SettingsPage {
 
     if (reviewScoreRaw.trim().length > 0) {
       if (reviewSource === 'mobygames') {
-        if (reviewScore === null || reviewScore <= 0 || reviewScore > 10) {
+        if (reviewScore === null || reviewScore <= 0 || reviewScore > 100) {
           return this.errorRow(
             type,
             rowNumber,
-            'Review score must be a number greater than 0 and at most 10 for MobyGames.'
+            'Review score must be a number greater than 0 and at most 100 for MobyGames.'
           );
         }
       } else if (reviewScore === null || reviewScore < 1 || reviewScore > 100) {
@@ -2991,7 +2991,7 @@ export class SettingsPage {
     const explicitMobyScore = parseOptionalDecimal(record.mobyScore);
     if (
       record.mobyScore.trim().length > 0 &&
-      (explicitMobyScore === null || explicitMobyScore > 10)
+      (explicitMobyScore === null || explicitMobyScore <= 0 || explicitMobyScore > 10)
     ) {
       return this.errorRow(type, rowNumber, 'Moby score must be greater than 0 and at most 10.');
     }

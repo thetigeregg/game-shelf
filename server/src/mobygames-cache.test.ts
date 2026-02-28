@@ -455,8 +455,9 @@ void test('MOBYGAMES stale revalidation serves stale and refreshes cache in back
   assert.deepEqual(JSON.parse(response.body), stalePayload);
 
   // Run background revalidation
-  assert.ok(backgroundTask !== null, 'background task should be scheduled');
-  await backgroundTask!();
+  const task0 = backgroundTask;
+  assert.ok(task0, 'background task should be scheduled');
+  await task0();
   assert.equal(revalidateCalls, 1);
 
   const metrics = getCacheMetrics();
@@ -554,16 +555,16 @@ void test('MOBYGAMES stale revalidation handles non-ok upstream response', async
     freshTtlSeconds: 1,
     staleTtlSeconds: 9999,
     now: () => nowMs,
-    fetchMetadata: () =>
-      Promise.resolve(new Response('upstream error', { status: 503 })),
+    fetchMetadata: () => Promise.resolve(new Response('upstream error', { status: 503 })),
     scheduleBackgroundRefresh: (task) => {
       backgroundTask = task;
     }
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Castlevania' });
-  assert.ok(backgroundTask !== null);
-  await backgroundTask!();
+  const task1 = backgroundTask;
+  assert.ok(task1);
+  await task1();
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.mobygames.revalidateFailed, 1);
@@ -612,8 +613,9 @@ void test('MOBYGAMES stale revalidation handles null JSON payload', async () => 
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Metroid' });
-  assert.ok(backgroundTask !== null);
-  await backgroundTask!();
+  const task2 = backgroundTask;
+  assert.ok(task2);
+  await task2();
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.mobygames.revalidateFailed, 1);
@@ -662,8 +664,9 @@ void test('MOBYGAMES stale revalidation handles uncacheable payload (empty games
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Contra' });
-  assert.ok(backgroundTask !== null);
-  await backgroundTask!();
+  const task3 = backgroundTask;
+  assert.ok(task3);
+  await task3();
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.mobygames.revalidateFailed, 1);
@@ -706,8 +709,9 @@ void test('MOBYGAMES stale revalidation handles fetch exception', async () => {
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Ghosts' });
-  assert.ok(backgroundTask !== null);
-  await backgroundTask!();
+  const task4 = backgroundTask;
+  assert.ok(task4);
+  await task4();
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.mobygames.revalidateFailed, 1);
@@ -738,7 +742,9 @@ void test('MOBYGAMES write error is handled gracefully', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
-  assert.deepEqual(JSON.parse(response.body), { games: [{ game_id: 10, title: 'Street Fighter' }] });
+  assert.deepEqual(JSON.parse(response.body), {
+    games: [{ game_id: 10, title: 'Street Fighter' }]
+  });
 
   const metrics = getCacheMetrics();
   assert.equal(metrics.mobygames.writeErrors, 1);

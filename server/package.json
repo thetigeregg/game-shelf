@@ -9,21 +9,21 @@
     "test:coverage": "mkdir -p coverage && NODE_ENV=test node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/**/*.test.ts' --test-reporter=spec --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=coverage/lcov.info --import tsx src/**/*.test.ts && node ../scripts/coverage/normalize-lcov-paths.mjs coverage/lcov.info server"
   },
   "dependencies": {
-    "@fastify/cors": "^11.1.0",
-    "@fastify/middie": "^9.1.0",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/middie": "^9.2.0",
     "@fastify/rate-limit": "^10.3.0",
     "dotenv": "^17.3.1",
     "express-rate-limit": "^8.2.1",
-    "fastify": "^5.4.0",
+    "fastify": "^5.7.4",
     "fastify-rate-limit": "npm:@fastify/rate-limit@^10.3.0",
     "fastify-plugin": "^5.1.0",
-    "pg": "^8.16.3",
+    "pg": "^8.19.0",
     "pino-pretty": "^13.1.3",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
-    "@types/node": "^22.18.0",
-    "@types/pg": "^8.15.5",
+    "@types/node": "^22.19.13",
+    "@types/pg": "^8.16.0",
     "typescript": "^5.9.2"
   }
 }

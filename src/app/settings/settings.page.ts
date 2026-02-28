@@ -2953,6 +2953,16 @@ export class SettingsPage {
     }
 
     const parsedReviewUrl = parseOptionalText(reviewUrlRaw);
+    const normalizedReviewScore =
+      reviewScore !== null && Number.isFinite(reviewScore)
+        ? Math.round(reviewScore * 10) / 10
+        : null;
+    const reviewScoreForCatalog =
+      reviewSource === 'mobygames' && normalizedReviewScore !== null
+        ? normalizedReviewScore <= 10
+          ? Math.round(normalizedReviewScore * 100) / 10
+          : normalizedReviewScore
+        : normalizedReviewScore;
     const explicitMetacriticScore = parseOptionalNumber(record.metacriticScore);
     if (
       record.metacriticScore.trim().length > 0 &&
@@ -2975,10 +2985,10 @@ export class SettingsPage {
     }
     const normalizedMobyScore =
       explicitMobyScore ??
-      (reviewSource === 'mobygames' && reviewScore !== null
-        ? reviewScore <= 10
-          ? reviewScore
-          : reviewScore / 10
+      (reviewSource === 'mobygames' && reviewScoreForCatalog !== null
+        ? reviewScoreForCatalog <= 10
+          ? reviewScoreForCatalog
+          : reviewScoreForCatalog / 10
         : null);
     const mobyScore =
       normalizedMobyScore !== null &&
@@ -3006,10 +3016,7 @@ export class SettingsPage {
       hltbMainHours: parseOptionalDecimal(record.hltbMainHours),
       hltbMainExtraHours: parseOptionalDecimal(record.hltbMainExtraHours),
       hltbCompletionistHours: parseOptionalDecimal(record.hltbCompletionistHours),
-      reviewScore:
-        reviewScore !== null && Number.isFinite(reviewScore)
-          ? Math.round(reviewScore * 10) / 10
-          : null,
+      reviewScore: reviewScoreForCatalog,
       reviewUrl: parsedReviewUrl,
       reviewSource,
       mobyScore,

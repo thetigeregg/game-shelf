@@ -4,7 +4,6 @@ import type { GameEntry, Tag } from '../../core/models/game.models';
 import {
   buildTagInput,
   hasHltbData,
-  hasMetacriticData,
   hasReviewData,
   normalizeGameRating,
   normalizeGameStatus,
@@ -36,7 +35,7 @@ describe('game-list-detail-actions', () => {
 
     expect(hasReviewData(makeGame({ reviewScore: 90 }))).toBe(true);
     expect(hasReviewData(makeGame({ reviewScore: 0 }))).toBe(false);
-    expect(hasMetacriticData(makeGame({ metacriticScore: 88 }))).toBe(true);
+    expect(hasReviewData(makeGame({ metacriticScore: 88 }))).toBe(true);
   });
 
   it('normalizes status and rating values', () => {

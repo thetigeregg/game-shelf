@@ -194,7 +194,7 @@ export const config: AppConfig = {
     'METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
     240
   ),
-  mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v1'),
+  mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
   mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',

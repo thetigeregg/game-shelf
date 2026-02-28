@@ -288,7 +288,7 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
 
         assert.equal(response.statusCode, 200);
         assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
-        assert.match(capturedUrl, /\/games\?/);
+        assert.match(capturedUrl, /\/v2\/games\?/);
         assert.match(capturedUrl, /api_key=abc123/);
         assert.match(capturedUrl, /title=Okami/);
         assert.match(capturedUrl, /platform=9/);

@@ -160,6 +160,34 @@ void test('Cache stats endpoint returns dbError when count queries fail', async 
   await app.close();
 });
 
+void test('Cache stats endpoint returns 0 count when db rows are empty', async () => {
+  resetCacheMetrics();
+
+  class CacheStatsEmptyRowsPoolMock {
+    query(): Promise<{ rows: Array<{ count: string }> }> {
+      return Promise.resolve({ rows: [] });
+    }
+  }
+
+  const app = Fastify();
+  await registerCacheObservabilityRoutes(app, new CacheStatsEmptyRowsPoolMock() as unknown as Pool);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/cache/stats'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = parseJson(response.body) as CacheStatsPayload;
+  assert.equal(payload.counts.imageAssets, 0);
+  assert.equal(payload.counts.hltbEntries, 0);
+  assert.equal(payload.counts.metacriticEntries, 0);
+  assert.equal(payload.counts.mobygamesEntries, 0);
+  assert.equal(payload.dbError, null);
+
+  await app.close();
+});
+
 void test('Cache stats endpoint is rate limited', async () => {
   resetCacheMetrics();
 

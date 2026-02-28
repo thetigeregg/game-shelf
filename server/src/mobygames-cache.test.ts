@@ -194,8 +194,8 @@ void test('MOBYGAMES cache bypasses cache when query is too short', async () => 
 
   assert.equal(first.statusCode, 200);
   assert.equal(second.statusCode, 200);
-  assert.equal(first.headers['x-gameshelf-mobygames-cache'], 'MISS');
-  assert.equal(second.headers['x-gameshelf-mobygames-cache'], 'MISS');
+  assert.equal(first.headers['x-gameshelf-mobygames-cache'], 'BYPASS');
+  assert.equal(second.headers['x-gameshelf-mobygames-cache'], 'BYPASS');
   assert.equal(fetchCalls, 2);
 
   await app.close();

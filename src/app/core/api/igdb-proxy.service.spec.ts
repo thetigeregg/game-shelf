@@ -781,7 +781,10 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === '16'
+        request.params.get('platform') === '16' &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date'
       );
     });
     mobyReq.flush({
@@ -875,7 +878,10 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === '16'
+        request.params.get('platform') === '16' &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date'
       );
     });
     scoreReq.flush({
@@ -902,7 +908,10 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === '16'
+        request.params.get('platform') === '16' &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date'
       );
     });
     candidatesReq.flush({
@@ -956,7 +965,10 @@ describe('IgdbProxyService', () => {
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Okami' &&
         request.params.get('platform') === null &&
-        request.params.get('releaseYear') === null
+        request.params.get('releaseYear') === null &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date'
       );
     });
     scoreReq.flush({

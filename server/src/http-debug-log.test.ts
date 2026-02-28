@@ -11,7 +11,7 @@ import {
 
 function withEnv(
   overrides: Record<string, string | undefined>,
-  fn: () => Promise<void>
+  fn: () => void | Promise<void>
 ): Promise<void> {
   const original = new Map<string, string | undefined>();
 
@@ -24,7 +24,7 @@ function withEnv(
     }
   }
 
-  return fn().finally(() => {
+  return Promise.resolve(fn()).finally(() => {
     for (const [key, value] of original.entries()) {
       if (typeof value === 'undefined') {
         Reflect.deleteProperty(process.env, key);
@@ -36,14 +36,14 @@ function withEnv(
 }
 
 void test('isDebugHttpLogsEnabled returns false when DEBUG_HTTP_LOGS is not set', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: undefined }, async () => {
+  await withEnv({ DEBUG_HTTP_LOGS: undefined }, () => {
     assert.equal(isDebugHttpLogsEnabled(), false);
   });
 });
 
 void test('isDebugHttpLogsEnabled returns true for truthy values', async () => {
   for (const value of ['1', 'true', 'yes', 'on', 'TRUE', 'YES', 'ON']) {
-    await withEnv({ DEBUG_HTTP_LOGS: value }, async () => {
+    await withEnv({ DEBUG_HTTP_LOGS: value }, () => {
       assert.equal(isDebugHttpLogsEnabled(), true, `expected true for ${value}`);
     });
   }
@@ -51,7 +51,7 @@ void test('isDebugHttpLogsEnabled returns true for truthy values', async () => {
 
 void test('isDebugHttpLogsEnabled returns false for falsy string values', async () => {
   for (const value of ['0', 'false', 'no', 'off', 'nope']) {
-    await withEnv({ DEBUG_HTTP_LOGS: value }, async () => {
+    await withEnv({ DEBUG_HTTP_LOGS: value }, () => {
       assert.equal(isDebugHttpLogsEnabled(), false, `expected false for ${value}`);
     });
   }

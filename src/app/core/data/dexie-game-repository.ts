@@ -98,12 +98,9 @@ export class DexieGameRepository implements GameRepository {
         ),
         metacriticScore: this.resolveMetacriticScore(
           incomingMetacriticScore,
-          existing.reviewScore ?? existing.metacriticScore
+          existing.metacriticScore
         ),
-        metacriticUrl: this.resolveMetacriticUrl(
-          incomingMetacriticUrl,
-          existing.reviewUrl ?? existing.metacriticUrl
-        ),
+        metacriticUrl: this.resolveMetacriticUrl(incomingMetacriticUrl, existing.metacriticUrl),
         similarGameIgdbIds: this.resolveGameIdList(
           result.similarGameIgdbIds,
           existing.similarGameIgdbIds

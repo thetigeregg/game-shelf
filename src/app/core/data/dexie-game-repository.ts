@@ -21,6 +21,7 @@ import {
   normalizeNonNegativeNumber,
   normalizeStringList
 } from '../utils/game-filter-utils';
+import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 
@@ -746,12 +747,9 @@ export class DexieGameRepository implements GameRepository {
 
     const normalizedUrl = this.normalizeMetacriticUrl(url);
     if (normalizedUrl !== null) {
-      const lowerUrl = normalizedUrl.toLowerCase();
-      if (lowerUrl.includes('mobygames.com')) {
-        return 'mobygames';
-      }
-      if (lowerUrl.includes('metacritic.com')) {
-        return 'metacritic';
+      const detected = detectReviewSourceFromUrl(normalizedUrl);
+      if (detected !== null) {
+        return detected;
       }
     }
 

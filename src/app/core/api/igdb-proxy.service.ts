@@ -22,6 +22,7 @@ import { DebugLogService } from '../services/debug-log.service';
 import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
 import { isMetacriticPlatformSupported } from '../utils/metacritic-platform-support';
 import { resolveMobyGamesPlatformId } from '../utils/mobygames-platform-map';
+import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 
 interface SearchResponse {
   items: GameCatalogResult[];
@@ -1535,16 +1536,7 @@ export class IgdbProxyService implements GameSearchApi {
       return null;
     }
 
-    const normalized = url.trim().toLowerCase();
-    if (normalized.includes('mobygames.com')) {
-      return 'mobygames';
-    }
-
-    if (normalized.includes('metacritic.com')) {
-      return 'metacritic';
-    }
-
-    return null;
+    return detectReviewSourceFromUrl(url);
   }
 
   private normalizeCompletionHours(value: number | null | undefined): number | null {

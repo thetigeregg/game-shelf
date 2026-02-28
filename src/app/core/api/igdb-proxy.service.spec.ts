@@ -784,7 +784,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     mobyReq.flush({
@@ -881,7 +881,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     scoreReq.flush({
@@ -911,7 +911,7 @@ describe('IgdbProxyService', () => {
         request.params.get('platform') === '16' &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     candidatesReq.flush({
@@ -921,6 +921,15 @@ describe('IgdbProxyService', () => {
           release_date: '1992-03-20',
           platforms: [{ platform_name: ' Genesis ' }],
           critic_score: 87.6,
+          covers: [
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
+                }
+              ]
+            }
+          ],
           moby_url: 'https://www.mobygames.com/game/123/shining-force/'
         },
         {
@@ -946,7 +955,8 @@ describe('IgdbProxyService', () => {
         releaseYear: 1992,
         platform: 'Genesis',
         metacriticScore: 88,
-        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+        imageUrl: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
       },
       {
         title: 'Shining Force CD',
@@ -968,7 +978,7 @@ describe('IgdbProxyService', () => {
         request.params.get('releaseYear') === null &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date'
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
       );
     });
     scoreReq.flush({

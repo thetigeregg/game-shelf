@@ -325,6 +325,26 @@ describe('DexieGameRepository', () => {
     expect(httpsUpdated?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
   });
 
+  it('preserves existing metacritic score/url when absent in partial upsert', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 92,
+        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/'
+      },
+      'collection'
+    );
+
+    await repository.upsertFromCatalog(
+      { ...mario, title: 'Super Mario Bros. Updated' },
+      'collection'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.metacriticScore).toBe(92);
+    expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });

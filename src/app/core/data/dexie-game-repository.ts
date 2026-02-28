@@ -50,9 +50,9 @@ export class DexieGameRepository implements GameRepository {
     const incomingReviewScore = result.reviewScore ?? result.metacriticScore;
     const incomingReviewUrl = result.reviewUrl ?? result.metacriticUrl;
     const incomingMetacriticScore =
-      result.reviewSource === 'metacritic' ? incomingReviewScore : (result.metacriticScore ?? null);
+      result.reviewSource === 'metacritic' ? incomingReviewScore : result.metacriticScore;
     const incomingMetacriticUrl =
-      result.reviewSource === 'metacritic' ? incomingReviewUrl : (result.metacriticUrl ?? null);
+      result.reviewSource === 'metacritic' ? incomingReviewUrl : result.metacriticUrl;
 
     if (existing?.id !== undefined) {
       const updated: GameEntry = {

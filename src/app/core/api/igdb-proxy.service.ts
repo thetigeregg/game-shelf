@@ -79,6 +79,10 @@ interface MobyGamesGameResult {
       original_url?: string | null;
       moby_url?: string | null;
       caption?: string | null;
+      type?: {
+        id?: number | string | null;
+        name?: string | null;
+      } | null;
     }> | null;
   }> | null;
   screenshots?: Array<{
@@ -1015,10 +1019,7 @@ export class IgdbProxyService implements GameSearchApi {
     params = params
       .set('limit', String(options.limit))
       .set('format', 'normal')
-      .set(
-        'include',
-        'title,moby_url,moby_score,critic_score,platforms,release_date,covers,screenshots'
-      );
+      .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date,covers');
 
     const mobygamesPlatformId = resolveMobyGamesPlatformId(options.platformIgdbId);
     if (mobygamesPlatformId !== null) {
@@ -1084,8 +1085,6 @@ export class IgdbProxyService implements GameSearchApi {
         const reviewUrl = this.normalizeExternalUrl(game.moby_url ?? null);
         const imageUrl = this.normalizeMobygamesImageUrl(
           game.covers,
-          game.screenshots,
-          game.platforms,
           options.preferredMobyPlatformId,
           options.preferredPlatformName
         );
@@ -1291,274 +1290,104 @@ export class IgdbProxyService implements GameSearchApi {
             original_url?: string | null;
             moby_url?: string | null;
             caption?: string | null;
+            type?: {
+              id?: number | string | null;
+              name?: string | null;
+            } | null;
           }> | null;
-        }>
-      | null
-      | undefined,
-    screenshots:
-      | Array<{
-          platform_id?: number | string | null;
-          platform_name?: string | null;
-          images?: Array<{
-            thumbnail_url?: string | null;
-            image_url?: string | null;
-            original_url?: string | null;
-            moby_url?: string | null;
-            caption?: string | null;
-          }> | null;
-        }>
-      | null
-      | undefined,
-    platforms:
-      | Array<{
-          id?: number | string | null;
-          platform_id?: number | string | null;
-          name?: string | null;
-          platform_name?: string | null;
         }>
       | null
       | undefined,
     preferredMobyPlatformId: number | null,
     preferredPlatformName: string
   ): string | null {
-    const normalizedCovers = Array.isArray(covers) ? covers : [];
-    const normalizedScreenshots = Array.isArray(screenshots) ? screenshots : [];
-    const preferredPlatformKey = this.normalizePlatformNameKey(preferredPlatformName);
-    const hasPlatformPreference =
-      preferredMobyPlatformId !== null || preferredPlatformKey.length > 0;
-    const preferredTokens = this.expandPlatformTokens(preferredPlatformName);
-    const nonPreferredTokens = this.extractMobygamesNonPreferredPlatformTokens(
-      platforms,
-      preferredMobyPlatformId,
-      preferredPlatformName
-    );
-    const matchedCovers =
+    if (!Array.isArray(covers) || covers.length === 0) {
+      return null;
+    }
+
+    const candidateCovers =
       preferredMobyPlatformId === null
-        ? []
-        : normalizedCovers.filter((cover) =>
+        ? covers
+        : covers.filter((cover) =>
             this.mobygamesCoverMatchesPlatform(
               cover.platforms,
               preferredMobyPlatformId,
               preferredPlatformName
             )
           );
-    const unmatchedCovers =
-      preferredMobyPlatformId === null
-        ? normalizedCovers
-        : normalizedCovers.filter(
-            (cover) =>
-              !this.mobygamesCoverMatchesPlatform(
-                cover.platforms,
-                preferredMobyPlatformId,
-                preferredPlatformName
-              )
-          );
-    const matchedScreenshots = normalizedScreenshots.filter((screenshot) => {
-      const screenshotPlatformId = this.normalizeMobygamesGameId(screenshot.platform_id);
-      const screenshotPlatformKey = this.normalizePlatformNameKey(screenshot.platform_name ?? null);
-      return (
-        preferredMobyPlatformId !== null &&
-        (screenshotPlatformId === preferredMobyPlatformId ||
-          (preferredPlatformKey.length > 0 && screenshotPlatformKey === preferredPlatformKey))
-      );
-    });
-    const unmatchedScreenshots =
-      preferredMobyPlatformId === null
-        ? normalizedScreenshots
-        : normalizedScreenshots.filter((screenshot) => !matchedScreenshots.includes(screenshot));
 
-    type ImageCandidate = {
-      url: string;
-      preferredHits: number;
-      nonPreferredHits: number;
-      sourceRank: number;
-      order: number;
-    };
-    const candidates: ImageCandidate[] = [];
-    let order = 0;
-    const collect = (
-      images:
-        | Array<{
-            thumbnail_url?: string | null;
-            image_url?: string | null;
-            original_url?: string | null;
-            moby_url?: string | null;
-            caption?: string | null;
-          }>
-        | null
-        | undefined,
-      sourceRank: number
-    ): void => {
-      if (!Array.isArray(images)) {
-        return;
+    if (candidateCovers.length === 0) {
+      return null;
+    }
+
+    const frontUrl = this.findMobygamesCoverImage(candidateCovers, true);
+    if (frontUrl) {
+      return frontUrl;
+    }
+
+    return this.findMobygamesCoverImage(candidateCovers, false);
+  }
+
+  private findMobygamesCoverImage(
+    covers: Array<{
+      platforms?: Array<
+        | number
+        | string
+        | {
+            id?: number | string | null;
+            platform_id?: number | string | null;
+            platform_name?: string | null;
+            name?: string | null;
+          }
+      > | null;
+      images?: Array<{
+        thumbnail_url?: string | null;
+        image_url?: string | null;
+        original_url?: string | null;
+        moby_url?: string | null;
+        caption?: string | null;
+        type?: {
+          id?: number | string | null;
+          name?: string | null;
+        } | null;
+      }> | null;
+    }>,
+    frontOnly: boolean
+  ): string | null {
+    for (const cover of covers) {
+      if (!Array.isArray(cover.images)) {
+        continue;
       }
 
-      for (const image of images) {
+      for (const image of cover.images) {
+        if (frontOnly && !this.mobygamesImageTypeIsFront(image.type?.name)) {
+          continue;
+        }
+
         const url =
           this.normalizeExternalImageUrl(image.thumbnail_url ?? null) ??
           this.normalizeExternalImageUrl(image.image_url ?? null) ??
           this.normalizeExternalImageUrl(image.original_url ?? null) ??
           this.normalizeExternalImageUrl(image.moby_url ?? null);
-        if (!url) {
-          continue;
-        }
 
-        const haystack =
-          `${url} ${typeof image.caption === 'string' ? image.caption : ''}`.toLowerCase();
-        candidates.push({
-          url,
-          preferredHits: this.countPlatformTokenHits(haystack, preferredTokens),
-          nonPreferredHits: this.countPlatformTokenHits(haystack, nonPreferredTokens),
-          sourceRank,
-          order
-        });
-        order += 1;
-      }
-    };
-
-    for (const cover of matchedCovers) {
-      collect(cover.images, 4);
-    }
-    for (const cover of unmatchedCovers) {
-      collect(cover.images, 3);
-    }
-    for (const screenshot of matchedScreenshots) {
-      collect(screenshot.images, 2);
-    }
-    for (const screenshot of unmatchedScreenshots) {
-      collect(screenshot.images, 1);
-    }
-
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    const compareCandidates = (a: ImageCandidate, b: ImageCandidate): number => {
-      if (b.preferredHits !== a.preferredHits) {
-        return b.preferredHits - a.preferredHits;
-      }
-      if (a.nonPreferredHits !== b.nonPreferredHits) {
-        return a.nonPreferredHits - b.nonPreferredHits;
-      }
-      if (b.sourceRank !== a.sourceRank) {
-        return b.sourceRank - a.sourceRank;
-      }
-      return a.order - b.order;
-    };
-
-    if (hasPlatformPreference) {
-      const platformSafe = candidates.filter((candidate) => candidate.nonPreferredHits === 0);
-      if (platformSafe.length === 0) {
-        return null;
-      }
-
-      const preferredMatch = platformSafe.filter((candidate) => candidate.preferredHits > 0);
-      const pool = preferredMatch.length > 0 ? preferredMatch : platformSafe;
-      pool.sort(compareCandidates);
-      return pool[0]?.url ?? null;
-    }
-
-    candidates.sort(compareCandidates);
-    return candidates[0]?.url ?? null;
-  }
-
-  private extractMobygamesNonPreferredPlatformTokens(
-    platforms:
-      | Array<{
-          id?: number | string | null;
-          platform_id?: number | string | null;
-          name?: string | null;
-          platform_name?: string | null;
-        }>
-      | null
-      | undefined,
-    preferredMobyPlatformId: number | null,
-    preferredPlatformName: string
-  ): string[] {
-    if (!Array.isArray(platforms)) {
-      return [];
-    }
-
-    const preferredPlatformKey = this.normalizePlatformNameKey(preferredPlatformName);
-    const preferredTokens = new Set(this.expandPlatformTokens(preferredPlatformName));
-    const tokens = new Set<string>();
-
-    for (const entry of platforms) {
-      const platformId = this.normalizeMobygamesGameId(entry.platform_id ?? entry.id);
-      const label = this.readMobygamesPlatformLabel(entry);
-      if (!label) {
-        continue;
-      }
-
-      const normalizedLabelKey = this.normalizePlatformNameKey(label);
-      const isPreferredById =
-        preferredMobyPlatformId !== null && platformId === preferredMobyPlatformId;
-      const isPreferredByName =
-        preferredPlatformKey.length > 0 && normalizedLabelKey === preferredPlatformKey;
-      if (isPreferredById || isPreferredByName) {
-        continue;
-      }
-
-      for (const token of this.expandPlatformTokens(label)) {
-        if (!preferredTokens.has(token)) {
-          tokens.add(token);
+        if (url) {
+          return url;
         }
       }
     }
 
-    return [...tokens];
+    return null;
   }
 
-  private countPlatformTokenHits(haystack: string, tokens: string[]): number {
-    let hits = 0;
-    for (const token of tokens) {
-      if (this.containsPlatformToken(haystack, token)) {
-        hits += 1;
-      }
-    }
-    return hits;
-  }
-
-  private containsPlatformToken(haystack: string, token: string): boolean {
-    const normalizedToken = token.trim().toLowerCase();
-    if (normalizedToken.length === 0) {
-      return false;
-    }
-
-    if (normalizedToken.length <= 3 && /^[a-z0-9]+$/.test(normalizedToken)) {
-      const escaped = normalizedToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`).test(haystack);
-    }
-
-    return haystack.includes(normalizedToken);
-  }
-
-  private expandPlatformTokens(platformName: string): string[] {
-    const normalized = platformName.trim().toLowerCase();
-    if (normalized.length === 0) {
-      return [];
-    }
-
-    const tokens = new Set<string>(
-      normalized
-        .split(/[^a-z0-9]+/g)
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 2)
-    );
-
-    if (normalized === 'snes' || normalized.includes('super nintendo')) {
-      tokens.add('snes');
-      tokens.add('supernintendo');
-      tokens.add('super-nintendo');
-    }
-
-    if (normalized === 'nintendo ds' || normalized === 'ds' || normalized.includes('ds')) {
-      tokens.add('nintendods');
-      tokens.add('nintendo-ds');
-      tokens.add('nds');
-    }
-
-    return [...tokens];
+  private mobygamesImageTypeIsFront(value: string | null | undefined): boolean {
+    const normalized =
+      typeof value === 'string'
+        ? value
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '')
+        : '';
+    return normalized.includes('front');
   }
 
   private mobygamesCoverMatchesPlatform(

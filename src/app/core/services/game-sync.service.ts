@@ -381,6 +381,17 @@ export class GameSyncService implements SyncOutboxWriter {
       normalizedReviewScore,
       normalizedReviewUrl
     );
+    const mobyScoreRaw = this.normalizeMobyScore(payload.mobyScore);
+    // If source is MobyGames, convert reviewScore from 0–10 to 0–100 when needed.
+    // Use mobyScore as ground truth (it is always on the 0–10 scale) when available:
+    // if reviewScore matches mobyScore, it arrived on the 0–10 scale and must be
+    // scaled up. Fall back to the ≤10 heuristic when mobyScore is absent.
+    const effectiveReviewScore =
+      normalizedReviewSource === 'mobygames' &&
+      normalizedReviewScore !== null &&
+      (mobyScoreRaw !== null ? normalizedReviewScore === mobyScoreRaw : normalizedReviewScore <= 10)
+        ? this.normalizeReviewScore(normalizedReviewScore * 10)
+        : normalizedReviewScore;
     const explicitMetacriticScore = this.normalizeMetacriticScore(payload.metacriticScore);
     const explicitMetacriticUrl = this.normalizeExternalUrl(payload.metacriticUrl);
     const normalizedMetacriticScore =
@@ -411,10 +422,10 @@ export class GameSyncService implements SyncOutboxWriter {
       hltbMainHours: this.normalizeCompletionHours(payload.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(payload.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(payload.hltbCompletionistHours),
-      reviewScore: normalizedReviewScore,
+      reviewScore: effectiveReviewScore,
       reviewUrl: normalizedReviewUrl,
       reviewSource: normalizedReviewSource,
-      mobyScore: this.normalizeMobyScore(payload.mobyScore),
+      mobyScore: mobyScoreRaw,
       mobygamesGameId: this.parsePositiveInteger(payload.mobygamesGameId),
       metacriticScore: normalizedMetacriticScore,
       metacriticUrl: normalizedMetacriticUrl,

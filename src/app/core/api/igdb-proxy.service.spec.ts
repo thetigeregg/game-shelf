@@ -967,6 +967,37 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('converts Moby score out of 10 to internal 100-point scale', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_name: 'SNES' }],
+          critic_score: null,
+          moby_score: 8.6,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 86,
+      metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+    });
+  });
+
   it('prefers Moby cover image matching selected platform id', async () => {
     const candidatesPromise = firstValueFrom(
       service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)

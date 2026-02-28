@@ -941,6 +941,7 @@ export class IgdbProxyService implements GameSearchApi {
       reviewScore,
       reviewUrl,
       reviewSource: source,
+      mobyScore: null,
       metacriticScore: reviewScore,
       metacriticUrl: reviewUrl
     };
@@ -986,6 +987,7 @@ export class IgdbProxyService implements GameSearchApi {
           reviewScore,
           reviewUrl,
           reviewSource: source,
+          mobyScore: null,
           metacriticScore: reviewScore,
           metacriticUrl: reviewUrl,
           ...(imageUrl ? { imageUrl } : {})
@@ -1054,9 +1056,10 @@ export class IgdbProxyService implements GameSearchApi {
       reviewScore: best.reviewScore,
       reviewUrl: best.reviewUrl,
       reviewSource: best.reviewSource,
+      mobyScore: best.mobyScore ?? null,
       mobygamesGameId: best.mobygamesGameId ?? null,
-      metacriticScore: best.metacriticScore,
-      metacriticUrl: best.metacriticUrl
+      metacriticScore: null,
+      metacriticUrl: null
     };
   }
 
@@ -1075,6 +1078,7 @@ export class IgdbProxyService implements GameSearchApi {
       .map((game) => {
         const title = typeof game.title === 'string' ? game.title.trim() : '';
         const mobygamesGameId = this.normalizeMobygamesGameId(game.game_id);
+        const mobyScore = this.normalizeRawMobyScore(game.moby_score);
         const releaseYear = this.normalizeMobygamesReleaseYear(game.release_date);
         const platform = this.normalizeMobygamesPlatform(
           game.platforms,
@@ -1096,9 +1100,10 @@ export class IgdbProxyService implements GameSearchApi {
           reviewScore,
           reviewUrl,
           reviewSource: 'mobygames' as const,
+          mobyScore,
           mobygamesGameId,
-          metacriticScore: reviewScore,
-          metacriticUrl: reviewUrl,
+          metacriticScore: null,
+          metacriticUrl: null,
           ...(imageUrl ? { imageUrl } : {})
         };
       })
@@ -1232,7 +1237,24 @@ export class IgdbProxyService implements GameSearchApi {
     if (criticScore !== null) {
       return criticScore;
     }
-    return this.normalizeMetacriticScore(this.normalizeMobygamesNumericScore(game.moby_score));
+
+    const mobyScore = this.normalizeMobygamesNumericScore(game.moby_score);
+    if (mobyScore === null) {
+      return null;
+    }
+
+    // Internal review score stays on 0-100 scale, so convert Moby's 0-10 score.
+    const normalizedMobyScore = mobyScore > 0 && mobyScore <= 10 ? mobyScore * 10 : mobyScore;
+    return this.normalizeMetacriticScore(normalizedMobyScore);
+  }
+
+  private normalizeRawMobyScore(value: number | string | null | undefined): number | null {
+    const normalized = this.normalizeMobygamesNumericScore(value);
+    if (normalized === null || normalized <= 0 || normalized > 10) {
+      return null;
+    }
+
+    return Math.round(normalized * 10) / 10;
   }
 
   private normalizeMobygamesNumericScore(value: number | string | null | undefined): number | null {

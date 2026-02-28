@@ -193,6 +193,7 @@ export class GameShelfService {
             reviewScore: candidate.metacriticScore,
             reviewUrl: candidate.metacriticUrl,
             reviewSource: 'metacritic',
+            mobyScore: null,
             mobygamesGameId: null
           }))
         )
@@ -265,6 +266,7 @@ export class GameShelfService {
       reviewScore: null,
       reviewUrl: null,
       reviewSource: null,
+      mobyScore: null,
       mobygamesGameId: null,
       metacriticScore: null,
       metacriticUrl: null
@@ -570,6 +572,7 @@ export class GameShelfService {
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
+        mobyScore: existing.mobyScore ?? null,
         mobygamesGameId: existing.mobygamesGameId ?? null,
         metacriticScore: existing.metacriticScore ?? null,
         metacriticUrl: existing.metacriticUrl ?? null,
@@ -637,6 +640,7 @@ export class GameShelfService {
                       reviewScore: result.metacriticScore,
                       reviewUrl: result.metacriticUrl,
                       reviewSource: 'metacritic',
+                      mobyScore: null,
                       mobygamesGameId: null
                     }
                   : null
@@ -664,10 +668,18 @@ export class GameShelfService {
         reviewScore: scoreResult?.reviewScore ?? null,
         reviewUrl: scoreResult?.reviewUrl ?? null,
         reviewSource: scoreResult?.reviewSource ?? null,
+        mobyScore:
+          scoreResult?.reviewSource === 'mobygames' ? (scoreResult.mobyScore ?? null) : null,
         mobygamesGameId:
           scoreResult?.reviewSource === 'mobygames' ? (scoreResult.mobygamesGameId ?? null) : null,
-        metacriticScore: scoreResult?.reviewScore ?? scoreResult?.metacriticScore ?? null,
-        metacriticUrl: scoreResult?.reviewUrl ?? scoreResult?.metacriticUrl ?? null,
+        metacriticScore:
+          scoreResult?.reviewSource === 'metacritic'
+            ? (scoreResult.reviewScore ?? scoreResult.metacriticScore ?? null)
+            : (existing.metacriticScore ?? null),
+        metacriticUrl:
+          scoreResult?.reviewSource === 'metacritic'
+            ? (scoreResult.reviewUrl ?? scoreResult.metacriticUrl ?? null)
+            : (existing.metacriticUrl ?? null),
         similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
         collections: existing.collections ?? [],
         developers: existing.developers ?? [],
@@ -1232,12 +1244,20 @@ export class GameShelfService {
               reviewScore: reviewScore.reviewScore,
               reviewUrl: reviewScore.reviewUrl,
               reviewSource: reviewScore.reviewSource,
+              mobyScore:
+                reviewScore.reviewSource === 'mobygames' ? (reviewScore.mobyScore ?? null) : null,
               mobygamesGameId:
                 reviewScore.reviewSource === 'mobygames'
                   ? (reviewScore.mobygamesGameId ?? null)
                   : null,
-              metacriticScore: reviewScore.reviewScore ?? reviewScore.metacriticScore ?? null,
-              metacriticUrl: reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null
+              metacriticScore:
+                reviewScore.reviewSource === 'metacritic'
+                  ? (reviewScore.reviewScore ?? reviewScore.metacriticScore ?? null)
+                  : (result.metacriticScore ?? null),
+              metacriticUrl:
+                reviewScore.reviewSource === 'metacritic'
+                  ? (reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null)
+                  : (result.metacriticUrl ?? null)
             }
           : {})
       },
@@ -1269,6 +1289,7 @@ export class GameShelfService {
                 reviewScore: result.metacriticScore,
                 reviewUrl: result.metacriticUrl,
                 reviewSource: 'metacritic',
+                mobyScore: null,
                 mobygamesGameId: null
               }
             : null

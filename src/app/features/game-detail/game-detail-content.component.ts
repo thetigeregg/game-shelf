@@ -267,7 +267,13 @@ export class GameDetailContentComponent {
 
     const source = this.resolveReviewSourceLabel();
     if (source === 'mobygames') {
-      const outOfTen = (score / 10).toFixed(1).replace(/\.0$/, '');
+      const rawMobyScore =
+        typeof this.game.mobyScore === 'number' && Number.isFinite(this.game.mobyScore)
+          ? this.game.mobyScore
+          : score <= 10
+            ? score
+            : score / 10;
+      const outOfTen = rawMobyScore.toFixed(1).replace(/\.0$/, '');
       return `${outOfTen}/10`;
     }
 

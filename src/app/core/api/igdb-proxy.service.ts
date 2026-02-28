@@ -50,6 +50,7 @@ interface MobyGamesSearchResponse {
 }
 
 interface MobyGamesGameResult {
+  game_id?: number | string | null;
   title?: string | null;
   moby_url?: string | null;
   critic_score?: number | string | null;
@@ -960,7 +961,10 @@ export class IgdbProxyService implements GameSearchApi {
       options.query
     );
 
-    params = params.set('limit', String(options.limit));
+    params = params
+      .set('limit', String(options.limit))
+      .set('format', 'normal')
+      .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date');
 
     const mobygamesPlatformId = resolveMobyGamesPlatformId(options.platformIgdbId);
     if (mobygamesPlatformId !== null) {

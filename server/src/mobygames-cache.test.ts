@@ -28,6 +28,7 @@ function buildExpectedCacheKey(params: {
   genre: string | null;
   group: string | null;
   format: 'id' | 'brief' | 'normal' | null;
+  include: string | null;
 }): string {
   const payload = JSON.stringify([
     params.query.toLowerCase(),
@@ -37,7 +38,8 @@ function buildExpectedCacheKey(params: {
     params.id?.toLowerCase() ?? null,
     params.genre?.toLowerCase() ?? null,
     params.group?.toLowerCase() ?? null,
-    params.format
+    params.format,
+    params.include?.toLowerCase() ?? null
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -289,7 +291,7 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
         assert.match(capturedUrl, /title=Okami/);
         assert.match(capturedUrl, /platform=9/);
         assert.match(capturedUrl, /limit=10/);
-        assert.doesNotMatch(capturedUrl, /include=/);
+        assert.match(capturedUrl, /include=game_id%2Ctitle%2Cmoby_url/);
         assert.doesNotMatch(capturedUrl, /fuzzy=/);
 
         const expectedCacheKey = buildExpectedCacheKey({
@@ -300,7 +302,8 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
           id: null,
           genre: null,
           group: null,
-          format: null
+          format: null,
+          include: 'game_id,title,moby_url'
         });
         assert.equal(typeof expectedCacheKey, 'string');
 

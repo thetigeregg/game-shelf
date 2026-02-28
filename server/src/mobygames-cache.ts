@@ -20,6 +20,7 @@ interface NormalizedMobyGamesQuery {
   genre: string | null;
   group: string | null;
   format: 'id' | 'brief' | 'normal' | null;
+  include: string | null;
 }
 
 interface MobyGamesCacheRouteOptions {
@@ -162,6 +163,7 @@ function normalizeMobyGamesQuery(rawUrl: string): NormalizedMobyGamesQuery | nul
   const genreValue = normalizeInteger(url.searchParams.get('genre'), 1);
   const groupValue = normalizeInteger(url.searchParams.get('group'), 1);
   const format = normalizeMobyGamesFormat(url.searchParams.get('format'));
+  const include = normalizeMobyGamesInclude(url.searchParams.get('include'));
 
   return {
     query,
@@ -171,7 +173,8 @@ function normalizeMobyGamesQuery(rawUrl: string): NormalizedMobyGamesQuery | nul
     id: idValue === null ? null : String(idValue),
     genre: genreValue === null ? null : String(genreValue),
     group: groupValue === null ? null : String(groupValue),
-    format
+    format,
+    include
   };
 }
 
@@ -198,6 +201,23 @@ function normalizeMobyGamesFormat(rawValue: string | null): 'id' | 'brief' | 'no
   return null;
 }
 
+function normalizeMobyGamesInclude(rawValue: string | null): string | null {
+  const normalized = (rawValue ?? '').trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const fields = normalized
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => /^[a-z0-9_.]+$/i.test(value));
+  if (fields.length === 0) {
+    return null;
+  }
+
+  return [...new Set(fields)].join(',');
+}
+
 function buildCacheKey(query: NormalizedMobyGamesQuery): string {
   const payload = JSON.stringify([
     query.query.toLowerCase(),
@@ -207,7 +227,8 @@ function buildCacheKey(query: NormalizedMobyGamesQuery): string {
     query.id?.toLowerCase() ?? null,
     query.genre?.toLowerCase() ?? null,
     query.group?.toLowerCase() ?? null,
-    query.format
+    query.format,
+    query.include?.toLowerCase() ?? null
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -393,6 +414,7 @@ async function fetchMetadataFromMobyGames(request: FastifyRequest): Promise<Resp
   appendNullableString(targetUrl, 'genre', normalized.genre);
   appendNullableString(targetUrl, 'group', normalized.group);
   appendNullableString(targetUrl, 'format', normalized.format);
+  appendNullableString(targetUrl, 'include', normalized.include);
 
   try {
     return await fetch(targetUrl.toString(), {

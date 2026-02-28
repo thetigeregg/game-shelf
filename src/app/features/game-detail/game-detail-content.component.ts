@@ -264,6 +264,20 @@ export class GameDetailContentComponent {
     return score === null ? 'Unknown' : String(score);
   }
 
+  get reviewScoreHeadingLabel(): string {
+    const source = this.resolveReviewSourceLabel();
+
+    if (source === 'metacritic') {
+      return 'Metacritic Score';
+    }
+
+    if (source === 'mobygames') {
+      return 'Moby Score';
+    }
+
+    return 'Review Score';
+  }
+
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
     return this.detailTextExpanded[field];
   }
@@ -318,6 +332,34 @@ export class GameDetailContentComponent {
     }
 
     return normalized;
+  }
+
+  private resolveReviewSourceLabel(): 'metacritic' | 'mobygames' | null {
+    const reviewSource =
+      (this.game as Partial<GameEntry>).reviewSource === 'metacritic' ||
+      (this.game as Partial<GameEntry>).reviewSource === 'mobygames'
+        ? (this.game as Partial<GameEntry>).reviewSource
+        : null;
+
+    if (reviewSource) {
+      return reviewSource;
+    }
+
+    const urlCandidate =
+      (this.game as Partial<GameEntry>).reviewUrl ??
+      (this.game as Partial<GameEntry>).metacriticUrl ??
+      null;
+    const url = typeof urlCandidate === 'string' ? urlCandidate.trim().toLowerCase() : '';
+
+    if (url.includes('mobygames.com')) {
+      return 'mobygames';
+    }
+
+    if (url.includes('metacritic.com')) {
+      return 'metacritic';
+    }
+
+    return null;
   }
 
   hasMetadataValue(values: string[] | null | undefined): boolean {

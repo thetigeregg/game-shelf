@@ -2950,11 +2950,18 @@ export class SettingsPage {
 
     const reviewScore = parseOptionalDecimal(reviewScoreRaw);
 
-    if (
-      reviewScoreRaw.trim().length > 0 &&
-      (reviewScore === null || reviewScore < 1 || reviewScore > 100)
-    ) {
-      return this.errorRow(type, rowNumber, 'Review score must be a number between 1 and 100.');
+    if (reviewScoreRaw.trim().length > 0) {
+      if (reviewSource === 'mobygames') {
+        if (reviewScore === null || reviewScore <= 0 || reviewScore > 10) {
+          return this.errorRow(
+            type,
+            rowNumber,
+            'Review score must be a number greater than 0 and at most 10 for MobyGames.'
+          );
+        }
+      } else if (reviewScore === null || reviewScore < 1 || reviewScore > 100) {
+        return this.errorRow(type, rowNumber, 'Review score must be a number between 1 and 100.');
+      }
     }
 
     const parsedReviewUrl = parseOptionalText(reviewUrlRaw);

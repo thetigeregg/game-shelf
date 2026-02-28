@@ -408,6 +408,42 @@ describe('DexieGameRepository', () => {
     expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
   });
 
+  it('does not backfill metacritic fields with MobyGames review data on update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 78,
+        reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
+        reviewSource: 'mobygames',
+        metacriticScore: null,
+        metacriticUrl: null
+      },
+      'collection'
+    );
+
+    const initial = await repository.exists('101', 18);
+    expect(initial?.reviewScore).toBe(78);
+    expect(initial?.metacriticScore).toBeNull();
+    expect(initial?.metacriticUrl).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 82,
+        reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
+        reviewSource: 'mobygames',
+        metacriticScore: null,
+        metacriticUrl: null
+      },
+      'collection'
+    );
+
+    const updated = await repository.exists('101', 18);
+    expect(updated?.reviewScore).toBe(82);
+    expect(updated?.metacriticScore).toBeNull();
+    expect(updated?.metacriticUrl).toBeNull();
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });

@@ -235,3 +235,35 @@ void test('logUpstreamResponse sets null bodyPreview for binary content type', a
     await app.close();
   });
 });
+
+void test('logUpstreamResponse captures bodyPreview for text content type', async () => {
+  await withEnv({ DEBUG_HTTP_LOGS: '1' }, async () => {
+    const app = Fastify({ logger: false });
+    const loggedMessages: unknown[] = [];
+
+    app.get('/test', async (request, reply) => {
+      request.log = {
+        info: (obj: unknown) => {
+          loggedMessages.push(obj);
+        }
+      } as typeof request.log;
+      await logUpstreamResponse(request, {
+        method: 'GET',
+        url: 'https://example.com/data.txt',
+        response: new Response('plain text response', {
+          status: 200,
+          headers: { 'content-type': 'text/plain' }
+        })
+      });
+      void reply.send({ ok: true });
+    });
+
+    await app.inject({ method: 'GET', url: '/test' });
+
+    assert.equal(loggedMessages.length, 1);
+    const msg = loggedMessages[0] as Record<string, unknown>;
+    assert.equal(msg['bodyPreview'], 'plain text response');
+
+    await app.close();
+  });
+});

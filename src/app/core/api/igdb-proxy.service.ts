@@ -1010,7 +1010,7 @@ export class IgdbProxyService implements GameSearchApi {
           platform,
           reviewScore,
           reviewUrl,
-          reviewSource: 'mobygames',
+          reviewSource: 'mobygames' as const,
           metacriticScore: reviewScore,
           metacriticUrl: reviewUrl
         };

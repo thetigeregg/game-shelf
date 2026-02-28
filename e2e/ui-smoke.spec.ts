@@ -599,7 +599,9 @@ test('routes review refresh to Metacritic for supported platforms', async ({ pag
   });
 
   await page.getByRole('button', { name: 'Game detail actions' }).click();
-  await page.getByRole('button', { name: 'Update review data' }).click();
+  const updateReviewItem = page.locator('ion-popover ion-item', { hasText: 'Update review data' });
+  await expect(updateReviewItem).toBeVisible();
+  await updateReviewItem.click();
 
   await metacriticRequestPromise;
   expect(mobygamesRequestCount).toBe(0);
@@ -655,7 +657,9 @@ test('routes review refresh to MobyGames for unsupported platforms', async ({ pa
   });
 
   await page.getByRole('button', { name: 'Game detail actions' }).click();
-  await page.getByRole('button', { name: 'Update review data' }).click();
+  const updateReviewItem = page.locator('ion-popover ion-item', { hasText: 'Update review data' });
+  await expect(updateReviewItem).toBeVisible();
+  await updateReviewItem.click();
 
   await mobygamesRequestPromise;
   expect(metacriticRequestCount).toBe(0);

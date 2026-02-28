@@ -127,8 +127,16 @@ export function dedupeMetacriticCandidates(
   return dedupeReviewCandidates(candidates);
 }
 
-export function dedupeReviewCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
-  const byKey = new Map<string, ReviewMatchCandidate>();
+export function dedupeReviewCandidates<
+  T extends {
+    title: string;
+    releaseYear: number | null;
+    platform: string | null;
+    reviewScore?: number | null;
+    metacriticScore?: number | null;
+  }
+>(candidates: T[]): T[] {
+  const byKey = new Map<string, T>();
 
   candidates.forEach((candidate) => {
     const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.reviewScore ?? candidate.metacriticScore ?? '')}`;

@@ -29,7 +29,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
   - Optional: `releaseYear` (YYYY), `platform`, `platformIgdbId`, `includeCandidates` (`1|true|yes`)
 - `GET /v1/mobygames/search`
   - Required: `q` (or `title`) (min length 2)
-  - Optional: `platform` (MobyGames platform ID), `limit`, `offset`, `id`, `genre`, `group`, `format` (`id|brief|normal`)
+  - Optional: `platform` (MobyGames platform ID), `limit`, `offset`, `id`, `genre`, `group`, `format` (`id|brief|normal`), `include` (comma-separated field list)
 
 ## Configuration
 

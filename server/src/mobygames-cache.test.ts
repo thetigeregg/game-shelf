@@ -903,3 +903,92 @@ void test('MOBYGAMES upstream non-ok response is not cached', async () => {
 
   await app.close();
 });
+
+void test('MOBYGAMES cache returns MISS when cached entry has invalid updated_at timestamp', async () => {
+  resetCacheMetrics();
+
+  const pool = new MobyGamesPoolMock();
+  const cacheKey = buildExpectedCacheKey({
+    query: 'Doom',
+    platform: null,
+    limit: null,
+    offset: null,
+    id: null,
+    genre: null,
+    group: null,
+    format: null,
+    include: null
+  });
+  pool.seed(cacheKey, {
+    response_json: { games: [{ game_id: 50, title: 'Doom' }] },
+    updated_at: 'not-a-valid-date'
+  });
+
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    freshTtlSeconds: 3600,
+    staleTtlSeconds: 86400,
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify({ games: [{ game_id: 50, title: 'Doom (fresh)' }] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Doom'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(fetchCalls, 1, 'should have fetched fresh data due to invalid timestamp');
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.misses, 1);
+
+  await app.close();
+});
+
+void test('MOBYGAMES cache does not persist when upstream response body is invalid JSON', async () => {
+  resetCacheMetrics();
+
+  const pool = new MobyGamesPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerMobyGamesCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response('this is not json {{{', {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Quake'
+  });
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/mobygames/search?q=Quake'
+  });
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.equal(fetchCalls, 2, 'invalid JSON should not be cached; second request should re-fetch');
+
+  const metrics = getCacheMetrics();
+  assert.equal(metrics.mobygames.writes, 0);
+
+  await app.close();
+});

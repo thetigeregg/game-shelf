@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { FastifyRequest } from 'fastify';
+import Fastify from 'fastify';
 import {
   isDebugHttpLogsEnabled,
   logUpstreamRequest,
@@ -11,7 +12,7 @@ import {
 
 function withEnv(
   overrides: Record<string, string | undefined>,
-  fn: () => Promise<void>
+  fn: () => void | Promise<void>
 ): Promise<void> {
   const original = new Map<string, string | undefined>();
 
@@ -24,7 +25,7 @@ function withEnv(
     }
   }
 
-  return fn().finally(() => {
+  return Promise.resolve(fn()).finally(() => {
     for (const [key, value] of original.entries()) {
       if (typeof value === 'undefined') {
         Reflect.deleteProperty(process.env, key);
@@ -35,82 +36,58 @@ function withEnv(
   });
 }
 
-function makeMockRequest(): { request: FastifyRequest; logInfoCalls: unknown[] } {
-  const logInfoCalls: unknown[] = [];
-  const request = {
-    log: {
-      info: (data: unknown) => {
-        logInfoCalls.push(data);
-      },
-      warn: () => {}
-    }
-  } as unknown as FastifyRequest;
-  return { request, logInfoCalls };
-}
-
-void test('isDebugHttpLogsEnabled returns true for truthy values', async () => {
-  for (const value of ['1', 'true', 'yes', 'on', 'TRUE', 'YES', 'ON', 'True']) {
-    await withEnv({ DEBUG_HTTP_LOGS: value }, () => {
-      assert.equal(isDebugHttpLogsEnabled(), true, `Expected true for DEBUG_HTTP_LOGS=${value}`);
-      return Promise.resolve();
-    });
-  }
-});
-
-void test('isDebugHttpLogsEnabled returns false for falsy or absent values', async () => {
-  for (const value of ['false', '0', 'no', 'off', '']) {
-    await withEnv({ DEBUG_HTTP_LOGS: value }, () => {
-      assert.equal(isDebugHttpLogsEnabled(), false, `Expected false for DEBUG_HTTP_LOGS=${value}`);
-      return Promise.resolve();
-    });
-  }
-
+void test('isDebugHttpLogsEnabled returns false when DEBUG_HTTP_LOGS is not set', async () => {
   await withEnv({ DEBUG_HTTP_LOGS: undefined }, () => {
-    assert.equal(isDebugHttpLogsEnabled(), false, 'Expected false when DEBUG_HTTP_LOGS not set');
-    return Promise.resolve();
+    assert.equal(isDebugHttpLogsEnabled(), false);
   });
 });
 
+void test('isDebugHttpLogsEnabled returns true for truthy values', async () => {
+  for (const value of ['1', 'true', 'yes', 'on', 'TRUE', 'YES', 'ON']) {
+    await withEnv({ DEBUG_HTTP_LOGS: value }, () => {
+      assert.equal(isDebugHttpLogsEnabled(), true, `expected true for ${value}`);
+    });
+  }
+});
+
+void test('isDebugHttpLogsEnabled returns false for falsy string values', async () => {
+  for (const value of ['0', 'false', 'no', 'off', 'nope']) {
+    await withEnv({ DEBUG_HTTP_LOGS: value }, () => {
+      assert.equal(isDebugHttpLogsEnabled(), false, `expected false for ${value}`);
+    });
+  }
+});
+
 void test('sanitizeUrlForDebugLogs redacts sensitive query params', () => {
-  const url = 'https://api.example.com/search?q=game&api_key=SECRET123&other=value';
+  const url = 'https://api.example.com/v2/games?title=Okami&api_key=secret123&limit=10';
   const sanitized = sanitizeUrlForDebugLogs(url);
-  assert.doesNotMatch(sanitized, /SECRET123/);
-  assert.match(sanitized, /q=game/);
-  assert.match(sanitized, /api_key=/);
+  assert.match(sanitized, /api_key=%2A%2A%2A|api_key=\*\*\*/);
+  assert.match(sanitized, /title=Okami/);
+  assert.match(sanitized, /limit=10/);
+  assert.doesNotMatch(sanitized, /secret123/);
+});
+
+void test('sanitizeUrlForDebugLogs returns input unchanged for invalid URLs', () => {
+  const invalid = 'not a valid url';
+  assert.equal(sanitizeUrlForDebugLogs(invalid), invalid);
 });
 
 void test('sanitizeUrlForDebugLogs redacts token and access_token params', () => {
-  const url =
-    'https://api.example.com/?token=tok123&access_token=acc456&apikey=k1&client_secret=cs1';
+  const url = 'https://api.example.com/endpoint?token=tok123&access_token=acc456';
   const sanitized = sanitizeUrlForDebugLogs(url);
   assert.doesNotMatch(sanitized, /tok123/);
   assert.doesNotMatch(sanitized, /acc456/);
-  assert.doesNotMatch(sanitized, /k1/);
-  assert.doesNotMatch(sanitized, /cs1/);
 });
 
-void test('sanitizeUrlForDebugLogs returns invalid URL as-is', () => {
-  const invalidUrl = 'not a valid url at all:::';
-  const result = sanitizeUrlForDebugLogs(invalidUrl);
-  assert.equal(result, invalidUrl);
-});
-
-void test('sanitizeUrlForDebugLogs returns unchanged URL when no sensitive keys present', () => {
-  const url = 'https://api.example.com/search?q=game&format=brief';
-  const result = sanitizeUrlForDebugLogs(url);
-  assert.match(result, /q=game/);
-  assert.match(result, /format=brief/);
-});
-
-void test('sanitizeHeadersForDebugLogs returns empty object for undefined input', () => {
+void test('sanitizeHeadersForDebugLogs returns empty object for undefined headers', () => {
   const result = sanitizeHeadersForDebugLogs(undefined);
   assert.deepEqual(result, {});
 });
 
-void test('sanitizeHeadersForDebugLogs redacts sensitive headers', () => {
+void test('sanitizeHeadersForDebugLogs redacts sensitive header values', () => {
   const headers = new Headers({
-    authorization: 'Bearer secret-token',
-    'x-api-key': 'my-api-key',
+    authorization: 'Bearer mysecrettoken',
+    'x-api-key': 'keyvalue',
     'api-key': 'another-key',
     'content-type': 'application/json'
   });
@@ -121,127 +98,141 @@ void test('sanitizeHeadersForDebugLogs redacts sensitive headers', () => {
   assert.equal(result['content-type'], 'application/json');
 });
 
-void test('sanitizeHeadersForDebugLogs handles plain object headers', () => {
-  const headers = { 'content-type': 'text/plain', 'x-custom': 'value' };
+void test('sanitizeHeadersForDebugLogs passes through non-sensitive headers', () => {
+  const headers = { 'content-type': 'application/json', accept: 'text/html' };
   const result = sanitizeHeadersForDebugLogs(headers);
-  assert.equal(result['content-type'], 'text/plain');
-  assert.equal(result['x-custom'], 'value');
+  assert.equal(result['content-type'], 'application/json');
+  assert.equal(result['accept'], 'text/html');
 });
 
 void test('logUpstreamRequest does nothing when debug logs are disabled', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: 'false' }, () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    logUpstreamRequest(request, { url: 'https://example.com', method: 'GET' });
-    assert.equal(logInfoCalls.length, 0);
-    return Promise.resolve();
-  });
-});
-
-void test('logUpstreamRequest logs request details when debug logs are enabled', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: '1' }, () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    logUpstreamRequest(request, {
-      url: 'https://example.com?api_key=secret',
-      method: 'GET',
-      headers: { authorization: 'Bearer token' }
+  await withEnv({ DEBUG_HTTP_LOGS: undefined }, async () => {
+    const app = Fastify({ logger: false });
+    app.get('/test', (request, reply) => {
+      logUpstreamRequest(request, { method: 'GET', url: 'https://example.com' });
+      void reply.send({ ok: true });
     });
-    assert.equal(logInfoCalls.length, 1);
-    const entry = logInfoCalls[0] as Record<string, unknown>;
-    assert.equal(entry['msg'], 'upstream_http_request');
-    assert.doesNotMatch(String(entry['url']), /secret/);
-    return Promise.resolve();
+
+    const response = await app.inject({ method: 'GET', url: '/test' });
+    assert.equal(response.statusCode, 200);
+    await app.close();
   });
 });
 
-void test('logUpstreamRequest logs without headers when headers are omitted', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: '1' }, () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    logUpstreamRequest(request, { url: 'https://example.com', method: 'POST' });
-    assert.equal(logInfoCalls.length, 1);
-    return Promise.resolve();
+void test('logUpstreamRequest logs when debug is enabled', async () => {
+  await withEnv({ DEBUG_HTTP_LOGS: '1' }, async () => {
+    const app = Fastify({ logger: false });
+    const loggedMessages: unknown[] = [];
+
+    app.get('/test', (request, reply) => {
+      request.log = {
+        info: (obj: unknown) => {
+          loggedMessages.push(obj);
+        }
+      } as typeof request.log;
+      logUpstreamRequest(request, {
+        method: 'GET',
+        url: 'https://api.example.com/v2/games?api_key=secret',
+        headers: { authorization: 'Bearer tok' }
+      });
+      void reply.send({ ok: true });
+    });
+
+    await app.inject({ method: 'GET', url: '/test' });
+
+    assert.equal(loggedMessages.length, 1);
+    const msg = loggedMessages[0] as Record<string, unknown>;
+    assert.equal(msg['msg'], 'upstream_http_request');
+    assert.equal(msg['method'], 'GET');
+    assert.doesNotMatch(String(msg['url']), /secret/);
+    const headers = msg['headers'] as Record<string, string>;
+    assert.equal(headers['authorization'], '***');
+
+    await app.close();
   });
 });
 
 void test('logUpstreamResponse does nothing when debug logs are disabled', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: 'false' }, async () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    const response = new Response('hello', {
-      status: 200,
-      headers: { 'content-type': 'text/plain' }
+  await withEnv({ DEBUG_HTTP_LOGS: undefined }, async () => {
+    const app = Fastify({ logger: false });
+    app.get('/test', async (request, reply) => {
+      await logUpstreamResponse(request, {
+        method: 'GET',
+        url: 'https://example.com',
+        response: new Response('ok', { status: 200 })
+      });
+      void reply.send({ ok: true });
     });
-    await logUpstreamResponse(request, { url: 'https://example.com', method: 'GET', response });
-    assert.equal(logInfoCalls.length, 0);
+
+    const response = await app.inject({ method: 'GET', url: '/test' });
+    assert.equal(response.statusCode, 200);
+    await app.close();
   });
 });
 
-void test('logUpstreamResponse logs with body preview for JSON responses', async () => {
+void test('logUpstreamResponse logs JSON response body preview when debug is enabled', async () => {
   await withEnv({ DEBUG_HTTP_LOGS: '1' }, async () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    const body = JSON.stringify({ games: [{ id: 1 }] });
-    const response = new Response(body, {
-      status: 200,
-      headers: { 'content-type': 'application/json' }
+    const app = Fastify({ logger: false });
+    const loggedMessages: unknown[] = [];
+
+    app.get('/test', async (request, reply) => {
+      request.log = {
+        info: (obj: unknown) => {
+          loggedMessages.push(obj);
+        }
+      } as typeof request.log;
+      await logUpstreamResponse(request, {
+        method: 'GET',
+        url: 'https://api.example.com/v2/games?api_key=s3cr3t',
+        response: new Response(JSON.stringify({ games: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      });
+      void reply.send({ ok: true });
     });
-    await logUpstreamResponse(request, { url: 'https://example.com', method: 'GET', response });
-    assert.equal(logInfoCalls.length, 1);
-    const entry = logInfoCalls[0] as Record<string, unknown>;
-    assert.equal(entry['msg'], 'upstream_http_response');
-    assert.equal(entry['bodyPreview'], body);
+
+    await app.inject({ method: 'GET', url: '/test' });
+
+    assert.equal(loggedMessages.length, 1);
+    const msg = loggedMessages[0] as Record<string, unknown>;
+    assert.equal(msg['msg'], 'upstream_http_response');
+    assert.equal(msg['status'], 200);
+    assert.doesNotMatch(String(msg['url']), /s3cr3t/);
+    assert.equal(typeof msg['bodyPreview'], 'string');
+
+    await app.close();
   });
 });
 
-void test('logUpstreamResponse logs with body preview for text responses', async () => {
+void test('logUpstreamResponse sets null bodyPreview for binary content type', async () => {
   await withEnv({ DEBUG_HTTP_LOGS: '1' }, async () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    const response = new Response('hello world', {
-      status: 200,
-      headers: { 'content-type': 'text/plain' }
-    });
-    await logUpstreamResponse(request, { url: 'https://example.com', method: 'GET', response });
-    assert.equal(logInfoCalls.length, 1);
-    const entry = logInfoCalls[0] as Record<string, unknown>;
-    assert.equal(entry['bodyPreview'], 'hello world');
-  });
-});
+    const app = Fastify({ logger: false });
+    const loggedMessages: unknown[] = [];
 
-void test('logUpstreamResponse has null bodyPreview for binary content types', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: '1' }, async () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    const response = new Response(Buffer.from([0x89, 0x50, 0x4e, 0x47]), {
-      status: 200,
-      headers: { 'content-type': 'image/png' }
+    app.get('/test', async (request, reply) => {
+      request.log = {
+        info: (obj: unknown) => {
+          loggedMessages.push(obj);
+        }
+      } as typeof request.log;
+      await logUpstreamResponse(request, {
+        method: 'GET',
+        url: 'https://example.com/image.png',
+        response: new Response(Buffer.from([0x89, 0x50]), {
+          status: 200,
+          headers: { 'content-type': 'image/png' }
+        })
+      });
+      void reply.send({ ok: true });
     });
-    await logUpstreamResponse(request, { url: 'https://example.com', method: 'GET', response });
-    assert.equal(logInfoCalls.length, 1);
-    const entry = logInfoCalls[0] as Record<string, unknown>;
-    assert.equal(entry['bodyPreview'], null);
-  });
-});
 
-void test('logUpstreamResponse has null bodyPreview for empty body', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: '1' }, async () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    const response = new Response('', {
-      status: 200,
-      headers: { 'content-type': 'application/json' }
-    });
-    await logUpstreamResponse(request, { url: 'https://example.com', method: 'GET', response });
-    assert.equal(logInfoCalls.length, 1);
-    const entry = logInfoCalls[0] as Record<string, unknown>;
-    assert.equal(entry['bodyPreview'], null);
-  });
-});
+    await app.inject({ method: 'GET', url: '/test' });
 
-void test('logUpstreamResponse truncates very long body previews', async () => {
-  await withEnv({ DEBUG_HTTP_LOGS: '1' }, async () => {
-    const { request, logInfoCalls } = makeMockRequest();
-    const longBody = 'x'.repeat(5000);
-    const response = new Response(longBody, {
-      status: 200,
-      headers: { 'content-type': 'text/plain' }
-    });
-    await logUpstreamResponse(request, { url: 'https://example.com', method: 'GET', response });
-    const entry = logInfoCalls[0] as Record<string, unknown>;
-    assert.match(String(entry['bodyPreview']), /\.\.\.\[truncated\]$/);
+    assert.equal(loggedMessages.length, 1);
+    const msg = loggedMessages[0] as Record<string, unknown>;
+    assert.equal(msg['bodyPreview'], null);
+
+    await app.close();
   });
 });

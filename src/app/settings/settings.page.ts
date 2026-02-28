@@ -2979,7 +2979,7 @@ export class SettingsPage {
     const reviewScoreForCatalog =
       reviewSource === 'mobygames' && normalizedReviewScore !== null
         ? explicitMobyScore !== null
-          ? Math.abs(normalizedReviewScore - explicitMobyScore) < 0.05
+          ? Math.abs(normalizedReviewScore - explicitMobyScore) <= 0.05
             ? Math.round(normalizedReviewScore * 100) / 10
             : normalizedReviewScore
           : normalizedReviewScore <= 10

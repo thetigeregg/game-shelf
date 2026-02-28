@@ -75,7 +75,7 @@ export class DexieGameRepository implements GameRepository {
           result.hltbCompletionistHours,
           existing.hltbCompletionistHours
         ),
-        reviewScore: this.resolveMetacriticScore(
+        reviewScore: this.resolveReviewScore(
           incomingReviewScore,
           existing.reviewScore ?? existing.metacriticScore
         ),
@@ -155,7 +155,7 @@ export class DexieGameRepository implements GameRepository {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
-      reviewScore: this.normalizeMetacriticScore(result.reviewScore ?? result.metacriticScore),
+      reviewScore: this.normalizeReviewScore(result.reviewScore ?? result.metacriticScore),
       reviewUrl: this.normalizeMetacriticUrl(incomingReviewUrl),
       reviewSource: this.normalizeReviewSource(
         result.reviewSource,
@@ -718,6 +718,14 @@ export class DexieGameRepository implements GameRepository {
     return normalized;
   }
 
+  private normalizeReviewScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 100) {
+      return null;
+    }
+
+    return Math.round(value * 10) / 10;
+  }
+
   private normalizeMetacriticUrl(value: string | null | undefined): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
 
@@ -827,6 +835,17 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeMetacriticScore(incoming);
+  }
+
+  private resolveReviewScore(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizeReviewScore(existing);
+    }
+
+    return this.normalizeReviewScore(incoming);
   }
 
   private resolveMetacriticUrl(

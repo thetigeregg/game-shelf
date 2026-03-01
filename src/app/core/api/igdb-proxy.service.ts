@@ -438,17 +438,18 @@ export class IgdbProxyService implements GameSearchApi {
         limit: 20
       });
       const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
-      this.debugLogService.trace('igdb_proxy.mobygames.lookup_request', {
-        title: normalizedTitle,
-        releaseYear: normalizedYear,
-        platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
-        platformIgdbId: normalizedPlatformIgdbId,
-        mobygamesGameId: normalizedMobyGameId,
-        mobygamesPlatformId
-      });
 
       return defer(() => {
         const mobyDelayMs = this.claimMobyGamesSlot();
+        this.debugLogService.trace('igdb_proxy.mobygames.lookup_request', {
+          title: normalizedTitle,
+          releaseYear: normalizedYear,
+          platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
+          platformIgdbId: normalizedPlatformIgdbId,
+          mobygamesGameId: normalizedMobyGameId,
+          mobygamesPlatformId,
+          mobyDelayMs
+        });
         const mobyRequest$ = this.httpClient
           .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
           .pipe(
@@ -577,16 +578,17 @@ export class IgdbProxyService implements GameSearchApi {
         limit: 100
       });
       const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
-      this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_request', {
-        title: normalizedTitle,
-        releaseYear: normalizedYear,
-        platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
-        platformIgdbId: normalizedPlatformIgdbId,
-        mobygamesPlatformId
-      });
 
       return defer(() => {
         const mobyDelayMs = this.claimMobyGamesSlot();
+        this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_request', {
+          title: normalizedTitle,
+          releaseYear: normalizedYear,
+          platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
+          platformIgdbId: normalizedPlatformIgdbId,
+          mobygamesPlatformId,
+          mobyDelayMs
+        });
         const mobyRequest$ = this.httpClient
           .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
           .pipe(
@@ -618,10 +620,7 @@ export class IgdbProxyService implements GameSearchApi {
               switchMap(() => {
                 // Re-check cooldown right before dispatching the MobyGames request so that
                 // any cooldown activated during the delay cancels this queued request.
-                if (
-                  this.rateLimitCooldownUntilMs !== null &&
-                  Date.now() < this.rateLimitCooldownUntilMs
-                ) {
+                if (Date.now() < this.rateLimitCooldownUntilMs) {
                   return throwError(
                     () => new Error('MobyGames rate limit cooldown is currently active')
                   );

@@ -856,100 +856,108 @@ describe('IgdbProxyService', () => {
   });
 
   it('uses MobyGames for unsupported Metacritic platform ids and normalizes payload', async () => {
-    const scorePromise = firstValueFrom(
-      service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
-    );
-    const scoreReq = httpMock.expectOne((request) => {
-      return (
-        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
-        request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === '16' &&
-        request.params.get('format') === 'normal' &&
-        request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
-      );
-    });
-    scoreReq.flush({
-      games: [
-        {
-          title: 'Shining Force',
-          release_date: '1992-03-20',
-          platforms: [{ name: 'Genesis' }],
-          critic_score: null,
-          moby_score: 88.2,
-          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
-        }
-      ]
-    });
-    await expect(scorePromise).resolves.toEqual({
-      metacriticScore: 88,
-      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
-    });
+    vi.useFakeTimers();
 
-    const candidatesPromise = firstValueFrom(
-      service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
-    );
-    const candidatesReq = httpMock.expectOne((request) => {
-      return (
-        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
-        request.params.get('q') === 'Shining Force' &&
-        request.params.get('platform') === '16' &&
-        request.params.get('format') === 'normal' &&
-        request.params.get('include') ===
-          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+    try {
+      const scorePromise = firstValueFrom(
+        service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
       );
-    });
-    candidatesReq.flush({
-      games: [
-        {
-          title: ' Shining Force ',
-          release_date: '1992-03-20',
-          platforms: [{ platform_name: ' Genesis ' }],
-          critic_score: 87.6,
-          covers: [
-            {
-              images: [
-                {
-                  thumbnail_url: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
-                }
-              ]
-            }
-          ],
-          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
-        },
+      const scoreReq = httpMock.expectOne((request) => {
+        return (
+          request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+          request.params.get('q') === 'Shining Force' &&
+          request.params.get('platform') === '16' &&
+          request.params.get('format') === 'normal' &&
+          request.params.get('include') ===
+            'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+        );
+      });
+      scoreReq.flush({
+        games: [
+          {
+            title: 'Shining Force',
+            release_date: '1992-03-20',
+            platforms: [{ name: 'Genesis' }],
+            critic_score: null,
+            moby_score: 88.2,
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          }
+        ]
+      });
+      await expect(scorePromise).resolves.toEqual({
+        metacriticScore: 88,
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+      });
+
+      // Advance the proactive throttle so the second MobyGames call fires
+      const candidatesPromise = firstValueFrom(
+        service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
+      );
+      await vi.advanceTimersByTimeAsync(5000);
+      const candidatesReq = httpMock.expectOne((request) => {
+        return (
+          request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+          request.params.get('q') === 'Shining Force' &&
+          request.params.get('platform') === '16' &&
+          request.params.get('format') === 'normal' &&
+          request.params.get('include') ===
+            'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+        );
+      });
+      candidatesReq.flush({
+        games: [
+          {
+            title: ' Shining Force ',
+            release_date: '1992-03-20',
+            platforms: [{ platform_name: ' Genesis ' }],
+            critic_score: 87.6,
+            covers: [
+              {
+                images: [
+                  {
+                    thumbnail_url: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
+                  }
+                ]
+              }
+            ],
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          },
+          {
+            title: 'Shining Force',
+            release_date: '1992',
+            platforms: [{ platform_name: 'Genesis' }],
+            critic_score: 87.1,
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          },
+          {
+            title: 'Shining Force CD',
+            release_date: null,
+            platforms: [{ name: 'Sega CD' }],
+            moby_score: 80.2,
+            moby_url: 'https://www.mobygames.com/game/456/shining-force-cd/'
+          }
+        ]
+      });
+
+      await expect(candidatesPromise).resolves.toEqual([
         {
           title: 'Shining Force',
-          release_date: '1992',
-          platforms: [{ platform_name: 'Genesis' }],
-          critic_score: 87.1,
-          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          releaseYear: 1992,
+          platform: 'Genesis',
+          metacriticScore: 88,
+          metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
         },
         {
           title: 'Shining Force CD',
-          release_date: null,
-          platforms: [{ name: 'Sega CD' }],
-          moby_score: 80.2,
-          moby_url: 'https://www.mobygames.com/game/456/shining-force-cd/'
+          releaseYear: null,
+          platform: 'Sega CD',
+          metacriticScore: 80,
+          metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/'
         }
-      ]
-    });
-
-    await expect(candidatesPromise).resolves.toEqual([
-      {
-        title: 'Shining Force',
-        releaseYear: 1992,
-        platform: 'Genesis',
-        metacriticScore: 88,
-        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
-      },
-      {
-        title: 'Shining Force CD',
-        releaseYear: null,
-        platform: 'Sega CD',
-        metacriticScore: 80,
-        metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/'
-      }
-    ]);
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('converts Moby score out of 10 to internal 100-point scale', async () => {
@@ -1630,5 +1638,99 @@ describe('IgdbProxyService', () => {
     );
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
     await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+  });
+
+  it('proactively throttles rapid sequential lookupReviewScore MobyGames calls', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // First call: slot is free, no delay
+      const firstPromise = firstValueFrom(
+        service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19)
+      );
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush({ games: [] });
+      await firstPromise;
+
+      // Second call immediately: slot not yet available, must wait ~5000 ms
+      const secondPromise = firstValueFrom(
+        service.lookupReviewScore('Chrono Trigger', 1995, 'SNES', 19)
+      );
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      // After advancing time the deferred request fires
+      await vi.advanceTimersByTimeAsync(5000);
+      const secondReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      secondReq.flush({ games: [] });
+      await secondPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('proactively throttles rapid sequential lookupReviewCandidates MobyGames calls', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // First call: no delay
+      const firstPromise = firstValueFrom(
+        service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+      );
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush({ games: [] });
+      await firstPromise;
+
+      // Second call immediately: must wait ~5000 ms before HTTP fires
+      const secondPromise = firstValueFrom(
+        service.lookupReviewCandidates('Golden Axe', 1989, 'Genesis', 29)
+      );
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      await vi.advanceTimersByTimeAsync(5000);
+      const secondReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      secondReq.flush({ games: [] });
+      await secondPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('spaces five simultaneous MobyGames lookupReviewScore calls 5 s apart', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const titles = ['Game A', 'Game B', 'Game C', 'Game D', 'Game E'];
+      const promises = titles.map((title) =>
+        firstValueFrom(service.lookupReviewScore(title, 2000, 'SNES', 19))
+      );
+
+      // Only the first request should be pending immediately
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush({ games: [] });
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      // Each subsequent request fires after another 5 s
+      for (let i = 1; i < titles.length; i++) {
+        await vi.advanceTimersByTimeAsync(5000);
+        const req = httpMock.expectOne(
+          (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+        );
+        req.flush({ games: [] });
+      }
+
+      await Promise.all(promises);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

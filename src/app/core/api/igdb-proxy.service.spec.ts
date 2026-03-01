@@ -1787,9 +1787,40 @@ describe('IgdbProxyService', () => {
 
       // No HTTP request should have been dispatched for the second call
       httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
-      await expect(secondPromise).rejects.toThrowError(
-        'MobyGames rate limit cooldown is currently active'
+      await expect(secondPromise).rejects.toThrowError('Rate limit exceeded. Retry after 5s.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('releases slot when lookupReviewScore subscription is cancelled during timer delay', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // Call 1 fires immediately
+      const call1Promise = firstValueFrom(service.lookupReviewScore('Game A', 2000, 'SNES', 19));
+      const req1 = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
       );
+      req1.flush({ games: [] });
+      await call1Promise;
+
+      // Call 2 gets a 5 s slot — subscribe then immediately cancel (unsubscribe before timer fires)
+      const sub2 = service.lookupReviewScore('Game B', 2000, 'SNES', 19).subscribe();
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+      sub2.unsubscribe(); // slot should be released
+
+      // Call 3 should reclaim the same 5 s slot (not 10 s) because call 2 released it
+      const call3Promise = firstValueFrom(service.lookupReviewScore('Game C', 2000, 'SNES', 19));
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      // Only 5 s needed (not 10 s) because the cancelled slot was returned
+      await vi.advanceTimersByTimeAsync(5000);
+      const req3 = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      req3.flush({ games: [] });
+      await call3Promise;
     } finally {
       vi.useRealTimers();
     }

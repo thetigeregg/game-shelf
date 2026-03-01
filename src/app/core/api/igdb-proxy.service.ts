@@ -628,20 +628,20 @@ export class IgdbProxyService implements GameSearchApi {
             })
           );
         if (mobyDelayMs > 0) {
-          let timerFired = false;
+          let requestDispatched = false;
           return timer(mobyDelayMs).pipe(
             switchMap(() => {
-              timerFired = true;
               // Re-check cooldown right before dispatching the MobyGames request so that
               // any cooldown activated during the delay cancels this queued request.
               const cooldownError = this.createCooldownErrorIfActive();
               if (cooldownError) {
                 return throwError(() => cooldownError);
               }
+              requestDispatched = true;
               return mobyRequest$;
             }),
             finalize(() => {
-              if (!timerFired) {
+              if (!requestDispatched) {
                 releaseSlot();
               }
             })

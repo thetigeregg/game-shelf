@@ -233,8 +233,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly BULK_RETRY_BASE_DELAY_MS = 1000;
   private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
   private static readonly BULK_HLTB_ITEM_TIMEOUT_MS = 30000;
-  private static readonly BULK_METACRITIC_CONCURRENCY = 1;
-  private static readonly BULK_METACRITIC_INTER_ITEM_DELAY_MS = 5000;
+  private static readonly BULK_METACRITIC_CONCURRENCY = 2;
+  private static readonly BULK_METACRITIC_INTER_ITEM_DELAY_MS = 125;
   private static readonly BULK_METACRITIC_ITEM_TIMEOUT_MS = 30000;
   private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
   private static readonly VIRTUAL_BUFFER_ROWS = 10;

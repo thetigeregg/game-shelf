@@ -676,9 +676,13 @@ export class ListPageComponent {
     await this.gameListComponent?.updateHltbForSelectedGames();
   }
 
-  async updateMetacriticForSelectedGamesFromPopover(): Promise<void> {
+  async updateReviewForSelectedGamesFromPopover(): Promise<void> {
     this.closeBulkActionsPopover();
-    await this.gameListComponent?.updateMetacriticForSelectedGames();
+    await this.gameListComponent?.updateReviewForSelectedGames();
+  }
+
+  async updateMetacriticForSelectedGamesFromPopover(): Promise<void> {
+    await this.updateReviewForSelectedGamesFromPopover();
   }
 
   openBulkActionsPopover(event: Event): void {
@@ -771,6 +775,7 @@ export class ListPageComponent {
       value === 'releaseDate' ||
       value === 'createdAt' ||
       value === 'hltb' ||
+      value === 'review' ||
       value === 'metacritic' ||
       value === 'platform'
     );

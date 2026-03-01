@@ -683,11 +683,11 @@ describe('MetadataValidatorPage', () => {
       callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>
     ).rejects.toThrow();
 
-    shelf.searchMetacriticCandidates.mockReturnValueOnce(of([]));
+    shelf.searchReviewCandidates.mockReturnValueOnce(of([]));
     await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
     expect(shelf.refreshGameMetacriticScore).toHaveBeenCalledWith('7', 6);
 
-    shelf.searchMetacriticCandidates.mockReturnValueOnce(
+    shelf.searchReviewCandidates.mockReturnValueOnce(
       throwError(() => new Error('429 retry after 1 s'))
     );
     await expect(
@@ -732,14 +732,16 @@ describe('MetadataValidatorPage', () => {
     await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
     expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalled();
 
-    shelf.searchMetacriticCandidates.mockReturnValueOnce(
+    shelf.searchReviewCandidates.mockReturnValueOnce(
       of([
         {
           title: 'Test',
           releaseYear: 1993,
           platform: 'PC',
-          metacriticScore: 70,
-          metacriticUrl: 'https://www.metacritic.com/game/test/'
+          reviewScore: 70,
+          reviewUrl: 'https://www.metacritic.com/game/test/',
+          reviewSource: 'metacritic' as const,
+          mobygamesGameId: null
         }
       ])
     );

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, defer, of, throwError, timer } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   GameCatalogPlatformOption,
@@ -440,7 +440,7 @@ export class IgdbProxyService implements GameSearchApi {
       const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
 
       return defer(() => {
-        const mobyDelayMs = this.claimMobyGamesSlot();
+        const { delayMs: mobyDelayMs, releaseSlot } = this.claimMobyGamesSlot();
         this.debugLogService.trace('igdb_proxy.mobygames.lookup_request', {
           title: normalizedTitle,
           releaseYear: normalizedYear,
@@ -477,9 +477,21 @@ export class IgdbProxyService implements GameSearchApi {
               return of(null);
             })
           );
-        return mobyDelayMs > 0
-          ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
-          : mobyRequest$;
+        if (mobyDelayMs > 0) {
+          let timerFired = false;
+          return timer(mobyDelayMs).pipe(
+            switchMap(() => {
+              timerFired = true;
+              return mobyRequest$;
+            }),
+            finalize(() => {
+              if (!timerFired) {
+                releaseSlot();
+              }
+            })
+          );
+        }
+        return mobyRequest$;
       });
     }
 
@@ -580,7 +592,7 @@ export class IgdbProxyService implements GameSearchApi {
       const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
 
       return defer(() => {
-        const mobyDelayMs = this.claimMobyGamesSlot();
+        const { delayMs: mobyDelayMs, releaseSlot } = this.claimMobyGamesSlot();
         this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_request', {
           title: normalizedTitle,
           releaseYear: normalizedYear,
@@ -615,19 +627,27 @@ export class IgdbProxyService implements GameSearchApi {
               return of([]);
             })
           );
-        return mobyDelayMs > 0
-          ? timer(mobyDelayMs).pipe(
-              switchMap(() => {
-                // Re-check cooldown right before dispatching the MobyGames request so that
-                // any cooldown activated during the delay cancels this queued request.
-                const cooldownError = this.createCooldownErrorIfActive();
-                if (cooldownError) {
-                  return throwError(() => cooldownError);
-                }
-                return mobyRequest$;
-              })
-            )
-          : mobyRequest$;
+        if (mobyDelayMs > 0) {
+          let timerFired = false;
+          return timer(mobyDelayMs).pipe(
+            switchMap(() => {
+              timerFired = true;
+              // Re-check cooldown right before dispatching the MobyGames request so that
+              // any cooldown activated during the delay cancels this queued request.
+              const cooldownError = this.createCooldownErrorIfActive();
+              if (cooldownError) {
+                return throwError(() => cooldownError);
+              }
+              return mobyRequest$;
+            }),
+            finalize(() => {
+              if (!timerFired) {
+                releaseSlot();
+              }
+            })
+          );
+        }
+        return mobyRequest$;
       });
     }
 
@@ -1878,10 +1898,19 @@ export class IgdbProxyService implements GameSearchApi {
     return new Error(`Rate limit exceeded. Retry after ${String(retryAfterSeconds)}s.`);
   }
 
-  private claimMobyGamesSlot(): number {
+  private claimMobyGamesSlot(): { delayMs: number; releaseSlot: () => void } {
     const now = Date.now();
     const slotMs = Math.max(now, this.mobyGamesNextSlotMs);
     this.mobyGamesNextSlotMs = slotMs + IgdbProxyService.MOBYGAMES_MIN_INTERVAL_MS;
-    return Math.max(0, slotMs - now);
+    const delayMs = Math.max(0, slotMs - now);
+    return {
+      delayMs,
+      releaseSlot: () => {
+        // Roll back only if no later slot has been claimed after this one
+        if (this.mobyGamesNextSlotMs === slotMs + IgdbProxyService.MOBYGAMES_MIN_INTERVAL_MS) {
+          this.mobyGamesNextSlotMs = slotMs;
+        }
+      }
+    };
   }
 }

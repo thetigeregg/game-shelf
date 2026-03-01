@@ -45,7 +45,10 @@ interface MobyGamesCredentials {
 
 const DEFAULT_MOBYGAMES_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_MOBYGAMES_CACHE_STALE_TTL_SECONDS = 86400 * 90;
+const MOBYGAMES_MIN_INTERVAL_MS = 5_000;
+const MOBYGAMES_MAX_QUEUE_DELAY_MS = 30_000;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
+let mobyGamesNextSlotMs = 0;
 
 export async function registerMobyGamesCachedRoute(
   app: FastifyInstance,
@@ -456,6 +459,27 @@ async function deleteMobyGamesCacheEntry(
   }
 }
 
+function claimMobyGamesSlot(): number {
+  const now = Date.now();
+  const slotMs = Math.max(now, mobyGamesNextSlotMs);
+  mobyGamesNextSlotMs = slotMs + MOBYGAMES_MIN_INTERVAL_MS;
+  return Math.max(0, slotMs - now);
+}
+
+async function waitForMobyGamesSlot(): Promise<{ tooManyWaiters: boolean; delayMs: number }> {
+  const delayMs = claimMobyGamesSlot();
+  if (delayMs > MOBYGAMES_MAX_QUEUE_DELAY_MS) {
+    mobyGamesNextSlotMs -= MOBYGAMES_MIN_INTERVAL_MS;
+    return { tooManyWaiters: true, delayMs };
+  }
+  if (delayMs > 0) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
+  }
+  return { tooManyWaiters: false, delayMs };
+}
+
 async function fetchMetadataFromMobyGames(
   request: FastifyRequest,
   credentials: MobyGamesCredentials
@@ -505,6 +529,19 @@ async function fetchMetadataFromMobyGames(
   appendNullableString(targetUrl, 'include', normalized.include);
 
   try {
+    const { tooManyWaiters, delayMs } = await waitForMobyGamesSlot();
+    if (tooManyWaiters) {
+      return new Response(
+        JSON.stringify({ error: 'MobyGames request queue full. Please retry later.' }),
+        {
+          status: 503,
+          headers: {
+            'content-type': 'application/json',
+            'retry-after': String(Math.ceil(delayMs / 1000))
+          }
+        }
+      );
+    }
     logUpstreamRequest(request, {
       method: 'GET',
       url: targetUrl.toString()
@@ -617,5 +654,11 @@ async function sendWebResponse(reply: FastifyReply, response: Response): Promise
 export const __mobygamesCacheTestables = {
   normalizeMobyGamesQuery,
   getAgeSeconds,
-  isCacheableMobyGamesPayload
+  isCacheableMobyGamesPayload,
+  claimMobyGamesSlot,
+  waitForMobyGamesSlot,
+  MOBYGAMES_MAX_QUEUE_DELAY_MS,
+  resetMobyGamesThrottle: (): void => {
+    mobyGamesNextSlotMs = 0;
+  }
 };

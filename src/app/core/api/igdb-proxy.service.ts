@@ -393,6 +393,12 @@ export class IgdbProxyService implements GameSearchApi {
       return of(null);
     }
 
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
     let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set(
       'q',
       normalizedTitle
@@ -526,6 +532,12 @@ export class IgdbProxyService implements GameSearchApi {
         titleLength: normalizedTitle.length
       });
       return of([]);
+    }
+
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
     }
 
     let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })

@@ -7,7 +7,7 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
-import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
+import { __mobygamesCacheTestables, registerMobyGamesCachedRoute } from './mobygames-cache.js';
 
 function toPrimitiveString(value: unknown): string {
   if (typeof value === 'string') {
@@ -991,4 +991,33 @@ void test('MOBYGAMES cache does not persist when upstream response body is inval
   assert.equal(metrics.mobygames.writes, 0);
 
   await app.close();
+});
+
+void test('claimMobyGamesSlot assigns staggered slots for rapid concurrent calls', () => {
+  __mobygamesCacheTestables.resetMobyGamesThrottle();
+
+  const delay1 = __mobygamesCacheTestables.claimMobyGamesSlot();
+  const delay2 = __mobygamesCacheTestables.claimMobyGamesSlot();
+  const delay3 = __mobygamesCacheTestables.claimMobyGamesSlot();
+
+  assert.equal(delay1, 0);
+  assert.ok(delay2 >= 5000 - 1, `expected delay2 >= 4999, got ${String(delay2)}`);
+  assert.ok(delay3 >= 10000 - 1, `expected delay3 >= 9999, got ${String(delay3)}`);
+
+  __mobygamesCacheTestables.resetMobyGamesThrottle();
+});
+
+void test('claimMobyGamesSlot grants immediate slot after throttle is reset', () => {
+  __mobygamesCacheTestables.resetMobyGamesThrottle();
+
+  const delay1 = __mobygamesCacheTestables.claimMobyGamesSlot();
+  assert.equal(delay1, 0);
+
+  // Reset throttle state to verify immediate slot is available again on next claim
+  __mobygamesCacheTestables.resetMobyGamesThrottle();
+
+  const delay2 = __mobygamesCacheTestables.claimMobyGamesSlot();
+  assert.equal(delay2, 0);
+
+  __mobygamesCacheTestables.resetMobyGamesThrottle();
 });

@@ -45,7 +45,9 @@ interface MobyGamesCredentials {
 
 const DEFAULT_MOBYGAMES_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_MOBYGAMES_CACHE_STALE_TTL_SECONDS = 86400 * 90;
+const MOBYGAMES_MIN_INTERVAL_MS = 5_000;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
+let mobyGamesNextSlotMs = 0;
 
 export async function registerMobyGamesCachedRoute(
   app: FastifyInstance,
@@ -456,6 +458,22 @@ async function deleteMobyGamesCacheEntry(
   }
 }
 
+function claimMobyGamesSlot(): number {
+  const now = Date.now();
+  const slotMs = Math.max(now, mobyGamesNextSlotMs);
+  mobyGamesNextSlotMs = slotMs + MOBYGAMES_MIN_INTERVAL_MS;
+  return Math.max(0, slotMs - now);
+}
+
+async function waitForMobyGamesSlot(): Promise<void> {
+  const delayMs = claimMobyGamesSlot();
+  if (delayMs > 0) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
+  }
+}
+
 async function fetchMetadataFromMobyGames(
   request: FastifyRequest,
   credentials: MobyGamesCredentials
@@ -509,6 +527,7 @@ async function fetchMetadataFromMobyGames(
       method: 'GET',
       url: targetUrl.toString()
     });
+    await waitForMobyGamesSlot();
     const response = await fetch(targetUrl.toString(), {
       method: 'GET'
     });
@@ -617,5 +636,9 @@ async function sendWebResponse(reply: FastifyReply, response: Response): Promise
 export const __mobygamesCacheTestables = {
   normalizeMobyGamesQuery,
   getAgeSeconds,
-  isCacheableMobyGamesPayload
+  isCacheableMobyGamesPayload,
+  claimMobyGamesSlot,
+  resetMobyGamesThrottle: (): void => {
+    mobyGamesNextSlotMs = 0;
+  }
 };

@@ -996,15 +996,22 @@ void test('MOBYGAMES cache does not persist when upstream response body is inval
 void test('claimMobyGamesSlot assigns staggered slots for rapid concurrent calls', () => {
   __mobygamesCacheTestables.resetMobyGamesThrottle();
 
-  const delay1 = __mobygamesCacheTestables.claimMobyGamesSlot();
-  const delay2 = __mobygamesCacheTestables.claimMobyGamesSlot();
-  const delay3 = __mobygamesCacheTestables.claimMobyGamesSlot();
+  const originalDateNow = Date.now;
+  const fakeNow = 1_700_000_000_000;
+  Date.now = () => fakeNow;
 
-  assert.equal(delay1, 0);
-  assert.ok(delay2 >= 5000 - 1, `expected delay2 >= 4999, got ${String(delay2)}`);
-  assert.ok(delay3 >= 10000 - 1, `expected delay3 >= 9999, got ${String(delay3)}`);
+  try {
+    const delay1 = __mobygamesCacheTestables.claimMobyGamesSlot();
+    const delay2 = __mobygamesCacheTestables.claimMobyGamesSlot();
+    const delay3 = __mobygamesCacheTestables.claimMobyGamesSlot();
 
-  __mobygamesCacheTestables.resetMobyGamesThrottle();
+    assert.equal(delay1, 0);
+    assert.ok(delay2 >= 5000 - 1, `expected delay2 >= 4999, got ${String(delay2)}`);
+    assert.ok(delay3 >= 10000 - 1, `expected delay3 >= 9999, got ${String(delay3)}`);
+  } finally {
+    Date.now = originalDateNow;
+    __mobygamesCacheTestables.resetMobyGamesThrottle();
+  }
 });
 
 void test('claimMobyGamesSlot grants immediate slot after throttle is reset', () => {

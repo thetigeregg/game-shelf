@@ -656,6 +656,7 @@ export const __mobygamesCacheTestables = {
   getAgeSeconds,
   isCacheableMobyGamesPayload,
   claimMobyGamesSlot,
+  waitForMobyGamesSlot,
   MOBYGAMES_MAX_QUEUE_DELAY_MS,
   resetMobyGamesThrottle: (): void => {
     mobyGamesNextSlotMs = 0;

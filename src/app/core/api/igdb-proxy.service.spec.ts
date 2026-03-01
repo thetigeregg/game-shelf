@@ -1733,4 +1733,65 @@ describe('IgdbProxyService', () => {
       vi.useRealTimers();
     }
   });
+
+  it('returns null for non-rate-limit MobyGames errors in lookupReviewScore', async () => {
+    const promise = firstValueFrom(service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19));
+    const req = httpMock.expectOne(
+      (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+    );
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('returns empty list for non-rate-limit MobyGames errors in lookupReviewCandidates', async () => {
+    const promise = firstValueFrom(
+      service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const req = httpMock.expectOne(
+      (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+    );
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('cancels queued lookupReviewCandidates when cooldown activates during throttle delay', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // First subscribe fires immediately (mobyDelayMs=0, no cooldown active yet)
+      const firstPromise = firstValueFrom(
+        service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+      );
+
+      // Second subscribe queued with 5 s delay; the cooldown pre-check passes (cooldown not active yet)
+      const secondPromise = firstValueFrom(
+        service.lookupReviewCandidates('Golden Axe', 1989, 'Genesis', 29)
+      );
+
+      // Flush first request with 429 → activates rateLimitCooldownUntilMs (T + 10 s)
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush(
+        { message: 'rate limited' },
+        {
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: new HttpHeaders({ 'Retry-After': '10' })
+        }
+      );
+      await expect(firstPromise).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+
+      // Advance timers 5 s → second request's switchMap fires and re-checks the now-active cooldown
+      await vi.advanceTimersByTimeAsync(5000);
+
+      // No HTTP request should have been dispatched for the second call
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+      await expect(secondPromise).rejects.toThrowError(
+        'MobyGames rate limit cooldown is currently active'
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

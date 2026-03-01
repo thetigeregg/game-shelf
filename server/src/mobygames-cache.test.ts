@@ -993,6 +993,32 @@ void test('MOBYGAMES cache does not persist when upstream response body is inval
   await app.close();
 });
 
+void test('waitForMobyGamesSlot awaits delay when slot is not immediately free', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  __mobygamesCacheTestables.resetMobyGamesThrottle();
+
+  const originalDateNow = Date.now;
+  const fakeNow = 1_700_000_000_000;
+  Date.now = () => fakeNow;
+
+  try {
+    // Claim first slot (no delay) to advance mobyGamesNextSlotMs
+    __mobygamesCacheTestables.claimMobyGamesSlot();
+
+    // waitForMobyGamesSlot will internally call claimMobyGamesSlot and get delayMs = 5000
+    const waitPromise = __mobygamesCacheTestables.waitForMobyGamesSlot();
+
+    // Fast-forward the mock timer so setTimeout resolves immediately
+    t.mock.timers.tick(5001);
+
+    const result = await waitPromise;
+    assert.strictEqual(result.tooManyWaiters, false);
+  } finally {
+    Date.now = originalDateNow;
+    __mobygamesCacheTestables.resetMobyGamesThrottle();
+  }
+});
+
 void test('claimMobyGamesSlot assigns staggered slots for rapid concurrent calls', () => {
   __mobygamesCacheTestables.resetMobyGamesThrottle();
 

@@ -1074,3 +1074,134 @@
 - cb0e8a1 docs(copilot): set up comprehensive Copilot instructions
 - b166f8e Initial plan
 
+## v0.2.0 - 2026-03-01
+- ece258f Merge pull request #109 from thetigeregg/codex/add-mobygames-api-support
+- 88d2240 Merge pull request #138 from thetigeregg/copilot/sub-pr-109-again
+- cc42703 fix(metadata-validator): pass mobygamesGameId and platformIgdbId through review candidate query
+- ffa7afd Merge pull request #137 from thetigeregg/copilot/sub-pr-109
+- d8c2922 refactor(test): remove duplicate top-level tests from html-sanitizer spec
+- b13381a Initial plan
+- 8e182ca Initial plan
+- b32fdac Merge pull request #136 from thetigeregg/copilot/sub-pr-109
+- bd1cd24 fix(metadata-validator): key dedupeReviewCandidates by stable identity fields only
+- 08197a4 Initial plan
+- f54f4b8 Merge pull request #135 from thetigeregg/copilot/sub-pr-109-again
+- 1da693c Merge pull request #134 from thetigeregg/copilot/sub-pr-109
+- ee63652 fix(ui): preserve one decimal place in normalizeReviewScore
+- 774a54a fix(settings): infer mobyScore from raw reviewScore in CSV import
+- 9584320 Initial plan
+- 8010da9 Initial plan
+- 2b84c19 Merge pull request #131 from thetigeregg/copilot/sub-pr-109
+- dc278a0 Merge pull request #132 from thetigeregg/copilot/sub-pr-109-again
+- f49642e Merge pull request #133 from thetigeregg/copilot/sub-pr-109-another-one
+- 59a14cc fix(db): gate v8 metacritic backfill when reviewSource is mobygames
+- 24876b2 fix(settings): widen MobyGames score normalization tolerance to <= 0.05 in CSV import
+- ec90fca refactor(filtering): remove hasMetacriticData alias, use hasReviewData directly
+- 4d19b1f Initial plan
+- 17a6490 Initial plan
+- cac765f Initial plan
+- f61e805 Merge pull request #129 from thetigeregg/copilot/sub-pr-109
+- 3aced18 Merge pull request #130 from thetigeregg/copilot/sub-pr-109-again
+- 7d1b2a6 fix(filtering): use mobyScore as ground truth for MobyGames 0–10 scale detection in sort
+- 0bdede5 fix(import): parse mobyScore before reviewScoreForCatalog in CSV import
+- 14512e0 Initial plan
+- 6b32739 Initial plan
+- a1f40e4 Merge pull request #127 from thetigeregg/copilot/sub-pr-109
+- 481e5e6 Merge pull request #128 from thetigeregg/copilot/sub-pr-109-again
+- 962acea fix(sync): normalize MobyGames reviewScore from 0–10 to 0–100 in applyGameChange
+- f35b5c1 fix(filtering): make review score sort source-aware for MobyGames 0–10 scale
+- c608a4c Initial plan
+- 433738a Initial plan
+- f837064 Merge pull request #125 from thetigeregg/copilot/sub-pr-109
+- 877c8e1 Merge pull request #126 from thetigeregg/copilot/sub-pr-109-again
+- ea09b81 fix(data): use existing.metacriticScore/Url as fallback in upsertFromCatalog
+- b6c617a fix(workflow): key dedupeReviewCandidates by stable identity fields only
+- c046d2b Initial plan
+- 6835403 Initial plan
+- 37d848c Merge pull request #124 from thetigeregg/copilot/sub-pr-109
+- 3216375 fix(settings): fix reviewScore upper bound and mobyScore zero validation in CSV import
+- fffe2b5 Initial plan
+- a34d305 Merge pull request #123 from thetigeregg/copilot/sub-pr-109-another-one
+- cdd2bbb Merge pull request #122 from thetigeregg/copilot/sub-pr-109-again
+- dda5b7c feat(data): introduce normalizeReviewScore() preserving decimal scores
+- ebff8ea fix(sync): use normalizeReviewScore to preserve decimal precision in sync payloads
+- 9a1e118 Merge pull request #121 from thetigeregg/copilot/sub-pr-109
+- 53b8cd8 fix(settings): allow MobyGames scores 0–10 in CSV import validation
+- fef35dd Initial plan
+- 3749222 Initial plan
+- 367d801 Initial plan
+- 8b48ef5 Merge pull request #120 from thetigeregg/copilot/sub-pr-109
+- b16078b test(server): fix mobygames cache test expectation for BYPASS header on short query
+- 83a8ea7 Initial plan
+- 8e7d4be Merge pull request #117 from thetigeregg/copilot/sub-pr-109
+- 98fae2c test(coverage): add backend tests for mobygames cache, http debug, and sync service review fields
+- 8c6b012 test(coverage): add targeted tests to improve patch coverage across frontend files
+- 430e1f0 Merge pull request #119 from thetigeregg/copilot/sub-pr-109-another-one
+- 3e40eeb Merge pull request #118 from thetigeregg/copilot/sub-pr-109-again
+- f08598e fix(settings): infer reviewSource from URL when not explicitly set in CSV import
+- 4983ac4 fix(data): preserve existing metacritic score/url on partial upsert
+- aec4876 Update server/src/mobygames-cache.ts
+- 32f2b5e Initial plan
+- 1765736 Initial plan
+- e6770c7 Initial plan
+- c732b94 chore: remove unused import from mobygames-cache.test.ts
+- 88a6749 chore: add chokidar and readdirp as optional dependencies in package-lock.json
+- d26aa50 Merge branch 'main' into codex/add-mobygames-api-support
+- c89345c chore: update dependencies for @fastify/cors, @fastify/middie, fastify, pg, and type definitions
+- d987251 test: add unit tests for runtime configuration, layout mode, and theme services
+- fd5120b Merge pull request #112 from thetigeregg/copilot/sub-pr-109-again
+- 82f17e9 Merge branch 'codex/add-mobygames-api-support' into copilot/sub-pr-109-again
+- df19c2a test(coverage): add tests to bring backend branch coverage above 80% threshold
+- 317ef54 Merge pull request #113 from thetigeregg/copilot/sub-pr-109
+- 0c788a4 fix(lint): fix ESLint errors in http-debug-log and mobygames-cache test files
+- 12168e2 chore(plan): outline lint fix approach for test files
+- 12b2708 Initial plan
+- 440a1d1 Merge pull request #111 from thetigeregg/copilot/sub-pr-109
+- e13ef46 test(coverage): add mobygames stale/error path tests and http-debug-log test file to meet 80% branch threshold
+- 15d0e5d chore(plan): outline UI test fix approach
+- 9c275eb Initial plan
+- c42fbc0 Initial plan
+- 80e67f5 Merge pull request #110 from thetigeregg/copilot/sub-pr-109
+- 0c0401c chore(deps): restore package-lock.json to base branch state
+- 87a4a20 test(coverage): fix failing coverage thresholds with new unit tests and config
+- 7706f0f chore(plan): outline coverage threshold fix approach
+- b28a90a Initial plan
+- cd6ba3a test: add unit tests for game list features and settings utilities
+- 20d4c8e docs(copilot): update instructions for commit messages and pull requests
+- 9b8dae7 Update mobygames request test
+- aebea61 Review mobyScore validation
+- ecfec07 Validate mobyScore range
+- 449fa3d Validate mobyScore and reviewScore
+- 354dbeb Fix moby score validation
+- 41df8dc Enforce positive moby scores
+- 81dd369 Replace manual review source heur
+- b9a38be Audit settings implementation gaps
+- 0925afc Audit review score handling
+- 4e537a2 Store raw moby score values
+- 5a4cab0 Avoid mobygames screenshots
+- 93de94c Skip caching empty Mobygames covers
+- 2016bbe Investigate cache miss after clear
+- 1e92249 Document DEBUG_HTTP_LOGS logging
+- 405cab2 Add Mobygames cover data
+- 3ea22eb Show review score fractions
+- 362dabc Switch Mobygames API to v2
+- 3b356c0 Switch mobygames API back to v2
+- 2bc1c0d Switch mobygames api defaults
+- 06e1f9f Update Mobygames cache params
+- fafa176 Update mobygames API base URL
+- 2f56bcd Fix mobygames API path
+- 68be1c1 Document review score sources
+- f44c687 Show review source label
+- 44413d7 Format Metacritic platform utils
+- 49d8a17 test(review): add e2e source-routing checks and align picker typing
+- ff6d495 Add review refresh routing tests
+- 7d5d0dc test(review): add routing and migration regression coverage
+- 501e8aa Rename metacritic pipeline refs
+- 7309f4c Add mobygames review pipeline
+- b5107dc Add review pipeline and attributions
+- 3aab956 Integrate review pipeline updates
+- 76e72a4 Implement MobyGames integration
+- 5e08306 Add attributions alert section
+- 8c3c52e Add mobygames for legacy platforms
+- eeb46b0 Add MobyGames API integration
+

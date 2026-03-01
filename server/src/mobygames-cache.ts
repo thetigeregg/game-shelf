@@ -466,18 +466,18 @@ function claimMobyGamesSlot(): number {
   return Math.max(0, slotMs - now);
 }
 
-async function waitForMobyGamesSlot(): Promise<{ tooManyWaiters: boolean }> {
+async function waitForMobyGamesSlot(): Promise<{ tooManyWaiters: boolean; delayMs: number }> {
   const delayMs = claimMobyGamesSlot();
   if (delayMs > MOBYGAMES_MAX_QUEUE_DELAY_MS) {
     mobyGamesNextSlotMs -= MOBYGAMES_MIN_INTERVAL_MS;
-    return { tooManyWaiters: true };
+    return { tooManyWaiters: true, delayMs };
   }
   if (delayMs > 0) {
     await new Promise<void>((resolve) => {
       setTimeout(resolve, delayMs);
     });
   }
-  return { tooManyWaiters: false };
+  return { tooManyWaiters: false, delayMs };
 }
 
 async function fetchMetadataFromMobyGames(
@@ -529,14 +529,15 @@ async function fetchMetadataFromMobyGames(
   appendNullableString(targetUrl, 'include', normalized.include);
 
   try {
-    const { tooManyWaiters } = await waitForMobyGamesSlot();
+    const { tooManyWaiters, delayMs } = await waitForMobyGamesSlot();
     if (tooManyWaiters) {
       return new Response(
         JSON.stringify({ error: 'MobyGames request queue full. Please retry later.' }),
         {
           status: 503,
           headers: {
-            'content-type': 'application/json'
+            'content-type': 'application/json',
+            'retry-after': String(Math.ceil(delayMs / 1000))
           }
         }
       );

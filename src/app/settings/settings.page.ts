@@ -3001,10 +3001,10 @@ export class SettingsPage {
     }
     const normalizedMobyScore =
       explicitMobyScore ??
-      (reviewSource === 'mobygames' && reviewScoreForCatalog !== null
-        ? reviewScoreForCatalog <= 10
-          ? reviewScoreForCatalog
-          : reviewScoreForCatalog / 10
+      (reviewSource === 'mobygames' && normalizedReviewScore !== null
+        ? normalizedReviewScore <= 10
+          ? normalizedReviewScore
+          : normalizedReviewScore / 10
         : null);
     const mobyScore =
       normalizedMobyScore !== null &&

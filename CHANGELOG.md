@@ -1211,3 +1211,20 @@
 - c551f4e fix(api): enforce rate-limit cooldown in lookupReviewScore and lookupReviewCandidates, respect MobyGames 12 req/min in bulk actions
 - db183bc Initial plan
 
+## v0.2.2 - 2026-03-01
+- 25bcd92 Merge pull request #140 from thetigeregg/copilot/fix-mobygames-rate-limiting
+- 92dc2a5 fix(server): restore retry-after header in MobyGames 503 queue-full response using actual delay
+- e6dcb7b Update src/app/core/api/igdb-proxy.service.ts
+- f2bd342 Update server/src/mobygames-cache.ts
+- 98217c2 Update src/app/core/api/igdb-proxy.service.ts
+- 969ecf5 fix(api): make MobyGames slot reservation cancellation-safe via releaseSlot rollback
+- 51079aa Update src/app/core/api/igdb-proxy.service.ts
+- 4c144ba test(api): add coverage for MobyGames throttle error paths and waitForMobyGamesSlot delay branch
+- b8fd3b9 fix(api): move MobyGames lookup_request traces inside defer blocks for accurate timestamps
+- 5cb0fc7 Update src/app/core/api/igdb-proxy.service.ts
+- 14c0ddb fix(api): address PR review feedback on MobyGames throttle
+- 4abde13 Update server/src/mobygames-cache.test.ts
+- 200324a fix(server): add server-side outbound throttle for MobyGames (5 s minimum interval)
+- 5c14259 fix(api): proactively throttle MobyGames requests to 0.2 req/s
+- fd5eb51 Initial plan
+

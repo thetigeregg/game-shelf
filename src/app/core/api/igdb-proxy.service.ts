@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { Observable, of, throwError, timer } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   GameCatalogPlatformOption,
@@ -110,6 +110,7 @@ interface PopularityGamesResponse {
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
   private static readonly RATE_LIMIT_FALLBACK_COOLDOWN_MS = 20_000;
+  private static readonly MOBYGAMES_MIN_INTERVAL_MS = 5_000;
   private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
   private readonly platformCacheStorageKey = 'game-shelf-platform-list-cache-v1';
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
@@ -123,6 +124,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
   private rateLimitCooldownUntilMs = 0;
+  private mobyGamesNextSlotMs = 0;
 
   searchGames(query: string, platformIgdbId?: number | null): Observable<GameCatalogResult[]> {
     const normalized = query.trim();
@@ -445,7 +447,8 @@ export class IgdbProxyService implements GameSearchApi {
         mobygamesPlatformId
       });
 
-      return this.httpClient
+      const mobyDelayMs = this.claimMobyGamesSlot();
+      const mobyRequest$ = this.httpClient
         .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
         .pipe(
           map((response) => {
@@ -472,6 +475,9 @@ export class IgdbProxyService implements GameSearchApi {
             return of(null);
           })
         );
+      return mobyDelayMs > 0
+        ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
+        : mobyRequest$;
     }
 
     this.debugLogService.trace('igdb_proxy.metacritic.lookup_request', {
@@ -577,7 +583,8 @@ export class IgdbProxyService implements GameSearchApi {
         mobygamesPlatformId
       });
 
-      return this.httpClient
+      const mobyDelayMs = this.claimMobyGamesSlot();
+      const mobyRequest$ = this.httpClient
         .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
         .pipe(
           map((response) => {
@@ -603,6 +610,9 @@ export class IgdbProxyService implements GameSearchApi {
             return of([]);
           })
         );
+      return mobyDelayMs > 0
+        ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
+        : mobyRequest$;
     }
 
     this.debugLogService.trace('igdb_proxy.metacritic_candidates.lookup_request', {
@@ -1850,5 +1860,12 @@ export class IgdbProxyService implements GameSearchApi {
 
     const retryAfterSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
     return new Error(`Rate limit exceeded. Retry after ${String(retryAfterSeconds)}s.`);
+  }
+
+  private claimMobyGamesSlot(): number {
+    const now = Date.now();
+    const slotMs = Math.max(now, this.mobyGamesNextSlotMs);
+    this.mobyGamesNextSlotMs = slotMs + IgdbProxyService.MOBYGAMES_MIN_INTERVAL_MS;
+    return Math.max(0, slotMs - now);
   }
 }

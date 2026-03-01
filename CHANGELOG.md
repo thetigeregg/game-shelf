@@ -1205,3 +1205,9 @@
 - 8c3c52e Add mobygames for legacy platforms
 - eeb46b0 Add MobyGames API integration
 
+## v0.2.1 - 2026-03-01
+- b362c8c Merge pull request #139 from thetigeregg/copilot/review-rate-limiting-logic
+- 7765750 fix(api): revert overly conservative bulk metacritic constants; cooldown guard handles MobyGames 429s via retry
+- c551f4e fix(api): enforce rate-limit cooldown in lookupReviewScore and lookupReviewCandidates, respect MobyGames 12 req/min in bulk actions
+- db183bc Initial plan
+

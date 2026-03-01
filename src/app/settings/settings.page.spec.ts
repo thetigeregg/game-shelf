@@ -289,6 +289,38 @@ describe('SettingsPage CSV review fields', () => {
     expect(preview.parsed.catalog.mobyScore).toBe(8.6);
   });
 
+  it('preserves low mobygames reviewScore (e.g. 0.5) as mobyScore on import', () => {
+    const page = createPage();
+    const record = makeGameRow({
+      reviewScore: '0.5',
+      reviewSource: 'mobygames',
+      mobyScore: ''
+    });
+
+    const preview = page['validateImportRecord'](
+      record,
+      2,
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>(),
+      new Set<string>()
+    ) as {
+      error: string | null;
+      parsed: { kind: string; catalog: Record<string, unknown> } | null;
+    };
+
+    expect(preview.error).toBeNull();
+    expect(preview.parsed).not.toBeNull();
+    if (!preview.parsed) {
+      return;
+    }
+    expect(preview.parsed.kind).toBe('game');
+    expect(preview.parsed.catalog.reviewScore).toBe(5);
+    expect(preview.parsed.catalog.mobyScore).toBe(0.5);
+  });
+
   it('rejects out-of-range mobygames score values on import', () => {
     const page = createPage();
     const record = makeGameRow({

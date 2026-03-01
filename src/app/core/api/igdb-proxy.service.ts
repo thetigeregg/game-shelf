@@ -614,7 +614,21 @@ export class IgdbProxyService implements GameSearchApi {
             })
           );
         return mobyDelayMs > 0
-          ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
+          ? timer(mobyDelayMs).pipe(
+              switchMap(() => {
+                // Re-check cooldown right before dispatching the MobyGames request so that
+                // any cooldown activated during the delay cancels this queued request.
+                if (
+                  this.rateLimitCooldownUntilMs !== null &&
+                  Date.now() < this.rateLimitCooldownUntilMs
+                ) {
+                  return throwError(
+                    () => new Error('MobyGames rate limit cooldown is currently active')
+                  );
+                }
+                return mobyRequest$;
+              })
+            )
           : mobyRequest$;
       });
     }

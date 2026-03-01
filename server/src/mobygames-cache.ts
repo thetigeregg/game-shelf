@@ -536,8 +536,7 @@ async function fetchMetadataFromMobyGames(
         {
           status: 503,
           headers: {
-            'content-type': 'application/json',
-            'retry-after': String(Math.ceil(MOBYGAMES_MAX_QUEUE_DELAY_MS / 1000))
+            'content-type': 'application/json'
           }
         }
       );

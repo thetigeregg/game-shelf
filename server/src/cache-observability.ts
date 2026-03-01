@@ -11,6 +11,7 @@ interface CacheCountSnapshot {
   imageAssetCount: number | null;
   hltbEntryCount: number | null;
   metacriticEntryCount: number | null;
+  mobygamesEntryCount: number | null;
   dbError: string | null;
 }
 
@@ -38,6 +39,7 @@ export async function registerCacheObservabilityRoutes(
     imageAssetCount: null,
     hltbEntryCount: null,
     metacriticEntryCount: null,
+    mobygamesEntryCount: null,
     dbError: null
   };
 
@@ -52,11 +54,15 @@ export async function registerCacheObservabilityRoutes(
       const metacriticCountResult = await pool.query<CacheCountRow>(
         'SELECT COUNT(*)::text AS count FROM metacritic_search_cache'
       );
+      const mobygamesCountResult = await pool.query<CacheCountRow>(
+        'SELECT COUNT(*)::text AS count FROM mobygames_search_cache'
+      );
 
       snapshot = {
         imageAssetCount: Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10),
         hltbEntryCount: Number.parseInt(hltbCountResult.rows[0]?.count ?? '0', 10),
         metacriticEntryCount: Number.parseInt(metacriticCountResult.rows[0]?.count ?? '0', 10),
+        mobygamesEntryCount: Number.parseInt(mobygamesCountResult.rows[0]?.count ?? '0', 10),
         dbError: null
       };
     } catch (error) {
@@ -64,6 +70,7 @@ export async function registerCacheObservabilityRoutes(
         imageAssetCount: null,
         hltbEntryCount: null,
         metacriticEntryCount: null,
+        mobygamesEntryCount: null,
         dbError: error instanceof Error ? error.message : String(error)
       };
     }
@@ -98,7 +105,8 @@ export async function registerCacheObservabilityRoutes(
         counts: {
           imageAssets: snapshot.imageAssetCount,
           hltbEntries: snapshot.hltbEntryCount,
-          metacriticEntries: snapshot.metacriticEntryCount
+          metacriticEntries: snapshot.metacriticEntryCount,
+          mobygamesEntries: snapshot.mobygamesEntryCount
         },
         dbError: snapshot.dbError
       });

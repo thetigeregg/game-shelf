@@ -97,6 +97,12 @@ export interface AppConfig {
   metacriticCacheStaleTtlSeconds: number;
   hltbSearchRateLimitMaxPerMinute: number;
   metacriticSearchRateLimitMaxPerMinute: number;
+  mobygamesApiBaseUrl: string;
+  mobygamesApiKey: string;
+  mobygamesCacheEnableStaleWhileRevalidate: boolean;
+  mobygamesCacheFreshTtlSeconds: number;
+  mobygamesCacheStaleTtlSeconds: number;
+  mobygamesSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
 }
@@ -187,6 +193,18 @@ export const config: AppConfig = {
   metacriticSearchRateLimitMaxPerMinute: readIntegerEnv(
     'METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
     240
+  ),
+  mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
+  mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
+  mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  mobygamesCacheFreshTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
+  mobygamesCacheStaleTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  mobygamesSearchRateLimitMaxPerMinute: readIntegerEnv(
+    'MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
+    12
   ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')

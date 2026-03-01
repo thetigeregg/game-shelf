@@ -343,8 +343,8 @@ export class GameDetailContentComponent {
       return null;
     }
 
-    const normalized = Math.round(value);
-    if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 100) {
+    const normalized = Math.round(value * 10) / 10;
+    if (normalized <= 0 || normalized > 100) {
       return null;
     }
 

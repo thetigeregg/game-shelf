@@ -46,6 +46,7 @@ interface MobyGamesCredentials {
 const DEFAULT_MOBYGAMES_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_MOBYGAMES_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const MOBYGAMES_MIN_INTERVAL_MS = 5_000;
+const MOBYGAMES_MAX_QUEUE_DELAY_MS = 30_000;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
 let mobyGamesNextSlotMs = 0;
 
@@ -465,13 +466,18 @@ function claimMobyGamesSlot(): number {
   return Math.max(0, slotMs - now);
 }
 
-async function waitForMobyGamesSlot(): Promise<void> {
+async function waitForMobyGamesSlot(): Promise<{ tooManyWaiters: boolean }> {
   const delayMs = claimMobyGamesSlot();
+  if (delayMs > MOBYGAMES_MAX_QUEUE_DELAY_MS) {
+    mobyGamesNextSlotMs -= MOBYGAMES_MIN_INTERVAL_MS;
+    return { tooManyWaiters: true };
+  }
   if (delayMs > 0) {
     await new Promise<void>((resolve) => {
       setTimeout(resolve, delayMs);
     });
   }
+  return { tooManyWaiters: false };
 }
 
 async function fetchMetadataFromMobyGames(
@@ -523,11 +529,23 @@ async function fetchMetadataFromMobyGames(
   appendNullableString(targetUrl, 'include', normalized.include);
 
   try {
+    const { tooManyWaiters } = await waitForMobyGamesSlot();
+    if (tooManyWaiters) {
+      return new Response(
+        JSON.stringify({ error: 'MobyGames request queue full. Please retry later.' }),
+        {
+          status: 503,
+          headers: {
+            'content-type': 'application/json',
+            'retry-after': String(Math.ceil(MOBYGAMES_MAX_QUEUE_DELAY_MS / 1000))
+          }
+        }
+      );
+    }
     logUpstreamRequest(request, {
       method: 'GET',
       url: targetUrl.toString()
     });
-    await waitForMobyGamesSlot();
     const response = await fetch(targetUrl.toString(), {
       method: 'GET'
     });
@@ -638,6 +656,7 @@ export const __mobygamesCacheTestables = {
   getAgeSeconds,
   isCacheableMobyGamesPayload,
   claimMobyGamesSlot,
+  MOBYGAMES_MAX_QUEUE_DELAY_MS,
   resetMobyGamesThrottle: (): void => {
     mobyGamesNextSlotMs = 0;
   }

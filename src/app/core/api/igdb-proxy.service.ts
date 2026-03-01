@@ -482,6 +482,12 @@ export class IgdbProxyService implements GameSearchApi {
           return timer(mobyDelayMs).pipe(
             switchMap(() => {
               timerFired = true;
+              const cooldownError = this.createCooldownErrorIfActive();
+              if (cooldownError) {
+                // Cooldown activated during delay window; do not dispatch upstream request.
+                releaseSlot();
+                return throwError(() => cooldownError);
+              }
               return mobyRequest$;
             }),
             finalize(() => {

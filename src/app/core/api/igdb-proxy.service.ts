@@ -620,10 +620,9 @@ export class IgdbProxyService implements GameSearchApi {
               switchMap(() => {
                 // Re-check cooldown right before dispatching the MobyGames request so that
                 // any cooldown activated during the delay cancels this queued request.
-                if (Date.now() < this.rateLimitCooldownUntilMs) {
-                  return throwError(
-                    () => new Error('MobyGames rate limit cooldown is currently active')
-                  );
+                const cooldownError = this.createCooldownErrorIfActive();
+                if (cooldownError) {
+                  return throwError(() => cooldownError);
                 }
                 return mobyRequest$;
               })

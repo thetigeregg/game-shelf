@@ -1028,3 +1028,70 @@ void test('claimMobyGamesSlot grants immediate slot after throttle is reset', ()
 
   __mobygamesCacheTestables.resetMobyGamesThrottle();
 });
+
+void test('MOBYGAMES upstream returns 503 when queue delay exceeds max', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mobygames-key-'));
+  const keyPath = path.join(tempDir, 'api-key.txt');
+  fs.writeFileSync(keyPath, 'abc123\n', 'utf8');
+
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(
+      new Response(JSON.stringify({ games: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
+  }) as typeof fetch;
+
+  const originalDateNow = Date.now;
+  const fakeNow = 1_700_000_000_000;
+  Date.now = () => fakeNow;
+
+  try {
+    await withEnv(
+      {
+        MOBYGAMES_API_BASE_URL: 'https://api.mobygames.com/v2',
+        MOBYGAMES_API_KEY_FILE: keyPath
+      },
+      async () => {
+        __mobygamesCacheTestables.resetMobyGamesThrottle();
+
+        // Pre-fill the queue so the next caller would be delayed beyond the max
+        const slotsToFill =
+          Math.ceil(__mobygamesCacheTestables.MOBYGAMES_MAX_QUEUE_DELAY_MS / 5000) + 1;
+        for (let i = 0; i < slotsToFill; i++) {
+          __mobygamesCacheTestables.claimMobyGamesSlot();
+        }
+
+        resetCacheMetrics();
+        const pool = new MobyGamesPoolMock();
+        const app = Fastify();
+
+        await registerMobyGamesCachedRoute(app, pool as unknown as Pool);
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/v1/mobygames/search?q=Okami&platform=9&limit=5'
+        });
+
+        assert.equal(response.statusCode, 503);
+        assert.equal(fetchCalls, 0, 'upstream fetch should not be called when queue is full');
+        assert.ok(
+          response.headers['retry-after'] !== undefined,
+          'retry-after header should be present'
+        );
+
+        await app.close();
+        __mobygamesCacheTestables.resetMobyGamesThrottle();
+      }
+    );
+  } finally {
+    Date.now = originalDateNow;
+    globalThis.fetch = originalFetch;
+    __mobygamesCacheTestables.resetMobyGamesThrottle();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});

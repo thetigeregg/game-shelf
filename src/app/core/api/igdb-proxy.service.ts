@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Observable, of, throwError, timer } from 'rxjs';
+import { Observable, defer, of, throwError, timer } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
@@ -447,37 +447,39 @@ export class IgdbProxyService implements GameSearchApi {
         mobygamesPlatformId
       });
 
-      const mobyDelayMs = this.claimMobyGamesSlot();
-      const mobyRequest$ = this.httpClient
-        .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
-        .pipe(
-          map((response) => {
-            const normalized = this.normalizeMobygamesReviewScoreResult(response.games ?? null, {
-              preferredMobyPlatformId: mobygamesPlatformId,
-              preferredPlatformName: normalizedPlatform
-            });
-            this.debugLogService.trace('igdb_proxy.mobygames.lookup_response', {
-              gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
-              normalized,
-              hasNormalizedResult: normalized !== null
-            });
-            return normalized;
-          }),
-          catchError((error) => {
-            const rateLimitError = this.toRateLimitError(error);
-            if (rateLimitError) {
-              return throwError(() => rateLimitError);
-            }
-            this.debugLogService.trace(
-              'igdb_proxy.mobygames.lookup_error',
-              this.normalizeUnknown(error)
-            );
-            return of(null);
-          })
-        );
-      return mobyDelayMs > 0
-        ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
-        : mobyRequest$;
+      return defer(() => {
+        const mobyDelayMs = this.claimMobyGamesSlot();
+        const mobyRequest$ = this.httpClient
+          .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
+          .pipe(
+            map((response) => {
+              const normalized = this.normalizeMobygamesReviewScoreResult(response.games ?? null, {
+                preferredMobyPlatformId: mobygamesPlatformId,
+                preferredPlatformName: normalizedPlatform
+              });
+              this.debugLogService.trace('igdb_proxy.mobygames.lookup_response', {
+                gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
+                normalized,
+                hasNormalizedResult: normalized !== null
+              });
+              return normalized;
+            }),
+            catchError((error) => {
+              const rateLimitError = this.toRateLimitError(error);
+              if (rateLimitError) {
+                return throwError(() => rateLimitError);
+              }
+              this.debugLogService.trace(
+                'igdb_proxy.mobygames.lookup_error',
+                this.normalizeUnknown(error)
+              );
+              return of(null);
+            })
+          );
+        return mobyDelayMs > 0
+          ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
+          : mobyRequest$;
+      });
     }
 
     this.debugLogService.trace('igdb_proxy.metacritic.lookup_request', {
@@ -583,36 +585,38 @@ export class IgdbProxyService implements GameSearchApi {
         mobygamesPlatformId
       });
 
-      const mobyDelayMs = this.claimMobyGamesSlot();
-      const mobyRequest$ = this.httpClient
-        .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
-        .pipe(
-          map((response) => {
-            const normalized = this.normalizeMobygamesReviewCandidates(response.games ?? null, {
-              preferredMobyPlatformId: mobygamesPlatformId,
-              preferredPlatformName: normalizedPlatform
-            });
-            this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_response', {
-              gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
-              candidateCountNormalized: normalized.length
-            });
-            return normalized;
-          }),
-          catchError((error) => {
-            const rateLimitError = this.toRateLimitError(error);
-            if (rateLimitError) {
-              return throwError(() => rateLimitError);
-            }
-            this.debugLogService.trace(
-              'igdb_proxy.mobygames_candidates.lookup_error',
-              this.normalizeUnknown(error)
-            );
-            return of([]);
-          })
-        );
-      return mobyDelayMs > 0
-        ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
-        : mobyRequest$;
+      return defer(() => {
+        const mobyDelayMs = this.claimMobyGamesSlot();
+        const mobyRequest$ = this.httpClient
+          .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
+          .pipe(
+            map((response) => {
+              const normalized = this.normalizeMobygamesReviewCandidates(response.games ?? null, {
+                preferredMobyPlatformId: mobygamesPlatformId,
+                preferredPlatformName: normalizedPlatform
+              });
+              this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_response', {
+                gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
+                candidateCountNormalized: normalized.length
+              });
+              return normalized;
+            }),
+            catchError((error) => {
+              const rateLimitError = this.toRateLimitError(error);
+              if (rateLimitError) {
+                return throwError(() => rateLimitError);
+              }
+              this.debugLogService.trace(
+                'igdb_proxy.mobygames_candidates.lookup_error',
+                this.normalizeUnknown(error)
+              );
+              return of([]);
+            })
+          );
+        return mobyDelayMs > 0
+          ? timer(mobyDelayMs).pipe(switchMap(() => mobyRequest$))
+          : mobyRequest$;
+      });
     }
 
     this.debugLogService.trace('igdb_proxy.metacritic_candidates.lookup_request', {

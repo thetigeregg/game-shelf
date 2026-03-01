@@ -46,9 +46,7 @@ export function normalizeListPageStoredFilters(
   const hltbMainHoursMax = normalizeNonNegativeNumber(parsed['hltbMainHoursMax']);
 
   return {
-    sortField: isValidSortField(parsed['sortField'])
-      ? parsed['sortField']
-      : DEFAULT_GAME_LIST_FILTERS.sortField,
+    sortField: normalizeSortField(parsed['sortField']),
     sortDirection: parsed['sortDirection'] === 'desc' ? 'desc' : 'asc',
     platform: normalizeStringList(parsed['platform']),
     collections: normalizeStringList(parsed['collections']),
@@ -127,9 +125,18 @@ function isValidSortField(value: unknown): value is GameListFilters['sortField']
     value === 'releaseDate' ||
     value === 'createdAt' ||
     value === 'hltb' ||
+    value === 'review' ||
     value === 'metacritic' ||
     value === 'platform'
   );
+}
+
+function normalizeSortField(value: unknown): GameListFilters['sortField'] {
+  if (!isValidSortField(value)) {
+    return DEFAULT_GAME_LIST_FILTERS.sortField;
+  }
+
+  return value === 'metacritic' ? 'review' : value;
 }
 
 function normalizeDateOnly(value: unknown): string | null {

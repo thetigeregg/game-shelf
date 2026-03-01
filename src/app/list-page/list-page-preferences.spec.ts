@@ -122,7 +122,7 @@ describe('list-page-preferences', () => {
     expect(normalized.sortDirection).toBe('asc');
   });
 
-  it('accepts metacritic as a valid sort field from stored preferences', () => {
+  it('migrates metacritic sort field from stored preferences to review', () => {
     const normalized = normalizeListPageStoredFilters(
       {
         sortField: 'metacritic',
@@ -131,7 +131,7 @@ describe('list-page-preferences', () => {
       '__none__'
     );
 
-    expect(normalized.sortField).toBe('metacritic');
+    expect(normalized.sortField).toBe('review');
     expect(normalized.sortDirection).toBe('desc');
   });
 

@@ -7,7 +7,8 @@ import {
   GameRatingFilterOption,
   GameStatus,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  ReviewSource
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -774,7 +775,7 @@ export class GameListFilteringEngine {
     }
 
     const sortedGames =
-      sortField === 'metacritic'
+      sortField === 'metacritic' || sortField === 'review'
         ? [...games].sort((left, right) =>
             this.compareGamesByMetacritic(left, right, sortDirection)
           )
@@ -1046,8 +1047,16 @@ export class GameListFilteringEngine {
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection']
   ): number {
-    const leftScore = this.normalizeMetacriticSortScore(left.metacriticScore);
-    const rightScore = this.normalizeMetacriticSortScore(right.metacriticScore);
+    const leftScore = this.normalizeMetacriticSortScore(
+      left.reviewScore ?? left.metacriticScore,
+      left.reviewScore !== null && left.reviewScore !== undefined ? left.reviewSource : null,
+      left.reviewScore !== null && left.reviewScore !== undefined ? left.mobyScore : null
+    );
+    const rightScore = this.normalizeMetacriticSortScore(
+      right.reviewScore ?? right.metacriticScore,
+      right.reviewScore !== null && right.reviewScore !== undefined ? right.reviewSource : null,
+      right.reviewScore !== null && right.reviewScore !== undefined ? right.mobyScore : null
+    );
 
     if (leftScore === null && rightScore === null) {
       return this.sortGamesByTitleFallback(left, right);
@@ -1068,16 +1077,27 @@ export class GameListFilteringEngine {
     return this.sortGamesByTitleFallback(left, right);
   }
 
-  private normalizeMetacriticSortScore(value: number | null | undefined): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+  private normalizeMetacriticSortScore(
+    value: number | null | undefined,
+    reviewSource?: ReviewSource | null,
+    mobyScore?: number | null
+  ): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
     }
 
-    if (value < 0 || value > 100) {
+    if (value <= 0 || value > 100) {
       return null;
     }
 
-    return value;
+    // MobyGames scores may be stored on a 0–10 scale; normalize to 0–100 for comparison.
+    // Use mobyScore as ground truth: scale only when reviewScore matches the raw 0–10 mobyScore.
+    // Fall back to the ≤10 heuristic when mobyScore is absent.
+    const needsScale =
+      reviewSource === 'mobygames' && (mobyScore != null ? value === mobyScore : value <= 10);
+    const normalized = needsScale ? value * 10 : value;
+
+    return Math.round(normalized * 10) / 10;
   }
 
   private normalizeStatus(value: string | null | undefined): GameStatus | null {

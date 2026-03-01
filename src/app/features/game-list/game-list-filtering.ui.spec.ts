@@ -38,7 +38,11 @@ function makeGame(
     storyline: partial.storyline,
     summary: partial.summary,
     tagIds: partial.tagIds,
-    id: partial.id
+    id: partial.id,
+    reviewScore: partial.reviewScore,
+    reviewSource: partial.reviewSource,
+    reviewUrl: partial.reviewUrl,
+    mobyScore: partial.mobyScore
   };
 }
 
@@ -853,6 +857,144 @@ describe('GameListFilteringEngine UI behavior', () => {
       ''
     );
     expect(equalScores.map((game) => game.title)).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('sorts MobyGames 0–10 scale reviewScore correctly against Metacritic 0–100 scores', () => {
+    const games: GameEntry[] = [
+      // MobyGames score on 0–10 scale (8.8 → equivalent to 88/100)
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Moby High',
+        reviewScore: 8.8,
+        reviewSource: 'mobygames'
+      }),
+      // Metacritic score on 0–100 scale
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Meta Mid',
+        reviewScore: 70,
+        reviewSource: 'metacritic'
+      }),
+      // MobyGames score on 0–100 scale (already normalized)
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Moby Norm',
+        reviewScore: 88,
+        reviewSource: 'mobygames'
+      }),
+      // No review score
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'No Score' })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    // Moby High (8.8 → 88) and Moby Norm (88) tie, Meta Mid (70) is lower, No Score last
+    expect(desc.map((game) => game.title)).toEqual([
+      'Moby High',
+      'Moby Norm',
+      'Meta Mid',
+      'No Score'
+    ]);
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'Meta Mid',
+      'Moby High',
+      'Moby Norm',
+      'No Score'
+    ]);
+  });
+
+  it('does not scale MobyGames critic_score ≤10 on 0–100 scale when mobyScore differs', () => {
+    const games: GameEntry[] = [
+      // critic_score=10 on 0–100 scale; mobyScore=1.0 differs → should NOT scale (stays at 10)
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Low Critic',
+        reviewScore: 10,
+        reviewSource: 'mobygames',
+        mobyScore: 1.0
+      }),
+      // moby_score=8.0 on 0–10 scale; reviewScore matches mobyScore → scales to 80
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'High Moby',
+        reviewScore: 8.0,
+        reviewSource: 'mobygames',
+        mobyScore: 8.0
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Mid Normal',
+        reviewScore: 50,
+        reviewSource: 'metacritic'
+      })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    // High Moby (8.0 → 80) > Mid Normal (50) > Low Critic (10, not scaled to 100)
+    expect(desc.map((game) => game.title)).toEqual(['High Moby', 'Mid Normal', 'Low Critic']);
+  });
+
+  it('does not scale metacriticScore fallback when reviewScore is null', () => {
+    const games: GameEntry[] = [
+      // reviewScore is null, falls back to metacriticScore — should NOT scale even if reviewSource is mobygames
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Fallback',
+        reviewScore: null,
+        reviewSource: 'mobygames',
+        metacriticScore: 75
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Normal',
+        reviewScore: 80,
+        reviewSource: 'metacritic'
+      })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    expect(desc.map((game) => game.title)).toEqual(['Normal', 'Fallback']);
   });
 
   it('sorts by createdAt and handles invalid timestamps', () => {

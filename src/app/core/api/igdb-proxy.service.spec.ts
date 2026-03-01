@@ -851,23 +851,8 @@ describe('IgdbProxyService', () => {
     const candidatePromise = firstValueFrom(
       service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21)
     );
-    const candidateReq = httpMock.expectOne((request) => {
-      return (
-        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
-        request.params.get('q') === 'Okami' &&
-        request.params.get('includeCandidates') === 'true' &&
-        request.params.get('platformIgdbId') === '21'
-      );
-    });
-    candidateReq.flush(
-      { message: 'rate limited' },
-      {
-        status: 429,
-        statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '4' })
-      }
-    );
-    await expect(candidatePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/metacritic/search`);
+    await expect(candidatePromise).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
   });
 
   it('uses MobyGames for unsupported Metacritic platform ids and normalizes payload', async () => {
@@ -1597,5 +1582,53 @@ describe('IgdbProxyService', () => {
     const results = await candidatesPromise;
     expect(results).toHaveLength(1);
     expect(results[0]?.platform).toBeNull();
+  });
+
+  it('enforces active cooldown in lookupReviewScore for MobyGames path', async () => {
+    const firstRequest = firstValueFrom(
+      service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '10' })
+      }
+    );
+    await expect(firstRequest).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+
+    const duringCooldown = firstValueFrom(
+      service.lookupReviewScore('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+  });
+
+  it('enforces active cooldown in lookupReviewCandidates for MobyGames path', async () => {
+    const firstRequest = firstValueFrom(
+      service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '8' })
+      }
+    );
+    await expect(firstRequest).rejects.toThrowError('Rate limit exceeded. Retry after 8s.');
+
+    const duringCooldown = firstValueFrom(
+      service.lookupReviewCandidates('Golden Axe', 1989, 'Genesis', 29)
+    );
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
   });
 });

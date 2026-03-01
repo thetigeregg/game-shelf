@@ -647,6 +647,31 @@ describe('MetadataValidatorPage', () => {
     ]) as MetacriticMatchCandidate[];
     expect(mcDeduped.length).toBe(1);
 
+    // Score-completion replacement: a candidate that adds a score should replace
+    // an otherwise-identical candidate that is missing a score.
+    const reviewDeduped = callPrivate(page, 'dedupeReviewCandidates', [
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: null,
+        reviewUrl: null,
+        reviewSource: null,
+        imageUrl: null
+      },
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/y/',
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      }
+    ]) as ReviewMatchCandidate[];
+    expect(reviewDeduped.length).toBe(1);
+    expect(reviewDeduped[0].reviewScore).toBe(85);
+
     shelf.searchHltbCandidates.mockReturnValueOnce(of([]));
     await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
     expect(shelf.refreshGameCompletionTimes).toHaveBeenCalledWith('7', 6);

@@ -700,7 +700,9 @@ export class MetadataValidatorPage {
         {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
-          platform: candidate.platform
+          platform: candidate.platform,
+          platformIgdbId: target.platformIgdbId,
+          mobygamesGameId: candidate.mobygamesGameId ?? null
         }
       );
       this.closeReviewPickerModal();
@@ -967,7 +969,7 @@ export class MetadataValidatorPage {
     if (title.length >= 2) {
       try {
         const candidates = await firstValueFrom(
-          this.gameShelfService.searchMetacriticCandidates(
+          this.gameShelfService.searchReviewCandidates(
             title,
             game.releaseYear,
             game.platform,
@@ -985,7 +987,7 @@ export class MetadataValidatorPage {
               releaseYear: candidate.releaseYear,
               platform: candidate.platform,
               platformIgdbId: game.platformIgdbId,
-              mobygamesGameId: null
+              mobygamesGameId: candidate.mobygamesGameId ?? null
             }
           );
         }

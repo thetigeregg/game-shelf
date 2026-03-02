@@ -4,6 +4,9 @@ export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'repla
 export type GameStatusFilterOption = GameStatus | 'none';
 export const GAME_RATING_VALUES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] as const;
 export type GameRating = (typeof GAME_RATING_VALUES)[number];
+export function isGameRating(value: unknown): value is GameRating {
+  return typeof value === 'number' && GAME_RATING_VALUES.includes(value as GameRating);
+}
 export type GameRatingFilterOption = GameRating | 'none';
 export type GameType =
   | 'main_game'

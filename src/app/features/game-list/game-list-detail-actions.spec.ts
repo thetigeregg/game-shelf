@@ -43,7 +43,10 @@ describe('game-list-detail-actions', () => {
     expect(normalizeGameStatus('invalid')).toBeNull();
 
     expect(normalizeGameRating(5)).toBe(5);
+    expect(normalizeGameRating(4.5)).toBe(4.5);
     expect(normalizeGameRating('3')).toBe(3);
+    expect(normalizeGameRating('3.5')).toBe(3.5);
+    expect(normalizeGameRating('3.25')).toBeNull();
     expect(normalizeGameRating('0')).toBeNull();
   });
 

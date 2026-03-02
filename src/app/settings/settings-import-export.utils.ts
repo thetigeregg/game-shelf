@@ -1,3 +1,4 @@
+import { GAME_RATING_VALUES } from '../core/models/game.models';
 import type {
   GameCatalogResult,
   GameGroupByField,
@@ -201,9 +202,9 @@ export function normalizeRating(value: string): GameRating | null {
     return null;
   }
 
-  const parsed = Number.parseInt(normalized, 10);
+  const parsed = Number.parseFloat(normalized);
 
-  if (parsed === 1 || parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5) {
+  if (GAME_RATING_VALUES.includes(parsed as GameRating)) {
     return parsed;
   }
 
@@ -317,15 +318,9 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
           )
         : [],
       ratings: Array.isArray(parsed.ratings)
-        ? parsed.ratings.filter(
-            (value) =>
-              value === 'none' ||
-              value === 1 ||
-              value === 2 ||
-              value === 3 ||
-              value === 4 ||
-              normalizeRating(String(value)) === 5
-          )
+        ? parsed.ratings
+            .map((value) => (value === 'none' ? 'none' : normalizeRating(String(value))))
+            .filter((value): value is GameRating | 'none' => value === 'none' || value !== null)
         : [],
       sortField:
         parsed.sortField === 'title' ||

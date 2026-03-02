@@ -61,6 +61,8 @@ describe('settings-import-export.utils', () => {
     expect(normalizeStatus('x')).toBeNull();
 
     expect(normalizeRating('5')).toBe(5);
+    expect(normalizeRating('4.5')).toBe(4.5);
+    expect(normalizeRating('4.7')).toBeNull();
     expect(normalizeRating('9')).toBeNull();
 
     expect(normalizeCoverSource('igdb')).toBe('igdb');
@@ -83,7 +85,7 @@ describe('settings-import-export.utils', () => {
         gameTypes: ['main_game', 'bad'],
         statuses: ['none', 'playing', 'replay', 'bad'],
         excludedStatuses: ['replay', 'bad'],
-        ratings: ['none', 1, 5, 7],
+        ratings: ['none', 1, 4.5, 5, 7],
         excludedTags: ['tag-a', '__none__'],
         sortField: 'metacritic',
         sortDirection: 'desc',
@@ -98,7 +100,7 @@ describe('settings-import-export.utils', () => {
     expect(parsed?.gameTypes).toEqual(['main_game']);
     expect(parsed?.statuses).toEqual(['none', 'playing', 'replay']);
     expect(parsed?.excludedStatuses).toEqual(['replay']);
-    expect(parsed?.ratings).toEqual(['none', 1, 5]);
+    expect(parsed?.ratings).toEqual(['none', 1, 4.5, 5]);
     expect(parsed?.excludedTags).toEqual(['tag-a']);
     expect(parsed?.sortField).toBe('review');
     expect(parsed?.sortDirection).toBe('desc');

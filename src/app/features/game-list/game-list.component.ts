@@ -70,6 +70,7 @@ import { BehaviorSubject, Observable, combineLatest, firstValueFrom, of } from '
 import { map, tap } from 'rxjs/operators';
 import {
   DEFAULT_GAME_LIST_FILTERS,
+  GAME_RATING_VALUES,
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
@@ -255,7 +256,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   ]);
 
   readonly noneTagFilterValue = '__none__';
-  readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
+  readonly ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
   readonly statusOptions: { value: GameStatus; label: string }[] = [
     { value: 'playing', label: 'Playing' },
     { value: 'wantToPlay', label: 'Want to Play' },

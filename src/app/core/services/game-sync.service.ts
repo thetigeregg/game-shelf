@@ -6,6 +6,7 @@ import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-wr
 import {
   ClientSyncOperation,
   DEFAULT_GAME_LIST_FILTERS,
+  GAME_RATING_VALUES,
   GameEntry,
   GameListView,
   SyncChangeEvent,
@@ -708,10 +709,10 @@ export class GameSyncService implements SyncOutboxWriter {
       typeof value === 'number'
         ? value
         : typeof value === 'string'
-          ? Number.parseInt(value, 10)
+          ? Number.parseFloat(value)
           : Number.NaN;
 
-    return parsed === 1 || parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5
+    return GAME_RATING_VALUES.includes(parsed as (typeof GAME_RATING_VALUES)[number])
       ? parsed
       : null;
   }

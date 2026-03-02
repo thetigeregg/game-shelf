@@ -31,6 +31,7 @@ import {
 import {
   GameCatalogResult,
   GameEntry,
+  GAME_RATING_VALUES,
   GameRating,
   GameStatus
 } from '../../core/models/game.models';
@@ -66,7 +67,7 @@ export class GameDetailContentComponent {
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
-  @Input() ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
+  @Input() ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
   @Input() showAddToLibraryAction = false;
   @Input() isInLibrary = false;
   @Input() isAddToLibraryLoading = false;

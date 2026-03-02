@@ -105,6 +105,10 @@ export interface AppConfig {
   mobygamesSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
+  recommendationsSchedulerEnabled: boolean;
+  recommendationsDailyStaleHours: number;
+  recommendationsTopLimit: number;
+  recommendationsSimilarityK: number;
 }
 
 function readTokenList(name: string, fallbackSecretName: string): string[] {
@@ -207,5 +211,9 @@ export const config: AppConfig = {
     12
   ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
-  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')
+  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
+  recommendationsSchedulerEnabled: readBooleanEnv('RECOMMENDATIONS_SCHEDULER_ENABLED', true),
+  recommendationsDailyStaleHours: readIntegerEnv('RECOMMENDATIONS_DAILY_STALE_HOURS', 24),
+  recommendationsTopLimit: readIntegerEnv('RECOMMENDATIONS_TOP_LIMIT', 200),
+  recommendationsSimilarityK: readIntegerEnv('RECOMMENDATIONS_SIMILARITY_K', 20)
 };

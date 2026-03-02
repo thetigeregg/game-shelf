@@ -1,0 +1,301 @@
+import { buildTokenEntries } from './normalize.js';
+import { TOKEN_FAMILY_WEIGHT } from './profile.js';
+import {
+  NormalizedGameRecord,
+  PreferenceProfile,
+  RecommendationScoreComponents,
+  RecommendationTarget,
+  TasteMatch,
+  TokenFamily
+} from './types.js';
+
+interface BaseScore {
+  game: NormalizedGameRecord;
+  title: string;
+  tokenKeys: Set<string>;
+  baseComponents: RecommendationScoreComponents;
+  tasteMatches: TasteMatch[];
+}
+
+export interface RankedScore {
+  game: NormalizedGameRecord;
+  total: number;
+  components: RecommendationScoreComponents;
+  tasteMatches: TasteMatch[];
+}
+
+export function buildRankedScores(params: {
+  candidates: NormalizedGameRecord[];
+  target: RecommendationTarget;
+  profile: PreferenceProfile;
+  limit: number;
+}): RankedScore[] {
+  const { candidates, profile, limit, target } = params;
+
+  const baseScores = candidates.map((game) => buildBaseScore(game, target, profile));
+  const remaining = [...baseScores];
+  const selected: RankedScore[] = [];
+
+  while (remaining.length > 0 && selected.length < limit) {
+    let bestIndex = 0;
+    let best: RankedScore | null = null;
+
+    for (let index = 0; index < remaining.length; index += 1) {
+      const entry = remaining[index];
+      const novelty = calculateNoveltyPenalty(entry.tokenKeys, selected);
+      const components: RecommendationScoreComponents = {
+        ...entry.baseComponents,
+        novelty
+      };
+      const total = calculateTotalScore(components);
+      const ranked: RankedScore = {
+        game: entry.game,
+        total,
+        components,
+        tasteMatches: entry.tasteMatches
+      };
+
+      if (!best || compareRankedScores(ranked, best) < 0) {
+        best = ranked;
+        bestIndex = index;
+      }
+    }
+
+    if (!best) {
+      break;
+    }
+
+    selected.push(best);
+    remaining.splice(bestIndex, 1);
+  }
+
+  return selected.map((item) => ({
+    ...item,
+    total: round4(item.total),
+    components: {
+      taste: round4(item.components.taste),
+      novelty: round4(item.components.novelty),
+      runtimeFit: round4(item.components.runtimeFit),
+      criticBoost: round4(item.components.criticBoost),
+      recencyBoost: round4(item.components.recencyBoost)
+    },
+    tasteMatches: item.tasteMatches.map((match) => ({
+      ...match,
+      delta: round4(match.delta)
+    }))
+  }));
+}
+
+function buildBaseScore(
+  game: NormalizedGameRecord,
+  target: RecommendationTarget,
+  profile: PreferenceProfile
+): BaseScore {
+  const tokens = buildTokenEntries(game);
+  const tokenKeys = new Set(tokens.map((token) => token.key));
+  const tasteEvaluation = evaluateTaste(tokens, profile);
+
+  const baseComponents: RecommendationScoreComponents = {
+    taste: tasteEvaluation.score,
+    novelty: 0,
+    runtimeFit: 0,
+    criticBoost: evaluateCriticBoost(game),
+    recencyBoost: evaluateRecencyBoost(game, target)
+  };
+
+  return {
+    game,
+    title: game.title,
+    tokenKeys,
+    baseComponents,
+    tasteMatches: tasteEvaluation.matches
+  };
+}
+
+function evaluateTaste(
+  tokens: ReturnType<typeof buildTokenEntries>,
+  profile: PreferenceProfile
+): { score: number; matches: TasteMatch[] } {
+  if (profile.ratedGameCount < 5) {
+    return {
+      score: 0,
+      matches: []
+    };
+  }
+
+  let score = 0;
+  const matches: TasteMatch[] = [];
+
+  for (const token of tokens) {
+    const preference = profile.weights.get(token.key);
+
+    if (!preference) {
+      continue;
+    }
+
+    const familyWeight = TOKEN_FAMILY_WEIGHT[token.family];
+    const delta = preference.weight * familyWeight;
+    score += delta;
+
+    if (delta > 0) {
+      matches.push({
+        family: token.family,
+        key: token.key,
+        label: token.label,
+        delta
+      });
+    }
+  }
+
+  return {
+    score: clamp(score, -3, 3),
+    matches: matches.sort((left, right) => right.delta - left.delta).slice(0, 6)
+  };
+}
+
+function evaluateCriticBoost(game: NormalizedGameRecord): number {
+  const normalizedScore = normalizeCriticScore(game);
+
+  if (normalizedScore === null) {
+    return 0;
+  }
+
+  const centered = Math.max(0, normalizedScore - 60) / 40;
+  return clamp(centered * 0.5, 0, 0.5);
+}
+
+function normalizeCriticScore(game: NormalizedGameRecord): number | null {
+  const reviewScore = game.reviewScore;
+  const metacriticScore = game.metacriticScore;
+
+  if (typeof reviewScore === 'number' && Number.isFinite(reviewScore)) {
+    if (game.reviewSource === 'mobygames' || reviewScore <= 10) {
+      const scaled = reviewScore * 10;
+      return scaled > 0 && scaled <= 100 ? scaled : null;
+    }
+
+    return reviewScore > 0 && reviewScore <= 100 ? reviewScore : null;
+  }
+
+  if (typeof metacriticScore === 'number' && Number.isFinite(metacriticScore)) {
+    return metacriticScore > 0 && metacriticScore <= 100 ? metacriticScore : null;
+  }
+
+  if (typeof game.mobyScore === 'number' && Number.isFinite(game.mobyScore)) {
+    const scaled = game.mobyScore * 10;
+    return scaled > 0 && scaled <= 100 ? scaled : null;
+  }
+
+  return null;
+}
+
+function evaluateRecencyBoost(game: NormalizedGameRecord, target: RecommendationTarget): number {
+  if (target !== 'BACKLOG') {
+    return 0;
+  }
+
+  const baselineDate = game.createdAt ?? game.updatedAt;
+
+  if (!baselineDate) {
+    return 0;
+  }
+
+  const timestamp = Date.parse(baselineDate);
+
+  if (!Number.isFinite(timestamp)) {
+    return 0;
+  }
+
+  const ageDays = Math.max(0, (Date.now() - timestamp) / (1000 * 60 * 60 * 24));
+  const normalized = Math.log10(ageDays + 1) / Math.log10(3650 + 1);
+  return clamp(normalized * 0.8, 0, 0.8);
+}
+
+function calculateNoveltyPenalty(tokenKeys: Set<string>, selected: RankedScore[]): number {
+  if (selected.length === 0 || tokenKeys.size === 0) {
+    return 0;
+  }
+
+  let maxOverlap = 0;
+
+  for (const candidate of selected.slice(0, 5)) {
+    const overlap = jaccard(tokenKeys, tokenSetForGame(candidate.game));
+    maxOverlap = Math.max(maxOverlap, overlap);
+  }
+
+  return -clamp(maxOverlap * 0.35, 0, 0.35);
+}
+
+function tokenSetForGame(game: NormalizedGameRecord): Set<string> {
+  return new Set(buildTokenEntries(game).map((token) => token.key));
+}
+
+function jaccard(left: Set<string>, right: Set<string>): number {
+  if (left.size === 0 && right.size === 0) {
+    return 0;
+  }
+
+  let intersection = 0;
+
+  for (const value of left) {
+    if (right.has(value)) {
+      intersection += 1;
+    }
+  }
+
+  const union = left.size + right.size - intersection;
+  return union <= 0 ? 0 : intersection / union;
+}
+
+function calculateTotalScore(components: RecommendationScoreComponents): number {
+  return (
+    components.taste +
+    components.novelty +
+    components.runtimeFit +
+    components.criticBoost +
+    components.recencyBoost
+  );
+}
+
+function compareRankedScores(left: RankedScore, right: RankedScore): number {
+  if (left.total !== right.total) {
+    return right.total - left.total;
+  }
+
+  const titleComparison = left.game.title.localeCompare(right.game.title, 'en', {
+    sensitivity: 'base'
+  });
+
+  if (titleComparison !== 0) {
+    return titleComparison;
+  }
+
+  if (left.game.igdbGameId !== right.game.igdbGameId) {
+    return left.game.igdbGameId < right.game.igdbGameId ? -1 : 1;
+  }
+
+  return left.game.platformIgdbId - right.game.platformIgdbId;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function round4(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
+export function getTopPositiveTasteMatches(matches: TasteMatch[], limit = 3): TasteMatch[] {
+  return matches
+    .filter((match) => match.delta > 0)
+    .sort((left, right) => right.delta - left.delta)
+    .slice(0, limit);
+}
+
+export function tasteFamilyLabel(family: TokenFamily): string {
+  if (family === 'collections') {
+    return 'series';
+  }
+
+  return family.endsWith('s') ? family.slice(0, -1) : family;
+}

@@ -12,6 +12,10 @@ import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
+import { RecommendationRepository } from './recommendations/repository.js';
+import { registerRecommendationRoutes } from './recommendations/routes.js';
+import { RecommendationScheduler } from './recommendations/scheduler.js';
+import { RecommendationService } from './recommendations/service.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
@@ -33,6 +37,15 @@ async function main(): Promise<void> {
   const app = Fastify({
     bodyLimit: config.requestBodyLimitBytes,
     logger: true
+  });
+  const recommendationRepository = new RecommendationRepository(pool);
+  const recommendationService = new RecommendationService(recommendationRepository, {
+    topLimit: config.recommendationsTopLimit,
+    similarityK: config.recommendationsSimilarityK,
+    staleHours: config.recommendationsDailyStaleHours
+  });
+  const recommendationScheduler = new RecommendationScheduler(recommendationService, {
+    enabled: config.recommendationsSchedulerEnabled
   });
 
   // Register global rate limit FIRST
@@ -181,6 +194,7 @@ async function main(): Promise<void> {
     freshTtlSeconds: config.mobygamesCacheFreshTtlSeconds,
     staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds
   });
+  await registerRecommendationRoutes(app, recommendationService);
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({ error: 'Not found' });
@@ -190,6 +204,7 @@ async function main(): Promise<void> {
     host: config.host,
     port: config.port
   });
+  recommendationScheduler.start();
 }
 
 function validateSecurityConfig(): void {

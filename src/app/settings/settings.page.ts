@@ -477,6 +477,7 @@ export class SettingsPage {
 
     this.timePreferenceService.setTimePreference(parsed);
     this.timePreference = this.timePreferenceService.getTimePreference();
+    this.queueSettingUpsert(TIME_PREFERENCE_STORAGE_KEY, String(this.timePreference));
   }
 
   async showAttributions(): Promise<void> {
@@ -3313,6 +3314,7 @@ export class SettingsPage {
       if (row.key === TIME_PREFERENCE_STORAGE_KEY) {
         this.timePreferenceService.refreshFromStorage();
         this.timePreference = this.timePreferenceService.getTimePreference();
+        this.queueSettingUpsert(row.key, row.value);
       }
     });
   }

@@ -1335,12 +1335,21 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onRatingRangeChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: number | null }>;
-    const normalized = normalizeGameRating(customEvent.detail.value);
+    const rawValue = customEvent.detail.value;
+    const snappedValue =
+      typeof rawValue === 'number' && Number.isFinite(rawValue)
+        ? Math.round(rawValue * 2) / 2
+        : rawValue;
+    const normalized = normalizeGameRating(snappedValue);
 
     if (normalized !== null) {
       this.ratingDraft = normalized;
       this.clearRatingOnSave = false;
     }
+  }
+
+  formatRatingPin(value: number): string {
+    return (Math.round(value * 2) / 2).toFixed(1);
   }
 
   markRatingForClear(): void {
@@ -1762,6 +1771,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.openTagsPicker(this.selectedGame);
   }
 
+  openSelectedGameRatingFromDetail(): void {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    this.openRatingPicker(this.selectedGame);
+  }
+
   async onSelectedGameStatusChange(value: GameStatus | null | undefined): Promise<void> {
     if (!this.selectedGame) {
       return;
@@ -1797,44 +1814,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
       await this.presentToast('Game status cleared.');
     } catch {
       await this.presentToast('Unable to clear game status.', 'danger');
-    }
-  }
-
-  async onSelectedGameRatingChange(value: number | null | undefined): Promise<void> {
-    if (!this.selectedGame) {
-      return;
-    }
-
-    const normalized = normalizeGameRating(value);
-
-    try {
-      const updated = await this.gameShelfService.setGameRating(
-        this.selectedGame.igdbGameId,
-        this.selectedGame.platformIgdbId,
-        normalized
-      );
-      this.applyUpdatedGame(updated);
-      await this.presentToast('Game rating updated.');
-    } catch {
-      await this.presentToast('Unable to update game rating.', 'danger');
-    }
-  }
-
-  async clearSelectedGameRating(): Promise<void> {
-    if (!this.selectedGame) {
-      return;
-    }
-
-    try {
-      const updated = await this.gameShelfService.setGameRating(
-        this.selectedGame.igdbGameId,
-        this.selectedGame.platformIgdbId,
-        null
-      );
-      this.applyUpdatedGame(updated);
-      await this.presentToast('Game rating cleared.');
-    } catch {
-      await this.presentToast('Unable to clear game rating.', 'danger');
     }
   }
 

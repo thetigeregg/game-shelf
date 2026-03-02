@@ -41,6 +41,7 @@ import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
+type RatingInteractionMode = 'inline-select' | 'modal';
 
 @Component({
   selector: 'app-game-detail-content',
@@ -66,6 +67,7 @@ export class GameDetailContentComponent {
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
+  @Input() ratingInteractionMode: RatingInteractionMode = 'inline-select';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
   @Input() ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
   @Input() showAddToLibraryAction = false;
@@ -74,6 +76,7 @@ export class GameDetailContentComponent {
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
+  @Output() editRating = new EventEmitter<void>();
   @Output() ratingChange = new EventEmitter<number | null | undefined>();
   @Output() clearRating = new EventEmitter<void>();
   @Output() openTags = new EventEmitter<void>();
@@ -225,6 +228,14 @@ export class GameDetailContentComponent {
 
     const value = (this.game as Partial<GameEntry>).rating;
     return value ?? undefined;
+  }
+
+  get ratingLabel(): string {
+    return this.ratingValue !== undefined ? this.ratingValue.toFixed(1) : 'None';
+  }
+
+  get ratingActionLabel(): string {
+    return this.ratingValue !== undefined ? 'EDIT' : 'SET';
   }
 
   get tagItems(): { name: string; color: string }[] {

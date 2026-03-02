@@ -793,6 +793,26 @@ describe('MetadataValidatorPage', () => {
       metacriticUrl: null
     });
     expect(presentToast).toHaveBeenCalledWith('Unable to update review for Target.', 'danger');
+
+    shelf.refreshGameMetacriticScoreWithQuery.mockRejectedValueOnce(
+      new Error('Rate limit exceeded. Retry after 7s.')
+    );
+    setField(page, 'metacriticPickerTargetGame', target);
+    await page.applySelectedMetacriticCandidate({
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PC',
+      metacriticScore: 80,
+      metacriticUrl: null
+    });
+    expect(presentToast).toHaveBeenCalledWith('Rate limited. Retry after 7s.', 'warning');
+
+    shelf.refreshGameMetacriticScore.mockRejectedValueOnce(
+      new Error('Rate limit exceeded. Retry after 5s.')
+    );
+    setField(page, 'metacriticPickerTargetGame', target);
+    await page.useOriginalMetacriticLookup();
+    expect(presentToast).toHaveBeenCalledWith('Rate limited. Retry after 5s.', 'warning');
     expect(
       (page as unknown as { isMetacriticPickerLoading: boolean }).isMetacriticPickerLoading
     ).toBe(false);

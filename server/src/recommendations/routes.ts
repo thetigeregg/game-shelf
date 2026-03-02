@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { RecommendationServiceApi } from './service.js';
-import { parseRecommendationTarget } from './service.js';
+import { parseRecommendationTarget, parseRuntimeModeOrNull } from './service.js';
 
 interface RebuildBody {
   target?: unknown;
@@ -21,7 +21,7 @@ export function registerRecommendationRoutes(
       }
     },
     handler: async (request, reply) => {
-      const query = request.query as { target?: unknown; limit?: unknown };
+      const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
       const target = parseRecommendationTarget(query.target);
 
       if (!target) {
@@ -29,9 +29,17 @@ export function registerRecommendationRoutes(
         return;
       }
 
+      const runtimeMode = parseRuntimeModeOrNull(query.runtimeMode);
+      if (query.runtimeMode !== undefined && runtimeMode === null) {
+        reply
+          .code(400)
+          .send({ error: 'Query parameter runtimeMode must be NEUTRAL, SHORT, or LONG.' });
+        return;
+      }
+
       const limit = parsePositiveInteger(query.limit) ?? 20;
       await service.rebuildIfStale(target, 'stale-read');
-      const result = await service.getTopRecommendations(target, limit);
+      const result = await service.getTopRecommendations(target, limit, runtimeMode);
 
       if (!result) {
         reply.code(404).send({
@@ -42,9 +50,57 @@ export function registerRecommendationRoutes(
 
       reply.send({
         target,
+        runtimeMode: result.runtimeMode,
         runId: result.run.id,
         generatedAt: result.run.finishedAt ?? result.run.startedAt,
         items: result.items
+      });
+    }
+  });
+
+  app.route({
+    method: 'GET',
+    url: '/v1/recommendations/lanes',
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: '1 minute'
+      }
+    },
+    handler: async (request, reply) => {
+      const query = request.query as { target?: unknown; runtimeMode?: unknown; limit?: unknown };
+      const target = parseRecommendationTarget(query.target);
+
+      if (!target) {
+        reply.code(400).send({ error: 'Query parameter target must be BACKLOG or WISHLIST.' });
+        return;
+      }
+
+      const runtimeMode = parseRuntimeModeOrNull(query.runtimeMode);
+      if (query.runtimeMode !== undefined && runtimeMode === null) {
+        reply
+          .code(400)
+          .send({ error: 'Query parameter runtimeMode must be NEUTRAL, SHORT, or LONG.' });
+        return;
+      }
+
+      const limit = parsePositiveInteger(query.limit) ?? 20;
+      await service.rebuildIfStale(target, 'stale-read');
+      const result = await service.getRecommendationLanes(target, limit, runtimeMode);
+
+      if (!result) {
+        reply.code(404).send({
+          error: 'No recommendations available. Trigger a rebuild first.'
+        });
+        return;
+      }
+
+      reply.send({
+        target,
+        runtimeMode: result.runtimeMode,
+        runId: result.run.id,
+        generatedAt: result.run.finishedAt ?? result.run.startedAt,
+        lanes: result.lanes
       });
     }
   });

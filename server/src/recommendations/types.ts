@@ -1,6 +1,8 @@
 export type RecommendationTarget = 'BACKLOG' | 'WISHLIST';
 export type RecommendationRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type RecommendationRunTrigger = 'manual' | 'scheduler' | 'stale-read';
+export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
+export type RecommendationLaneKey = 'overall' | 'hiddenGems' | 'exploration';
 
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 
@@ -16,6 +18,7 @@ export interface NormalizedGameRecord {
   createdAt: string | null;
   updatedAt: string | null;
   releaseYear: number | null;
+  runtimeHours: number | null;
   summary: string | null;
   storyline: string | null;
   reviewScore: number | null;
@@ -63,10 +66,22 @@ export interface RecommendationScoreComponents {
   criticBoost: number;
   recencyBoost: number;
   semantic: number;
+  exploration: number;
+  diversityPenalty: number;
+  repeatPenalty: number;
 }
 
 export interface RecommendationExplanationBullet {
-  type: 'taste' | 'novelty' | 'runtime' | 'critic' | 'recency' | 'semantic';
+  type:
+    | 'taste'
+    | 'novelty'
+    | 'runtime'
+    | 'critic'
+    | 'recency'
+    | 'semantic'
+    | 'exploration'
+    | 'diversity'
+    | 'repeat';
   label: string;
   evidence: string[];
   delta: number;
@@ -91,6 +106,12 @@ export interface RankedRecommendationItem {
   scoreTotal: number;
   scoreComponents: RecommendationScoreComponents;
   explanations: RecommendationExplanation;
+}
+
+export interface RecommendationLaneCollection {
+  overall: RankedRecommendationItem[];
+  hiddenGems: RankedRecommendationItem[];
+  exploration: RankedRecommendationItem[];
 }
 
 export interface RecommendationRunSummary {
@@ -132,6 +153,18 @@ export interface RebuildResult {
   runId: number;
   status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
   reusedRunId?: number;
+}
+
+export interface TunedRecommendationWeights {
+  tasteWeight: number;
+  semanticWeight: number;
+  criticWeight: number;
+  runtimeWeight: number;
+}
+
+export interface RecommendationHistoryEntry {
+  recommendationCount: number;
+  lastRecommendedAt: string;
 }
 
 export interface StoredGameEmbedding {

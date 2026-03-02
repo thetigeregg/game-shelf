@@ -15,6 +15,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     releaseYear: 2020,
+    runtimeHours: null,
     summary: null,
     storyline: null,
     reviewScore: null,
@@ -45,6 +46,7 @@ void test('ranking is deterministic for the same input data', () => {
       status: 'wantToPlay',
       genres: ['RPG'],
       developers: ['Alpha'],
+      runtimeHours: 14,
       reviewScore: 90,
       reviewSource: 'metacritic'
     }),
@@ -54,6 +56,7 @@ void test('ranking is deterministic for the same input data', () => {
       status: 'wantToPlay',
       genres: ['Puzzle'],
       developers: ['Delta'],
+      runtimeHours: 42,
       reviewScore: 70,
       reviewSource: 'metacritic'
     })
@@ -64,26 +67,33 @@ void test('ranking is deterministic for the same input data', () => {
     ['c1::1', 0.3],
     ['c2::1', -0.4]
   ]);
-  const first = buildRankedScores({
+  const params = {
     candidates,
     profile,
-    target: 'BACKLOG',
+    target: 'BACKLOG' as const,
+    runtimeMode: 'SHORT' as const,
     limit: 20,
     semanticSimilarityByGame,
-    semanticWeight: 2
-  });
-  const second = buildRankedScores({
-    candidates,
-    profile,
-    target: 'BACKLOG',
-    limit: 20,
-    semanticSimilarityByGame,
-    semanticWeight: 2
-  });
+    tunedWeights: {
+      tasteWeight: 1,
+      semanticWeight: 2,
+      criticWeight: 1,
+      runtimeWeight: 1
+    },
+    explorationWeight: 0.3,
+    diversityPenaltyWeight: 0.5,
+    repeatPenaltyStep: 0.2,
+    historyByGame: new Map<string, { recommendationCount: number }>()
+  };
+
+  const first = buildRankedScores(params);
+  const second = buildRankedScores(params);
 
   assert.deepEqual(first, second);
   assert.equal(first[0]?.game.igdbGameId, 'c1');
   assert.equal(first[0]?.components.semantic, 0.6);
+  assert.equal(typeof first[0]?.components.runtimeFit, 'number');
+  assert.equal(typeof first[0]?.components.exploration, 'number');
 });
 
 void test('cold start disables taste contribution when rated games are fewer than five', () => {
@@ -96,7 +106,8 @@ void test('cold start disables taste contribution when rated games are fewer tha
       title: 'RPG Prime',
       status: 'wantToPlay',
       genres: ['RPG'],
-      developers: ['Alpha']
+      developers: ['Alpha'],
+      runtimeHours: 12
     })
   ];
 
@@ -105,11 +116,22 @@ void test('cold start disables taste contribution when rated games are fewer tha
     candidates,
     profile,
     target: 'BACKLOG',
+    runtimeMode: 'NEUTRAL',
     limit: 20,
     semanticSimilarityByGame: new Map([['c1::1', 0.2]]),
-    semanticWeight: 2
+    tunedWeights: {
+      tasteWeight: 1,
+      semanticWeight: 2,
+      criticWeight: 1,
+      runtimeWeight: 1
+    },
+    explorationWeight: 0.3,
+    diversityPenaltyWeight: 0.5,
+    repeatPenaltyStep: 0.2,
+    historyByGame: new Map([['c1::1', { recommendationCount: 3 }]])
   });
 
   assert.equal(ranked[0]?.components.taste, 0);
   assert.equal(ranked[0]?.components.semantic, 0.4);
+  assert.equal(ranked[0]?.components.repeatPenalty, -0.6);
 });

@@ -42,23 +42,11 @@ export function buildExplanation(params: {
     });
   }
 
-  if (components.novelty !== 0) {
-    bullets.push({
-      type: 'novelty',
-      label:
-        components.novelty < 0
-          ? 'Reduced score to keep the list diverse'
-          : 'Boosted for variety against similar picks',
-      evidence: ['novelty:jaccard'],
-      delta: components.novelty
-    });
-  }
-
   if (components.runtimeFit !== 0) {
     bullets.push({
       type: 'runtime',
-      label: 'Runtime matches your current preference',
-      evidence: ['runtime:neutral'],
+      label: 'Runtime fit adjusted for selected runtime mode',
+      evidence: ['runtime:mode'],
       delta: components.runtimeFit
     });
   }
@@ -81,6 +69,45 @@ export function buildExplanation(params: {
     });
   }
 
+  if (components.exploration !== 0) {
+    bullets.push({
+      type: 'exploration',
+      label: 'Exploration bonus for lower profile similarity',
+      evidence: ['exploration:semantic-distance'],
+      delta: components.exploration
+    });
+  }
+
+  if (components.novelty !== 0) {
+    bullets.push({
+      type: 'novelty',
+      label:
+        components.novelty < 0
+          ? 'Reduced score to keep the list diverse'
+          : 'Boosted for variety against similar picks',
+      evidence: ['novelty:jaccard'],
+      delta: components.novelty
+    });
+  }
+
+  if (components.diversityPenalty !== 0) {
+    bullets.push({
+      type: 'diversity',
+      label: 'Diversity penalty applied to avoid near-duplicate picks',
+      evidence: ['diversity:blended-similarity'],
+      delta: components.diversityPenalty
+    });
+  }
+
+  if (components.repeatPenalty !== 0) {
+    bullets.push({
+      type: 'repeat',
+      label: 'Penalty applied for repeated recent recommendations',
+      evidence: ['repeat:history-count'],
+      delta: components.repeatPenalty
+    });
+  }
+
   const matchedTokens = buildMatchedTokens(topMatches);
 
   return {
@@ -94,25 +121,46 @@ export function buildExplanation(params: {
 }
 
 function buildHeadline(components: RecommendationScoreComponents, matches: TasteMatch[]): string {
-  if (components.semantic > 0.5) {
+  const positiveContributors: Array<{ key: string; value: number }> = [
+    { key: 'taste', value: components.taste },
+    { key: 'semantic', value: components.semantic },
+    { key: 'runtimeFit', value: components.runtimeFit },
+    { key: 'criticBoost', value: components.criticBoost },
+    { key: 'recencyBoost', value: components.recencyBoost },
+    { key: 'exploration', value: components.exploration }
+  ].filter((entry) => entry.value > 0);
+
+  positiveContributors.sort((left, right) => right.value - left.value);
+
+  const strongest = positiveContributors[0]?.key;
+
+  if (strongest === 'semantic') {
     return 'Strong semantic match with your preferred game themes';
   }
 
-  if (components.taste > 0 && matches.length > 0) {
+  if (strongest === 'taste' && matches.length > 0) {
     const labels = matches.map((match) => match.label).join(', ');
     return `Matches your tastes: ${labels}`;
   }
 
-  if (components.recencyBoost > 0) {
+  if (strongest === 'runtimeFit') {
+    return 'Strong runtime fit for your current mode';
+  }
+
+  if (strongest === 'recencyBoost') {
     return 'Good backlog candidate: older entry worth revisiting';
   }
 
-  if (components.criticBoost > 0) {
+  if (strongest === 'criticBoost') {
     return 'Strong critic signal and metadata fit';
   }
 
-  if (components.novelty < 0) {
-    return 'Included with diversity balancing applied';
+  if (strongest === 'exploration') {
+    return 'Exploration pick with potential upside';
+  }
+
+  if (components.diversityPenalty < 0 || components.repeatPenalty < 0) {
+    return 'Included with anti-stagnation balancing applied';
   }
 
   return 'Recommended from your current library metadata';

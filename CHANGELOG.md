@@ -1264,3 +1264,20 @@
 - 30fa410 Merge branch 'main' into codex/mobygames-platform-alias
 - 6cd8e60 Update platform alias lookups
 
+## v1.0.1 - 2026-03-02
+- 8b4a20d Merge pull request #149 from thetigeregg/codex/add-timeadjusted-score-metric
+- 706f60e Reject zero hours in TAS score
+- 5e95faa Check TAS zero-hour validation
+- 529b174 Review TAS and time preference
+- 27b4647 Reject zero hours in TAS calc
+- 723948b Adjust TAS to reject zero-hour HLTB
+- 54ddbdd Bump app version to 1.0.0
+- ccd1682 Audit branch changes before PR
+- 017f446 Merge branch 'main' into codex/add-timeadjusted-score-metric
+- 8ce07a2 Adjust default time preference to 15
+- 3ab5d2e Update time preference help text styling and alignment
+- 1198435 Update time preference input alignment in settings
+- 51a9d88 Add TAS sorting mode
+- 5a909bb Add TAS sorting option
+- 3394470 Add TAS sort mode with config
+

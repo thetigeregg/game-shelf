@@ -2,6 +2,9 @@ import { Pool } from 'pg';
 
 export const MIGRATIONS: string[] = [
   `
+  CREATE EXTENSION IF NOT EXISTS vector;
+  `,
+  `
   CREATE TABLE IF NOT EXISTS games (
     igdb_game_id TEXT NOT NULL,
     platform_igdb_id INTEGER NOT NULL,
@@ -156,6 +159,27 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS game_similarity_source_similarity_idx
   ON game_similarity (source_igdb_game_id, source_platform_igdb_id, similarity DESC);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS game_embeddings (
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    embedding vector(1536) NOT NULL,
+    embedding_model TEXT NOT NULL,
+    source_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (igdb_game_id, platform_igdb_id),
+    FOREIGN KEY (igdb_game_id, platform_igdb_id)
+      REFERENCES games(igdb_game_id, platform_igdb_id)
+      ON DELETE CASCADE
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS game_embeddings_vector_idx
+  ON game_embeddings
+  USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);
   `
 ];
 

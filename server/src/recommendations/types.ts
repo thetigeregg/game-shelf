@@ -16,6 +16,8 @@ export interface NormalizedGameRecord {
   createdAt: string | null;
   updatedAt: string | null;
   releaseYear: number | null;
+  summary: string | null;
+  storyline: string | null;
   reviewScore: number | null;
   reviewSource: 'metacritic' | 'mobygames' | null;
   metacriticScore: number | null;
@@ -60,10 +62,11 @@ export interface RecommendationScoreComponents {
   runtimeFit: number;
   criticBoost: number;
   recencyBoost: number;
+  semantic: number;
 }
 
 export interface RecommendationExplanationBullet {
-  type: 'taste' | 'novelty' | 'runtime' | 'critic' | 'recency';
+  type: 'taste' | 'novelty' | 'runtime' | 'critic' | 'recency' | 'semantic';
   label: string;
   evidence: string[];
   delta: number;
@@ -103,6 +106,9 @@ export interface RecommendationRunSummary {
 
 export interface SimilarityReasons {
   summary: string;
+  structuredSimilarity: number;
+  semanticSimilarity: number;
+  blendedSimilarity: number;
   sharedTokens: {
     genres: string[];
     developers: string[];
@@ -126,4 +132,22 @@ export interface RebuildResult {
   runId: number;
   status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
   reusedRunId?: number;
+}
+
+export interface StoredGameEmbedding {
+  igdbGameId: string;
+  platformIgdbId: number;
+  embedding: number[];
+  embeddingModel: string;
+  sourceHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GameEmbeddingUpsertInput {
+  igdbGameId: string;
+  platformIgdbId: number;
+  embedding: number[];
+  embeddingModel: string;
+  sourceHash: string;
 }

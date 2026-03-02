@@ -470,7 +470,12 @@ export class SettingsPage {
   }
 
   onTimePreferenceChange(value: number | string | null | undefined): void {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim().length > 0
+          ? Number(value.trim())
+          : Number.NaN;
 
     if (!Number.isFinite(parsed)) {
       this.timePreference = this.timePreferenceService.getTimePreference();

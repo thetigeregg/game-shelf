@@ -231,7 +231,7 @@ export class GameDetailContentComponent {
   }
 
   get ratingLabel(): string {
-    return this.ratingValue !== undefined ? this.ratingValue.toFixed(1) : 'None';
+    return this.ratingValue !== undefined ? this.formatRatingValue(this.ratingValue) : 'None';
   }
 
   get ratingActionLabel(): string {
@@ -410,6 +410,10 @@ export class GameDetailContentComponent {
 
   emitRatingChange(value: number | null | undefined): void {
     this.ratingChange.emit(value);
+  }
+
+  formatRatingValue(value: number): string {
+    return value.toFixed(1).replace(/\.0$/, '');
   }
 
   onDeveloperClick(): void {

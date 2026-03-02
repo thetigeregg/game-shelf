@@ -500,6 +500,17 @@ describe('SettingsPage CSV review fields', () => {
     expect(page.timePreference).toBe(42);
   });
 
+  it('accepts decimal and scientific numeric input for time preference', () => {
+    vi.useFakeTimers();
+    const page = createPage();
+
+    page.onTimePreferenceChange('42.9');
+    expect(page.timePreference).toBe(43);
+
+    page.onTimePreferenceChange('1e2');
+    expect(page.timePreference).toBe(100);
+  });
+
   it('debounces outbox writes while typing time preference', () => {
     vi.useFakeTimers();
     const page = createPage();

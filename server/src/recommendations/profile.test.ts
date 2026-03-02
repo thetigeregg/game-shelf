@@ -14,6 +14,8 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     createdAt: '2025-01-01T00:00:00.000Z',
     updatedAt: '2025-01-01T00:00:00.000Z',
     releaseYear: 2020,
+    summary: null,
+    storyline: null,
     reviewScore: null,
     reviewSource: null,
     metacriticScore: null,

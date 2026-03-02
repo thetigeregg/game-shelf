@@ -32,11 +32,19 @@ function createServiceMock(
               novelty: 0,
               runtimeFit: 0,
               criticBoost: 0.1,
-              recencyBoost: 0.13
+              recencyBoost: 0.13,
+              semantic: 0.2
             },
             explanations: {
               headline: 'Matches your tastes',
-              bullets: [],
+              bullets: [
+                {
+                  type: 'semantic',
+                  label: 'Semantic match with games you rate highly',
+                  evidence: ['semantic:embedding-cosine'],
+                  delta: 0.2
+                }
+              ],
               matchedTokens: {
                 genres: [],
                 developers: [],
@@ -58,6 +66,9 @@ function createServiceMock(
           similarity: 0.88,
           reasons: {
             summary: 'same series',
+            structuredSimilarity: 0.8,
+            semanticSimilarity: 0.7,
+            blendedSimilarity: 0.76,
             sharedTokens: {
               genres: [],
               developers: [],
@@ -83,9 +94,13 @@ void test('GET /v1/recommendations/top returns latest recommendations', async ()
   });
 
   assert.equal(response.statusCode, 200);
-  const body = JSON.parse(response.body) as { target: string; items: unknown[] };
+  const body = JSON.parse(response.body) as {
+    target: string;
+    items: Array<{ scoreComponents?: { semantic?: number } }>;
+  };
   assert.equal(body.target, 'BACKLOG');
   assert.equal(body.items.length, 1);
+  assert.equal(body.items[0]?.scoreComponents?.semantic, 0.2);
 
   await app.close();
 });
@@ -135,8 +150,11 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
   });
 
   assert.equal(response.statusCode, 200);
-  const body = JSON.parse(response.body) as { items: unknown[] };
+  const body = JSON.parse(response.body) as {
+    items: Array<{ reasons?: { blendedSimilarity?: number } }>;
+  };
   assert.equal(body.items.length, 1);
+  assert.equal(body.items[0]?.reasons?.blendedSimilarity, 0.76);
 
   await app.close();
 });

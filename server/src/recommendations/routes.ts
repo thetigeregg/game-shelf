@@ -75,6 +75,15 @@ export function registerRecommendationRoutes(
         return;
       }
 
+      if (result.status === 'BACKOFF_SKIPPED') {
+        reply.code(429).send({
+          target,
+          status: result.status,
+          error: 'Automatic rebuild is in failure backoff cooldown.'
+        });
+        return;
+      }
+
       if (result.status === 'FAILED') {
         reply.code(500).send({
           target,
@@ -88,7 +97,7 @@ export function registerRecommendationRoutes(
         target,
         runId: result.runId,
         status: result.status,
-        reusedRunId: 'reusedRunId' in result ? (result.reusedRunId ?? null) : null
+        reusedRunId: result.status === 'SKIPPED' ? (result.reusedRunId ?? null) : null
       });
     }
   });

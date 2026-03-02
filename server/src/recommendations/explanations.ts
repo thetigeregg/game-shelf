@@ -30,6 +30,18 @@ export function buildExplanation(params: {
     });
   }
 
+  if (components.semantic !== 0) {
+    bullets.push({
+      type: 'semantic',
+      label:
+        components.semantic > 0
+          ? 'Semantic match with games you rate highly'
+          : 'Lower semantic match with your liked games',
+      evidence: ['semantic:embedding-cosine'],
+      delta: components.semantic
+    });
+  }
+
   if (components.novelty !== 0) {
     bullets.push({
       type: 'novelty',
@@ -82,6 +94,10 @@ export function buildExplanation(params: {
 }
 
 function buildHeadline(components: RecommendationScoreComponents, matches: TasteMatch[]): string {
+  if (components.semantic > 0.5) {
+    return 'Strong semantic match with your preferred game themes';
+  }
+
   if (components.taste > 0 && matches.length > 0) {
     const labels = matches.map((match) => match.label).join(', ');
     return `Matches your tastes: ${labels}`;

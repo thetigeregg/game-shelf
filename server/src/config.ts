@@ -42,6 +42,12 @@ function readIntegerEnv(name: string, fallback: number): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function readNumberEnv(name: string, fallback: number): number {
+  const raw = readEnv(name);
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function readBooleanEnv(name: string, fallback: boolean): boolean {
   const raw = readEnv(name);
 
@@ -105,10 +111,18 @@ export interface AppConfig {
   mobygamesSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
+  openaiApiKey: string;
   recommendationsSchedulerEnabled: boolean;
   recommendationsDailyStaleHours: number;
   recommendationsTopLimit: number;
   recommendationsSimilarityK: number;
+  recommendationsEmbeddingModel: string;
+  recommendationsEmbeddingDimensions: number;
+  recommendationsEmbeddingBatchSize: number;
+  recommendationsSemanticWeight: number;
+  recommendationsSimilarityStructuredWeight: number;
+  recommendationsSimilaritySemanticWeight: number;
+  recommendationsFailureBackoffMinutes: number;
 }
 
 function readTokenList(name: string, fallbackSecretName: string): string[] {
@@ -212,8 +226,28 @@ export const config: AppConfig = {
   ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
+  openaiApiKey: readSecretFile('OPENAI_API_KEY', 'openai_api_key'),
   recommendationsSchedulerEnabled: readBooleanEnv('RECOMMENDATIONS_SCHEDULER_ENABLED', true),
   recommendationsDailyStaleHours: readIntegerEnv('RECOMMENDATIONS_DAILY_STALE_HOURS', 24),
   recommendationsTopLimit: readIntegerEnv('RECOMMENDATIONS_TOP_LIMIT', 200),
-  recommendationsSimilarityK: readIntegerEnv('RECOMMENDATIONS_SIMILARITY_K', 20)
+  recommendationsSimilarityK: readIntegerEnv('RECOMMENDATIONS_SIMILARITY_K', 20),
+  recommendationsEmbeddingModel: readEnv(
+    'RECOMMENDATIONS_EMBEDDING_MODEL',
+    'text-embedding-3-small'
+  ),
+  recommendationsEmbeddingDimensions: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_DIMENSIONS', 1536),
+  recommendationsEmbeddingBatchSize: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_BATCH_SIZE', 32),
+  recommendationsSemanticWeight: readNumberEnv('RECOMMENDATIONS_SEMANTIC_WEIGHT', 2),
+  recommendationsSimilarityStructuredWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_STRUCTURED_WEIGHT',
+    0.6
+  ),
+  recommendationsSimilaritySemanticWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_SEMANTIC_WEIGHT',
+    0.4
+  ),
+  recommendationsFailureBackoffMinutes: readIntegerEnv(
+    'RECOMMENDATIONS_FAILURE_BACKOFF_MINUTES',
+    120
+  )
 };

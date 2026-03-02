@@ -1,12 +1,15 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { normalizeDbGameRow } from './normalize.js';
+import { buildGameKey } from './semantic.js';
 import {
+  GameEmbeddingUpsertInput,
   NormalizedGameRecord,
   RankedRecommendationItem,
   RecommendationRunSummary,
   RecommendationScoreComponents,
   RecommendationTarget,
-  SimilarityEdge
+  SimilarityEdge,
+  StoredGameEmbedding
 } from './types.js';
 
 interface Queryable {
@@ -34,6 +37,23 @@ interface RunRow extends QueryResultRow {
   started_at: string;
   finished_at: string | null;
   error: string | null;
+}
+
+interface SimilarityRow extends QueryResultRow {
+  similar_igdb_game_id: string;
+  similar_platform_igdb_id: number;
+  similarity: string | number;
+  reasons: SimilarityEdge['reasons'];
+}
+
+interface EmbeddingRow extends QueryResultRow {
+  igdb_game_id: string;
+  platform_igdb_id: number;
+  embedding: string | number[];
+  embedding_model: string;
+  source_hash: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
@@ -91,6 +111,28 @@ export class RecommendationRepository {
     }
 
     return normalized;
+  }
+
+  async getLatestRun(
+    target: RecommendationTarget,
+    queryable: Queryable = this.pool
+  ): Promise<RecommendationRunSummary | null> {
+    const result = await queryable.query<RunRow>(
+      `
+      SELECT id, target, status, settings_hash, input_hash, started_at, finished_at, error
+      FROM recommendation_runs
+      WHERE target = $1
+      ORDER BY started_at DESC
+      LIMIT 1
+      `,
+      [target]
+    );
+
+    if (result.rowCount === 0) {
+      return null;
+    }
+
+    return mapRunSummary(result.rows[0]);
   }
 
   async getLatestSuccessfulRun(
@@ -270,12 +312,7 @@ export class RecommendationRepository {
       reasons: SimilarityEdge['reasons'];
     }>
   > {
-    const result = await this.pool.query<{
-      similar_igdb_game_id: string;
-      similar_platform_igdb_id: number;
-      similarity: string | number;
-      reasons: SimilarityEdge['reasons'];
-    }>(
+    const result = await this.pool.query<SimilarityRow>(
       `
       SELECT similar_igdb_game_id, similar_platform_igdb_id, similarity, reasons
       FROM game_similarity
@@ -294,6 +331,87 @@ export class RecommendationRepository {
       reasons: row.reasons
     }));
   }
+
+  async listGameEmbeddings(queryable: Queryable = this.pool): Promise<StoredGameEmbedding[]> {
+    const result = await queryable.query<EmbeddingRow>(
+      `
+      SELECT
+        igdb_game_id,
+        platform_igdb_id,
+        embedding,
+        embedding_model,
+        source_hash,
+        created_at,
+        updated_at
+      FROM game_embeddings
+      `
+    );
+
+    return result.rows
+      .map((row) => ({
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        embedding: parseEmbeddingVector(row.embedding),
+        embeddingModel: row.embedding_model,
+        sourceHash: row.source_hash,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }))
+      .filter((row) => row.embedding.length > 0);
+  }
+
+  async upsertGameEmbeddings(params: {
+    client: Queryable;
+    rows: GameEmbeddingUpsertInput[];
+  }): Promise<void> {
+    if (params.rows.length === 0) {
+      return;
+    }
+
+    for (const row of params.rows) {
+      await params.client.query(
+        `
+        INSERT INTO game_embeddings
+          (
+            igdb_game_id,
+            platform_igdb_id,
+            embedding,
+            embedding_model,
+            source_hash,
+            created_at,
+            updated_at
+          )
+        VALUES ($1, $2, $3::vector, $4, $5, NOW(), NOW())
+        ON CONFLICT (igdb_game_id, platform_igdb_id)
+        DO UPDATE
+          SET embedding = EXCLUDED.embedding,
+              embedding_model = EXCLUDED.embedding_model,
+              source_hash = EXCLUDED.source_hash,
+              updated_at = NOW()
+        `,
+        [
+          row.igdbGameId,
+          row.platformIgdbId,
+          serializeEmbeddingVector(row.embedding),
+          row.embeddingModel,
+          row.sourceHash
+        ]
+      );
+    }
+  }
+
+  async listEmbeddingMap(
+    queryable: Queryable = this.pool
+  ): Promise<Map<string, StoredGameEmbedding>> {
+    const rows = await this.listGameEmbeddings(queryable);
+    const map = new Map<string, StoredGameEmbedding>();
+
+    for (const row of rows) {
+      map.set(buildGameKey(row.igdbGameId, row.platformIgdbId), row);
+    }
+
+    return map;
+  }
 }
 
 function mapRunSummary(row: RunRow): RecommendationRunSummary {
@@ -307,4 +425,33 @@ function mapRunSummary(row: RunRow): RecommendationRunSummary {
     finishedAt: row.finished_at,
     error: row.error
   };
+}
+
+function parseEmbeddingVector(value: string | number[]): number[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry) => Number.isFinite(entry));
+  }
+
+  if (typeof value !== 'string') {
+    return [];
+  }
+
+  const normalized = value.trim().replace(/^\[/, '').replace(/\]$/, '');
+
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(',')
+    .map((entry) => Number.parseFloat(entry.trim()))
+    .filter((entry) => Number.isFinite(entry));
+}
+
+function serializeEmbeddingVector(embedding: number[]): string {
+  return `[${embedding.map((value) => round6(value)).join(',')}]`;
+}
+
+function round6(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
 }

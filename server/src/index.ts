@@ -12,6 +12,7 @@ import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
+import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { registerRecommendationRoutes } from './recommendations/routes.js';
 import { RecommendationScheduler } from './recommendations/scheduler.js';
@@ -39,11 +40,29 @@ async function main(): Promise<void> {
     logger: true
   });
   const recommendationRepository = new RecommendationRepository(pool);
-  const recommendationService = new RecommendationService(recommendationRepository, {
-    topLimit: config.recommendationsTopLimit,
-    similarityK: config.recommendationsSimilarityK,
-    staleHours: config.recommendationsDailyStaleHours
+  const embeddingClient = new OpenAiEmbeddingClient({
+    apiKey: config.openaiApiKey,
+    model: config.recommendationsEmbeddingModel,
+    dimensions: config.recommendationsEmbeddingDimensions
   });
+  const recommendationService = new RecommendationService(
+    recommendationRepository,
+    {
+      topLimit: config.recommendationsTopLimit,
+      similarityK: config.recommendationsSimilarityK,
+      staleHours: config.recommendationsDailyStaleHours,
+      failureBackoffMinutes: config.recommendationsFailureBackoffMinutes,
+      semanticWeight: config.recommendationsSemanticWeight,
+      similarityStructuredWeight: config.recommendationsSimilarityStructuredWeight,
+      similaritySemanticWeight: config.recommendationsSimilaritySemanticWeight,
+      embeddingModel: config.recommendationsEmbeddingModel,
+      embeddingDimensions: config.recommendationsEmbeddingDimensions,
+      embeddingBatchSize: config.recommendationsEmbeddingBatchSize
+    },
+    {
+      embeddingClient
+    }
+  );
   const recommendationScheduler = new RecommendationScheduler(recommendationService, {
     enabled: config.recommendationsSchedulerEnabled
   });

@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `
   CREATE TABLE IF NOT EXISTS games (
     igdb_game_id TEXT NOT NULL,
@@ -92,6 +92,70 @@ const MIGRATIONS: string[] = [
     response_json JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS recommendation_runs (
+    id BIGSERIAL PRIMARY KEY,
+    target TEXT NOT NULL CHECK (target IN ('BACKLOG', 'WISHLIST')),
+    status TEXT NOT NULL CHECK (status IN ('RUNNING', 'SUCCESS', 'FAILED')),
+    triggered_by TEXT NOT NULL CHECK (triggered_by IN ('manual', 'scheduler', 'stale-read')),
+    settings_hash TEXT NOT NULL,
+    input_hash TEXT NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    error TEXT
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS recommendation_runs_target_status_started_idx
+  ON recommendation_runs (target, status, started_at DESC);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS recommendations (
+    run_id BIGINT NOT NULL REFERENCES recommendation_runs(id) ON DELETE CASCADE,
+    rank INTEGER NOT NULL,
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    score_total NUMERIC NOT NULL,
+    score_components JSONB NOT NULL,
+    explanations JSONB NOT NULL,
+    FOREIGN KEY (igdb_game_id, platform_igdb_id)
+      REFERENCES games(igdb_game_id, platform_igdb_id)
+      ON DELETE CASCADE,
+    PRIMARY KEY (run_id, rank),
+    UNIQUE (run_id, igdb_game_id, platform_igdb_id)
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS recommendations_run_rank_idx
+  ON recommendations (run_id, rank);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS game_similarity (
+    source_igdb_game_id TEXT NOT NULL,
+    source_platform_igdb_id INTEGER NOT NULL,
+    similar_igdb_game_id TEXT NOT NULL,
+    similar_platform_igdb_id INTEGER NOT NULL,
+    similarity NUMERIC NOT NULL,
+    reasons JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (source_igdb_game_id, source_platform_igdb_id)
+      REFERENCES games(igdb_game_id, platform_igdb_id)
+      ON DELETE CASCADE,
+    FOREIGN KEY (similar_igdb_game_id, similar_platform_igdb_id)
+      REFERENCES games(igdb_game_id, platform_igdb_id)
+      ON DELETE CASCADE,
+    PRIMARY KEY (
+      source_igdb_game_id,
+      source_platform_igdb_id,
+      similar_igdb_game_id,
+      similar_platform_igdb_id
+    )
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS game_similarity_source_similarity_idx
+  ON game_similarity (source_igdb_game_id, source_platform_igdb_id, similarity DESC);
   `
 ];
 
@@ -112,12 +176,18 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
   const client = await pool.connect();
 
   try {
-    for (const migration of MIGRATIONS) {
-      await client.query(migration);
-    }
+    await runMigrations(client);
   } finally {
     client.release();
   }
 
   return pool;
+}
+
+export async function runMigrations(client: {
+  query: (sql: string) => Promise<unknown>;
+}): Promise<void> {
+  for (const migration of MIGRATIONS) {
+    await client.query(migration);
+  }
 }

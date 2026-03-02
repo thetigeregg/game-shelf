@@ -116,6 +116,7 @@ export const MIGRATIONS: string[] = [
   `
   CREATE TABLE IF NOT EXISTS recommendations (
     run_id BIGINT NOT NULL REFERENCES recommendation_runs(id) ON DELETE CASCADE,
+    runtime_mode TEXT NOT NULL DEFAULT 'NEUTRAL' CHECK (runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG')),
     rank INTEGER NOT NULL,
     igdb_game_id TEXT NOT NULL,
     platform_igdb_id INTEGER NOT NULL,
@@ -125,13 +126,78 @@ export const MIGRATIONS: string[] = [
     FOREIGN KEY (igdb_game_id, platform_igdb_id)
       REFERENCES games(igdb_game_id, platform_igdb_id)
       ON DELETE CASCADE,
-    PRIMARY KEY (run_id, rank),
-    UNIQUE (run_id, igdb_game_id, platform_igdb_id)
+    CONSTRAINT recommendations_pkey PRIMARY KEY (run_id, runtime_mode, rank),
+    CONSTRAINT recommendations_run_runtime_game_uid
+      UNIQUE (run_id, runtime_mode, igdb_game_id, platform_igdb_id)
   );
   `,
   `
-  CREATE INDEX IF NOT EXISTS recommendations_run_rank_idx
-  ON recommendations (run_id, rank);
+  ALTER TABLE recommendations
+  ADD COLUMN IF NOT EXISTS runtime_mode TEXT;
+  `,
+  `
+  UPDATE recommendations
+  SET runtime_mode = 'NEUTRAL'
+  WHERE runtime_mode IS NULL;
+  `,
+  `
+  ALTER TABLE recommendations
+  ALTER COLUMN runtime_mode SET DEFAULT 'NEUTRAL';
+  `,
+  `
+  ALTER TABLE recommendations
+  ALTER COLUMN runtime_mode SET NOT NULL;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'recommendations_runtime_mode_check'
+    ) THEN
+      ALTER TABLE recommendations
+      ADD CONSTRAINT recommendations_runtime_mode_check
+      CHECK (runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG'));
+    END IF;
+  END $$;
+  `,
+  `
+  ALTER TABLE recommendations
+  DROP CONSTRAINT IF EXISTS recommendations_run_id_igdb_game_id_platform_igdb_id_key;
+  `,
+  `
+  ALTER TABLE recommendations
+  DROP CONSTRAINT IF EXISTS recommendations_pkey;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'recommendations_pkey'
+    ) THEN
+      ALTER TABLE recommendations
+      ADD CONSTRAINT recommendations_pkey
+      PRIMARY KEY (run_id, runtime_mode, rank);
+    END IF;
+  END $$;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'recommendations_run_runtime_game_uid'
+    ) THEN
+      ALTER TABLE recommendations
+      ADD CONSTRAINT recommendations_run_runtime_game_uid
+      UNIQUE (run_id, runtime_mode, igdb_game_id, platform_igdb_id);
+    END IF;
+  END $$;
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS recommendations_run_mode_rank_idx
+  ON recommendations (run_id, runtime_mode, rank);
   `,
   `
   CREATE TABLE IF NOT EXISTS game_similarity (
@@ -159,6 +225,46 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS game_similarity_source_similarity_idx
   ON game_similarity (source_igdb_game_id, source_platform_igdb_id, similarity DESC);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS recommendation_lanes (
+    run_id BIGINT NOT NULL REFERENCES recommendation_runs(id) ON DELETE CASCADE,
+    runtime_mode TEXT NOT NULL CHECK (runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG')),
+    lane TEXT NOT NULL CHECK (lane IN ('overall', 'hiddenGems', 'exploration')),
+    rank INTEGER NOT NULL,
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    score_total NUMERIC NOT NULL,
+    score_components JSONB NOT NULL,
+    explanations JSONB NOT NULL,
+    FOREIGN KEY (igdb_game_id, platform_igdb_id)
+      REFERENCES games(igdb_game_id, platform_igdb_id)
+      ON DELETE CASCADE,
+    PRIMARY KEY (run_id, runtime_mode, lane, rank),
+    UNIQUE (run_id, runtime_mode, lane, igdb_game_id, platform_igdb_id)
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS recommendation_lanes_run_mode_lane_rank_idx
+  ON recommendation_lanes (run_id, runtime_mode, lane, rank);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS recommendation_history (
+    target TEXT NOT NULL CHECK (target IN ('BACKLOG', 'WISHLIST')),
+    runtime_mode TEXT NOT NULL CHECK (runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG')),
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    recommendation_count INTEGER NOT NULL DEFAULT 0,
+    last_recommended_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (igdb_game_id, platform_igdb_id)
+      REFERENCES games(igdb_game_id, platform_igdb_id)
+      ON DELETE CASCADE,
+    PRIMARY KEY (target, runtime_mode, igdb_game_id, platform_igdb_id)
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS recommendation_history_target_mode_last_idx
+  ON recommendation_history (target, runtime_mode, last_recommended_at DESC);
   `,
   `
   CREATE TABLE IF NOT EXISTS game_embeddings (

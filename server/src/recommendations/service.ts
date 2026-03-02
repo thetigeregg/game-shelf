@@ -4,10 +4,12 @@ import { selectCandidates } from './candidates.js';
 import { buildEmbeddingText } from './embedding-text.js';
 import { EmbeddingClient, OpenAiEmbeddingClient } from './embedding-client.js';
 import { buildExplanation } from './explanations.js';
+import { buildRecommendationLanes } from './lanes.js';
 import { normalizeTokenKey } from './normalize.js';
 import { buildPreferenceProfile } from './profile.js';
 import { EmbeddingRepository } from './embedding-repository.js';
 import { RecommendationRepository } from './repository.js';
+import { parseRecommendationRuntimeMode, RECOMMENDATION_RUNTIME_MODES } from './runtime.js';
 import { buildRankedScores } from './score.js';
 import {
   buildGameKey,
@@ -16,19 +18,24 @@ import {
   cosineSimilarity
 } from './semantic.js';
 import { buildSimilarityGraph } from './similarity.js';
+import { tuneRecommendationWeights } from './tuning.js';
 import {
   GameEmbeddingUpsertInput,
   NormalizedGameRecord,
   RankedRecommendationItem,
   RebuildResult,
+  RecommendationLaneCollection,
   RecommendationRunSummary,
+  RecommendationRuntimeMode,
   RecommendationTarget,
   SimilarityReasons,
-  StoredGameEmbedding
+  StoredGameEmbedding,
+  TunedRecommendationWeights
 } from './types.js';
 
 export interface RecommendationServiceOptions {
   topLimit: number;
+  laneLimit: number;
   similarityK: number;
   staleHours: number;
   failureBackoffMinutes: number;
@@ -38,6 +45,11 @@ export interface RecommendationServiceOptions {
   embeddingModel: string;
   embeddingDimensions: number;
   embeddingBatchSize: number;
+  runtimeModeDefault: RecommendationRuntimeMode;
+  explorationWeight: number;
+  diversityPenaltyWeight: number;
+  repeatPenaltyStep: number;
+  tuningMinRated: number;
 }
 
 export interface RecommendationServiceDependencies {
@@ -61,10 +73,27 @@ export interface RecommendationServiceApi {
     target: RecommendationTarget,
     triggeredBy: 'scheduler' | 'stale-read'
   ): Promise<RebuildAttemptResult | null>;
+  resolveRuntimeMode(
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<RecommendationRuntimeMode>;
   getTopRecommendations(
     target: RecommendationTarget,
-    limit: number
-  ): Promise<{ run: RecommendationRunSummary; items: RankedRecommendationItem[] } | null>;
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    items: RankedRecommendationItem[];
+  } | null>;
+  getRecommendationLanes(
+    target: RecommendationTarget,
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    lanes: RecommendationLaneCollection;
+  } | null>;
   getSimilarGames(params: { igdbGameId: string; platformIgdbId: number; limit: number }): Promise<
     Array<{
       igdbGameId: string;
@@ -116,8 +145,9 @@ export class RecommendationService implements RecommendationServiceApi {
       }
 
       const games = await this.repository.listNormalizedGames(client);
+      const histories = await this.loadHistoryByMode(params.target, client);
       const settingsHash = this.computeSettingsHash();
-      const inputHash = this.computeInputHash(games, params.target);
+      const inputHash = this.computeInputHash(games, params.target, histories);
       const latestSuccess = await this.repository.getLatestSuccessfulRun(params.target, client);
 
       if (
@@ -148,7 +178,16 @@ export class RecommendationService implements RecommendationServiceApi {
           games,
           embeddingsByGame
         });
-        const items = this.buildRecommendations(games, params.target, semanticSimilarityByGame);
+        const tunedWeights = this.buildTunedWeights(games, semanticSimilarityByGame);
+        const recommendationsByMode = this.buildRecommendationsByMode({
+          games,
+          target: params.target,
+          semanticSimilarityByGame,
+          tunedWeights,
+          histories
+        });
+        const lanesByMode = this.buildLanesByMode(recommendationsByMode);
+        const historyUpdates = this.buildHistoryUpdates(params.target, recommendationsByMode);
         const similarityEdges = buildSimilarityGraph({
           games,
           topK: this.options.similarityK,
@@ -160,7 +199,9 @@ export class RecommendationService implements RecommendationServiceApi {
         await this.repository.finalizeRunSuccess({
           client,
           runId,
-          recommendations: items,
+          recommendationsByMode,
+          lanesByMode,
+          historyUpdates,
           similarityEdges
         });
 
@@ -213,15 +254,73 @@ export class RecommendationService implements RecommendationServiceApi {
     });
   }
 
+  async resolveRuntimeMode(
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<RecommendationRuntimeMode> {
+    if (runtimeMode) {
+      return runtimeMode;
+    }
+
+    const fromSettings = await this.repository.getRuntimeModeDefault();
+    if (fromSettings) {
+      return fromSettings;
+    }
+
+    return this.options.runtimeModeDefault;
+  }
+
   async getTopRecommendations(
     target: RecommendationTarget,
-    limit: number
-  ): Promise<{ run: RecommendationRunSummary; items: RankedRecommendationItem[] } | null> {
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    items: RankedRecommendationItem[];
+  } | null> {
+    const resolvedRuntimeMode = await this.resolveRuntimeMode(runtimeMode);
     const safeLimit = normalizeLimit(limit, this.options.topLimit);
-    return this.repository.readTopRecommendations({
+    const result = await this.repository.readTopRecommendations({
       target,
+      runtimeMode: resolvedRuntimeMode,
       limit: safeLimit
     });
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      ...result,
+      runtimeMode: resolvedRuntimeMode
+    };
+  }
+
+  async getRecommendationLanes(
+    target: RecommendationTarget,
+    limit: number,
+    runtimeMode?: RecommendationRuntimeMode | null
+  ): Promise<{
+    run: RecommendationRunSummary;
+    runtimeMode: RecommendationRuntimeMode;
+    lanes: RecommendationLaneCollection;
+  } | null> {
+    const resolvedRuntimeMode = await this.resolveRuntimeMode(runtimeMode);
+    const safeLimit = normalizeLimit(limit, this.options.laneLimit);
+    const result = await this.repository.readRecommendationLanes({
+      target,
+      runtimeMode: resolvedRuntimeMode,
+      limit: safeLimit
+    });
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      ...result,
+      runtimeMode: resolvedRuntimeMode
+    };
   }
 
   async getSimilarGames(params: {
@@ -346,6 +445,29 @@ export class RecommendationService implements RecommendationServiceApi {
     return vectorsByGame;
   }
 
+  private async loadHistoryByMode(
+    target: RecommendationTarget,
+    client: PoolClient
+  ): Promise<Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>> {
+    const record = createModeRecord<Map<string, { recommendationCount: number }>>(() => new Map());
+
+    for (const mode of RECOMMENDATION_RUNTIME_MODES) {
+      const map = await this.repository.listRecommendationHistory({
+        target,
+        runtimeMode: mode,
+        queryable: client
+      });
+
+      const normalized = new Map<string, { recommendationCount: number }>();
+      for (const [key, entry] of map.entries()) {
+        normalized.set(key, { recommendationCount: entry.recommendationCount });
+      }
+      record[mode] = normalized;
+    }
+
+    return record;
+  }
+
   private buildSemanticSimilarityMap(params: {
     games: NormalizedGameRecord[];
     embeddingsByGame: Map<string, number[]>;
@@ -372,9 +494,108 @@ export class RecommendationService implements RecommendationServiceApi {
     return map;
   }
 
+  private buildTunedWeights(
+    games: NormalizedGameRecord[],
+    semanticSimilarityByGame: Map<string, number>
+  ): TunedRecommendationWeights {
+    return tuneRecommendationWeights({
+      games,
+      semanticSimilarityByGame,
+      minimumRated: this.options.tuningMinRated,
+      defaults: {
+        tasteWeight: 1,
+        semanticWeight: this.options.semanticWeight,
+        criticWeight: 1,
+        runtimeWeight: 1
+      }
+    });
+  }
+
+  private buildRecommendationsByMode(params: {
+    games: NormalizedGameRecord[];
+    target: RecommendationTarget;
+    semanticSimilarityByGame: Map<string, number>;
+    tunedWeights: TunedRecommendationWeights;
+    histories: Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>;
+  }): Record<RecommendationRuntimeMode, RankedRecommendationItem[]> {
+    const { games, target, semanticSimilarityByGame, tunedWeights, histories } = params;
+    const profile = buildPreferenceProfile(games);
+    const candidates = selectCandidates(games, target);
+
+    return createModeRecord((runtimeMode) => {
+      const ranked = buildRankedScores({
+        candidates,
+        target,
+        profile,
+        limit: this.options.topLimit,
+        runtimeMode,
+        semanticSimilarityByGame,
+        tunedWeights,
+        explorationWeight: this.options.explorationWeight,
+        diversityPenaltyWeight: this.options.diversityPenaltyWeight,
+        repeatPenaltyStep: this.options.repeatPenaltyStep,
+        historyByGame: histories[runtimeMode]
+      });
+
+      return ranked.map((item, index) => ({
+        igdbGameId: item.game.igdbGameId,
+        platformIgdbId: item.game.platformIgdbId,
+        rank: index + 1,
+        scoreTotal: item.total,
+        scoreComponents: item.components,
+        explanations: buildExplanation({
+          components: item.components,
+          tasteMatches: item.tasteMatches
+        })
+      }));
+    });
+  }
+
+  private buildLanesByMode(
+    recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>
+  ): Record<RecommendationRuntimeMode, RecommendationLaneCollection> {
+    return createModeRecord((runtimeMode) =>
+      buildRecommendationLanes({
+        items: recommendationsByMode[runtimeMode],
+        laneLimit: this.options.laneLimit
+      })
+    );
+  }
+
+  private buildHistoryUpdates(
+    target: RecommendationTarget,
+    recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>
+  ): Array<{
+    target: RecommendationTarget;
+    runtimeMode: RecommendationRuntimeMode;
+    igdbGameId: string;
+    platformIgdbId: number;
+  }> {
+    const updates: Array<{
+      target: RecommendationTarget;
+      runtimeMode: RecommendationRuntimeMode;
+      igdbGameId: string;
+      platformIgdbId: number;
+    }> = [];
+
+    for (const mode of RECOMMENDATION_RUNTIME_MODES) {
+      for (const item of recommendationsByMode[mode]) {
+        updates.push({
+          target,
+          runtimeMode: mode,
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId
+        });
+      }
+    }
+
+    return updates;
+  }
+
   private computeSettingsHash(): string {
     return sha256({
       topLimit: this.options.topLimit,
+      laneLimit: this.options.laneLimit,
       similarityK: this.options.similarityK,
       staleHours: this.options.staleHours,
       failureBackoffMinutes: this.options.failureBackoffMinutes,
@@ -384,11 +605,20 @@ export class RecommendationService implements RecommendationServiceApi {
       embeddingModel: this.options.embeddingModel,
       embeddingDimensions: this.options.embeddingDimensions,
       embeddingBatchSize: this.options.embeddingBatchSize,
-      modelVersion: 'recommendation-v2-semantic'
+      runtimeModeDefault: this.options.runtimeModeDefault,
+      explorationWeight: this.options.explorationWeight,
+      diversityPenaltyWeight: this.options.diversityPenaltyWeight,
+      repeatPenaltyStep: this.options.repeatPenaltyStep,
+      tuningMinRated: this.options.tuningMinRated,
+      modelVersion: 'recommendation-v2.5-runtime-modes'
     });
   }
 
-  private computeInputHash(games: NormalizedGameRecord[], target: RecommendationTarget): string {
+  private computeInputHash(
+    games: NormalizedGameRecord[],
+    target: RecommendationTarget,
+    histories: Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>
+  ): string {
     const material = games
       .map((game) => ({
         igdbGameId: game.igdbGameId,
@@ -399,6 +629,7 @@ export class RecommendationService implements RecommendationServiceApi {
         createdAt: game.createdAt,
         updatedAt: game.updatedAt,
         releaseYear: game.releaseYear,
+        runtimeHours: game.runtimeHours,
         summary: game.summary,
         storyline: game.storyline,
         reviewScore: game.reviewScore,
@@ -419,39 +650,18 @@ export class RecommendationService implements RecommendationServiceApi {
         return left.platformIgdbId - right.platformIgdbId;
       });
 
+    const historyMaterial = RECOMMENDATION_RUNTIME_MODES.map((mode) => ({
+      mode,
+      entries: [...histories[mode].entries()]
+        .map(([key, entry]) => ({ key, recommendationCount: entry.recommendationCount }))
+        .sort((left, right) => left.key.localeCompare(right.key, 'en'))
+    }));
+
     return sha256({
       target,
-      material
+      material,
+      historyMaterial
     });
-  }
-
-  private buildRecommendations(
-    games: NormalizedGameRecord[],
-    target: RecommendationTarget,
-    semanticSimilarityByGame: Map<string, number>
-  ): RankedRecommendationItem[] {
-    const profile = buildPreferenceProfile(games);
-    const candidates = selectCandidates(games, target);
-    const ranked = buildRankedScores({
-      candidates,
-      target,
-      profile,
-      limit: this.options.topLimit,
-      semanticSimilarityByGame,
-      semanticWeight: this.options.semanticWeight
-    });
-
-    return ranked.map((item, index) => ({
-      igdbGameId: item.game.igdbGameId,
-      platformIgdbId: item.game.platformIgdbId,
-      rank: index + 1,
-      scoreTotal: item.total,
-      scoreComponents: item.components,
-      explanations: buildExplanation({
-        components: item.components,
-        tasteMatches: item.tasteMatches
-      })
-    }));
   }
 
   private isStale(run: RecommendationRunSummary): boolean {
@@ -479,6 +689,16 @@ export class RecommendationService implements RecommendationServiceApi {
     const backoffMs = this.options.failureBackoffMinutes * 60 * 1000;
     return this.nowProvider() - timestamp < backoffMs;
   }
+}
+
+function createModeRecord<T>(
+  factory: (mode: RecommendationRuntimeMode) => T
+): Record<RecommendationRuntimeMode, T> {
+  return {
+    NEUTRAL: factory('NEUTRAL'),
+    SHORT: factory('SHORT'),
+    LONG: factory('LONG')
+  };
 }
 
 function normalizeLimit(value: number, max: number): number {
@@ -520,4 +740,9 @@ export function parseRecommendationTarget(value: unknown): RecommendationTarget 
   }
 
   return null;
+}
+
+export function parseRuntimeModeOrNull(value: unknown): RecommendationRuntimeMode | null {
+  const parsed = parseRecommendationRuntimeMode(value);
+  return parsed;
 }

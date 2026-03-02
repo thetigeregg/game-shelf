@@ -1,18 +1,22 @@
+import { calculateDiversityPenalty } from './diversity.js';
+import { computeRepeatPenalty } from './history.js';
 import { buildTokenEntries } from './normalize.js';
 import { TOKEN_FAMILY_WEIGHT } from './profile.js';
 import { buildGameKey, clampSemanticScore } from './semantic.js';
+import { scoreRuntimeFit } from './runtime.js';
 import {
   NormalizedGameRecord,
   PreferenceProfile,
+  RecommendationRuntimeMode,
   RecommendationScoreComponents,
   RecommendationTarget,
   TasteMatch,
-  TokenFamily
+  TokenFamily,
+  TunedRecommendationWeights
 } from './types.js';
 
 interface BaseScore {
   game: NormalizedGameRecord;
-  title: string;
   tokenKeys: Set<string>;
   baseComponents: RecommendationScoreComponents;
   tasteMatches: TasteMatch[];
@@ -30,20 +34,40 @@ export function buildRankedScores(params: {
   target: RecommendationTarget;
   profile: PreferenceProfile;
   limit: number;
-  semanticSimilarityByGame?: Map<string, number>;
-  semanticWeight?: number;
+  runtimeMode: RecommendationRuntimeMode;
+  semanticSimilarityByGame: Map<string, number>;
+  tunedWeights: TunedRecommendationWeights;
+  explorationWeight: number;
+  diversityPenaltyWeight: number;
+  repeatPenaltyStep: number;
+  historyByGame: Map<string, { recommendationCount: number }>;
 }): RankedScore[] {
   const {
     candidates,
     profile,
     limit,
     target,
-    semanticSimilarityByGame = new Map<string, number>(),
-    semanticWeight = 2
+    runtimeMode,
+    semanticSimilarityByGame,
+    tunedWeights,
+    explorationWeight,
+    diversityPenaltyWeight,
+    repeatPenaltyStep,
+    historyByGame
   } = params;
 
   const baseScores = candidates.map((game) =>
-    buildBaseScore(game, target, profile, semanticSimilarityByGame, semanticWeight)
+    buildBaseScore({
+      game,
+      target,
+      profile,
+      runtimeMode,
+      semanticSimilarityByGame,
+      tunedWeights,
+      explorationWeight,
+      repeatPenaltyStep,
+      historyByGame
+    })
   );
   const remaining = [...baseScores];
   const selected: RankedScore[] = [];
@@ -55,9 +79,19 @@ export function buildRankedScores(params: {
     for (let index = 0; index < remaining.length; index += 1) {
       const entry = remaining[index];
       const novelty = calculateNoveltyPenalty(entry.tokenKeys, selected);
+      const diversityPenalty = calculateDiversityPenalty({
+        candidate: { game: entry.game, tokenKeys: entry.tokenKeys },
+        selected: selected.map((ranked) => ({
+          game: ranked.game,
+          tokenKeys: tokenSetForGame(ranked.game)
+        })),
+        semanticSimilarityByGame,
+        diversityPenaltyWeight
+      });
       const components: RecommendationScoreComponents = {
         ...entry.baseComponents,
-        novelty
+        novelty,
+        diversityPenalty
       };
       const total = calculateTotalScore(components);
       const ranked: RankedScore = {
@@ -90,7 +124,10 @@ export function buildRankedScores(params: {
       runtimeFit: round4(item.components.runtimeFit),
       criticBoost: round4(item.components.criticBoost),
       recencyBoost: round4(item.components.recencyBoost),
-      semantic: round4(item.components.semantic)
+      semantic: round4(item.components.semantic),
+      exploration: round4(item.components.exploration),
+      diversityPenalty: round4(item.components.diversityPenalty),
+      repeatPenalty: round4(item.components.repeatPenalty)
     },
     tasteMatches: item.tasteMatches.map((match) => ({
       ...match,
@@ -99,34 +136,56 @@ export function buildRankedScores(params: {
   }));
 }
 
-function buildBaseScore(
-  game: NormalizedGameRecord,
-  target: RecommendationTarget,
-  profile: PreferenceProfile,
-  semanticSimilarityByGame: Map<string, number>,
-  semanticWeight: number
-): BaseScore {
+function buildBaseScore(params: {
+  game: NormalizedGameRecord;
+  target: RecommendationTarget;
+  profile: PreferenceProfile;
+  runtimeMode: RecommendationRuntimeMode;
+  semanticSimilarityByGame: Map<string, number>;
+  tunedWeights: TunedRecommendationWeights;
+  explorationWeight: number;
+  repeatPenaltyStep: number;
+  historyByGame: Map<string, { recommendationCount: number }>;
+}): BaseScore {
+  const {
+    game,
+    target,
+    profile,
+    runtimeMode,
+    semanticSimilarityByGame,
+    tunedWeights,
+    explorationWeight,
+    repeatPenaltyStep,
+    historyByGame
+  } = params;
+
   const tokens = buildTokenEntries(game);
   const tokenKeys = new Set(tokens.map((token) => token.key));
-  const tasteEvaluation = evaluateTaste(tokens, profile);
+  const tasteEvaluation = evaluateTaste(tokens, profile, tunedWeights.tasteWeight);
   const semantic = evaluateSemanticScore(
     game,
     semanticSimilarityByGame,
-    Number.isFinite(semanticWeight) ? semanticWeight : 2
+    tunedWeights.semanticWeight
   );
+  const runtimeFit = evaluateRuntimeFit(game, runtimeMode, tunedWeights.runtimeWeight);
+  const exploration = evaluateExploration(semantic, explorationWeight);
+  const historyKey = buildGameKey(game.igdbGameId, game.platformIgdbId);
+  const recommendationCount = historyByGame.get(historyKey)?.recommendationCount ?? 0;
 
   const baseComponents: RecommendationScoreComponents = {
     taste: tasteEvaluation.score,
     novelty: 0,
-    runtimeFit: 0,
-    criticBoost: evaluateCriticBoost(game),
+    runtimeFit,
+    criticBoost: evaluateCriticBoost(game, tunedWeights.criticWeight),
     recencyBoost: evaluateRecencyBoost(game, target),
-    semantic
+    semantic,
+    exploration,
+    diversityPenalty: 0,
+    repeatPenalty: computeRepeatPenalty(recommendationCount, repeatPenaltyStep)
   };
 
   return {
     game,
-    title: game.title,
     tokenKeys,
     baseComponents,
     tasteMatches: tasteEvaluation.matches
@@ -135,7 +194,8 @@ function buildBaseScore(
 
 function evaluateTaste(
   tokens: ReturnType<typeof buildTokenEntries>,
-  profile: PreferenceProfile
+  profile: PreferenceProfile,
+  tasteWeight: number
 ): { score: number; matches: TasteMatch[] } {
   if (profile.ratedGameCount < 5) {
     return {
@@ -155,7 +215,7 @@ function evaluateTaste(
     }
 
     const familyWeight = TOKEN_FAMILY_WEIGHT[token.family];
-    const delta = preference.weight * familyWeight;
+    const delta = preference.weight * familyWeight * tasteWeight;
     score += delta;
 
     if (delta > 0) {
@@ -169,7 +229,7 @@ function evaluateTaste(
   }
 
   return {
-    score: clamp(score, -3, 3),
+    score: clamp(score, -4, 4),
     matches: matches.sort((left, right) => right.delta - left.delta).slice(0, 6)
   };
 }
@@ -182,10 +242,24 @@ function evaluateSemanticScore(
   const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
   const similarity = semanticSimilarityByGame.get(key) ?? 0;
   const bounded = clampSemanticScore(similarity);
-  return clamp(bounded * semanticWeight, -2, 2);
+  return clamp(bounded * semanticWeight, -3, 3);
 }
 
-function evaluateCriticBoost(game: NormalizedGameRecord): number {
+function evaluateRuntimeFit(
+  game: NormalizedGameRecord,
+  runtimeMode: RecommendationRuntimeMode,
+  runtimeWeight: number
+): number {
+  return clamp(scoreRuntimeFit(game.runtimeHours, runtimeMode) * runtimeWeight, -2, 2);
+}
+
+function evaluateExploration(semanticScore: number, explorationWeight: number): number {
+  const boundedWeight = Number.isFinite(explorationWeight) ? Math.max(0, explorationWeight) : 0;
+  const similarity01 = (clampSemanticScore(semanticScore) + 1) / 2;
+  return clamp((1 - similarity01) * boundedWeight, 0, 1.5);
+}
+
+function evaluateCriticBoost(game: NormalizedGameRecord, criticWeight: number): number {
   const normalizedScore = normalizeCriticScore(game);
 
   if (normalizedScore === null) {
@@ -193,7 +267,7 @@ function evaluateCriticBoost(game: NormalizedGameRecord): number {
   }
 
   const centered = Math.max(0, normalizedScore - 60) / 40;
-  return clamp(centered * 0.5, 0, 0.5);
+  return clamp(centered * 0.5 * criticWeight, 0, 1);
 }
 
 function normalizeCriticScore(game: NormalizedGameRecord): number | null {
@@ -286,7 +360,10 @@ function calculateTotalScore(components: RecommendationScoreComponents): number 
     components.runtimeFit +
     components.criticBoost +
     components.recencyBoost +
-    components.semantic
+    components.semantic +
+    components.exploration +
+    components.diversityPenalty +
+    components.repeatPenalty
   );
 }
 

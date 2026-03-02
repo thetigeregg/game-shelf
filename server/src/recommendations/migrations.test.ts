@@ -17,9 +17,22 @@ void test('recommendation migrations are present and idempotent runner executes 
   assert.equal(recommendationSql.includes('CREATE EXTENSION IF NOT EXISTS vector'), true);
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendation_runs'), true);
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendations'), true);
+  assert.equal(
+    recommendationSql.includes("runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG')") ||
+      recommendationSql.includes("runtime_mode IN ('NEUTRAL','SHORT','LONG')"),
+    true
+  );
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS game_similarity'), true);
+  assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendation_lanes'), true);
+  assert.equal(
+    recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendation_history'),
+    true
+  );
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS game_embeddings'), true);
   assert.equal(recommendationSql.includes('USING ivfflat (embedding vector_cosine_ops)'), true);
+  assert.equal(recommendationSql.includes('recommendations_run_mode_rank_idx'), true);
+  assert.equal(recommendationSql.includes('recommendation_lanes_run_mode_lane_rank_idx'), true);
+  assert.equal(recommendationSql.includes('recommendation_history_target_mode_last_idx'), true);
 
   const client = new FakeMigrationClient();
   await runMigrations(client);

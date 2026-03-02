@@ -49,6 +49,7 @@ async function main(): Promise<void> {
     recommendationRepository,
     {
       topLimit: config.recommendationsTopLimit,
+      laneLimit: config.recommendationsLaneLimit,
       similarityK: config.recommendationsSimilarityK,
       staleHours: config.recommendationsDailyStaleHours,
       failureBackoffMinutes: config.recommendationsFailureBackoffMinutes,
@@ -57,7 +58,12 @@ async function main(): Promise<void> {
       similaritySemanticWeight: config.recommendationsSimilaritySemanticWeight,
       embeddingModel: config.recommendationsEmbeddingModel,
       embeddingDimensions: config.recommendationsEmbeddingDimensions,
-      embeddingBatchSize: config.recommendationsEmbeddingBatchSize
+      embeddingBatchSize: config.recommendationsEmbeddingBatchSize,
+      runtimeModeDefault: config.recommendationsRuntimeModeDefault,
+      explorationWeight: config.recommendationsExplorationWeight,
+      diversityPenaltyWeight: config.recommendationsDiversityPenaltyWeight,
+      repeatPenaltyStep: config.recommendationsRepeatPenaltyStep,
+      tuningMinRated: config.recommendationsTuningMinRated
     },
     {
       embeddingClient

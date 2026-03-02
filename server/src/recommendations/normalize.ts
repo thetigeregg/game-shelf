@@ -47,6 +47,7 @@ export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null 
     createdAt: normalizeIsoDate(payload['createdAt']),
     updatedAt: normalizeIsoDate(payload['updatedAt']),
     releaseYear: normalizeReleaseYear(payload['releaseYear']),
+    runtimeHours: normalizeRuntimeHours(payload),
     summary: normalizeNonEmptyString(payload['summary']),
     storyline: normalizeNonEmptyString(payload['storyline']),
     reviewScore: normalizeFiniteNumber(payload['reviewScore']),
@@ -205,6 +206,22 @@ function normalizeFiniteNumber(value: unknown): number | null {
   }
 
   return Math.round(value * 100) / 100;
+}
+
+function normalizeRuntimeHours(payload: Record<string, unknown>): number | null {
+  const candidates = [
+    normalizeFiniteNumber(payload['hltbMainHours']),
+    normalizeFiniteNumber(payload['hltbMainExtraHours']),
+    normalizeFiniteNumber(payload['hltbCompletionistHours'])
+  ];
+
+  for (const value of candidates) {
+    if (value !== null && value > 0) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function normalizeStringArray(value: unknown): string[] {

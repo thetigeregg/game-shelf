@@ -3,13 +3,15 @@ import test from 'node:test';
 import fastifyFactory from 'fastify';
 import { registerRecommendationRoutes } from './routes.js';
 import { RecommendationServiceApi } from './service.js';
+import { RecommendationRuntimeMode } from './types.js';
 
 function createServiceMock(
   overrides?: Partial<RecommendationServiceApi>
 ): RecommendationServiceApi {
-  const base = {
+  const base: RecommendationServiceApi = {
     rebuildIfStale: () => Promise.resolve(null),
-    getTopRecommendations: () =>
+    resolveRuntimeMode: (runtimeMode) => Promise.resolve(runtimeMode ?? 'NEUTRAL'),
+    getTopRecommendations: (_target, _limit, runtimeMode) =>
       Promise.resolve({
         run: {
           id: 11,
@@ -21,6 +23,7 @@ function createServiceMock(
           finishedAt: '2026-01-01T00:01:00.000Z',
           error: null
         },
+        runtimeMode: runtimeMode ?? 'NEUTRAL',
         items: [
           {
             rank: 1,
@@ -33,7 +36,10 @@ function createServiceMock(
               runtimeFit: 0,
               criticBoost: 0.1,
               recencyBoost: 0.13,
-              semantic: 0.2
+              semantic: 0.2,
+              exploration: 0.2,
+              diversityPenalty: -0.1,
+              repeatPenalty: -0.2
             },
             explanations: {
               headline: 'Matches your tastes',
@@ -55,6 +61,25 @@ function createServiceMock(
             }
           }
         ]
+      }),
+    getRecommendationLanes: (_target, _limit, runtimeMode) =>
+      Promise.resolve({
+        run: {
+          id: 11,
+          target: 'BACKLOG' as const,
+          status: 'SUCCESS' as const,
+          settingsHash: 'settings',
+          inputHash: 'input',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          finishedAt: '2026-01-01T00:01:00.000Z',
+          error: null
+        },
+        runtimeMode: runtimeMode ?? 'NEUTRAL',
+        lanes: {
+          overall: [],
+          hiddenGems: [],
+          exploration: []
+        }
       }),
     rebuild: () =>
       Promise.resolve({ target: 'BACKLOG' as const, runId: 12, status: 'SUCCESS' as const }),
@@ -90,17 +115,41 @@ void test('GET /v1/recommendations/top returns latest recommendations', async ()
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/top?target=BACKLOG&limit=10'
+    url: '/v1/recommendations/top?target=BACKLOG&runtimeMode=SHORT&limit=10'
   });
 
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
     target: string;
+    runtimeMode: RecommendationRuntimeMode;
     items: Array<{ scoreComponents?: { semantic?: number } }>;
   };
   assert.equal(body.target, 'BACKLOG');
+  assert.equal(body.runtimeMode, 'SHORT');
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.scoreComponents?.semantic, 0.2);
+
+  await app.close();
+});
+
+void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fallback', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerRecommendationRoutes(app, createServiceMock());
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&limit=10'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    runtimeMode: RecommendationRuntimeMode;
+    lanes: { overall: unknown[]; hiddenGems: unknown[]; exploration: unknown[] };
+  };
+  assert.equal(body.runtimeMode, 'NEUTRAL');
+  assert.ok(Array.isArray(body.lanes.overall));
+  assert.ok(Array.isArray(body.lanes.hiddenGems));
+  assert.ok(Array.isArray(body.lanes.exploration));
 
   await app.close();
 });

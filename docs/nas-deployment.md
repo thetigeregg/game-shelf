@@ -60,6 +60,12 @@ Common stack env vars:
 - `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
 - `BACKUP_PGDUMP_RETRY_DELAY_SECONDS` (optional; defaults to `5`)
+- `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT` (optional; `NEUTRAL|SHORT|LONG`, default `NEUTRAL`)
+- `RECOMMENDATIONS_EXPLORATION_WEIGHT` (optional; default `0.3`)
+- `RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT` (optional; default `0.5`)
+- `RECOMMENDATIONS_REPEAT_PENALTY_STEP` (optional; default `0.2`)
+- `RECOMMENDATIONS_TUNING_MIN_RATED` (optional; default `8`)
+- `RECOMMENDATIONS_LANE_LIMIT` (optional; default `20`)
 
 Security note:
 
@@ -165,6 +171,15 @@ Key metadata env vars in `.env`:
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=240`
 - `MOBYGAMES_API_BASE_URL=https://api.mobygames.com/v2`
 - `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=12` (0.2 requests/second)
+
+Key recommendation env vars in `.env`:
+
+- `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT=NEUTRAL`
+- `RECOMMENDATIONS_EXPLORATION_WEIGHT=0.3`
+- `RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT=0.5`
+- `RECOMMENDATIONS_REPEAT_PENALTY_STEP=0.2`
+- `RECOMMENDATIONS_TUNING_MIN_RATED=8`
+- `RECOMMENDATIONS_LANE_LIMIT=20`
 
 3. Start the dev stack:
 

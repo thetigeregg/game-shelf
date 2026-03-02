@@ -66,15 +66,13 @@ export class GameDetailContentComponent {
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
-  @Input() ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
   @Input() showAddToLibraryAction = false;
   @Input() isInLibrary = false;
   @Input() isAddToLibraryLoading = false;
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
-  @Output() ratingChange = new EventEmitter<number | null | undefined>();
-  @Output() clearRating = new EventEmitter<void>();
+  @Output() editRating = new EventEmitter<void>();
   @Output() openTags = new EventEmitter<void>();
   @Output() developerClick = new EventEmitter<void>();
   @Output() seriesClick = new EventEmitter<void>();
@@ -224,6 +222,14 @@ export class GameDetailContentComponent {
 
     const value = (this.game as Partial<GameEntry>).rating;
     return value ?? undefined;
+  }
+
+  get ratingLabel(): string {
+    return this.ratingValue !== undefined ? this.formatRatingValue(this.ratingValue) : 'None';
+  }
+
+  get ratingActionLabel(): string {
+    return this.ratingValue !== undefined ? 'EDIT' : 'SET';
   }
 
   get tagItems(): { name: string; color: string }[] {
@@ -396,8 +402,8 @@ export class GameDetailContentComponent {
     this.statusChange.emit(value);
   }
 
-  emitRatingChange(value: number | null | undefined): void {
-    this.ratingChange.emit(value);
+  formatRatingValue(value: number): string {
+    return value.toFixed(1).replace(/\.0$/, '');
   }
 
   onDeveloperClick(): void {

@@ -2954,7 +2954,11 @@ export class SettingsPage {
     const rating = normalizeRating(record.rating);
 
     if (record.rating.trim().length > 0 && rating === null) {
-      return this.errorRow(type, rowNumber, 'Rating must be none or an integer between 1 and 5.');
+      return this.errorRow(
+        type,
+        rowNumber,
+        'Rating must be none or in 0.5 steps between 1.0 and 5.0.'
+      );
     }
 
     const gameType = parseOptionalGameType(record.gameType);

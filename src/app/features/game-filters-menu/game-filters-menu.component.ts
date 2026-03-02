@@ -25,6 +25,7 @@ import {
 } from '@ionic/angular/standalone';
 import {
   DEFAULT_GAME_LIST_FILTERS,
+  GAME_RATING_VALUES,
   GameGroupByField,
   GameListFilters,
   GameRatingFilterOption,
@@ -101,7 +102,7 @@ export class GameFiltersMenuComponent implements OnChanges {
   readonly excludedStatusOptions: GameStatusFilterOption[] = this.statusOptions.filter(
     (status) => status !== 'none'
   );
-  readonly ratingOptions: GameRatingFilterOption[] = ['none', 1, 2, 3, 4, 5];
+  readonly ratingOptions: GameRatingFilterOption[] = ['none', ...GAME_RATING_VALUES];
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
     { value: 'platform', label: 'Platform' },
@@ -368,7 +369,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       return 'None';
     }
 
-    return String(rating);
+    return rating.toFixed(1).replace(/\.0$/, '');
   }
 
   getGameTypeLabel(gameType: GameType): string {

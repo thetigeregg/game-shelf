@@ -312,6 +312,21 @@ describe('GameSyncService', () => {
     expect(stored?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
+  it('accepts half-step ratings in pulled game payloads', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4c',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        rating: '4.5'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.rating).toBe(4.5);
+  });
+
   it('normalizes custom metadata in game upserts', async () => {
     await servicePrivate.applyGameChange({
       eventId: '5',

@@ -188,11 +188,11 @@ describe('DexieGameRepository', () => {
   it('updates status and rating for existing entries', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
     await repository.setGameStatus('101', 18, 'playing');
-    await repository.setGameRating('101', 18, 4);
+    await repository.setGameRating('101', 18, 4.5);
     const stored = await repository.exists('101', 18);
 
     expect(stored?.status).toBe('playing');
-    expect(stored?.rating).toBe(4);
+    expect(stored?.rating).toBe(4.5);
   });
 
   it('deduplicates and normalizes tag assignments', async () => {

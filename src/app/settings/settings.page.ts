@@ -3319,8 +3319,17 @@ export class SettingsPage {
 
       if (row.key === TIME_PREFERENCE_STORAGE_KEY) {
         this.timePreferenceService.refreshFromStorage();
-        this.timePreference = this.timePreferenceService.getTimePreference();
-        this.queueSettingUpsert(row.key, row.value);
+        const normalizedTimePreference = this.timePreferenceService.getTimePreference();
+        this.timePreference = normalizedTimePreference;
+        const normalizedValue = String(normalizedTimePreference);
+
+        try {
+          localStorage.setItem(row.key, normalizedValue);
+        } catch {
+          // Ignore storage write failures.
+        }
+
+        this.queueSettingUpsert(row.key, normalizedValue);
       }
     });
   }

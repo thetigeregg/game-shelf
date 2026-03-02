@@ -711,9 +711,11 @@ export class MetadataValidatorPage {
       } else {
         await this.presentToast(`No review match found for ${target.title}.`, 'warning');
       }
-    } catch {
+    } catch (error: unknown) {
       this.isReviewPickerLoading = false;
-      await this.presentToast(`Unable to update review for ${target.title}.`, 'danger');
+      const fallbackMessage = `Unable to update review for ${target.title}.`;
+      const message = formatRateLimitedUiError(error, fallbackMessage);
+      await this.presentToast(message, message.startsWith('Rate limited.') ? 'warning' : 'danger');
     }
   }
 
@@ -741,9 +743,11 @@ export class MetadataValidatorPage {
       } else {
         await this.presentToast(`No review match found for ${target.title}.`, 'warning');
       }
-    } catch {
+    } catch (error: unknown) {
       this.isReviewPickerLoading = false;
-      await this.presentToast(`Unable to update review for ${target.title}.`, 'danger');
+      const fallbackMessage = `Unable to update review for ${target.title}.`;
+      const message = formatRateLimitedUiError(error, fallbackMessage);
+      await this.presentToast(message, message.startsWith('Rate limited.') ? 'warning' : 'danger');
     }
   }
 

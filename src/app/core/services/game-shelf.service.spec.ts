@@ -1504,7 +1504,7 @@ describe('GameShelfService', () => {
 
     repository.setGameTags.mockResolvedValue(base);
     repository.setGameStatus.mockResolvedValue({ ...base, status: 'playing' });
-    repository.setGameRating.mockResolvedValue({ ...base, rating: 3 });
+    repository.setGameRating.mockResolvedValue({ ...base, rating: 3.5 });
     repository.setGameNotes.mockResolvedValue({ ...base, notes: 'checkpoint before boss' });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
@@ -1513,12 +1513,12 @@ describe('GameShelfService', () => {
 
     const tagged = await service.setGameTags('123', 130, [1, 2]);
     const statused = await service.setGameStatus('123', 130, 'playing');
-    const rated = await service.setGameRating('123', 130, 3);
+    const rated = await service.setGameRating('123', 130, 3.5);
     const noted = await service.setGameNotes('123', 130, 'checkpoint before boss');
 
     expect(tagged.tags?.map((tag) => tag.name)).toEqual(['Backlog', 'Co-op']);
     expect(statused.status).toBe('playing');
-    expect(rated.rating).toBe(3);
+    expect(rated.rating).toBe(3.5);
     expect(noted.notes).toBe('checkpoint before boss');
   });
 

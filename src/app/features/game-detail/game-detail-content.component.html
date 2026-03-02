@@ -97,7 +97,7 @@
               >
                 @for (rating of ratingOptions; track rating) {
                   <ion-select-option [value]="rating">
-                    {{ rating }}
+                    {{ rating.toFixed(1) }}
                   </ion-select-option>
                 }
               </ion-select>

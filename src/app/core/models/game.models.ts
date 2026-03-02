@@ -2,7 +2,8 @@ export type ListType = 'collection' | 'wishlist';
 export type CoverSource = 'thegamesdb' | 'igdb' | 'none';
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 export type GameStatusFilterOption = GameStatus | 'none';
-export type GameRating = 1 | 2 | 3 | 4 | 5;
+export const GAME_RATING_VALUES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] as const;
+export type GameRating = (typeof GAME_RATING_VALUES)[number];
 export type GameRatingFilterOption = GameRating | 'none';
 export type GameType =
   | 'main_game'

@@ -1,4 +1,9 @@
-import { GameRatingFilterOption, GameStatusFilterOption, GameType } from '../models/game.models';
+import {
+  GAME_RATING_VALUES,
+  GameRatingFilterOption,
+  GameStatusFilterOption,
+  GameType
+} from '../models/game.models';
 
 export function normalizeStringList(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -64,7 +69,7 @@ export function normalizeGameStatusFilterList(value: unknown): GameStatusFilterO
 
 export function isGameRatingFilterOption(value: unknown): value is GameRatingFilterOption {
   return (
-    value === 'none' || value === 1 || value === 2 || value === 3 || value === 4 || value === 5
+    value === 'none' || GAME_RATING_VALUES.includes(value as (typeof GAME_RATING_VALUES)[number])
   );
 }
 

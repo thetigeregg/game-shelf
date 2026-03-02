@@ -60,6 +60,7 @@ vi.mock('ionicons/icons', () => ({
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { SettingsPage } from './settings.page';
 import { GAME_REPOSITORY } from '../core/data/game-repository';
+import { SYNC_OUTBOX_WRITER } from '../core/data/sync-outbox-writer';
 import { GameEntry, Tag, GameListView } from '../core/models/game.models';
 import { ThemeService } from '../core/services/theme.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -68,7 +69,10 @@ import { PlatformOrderService } from '../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
-import { TimePreferenceService } from '../core/services/time-preference.service';
+import {
+  TimePreferenceService,
+  TIME_PREFERENCE_STORAGE_KEY
+} from '../core/services/time-preference.service';
 
 type PrivateSettingsPage = SettingsPage & Record<string, (...args: unknown[]) => unknown>;
 
@@ -137,6 +141,9 @@ describe('SettingsPage CSV review fields', () => {
     setTimePreference: ReturnType<typeof vi.fn>;
     refreshFromStorage: ReturnType<typeof vi.fn>;
   };
+  let outboxWriterMock: {
+    enqueueOperation: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     localStorage.clear();
@@ -152,7 +159,17 @@ describe('SettingsPage CSV review fields', () => {
       setTimePreference: vi.fn().mockImplementation((value: number) => {
         timePreference = Math.max(5, Math.min(Math.round(value), 100));
       }),
-      refreshFromStorage: vi.fn().mockImplementation(() => {})
+      refreshFromStorage: vi.fn().mockImplementation(() => {
+        const raw = localStorage.getItem(TIME_PREFERENCE_STORAGE_KEY);
+        const parsed = Number.parseInt(raw ?? '', 10);
+
+        if (Number.isFinite(parsed)) {
+          timePreference = Math.max(5, Math.min(Math.round(parsed), 100));
+        }
+      })
+    };
+    outboxWriterMock = {
+      enqueueOperation: vi.fn().mockResolvedValue(undefined)
     };
 
     TestBed.configureTestingModule({
@@ -222,6 +239,10 @@ describe('SettingsPage CSV review fields', () => {
         {
           provide: TimePreferenceService,
           useValue: timePreferenceServiceMock
+        },
+        {
+          provide: SYNC_OUTBOX_WRITER,
+          useValue: outboxWriterMock
         }
       ]
     });
@@ -462,8 +483,41 @@ describe('SettingsPage CSV review fields', () => {
     page.onTimePreferenceChange('42');
     expect(timePreferenceServiceMock.setTimePreference).toHaveBeenCalledWith(42);
     expect(page.timePreference).toBe(42);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '42'
+      }
+    });
 
     page.onTimePreferenceChange('bad');
     expect(page.timePreference).toBe(42);
+  });
+
+  it('refreshes and queues time preference when imported as a setting row', () => {
+    const page = createPage();
+    localStorage.removeItem(TIME_PREFERENCE_STORAGE_KEY);
+    expect(page.timePreference).toBe(15);
+
+    page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '27'
+      }
+    ]);
+
+    expect(timePreferenceServiceMock.refreshFromStorage).toHaveBeenCalled();
+    expect(page.timePreference).toBe(27);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '27'
+      }
+    });
   });
 });

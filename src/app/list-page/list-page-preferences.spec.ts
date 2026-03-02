@@ -122,6 +122,19 @@ describe('list-page-preferences', () => {
     expect(normalized.sortDirection).toBe('asc');
   });
 
+  it('accepts tas as a valid sort field from stored preferences', () => {
+    const normalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'tas',
+        sortDirection: 'desc'
+      },
+      '__none__'
+    );
+
+    expect(normalized.sortField).toBe('tas');
+    expect(normalized.sortDirection).toBe('desc');
+  });
+
   it('migrates metacritic sort field from stored preferences to review', () => {
     const normalized = normalizeListPageStoredFilters(
       {

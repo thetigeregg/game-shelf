@@ -112,6 +112,10 @@ import { DebugLogService } from '../core/services/debug-log.service';
 import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
+import {
+  TimePreferenceService,
+  TIME_PREFERENCE_STORAGE_KEY
+} from '../core/services/time-preference.service';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -348,6 +352,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
 export class SettingsPage {
   private static readonly IMAGE_CACHE_MIN_MB = 20;
   private static readonly IMAGE_CACHE_MAX_MB = 2048;
+  private static readonly TIME_PREFERENCE_SYNC_DEBOUNCE_MS = 400;
 
   readonly colorSchemeOptions: Array<{ label: string; value: ColorSchemePreference }> = [
     { label: 'System', value: 'system' },
@@ -362,6 +367,7 @@ export class SettingsPage {
   verboseTracingEnabled = false;
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
+  timePreference = 15;
   isPlatformOrderModalOpen = false;
   isPlatformOrderLoading = false;
   platformOrderItems: PlatformCustomizationItem[] = [];
@@ -393,6 +399,7 @@ export class SettingsPage {
   private mgcPlatformLookupLoaded = false;
   private mgcExistingGameKeys = new Set<string>();
   private mgcRateLimitCooldownUntilMs = 0;
+  private timePreferenceSyncHandle: number | null = null;
 
   private readonly themeService = inject(ThemeService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
@@ -408,12 +415,14 @@ export class SettingsPage {
   private readonly router = inject(Router);
   private readonly debugLogService = inject(DebugLogService);
   private readonly clientWriteAuthService = inject(ClientWriteAuthService);
+  private readonly timePreferenceService = inject(TimePreferenceService);
 
   constructor() {
     this.selectedColorScheme = this.themeService.getColorSchemePreference();
     this.clientWriteTokenConfigured = this.clientWriteAuthService.hasToken();
     this.verboseTracingEnabled = this.debugLogService.isVerboseTracingEnabled();
     this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
+    this.timePreference = this.timePreferenceService.getTimePreference();
     void this.refreshImageCacheUsage();
     addIcons({
       close,
@@ -458,6 +467,28 @@ export class SettingsPage {
   onVerboseTracingToggleChange(enabled: boolean): void {
     this.verboseTracingEnabled = enabled;
     this.debugLogService.setVerboseTracingEnabled(this.verboseTracingEnabled);
+  }
+
+  onTimePreferenceChange(value: number | string | null | undefined): void {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim().length > 0
+          ? Number(value.trim())
+          : Number.NaN;
+
+    if (!Number.isFinite(parsed)) {
+      this.timePreference = this.timePreferenceService.getTimePreference();
+      return;
+    }
+
+    const previous = this.timePreferenceService.getTimePreference();
+    this.timePreferenceService.setTimePreference(parsed);
+    this.timePreference = this.timePreferenceService.getTimePreference();
+
+    if (this.timePreference !== previous) {
+      this.scheduleTimePreferenceSync(this.timePreference);
+    }
   }
 
   async showAttributions(): Promise<void> {
@@ -3290,6 +3321,21 @@ export class SettingsPage {
         this.platformCustomizationService.refreshFromStorage();
         this.queueSettingUpsert(row.key, row.value);
       }
+
+      if (row.key === TIME_PREFERENCE_STORAGE_KEY) {
+        this.timePreferenceService.refreshFromStorage();
+        const normalizedTimePreference = this.timePreferenceService.getTimePreference();
+        this.timePreference = normalizedTimePreference;
+        const normalizedValue = String(normalizedTimePreference);
+
+        try {
+          localStorage.setItem(row.key, normalizedValue);
+        } catch {
+          // Ignore storage write failures.
+        }
+
+        this.queueSettingUpsert(row.key, normalizedValue);
+      }
     });
   }
 
@@ -3354,6 +3400,18 @@ export class SettingsPage {
       operation: 'delete',
       payload: { key }
     });
+  }
+
+  private scheduleTimePreferenceSync(value: number): void {
+    if (this.timePreferenceSyncHandle !== null) {
+      window.clearTimeout(this.timePreferenceSyncHandle);
+      this.timePreferenceSyncHandle = null;
+    }
+
+    this.timePreferenceSyncHandle = window.setTimeout(() => {
+      this.timePreferenceSyncHandle = null;
+      this.queueSettingUpsert(TIME_PREFERENCE_STORAGE_KEY, String(value));
+    }, SettingsPage.TIME_PREFERENCE_SYNC_DEBOUNCE_MS);
   }
 
   private async buildTagNameToIdMap(): Promise<Map<string, number>> {

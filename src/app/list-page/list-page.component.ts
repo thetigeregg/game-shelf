@@ -775,6 +775,7 @@ export class ListPageComponent {
       value === 'releaseDate' ||
       value === 'createdAt' ||
       value === 'hltb' ||
+      value === 'tas' ||
       value === 'review' ||
       value === 'metacritic' ||
       value === 'platform'

@@ -110,4 +110,17 @@ describe('settings-import-export.utils', () => {
     expect(parseFilters('', DEFAULT_GAME_LIST_FILTERS)).toEqual({ ...DEFAULT_GAME_LIST_FILTERS });
     expect(parseFilters('not-json', DEFAULT_GAME_LIST_FILTERS)).toBeNull();
   });
+
+  it('accepts tas sort field in parsed filters', () => {
+    const parsed = parseFilters(
+      JSON.stringify({
+        sortField: 'tas',
+        sortDirection: 'asc'
+      }),
+      DEFAULT_GAME_LIST_FILTERS
+    );
+
+    expect(parsed?.sortField).toBe('tas');
+    expect(parsed?.sortDirection).toBe('asc');
+  });
 });

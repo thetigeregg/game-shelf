@@ -231,6 +231,7 @@ export type GameSortField =
   | 'releaseDate'
   | 'createdAt'
   | 'hltb'
+  | 'tas'
   | 'review'
   | 'metacritic'
   | 'platform';

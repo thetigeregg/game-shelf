@@ -1228,3 +1228,7 @@
 - 5c14259 fix(api): proactively throttle MobyGames requests to 0.2 req/s
 - fd5eb51 Initial plan
 
+## v0.2.3 - 2026-03-02
+- 6e61ec6 Merge pull request #144 from thetigeregg/dependabot/github_actions/actions/upload-artifact-7
+- 8cb99a2 chore(ci): bump actions/upload-artifact from 4 to 7
+

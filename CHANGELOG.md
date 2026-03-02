@@ -1237,3 +1237,10 @@
 - bc56385 Merge branch 'main' into dependabot/npm_and_yarn/server/types/pg-8.18.0
 - ce33122 chore(deps): bump @types/pg from 8.16.0 to 8.18.0 in /server
 
+## v0.2.5 - 2026-03-02
+- e4103b4 Merge pull request #141 from thetigeregg/dependabot/npm_and_yarn/lint-staged-16.3.1
+- c4938c0 Merge branch 'main' into dependabot/npm_and_yarn/lint-staged-16.3.1
+- 7ca8879 chore(deps): add chokidar and readdirp as optional peer dependencies for @ionic/angular-toolkit
+- c0cc942 Merge branch 'main' into dependabot/npm_and_yarn/lint-staged-16.3.1
+- 9441f5e chore(deps): bump lint-staged from 16.2.7 to 16.3.1
+

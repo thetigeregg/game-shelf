@@ -1063,6 +1063,56 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('resolves all current aliased platforms to canonical MobyGames platform ids', () => {
+    const privateService = service as unknown as {
+      resolveMobyGamesPlatformIdForIgdbPlatform: (
+        platformIgdbId: number | null,
+        platformName: string | null | undefined
+      ) => number | null;
+    };
+    const aliasCases: Array<{
+      platformIgdbId: number | null;
+      platformName: string;
+      expectedMobyPlatformId: number;
+    }> = [
+      { platformIgdbId: 99, platformName: 'Family Computer', expectedMobyPlatformId: 22 },
+      {
+        platformIgdbId: 51,
+        platformName: 'Family Computer Disk System',
+        expectedMobyPlatformId: 22
+      },
+      { platformIgdbId: 58, platformName: 'Super Famicom', expectedMobyPlatformId: 15 },
+      { platformIgdbId: 137, platformName: 'New Nintendo 3DS', expectedMobyPlatformId: 101 },
+      { platformIgdbId: 159, platformName: 'Nintendo DSi', expectedMobyPlatformId: 44 },
+      { platformIgdbId: 510, platformName: 'e-Reader / Card-e Reader', expectedMobyPlatformId: 12 },
+      { platformIgdbId: 510, platformName: 'e-Reader', expectedMobyPlatformId: 12 },
+      { platformIgdbId: null, platformName: 'Family Computer', expectedMobyPlatformId: 22 },
+      {
+        platformIgdbId: null,
+        platformName: 'Family Computer Disk System',
+        expectedMobyPlatformId: 22
+      },
+      { platformIgdbId: null, platformName: 'Super Famicom', expectedMobyPlatformId: 15 },
+      { platformIgdbId: null, platformName: 'New Nintendo 3DS', expectedMobyPlatformId: 101 },
+      { platformIgdbId: null, platformName: 'Nintendo DSi', expectedMobyPlatformId: 44 },
+      {
+        platformIgdbId: null,
+        platformName: 'e-Reader / Card-e Reader',
+        expectedMobyPlatformId: 12
+      },
+      { platformIgdbId: null, platformName: 'e-Reader', expectedMobyPlatformId: 12 }
+    ];
+
+    for (const testCase of aliasCases) {
+      expect(
+        privateService.resolveMobyGamesPlatformIdForIgdbPlatform(
+          testCase.platformIgdbId,
+          testCase.platformName
+        )
+      ).toBe(testCase.expectedMobyPlatformId);
+    }
+  });
+
   it('prefers Moby cover image matching selected platform id', async () => {
     const candidatesPromise = firstValueFrom(
       service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)

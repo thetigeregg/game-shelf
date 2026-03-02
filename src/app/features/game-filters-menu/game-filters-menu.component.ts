@@ -369,7 +369,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       return 'None';
     }
 
-    return rating.toFixed(1);
+    return rating.toFixed(1).replace(/\.0$/, '');
   }
 
   getGameTypeLabel(gameType: GameType): string {

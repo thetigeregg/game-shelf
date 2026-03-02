@@ -1349,7 +1349,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   formatRatingPin(value: number): string {
-    return (Math.round(value * 2) / 2).toFixed(1);
+    return this.formatRatingValue(Math.round(value * 2) / 2);
+  }
+
+  formatRatingValue(value: number): string {
+    return value.toFixed(1).replace(/\.0$/, '');
   }
 
   markRatingForClear(): void {

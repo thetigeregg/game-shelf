@@ -105,7 +105,7 @@ describe('PlatformCustomizationService', () => {
     const service = TestBed.inject(PlatformCustomizationService);
     service.setCustomName(510, 'e-Reader');
 
-    expect(service.getDisplayNameWithAliasSource('e-Reader', 510)).toBe(
+    expect(service.getDisplayNameWithAliasSource('e-Reader / Card-e Reader', 510)).toBe(
       'Game Boy Advance (e-Reader)'
     );
   });

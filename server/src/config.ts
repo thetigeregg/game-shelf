@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
+import { parseRecommendationRuntimeMode } from './recommendations/runtime.js';
 
 const envFile = readEnvFilePath();
 loadDotenv({ path: envFile });
@@ -123,6 +124,12 @@ export interface AppConfig {
   recommendationsSimilarityStructuredWeight: number;
   recommendationsSimilaritySemanticWeight: number;
   recommendationsFailureBackoffMinutes: number;
+  recommendationsRuntimeModeDefault: 'NEUTRAL' | 'SHORT' | 'LONG';
+  recommendationsExplorationWeight: number;
+  recommendationsDiversityPenaltyWeight: number;
+  recommendationsRepeatPenaltyStep: number;
+  recommendationsTuningMinRated: number;
+  recommendationsLaneLimit: number;
 }
 
 function readTokenList(name: string, fallbackSecretName: string): string[] {
@@ -163,6 +170,14 @@ function readListEnv(name: string, fallback: string[]): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+function readRuntimeModeDefaultEnv(
+  name: string,
+  fallback: 'NEUTRAL' | 'SHORT' | 'LONG'
+): 'NEUTRAL' | 'SHORT' | 'LONG' {
+  const parsed = parseRecommendationRuntimeMode(readEnv(name));
+  return parsed ?? fallback;
 }
 
 export const config: AppConfig = {
@@ -249,5 +264,17 @@ export const config: AppConfig = {
   recommendationsFailureBackoffMinutes: readIntegerEnv(
     'RECOMMENDATIONS_FAILURE_BACKOFF_MINUTES',
     120
-  )
+  ),
+  recommendationsRuntimeModeDefault: readRuntimeModeDefaultEnv(
+    'RECOMMENDATIONS_RUNTIME_MODE_DEFAULT',
+    'NEUTRAL'
+  ),
+  recommendationsExplorationWeight: readNumberEnv('RECOMMENDATIONS_EXPLORATION_WEIGHT', 0.3),
+  recommendationsDiversityPenaltyWeight: readNumberEnv(
+    'RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT',
+    0.5
+  ),
+  recommendationsRepeatPenaltyStep: readNumberEnv('RECOMMENDATIONS_REPEAT_PENALTY_STEP', 0.2),
+  recommendationsTuningMinRated: readIntegerEnv('RECOMMENDATIONS_TUNING_MIN_RATED', 8),
+  recommendationsLaneLimit: readIntegerEnv('RECOMMENDATIONS_LANE_LIMIT', 20)
 };

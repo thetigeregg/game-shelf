@@ -1,11 +1,16 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { normalizeDbGameRow } from './normalize.js';
+import { parseRecommendationRuntimeMode } from './runtime.js';
 import { buildGameKey } from './semantic.js';
 import {
   GameEmbeddingUpsertInput,
   NormalizedGameRecord,
   RankedRecommendationItem,
+  RecommendationHistoryEntry,
+  RecommendationLaneCollection,
+  RecommendationLaneKey,
   RecommendationRunSummary,
+  RecommendationRuntimeMode,
   RecommendationScoreComponents,
   RecommendationTarget,
   SimilarityEdge,
@@ -20,6 +25,16 @@ interface Queryable {
 }
 
 interface RecommendationRow extends QueryResultRow {
+  rank: number;
+  igdb_game_id: string;
+  platform_igdb_id: number;
+  score_total: string | number;
+  score_components: RecommendationScoreComponents;
+  explanations: RankedRecommendationItem['explanations'];
+}
+
+interface LaneRow extends QueryResultRow {
+  lane: RecommendationLaneKey;
   rank: number;
   igdb_game_id: string;
   platform_igdb_id: number;
@@ -54,6 +69,13 @@ interface EmbeddingRow extends QueryResultRow {
   source_hash: string;
   created_at: string;
   updated_at: string;
+}
+
+interface HistoryRow extends QueryResultRow {
+  igdb_game_id: string;
+  platform_igdb_id: number;
+  recommendation_count: number;
+  last_recommended_at: string;
 }
 
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
@@ -111,6 +133,18 @@ export class RecommendationRepository {
     }
 
     return normalized;
+  }
+
+  async getRuntimeModeDefault(
+    queryable: Queryable = this.pool
+  ): Promise<RecommendationRuntimeMode | null> {
+    const result = await queryable.query<{ setting_value: string }>(
+      'SELECT setting_value FROM settings WHERE setting_key = $1 LIMIT 1',
+      ['recommendations.runtime_mode_default']
+    );
+
+    const raw = result.rows[0]?.setting_value;
+    return parseRecommendationRuntimeMode(raw);
   }
 
   async getLatestRun(
@@ -179,29 +213,90 @@ export class RecommendationRepository {
   async finalizeRunSuccess(params: {
     client: Queryable;
     runId: number;
-    recommendations: RankedRecommendationItem[];
+    recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>;
+    lanesByMode: Record<RecommendationRuntimeMode, RecommendationLaneCollection>;
+    historyUpdates: Array<{
+      target: RecommendationTarget;
+      runtimeMode: RecommendationRuntimeMode;
+      igdbGameId: string;
+      platformIgdbId: number;
+    }>;
     similarityEdges: SimilarityEdge[];
   }): Promise<void> {
     await params.client.query('BEGIN');
 
     try {
-      for (const item of params.recommendations) {
-        await params.client.query(
-          `
-          INSERT INTO recommendations
-            (run_id, rank, igdb_game_id, platform_igdb_id, score_total, score_components, explanations)
-          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)
-          `,
-          [
-            params.runId,
-            item.rank,
-            item.igdbGameId,
-            item.platformIgdbId,
-            item.scoreTotal,
-            JSON.stringify(item.scoreComponents),
-            JSON.stringify(item.explanations)
-          ]
-        );
+      for (const [runtimeMode, items] of Object.entries(params.recommendationsByMode) as Array<
+        [RecommendationRuntimeMode, RankedRecommendationItem[]]
+      >) {
+        for (const item of items) {
+          await params.client.query(
+            `
+            INSERT INTO recommendations
+              (
+                run_id,
+                runtime_mode,
+                rank,
+                igdb_game_id,
+                platform_igdb_id,
+                score_total,
+                score_components,
+                explanations
+              )
+            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
+            `,
+            [
+              params.runId,
+              runtimeMode,
+              item.rank,
+              item.igdbGameId,
+              item.platformIgdbId,
+              item.scoreTotal,
+              JSON.stringify(item.scoreComponents),
+              JSON.stringify(item.explanations)
+            ]
+          );
+        }
+      }
+
+      for (const [runtimeMode, lanes] of Object.entries(params.lanesByMode) as Array<
+        [RecommendationRuntimeMode, RecommendationLaneCollection]
+      >) {
+        for (const lane of ['overall', 'hiddenGems', 'exploration'] as RecommendationLaneKey[]) {
+          const items = lanes[lane];
+
+          for (let index = 0; index < items.length; index += 1) {
+            const item = items[index];
+            await params.client.query(
+              `
+              INSERT INTO recommendation_lanes
+                (
+                  run_id,
+                  runtime_mode,
+                  lane,
+                  rank,
+                  igdb_game_id,
+                  platform_igdb_id,
+                  score_total,
+                  score_components,
+                  explanations
+                )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)
+              `,
+              [
+                params.runId,
+                runtimeMode,
+                lane,
+                index + 1,
+                item.igdbGameId,
+                item.platformIgdbId,
+                item.scoreTotal,
+                JSON.stringify(item.scoreComponents),
+                JSON.stringify(item.explanations)
+              ]
+            );
+          }
+        }
       }
 
       await params.client.query('TRUNCATE TABLE game_similarity');
@@ -229,6 +324,21 @@ export class RecommendationRepository {
             edge.similarity,
             JSON.stringify(edge.reasons)
           ]
+        );
+      }
+
+      for (const update of params.historyUpdates) {
+        await params.client.query(
+          `
+          INSERT INTO recommendation_history
+            (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at)
+          VALUES ($1, $2, $3, $4, 1, NOW())
+          ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id)
+          DO UPDATE
+            SET recommendation_count = recommendation_history.recommendation_count + 1,
+                last_recommended_at = NOW()
+          `,
+          [update.target, update.runtimeMode, update.igdbGameId, update.platformIgdbId]
         );
       }
 
@@ -265,6 +375,7 @@ export class RecommendationRepository {
 
   async readTopRecommendations(params: {
     target: RecommendationTarget;
+    runtimeMode: RecommendationRuntimeMode;
     limit: number;
   }): Promise<{ run: RecommendationRunSummary; items: RankedRecommendationItem[] } | null> {
     const run = await this.getLatestSuccessfulRun(params.target);
@@ -277,26 +388,61 @@ export class RecommendationRepository {
       `
       SELECT rank, igdb_game_id, platform_igdb_id, score_total, score_components, explanations
       FROM recommendations
-      WHERE run_id = $1
+      WHERE run_id = $1 AND runtime_mode = $2
       ORDER BY rank ASC
-      LIMIT $2
+      LIMIT $3
       `,
-      [run.id, params.limit]
+      [run.id, params.runtimeMode, params.limit]
     );
 
     return {
       run,
-      items: itemResult.rows.map((row) => ({
-        rank: row.rank,
-        igdbGameId: row.igdb_game_id,
-        platformIgdbId: row.platform_igdb_id,
-        scoreTotal:
-          typeof row.score_total === 'string'
-            ? Number.parseFloat(row.score_total)
-            : row.score_total,
-        scoreComponents: row.score_components,
-        explanations: row.explanations
-      }))
+      items: itemResult.rows.map(mapRecommendationRow)
+    };
+  }
+
+  async readRecommendationLanes(params: {
+    target: RecommendationTarget;
+    runtimeMode: RecommendationRuntimeMode;
+    limit: number;
+  }): Promise<{
+    run: RecommendationRunSummary;
+    lanes: RecommendationLaneCollection;
+  } | null> {
+    const run = await this.getLatestSuccessfulRun(params.target);
+
+    if (!run) {
+      return null;
+    }
+
+    const rows = await this.pool.query<LaneRow>(
+      `
+      SELECT lane, rank, igdb_game_id, platform_igdb_id, score_total, score_components, explanations
+      FROM recommendation_lanes
+      WHERE run_id = $1 AND runtime_mode = $2
+      ORDER BY lane ASC, rank ASC
+      `,
+      [run.id, params.runtimeMode]
+    );
+
+    const lanes: RecommendationLaneCollection = {
+      overall: [],
+      hiddenGems: [],
+      exploration: []
+    };
+
+    for (const row of rows.rows) {
+      const lane = row.lane;
+      if (lanes[lane].length >= params.limit) {
+        continue;
+      }
+
+      lanes[lane].push(mapRecommendationRow(row));
+    }
+
+    return {
+      run,
+      lanes
     };
   }
 
@@ -330,6 +476,33 @@ export class RecommendationRepository {
         typeof row.similarity === 'string' ? Number.parseFloat(row.similarity) : row.similarity,
       reasons: row.reasons
     }));
+  }
+
+  async listRecommendationHistory(params: {
+    target: RecommendationTarget;
+    runtimeMode: RecommendationRuntimeMode;
+    queryable?: Queryable;
+  }): Promise<Map<string, RecommendationHistoryEntry>> {
+    const queryable = params.queryable ?? this.pool;
+    const result = await queryable.query<HistoryRow>(
+      `
+      SELECT igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at
+      FROM recommendation_history
+      WHERE target = $1 AND runtime_mode = $2
+      `,
+      [params.target, params.runtimeMode]
+    );
+
+    const map = new Map<string, RecommendationHistoryEntry>();
+
+    for (const row of result.rows) {
+      map.set(buildGameKey(row.igdb_game_id, row.platform_igdb_id), {
+        recommendationCount: row.recommendation_count,
+        lastRecommendedAt: row.last_recommended_at
+      });
+    }
+
+    return map;
   }
 
   async listGameEmbeddings(queryable: Queryable = this.pool): Promise<StoredGameEmbedding[]> {
@@ -424,6 +597,18 @@ function mapRunSummary(row: RunRow): RecommendationRunSummary {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     error: row.error
+  };
+}
+
+function mapRecommendationRow(row: RecommendationRow | LaneRow): RankedRecommendationItem {
+  return {
+    rank: row.rank,
+    igdbGameId: row.igdb_game_id,
+    platformIgdbId: row.platform_igdb_id,
+    scoreTotal:
+      typeof row.score_total === 'string' ? Number.parseFloat(row.score_total) : row.score_total,
+    scoreComponents: row.score_components,
+    explanations: row.explanations
   };
 }
 

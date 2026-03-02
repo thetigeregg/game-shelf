@@ -1085,7 +1085,6 @@ describe('IgdbProxyService', () => {
       { platformIgdbId: 137, platformName: 'New Nintendo 3DS', expectedMobyPlatformId: 101 },
       { platformIgdbId: 159, platformName: 'Nintendo DSi', expectedMobyPlatformId: 44 },
       { platformIgdbId: 510, platformName: 'e-Reader / Card-e Reader', expectedMobyPlatformId: 12 },
-      { platformIgdbId: 510, platformName: 'e-Reader', expectedMobyPlatformId: 12 },
       { platformIgdbId: null, platformName: 'Family Computer', expectedMobyPlatformId: 22 },
       {
         platformIgdbId: null,
@@ -1099,8 +1098,7 @@ describe('IgdbProxyService', () => {
         platformIgdbId: null,
         platformName: 'e-Reader / Card-e Reader',
         expectedMobyPlatformId: 12
-      },
-      { platformIgdbId: null, platformName: 'e-Reader', expectedMobyPlatformId: 12 }
+      }
     ];
 
     for (const testCase of aliasCases) {

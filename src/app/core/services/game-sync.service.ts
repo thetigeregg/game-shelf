@@ -10,7 +10,8 @@ import {
   GameListView,
   SyncChangeEvent,
   SyncPushResult,
-  Tag
+  Tag,
+  isGameRating
 } from '../models/game.models';
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
@@ -708,12 +709,10 @@ export class GameSyncService implements SyncOutboxWriter {
       typeof value === 'number'
         ? value
         : typeof value === 'string'
-          ? Number.parseInt(value, 10)
+          ? Number.parseFloat(value)
           : Number.NaN;
 
-    return parsed === 1 || parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5
-      ? parsed
-      : null;
+    return isGameRating(parsed) ? parsed : null;
   }
 
   private normalizeIsoTimestamp(value: unknown): string {

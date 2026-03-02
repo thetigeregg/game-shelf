@@ -1244,3 +1244,9 @@
 - c0cc942 Merge branch 'main' into dependabot/npm_and_yarn/lint-staged-16.3.1
 - 9441f5e chore(deps): bump lint-staged from 16.2.7 to 16.3.1
 
+## v0.2.6 - 2026-03-02
+- 60fc333 Merge pull request #145 from thetigeregg/dependabot/docker/edge/caddy-2.11-alpine
+- 4bb6f02 Merge branch 'main' into dependabot/docker/edge/caddy-2.11-alpine
+- a87ac97 Merge branch 'main' into dependabot/docker/edge/caddy-2.11-alpine
+- ac434c0 chore(docker): bump caddy from 2.10-alpine to 2.11-alpine in /edge
+

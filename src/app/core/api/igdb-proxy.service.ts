@@ -19,6 +19,7 @@ import {
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
 import { DebugLogService } from '../services/debug-log.service';
+import { PlatformCustomizationService } from '../services/platform-customization.service';
 import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
 import { isMetacriticPlatformSupported } from '../utils/metacritic-platform-support';
 import { resolveMobyGamesPlatformId } from '../utils/mobygames-platform-map';
@@ -123,6 +124,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly popularityPrimitivesUrl = `${environment.gameApiBaseUrl}/v1/popularity/primitives`;
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
+  private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private rateLimitCooldownUntilMs = 0;
   private mobyGamesNextSlotMs = 0;
 
@@ -433,11 +435,15 @@ export class IgdbProxyService implements GameSearchApi {
     if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {
       const mobygamesParams = this.buildMobyGamesParams({
         query: normalizedTitle,
+        platformName: normalizedPlatform,
         platformIgdbId: normalizedPlatformIgdbId,
         mobygamesGameId: normalizedMobyGameId,
         limit: 20
       });
-      const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
+      const mobygamesPlatformId = this.resolveMobyGamesPlatformIdForIgdbPlatform(
+        normalizedPlatformIgdbId,
+        normalizedPlatform
+      );
 
       return defer(() => {
         const { delayMs: mobyDelayMs, releaseSlot } = this.claimMobyGamesSlot();
@@ -592,10 +598,14 @@ export class IgdbProxyService implements GameSearchApi {
     if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {
       const mobygamesParams = this.buildMobyGamesParams({
         query: normalizedTitle,
+        platformName: normalizedPlatform,
         platformIgdbId: normalizedPlatformIgdbId,
         limit: 100
       });
-      const mobygamesPlatformId = resolveMobyGamesPlatformId(normalizedPlatformIgdbId);
+      const mobygamesPlatformId = this.resolveMobyGamesPlatformIdForIgdbPlatform(
+        normalizedPlatformIgdbId,
+        normalizedPlatform
+      );
 
       return defer(() => {
         const { delayMs: mobyDelayMs, releaseSlot } = this.claimMobyGamesSlot();
@@ -1086,6 +1096,7 @@ export class IgdbProxyService implements GameSearchApi {
 
   private buildMobyGamesParams(options: {
     query: string;
+    platformName: string;
     platformIgdbId: number | null;
     mobygamesGameId?: number | null;
     limit: number;
@@ -1100,7 +1111,10 @@ export class IgdbProxyService implements GameSearchApi {
       .set('format', 'normal')
       .set('include', 'title,moby_url,moby_score,critic_score,platforms,release_date,covers');
 
-    const mobygamesPlatformId = resolveMobyGamesPlatformId(options.platformIgdbId);
+    const mobygamesPlatformId = this.resolveMobyGamesPlatformIdForIgdbPlatform(
+      options.platformIgdbId,
+      options.platformName
+    );
     if (mobygamesPlatformId !== null) {
       params = params.set('platform', String(mobygamesPlatformId));
     }
@@ -1654,6 +1668,18 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return null;
+  }
+
+  private resolveMobyGamesPlatformIdForIgdbPlatform(
+    platformIgdbId: number | null,
+    platformName: string | null | undefined
+  ): number | null {
+    const canonicalPlatformIgdbId =
+      this.platformCustomizationService.resolveCanonicalPlatformIgdbId(
+        platformName,
+        platformIgdbId
+      );
+    return resolveMobyGamesPlatformId(canonicalPlatformIgdbId);
   }
 
   private normalizeCoverSource(

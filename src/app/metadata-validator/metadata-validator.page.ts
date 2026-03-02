@@ -714,8 +714,11 @@ export class MetadataValidatorPage {
     } catch (error: unknown) {
       this.isReviewPickerLoading = false;
       const fallbackMessage = `Unable to update review for ${target.title}.`;
+      const errorMessage =
+        typeof error === 'string' ? error : error instanceof Error ? error.message : '';
+      const isRateLimited = isRateLimitedMessage(errorMessage);
       const message = formatRateLimitedUiError(error, fallbackMessage);
-      await this.presentToast(message, message.startsWith('Rate limited.') ? 'warning' : 'danger');
+      await this.presentToast(message, isRateLimited ? 'warning' : 'danger');
     }
   }
 
@@ -746,8 +749,11 @@ export class MetadataValidatorPage {
     } catch (error: unknown) {
       this.isReviewPickerLoading = false;
       const fallbackMessage = `Unable to update review for ${target.title}.`;
+      const errorMessage =
+        typeof error === 'string' ? error : error instanceof Error ? error.message : '';
+      const isRateLimited = isRateLimitedMessage(errorMessage);
       const message = formatRateLimitedUiError(error, fallbackMessage);
-      await this.presentToast(message, message.startsWith('Rate limited.') ? 'warning' : 'danger');
+      await this.presentToast(message, isRateLimited ? 'warning' : 'danger');
     }
   }
 

@@ -1281,3 +1281,14 @@
 - 5a909bb Add TAS sorting option
 - 3394470 Add TAS sort mode with config
 
+## v1.0.2 - 2026-03-02
+- f794f39 Merge pull request #150 from thetigeregg/codex/allow-halfstep-user-ratings
+- e0b9762 Add Explore InRange coverage
+- 934f934 Audit explore branch changes
+- 3eb50ff Hide trailing zeros in ratings
+- 890628a Allow half-step user ratings
+- f03747e Allow half-step ratings
+- 0e3cc63 Allow half step ratings
+- 867619c Allow half-step user ratings
+- ad392f0 Allow half-step ratings
+

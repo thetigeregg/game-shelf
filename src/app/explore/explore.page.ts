@@ -29,6 +29,7 @@ import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import {
   GameCatalogResult,
   GameEntry,
+  GAME_RATING_VALUES,
   GameRating,
   GameStatus,
   ListType,
@@ -96,7 +97,7 @@ export class ExplorePage implements OnInit {
   detailContext: 'explore' | 'library' = 'explore';
   isSelectedGameInLibrary = false;
   isAddToLibraryLoading = false;
-  readonly ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
+  readonly ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
   readonly statusOptions: { value: GameStatus; label: string }[] = [
     { value: 'playing', label: 'Playing' },
     { value: 'wantToPlay', label: 'Want to Play' },

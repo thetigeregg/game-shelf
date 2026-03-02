@@ -4,6 +4,7 @@ import { GameRepository } from './game-repository';
 import {
   CoverSource,
   DEFAULT_GAME_LIST_FILTERS,
+  GAME_RATING_VALUES,
   GameCatalogResult,
   GameEntry,
   GameGroupByField,
@@ -920,7 +921,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizeRating(value: GameRating | null | undefined): GameRating | null {
-    if (value === 1 || value === 2 || value === 3 || value === 4 || value === 5) {
+    if (value !== null && value !== undefined && GAME_RATING_VALUES.includes(value)) {
       return value;
     }
 

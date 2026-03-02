@@ -40,8 +40,15 @@ describe('game-filter-utils', () => {
   it('validates and normalizes rating filters', () => {
     expect(isGameRatingFilterOption('none')).toBe(true);
     expect(isGameRatingFilterOption(5)).toBe(true);
+    expect(isGameRatingFilterOption(4.5)).toBe(true);
+    expect(isGameRatingFilterOption(4.7)).toBe(false);
     expect(isGameRatingFilterOption(6)).toBe(false);
-    expect(normalizeGameRatingFilterList([1, 2, 'none', 2, 99])).toEqual([1, 2, 'none']);
+    expect(normalizeGameRatingFilterList([1, 2, 2.5, 'none', 2.5, 99])).toEqual([
+      1,
+      2,
+      2.5,
+      'none'
+    ]);
     expect(normalizeGameRatingFilterList(undefined)).toEqual([]);
   });
 

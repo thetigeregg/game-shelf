@@ -545,4 +545,30 @@ describe('SettingsPage CSV review fields', () => {
       }
     });
   });
+
+  it('normalizes invalid imported time preference before persisting and syncing', () => {
+    const page = createPage();
+    localStorage.removeItem(TIME_PREFERENCE_STORAGE_KEY);
+    expect(page.timePreference).toBe(15);
+
+    page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: 'not-a-number'
+      }
+    ]);
+
+    expect(timePreferenceServiceMock.refreshFromStorage).toHaveBeenCalled();
+    expect(page.timePreference).toBe(15);
+    expect(localStorage.getItem(TIME_PREFERENCE_STORAGE_KEY)).toBe('15');
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '15'
+      }
+    });
+  });
 });

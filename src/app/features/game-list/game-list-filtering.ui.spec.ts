@@ -292,7 +292,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     );
   });
 
-  it('treats shorthand e-Reader label as Game Boy Advance for grouping and filtering', () => {
+  it('does not treat shorthand e-Reader label as a canonical platform alias', () => {
     const games: GameEntry[] = [
       makeGame({
         igdbGameId: '1',
@@ -308,19 +308,21 @@ describe('GameListFilteringEngine UI behavior', () => {
       })
     ];
 
-    expect(engine.extractPlatforms(games)).toEqual(['Game Boy Advance']);
+    expect(engine.extractPlatforms(games).sort()).toEqual(['e-Reader', 'Game Boy Advance'].sort());
 
     const grouped = engine.buildGroupedView(games, 'platform');
-    expect(grouped.sections.map((section) => section.title)).toEqual(['Game Boy Advance']);
+    expect(grouped.sections.map((section) => section.title).sort()).toEqual(
+      ['e-Reader', 'Game Boy Advance'].sort()
+    );
 
     const normalizedFilters = engine.normalizeFilters({
       ...DEFAULT_GAME_LIST_FILTERS,
       platform: ['e-Reader']
     });
-    expect(normalizedFilters.platform).toEqual(['Game Boy Advance']);
+    expect(normalizedFilters.platform).toEqual(['e-Reader']);
 
     const filtered = engine.applyFiltersAndSort(games, normalizedFilters, '');
-    expect(filtered.map((game) => game.title).sort()).toEqual(['Card-e Game', 'GBA Game'].sort());
+    expect(filtered.map((game) => game.title)).toEqual(['Card-e Game']);
   });
 
   it('treats New Nintendo 3DS as Nintendo 3DS and Nintendo DSi as Nintendo DS', () => {

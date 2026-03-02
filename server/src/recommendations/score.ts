@@ -1,5 +1,6 @@
 import { buildTokenEntries } from './normalize.js';
 import { TOKEN_FAMILY_WEIGHT } from './profile.js';
+import { buildGameKey, clampSemanticScore } from './semantic.js';
 import {
   NormalizedGameRecord,
   PreferenceProfile,
@@ -29,10 +30,21 @@ export function buildRankedScores(params: {
   target: RecommendationTarget;
   profile: PreferenceProfile;
   limit: number;
+  semanticSimilarityByGame?: Map<string, number>;
+  semanticWeight?: number;
 }): RankedScore[] {
-  const { candidates, profile, limit, target } = params;
+  const {
+    candidates,
+    profile,
+    limit,
+    target,
+    semanticSimilarityByGame = new Map<string, number>(),
+    semanticWeight = 2
+  } = params;
 
-  const baseScores = candidates.map((game) => buildBaseScore(game, target, profile));
+  const baseScores = candidates.map((game) =>
+    buildBaseScore(game, target, profile, semanticSimilarityByGame, semanticWeight)
+  );
   const remaining = [...baseScores];
   const selected: RankedScore[] = [];
 
@@ -77,7 +89,8 @@ export function buildRankedScores(params: {
       novelty: round4(item.components.novelty),
       runtimeFit: round4(item.components.runtimeFit),
       criticBoost: round4(item.components.criticBoost),
-      recencyBoost: round4(item.components.recencyBoost)
+      recencyBoost: round4(item.components.recencyBoost),
+      semantic: round4(item.components.semantic)
     },
     tasteMatches: item.tasteMatches.map((match) => ({
       ...match,
@@ -89,18 +102,26 @@ export function buildRankedScores(params: {
 function buildBaseScore(
   game: NormalizedGameRecord,
   target: RecommendationTarget,
-  profile: PreferenceProfile
+  profile: PreferenceProfile,
+  semanticSimilarityByGame: Map<string, number>,
+  semanticWeight: number
 ): BaseScore {
   const tokens = buildTokenEntries(game);
   const tokenKeys = new Set(tokens.map((token) => token.key));
   const tasteEvaluation = evaluateTaste(tokens, profile);
+  const semantic = evaluateSemanticScore(
+    game,
+    semanticSimilarityByGame,
+    Number.isFinite(semanticWeight) ? semanticWeight : 2
+  );
 
   const baseComponents: RecommendationScoreComponents = {
     taste: tasteEvaluation.score,
     novelty: 0,
     runtimeFit: 0,
     criticBoost: evaluateCriticBoost(game),
-    recencyBoost: evaluateRecencyBoost(game, target)
+    recencyBoost: evaluateRecencyBoost(game, target),
+    semantic
   };
 
   return {
@@ -151,6 +172,17 @@ function evaluateTaste(
     score: clamp(score, -3, 3),
     matches: matches.sort((left, right) => right.delta - left.delta).slice(0, 6)
   };
+}
+
+function evaluateSemanticScore(
+  game: NormalizedGameRecord,
+  semanticSimilarityByGame: Map<string, number>,
+  semanticWeight: number
+): number {
+  const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
+  const similarity = semanticSimilarityByGame.get(key) ?? 0;
+  const bounded = clampSemanticScore(similarity);
+  return clamp(bounded * semanticWeight, -2, 2);
 }
 
 function evaluateCriticBoost(game: NormalizedGameRecord): number {
@@ -253,7 +285,8 @@ function calculateTotalScore(components: RecommendationScoreComponents): number 
     components.novelty +
     components.runtimeFit +
     components.criticBoost +
-    components.recencyBoost
+    components.recencyBoost +
+    components.semantic
   );
 }
 

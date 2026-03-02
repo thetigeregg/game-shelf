@@ -47,6 +47,8 @@ export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null 
     createdAt: normalizeIsoDate(payload['createdAt']),
     updatedAt: normalizeIsoDate(payload['updatedAt']),
     releaseYear: normalizeReleaseYear(payload['releaseYear']),
+    summary: normalizeNonEmptyString(payload['summary']),
+    storyline: normalizeNonEmptyString(payload['storyline']),
     reviewScore: normalizeFiniteNumber(payload['reviewScore']),
     reviewSource,
     metacriticScore: normalizeFiniteNumber(payload['metacriticScore']),

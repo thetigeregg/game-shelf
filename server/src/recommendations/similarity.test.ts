@@ -14,6 +14,8 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     createdAt: '2025-01-01T00:00:00.000Z',
     updatedAt: '2025-01-01T00:00:00.000Z',
     releaseYear: 2020,
+    summary: null,
+    storyline: null,
     reviewScore: null,
     reviewSource: null,
     metacriticScore: null,
@@ -52,10 +54,11 @@ void test('similarity graph stores only top K entries per source', () => {
     })
   ];
 
-  const edges = buildSimilarityGraph(games, 1);
+  const edges = buildSimilarityGraph({ games, topK: 1 });
 
   const sourceOne = edges.filter((edge) => edge.sourceIgdbGameId === '1');
   assert.equal(sourceOne.length, 1);
   assert.equal(sourceOne[0].similarIgdbGameId, '2');
   assert.equal(sourceOne[0].reasons.summary.includes('same series'), true);
+  assert.equal(sourceOne[0].reasons.blendedSimilarity > 0, true);
 });

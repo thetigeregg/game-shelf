@@ -15,6 +15,8 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     releaseYear: 2020,
+    summary: null,
+    storyline: null,
     reviewScore: null,
     reviewSource: null,
     metacriticScore: null,
@@ -58,11 +60,30 @@ void test('ranking is deterministic for the same input data', () => {
   ];
 
   const profile = buildPreferenceProfile([...history, ...candidates]);
-  const first = buildRankedScores({ candidates, profile, target: 'BACKLOG', limit: 20 });
-  const second = buildRankedScores({ candidates, profile, target: 'BACKLOG', limit: 20 });
+  const semanticSimilarityByGame = new Map<string, number>([
+    ['c1::1', 0.3],
+    ['c2::1', -0.4]
+  ]);
+  const first = buildRankedScores({
+    candidates,
+    profile,
+    target: 'BACKLOG',
+    limit: 20,
+    semanticSimilarityByGame,
+    semanticWeight: 2
+  });
+  const second = buildRankedScores({
+    candidates,
+    profile,
+    target: 'BACKLOG',
+    limit: 20,
+    semanticSimilarityByGame,
+    semanticWeight: 2
+  });
 
   assert.deepEqual(first, second);
   assert.equal(first[0]?.game.igdbGameId, 'c1');
+  assert.equal(first[0]?.components.semantic, 0.6);
 });
 
 void test('cold start disables taste contribution when rated games are fewer than five', () => {
@@ -80,7 +101,15 @@ void test('cold start disables taste contribution when rated games are fewer tha
   ];
 
   const profile = buildPreferenceProfile([...history, ...candidates]);
-  const ranked = buildRankedScores({ candidates, profile, target: 'BACKLOG', limit: 20 });
+  const ranked = buildRankedScores({
+    candidates,
+    profile,
+    target: 'BACKLOG',
+    limit: 20,
+    semanticSimilarityByGame: new Map([['c1::1', 0.2]]),
+    semanticWeight: 2
+  });
 
   assert.equal(ranked[0]?.components.taste, 0);
+  assert.equal(ranked[0]?.components.semantic, 0.4);
 });

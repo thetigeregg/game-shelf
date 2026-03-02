@@ -366,7 +366,7 @@ export class SettingsPage {
   verboseTracingEnabled = false;
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
-  timePreference = 20;
+  timePreference = 15;
   isPlatformOrderModalOpen = false;
   isPlatformOrderLoading = false;
   platformOrderItems: PlatformCustomizationItem[] = [];

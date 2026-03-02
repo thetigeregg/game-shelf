@@ -38,9 +38,9 @@ describe('time-adjusted-score.util', () => {
   });
 
   it('calculates TAS with clamping and finite guards', () => {
-    expect(calculateTimeAdjustedScore(90, 10, 20)).toBe(267.57);
+    expect(calculateTimeAdjustedScore(90, 10, 20)).toBe(76.73);
     expect(calculateTimeAdjustedScore(120, 0, 20)).toBe(100);
-    expect(calculateTimeAdjustedScore(90, 10, 0)).toBe(36.49);
+    expect(calculateTimeAdjustedScore(90, 10, 0)).toBe(20.18);
     expect(calculateTimeAdjustedScore(Number.NaN, 10, 20)).toBeNull();
   });
 

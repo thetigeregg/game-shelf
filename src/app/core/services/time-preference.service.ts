@@ -5,7 +5,7 @@ export const TIME_PREFERENCE_STORAGE_KEY = 'game-shelf:time-preference-v1';
 
 @Injectable({ providedIn: 'root' })
 export class TimePreferenceService {
-  private static readonly DEFAULT_TIME_PREFERENCE = 20;
+  private static readonly DEFAULT_TIME_PREFERENCE = 15;
   private static readonly MIN_TIME_PREFERENCE = 5;
   private static readonly MAX_TIME_PREFERENCE = 100;
   private readonly preferenceSubject = new BehaviorSubject<number>(this.loadFromStorage());

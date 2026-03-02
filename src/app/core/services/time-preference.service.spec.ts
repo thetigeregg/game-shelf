@@ -12,7 +12,7 @@ describe('TimePreferenceService', () => {
 
   it('uses default time preference when storage is empty', () => {
     const service = TestBed.inject(TimePreferenceService);
-    expect(service.getTimePreference()).toBe(20);
+    expect(service.getTimePreference()).toBe(15);
   });
 
   it('persists and reloads time preference from storage', () => {
@@ -38,7 +38,7 @@ describe('TimePreferenceService', () => {
     service.setTimePreference(200);
 
     expect(service.getTimePreference()).toBe(100);
-    expect(observed).toEqual([20, 5, 100]);
+    expect(observed).toEqual([15, 5, 100]);
 
     subscription.unsubscribe();
   });

@@ -329,7 +329,7 @@ export class GameListFilteringEngine {
     games: GameEntry[],
     filters: GameListFilters,
     searchQuery: string,
-    timePreference = 20
+    timePreference = 15
   ): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();

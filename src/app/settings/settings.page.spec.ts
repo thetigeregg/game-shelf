@@ -131,7 +131,7 @@ describe('SettingsPage CSV review fields', () => {
     listTags: ReturnType<typeof vi.fn>;
     listViews: ReturnType<typeof vi.fn>;
   };
-  let timePreference = 20;
+  let timePreference = 15;
   let timePreferenceServiceMock: {
     getTimePreference: ReturnType<typeof vi.fn>;
     setTimePreference: ReturnType<typeof vi.fn>;
@@ -140,7 +140,7 @@ describe('SettingsPage CSV review fields', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    timePreference = 20;
+    timePreference = 15;
 
     repositoryMock = {
       listAll: vi.fn().mockResolvedValue([] as GameEntry[]),
@@ -457,7 +457,7 @@ describe('SettingsPage CSV review fields', () => {
 
   it('loads time preference from service and persists updates', () => {
     const page = createPage();
-    expect(page.timePreference).toBe(20);
+    expect(page.timePreference).toBe(15);
 
     page.onTimePreferenceChange('42');
     expect(timePreferenceServiceMock.setTimePreference).toHaveBeenCalledWith(42);

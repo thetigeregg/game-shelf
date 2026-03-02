@@ -991,6 +991,78 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('uses canonical IGDB platform mapping for aliased platform ids in MobyGames lookups', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupReviewScore('Chrono Trigger', 1995, 'Super Famicom', 58)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_name: 'SNES' }],
+          critic_score: null,
+          moby_score: 8.6,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      reviewScore: 86,
+      reviewUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+      reviewSource: 'mobygames',
+      mobyScore: 8.6,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null
+    });
+  });
+
+  it('uses canonical IGDB platform mapping from aliased platform name when id is missing', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupReviewScore('Chrono Trigger', 1995, 'Super Famicom', null)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_name: 'SNES' }],
+          critic_score: null,
+          moby_score: 8.6,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      reviewScore: 86,
+      reviewUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+      reviewSource: 'mobygames',
+      mobyScore: 8.6,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null
+    });
+  });
+
   it('prefers Moby cover image matching selected platform id', async () => {
     const candidatesPromise = firstValueFrom(
       service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
@@ -1143,7 +1215,7 @@ describe('IgdbProxyService', () => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
         request.params.get('q') === 'Okami' &&
-        request.params.get('platform') === null &&
+        request.params.get('platform') === '82' &&
         request.params.get('releaseYear') === null &&
         request.params.get('format') === 'normal' &&
         request.params.get('include') ===

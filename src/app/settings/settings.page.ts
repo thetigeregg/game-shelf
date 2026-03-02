@@ -352,6 +352,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
 export class SettingsPage {
   private static readonly IMAGE_CACHE_MIN_MB = 20;
   private static readonly IMAGE_CACHE_MAX_MB = 2048;
+  private static readonly TIME_PREFERENCE_SYNC_DEBOUNCE_MS = 400;
 
   readonly colorSchemeOptions: Array<{ label: string; value: ColorSchemePreference }> = [
     { label: 'System', value: 'system' },
@@ -398,6 +399,7 @@ export class SettingsPage {
   private mgcPlatformLookupLoaded = false;
   private mgcExistingGameKeys = new Set<string>();
   private mgcRateLimitCooldownUntilMs = 0;
+  private timePreferenceSyncHandle: number | null = null;
 
   private readonly themeService = inject(ThemeService);
   private readonly repository: GameRepository = inject(GAME_REPOSITORY);
@@ -475,9 +477,13 @@ export class SettingsPage {
       return;
     }
 
+    const previous = this.timePreferenceService.getTimePreference();
     this.timePreferenceService.setTimePreference(parsed);
     this.timePreference = this.timePreferenceService.getTimePreference();
-    this.queueSettingUpsert(TIME_PREFERENCE_STORAGE_KEY, String(this.timePreference));
+
+    if (this.timePreference !== previous) {
+      this.scheduleTimePreferenceSync(this.timePreference);
+    }
   }
 
   async showAttributions(): Promise<void> {
@@ -3380,6 +3386,18 @@ export class SettingsPage {
       operation: 'delete',
       payload: { key }
     });
+  }
+
+  private scheduleTimePreferenceSync(value: number): void {
+    if (this.timePreferenceSyncHandle !== null) {
+      window.clearTimeout(this.timePreferenceSyncHandle);
+      this.timePreferenceSyncHandle = null;
+    }
+
+    this.timePreferenceSyncHandle = window.setTimeout(() => {
+      this.timePreferenceSyncHandle = null;
+      this.queueSettingUpsert(TIME_PREFERENCE_STORAGE_KEY, String(value));
+    }, SettingsPage.TIME_PREFERENCE_SYNC_DEBOUNCE_MS);
   }
 
   private async buildTagNameToIdMap(): Promise<Map<string, number>> {

@@ -249,6 +249,7 @@ describe('SettingsPage CSV review fields', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     localStorage.clear();
   });
@@ -477,12 +478,15 @@ describe('SettingsPage CSV review fields', () => {
   });
 
   it('loads time preference from service and persists updates', () => {
+    vi.useFakeTimers();
     const page = createPage();
     expect(page.timePreference).toBe(15);
 
     page.onTimePreferenceChange('42');
     expect(timePreferenceServiceMock.setTimePreference).toHaveBeenCalledWith(42);
     expect(page.timePreference).toBe(42);
+    expect(outboxWriterMock.enqueueOperation).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(450);
     expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
       entityType: 'setting',
       operation: 'upsert',
@@ -494,6 +498,27 @@ describe('SettingsPage CSV review fields', () => {
 
     page.onTimePreferenceChange('bad');
     expect(page.timePreference).toBe(42);
+  });
+
+  it('debounces outbox writes while typing time preference', () => {
+    vi.useFakeTimers();
+    const page = createPage();
+
+    page.onTimePreferenceChange('1');
+    page.onTimePreferenceChange('10');
+    page.onTimePreferenceChange('100');
+
+    expect(outboxWriterMock.enqueueOperation).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(450);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledTimes(1);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenLastCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '100'
+      }
+    });
   });
 
   it('refreshes and queues time preference when imported as a setting row', () => {

@@ -69,6 +69,28 @@ describe('time-adjusted-score.util', () => {
     ).toBeNull();
   });
 
+  it('treats zero-hour HLTB values as missing', () => {
+    expect(
+      resolveEffectiveHltbHours(
+        makeGame({
+          hltbMainHours: 0,
+          hltbMainExtraHours: 0,
+          hltbCompletionistHours: 6
+        })
+      )
+    ).toBe(6);
+
+    expect(
+      resolveEffectiveHltbHours(
+        makeGame({
+          hltbMainHours: 0,
+          hltbMainExtraHours: 0,
+          hltbCompletionistHours: 0
+        })
+      )
+    ).toBeNull();
+  });
+
   it('normalizes MobyGames critic score only when raw score is on 0-10 scale', () => {
     expect(
       resolveNormalizedCriticScoreForGame(

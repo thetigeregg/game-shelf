@@ -112,6 +112,10 @@ import { DebugLogService } from '../core/services/debug-log.service';
 import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
+import {
+  TimePreferenceService,
+  TIME_PREFERENCE_STORAGE_KEY
+} from '../core/services/time-preference.service';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -362,6 +366,7 @@ export class SettingsPage {
   verboseTracingEnabled = false;
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
+  timePreference = 20;
   isPlatformOrderModalOpen = false;
   isPlatformOrderLoading = false;
   platformOrderItems: PlatformCustomizationItem[] = [];
@@ -408,12 +413,14 @@ export class SettingsPage {
   private readonly router = inject(Router);
   private readonly debugLogService = inject(DebugLogService);
   private readonly clientWriteAuthService = inject(ClientWriteAuthService);
+  private readonly timePreferenceService = inject(TimePreferenceService);
 
   constructor() {
     this.selectedColorScheme = this.themeService.getColorSchemePreference();
     this.clientWriteTokenConfigured = this.clientWriteAuthService.hasToken();
     this.verboseTracingEnabled = this.debugLogService.isVerboseTracingEnabled();
     this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
+    this.timePreference = this.timePreferenceService.getTimePreference();
     void this.refreshImageCacheUsage();
     addIcons({
       close,
@@ -458,6 +465,18 @@ export class SettingsPage {
   onVerboseTracingToggleChange(enabled: boolean): void {
     this.verboseTracingEnabled = enabled;
     this.debugLogService.setVerboseTracingEnabled(this.verboseTracingEnabled);
+  }
+
+  onTimePreferenceChange(value: number | string | null | undefined): void {
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+
+    if (!Number.isFinite(parsed)) {
+      this.timePreference = this.timePreferenceService.getTimePreference();
+      return;
+    }
+
+    this.timePreferenceService.setTimePreference(parsed);
+    this.timePreference = this.timePreferenceService.getTimePreference();
   }
 
   async showAttributions(): Promise<void> {
@@ -3289,6 +3308,11 @@ export class SettingsPage {
       if (row.key === PLATFORM_DISPLAY_NAMES_STORAGE_KEY) {
         this.platformCustomizationService.refreshFromStorage();
         this.queueSettingUpsert(row.key, row.value);
+      }
+
+      if (row.key === TIME_PREFERENCE_STORAGE_KEY) {
+        this.timePreferenceService.refreshFromStorage();
+        this.timePreference = this.timePreferenceService.getTimePreference();
       }
     });
   }

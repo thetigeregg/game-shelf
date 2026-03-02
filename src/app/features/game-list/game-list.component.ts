@@ -90,6 +90,7 @@ import { PlatformOrderService } from '../../core/services/platform-order.service
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { DebugLogService } from '../../core/services/debug-log.service';
 import { LayoutModeService } from '../../core/services/layout-mode.service';
+import { TimePreferenceService } from '../../core/services/time-preference.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
 import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
@@ -368,6 +369,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly debugLogService = inject(DebugLogService);
   private readonly layoutModeService = inject(LayoutModeService);
+  private readonly timePreferenceService = inject(TimePreferenceService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
@@ -469,9 +471,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
         })
       );
 
-      this.games$ = combineLatest([allGames$, this.filters$, this.searchQuery$]).pipe(
-        map(([games, filters, searchQuery]) =>
-          this.applyFiltersAndSort(games, filters, searchQuery)
+      this.games$ = combineLatest([
+        allGames$,
+        this.filters$,
+        this.searchQuery$,
+        this.timePreferenceService.timePreference$
+      ]).pipe(
+        map(([games, filters, searchQuery, timePreference]) =>
+          this.applyFiltersAndSort(games, filters, searchQuery, timePreference)
         ),
         tap((games) => {
           this.displayedGames = games;
@@ -2933,10 +2940,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private applyFiltersAndSort(
     games: GameEntry[],
     filters: GameListFilters,
-    searchQuery: string
+    searchQuery: string,
+    timePreference: number
   ): GameEntry[] {
     this.configureFilteringEngine();
-    return this.filteringEngine.applyFiltersAndSort(games, filters, searchQuery);
+    return this.filteringEngine.applyFiltersAndSort(games, filters, searchQuery, timePreference);
   }
 
   private buildGroupedView(games: GameEntry[], groupBy: GameGroupByField): GroupedGamesView {

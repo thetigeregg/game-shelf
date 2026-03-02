@@ -999,6 +999,134 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(desc.map((game) => game.title)).toEqual(['Normal', 'Fallback']);
   });
 
+  it('sorts by TAS using HLTB fallback hierarchy and keeps missing TAS values last', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Main',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+        hltbMainHours: 10
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Main+Extra',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+        hltbMainHours: null,
+        hltbMainExtraHours: 5
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Completionist',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: 2
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'Moby',
+        reviewScore: 8.5,
+        reviewSource: 'mobygames',
+        mobyScore: 8.5,
+        hltbMainHours: 10
+      }),
+      makeGame({
+        igdbGameId: '5',
+        platformIgdbId: 130,
+        title: 'No Hours',
+        reviewScore: 90,
+        reviewSource: 'metacritic',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }),
+      makeGame({
+        igdbGameId: '6',
+        platformIgdbId: 130,
+        title: 'No Score',
+        reviewScore: null,
+        hltbMainHours: 10
+      })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'tas',
+        sortDirection: 'desc'
+      },
+      '',
+      20
+    );
+    expect(desc.map((game) => game.title)).toEqual([
+      'Moby',
+      'Main',
+      'Main+Extra',
+      'Completionist',
+      'No Hours',
+      'No Score'
+    ]);
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'tas',
+        sortDirection: 'asc'
+      },
+      '',
+      20
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'Completionist',
+      'Main+Extra',
+      'Main',
+      'Moby',
+      'No Hours',
+      'No Score'
+    ]);
+  });
+
+  it('uses title fallback when TAS values are equal', () => {
+    const result = engine.applyFiltersAndSort(
+      [
+        makeGame({
+          igdbGameId: '1',
+          platformIgdbId: 130,
+          title: 'Beta',
+          reviewScore: 80,
+          reviewSource: 'metacritic',
+          hltbMainHours: 10
+        }),
+        makeGame({
+          igdbGameId: '2',
+          platformIgdbId: 130,
+          title: 'Alpha',
+          reviewScore: 80,
+          reviewSource: 'metacritic',
+          hltbMainHours: 10
+        })
+      ],
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'tas',
+        sortDirection: 'desc'
+      },
+      '',
+      20
+    );
+
+    expect(result.map((game) => game.title)).toEqual(['Alpha', 'Beta']);
+  });
+
   it('sorts by createdAt and handles invalid timestamps', () => {
     const games: GameEntry[] = [
       makeGame({

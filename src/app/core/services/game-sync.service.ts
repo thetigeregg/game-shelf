@@ -6,12 +6,12 @@ import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-wr
 import {
   ClientSyncOperation,
   DEFAULT_GAME_LIST_FILTERS,
-  GAME_RATING_VALUES,
   GameEntry,
   GameListView,
   SyncChangeEvent,
   SyncPushResult,
-  Tag
+  Tag,
+  isGameRating
 } from '../models/game.models';
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
@@ -712,9 +712,7 @@ export class GameSyncService implements SyncOutboxWriter {
           ? Number.parseFloat(value)
           : Number.NaN;
 
-    return GAME_RATING_VALUES.includes(parsed as (typeof GAME_RATING_VALUES)[number])
-      ? parsed
-      : null;
+    return isGameRating(parsed) ? parsed : null;
   }
 
   private normalizeIsoTimestamp(value: unknown): string {

@@ -1173,6 +1173,7 @@ export class DexieGameRepository implements GameRepository {
       value === 'releaseDate' ||
       value === 'createdAt' ||
       value === 'hltb' ||
+      value === 'tas' ||
       value === 'metacritic' ||
       value === 'platform'
     ) {

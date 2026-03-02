@@ -91,7 +91,7 @@
       @if (getRating(game); as rating) {
         <div class="rating-indicator">
           <ion-icon name="star" aria-hidden="true"></ion-icon>
-          <span>{{ rating }}</span>
+          <span>{{ formatRatingValue(rating) }}</span>
         </div>
       }
       @if (getRowHltbHoursLabel(game); as mainHours) {
@@ -340,11 +340,9 @@
         [game]="getDetailGamePayload(game)"
         context="library"
         [statusOptions]="statusOptions"
-        [ratingOptions]="ratingOptions"
         (statusChange)="onSelectedGameStatusChange($event)"
         (clearStatus)="clearSelectedGameStatus()"
-        (ratingChange)="onSelectedGameRatingChange($event)"
-        (clearRating)="clearSelectedGameRating()"
+        (editRating)="openSelectedGameRatingFromDetail()"
         (openTags)="openSelectedGameTagsFromDetail()"
         (developerClick)="onDetailDeveloperClick()"
         (seriesClick)="onDetailSeriesClick()"
@@ -1029,11 +1027,12 @@
         class="rating-range"
         min="1"
         max="5"
-        step="1"
+        step="0.5"
         [value]="ratingDraft"
         [snaps]="true"
         [ticks]="true"
         [pin]="true"
+        [pinFormatter]="formatRatingPin"
         (ionChange)="onRatingRangeChange($event)"
       >
         <ion-icon slot="start" name="star-outline" aria-hidden="true"></ion-icon>

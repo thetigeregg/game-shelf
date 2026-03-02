@@ -239,6 +239,23 @@ describe('ExplorePage rating modal', () => {
     expect(page.formatRatingPin(3.51)).toBe('3.5');
   });
 
+  it('resets rating modal state when closing game detail modal', () => {
+    const page = createPage();
+    page.isGameDetailModalOpen = true;
+    page.isRatingModalOpen = true;
+    page.ratingDraft = 4.5;
+    page.clearRatingOnSave = true;
+    page.selectedGameDetail = makeLibraryGame();
+
+    page.closeGameDetailModal();
+
+    expect(page.isGameDetailModalOpen).toBe(false);
+    expect(page.isRatingModalOpen).toBe(false);
+    expect(page.ratingDraft).toBe(3);
+    expect(page.clearRatingOnSave).toBe(false);
+    expect(page.selectedGameDetail).toBeNull();
+  });
+
   it('guards status/rating updates when selected detail is not a library entry', async () => {
     const page = createPage();
     page.selectedGameDetail = null;
@@ -250,6 +267,19 @@ describe('ExplorePage rating modal', () => {
     expect(gameShelfServiceMock.setGameStatus).not.toHaveBeenCalled();
     expect(gameShelfServiceMock.setGameRating).not.toHaveBeenCalled();
     expect(page.isRatingModalOpen).toBe(false);
+  });
+
+  it('ignores invalid range values and keeps draft unchanged', () => {
+    const page = createPage();
+    page.ratingDraft = 4;
+    page.clearRatingOnSave = true;
+
+    page.onRatingRangeChange({
+      detail: { value: null }
+    } as unknown as Event);
+
+    expect(page.ratingDraft).toBe(4);
+    expect(page.clearRatingOnSave).toBe(true);
   });
 
   it('handles detail status update failure', async () => {
@@ -306,6 +336,19 @@ describe('ExplorePage rating modal', () => {
 
     expect(gameShelfServiceMock.setGameTags).toHaveBeenCalledWith('123', 130, [1]);
     expect(page.selectedGameDetail).toEqual(updated);
+  });
+
+  it('keeps modal open when saving rating fails', async () => {
+    const page = createPage();
+    page.selectedGameDetail = makeLibraryGame({ rating: 3 });
+    page.isRatingModalOpen = true;
+    page.ratingDraft = 3.5;
+    gameShelfServiceMock.setGameRating.mockRejectedValueOnce(new Error('down'));
+
+    await page.saveDetailRatingFromModal();
+
+    expect(gameShelfServiceMock.setGameRating).toHaveBeenCalledWith('123', 130, 3.5);
+    expect(page.isRatingModalOpen).toBe(true);
   });
 
   it('handles popularity selection parsing and load-more guard', async () => {

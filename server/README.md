@@ -15,6 +15,10 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/images/proxy`
 - `GET /v1/manuals/resolve`
 - `GET /v1/manuals/search`
+- `GET /v1/recommendations/top`
+- `GET /v1/recommendations/lanes`
+- `GET /v1/recommendations/similar/:igdbGameId`
+- `POST /v1/recommendations/rebuild`
 - `POST /v1/manuals/refresh`
 - `POST /v1/sync/push`
 - `POST /v1/sync/pull`
@@ -30,6 +34,17 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/mobygames/search`
   - Required: `q` (or `title`) (min length 2)
   - Optional: `platform` (MobyGames platform ID), `limit`, `offset`, `id`, `genre`, `group`, `format` (`id|brief|normal`), `include` (comma-separated field list)
+- `GET /v1/recommendations/top`
+  - Required: `target` (`BACKLOG|WISHLIST`)
+  - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)
+- `GET /v1/recommendations/lanes`
+  - Required: `target` (`BACKLOG|WISHLIST`)
+  - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (default `20`)
+- `GET /v1/recommendations/similar/:igdbGameId`
+  - Required query: `platformIgdbId`
+  - Optional: `limit` (default `20`)
+- `POST /v1/recommendations/rebuild`
+  - Body: `{ target, force? }`
 
 ## Configuration
 
@@ -67,6 +82,32 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`
 - `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE` (default `12`, matching `0.2` requests/second)
 - `DEBUG_HTTP_LOGS` (`true|false`, default `false`) enables sanitized upstream request/response logs for IGDB/TheGamesDB, HLTB, Metacritic, and MobyGames.
+
+### Non-secret env vars (recommendations)
+
+- `RECOMMENDATIONS_SCHEDULER_ENABLED`
+- `RECOMMENDATIONS_DAILY_STALE_HOURS`
+- `RECOMMENDATIONS_TOP_LIMIT`
+- `RECOMMENDATIONS_SIMILARITY_K`
+- `RECOMMENDATIONS_EMBEDDING_MODEL`
+- `RECOMMENDATIONS_EMBEDDING_DIMENSIONS`
+- `RECOMMENDATIONS_EMBEDDING_BATCH_SIZE`
+- `RECOMMENDATIONS_SEMANTIC_WEIGHT`
+- `RECOMMENDATIONS_SIMILARITY_STRUCTURED_WEIGHT`
+- `RECOMMENDATIONS_SIMILARITY_SEMANTIC_WEIGHT`
+- `RECOMMENDATIONS_FAILURE_BACKOFF_MINUTES`
+- `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT` (`NEUTRAL|SHORT|LONG`, default `NEUTRAL`)
+- `RECOMMENDATIONS_EXPLORATION_WEIGHT`
+- `RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT`
+- `RECOMMENDATIONS_REPEAT_PENALTY_STEP`
+- `RECOMMENDATIONS_TUNING_MIN_RATED`
+- `RECOMMENDATIONS_LANE_LIMIT`
+
+Runtime mode resolution for recommendation reads:
+
+- request query `runtimeMode` (if provided)
+- fallback setting `recommendations.runtime_mode_default` from `settings` table
+- fallback env `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT`
 
 Mutating routes (`POST`, `PUT`, `PATCH`, `DELETE`) require auth when `REQUIRE_AUTH=true`.
 Provide either:

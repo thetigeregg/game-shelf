@@ -1348,9 +1348,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
-  formatRatingPin(value: number): string {
+  readonly formatRatingPin = (value: number): string => {
     return this.formatRatingValue(Math.round(value * 2) / 2);
-  }
+  };
 
   formatRatingValue(value: number): string {
     return value.toFixed(1).replace(/\.0$/, '');

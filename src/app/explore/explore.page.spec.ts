@@ -83,6 +83,23 @@ function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
 }
 
 describe('ExplorePage rating modal', () => {
+  let igdbProxyMock: {
+    listPopularityTypes: ReturnType<typeof vi.fn>;
+    listPopularityGames: ReturnType<typeof vi.fn>;
+    getGameById: ReturnType<typeof vi.fn>;
+  };
+  let platformCustomizationMock: {
+    getDisplayNameWithoutAlias: ReturnType<typeof vi.fn>;
+  };
+  let addToLibraryMock: {
+    addToLibrary: ReturnType<typeof vi.fn>;
+  };
+  let alertControllerMock: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  let toastControllerMock: {
+    create: ReturnType<typeof vi.fn>;
+  };
   let gameShelfServiceMock: {
     setGameRating: ReturnType<typeof vi.fn>;
     setGameStatus: ReturnType<typeof vi.fn>;
@@ -92,6 +109,23 @@ describe('ExplorePage rating modal', () => {
   };
 
   beforeEach(() => {
+    igdbProxyMock = {
+      listPopularityTypes: vi.fn().mockReturnValue(of([])),
+      listPopularityGames: vi.fn().mockReturnValue(of([])),
+      getGameById: vi.fn().mockReturnValue(of(null))
+    };
+    platformCustomizationMock = {
+      getDisplayNameWithoutAlias: vi.fn((name: string) => name)
+    };
+    addToLibraryMock = {
+      addToLibrary: vi.fn().mockResolvedValue({ status: 'added' })
+    };
+    alertControllerMock = {
+      create: vi.fn()
+    };
+    toastControllerMock = {
+      create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
+    };
     gameShelfServiceMock = {
       setGameRating: vi.fn(),
       setGameStatus: vi.fn(),
@@ -104,23 +138,15 @@ describe('ExplorePage rating modal', () => {
       providers: [
         {
           provide: IgdbProxyService,
-          useValue: {
-            listPopularityTypes: vi.fn().mockReturnValue(of([])),
-            listPopularityGames: vi.fn().mockReturnValue(of([])),
-            getGameById: vi.fn().mockReturnValue(of(null))
-          }
+          useValue: igdbProxyMock
         },
         {
           provide: PlatformCustomizationService,
-          useValue: {
-            getDisplayNameWithoutAlias: vi.fn((name: string) => name)
-          }
+          useValue: platformCustomizationMock
         },
         {
           provide: AddToLibraryWorkflowService,
-          useValue: {
-            addToLibrary: vi.fn().mockResolvedValue({ status: 'added' })
-          }
+          useValue: addToLibraryMock
         },
         {
           provide: GameShelfService,
@@ -128,15 +154,11 @@ describe('ExplorePage rating modal', () => {
         },
         {
           provide: AlertController,
-          useValue: {
-            create: vi.fn()
-          }
+          useValue: alertControllerMock
         },
         {
           provide: ToastController,
-          useValue: {
-            create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
-          }
+          useValue: toastControllerMock
         }
       ]
     });
@@ -215,5 +237,168 @@ describe('ExplorePage rating modal', () => {
 
     expect(page.formatRatingPin(3.01)).toBe('3');
     expect(page.formatRatingPin(3.51)).toBe('3.5');
+  });
+
+  it('guards status/rating updates when selected detail is not a library entry', async () => {
+    const page = createPage();
+    page.selectedGameDetail = null;
+
+    await page.onDetailStatusChange('playing');
+    page.openDetailRatingModal();
+    await page.saveDetailRatingFromModal();
+
+    expect(gameShelfServiceMock.setGameStatus).not.toHaveBeenCalled();
+    expect(gameShelfServiceMock.setGameRating).not.toHaveBeenCalled();
+    expect(page.isRatingModalOpen).toBe(false);
+  });
+
+  it('handles detail status update failure', async () => {
+    const page = createPage();
+    page.selectedGameDetail = makeLibraryGame();
+    gameShelfServiceMock.setGameStatus.mockRejectedValueOnce(new Error('down'));
+
+    await page.onDetailStatusChange('playing');
+
+    expect(gameShelfServiceMock.setGameStatus).toHaveBeenCalledWith('123', 130, 'playing');
+  });
+
+  it('clears status and reports success', async () => {
+    const page = createPage();
+    const updated = makeLibraryGame({ status: null });
+    page.selectedGameDetail = makeLibraryGame({ status: 'playing' });
+    gameShelfServiceMock.setGameStatus.mockResolvedValue(updated);
+
+    await page.clearDetailStatus();
+
+    expect(gameShelfServiceMock.setGameStatus).toHaveBeenCalledWith('123', 130, null);
+    expect(page.selectedGameDetail).toEqual(updated);
+  });
+
+  it('supports tag update flow: no tags and then confirmed apply', async () => {
+    const page = createPage();
+    page.selectedGameDetail = makeLibraryGame({ tagIds: [1] });
+
+    gameShelfServiceMock.listTags.mockResolvedValueOnce([]);
+    await page.openDetailTags();
+    expect(gameShelfServiceMock.setGameTags).not.toHaveBeenCalled();
+
+    gameShelfServiceMock.listTags.mockResolvedValueOnce([
+      { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' }
+    ]);
+    const updated = makeLibraryGame({ tagIds: [1] });
+    gameShelfServiceMock.setGameTags.mockResolvedValue(updated);
+    let applyHandler: ((value: string[] | string | null | undefined) => void) | null = null;
+    alertControllerMock.create.mockImplementationOnce((options: Record<string, unknown>) => {
+      const buttons = options['buttons'] as Array<Record<string, unknown>>;
+      const applyButton = buttons.find((button) => button['role'] === 'confirm');
+      applyHandler = applyButton?.['handler'] as
+        | ((value: string[] | string | null | undefined) => void)
+        | null;
+      return {
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' })
+      };
+    });
+
+    await page.openDetailTags();
+    expect(applyHandler).not.toBeNull();
+    applyHandler?.(['1']);
+
+    expect(gameShelfServiceMock.setGameTags).toHaveBeenCalledWith('123', 130, [1]);
+    expect(page.selectedGameDetail).toEqual(updated);
+  });
+
+  it('handles popularity selection parsing and load-more guard', async () => {
+    const page = createPage();
+    const loadGamesPageSpy = vi
+      .spyOn(
+        page as unknown as { loadGamesPage: (append: boolean) => Promise<void> },
+        'loadGamesPage'
+      )
+      .mockResolvedValue(undefined);
+    const completeSpy = vi.fn().mockResolvedValue(undefined);
+
+    await page.onPopularityTypeChange('42');
+    expect(page.selectedPopularityTypeId).toBe(42);
+    expect(loadGamesPageSpy).toHaveBeenCalledWith(false);
+
+    await page.onPopularityTypeChange('bad');
+    expect(page.selectedPopularityTypeId).toBeNull();
+
+    await page.loadMore({ target: { complete: completeSpy } } as unknown as Event);
+    expect(completeSpy).toHaveBeenCalled();
+  });
+
+  it('formats platform labels for none/single/multiple platform games', () => {
+    const page = createPage();
+    const noPlatformItem = {
+      game: {
+        igdbGameId: '1',
+        title: 'NoPlatform',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: '',
+        platformIgdbId: 0,
+        platforms: [],
+        releaseDate: null,
+        releaseYear: null
+      }
+    } as unknown as { game: GameEntry };
+    expect(page.getPlatformLabel(noPlatformItem as unknown as never)).toBe('Unknown platform');
+
+    const singlePlatformItem = {
+      game: {
+        ...makeLibraryGame(),
+        platforms: ['SNES'],
+        platformOptions: [{ id: 130, name: 'SNES' }]
+      }
+    } as unknown as never;
+    expect(page.getPlatformLabel(singlePlatformItem)).toBe('SNES');
+
+    const multiPlatformItem = {
+      game: {
+        ...makeLibraryGame(),
+        platformOptions: [
+          { id: 130, name: 'SNES' },
+          { id: 6, name: 'PC' }
+        ]
+      }
+    } as unknown as never;
+    expect(page.getPlatformLabel(multiPlatformItem)).toBe('2 platforms');
+  });
+
+  it('builds external search URLs only when title is present', () => {
+    const page = createPage();
+    const openExternalUrlSpy = vi.spyOn(
+      page as unknown as { openExternalUrl: (url: string) => void },
+      'openExternalUrl'
+    );
+
+    page.selectedGameDetail = null;
+    page.openShortcutSearch('google');
+    expect(openExternalUrlSpy).not.toHaveBeenCalled();
+
+    page.selectedGameDetail = makeLibraryGame({ title: 'Chrono Trigger' });
+    page.openShortcutSearch('google');
+    page.openShortcutSearch('youtube');
+    page.openShortcutSearch('wikipedia');
+    page.openShortcutSearch('gamefaqs');
+
+    expect(openExternalUrlSpy).toHaveBeenNthCalledWith(
+      1,
+      'https://www.google.com/search?q=Chrono%20Trigger'
+    );
+    expect(openExternalUrlSpy).toHaveBeenNthCalledWith(
+      2,
+      'https://www.youtube.com/results?search_query=Chrono%20Trigger'
+    );
+    expect(openExternalUrlSpy).toHaveBeenNthCalledWith(
+      3,
+      'https://en.wikipedia.org/w/index.php?search=Chrono%20Trigger'
+    );
+    expect(openExternalUrlSpy).toHaveBeenNthCalledWith(
+      4,
+      'https://gamefaqs.gamespot.com/search?game=Chrono%20Trigger'
+    );
   });
 });

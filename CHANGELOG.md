@@ -1256,3 +1256,11 @@
 - 9a936dd Clarify rate limit toast handling
 - 47967c4 Audit Metacritic rate handling
 
+## v0.2.8 - 2026-03-02
+- cb66cb0 Merge pull request #148 from thetigeregg/codex/mobygames-platform-alias
+- fbf8f65 Merge branch 'main' into codex/mobygames-platform-alias
+- e7fc888 Update aliased platform mappings
+- 6c76f18 Add tests for IGDB platform aliases
+- 30fa410 Merge branch 'main' into codex/mobygames-platform-alias
+- 6cd8e60 Update platform alias lookups
+

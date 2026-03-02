@@ -7,8 +7,7 @@ import {
   GameRatingFilterOption,
   GameStatus,
   GameStatusFilterOption,
-  GameType,
-  ReviewSource
+  GameType
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -18,6 +17,10 @@ import {
   normalizeTagFilterList
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
+import {
+  resolveNormalizedCriticScoreForGame,
+  resolveTimeAdjustedScoreForGame
+} from '../../core/utils/time-adjusted-score.util';
 
 export interface GameGroupSection {
   key: string;
@@ -64,6 +67,7 @@ export class GameListFilteringEngine {
     sourceGames: GameEntry[];
     sortField: GameListFilters['sortField'];
     sortDirection: GameListFilters['sortDirection'];
+    timePreference: number;
     sortedGames: GameEntry[];
   } | null = null;
   private readonly platformOrderByKey = new Map<string, number>();
@@ -324,13 +328,19 @@ export class GameListFilteringEngine {
   applyFiltersAndSort(
     games: GameEntry[],
     filters: GameListFilters,
-    searchQuery: string
+    searchQuery: string,
+    timePreference = 15
   ): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
     const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
-    const sortedGames = this.getSortedGames(games, filters.sortField, filters.sortDirection);
+    const sortedGames = this.getSortedGames(
+      games,
+      filters.sortField,
+      filters.sortDirection,
+      timePreference
+    );
 
     if (
       normalizedSearchQuery.length === 0 &&
@@ -760,7 +770,8 @@ export class GameListFilteringEngine {
   private getSortedGames(
     games: GameEntry[],
     sortField: GameListFilters['sortField'],
-    sortDirection: GameListFilters['sortDirection']
+    sortDirection: GameListFilters['sortDirection'],
+    timePreference: number
   ): GameEntry[] {
     const existingCache = this.sortedGamesCache;
 
@@ -768,7 +779,8 @@ export class GameListFilteringEngine {
       existingCache &&
       existingCache.sourceGames === games &&
       existingCache.sortField === sortField &&
-      existingCache.sortDirection === sortDirection
+      existingCache.sortDirection === sortDirection &&
+      existingCache.timePreference === timePreference
     ) {
       return existingCache.sortedGames;
     }
@@ -778,14 +790,19 @@ export class GameListFilteringEngine {
         ? [...games].sort((left, right) =>
             this.compareGamesByMetacritic(left, right, sortDirection)
           )
-        : this.applySortDirection(
-            [...games].sort((left, right) => this.compareGames(left, right, sortField)),
-            sortDirection
-          );
+        : sortField === 'tas'
+          ? [...games].sort((left, right) =>
+              this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
+            )
+          : this.applySortDirection(
+              [...games].sort((left, right) => this.compareGames(left, right, sortField)),
+              sortDirection
+            );
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
       sortDirection,
+      timePreference,
       sortedGames
     };
     return sortedGames;
@@ -1046,57 +1063,54 @@ export class GameListFilteringEngine {
     right: GameEntry,
     sortDirection: GameListFilters['sortDirection']
   ): number {
-    const leftScore = this.normalizeMetacriticSortScore(
-      left.reviewScore ?? left.metacriticScore,
-      left.reviewScore !== null && left.reviewScore !== undefined ? left.reviewSource : null,
-      left.reviewScore !== null && left.reviewScore !== undefined ? left.mobyScore : null
+    return this.compareNumericSortValues(
+      resolveNormalizedCriticScoreForGame(left),
+      resolveNormalizedCriticScoreForGame(right),
+      sortDirection,
+      left,
+      right
     );
-    const rightScore = this.normalizeMetacriticSortScore(
-      right.reviewScore ?? right.metacriticScore,
-      right.reviewScore !== null && right.reviewScore !== undefined ? right.reviewSource : null,
-      right.reviewScore !== null && right.reviewScore !== undefined ? right.mobyScore : null
-    );
+  }
 
-    if (leftScore === null && rightScore === null) {
+  private compareGamesByTimeAdjustedScore(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection'],
+    timePreference: number
+  ): number {
+    return this.compareNumericSortValues(
+      resolveTimeAdjustedScoreForGame(left, timePreference),
+      resolveTimeAdjustedScoreForGame(right, timePreference),
+      sortDirection,
+      left,
+      right
+    );
+  }
+
+  private compareNumericSortValues(
+    leftValue: number | null,
+    rightValue: number | null,
+    sortDirection: GameListFilters['sortDirection'],
+    left: GameEntry,
+    right: GameEntry
+  ): number {
+    if (leftValue === null && rightValue === null) {
       return this.sortGamesByTitleFallback(left, right);
     }
 
-    if (leftScore === null) {
+    if (leftValue === null) {
       return 1;
     }
 
-    if (rightScore === null) {
+    if (rightValue === null) {
       return -1;
     }
 
-    if (leftScore !== rightScore) {
-      return sortDirection === 'desc' ? rightScore - leftScore : leftScore - rightScore;
+    if (leftValue !== rightValue) {
+      return sortDirection === 'desc' ? rightValue - leftValue : leftValue - rightValue;
     }
 
     return this.sortGamesByTitleFallback(left, right);
-  }
-
-  private normalizeMetacriticSortScore(
-    value: number | null | undefined,
-    reviewSource?: ReviewSource | null,
-    mobyScore?: number | null
-  ): number | null {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return null;
-    }
-
-    if (value <= 0 || value > 100) {
-      return null;
-    }
-
-    // MobyGames scores may be stored on a 0–10 scale; normalize to 0–100 for comparison.
-    // Use mobyScore as ground truth: scale only when reviewScore matches the raw 0–10 mobyScore.
-    // Fall back to the ≤10 heuristic when mobyScore is absent.
-    const needsScale =
-      reviewSource === 'mobygames' && (mobyScore != null ? value === mobyScore : value <= 10);
-    const normalized = needsScale ? value * 10 : value;
-
-    return Math.round(normalized * 10) / 10;
   }
 
   private normalizeStatus(value: string | null | undefined): GameStatus | null {

@@ -339,12 +339,12 @@
       <app-game-detail-content
         [game]="getDetailGamePayload(game)"
         context="library"
+        ratingInteractionMode="modal"
         [statusOptions]="statusOptions"
         [ratingOptions]="ratingOptions"
         (statusChange)="onSelectedGameStatusChange($event)"
         (clearStatus)="clearSelectedGameStatus()"
-        (ratingChange)="onSelectedGameRatingChange($event)"
-        (clearRating)="clearSelectedGameRating()"
+        (editRating)="openSelectedGameRatingFromDetail()"
         (openTags)="openSelectedGameTagsFromDetail()"
         (developerClick)="onDetailDeveloperClick()"
         (seriesClick)="onDetailSeriesClick()"
@@ -1034,6 +1034,7 @@
         [snaps]="true"
         [ticks]="true"
         [pin]="true"
+        [pinFormatter]="formatRatingPin"
         (ionChange)="onRatingRangeChange($event)"
       >
         <ion-icon slot="start" name="star-outline" aria-hidden="true"></ion-icon>

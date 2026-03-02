@@ -52,10 +52,6 @@ export class TimePreferenceService {
 
     const rounded = Math.round(value);
 
-    if (!Number.isInteger(rounded)) {
-      return TimePreferenceService.DEFAULT_TIME_PREFERENCE;
-    }
-
     return Math.max(
       TimePreferenceService.MIN_TIME_PREFERENCE,
       Math.min(rounded, TimePreferenceService.MAX_TIME_PREFERENCE)

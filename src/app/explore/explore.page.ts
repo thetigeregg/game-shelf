@@ -22,14 +22,15 @@ import {
   IonFab,
   IonFabButton,
   IonFabList,
-  IonIcon
+  IonIcon,
+  IonRange,
+  IonNote
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import {
   GameCatalogResult,
   GameEntry,
-  GAME_RATING_VALUES,
   GameRating,
   GameStatus,
   ListType,
@@ -47,7 +48,7 @@ import {
   parseTagSelection
 } from '../features/game-list/game-list-detail-actions';
 import { addIcons } from 'ionicons';
-import { search, logoGoogle, logoYoutube } from 'ionicons/icons';
+import { search, logoGoogle, logoYoutube, star, starOutline } from 'ionicons/icons';
 
 @Component({
   selector: 'app-explore-page',
@@ -76,6 +77,8 @@ import { search, logoGoogle, logoYoutube } from 'ionicons/icons';
     IonFabButton,
     IonFabList,
     IonIcon,
+    IonRange,
+    IonNote,
     GameDetailContentComponent
   ]
 })
@@ -97,7 +100,9 @@ export class ExplorePage implements OnInit {
   detailContext: 'explore' | 'library' = 'explore';
   isSelectedGameInLibrary = false;
   isAddToLibraryLoading = false;
-  readonly ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
+  isRatingModalOpen = false;
+  ratingDraft: GameRating = 3;
+  clearRatingOnSave = false;
   readonly statusOptions: { value: GameStatus; label: string }[] = [
     { value: 'playing', label: 'Playing' },
     { value: 'wantToPlay', label: 'Want to Play' },
@@ -116,7 +121,7 @@ export class ExplorePage implements OnInit {
   private offset = 0;
 
   constructor() {
-    addIcons({ search, logoGoogle, logoYoutube });
+    addIcons({ search, logoGoogle, logoYoutube, star, starOutline });
   }
 
   ngOnInit(): void {
@@ -190,6 +195,9 @@ export class ExplorePage implements OnInit {
 
   closeGameDetailModal(): void {
     this.isGameDetailModalOpen = false;
+    this.isRatingModalOpen = false;
+    this.ratingDraft = 3;
+    this.clearRatingOnSave = false;
     this.isLoadingDetail = false;
     this.detailErrorMessage = '';
     this.selectedGameDetail = null;
@@ -275,49 +283,74 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  async onDetailRatingChange(value: number | null | undefined): Promise<void> {
+  openDetailRatingModal(): void {
     const selected = this.selectedGameDetail;
 
     if (!this.isLibraryEntry(selected)) {
       return;
     }
 
-    const normalized = normalizeGameRating(value);
+    const currentRating = normalizeGameRating(selected.rating);
+    this.ratingDraft = currentRating ?? 3;
+    this.clearRatingOnSave = false;
+    this.isRatingModalOpen = true;
+  }
+
+  closeRatingModal(): void {
+    this.isRatingModalOpen = false;
+    this.ratingDraft = 3;
+    this.clearRatingOnSave = false;
+  }
+
+  onRatingRangeChange(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: number | null }>;
+    const rawValue = customEvent.detail.value;
+    const snappedValue =
+      typeof rawValue === 'number' && Number.isFinite(rawValue)
+        ? Math.round(rawValue * 2) / 2
+        : rawValue;
+    const normalized = normalizeGameRating(snappedValue);
 
     if (normalized === null) {
       return;
     }
 
-    try {
-      const updated = await this.gameShelfService.setGameRating(
-        selected.igdbGameId,
-        selected.platformIgdbId,
-        normalized
-      );
-      this.selectedGameDetail = updated;
-      await this.presentToast('Game rating updated.');
-    } catch {
-      await this.presentToast('Unable to update game rating.', 'danger');
-    }
+    this.ratingDraft = normalized;
+    this.clearRatingOnSave = false;
   }
 
-  async clearDetailRating(): Promise<void> {
+  markRatingForClear(): void {
+    this.clearRatingOnSave = true;
+  }
+
+  readonly formatRatingPin = (value: number): string => {
+    return this.formatRatingValue(Math.round(value * 2) / 2);
+  };
+
+  formatRatingValue(value: number): string {
+    return value.toFixed(1).replace(/\.0$/, '');
+  }
+
+  async saveDetailRatingFromModal(): Promise<void> {
     const selected = this.selectedGameDetail;
 
     if (!this.isLibraryEntry(selected)) {
       return;
     }
 
+    const nextRating = this.clearRatingOnSave ? null : this.ratingDraft;
+
     try {
       const updated = await this.gameShelfService.setGameRating(
         selected.igdbGameId,
         selected.platformIgdbId,
-        null
+        nextRating
       );
       this.selectedGameDetail = updated;
-      await this.presentToast('Game rating cleared.');
+      await this.presentToast('Game rating updated.');
+      this.closeRatingModal();
     } catch {
-      await this.presentToast('Unable to clear game rating.', 'danger');
+      await this.presentToast('Unable to update game rating.', 'danger');
     }
   }
 

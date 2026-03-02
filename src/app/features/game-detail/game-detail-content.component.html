@@ -86,50 +86,22 @@
           }
 
           @if (showLibrarySections) {
-            @if (ratingInteractionMode === 'modal') {
-              <ion-item button detail="false" (click)="editRating.emit()">
-                <ion-icon slot="start" name="star" aria-hidden="true"></ion-icon>
-                <ion-label>
-                  <h2>Rating</h2>
-                  <p>{{ ratingLabel }}</p>
-                </ion-label>
-                <ion-button
-                  slot="end"
-                  class="detail-clear-button"
-                  color="medium"
-                  aria-label="Set rating"
-                  (click)="$event.stopPropagation(); editRating.emit()"
-                >
-                  {{ ratingActionLabel }}
-                </ion-button>
-              </ion-item>
-            } @else {
-              <ion-item>
-                <ion-icon slot="start" name="star" aria-hidden="true"></ion-icon>
-                <ion-select
-                  label="Rating"
-                  labelPlacement="stacked"
-                  placeholder="Select rating"
-                  [value]="ratingValue"
-                  (ionChange)="emitRatingChange($any($event).detail.value)"
-                >
-                  @for (rating of ratingOptions; track rating) {
-                    <ion-select-option [value]="rating">
-                      {{ formatRatingValue(rating) }}
-                    </ion-select-option>
-                  }
-                </ion-select>
-                <ion-button
-                  slot="end"
-                  class="detail-clear-button"
-                  color="medium"
-                  aria-label="Clear rating"
-                  (click)="clearRating.emit()"
-                >
-                  CLEAR
-                </ion-button>
-              </ion-item>
-            }
+            <ion-item button detail="false" (click)="editRating.emit()">
+              <ion-icon slot="start" name="star" aria-hidden="true"></ion-icon>
+              <ion-label>
+                <h2>Rating</h2>
+                <p>{{ ratingLabel }}</p>
+              </ion-label>
+              <ion-button
+                slot="end"
+                class="detail-clear-button"
+                color="medium"
+                aria-label="Set rating"
+                (click)="$event.stopPropagation(); editRating.emit()"
+              >
+                {{ ratingActionLabel }}
+              </ion-button>
+            </ion-item>
           }
 
           @if (showLibrarySections) {

@@ -1250,3 +1250,9 @@
 - a87ac97 Merge branch 'main' into dependabot/docker/edge/caddy-2.11-alpine
 - ac434c0 chore(docker): bump caddy from 2.10-alpine to 2.11-alpine in /edge
 
+## v0.2.7 - 2026-03-02
+- 6b1657d Merge pull request #147 from thetigeregg/codex/429-toast
+- b406969 Fix rate-limit toast coloring
+- 9a936dd Clarify rate limit toast handling
+- 47967c4 Audit Metacritic rate handling
+

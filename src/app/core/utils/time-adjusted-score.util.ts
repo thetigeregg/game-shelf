@@ -24,9 +24,8 @@ export function calculateTimeAdjustedScore(
   const safeScore = Math.max(0, Math.min(100, normalizedScore));
   const safeHours = Math.max(0, hours);
   const safeTimePreference = Math.max(1, timePreference);
-  const lengthBonus = 1 + Math.log2(safeHours + 1);
-  const timePenalty = 1 + safeHours / safeTimePreference;
-  const value = safeScore * (lengthBonus / timePenalty);
+  const timePenalty = 1 + Math.log2(safeHours + 1) / safeTimePreference;
+  const value = safeScore / timePenalty;
 
   if (!Number.isFinite(value)) {
     return null;

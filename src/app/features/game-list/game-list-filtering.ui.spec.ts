@@ -1067,10 +1067,10 @@ describe('GameListFilteringEngine UI behavior', () => {
       20
     );
     expect(desc.map((game) => game.title)).toEqual([
-      'Moby',
-      'Main',
-      'Main+Extra',
       'Completionist',
+      'Moby',
+      'Main+Extra',
+      'Main',
       'No Hours',
       'No Score'
     ]);
@@ -1086,10 +1086,10 @@ describe('GameListFilteringEngine UI behavior', () => {
       20
     );
     expect(asc.map((game) => game.title)).toEqual([
-      'Completionist',
-      'Main+Extra',
       'Main',
+      'Main+Extra',
       'Moby',
+      'Completionist',
       'No Hours',
       'No Score'
     ]);

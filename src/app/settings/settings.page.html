@@ -96,6 +96,25 @@
       </ion-list-header>
 
       <ion-item>
+        <ion-input
+          label="Time Preference (T)"
+          labelPlacement="stacked"
+          type="number"
+          min="5"
+          max="100"
+          step="1"
+          [ngModel]="timePreference"
+          (ngModelChange)="onTimePreferenceChange($event)"
+          inputmode="numeric"
+        ></ion-input>
+      </ion-item>
+      <ion-item lines="none">
+        <ion-label color="medium">
+          Lower T favors shorter games. Higher T is more tolerant of longer games.
+        </ion-label>
+      </ion-item>
+
+      <ion-item>
         <ion-icon slot="start" color="medium" name="key"></ion-icon>
         <ion-label>
           <h2>Device Write Token</h2>

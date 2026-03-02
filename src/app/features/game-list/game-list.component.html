@@ -339,9 +339,7 @@
       <app-game-detail-content
         [game]="getDetailGamePayload(game)"
         context="library"
-        ratingInteractionMode="modal"
         [statusOptions]="statusOptions"
-        [ratingOptions]="ratingOptions"
         (statusChange)="onSelectedGameStatusChange($event)"
         (clearStatus)="clearSelectedGameStatus()"
         (editRating)="openSelectedGameRatingFromDetail()"

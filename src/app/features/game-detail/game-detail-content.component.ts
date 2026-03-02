@@ -31,7 +31,6 @@ import {
 import {
   GameCatalogResult,
   GameEntry,
-  GAME_RATING_VALUES,
   GameRating,
   GameStatus
 } from '../../core/models/game.models';
@@ -41,7 +40,6 @@ import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
-type RatingInteractionMode = 'inline-select' | 'modal';
 
 @Component({
   selector: 'app-game-detail-content',
@@ -67,9 +65,7 @@ export class GameDetailContentComponent {
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
-  @Input() ratingInteractionMode: RatingInteractionMode = 'inline-select';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
-  @Input() ratingOptions: GameRating[] = [...GAME_RATING_VALUES];
   @Input() showAddToLibraryAction = false;
   @Input() isInLibrary = false;
   @Input() isAddToLibraryLoading = false;
@@ -77,8 +73,6 @@ export class GameDetailContentComponent {
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
   @Output() editRating = new EventEmitter<void>();
-  @Output() ratingChange = new EventEmitter<number | null | undefined>();
-  @Output() clearRating = new EventEmitter<void>();
   @Output() openTags = new EventEmitter<void>();
   @Output() developerClick = new EventEmitter<void>();
   @Output() seriesClick = new EventEmitter<void>();
@@ -406,10 +400,6 @@ export class GameDetailContentComponent {
 
   emitStatusChange(value: GameStatus | null | undefined): void {
     this.statusChange.emit(value);
-  }
-
-  emitRatingChange(value: number | null | undefined): void {
-    this.ratingChange.emit(value);
   }
 
   formatRatingValue(value: number): string {

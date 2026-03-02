@@ -1,9 +1,9 @@
 import {
-  GAME_RATING_VALUES,
   GameEntry,
   GameRating,
   GameStatus,
-  Tag
+  Tag,
+  isGameRating
 } from '../../core/models/game.models';
 
 export function hasHltbData(game: GameEntry): boolean {
@@ -36,7 +36,7 @@ export function normalizeGameStatus(value: string | null | undefined): GameStatu
 export function normalizeGameRating(value: number | string | null | undefined): GameRating | null {
   const numeric = typeof value === 'number' ? value : Number.parseFloat(value ?? '');
 
-  if (GAME_RATING_VALUES.includes(numeric as GameRating)) {
+  if (isGameRating(numeric)) {
     return numeric;
   }
 

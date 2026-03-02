@@ -1,4 +1,4 @@
-import { GAME_RATING_VALUES } from '../core/models/game.models';
+import { isGameRating } from '../core/models/game.models';
 import type {
   GameCatalogResult,
   GameGroupByField,
@@ -204,7 +204,7 @@ export function normalizeRating(value: string): GameRating | null {
 
   const parsed = Number.parseFloat(normalized);
 
-  if (GAME_RATING_VALUES.includes(parsed as GameRating)) {
+  if (isGameRating(parsed)) {
     return parsed;
   }
 

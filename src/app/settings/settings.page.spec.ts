@@ -68,6 +68,7 @@ import { PlatformOrderService } from '../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
+import { TimePreferenceService } from '../core/services/time-preference.service';
 
 type PrivateSettingsPage = SettingsPage & Record<string, (...args: unknown[]) => unknown>;
 
@@ -130,14 +131,28 @@ describe('SettingsPage CSV review fields', () => {
     listTags: ReturnType<typeof vi.fn>;
     listViews: ReturnType<typeof vi.fn>;
   };
+  let timePreference = 20;
+  let timePreferenceServiceMock: {
+    getTimePreference: ReturnType<typeof vi.fn>;
+    setTimePreference: ReturnType<typeof vi.fn>;
+    refreshFromStorage: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     localStorage.clear();
+    timePreference = 20;
 
     repositoryMock = {
       listAll: vi.fn().mockResolvedValue([] as GameEntry[]),
       listTags: vi.fn().mockResolvedValue([] as Tag[]),
       listViews: vi.fn().mockResolvedValue([] as GameListView[])
+    };
+    timePreferenceServiceMock = {
+      getTimePreference: vi.fn().mockImplementation(() => timePreference),
+      setTimePreference: vi.fn().mockImplementation((value: number) => {
+        timePreference = Math.max(5, Math.min(Math.round(value), 100));
+      }),
+      refreshFromStorage: vi.fn().mockImplementation(() => {})
     };
 
     TestBed.configureTestingModule({
@@ -203,6 +218,10 @@ describe('SettingsPage CSV review fields', () => {
           useValue: {
             hasToken: vi.fn().mockReturnValue(false)
           }
+        },
+        {
+          provide: TimePreferenceService,
+          useValue: timePreferenceServiceMock
         }
       ]
     });
@@ -434,5 +453,17 @@ describe('SettingsPage CSV review fields', () => {
     expect(headerLine).toContain('mobyScore');
     expect(headerLine).toContain('mobygamesGameId');
     expect(gameLine).toContain(',mobygames,8.6,4501,');
+  });
+
+  it('loads time preference from service and persists updates', () => {
+    const page = createPage();
+    expect(page.timePreference).toBe(20);
+
+    page.onTimePreferenceChange('42');
+    expect(timePreferenceServiceMock.setTimePreference).toHaveBeenCalledWith(42);
+    expect(page.timePreference).toBe(42);
+
+    page.onTimePreferenceChange('bad');
+    expect(page.timePreference).toBe(42);
   });
 });

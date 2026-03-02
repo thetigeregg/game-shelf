@@ -47,6 +47,8 @@ type SortOption =
   | 'createdAt:desc'
   | 'hltb:asc'
   | 'hltb:desc'
+  | 'tas:asc'
+  | 'tas:desc'
   | 'review:asc'
   | 'review:desc'
   | 'metacritic:asc'
@@ -475,6 +477,8 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'createdAt:desc' ||
       value === 'hltb:asc' ||
       value === 'hltb:desc' ||
+      value === 'tas:asc' ||
+      value === 'tas:desc' ||
       value === 'review:asc' ||
       value === 'review:desc' ||
       value === 'metacritic:asc' ||

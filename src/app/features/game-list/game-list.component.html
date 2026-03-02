@@ -91,7 +91,7 @@
       @if (getRating(game); as rating) {
         <div class="rating-indicator">
           <ion-icon name="star" aria-hidden="true"></ion-icon>
-          <span>{{ rating.toFixed(1) }}</span>
+          <span>{{ formatRatingValue(rating) }}</span>
         </div>
       }
       @if (getRowHltbHoursLabel(game); as mainHours) {

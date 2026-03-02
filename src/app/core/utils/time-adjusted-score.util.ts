@@ -93,7 +93,7 @@ export function resolveNormalizedCriticScoreForGame(game: GameEntry): number | n
 }
 
 function normalizeHoursCandidate(value: number | null | undefined): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     return null;
   }
 

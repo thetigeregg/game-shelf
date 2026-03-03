@@ -53,9 +53,6 @@ import {
   IonRange,
   IonNote,
   IonThumbnail,
-  IonFab,
-  IonFabButton,
-  IonFabList,
   IonInput,
   IonMenu,
   IonSplitPane
@@ -124,6 +121,7 @@ import {
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
+import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import {
   MetadataFilterKind,
@@ -215,16 +213,14 @@ type NotesToolbarAction =
     IonRange,
     IonNote,
     IonThumbnail,
-    IonFab,
-    IonFabButton,
-    IonFabList,
     IonInput,
     IonMenu,
     IonSplitPane,
     TiptapEditorDirective,
     AutoContentOffsetsDirective,
     GameSearchComponent,
-    GameDetailContentComponent
+    GameDetailContentComponent,
+    DetailShortcutsFabComponent
   ]
 })
 export class GameListComponent implements OnChanges, OnDestroy {
@@ -379,7 +375,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly searchQuery$ = new BehaviorSubject<string>('');
   private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
   @ViewChild('detailContent') private detailContent?: IonContent;
-  @ViewChild('detailShortcutsFab') private detailShortcutsFab?: IonFab;
   @ViewChild(CdkVirtualScrollViewport) private listViewport?: CdkVirtualScrollViewport;
   @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('gameDetailModal', { read: ElementRef })
@@ -955,9 +950,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   closeDetailShortcutsFab(): void {
-    if (this.detailShortcutsFab) {
-      this.detailShortcutsFab.activated = false;
-    }
+    // No-op hook retained for shared shortcut-fab click handler.
   }
 
   get shouldShowNotesShortcut(): boolean {

@@ -352,7 +352,7 @@
       >
         <ion-list lines="full" detail-secondary-content>
           <ion-list-header class="similar-games-header">
-            <ion-label>Similar Games In Your Library</ion-label>
+            <ion-label>More Like This</ion-label>
           </ion-list-header>
           @if (isSimilarLibraryGamesLoading) {
             <ion-item>
@@ -362,7 +362,7 @@
           }
           @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length === 0) {
             <ion-item>
-              <ion-label color="medium">No similar games found in your library.</ion-label>
+              <ion-label color="medium">No similar recommendations available.</ion-label>
             </ion-item>
           }
           @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {

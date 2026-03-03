@@ -13,7 +13,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--ion-color-light);
 }
 
 .explore-cover-image {
@@ -32,7 +31,7 @@ ion-label p {
 }
 
 .recommendation-headline {
-  margin-top: 4px;
+  margin-block: 8px;
   color: var(--ion-color-medium);
   font-size: 0.85rem;
 }
@@ -47,6 +46,12 @@ ion-label p {
 .recommendation-chips ion-chip {
   margin: 0;
   font-size: 0.7rem;
+}
+
+.recommendation-chips ion-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin: 0;
 }
 
 .detail-shortcuts-fab {

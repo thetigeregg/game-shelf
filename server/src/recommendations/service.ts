@@ -94,7 +94,12 @@ export interface RecommendationServiceApi {
     runtimeMode: RecommendationRuntimeMode;
     lanes: RecommendationLaneCollection;
   } | null>;
-  getSimilarGames(params: { igdbGameId: string; platformIgdbId: number; limit: number }): Promise<
+  getSimilarGames(params: {
+    igdbGameId: string;
+    platformIgdbId: number;
+    target: RecommendationTarget;
+    limit: number;
+  }): Promise<
     Array<{
       igdbGameId: string;
       platformIgdbId: number;
@@ -326,6 +331,7 @@ export class RecommendationService implements RecommendationServiceApi {
   async getSimilarGames(params: {
     igdbGameId: string;
     platformIgdbId: number;
+    target: RecommendationTarget;
     limit: number;
   }): Promise<
     Array<{
@@ -339,6 +345,7 @@ export class RecommendationService implements RecommendationServiceApi {
     const rows = await this.repository.readSimilarGames({
       igdbGameId: params.igdbGameId,
       platformIgdbId: params.platformIgdbId,
+      target: params.target,
       limit: safeLimit
     });
 

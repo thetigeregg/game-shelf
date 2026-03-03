@@ -4,6 +4,7 @@ import { parseRecommendationRuntimeMode } from './runtime.js';
 import { buildGameKey } from './semantic.js';
 import {
   GameEmbeddingUpsertInput,
+  GameStatus,
   NormalizedGameRecord,
   RankedRecommendationItem,
   RecommendationHistoryEntry,
@@ -449,6 +450,7 @@ export class RecommendationRepository {
   async readSimilarGames(params: {
     igdbGameId: string;
     platformIgdbId: number;
+    target: RecommendationTarget;
     limit: number;
   }): Promise<
     Array<{
@@ -458,15 +460,27 @@ export class RecommendationRepository {
       reasons: SimilarityEdge['reasons'];
     }>
   > {
+    const statusFilter = buildStatusFilterForTarget(params.target);
     const result = await this.pool.query<SimilarityRow>(
       `
       SELECT similar_igdb_game_id, similar_platform_igdb_id, similarity, reasons
       FROM game_similarity
+      INNER JOIN games
+        ON games.igdb_game_id = game_similarity.similar_igdb_game_id
+       AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
       WHERE source_igdb_game_id = $1 AND source_platform_igdb_id = $2
+        AND COALESCE(games.payload->>'listType', '') = $3
+        AND COALESCE(games.payload->>'status', '') <> ALL($4::text[])
       ORDER BY similarity DESC
-      LIMIT $3
+      LIMIT $5
       `,
-      [params.igdbGameId, params.platformIgdbId, params.limit]
+      [
+        params.igdbGameId,
+        params.platformIgdbId,
+        statusFilter.listType,
+        statusFilter.excludedStatuses,
+        params.limit
+      ]
     );
 
     return result.rows.map((row) => ({
@@ -585,6 +599,23 @@ export class RecommendationRepository {
 
     return map;
   }
+}
+
+function buildStatusFilterForTarget(target: RecommendationTarget): {
+  listType: 'collection' | 'wishlist';
+  excludedStatuses: Array<GameStatus | ''>;
+} {
+  if (target === 'BACKLOG') {
+    return {
+      listType: 'collection',
+      excludedStatuses: ['completed', 'dropped', 'playing', 'paused', 'replay']
+    };
+  }
+
+  return {
+    listType: 'wishlist',
+    excludedStatuses: ['completed', 'dropped']
+  };
 }
 
 function mapRunSummary(row: RunRow): RecommendationRunSummary {

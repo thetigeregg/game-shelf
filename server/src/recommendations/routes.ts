@@ -169,7 +169,11 @@ export function registerRecommendationRoutes(
     },
     handler: async (request, reply) => {
       const params = request.params as { igdbGameId?: unknown };
-      const query = request.query as { platformIgdbId?: unknown; limit?: unknown };
+      const query = request.query as {
+        target?: unknown;
+        platformIgdbId?: unknown;
+        limit?: unknown;
+      };
       const igdbGameId = typeof params.igdbGameId === 'string' ? params.igdbGameId.trim() : '';
 
       if (!/^\d+$/.test(igdbGameId)) {
@@ -186,10 +190,17 @@ export function registerRecommendationRoutes(
         return;
       }
 
+      const target = parseRecommendationTarget(query.target);
+      if (!target) {
+        reply.code(400).send({ error: 'Query parameter target must be BACKLOG or WISHLIST.' });
+        return;
+      }
+
       const limit = parsePositiveInteger(query.limit) ?? 20;
       const items = await service.getSimilarGames({
         igdbGameId,
         platformIgdbId,
+        target,
         limit
       });
 

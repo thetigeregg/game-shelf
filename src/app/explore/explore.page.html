@@ -106,12 +106,17 @@
             </ion-item>
 
             @if (hasExplanationDetails(item)) {
-              <ion-accordion-group>
+              <ion-accordion-group class="recommendation-accordion">
                 <ion-accordion value="why">
-                  <ion-item slot="header" lines="full" color="light">
+                  <ion-item
+                    slot="header"
+                    lines="full"
+                    color="light"
+                    class="recommendation-accordion-header"
+                  >
                     <ion-label>Why this?</ion-label>
                   </ion-item>
-                  <div slot="content">
+                  <div slot="content" class="recommendation-details">
                     @for (
                       bullet of getExplanationBullets(item);
                       track bullet.label + bullet.delta

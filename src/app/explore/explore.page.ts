@@ -414,6 +414,24 @@ export class ExplorePage implements OnInit {
       }));
   }
 
+  getHeadlineLines(headline: string | null | undefined): string[] {
+    if (typeof headline !== 'string') {
+      return [];
+    }
+
+    const normalized = headline.trim();
+    if (normalized.length === 0) {
+      return [];
+    }
+
+    const lines = normalized
+      .split(/\s*[•;|]\s*/g)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    return lines.length > 0 ? lines : [normalized];
+  }
+
   trackByRecommendationKey(_: number, item: RecommendationItem): string {
     return `${item.igdbGameId}:${String(item.platformIgdbId)}`;
   }

@@ -86,7 +86,7 @@ services:
 
   postgres:
     container_name: gameshelf-postgres
-    image: postgres:16-alpine
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
     environment:
       TZ: ${TZ:-Europe/Zurich}
       PGTZ: ${TZ:-Europe/Zurich}

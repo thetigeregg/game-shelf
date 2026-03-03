@@ -20,6 +20,7 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-api:main`
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-backup:main`
+   - Postgres image defaults to `pgvector/pgvector:pg16` (override with `POSTGRES_IMAGE` if needed)
 3. In Portainer, add a registry credential for `ghcr.io`:
    - Username: your GitHub username
    - Password/token: GitHub PAT with `read:packages` (and `repo` if repo/packages are private)

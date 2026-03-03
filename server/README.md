@@ -62,6 +62,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `HLTB_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/hltb_scraper_token`)
 - `METACRITIC_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/metacritic_scraper_token`)
 - `MOBYGAMES_API_KEY_FILE` (defaults to `/run/secrets/mobygames_api_key`)
+- `OPENAI_API_KEY_FILE` (defaults to `/run/secrets/openai_api_key`) for semantic recommendation embeddings
 
 ### Non-secret env vars (metadata/caching/rate limit)
 

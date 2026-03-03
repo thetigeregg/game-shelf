@@ -33,6 +33,7 @@ Required app secrets (one secret per file):
 - `twitch_client_secret`
 - `thegamesdb_api_key`
 - `hltb_scraper_token` (optional)
+- `openai_api_key` (required for semantic recommendation embeddings)
 - `postgres_user`
 - `postgres_password`
 
@@ -50,6 +51,7 @@ Common stack env vars:
 - `TWITCH_CLIENT_ID_FILE`
 - `TWITCH_CLIENT_SECRET_FILE`
 - `THEGAMESDB_API_KEY_FILE`
+- `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
 - `PGUSER_FILE` (backup service DB user)
@@ -110,6 +112,7 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/twitch_client_secret`
 - `/volume1/docker/secrets/gameshelf/thegamesdb_api_key`
 - `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
+- `/volume1/docker/secrets/gameshelf/openai_api_key` (required for semantic recommendation embeddings)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
 - `/volume1/docker/secrets/gameshelf/postgres_password`
 
@@ -159,6 +162,7 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/hltb_scraper_token` (optional)
 `nas-secrets/metacritic_scraper_token` (optional)
 `nas-secrets/mobygames_api_key` (required for MobyGames review lookups)
+`nas-secrets/openai_api_key` (required for semantic recommendation embeddings)
 
 2. Create local non-secret env file:
 

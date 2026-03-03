@@ -20,8 +20,8 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-api:main`
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-backup:main`
-   - Postgres image defaults to `pgvector/pgvector:pg16` for convenience.
-     For production, set `POSTGRES_IMAGE` to an immutable digest-pinned reference (for example `pgvector/pgvector:pg16@sha256:<digest>`).
+   - Postgres image defaults to immutable digest-pinned `pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff`.
+     Set `POSTGRES_IMAGE` only when you explicitly want to override this pin.
 3. In Portainer, add a registry credential for `ghcr.io`:
    - Username: your GitHub username
    - Password/token: GitHub PAT with `read:packages` (and `repo` if repo/packages are private)
@@ -56,7 +56,7 @@ Common stack env vars:
 - `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
-- `POSTGRES_IMAGE` (recommended in production: digest-pinned `pgvector/pgvector` image, not a mutable tag)
+- `POSTGRES_IMAGE` (optional override; keep digest-pinned reference to avoid mutable-tag supply-chain risk)
 - `PGUSER_FILE` (backup service DB user)
 - `PGPASSWORD_FILE` (backup service DB password)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)

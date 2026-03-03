@@ -123,6 +123,7 @@ import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
+import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import {
   MetadataFilterKind,
@@ -221,7 +222,8 @@ type NotesToolbarAction =
     AutoContentOffsetsDirective,
     GameSearchComponent,
     GameDetailContentComponent,
-    DetailShortcutsFabComponent
+    DetailShortcutsFabComponent,
+    SimilarGameRowComponent
   ]
 })
 export class GameListComponent implements OnChanges, OnDestroy {
@@ -3103,6 +3105,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private getRecommendationTargetForListType(): RecommendationTarget {
     return this.listType === 'collection' ? 'BACKLOG' : 'WISHLIST';
+  }
+
+  getSimilarGameSubtitle(game: GameEntry): string {
+    const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
+    const displayPlatform = this.getGameDisplayPlatform(game);
+    const platform = this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
+    return `${year} · ${platform}`;
   }
 
   getGameDisplayTitle(game: GameEntry): string {

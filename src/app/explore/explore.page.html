@@ -206,23 +206,14 @@
                 similar of similarRecommendationItems;
                 track similar.igdbGameId + ':' + similar.platformIgdbId
               ) {
-                <ng-container
-                  *ngTemplateOutlet="
-                    recommendationRowTemplate;
-                    context: {
-                      title: getSimilarTitle(similar),
-                      coverUrl: getSimilarCoverUrl(similar),
-                      platformLabel: getSimilarContext(similar),
-                      year: null,
-                      badges: getSimilarReasonBadges(similar),
-                      headline: similar.reasons.summary,
-                      bullets: [],
-                      showWhyThis: false,
-                      kind: 'similar',
-                      row: similar
-                    }
-                  "
-                ></ng-container>
+                <app-similar-game-row
+                  [title]="getSimilarTitle(similar)"
+                  [coverUrl]="getSimilarCoverUrl(similar)"
+                  [subtitle]="getSimilarContext(similar)"
+                  [badges]="getSimilarReasonBadges(similar)"
+                  [headline]="similar.reasons.summary"
+                  (rowClick)="openSimilarRecommendation(similar)"
+                ></app-similar-game-row>
               }
             </ion-list>
           }

@@ -370,12 +370,12 @@
               similarGame of similarLibraryGames;
               track trackByExternalId($index, similarGame)
             ) {
-              <ng-container
-                *ngTemplateOutlet="
-                  gameRowTemplate;
-                  context: { $implicit: similarGame, fromSimilarDetailSection: true }
-                "
-              ></ng-container>
+              <app-similar-game-row
+                [title]="getGameDisplayTitle(similarGame)"
+                [coverUrl]="getRowCoverUrl(similarGame)"
+                [subtitle]="getSimilarGameSubtitle(similarGame)"
+                (rowClick)="onGameRowClick(similarGame, true)"
+              ></app-similar-game-row>
             }
           }
         </ion-list>

@@ -697,6 +697,7 @@ export class RecommendationRepository {
         ON games.igdb_game_id = game_similarity.similar_igdb_game_id
        AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
       WHERE source_igdb_game_id = $1 AND source_platform_igdb_id = $2
+        AND similar_igdb_game_id <> $1
         AND COALESCE(games.payload->>'listType', '') = $3
         AND COALESCE(games.payload->>'status', '') = ANY($4::text[])
       ORDER BY similarity DESC

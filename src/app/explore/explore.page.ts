@@ -1155,13 +1155,7 @@ export class ExplorePage implements OnInit {
         })
       );
 
-      this.similarRecommendationItems = response.items.filter(
-        (candidate) =>
-          !(
-            candidate.igdbGameId === item.igdbGameId &&
-            candidate.platformIgdbId === item.platformIgdbId
-          )
-      );
+      this.similarRecommendationItems = response.items;
       await this.ensureSimilarDisplayMetadata(this.similarRecommendationItems);
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);

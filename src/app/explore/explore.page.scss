@@ -86,6 +86,10 @@ ion-label p:not(.recommendation-headline) {
   color: var(--ion-color-medium);
 }
 
+.recommendation-detail-delta {
+  font-weight: 700;
+}
+
 ion-accordion-group > ion-accordion:last-of-type ion-item[slot='header'] {
   --border-width: 0 0 0.55px 0;
 }

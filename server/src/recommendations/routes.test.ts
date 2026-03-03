@@ -188,14 +188,21 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
 
   const invalid = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123'
+    url: '/v1/recommendations/similar/123?target=BACKLOG'
   });
 
   assert.equal(invalid.statusCode, 400);
 
+  const invalidTarget = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/similar/123?platformIgdbId=6'
+  });
+
+  assert.equal(invalidTarget.statusCode, 400);
+
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?platformIgdbId=6&limit=5'
+    url: '/v1/recommendations/similar/123?target=BACKLOG&platformIgdbId=6&limit=5'
   });
 
   assert.equal(response.statusCode, 200);

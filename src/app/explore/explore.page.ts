@@ -47,6 +47,7 @@ import {
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
+import { SimilarGameRowComponent } from '../features/game-detail/similar-game-row.component';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import {
@@ -118,7 +119,8 @@ interface RecommendationDisplayMetadata {
     IonAccordionGroup,
     NgTemplateOutlet,
     GameDetailContentComponent,
-    DetailShortcutsFabComponent
+    DetailShortcutsFabComponent,
+    SimilarGameRowComponent
   ]
 })
 export class ExplorePage implements OnInit {

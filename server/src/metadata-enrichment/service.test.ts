@@ -143,12 +143,13 @@ void test('metadata enrichment tolerates failed batches and still updates succes
   const summary = await service.runOnce();
   assert.ok(summary);
   assert.equal(summary.failedBatches, 1);
-  assert.equal(summary.updatedRows, 2);
+  assert.equal(summary.updatedRows, 1);
+  assert.equal(summary.skippedRows, 1);
 
   const gameOne = repository.updates.find((entry) => entry.igdbGameId === '1');
   const gameTwo = repository.updates.find((entry) => entry.igdbGameId === '2');
   assert.deepEqual(gameOne?.payload['themes'], ['T1']);
-  assert.deepEqual(gameTwo?.payload['themes'], []);
+  assert.equal(gameTwo, undefined);
 });
 
 void test('metadata enrichment is idempotent on rerun', async () => {

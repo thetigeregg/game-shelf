@@ -113,12 +113,16 @@ function mergeMetadataIntoPayload(
   row: MetadataEnrichmentGameRow,
   metadata: IgdbMetadataRecord | undefined
 ): Record<string, unknown> {
+  if (!metadata) {
+    return row.payload;
+  }
+
   return {
     ...row.payload,
-    themes: metadata?.themes ?? [],
-    themeIds: metadata?.themeIds ?? [],
-    keywords: metadata?.keywords ?? [],
-    keywordIds: metadata?.keywordIds ?? []
+    themes: metadata.themes,
+    themeIds: metadata.themeIds,
+    keywords: metadata.keywords,
+    keywordIds: metadata.keywordIds
   };
 }
 

@@ -94,7 +94,7 @@
       </ion-list>
       <ion-infinite-scroll
         [disabled]="!canLoadMoreRecommendations()"
-        threshold="96px"
+        threshold="15px"
         (ionInfinite)="loadMoreRecommendations($event)"
       >
         <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
@@ -225,7 +225,7 @@
             </ion-list>
             <ion-infinite-scroll
               [disabled]="!canLoadMoreSimilarRecommendations()"
-              threshold="96px"
+              threshold="15px"
               (ionInfinite)="loadMoreSimilarRecommendations($event)"
             >
               <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>

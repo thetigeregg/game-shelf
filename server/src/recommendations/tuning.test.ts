@@ -53,3 +53,32 @@ void test('tuneRecommendationWeights falls back when sample is too small', () =>
 
   assert.deepEqual(tuned, defaults);
 });
+
+void test('tuneRecommendationWeights preserves mobygames 0-100 critic variance', () => {
+  const defaults = {
+    tasteWeight: 1,
+    semanticWeight: 2,
+    criticWeight: 1,
+    runtimeWeight: 1
+  };
+
+  const games: NormalizedGameRecord[] = [
+    buildGame({ igdbGameId: 'g1', rating: 5, reviewScore: 90, reviewSource: 'mobygames' }),
+    buildGame({ igdbGameId: 'g2', rating: 4.5, reviewScore: 85, reviewSource: 'mobygames' }),
+    buildGame({ igdbGameId: 'g3', rating: 4, reviewScore: 80, reviewSource: 'mobygames' }),
+    buildGame({ igdbGameId: 'g4', rating: 3.5, reviewScore: 70, reviewSource: 'mobygames' }),
+    buildGame({ igdbGameId: 'g5', rating: 3, reviewScore: 60, reviewSource: 'mobygames' }),
+    buildGame({ igdbGameId: 'g6', rating: 2.5, reviewScore: 50, reviewSource: 'mobygames' }),
+    buildGame({ igdbGameId: 'g7', rating: 2, reviewScore: 40, reviewSource: 'mobygames' }),
+    buildGame({ igdbGameId: 'g8', rating: 1.5, reviewScore: 30, reviewSource: 'mobygames' })
+  ];
+
+  const tuned = tuneRecommendationWeights({
+    games,
+    semanticSimilarityByGame: new Map(),
+    minimumRated: 8,
+    defaults
+  });
+
+  assert.equal(tuned.criticWeight > 0, true);
+});

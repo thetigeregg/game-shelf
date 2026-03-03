@@ -168,7 +168,10 @@ function buildBaseScore(params: {
     tunedWeights.semanticWeight
   );
   const runtimeFit = evaluateRuntimeFit(game, runtimeMode, tunedWeights.runtimeWeight);
-  const exploration = evaluateExploration(semantic, explorationWeight);
+  const exploration = evaluateExploration(
+    semanticSimilarityByGame.get(buildGameKey(game.igdbGameId, game.platformIgdbId)) ?? 0,
+    explorationWeight
+  );
   const historyKey = buildGameKey(game.igdbGameId, game.platformIgdbId);
   const recommendationCount = historyByGame.get(historyKey)?.recommendationCount ?? 0;
 
@@ -253,9 +256,9 @@ function evaluateRuntimeFit(
   return clamp(scoreRuntimeFit(game.runtimeHours, runtimeMode) * runtimeWeight, -2, 2);
 }
 
-function evaluateExploration(semanticScore: number, explorationWeight: number): number {
+function evaluateExploration(semanticSimilarity: number, explorationWeight: number): number {
   const boundedWeight = Number.isFinite(explorationWeight) ? Math.max(0, explorationWeight) : 0;
-  const similarity01 = (clampSemanticScore(semanticScore) + 1) / 2;
+  const similarity01 = (clampSemanticScore(semanticSimilarity) + 1) / 2;
   return clamp((1 - similarity01) * boundedWeight, 0, 1.5);
 }
 
@@ -275,7 +278,16 @@ function normalizeCriticScore(game: NormalizedGameRecord): number | null {
   const metacriticScore = game.metacriticScore;
 
   if (typeof reviewScore === 'number' && Number.isFinite(reviewScore)) {
-    if (game.reviewSource === 'mobygames' || reviewScore <= 10) {
+    if (game.reviewSource === 'mobygames') {
+      if (reviewScore > 0 && reviewScore <= 10) {
+        const scaled = reviewScore * 10;
+        return scaled > 0 && scaled <= 100 ? scaled : null;
+      }
+
+      return reviewScore > 0 && reviewScore <= 100 ? reviewScore : null;
+    }
+
+    if (reviewScore <= 10) {
       const scaled = reviewScore * 10;
       return scaled > 0 && scaled <= 100 ? scaled : null;
     }

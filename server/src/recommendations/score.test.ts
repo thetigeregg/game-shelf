@@ -135,3 +135,77 @@ void test('cold start disables taste contribution when rated games are fewer tha
   assert.equal(ranked[0]?.components.semantic, 0.4);
   assert.equal(ranked[0]?.components.repeatPenalty, -0.6);
 });
+
+void test('critic boost handles mobygames reviewScore values on 0-100 scale', () => {
+  const history: NormalizedGameRecord[] = [
+    buildGame({ igdbGameId: 'h1', rating: 5, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h2', rating: 4.5, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h3', rating: 4, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h4', rating: 3.5, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h5', rating: 3, genres: ['RPG'] })
+  ];
+  const candidates: NormalizedGameRecord[] = [
+    buildGame({
+      igdbGameId: 'c1',
+      status: 'wantToPlay',
+      reviewScore: 87,
+      reviewSource: 'mobygames',
+      mobyScore: 8.7
+    })
+  ];
+
+  const ranked = buildRankedScores({
+    candidates,
+    profile: buildPreferenceProfile([...history, ...candidates]),
+    target: 'BACKLOG',
+    runtimeMode: 'NEUTRAL',
+    limit: 20,
+    semanticSimilarityByGame: new Map(),
+    tunedWeights: {
+      tasteWeight: 1,
+      semanticWeight: 2,
+      criticWeight: 1,
+      runtimeWeight: 1
+    },
+    explorationWeight: 0.3,
+    diversityPenaltyWeight: 0.5,
+    repeatPenaltyStep: 0.2,
+    historyByGame: new Map()
+  });
+
+  assert.equal((ranked[0]?.components.criticBoost ?? 0) > 0, true);
+});
+
+void test('exploration uses raw semantic similarity, not weighted semantic score', () => {
+  const history: NormalizedGameRecord[] = [
+    buildGame({ igdbGameId: 'h1', rating: 5, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h2', rating: 4.5, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h3', rating: 4, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h4', rating: 3.5, genres: ['RPG'] }),
+    buildGame({ igdbGameId: 'h5', rating: 3, genres: ['RPG'] })
+  ];
+  const candidates: NormalizedGameRecord[] = [
+    buildGame({ igdbGameId: 'c1', status: 'wantToPlay' })
+  ];
+
+  const ranked = buildRankedScores({
+    candidates,
+    profile: buildPreferenceProfile([...history, ...candidates]),
+    target: 'BACKLOG',
+    runtimeMode: 'NEUTRAL',
+    limit: 20,
+    semanticSimilarityByGame: new Map([['c1::1', 0.7]]),
+    tunedWeights: {
+      tasteWeight: 1,
+      semanticWeight: 2,
+      criticWeight: 1,
+      runtimeWeight: 1
+    },
+    explorationWeight: 0.3,
+    diversityPenaltyWeight: 0.5,
+    repeatPenaltyStep: 0.2,
+    historyByGame: new Map()
+  });
+
+  assert.equal(ranked[0]?.components.exploration, 0.045);
+});

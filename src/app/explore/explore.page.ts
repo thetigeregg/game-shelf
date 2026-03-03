@@ -61,6 +61,7 @@ import {
   logoGoogle,
   logoYoutube,
   search,
+  sparkles,
   star,
   starOutline,
   time
@@ -68,6 +69,11 @@ import {
 
 interface RecommendationApiError extends Error {
   code?: string;
+}
+
+interface RecommendationBadge {
+  text: string;
+  color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
 }
 
 @Component({
@@ -172,7 +178,8 @@ export class ExplorePage implements OnInit {
       starOutline,
       library,
       time,
-      compass
+      compass,
+      sparkles
     });
   }
 
@@ -280,15 +287,17 @@ export class ExplorePage implements OnInit {
     return local.customCoverUrl ?? local.coverUrl ?? 'assets/icon/placeholder.png';
   }
 
-  getScoreBadges(item: RecommendationItem): string[] {
-    const badges: string[] = [`Score ${item.scoreTotal.toFixed(2)}`];
+  getScoreBadges(item: RecommendationItem): RecommendationBadge[] {
+    const badges: RecommendationBadge[] = [
+      { text: `Score ${item.scoreTotal.toFixed(2)}`, color: 'primary' }
+    ];
     const components = item.scoreComponents;
-    const candidates: Array<{ key: string; value: number }> = [
-      { key: 'Taste', value: components.taste },
-      { key: 'Semantic', value: components.semantic },
-      { key: 'Runtime', value: components.runtimeFit },
-      { key: 'Critic', value: components.criticBoost },
-      { key: 'Exploration', value: components.exploration }
+    const candidates: Array<{ key: string; value: number; color: RecommendationBadge['color'] }> = [
+      { key: 'Taste', value: components.taste, color: 'success' },
+      { key: 'Semantic', value: components.semantic, color: 'tertiary' },
+      { key: 'Runtime', value: components.runtimeFit, color: 'medium' },
+      { key: 'Critic', value: components.criticBoost, color: 'warning' },
+      { key: 'Exploration', value: components.exploration, color: 'secondary' }
     ];
 
     for (const candidate of candidates) {
@@ -296,7 +305,10 @@ export class ExplorePage implements OnInit {
         continue;
       }
 
-      badges.push(`${candidate.key} ${candidate.value.toFixed(2)}`);
+      badges.push({
+        text: `${candidate.key} ${candidate.value.toFixed(2)}`,
+        color: candidate.color
+      });
 
       if (badges.length >= 4) {
         break;
@@ -306,7 +318,7 @@ export class ExplorePage implements OnInit {
     return badges;
   }
 
-  getConfidenceBadge(item: RecommendationItem): string {
+  getConfidenceBadge(item: RecommendationItem): RecommendationBadge {
     const positiveSignal =
       Math.max(0, item.scoreComponents.taste) +
       Math.max(0, item.scoreComponents.semantic) +
@@ -317,31 +329,31 @@ export class ExplorePage implements OnInit {
     const netSignal = positiveSignal - penalties;
 
     if (netSignal >= 2.5) {
-      return 'Confidence High';
+      return { text: 'Confidence High', color: 'success' };
     }
 
     if (netSignal >= 1.2) {
-      return 'Confidence Medium';
+      return { text: 'Confidence Medium', color: 'warning' };
     }
 
-    return 'Confidence Exploratory';
+    return { text: 'Confidence Exploratory', color: 'medium' };
   }
 
-  getRationaleBadges(item: RecommendationItem): string[] {
+  getRationaleBadges(item: RecommendationItem): RecommendationBadge[] {
     const tokens = item.explanations.matchedTokens;
-    const badges: string[] = [];
-    const addFamily = (label: string, values: string[]) => {
+    const badges: RecommendationBadge[] = [];
+    const addFamily = (label: string, values: string[], color: RecommendationBadge['color']) => {
       for (const value of values.slice(0, 2)) {
-        badges.push(`${label}: ${value}`);
+        badges.push({ text: `${label}: ${value}`, color });
         if (badges.length >= 4) {
           return;
         }
       }
     };
 
-    addFamily('Theme', tokens.themes);
-    addFamily('Keyword', tokens.keywords);
-    addFamily('Genre', tokens.genres);
+    addFamily('Theme', tokens.themes, 'secondary');
+    addFamily('Keyword', tokens.keywords, 'tertiary');
+    addFamily('Genre', tokens.genres, 'light');
 
     return badges;
   }
@@ -361,6 +373,18 @@ export class ExplorePage implements OnInit {
     }
 
     return 'Overall balances taste, semantic fit, runtime mode, and diversity penalties.';
+  }
+
+  getEmptyStateLaneIcon(): string {
+    if (this.selectedLaneKey === 'hiddenGems') {
+      return 'sparkles';
+    }
+
+    if (this.selectedLaneKey === 'exploration') {
+      return 'compass';
+    }
+
+    return 'library';
   }
 
   hasExplanationDetails(item: RecommendationItem): boolean {
@@ -804,11 +828,19 @@ export class ExplorePage implements OnInit {
     return `${platform} • ${String(local.releaseYear)}`;
   }
 
-  getSimilarReasonBadges(item: RecommendationSimilarItem): string[] {
-    const badges = [`Blend ${item.similarity.toFixed(2)}`];
-    const tokenBadges = [
-      ...item.reasons.sharedTokens.themes.map((value) => `Theme: ${value}`),
-      ...item.reasons.sharedTokens.keywords.map((value) => `Keyword: ${value}`)
+  getSimilarReasonBadges(item: RecommendationSimilarItem): RecommendationBadge[] {
+    const badges: RecommendationBadge[] = [
+      { text: `Blend ${item.similarity.toFixed(2)}`, color: 'primary' }
+    ];
+    const tokenBadges: RecommendationBadge[] = [
+      ...item.reasons.sharedTokens.themes.map((value) => ({
+        text: `Theme: ${value}`,
+        color: 'secondary' as const
+      })),
+      ...item.reasons.sharedTokens.keywords.map((value) => ({
+        text: `Keyword: ${value}`,
+        color: 'tertiary' as const
+      }))
     ].slice(0, 2);
 
     badges.push(...tokenBadges);

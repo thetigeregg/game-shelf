@@ -67,3 +67,39 @@ void test('similarity graph stores only top K entries per source', () => {
   assert.deepEqual(sourceOne[0].reasons.sharedTokens.themes, []);
   assert.deepEqual(sourceOne[0].reasons.sharedTokens.keywords, []);
 });
+
+void test('similarity graph excludes same game across different platforms', () => {
+  const games: NormalizedGameRecord[] = [
+    buildGame({
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      title: 'Game One (PC)',
+      collections: ['Series A']
+    }),
+    buildGame({
+      igdbGameId: '1',
+      platformIgdbId: 48,
+      title: 'Game One (PS5)',
+      collections: ['Series A']
+    }),
+    buildGame({
+      igdbGameId: '2',
+      platformIgdbId: 6,
+      title: 'Game Two',
+      collections: ['Series A']
+    })
+  ];
+
+  const edges = buildSimilarityGraph({ games, topK: 5 });
+
+  assert.equal(
+    edges.some(
+      (edge) =>
+        edge.sourceIgdbGameId === '1' &&
+        edge.sourcePlatformIgdbId === 6 &&
+        edge.similarIgdbGameId === '1' &&
+        edge.similarPlatformIgdbId === 48
+    ),
+    false
+  );
+});

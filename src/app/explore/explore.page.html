@@ -130,6 +130,17 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
+        @if (detailNavigationStack.length > 0) {
+          <ion-buttons slot="start">
+            <ion-button
+              fill="clear"
+              aria-label="Back to previous game"
+              (click)="goBackInDetailNavigation()"
+            >
+              <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        }
         <ion-title>{{ selectedGameDetail?.title || 'Game Details' }}</ion-title>
         <ion-buttons slot="end">
           <ion-button (click)="closeGameDetailModal()">Close</ion-button>

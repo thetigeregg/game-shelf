@@ -102,9 +102,13 @@ function evaluateStructuredTaste(
 function normalizeCriticScore(game: NormalizedGameRecord): number {
   if (typeof game.reviewScore === 'number' && Number.isFinite(game.reviewScore)) {
     const normalized =
-      game.reviewSource === 'mobygames' || game.reviewScore <= 10
-        ? game.reviewScore * 10
-        : game.reviewScore;
+      game.reviewSource === 'mobygames'
+        ? game.reviewScore <= 10
+          ? game.reviewScore * 10
+          : game.reviewScore
+        : game.reviewScore <= 10
+          ? game.reviewScore * 10
+          : game.reviewScore;
     return clamp(normalized / 100, 0, 1);
   }
 

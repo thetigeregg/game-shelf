@@ -78,6 +78,13 @@ interface RecommendationBadge {
   color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
 }
 
+interface RecommendationDisplayMetadata {
+  title: string;
+  coverUrl: string | null;
+  platformLabel: string;
+  releaseYear: number | null;
+}
+
 @Component({
   selector: 'app-explore-page',
   templateUrl: './explore.page.html',
@@ -176,6 +183,8 @@ export class ExplorePage implements OnInit {
   private readonly toastController = inject(ToastController);
   private readonly lanesCache = new Map<string, RecommendationLanesResponse>();
   private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
+  private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
+  private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
 
   constructor() {
     addIcons({
@@ -275,6 +284,10 @@ export class ExplorePage implements OnInit {
     if (local) {
       return local.customTitle?.trim() || local.title;
     }
+    const metadata = this.getRecommendationDisplayMetadata(item);
+    if (metadata) {
+      return metadata.title;
+    }
     return `Game #${item.igdbGameId}`;
   }
 
@@ -282,7 +295,8 @@ export class ExplorePage implements OnInit {
     const detail = this.getLocalGame(item);
 
     if (!detail) {
-      return `Platform ${String(item.platformIgdbId)}`;
+      const metadata = this.getRecommendationDisplayMetadata(item);
+      return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
     }
 
     if (detail.platform && detail.platform.trim().length > 0) {
@@ -293,15 +307,22 @@ export class ExplorePage implements OnInit {
   }
 
   getReleaseYear(item: RecommendationItem): number | null {
-    return this.getLocalGame(item)?.releaseYear ?? null;
+    const local = this.getLocalGame(item);
+    if (local) {
+      return local.releaseYear;
+    }
+
+    return this.getRecommendationDisplayMetadata(item)?.releaseYear ?? null;
   }
 
   getCoverUrl(item: RecommendationItem): string {
     const local = this.getLocalGame(item);
-    if (!local) {
-      return 'assets/icon/placeholder.png';
+    if (local) {
+      return local.customCoverUrl ?? local.coverUrl ?? 'assets/icon/placeholder.png';
     }
-    return local.customCoverUrl ?? local.coverUrl ?? 'assets/icon/placeholder.png';
+
+    const metadata = this.getRecommendationDisplayMetadata(item);
+    return metadata?.coverUrl ?? 'assets/icon/placeholder.png';
   }
 
   getScoreBadge(item: RecommendationItem): RecommendationBadge {
@@ -715,6 +736,7 @@ export class ExplorePage implements OnInit {
       this.activeLanesResponse = response;
       this.lanesCache.set(cacheKey, response);
       this.replaceLocalGameCache(localGames);
+      await this.ensureRecommendationDisplayMetadata(response);
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.recommendationError = normalized.message;
@@ -908,6 +930,17 @@ export class ExplorePage implements OnInit {
     return this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
   }
 
+  private getRecommendationDisplayMetadata(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): RecommendationDisplayMetadata | null {
+    return (
+      this.recommendationDisplayMetadata.get(
+        this.buildIdentityKey(item.igdbGameId, item.platformIgdbId)
+      ) ?? null
+    );
+  }
+
   private getLocalGameByIdentity(igdbGameId: string, platformIgdbId: number): GameEntry | null {
     return (
       this.localGameCacheByIdentity.get(this.buildIdentityKey(igdbGameId, platformIgdbId)) ?? null
@@ -1088,6 +1121,104 @@ export class ExplorePage implements OnInit {
     }
 
     return 'Unknown platform';
+  }
+
+  private async ensureRecommendationDisplayMetadata(
+    response: RecommendationLanesResponse
+  ): Promise<void> {
+    const groupedPlatformIds = new Map<string, Set<number>>();
+    const allItems = Object.values(response.lanes).flat();
+
+    for (const item of allItems) {
+      if (this.getLocalGame(item)) {
+        continue;
+      }
+
+      const key = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
+      if (this.recommendationDisplayMetadata.has(key)) {
+        continue;
+      }
+
+      const existingGroup = groupedPlatformIds.get(item.igdbGameId);
+      if (existingGroup) {
+        existingGroup.add(item.platformIgdbId);
+      } else {
+        groupedPlatformIds.set(item.igdbGameId, new Set([item.platformIgdbId]));
+      }
+    }
+
+    if (groupedPlatformIds.size === 0) {
+      return;
+    }
+
+    const groupedEntries = Array.from(groupedPlatformIds.entries());
+    const batchSize = 4;
+
+    for (let index = 0; index < groupedEntries.length; index += batchSize) {
+      const batch = groupedEntries.slice(index, index + batchSize);
+      await Promise.all(
+        batch.map(async ([igdbGameId, platformIds]) => {
+          const catalog =
+            this.recommendationCatalogCache.get(igdbGameId) ??
+            (await this.fetchRecommendationCatalogResult(igdbGameId));
+
+          if (!catalog) {
+            return;
+          }
+
+          for (const platformIgdbId of platformIds) {
+            const key = this.buildIdentityKey(igdbGameId, platformIgdbId);
+            this.recommendationDisplayMetadata.set(key, {
+              title: catalog.title.trim().length > 0 ? catalog.title : `Game #${igdbGameId}`,
+              coverUrl: catalog.coverUrl,
+              platformLabel: this.resolveCatalogPlatformLabel(catalog, platformIgdbId),
+              releaseYear: catalog.releaseYear ?? null
+            });
+          }
+        })
+      );
+    }
+  }
+
+  private async fetchRecommendationCatalogResult(
+    igdbGameId: string
+  ): Promise<GameCatalogResult | null> {
+    try {
+      const catalog = await firstValueFrom(this.igdbProxyService.getGameById(igdbGameId));
+      this.recommendationCatalogCache.set(igdbGameId, catalog);
+      return catalog;
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveCatalogPlatformLabel(catalog: GameCatalogResult, platformIgdbId: number): string {
+    if (
+      catalog.platformIgdbId === platformIgdbId &&
+      typeof catalog.platform === 'string' &&
+      catalog.platform.trim().length > 0
+    ) {
+      return this.getPlatformDisplayName(catalog.platform, platformIgdbId);
+    }
+
+    const option = Array.isArray(catalog.platformOptions)
+      ? catalog.platformOptions.find(
+          (candidate) =>
+            candidate.id === platformIgdbId &&
+            typeof candidate.name === 'string' &&
+            candidate.name.trim().length > 0
+        )
+      : null;
+
+    if (option) {
+      return this.getPlatformDisplayName(option.name, platformIgdbId);
+    }
+
+    if (typeof catalog.platform === 'string' && catalog.platform.trim().length > 0) {
+      return this.getPlatformDisplayName(catalog.platform, platformIgdbId);
+    }
+
+    return `Platform ${String(platformIgdbId)}`;
   }
 
   private async completeRefresher(event: Event): Promise<void> {

@@ -7,7 +7,8 @@ import {
   GameRatingFilterOption,
   GameStatus,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  isGameRating
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -1138,9 +1139,14 @@ export class GameListFilteringEngine {
   }
 
   private normalizeRating(value: number | string | null | undefined): GameRating | null {
-    const numeric = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+    const numeric =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number.parseFloat(value.trim())
+          : Number.NaN;
 
-    if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
+    if (isGameRating(numeric)) {
       return numeric;
     }
 

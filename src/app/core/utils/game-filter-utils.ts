@@ -88,11 +88,18 @@ function normalizeGameRatingFilterOption(value: unknown): GameRatingFilterOption
     return 'none';
   }
 
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^[1-5](?:\.0|\.5)?$/.test(trimmed)) {
+      return null;
+    }
+  }
+
   const numeric =
     typeof value === 'number'
       ? value
       : typeof value === 'string'
-        ? Number.parseFloat(value.trim())
+        ? Number(value.trim())
         : Number.NaN;
 
   if (isGameRating(numeric)) {

@@ -278,7 +278,9 @@
           </div>
         }
         @if (headline) {
-          <p class="recommendation-headline">{{ headline }}</p>
+          @for (headlineLine of getHeadlineLines(headline); track headlineLine) {
+            <p class="recommendation-headline">{{ headlineLine }}</p>
+          }
         }
         @if (kind !== 'similar') {
           <div class="recommendation-chips">

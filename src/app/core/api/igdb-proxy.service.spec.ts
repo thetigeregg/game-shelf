@@ -2039,6 +2039,84 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('loads recommendation similar items with shared theme and keyword tokens', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: '11549',
+        platformIgdbId: 37,
+        limit: 3
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/similar/11549` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('platformIgdbId') === '37' &&
+        request.params.get('limit') === '3'
+      );
+    });
+
+    req.flush({
+      source: {
+        igdbGameId: '11549',
+        platformIgdbId: 37
+      },
+      items: [
+        {
+          igdbGameId: '11043',
+          platformIgdbId: 37,
+          similarity: 0.8734,
+          reasons: {
+            summary: 'Shared tokens and embedding proximity',
+            structuredSimilarity: 0.7123,
+            semanticSimilarity: 0.9051,
+            blendedSimilarity: 0.7894,
+            sharedTokens: {
+              genres: ['Action'],
+              developers: ['Nintendo'],
+              publishers: ['Nintendo'],
+              franchises: ['Mario'],
+              collections: ['Super Mario'],
+              themes: ['Fantasy'],
+              keywords: ['multiple endings']
+            }
+          }
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      source: {
+        igdbGameId: '11549',
+        platformIgdbId: 37
+      },
+      items: [
+        {
+          igdbGameId: '11043',
+          platformIgdbId: 37,
+          similarity: 0.8734,
+          reasons: {
+            summary: 'Shared tokens and embedding proximity',
+            structuredSimilarity: 0.7123,
+            semanticSimilarity: 0.9051,
+            blendedSimilarity: 0.7894,
+            sharedTokens: {
+              genres: ['Action'],
+              developers: ['Nintendo'],
+              publishers: ['Nintendo'],
+              franchises: ['Mario'],
+              collections: ['Super Mario'],
+              themes: ['Fantasy'],
+              keywords: ['multiple endings']
+            }
+          }
+        }
+      ]
+    });
+  });
+
   it('maps recommendation not-found responses to friendly error', async () => {
     const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
     const req = httpMock.expectOne((request) => {

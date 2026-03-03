@@ -52,6 +52,12 @@
       </ion-select>
     </ion-item>
 
+    <ion-item lines="none" class="lane-context">
+      <ion-label>
+        <p class="lane-context-copy">{{ getLaneDescription() }}</p>
+      </ion-label>
+    </ion-item>
+
     @if (isLoadingRecommendations) {
       <div class="loading-state">
         <ion-spinner name="crescent"></ion-spinner>
@@ -86,11 +92,38 @@
                 }
               </p>
               <p class="recommendation-headline">{{ getExplanationHeadline(item) }}</p>
+              @if (getRationaleBadges(item).length > 0) {
+                <div class="recommendation-rationale">
+                  @for (badge of getRationaleBadges(item); track badge) {
+                    <ion-badge color="light">{{ badge }}</ion-badge>
+                  }
+                </div>
+              }
               <div class="recommendation-chips">
+                <ion-badge color="tertiary">{{ getConfidenceBadge(item) }}</ion-badge>
                 @for (badge of getScoreBadges(item); track badge) {
                   <ion-badge>{{ badge }}</ion-badge>
                 }
               </div>
+              @if (hasExplanationDetails(item)) {
+                <div class="recommendation-details-toggle">
+                  <ion-button
+                    fill="clear"
+                    size="small"
+                    (click)="toggleExplanation(item, $event)"
+                    [attr.aria-expanded]="isExplanationExpanded(item)"
+                  >
+                    {{ isExplanationExpanded(item) ? 'Hide rationale' : 'Why this?' }}
+                  </ion-button>
+                </div>
+              }
+              @if (isExplanationExpanded(item)) {
+                <div class="recommendation-details">
+                  @for (bullet of getExplanationBullets(item); track bullet.label + bullet.delta) {
+                    <p>{{ bullet.delta }} {{ bullet.label }}</p>
+                  }
+                </div>
+              }
             </ion-label>
           </ion-item>
         }
@@ -103,13 +136,13 @@
       getActiveLaneItems().length === 0
     ) {
       <ion-item lines="none">
-        <ion-text color="medium">
-          @if (hasAnyLaneItems()) {
-            Selected lane is empty. Try another lane or runtime mode.
-          } @else {
-            No recommendation items available.
+        <ion-label>
+          <ion-text color="medium">{{ getEmptyStateMessage() }}</ion-text>
+          <p class="empty-state-hint">{{ getEmptyStateHint() }}</p>
+          @if (getEmptyStateTokenHint(); as tokenHint) {
+            <p class="empty-state-token-hint">{{ tokenHint }}</p>
           }
-        </ion-text>
+        </ion-label>
       </ion-item>
     }
   } @else {
@@ -162,6 +195,60 @@
           (editRating)="openDetailRatingModal()"
           (openTags)="openDetailTags()"
         ></app-game-detail-content>
+      }
+
+      @if (activeDetailRecommendation) {
+        <div class="similar-section">
+          <ion-item lines="none">
+            <ion-label>
+              <h3>More like this</h3>
+              <p>{{ selectedTarget }} • {{ selectedRuntimeMode }} mode</p>
+            </ion-label>
+          </ion-item>
+
+          @if (isLoadingSimilar) {
+            <div class="loading-state">
+              <ion-spinner name="crescent"></ion-spinner>
+            </div>
+          } @else if (similarRecommendationsError.length > 0) {
+            <ion-item lines="none">
+              <ion-text color="medium">{{ similarRecommendationsError }}</ion-text>
+            </ion-item>
+          } @else if (similarRecommendationItems.length === 0) {
+            <ion-item lines="none">
+              <ion-text color="medium">No similar picks available for this game.</ion-text>
+            </ion-item>
+          } @else {
+            <ion-list lines="full">
+              @for (
+                similar of similarRecommendationItems;
+                track similar.igdbGameId + ':' + similar.platformIgdbId
+              ) {
+                <ion-item button detail="true" (click)="openSimilarRecommendation(similar, $event)">
+                  <div slot="start" class="explore-cover">
+                    <img
+                      class="explore-cover-image"
+                      [src]="getSimilarCoverUrl(similar)"
+                      [alt]="getSimilarTitle(similar)"
+                      loading="lazy"
+                      (error)="onImageError($event)"
+                    />
+                  </div>
+                  <ion-label>
+                    <h3>{{ getSimilarTitle(similar) }}</h3>
+                    <p>{{ getSimilarContext(similar) }}</p>
+                    <p class="recommendation-headline">{{ similar.reasons.summary }}</p>
+                    <div class="recommendation-chips">
+                      @for (badge of getSimilarReasonBadges(similar); track badge) {
+                        <ion-badge>{{ badge }}</ion-badge>
+                      }
+                    </div>
+                  </ion-label>
+                </ion-item>
+              }
+            </ion-list>
+          }
+        </div>
       }
 
       @if (detailContext === 'explore') {

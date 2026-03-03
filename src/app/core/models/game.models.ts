@@ -140,6 +140,8 @@ export interface RecommendationExplanation {
     publishers: string[];
     franchises: string[];
     collections: string[];
+    themes: string[];
+    keywords: string[];
   };
 }
 
@@ -177,6 +179,37 @@ export interface RecommendationRebuildResponse {
   runId: string;
   status: 'SUCCESS' | 'FAILED' | 'SKIPPED' | 'LOCKED' | 'BACKOFF_SKIPPED';
   reusedRunId?: string | null;
+}
+
+export interface RecommendationSimilarityReasons {
+  summary: string;
+  structuredSimilarity: number;
+  semanticSimilarity: number;
+  blendedSimilarity: number;
+  sharedTokens: {
+    genres: string[];
+    developers: string[];
+    publishers: string[];
+    franchises: string[];
+    collections: string[];
+    themes: string[];
+    keywords: string[];
+  };
+}
+
+export interface RecommendationSimilarItem {
+  igdbGameId: string;
+  platformIgdbId: number;
+  similarity: number;
+  reasons: RecommendationSimilarityReasons;
+}
+
+export interface RecommendationSimilarResponse {
+  source: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  };
+  items: RecommendationSimilarItem[];
 }
 
 export interface GameEntry {

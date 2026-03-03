@@ -80,7 +80,9 @@ const mockLanesResponse = {
             developers: [],
             publishers: [],
             franchises: [],
-            collections: []
+            collections: [],
+            themes: [],
+            keywords: []
           }
         }
       }
@@ -94,7 +96,8 @@ describe('ExplorePage recommendations UX', () => {
   const igdbProxyServiceMock = {
     getRecommendationLanes: vi.fn(),
     rebuildRecommendations: vi.fn(),
-    getGameById: vi.fn()
+    getGameById: vi.fn(),
+    getRecommendationSimilar: vi.fn()
   };
 
   const platformCustomizationMock = {
@@ -152,6 +155,12 @@ describe('ExplorePage recommendations UX', () => {
       of({ target: 'BACKLOG', runId: '2', status: 'SUCCESS' })
     );
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
+    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValue(
+      of({
+        source: { igdbGameId: '100', platformIgdbId: 6 },
+        items: []
+      })
+    );
 
     TestBed.configureTestingModule({
       providers: [
@@ -240,6 +249,12 @@ describe('ExplorePage recommendations UX', () => {
 
     expect(page.isGameDetailModalOpen).toBe(true);
     expect(igdbProxyServiceMock.getGameById).not.toHaveBeenCalled();
+    expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenCalledWith({
+      target: 'BACKLOG',
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      limit: 6
+    });
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
   });
 });

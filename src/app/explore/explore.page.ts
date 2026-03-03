@@ -40,6 +40,7 @@ import {
   RecommendationLaneKey,
   RecommendationLanesResponse,
   RecommendationRuntimeMode,
+  RecommendationSimilarItem,
   RecommendationTarget
 } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -128,6 +129,7 @@ export class ExplorePage implements OnInit {
   isLoadingRecommendations = false;
   recommendationError = '';
   recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
+  readonly expandedExplanationKeys = new Set<string>();
 
   isGameDetailModalOpen = false;
   isLoadingDetail = false;
@@ -136,6 +138,10 @@ export class ExplorePage implements OnInit {
   detailContext: 'explore' | 'library' = 'explore';
   isSelectedGameInLibrary = false;
   isAddToLibraryLoading = false;
+  isLoadingSimilar = false;
+  similarRecommendationsError = '';
+  similarRecommendationItems: RecommendationSimilarItem[] = [];
+  activeDetailRecommendation: RecommendationItem | null = null;
   isRatingModalOpen = false;
   ratingDraft: GameRating = 3;
   clearRatingOnSave = false;
@@ -300,9 +306,89 @@ export class ExplorePage implements OnInit {
     return badges;
   }
 
+  getConfidenceBadge(item: RecommendationItem): string {
+    const positiveSignal =
+      Math.max(0, item.scoreComponents.taste) +
+      Math.max(0, item.scoreComponents.semantic) +
+      Math.max(0, item.scoreComponents.criticBoost);
+    const penalties =
+      Math.abs(Math.min(0, item.scoreComponents.diversityPenalty)) +
+      Math.abs(Math.min(0, item.scoreComponents.repeatPenalty));
+    const netSignal = positiveSignal - penalties;
+
+    if (netSignal >= 2.5) {
+      return 'Confidence High';
+    }
+
+    if (netSignal >= 1.2) {
+      return 'Confidence Medium';
+    }
+
+    return 'Confidence Exploratory';
+  }
+
+  getRationaleBadges(item: RecommendationItem): string[] {
+    const tokens = item.explanations.matchedTokens;
+    const badges: string[] = [];
+    const addFamily = (label: string, values: string[]) => {
+      for (const value of values.slice(0, 2)) {
+        badges.push(`${label}: ${value}`);
+        if (badges.length >= 4) {
+          return;
+        }
+      }
+    };
+
+    addFamily('Theme', tokens.themes);
+    addFamily('Keyword', tokens.keywords);
+    addFamily('Genre', tokens.genres);
+
+    return badges;
+  }
+
   getExplanationHeadline(item: RecommendationItem): string {
     const headline = item.explanations.headline.trim();
     return headline && headline.length > 0 ? headline : 'Recommended by your profile signals';
+  }
+
+  getLaneDescription(): string {
+    if (this.selectedLaneKey === 'hiddenGems') {
+      return 'Hidden Gems favors strong semantic alignment with lower critic bias.';
+    }
+
+    if (this.selectedLaneKey === 'exploration') {
+      return 'Exploration emphasizes novel picks that still fit your profile.';
+    }
+
+    return 'Overall balances taste, semantic fit, runtime mode, and diversity penalties.';
+  }
+
+  hasExplanationDetails(item: RecommendationItem): boolean {
+    return this.getExplanationBullets(item).length > 0;
+  }
+
+  getExplanationBullets(item: RecommendationItem): Array<{ label: string; delta: string }> {
+    return item.explanations.bullets
+      .filter((bullet) => Math.abs(bullet.delta) >= 0.01 && bullet.label.trim().length > 0)
+      .slice(0, 4)
+      .map((bullet) => ({
+        label: bullet.label,
+        delta: `${bullet.delta >= 0 ? '+' : ''}${bullet.delta.toFixed(2)}`
+      }));
+  }
+
+  isExplanationExpanded(item: RecommendationItem): boolean {
+    return this.expandedExplanationKeys.has(this.trackByRecommendationKey(0, item));
+  }
+
+  toggleExplanation(item: RecommendationItem, event?: Event): void {
+    event?.stopPropagation();
+    const key = this.trackByRecommendationKey(0, item);
+    if (this.expandedExplanationKeys.has(key)) {
+      this.expandedExplanationKeys.delete(key);
+      return;
+    }
+    this.expandedExplanationKeys.add(key);
   }
 
   trackByRecommendationKey(_: number, item: RecommendationItem): string {
@@ -318,6 +404,10 @@ export class ExplorePage implements OnInit {
     this.detailContext = local ? 'library' : 'explore';
     this.isSelectedGameInLibrary = Boolean(local);
     this.isAddToLibraryLoading = false;
+    this.activeDetailRecommendation = item;
+    this.similarRecommendationItems = [];
+    this.similarRecommendationsError = '';
+    this.isLoadingSimilar = false;
     this.selectedGameDetail = local
       ? local
       : this.createFallbackCatalogResult({
@@ -337,6 +427,7 @@ export class ExplorePage implements OnInit {
       }
     }
 
+    void this.loadSimilarRecommendations(item);
     this.isLoadingDetail = false;
   }
 
@@ -351,6 +442,10 @@ export class ExplorePage implements OnInit {
     this.detailContext = 'explore';
     this.isSelectedGameInLibrary = false;
     this.isAddToLibraryLoading = false;
+    this.activeDetailRecommendation = null;
+    this.isLoadingSimilar = false;
+    this.similarRecommendationsError = '';
+    this.similarRecommendationItems = [];
   }
 
   async addSelectedGameToLibrary(): Promise<void> {
@@ -620,6 +715,7 @@ export class ExplorePage implements OnInit {
       this.activeLanesResponse = response;
       this.lanesCache.set(cacheKey, response);
       this.replaceLocalGameCache(localGames);
+      this.expandedExplanationKeys.clear();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.recommendationError = normalized.message;
@@ -631,6 +727,129 @@ export class ExplorePage implements OnInit {
     } finally {
       this.isLoadingRecommendations = false;
     }
+  }
+
+  getEmptyStateMessage(): string {
+    if (this.hasAnyLaneItems()) {
+      return 'This lane has no items for the current target and runtime mode.';
+    }
+
+    if (this.recommendationErrorCode === 'NOT_FOUND') {
+      return 'No materialized recommendations exist yet for this target.';
+    }
+
+    return 'No recommendation items available right now.';
+  }
+
+  getEmptyStateHint(): string {
+    const laneLabel =
+      this.selectedLaneKey === 'hiddenGems'
+        ? 'Hidden Gems'
+        : this.selectedLaneKey === 'exploration'
+          ? 'Exploration'
+          : 'Overall';
+
+    return `Try ${laneLabel} with ${this.selectedRuntimeMode.toLowerCase()} runtime, or switch target.`;
+  }
+
+  getEmptyStateTokenHint(): string {
+    const lanes = this.activeLanesResponse?.lanes;
+    if (!lanes) {
+      return '';
+    }
+
+    const tokens = new Set<string>();
+    const allItems = [...lanes.overall, ...lanes.hiddenGems, ...lanes.exploration];
+    for (const item of allItems) {
+      for (const theme of item.explanations.matchedTokens.themes.slice(0, 1)) {
+        tokens.add(theme);
+      }
+      for (const keyword of item.explanations.matchedTokens.keywords.slice(0, 1)) {
+        tokens.add(keyword);
+      }
+      if (tokens.size >= 3) {
+        break;
+      }
+    }
+
+    if (tokens.size === 0) {
+      return '';
+    }
+
+    return `Try lanes with signals like ${Array.from(tokens).join(', ')}.`;
+  }
+
+  getSimilarTitle(item: RecommendationSimilarItem): string {
+    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+    return local?.customTitle?.trim() || local?.title || `Game #${item.igdbGameId}`;
+  }
+
+  getSimilarCoverUrl(item: RecommendationSimilarItem): string {
+    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+    return local?.customCoverUrl ?? local?.coverUrl ?? 'assets/icon/placeholder.png';
+  }
+
+  getSimilarContext(item: RecommendationSimilarItem): string {
+    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+
+    if (!local) {
+      return `Platform ${String(item.platformIgdbId)}`;
+    }
+
+    const platform = this.getPlatformDisplayName(local.platform, local.platformIgdbId);
+    if (local.releaseYear === null) {
+      return platform;
+    }
+
+    return `${platform} • ${String(local.releaseYear)}`;
+  }
+
+  getSimilarReasonBadges(item: RecommendationSimilarItem): string[] {
+    const badges = [`Blend ${item.similarity.toFixed(2)}`];
+    const tokenBadges = [
+      ...item.reasons.sharedTokens.themes.map((value) => `Theme: ${value}`),
+      ...item.reasons.sharedTokens.keywords.map((value) => `Keyword: ${value}`)
+    ].slice(0, 2);
+
+    badges.push(...tokenBadges);
+    return badges;
+  }
+
+  async openSimilarRecommendation(item: RecommendationSimilarItem, event?: Event): Promise<void> {
+    event?.stopPropagation();
+    const existing = this.findRecommendationItem(item.igdbGameId, item.platformIgdbId);
+    const fallback: RecommendationItem = {
+      rank: 0,
+      igdbGameId: item.igdbGameId,
+      platformIgdbId: item.platformIgdbId,
+      scoreTotal: item.similarity,
+      scoreComponents: {
+        taste: 0,
+        novelty: 0,
+        runtimeFit: 0,
+        criticBoost: 0,
+        recencyBoost: 0,
+        semantic: item.reasons.semanticSimilarity,
+        exploration: 0,
+        diversityPenalty: 0,
+        repeatPenalty: 0
+      },
+      explanations: {
+        headline: item.reasons.summary,
+        bullets: [],
+        matchedTokens: {
+          genres: item.reasons.sharedTokens.genres,
+          developers: item.reasons.sharedTokens.developers,
+          publishers: item.reasons.sharedTokens.publishers,
+          franchises: item.reasons.sharedTokens.franchises,
+          collections: item.reasons.sharedTokens.collections,
+          themes: item.reasons.sharedTokens.themes,
+          keywords: item.reasons.sharedTokens.keywords
+        }
+      }
+    };
+
+    await this.openGameDetail(existing ?? fallback);
   }
 
   private parseRecommendationTarget(value: unknown): RecommendationTarget | null {
@@ -675,10 +894,12 @@ export class ExplorePage implements OnInit {
   }
 
   private getLocalGame(item: RecommendationItem): GameEntry | null {
+    return this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+  }
+
+  private getLocalGameByIdentity(igdbGameId: string, platformIgdbId: number): GameEntry | null {
     return (
-      this.localGameCacheByIdentity.get(
-        this.buildIdentityKey(item.igdbGameId, item.platformIgdbId)
-      ) ?? null
+      this.localGameCacheByIdentity.get(this.buildIdentityKey(igdbGameId, platformIgdbId)) ?? null
     );
   }
 
@@ -714,6 +935,10 @@ export class ExplorePage implements OnInit {
       developers: [],
       franchises: [],
       genres: [],
+      themes: [],
+      themeIds: [],
+      keywords: [],
+      keywordIds: [],
       publishers: [],
       platforms: [],
       platformOptions: [
@@ -724,6 +949,58 @@ export class ExplorePage implements OnInit {
       releaseDate: null,
       releaseYear: null
     };
+  }
+
+  private async loadSimilarRecommendations(item: RecommendationItem): Promise<void> {
+    this.isLoadingSimilar = true;
+    this.similarRecommendationsError = '';
+
+    try {
+      const response = await firstValueFrom(
+        this.igdbProxyService.getRecommendationSimilar({
+          target: this.selectedTarget,
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId,
+          limit: 6
+        })
+      );
+
+      this.similarRecommendationItems = response.items.filter(
+        (candidate) =>
+          !(
+            candidate.igdbGameId === item.igdbGameId &&
+            candidate.platformIgdbId === item.platformIgdbId
+          )
+      );
+    } catch (error) {
+      const normalized = this.normalizeRecommendationError(error);
+      this.similarRecommendationsError = normalized.message;
+      this.similarRecommendationItems = [];
+    } finally {
+      this.isLoadingSimilar = false;
+    }
+  }
+
+  private findRecommendationItem(
+    igdbGameId: string,
+    platformIgdbId: number
+  ): RecommendationItem | null {
+    const lanes = this.activeLanesResponse?.lanes;
+    if (!lanes) {
+      return null;
+    }
+
+    for (const lane of [lanes.overall, lanes.hiddenGems, lanes.exploration]) {
+      const match =
+        lane.find(
+          (item) => item.igdbGameId === igdbGameId && item.platformIgdbId === platformIgdbId
+        ) ?? null;
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
   }
 
   private normalizeRecommendationError(error: unknown): {

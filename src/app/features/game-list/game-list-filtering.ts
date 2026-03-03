@@ -332,7 +332,7 @@ export class GameListFilteringEngine {
     timePreference = 15
   ): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
-    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+    const normalizedSearchQuery = this.normalizeForSearch(searchQuery);
     const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
     const sortedGames = this.getSortedGames(
@@ -868,7 +868,7 @@ export class GameListFilteringEngine {
 
     const normalized: NormalizedFilterGame = {
       updatedAt: gameUpdatedAt,
-      titleLower: this.getDisplayTitle(game).toLowerCase(),
+      titleLower: this.normalizeForSearch(this.getDisplayTitle(game)),
       platform: this.getCanonicalPlatformLabel(
         this.getDisplayPlatformName(game),
         this.getDisplayPlatformIgdbId(game)
@@ -888,6 +888,15 @@ export class GameListFilteringEngine {
 
     this.normalizedFilterGameByKey.set(gameKey, normalized);
     return normalized;
+  }
+
+  private normalizeForSearch(value: string | null | undefined): string {
+    return (value ?? '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private matchesTagFilter(tagNames: Set<string>, filterTags: string[]): boolean {

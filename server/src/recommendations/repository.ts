@@ -385,15 +385,29 @@ export class RecommendationRepository {
       return null;
     }
 
+    const statusFilter = buildStatusFilterForTarget(params.target);
     const itemResult = await this.pool.query<RecommendationRow>(
       `
-      SELECT rank, igdb_game_id, platform_igdb_id, score_total, score_components, explanations
+      SELECT recommendations.rank, recommendations.igdb_game_id, recommendations.platform_igdb_id,
+             recommendations.score_total, recommendations.score_components, recommendations.explanations
       FROM recommendations
-      WHERE run_id = $1 AND runtime_mode = $2
-      ORDER BY rank ASC
-      LIMIT $3
+      INNER JOIN games
+        ON games.igdb_game_id = recommendations.igdb_game_id
+       AND games.platform_igdb_id = recommendations.platform_igdb_id
+      WHERE recommendations.run_id = $1
+        AND recommendations.runtime_mode = $2
+        AND COALESCE(games.payload->>'listType', '') = $3
+        AND COALESCE(games.payload->>'status', '') = ANY($4::text[])
+      ORDER BY recommendations.rank ASC
+      LIMIT $5
       `,
-      [run.id, params.runtimeMode, params.limit]
+      [
+        run.id,
+        params.runtimeMode,
+        statusFilter.listType,
+        statusFilter.allowedStatuses,
+        params.limit
+      ]
     );
 
     return {
@@ -416,14 +430,23 @@ export class RecommendationRepository {
       return null;
     }
 
+    const statusFilter = buildStatusFilterForTarget(params.target);
     const rows = await this.pool.query<LaneRow>(
       `
-      SELECT lane, rank, igdb_game_id, platform_igdb_id, score_total, score_components, explanations
+      SELECT recommendation_lanes.lane, recommendation_lanes.rank, recommendation_lanes.igdb_game_id,
+             recommendation_lanes.platform_igdb_id, recommendation_lanes.score_total,
+             recommendation_lanes.score_components, recommendation_lanes.explanations
       FROM recommendation_lanes
-      WHERE run_id = $1 AND runtime_mode = $2
-      ORDER BY lane ASC, rank ASC
+      INNER JOIN games
+        ON games.igdb_game_id = recommendation_lanes.igdb_game_id
+       AND games.platform_igdb_id = recommendation_lanes.platform_igdb_id
+      WHERE recommendation_lanes.run_id = $1
+        AND recommendation_lanes.runtime_mode = $2
+        AND COALESCE(games.payload->>'listType', '') = $3
+        AND COALESCE(games.payload->>'status', '') = ANY($4::text[])
+      ORDER BY recommendation_lanes.lane ASC, recommendation_lanes.rank ASC
       `,
-      [run.id, params.runtimeMode]
+      [run.id, params.runtimeMode, statusFilter.listType, statusFilter.allowedStatuses]
     );
 
     const lanes: RecommendationLaneCollection = {
@@ -470,7 +493,7 @@ export class RecommendationRepository {
        AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
       WHERE source_igdb_game_id = $1 AND source_platform_igdb_id = $2
         AND COALESCE(games.payload->>'listType', '') = $3
-        AND COALESCE(games.payload->>'status', '') <> ALL($4::text[])
+        AND COALESCE(games.payload->>'status', '') = ANY($4::text[])
       ORDER BY similarity DESC
       LIMIT $5
       `,
@@ -478,7 +501,7 @@ export class RecommendationRepository {
         params.igdbGameId,
         params.platformIgdbId,
         statusFilter.listType,
-        statusFilter.excludedStatuses,
+        statusFilter.allowedStatuses,
         params.limit
       ]
     );
@@ -603,18 +626,18 @@ export class RecommendationRepository {
 
 function buildStatusFilterForTarget(target: RecommendationTarget): {
   listType: 'collection' | 'wishlist';
-  excludedStatuses: Array<GameStatus | ''>;
+  allowedStatuses: Array<GameStatus | ''>;
 } {
   if (target === 'BACKLOG') {
     return {
       listType: 'collection',
-      excludedStatuses: ['completed', 'dropped', 'playing', 'paused', 'replay']
+      allowedStatuses: ['', 'wantToPlay']
     };
   }
 
   return {
     listType: 'wishlist',
-    excludedStatuses: ['completed', 'dropped']
+    allowedStatuses: ['', 'wantToPlay', 'playing', 'paused', 'replay']
   };
 }
 

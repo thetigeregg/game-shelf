@@ -1,4 +1,5 @@
 import { buildTokenEntries } from './normalize.js';
+import { ratingToSignal } from './rating.js';
 import { NormalizedGameRecord, PreferenceProfile, PreferenceWeight, TokenFamily } from './types.js';
 
 const SHRINKAGE_K = 5;
@@ -56,17 +57,4 @@ export function buildPreferenceProfile(games: NormalizedGameRecord[]): Preferenc
   };
 }
 
-export function ratingToSignal(rating: number | null): number | null {
-  if (typeof rating !== 'number' || !Number.isFinite(rating)) {
-    return null;
-  }
-
-  const stepped = Math.round(rating * 2) / 2;
-
-  if (stepped < 1 || stepped > 5) {
-    return null;
-  }
-
-  const steps = Math.round(stepped * 2 - 1);
-  return (steps - 5) / 4;
-}
+export { ratingToSignal } from './rating.js';

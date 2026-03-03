@@ -119,17 +119,23 @@ export class ExplorePage implements OnInit {
   readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
     { value: 'BACKLOG', label: 'Backlog' },
-    { value: 'WISHLIST', label: 'Wishlist' }
+    { value: 'WISHLIST', label: 'Wishlist' },
+    { value: 'DISCOVERY', label: 'Discovery' }
   ];
   readonly runtimeModeOptions: Array<{ value: RecommendationRuntimeMode; label: string }> = [
     { value: 'SHORT', label: 'Short' },
     { value: 'NEUTRAL', label: 'Neutral' },
     { value: 'LONG', label: 'Long' }
   ];
-  readonly laneOptions: Array<{ value: RecommendationLaneKey; label: string }> = [
+  readonly laneOptionsDefault: Array<{ value: RecommendationLaneKey; label: string }> = [
     { value: 'overall', label: 'Overall' },
     { value: 'hiddenGems', label: 'Hidden Gems' },
     { value: 'exploration', label: 'Exploration' }
+  ];
+  readonly laneOptionsDiscovery: Array<{ value: RecommendationLaneKey; label: string }> = [
+    { value: 'blended', label: 'Blended' },
+    { value: 'popular', label: 'Popular' },
+    { value: 'recent', label: 'Recent' }
   ];
 
   selectedTarget: RecommendationTarget = 'BACKLOG';
@@ -203,6 +209,7 @@ export class ExplorePage implements OnInit {
     }
 
     this.selectedTarget = parsed;
+    this.selectedLaneKey = this.selectedTarget === 'DISCOVERY' ? 'blended' : 'overall';
     await this.loadRecommendationLanes(false);
   }
 
@@ -252,7 +259,15 @@ export class ExplorePage implements OnInit {
       return false;
     }
 
-    return lanes.overall.length > 0 || lanes.hiddenGems.length > 0 || lanes.exploration.length > 0;
+    const options =
+      this.selectedTarget === 'DISCOVERY' ? this.laneOptionsDiscovery : this.laneOptionsDefault;
+    return options.some((option) => lanes[option.value].length > 0);
+  }
+
+  getLaneOptions(): Array<{ value: RecommendationLaneKey; label: string }> {
+    return this.selectedTarget === 'DISCOVERY'
+      ? this.laneOptionsDiscovery
+      : this.laneOptionsDefault;
   }
 
   getDisplayTitle(item: RecommendationItem): string {
@@ -315,6 +330,18 @@ export class ExplorePage implements OnInit {
   }
 
   getLaneDescription(): string {
+    if (this.selectedTarget === 'DISCOVERY' && this.selectedLaneKey === 'popular') {
+      return 'Popular prioritizes proven, high-signal games from your discovery feed.';
+    }
+
+    if (this.selectedTarget === 'DISCOVERY' && this.selectedLaneKey === 'recent') {
+      return 'Recent emphasizes newly released and near-term titles with quality signals.';
+    }
+
+    if (this.selectedTarget === 'DISCOVERY' && this.selectedLaneKey === 'blended') {
+      return 'Blended combines popular and recent discovery candidates into one ranked lane.';
+    }
+
     if (this.selectedLaneKey === 'hiddenGems') {
       return 'Hidden Gems favors strong semantic alignment with lower critic bias.';
     }
@@ -327,6 +354,18 @@ export class ExplorePage implements OnInit {
   }
 
   getEmptyStateLaneIcon(): string {
+    if (this.selectedTarget === 'DISCOVERY' && this.selectedLaneKey === 'popular') {
+      return 'library';
+    }
+
+    if (this.selectedTarget === 'DISCOVERY' && this.selectedLaneKey === 'recent') {
+      return 'time';
+    }
+
+    if (this.selectedTarget === 'DISCOVERY' && this.selectedLaneKey === 'blended') {
+      return 'sparkles';
+    }
+
     if (this.selectedLaneKey === 'hiddenGems') {
       return 'sparkles';
     }
@@ -703,11 +742,8 @@ export class ExplorePage implements OnInit {
 
   getEmptyStateHint(): string {
     const laneLabel =
-      this.selectedLaneKey === 'hiddenGems'
-        ? 'Hidden Gems'
-        : this.selectedLaneKey === 'exploration'
-          ? 'Exploration'
-          : 'Overall';
+      this.getLaneOptions().find((option) => option.value === this.selectedLaneKey)?.label ??
+      'Overall';
 
     return `Try ${laneLabel} with ${this.selectedRuntimeMode.toLowerCase()} runtime, or switch target.`;
   }
@@ -719,7 +755,7 @@ export class ExplorePage implements OnInit {
     }
 
     const tokens = new Set<string>();
-    const allItems = [...lanes.overall, ...lanes.hiddenGems, ...lanes.exploration];
+    const allItems = this.getLaneOptions().flatMap((option) => lanes[option.value]);
     for (const item of allItems) {
       for (const theme of item.explanations.matchedTokens.themes.slice(0, 1)) {
         tokens.add(theme);
@@ -821,7 +857,7 @@ export class ExplorePage implements OnInit {
   }
 
   private parseRecommendationTarget(value: unknown): RecommendationTarget | null {
-    if (value === 'BACKLOG' || value === 'WISHLIST') {
+    if (value === 'BACKLOG' || value === 'WISHLIST' || value === 'DISCOVERY') {
       return value;
     }
 
@@ -837,7 +873,14 @@ export class ExplorePage implements OnInit {
   }
 
   private parseLaneKey(value: unknown): RecommendationLaneKey | null {
-    if (value === 'overall' || value === 'hiddenGems' || value === 'exploration') {
+    if (
+      value === 'overall' ||
+      value === 'hiddenGems' ||
+      value === 'exploration' ||
+      value === 'blended' ||
+      value === 'popular' ||
+      value === 'recent'
+    ) {
       return value;
     }
 
@@ -958,7 +1001,14 @@ export class ExplorePage implements OnInit {
       return null;
     }
 
-    for (const lane of [lanes.overall, lanes.hiddenGems, lanes.exploration]) {
+    for (const lane of [
+      lanes.overall,
+      lanes.hiddenGems,
+      lanes.exploration,
+      lanes.blended,
+      lanes.popular,
+      lanes.recent
+    ]) {
       const match =
         lane.find(
           (item) => item.igdbGameId === igdbGameId && item.platformIgdbId === platformIgdbId

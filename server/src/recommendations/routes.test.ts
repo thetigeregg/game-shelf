@@ -141,6 +141,22 @@ void test('GET /v1/recommendations/top returns latest recommendations', async ()
   await app.close();
 });
 
+void test('GET /v1/recommendations/top accepts DISCOVERY target', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerRecommendationRoutes(app, createServiceMock());
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/top?target=DISCOVERY&runtimeMode=NEUTRAL&limit=5'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as { target: string };
+  assert.equal(body.target, 'DISCOVERY');
+
+  await app.close();
+});
+
 void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fallback', async () => {
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(app, createServiceMock());

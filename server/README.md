@@ -35,10 +35,10 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
   - Required: `q` (or `title`) (min length 2)
   - Optional: `platform` (MobyGames platform ID), `limit`, `offset`, `id`, `genre`, `group`, `format` (`id|brief|normal`), `include` (comma-separated field list)
 - `GET /v1/recommendations/top`
-  - Required: `target` (`BACKLOG|WISHLIST`)
+  - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)
 - `GET /v1/recommendations/lanes`
-  - Required: `target` (`BACKLOG|WISHLIST`)
+  - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (default `20`)
 - `GET /v1/recommendations/similar/:igdbGameId`
   - Required query: `platformIgdbId`
@@ -116,6 +116,11 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RECOMMENDATIONS_SIMILARITY_DEVELOPER_WEIGHT`
 - `RECOMMENDATIONS_SIMILARITY_PUBLISHER_WEIGHT`
 - `RECOMMENDATIONS_SIMILARITY_KEYWORD_WEIGHT`
+- `RECOMMENDATIONS_DISCOVERY_ENABLED`
+- `RECOMMENDATIONS_DISCOVERY_POOL_SIZE`
+- `RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS`
+- `RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS`
+- `RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND`
 
 ### Non-secret env vars (metadata enrichment)
 

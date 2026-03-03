@@ -139,8 +139,8 @@ function normalizeObject(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function normalizeListType(value: unknown): 'collection' | 'wishlist' | null {
-  return value === 'collection' || value === 'wishlist' ? value : null;
+function normalizeListType(value: unknown): 'collection' | 'wishlist' | 'discovery' | null {
+  return value === 'collection' || value === 'wishlist' || value === 'discovery' ? value : null;
 }
 
 function normalizeStatus(value: unknown): NormalizedGameRecord['status'] {

@@ -63,6 +63,7 @@ import {
   logoGoogle,
   logoYoutube,
   search,
+  chevronBack,
   sparkles,
   star,
   starOutline,
@@ -163,6 +164,7 @@ export class ExplorePage implements OnInit {
   similarRecommendationsError = '';
   similarRecommendationItems: RecommendationSimilarItem[] = [];
   activeDetailRecommendation: RecommendationItem | null = null;
+  detailNavigationStack: RecommendationItem[] = [];
   isRatingModalOpen = false;
   ratingDraft: GameRating = 3;
   clearRatingOnSave = false;
@@ -191,6 +193,7 @@ export class ExplorePage implements OnInit {
       search,
       logoGoogle,
       logoYoutube,
+      chevronBack,
       star,
       starOutline,
       library,
@@ -428,12 +431,19 @@ export class ExplorePage implements OnInit {
     void this.openGameDetail(row as RecommendationItem);
   }
 
-  async openGameDetail(item: RecommendationItem): Promise<void> {
+  async openGameDetail(
+    item: RecommendationItem,
+    options?: { pushCurrentToStack?: boolean }
+  ): Promise<void> {
     const local = this.getLocalGame(item);
     const cachedCatalog = this.getRecommendationCatalogResult(item.igdbGameId);
     const initialCatalog = cachedCatalog
       ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
       : null;
+
+    if (options?.pushCurrentToStack && this.activeDetailRecommendation) {
+      this.detailNavigationStack.push(this.activeDetailRecommendation);
+    }
 
     this.isGameDetailModalOpen = true;
     this.isLoadingDetail = !local && !initialCatalog;
@@ -499,6 +509,7 @@ export class ExplorePage implements OnInit {
     this.isSelectedGameInLibrary = false;
     this.isAddToLibraryLoading = false;
     this.activeDetailRecommendation = null;
+    this.detailNavigationStack = [];
     this.isLoadingSimilar = false;
     this.similarRecommendationsError = '';
     this.similarRecommendationItems = [];
@@ -910,7 +921,16 @@ export class ExplorePage implements OnInit {
       }
     };
 
-    await this.openGameDetail(existing ?? fallback);
+    await this.openGameDetail(existing ?? fallback, { pushCurrentToStack: true });
+  }
+
+  goBackInDetailNavigation(): void {
+    const previous = this.detailNavigationStack.pop();
+    if (!previous) {
+      return;
+    }
+
+    void this.openGameDetail(previous);
   }
 
   private parseRecommendationTarget(value: unknown): RecommendationTarget | null {

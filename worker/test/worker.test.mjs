@@ -140,6 +140,10 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     publishers: [],
     franchises: [],
     genres: [],
+    themes: [],
+    themeIds: [],
+    keywords: [],
+    keywordIds: [],
     platforms: ['Nintendo Switch'],
     platformOptions: [{ id: null, name: 'Nintendo Switch' }],
     platform: 'Nintendo Switch',
@@ -210,10 +214,32 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
   assert.equal(
     calls.igdbBodies[0].includes(
-      'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'
+      'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'
     ),
     true
   );
+});
+
+test('normalizeIgdbGame maps and deduplicates themes and keywords', () => {
+  const normalized = normalizeIgdbGame({
+    id: 999,
+    name: 'Sample',
+    themes: [
+      { id: 5, name: ' Action ' },
+      { id: 5, name: 'Action' },
+      { id: -1, name: '' }
+    ],
+    keywords: [
+      { id: 77, name: ' Hero ' },
+      { id: 77, name: 'Hero' },
+      { id: null, name: '' }
+    ]
+  });
+
+  assert.deepEqual(normalized.themes, ['Action']);
+  assert.deepEqual(normalized.themeIds, [5]);
+  assert.deepEqual(normalized.keywords, ['Hero']);
+  assert.deepEqual(normalized.keywordIds, [77]);
 });
 
 test('applies platform filter to IGDB game search when platformIgdbId is provided', async () => {

@@ -13,6 +13,9 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
+import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
+import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
+import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { registerRecommendationRoutes } from './recommendations/routes.js';
 import { RecommendationScheduler } from './recommendations/scheduler.js';
@@ -40,6 +43,7 @@ async function main(): Promise<void> {
     logger: true
   });
   const recommendationRepository = new RecommendationRepository(pool);
+  const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
   const embeddingClient = new OpenAiEmbeddingClient({
     apiKey: config.openaiApiKey,
     model: config.recommendationsEmbeddingModel,
@@ -72,6 +76,21 @@ async function main(): Promise<void> {
   const recommendationScheduler = new RecommendationScheduler(recommendationService, {
     enabled: config.recommendationsSchedulerEnabled
   });
+  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
+  });
+  const metadataEnrichmentService = new MetadataEnrichmentService(
+    metadataEnrichmentRepository,
+    metadataEnrichmentClient,
+    {
+      enabled: config.igdbMetadataEnrichEnabled,
+      batchSize: config.igdbMetadataEnrichBatchSize,
+      maxGamesPerRun: config.igdbMetadataEnrichMaxGamesPerRun,
+      startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
+    }
+  );
 
   // Register global rate limit FIRST
   await app.register(rateLimit, {
@@ -230,6 +249,7 @@ async function main(): Promise<void> {
     port: config.port
   });
   recommendationScheduler.start();
+  metadataEnrichmentService.start();
 }
 
 function validateSecurityConfig(): void {

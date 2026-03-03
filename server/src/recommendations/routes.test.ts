@@ -192,6 +192,43 @@ void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fall
   await app.close();
 });
 
+void test('GET /v1/recommendations/top and /lanes validate runtime mode and not-found responses', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      getTopRecommendations: () => Promise.resolve(null),
+      getRecommendationLanes: () => Promise.resolve(null)
+    })
+  );
+
+  const invalidTopRuntime = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/top?target=BACKLOG&runtimeMode=FAST'
+  });
+  assert.equal(invalidTopRuntime.statusCode, 400);
+
+  const notFoundTop = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/top?target=BACKLOG&limit=invalid'
+  });
+  assert.equal(notFoundTop.statusCode, 404);
+
+  const invalidLanesRuntime = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG&runtimeMode=FAST'
+  });
+  assert.equal(invalidLanesRuntime.statusCode, 400);
+
+  const notFoundLanes = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/lanes?target=BACKLOG'
+  });
+  assert.equal(notFoundLanes.statusCode, 404);
+
+  await app.close();
+});
+
 void test('POST /v1/recommendations/rebuild validates target and handles locks', async () => {
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(
@@ -220,6 +257,61 @@ void test('POST /v1/recommendations/rebuild validates target and handles locks',
   await app.close();
 });
 
+void test('POST /v1/recommendations/rebuild handles backoff, failed, and skipped payloads', async () => {
+  const app = fastifyFactory({ logger: false });
+  const states: Array<'BACKOFF_SKIPPED' | 'FAILED' | 'SKIPPED'> = [
+    'BACKOFF_SKIPPED',
+    'FAILED',
+    'SKIPPED'
+  ];
+  await registerRecommendationRoutes(
+    app,
+    createServiceMock({
+      rebuild: () => {
+        const state = states.shift();
+        if (state === 'BACKOFF_SKIPPED') {
+          return Promise.resolve({ target: 'BACKLOG', status: 'BACKOFF_SKIPPED' as const });
+        }
+        if (state === 'FAILED') {
+          return Promise.resolve({ target: 'BACKLOG', runId: 8, status: 'FAILED' as const });
+        }
+        return Promise.resolve({
+          target: 'BACKLOG',
+          runId: 9,
+          status: 'SKIPPED' as const,
+          reusedRunId: 7
+        });
+      }
+    })
+  );
+
+  const backoff = await app.inject({
+    method: 'POST',
+    url: '/v1/recommendations/rebuild',
+    payload: { target: 'BACKLOG', force: true }
+  });
+  assert.equal(backoff.statusCode, 429);
+
+  const failed = await app.inject({
+    method: 'POST',
+    url: '/v1/recommendations/rebuild',
+    payload: { target: 'BACKLOG' }
+  });
+  assert.equal(failed.statusCode, 500);
+
+  const skipped = await app.inject({
+    method: 'POST',
+    url: '/v1/recommendations/rebuild',
+    payload: { target: 'BACKLOG' }
+  });
+  assert.equal(skipped.statusCode, 200);
+  const body = JSON.parse(skipped.body) as { reusedRunId?: number | null; status?: string };
+  assert.equal(body.status, 'SKIPPED');
+  assert.equal(body.reusedRunId, 7);
+
+  await app.close();
+});
+
 void test('GET /v1/recommendations/similar requires platformIgdbId and returns items', async () => {
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(app, createServiceMock());
@@ -237,6 +329,12 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
   });
 
   assert.equal(invalidTarget.statusCode, 400);
+
+  const invalidId = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/similar/not-numeric?target=BACKLOG&platformIgdbId=6'
+  });
+  assert.equal(invalidId.statusCode, 400);
 
   const response = await app.inject({
     method: 'GET',

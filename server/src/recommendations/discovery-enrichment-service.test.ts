@@ -141,3 +141,101 @@ void test('discovery enrichment runOnce returns null when lock is unavailable', 
   const result = await service.runOnce();
   assert.equal(result, null);
 });
+
+void test('discovery enrichment handles disabled mode and short-title rows', async () => {
+  const disabledRepository = new RepositoryMock();
+  const disabledService = new DiscoveryEnrichmentService(disabledRepository as never, {
+    enabled: false,
+    startupDelayMs: 0,
+    intervalMinutes: 30,
+    maxGamesPerRun: 50,
+    requestTimeoutMs: 1000,
+    apiBaseUrl: 'http://127.0.0.1:3000'
+  });
+
+  assert.equal(await disabledService.runOnce(), null);
+  assert.deepEqual(await disabledService.enrichNow({ limit: 5 }), {
+    scanned: 0,
+    updated: 0,
+    skipped: 0
+  });
+
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: { title: 'x', listType: 'discovery' }
+    }
+  ];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => Promise.resolve(new Response(null, { status: 500 }))) as typeof fetch;
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000'
+    });
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 0,
+      skipped: 1
+    });
+    assert.equal(repository.updates.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment start/stop guards interval lifecycle', () => {
+  const repository = new RepositoryMock();
+  const service = new DiscoveryEnrichmentService(repository as never, {
+    enabled: true,
+    startupDelayMs: 10,
+    intervalMinutes: 0,
+    maxGamesPerRun: 50,
+    requestTimeoutMs: 1000,
+    apiBaseUrl: 'http://127.0.0.1:3000'
+  });
+
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const timeoutCalls: number[] = [];
+  let intervalCalls = 0;
+  let clearCalls = 0;
+
+  globalThis.setTimeout = ((handler: TimerHandler, timeout?: number) => {
+    timeoutCalls.push(timeout ?? 0);
+    return 1 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+  globalThis.setInterval = ((handler: TimerHandler, timeout?: number) => {
+    intervalCalls += 1;
+    timeoutCalls.push(timeout ?? 0);
+    return 2 as unknown as ReturnType<typeof setInterval>;
+  }) as typeof setInterval;
+  globalThis.clearInterval = ((id: ReturnType<typeof setInterval>) => {
+    void id;
+    clearCalls += 1;
+  }) as typeof clearInterval;
+
+  try {
+    service.start();
+    service.start();
+    service.stop();
+    service.stop();
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+
+  assert.equal(intervalCalls, 1);
+  assert.equal(clearCalls, 1);
+  assert.ok(timeoutCalls.some((value) => value === 10));
+  assert.ok(timeoutCalls.some((value) => value === 60_000));
+});

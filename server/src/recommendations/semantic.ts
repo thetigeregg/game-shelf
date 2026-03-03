@@ -1,4 +1,5 @@
 import { NormalizedGameRecord } from './types.js';
+import { ratingToSignal } from './rating.js';
 
 export function buildGameKey(igdbGameId: string, platformIgdbId: number): string {
   return `${igdbGameId.trim()}::${String(platformIgdbId)}`;
@@ -86,21 +87,6 @@ export function buildTasteProfileEmbedding(params: {
   }
 
   return accumulator.map((value) => value / totalWeight);
-}
-
-export function ratingToSignal(rating: number): number | null {
-  if (!Number.isFinite(rating)) {
-    return null;
-  }
-
-  const stepped = Math.round(rating * 2) / 2;
-
-  if (stepped < 1 || stepped > 5) {
-    return null;
-  }
-
-  const steps = Math.round(stepped * 2 - 1);
-  return (steps - 5) / 4;
 }
 
 export function clampSemanticScore(value: number): number {

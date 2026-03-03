@@ -1,6 +1,7 @@
 import { buildTokenEntries } from './normalize.js';
 import { TOKEN_FAMILY_WEIGHT, buildPreferenceProfile } from './profile.js';
-import { buildGameKey, ratingToSignal } from './semantic.js';
+import { ratingToSignal } from './rating.js';
+import { buildGameKey } from './semantic.js';
 import { NormalizedGameRecord, TunedRecommendationWeights } from './types.js';
 
 export function tuneRecommendationWeights(params: {

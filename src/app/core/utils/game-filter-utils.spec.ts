@@ -41,9 +41,10 @@ describe('game-filter-utils', () => {
     expect(isGameRatingFilterOption('none')).toBe(true);
     expect(isGameRatingFilterOption(5)).toBe(true);
     expect(isGameRatingFilterOption(4.5)).toBe(true);
+    expect(isGameRatingFilterOption('4.5')).toBe(true);
     expect(isGameRatingFilterOption(4.7)).toBe(false);
     expect(isGameRatingFilterOption(6)).toBe(false);
-    expect(normalizeGameRatingFilterList([1, 2, 2.5, 'none', 2.5, 99])).toEqual([
+    expect(normalizeGameRatingFilterList([1, 2, '2.5', 'none', 2.5, 99])).toEqual([
       1,
       2,
       2.5,

@@ -11,6 +11,11 @@ const KEYWORD_YEAR_RE = /\b20\d{2}\b/;
 const KEYWORD_AWARD_RE = /\b(award|nominee|winner)\b/i;
 const KEYWORD_EVENT_RE = /\b(expo|show|conference|experience)\b/i;
 const KEYWORD_COMMERCIAL_RE = /\bsoundtrack release\b/i;
+const KEYWORD_STOREFRONT_ARTIFACT_RE =
+  /\b(steam|ea app|games on demand|digital distribution|playstation plus|playstation network|xbox live|luna plus|downloadable content)\b/i;
+const KEYWORD_SUPPORT_ARTIFACT_RE =
+  /\b(controller support|dualsense support for pc|dualshock 4 support for pc|xbox controller support for pc|playstation trophies|steam cloud|steam trading cards|steam families|steam deck|xbox one backwards compatibility)\b/i;
+const KEYWORD_AVAILABILITY_ARTIFACT_RE = /\bavailable on\b/i;
 
 export function normalizeKeyword(value: string): string | null {
   const normalized = value
@@ -57,6 +62,18 @@ export function isKeywordNoise(value: string): boolean {
   }
 
   if (KEYWORD_COMMERCIAL_RE.test(value)) {
+    return true;
+  }
+
+  if (KEYWORD_STOREFRONT_ARTIFACT_RE.test(value)) {
+    return true;
+  }
+
+  if (KEYWORD_SUPPORT_ARTIFACT_RE.test(value)) {
+    return true;
+  }
+
+  if (KEYWORD_AVAILABILITY_ARTIFACT_RE.test(value)) {
     return true;
   }
 

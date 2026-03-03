@@ -3,6 +3,11 @@ interface TokenCache {
   expiresAtMs: number;
 }
 
+interface GameTypeCache {
+  mainGameTypeIds: number[];
+  expiresAtMs: number;
+}
+
 export interface DiscoveryIgdbClientOptions {
   twitchClientId: string;
   twitchClientSecret: string;
@@ -42,11 +47,18 @@ interface RawIgdbGame {
   aggregated_rating_count?: number;
 }
 
+interface RawGameType {
+  id?: number;
+  type?: string;
+}
+
 const IGDB_PAGE_SIZE = 500;
+const GAME_TYPES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 export class DiscoveryIgdbClient {
   private readonly fetchImpl: typeof fetch;
   private tokenCache: TokenCache | null = null;
+  private gameTypeCache: GameTypeCache | null = null;
   private nextRequestAtMs = 0;
 
   constructor(private readonly options: DiscoveryIgdbClientOptions) {
@@ -58,9 +70,10 @@ export class DiscoveryIgdbClient {
     preferredPlatformIds: number[];
   }): Promise<DiscoveryCandidateRecord[]> {
     const targetSize = Math.max(1, params.poolSize);
+    const mainGameTypeIds = await this.getMainGameTypeIds();
     const [popularGames, recentGames] = await Promise.all([
-      this.fetchBySource('popular', targetSize),
-      this.fetchBySource('recent', targetSize)
+      this.fetchBySource('popular', targetSize, mainGameTypeIds),
+      this.fetchBySource('recent', targetSize, mainGameTypeIds)
     ]);
 
     const merged = [...popularGames, ...recentGames];
@@ -88,7 +101,8 @@ export class DiscoveryIgdbClient {
 
   private async fetchBySource(
     source: 'popular' | 'recent',
-    desired: number
+    desired: number,
+    mainGameTypeIds: number[]
   ): Promise<DiscoveryCandidateRecord[]> {
     const candidates: DiscoveryCandidateRecord[] = [];
     let offset = 0;
@@ -97,7 +111,8 @@ export class DiscoveryIgdbClient {
       const chunk = await this.fetchGamesChunk({
         source,
         offset,
-        limit: Math.min(IGDB_PAGE_SIZE, desired)
+        limit: Math.min(IGDB_PAGE_SIZE, desired),
+        mainGameTypeIds
       });
       if (chunk.length === 0) {
         break;
@@ -118,10 +133,16 @@ export class DiscoveryIgdbClient {
     source: 'popular' | 'recent';
     offset: number;
     limit: number;
+    mainGameTypeIds: number[];
   }): Promise<DiscoveryCandidateRecord[]> {
     const token = await this.getAccessToken();
     await this.throttle();
-    const body = buildGamesQuery(params);
+    const body = buildGamesQuery({
+      source: params.source,
+      offset: params.offset,
+      limit: params.limit,
+      mainGameTypeIds: params.mainGameTypeIds
+    });
     const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
       method: 'POST',
       headers: {
@@ -133,8 +154,9 @@ export class DiscoveryIgdbClient {
     });
 
     if (!response.ok) {
+      const errorBody = await safeReadText(response);
       throw new Error(
-        `IGDB discovery fetch failed (${params.source}) with status ${String(response.status)}`
+        `IGDB discovery fetch failed (${params.source}) with status ${String(response.status)}${errorBody ? `: ${errorBody.slice(0, 280)}` : ''}`
       );
     }
 
@@ -212,6 +234,59 @@ export class DiscoveryIgdbClient {
     return rows;
   }
 
+  private async getMainGameTypeIds(): Promise<number[]> {
+    const now = Date.now();
+
+    if (this.gameTypeCache && this.gameTypeCache.expiresAtMs > now) {
+      return this.gameTypeCache.mainGameTypeIds;
+    }
+
+    const token = await this.getAccessToken();
+    await this.throttle();
+
+    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/game_types', {
+      method: 'POST',
+      headers: {
+        'Client-ID': this.options.twitchClientId,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body: 'fields id,type;'
+    });
+
+    if (!response.ok) {
+      const errorBody = await safeReadText(response);
+      throw new Error(
+        `IGDB game_types fetch failed with status ${String(response.status)}${errorBody ? `: ${errorBody.slice(0, 280)}` : ''}`
+      );
+    }
+
+    const payload: unknown = await response.json();
+    const mainGameTypeIds = Array.isArray(payload)
+      ? payload
+          .map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+              return null;
+            }
+
+            const type = (entry as RawGameType).type;
+            if (normalizeGameTypeLabel(type) !== 'main game') {
+              return null;
+            }
+
+            return parsePositiveInteger((entry as RawGameType).id);
+          })
+          .filter((id): id is number => Number.isInteger(id) && id > 0)
+      : [];
+
+    this.gameTypeCache = {
+      mainGameTypeIds,
+      expiresAtMs: now + GAME_TYPES_CACHE_TTL_MS
+    };
+
+    return mainGameTypeIds;
+  }
+
   private async throttle(): Promise<void> {
     const rps = Math.max(1, Math.floor(this.options.maxRequestsPerSecond));
     const minIntervalMs = Math.ceil(1000 / rps);
@@ -277,21 +352,43 @@ function buildGamesQuery(params: {
   source: 'popular' | 'recent';
   offset: number;
   limit: number;
+  mainGameTypeIds: number[];
 }): string {
   const sortClause =
+    params.source === 'popular' ? 'sort total_rating_count desc;' : 'sort first_release_date desc;';
+  const gameTypeClause =
+    params.mainGameTypeIds.length > 0 ? ` & game_type = (${params.mainGameTypeIds.join(',')})` : '';
+  const sourceWhereClause =
     params.source === 'popular'
-      ? 'sort total_rating_count desc, total_rating desc;'
-      : 'sort first_release_date desc;';
+      ? `where total_rating_count != null & platforms != null & parent_game = null & version_parent = null${gameTypeClause};`
+      : `where first_release_date != null & platforms != null & parent_game = null & version_parent = null${gameTypeClause};`;
+
   return [
     'fields id,name,summary,storyline,first_release_date,platforms.id,platforms.name,',
     'genres.name,themes.name,keywords.name,collections.name,franchises.name,',
     'involved_companies.company.name,involved_companies.developer,involved_companies.publisher,',
     'total_rating,total_rating_count,aggregated_rating,aggregated_rating_count;',
-    'where category = 0 & version_parent = null & parent_game = null & platforms != null;',
+    sourceWhereClause,
     sortClause,
     `limit ${String(params.limit)};`,
     `offset ${String(params.offset)};`
   ].join(' ');
+}
+
+function normalizeGameTypeLabel(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+async function safeReadText(response: Response): Promise<string> {
+  try {
+    return await response.text();
+  } catch {
+    return '';
+  }
 }
 
 function parsePositiveInteger(value: unknown): number | null {

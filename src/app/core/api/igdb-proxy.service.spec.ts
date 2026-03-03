@@ -110,6 +110,39 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('normalizes themes and keywords metadata when present', async () => {
+    const promise = firstValueFrom(service.searchGames('zelda'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=zelda`);
+
+    req.flush({
+      items: [
+        {
+          igdbGameId: '200',
+          title: 'The Legend of Zelda',
+          coverUrl: '',
+          coverSource: 'none',
+          themes: [' Fantasy ', 'Fantasy', '', null],
+          themeIds: [10, 10, '11', 'x'],
+          keywords: [' Hyrule ', 'Hyrule', '', null],
+          keywordIds: [99, 99, '100', 'x'],
+          platforms: ['NES'],
+          platform: 'NES',
+          releaseDate: '1986-02-21T00:00:00.000Z',
+          releaseYear: 1986
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        themes: ['Fantasy'],
+        themeIds: [10, 11],
+        keywords: ['Hyrule'],
+        keywordIds: [99, 100]
+      })
+    ]);
+  });
+
   it('includes IGDB platform id in search query params when provided', async () => {
     const promise = firstValueFrom(service.searchGames('mario', 130));
 

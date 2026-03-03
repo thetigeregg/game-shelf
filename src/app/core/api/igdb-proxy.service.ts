@@ -911,6 +911,16 @@ export class IgdbProxyService implements GameSearchApi {
       developers: this.normalizeTextList(result.developers),
       franchises: this.normalizeTextList(result.franchises),
       genres: this.normalizeTextList(result.genres),
+      ...(result.themes !== undefined ? { themes: this.normalizeTextList(result.themes) } : {}),
+      ...(result.themeIds !== undefined
+        ? { themeIds: this.normalizePositiveIntegerList(result.themeIds) }
+        : {}),
+      ...(result.keywords !== undefined
+        ? { keywords: this.normalizeTextList(result.keywords) }
+        : {}),
+      ...(result.keywordIds !== undefined
+        ? { keywordIds: this.normalizePositiveIntegerList(result.keywordIds) }
+        : {}),
       publishers: this.normalizeTextList(result.publishers),
       platforms,
       platformOptions,
@@ -1849,6 +1859,26 @@ export class IgdbProxyService implements GameSearchApi {
     return [
       ...new Set(
         values.map((value) => String(value ?? '').trim()).filter((value) => /^\d+$/.test(value))
+      )
+    ];
+  }
+
+  private normalizePositiveIntegerList(values: unknown): number[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        values
+          .map((entry) =>
+            typeof entry === 'number'
+              ? entry
+              : typeof entry === 'string'
+                ? Number.parseInt(entry, 10)
+                : Number.NaN
+          )
+          .filter((entry) => Number.isInteger(entry) && entry > 0)
       )
     ];
   }

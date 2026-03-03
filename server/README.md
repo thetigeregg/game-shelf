@@ -104,6 +104,14 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RECOMMENDATIONS_TUNING_MIN_RATED`
 - `RECOMMENDATIONS_LANE_LIMIT`
 
+### Non-secret env vars (metadata enrichment)
+
+- `IGDB_METADATA_ENRICH_ENABLED` (default `true`)
+- `IGDB_METADATA_ENRICH_BATCH_SIZE` (default `200`)
+- `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN` (default `5000`)
+- `IGDB_METADATA_ENRICH_STARTUP_DELAY_MS` (default `5000`)
+- `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (default `15000`)
+
 Runtime mode resolution for recommendation reads:
 
 - request query `runtimeMode` (if provided)

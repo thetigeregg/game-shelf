@@ -707,13 +707,7 @@ export class DexieGameRepository implements GameRepository {
       return [];
     }
 
-    return [
-      ...new Set(
-        values
-          .map((value) => (typeof value === 'number' ? Math.trunc(value) : Number.NaN))
-          .filter((value) => Number.isInteger(value) && value > 0)
-      )
-    ];
+    return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
   }
 
   private normalizeCompletionHours(value: number | null | undefined): number | null {

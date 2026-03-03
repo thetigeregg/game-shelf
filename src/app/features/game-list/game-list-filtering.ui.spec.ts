@@ -674,6 +674,16 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['Super Mario']);
   });
 
+  it('matches search queries with diacritic-insensitive normalization', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Pokémon Emerald' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Metroid Prime' })
+    ];
+
+    const result = engine.applyFiltersAndSort(games, DEFAULT_GAME_LIST_FILTERS, 'pokemon');
+    expect(result.map((game) => game.title)).toEqual(['Pokémon Emerald']);
+  });
+
   it('sorts by title and ignores leading articles', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'The Last Game' }),

@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AlertController,
@@ -114,6 +115,7 @@ interface RecommendationDisplayMetadata {
     IonBadge,
     IonAccordion,
     IonAccordionGroup,
+    NgTemplateOutlet,
     GameDetailContentComponent,
     DetailShortcutsFabComponent
   ]
@@ -411,6 +413,19 @@ export class ExplorePage implements OnInit {
 
   trackByRecommendationKey(_: number, item: RecommendationItem): string {
     return `${item.igdbGameId}:${String(item.platformIgdbId)}`;
+  }
+
+  onRecommendationRowClick(
+    kind: 'recommendation' | 'similar',
+    row: RecommendationItem | RecommendationSimilarItem,
+    event: Event
+  ): void {
+    if (kind === 'similar') {
+      void this.openSimilarRecommendation(row as RecommendationSimilarItem, event);
+      return;
+    }
+
+    void this.openGameDetail(row as RecommendationItem);
   }
 
   async openGameDetail(item: RecommendationItem): Promise<void> {

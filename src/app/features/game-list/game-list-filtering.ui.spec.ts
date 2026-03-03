@@ -647,6 +647,33 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['No Data']);
   });
 
+  it('supports half-step rating filters', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Half Step Match',
+        rating: 4.5
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Whole Step',
+        rating: 4
+      })
+    ];
+
+    const result = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        ratings: [4.5]
+      },
+      ''
+    );
+    expect(result.map((game) => game.title)).toEqual(['Half Step Match']);
+  });
+
   it('filters by release date range and search query', () => {
     const games: GameEntry[] = [
       makeGame({

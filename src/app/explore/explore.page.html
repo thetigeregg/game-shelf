@@ -270,14 +270,23 @@
             <span> • {{ year }}</span>
           }
         </p>
+        @if (kind === 'similar') {
+          <div class="recommendation-chips">
+            @for (badge of badges; track badge.text) {
+              <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
+            }
+          </div>
+        }
         @if (headline) {
           <p class="recommendation-headline">{{ headline }}</p>
         }
-        <div class="recommendation-chips">
-          @for (badge of badges; track badge.text) {
-            <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
-          }
-        </div>
+        @if (kind !== 'similar') {
+          <div class="recommendation-chips">
+            @for (badge of badges; track badge.text) {
+              <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
+            }
+          </div>
+        }
       </ion-label>
     </ion-item>
 

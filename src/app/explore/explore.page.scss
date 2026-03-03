@@ -31,6 +31,24 @@ ion-label p {
   margin: 0;
 }
 
+.recommendation-headline {
+  margin-top: 4px;
+  color: var(--ion-color-medium);
+  font-size: 0.85rem;
+}
+
+.recommendation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.recommendation-chips ion-chip {
+  margin: 0;
+  font-size: 0.7rem;
+}
+
 .detail-shortcuts-fab {
   margin-bottom: 8px;
   margin-right: 8px;

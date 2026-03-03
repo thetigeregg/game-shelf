@@ -69,3 +69,23 @@ void test('WISHLIST candidates exclude completed and dropped', () => {
     ['1', '2', '3']
   );
 });
+
+void test('DISCOVERY candidates include discovery list and exclude active/completed states', () => {
+  const games: NormalizedGameRecord[] = [
+    buildGame({ igdbGameId: '1', listType: 'discovery', status: null }),
+    buildGame({ igdbGameId: '2', listType: 'discovery', status: 'wantToPlay' }),
+    buildGame({ igdbGameId: '3', listType: 'discovery', status: 'playing' }),
+    buildGame({ igdbGameId: '4', listType: 'discovery', status: 'paused' }),
+    buildGame({ igdbGameId: '5', listType: 'discovery', status: 'replay' }),
+    buildGame({ igdbGameId: '6', listType: 'discovery', status: 'completed' }),
+    buildGame({ igdbGameId: '7', listType: 'discovery', status: 'dropped' }),
+    buildGame({ igdbGameId: '8', listType: 'collection', status: null })
+  ];
+
+  const result = selectCandidates(games, 'DISCOVERY');
+
+  assert.deepEqual(
+    result.map((game) => game.igdbGameId),
+    ['1', '2']
+  );
+});

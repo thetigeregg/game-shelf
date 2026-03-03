@@ -25,7 +25,9 @@ export function registerRecommendationRoutes(
       const target = parseRecommendationTarget(query.target);
 
       if (!target) {
-        reply.code(400).send({ error: 'Query parameter target must be BACKLOG or WISHLIST.' });
+        reply
+          .code(400)
+          .send({ error: 'Query parameter target must be BACKLOG, WISHLIST, or DISCOVERY.' });
         return;
       }
 
@@ -72,7 +74,9 @@ export function registerRecommendationRoutes(
       const target = parseRecommendationTarget(query.target);
 
       if (!target) {
-        reply.code(400).send({ error: 'Query parameter target must be BACKLOG or WISHLIST.' });
+        reply
+          .code(400)
+          .send({ error: 'Query parameter target must be BACKLOG, WISHLIST, or DISCOVERY.' });
         return;
       }
 
@@ -119,7 +123,7 @@ export function registerRecommendationRoutes(
       const target = parseRecommendationTarget(body.target);
 
       if (!target) {
-        reply.code(400).send({ error: 'Body target must be BACKLOG or WISHLIST.' });
+        reply.code(400).send({ error: 'Body target must be BACKLOG, WISHLIST, or DISCOVERY.' });
         return;
       }
 
@@ -192,7 +196,9 @@ export function registerRecommendationRoutes(
 
       const target = parseRecommendationTarget(query.target);
       if (!target) {
-        reply.code(400).send({ error: 'Query parameter target must be BACKLOG or WISHLIST.' });
+        reply
+          .code(400)
+          .send({ error: 'Query parameter target must be BACKLOG, WISHLIST, or DISCOVERY.' });
         return;
       }
 

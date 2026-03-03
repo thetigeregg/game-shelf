@@ -1,4 +1,4 @@
-export type RecommendationTarget = 'BACKLOG' | 'WISHLIST';
+export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
 export type RecommendationRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type RecommendationRunTrigger = 'manual' | 'scheduler' | 'stale-read';
 export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
@@ -19,7 +19,7 @@ export interface NormalizedGameRecord {
   igdbGameId: string;
   platformIgdbId: number;
   title: string;
-  listType: 'collection' | 'wishlist';
+  listType: 'collection' | 'wishlist' | 'discovery';
   status: GameStatus | null;
   rating: number | null;
   createdAt: string | null;

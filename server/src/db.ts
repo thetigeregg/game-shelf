@@ -99,7 +99,7 @@ export const MIGRATIONS: string[] = [
   `
   CREATE TABLE IF NOT EXISTS recommendation_runs (
     id BIGSERIAL PRIMARY KEY,
-    target TEXT NOT NULL CHECK (target IN ('BACKLOG', 'WISHLIST')),
+    target TEXT NOT NULL CHECK (target IN ('BACKLOG', 'WISHLIST', 'DISCOVERY')),
     status TEXT NOT NULL CHECK (status IN ('RUNNING', 'SUCCESS', 'FAILED')),
     triggered_by TEXT NOT NULL CHECK (triggered_by IN ('manual', 'scheduler', 'stale-read')),
     settings_hash TEXT NOT NULL,
@@ -112,6 +112,22 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS recommendation_runs_target_status_started_idx
   ON recommendation_runs (target, status, started_at DESC);
+  `,
+  `
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conname = 'recommendation_runs_target_check'
+    ) THEN
+      ALTER TABLE recommendation_runs
+      DROP CONSTRAINT recommendation_runs_target_check;
+    END IF;
+    ALTER TABLE recommendation_runs
+      ADD CONSTRAINT recommendation_runs_target_check
+      CHECK (target IN ('BACKLOG', 'WISHLIST', 'DISCOVERY'));
+  END $$;
   `,
   `
   CREATE TABLE IF NOT EXISTS recommendations (
@@ -250,7 +266,7 @@ export const MIGRATIONS: string[] = [
   `,
   `
   CREATE TABLE IF NOT EXISTS recommendation_history (
-    target TEXT NOT NULL CHECK (target IN ('BACKLOG', 'WISHLIST')),
+    target TEXT NOT NULL CHECK (target IN ('BACKLOG', 'WISHLIST', 'DISCOVERY')),
     runtime_mode TEXT NOT NULL CHECK (runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG')),
     igdb_game_id TEXT NOT NULL,
     platform_igdb_id INTEGER NOT NULL,
@@ -265,6 +281,22 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS recommendation_history_target_mode_last_idx
   ON recommendation_history (target, runtime_mode, last_recommended_at DESC);
+  `,
+  `
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conname = 'recommendation_history_target_check'
+    ) THEN
+      ALTER TABLE recommendation_history
+      DROP CONSTRAINT recommendation_history_target_check;
+    END IF;
+    ALTER TABLE recommendation_history
+      ADD CONSTRAINT recommendation_history_target_check
+      CHECK (target IN ('BACKLOG', 'WISHLIST', 'DISCOVERY'));
+  END $$;
   `,
   `
   CREATE TABLE IF NOT EXISTS game_embeddings (

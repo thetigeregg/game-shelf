@@ -13,6 +13,7 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
+import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
 import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
@@ -49,6 +50,12 @@ async function main(): Promise<void> {
     model: config.recommendationsEmbeddingModel,
     dimensions: config.recommendationsEmbeddingDimensions
   });
+  const discoveryIgdbClient = new DiscoveryIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
+    maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
+  });
   const recommendationService = new RecommendationService(
     recommendationRepository,
     {
@@ -80,10 +87,16 @@ async function main(): Promise<void> {
       similaritySeriesWeight: config.recommendationsSimilaritySeriesWeight,
       similarityDeveloperWeight: config.recommendationsSimilarityDeveloperWeight,
       similarityPublisherWeight: config.recommendationsSimilarityPublisherWeight,
-      similarityKeywordWeight: config.recommendationsSimilarityKeywordWeight
+      similarityKeywordWeight: config.recommendationsSimilarityKeywordWeight,
+      discoveryEnabled: config.recommendationsDiscoveryEnabled,
+      discoveryPoolSize: config.recommendationsDiscoveryPoolSize,
+      discoveryRefreshHours: config.recommendationsDiscoveryRefreshHours,
+      discoveryIgdbRequestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
+      discoveryIgdbMaxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
     },
     {
-      embeddingClient
+      embeddingClient,
+      discoveryClient: discoveryIgdbClient
     }
   );
   const recommendationScheduler = new RecommendationScheduler(recommendationService, {

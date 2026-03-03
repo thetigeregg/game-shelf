@@ -147,6 +147,11 @@ export interface AppConfig {
   recommendationsSimilarityDeveloperWeight: number;
   recommendationsSimilarityPublisherWeight: number;
   recommendationsSimilarityKeywordWeight: number;
+  recommendationsDiscoveryEnabled: boolean;
+  recommendationsDiscoveryPoolSize: number;
+  recommendationsDiscoveryRefreshHours: number;
+  recommendationsDiscoveryIgdbRequestTimeoutMs: number;
+  recommendationsDiscoveryIgdbMaxRequestsPerSecond: number;
   igdbMetadataEnrichEnabled: boolean;
   igdbMetadataEnrichBatchSize: number;
   igdbMetadataEnrichMaxGamesPerRun: number;
@@ -345,6 +350,20 @@ export const config: AppConfig = {
   recommendationsSimilarityKeywordWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_KEYWORD_WEIGHT',
     0.05
+  ),
+  recommendationsDiscoveryEnabled: readBooleanEnv('RECOMMENDATIONS_DISCOVERY_ENABLED', true),
+  recommendationsDiscoveryPoolSize: readIntegerEnv('RECOMMENDATIONS_DISCOVERY_POOL_SIZE', 2000),
+  recommendationsDiscoveryRefreshHours: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS',
+    24
+  ),
+  recommendationsDiscoveryIgdbRequestTimeoutMs: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS',
+    15_000
+  ),
+  recommendationsDiscoveryIgdbMaxRequestsPerSecond: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND',
+    4
   ),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),

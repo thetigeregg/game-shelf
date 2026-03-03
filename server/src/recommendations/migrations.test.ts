@@ -16,6 +16,7 @@ void test('recommendation migrations are present and idempotent runner executes 
 
   assert.equal(recommendationSql.includes('CREATE EXTENSION IF NOT EXISTS vector'), true);
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendation_runs'), true);
+  assert.equal(recommendationSql.includes("'BACKLOG', 'WISHLIST', 'DISCOVERY'"), true);
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendations'), true);
   assert.equal(
     recommendationSql.includes("runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG')") ||

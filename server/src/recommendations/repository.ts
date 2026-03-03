@@ -79,6 +79,10 @@ interface HistoryRow extends QueryResultRow {
   last_recommended_at: string;
 }
 
+interface DiscoveryUpdatedAtRow extends QueryResultRow {
+  updated_at: string;
+}
+
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
 
 export class RecommendationRepository {
@@ -89,7 +93,7 @@ export class RecommendationRepository {
     callback: (client: PoolClient) => Promise<T>
   ): Promise<{ acquired: true; value: T } | { acquired: false }> {
     const client = await this.pool.connect();
-    const targetKey = target === 'BACKLOG' ? 1 : 2;
+    const targetKey = target === 'BACKLOG' ? 1 : target === 'WISHLIST' ? 2 : 3;
 
     try {
       const lockResult = await client.query<{ acquired: boolean }>(
@@ -112,6 +116,63 @@ export class RecommendationRepository {
       ]);
       client.release();
     }
+  }
+
+  async getDiscoveryPoolLatestUpdatedAt(queryable: Queryable = this.pool): Promise<string | null> {
+    const result = await queryable.query<DiscoveryUpdatedAtRow>(
+      `
+      SELECT updated_at
+      FROM games
+      WHERE COALESCE(payload->>'listType', '') = 'discovery'
+      ORDER BY updated_at DESC
+      LIMIT 1
+      `
+    );
+
+    if (result.rowCount === 0) {
+      return null;
+    }
+
+    return result.rows[0].updated_at;
+  }
+
+  async upsertDiscoveryGames(params: {
+    client: Queryable;
+    rows: Array<{
+      igdbGameId: string;
+      platformIgdbId: number;
+      payload: Record<string, unknown>;
+    }>;
+  }): Promise<void> {
+    if (params.rows.length === 0) {
+      return;
+    }
+
+    for (const row of params.rows) {
+      await params.client.query(
+        `
+        INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
+        VALUES ($1, $2, $3::jsonb, NOW())
+        ON CONFLICT (igdb_game_id, platform_igdb_id)
+        DO UPDATE
+          SET payload = EXCLUDED.payload,
+              updated_at = NOW()
+        WHERE COALESCE(games.payload->>'listType', '') = 'discovery'
+        `,
+        [row.igdbGameId, row.platformIgdbId, JSON.stringify(row.payload)]
+      );
+    }
+  }
+
+  async pruneDiscoveryGames(params: { client: Queryable; keepKeys: string[] }): Promise<void> {
+    await params.client.query(
+      `
+      DELETE FROM games
+      WHERE COALESCE(payload->>'listType', '') = 'discovery'
+        AND NOT (igdb_game_id || '::' || platform_igdb_id::text = ANY($1::text[]))
+      `,
+      [params.keepKeys]
+    );
   }
 
   async listNormalizedGames(queryable: Queryable = this.pool): Promise<NormalizedGameRecord[]> {
@@ -625,12 +686,19 @@ export class RecommendationRepository {
 }
 
 function buildStatusFilterForTarget(target: RecommendationTarget): {
-  listType: 'collection' | 'wishlist';
+  listType: 'collection' | 'wishlist' | 'discovery';
   allowedStatuses: Array<GameStatus | ''>;
 } {
   if (target === 'BACKLOG') {
     return {
       listType: 'collection',
+      allowedStatuses: ['', 'wantToPlay']
+    };
+  }
+
+  if (target === 'DISCOVERY') {
+    return {
+      listType: 'discovery',
       allowedStatuses: ['', 'wantToPlay']
     };
   }

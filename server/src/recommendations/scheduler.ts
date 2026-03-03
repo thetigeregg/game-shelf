@@ -2,7 +2,7 @@ import type { RecommendationService } from './service.js';
 import { RecommendationTarget } from './types.js';
 
 const SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
-const TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST'];
+const TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
 
 export class RecommendationScheduler {
   private intervalHandle: NodeJS.Timeout | null = null;

@@ -1,94 +1,131 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
     <ion-title>Explore</ion-title>
+    @if (recommendationFeatureEnabled) {
+      <ion-buttons slot="end">
+        <ion-button [disabled]="isRebuildLoading" (click)="rebuildRecommendations(true)">
+          Rebuild
+        </ion-button>
+      </ion-buttons>
+    }
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-item lines="full">
-    <ion-select
-      label="Popularity category"
-      labelPlacement="stacked"
-      interface="popover"
-      placeholder="Select category"
-      [value]="selectedPopularityTypeId"
-      [disabled]="isLoadingTypes || popularityTypes.length === 0"
-      (ionChange)="onPopularityTypeChange($any($event).detail.value)"
-    >
-      @for (type of popularityTypes; track trackByPopularityTypeId($index, type)) {
-        <ion-select-option [value]="type.id">
-          {{ type.name }}
-        </ion-select-option>
-      }
-    </ion-select>
-  </ion-item>
+  <ion-refresher slot="fixed" (ionRefresh)="refreshRecommendations($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
 
-  @if (isLoadingTypes || isLoadingGames) {
-    <div class="loading-state">
-      <ion-spinner name="crescent"></ion-spinner>
-    </div>
-  }
-
-  @if (errorMessage.length > 0) {
-    <ion-item lines="none">
-      <ion-text color="danger">{{ errorMessage }}</ion-text>
+  @if (recommendationFeatureEnabled) {
+    <ion-item lines="full">
+      <ion-label>Target</ion-label>
+      <ion-segment [value]="selectedTarget" (ionChange)="onTargetChange($any($event).detail.value)">
+        @for (option of targetOptions; track option.value) {
+          <ion-segment-button [value]="option.value">
+            <ion-label>{{ option.label }}</ion-label>
+          </ion-segment-button>
+        }
+      </ion-segment>
     </ion-item>
-  }
 
-  @if (!isLoadingTypes && popularityTypes.length === 0 && errorMessage.length === 0) {
-    <ion-item lines="none">
-      <ion-text color="medium">No popularity categories available.</ion-text>
+    <ion-item lines="full">
+      <ion-label>Runtime</ion-label>
+      <ion-segment
+        [value]="selectedRuntimeMode"
+        (ionChange)="onRuntimeModeChange($any($event).detail.value)"
+      >
+        @for (option of runtimeModeOptions; track option.value) {
+          <ion-segment-button [value]="option.value">
+            <ion-label>{{ option.label }}</ion-label>
+          </ion-segment-button>
+        }
+      </ion-segment>
     </ion-item>
-  }
 
-  @if (!isLoadingGames && games.length > 0) {
-    <ion-list lines="full">
-      @for (item of games; track trackByGameId($index, item)) {
-        <ion-item button detail="true" (click)="openGameDetail(item)">
-          <div slot="start" class="explore-cover">
-            <img
-              class="explore-cover-image"
-              [src]="item.game.coverUrl || 'assets/icon/placeholder.png'"
-              [alt]="item.game.title"
-              loading="lazy"
-              (error)="onImageError($event)"
-            />
-          </div>
-          <ion-label>
-            <h2>{{ item.game.title }}</h2>
-            <p>
-              {{ getPlatformLabel(item) }}
-              @if (item.game.releaseYear) {
-                <span> • {{ item.game.releaseYear }}</span>
-              }
-            </p>
-          </ion-label>
+    <ion-item lines="full">
+      <ion-label>Lane</ion-label>
+      <ion-segment [value]="selectedLaneKey" (ionChange)="onLaneChange($any($event).detail.value)">
+        @for (option of laneOptions; track option.value) {
+          <ion-segment-button [value]="option.value">
+            <ion-label>{{ option.label }}</ion-label>
+          </ion-segment-button>
+        }
+      </ion-segment>
+    </ion-item>
+
+    @if (isLoadingRecommendations) {
+      <div class="loading-state">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+    }
+
+    @if (recommendationError.length > 0) {
+      <ion-item lines="none">
+        <ion-text color="danger">{{ recommendationError }}</ion-text>
+      </ion-item>
+
+      @if (recommendationErrorCode === 'NOT_FOUND') {
+        <ion-item lines="none">
+          <ion-button size="small" (click)="rebuildRecommendations(true)"
+            >Build recommendations</ion-button
+          >
         </ion-item>
       }
-    </ion-list>
-  }
+    }
 
-  @if (
-    !isLoadingGames &&
-    games.length === 0 &&
-    selectedPopularityTypeId !== null &&
-    errorMessage.length === 0
-  ) {
+    @if (!isLoadingRecommendations && getActiveLaneItems().length > 0) {
+      <ion-list lines="full">
+        @for (item of getActiveLaneItems(); track trackByRecommendationKey($index, item)) {
+          <ion-item button detail="true" (click)="openGameDetail(item)">
+            <div slot="start" class="explore-cover">
+              <img
+                class="explore-cover-image"
+                [src]="getCoverUrl(item)"
+                [alt]="getDisplayTitle(item)"
+                loading="lazy"
+                (error)="onImageError($event)"
+              />
+            </div>
+            <ion-label>
+              <h2>{{ getDisplayTitle(item) }}</h2>
+              <p>
+                {{ getPlatformLabel(item) }}
+                @if (getReleaseYear(item); as year) {
+                  <span> • {{ year }}</span>
+                }
+              </p>
+              <p class="recommendation-headline">{{ getExplanationHeadline(item) }}</p>
+              <div class="recommendation-chips">
+                @for (chip of getScoreChips(item); track chip) {
+                  <ion-chip>{{ chip }}</ion-chip>
+                }
+              </div>
+            </ion-label>
+          </ion-item>
+        }
+      </ion-list>
+    }
+
+    @if (
+      !isLoadingRecommendations &&
+      recommendationError.length === 0 &&
+      getActiveLaneItems().length === 0
+    ) {
+      <ion-item lines="none">
+        <ion-text color="medium">
+          @if (hasAnyLaneItems()) {
+            Selected lane is empty. Try another lane or runtime mode.
+          } @else {
+            No recommendation items available.
+          }
+        </ion-text>
+      </ion-item>
+    }
+  } @else {
     <ion-item lines="none">
-      <ion-text color="medium">No games found for this category.</ion-text>
+      <ion-text color="medium">Recommendations are disabled in this build.</ion-text>
     </ion-item>
   }
-
-  <ion-infinite-scroll
-    threshold="100px"
-    [disabled]="selectedPopularityTypeId === null || isLoadingGames || !hasMore"
-    (ionInfinite)="loadMore($event)"
-  >
-    <ion-infinite-scroll-content
-      loadingSpinner="crescent"
-      loadingText="Loading more games..."
-    ></ion-infinite-scroll-content>
-  </ion-infinite-scroll>
 </ion-content>
 
 <ion-modal

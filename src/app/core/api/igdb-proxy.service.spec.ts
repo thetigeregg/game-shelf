@@ -1945,4 +1945,79 @@ describe('IgdbProxyService', () => {
       vi.useRealTimers();
     }
   });
+
+  it('loads recommendation lanes with explicit runtime mode and limit', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationLanes({
+        target: 'BACKLOG',
+        runtimeMode: 'SHORT',
+        limit: 15
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('runtimeMode') === 'SHORT' &&
+        request.params.get('limit') === '15'
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'SHORT',
+      runId: 12,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      lanes: {
+        overall: [],
+        hiddenGems: [],
+        exploration: []
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'SHORT',
+      runId: 12,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      lanes: {
+        overall: [],
+        hiddenGems: [],
+        exploration: []
+      }
+    });
+  });
+
+  it('posts manual recommendation rebuild request payload', async () => {
+    const promise = firstValueFrom(
+      service.rebuildRecommendations({ target: 'WISHLIST', force: true })
+    );
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ target: 'WISHLIST', force: true });
+    req.flush({ target: 'WISHLIST', runId: '9', status: 'SUCCESS' });
+
+    await expect(promise).resolves.toEqual({
+      target: 'WISHLIST',
+      runId: '9',
+      status: 'SUCCESS',
+      reusedRunId: null
+    });
+  });
+
+  it('maps recommendation not-found responses to friendly error', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush(
+      { error: 'No recommendations available. Trigger a rebuild first.' },
+      { status: 404, statusText: 'Not Found' }
+    );
+
+    await expect(promise).rejects.toThrowError(
+      'No recommendations available yet. Build recommendations to get started.'
+    );
+  });
 });

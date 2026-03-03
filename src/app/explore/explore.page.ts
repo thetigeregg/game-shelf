@@ -22,11 +22,11 @@ import {
   IonIcon,
   IonRange,
   IonNote,
-  IonSegment,
-  IonSegmentButton,
+  IonSelect,
+  IonSelectOption,
   IonRefresher,
   IonRefresherContent,
-  IonChip
+  IonBadge
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -85,11 +85,11 @@ interface RecommendationApiError extends Error {
     IonIcon,
     IonRange,
     IonNote,
-    IonSegment,
-    IonSegmentButton,
+    IonSelect,
+    IonSelectOption,
     IonRefresher,
     IonRefresherContent,
-    IonChip,
+    IonBadge,
     GameDetailContentComponent
   ]
 })
@@ -117,7 +117,6 @@ export class ExplorePage implements OnInit {
   selectedLaneKey: RecommendationLaneKey = 'overall';
   activeLanesResponse: RecommendationLanesResponse | null = null;
   isLoadingRecommendations = false;
-  isRebuildLoading = false;
   recommendationError = '';
   recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
 
@@ -147,7 +146,7 @@ export class ExplorePage implements OnInit {
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly lanesCache = new Map<string, RecommendationLanesResponse>();
-  private readonly detailCache = new Map<string, GameCatalogResult>();
+  private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
 
   constructor() {
     addIcons({ search, logoGoogle, logoYoutube, star, starOutline });
@@ -203,41 +202,6 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  async rebuildRecommendations(force = true): Promise<void> {
-    if (this.isRebuildLoading || !this.recommendationFeatureEnabled) {
-      return;
-    }
-
-    this.isRebuildLoading = true;
-
-    try {
-      const response = await firstValueFrom(
-        this.igdbProxyService.rebuildRecommendations({
-          target: this.selectedTarget,
-          force
-        })
-      );
-
-      if (response.status === 'FAILED') {
-        await this.presentToast('Recommendation rebuild failed.', 'danger');
-        return;
-      }
-
-      if (response.status === 'BACKOFF_SKIPPED') {
-        await this.presentToast('Rebuild is in cooldown. Try again later.', 'danger');
-        return;
-      }
-
-      await this.presentToast('Recommendation rebuild started.');
-      await this.loadRecommendationLanes(true);
-    } catch (error) {
-      const mapped = this.normalizeRecommendationError(error);
-      await this.presentToast(mapped.message, 'danger');
-    } finally {
-      this.isRebuildLoading = false;
-    }
-  }
-
   getActiveLaneItems(): RecommendationItem[] {
     const lanes = this.activeLanesResponse?.lanes;
 
@@ -259,53 +223,41 @@ export class ExplorePage implements OnInit {
   }
 
   getDisplayTitle(item: RecommendationItem): string {
-    return this.getCachedDetail(item)?.title ?? `Game #${item.igdbGameId}`;
+    const local = this.getLocalGame(item);
+    if (local) {
+      return local.customTitle?.trim() || local.title;
+    }
+    return `Game #${item.igdbGameId}`;
   }
 
   getPlatformLabel(item: RecommendationItem): string {
-    const detail = this.getCachedDetail(item);
+    const detail = this.getLocalGame(item);
 
     if (!detail) {
       return `Platform ${String(item.platformIgdbId)}`;
     }
 
     if (detail.platform && detail.platform.trim().length > 0) {
-      return this.getPlatformDisplayName(
-        detail.platform,
-        detail.platformIgdbId ?? item.platformIgdbId
-      );
-    }
-
-    if (Array.isArray(detail.platformOptions) && detail.platformOptions.length > 0) {
-      const option = detail.platformOptions.find((platform) => platform.id === item.platformIgdbId);
-
-      if (option && option.name.trim().length > 0) {
-        return this.getPlatformDisplayName(option.name, option.id);
-      }
-
-      if (detail.platformOptions.length === 1) {
-        return this.getPlatformDisplayName(
-          detail.platformOptions[0].name,
-          detail.platformOptions[0].id
-        );
-      }
-
-      return `${String(detail.platformOptions.length)} platforms`;
+      return this.getPlatformDisplayName(detail.platform, detail.platformIgdbId);
     }
 
     return 'Unknown platform';
   }
 
   getReleaseYear(item: RecommendationItem): number | null {
-    return this.getCachedDetail(item)?.releaseYear ?? null;
+    return this.getLocalGame(item)?.releaseYear ?? null;
   }
 
   getCoverUrl(item: RecommendationItem): string {
-    return this.getCachedDetail(item)?.coverUrl ?? 'assets/icon/placeholder.png';
+    const local = this.getLocalGame(item);
+    if (!local) {
+      return 'assets/icon/placeholder.png';
+    }
+    return local.customCoverUrl ?? local.coverUrl ?? 'assets/icon/placeholder.png';
   }
 
-  getScoreChips(item: RecommendationItem): string[] {
-    const chips: string[] = [`Score ${item.scoreTotal.toFixed(2)}`];
+  getScoreBadges(item: RecommendationItem): string[] {
+    const badges: string[] = [`Score ${item.scoreTotal.toFixed(2)}`];
     const components = item.scoreComponents;
     const candidates: Array<{ key: string; value: number }> = [
       { key: 'Taste', value: components.taste },
@@ -320,14 +272,14 @@ export class ExplorePage implements OnInit {
         continue;
       }
 
-      chips.push(`${candidate.key} ${candidate.value.toFixed(2)}`);
+      badges.push(`${candidate.key} ${candidate.value.toFixed(2)}`);
 
-      if (chips.length >= 4) {
+      if (badges.length >= 4) {
         break;
       }
     }
 
-    return chips;
+    return badges;
   }
 
   getExplanationHeadline(item: RecommendationItem): string {
@@ -340,34 +292,34 @@ export class ExplorePage implements OnInit {
   }
 
   async openGameDetail(item: RecommendationItem): Promise<void> {
-    const cached = this.getCachedDetail(item);
+    const local = this.getLocalGame(item);
 
     this.isGameDetailModalOpen = true;
-    this.isLoadingDetail = true;
+    this.isLoadingDetail = false;
     this.detailErrorMessage = '';
-    this.detailContext = 'explore';
-    this.isSelectedGameInLibrary = false;
+    this.detailContext = local ? 'library' : 'explore';
+    this.isSelectedGameInLibrary = Boolean(local);
     this.isAddToLibraryLoading = false;
-    this.selectedGameDetail =
-      cached ??
-      this.createFallbackCatalogResult({
-        igdbGameId: item.igdbGameId,
-        platformIgdbId: item.platformIgdbId,
-        title: `Game #${item.igdbGameId}`
-      });
+    this.selectedGameDetail = local
+      ? local
+      : this.createFallbackCatalogResult({
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId,
+          title: `Game #${item.igdbGameId}`
+        });
 
-    try {
-      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(this.selectedGameDetail);
-      const detail = await firstValueFrom(this.igdbProxyService.getGameById(item.igdbGameId));
-      this.selectedGameDetail = detail;
-      this.cacheDetail(detail);
-      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(detail);
-    } catch (error) {
-      this.detailErrorMessage =
-        error instanceof Error ? error.message : 'Unable to load game details.';
-    } finally {
-      this.isLoadingDetail = false;
+    if (!local) {
+      try {
+        this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(
+          this.selectedGameDetail
+        );
+      } catch (error) {
+        this.detailErrorMessage =
+          error instanceof Error ? error.message : 'Unable to load game details.';
+      }
     }
+
+    this.isLoadingDetail = false;
   }
 
   closeGameDetailModal(): void {
@@ -636,17 +588,20 @@ export class ExplorePage implements OnInit {
     this.recommendationErrorCode = 'NONE';
 
     try {
-      const response = await firstValueFrom(
-        this.igdbProxyService.getRecommendationLanes({
-          target: this.selectedTarget,
-          runtimeMode: this.selectedRuntimeMode,
-          limit: ExplorePage.LANE_LIMIT
-        })
-      );
+      const [response, localGames] = await Promise.all([
+        firstValueFrom(
+          this.igdbProxyService.getRecommendationLanes({
+            target: this.selectedTarget,
+            runtimeMode: this.selectedRuntimeMode,
+            limit: ExplorePage.LANE_LIMIT
+          })
+        ),
+        this.gameShelfService.listLibraryGames()
+      ]);
 
       this.activeLanesResponse = response;
       this.lanesCache.set(cacheKey, response);
-      await this.hydrateDetailCache(response);
+      this.replaceLocalGameCache(localGames);
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.recommendationError = normalized.message;
@@ -658,36 +613,6 @@ export class ExplorePage implements OnInit {
     } finally {
       this.isLoadingRecommendations = false;
     }
-  }
-
-  private async hydrateDetailCache(response: RecommendationLanesResponse): Promise<void> {
-    const ids = new Set<string>();
-
-    for (const laneKey of ['overall', 'hiddenGems', 'exploration'] as RecommendationLaneKey[]) {
-      for (const item of response.lanes[laneKey]) {
-        ids.add(item.igdbGameId);
-      }
-    }
-
-    const pending: Promise<void>[] = [];
-
-    for (const igdbGameId of ids) {
-      if (this.detailCache.has(igdbGameId)) {
-        continue;
-      }
-
-      pending.push(
-        firstValueFrom(this.igdbProxyService.getGameById(igdbGameId))
-          .then((detail) => {
-            this.cacheDetail(detail);
-          })
-          .catch(() => {
-            // Ignore detail hydration failures; card falls back to ids.
-          })
-      );
-    }
-
-    await Promise.all(pending);
   }
 
   private parseRecommendationTarget(value: unknown): RecommendationTarget | null {
@@ -721,13 +646,26 @@ export class ExplorePage implements OnInit {
     return `${target}:${runtimeMode}`;
   }
 
-  private cacheDetail(detail: GameCatalogResult): void {
-    this.detailCache.set(detail.igdbGameId, detail);
+  private replaceLocalGameCache(entries: GameEntry[]): void {
+    this.localGameCacheByIdentity.clear();
+    for (const entry of entries) {
+      this.localGameCacheByIdentity.set(
+        this.buildIdentityKey(entry.igdbGameId, entry.platformIgdbId),
+        entry
+      );
+    }
   }
 
-  private getCachedDetail(item: RecommendationItem): GameCatalogResult | null {
-    const cached = this.detailCache.get(item.igdbGameId);
-    return cached ?? null;
+  private getLocalGame(item: RecommendationItem): GameEntry | null {
+    return (
+      this.localGameCacheByIdentity.get(
+        this.buildIdentityKey(item.igdbGameId, item.platformIgdbId)
+      ) ?? null
+    );
+  }
+
+  private buildIdentityKey(igdbGameId: string, platformIgdbId: number): string {
+    return `${igdbGameId}::${String(platformIgdbId)}`;
   }
 
   private createFallbackCatalogResult(params: {

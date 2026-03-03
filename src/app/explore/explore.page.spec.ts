@@ -40,11 +40,9 @@ vi.mock('@ionic/angular/standalone', () => {
     IonIcon: Dummy,
     IonRange: Dummy,
     IonNote: Dummy,
-    IonSegment: Dummy,
-    IonSegmentButton: Dummy,
     IonRefresher: Dummy,
     IonRefresherContent: Dummy,
-    IonChip: Dummy
+    IonBadge: Dummy
   };
 });
 vi.mock('../features/game-detail/game-detail-content.component', () => ({
@@ -108,6 +106,27 @@ describe('ExplorePage recommendations UX', () => {
   };
 
   const gameShelfServiceMock = {
+    listLibraryGames: vi.fn().mockResolvedValue([
+      {
+        id: 1,
+        igdbGameId: '100',
+        title: 'Cached Local Title',
+        notes: null,
+        customTitle: null,
+        coverUrl: 'https://example.com/local-cover.jpg',
+        customCoverUrl: null,
+        coverSource: 'none',
+        platform: 'PC (Microsoft Windows)',
+        platformIgdbId: 6,
+        releaseDate: null,
+        releaseYear: 2020,
+        status: 'wantToPlay',
+        rating: null,
+        listType: 'collection',
+        createdAt: '2026-03-03T00:00:00.000Z',
+        updatedAt: '2026-03-03T00:00:00.000Z'
+      }
+    ]),
     findGameByIdentity: vi.fn().mockResolvedValue(null),
     setGameStatus: vi.fn(),
     setGameRating: vi.fn(),
@@ -132,39 +151,7 @@ describe('ExplorePage recommendations UX', () => {
     igdbProxyServiceMock.rebuildRecommendations.mockReturnValue(
       of({ target: 'BACKLOG', runId: '2', status: 'SUCCESS' })
     );
-    igdbProxyServiceMock.getGameById.mockReturnValue(
-      of({
-        igdbGameId: '100',
-        title: 'Test Game',
-        coverUrl: null,
-        coverSource: 'none',
-        storyline: null,
-        summary: null,
-        gameType: null,
-        hltbMainHours: null,
-        hltbMainExtraHours: null,
-        hltbCompletionistHours: null,
-        reviewScore: null,
-        reviewUrl: null,
-        reviewSource: null,
-        mobyScore: null,
-        mobygamesGameId: null,
-        metacriticScore: null,
-        metacriticUrl: null,
-        similarGameIgdbIds: [],
-        collections: [],
-        developers: [],
-        franchises: [],
-        genres: [],
-        publishers: [],
-        platforms: ['PC (Microsoft Windows)'],
-        platformOptions: [{ id: 6, name: 'PC (Microsoft Windows)' }],
-        platform: 'PC (Microsoft Windows)',
-        platformIgdbId: 6,
-        releaseDate: null,
-        releaseYear: 2020
-      })
-    );
+    igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
 
     TestBed.configureTestingModule({
       providers: [
@@ -197,7 +184,9 @@ describe('ExplorePage recommendations UX', () => {
       runtimeMode: 'NEUTRAL',
       limit: 20
     });
+    expect(gameShelfServiceMock.listLibraryGames).toHaveBeenCalledTimes(1);
     expect(page.getActiveLaneItems()).toHaveLength(1);
+    expect(page.getDisplayTitle(page.getActiveLaneItems()[0])).toBe('Cached Local Title');
   });
 
   it('switching target/runtime triggers recommendation fetch with selected tuple', async () => {
@@ -241,26 +230,7 @@ describe('ExplorePage recommendations UX', () => {
     expect(page.recommendationErrorCode).toBe('NOT_FOUND');
   });
 
-  it('manual rebuild triggers rebuild API and refreshes the active tuple', async () => {
-    const page = createPage();
-    page.ngOnInit();
-    await flushAsync();
-
-    igdbProxyServiceMock.getRecommendationLanes.mockClear();
-    await page.rebuildRecommendations(true);
-
-    expect(igdbProxyServiceMock.rebuildRecommendations).toHaveBeenCalledWith({
-      target: 'BACKLOG',
-      force: true
-    });
-    expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledWith({
-      target: 'BACKLOG',
-      runtimeMode: 'NEUTRAL',
-      limit: 20
-    });
-  });
-
-  it('opens detail modal for recommendation row and requests detail by igdb id', async () => {
+  it('opens detail modal for recommendation row without IGDB detail request', async () => {
     const page = createPage();
     page.ngOnInit();
     await flushAsync();
@@ -269,7 +239,7 @@ describe('ExplorePage recommendations UX', () => {
     await page.openGameDetail(row);
 
     expect(page.isGameDetailModalOpen).toBe(true);
-    expect(igdbProxyServiceMock.getGameById).toHaveBeenCalledWith('100');
+    expect(igdbProxyServiceMock.getGameById).not.toHaveBeenCalled();
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
   });
 });

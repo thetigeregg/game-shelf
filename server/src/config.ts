@@ -214,6 +214,18 @@ function readRuntimeModeDefaultEnv(
   return parsed ?? fallback;
 }
 
+const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
+
+function readEmbeddingDimensionsEnv(name: string): number {
+  const value = readIntegerEnv(name, EMBEDDING_DIMENSIONS_SCHEMA);
+  if (value !== EMBEDDING_DIMENSIONS_SCHEMA) {
+    throw new Error(
+      `${name} must be ${String(EMBEDDING_DIMENSIONS_SCHEMA)} to match game_embeddings schema`
+    );
+  }
+  return value;
+}
+
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
@@ -288,7 +300,9 @@ export const config: AppConfig = {
     'RECOMMENDATIONS_EMBEDDING_MODEL',
     'text-embedding-3-small'
   ),
-  recommendationsEmbeddingDimensions: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_DIMENSIONS', 1536),
+  recommendationsEmbeddingDimensions: readEmbeddingDimensionsEnv(
+    'RECOMMENDATIONS_EMBEDDING_DIMENSIONS'
+  ),
   recommendationsEmbeddingBatchSize: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_BATCH_SIZE', 32),
   recommendationsSemanticWeight: readNumberEnv('RECOMMENDATIONS_SEMANTIC_WEIGHT', 2),
   recommendationsSimilarityStructuredWeight: readNumberEnv(

@@ -262,7 +262,7 @@
         </div>
       }
 
-      @if (detailContext === 'explore') {
+      @if (selectedGameDetail) {
         <app-detail-shortcuts-fab
           (shortcutSearch)="openShortcutSearch($event)"
         ></app-detail-shortcuts-fab>

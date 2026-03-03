@@ -26,7 +26,9 @@ import {
   IonSelectOption,
   IonRefresher,
   IonRefresherContent,
-  IonBadge
+  IonBadge,
+  IonAccordion,
+  IonAccordionGroup
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -106,6 +108,8 @@ interface RecommendationBadge {
     IonRefresher,
     IonRefresherContent,
     IonBadge,
+    IonAccordion,
+    IonAccordionGroup,
     GameDetailContentComponent
   ]
 })
@@ -135,8 +139,6 @@ export class ExplorePage implements OnInit {
   isLoadingRecommendations = false;
   recommendationError = '';
   recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
-  readonly expandedExplanationKeys = new Set<string>();
-
   isGameDetailModalOpen = false;
   isLoadingDetail = false;
   detailErrorMessage = '';
@@ -348,20 +350,6 @@ export class ExplorePage implements OnInit {
         label: bullet.label,
         delta: `${bullet.delta >= 0 ? '+' : ''}${bullet.delta.toFixed(2)}`
       }));
-  }
-
-  isExplanationExpanded(item: RecommendationItem): boolean {
-    return this.expandedExplanationKeys.has(this.trackByRecommendationKey(0, item));
-  }
-
-  toggleExplanation(item: RecommendationItem, event?: Event): void {
-    event?.stopPropagation();
-    const key = this.trackByRecommendationKey(0, item);
-    if (this.expandedExplanationKeys.has(key)) {
-      this.expandedExplanationKeys.delete(key);
-      return;
-    }
-    this.expandedExplanationKeys.add(key);
   }
 
   trackByRecommendationKey(_: number, item: RecommendationItem): string {
@@ -688,7 +676,6 @@ export class ExplorePage implements OnInit {
       this.activeLanesResponse = response;
       this.lanesCache.set(cacheKey, response);
       this.replaceLocalGameCache(localGames);
-      this.expandedExplanationKeys.clear();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.recommendationError = normalized.message;

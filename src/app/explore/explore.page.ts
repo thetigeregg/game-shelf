@@ -869,22 +869,7 @@ export class ExplorePage implements OnInit {
   }
 
   getSimilarReasonBadges(item: RecommendationSimilarItem): RecommendationBadge[] {
-    const badges: RecommendationBadge[] = [
-      { text: `Blend ${item.similarity.toFixed(2)}`, color: 'primary' }
-    ];
-    const tokenBadges: RecommendationBadge[] = [
-      ...item.reasons.sharedTokens.themes.map((value) => ({
-        text: `Theme: ${value}`,
-        color: 'secondary' as const
-      })),
-      ...item.reasons.sharedTokens.keywords.map((value) => ({
-        text: `Keyword: ${value}`,
-        color: 'tertiary' as const
-      }))
-    ].slice(0, 2);
-
-    badges.push(...tokenBadges);
-    return badges;
+    return [{ text: `Blend ${item.similarity.toFixed(2)}`, color: 'primary' }];
   }
 
   async openSimilarRecommendation(item: RecommendationSimilarItem, event?: Event): Promise<void> {

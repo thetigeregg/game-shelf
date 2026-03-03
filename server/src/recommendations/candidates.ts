@@ -9,6 +9,13 @@ const BACKLOG_EXCLUDED = new Set<NormalizedGameRecord['status']>([
   'replay'
 ]);
 const WISHLIST_EXCLUDED = new Set<NormalizedGameRecord['status']>(['completed', 'dropped']);
+const DISCOVERY_EXCLUDED = new Set<NormalizedGameRecord['status']>([
+  'completed',
+  'dropped',
+  'playing',
+  'paused',
+  'replay'
+]);
 
 export function selectCandidates(
   games: NormalizedGameRecord[],
@@ -25,6 +32,16 @@ export function selectCandidates(
       }
 
       return BACKLOG_ALLOWED.has(game.status);
+    });
+  }
+
+  if (target === 'DISCOVERY') {
+    return games.filter((game) => {
+      if (game.listType !== 'discovery') {
+        return false;
+      }
+
+      return !DISCOVERY_EXCLUDED.has(game.status);
     });
   }
 

@@ -10,6 +10,7 @@ import { prepareKeywords } from './keywords.js';
 import { normalizeTokenKey } from './normalize.js';
 import { buildPreferenceProfile } from './profile.js';
 import { EmbeddingRepository } from './embedding-repository.js';
+import { DiscoveryCandidateRecord, DiscoveryIgdbClient } from './discovery-igdb-client.js';
 import { RecommendationRepository } from './repository.js';
 import { parseRecommendationRuntimeMode, RECOMMENDATION_RUNTIME_MODES } from './runtime.js';
 import { buildRankedScores } from './score.js';
@@ -65,12 +66,18 @@ export interface RecommendationServiceOptions {
   similarityDeveloperWeight: number;
   similarityPublisherWeight: number;
   similarityKeywordWeight: number;
+  discoveryEnabled: boolean;
+  discoveryPoolSize: number;
+  discoveryRefreshHours: number;
+  discoveryIgdbRequestTimeoutMs: number;
+  discoveryIgdbMaxRequestsPerSecond: number;
 }
 
 export interface RecommendationServiceDependencies {
   embeddingRepository?: EmbeddingRepository;
   embeddingClient?: EmbeddingClient;
   nowProvider?: () => number;
+  discoveryClient?: DiscoveryIgdbClient;
 }
 
 export type RebuildAttemptResult =
@@ -127,6 +134,7 @@ export interface RecommendationServiceApi {
 export class RecommendationService implements RecommendationServiceApi {
   private readonly embeddingRepository: EmbeddingRepository;
   private readonly embeddingClient: EmbeddingClient;
+  private readonly discoveryClient: DiscoveryIgdbClient;
   private readonly nowProvider: () => number;
 
   constructor(
@@ -144,6 +152,14 @@ export class RecommendationService implements RecommendationServiceApi {
         dimensions: this.options.embeddingDimensions
       });
     this.nowProvider = dependencies.nowProvider ?? (() => Date.now());
+    this.discoveryClient =
+      dependencies.discoveryClient ??
+      new DiscoveryIgdbClient({
+        twitchClientId: '',
+        twitchClientSecret: '',
+        requestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
+        maxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond
+      });
   }
 
   async rebuild(params: {
@@ -164,7 +180,15 @@ export class RecommendationService implements RecommendationServiceApi {
         };
       }
 
-      const games = await this.repository.listNormalizedGames(client);
+      let games = await this.repository.listNormalizedGames(client);
+      if (params.target === 'DISCOVERY' && this.options.discoveryEnabled) {
+        await this.refreshDiscoveryPool({
+          client,
+          force,
+          games
+        });
+        games = await this.repository.listNormalizedGames(client);
+      }
       const histories = await this.loadHistoryByMode(params.target, client);
       const keywordArtifacts = this.buildKeywordArtifacts(games);
       const settingsHash = this.computeSettingsHash();
@@ -683,6 +707,11 @@ export class RecommendationService implements RecommendationServiceApi {
       similarityDeveloperWeight: this.options.similarityDeveloperWeight,
       similarityPublisherWeight: this.options.similarityPublisherWeight,
       similarityKeywordWeight: this.options.similarityKeywordWeight,
+      discoveryEnabled: this.options.discoveryEnabled,
+      discoveryPoolSize: this.options.discoveryPoolSize,
+      discoveryRefreshHours: this.options.discoveryRefreshHours,
+      discoveryIgdbRequestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
+      discoveryIgdbMaxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond,
       modelVersion: 'recommendation-v3-themes-keywords'
     });
   }
@@ -780,6 +809,67 @@ export class RecommendationService implements RecommendationServiceApi {
     };
   }
 
+  private async refreshDiscoveryPool(params: {
+    client: PoolClient;
+    force: boolean;
+    games: NormalizedGameRecord[];
+  }): Promise<void> {
+    const { client, force, games } = params;
+    const latestUpdatedAt = await this.repository.getDiscoveryPoolLatestUpdatedAt(client);
+    const stale =
+      !latestUpdatedAt ||
+      this.nowProvider() - Date.parse(latestUpdatedAt) >=
+        this.options.discoveryRefreshHours * 60 * 60 * 1000;
+
+    if (!force && !stale) {
+      return;
+    }
+
+    const preferredPlatformIds = [
+      ...new Set(
+        games
+          .filter((game) => game.listType === 'collection' || game.listType === 'wishlist')
+          .map((game) => game.platformIgdbId)
+          .filter((id) => Number.isInteger(id) && id > 0)
+      )
+    ];
+    const strictExcluded = new Set(
+      games
+        .filter(
+          (game) =>
+            game.listType === 'collection' ||
+            game.listType === 'wishlist' ||
+            game.status === 'completed' ||
+            game.status === 'dropped'
+        )
+        .map((game) => buildGameKey(game.igdbGameId, game.platformIgdbId))
+    );
+
+    const fetched = await this.discoveryClient.fetchDiscoveryCandidates({
+      poolSize: this.options.discoveryPoolSize,
+      preferredPlatformIds
+    });
+
+    const upsertRows = fetched
+      .filter((row) => !strictExcluded.has(buildGameKey(row.igdbGameId, row.platformIgdbId)))
+      .map((row) => ({
+        igdbGameId: row.igdbGameId,
+        platformIgdbId: row.platformIgdbId,
+        payload: buildDiscoveryPayload(row)
+      }));
+
+    await this.repository.upsertDiscoveryGames({
+      client,
+      rows: upsertRows
+    });
+
+    const keepKeys = upsertRows.map((row) => buildGameKey(row.igdbGameId, row.platformIgdbId));
+    await this.repository.pruneDiscoveryGames({
+      client,
+      keepKeys
+    });
+  }
+
   private isStale(run: RecommendationRunSummary): boolean {
     const timestamp = Date.parse(run.finishedAt ?? run.startedAt);
 
@@ -843,14 +933,27 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+function buildDiscoveryPayload(row: DiscoveryCandidateRecord): Record<string, unknown> {
+  return {
+    ...row.payload,
+    listType: 'discovery',
+    status: null,
+    rating: null,
+    createdAt: null,
+    updatedAt: null,
+    discoverySource: row.source,
+    discoverySourceScore: row.sourceScore
+  };
+}
+
 export function parseRecommendationTarget(value: unknown): RecommendationTarget | null {
-  if (value === 'BACKLOG' || value === 'WISHLIST') {
+  if (value === 'BACKLOG' || value === 'WISHLIST' || value === 'DISCOVERY') {
     return value;
   }
 
   if (typeof value === 'string') {
     const normalized = normalizeTokenKey(value).toUpperCase();
-    if (normalized === 'BACKLOG' || normalized === 'WISHLIST') {
+    if (normalized === 'BACKLOG' || normalized === 'WISHLIST' || normalized === 'DISCOVERY') {
       return normalized as RecommendationTarget;
     }
   }

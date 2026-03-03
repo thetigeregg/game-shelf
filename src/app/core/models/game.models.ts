@@ -99,9 +99,15 @@ export interface PopularityGameResult {
   calculatedAt: string | null;
 }
 
-export type RecommendationTarget = 'BACKLOG' | 'WISHLIST';
+export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
 export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
-export type RecommendationLaneKey = 'overall' | 'hiddenGems' | 'exploration';
+export type RecommendationLaneKey =
+  | 'overall'
+  | 'hiddenGems'
+  | 'exploration'
+  | 'blended'
+  | 'popular'
+  | 'recent';
 
 export interface RecommendationScoreComponents {
   taste: number;
@@ -171,6 +177,9 @@ export interface RecommendationLanesResponse {
     overall: RecommendationItem[];
     hiddenGems: RecommendationItem[];
     exploration: RecommendationItem[];
+    blended: RecommendationItem[];
+    popular: RecommendationItem[];
+    recent: RecommendationItem[];
   };
 }
 

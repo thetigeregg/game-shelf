@@ -2005,7 +2005,10 @@ describe('IgdbProxyService', () => {
       lanes: {
         overall: [],
         hiddenGems: [],
-        exploration: []
+        exploration: [],
+        blended: [],
+        popular: [],
+        recent: []
       }
     });
 
@@ -2017,7 +2020,10 @@ describe('IgdbProxyService', () => {
       lanes: {
         overall: [],
         hiddenGems: [],
-        exploration: []
+        exploration: [],
+        blended: [],
+        popular: [],
+        recent: []
       }
     });
   });

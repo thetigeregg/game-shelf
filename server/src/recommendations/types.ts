@@ -2,7 +2,13 @@ export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
 export type RecommendationRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type RecommendationRunTrigger = 'manual' | 'scheduler' | 'stale-read';
 export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
-export type RecommendationLaneKey = 'overall' | 'hiddenGems' | 'exploration';
+export type RecommendationLaneKey =
+  | 'overall'
+  | 'hiddenGems'
+  | 'exploration'
+  | 'blended'
+  | 'popular'
+  | 'recent';
 
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 
@@ -20,6 +26,7 @@ export interface NormalizedGameRecord {
   platformIgdbId: number;
   title: string;
   listType: 'collection' | 'wishlist' | 'discovery';
+  discoverySource?: 'popular' | 'recent' | null;
   status: GameStatus | null;
   rating: number | null;
   createdAt: string | null;
@@ -123,6 +130,9 @@ export interface RecommendationLaneCollection {
   overall: RankedRecommendationItem[];
   hiddenGems: RankedRecommendationItem[];
   exploration: RankedRecommendationItem[];
+  blended: RankedRecommendationItem[];
+  popular: RankedRecommendationItem[];
+  recent: RankedRecommendationItem[];
 }
 
 export interface RecommendationRunSummary {

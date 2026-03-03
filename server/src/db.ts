@@ -246,7 +246,7 @@ export const MIGRATIONS: string[] = [
   CREATE TABLE IF NOT EXISTS recommendation_lanes (
     run_id BIGINT NOT NULL REFERENCES recommendation_runs(id) ON DELETE CASCADE,
     runtime_mode TEXT NOT NULL CHECK (runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG')),
-    lane TEXT NOT NULL CHECK (lane IN ('overall', 'hiddenGems', 'exploration')),
+    lane TEXT NOT NULL CHECK (lane IN ('overall', 'hiddenGems', 'exploration', 'blended', 'popular', 'recent')),
     rank INTEGER NOT NULL,
     igdb_game_id TEXT NOT NULL,
     platform_igdb_id INTEGER NOT NULL,
@@ -263,6 +263,22 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS recommendation_lanes_run_mode_lane_rank_idx
   ON recommendation_lanes (run_id, runtime_mode, lane, rank);
+  `,
+  `
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conname = 'recommendation_lanes_lane_check'
+    ) THEN
+      ALTER TABLE recommendation_lanes
+      DROP CONSTRAINT recommendation_lanes_lane_check;
+    END IF;
+    ALTER TABLE recommendation_lanes
+      ADD CONSTRAINT recommendation_lanes_lane_check
+      CHECK (lane IN ('overall', 'hiddenGems', 'exploration', 'blended', 'popular', 'recent'));
+  END $$;
   `,
   `
   CREATE TABLE IF NOT EXISTS recommendation_history (

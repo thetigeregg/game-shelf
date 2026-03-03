@@ -863,19 +863,42 @@ export class ExplorePage implements OnInit {
 
   getSimilarTitle(item: RecommendationSimilarItem): string {
     const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
-    return local?.customTitle?.trim() || local?.title || `Game #${item.igdbGameId}`;
+    if (local?.customTitle?.trim()) {
+      return local.customTitle.trim();
+    }
+    if (local?.title) {
+      return local.title;
+    }
+
+    const metadata = this.getRecommendationDisplayMetadata({
+      igdbGameId: item.igdbGameId,
+      platformIgdbId: item.platformIgdbId
+    });
+    return metadata?.title ?? `Game #${item.igdbGameId}`;
   }
 
   getSimilarCoverUrl(item: RecommendationSimilarItem): string {
     const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
-    return local?.customCoverUrl ?? local?.coverUrl ?? 'assets/icon/placeholder.png';
+    if (local?.customCoverUrl || local?.coverUrl) {
+      return local.customCoverUrl ?? local.coverUrl ?? 'assets/icon/placeholder.png';
+    }
+
+    const metadata = this.getRecommendationDisplayMetadata({
+      igdbGameId: item.igdbGameId,
+      platformIgdbId: item.platformIgdbId
+    });
+    return metadata?.coverUrl ?? 'assets/icon/placeholder.png';
   }
 
   getSimilarContext(item: RecommendationSimilarItem): string {
     const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
 
     if (!local) {
-      return `Platform ${String(item.platformIgdbId)}`;
+      const metadata = this.getRecommendationDisplayMetadata({
+        igdbGameId: item.igdbGameId,
+        platformIgdbId: item.platformIgdbId
+      });
+      return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
     }
 
     const platform = this.getPlatformDisplayName(local.platform, local.platformIgdbId);
@@ -1139,6 +1162,7 @@ export class ExplorePage implements OnInit {
             candidate.platformIgdbId === item.platformIgdbId
           )
       );
+      await this.ensureSimilarDisplayMetadata(this.similarRecommendationItems);
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.similarRecommendationsError = normalized.message;
@@ -1274,6 +1298,39 @@ export class ExplorePage implements OnInit {
       return;
     }
 
+    await this.populateRecommendationDisplayMetadata(groupedPlatformIds);
+  }
+
+  private async ensureSimilarDisplayMetadata(items: RecommendationSimilarItem[]): Promise<void> {
+    const groupedPlatformIds = new Map<string, Set<number>>();
+    for (const item of items) {
+      if (this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId)) {
+        continue;
+      }
+
+      const identityKey = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
+      if (this.recommendationDisplayMetadata.has(identityKey)) {
+        continue;
+      }
+
+      const existing = groupedPlatformIds.get(item.igdbGameId);
+      if (existing) {
+        existing.add(item.platformIgdbId);
+      } else {
+        groupedPlatformIds.set(item.igdbGameId, new Set([item.platformIgdbId]));
+      }
+    }
+
+    if (groupedPlatformIds.size === 0) {
+      return;
+    }
+
+    await this.populateRecommendationDisplayMetadata(groupedPlatformIds);
+  }
+
+  private async populateRecommendationDisplayMetadata(
+    groupedPlatformIds: Map<string, Set<number>>
+  ): Promise<void> {
     const groupedEntries = Array.from(groupedPlatformIds.entries());
     const batchSize = 4;
 

@@ -272,7 +272,7 @@ export const config: AppConfig = {
   recommendationsExplorationWeight: readNumberEnv('RECOMMENDATIONS_EXPLORATION_WEIGHT', 0.3),
   recommendationsDiversityPenaltyWeight: readNumberEnv(
     'RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT',
-    0.5
+    0.4
   ),
   recommendationsRepeatPenaltyStep: readNumberEnv('RECOMMENDATIONS_REPEAT_PENALTY_STEP', 0.2),
   recommendationsTuningMinRated: readIntegerEnv('RECOMMENDATIONS_TUNING_MIN_RATED', 8),

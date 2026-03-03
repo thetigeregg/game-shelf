@@ -82,6 +82,8 @@ void test('ranking is deterministic for the same input data', () => {
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
+    similarityStructuredWeight: 0.6,
+    similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
     historyByGame: new Map<string, { recommendationCount: number }>()
   };
@@ -127,6 +129,8 @@ void test('cold start disables taste contribution when rated games are fewer tha
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
+    similarityStructuredWeight: 0.6,
+    similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
     historyByGame: new Map([['c1::1', { recommendationCount: 3 }]])
   });
@@ -169,6 +173,8 @@ void test('critic boost handles mobygames reviewScore values on 0-100 scale', ()
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
+    similarityStructuredWeight: 0.6,
+    similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
     historyByGame: new Map()
   });
@@ -203,9 +209,83 @@ void test('exploration uses raw semantic similarity, not weighted semantic score
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
+    similarityStructuredWeight: 0.6,
+    similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
     historyByGame: new Map()
   });
 
   assert.equal(ranked[0]?.components.exploration, 0.045);
+});
+
+void test('taste overlap discount reduces duplicate collection+franchise lift', () => {
+  const history: NormalizedGameRecord[] = [
+    buildGame({ igdbGameId: 'h1', rating: 5, collections: ['Mario'], franchises: ['Mario'] }),
+    buildGame({ igdbGameId: 'h2', rating: 4.5, collections: ['Mario'], franchises: ['Mario'] }),
+    buildGame({ igdbGameId: 'h3', rating: 4, collections: ['Mario'], franchises: ['Mario'] }),
+    buildGame({ igdbGameId: 'h4', rating: 3.5, collections: ['Mario'], franchises: ['Mario'] }),
+    buildGame({ igdbGameId: 'h5', rating: 3, collections: ['Mario'], franchises: ['Mario'] })
+  ];
+
+  const withOverlap = buildRankedScores({
+    candidates: [
+      buildGame({
+        igdbGameId: 'c1',
+        status: 'wantToPlay',
+        collections: ['Mario'],
+        franchises: ['Mario']
+      })
+    ],
+    profile: buildPreferenceProfile(history),
+    target: 'BACKLOG',
+    runtimeMode: 'NEUTRAL',
+    limit: 20,
+    semanticSimilarityByGame: new Map(),
+    tunedWeights: {
+      tasteWeight: 1,
+      semanticWeight: 2,
+      criticWeight: 1,
+      runtimeWeight: 1
+    },
+    explorationWeight: 0.3,
+    diversityPenaltyWeight: 0.5,
+    similarityStructuredWeight: 0.6,
+    similaritySemanticWeight: 0.4,
+    repeatPenaltyStep: 0.2,
+    historyByGame: new Map()
+  });
+
+  const collectionOnly = buildRankedScores({
+    candidates: [
+      buildGame({
+        igdbGameId: 'c2',
+        status: 'wantToPlay',
+        collections: ['Mario'],
+        franchises: []
+      })
+    ],
+    profile: buildPreferenceProfile(history),
+    target: 'BACKLOG',
+    runtimeMode: 'NEUTRAL',
+    limit: 20,
+    semanticSimilarityByGame: new Map(),
+    tunedWeights: {
+      tasteWeight: 1,
+      semanticWeight: 2,
+      criticWeight: 1,
+      runtimeWeight: 1
+    },
+    explorationWeight: 0.3,
+    diversityPenaltyWeight: 0.5,
+    similarityStructuredWeight: 0.6,
+    similaritySemanticWeight: 0.4,
+    repeatPenaltyStep: 0.2,
+    historyByGame: new Map()
+  });
+
+  assert.equal(
+    (withOverlap[0]?.components.taste ?? 0) > (collectionOnly[0]?.components.taste ?? 0),
+    true
+  );
+  assert.equal((withOverlap[0]?.components.taste ?? 0) < 1.4, true);
 });

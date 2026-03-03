@@ -11,8 +11,17 @@ export function calculateDiversityPenalty(params: {
   selected: DiversityCandidate[];
   semanticSimilarityByGame: Map<string, number>;
   diversityPenaltyWeight: number;
+  structuredWeight: number;
+  semanticWeight: number;
 }): number {
-  const { candidate, selected, semanticSimilarityByGame, diversityPenaltyWeight } = params;
+  const {
+    candidate,
+    selected,
+    semanticSimilarityByGame,
+    diversityPenaltyWeight,
+    structuredWeight,
+    semanticWeight
+  } = params;
 
   if (selected.length === 0 || diversityPenaltyWeight <= 0) {
     return 0;
@@ -24,18 +33,22 @@ export function calculateDiversityPenalty(params: {
     const similarity = blendedCandidateSimilarity(
       candidate,
       selectedCandidate,
-      semanticSimilarityByGame
+      semanticSimilarityByGame,
+      structuredWeight,
+      semanticWeight
     );
     penalty += similarity * diversityPenaltyWeight;
   }
 
-  return -clamp(penalty, 0, 1.5);
+  return -clamp(penalty, 0, 1);
 }
 
 function blendedCandidateSimilarity(
   left: DiversityCandidate,
   right: DiversityCandidate,
-  semanticSimilarityByGame: Map<string, number>
+  semanticSimilarityByGame: Map<string, number>,
+  structuredWeight: number,
+  semanticWeight: number
 ): number {
   const structured = jaccard(left.tokenKeys, right.tokenKeys);
   const leftSemantic = semanticSimilarityByGame.get(
@@ -49,7 +62,11 @@ function blendedCandidateSimilarity(
       ? 1 - clamp(Math.abs(leftSemantic - rightSemantic) / 2, 0, 1)
       : 0;
 
-  return clamp(structured * 0.6 + semantic * 0.4, 0, 1);
+  const totalWeight = Math.max(0, structuredWeight) + Math.max(0, semanticWeight);
+  const normalizedStructured = totalWeight > 0 ? Math.max(0, structuredWeight) / totalWeight : 0.6;
+  const normalizedSemantic = totalWeight > 0 ? Math.max(0, semanticWeight) / totalWeight : 0.4;
+
+  return clamp(structured * normalizedStructured + semantic * normalizedSemantic, 0, 1);
 }
 
 function jaccard(left: Set<string>, right: Set<string>): number {

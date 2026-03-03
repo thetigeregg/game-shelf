@@ -25,6 +25,8 @@ import {
   IonSelectOption,
   IonRefresher,
   IonRefresherContent,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent,
   IonBadge,
   IonAccordion,
   IonAccordionGroup
@@ -114,6 +116,8 @@ interface RecommendationDisplayMetadata {
     IonSelectOption,
     IonRefresher,
     IonRefresherContent,
+    IonInfiniteScroll,
+    IonInfiniteScrollContent,
     IonBadge,
     IonAccordion,
     IonAccordionGroup,
@@ -124,7 +128,10 @@ interface RecommendationDisplayMetadata {
   ]
 })
 export class ExplorePage implements OnInit {
-  private static readonly LANE_LIMIT = 20;
+  private static readonly RECOMMENDATION_PAGE_SIZE = 10;
+  private static readonly RECOMMENDATION_FETCH_LIMIT = 200;
+  private static readonly SIMILAR_PAGE_SIZE = 5;
+  private static readonly SIMILAR_FETCH_LIMIT = 50;
 
   readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
@@ -165,6 +172,8 @@ export class ExplorePage implements OnInit {
   isLoadingSimilar = false;
   similarRecommendationsError = '';
   similarRecommendationItems: RecommendationSimilarItem[] = [];
+  visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
+  visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
   activeDetailRecommendation: RecommendationItem | null = null;
   detailNavigationStack: RecommendationItem[] = [];
   isRatingModalOpen = false;
@@ -224,6 +233,7 @@ export class ExplorePage implements OnInit {
 
     this.selectedTarget = parsed;
     this.selectedLaneKey = this.selectedTarget === 'DISCOVERY' ? 'blended' : 'overall';
+    this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
     await this.loadRecommendationLanes(false);
   }
 
@@ -235,6 +245,7 @@ export class ExplorePage implements OnInit {
     }
 
     this.selectedRuntimeMode = parsed;
+    this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
     await this.loadRecommendationLanes(false);
   }
 
@@ -246,6 +257,7 @@ export class ExplorePage implements OnInit {
     }
 
     this.selectedLaneKey = parsed;
+    this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
   }
 
   async refreshRecommendations(event: Event): Promise<void> {
@@ -257,7 +269,32 @@ export class ExplorePage implements OnInit {
   }
 
   getActiveLaneItems(): RecommendationItem[] {
-    return this.getDeduplicatedLaneItems(this.getRawActiveLaneItems());
+    return this.getDeduplicatedLaneItems(this.getRawActiveLaneItems()).slice(
+      0,
+      this.visibleRecommendationCount
+    );
+  }
+
+  canLoadMoreRecommendations(): boolean {
+    return this.visibleRecommendationCount < this.getTotalActiveRecommendationCount();
+  }
+
+  async loadMoreRecommendations(event: Event): Promise<void> {
+    this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
+    await this.completeInfiniteScroll(event);
+  }
+
+  getVisibleSimilarRecommendationItems(): RecommendationSimilarItem[] {
+    return this.similarRecommendationItems.slice(0, this.visibleSimilarRecommendationCount);
+  }
+
+  canLoadMoreSimilarRecommendations(): boolean {
+    return this.visibleSimilarRecommendationCount < this.similarRecommendationItems.length;
+  }
+
+  async loadMoreSimilarRecommendations(event: Event): Promise<void> {
+    this.visibleSimilarRecommendationCount += ExplorePage.SIMILAR_PAGE_SIZE;
+    await this.completeInfiniteScroll(event);
   }
 
   hasAnyLaneItems(): boolean {
@@ -793,7 +830,7 @@ export class ExplorePage implements OnInit {
           this.igdbProxyService.getRecommendationLanes({
             target: this.selectedTarget,
             runtimeMode: this.selectedRuntimeMode,
-            limit: ExplorePage.LANE_LIMIT
+            limit: ExplorePage.RECOMMENDATION_FETCH_LIMIT
           })
         ),
         this.gameShelfService.listLibraryGames()
@@ -1153,11 +1190,12 @@ export class ExplorePage implements OnInit {
           target: this.selectedTarget,
           igdbGameId: item.igdbGameId,
           platformIgdbId: item.platformIgdbId,
-          limit: 6
+          limit: ExplorePage.SIMILAR_FETCH_LIMIT
         })
       );
 
       this.similarRecommendationItems = response.items;
+      this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
       await this.ensureSimilarDisplayMetadata(this.similarRecommendationItems);
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
@@ -1422,6 +1460,19 @@ export class ExplorePage implements OnInit {
   private async completeRefresher(event: Event): Promise<void> {
     const target = event.target as HTMLIonRefresherElement | null;
 
+    if (!target || typeof target.complete !== 'function') {
+      return;
+    }
+
+    await target.complete();
+  }
+
+  private getTotalActiveRecommendationCount(): number {
+    return this.getDeduplicatedLaneItems(this.getRawActiveLaneItems()).length;
+  }
+
+  private async completeInfiniteScroll(event: Event): Promise<void> {
+    const target = event.target as HTMLIonInfiniteScrollElement | null;
     if (!target || typeof target.complete !== 'function') {
       return;
     }

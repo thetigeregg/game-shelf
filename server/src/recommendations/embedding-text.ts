@@ -1,6 +1,9 @@
 import { NormalizedGameRecord } from './types.js';
 
-export function buildEmbeddingText(game: NormalizedGameRecord): string {
+export function buildEmbeddingText(
+  game: NormalizedGameRecord,
+  options: { keywords?: string[] } = {}
+): string {
   const sections: string[] = [];
 
   sections.push(game.title);
@@ -17,6 +20,10 @@ export function buildEmbeddingText(game: NormalizedGameRecord): string {
     sections.push(`Genres: ${game.genres.join(', ')}`);
   }
 
+  if (game.themes.length > 0) {
+    sections.push(`Themes: ${game.themes.join(', ')}`);
+  }
+
   if (game.collections.length > 0) {
     sections.push(`Series: ${game.collections.join(', ')}`);
   }
@@ -27,6 +34,11 @@ export function buildEmbeddingText(game: NormalizedGameRecord): string {
 
   if (game.developers.length > 0) {
     sections.push(`Developer: ${game.developers.join(', ')}`);
+  }
+
+  const keywords = options.keywords ?? game.keywords;
+  if (keywords.length > 0) {
+    sections.push(`Keywords: ${keywords.join(', ')}`);
   }
 
   if (game.releaseYear !== null) {

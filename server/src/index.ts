@@ -67,7 +67,20 @@ async function main(): Promise<void> {
       explorationWeight: config.recommendationsExplorationWeight,
       diversityPenaltyWeight: config.recommendationsDiversityPenaltyWeight,
       repeatPenaltyStep: config.recommendationsRepeatPenaltyStep,
-      tuningMinRated: config.recommendationsTuningMinRated
+      tuningMinRated: config.recommendationsTuningMinRated,
+      keywordsStructuredMax: config.recommendationsKeywordsStructuredMax,
+      keywordsEmbeddingMax: config.recommendationsKeywordsEmbeddingMax,
+      keywordsGlobalMaxRatio: config.recommendationsKeywordsGlobalMaxRatio,
+      keywordsStructuredMaxRatio: config.recommendationsKeywordsStructuredMaxRatio,
+      keywordsMinLibraryCount: config.recommendationsKeywordsMinLibraryCount,
+      keywordsWeight: config.recommendationsKeywordsWeight,
+      themesWeight: config.recommendationsThemesWeight,
+      similarityThemeWeight: config.recommendationsSimilarityThemeWeight,
+      similarityGenreWeight: config.recommendationsSimilarityGenreWeight,
+      similaritySeriesWeight: config.recommendationsSimilaritySeriesWeight,
+      similarityDeveloperWeight: config.recommendationsSimilarityDeveloperWeight,
+      similarityPublisherWeight: config.recommendationsSimilarityPublisherWeight,
+      similarityKeywordWeight: config.recommendationsSimilarityKeywordWeight
     },
     {
       embeddingClient

@@ -27,6 +27,8 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     publishers: [],
     franchises: [],
     collections: [],
+    themes: [],
+    keywords: [],
     ...overrides
   };
 }

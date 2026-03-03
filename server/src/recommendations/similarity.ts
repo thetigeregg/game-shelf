@@ -1,5 +1,4 @@
 import { buildTokenEntries } from './normalize.js';
-import { TOKEN_FAMILY_WEIGHT } from './profile.js';
 import { buildGameKey, clampSemanticScore, cosineSimilarity } from './semantic.js';
 import {
   NormalizedGameRecord,
@@ -18,6 +17,8 @@ interface GameTokenIndex {
 const TOKEN_FAMILIES: TokenFamily[] = [
   'collections',
   'franchises',
+  'themes',
+  'keywords',
   'developers',
   'genres',
   'publishers'
@@ -29,17 +30,35 @@ export function buildSimilarityGraph(params: {
   embeddingsByGame?: Map<string, number[]>;
   structuredWeight?: number;
   semanticWeight?: number;
+  structuredKeywordsByGame?: Map<string, string[]>;
+  structuredFamilyWeight?: {
+    themes: number;
+    genres: number;
+    series: number;
+    developers: number;
+    publishers: number;
+    keywords: number;
+  };
 }): SimilarityEdge[] {
   const {
     games,
     topK,
     embeddingsByGame = new Map<string, number[]>(),
     structuredWeight = 0.6,
-    semanticWeight = 0.4
+    semanticWeight = 0.4,
+    structuredKeywordsByGame,
+    structuredFamilyWeight = {
+      themes: 0.35,
+      genres: 0.25,
+      series: 0.2,
+      developers: 0.1,
+      publishers: 0.1,
+      keywords: 0.05
+    }
   } = params;
 
   const index = games.map((game) => {
-    const tokens = buildTokenEntries(game);
+    const tokens = buildTokenEntries(game, { structuredKeywordsByGame });
     const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
     return {
       game,
@@ -60,7 +79,11 @@ export function buildSimilarityGraph(params: {
       }
 
       const target = index[targetIndex];
-      const structuredSimilarity = weightedJaccard(source.byKey, target.byKey);
+      const structuredSimilarity = weightedStructuredSimilarity(
+        source.byKey,
+        target.byKey,
+        structuredFamilyWeight
+      );
       const semanticSimilarity = resolveSemanticSimilarity(source.embedding, target.embedding);
       const blendedSimilarity = clamp01(
         structuredSimilarity * structuredWeight + semanticSimilarity * semanticWeight
@@ -95,38 +118,85 @@ export function buildSimilarityGraph(params: {
   return edges;
 }
 
-function weightedJaccard(left: Map<string, TokenEntry>, right: Map<string, TokenEntry>): number {
-  if (left.size === 0 && right.size === 0) {
+function weightedStructuredSimilarity(
+  left: Map<string, TokenEntry>,
+  right: Map<string, TokenEntry>,
+  weights: {
+    themes: number;
+    genres: number;
+    series: number;
+    developers: number;
+    publishers: number;
+    keywords: number;
+  }
+): number {
+  if (left.size === 0 || right.size === 0) {
     return 0;
   }
 
-  const unionKeys = new Set<string>([...left.keys(), ...right.keys()]);
-  let weightedIntersection = 0;
-  let weightedUnion = 0;
+  const theme = jaccardForFamilies(left, right, ['themes']);
+  const genre = jaccardForFamilies(left, right, ['genres']);
+  const series = jaccardForFamilies(left, right, ['collections', 'franchises']);
+  const developer = jaccardForFamilies(left, right, ['developers']);
+  const publisher = jaccardForFamilies(left, right, ['publishers']);
+  const keyword = jaccardForFamilies(left, right, ['keywords']);
+  const totalWeight =
+    weights.themes +
+    weights.genres +
+    weights.series +
+    weights.developers +
+    weights.publishers +
+    weights.keywords;
 
-  for (const key of unionKeys) {
-    const leftToken = left.get(key);
-    const rightToken = right.get(key);
-    const family = leftToken?.family ?? rightToken?.family;
-
-    if (!family) {
-      continue;
-    }
-
-    const weight = TOKEN_FAMILY_WEIGHT[family];
-
-    if (leftToken && rightToken) {
-      weightedIntersection += weight;
-    }
-
-    weightedUnion += weight;
-  }
-
-  if (weightedUnion <= 0) {
+  if (totalWeight <= 0) {
     return 0;
   }
 
-  return weightedIntersection / weightedUnion;
+  return clamp01(
+    (theme * weights.themes +
+      genre * weights.genres +
+      series * weights.series +
+      developer * weights.developers +
+      publisher * weights.publishers +
+      keyword * weights.keywords) /
+      totalWeight
+  );
+}
+
+function jaccardForFamilies(
+  left: Map<string, TokenEntry>,
+  right: Map<string, TokenEntry>,
+  families: TokenFamily[]
+): number {
+  const familySet = new Set<TokenFamily>(families);
+  const leftSet = new Set<string>();
+  const rightSet = new Set<string>();
+
+  for (const [key, token] of left.entries()) {
+    if (familySet.has(token.family)) {
+      leftSet.add(key);
+    }
+  }
+
+  for (const [key, token] of right.entries()) {
+    if (familySet.has(token.family)) {
+      rightSet.add(key);
+    }
+  }
+
+  if (leftSet.size === 0 && rightSet.size === 0) {
+    return 0;
+  }
+
+  let intersection = 0;
+  for (const key of leftSet) {
+    if (rightSet.has(key)) {
+      intersection += 1;
+    }
+  }
+
+  const union = leftSet.size + rightSet.size - intersection;
+  return union <= 0 ? 0 : intersection / union;
 }
 
 function resolveSemanticSimilarity(left: number[] | null, right: number[] | null): number {
@@ -152,7 +222,9 @@ function buildReasons(params: {
     developers: [],
     publishers: [],
     franchises: [],
-    collections: []
+    collections: [],
+    themes: [],
+    keywords: []
   };
 
   for (const [key, token] of source) {
@@ -202,6 +274,14 @@ function buildSummary(
 
   if (sharedTokens.genres.length > 0) {
     parts.push(`shared genre (${sharedTokens.genres.join(', ')})`);
+  }
+
+  if (sharedTokens.themes.length > 0) {
+    parts.push(`shared theme (${sharedTokens.themes.join(', ')})`);
+  }
+
+  if (parts.length === 0 && sharedTokens.keywords.length > 0) {
+    parts.push(`shared keywords (${sharedTokens.keywords.join(', ')})`);
   }
 
   if (parts.length === 0 && semanticSimilarity > 0.6) {

@@ -54,7 +54,16 @@ import {
 } from '../features/game-list/game-list-detail-actions';
 import { isRecommendationsExploreEnabled } from '../core/config/runtime-config';
 import { addIcons } from 'ionicons';
-import { search, logoGoogle, logoYoutube, star, starOutline } from 'ionicons/icons';
+import {
+  compass,
+  library,
+  logoGoogle,
+  logoYoutube,
+  search,
+  star,
+  starOutline,
+  time
+} from 'ionicons/icons';
 
 interface RecommendationApiError extends Error {
   code?: string;
@@ -149,7 +158,16 @@ export class ExplorePage implements OnInit {
   private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
 
   constructor() {
-    addIcons({ search, logoGoogle, logoYoutube, star, starOutline });
+    addIcons({
+      search,
+      logoGoogle,
+      logoYoutube,
+      star,
+      starOutline,
+      library,
+      time,
+      compass
+    });
   }
 
   ngOnInit(): void {

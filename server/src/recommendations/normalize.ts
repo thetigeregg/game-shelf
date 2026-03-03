@@ -8,6 +8,7 @@ interface DbGameRow {
 
 const TOKEN_FAMILIES: TokenFamily[] = [
   'genres',
+  'themes',
   'developers',
   'publishers',
   'franchises',
@@ -55,6 +56,8 @@ export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null 
     metacriticScore: normalizeFiniteNumber(payload['metacriticScore']),
     mobyScore: normalizeFiniteNumber(payload['mobyScore']),
     genres: normalizeStringArray(payload['genres']),
+    themes: normalizeStringArray(payload['themes']),
+    keywords: normalizeStringArray(payload['keywords']),
     developers: normalizeStringArray(payload['developers']),
     publishers: normalizeStringArray(payload['publishers']),
     franchises: normalizeStringArray(payload['franchises']),
@@ -62,7 +65,10 @@ export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null 
   };
 }
 
-export function buildTokenEntries(game: NormalizedGameRecord): TokenEntry[] {
+export function buildTokenEntries(
+  game: NormalizedGameRecord,
+  options: { structuredKeywordsByGame?: Map<string, string[]> } = {}
+): TokenEntry[] {
   const entries: TokenEntry[] = [];
 
   for (const family of TOKEN_FAMILIES) {
@@ -82,6 +88,24 @@ export function buildTokenEntries(game: NormalizedGameRecord): TokenEntry[] {
         label
       });
     }
+  }
+
+  const gameKey = `${game.igdbGameId}::${String(game.platformIgdbId)}`;
+  const keywords = options.structuredKeywordsByGame?.get(gameKey) ?? game.keywords;
+
+  for (const raw of keywords) {
+    const label = raw.trim();
+    const key = normalizeTokenKey(label);
+
+    if (!key) {
+      continue;
+    }
+
+    entries.push({
+      family: 'keywords',
+      key: `keywords:${key}`,
+      label
+    });
   }
 
   return dedupeTokenEntries(entries);

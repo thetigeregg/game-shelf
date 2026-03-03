@@ -5,6 +5,8 @@ import { buildEmbeddingText } from './embedding-text.js';
 import { EmbeddingClient, OpenAiEmbeddingClient } from './embedding-client.js';
 import { buildExplanation } from './explanations.js';
 import { buildRecommendationLanes } from './lanes.js';
+import { buildKeywordSelection } from './keyword-stats.js';
+import { prepareKeywords } from './keywords.js';
 import { normalizeTokenKey } from './normalize.js';
 import { buildPreferenceProfile } from './profile.js';
 import { EmbeddingRepository } from './embedding-repository.js';
@@ -50,6 +52,19 @@ export interface RecommendationServiceOptions {
   diversityPenaltyWeight: number;
   repeatPenaltyStep: number;
   tuningMinRated: number;
+  keywordsStructuredMax: number;
+  keywordsEmbeddingMax: number;
+  keywordsGlobalMaxRatio: number;
+  keywordsStructuredMaxRatio: number;
+  keywordsMinLibraryCount: number;
+  keywordsWeight: number;
+  themesWeight: number;
+  similarityThemeWeight: number;
+  similarityGenreWeight: number;
+  similaritySeriesWeight: number;
+  similarityDeveloperWeight: number;
+  similarityPublisherWeight: number;
+  similarityKeywordWeight: number;
 }
 
 export interface RecommendationServiceDependencies {
@@ -151,8 +166,9 @@ export class RecommendationService implements RecommendationServiceApi {
 
       const games = await this.repository.listNormalizedGames(client);
       const histories = await this.loadHistoryByMode(params.target, client);
+      const keywordArtifacts = this.buildKeywordArtifacts(games);
       const settingsHash = this.computeSettingsHash();
-      const inputHash = this.computeInputHash(games, params.target, histories);
+      const inputHash = this.computeInputHash(games, params.target, histories, keywordArtifacts);
       const latestSuccess = await this.repository.getLatestSuccessfulRun(params.target, client);
 
       if (
@@ -178,7 +194,11 @@ export class RecommendationService implements RecommendationServiceApi {
       });
 
       try {
-        const embeddingsByGame = await this.ensureEmbeddings({ client, games });
+        const embeddingsByGame = await this.ensureEmbeddings({
+          client,
+          games,
+          embeddingKeywordsByGame: keywordArtifacts.embeddingKeywordsByGame
+        });
         const semanticSimilarityByGame = this.buildSemanticSimilarityMap({
           games,
           embeddingsByGame
@@ -189,7 +209,8 @@ export class RecommendationService implements RecommendationServiceApi {
           target: params.target,
           semanticSimilarityByGame,
           tunedWeights,
-          histories
+          histories,
+          structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame
         });
         const lanesByMode = this.buildLanesByMode(recommendationsByMode);
         const historyUpdates = this.buildHistoryUpdates(params.target, recommendationsByMode);
@@ -198,7 +219,16 @@ export class RecommendationService implements RecommendationServiceApi {
           topK: this.options.similarityK,
           embeddingsByGame,
           structuredWeight: this.options.similarityStructuredWeight,
-          semanticWeight: this.options.similaritySemanticWeight
+          semanticWeight: this.options.similaritySemanticWeight,
+          structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame,
+          structuredFamilyWeight: {
+            themes: this.options.similarityThemeWeight,
+            genres: this.options.similarityGenreWeight,
+            series: this.options.similaritySeriesWeight,
+            developers: this.options.similarityDeveloperWeight,
+            publishers: this.options.similarityPublisherWeight,
+            keywords: this.options.similarityKeywordWeight
+          }
         });
 
         await this.repository.finalizeRunSuccess({
@@ -360,8 +390,9 @@ export class RecommendationService implements RecommendationServiceApi {
   private async ensureEmbeddings(params: {
     client: PoolClient;
     games: NormalizedGameRecord[];
+    embeddingKeywordsByGame: Map<string, string[]>;
   }): Promise<Map<string, number[]>> {
-    const { client, games } = params;
+    const { client, games, embeddingKeywordsByGame } = params;
     const existingRows = await this.embeddingRepository.listGameEmbeddings(client);
     const existingByKey = new Map<string, StoredGameEmbedding>();
 
@@ -378,7 +409,9 @@ export class RecommendationService implements RecommendationServiceApi {
 
     for (const game of games) {
       const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
-      const text = buildEmbeddingText(game);
+      const text = buildEmbeddingText(game, {
+        keywords: embeddingKeywordsByGame.get(key) ?? []
+      });
       const sourceHash = sha256({ text });
       const existing = existingByKey.get(key);
 
@@ -524,8 +557,16 @@ export class RecommendationService implements RecommendationServiceApi {
     semanticSimilarityByGame: Map<string, number>;
     tunedWeights: TunedRecommendationWeights;
     histories: Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>;
+    structuredKeywordsByGame: Map<string, string[]>;
   }): Record<RecommendationRuntimeMode, RankedRecommendationItem[]> {
-    const { games, target, semanticSimilarityByGame, tunedWeights, histories } = params;
+    const {
+      games,
+      target,
+      semanticSimilarityByGame,
+      tunedWeights,
+      histories,
+      structuredKeywordsByGame
+    } = params;
     const profile = buildPreferenceProfile(games);
     const candidates = selectCandidates(games, target);
 
@@ -543,7 +584,17 @@ export class RecommendationService implements RecommendationServiceApi {
         similarityStructuredWeight: this.options.similarityStructuredWeight,
         similaritySemanticWeight: this.options.similaritySemanticWeight,
         repeatPenaltyStep: this.options.repeatPenaltyStep,
-        historyByGame: histories[runtimeMode]
+        historyByGame: histories[runtimeMode],
+        structuredKeywordsByGame,
+        tokenFamilyWeight: {
+          collections: 1.4,
+          franchises: 1.3,
+          themes: this.options.themesWeight,
+          developers: 1.1,
+          genres: 1,
+          publishers: 0.7,
+          keywords: this.options.keywordsWeight
+        }
       });
 
       return ranked.map((item, index) => ({
@@ -619,14 +670,31 @@ export class RecommendationService implements RecommendationServiceApi {
       diversityPenaltyWeight: this.options.diversityPenaltyWeight,
       repeatPenaltyStep: this.options.repeatPenaltyStep,
       tuningMinRated: this.options.tuningMinRated,
-      modelVersion: 'recommendation-v2.5-runtime-modes'
+      keywordsStructuredMax: this.options.keywordsStructuredMax,
+      keywordsEmbeddingMax: this.options.keywordsEmbeddingMax,
+      keywordsGlobalMaxRatio: this.options.keywordsGlobalMaxRatio,
+      keywordsStructuredMaxRatio: this.options.keywordsStructuredMaxRatio,
+      keywordsMinLibraryCount: this.options.keywordsMinLibraryCount,
+      keywordsWeight: this.options.keywordsWeight,
+      themesWeight: this.options.themesWeight,
+      similarityThemeWeight: this.options.similarityThemeWeight,
+      similarityGenreWeight: this.options.similarityGenreWeight,
+      similaritySeriesWeight: this.options.similaritySeriesWeight,
+      similarityDeveloperWeight: this.options.similarityDeveloperWeight,
+      similarityPublisherWeight: this.options.similarityPublisherWeight,
+      similarityKeywordWeight: this.options.similarityKeywordWeight,
+      modelVersion: 'recommendation-v3-themes-keywords'
     });
   }
 
   private computeInputHash(
     games: NormalizedGameRecord[],
     target: RecommendationTarget,
-    histories: Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>
+    histories: Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>,
+    keywordArtifacts: {
+      embeddingKeywordsByGame: Map<string, string[]>;
+      structuredKeywordsByGame: Map<string, string[]>;
+    }
   ): string {
     const material = games
       .map((game) => ({
@@ -646,6 +714,8 @@ export class RecommendationService implements RecommendationServiceApi {
         metacriticScore: game.metacriticScore,
         mobyScore: game.mobyScore,
         genres: [...game.genres].sort(),
+        themes: [...game.themes].sort(),
+        keywords: [...game.keywords].sort(),
         developers: [...game.developers].sort(),
         publishers: [...game.publishers].sort(),
         franchises: [...game.franchises].sort(),
@@ -669,8 +739,45 @@ export class RecommendationService implements RecommendationServiceApi {
     return sha256({
       target,
       material,
-      historyMaterial
+      historyMaterial,
+      keywordArtifacts: {
+        embedding: [...keywordArtifacts.embeddingKeywordsByGame.entries()]
+          .map(([key, keywords]) => ({ key, keywords: [...keywords].sort() }))
+          .sort((left, right) => left.key.localeCompare(right.key, 'en')),
+        structured: [...keywordArtifacts.structuredKeywordsByGame.entries()]
+          .map(([key, keywords]) => ({ key, keywords: [...keywords].sort() }))
+          .sort((left, right) => left.key.localeCompare(right.key, 'en'))
+      }
     });
+  }
+
+  private buildKeywordArtifacts(games: NormalizedGameRecord[]): {
+    embeddingKeywordsByGame: Map<string, string[]>;
+    structuredKeywordsByGame: Map<string, string[]>;
+  } {
+    const preparedKeywordsByGame = new Map<string, string[]>();
+
+    for (const game of games) {
+      const gameKey = buildGameKey(game.igdbGameId, game.platformIgdbId);
+      preparedKeywordsByGame.set(gameKey, prepareKeywords(game.keywords));
+    }
+
+    const selection = buildKeywordSelection({
+      games,
+      preparedKeywordsByGame,
+      options: {
+        globalMaxRatio: this.options.keywordsGlobalMaxRatio,
+        structuredMaxRatio: this.options.keywordsStructuredMaxRatio,
+        minLibraryCount: this.options.keywordsMinLibraryCount,
+        structuredMax: this.options.keywordsStructuredMax,
+        embeddingMax: this.options.keywordsEmbeddingMax
+      }
+    });
+
+    return {
+      embeddingKeywordsByGame: selection.embeddingKeywordsByGame,
+      structuredKeywordsByGame: selection.structuredKeywordsByGame
+    };
   }
 
   private isStale(run: RecommendationRunSummary): boolean {

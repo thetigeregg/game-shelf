@@ -28,7 +28,9 @@ function buildItem(overrides: Partial<RankedRecommendationItem>): RankedRecommen
         developers: [],
         publishers: [],
         franchises: [],
-        collections: []
+        collections: [],
+        themes: [],
+        keywords: []
       }
     },
     ...overrides

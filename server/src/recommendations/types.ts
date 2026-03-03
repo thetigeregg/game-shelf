@@ -6,7 +6,14 @@ export type RecommendationLaneKey = 'overall' | 'hiddenGems' | 'exploration';
 
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 
-export type TokenFamily = 'genres' | 'developers' | 'publishers' | 'franchises' | 'collections';
+export type TokenFamily =
+  | 'genres'
+  | 'developers'
+  | 'publishers'
+  | 'franchises'
+  | 'collections'
+  | 'themes'
+  | 'keywords';
 
 export interface NormalizedGameRecord {
   igdbGameId: string;
@@ -26,6 +33,8 @@ export interface NormalizedGameRecord {
   metacriticScore: number | null;
   mobyScore: number | null;
   genres: string[];
+  themes: string[];
+  keywords: string[];
   developers: string[];
   publishers: string[];
   franchises: string[];
@@ -96,6 +105,8 @@ export interface RecommendationExplanation {
     publishers: string[];
     franchises: string[];
     collections: string[];
+    themes: string[];
+    keywords: string[];
   };
 }
 
@@ -136,6 +147,8 @@ export interface SimilarityReasons {
     publishers: string[];
     franchises: string[];
     collections: string[];
+    themes: string[];
+    keywords: string[];
   };
 }
 

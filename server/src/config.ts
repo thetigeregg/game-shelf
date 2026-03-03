@@ -134,6 +134,19 @@ export interface AppConfig {
   recommendationsRepeatPenaltyStep: number;
   recommendationsTuningMinRated: number;
   recommendationsLaneLimit: number;
+  recommendationsKeywordsStructuredMax: number;
+  recommendationsKeywordsEmbeddingMax: number;
+  recommendationsKeywordsGlobalMaxRatio: number;
+  recommendationsKeywordsStructuredMaxRatio: number;
+  recommendationsKeywordsMinLibraryCount: number;
+  recommendationsKeywordsWeight: number;
+  recommendationsThemesWeight: number;
+  recommendationsSimilarityThemeWeight: number;
+  recommendationsSimilarityGenreWeight: number;
+  recommendationsSimilaritySeriesWeight: number;
+  recommendationsSimilarityDeveloperWeight: number;
+  recommendationsSimilarityPublisherWeight: number;
+  recommendationsSimilarityKeywordWeight: number;
   igdbMetadataEnrichEnabled: boolean;
   igdbMetadataEnrichBatchSize: number;
   igdbMetadataEnrichMaxGamesPerRun: number;
@@ -290,6 +303,49 @@ export const config: AppConfig = {
   recommendationsRepeatPenaltyStep: readNumberEnv('RECOMMENDATIONS_REPEAT_PENALTY_STEP', 0.2),
   recommendationsTuningMinRated: readIntegerEnv('RECOMMENDATIONS_TUNING_MIN_RATED', 8),
   recommendationsLaneLimit: readIntegerEnv('RECOMMENDATIONS_LANE_LIMIT', 20),
+  recommendationsKeywordsStructuredMax: readIntegerEnv(
+    'RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX',
+    100
+  ),
+  recommendationsKeywordsEmbeddingMax: readIntegerEnv('RECOMMENDATIONS_KEYWORDS_EMBEDDING_MAX', 40),
+  recommendationsKeywordsGlobalMaxRatio: readNumberEnv(
+    'RECOMMENDATIONS_KEYWORDS_GLOBAL_MAX_RATIO',
+    0.7
+  ),
+  recommendationsKeywordsStructuredMaxRatio: readNumberEnv(
+    'RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX_RATIO',
+    0.3
+  ),
+  recommendationsKeywordsMinLibraryCount: readIntegerEnv(
+    'RECOMMENDATIONS_KEYWORDS_MIN_LIBRARY_COUNT',
+    3
+  ),
+  recommendationsKeywordsWeight: readNumberEnv('RECOMMENDATIONS_KEYWORDS_WEIGHT', 0.6),
+  recommendationsThemesWeight: readNumberEnv('RECOMMENDATIONS_THEMES_WEIGHT', 1.3),
+  recommendationsSimilarityThemeWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT',
+    0.35
+  ),
+  recommendationsSimilarityGenreWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_GENRE_WEIGHT',
+    0.25
+  ),
+  recommendationsSimilaritySeriesWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_SERIES_WEIGHT',
+    0.2
+  ),
+  recommendationsSimilarityDeveloperWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_DEVELOPER_WEIGHT',
+    0.1
+  ),
+  recommendationsSimilarityPublisherWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_PUBLISHER_WEIGHT',
+    0.1
+  ),
+  recommendationsSimilarityKeywordWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_KEYWORD_WEIGHT',
+    0.05
+  ),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),
   igdbMetadataEnrichMaxGamesPerRun: readIntegerEnv('IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN', 5000),

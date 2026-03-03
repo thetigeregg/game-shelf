@@ -41,4 +41,6 @@ void test('explanation bullets preserve component deltas', () => {
   assert.equal(explanation.bullets.find((bullet) => bullet.type === 'diversity')?.delta, -0.1);
   assert.equal(explanation.bullets.find((bullet) => bullet.type === 'repeat')?.delta, -0.2);
   assert.deepEqual(explanation.matchedTokens.collections, ['Mario']);
+  assert.deepEqual(explanation.matchedTokens.themes, []);
+  assert.deepEqual(explanation.matchedTokens.keywords, []);
 });

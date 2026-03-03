@@ -6,9 +6,11 @@ const SHRINKAGE_K = 5;
 export const TOKEN_FAMILY_WEIGHT: Record<TokenFamily, number> = {
   collections: 1.4,
   franchises: 1.3,
+  themes: 1.3,
   developers: 1.1,
   genres: 1,
-  publishers: 0.6
+  publishers: 0.7,
+  keywords: 0.6
 };
 
 export function buildPreferenceProfile(games: NormalizedGameRecord[]): PreferenceProfile {

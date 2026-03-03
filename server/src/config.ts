@@ -134,6 +134,11 @@ export interface AppConfig {
   recommendationsRepeatPenaltyStep: number;
   recommendationsTuningMinRated: number;
   recommendationsLaneLimit: number;
+  igdbMetadataEnrichEnabled: boolean;
+  igdbMetadataEnrichBatchSize: number;
+  igdbMetadataEnrichMaxGamesPerRun: number;
+  igdbMetadataEnrichStartupDelayMs: number;
+  igdbMetadataEnrichRequestTimeoutMs: number;
 }
 
 function readTokenList(name: string, fallbackSecretName: string): string[] {
@@ -284,5 +289,13 @@ export const config: AppConfig = {
   ),
   recommendationsRepeatPenaltyStep: readNumberEnv('RECOMMENDATIONS_REPEAT_PENALTY_STEP', 0.2),
   recommendationsTuningMinRated: readIntegerEnv('RECOMMENDATIONS_TUNING_MIN_RATED', 8),
-  recommendationsLaneLimit: readIntegerEnv('RECOMMENDATIONS_LANE_LIMIT', 20)
+  recommendationsLaneLimit: readIntegerEnv('RECOMMENDATIONS_LANE_LIMIT', 20),
+  igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
+  igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),
+  igdbMetadataEnrichMaxGamesPerRun: readIntegerEnv('IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN', 5000),
+  igdbMetadataEnrichStartupDelayMs: readIntegerEnv('IGDB_METADATA_ENRICH_STARTUP_DELAY_MS', 5000),
+  igdbMetadataEnrichRequestTimeoutMs: readIntegerEnv(
+    'IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS',
+    15_000
+  )
 };

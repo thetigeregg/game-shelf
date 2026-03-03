@@ -74,6 +74,24 @@ describe('DexieGameRepository', () => {
     expect(stored?.hltbCompletionistHours).toBe(30.2);
   });
 
+  it('persists themes and keywords metadata fields from catalog payload', async () => {
+    const created = await repository.upsertFromCatalog(
+      {
+        ...mario,
+        themes: ['Platformer', 'Platformer'],
+        themeIds: [1, 1, 2],
+        keywords: ['Nintendo', 'Nintendo'],
+        keywordIds: [5, 5, 6]
+      },
+      'collection'
+    );
+
+    expect(created.themes).toEqual(['Platformer']);
+    expect(created.themeIds).toEqual([1, 2]);
+    expect(created.keywords).toEqual(['Nintendo']);
+    expect(created.keywordIds).toEqual([5, 6]);
+  });
+
   it('moves a game to the other list when added again with same identity', async () => {
     await repository.upsertFromCatalog(mario, 'wishlist');
     const updated = await repository.upsertFromCatalog(

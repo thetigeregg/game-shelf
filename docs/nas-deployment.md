@@ -69,6 +69,11 @@ Common stack env vars:
 - `RECOMMENDATIONS_REPEAT_PENALTY_STEP` (optional; default `0.2`)
 - `RECOMMENDATIONS_TUNING_MIN_RATED` (optional; default `8`)
 - `RECOMMENDATIONS_LANE_LIMIT` (optional; default `20`)
+- `IGDB_METADATA_ENRICH_ENABLED` (optional; default `true`)
+- `IGDB_METADATA_ENRICH_BATCH_SIZE` (optional; default `200`)
+- `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN` (optional; default `5000`)
+- `IGDB_METADATA_ENRICH_STARTUP_DELAY_MS` (optional; default `5000`)
+- `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (optional; default `15000`)
 
 Security note:
 

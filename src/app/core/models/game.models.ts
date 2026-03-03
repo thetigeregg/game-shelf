@@ -72,6 +72,10 @@ export interface GameCatalogResult {
   developers?: string[];
   franchises?: string[];
   genres?: string[];
+  themes?: string[];
+  themeIds?: number[];
+  keywords?: string[];
+  keywordIds?: number[];
   publishers?: string[];
   platforms: string[];
   platformOptions?: GameCatalogPlatformOption[];
@@ -202,6 +206,10 @@ export interface GameEntry {
   developers?: string[];
   franchises?: string[];
   genres?: string[];
+  themes?: string[];
+  themeIds?: number[];
+  keywords?: string[];
+  keywordIds?: number[];
   publishers?: string[];
   platform: string;
   platformIgdbId: number;

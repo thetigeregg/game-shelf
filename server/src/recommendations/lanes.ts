@@ -26,7 +26,10 @@ export function buildRecommendationLanes(params: {
   return {
     overall,
     hiddenGems,
-    exploration
+    exploration,
+    blended: overall,
+    popular: hiddenGems,
+    recent: exploration
   };
 }
 

@@ -76,5 +76,8 @@ void test('buildRecommendationLanes returns clipped lanes', () => {
   assert.equal(lanes.overall.length, 1);
   assert.equal(lanes.hiddenGems.length, 1);
   assert.equal(lanes.exploration.length, 1);
+  assert.equal(lanes.blended.length, 1);
+  assert.equal(lanes.popular.length, 1);
+  assert.equal(lanes.recent.length, 1);
   assert.equal(lanes.overall[0]?.igdbGameId, '1');
 });

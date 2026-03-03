@@ -42,7 +42,9 @@ vi.mock('@ionic/angular/standalone', () => {
     IonNote: Dummy,
     IonRefresher: Dummy,
     IonRefresherContent: Dummy,
-    IonBadge: Dummy
+    IonBadge: Dummy,
+    IonAccordion: Dummy,
+    IonAccordionGroup: Dummy
   };
 });
 vi.mock('../features/game-detail/game-detail-content.component', () => ({
@@ -88,7 +90,10 @@ const mockLanesResponse = {
       }
     ],
     hiddenGems: [],
-    exploration: []
+    exploration: [],
+    blended: [],
+    popular: [],
+    recent: []
   }
 };
 

@@ -2074,15 +2074,25 @@ export class IgdbProxyService implements GameSearchApi {
         ? (value.lanes as Record<string, unknown>)
         : {};
 
+    const overall = this.normalizeRecommendationItems(lanes['overall']);
+    const hiddenGems = this.normalizeRecommendationItems(lanes['hiddenGems']);
+    const exploration = this.normalizeRecommendationItems(lanes['exploration']);
+    const blended = this.normalizeRecommendationItems(lanes['blended']);
+    const popular = this.normalizeRecommendationItems(lanes['popular']);
+    const recent = this.normalizeRecommendationItems(lanes['recent']);
+
     return {
       target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
       runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
       runId: this.normalizePositiveInteger(value.runId) ?? 0,
       generatedAt: this.normalizeIsoDate(value.generatedAt),
       lanes: {
-        overall: this.normalizeRecommendationItems(lanes['overall']),
-        hiddenGems: this.normalizeRecommendationItems(lanes['hiddenGems']),
-        exploration: this.normalizeRecommendationItems(lanes['exploration'])
+        overall,
+        hiddenGems,
+        exploration,
+        blended: blended.length > 0 ? blended : overall,
+        popular: popular.length > 0 ? popular : hiddenGems,
+        recent: recent.length > 0 ? recent : exploration
       }
     };
   }
@@ -2305,7 +2315,7 @@ export class IgdbProxyService implements GameSearchApi {
     value: unknown,
     fallback: RecommendationTarget = 'BACKLOG'
   ): RecommendationTarget {
-    if (value === 'BACKLOG' || value === 'WISHLIST') {
+    if (value === 'BACKLOG' || value === 'WISHLIST' || value === 'DISCOVERY') {
       return value;
     }
 

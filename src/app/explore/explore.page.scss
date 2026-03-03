@@ -36,6 +36,23 @@ ion-label p:not(.recommendation-headline) {
   font-size: 0.85rem;
 }
 
+.lane-context-copy {
+  color: var(--ion-color-medium);
+  font-size: 0.82rem;
+}
+
+.recommendation-rationale {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block: 8px;
+}
+
+.recommendation-rationale ion-badge {
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
 .recommendation-chips {
   display: flex;
   flex-wrap: wrap;
@@ -52,6 +69,43 @@ ion-label p:not(.recommendation-headline) {
   font-size: 0.7rem;
   font-weight: 600;
   margin: 0;
+}
+
+.recommendation-details-toggle {
+  margin-top: 6px;
+}
+
+.recommendation-details-toggle ion-button {
+  --padding-start: 0;
+  --padding-end: 0;
+  min-height: 24px;
+  font-size: 0.78rem;
+}
+
+.recommendation-details {
+  margin-top: 4px;
+}
+
+.recommendation-details p {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  color: var(--ion-color-medium);
+}
+
+.empty-state-hint {
+  margin-top: 6px;
+  color: var(--ion-color-medium);
+  font-size: 0.82rem;
+}
+
+.empty-state-token-hint {
+  margin-top: 4px;
+  color: var(--ion-color-primary);
+  font-size: 0.8rem;
+}
+
+.similar-section {
+  margin-top: 8px;
 }
 
 .detail-shortcuts-fab {

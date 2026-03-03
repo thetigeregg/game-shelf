@@ -76,6 +76,7 @@ import {
   HltbMatchCandidate,
   ReviewMatchCandidate,
   GameRating,
+  RecommendationTarget,
   GameStatus,
   GameType,
   ListType,
@@ -91,7 +92,7 @@ import { LayoutModeService } from '../../core/services/layout-mode.service';
 import { TimePreferenceService } from '../../core/services/time-preference.service';
 import { GameListFilteringEngine, GameGroupSection, GroupedGamesView } from './game-list-filtering';
 import { BulkActionResult, runBulkActionWithRetry } from './game-list-bulk-actions';
-import { findSimilarLibraryGames, normalizeSimilarGameIds } from './game-list-similar';
+import { IgdbProxyService } from '../../core/api/igdb-proxy.service';
 import {
   createClosedHltbPickerState,
   createClosedReviewPickerState,
@@ -367,6 +368,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly debugLogService = inject(DebugLogService);
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly timePreferenceService = inject(TimePreferenceService);
+  private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
@@ -3051,37 +3053,42 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private async loadSimilarLibraryGamesForDetail(game: GameEntry): Promise<void> {
     const requestId = ++this.similarLibraryLoadRequestId;
-    const similarIds = normalizeSimilarGameIds(game.similarGameIgdbIds);
-
-    if (similarIds.length === 0) {
-      if (requestId === this.similarLibraryLoadRequestId) {
-        this.similarLibraryGames = [];
-        this.isSimilarLibraryGamesLoading = false;
-        this.changeDetectorRef.markForCheck();
-      }
-      return;
-    }
 
     this.isSimilarLibraryGamesLoading = true;
     this.similarLibraryGames = [];
     this.changeDetectorRef.markForCheck();
 
     try {
-      const libraryGames = await Promise.race([
-        this.gameShelfService.listLibraryGames(),
-        this.delayReject<GameEntry[]>(10000, 'similar_library_load_timeout')
+      const [similarResponse, libraryGames] = await Promise.all([
+        firstValueFrom(
+          this.igdbProxyService.getRecommendationSimilar({
+            target: this.getRecommendationTargetForListType(),
+            igdbGameId: game.igdbGameId,
+            platformIgdbId: game.platformIgdbId,
+            limit: 20
+          })
+        ),
+        Promise.race([
+          this.gameShelfService.listLibraryGames(),
+          this.delayReject<GameEntry[]>(10000, 'similar_library_load_timeout')
+        ])
       ]);
 
       if (requestId !== this.similarLibraryLoadRequestId) {
         return;
       }
 
-      this.similarLibraryGames = findSimilarLibraryGames({
-        currentGame: game,
-        libraryGames,
-        similarIds,
-        compareTitles: (left, right) => this.compareTitles(left, right)
-      });
+      const libraryByIdentity = new Map<string, GameEntry>();
+      for (const entry of libraryGames) {
+        libraryByIdentity.set(this.getGameKey(entry), entry);
+      }
+
+      this.similarLibraryGames = similarResponse.items
+        .map(
+          (item) =>
+            libraryByIdentity.get(`${item.igdbGameId}::${String(item.platformIgdbId)}`) ?? null
+        )
+        .filter((entry): entry is GameEntry => entry !== null);
     } catch {
       if (requestId === this.similarLibraryLoadRequestId) {
         this.similarLibraryGames = [];
@@ -3094,11 +3101,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
-  getSimilarGameSubtitle(game: GameEntry): string {
-    const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
-    const displayPlatform = this.getGameDisplayPlatform(game);
-    const platform = this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
-    return `${year} · ${platform}`;
+  private getRecommendationTargetForListType(): RecommendationTarget {
+    return this.listType === 'collection' ? 'BACKLOG' : 'WISHLIST';
   }
 
   getGameDisplayTitle(game: GameEntry): string {

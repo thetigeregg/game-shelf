@@ -417,9 +417,13 @@ export class ExplorePage implements OnInit {
 
   async openGameDetail(item: RecommendationItem): Promise<void> {
     const local = this.getLocalGame(item);
+    const cachedCatalog = this.getRecommendationCatalogResult(item.igdbGameId);
+    const initialCatalog = cachedCatalog
+      ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
+      : null;
 
     this.isGameDetailModalOpen = true;
-    this.isLoadingDetail = false;
+    this.isLoadingDetail = !local && !initialCatalog;
     this.detailErrorMessage = '';
     this.detailContext = local ? 'library' : 'explore';
     this.isSelectedGameInLibrary = Boolean(local);
@@ -430,25 +434,44 @@ export class ExplorePage implements OnInit {
     this.isLoadingSimilar = false;
     this.selectedGameDetail = local
       ? local
-      : this.createFallbackCatalogResult({
+      : (initialCatalog ??
+        this.createFallbackCatalogResult({
           igdbGameId: item.igdbGameId,
           platformIgdbId: item.platformIgdbId,
-          title: `Game #${item.igdbGameId}`
-        });
+          title: this.getDisplayTitle(item)
+        }));
 
     if (!local) {
       try {
+        if (!initialCatalog) {
+          const fetchedCatalog = await this.fetchRecommendationCatalogResult(item.igdbGameId);
+          if (
+            fetchedCatalog &&
+            this.activeDetailRecommendation.igdbGameId === item.igdbGameId &&
+            this.activeDetailRecommendation.platformIgdbId === item.platformIgdbId
+          ) {
+            this.selectedGameDetail = this.withCatalogPlatformContext(
+              fetchedCatalog,
+              item.platformIgdbId
+            );
+          }
+        }
+
         this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(
           this.selectedGameDetail
         );
       } catch (error) {
         this.detailErrorMessage =
           error instanceof Error ? error.message : 'Unable to load game details.';
+      } finally {
+        this.isLoadingDetail = false;
       }
     }
 
     void this.loadSimilarRecommendations(item);
-    this.isLoadingDetail = false;
+    if (local) {
+      this.isLoadingDetail = false;
+    }
   }
 
   closeGameDetailModal(): void {
@@ -1001,6 +1024,10 @@ export class ExplorePage implements OnInit {
     );
   }
 
+  private getRecommendationCatalogResult(igdbGameId: string): GameCatalogResult | null {
+    return this.recommendationCatalogCache.get(igdbGameId) ?? null;
+  }
+
   private getLocalGameByIdentity(igdbGameId: string, platformIgdbId: number): GameEntry | null {
     return (
       this.localGameCacheByIdentity.get(this.buildIdentityKey(igdbGameId, platformIgdbId)) ?? null
@@ -1250,6 +1277,28 @@ export class ExplorePage implements OnInit {
     } catch {
       return null;
     }
+  }
+
+  private withCatalogPlatformContext(
+    catalog: GameCatalogResult,
+    platformIgdbId: number
+  ): GameCatalogResult {
+    const platformOption = Array.isArray(catalog.platformOptions)
+      ? (catalog.platformOptions.find((option) => option.id === platformIgdbId) ?? null)
+      : null;
+    const selectedPlatformName =
+      platformOption?.name.trim() ??
+      (catalog.platformIgdbId === platformIgdbId &&
+      typeof catalog.platform === 'string' &&
+      catalog.platform.trim().length > 0
+        ? catalog.platform.trim()
+        : null);
+
+    return {
+      ...catalog,
+      platformIgdbId,
+      platform: selectedPlatformName
+    };
   }
 
   private resolveCatalogPlatformLabel(catalog: GameCatalogResult, platformIgdbId: number): string {

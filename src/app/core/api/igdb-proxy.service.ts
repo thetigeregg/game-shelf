@@ -1997,9 +1997,9 @@ export class IgdbProxyService implements GameSearchApi {
       runId: this.normalizePositiveInteger(value.runId) ?? 0,
       generatedAt: this.normalizeIsoDate(value.generatedAt),
       lanes: {
-        overall: this.normalizeRecommendationItems(lanes.overall),
-        hiddenGems: this.normalizeRecommendationItems(lanes.hiddenGems),
-        exploration: this.normalizeRecommendationItems(lanes.exploration)
+        overall: this.normalizeRecommendationItems(lanes['overall']),
+        hiddenGems: this.normalizeRecommendationItems(lanes['hiddenGems']),
+        exploration: this.normalizeRecommendationItems(lanes['exploration'])
       }
     };
   }
@@ -2028,176 +2028,109 @@ export class IgdbProxyService implements GameSearchApi {
         }
 
         const record = item as Record<string, unknown>;
-        const igdbGameId = this.normalizeNumericId(record.igdbGameId);
-        const platformIgdbId = this.normalizePositiveInteger(record.platformIgdbId);
+        const igdbGameId = this.normalizeNumericId(record['igdbGameId']);
+        const platformIgdbId = this.normalizePositiveInteger(record['platformIgdbId']);
 
         if (!igdbGameId || platformIgdbId === null) {
           return null;
         }
 
+        const scoreComponentsRaw =
+          typeof record['scoreComponents'] === 'object' && record['scoreComponents'] !== null
+            ? (record['scoreComponents'] as Record<string, unknown>)
+            : null;
+        const explanationsRaw =
+          typeof record['explanations'] === 'object' && record['explanations'] !== null
+            ? (record['explanations'] as Record<string, unknown>)
+            : null;
+        const matchedTokensRaw =
+          explanationsRaw &&
+          typeof explanationsRaw['matchedTokens'] === 'object' &&
+          explanationsRaw['matchedTokens'] !== null
+            ? (explanationsRaw['matchedTokens'] as Record<string, unknown>)
+            : null;
+        const bulletsRaw = Array.isArray(explanationsRaw?.['bullets'])
+          ? (explanationsRaw['bullets'] as Array<{
+              type?: unknown;
+              label?: unknown;
+              evidence?: unknown;
+              delta?: unknown;
+            }>)
+          : [];
+
         return {
-          rank: this.normalizePositiveInteger(record.rank) ?? 0,
+          rank: this.normalizePositiveInteger(record['rank']) ?? 0,
           igdbGameId,
           platformIgdbId,
-          scoreTotal: this.normalizePopularityValue(record.scoreTotal) ?? 0,
-          scoreComponents:
-            typeof record.scoreComponents === 'object' && record.scoreComponents !== null
-              ? {
-                  taste:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).taste
-                    ) ?? 0,
-                  novelty:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).novelty
-                    ) ?? 0,
-                  runtimeFit:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).runtimeFit
-                    ) ?? 0,
-                  criticBoost:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).criticBoost
-                    ) ?? 0,
-                  recencyBoost:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).recencyBoost
-                    ) ?? 0,
-                  semantic:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).semantic
-                    ) ?? 0,
-                  exploration:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).exploration
-                    ) ?? 0,
-                  diversityPenalty:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).diversityPenalty
-                    ) ?? 0,
-                  repeatPenalty:
-                    this.normalizePopularityValue(
-                      (record.scoreComponents as Record<string, unknown>).repeatPenalty
-                    ) ?? 0
-                }
-              : {
-                  taste: 0,
-                  novelty: 0,
-                  runtimeFit: 0,
-                  criticBoost: 0,
-                  recencyBoost: 0,
-                  semantic: 0,
-                  exploration: 0,
-                  diversityPenalty: 0,
-                  repeatPenalty: 0
-                },
-          explanations:
-            typeof record.explanations === 'object' && record.explanations !== null
-              ? {
-                  headline:
-                    typeof (record.explanations as Record<string, unknown>).headline === 'string'
-                      ? ((record.explanations as Record<string, unknown>).headline as string).trim()
-                      : '',
-                  bullets: Array.isArray((record.explanations as Record<string, unknown>).bullets)
-                    ? (
-                        (record.explanations as Record<string, unknown>).bullets as Array<{
-                          type?: unknown;
-                          label?: unknown;
-                          evidence?: unknown;
-                          delta?: unknown;
-                        }>
-                      )
-                        .map((bullet) => ({
-                          type:
-                            bullet.type === 'taste' ||
-                            bullet.type === 'novelty' ||
-                            bullet.type === 'runtime' ||
-                            bullet.type === 'critic' ||
-                            bullet.type === 'recency' ||
-                            bullet.type === 'semantic' ||
-                            bullet.type === 'exploration' ||
-                            bullet.type === 'diversity' ||
-                            bullet.type === 'repeat'
-                              ? bullet.type
-                              : 'taste',
-                          label: typeof bullet.label === 'string' ? bullet.label.trim() : '',
-                          evidence: Array.isArray(bullet.evidence)
-                            ? bullet.evidence
-                                .map((evidence) => String(evidence ?? '').trim())
-                                .filter((evidence) => evidence.length > 0)
-                            : [],
-                          delta: this.normalizePopularityValue(bullet.delta) ?? 0
-                        }))
-                        .filter((bullet) => bullet.label.length > 0)
-                    : [],
-                  matchedTokens:
-                    typeof (record.explanations as Record<string, unknown>).matchedTokens ===
-                      'object' &&
-                    (record.explanations as Record<string, unknown>).matchedTokens !== null
-                      ? {
-                          genres: this.normalizeTextList(
-                            (record.explanations as Record<string, unknown>).matchedTokens
-                              ? (
-                                  (record.explanations as Record<string, unknown>)
-                                    .matchedTokens as Record<string, string[]>
-                                ).genres
-                              : []
-                          ),
-                          developers: this.normalizeTextList(
-                            (record.explanations as Record<string, unknown>).matchedTokens
-                              ? (
-                                  (record.explanations as Record<string, unknown>)
-                                    .matchedTokens as Record<string, string[]>
-                                ).developers
-                              : []
-                          ),
-                          publishers: this.normalizeTextList(
-                            (record.explanations as Record<string, unknown>).matchedTokens
-                              ? (
-                                  (record.explanations as Record<string, unknown>)
-                                    .matchedTokens as Record<string, string[]>
-                                ).publishers
-                              : []
-                          ),
-                          franchises: this.normalizeTextList(
-                            (record.explanations as Record<string, unknown>).matchedTokens
-                              ? (
-                                  (record.explanations as Record<string, unknown>)
-                                    .matchedTokens as Record<string, string[]>
-                                ).franchises
-                              : []
-                          ),
-                          collections: this.normalizeTextList(
-                            (record.explanations as Record<string, unknown>).matchedTokens
-                              ? (
-                                  (record.explanations as Record<string, unknown>)
-                                    .matchedTokens as Record<string, string[]>
-                                ).collections
-                              : []
-                          )
-                        }
-                      : {
-                          genres: [],
-                          developers: [],
-                          publishers: [],
-                          franchises: [],
-                          collections: []
-                        }
-                }
-              : {
-                  headline: '',
-                  bullets: [],
-                  matchedTokens: {
-                    genres: [],
-                    developers: [],
-                    publishers: [],
-                    franchises: [],
-                    collections: []
-                  }
-                }
+          scoreTotal: this.normalizePopularityValue(record['scoreTotal']) ?? 0,
+          scoreComponents: {
+            taste: this.normalizePopularityValue(scoreComponentsRaw?.['taste']) ?? 0,
+            novelty: this.normalizePopularityValue(scoreComponentsRaw?.['novelty']) ?? 0,
+            runtimeFit: this.normalizePopularityValue(scoreComponentsRaw?.['runtimeFit']) ?? 0,
+            criticBoost: this.normalizePopularityValue(scoreComponentsRaw?.['criticBoost']) ?? 0,
+            recencyBoost: this.normalizePopularityValue(scoreComponentsRaw?.['recencyBoost']) ?? 0,
+            semantic: this.normalizePopularityValue(scoreComponentsRaw?.['semantic']) ?? 0,
+            exploration: this.normalizePopularityValue(scoreComponentsRaw?.['exploration']) ?? 0,
+            diversityPenalty:
+              this.normalizePopularityValue(scoreComponentsRaw?.['diversityPenalty']) ?? 0,
+            repeatPenalty: this.normalizePopularityValue(scoreComponentsRaw?.['repeatPenalty']) ?? 0
+          },
+          explanations: {
+            headline:
+              typeof explanationsRaw?.['headline'] === 'string'
+                ? explanationsRaw['headline'].trim()
+                : '',
+            bullets: bulletsRaw
+              .map((bullet) => ({
+                type: this.normalizeRecommendationBulletType(bullet.type),
+                label: typeof bullet.label === 'string' ? bullet.label.trim() : '',
+                evidence: Array.isArray(bullet.evidence)
+                  ? bullet.evidence
+                      .map((evidence) => (typeof evidence === 'string' ? evidence.trim() : ''))
+                      .filter((evidence) => evidence.length > 0)
+                  : [],
+                delta: this.normalizePopularityValue(bullet.delta) ?? 0
+              }))
+              .filter((bullet) => bullet.label.length > 0),
+            matchedTokens: {
+              genres: this.normalizeTextList(matchedTokensRaw?.['genres'] as string[] | undefined),
+              developers: this.normalizeTextList(
+                matchedTokensRaw?.['developers'] as string[] | undefined
+              ),
+              publishers: this.normalizeTextList(
+                matchedTokensRaw?.['publishers'] as string[] | undefined
+              ),
+              franchises: this.normalizeTextList(
+                matchedTokensRaw?.['franchises'] as string[] | undefined
+              ),
+              collections: this.normalizeTextList(
+                matchedTokensRaw?.['collections'] as string[] | undefined
+              )
+            }
+          }
         };
       })
       .filter((item): item is RecommendationItem => item !== null);
+  }
+
+  private normalizeRecommendationBulletType(
+    value: unknown
+  ): RecommendationItem['explanations']['bullets'][number]['type'] {
+    if (
+      value === 'taste' ||
+      value === 'novelty' ||
+      value === 'runtime' ||
+      value === 'critic' ||
+      value === 'recency' ||
+      value === 'semantic' ||
+      value === 'exploration' ||
+      value === 'diversity' ||
+      value === 'repeat'
+    ) {
+      return value;
+    }
+
+    return 'taste';
   }
 
   private normalizeRecommendationTarget(

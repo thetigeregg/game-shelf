@@ -80,7 +80,10 @@ function createServiceMock(
         lanes: {
           overall: [],
           hiddenGems: [],
-          exploration: []
+          exploration: [],
+          blended: [],
+          popular: [],
+          recent: []
         }
       }),
     rebuild: () =>
@@ -169,12 +172,22 @@ void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fall
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
     runtimeMode: RecommendationRuntimeMode;
-    lanes: { overall: unknown[]; hiddenGems: unknown[]; exploration: unknown[] };
+    lanes: {
+      overall: unknown[];
+      hiddenGems: unknown[];
+      exploration: unknown[];
+      blended: unknown[];
+      popular: unknown[];
+      recent: unknown[];
+    };
   };
   assert.equal(body.runtimeMode, 'NEUTRAL');
   assert.ok(Array.isArray(body.lanes.overall));
   assert.ok(Array.isArray(body.lanes.hiddenGems));
   assert.ok(Array.isArray(body.lanes.exploration));
+  assert.ok(Array.isArray(body.lanes.blended));
+  assert.ok(Array.isArray(body.lanes.popular));
+  assert.ok(Array.isArray(body.lanes.recent));
 
   await app.close();
 });

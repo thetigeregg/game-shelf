@@ -43,6 +43,7 @@ export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null 
     platformIgdbId,
     title: normalizeNonEmptyString(payload['title']) ?? igdbGameId,
     listType,
+    discoverySource: normalizeDiscoverySource(payload['discoverySource']),
     status: normalizeStatus(payload['status']),
     rating: normalizeRating(payload['rating']),
     createdAt: normalizeIsoDate(payload['createdAt']),
@@ -152,6 +153,14 @@ function normalizeStatus(value: unknown): NormalizedGameRecord['status'] {
     value === 'replay' ||
     value === 'wantToPlay'
   ) {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeDiscoverySource(value: unknown): 'popular' | 'recent' | null {
+  if (value === 'popular' || value === 'recent') {
     return value;
   }
 

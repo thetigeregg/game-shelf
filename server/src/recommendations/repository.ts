@@ -397,7 +397,14 @@ export class RecommendationRepository {
       for (const [runtimeMode, lanes] of Object.entries(params.lanesByMode) as Array<
         [RecommendationRuntimeMode, RecommendationLaneCollection]
       >) {
-        for (const lane of ['overall', 'hiddenGems', 'exploration'] as RecommendationLaneKey[]) {
+        for (const lane of [
+          'overall',
+          'hiddenGems',
+          'exploration',
+          'blended',
+          'popular',
+          'recent'
+        ] as RecommendationLaneKey[]) {
           const items = lanes[lane];
 
           for (let index = 0; index < items.length; index += 1) {
@@ -586,7 +593,10 @@ export class RecommendationRepository {
     const lanes: RecommendationLaneCollection = {
       overall: [],
       hiddenGems: [],
-      exploration: []
+      exploration: [],
+      blended: [],
+      popular: [],
+      recent: []
     };
 
     for (const row of rows.rows) {

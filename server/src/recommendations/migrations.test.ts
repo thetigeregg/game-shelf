@@ -26,6 +26,12 @@ void test('recommendation migrations are present and idempotent runner executes 
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS game_similarity'), true);
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendation_lanes'), true);
   assert.equal(
+    recommendationSql.includes(
+      "'overall', 'hiddenGems', 'exploration', 'blended', 'popular', 'recent'"
+    ),
+    true
+  );
+  assert.equal(
     recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendation_history'),
     true
   );

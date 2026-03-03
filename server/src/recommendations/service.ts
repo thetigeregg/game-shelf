@@ -240,7 +240,11 @@ export class RecommendationService implements RecommendationServiceApi {
           histories,
           structuredKeywordsByGame: keywordArtifacts.structuredKeywordsByGame
         });
-        const lanesByMode = this.buildLanesByMode(recommendationsByMode);
+        const lanesByMode = this.buildLanesByMode({
+          target: params.target,
+          games,
+          recommendationsByMode
+        });
         const historyUpdates = this.buildHistoryUpdates(params.target, recommendationsByMode);
         const similarityEdges = buildSimilarityGraph({
           games,
@@ -639,13 +643,39 @@ export class RecommendationService implements RecommendationServiceApi {
     });
   }
 
-  private buildLanesByMode(
-    recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>
-  ): Record<RecommendationRuntimeMode, RecommendationLaneCollection> {
+  private buildLanesByMode(params: {
+    target: RecommendationTarget;
+    games: NormalizedGameRecord[];
+    recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>;
+  }): Record<RecommendationRuntimeMode, RecommendationLaneCollection> {
+    const { target, games, recommendationsByMode } = params;
+
+    if (target !== 'DISCOVERY') {
+      return createModeRecord((runtimeMode) =>
+        buildRecommendationLanes({
+          items: recommendationsByMode[runtimeMode],
+          laneLimit: this.options.laneLimit
+        })
+      );
+    }
+
+    const discoverySourceByGame = new Map<string, 'popular' | 'recent'>();
+    for (const game of games) {
+      if (game.listType !== 'discovery' || !game.discoverySource) {
+        continue;
+      }
+
+      discoverySourceByGame.set(
+        buildGameKey(game.igdbGameId, game.platformIgdbId),
+        game.discoverySource
+      );
+    }
+
     return createModeRecord((runtimeMode) =>
-      buildRecommendationLanes({
+      buildDiscoveryRecommendationLanes({
         items: recommendationsByMode[runtimeMode],
-        laneLimit: this.options.laneLimit
+        laneLimit: this.options.laneLimit,
+        discoverySourceByGame
       })
     );
   }
@@ -716,7 +746,7 @@ export class RecommendationService implements RecommendationServiceApi {
       discoveryRefreshHours: this.options.discoveryRefreshHours,
       discoveryIgdbRequestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
       discoveryIgdbMaxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond,
-      modelVersion: 'recommendation-v3-themes-keywords'
+      modelVersion: 'recommendation-v3-discovery-source-lanes'
     });
   }
 
@@ -734,6 +764,7 @@ export class RecommendationService implements RecommendationServiceApi {
         igdbGameId: game.igdbGameId,
         platformIgdbId: game.platformIgdbId,
         listType: game.listType,
+        discoverySource: game.discoverySource ?? null,
         status: game.status,
         rating: game.rating,
         createdAt: game.createdAt,
@@ -916,6 +947,76 @@ function createModeRecord<T>(
     SHORT: factory('SHORT'),
     LONG: factory('LONG')
   };
+}
+
+function buildDiscoveryRecommendationLanes(params: {
+  items: RankedRecommendationItem[];
+  laneLimit: number;
+  discoverySourceByGame: Map<string, 'popular' | 'recent'>;
+}): RecommendationLaneCollection {
+  const { items, discoverySourceByGame } = params;
+  const laneLimit = Math.max(1, params.laneLimit);
+
+  const blended = items.slice(0, laneLimit);
+  const popular = selectUniqueLaneItems({
+    primary: items.filter(
+      (item) =>
+        discoverySourceByGame.get(buildGameKey(item.igdbGameId, item.platformIgdbId)) === 'popular'
+    ),
+    fallback: items,
+    laneLimit
+  });
+  const recent = selectUniqueLaneItems({
+    primary: items.filter(
+      (item) =>
+        discoverySourceByGame.get(buildGameKey(item.igdbGameId, item.platformIgdbId)) === 'recent'
+    ),
+    fallback: items,
+    laneLimit
+  });
+
+  return {
+    overall: blended,
+    hiddenGems: popular,
+    exploration: recent,
+    blended,
+    popular,
+    recent
+  };
+}
+
+function selectUniqueLaneItems(params: {
+  primary: RankedRecommendationItem[];
+  fallback: RankedRecommendationItem[];
+  laneLimit: number;
+}): RankedRecommendationItem[] {
+  const lane: RankedRecommendationItem[] = [];
+  const seen = new Set<string>();
+
+  const push = (item: RankedRecommendationItem): void => {
+    const key = buildGameKey(item.igdbGameId, item.platformIgdbId);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    lane.push(item);
+  };
+
+  for (const item of params.primary) {
+    push(item);
+    if (lane.length >= params.laneLimit) {
+      return lane;
+    }
+  }
+
+  for (const item of params.fallback) {
+    push(item);
+    if (lane.length >= params.laneLimit) {
+      return lane;
+    }
+  }
+
+  return lane;
 }
 
 function normalizeLimit(value: number, max: number): number {

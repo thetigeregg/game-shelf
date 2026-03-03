@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   AlertController,
   ToastController,
@@ -16,15 +17,18 @@ import {
   IonSpinner,
   IonTitle,
   IonToolbar,
-  IonInfiniteScroll,
-  IonInfiniteScrollContent,
   IonText,
   IonFab,
   IonFabButton,
   IonFabList,
   IonIcon,
   IonRange,
-  IonNote
+  IonNote,
+  IonSegment,
+  IonSegmentButton,
+  IonRefresher,
+  IonRefresherContent,
+  IonChip
 } from '@ionic/angular/standalone';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
@@ -34,8 +38,11 @@ import {
   GameRating,
   GameStatus,
   ListType,
-  PopularityGameResult,
-  PopularityTypeOption
+  RecommendationItem,
+  RecommendationLaneKey,
+  RecommendationLanesResponse,
+  RecommendationRuntimeMode,
+  RecommendationTarget
 } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
@@ -47,8 +54,13 @@ import {
   normalizeGameStatus,
   parseTagSelection
 } from '../features/game-list/game-list-detail-actions';
+import { isRecommendationsExploreEnabled } from '../core/config/runtime-config';
 import { addIcons } from 'ionicons';
 import { search, logoGoogle, logoYoutube, star, starOutline } from 'ionicons/icons';
+
+interface RecommendationApiError extends Error {
+  code?: string;
+}
 
 @Component({
   selector: 'app-explore-page',
@@ -70,8 +82,6 @@ import { search, logoGoogle, logoYoutube, star, starOutline } from 'ionicons/ico
     IonLoading,
     IonSpinner,
     IonList,
-    IonInfiniteScroll,
-    IonInfiniteScrollContent,
     IonText,
     IonFab,
     IonFabButton,
@@ -79,20 +89,42 @@ import { search, logoGoogle, logoYoutube, star, starOutline } from 'ionicons/ico
     IonIcon,
     IonRange,
     IonNote,
+    IonSegment,
+    IonSegmentButton,
+    IonRefresher,
+    IonRefresherContent,
+    IonChip,
     GameDetailContentComponent
   ]
 })
 export class ExplorePage implements OnInit {
-  private static readonly PAGE_SIZE = 20;
+  private static readonly LANE_LIMIT = 20;
 
-  popularityTypes: PopularityTypeOption[] = [];
-  selectedPopularityTypeId: number | null = null;
-  games: PopularityGameResult[] = [];
-  isLoadingTypes = false;
-  isLoadingGames = false;
-  isLoadingMore = false;
-  hasMore = false;
-  errorMessage = '';
+  readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
+  readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
+    { value: 'BACKLOG', label: 'Backlog' },
+    { value: 'WISHLIST', label: 'Wishlist' }
+  ];
+  readonly runtimeModeOptions: Array<{ value: RecommendationRuntimeMode; label: string }> = [
+    { value: 'SHORT', label: 'Short' },
+    { value: 'NEUTRAL', label: 'Neutral' },
+    { value: 'LONG', label: 'Long' }
+  ];
+  readonly laneOptions: Array<{ value: RecommendationLaneKey; label: string }> = [
+    { value: 'overall', label: 'Overall' },
+    { value: 'hiddenGems', label: 'Hidden Gems' },
+    { value: 'exploration', label: 'Exploration' }
+  ];
+
+  selectedTarget: RecommendationTarget = 'BACKLOG';
+  selectedRuntimeMode: RecommendationRuntimeMode = 'NEUTRAL';
+  selectedLaneKey: RecommendationLaneKey = 'overall';
+  activeLanesResponse: RecommendationLanesResponse | null = null;
+  isLoadingRecommendations = false;
+  isRebuildLoading = false;
+  recommendationError = '';
+  recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
+
   isGameDetailModalOpen = false;
   isLoadingDetail = false;
   detailErrorMessage = '';
@@ -118,72 +150,221 @@ export class ExplorePage implements OnInit {
   private readonly gameShelfService = inject(GameShelfService);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
-  private offset = 0;
+  private readonly lanesCache = new Map<string, RecommendationLanesResponse>();
+  private readonly detailCache = new Map<string, GameCatalogResult>();
 
   constructor() {
     addIcons({ search, logoGoogle, logoYoutube, star, starOutline });
   }
 
   ngOnInit(): void {
-    void this.loadPopularityTypes();
-  }
-
-  async onPopularityTypeChange(value: string | number | null | undefined): Promise<void> {
-    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
-      this.selectedPopularityTypeId = value;
-    } else if (typeof value === 'string' && /^\d+$/.test(value)) {
-      const parsed = Number.parseInt(value, 10);
-      this.selectedPopularityTypeId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-    } else {
-      this.selectedPopularityTypeId = null;
-    }
-
-    this.offset = 0;
-    this.games = [];
-    this.hasMore = false;
-
-    if (this.selectedPopularityTypeId !== null) {
-      await this.loadGamesPage(false);
-    }
-  }
-
-  async loadMore(event: Event): Promise<void> {
-    if (this.selectedPopularityTypeId === null || this.isLoadingMore || !this.hasMore) {
-      await this.completeInfiniteScroll(event);
+    if (!this.recommendationFeatureEnabled) {
+      this.recommendationError = 'Recommendations are disabled in this build.';
+      this.recommendationErrorCode = 'REQUEST_FAILED';
       return;
     }
 
-    this.isLoadingMore = true;
+    void this.loadRecommendationLanes(false);
+  }
 
+  async onTargetChange(value: string | null | undefined): Promise<void> {
+    const parsed = this.parseRecommendationTarget(value);
+
+    if (parsed === null || parsed === this.selectedTarget) {
+      return;
+    }
+
+    this.selectedTarget = parsed;
+    await this.loadRecommendationLanes(false);
+  }
+
+  async onRuntimeModeChange(value: string | null | undefined): Promise<void> {
+    const parsed = this.parseRuntimeMode(value);
+
+    if (parsed === null || parsed === this.selectedRuntimeMode) {
+      return;
+    }
+
+    this.selectedRuntimeMode = parsed;
+    await this.loadRecommendationLanes(false);
+  }
+
+  onLaneChange(value: string | null | undefined): void {
+    const parsed = this.parseLaneKey(value);
+
+    if (parsed === null) {
+      return;
+    }
+
+    this.selectedLaneKey = parsed;
+  }
+
+  async refreshRecommendations(event: Event): Promise<void> {
     try {
-      await this.loadGamesPage(true);
+      await this.loadRecommendationLanes(true);
     } finally {
-      this.isLoadingMore = false;
-      await this.completeInfiniteScroll(event);
+      await this.completeRefresher(event);
     }
   }
 
-  trackByPopularityTypeId(_: number, item: PopularityTypeOption): number {
-    return item.id;
+  async rebuildRecommendations(force = true): Promise<void> {
+    if (this.isRebuildLoading || !this.recommendationFeatureEnabled) {
+      return;
+    }
+
+    this.isRebuildLoading = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.igdbProxyService.rebuildRecommendations({
+          target: this.selectedTarget,
+          force
+        })
+      );
+
+      if (response.status === 'FAILED') {
+        await this.presentToast('Recommendation rebuild failed.', 'danger');
+        return;
+      }
+
+      if (response.status === 'BACKOFF_SKIPPED') {
+        await this.presentToast('Rebuild is in cooldown. Try again later.', 'danger');
+        return;
+      }
+
+      await this.presentToast('Recommendation rebuild started.');
+      await this.loadRecommendationLanes(true);
+    } catch (error) {
+      const mapped = this.normalizeRecommendationError(error);
+      await this.presentToast(mapped.message, 'danger');
+    } finally {
+      this.isRebuildLoading = false;
+    }
   }
 
-  trackByGameId(index: number, item: PopularityGameResult): string {
-    return `${item.game.igdbGameId}:${String(index)}`;
+  getActiveLaneItems(): RecommendationItem[] {
+    const lanes = this.activeLanesResponse?.lanes;
+
+    if (!lanes) {
+      return [];
+    }
+
+    return lanes[this.selectedLaneKey];
   }
 
-  async openGameDetail(item: PopularityGameResult): Promise<void> {
+  hasAnyLaneItems(): boolean {
+    const lanes = this.activeLanesResponse?.lanes;
+
+    if (!lanes) {
+      return false;
+    }
+
+    return lanes.overall.length > 0 || lanes.hiddenGems.length > 0 || lanes.exploration.length > 0;
+  }
+
+  getDisplayTitle(item: RecommendationItem): string {
+    return this.getCachedDetail(item)?.title ?? `Game #${item.igdbGameId}`;
+  }
+
+  getPlatformLabel(item: RecommendationItem): string {
+    const detail = this.getCachedDetail(item);
+
+    if (!detail) {
+      return `Platform ${String(item.platformIgdbId)}`;
+    }
+
+    if (detail.platform && detail.platform.trim().length > 0) {
+      return this.getPlatformDisplayName(
+        detail.platform,
+        detail.platformIgdbId ?? item.platformIgdbId
+      );
+    }
+
+    if (Array.isArray(detail.platformOptions) && detail.platformOptions.length > 0) {
+      const option = detail.platformOptions.find((platform) => platform.id === item.platformIgdbId);
+
+      if (option && option.name.trim().length > 0) {
+        return this.getPlatformDisplayName(option.name, option.id);
+      }
+
+      if (detail.platformOptions.length === 1) {
+        return this.getPlatformDisplayName(
+          detail.platformOptions[0].name,
+          detail.platformOptions[0].id
+        );
+      }
+
+      return `${String(detail.platformOptions.length)} platforms`;
+    }
+
+    return 'Unknown platform';
+  }
+
+  getReleaseYear(item: RecommendationItem): number | null {
+    return this.getCachedDetail(item)?.releaseYear ?? null;
+  }
+
+  getCoverUrl(item: RecommendationItem): string {
+    return this.getCachedDetail(item)?.coverUrl ?? 'assets/icon/placeholder.png';
+  }
+
+  getScoreChips(item: RecommendationItem): string[] {
+    const chips: string[] = [`Score ${item.scoreTotal.toFixed(2)}`];
+    const components = item.scoreComponents;
+    const candidates: Array<{ key: string; value: number }> = [
+      { key: 'Taste', value: components.taste },
+      { key: 'Semantic', value: components.semantic },
+      { key: 'Runtime', value: components.runtimeFit },
+      { key: 'Critic', value: components.criticBoost },
+      { key: 'Exploration', value: components.exploration }
+    ];
+
+    for (const candidate of candidates) {
+      if (Math.abs(candidate.value) < 0.01) {
+        continue;
+      }
+
+      chips.push(`${candidate.key} ${candidate.value.toFixed(2)}`);
+
+      if (chips.length >= 4) {
+        break;
+      }
+    }
+
+    return chips;
+  }
+
+  getExplanationHeadline(item: RecommendationItem): string {
+    const headline = item.explanations.headline.trim();
+    return headline && headline.length > 0 ? headline : 'Recommended by your profile signals';
+  }
+
+  trackByRecommendationKey(_: number, item: RecommendationItem): string {
+    return `${item.igdbGameId}:${String(item.platformIgdbId)}`;
+  }
+
+  async openGameDetail(item: RecommendationItem): Promise<void> {
+    const cached = this.getCachedDetail(item);
+
     this.isGameDetailModalOpen = true;
     this.isLoadingDetail = true;
     this.detailErrorMessage = '';
     this.detailContext = 'explore';
     this.isSelectedGameInLibrary = false;
     this.isAddToLibraryLoading = false;
-    this.selectedGameDetail = item.game;
+    this.selectedGameDetail =
+      cached ??
+      this.createFallbackCatalogResult({
+        igdbGameId: item.igdbGameId,
+        platformIgdbId: item.platformIgdbId,
+        title: `Game #${item.igdbGameId}`
+      });
 
     try {
-      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(item.game);
-      const detail = await firstValueFrom(this.igdbProxyService.getGameById(item.game.igdbGameId));
+      this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(this.selectedGameDetail);
+      const detail = await firstValueFrom(this.igdbProxyService.getGameById(item.igdbGameId));
       this.selectedGameDetail = detail;
+      this.cacheDetail(detail);
       this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(detail);
     } catch (error) {
       this.detailErrorMessage =
@@ -439,18 +620,213 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  getPlatformLabel(item: PopularityGameResult): string {
-    const platforms = this.getPlatformOptions(item.game);
-
-    if (platforms.length === 0) {
-      return 'Unknown platform';
+  private async loadRecommendationLanes(forceRefresh: boolean): Promise<void> {
+    if (!this.recommendationFeatureEnabled) {
+      return;
     }
 
-    if (platforms.length === 1) {
-      return this.getPlatformDisplayName(platforms[0].name, platforms[0].id);
+    const cacheKey = this.buildCacheKey(this.selectedTarget, this.selectedRuntimeMode);
+    const cached = this.lanesCache.get(cacheKey);
+
+    if (!forceRefresh && cached) {
+      this.activeLanesResponse = cached;
+      this.recommendationError = '';
+      this.recommendationErrorCode = 'NONE';
+      return;
     }
 
-    return `${String(platforms.length)} platforms`;
+    this.isLoadingRecommendations = true;
+    this.recommendationError = '';
+    this.recommendationErrorCode = 'NONE';
+
+    try {
+      const response = await firstValueFrom(
+        this.igdbProxyService.getRecommendationLanes({
+          target: this.selectedTarget,
+          runtimeMode: this.selectedRuntimeMode,
+          limit: ExplorePage.LANE_LIMIT
+        })
+      );
+
+      this.activeLanesResponse = response;
+      this.lanesCache.set(cacheKey, response);
+      await this.hydrateDetailCache(response);
+    } catch (error) {
+      const normalized = this.normalizeRecommendationError(error);
+      this.recommendationError = normalized.message;
+      this.recommendationErrorCode = normalized.code;
+
+      if (!cached) {
+        this.activeLanesResponse = null;
+      }
+    } finally {
+      this.isLoadingRecommendations = false;
+    }
+  }
+
+  private async hydrateDetailCache(response: RecommendationLanesResponse): Promise<void> {
+    const ids = new Set<string>();
+
+    for (const laneKey of ['overall', 'hiddenGems', 'exploration'] as RecommendationLaneKey[]) {
+      for (const item of response.lanes[laneKey]) {
+        ids.add(item.igdbGameId);
+      }
+    }
+
+    const pending: Promise<void>[] = [];
+
+    for (const igdbGameId of ids) {
+      if (this.detailCache.has(igdbGameId)) {
+        continue;
+      }
+
+      pending.push(
+        firstValueFrom(this.igdbProxyService.getGameById(igdbGameId))
+          .then((detail) => {
+            this.cacheDetail(detail);
+          })
+          .catch(() => {
+            // Ignore detail hydration failures; card falls back to ids.
+          })
+      );
+    }
+
+    await Promise.all(pending);
+  }
+
+  private parseRecommendationTarget(value: unknown): RecommendationTarget | null {
+    if (value === 'BACKLOG' || value === 'WISHLIST') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private parseRuntimeMode(value: unknown): RecommendationRuntimeMode | null {
+    if (value === 'NEUTRAL' || value === 'SHORT' || value === 'LONG') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private parseLaneKey(value: unknown): RecommendationLaneKey | null {
+    if (value === 'overall' || value === 'hiddenGems' || value === 'exploration') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private buildCacheKey(
+    target: RecommendationTarget,
+    runtimeMode: RecommendationRuntimeMode
+  ): string {
+    return `${target}:${runtimeMode}`;
+  }
+
+  private cacheDetail(detail: GameCatalogResult): void {
+    this.detailCache.set(detail.igdbGameId, detail);
+  }
+
+  private getCachedDetail(item: RecommendationItem): GameCatalogResult | null {
+    const cached = this.detailCache.get(item.igdbGameId);
+    return cached ?? null;
+  }
+
+  private createFallbackCatalogResult(params: {
+    igdbGameId: string;
+    platformIgdbId: number;
+    title: string;
+  }): GameCatalogResult {
+    return {
+      igdbGameId: params.igdbGameId,
+      title: params.title,
+      coverUrl: null,
+      coverSource: 'none',
+      storyline: null,
+      summary: null,
+      gameType: null,
+      hltbMainHours: null,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+      reviewScore: null,
+      reviewUrl: null,
+      reviewSource: null,
+      mobyScore: null,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null,
+      similarGameIgdbIds: [],
+      collections: [],
+      developers: [],
+      franchises: [],
+      genres: [],
+      publishers: [],
+      platforms: [],
+      platformOptions: [
+        { id: params.platformIgdbId, name: `Platform ${String(params.platformIgdbId)}` }
+      ],
+      platform: null,
+      platformIgdbId: params.platformIgdbId,
+      releaseDate: null,
+      releaseYear: null
+    };
+  }
+
+  private normalizeRecommendationError(error: unknown): {
+    message: string;
+    code: 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED';
+  } {
+    const fallback = {
+      code: 'REQUEST_FAILED' as const,
+      message: 'Unable to load recommendations right now.'
+    };
+
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 404) {
+        return {
+          code: 'NOT_FOUND',
+          message: 'No recommendations available yet. Build recommendations to get started.'
+        };
+      }
+
+      if (error.status === 429) {
+        return {
+          code: 'RATE_LIMITED',
+          message: 'Recommendations are in cooldown. Try again later.'
+        };
+      }
+
+      return fallback;
+    }
+
+    if (error instanceof Error) {
+      const typed = error as RecommendationApiError;
+
+      if (typed.code === 'NOT_FOUND') {
+        return {
+          code: 'NOT_FOUND',
+          message: error.message
+        };
+      }
+
+      if (typed.code === 'RATE_LIMITED') {
+        return {
+          code: 'RATE_LIMITED',
+          message: error.message
+        };
+      }
+
+      if (error.message.trim().length > 0) {
+        return {
+          code: fallback.code,
+          message: error.message
+        };
+      }
+    }
+
+    return fallback;
   }
 
   private getPlatformDisplayName(name: string, platformIgdbId: number | null): string {
@@ -465,6 +841,16 @@ export class ExplorePage implements OnInit {
     }
 
     return 'Unknown platform';
+  }
+
+  private async completeRefresher(event: Event): Promise<void> {
+    const target = event.target as HTMLIonRefresherElement | null;
+
+    if (!target || typeof target.complete !== 'function') {
+      return;
+    }
+
+    await target.complete();
   }
 
   private async pickListTypeForAdd(): Promise<ListType | null> {
@@ -506,53 +892,6 @@ export class ExplorePage implements OnInit {
     }
 
     return selected;
-  }
-
-  private getPlatformOptions(
-    game: GameCatalogResult | GameEntry
-  ): { id: number | null; name: string }[] {
-    const catalogLike = game as Partial<GameCatalogResult>;
-
-    if (Array.isArray(catalogLike.platformOptions) && catalogLike.platformOptions.length > 0) {
-      return catalogLike.platformOptions
-        .map((option): { id: number | null; name: string } => {
-          const name = typeof option.name === 'string' ? option.name.trim() : '';
-          const id =
-            Number.isInteger(option.id) && (option.id as number) > 0 ? (option.id as number) : null;
-          return { id, name };
-        })
-        .filter((option: { id: number | null; name: string }) => option.name.length > 0)
-        .filter(
-          (
-            option: { id: number | null; name: string },
-            index: number,
-            items: { id: number | null; name: string }[]
-          ) => {
-            return (
-              items.findIndex(
-                (candidate: { id: number | null; name: string }) =>
-                  candidate.id === option.id && candidate.name === option.name
-              ) === index
-            );
-          }
-        );
-    }
-
-    if (Array.isArray(catalogLike.platforms) && catalogLike.platforms.length > 0) {
-      return [
-        ...new Set(
-          catalogLike.platforms
-            .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
-            .filter((platform) => platform.length > 0)
-        )
-      ].map((name) => ({ id: null, name }));
-    }
-
-    if (typeof game.platform === 'string' && game.platform.trim().length > 0) {
-      return [{ id: null, name: game.platform.trim() }];
-    }
-
-    return [];
   }
 
   private async checkGameAlreadyInLibrary(game: GameCatalogResult | GameEntry): Promise<boolean> {
@@ -629,72 +968,5 @@ export class ExplorePage implements OnInit {
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer external';
     anchor.click();
-  }
-
-  private async loadPopularityTypes(): Promise<void> {
-    this.isLoadingTypes = true;
-    this.errorMessage = '';
-
-    try {
-      const types = await firstValueFrom(this.igdbProxyService.listPopularityTypes());
-      this.popularityTypes = types;
-
-      if (types.length > 0) {
-        this.selectedPopularityTypeId = types[0].id;
-        this.offset = 0;
-        await this.loadGamesPage(false);
-      }
-    } catch (error) {
-      this.errorMessage =
-        error instanceof Error ? error.message : 'Unable to load popularity categories.';
-      this.popularityTypes = [];
-      this.selectedPopularityTypeId = null;
-      this.games = [];
-      this.hasMore = false;
-    } finally {
-      this.isLoadingTypes = false;
-    }
-  }
-
-  private async loadGamesPage(append: boolean): Promise<void> {
-    if (this.selectedPopularityTypeId === null) {
-      return;
-    }
-
-    if (!append) {
-      this.isLoadingGames = true;
-      this.errorMessage = '';
-    }
-
-    try {
-      const items = await firstValueFrom(
-        this.igdbProxyService.listPopularityGames(
-          this.selectedPopularityTypeId,
-          ExplorePage.PAGE_SIZE,
-          this.offset
-        )
-      );
-
-      this.games = append ? [...this.games, ...items] : items;
-      this.offset += items.length;
-      this.hasMore = items.length === ExplorePage.PAGE_SIZE;
-    } catch (error) {
-      this.errorMessage = error instanceof Error ? error.message : 'Unable to load popular games.';
-      this.hasMore = false;
-    } finally {
-      if (!append) {
-        this.isLoadingGames = false;
-      }
-    }
-  }
-
-  private async completeInfiniteScroll(event: Event): Promise<void> {
-    const target = event.target as HTMLIonInfiniteScrollElement | null;
-
-    if (!target || typeof target.complete !== 'function') {
-      return;
-    }
-
-    await target.complete();
   }
 }

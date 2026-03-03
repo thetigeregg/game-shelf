@@ -14,7 +14,13 @@ import {
   ReviewMatchCandidate,
   ReviewScoreResult,
   PopularityGameResult,
-  PopularityTypeOption
+  PopularityTypeOption,
+  RecommendationItem,
+  RecommendationLanesResponse,
+  RecommendationRebuildResponse,
+  RecommendationRuntimeMode,
+  RecommendationTarget,
+  RecommendationTopResponse
 } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
@@ -108,6 +114,22 @@ interface PopularityGamesResponse {
   items: PopularityGameResult[];
 }
 
+interface RecommendationTopApiResponse {
+  target?: unknown;
+  runtimeMode?: unknown;
+  runId?: unknown;
+  generatedAt?: unknown;
+  items?: unknown;
+}
+
+interface RecommendationLanesApiResponse {
+  target?: unknown;
+  runtimeMode?: unknown;
+  runId?: unknown;
+  generatedAt?: unknown;
+  lanes?: unknown;
+}
+
 @Injectable({ providedIn: 'root' })
 export class IgdbProxyService implements GameSearchApi {
   private static readonly RATE_LIMIT_FALLBACK_COOLDOWN_MS = 20_000;
@@ -122,6 +144,9 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly mobygamesSearchUrl = `${environment.gameApiBaseUrl}/v1/mobygames/search`;
   private readonly popularityTypesUrl = `${environment.gameApiBaseUrl}/v1/popularity/types`;
   private readonly popularityPrimitivesUrl = `${environment.gameApiBaseUrl}/v1/popularity/primitives`;
+  private readonly recommendationsTopUrl = `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+  private readonly recommendationsLanesUrl = `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
+  private readonly recommendationsRebuildUrl = `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`;
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
@@ -756,6 +781,69 @@ export class IgdbProxyService implements GameSearchApi {
 
           return throwError(() => new Error('Unable to load popular games.'));
         })
+      );
+  }
+
+  getRecommendationsTop(params: {
+    target: RecommendationTarget;
+    runtimeMode?: RecommendationRuntimeMode;
+    limit?: number;
+  }): Observable<RecommendationTopResponse> {
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    const query = this.buildRecommendationQueryParams(params);
+
+    return this.httpClient
+      .get<RecommendationTopApiResponse>(this.recommendationsTopUrl, { params: query })
+      .pipe(
+        map((response) => this.normalizeRecommendationTopResponse(response, params.target)),
+        catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
+      );
+  }
+
+  getRecommendationLanes(params: {
+    target: RecommendationTarget;
+    runtimeMode?: RecommendationRuntimeMode;
+    limit?: number;
+  }): Observable<RecommendationLanesResponse> {
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    const query = this.buildRecommendationQueryParams(params);
+
+    return this.httpClient
+      .get<RecommendationLanesApiResponse>(this.recommendationsLanesUrl, { params: query })
+      .pipe(
+        map((response) => this.normalizeRecommendationLanesResponse(response, params.target)),
+        catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
+      );
+  }
+
+  rebuildRecommendations(params: {
+    target: RecommendationTarget;
+    force?: boolean;
+  }): Observable<RecommendationRebuildResponse> {
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient
+      .post<RecommendationRebuildResponse>(this.recommendationsRebuildUrl, {
+        target: params.target,
+        ...(params.force === true ? { force: true } : {})
+      })
+      .pipe(
+        map((response) => this.normalizeRecommendationRebuildResponse(response, params.target)),
+        catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
       );
   }
 
@@ -1854,6 +1942,366 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return null;
+  }
+
+  private buildRecommendationQueryParams(params: {
+    target: RecommendationTarget;
+    runtimeMode?: RecommendationRuntimeMode;
+    limit?: number;
+  }): HttpParams {
+    const normalizedTarget = this.normalizeRecommendationTarget(params.target);
+    const normalizedRuntimeMode = this.normalizeRecommendationRuntimeMode(params.runtimeMode);
+    const normalizedLimit =
+      Number.isInteger(params.limit) && (params.limit as number) > 0
+        ? Math.min(params.limit as number, 200)
+        : 20;
+    let query = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER }).set(
+      'target',
+      normalizedTarget
+    );
+
+    query = query.set('limit', String(normalizedLimit));
+
+    if (normalizedRuntimeMode) {
+      query = query.set('runtimeMode', normalizedRuntimeMode);
+    }
+
+    return query;
+  }
+
+  private normalizeRecommendationTopResponse(
+    value: RecommendationTopApiResponse,
+    fallbackTarget: RecommendationTarget
+  ): RecommendationTopResponse {
+    return {
+      target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
+      runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
+      runId: this.normalizePositiveInteger(value.runId) ?? 0,
+      generatedAt: this.normalizeIsoDate(value.generatedAt),
+      items: this.normalizeRecommendationItems(value.items)
+    };
+  }
+
+  private normalizeRecommendationLanesResponse(
+    value: RecommendationLanesApiResponse,
+    fallbackTarget: RecommendationTarget
+  ): RecommendationLanesResponse {
+    const lanes =
+      typeof value.lanes === 'object' && value.lanes !== null
+        ? (value.lanes as Record<string, unknown>)
+        : {};
+
+    return {
+      target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
+      runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
+      runId: this.normalizePositiveInteger(value.runId) ?? 0,
+      generatedAt: this.normalizeIsoDate(value.generatedAt),
+      lanes: {
+        overall: this.normalizeRecommendationItems(lanes.overall),
+        hiddenGems: this.normalizeRecommendationItems(lanes.hiddenGems),
+        exploration: this.normalizeRecommendationItems(lanes.exploration)
+      }
+    };
+  }
+
+  private normalizeRecommendationRebuildResponse(
+    value: RecommendationRebuildResponse,
+    fallbackTarget: RecommendationTarget
+  ): RecommendationRebuildResponse {
+    return {
+      target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
+      runId: value.runId,
+      status: value.status,
+      reusedRunId: value.reusedRunId ?? null
+    };
+  }
+
+  private normalizeRecommendationItems(value: unknown): RecommendationItem[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((item): RecommendationItem | null => {
+        if (typeof item !== 'object' || item === null) {
+          return null;
+        }
+
+        const record = item as Record<string, unknown>;
+        const igdbGameId = this.normalizeNumericId(record.igdbGameId);
+        const platformIgdbId = this.normalizePositiveInteger(record.platformIgdbId);
+
+        if (!igdbGameId || platformIgdbId === null) {
+          return null;
+        }
+
+        return {
+          rank: this.normalizePositiveInteger(record.rank) ?? 0,
+          igdbGameId,
+          platformIgdbId,
+          scoreTotal: this.normalizePopularityValue(record.scoreTotal) ?? 0,
+          scoreComponents:
+            typeof record.scoreComponents === 'object' && record.scoreComponents !== null
+              ? {
+                  taste:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).taste
+                    ) ?? 0,
+                  novelty:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).novelty
+                    ) ?? 0,
+                  runtimeFit:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).runtimeFit
+                    ) ?? 0,
+                  criticBoost:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).criticBoost
+                    ) ?? 0,
+                  recencyBoost:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).recencyBoost
+                    ) ?? 0,
+                  semantic:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).semantic
+                    ) ?? 0,
+                  exploration:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).exploration
+                    ) ?? 0,
+                  diversityPenalty:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).diversityPenalty
+                    ) ?? 0,
+                  repeatPenalty:
+                    this.normalizePopularityValue(
+                      (record.scoreComponents as Record<string, unknown>).repeatPenalty
+                    ) ?? 0
+                }
+              : {
+                  taste: 0,
+                  novelty: 0,
+                  runtimeFit: 0,
+                  criticBoost: 0,
+                  recencyBoost: 0,
+                  semantic: 0,
+                  exploration: 0,
+                  diversityPenalty: 0,
+                  repeatPenalty: 0
+                },
+          explanations:
+            typeof record.explanations === 'object' && record.explanations !== null
+              ? {
+                  headline:
+                    typeof (record.explanations as Record<string, unknown>).headline === 'string'
+                      ? ((record.explanations as Record<string, unknown>).headline as string).trim()
+                      : '',
+                  bullets: Array.isArray((record.explanations as Record<string, unknown>).bullets)
+                    ? (
+                        (record.explanations as Record<string, unknown>).bullets as Array<{
+                          type?: unknown;
+                          label?: unknown;
+                          evidence?: unknown;
+                          delta?: unknown;
+                        }>
+                      )
+                        .map((bullet) => ({
+                          type:
+                            bullet.type === 'taste' ||
+                            bullet.type === 'novelty' ||
+                            bullet.type === 'runtime' ||
+                            bullet.type === 'critic' ||
+                            bullet.type === 'recency' ||
+                            bullet.type === 'semantic' ||
+                            bullet.type === 'exploration' ||
+                            bullet.type === 'diversity' ||
+                            bullet.type === 'repeat'
+                              ? bullet.type
+                              : 'taste',
+                          label: typeof bullet.label === 'string' ? bullet.label.trim() : '',
+                          evidence: Array.isArray(bullet.evidence)
+                            ? bullet.evidence
+                                .map((evidence) => String(evidence ?? '').trim())
+                                .filter((evidence) => evidence.length > 0)
+                            : [],
+                          delta: this.normalizePopularityValue(bullet.delta) ?? 0
+                        }))
+                        .filter((bullet) => bullet.label.length > 0)
+                    : [],
+                  matchedTokens:
+                    typeof (record.explanations as Record<string, unknown>).matchedTokens ===
+                      'object' &&
+                    (record.explanations as Record<string, unknown>).matchedTokens !== null
+                      ? {
+                          genres: this.normalizeTextList(
+                            (record.explanations as Record<string, unknown>).matchedTokens
+                              ? (
+                                  (record.explanations as Record<string, unknown>)
+                                    .matchedTokens as Record<string, string[]>
+                                ).genres
+                              : []
+                          ),
+                          developers: this.normalizeTextList(
+                            (record.explanations as Record<string, unknown>).matchedTokens
+                              ? (
+                                  (record.explanations as Record<string, unknown>)
+                                    .matchedTokens as Record<string, string[]>
+                                ).developers
+                              : []
+                          ),
+                          publishers: this.normalizeTextList(
+                            (record.explanations as Record<string, unknown>).matchedTokens
+                              ? (
+                                  (record.explanations as Record<string, unknown>)
+                                    .matchedTokens as Record<string, string[]>
+                                ).publishers
+                              : []
+                          ),
+                          franchises: this.normalizeTextList(
+                            (record.explanations as Record<string, unknown>).matchedTokens
+                              ? (
+                                  (record.explanations as Record<string, unknown>)
+                                    .matchedTokens as Record<string, string[]>
+                                ).franchises
+                              : []
+                          ),
+                          collections: this.normalizeTextList(
+                            (record.explanations as Record<string, unknown>).matchedTokens
+                              ? (
+                                  (record.explanations as Record<string, unknown>)
+                                    .matchedTokens as Record<string, string[]>
+                                ).collections
+                              : []
+                          )
+                        }
+                      : {
+                          genres: [],
+                          developers: [],
+                          publishers: [],
+                          franchises: [],
+                          collections: []
+                        }
+                }
+              : {
+                  headline: '',
+                  bullets: [],
+                  matchedTokens: {
+                    genres: [],
+                    developers: [],
+                    publishers: [],
+                    franchises: [],
+                    collections: []
+                  }
+                }
+        };
+      })
+      .filter((item): item is RecommendationItem => item !== null);
+  }
+
+  private normalizeRecommendationTarget(
+    value: unknown,
+    fallback: RecommendationTarget = 'BACKLOG'
+  ): RecommendationTarget {
+    if (value === 'BACKLOG' || value === 'WISHLIST') {
+      return value;
+    }
+
+    return fallback;
+  }
+
+  private normalizeRecommendationRuntimeMode(value: unknown): RecommendationRuntimeMode | null {
+    if (value === 'NEUTRAL' || value === 'SHORT' || value === 'LONG') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private normalizeIsoDate(value: unknown): string {
+    if (typeof value !== 'string') {
+      return new Date(0).toISOString();
+    }
+
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return new Date(0).toISOString();
+    }
+
+    const parsed = Date.parse(trimmed);
+    if (Number.isNaN(parsed)) {
+      return new Date(0).toISOString();
+    }
+
+    return new Date(parsed).toISOString();
+  }
+
+  private normalizePositiveInteger(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+
+    if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+      const parsed = Number.parseInt(value.trim(), 10);
+      return parsed > 0 ? parsed : null;
+    }
+
+    return null;
+  }
+
+  private normalizeNumericId(value: unknown): string {
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      return /^\d+$/.test(normalized) ? normalized : '';
+    }
+
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      return String(value);
+    }
+
+    return '';
+  }
+
+  private toRecommendationError(error: unknown): Error {
+    const rateLimitError = this.toRateLimitError(error);
+    if (rateLimitError) {
+      return rateLimitError;
+    }
+
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 404) {
+        return this.createRecommendationApiError(
+          'NOT_FOUND',
+          'No recommendations available yet. Build recommendations to get started.'
+        );
+      }
+
+      if (error.status === 429) {
+        return this.createRecommendationApiError(
+          'RATE_LIMITED',
+          'Recommendations are cooling down after a failed run. Try again later.'
+        );
+      }
+
+      if (error.status === 400) {
+        return this.createRecommendationApiError(
+          'INVALID_REQUEST',
+          'Invalid recommendation query.'
+        );
+      }
+    }
+
+    return this.createRecommendationApiError(
+      'REQUEST_FAILED',
+      'Unable to load recommendations right now.'
+    );
+  }
+
+  private createRecommendationApiError(code: string, message: string): Error & { code: string } {
+    const error = new Error(message) as Error & { code: string };
+    error.code = code;
+    return error;
   }
 
   private saveCachedPlatformList(items: GameCatalogPlatformOption[]): void {

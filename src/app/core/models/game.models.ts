@@ -95,6 +95,86 @@ export interface PopularityGameResult {
   calculatedAt: string | null;
 }
 
+export type RecommendationTarget = 'BACKLOG' | 'WISHLIST';
+export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
+export type RecommendationLaneKey = 'overall' | 'hiddenGems' | 'exploration';
+
+export interface RecommendationScoreComponents {
+  taste: number;
+  novelty: number;
+  runtimeFit: number;
+  criticBoost: number;
+  recencyBoost: number;
+  semantic: number;
+  exploration: number;
+  diversityPenalty: number;
+  repeatPenalty: number;
+}
+
+export interface RecommendationExplanationBullet {
+  type:
+    | 'taste'
+    | 'novelty'
+    | 'runtime'
+    | 'critic'
+    | 'recency'
+    | 'semantic'
+    | 'exploration'
+    | 'diversity'
+    | 'repeat';
+  label: string;
+  evidence: string[];
+  delta: number;
+}
+
+export interface RecommendationExplanation {
+  headline: string;
+  bullets: RecommendationExplanationBullet[];
+  matchedTokens: {
+    genres: string[];
+    developers: string[];
+    publishers: string[];
+    franchises: string[];
+    collections: string[];
+  };
+}
+
+export interface RecommendationItem {
+  rank: number;
+  igdbGameId: string;
+  platformIgdbId: number;
+  scoreTotal: number;
+  scoreComponents: RecommendationScoreComponents;
+  explanations: RecommendationExplanation;
+}
+
+export interface RecommendationTopResponse {
+  target: RecommendationTarget;
+  runtimeMode: RecommendationRuntimeMode;
+  runId: number;
+  generatedAt: string;
+  items: RecommendationItem[];
+}
+
+export interface RecommendationLanesResponse {
+  target: RecommendationTarget;
+  runtimeMode: RecommendationRuntimeMode;
+  runId: number;
+  generatedAt: string;
+  lanes: {
+    overall: RecommendationItem[];
+    hiddenGems: RecommendationItem[];
+    exploration: RecommendationItem[];
+  };
+}
+
+export interface RecommendationRebuildResponse {
+  target: RecommendationTarget;
+  runId: string;
+  status: 'SUCCESS' | 'FAILED' | 'SKIPPED' | 'LOCKED' | 'BACKOFF_SKIPPED';
+  reusedRunId?: string | null;
+}
+
 export interface GameEntry {
   id?: number;
   igdbGameId: string;

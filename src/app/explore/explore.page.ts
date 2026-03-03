@@ -252,13 +252,7 @@ export class ExplorePage implements OnInit {
   }
 
   getActiveLaneItems(): RecommendationItem[] {
-    const lanes = this.activeLanesResponse?.lanes;
-
-    if (!lanes) {
-      return [];
-    }
-
-    return lanes[this.selectedLaneKey];
+    return this.getDeduplicatedLaneItems(this.getRawActiveLaneItems());
   }
 
   hasAnyLaneItems(): boolean {
@@ -292,6 +286,11 @@ export class ExplorePage implements OnInit {
   }
 
   getPlatformLabel(item: RecommendationItem): string {
+    const mergedPlatformLabels = this.getMergedPlatformLabels(item);
+    if (mergedPlatformLabels) {
+      return mergedPlatformLabels;
+    }
+
     const detail = this.getLocalGame(item);
 
     if (!detail) {
@@ -928,6 +927,67 @@ export class ExplorePage implements OnInit {
 
   private getLocalGame(item: RecommendationItem): GameEntry | null {
     return this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+  }
+
+  private getRawActiveLaneItems(): RecommendationItem[] {
+    const lanes = this.activeLanesResponse?.lanes;
+    if (!lanes) {
+      return [];
+    }
+    return lanes[this.selectedLaneKey];
+  }
+
+  private getDeduplicatedLaneItems(items: RecommendationItem[]): RecommendationItem[] {
+    if (items.length <= 1) {
+      return items;
+    }
+
+    const deduplicated: RecommendationItem[] = [];
+    const seenGameIds = new Set<string>();
+
+    for (const item of items) {
+      if (seenGameIds.has(item.igdbGameId)) {
+        continue;
+      }
+
+      seenGameIds.add(item.igdbGameId);
+      deduplicated.push(item);
+    }
+
+    return deduplicated;
+  }
+
+  private getMergedPlatformLabels(item: RecommendationItem): string | null {
+    const rawItems = this.getRawActiveLaneItems().filter(
+      (candidate) => candidate.igdbGameId === item.igdbGameId
+    );
+
+    if (rawItems.length <= 1) {
+      return null;
+    }
+
+    const labelSet = new Set<string>();
+    for (const candidate of rawItems) {
+      const local = this.getLocalGame(candidate);
+      if (local && local.platform.trim().length > 0) {
+        labelSet.add(this.getPlatformDisplayName(local.platform, local.platformIgdbId));
+        continue;
+      }
+
+      const metadata = this.getRecommendationDisplayMetadata(candidate);
+      if (metadata?.platformLabel) {
+        labelSet.add(metadata.platformLabel);
+        continue;
+      }
+
+      labelSet.add(`Platform ${String(candidate.platformIgdbId)}`);
+    }
+
+    if (labelSet.size === 0) {
+      return null;
+    }
+
+    return Array.from(labelSet).join(' / ');
   }
 
   private getRecommendationDisplayMetadata(item: {

@@ -7,7 +7,11 @@ export function buildRecommendationLanes(params: {
   const { items } = params;
   const laneLimit = Math.max(1, params.laneLimit);
 
-  const overall = items.slice(0, laneLimit);
+  const overall = selectLaneItems({
+    items,
+    fallback: items,
+    laneLimit
+  });
   const hiddenGems = selectLaneItems({
     items: items.filter(
       (item) => item.scoreComponents.semantic >= 0.4 && item.scoreComponents.criticBoost <= 0.2
@@ -42,11 +46,10 @@ function selectLaneItems(params: {
   const lane: RankedRecommendationItem[] = [];
 
   const push = (item: RankedRecommendationItem): void => {
-    const key = `${item.igdbGameId}::${String(item.platformIgdbId)}`;
-    if (seen.has(key)) {
+    if (seen.has(item.igdbGameId)) {
       return;
     }
-    seen.add(key);
+    seen.add(item.igdbGameId);
     lane.push(item);
   };
 

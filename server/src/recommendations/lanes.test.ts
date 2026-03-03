@@ -81,3 +81,18 @@ void test('buildRecommendationLanes returns clipped lanes', () => {
   assert.equal(lanes.recent.length, 1);
   assert.equal(lanes.overall[0]?.igdbGameId, '1');
 });
+
+void test('buildRecommendationLanes deduplicates same game across platforms', () => {
+  const items = [
+    buildItem({ igdbGameId: '1', platformIgdbId: 6, rank: 1, scoreTotal: 3 }),
+    buildItem({ igdbGameId: '1', platformIgdbId: 48, rank: 2, scoreTotal: 2.8 }),
+    buildItem({ igdbGameId: '2', platformIgdbId: 6, rank: 3, scoreTotal: 2.7 })
+  ];
+
+  const lanes = buildRecommendationLanes({ items, laneLimit: 3 });
+
+  assert.deepEqual(
+    lanes.overall.map((item) => `${item.igdbGameId}:${String(item.platformIgdbId)}`),
+    ['1:6', '2:6']
+  );
+});

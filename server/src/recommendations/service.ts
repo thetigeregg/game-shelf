@@ -609,7 +609,7 @@ export class RecommendationService implements RecommendationServiceApi {
         candidates,
         target,
         profile,
-        limit: this.options.topLimit,
+        limit: Math.max(candidates.length, this.options.topLimit),
         runtimeMode,
         semanticSimilarityByGame,
         tunedWeights,
@@ -631,7 +631,7 @@ export class RecommendationService implements RecommendationServiceApi {
         }
       });
 
-      return ranked.map((item, index) => ({
+      const materialized = ranked.map((item, index) => ({
         igdbGameId: item.game.igdbGameId,
         platformIgdbId: item.game.platformIgdbId,
         rank: index + 1,
@@ -642,6 +642,8 @@ export class RecommendationService implements RecommendationServiceApi {
           tasteMatches: item.tasteMatches
         })
       }));
+
+      return dedupeByGameId(materialized, this.options.topLimit);
     });
   }
 
@@ -991,6 +993,33 @@ function createModeRecord<T>(
   };
 }
 
+function dedupeByGameId(
+  items: RankedRecommendationItem[],
+  limit: number
+): RankedRecommendationItem[] {
+  const deduped: RankedRecommendationItem[] = [];
+  const seen = new Set<string>();
+  const safeLimit = Math.max(1, limit);
+
+  for (const item of items) {
+    if (seen.has(item.igdbGameId)) {
+      continue;
+    }
+
+    seen.add(item.igdbGameId);
+    deduped.push({
+      ...item,
+      rank: deduped.length + 1
+    });
+
+    if (deduped.length >= safeLimit) {
+      break;
+    }
+  }
+
+  return deduped;
+}
+
 function buildDiscoveryRecommendationLanes(params: {
   items: RankedRecommendationItem[];
   laneLimit: number;
@@ -999,7 +1028,11 @@ function buildDiscoveryRecommendationLanes(params: {
   const { items, discoverySourceByGame } = params;
   const laneLimit = Math.max(1, params.laneLimit);
 
-  const blended = items.slice(0, laneLimit);
+  const blended = selectUniqueLaneItems({
+    primary: items,
+    fallback: items,
+    laneLimit
+  });
   const popular = selectUniqueLaneItems({
     primary: items.filter(
       (item) =>
@@ -1036,11 +1069,10 @@ function selectUniqueLaneItems(params: {
   const seen = new Set<string>();
 
   const push = (item: RankedRecommendationItem): void => {
-    const key = buildGameKey(item.igdbGameId, item.platformIgdbId);
-    if (seen.has(key)) {
+    if (seen.has(item.igdbGameId)) {
       return;
     }
-    seen.add(key);
+    seen.add(item.igdbGameId);
     lane.push(item);
   };
 

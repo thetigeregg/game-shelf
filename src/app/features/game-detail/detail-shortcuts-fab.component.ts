@@ -10,7 +10,7 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
   standalone: true,
   imports: [IonFab, IonFabButton, IonFabList, IonIcon],
   template: `
-    <ion-fab slot="fixed" vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
+    <ion-fab vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
       <ion-fab-button size="small" aria-label="Open web shortcuts">
         <ion-icon name="globe" aria-hidden="true"></ion-icon>
       </ion-fab-button>
@@ -82,9 +82,15 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
   `,
   styles: [
     `
+      :host {
+        position: fixed;
+        right: max(8px, env(safe-area-inset-right));
+        bottom: max(8px, env(safe-area-inset-bottom));
+        z-index: 20;
+      }
+
       .detail-shortcuts-fab {
-        margin-bottom: 8px;
-        margin-right: 8px;
+        margin: 0;
       }
 
       .detail-shortcuts-fab .shortcut-text {

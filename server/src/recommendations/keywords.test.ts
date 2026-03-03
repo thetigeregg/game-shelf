@@ -21,6 +21,13 @@ void test('isKeywordNoise filters structural patterns', () => {
   assert.equal(isKeywordNoise('conference demo'), true);
   assert.equal(isKeywordNoise('playstation classic'), true);
   assert.equal(isKeywordNoise('soundtrack release'), true);
+  assert.equal(isKeywordNoise('steam achievements'), true);
+  assert.equal(isKeywordNoise('steam cloud'), true);
+  assert.equal(isKeywordNoise('playstation trophies'), true);
+  assert.equal(isKeywordNoise('xbox controller support for pc'), true);
+  assert.equal(isKeywordNoise('available on - luna plus'), true);
+  assert.equal(isKeywordNoise('digital distribution'), true);
   assert.equal(isKeywordNoise('this keyword has more than five words'), true);
   assert.equal(isKeywordNoise('space opera'), false);
+  assert.equal(isKeywordNoise('survival horror'), false);
 });

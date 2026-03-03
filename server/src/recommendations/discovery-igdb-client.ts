@@ -54,6 +54,8 @@ interface RawGameType {
 
 const IGDB_PAGE_SIZE = 500;
 const GAME_TYPES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const RECENT_MAX_FUTURE_DAYS = 365;
+const RECENT_MIN_RATING_COUNT = 25;
 
 export class DiscoveryIgdbClient {
   private readonly fetchImpl: typeof fetch;
@@ -356,12 +358,14 @@ function buildGamesQuery(params: {
 }): string {
   const sortClause =
     params.source === 'popular' ? 'sort total_rating_count desc;' : 'sort first_release_date desc;';
+  const recentMaxReleaseUnix =
+    Math.floor(Date.now() / 1000) + RECENT_MAX_FUTURE_DAYS * 24 * 60 * 60;
   const gameTypeClause =
     params.mainGameTypeIds.length > 0 ? ` & game_type = (${params.mainGameTypeIds.join(',')})` : '';
   const sourceWhereClause =
     params.source === 'popular'
       ? `where total_rating_count != null & platforms != null & parent_game = null & version_parent = null${gameTypeClause};`
-      : `where first_release_date != null & platforms != null & parent_game = null & version_parent = null${gameTypeClause};`;
+      : `where first_release_date != null & first_release_date <= ${String(recentMaxReleaseUnix)} & platforms != null & parent_game = null & version_parent = null${gameTypeClause} & (total_rating_count >= ${String(RECENT_MIN_RATING_COUNT)} | aggregated_rating_count >= ${String(RECENT_MIN_RATING_COUNT)});`;
 
   return [
     'fields id,name,summary,storyline,first_release_date,platforms.id,platforms.name,',

@@ -2137,4 +2137,93 @@ describe('IgdbProxyService', () => {
       'No recommendations available yet. Build recommendations to get started.'
     );
   });
+
+  it('maps recommendation 429 responses to cooldown error code', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush({ error: 'cooldown' }, { status: 429, statusText: 'Too Many Requests' });
+
+    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
+  });
+
+  it('maps recommendation 400 responses to invalid request error code', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush({ error: 'bad request' }, { status: 400, statusText: 'Bad Request' });
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'Invalid recommendation query.',
+      code: 'INVALID_REQUEST'
+    });
+  });
+
+  it('maps recommendation 500 responses to generic request failure code', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush({ error: 'server error' }, { status: 500, statusText: 'Server Error' });
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'Unable to load recommendations right now.',
+      code: 'REQUEST_FAILED'
+    });
+  });
+
+  it('prefers retry-after based recommendation cooldown error mapping', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush(
+      { error: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '9' })
+      }
+    );
+
+    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 9s.');
+  });
+
+  it('covers recommendation normalization helper branches', () => {
+    const privateService = service as unknown as {
+      normalizeRecommendationRuntimeMode: (value: unknown) => 'NEUTRAL' | 'SHORT' | 'LONG' | null;
+      normalizeIsoDate: (value: unknown) => string;
+      normalizePositiveInteger: (value: unknown) => number | null;
+      normalizeNumericId: (value: unknown) => string;
+      toRecommendationError: (error: unknown) => Error & { code?: string };
+    };
+
+    expect(privateService.normalizeRecommendationRuntimeMode('NEUTRAL')).toBe('NEUTRAL');
+    expect(privateService.normalizeRecommendationRuntimeMode('invalid')).toBeNull();
+
+    expect(privateService.normalizeIsoDate(123)).toBe(new Date(0).toISOString());
+    expect(privateService.normalizeIsoDate('  ')).toBe(new Date(0).toISOString());
+    expect(privateService.normalizeIsoDate('not-a-date')).toBe(new Date(0).toISOString());
+    expect(privateService.normalizeIsoDate('2026-03-03T10:00:00.000Z')).toBe(
+      '2026-03-03T10:00:00.000Z'
+    );
+
+    expect(privateService.normalizePositiveInteger(12)).toBe(12);
+    expect(privateService.normalizePositiveInteger('14')).toBe(14);
+    expect(privateService.normalizePositiveInteger('0')).toBeNull();
+    expect(privateService.normalizePositiveInteger('foo')).toBeNull();
+    expect(privateService.normalizePositiveInteger(4.5)).toBeNull();
+
+    expect(privateService.normalizeNumericId(' 123 ')).toBe('123');
+    expect(privateService.normalizeNumericId('abc')).toBe('');
+    expect(privateService.normalizeNumericId(42)).toBe('42');
+    expect(privateService.normalizeNumericId(0)).toBe('');
+
+    expect(privateService.toRecommendationError(new Error('boom'))).toMatchObject({
+      message: 'Unable to load recommendations right now.',
+      code: 'REQUEST_FAILED'
+    });
+  });
 });

@@ -540,6 +540,8 @@ export class RecommendationService implements RecommendationServiceApi {
         tunedWeights,
         explorationWeight: this.options.explorationWeight,
         diversityPenaltyWeight: this.options.diversityPenaltyWeight,
+        similarityStructuredWeight: this.options.similarityStructuredWeight,
+        similaritySemanticWeight: this.options.similaritySemanticWeight,
         repeatPenaltyStep: this.options.repeatPenaltyStep,
         historyByGame: histories[runtimeMode]
       });

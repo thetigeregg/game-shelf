@@ -8,7 +8,7 @@ export const TOKEN_FAMILY_WEIGHT: Record<TokenFamily, number> = {
   franchises: 1.3,
   developers: 1.1,
   genres: 1,
-  publishers: 0.8
+  publishers: 0.6
 };
 
 export function buildPreferenceProfile(games: NormalizedGameRecord[]): PreferenceProfile {

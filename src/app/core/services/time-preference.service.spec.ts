@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { TimePreferenceService, TIME_PREFERENCE_STORAGE_KEY } from './time-preference.service';
 
 describe('TimePreferenceService', () => {
@@ -50,5 +50,28 @@ describe('TimePreferenceService', () => {
     service.refreshFromStorage();
 
     expect(service.getTimePreference()).toBe(33);
+  });
+
+  it('falls back to defaults when storage access throws', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+
+    const service = TestBed.inject(TimePreferenceService);
+    expect(service.getTimePreference()).toBe(15);
+
+    getItemSpy.mockRestore();
+  });
+
+  it('normalizes non-finite values and tolerates setItem failures', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota exceeded');
+    });
+    const service = TestBed.inject(TimePreferenceService);
+
+    service.setTimePreference(Number.NaN);
+    expect(service.getTimePreference()).toBe(15);
+
+    setItemSpy.mockRestore();
   });
 });

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
@@ -318,6 +319,568 @@ describe('ExplorePage recommendations UX', () => {
     expect(page.recommendationErrorCode).toBe('NOT_FOUND');
   });
 
+  it('returns lane descriptions and icons for lane/target combinations', () => {
+    const page = createPage();
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'popular';
+    expect(page.getLaneDescription()).toContain('Popular');
+    expect(page.getEmptyStateLaneIcon()).toBe('library');
+
+    page.selectedLaneKey = 'recent';
+    expect(page.getLaneDescription()).toContain('Recent');
+    expect(page.getEmptyStateLaneIcon()).toBe('time');
+
+    page.selectedLaneKey = 'blended';
+    expect(page.getLaneDescription()).toContain('Blended');
+    expect(page.getEmptyStateLaneIcon()).toBe('sparkles');
+
+    page.selectedTarget = 'BACKLOG';
+    page.selectedLaneKey = 'hiddenGems';
+    expect(page.getLaneDescription()).toContain('Hidden Gems');
+    expect(page.getEmptyStateLaneIcon()).toBe('sparkles');
+
+    page.selectedLaneKey = 'exploration';
+    expect(page.getLaneDescription()).toContain('Exploration');
+    expect(page.getEmptyStateLaneIcon()).toBe('compass');
+  });
+
+  it('normalizes explanation bullets and headlines', () => {
+    const page = createPage();
+    const mapped = page.getExplanationBullets({
+      ...mockLanesResponse.lanes.overall[0],
+      explanations: {
+        ...mockLanesResponse.lanes.overall[0].explanations,
+        bullets: [
+          { type: 'taste', label: 'A', evidence: [], delta: 0.5 },
+          { type: 'taste', label: '', evidence: [], delta: 0.4 },
+          { type: 'taste', label: 'B', evidence: [], delta: 0.001 }
+        ]
+      }
+    });
+    expect(mapped).toEqual([{ label: 'A', delta: '+0.50' }]);
+    expect(page.getHeadlineLines('One • Two; Three|Four')).toEqual(['One', 'Two', 'Three', 'Four']);
+    expect(page.getHeadlineLines('')).toEqual([]);
+  });
+
+  it('handles platform label resolution from catalog fallback paths', () => {
+    const page = createPage() as unknown as {
+      resolveCatalogPlatformLabel: (catalog: unknown, platformIgdbId: number) => string;
+      withCatalogPlatformContext: (catalog: unknown, platformIgdbId: number) => unknown;
+      collectPlatformIgdbIds: (catalog: unknown) => number[];
+      isLibraryEntry: (value: unknown) => boolean;
+    };
+
+    const catalog = {
+      igdbGameId: '200',
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'none',
+      storyline: null,
+      summary: null,
+      gameType: null,
+      hltbMainHours: null,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+      reviewScore: null,
+      reviewUrl: null,
+      reviewSource: null,
+      mobyScore: null,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null,
+      similarGameIgdbIds: [],
+      collections: [],
+      developers: [],
+      franchises: [],
+      genres: [],
+      themes: [],
+      themeIds: [],
+      keywords: [],
+      keywordIds: [],
+      publishers: [],
+      platforms: [],
+      platformOptions: [{ id: 9, name: 'PlayStation 3' }],
+      platform: 'PC',
+      platformIgdbId: 6,
+      releaseDate: null,
+      releaseYear: null
+    };
+
+    expect(page.resolveCatalogPlatformLabel(catalog, 6)).toBe('PC');
+    expect(page.resolveCatalogPlatformLabel(catalog, 9)).toBe('PlayStation 3');
+    expect(page.resolveCatalogPlatformLabel(catalog, 99)).toBe('PC');
+    expect(
+      page.resolveCatalogPlatformLabel({ ...catalog, platform: null, platformOptions: [] }, 99)
+    ).toBe('Platform 99');
+
+    const contextual = page.withCatalogPlatformContext(catalog, 9) as {
+      platformIgdbId: number;
+      platform: string | null;
+    };
+    expect(contextual.platformIgdbId).toBe(9);
+    expect(contextual.platform).toBe('PlayStation 3');
+
+    expect(page.collectPlatformIgdbIds(catalog)).toEqual([6, 9]);
+    expect(page.isLibraryEntry({ ...catalog, listType: 'collection' })).toBe(true);
+    expect(page.isLibraryEntry(catalog)).toBe(false);
+  });
+
+  it('handles private helper branches for refresh, count, and library checks', async () => {
+    const page = createPage() as unknown as {
+      activeLanesResponse: typeof mockLanesResponse | null;
+      selectedLaneKey: 'overall';
+      completeRefresher: (event: Event) => Promise<void>;
+      getTotalActiveRecommendationCount: () => number;
+      checkGameAlreadyInLibrary: (game: unknown) => Promise<boolean>;
+    };
+
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [
+          ...mockLanesResponse.lanes.overall,
+          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 }
+        ]
+      }
+    };
+    page.selectedLaneKey = 'overall';
+    expect(page.getTotalActiveRecommendationCount()).toBe(1);
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await page.completeRefresher({ target: { complete } } as unknown as Event);
+    expect(complete).toHaveBeenCalledOnce();
+    await page.completeRefresher({ target: null } as unknown as Event);
+
+    expect(
+      await page.checkGameAlreadyInLibrary({
+        ...mockLanesResponse.lanes.overall[0],
+        igdbGameId: '500',
+        platformIgdbId: 6,
+        platformOptions: []
+      })
+    ).toBe(false);
+  });
+
+  it('routes recommendation row clicks to correct handlers', () => {
+    const page = createPage() as unknown as {
+      onRecommendationRowClick: (
+        kind: 'recommendation' | 'similar',
+        row: unknown,
+        event: Event
+      ) => void;
+      openGameDetail: (item: unknown) => Promise<void>;
+      openSimilarRecommendation: (item: unknown, event: Event) => Promise<void>;
+    };
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openSimilarRecommendation = vi
+      .spyOn(page, 'openSimilarRecommendation')
+      .mockResolvedValue(undefined as never);
+    const event = new Event('click');
+
+    page.onRecommendationRowClick('recommendation', mockLanesResponse.lanes.overall[0], event);
+    page.onRecommendationRowClick(
+      'similar',
+      {
+        igdbGameId: '2',
+        platformIgdbId: 6,
+        similarity: 0.5,
+        reasons: {
+          summary: '',
+          structuredSimilarity: 0,
+          semanticSimilarity: 0,
+          blendedSimilarity: 0,
+          sharedTokens: {
+            genres: [],
+            developers: [],
+            publishers: [],
+            franchises: [],
+            collections: [],
+            themes: [],
+            keywords: []
+          }
+        }
+      },
+      event
+    );
+
+    expect(openGameDetail).toHaveBeenCalledTimes(1);
+    expect(openSimilarRecommendation).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports rating modal lifecycle and formatted values', () => {
+    const page = createPage();
+    const libraryGame = {
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      listType: 'collection' as const,
+      title: 'Rated'
+    };
+
+    page.selectedGameDetail = libraryGame;
+    page.openDetailRatingModal();
+    expect(page.isRatingModalOpen).toBe(true);
+    expect(page.formatRatingPin(4.2)).toBe('4');
+    page.onRatingRangeChange({ detail: { value: 4.3 } } as unknown as Event);
+    expect(page.ratingDraft).toBe(4.5);
+    page.markRatingForClear();
+    expect(page.clearRatingOnSave).toBe(true);
+    page.closeRatingModal();
+    expect(page.isRatingModalOpen).toBe(false);
+  });
+
+  it('supports shortcut URL routing and image fallback', () => {
+    const page = createPage() as unknown as {
+      selectedGameDetail: { title?: string | null } | null;
+      openShortcutSearch: (provider: 'google' | 'youtube' | 'wikipedia' | 'gamefaqs') => void;
+      onImageError: (event: Event) => void;
+      openExternalUrl: (url: string) => void;
+    };
+    const openExternalUrl = vi.spyOn(page, 'openExternalUrl').mockImplementation(() => undefined);
+
+    page.selectedGameDetail = { title: 'Pokemon Red' };
+    page.openShortcutSearch('google');
+    page.openShortcutSearch('youtube');
+    page.openShortcutSearch('wikipedia');
+    page.openShortcutSearch('gamefaqs');
+    expect(openExternalUrl).toHaveBeenCalledTimes(4);
+
+    const img = document.createElement('img');
+    page.onImageError({ target: img } as unknown as Event);
+    expect(img.src).toContain('assets/icon/placeholder.png');
+  });
+
+  it('resets detail modal state on close', () => {
+    const page = createPage();
+    page.isGameDetailModalOpen = true;
+    page.isRatingModalOpen = true;
+    page.isLoadingDetail = true;
+    page.detailErrorMessage = 'x';
+    page.detailContext = 'library';
+    page.isSelectedGameInLibrary = true;
+    page.isAddToLibraryLoading = true;
+    page.activeDetailRecommendation = mockLanesResponse.lanes.overall[0];
+    page.detailNavigationStack = [mockLanesResponse.lanes.overall[0]];
+    page.isLoadingSimilar = true;
+    page.similarRecommendationsError = 'x';
+    page.similarRecommendationItems = [
+      {
+        igdbGameId: '2',
+        platformIgdbId: 6,
+        similarity: 0.1,
+        reasons: {
+          summary: '',
+          structuredSimilarity: 0,
+          semanticSimilarity: 0,
+          blendedSimilarity: 0,
+          sharedTokens: {
+            genres: [],
+            developers: [],
+            publishers: [],
+            franchises: [],
+            collections: [],
+            themes: [],
+            keywords: []
+          }
+        }
+      }
+    ];
+    page.closeGameDetailModal();
+    expect(page.isGameDetailModalOpen).toBe(false);
+    expect(page.isRatingModalOpen).toBe(false);
+    expect(page.detailContext).toBe('explore');
+    expect(page.detailNavigationStack).toEqual([]);
+    expect(page.similarRecommendationItems).toEqual([]);
+  });
+
+  it('covers library mutation flows for status, rating, and tags', async () => {
+    const page = createPage();
+    const libraryGame = {
+      id: 1,
+      igdbGameId: '100',
+      title: 'Game',
+      notes: null,
+      customTitle: null,
+      coverUrl: null,
+      customCoverUrl: null,
+      coverSource: 'none' as const,
+      platform: 'PC',
+      platformIgdbId: 6,
+      releaseDate: null,
+      releaseYear: 2020,
+      status: null,
+      rating: null,
+      listType: 'collection' as const,
+      createdAt: '2026-03-03T00:00:00.000Z',
+      updatedAt: '2026-03-03T00:00:00.000Z'
+    };
+    page.selectedGameDetail = libraryGame;
+
+    gameShelfServiceMock.setGameStatus.mockResolvedValue({
+      ...libraryGame,
+      status: 'playing'
+    });
+    await page.onDetailStatusChange('playing');
+    expect(gameShelfServiceMock.setGameStatus).toHaveBeenCalledWith('100', 6, 'playing');
+
+    gameShelfServiceMock.setGameStatus.mockRejectedValueOnce(new Error('failed'));
+    await page.onDetailStatusChange('paused');
+
+    gameShelfServiceMock.setGameStatus.mockResolvedValue({ ...libraryGame, status: null });
+    await page.clearDetailStatus();
+    expect(gameShelfServiceMock.setGameStatus).toHaveBeenCalledWith('100', 6, null);
+
+    gameShelfServiceMock.setGameRating.mockResolvedValue({ ...libraryGame, rating: 4.5 });
+    page.ratingDraft = 4.5;
+    page.clearRatingOnSave = false;
+    await page.saveDetailRatingFromModal();
+    expect(gameShelfServiceMock.setGameRating).toHaveBeenCalledWith('100', 6, 4.5);
+
+    gameShelfServiceMock.setGameRating.mockRejectedValueOnce(new Error('failed'));
+    await page.saveDetailRatingFromModal();
+
+    gameShelfServiceMock.listTags.mockResolvedValue([]);
+    await page.openDetailTags();
+
+    gameShelfServiceMock.listTags.mockResolvedValue([{ id: 1, name: 'A', color: '#fff' }]);
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' })
+    });
+    await page.openDetailTags();
+  });
+
+  it('covers add-to-library flow branches', async () => {
+    const page = createPage() as unknown as {
+      detailContext: 'explore' | 'library';
+      isSelectedGameInLibrary: boolean;
+      isAddToLibraryLoading: boolean;
+      selectedGameDetail: unknown;
+      pickListTypeForAdd: () => Promise<'collection' | 'wishlist' | null>;
+      addSelectedGameToLibrary: () => Promise<void>;
+    };
+
+    page.detailContext = 'explore';
+    page.isSelectedGameInLibrary = false;
+    page.isAddToLibraryLoading = false;
+    page.selectedGameDetail = {
+      igdbGameId: '300',
+      title: 'Catalog',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      platformOptions: [{ id: 6, name: 'PC' }]
+    };
+    vi.spyOn(page, 'pickListTypeForAdd').mockResolvedValue('collection');
+    addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({
+      status: 'duplicate'
+    });
+
+    await page.addSelectedGameToLibrary();
+    expect(page.isSelectedGameInLibrary).toBe(true);
+
+    page.isSelectedGameInLibrary = false;
+    addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({
+      status: 'added',
+      entry: {
+        igdbGameId: '300',
+        title: 'Catalog',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'PC',
+        platformIgdbId: 6,
+        listType: 'collection',
+        createdAt: '2026-03-03T00:00:00.000Z',
+        updatedAt: '2026-03-03T00:00:00.000Z'
+      }
+    });
+    await page.addSelectedGameToLibrary();
+    expect(page.detailContext).toBe('library');
+  });
+
+  it('covers empty-state, similar-display, and parser helper branches', () => {
+    const page = createPage() as unknown as {
+      activeLanesResponse: typeof mockLanesResponse | null;
+      recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED';
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      selectedRuntimeMode: 'NEUTRAL' | 'SHORT' | 'LONG';
+      getEmptyStateMessage: () => string;
+      getEmptyStateHint: () => string;
+      getEmptyStateTokenHint: () => string;
+      getSimilarContext: (item: unknown) => string;
+      getSimilarTitle: (item: unknown) => string;
+      getSimilarCoverUrl: (item: unknown) => string;
+      getSimilarReasonBadges: (item: unknown) => Array<{ text: string }>;
+      goBackInDetailNavigation: () => void;
+      detailNavigationStack: unknown[];
+      openGameDetail: (item: unknown) => Promise<void>;
+      parseRecommendationTarget: (value: unknown) => unknown;
+      parseRuntimeMode: (value: unknown) => unknown;
+      parseLaneKey: (value: unknown) => unknown;
+      normalizeRecommendationError: (error: unknown) => { code: string };
+    };
+    page.selectedTarget = 'BACKLOG';
+    page.selectedLaneKey = 'overall';
+    page.selectedRuntimeMode = 'NEUTRAL';
+
+    page.activeLanesResponse = null;
+    page.recommendationErrorCode = 'NONE';
+    expect(page.getEmptyStateMessage()).toContain('No recommendation items');
+    expect(page.getEmptyStateHint()).toContain('Overall');
+    expect(page.getEmptyStateTokenHint()).toBe('');
+
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [],
+        hiddenGems: [],
+        exploration: []
+      }
+    };
+    page.recommendationErrorCode = 'NOT_FOUND';
+    expect(page.getEmptyStateMessage()).toContain('No materialized recommendations');
+
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [
+          {
+            ...mockLanesResponse.lanes.overall[0],
+            explanations: {
+              ...mockLanesResponse.lanes.overall[0].explanations,
+              matchedTokens: {
+                ...mockLanesResponse.lanes.overall[0].explanations.matchedTokens,
+                themes: ['Fantasy'],
+                keywords: ['turn-based combat']
+              }
+            }
+          }
+        ]
+      }
+    };
+    expect(page.getEmptyStateTokenHint()).toContain('Fantasy');
+
+    const similar = {
+      igdbGameId: '77',
+      platformIgdbId: 6,
+      similarity: 0.77,
+      reasons: {
+        summary: 'summary',
+        structuredSimilarity: 0.6,
+        semanticSimilarity: 0.7,
+        blendedSimilarity: 0.77,
+        sharedTokens: {
+          genres: [],
+          developers: [],
+          publishers: [],
+          franchises: [],
+          collections: [],
+          themes: [],
+          keywords: []
+        }
+      }
+    };
+    expect(page.getSimilarContext(similar)).toContain('Platform 6');
+    expect(page.getSimilarTitle(similar)).toContain('Game #77');
+    expect(page.getSimilarCoverUrl(similar)).toContain('placeholder');
+    expect(page.getSimilarReasonBadges(similar)[0]?.text).toContain('Blend');
+
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    page.detailNavigationStack = [mockLanesResponse.lanes.overall[0]];
+    page.goBackInDetailNavigation();
+    expect(openGameDetail).toHaveBeenCalledTimes(1);
+
+    expect(page.parseRecommendationTarget('DISCOVERY')).toBe('DISCOVERY');
+    expect(page.parseRecommendationTarget('x')).toBeNull();
+    expect(page.parseRuntimeMode('SHORT')).toBe('SHORT');
+    expect(page.parseRuntimeMode('x')).toBeNull();
+    expect(page.parseLaneKey('popular')).toBe('popular');
+    expect(page.parseLaneKey('x')).toBeNull();
+
+    expect(page.normalizeRecommendationError(new Error('x')).code).toBe('REQUEST_FAILED');
+  });
+
+  it('covers remaining recommendation helper branches', async () => {
+    const page = createPage() as unknown as {
+      activeLanesResponse: typeof mockLanesResponse | null;
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      openGameDetail: (item: unknown, options?: unknown) => Promise<void>;
+      openSimilarRecommendation: (item: unknown, event?: Event) => Promise<void>;
+      normalizeRecommendationError: (error: unknown) => { code: string };
+      getMergedPlatformLabels: (item: unknown) => string | null;
+      getPlatformDisplayName: (name: string, platformIgdbId: number | null) => string;
+      loadSimilarRecommendations: (item: unknown) => Promise<void>;
+      similarRecommendationsError: string;
+      similarRecommendationItems: unknown[];
+    };
+
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [
+          mockLanesResponse.lanes.overall[0],
+          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 }
+        ]
+      }
+    };
+    page.selectedLaneKey = 'overall';
+    expect(page.getMergedPlatformLabels(mockLanesResponse.lanes.overall[0])).toBeTruthy();
+    expect(page.getPlatformDisplayName('', null)).toBe('Unknown platform');
+
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const stopPropagation = vi.fn();
+    await page.openSimilarRecommendation(
+      {
+        igdbGameId: '300',
+        platformIgdbId: 6,
+        similarity: 0.55,
+        reasons: {
+          summary: 'x',
+          structuredSimilarity: 0.2,
+          semanticSimilarity: 0.4,
+          blendedSimilarity: 0.55,
+          sharedTokens: {
+            genres: [],
+            developers: [],
+            publishers: [],
+            franchises: [],
+            collections: [],
+            themes: [],
+            keywords: []
+          }
+        }
+      },
+      { stopPropagation } as unknown as Event
+    );
+    expect(stopPropagation).toHaveBeenCalledOnce();
+    expect(openGameDetail).toHaveBeenCalledOnce();
+
+    expect(page.normalizeRecommendationError(new HttpErrorResponse({ status: 404 })).code).toBe(
+      'NOT_FOUND'
+    );
+    expect(page.normalizeRecommendationError(new HttpErrorResponse({ status: 429 })).code).toBe(
+      'RATE_LIMITED'
+    );
+    expect(
+      page.normalizeRecommendationError(
+        Object.assign(new Error('cooldown'), { code: 'RATE_LIMITED' })
+      ).code
+    ).toBe('RATE_LIMITED');
+
+    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValueOnce(
+      throwError(() => new Error('failed'))
+    );
+    await page.loadSimilarRecommendations(mockLanesResponse.lanes.overall[0]);
+    expect(page.similarRecommendationsError).toContain('failed');
+    expect(page.similarRecommendationItems).toEqual([]);
+  });
+
   it('opens detail modal for recommendation row without IGDB detail request', async () => {
     const page = createPage();
     page.ngOnInit();
@@ -335,5 +898,100 @@ describe('ExplorePage recommendations UX', () => {
       limit: 50
     });
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
+  });
+
+  it('covers platform identity checks and external link opening helpers', async () => {
+    const page = createPage() as unknown as {
+      isLibraryEntry: (value: unknown) => boolean;
+      collectPlatformIgdbIds: (value: unknown) => number[];
+      checkGameAlreadyInLibrary: (value: unknown) => Promise<boolean>;
+      openExternalUrl: (value: string) => void;
+    };
+
+    expect(page.isLibraryEntry(null)).toBe(false);
+    expect(
+      page.collectPlatformIgdbIds({
+        igdbGameId: '301',
+        platformIgdbId: 0,
+        platformOptions: [{ id: 12 }, { id: 12 }, { id: 4.5 }, { id: -1 }, { id: 0 }]
+      })
+    ).toEqual([12]);
+    expect(
+      page.collectPlatformIgdbIds({
+        igdbGameId: '302',
+        platformIgdbId: 6,
+        platformOptions: null
+      })
+    ).toEqual([6]);
+
+    gameShelfServiceMock.findGameByIdentity.mockResolvedValueOnce({ id: 42 });
+    await expect(
+      page.checkGameAlreadyInLibrary({ igdbGameId: '500', platformIgdbId: 6 })
+    ).resolves.toBe(true);
+
+    await expect(
+      page.checkGameAlreadyInLibrary({
+        igdbGameId: '999',
+        platformIgdbId: 6,
+        listType: 'collection'
+      })
+    ).resolves.toBe(true);
+
+    gameShelfServiceMock.findGameByIdentity.mockResolvedValue(null);
+    await expect(
+      page.checkGameAlreadyInLibrary({
+        igdbGameId: '501',
+        platformIgdbId: 0,
+        platformOptions: []
+      })
+    ).resolves.toBe(false);
+
+    const clickSpy = vi.fn();
+    const anchor = {
+      href: '',
+      target: '',
+      rel: '',
+      click: clickSpy
+    } as unknown as HTMLAnchorElement;
+    const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+    page.openExternalUrl('https://example.com/game');
+    expect(createElementSpy).toHaveBeenCalledWith('a');
+    expect(anchor.href).toBe('https://example.com/game');
+    expect(anchor.target).toBe('_blank');
+    expect(anchor.rel).toBe('noopener noreferrer external');
+    expect(clickSpy).toHaveBeenCalledOnce();
+    createElementSpy.mockRestore();
+  });
+
+  it('covers list-type picker confirm/cancel branches', async () => {
+    const page = createPage() as unknown as {
+      pickListTypeForAdd: () => Promise<'collection' | 'wishlist' | null>;
+    };
+
+    let selectedHandler: ((value: string) => void) | undefined;
+    alertControllerMock.create.mockImplementationOnce((options: { buttons?: unknown[] }) => {
+      const confirmButton = (options.buttons ?? []).find(
+        (button) =>
+          typeof button === 'object' &&
+          button !== null &&
+          (button as { role?: string }).role === 'confirm'
+      ) as { handler?: (value: string) => void } | undefined;
+      selectedHandler = confirmButton?.handler;
+
+      return {
+        present: vi.fn().mockResolvedValue(undefined),
+        onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' })
+      };
+    });
+
+    const confirmWishlistPromise = page.pickListTypeForAdd();
+    selectedHandler?.('wishlist');
+    await expect(confirmWishlistPromise).resolves.toBe('wishlist');
+
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' })
+    });
+    await expect(page.pickListTypeForAdd()).resolves.toBeNull();
   });
 });

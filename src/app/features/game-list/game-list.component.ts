@@ -55,7 +55,9 @@ import {
   IonThumbnail,
   IonInput,
   IonMenu,
-  IonSplitPane
+  IonSplitPane,
+  IonInfiniteScroll,
+  IonInfiniteScrollContent
 } from '@ionic/angular/standalone';
 import { Editor } from '@tiptap/core';
 import tiptapStarterKit from '@tiptap/starter-kit';
@@ -218,6 +220,8 @@ type NotesToolbarAction =
     IonInput,
     IonMenu,
     IonSplitPane,
+    IonInfiniteScroll,
+    IonInfiniteScrollContent,
     TiptapEditorDirective,
     AutoContentOffsetsDirective,
     GameSearchComponent,
@@ -249,6 +253,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly MAX_CUSTOM_COVER_QUALITY = 0.98;
   private static readonly CUSTOM_COVER_QUALITY_STEPS = 8;
   private static readonly CUSTOM_COVER_SCALE_FACTORS = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
+  private static readonly SIMILAR_LIBRARY_PAGE_SIZE = 5;
+  private static readonly SIMILAR_LIBRARY_FETCH_LIMIT = 50;
   private static readonly MANUAL_SHORTCUT_PLATFORM_WHITELIST = new Set<number>([
     4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
     5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120
@@ -295,6 +301,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   selectedGame: GameEntry | null = null;
   detailNavigationStack: GameEntry[] = [];
   similarLibraryGames: GameEntry[] = [];
+  visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
   isSimilarLibraryGamesLoading = false;
   ratingTargetGame: GameEntry | null = null;
   ratingDraft: GameRating = 3;
@@ -1150,6 +1157,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.isNotesOpen = true;
     }
     this.resetDetailTextExpansion();
+    this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     this.resetImagePickerState();
     this.resetReviewPickerState();
     this.resetManualPickerState();
@@ -1202,6 +1210,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.selectedGame = null;
     this.detailNavigationStack = [];
     this.similarLibraryGames = [];
+    this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     this.isSimilarLibraryGamesLoading = false;
     this.similarLibraryLoadRequestId += 1;
     this.manualResolutionRequestId += 1;
@@ -3053,11 +3062,22 @@ export class GameListComponent implements OnChanges, OnDestroy {
     throw new Error(message);
   }
 
+  private async completeInfiniteScroll(event: Event): Promise<void> {
+    const target = event.target as HTMLIonInfiniteScrollElement | null;
+
+    if (!target || typeof target.complete !== 'function') {
+      return;
+    }
+
+    await target.complete();
+  }
+
   private async loadSimilarLibraryGamesForDetail(game: GameEntry): Promise<void> {
     const requestId = ++this.similarLibraryLoadRequestId;
 
     this.isSimilarLibraryGamesLoading = true;
     this.similarLibraryGames = [];
+    this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     this.changeDetectorRef.markForCheck();
 
     try {
@@ -3067,7 +3087,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
             target: this.getRecommendationTargetForListType(),
             igdbGameId: game.igdbGameId,
             platformIgdbId: game.platformIgdbId,
-            limit: 20
+            limit: GameListComponent.SIMILAR_LIBRARY_FETCH_LIMIT
           })
         ),
         Promise.race([
@@ -3091,9 +3111,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
             libraryByIdentity.get(`${item.igdbGameId}::${String(item.platformIgdbId)}`) ?? null
         )
         .filter((entry): entry is GameEntry => entry !== null);
+      this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     } catch {
       if (requestId === this.similarLibraryLoadRequestId) {
         this.similarLibraryGames = [];
+        this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
       }
     } finally {
       if (requestId === this.similarLibraryLoadRequestId) {
@@ -3112,6 +3134,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const displayPlatform = this.getGameDisplayPlatform(game);
     const platform = this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
     return `${year} · ${platform}`;
+  }
+
+  getVisibleSimilarLibraryGames(): GameEntry[] {
+    return this.similarLibraryGames.slice(0, this.visibleSimilarLibraryGamesCount);
+  }
+
+  canLoadMoreSimilarLibraryGames(): boolean {
+    return this.visibleSimilarLibraryGamesCount < this.similarLibraryGames.length;
+  }
+
+  async loadMoreSimilarLibraryGames(event: Event): Promise<void> {
+    this.visibleSimilarLibraryGamesCount += GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
+    await this.completeInfiniteScroll(event);
   }
 
   getGameDisplayTitle(game: GameEntry): string {

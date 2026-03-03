@@ -210,11 +210,12 @@
 
       @if (activeDetailRecommendation) {
         <div class="similar-section">
-          <ion-item lines="none">
-            <ion-label>
-              <h3>More like this</h3>
-              <p>{{ selectedTarget }} • {{ selectedRuntimeMode }} mode</p>
-            </ion-label>
+          <ion-list-header>
+            <ion-label> More Like This </ion-label>
+          </ion-list-header>
+
+          <ion-item lines="full" class="similar-header">
+            <ion-note> {{ selectedTarget }} • {{ selectedRuntimeMode }} mode </ion-note>
           </ion-item>
 
           @if (isLoadingSimilar) {

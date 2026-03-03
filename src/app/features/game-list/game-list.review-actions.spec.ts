@@ -43,7 +43,9 @@ vi.mock('@ionic/angular/standalone', () => {
     IonFabList: Stub,
     IonInput: Stub,
     IonMenu: Stub,
-    IonSplitPane: Stub
+    IonSplitPane: Stub,
+    IonInfiniteScroll: Stub,
+    IonInfiniteScrollContent: Stub
   };
 });
 
@@ -109,6 +111,28 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
 }
 
 describe('game-list review actions', () => {
+  it('paginates similar library games in pages of 5', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      similarLibraryGames: GameEntry[];
+      visibleSimilarLibraryGamesCount: number;
+    };
+    const games = Array.from({ length: 11 }, (_, index) =>
+      createGame({ igdbGameId: String(index + 1), platformIgdbId: 6 })
+    );
+
+    Object.assign(page, {
+      similarLibraryGames: games,
+      visibleSimilarLibraryGamesCount: 5
+    });
+
+    expect(page.getVisibleSimilarLibraryGames()).toHaveLength(5);
+    expect(page.canLoadMoreSimilarLibraryGames()).toBe(true);
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await page.loadMoreSimilarLibraryGames({ target: { complete } } as unknown as Event);
+    expect(page.getVisibleSimilarLibraryGames()).toHaveLength(10);
+  });
+
   it('bulk review update processes all selected platforms with review copy', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       displayedGames: GameEntry[];

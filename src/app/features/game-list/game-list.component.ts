@@ -139,6 +139,7 @@ import {
   toNotesEditorContent
 } from './notes-editor.utils';
 import { normalizeHttpError } from '../../core/utils/normalize-http-error';
+import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.utils';
 import { addIcons } from 'ionicons';
 import {
   star,
@@ -3062,16 +3063,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     throw new Error(message);
   }
 
-  private async completeInfiniteScroll(event: Event): Promise<void> {
-    const target = event.target as HTMLIonInfiniteScrollElement | null;
-
-    if (!target || typeof target.complete !== 'function') {
-      return;
-    }
-
-    await target.complete();
-  }
-
   private async loadSimilarLibraryGamesForDetail(game: GameEntry): Promise<void> {
     const requestId = ++this.similarLibraryLoadRequestId;
 
@@ -3146,7 +3137,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   async loadMoreSimilarLibraryGames(event: Event): Promise<void> {
     this.visibleSimilarLibraryGamesCount += GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
-    await this.completeInfiniteScroll(event);
+    await completeIonInfiniteScroll(event);
   }
 
   getGameDisplayTitle(game: GameEntry): string {

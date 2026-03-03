@@ -86,8 +86,21 @@ ion-label p:not(.recommendation-headline) {
   color: var(--ion-color-medium);
 }
 
+.recommendation-detail-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  column-gap: 8px;
+  align-items: start;
+}
+
 .recommendation-detail-delta {
   font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.recommendation-detail-text {
+  display: block;
 }
 
 ion-accordion-group > ion-accordion:last-of-type ion-item[slot='header'] {

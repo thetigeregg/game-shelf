@@ -39,6 +39,8 @@ export function buildRankedScores(params: {
   tunedWeights: TunedRecommendationWeights;
   explorationWeight: number;
   diversityPenaltyWeight: number;
+  similarityStructuredWeight: number;
+  similaritySemanticWeight: number;
   repeatPenaltyStep: number;
   historyByGame: Map<string, { recommendationCount: number }>;
 }): RankedScore[] {
@@ -52,6 +54,8 @@ export function buildRankedScores(params: {
     tunedWeights,
     explorationWeight,
     diversityPenaltyWeight,
+    similarityStructuredWeight,
+    similaritySemanticWeight,
     repeatPenaltyStep,
     historyByGame
   } = params;
@@ -86,7 +90,9 @@ export function buildRankedScores(params: {
           tokenKeys: tokenSetForGame(ranked.game)
         })),
         semanticSimilarityByGame,
-        diversityPenaltyWeight
+        diversityPenaltyWeight,
+        structuredWeight: similarityStructuredWeight,
+        semanticWeight: similaritySemanticWeight
       });
       const components: RecommendationScoreComponents = {
         ...entry.baseComponents,
@@ -195,6 +201,8 @@ function buildBaseScore(params: {
   };
 }
 
+const OVERLAP_DISCOUNT_FRANCHISE_WITH_COLLECTION = 0.5;
+
 function evaluateTaste(
   tokens: ReturnType<typeof buildTokenEntries>,
   profile: PreferenceProfile,
@@ -207,8 +215,8 @@ function evaluateTaste(
     };
   }
 
-  let score = 0;
-  const matches: TasteMatch[] = [];
+  const rawMatches: TasteMatch[] = [];
+  const positiveCollectionLabels = new Set<string>();
 
   for (const token of tokens) {
     const preference = profile.weights.get(token.key);
@@ -219,13 +227,37 @@ function evaluateTaste(
 
     const familyWeight = TOKEN_FAMILY_WEIGHT[token.family];
     const delta = preference.weight * familyWeight * tasteWeight;
+    rawMatches.push({
+      family: token.family,
+      key: token.key,
+      label: token.label,
+      delta
+    });
+
+    if (token.family === 'collections' && delta > 0) {
+      positiveCollectionLabels.add(normalizeTokenLabel(token.label));
+    }
+  }
+
+  let score = 0;
+  const matches: TasteMatch[] = [];
+
+  for (const match of rawMatches) {
+    let delta = match.delta;
+
+    if (
+      match.family === 'franchises' &&
+      delta > 0 &&
+      positiveCollectionLabels.has(normalizeTokenLabel(match.label))
+    ) {
+      delta *= OVERLAP_DISCOUNT_FRANCHISE_WITH_COLLECTION;
+    }
+
     score += delta;
 
     if (delta > 0) {
       matches.push({
-        family: token.family,
-        key: token.key,
-        label: token.label,
+        ...match,
         delta
       });
     }
@@ -235,6 +267,10 @@ function evaluateTaste(
     score: clamp(score, -4, 4),
     matches: matches.sort((left, right) => right.delta - left.delta).slice(0, 6)
   };
+}
+
+function normalizeTokenLabel(label: string): string {
+  return label.trim().toLowerCase();
 }
 
 function evaluateSemanticScore(

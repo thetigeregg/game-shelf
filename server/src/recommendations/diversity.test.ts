@@ -49,7 +49,9 @@ void test('calculateDiversityPenalty applies negative penalty when overlap exist
       ['1::1', 0.9],
       ['2::1', 0.9]
     ]),
-    diversityPenaltyWeight: 0.5
+    diversityPenaltyWeight: 0.5,
+    structuredWeight: 0.6,
+    semanticWeight: 0.4
   });
 
   assert.equal(penalty < 0, true);

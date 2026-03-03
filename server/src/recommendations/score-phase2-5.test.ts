@@ -58,6 +58,8 @@ void test('phase2.5 scoring integrates new components with bounded penalties', (
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
+    similarityStructuredWeight: 0.6,
+    similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
     historyByGame: new Map([['c1::1', { recommendationCount: 2 }]])
   });

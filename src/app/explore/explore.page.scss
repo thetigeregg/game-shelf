@@ -49,6 +49,16 @@ ion-label p:not(.recommendation-headline) {
   color: var(--ion-color-medium);
   font-size: 0.8rem;
   line-height: 1.25;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.recommendation-headline::before {
+  content: '•';
+  color: var(--ion-color-medium);
+  line-height: 1.1;
+  flex: 0 0 auto;
 }
 
 .lane-context-copy {

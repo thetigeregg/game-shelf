@@ -1,0 +1,119 @@
+import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { book, documentText, globe, logoGoogle, logoYoutube, search } from 'ionicons/icons';
+
+type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
+
+@Component({
+  selector: 'app-detail-shortcuts-fab',
+  standalone: true,
+  imports: [IonFab, IonFabButton, IonFabList, IonIcon],
+  template: `
+    <ion-fab slot="fixed" vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
+      <ion-fab-button size="small" aria-label="Open web shortcuts">
+        <ion-icon name="globe" aria-hidden="true"></ion-icon>
+      </ion-fab-button>
+      <ion-fab-list side="top" (click)="listClick.emit()">
+        @if (showNotesShortcut) {
+          <ion-fab-button
+            class="shortcut-notes"
+            color="deep-ocean"
+            aria-label="Open notes editor"
+            (click)="notesClick.emit()"
+          >
+            <ion-icon name="document-text" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        @if (showOpenManualButton) {
+          <ion-fab-button
+            class="shortcut-manual"
+            color="ocean"
+            aria-label="Open game manual PDF"
+            (click)="openManualClick.emit()"
+          >
+            <ion-icon name="book" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        @if (showFindManualButton) {
+          <ion-fab-button
+            class="shortcut-manual-find"
+            color="dark-gray"
+            aria-label="Find game manual PDF"
+            (click)="findManualClick.emit()"
+          >
+            <ion-icon name="search" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        <ion-fab-button
+          class="shortcut-google"
+          color="forest"
+          aria-label="Search on Google"
+          (click)="shortcutSearch.emit('google')"
+        >
+          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
+        </ion-fab-button>
+        <ion-fab-button
+          class="shortcut-youtube"
+          color="firetruck"
+          aria-label="Search on YouTube"
+          (click)="shortcutSearch.emit('youtube')"
+        >
+          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
+        </ion-fab-button>
+        <ion-fab-button
+          class="shortcut-wikipedia"
+          color="white"
+          aria-label="Search on Wikipedia"
+          (click)="shortcutSearch.emit('wikipedia')"
+        >
+          <span class="shortcut-text" aria-hidden="true">W</span>
+        </ion-fab-button>
+        <ion-fab-button
+          class="shortcut-gamefaqs"
+          color="royal"
+          aria-label="Search on GameFAQs"
+          (click)="shortcutSearch.emit('gamefaqs')"
+        >
+          <span class="shortcut-text" aria-hidden="true">G</span>
+        </ion-fab-button>
+      </ion-fab-list>
+    </ion-fab>
+  `,
+  styles: [
+    `
+      .detail-shortcuts-fab {
+        margin-bottom: 8px;
+        margin-right: 8px;
+      }
+
+      .detail-shortcuts-fab .shortcut-text {
+        font-size: 0.9rem;
+        font-weight: 700;
+        line-height: 1;
+      }
+    `
+  ]
+})
+export class DetailShortcutsFabComponent {
+  @Input() showNotesShortcut = false;
+  @Input() showOpenManualButton = false;
+  @Input() showFindManualButton = false;
+
+  @Output() listClick = new EventEmitter<void>();
+  @Output() notesClick = new EventEmitter<void>();
+  @Output() openManualClick = new EventEmitter<void>();
+  @Output() findManualClick = new EventEmitter<void>();
+  @Output() shortcutSearch = new EventEmitter<ShortcutProvider>();
+
+  constructor() {
+    addIcons({
+      globe,
+      documentText,
+      book,
+      search,
+      logoGoogle,
+      logoYoutube
+    });
+  }
+}

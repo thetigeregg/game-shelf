@@ -287,35 +287,8 @@ export class ExplorePage implements OnInit {
     return local.customCoverUrl ?? local.coverUrl ?? 'assets/icon/placeholder.png';
   }
 
-  getScoreBadges(item: RecommendationItem): RecommendationBadge[] {
-    const badges: RecommendationBadge[] = [
-      { text: `Score ${item.scoreTotal.toFixed(2)}`, color: 'primary' }
-    ];
-    const components = item.scoreComponents;
-    const candidates: Array<{ key: string; value: number; color: RecommendationBadge['color'] }> = [
-      { key: 'Taste', value: components.taste, color: 'success' },
-      { key: 'Semantic', value: components.semantic, color: 'tertiary' },
-      { key: 'Runtime', value: components.runtimeFit, color: 'medium' },
-      { key: 'Critic', value: components.criticBoost, color: 'warning' },
-      { key: 'Exploration', value: components.exploration, color: 'secondary' }
-    ];
-
-    for (const candidate of candidates) {
-      if (Math.abs(candidate.value) < 0.01) {
-        continue;
-      }
-
-      badges.push({
-        text: `${candidate.key} ${candidate.value.toFixed(2)}`,
-        color: candidate.color
-      });
-
-      if (badges.length >= 4) {
-        break;
-      }
-    }
-
-    return badges;
+  getScoreBadge(item: RecommendationItem): RecommendationBadge {
+    return { text: `Score ${item.scoreTotal.toFixed(2)}`, color: 'primary' };
   }
 
   getConfidenceBadge(item: RecommendationItem): RecommendationBadge {
@@ -337,30 +310,6 @@ export class ExplorePage implements OnInit {
     }
 
     return { text: 'Confidence Exploratory', color: 'medium' };
-  }
-
-  getRationaleBadges(item: RecommendationItem): RecommendationBadge[] {
-    const tokens = item.explanations.matchedTokens;
-    const badges: RecommendationBadge[] = [];
-    const addFamily = (label: string, values: string[], color: RecommendationBadge['color']) => {
-      for (const value of values.slice(0, 2)) {
-        badges.push({ text: `${label}: ${value}`, color });
-        if (badges.length >= 4) {
-          return;
-        }
-      }
-    };
-
-    addFamily('Theme', tokens.themes, 'secondary');
-    addFamily('Keyword', tokens.keywords, 'tertiary');
-    addFamily('Genre', tokens.genres, 'light');
-
-    return badges;
-  }
-
-  getExplanationHeadline(item: RecommendationItem): string {
-    const headline = item.explanations.headline.trim();
-    return headline && headline.length > 0 ? headline : 'Recommended by your profile signals';
   }
 
   getLaneDescription(): string {

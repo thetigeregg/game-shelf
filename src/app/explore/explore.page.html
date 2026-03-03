@@ -83,7 +83,7 @@
                 (error)="onImageError($event)"
               />
             </div>
-            <ion-label>
+            <ion-label class="explore-row-label">
               <h2>{{ getDisplayTitle(item) }}</h2>
               <p>
                 {{ getPlatformLabel(item) }}
@@ -91,20 +91,12 @@
                   <span> • {{ year }}</span>
                 }
               </p>
-              <p class="recommendation-headline">{{ getExplanationHeadline(item) }}</p>
-              @if (getRationaleBadges(item).length > 0) {
-                <div class="recommendation-rationale">
-                  @for (badge of getRationaleBadges(item); track badge.text) {
-                    <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
-                  }
-                </div>
-              }
               <div class="recommendation-chips">
+                @if (getScoreBadge(item); as scoreBadge) {
+                  <ion-badge [color]="scoreBadge.color">{{ scoreBadge.text }}</ion-badge>
+                }
                 @if (getConfidenceBadge(item); as confidenceBadge) {
                   <ion-badge [color]="confidenceBadge.color">{{ confidenceBadge.text }}</ion-badge>
-                }
-                @for (badge of getScoreBadges(item); track badge.text) {
-                  <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
                 }
               </div>
               @if (hasExplanationDetails(item)) {
@@ -242,7 +234,7 @@
                       (error)="onImageError($event)"
                     />
                   </div>
-                  <ion-label>
+                  <ion-label class="explore-row-label">
                     <h3>{{ getSimilarTitle(similar) }}</h3>
                     <p>{{ getSimilarContext(similar) }}</p>
                     <p class="recommendation-headline">{{ similar.reasons.summary }}</p>

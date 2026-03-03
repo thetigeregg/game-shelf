@@ -73,53 +73,56 @@
     @if (!isLoadingRecommendations && getActiveLaneItems().length > 0) {
       <ion-list lines="full">
         @for (item of getActiveLaneItems(); track trackByRecommendationKey($index, item)) {
-          <ion-item button detail="true" (click)="openGameDetail(item)">
-            <div slot="start" class="explore-cover">
-              <img
-                class="explore-cover-image"
-                [src]="getCoverUrl(item)"
-                [alt]="getDisplayTitle(item)"
-                loading="lazy"
-                (error)="onImageError($event)"
-              />
-            </div>
-            <ion-label class="explore-row-label">
-              <h2>{{ getDisplayTitle(item) }}</h2>
-              <p>
-                {{ getPlatformLabel(item) }}
-                @if (getReleaseYear(item); as year) {
-                  <span> • {{ year }}</span>
-                }
-              </p>
-              <div class="recommendation-chips">
-                @if (getScoreBadge(item); as scoreBadge) {
-                  <ion-badge [color]="scoreBadge.color">{{ scoreBadge.text }}</ion-badge>
-                }
-                @if (getConfidenceBadge(item); as confidenceBadge) {
-                  <ion-badge [color]="confidenceBadge.color">{{ confidenceBadge.text }}</ion-badge>
-                }
+          <div class="recommendation-row">
+            <ion-item button detail="true" (click)="openGameDetail(item)">
+              <div slot="start" class="explore-cover">
+                <img
+                  class="explore-cover-image"
+                  [src]="getCoverUrl(item)"
+                  [alt]="getDisplayTitle(item)"
+                  loading="lazy"
+                  (error)="onImageError($event)"
+                />
               </div>
-              @if (hasExplanationDetails(item)) {
-                <div class="recommendation-details-toggle">
-                  <ion-button
-                    fill="clear"
-                    size="small"
-                    (click)="toggleExplanation(item, $event)"
-                    [attr.aria-expanded]="isExplanationExpanded(item)"
-                  >
-                    {{ isExplanationExpanded(item) ? 'Hide rationale' : 'Why this?' }}
-                  </ion-button>
-                </div>
-              }
-              @if (isExplanationExpanded(item)) {
-                <div class="recommendation-details">
-                  @for (bullet of getExplanationBullets(item); track bullet.label + bullet.delta) {
-                    <p>{{ bullet.delta }} {{ bullet.label }}</p>
+              <ion-label class="explore-row-label">
+                <h2>{{ getDisplayTitle(item) }}</h2>
+                <p>
+                  {{ getPlatformLabel(item) }}
+                  @if (getReleaseYear(item); as year) {
+                    <span> • {{ year }}</span>
+                  }
+                </p>
+                <div class="recommendation-chips">
+                  @if (getScoreBadge(item); as scoreBadge) {
+                    <ion-badge [color]="scoreBadge.color">{{ scoreBadge.text }}</ion-badge>
+                  }
+                  @if (getConfidenceBadge(item); as confidenceBadge) {
+                    <ion-badge [color]="confidenceBadge.color">{{
+                      confidenceBadge.text
+                    }}</ion-badge>
                   }
                 </div>
-              }
-            </ion-label>
-          </ion-item>
+              </ion-label>
+            </ion-item>
+
+            @if (hasExplanationDetails(item)) {
+              <ion-accordion-group>
+                <ion-accordion value="why">
+                  <ion-item slot="header" lines="full" color="light">
+                    <ion-label>Why this?</ion-label>
+                  </ion-item>
+                  <div slot="content">
+                    @for (
+                      bullet of getExplanationBullets(item);
+                      track bullet.label + bullet.delta
+                    ) {
+                      <p>{{ bullet.delta }} {{ bullet.label }}</p>
+                    }
+                  </div>
+                </ion-accordion>
+              </ion-accordion-group>
+            }
+          </div>
         }
       </ion-list>
     }

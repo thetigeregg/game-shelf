@@ -71,22 +71,10 @@ ion-label p:not(.recommendation-headline) {
   margin: 0;
 }
 
-.recommendation-details-toggle {
-  margin-top: 8px;
-}
-
-.recommendation-details-toggle ion-button {
-  --padding-start: 0;
-  --padding-end: 14px;
-  --padding-top: 10px;
-  --padding-bottom: 10px;
-  min-height: 40px;
-  font-size: 0.86rem;
-}
-
 .recommendation-details {
   margin-top: 2px;
   margin-bottom: 16px;
+  padding-right: 8px;
 }
 
 .explore-row-label .recommendation-details p {

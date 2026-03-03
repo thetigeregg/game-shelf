@@ -75,6 +75,8 @@ export interface AppConfig {
   host: string;
   port: number;
   requestBodyLimitBytes: number;
+  globalRateLimitMaxRequests: number;
+  globalRateLimitWindowMs: number;
   corsAllowedOrigins: string[];
   postgresUrl: string;
   apiToken: string;
@@ -112,6 +114,8 @@ export interface AppConfig {
   mobygamesSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
+  syncPushRateLimitMaxPerMinute: number;
+  syncPullRateLimitMaxPerMinute: number;
   openaiApiKey: string;
   recommendationsSchedulerEnabled: boolean;
   recommendationsDailyStaleHours: number;
@@ -184,6 +188,8 @@ export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
   requestBodyLimitBytes: readIntegerEnv('REQUEST_BODY_LIMIT_BYTES', 10 * 1024 * 1024),
+  globalRateLimitMaxRequests: readIntegerEnv('GLOBAL_RATE_LIMIT_MAX_REQUESTS', 2000),
+  globalRateLimitWindowMs: readIntegerEnv('GLOBAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
   corsAllowedOrigins: readListEnv('CORS_ORIGIN', [
     'http://localhost:8080',
     'http://127.0.0.1:8080',
@@ -241,6 +247,8 @@ export const config: AppConfig = {
   ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
+  syncPushRateLimitMaxPerMinute: readIntegerEnv('SYNC_PUSH_RATE_LIMIT_MAX_PER_MINUTE', 120),
+  syncPullRateLimitMaxPerMinute: readIntegerEnv('SYNC_PULL_RATE_LIMIT_MAX_PER_MINUTE', 120),
   openaiApiKey: readSecretFile('OPENAI_API_KEY', 'openai_api_key'),
   recommendationsSchedulerEnabled: readBooleanEnv('RECOMMENDATIONS_SCHEDULER_ENABLED', true),
   recommendationsDailyStaleHours: readIntegerEnv('RECOMMENDATIONS_DAILY_STALE_HOURS', 24),

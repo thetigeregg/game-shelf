@@ -76,8 +76,8 @@ async function main(): Promise<void> {
   // Register global rate limit FIRST
   await app.register(rateLimit, {
     global: true,
-    max: 100,
-    timeWindow: '15 minutes'
+    max: config.globalRateLimitMaxRequests,
+    timeWindow: `${String(Math.floor(config.globalRateLimitWindowMs / 1000))} seconds`
   });
 
   await app.register(cors, {

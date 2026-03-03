@@ -11,6 +11,7 @@ import { normalizeTokenKey } from './normalize.js';
 import { buildPreferenceProfile } from './profile.js';
 import { EmbeddingRepository } from './embedding-repository.js';
 import { DiscoveryCandidateRecord, DiscoveryIgdbClient } from './discovery-igdb-client.js';
+import { DiscoveryEnrichmentService } from './discovery-enrichment-service.js';
 import { RecommendationRepository } from './repository.js';
 import { parseRecommendationRuntimeMode, RECOMMENDATION_RUNTIME_MODES } from './runtime.js';
 import { buildRankedScores } from './score.js';
@@ -78,6 +79,7 @@ export interface RecommendationServiceDependencies {
   embeddingClient?: EmbeddingClient;
   nowProvider?: () => number;
   discoveryClient?: DiscoveryIgdbClient;
+  discoveryEnrichmentService?: DiscoveryEnrichmentService;
 }
 
 export type RebuildAttemptResult =
@@ -135,6 +137,7 @@ export class RecommendationService implements RecommendationServiceApi {
   private readonly embeddingRepository: EmbeddingRepository;
   private readonly embeddingClient: EmbeddingClient;
   private readonly discoveryClient: DiscoveryIgdbClient;
+  private readonly discoveryEnrichmentService: DiscoveryEnrichmentService | null;
   private readonly nowProvider: () => number;
 
   constructor(
@@ -160,6 +163,7 @@ export class RecommendationService implements RecommendationServiceApi {
         requestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
         maxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond
       });
+    this.discoveryEnrichmentService = dependencies.discoveryEnrichmentService ?? null;
   }
 
   async rebuild(params: {
@@ -868,6 +872,13 @@ export class RecommendationService implements RecommendationServiceApi {
       client,
       keepKeys
     });
+
+    if (this.discoveryEnrichmentService) {
+      await this.discoveryEnrichmentService.enrichNow({
+        limit: this.options.discoveryPoolSize,
+        queryable: client
+      });
+    }
   }
 
   private isStale(run: RecommendationRunSummary): boolean {

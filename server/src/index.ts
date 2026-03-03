@@ -13,6 +13,7 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
+import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
@@ -56,6 +57,14 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
+  const discoveryEnrichmentService = new DiscoveryEnrichmentService(recommendationRepository, {
+    enabled: config.recommendationsDiscoveryEnrichEnabled,
+    startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
+    intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
+    maxGamesPerRun: config.recommendationsDiscoveryEnrichMaxGamesPerRun,
+    requestTimeoutMs: config.recommendationsDiscoveryEnrichRequestTimeoutMs,
+    apiBaseUrl: `http://127.0.0.1:${String(config.port)}`
+  });
   const recommendationService = new RecommendationService(
     recommendationRepository,
     {
@@ -96,7 +105,8 @@ async function main(): Promise<void> {
     },
     {
       embeddingClient,
-      discoveryClient: discoveryIgdbClient
+      discoveryClient: discoveryIgdbClient,
+      discoveryEnrichmentService
     }
   );
   const recommendationScheduler = new RecommendationScheduler(recommendationService, {
@@ -275,6 +285,7 @@ async function main(): Promise<void> {
     port: config.port
   });
   recommendationScheduler.start();
+  discoveryEnrichmentService.start();
   metadataEnrichmentService.start();
 }
 

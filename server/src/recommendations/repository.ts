@@ -83,39 +83,57 @@ interface DiscoveryUpdatedAtRow extends QueryResultRow {
   updated_at: string;
 }
 
+interface DiscoveryGameRow extends QueryResultRow {
+  igdb_game_id: string;
+  platform_igdb_id: number;
+  payload: unknown;
+}
+
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
 
 export class RecommendationRepository {
   constructor(private readonly pool: Pool) {}
 
-  async withTargetLock<T>(
-    target: RecommendationTarget,
-    callback: (client: PoolClient) => Promise<T>
-  ): Promise<{ acquired: true; value: T } | { acquired: false }> {
+  async withAdvisoryLock<T>(params: {
+    namespace: number;
+    key: number;
+    callback: (client: PoolClient) => Promise<T>;
+  }): Promise<{ acquired: true; value: T } | { acquired: false }> {
     const client = await this.pool.connect();
-    const targetKey = target === 'BACKLOG' ? 1 : target === 'WISHLIST' ? 2 : 3;
+    let acquired = false;
 
     try {
       const lockResult = await client.query<{ acquired: boolean }>(
         'SELECT pg_try_advisory_lock($1, $2) AS acquired',
-        [RECOMMENDATION_LOCK_NAMESPACE, targetKey]
+        [params.namespace, params.key]
       );
 
-      const acquired = lockResult.rows[0]?.acquired ?? false;
+      acquired = lockResult.rows[0]?.acquired ?? false;
 
       if (!acquired) {
         return { acquired: false };
       }
 
-      const value = await callback(client);
+      const value = await params.callback(client);
       return { acquired: true, value };
     } finally {
-      await client.query('SELECT pg_advisory_unlock($1, $2)', [
-        RECOMMENDATION_LOCK_NAMESPACE,
-        targetKey
-      ]);
+      if (acquired) {
+        await client.query('SELECT pg_advisory_unlock($1, $2)', [params.namespace, params.key]);
+      }
       client.release();
     }
+  }
+
+  async withTargetLock<T>(
+    target: RecommendationTarget,
+    callback: (client: PoolClient) => Promise<T>
+  ): Promise<{ acquired: true; value: T } | { acquired: false }> {
+    const targetKey = target === 'BACKLOG' ? 1 : target === 'WISHLIST' ? 2 : 3;
+    return this.withAdvisoryLock({
+      namespace: RECOMMENDATION_LOCK_NAMESPACE,
+      key: targetKey,
+      callback
+    });
   }
 
   async getDiscoveryPoolLatestUpdatedAt(queryable: Queryable = this.pool): Promise<string | null> {
@@ -195,6 +213,61 @@ export class RecommendationRepository {
     }
 
     return normalized;
+  }
+
+  async listDiscoveryRowsMissingEnrichment(
+    limit: number,
+    queryable: Queryable = this.pool
+  ): Promise<
+    Array<{
+      igdbGameId: string;
+      platformIgdbId: number;
+      payload: Record<string, unknown>;
+    }>
+  > {
+    const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
+    const result = await queryable.query<DiscoveryGameRow>(
+      `
+      SELECT igdb_game_id, platform_igdb_id, payload
+      FROM games
+      WHERE COALESCE(payload->>'listType', '') = 'discovery'
+        AND (
+          COALESCE((payload->>'hltbMainHours')::text, '') = ''
+          OR (
+            COALESCE((payload->>'reviewScore')::text, '') = ''
+            AND COALESCE((payload->>'metacriticScore')::text, '') = ''
+          )
+        )
+      ORDER BY updated_at ASC
+      LIMIT $1
+      `,
+      [normalizedLimit]
+    );
+
+    return result.rows.map((row) => ({
+      igdbGameId: row.igdb_game_id,
+      platformIgdbId: row.platform_igdb_id,
+      payload:
+        row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+          ? (row.payload as Record<string, unknown>)
+          : {}
+    }));
+  }
+
+  async updateGamePayload(params: {
+    client?: Queryable;
+    igdbGameId: string;
+    platformIgdbId: number;
+    payload: Record<string, unknown>;
+  }): Promise<void> {
+    await (params.client ?? this.pool).query(
+      `
+      UPDATE games
+      SET payload = $3::jsonb, updated_at = NOW()
+      WHERE igdb_game_id = $1 AND platform_igdb_id = $2
+      `,
+      [params.igdbGameId, params.platformIgdbId, JSON.stringify(params.payload)]
+    );
   }
 
   async getRuntimeModeDefault(

@@ -79,6 +79,9 @@ export function buildSimilarityGraph(params: {
       }
 
       const target = index[targetIndex];
+      if (source.game.igdbGameId === target.game.igdbGameId) {
+        continue;
+      }
       const structuredSimilarity = weightedStructuredSimilarity(
         source.byKey,
         target.byKey,

@@ -59,6 +59,7 @@ import {
   parseTagSelection
 } from '../features/game-list/game-list-detail-actions';
 import { isRecommendationsExploreEnabled } from '../core/config/runtime-config';
+import { completeIonInfiniteScroll } from '../core/utils/ion-infinite-scroll.utils';
 import { addIcons } from 'ionicons';
 import {
   compass,
@@ -281,7 +282,7 @@ export class ExplorePage implements OnInit {
 
   async loadMoreRecommendations(event: Event): Promise<void> {
     this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
-    await this.completeInfiniteScroll(event);
+    await completeIonInfiniteScroll(event);
   }
 
   getVisibleSimilarRecommendationItems(): RecommendationSimilarItem[] {
@@ -294,7 +295,7 @@ export class ExplorePage implements OnInit {
 
   async loadMoreSimilarRecommendations(event: Event): Promise<void> {
     this.visibleSimilarRecommendationCount += ExplorePage.SIMILAR_PAGE_SIZE;
-    await this.completeInfiniteScroll(event);
+    await completeIonInfiniteScroll(event);
   }
 
   hasAnyLaneItems(): boolean {
@@ -1469,15 +1470,6 @@ export class ExplorePage implements OnInit {
 
   private getTotalActiveRecommendationCount(): number {
     return this.getDeduplicatedLaneItems(this.getRawActiveLaneItems()).length;
-  }
-
-  private async completeInfiniteScroll(event: Event): Promise<void> {
-    const target = event.target as HTMLIonInfiniteScrollElement | null;
-    if (!target || typeof target.complete !== 'function') {
-      return;
-    }
-
-    await target.complete();
   }
 
   private async pickListTypeForAdd(): Promise<ListType | null> {

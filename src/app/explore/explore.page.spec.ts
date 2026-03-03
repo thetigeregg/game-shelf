@@ -24,6 +24,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonItem: Dummy,
     IonLabel: Dummy,
     IonList: Dummy,
+    IonListHeader: Dummy,
     IonModal: Dummy,
     IonSelect: Dummy,
     IonSelectOption: Dummy,
@@ -42,6 +43,8 @@ vi.mock('@ionic/angular/standalone', () => {
     IonNote: Dummy,
     IonRefresher: Dummy,
     IonRefresherContent: Dummy,
+    IonInfiniteScroll: Dummy,
+    IonInfiniteScrollContent: Dummy,
     IonBadge: Dummy,
     IonAccordion: Dummy,
     IonAccordionGroup: Dummy
@@ -196,7 +199,7 @@ describe('ExplorePage recommendations UX', () => {
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledWith({
       target: 'BACKLOG',
       runtimeMode: 'NEUTRAL',
-      limit: 20
+      limit: 200
     });
     expect(gameShelfServiceMock.listLibraryGames).toHaveBeenCalledTimes(1);
     expect(page.getActiveLaneItems()).toHaveLength(1);
@@ -214,8 +217,79 @@ describe('ExplorePage recommendations UX', () => {
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenLastCalledWith({
       target: 'WISHLIST',
       runtimeMode: 'SHORT',
-      limit: 20
+      limit: 200
     });
+  });
+
+  it('paginates recommendations in pages of 10', async () => {
+    const page = createPage();
+    const manyItems = Array.from({ length: 25 }, (_, index) => ({
+      ...mockLanesResponse.lanes.overall[0],
+      rank: index + 1,
+      igdbGameId: String(1000 + index)
+    }));
+    igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(
+      of({
+        ...mockLanesResponse,
+        lanes: {
+          ...mockLanesResponse.lanes,
+          overall: manyItems
+        }
+      })
+    );
+
+    page.ngOnInit();
+    await flushAsync();
+
+    expect(page.getActiveLaneItems()).toHaveLength(10);
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await page.loadMoreRecommendations({ target: { complete } } as unknown as Event);
+    expect(page.getActiveLaneItems()).toHaveLength(20);
+
+    await page.loadMoreRecommendations({ target: { complete } } as unknown as Event);
+    expect(page.getActiveLaneItems()).toHaveLength(25);
+  });
+
+  it('paginates similar recommendations in pages of 5', async () => {
+    const page = createPage();
+    const similarItems = Array.from({ length: 12 }, (_, index) => ({
+      igdbGameId: String(2000 + index),
+      platformIgdbId: 6,
+      similarity: 0.8,
+      reasons: {
+        summary: 'similar',
+        structuredSimilarity: 0.7,
+        semanticSimilarity: 0.6,
+        blendedSimilarity: 0.65,
+        sharedTokens: {
+          genres: [],
+          developers: [],
+          publishers: [],
+          franchises: [],
+          collections: [],
+          themes: [],
+          keywords: []
+        }
+      }
+    }));
+    igdbProxyServiceMock.getRecommendationSimilar.mockReturnValue(
+      of({
+        source: { igdbGameId: '100', platformIgdbId: 6 },
+        items: similarItems
+      })
+    );
+
+    page.ngOnInit();
+    await flushAsync();
+
+    await page.openGameDetail(mockLanesResponse.lanes.overall[0]);
+    await flushAsync();
+
+    expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(5);
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await page.loadMoreSimilarRecommendations({ target: { complete } } as unknown as Event);
+    expect(page.getVisibleSimilarRecommendationItems()).toHaveLength(10);
   });
 
   it('lane change is local state only and does not trigger refetch', async () => {
@@ -258,7 +332,7 @@ describe('ExplorePage recommendations UX', () => {
       target: 'BACKLOG',
       igdbGameId: '100',
       platformIgdbId: 6,
-      limit: 6
+      limit: 50
     });
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
   });

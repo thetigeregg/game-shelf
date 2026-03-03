@@ -41,7 +41,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (default `20`)
 - `GET /v1/recommendations/similar/:igdbGameId`
-  - Required query: `platformIgdbId`
+  - Required query: `target` (`BACKLOG|WISHLIST|DISCOVERY`), `platformIgdbId`
   - Optional: `limit` (default `20`)
 - `POST /v1/recommendations/rebuild`
   - Body: `{ target, force? }`

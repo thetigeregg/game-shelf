@@ -73,64 +73,23 @@
     @if (!isLoadingRecommendations && getActiveLaneItems().length > 0) {
       <ion-list lines="full">
         @for (item of getActiveLaneItems(); track trackByRecommendationKey($index, item)) {
-          <div class="recommendation-row">
-            <ion-item button detail="true" (click)="openGameDetail(item)">
-              <div slot="start" class="explore-cover">
-                <img
-                  class="explore-cover-image"
-                  [src]="getCoverUrl(item)"
-                  [alt]="getDisplayTitle(item)"
-                  loading="lazy"
-                  (error)="onImageError($event)"
-                />
-              </div>
-              <ion-label class="explore-row-label">
-                <h2>{{ getDisplayTitle(item) }}</h2>
-                <p>
-                  {{ getPlatformLabel(item) }}
-                  @if (getReleaseYear(item); as year) {
-                    <span> • {{ year }}</span>
-                  }
-                </p>
-                <div class="recommendation-chips">
-                  @if (getScoreBadge(item); as scoreBadge) {
-                    <ion-badge [color]="scoreBadge.color">{{ scoreBadge.text }}</ion-badge>
-                  }
-                  @if (getConfidenceBadge(item); as confidenceBadge) {
-                    <ion-badge [color]="confidenceBadge.color">{{
-                      confidenceBadge.text
-                    }}</ion-badge>
-                  }
-                </div>
-              </ion-label>
-            </ion-item>
-
-            @if (hasExplanationDetails(item)) {
-              <ion-accordion-group class="recommendation-accordion">
-                <ion-accordion value="why">
-                  <ion-item
-                    slot="header"
-                    lines="full"
-                    color="light"
-                    class="recommendation-accordion-header"
-                  >
-                    <ion-label>Why this?</ion-label>
-                  </ion-item>
-                  <div slot="content" class="recommendation-details">
-                    @for (
-                      bullet of getExplanationBullets(item);
-                      track bullet.label + bullet.delta
-                    ) {
-                      <p class="recommendation-detail-row">
-                        <span class="recommendation-detail-delta">{{ bullet.delta }}</span>
-                        <span class="recommendation-detail-text">{{ bullet.label }}</span>
-                      </p>
-                    }
-                  </div>
-                </ion-accordion>
-              </ion-accordion-group>
-            }
-          </div>
+          <ng-container
+            *ngTemplateOutlet="
+              recommendationRowTemplate;
+              context: {
+                title: getDisplayTitle(item),
+                coverUrl: getCoverUrl(item),
+                platformLabel: getPlatformLabel(item),
+                year: getReleaseYear(item),
+                badges: [getScoreBadge(item), getConfidenceBadge(item)],
+                headline: null,
+                bullets: getExplanationBullets(item),
+                showWhyThis: hasExplanationDetails(item),
+                kind: 'recommendation',
+                row: item
+              }
+            "
+          ></ng-container>
         }
       </ion-list>
     }
@@ -236,27 +195,23 @@
                 similar of similarRecommendationItems;
                 track similar.igdbGameId + ':' + similar.platformIgdbId
               ) {
-                <ion-item button detail="true" (click)="openSimilarRecommendation(similar, $event)">
-                  <div slot="start" class="explore-cover">
-                    <img
-                      class="explore-cover-image"
-                      [src]="getSimilarCoverUrl(similar)"
-                      [alt]="getSimilarTitle(similar)"
-                      loading="lazy"
-                      (error)="onImageError($event)"
-                    />
-                  </div>
-                  <ion-label class="explore-row-label">
-                    <h3>{{ getSimilarTitle(similar) }}</h3>
-                    <p>{{ getSimilarContext(similar) }}</p>
-                    <p class="recommendation-headline">{{ similar.reasons.summary }}</p>
-                    <div class="recommendation-chips">
-                      @for (badge of getSimilarReasonBadges(similar); track badge.text) {
-                        <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
-                      }
-                    </div>
-                  </ion-label>
-                </ion-item>
+                <ng-container
+                  *ngTemplateOutlet="
+                    recommendationRowTemplate;
+                    context: {
+                      title: getSimilarTitle(similar),
+                      coverUrl: getSimilarCoverUrl(similar),
+                      platformLabel: getSimilarContext(similar),
+                      year: null,
+                      badges: getSimilarReasonBadges(similar),
+                      headline: similar.reasons.summary,
+                      bullets: [],
+                      showWhyThis: false,
+                      kind: 'similar',
+                      row: similar
+                    }
+                  "
+                ></ng-container>
               }
             </ion-list>
           }
@@ -271,6 +226,74 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<ng-template
+  #recommendationRowTemplate
+  let-title="title"
+  let-coverUrl="coverUrl"
+  let-platformLabel="platformLabel"
+  let-year="year"
+  let-badges="badges"
+  let-headline="headline"
+  let-bullets="bullets"
+  let-showWhyThis="showWhyThis"
+  let-kind="kind"
+  let-row="row"
+>
+  <div class="recommendation-row">
+    <ion-item button detail="true" (click)="onRecommendationRowClick(kind, row, $event)">
+      <div slot="start" class="explore-cover">
+        <img
+          class="explore-cover-image"
+          [src]="coverUrl"
+          [alt]="title"
+          loading="lazy"
+          (error)="onImageError($event)"
+        />
+      </div>
+      <ion-label class="explore-row-label">
+        <h2>{{ title }}</h2>
+        <p>
+          {{ platformLabel }}
+          @if (year) {
+            <span> • {{ year }}</span>
+          }
+        </p>
+        @if (headline) {
+          <p class="recommendation-headline">{{ headline }}</p>
+        }
+        <div class="recommendation-chips">
+          @for (badge of badges; track badge.text) {
+            <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
+          }
+        </div>
+      </ion-label>
+    </ion-item>
+
+    @if (showWhyThis) {
+      <ion-accordion-group class="recommendation-accordion">
+        <ion-accordion value="why">
+          <ion-item
+            slot="header"
+            lines="full"
+            color="light"
+            class="recommendation-accordion-header"
+          >
+            <ion-label>Why this?</ion-label>
+          </ion-item>
+          <div slot="content" class="recommendation-details">
+            @for (bullet of bullets; track bullet.label + bullet.delta) {
+              <p class="recommendation-detail-row">
+                <span class="recommendation-detail-delta">{{ bullet.delta }}</span>
+                <span class="recommendation-detail-text">{{ bullet.label }}</span>
+              </p>
+            }
+          </div>
+        </ion-accordion>
+      </ion-accordion-group>
+    }
+  </div>
+</ng-template>
 
 <ion-modal [isOpen]="isRatingModalOpen" (didDismiss)="closeRatingModal()">
   <ng-template>

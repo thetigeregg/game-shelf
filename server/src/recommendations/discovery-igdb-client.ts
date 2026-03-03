@@ -101,6 +101,25 @@ export class DiscoveryIgdbClient {
     return [...deduped.values()].sort(compareCandidates).slice(0, targetSize);
   }
 
+  async fetchDiscoveryCandidatesBySource(params: {
+    source: 'popular' | 'recent';
+    poolSize: number;
+    preferredPlatformIds: number[];
+  }): Promise<DiscoveryCandidateRecord[]> {
+    const targetSize = Math.max(1, params.poolSize);
+    const mainGameTypeIds = await this.getMainGameTypeIds();
+    const rows = await this.fetchBySource(params.source, targetSize, mainGameTypeIds);
+    const preferredSet = new Set(params.preferredPlatformIds);
+
+    if (preferredSet.size === 0) {
+      return [...rows].sort(compareCandidates).slice(0, targetSize);
+    }
+
+    const preferred = rows.filter((entry) => preferredSet.has(entry.platformIgdbId));
+    const other = rows.filter((entry) => !preferredSet.has(entry.platformIgdbId));
+    return [...preferred, ...other].sort(compareCandidates).slice(0, targetSize);
+  }
+
   private async fetchBySource(
     source: 'popular' | 'recent',
     desired: number,

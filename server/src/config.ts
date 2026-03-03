@@ -150,6 +150,8 @@ export interface AppConfig {
   recommendationsDiscoveryEnabled: boolean;
   recommendationsDiscoveryPoolSize: number;
   recommendationsDiscoveryRefreshHours: number;
+  recommendationsDiscoveryPopularRefreshHours: number;
+  recommendationsDiscoveryRecentRefreshHours: number;
   recommendationsDiscoveryIgdbRequestTimeoutMs: number;
   recommendationsDiscoveryIgdbMaxRequestsPerSecond: number;
   recommendationsDiscoveryEnrichEnabled: boolean;
@@ -361,6 +363,14 @@ export const config: AppConfig = {
   recommendationsDiscoveryRefreshHours: readIntegerEnv(
     'RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS',
     24
+  ),
+  recommendationsDiscoveryPopularRefreshHours: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_POPULAR_REFRESH_HOURS',
+    readIntegerEnv('RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS', 24)
+  ),
+  recommendationsDiscoveryRecentRefreshHours: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_RECENT_REFRESH_HOURS',
+    Math.min(6, readIntegerEnv('RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS', 24))
   ),
   recommendationsDiscoveryIgdbRequestTimeoutMs: readIntegerEnv(
     'RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS',

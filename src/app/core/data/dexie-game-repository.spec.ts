@@ -92,6 +92,20 @@ describe('DexieGameRepository', () => {
     expect(created.keywordIds).toEqual([5, 6]);
   });
 
+  it('rejects non-integer theme and keyword ids from catalog payload', async () => {
+    const created = await repository.upsertFromCatalog(
+      {
+        ...mario,
+        themeIds: [1, 2.7, 3],
+        keywordIds: [5, 6.1, 7]
+      },
+      'collection'
+    );
+
+    expect(created.themeIds).toEqual([1, 3]);
+    expect(created.keywordIds).toEqual([5, 7]);
+  });
+
   it('moves a game to the other list when added again with same identity', async () => {
     await repository.upsertFromCatalog(mario, 'wishlist');
     const updated = await repository.upsertFromCatalog(

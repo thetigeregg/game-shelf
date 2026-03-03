@@ -31,9 +31,10 @@ ion-label p:not(.recommendation-headline) {
 }
 
 .recommendation-headline {
-  margin-block: 8px;
+  margin-block: 6px;
   color: var(--ion-color-medium);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.25;
 }
 
 .lane-context-copy {
@@ -83,12 +84,14 @@ ion-label p:not(.recommendation-headline) {
 }
 
 .recommendation-details {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .recommendation-details p {
-  margin: 0 0 4px;
-  font-size: 0.78rem;
+  margin: 0 0 3px;
+  font-size: 0.74rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
   color: var(--ion-color-medium);
 }
 
@@ -102,6 +105,11 @@ ion-label p:not(.recommendation-headline) {
   margin-top: 4px;
   color: var(--ion-color-primary);
   font-size: 0.8rem;
+}
+
+.empty-state-icon {
+  font-size: 1.25rem;
+  color: var(--ion-color-primary);
 }
 
 .similar-section {

@@ -26,6 +26,8 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     publishers: [],
     franchises: [],
     collections: [],
+    themes: [],
+    keywords: [],
     ...overrides
   };
 }
@@ -62,4 +64,6 @@ void test('similarity graph stores only top K entries per source', () => {
   assert.equal(sourceOne[0].similarIgdbGameId, '2');
   assert.equal(sourceOne[0].reasons.summary.includes('same series'), true);
   assert.equal(sourceOne[0].reasons.blendedSimilarity > 0, true);
+  assert.deepEqual(sourceOne[0].reasons.sharedTokens.themes, []);
+  assert.deepEqual(sourceOne[0].reasons.sharedTokens.keywords, []);
 });

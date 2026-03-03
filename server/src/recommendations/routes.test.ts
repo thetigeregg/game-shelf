@@ -56,7 +56,9 @@ function createServiceMock(
                 developers: [],
                 publishers: [],
                 franchises: [],
-                collections: []
+                collections: [],
+                themes: [],
+                keywords: []
               }
             }
           }
@@ -99,7 +101,9 @@ function createServiceMock(
               developers: [],
               publishers: [],
               franchises: [],
-              collections: ['Mario']
+              collections: ['Mario'],
+              themes: [],
+              keywords: []
             }
           }
         }
@@ -122,12 +126,17 @@ void test('GET /v1/recommendations/top returns latest recommendations', async ()
   const body = JSON.parse(response.body) as {
     target: string;
     runtimeMode: RecommendationRuntimeMode;
-    items: Array<{ scoreComponents?: { semantic?: number } }>;
+    items: Array<{
+      scoreComponents?: { semantic?: number };
+      explanations?: { matchedTokens?: { themes?: string[]; keywords?: string[] } };
+    }>;
   };
   assert.equal(body.target, 'BACKLOG');
   assert.equal(body.runtimeMode, 'SHORT');
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.scoreComponents?.semantic, 0.2);
+  assert.deepEqual(body.items[0]?.explanations?.matchedTokens?.themes, []);
+  assert.deepEqual(body.items[0]?.explanations?.matchedTokens?.keywords, []);
 
   await app.close();
 });
@@ -207,10 +216,17 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
 
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
-    items: Array<{ reasons?: { blendedSimilarity?: number } }>;
+    items: Array<{
+      reasons?: {
+        blendedSimilarity?: number;
+        sharedTokens?: { themes?: string[]; keywords?: string[] };
+      };
+    }>;
   };
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.reasons?.blendedSimilarity, 0.76);
+  assert.deepEqual(body.items[0]?.reasons?.sharedTokens?.themes, []);
+  assert.deepEqual(body.items[0]?.reasons?.sharedTokens?.keywords, []);
 
   await app.close();
 });

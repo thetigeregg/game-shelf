@@ -172,7 +172,9 @@ function buildMatchedTokens(matches: TasteMatch[]): RecommendationExplanation['m
     developers: [],
     publishers: [],
     franchises: [],
-    collections: []
+    collections: [],
+    themes: [],
+    keywords: []
   };
 
   for (const match of matches) {

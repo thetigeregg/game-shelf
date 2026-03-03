@@ -43,6 +43,8 @@ export function buildRankedScores(params: {
   similaritySemanticWeight: number;
   repeatPenaltyStep: number;
   historyByGame: Map<string, { recommendationCount: number }>;
+  structuredKeywordsByGame?: Map<string, string[]>;
+  tokenFamilyWeight?: Partial<Record<TokenFamily, number>>;
 }): RankedScore[] {
   const {
     candidates,
@@ -57,7 +59,9 @@ export function buildRankedScores(params: {
     similarityStructuredWeight,
     similaritySemanticWeight,
     repeatPenaltyStep,
-    historyByGame
+    historyByGame,
+    structuredKeywordsByGame,
+    tokenFamilyWeight
   } = params;
 
   const baseScores = candidates.map((game) =>
@@ -70,7 +74,9 @@ export function buildRankedScores(params: {
       tunedWeights,
       explorationWeight,
       repeatPenaltyStep,
-      historyByGame
+      historyByGame,
+      structuredKeywordsByGame,
+      tokenFamilyWeight
     })
   );
   const remaining = [...baseScores];
@@ -87,7 +93,7 @@ export function buildRankedScores(params: {
         candidate: { game: entry.game, tokenKeys: entry.tokenKeys },
         selected: selected.map((ranked) => ({
           game: ranked.game,
-          tokenKeys: tokenSetForGame(ranked.game)
+          tokenKeys: tokenSetForGame(ranked.game, structuredKeywordsByGame)
         })),
         semanticSimilarityByGame,
         diversityPenaltyWeight,
@@ -152,6 +158,8 @@ function buildBaseScore(params: {
   explorationWeight: number;
   repeatPenaltyStep: number;
   historyByGame: Map<string, { recommendationCount: number }>;
+  structuredKeywordsByGame?: Map<string, string[]>;
+  tokenFamilyWeight?: Partial<Record<TokenFamily, number>>;
 }): BaseScore {
   const {
     game,
@@ -162,12 +170,19 @@ function buildBaseScore(params: {
     tunedWeights,
     explorationWeight,
     repeatPenaltyStep,
-    historyByGame
+    historyByGame,
+    structuredKeywordsByGame,
+    tokenFamilyWeight
   } = params;
 
-  const tokens = buildTokenEntries(game);
+  const tokens = buildTokenEntries(game, { structuredKeywordsByGame });
   const tokenKeys = new Set(tokens.map((token) => token.key));
-  const tasteEvaluation = evaluateTaste(tokens, profile, tunedWeights.tasteWeight);
+  const tasteEvaluation = evaluateTaste(
+    tokens,
+    profile,
+    tunedWeights.tasteWeight,
+    tokenFamilyWeight
+  );
   const semantic = evaluateSemanticScore(
     game,
     semanticSimilarityByGame,
@@ -206,7 +221,8 @@ const OVERLAP_DISCOUNT_FRANCHISE_WITH_COLLECTION = 0.5;
 function evaluateTaste(
   tokens: ReturnType<typeof buildTokenEntries>,
   profile: PreferenceProfile,
-  tasteWeight: number
+  tasteWeight: number,
+  tokenFamilyWeight: Partial<Record<TokenFamily, number>> | undefined
 ): { score: number; matches: TasteMatch[] } {
   if (profile.ratedGameCount < 5) {
     return {
@@ -225,7 +241,7 @@ function evaluateTaste(
       continue;
     }
 
-    const familyWeight = TOKEN_FAMILY_WEIGHT[token.family];
+    const familyWeight = tokenFamilyWeight?.[token.family] ?? TOKEN_FAMILY_WEIGHT[token.family];
     const delta = preference.weight * familyWeight * tasteWeight;
     rawMatches.push({
       family: token.family,
@@ -380,8 +396,11 @@ function calculateNoveltyPenalty(tokenKeys: Set<string>, selected: RankedScore[]
   return -clamp(maxOverlap * 0.35, 0, 0.35);
 }
 
-function tokenSetForGame(game: NormalizedGameRecord): Set<string> {
-  return new Set(buildTokenEntries(game).map((token) => token.key));
+function tokenSetForGame(
+  game: NormalizedGameRecord,
+  structuredKeywordsByGame?: Map<string, string[]>
+): Set<string> {
+  return new Set(buildTokenEntries(game, { structuredKeywordsByGame }).map((token) => token.key));
 }
 
 function jaccard(left: Set<string>, right: Set<string>): number {
@@ -453,6 +472,12 @@ export function getTopPositiveTasteMatches(matches: TasteMatch[], limit = 3): Ta
 export function tasteFamilyLabel(family: TokenFamily): string {
   if (family === 'collections') {
     return 'series';
+  }
+  if (family === 'themes') {
+    return 'theme';
+  }
+  if (family === 'keywords') {
+    return 'keyword';
   }
 
   return family.endsWith('s') ? family.slice(0, -1) : family;

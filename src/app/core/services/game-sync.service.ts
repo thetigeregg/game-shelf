@@ -669,13 +669,18 @@ export class GameSyncService implements SyncOutboxWriter {
     return [
       ...new Set(
         value
-          .map((entry) =>
-            typeof entry === 'number'
-              ? entry
-              : typeof entry === 'string'
-                ? Number.parseInt(entry, 10)
-                : Number.NaN
-          )
+          .map((entry) => {
+            if (typeof entry === 'number') {
+              return Number.isInteger(entry) ? entry : Number.NaN;
+            }
+
+            if (typeof entry === 'string') {
+              const trimmed = entry.trim();
+              return /^\d+$/.test(trimmed) ? Number.parseInt(trimmed, 10) : Number.NaN;
+            }
+
+            return Number.NaN;
+          })
           .filter((entry) => Number.isInteger(entry) && entry > 0)
       )
     ];

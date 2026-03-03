@@ -100,6 +100,8 @@ async function main(): Promise<void> {
       discoveryEnabled: config.recommendationsDiscoveryEnabled,
       discoveryPoolSize: config.recommendationsDiscoveryPoolSize,
       discoveryRefreshHours: config.recommendationsDiscoveryRefreshHours,
+      discoveryPopularRefreshHours: config.recommendationsDiscoveryPopularRefreshHours,
+      discoveryRecentRefreshHours: config.recommendationsDiscoveryRecentRefreshHours,
       discoveryIgdbRequestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
       discoveryIgdbMaxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
     },

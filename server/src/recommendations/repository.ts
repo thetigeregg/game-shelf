@@ -82,6 +82,9 @@ interface HistoryRow extends QueryResultRow {
 interface DiscoveryUpdatedAtRow extends QueryResultRow {
   updated_at: string;
 }
+interface SettingRow extends QueryResultRow {
+  setting_value: string;
+}
 
 interface DiscoveryGameRow extends QueryResultRow {
   igdb_game_id: string;
@@ -136,15 +139,30 @@ export class RecommendationRepository {
     });
   }
 
-  async getDiscoveryPoolLatestUpdatedAt(queryable: Queryable = this.pool): Promise<string | null> {
+  async getDiscoveryPoolLatestUpdatedAt(
+    params: {
+      queryable?: Queryable;
+      source?: 'popular' | 'recent';
+    } = {}
+  ): Promise<string | null> {
+    const queryable = params.queryable ?? this.pool;
+    const whereSource =
+      params.source !== undefined ? ` AND COALESCE(payload->>'discoverySource', '') = $1` : '';
+    const values: unknown[] = [];
+    if (params.source !== undefined) {
+      values.push(params.source);
+    }
+
     const result = await queryable.query<DiscoveryUpdatedAtRow>(
       `
       SELECT updated_at
       FROM games
       WHERE COALESCE(payload->>'listType', '') = 'discovery'
+      ${whereSource}
       ORDER BY updated_at DESC
       LIMIT 1
-      `
+      `,
+      values
     );
 
     if (result.rowCount === 0) {
@@ -176,6 +194,7 @@ export class RecommendationRepository {
           SET payload = EXCLUDED.payload,
               updated_at = NOW()
         WHERE COALESCE(games.payload->>'listType', '') = 'discovery'
+          AND games.payload IS DISTINCT FROM EXCLUDED.payload
         `,
         [row.igdbGameId, row.platformIgdbId, JSON.stringify(row.payload)]
       );
@@ -190,6 +209,22 @@ export class RecommendationRepository {
         AND NOT (igdb_game_id || '::' || platform_igdb_id::text = ANY($1::text[]))
       `,
       [params.keepKeys]
+    );
+  }
+
+  async pruneDiscoveryGamesBySource(params: {
+    client: Queryable;
+    source: 'popular' | 'recent';
+    keepKeys: string[];
+  }): Promise<void> {
+    await params.client.query(
+      `
+      DELETE FROM games
+      WHERE COALESCE(payload->>'listType', '') = 'discovery'
+        AND COALESCE(payload->>'discoverySource', '') = $1
+        AND NOT (igdb_game_id || '::' || platform_igdb_id::text = ANY($2::text[]))
+      `,
+      [params.source, params.keepKeys]
     );
   }
 
@@ -280,6 +315,32 @@ export class RecommendationRepository {
 
     const raw = result.rows[0]?.setting_value;
     return parseRecommendationRuntimeMode(raw);
+  }
+
+  async getSetting(settingKey: string, queryable: Queryable = this.pool): Promise<string | null> {
+    const result = await queryable.query<SettingRow>(
+      'SELECT setting_value FROM settings WHERE setting_key = $1 LIMIT 1',
+      [settingKey]
+    );
+
+    return result.rowCount > 0 ? (result.rows[0]?.setting_value ?? null) : null;
+  }
+
+  async upsertSetting(params: {
+    settingKey: string;
+    settingValue: string;
+    queryable?: Queryable;
+  }): Promise<void> {
+    const queryable = params.queryable ?? this.pool;
+    await queryable.query(
+      `
+      INSERT INTO settings (setting_key, setting_value, updated_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (setting_key)
+      DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()
+      `,
+      [params.settingKey, params.settingValue]
+    );
   }
 
   async getLatestRun(

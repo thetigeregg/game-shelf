@@ -70,6 +70,8 @@ export interface RecommendationServiceOptions {
   discoveryEnabled: boolean;
   discoveryPoolSize: number;
   discoveryRefreshHours: number;
+  discoveryPopularRefreshHours: number;
+  discoveryRecentRefreshHours: number;
   discoveryIgdbRequestTimeoutMs: number;
   discoveryIgdbMaxRequestsPerSecond: number;
 }
@@ -744,6 +746,8 @@ export class RecommendationService implements RecommendationServiceApi {
       discoveryEnabled: this.options.discoveryEnabled,
       discoveryPoolSize: this.options.discoveryPoolSize,
       discoveryRefreshHours: this.options.discoveryRefreshHours,
+      discoveryPopularRefreshHours: this.options.discoveryPopularRefreshHours,
+      discoveryRecentRefreshHours: this.options.discoveryRecentRefreshHours,
       discoveryIgdbRequestTimeoutMs: this.options.discoveryIgdbRequestTimeoutMs,
       discoveryIgdbMaxRequestsPerSecond: this.options.discoveryIgdbMaxRequestsPerSecond,
       modelVersion: 'recommendation-v3-discovery-source-lanes'
@@ -850,16 +854,6 @@ export class RecommendationService implements RecommendationServiceApi {
     games: NormalizedGameRecord[];
   }): Promise<void> {
     const { client, force, games } = params;
-    const latestUpdatedAt = await this.repository.getDiscoveryPoolLatestUpdatedAt(client);
-    const stale =
-      !latestUpdatedAt ||
-      this.nowProvider() - Date.parse(latestUpdatedAt) >=
-        this.options.discoveryRefreshHours * 60 * 60 * 1000;
-
-    if (!force && !stale) {
-      return;
-    }
-
     const preferredPlatformIds = [
       ...new Set(
         games
@@ -879,30 +873,78 @@ export class RecommendationService implements RecommendationServiceApi {
         )
         .map((game) => buildGameKey(game.igdbGameId, game.platformIgdbId))
     );
+    const nowIso = new Date(this.nowProvider()).toISOString();
 
-    const fetched = await this.discoveryClient.fetchDiscoveryCandidates({
-      poolSize: this.options.discoveryPoolSize,
-      preferredPlatformIds
-    });
+    for (const source of ['popular', 'recent'] as const) {
+      const refreshMarkerKey = `recommendations.discovery.source_last_refreshed.${source}`;
+      const refreshMarker = await this.repository.getSetting(refreshMarkerKey, client);
+      const latestUpdatedAt = await this.repository.getDiscoveryPoolLatestUpdatedAt({
+        queryable: client,
+        source
+      });
 
-    const upsertRows = fetched
-      .filter((row) => !strictExcluded.has(buildGameKey(row.igdbGameId, row.platformIgdbId)))
-      .map((row) => ({
-        igdbGameId: row.igdbGameId,
-        platformIgdbId: row.platformIgdbId,
-        payload: buildDiscoveryPayload(row)
-      }));
+      const referenceTimestamp = Date.parse(refreshMarker ?? latestUpdatedAt ?? '');
+      const refreshHours =
+        source === 'popular'
+          ? this.options.discoveryPopularRefreshHours
+          : this.options.discoveryRecentRefreshHours;
+      const stale =
+        !Number.isFinite(referenceTimestamp) ||
+        this.nowProvider() - referenceTimestamp >= refreshHours * 60 * 60 * 1000;
 
-    await this.repository.upsertDiscoveryGames({
-      client,
-      rows: upsertRows
-    });
+      if (!force && !stale) {
+        continue;
+      }
 
-    const keepKeys = upsertRows.map((row) => buildGameKey(row.igdbGameId, row.platformIgdbId));
-    await this.repository.pruneDiscoveryGames({
-      client,
-      keepKeys
-    });
+      const fetched = await this.discoveryClient.fetchDiscoveryCandidatesBySource({
+        source,
+        poolSize: this.options.discoveryPoolSize,
+        preferredPlatformIds
+      });
+
+      const upsertRows = fetched
+        .filter((row) => !strictExcluded.has(buildGameKey(row.igdbGameId, row.platformIgdbId)))
+        .map((row) => ({
+          igdbGameId: row.igdbGameId,
+          platformIgdbId: row.platformIgdbId,
+          payload: buildDiscoveryPayload(row)
+        }));
+
+      const sourceHash = sha256(
+        upsertRows
+          .map((row) => ({
+            key: buildGameKey(row.igdbGameId, row.platformIgdbId),
+            payload: row.payload
+          }))
+          .sort((left, right) => left.key.localeCompare(right.key, 'en'))
+      );
+      const sourceHashKey = `recommendations.discovery.source_hash.${source}`;
+      const existingHash = await this.repository.getSetting(sourceHashKey, client);
+
+      if (force || existingHash !== sourceHash) {
+        await this.repository.upsertDiscoveryGames({
+          client,
+          rows: upsertRows
+        });
+        const keepKeys = upsertRows.map((row) => buildGameKey(row.igdbGameId, row.platformIgdbId));
+        await this.repository.pruneDiscoveryGamesBySource({
+          client,
+          source,
+          keepKeys
+        });
+        await this.repository.upsertSetting({
+          queryable: client,
+          settingKey: sourceHashKey,
+          settingValue: sourceHash
+        });
+      }
+
+      await this.repository.upsertSetting({
+        queryable: client,
+        settingKey: refreshMarkerKey,
+        settingValue: nowIso
+      });
+    }
 
     if (this.discoveryEnrichmentService) {
       await this.discoveryEnrichmentService.enrichNow({

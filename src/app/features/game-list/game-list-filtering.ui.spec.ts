@@ -150,6 +150,30 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['Untagged']);
   });
 
+  it('does not treat partially numeric rating strings as valid ratings', () => {
+    const malformedRating = makeGame({
+      igdbGameId: '1',
+      platformIgdbId: 130,
+      title: 'Malformed Rating'
+    });
+    (malformedRating as unknown as { rating: unknown }).rating = '2.5x';
+
+    const validRating = makeGame({
+      igdbGameId: '2',
+      platformIgdbId: 130,
+      title: 'Valid Rating',
+      rating: 2.5
+    });
+
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      ratings: [2.5]
+    };
+
+    const result = engine.applyFiltersAndSort([malformedRating, validRating], filters, '');
+    expect(result.map((game) => game.title)).toEqual(['Valid Rating']);
+  });
+
   it('builds grouped sections with no-series bucket', () => {
     const games: GameEntry[] = [
       makeGame({

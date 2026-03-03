@@ -94,15 +94,17 @@
               <p class="recommendation-headline">{{ getExplanationHeadline(item) }}</p>
               @if (getRationaleBadges(item).length > 0) {
                 <div class="recommendation-rationale">
-                  @for (badge of getRationaleBadges(item); track badge) {
-                    <ion-badge color="light">{{ badge }}</ion-badge>
+                  @for (badge of getRationaleBadges(item); track badge.text) {
+                    <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
                   }
                 </div>
               }
               <div class="recommendation-chips">
-                <ion-badge color="tertiary">{{ getConfidenceBadge(item) }}</ion-badge>
-                @for (badge of getScoreBadges(item); track badge) {
-                  <ion-badge>{{ badge }}</ion-badge>
+                @if (getConfidenceBadge(item); as confidenceBadge) {
+                  <ion-badge [color]="confidenceBadge.color">{{ confidenceBadge.text }}</ion-badge>
+                }
+                @for (badge of getScoreBadges(item); track badge.text) {
+                  <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
                 }
               </div>
               @if (hasExplanationDetails(item)) {
@@ -136,6 +138,12 @@
       getActiveLaneItems().length === 0
     ) {
       <ion-item lines="none">
+        <ion-icon
+          slot="start"
+          class="empty-state-icon"
+          [name]="getEmptyStateLaneIcon()"
+          aria-hidden="true"
+        ></ion-icon>
         <ion-label>
           <ion-text color="medium">{{ getEmptyStateMessage() }}</ion-text>
           <p class="empty-state-hint">{{ getEmptyStateHint() }}</p>
@@ -239,8 +247,8 @@
                     <p>{{ getSimilarContext(similar) }}</p>
                     <p class="recommendation-headline">{{ similar.reasons.summary }}</p>
                     <div class="recommendation-chips">
-                      @for (badge of getSimilarReasonBadges(similar); track badge) {
-                        <ion-badge>{{ badge }}</ion-badge>
+                      @for (badge of getSimilarReasonBadges(similar); track badge.text) {
+                        <ion-badge [color]="badge.color">{{ badge.text }}</ion-badge>
                       }
                     </div>
                   </ion-label>

@@ -92,6 +92,13 @@
           ></ng-container>
         }
       </ion-list>
+      <ion-infinite-scroll
+        [disabled]="!canLoadMoreRecommendations()"
+        threshold="96px"
+        (ionInfinite)="loadMoreRecommendations($event)"
+      >
+        <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
+      </ion-infinite-scroll>
     }
 
     @if (
@@ -203,7 +210,7 @@
           } @else {
             <ion-list lines="full">
               @for (
-                similar of similarRecommendationItems;
+                similar of getVisibleSimilarRecommendationItems();
                 track similar.igdbGameId + ':' + similar.platformIgdbId
               ) {
                 <app-similar-game-row
@@ -216,6 +223,13 @@
                 ></app-similar-game-row>
               }
             </ion-list>
+            <ion-infinite-scroll
+              [disabled]="!canLoadMoreSimilarRecommendations()"
+              threshold="96px"
+              (ionInfinite)="loadMoreSimilarRecommendations($event)"
+            >
+              <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
+            </ion-infinite-scroll>
           }
         </div>
       }

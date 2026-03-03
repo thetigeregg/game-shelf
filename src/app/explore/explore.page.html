@@ -121,7 +121,10 @@
                       bullet of getExplanationBullets(item);
                       track bullet.label + bullet.delta
                     ) {
-                      <p>{{ bullet.delta }} {{ bullet.label }}</p>
+                      <p>
+                        <span class="recommendation-detail-delta">{{ bullet.delta }}</span>
+                        {{ bullet.label }}
+                      </p>
                     }
                   </div>
                 </ion-accordion>

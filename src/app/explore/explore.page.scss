@@ -8,6 +8,15 @@
   padding: 16px;
 }
 
+.similar-header {
+  --min-height: 0;
+
+  ion-note {
+    font-size: 0.8rem;
+    padding-bottom: 4px;
+  }
+}
+
 .explore-cover {
   width: 64px;
   height: 88px;

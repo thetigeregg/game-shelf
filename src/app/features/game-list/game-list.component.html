@@ -379,7 +379,7 @@
             }
             <ion-infinite-scroll
               [disabled]="!canLoadMoreSimilarLibraryGames()"
-              threshold="96px"
+              threshold="15px"
               (ionInfinite)="loadMoreSimilarLibraryGames($event)"
             >
               <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>

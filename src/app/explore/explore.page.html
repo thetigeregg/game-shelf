@@ -1,13 +1,6 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>Explore</ion-title>
-    @if (recommendationFeatureEnabled) {
-      <ion-buttons slot="end">
-        <ion-button [disabled]="isRebuildLoading" (click)="rebuildRecommendations(true)">
-          Rebuild
-        </ion-button>
-      </ion-buttons>
-    }
+    <ion-title>Recommendations</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -18,39 +11,42 @@
 
   @if (recommendationFeatureEnabled) {
     <ion-item lines="full">
-      <ion-label>Target</ion-label>
-      <ion-segment [value]="selectedTarget" (ionChange)="onTargetChange($any($event).detail.value)">
+      <ion-select
+        label="Target"
+        interface="popover"
+        [value]="selectedTarget"
+        (ionChange)="onTargetChange($any($event).detail.value)"
+      >
         @for (option of targetOptions; track option.value) {
-          <ion-segment-button [value]="option.value">
-            <ion-label>{{ option.label }}</ion-label>
-          </ion-segment-button>
+          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
         }
-      </ion-segment>
+      </ion-select>
     </ion-item>
 
     <ion-item lines="full">
-      <ion-label>Runtime</ion-label>
-      <ion-segment
+      <ion-select
+        label="Runtime"
+        interface="popover"
         [value]="selectedRuntimeMode"
         (ionChange)="onRuntimeModeChange($any($event).detail.value)"
       >
         @for (option of runtimeModeOptions; track option.value) {
-          <ion-segment-button [value]="option.value">
-            <ion-label>{{ option.label }}</ion-label>
-          </ion-segment-button>
+          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
         }
-      </ion-segment>
+      </ion-select>
     </ion-item>
 
     <ion-item lines="full">
-      <ion-label>Lane</ion-label>
-      <ion-segment [value]="selectedLaneKey" (ionChange)="onLaneChange($any($event).detail.value)">
+      <ion-select
+        label="Lane"
+        interface="popover"
+        [value]="selectedLaneKey"
+        (ionChange)="onLaneChange($any($event).detail.value)"
+      >
         @for (option of laneOptions; track option.value) {
-          <ion-segment-button [value]="option.value">
-            <ion-label>{{ option.label }}</ion-label>
-          </ion-segment-button>
+          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
         }
-      </ion-segment>
+      </ion-select>
     </ion-item>
 
     @if (isLoadingRecommendations) {
@@ -63,14 +59,6 @@
       <ion-item lines="none">
         <ion-text color="danger">{{ recommendationError }}</ion-text>
       </ion-item>
-
-      @if (recommendationErrorCode === 'NOT_FOUND') {
-        <ion-item lines="none">
-          <ion-button size="small" (click)="rebuildRecommendations(true)"
-            >Build recommendations</ion-button
-          >
-        </ion-item>
-      }
     }
 
     @if (!isLoadingRecommendations && getActiveLaneItems().length > 0) {
@@ -96,8 +84,8 @@
               </p>
               <p class="recommendation-headline">{{ getExplanationHeadline(item) }}</p>
               <div class="recommendation-chips">
-                @for (chip of getScoreChips(item); track chip) {
-                  <ion-chip>{{ chip }}</ion-chip>
+                @for (badge of getScoreBadges(item); track badge) {
+                  <ion-badge>{{ badge }}</ion-badge>
                 }
               </div>
             </ion-label>

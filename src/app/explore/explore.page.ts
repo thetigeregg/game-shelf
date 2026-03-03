@@ -16,9 +16,6 @@ import {
   IonTitle,
   IonToolbar,
   IonText,
-  IonFab,
-  IonFabButton,
-  IonFabList,
   IonIcon,
   IonRange,
   IonNote,
@@ -47,6 +44,7 @@ import {
 } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
+import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import {
@@ -104,9 +102,6 @@ interface RecommendationDisplayMetadata {
     IonSpinner,
     IonList,
     IonText,
-    IonFab,
-    IonFabButton,
-    IonFabList,
     IonIcon,
     IonRange,
     IonNote,
@@ -117,7 +112,8 @@ interface RecommendationDisplayMetadata {
     IonBadge,
     IonAccordion,
     IonAccordionGroup,
-    GameDetailContentComponent
+    GameDetailContentComponent,
+    DetailShortcutsFabComponent
   ]
 })
 export class ExplorePage implements OnInit {

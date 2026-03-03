@@ -381,81 +381,16 @@
         </ion-list>
       </app-game-detail-content>
     </div>
-    <ion-fab
-      #detailShortcutsFab
-      slot="fixed"
-      vertical="bottom"
-      horizontal="end"
-      class="detail-shortcuts-fab"
-    >
-      <ion-fab-button size="small" aria-label="Open web shortcuts">
-        <ion-icon name="globe" aria-hidden="true"></ion-icon>
-      </ion-fab-button>
-      <ion-fab-list side="top" (click)="closeDetailShortcutsFab()">
-        @if (shouldShowNotesShortcut) {
-          <ion-fab-button
-            class="shortcut-notes"
-            color="deep-ocean"
-            aria-label="Open notes editor"
-            (click)="openNotesEditor()"
-          >
-            <ion-icon name="document-text" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
-        @if (shouldShowOpenManualButton) {
-          <ion-fab-button
-            class="shortcut-manual"
-            color="ocean"
-            aria-label="Open game manual PDF"
-            (click)="openManualPdf()"
-          >
-            <ion-icon name="book" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
-        @if (shouldShowFindManualButton) {
-          <ion-fab-button
-            class="shortcut-manual-find"
-            color="dark-gray"
-            aria-label="Find game manual PDF"
-            (click)="openManualPickerModal()"
-          >
-            <ion-icon name="search" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
-        <ion-fab-button
-          class="shortcut-google"
-          color="forest"
-          aria-label="Search on Google"
-          (click)="openShortcutSearch('google')"
-        >
-          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-youtube"
-          color="firetruck"
-          aria-label="Search on YouTube"
-          (click)="openShortcutSearch('youtube')"
-        >
-          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-wikipedia"
-          color="white"
-          aria-label="Search on Wikipedia"
-          (click)="openShortcutSearch('wikipedia')"
-        >
-          <span class="shortcut-text" aria-hidden="true">W</span>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-gamefaqs"
-          color="royal"
-          aria-label="Search on GameFAQs"
-          (click)="openShortcutSearch('gamefaqs')"
-        >
-          <span class="shortcut-text" aria-hidden="true">G</span>
-        </ion-fab-button>
-      </ion-fab-list>
-    </ion-fab>
+    <app-detail-shortcuts-fab
+      [showNotesShortcut]="shouldShowNotesShortcut"
+      [showOpenManualButton]="shouldShowOpenManualButton"
+      [showFindManualButton]="shouldShowFindManualButton"
+      (listClick)="closeDetailShortcutsFab()"
+      (notesClick)="openNotesEditor()"
+      (openManualClick)="openManualPdf()"
+      (findManualClick)="openManualPickerModal()"
+      (shortcutSearch)="openShortcutSearch($event)"
+    ></app-detail-shortcuts-fab>
   </ion-content>
 </ng-template>
 

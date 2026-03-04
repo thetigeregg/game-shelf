@@ -319,3 +319,174 @@ void test('discovery enrichment applies cooldown after failed attempt', async ()
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('discovery enrichment marks permanent miss at max attempts and stops retrying', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '2',
+      platformIgdbId: 6,
+      payload: {
+        title: 'No Match Forever',
+        releaseYear: 2002,
+        platform: 'PC',
+        listType: 'discovery'
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const baseNow = Date.parse('2026-01-01T00:00:00.000Z');
+    let nowMs = baseNow;
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 2,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => nowMs
+    );
+
+    const first = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(first, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+    const firstPayload = repository.updates[0].payload;
+    assert.equal(
+      typeof (firstPayload.enrichmentRetry as Record<string, unknown>)['hltb'],
+      'object'
+    );
+
+    repository.rows = [
+      {
+        igdbGameId: '2',
+        platformIgdbId: 6,
+        payload: firstPayload
+      }
+    ];
+    nowMs = baseNow + 2 * 60 * 60 * 1000;
+
+    const second = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(second, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 4);
+    const secondPayload = repository.updates[1].payload;
+    const retry = secondPayload.enrichmentRetry as {
+      hltb: { attempts: number; permanentMiss: boolean };
+      metacritic: { attempts: number; permanentMiss: boolean };
+    };
+    assert.equal(retry.hltb.attempts, 2);
+    assert.equal(retry.hltb.permanentMiss, true);
+    assert.equal(retry.metacritic.attempts, 2);
+    assert.equal(retry.metacritic.permanentMiss, true);
+
+    repository.rows = [
+      {
+        igdbGameId: '2',
+        platformIgdbId: 6,
+        payload: secondPayload
+      }
+    ];
+    nowMs = baseNow + 24 * 60 * 60 * 1000;
+
+    const third = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(third, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment clears retry state after successful retry', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '3',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Eventually Match',
+        releaseYear: 2003,
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 2,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: '2026-01-01T01:00:00.000Z',
+            permanentMiss: false
+          },
+          metacritic: {
+            attempts: 2,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: '2026-01-01T01:00:00.000Z',
+            permanentMiss: false
+          }
+        }
+      }
+    }
+  ];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 10.5 }
+          }),
+          { status: 200 }
+        )
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: { metacriticScore: 79, metacriticUrl: 'https://www.metacritic.com/game/example' }
+        }),
+        { status: 200 }
+      )
+    );
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => Date.parse('2026-01-01T02:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(repository.updates.length, 1);
+    const updatedPayload = repository.updates[0].payload;
+    assert.equal(updatedPayload.hltbMainHours, 10.5);
+    assert.equal(updatedPayload.metacriticScore, 79);
+    assert.equal('enrichmentRetry' in updatedPayload, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -177,6 +177,46 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
               keywords: []
             }
           }
+        },
+        {
+          igdbGameId: '200',
+          platformIgdbId: 48,
+          similarity: 0.85,
+          reasons: {
+            summary: 'duplicate platform',
+            structuredSimilarity: 0.7,
+            semanticSimilarity: 0.8,
+            blendedSimilarity: 0.75,
+            sharedTokens: {
+              genres: [],
+              developers: [],
+              publishers: [],
+              franchises: [],
+              collections: [],
+              themes: [],
+              keywords: []
+            }
+          }
+        },
+        {
+          igdbGameId: '201',
+          platformIgdbId: 6,
+          similarity: 0.82,
+          reasons: {
+            summary: 'next',
+            structuredSimilarity: 0.6,
+            semanticSimilarity: 0.7,
+            blendedSimilarity: 0.65,
+            sharedTokens: {
+              genres: [],
+              developers: [],
+              publishers: [],
+              franchises: [],
+              collections: [],
+              themes: [],
+              keywords: []
+            }
+          }
         }
       ]);
     }
@@ -201,7 +241,11 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
     limit: 999
   });
   assert.equal(similar.runtimeMode, 'LONG');
-  assert.equal(similar.items.length, 1);
+  assert.equal(similar.items.length, 2);
+  assert.deepEqual(
+    similar.items.map((item) => item.igdbGameId),
+    ['200', '201']
+  );
   assert.deepEqual(readTopCalls, [{ limit: 200, runtimeMode: 'SHORT' }]);
   assert.deepEqual(readLaneCalls, [{ limit: 20, runtimeMode: 'SHORT' }]);
   assert.deepEqual(readSimilarCalls, [{ limit: 50, runtimeMode: 'LONG' }]);

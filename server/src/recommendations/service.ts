@@ -423,10 +423,11 @@ export class RecommendationService implements RecommendationServiceApi {
       runtimeMode: resolvedRuntimeMode,
       limit: safeLimit
     });
+    const dedupedRows = dedupeSimilarRows(rows, safeLimit);
 
     return {
       runtimeMode: resolvedRuntimeMode,
-      items: rows.map((row) => ({
+      items: dedupedRows.map((row) => ({
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
         similarity: row.similarity,
@@ -1025,6 +1026,45 @@ function dedupeByGameId(
       ...item,
       rank: deduped.length + 1
     });
+
+    if (deduped.length >= safeLimit) {
+      break;
+    }
+  }
+
+  return deduped;
+}
+
+function dedupeSimilarRows(
+  rows: Array<{
+    igdbGameId: string;
+    platformIgdbId: number;
+    similarity: number;
+    reasons: SimilarityReasons;
+  }>,
+  limit: number
+): Array<{
+  igdbGameId: string;
+  platformIgdbId: number;
+  similarity: number;
+  reasons: SimilarityReasons;
+}> {
+  const deduped: Array<{
+    igdbGameId: string;
+    platformIgdbId: number;
+    similarity: number;
+    reasons: SimilarityReasons;
+  }> = [];
+  const seen = new Set<string>();
+  const safeLimit = Math.max(1, limit);
+
+  for (const row of rows) {
+    if (seen.has(row.igdbGameId)) {
+      continue;
+    }
+
+    seen.add(row.igdbGameId);
+    deduped.push(row);
 
     if (deduped.length >= safeLimit) {
       break;

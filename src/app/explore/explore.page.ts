@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
@@ -199,6 +199,7 @@ export class ExplorePage implements OnInit {
   private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
+  @ViewChild('detailContent') private detailContent?: IonContent;
 
   constructor() {
     addIcons({
@@ -513,6 +514,7 @@ export class ExplorePage implements OnInit {
     this.similarRecommendationItems = [];
     this.similarRecommendationsError = '';
     this.isLoadingSimilar = false;
+    this.scrollDetailToTop();
     this.selectedGameDetail = local
       ? local
       : (initialCatalog ??
@@ -553,6 +555,10 @@ export class ExplorePage implements OnInit {
     if (local) {
       this.isLoadingDetail = false;
     }
+  }
+
+  private scrollDetailToTop(): void {
+    void this.detailContent?.scrollToTop(0);
   }
 
   closeGameDetailModal(): void {

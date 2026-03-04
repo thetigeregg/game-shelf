@@ -983,6 +983,11 @@ describe('ExplorePage recommendations UX', () => {
 
   it('opens detail modal for recommendation row without IGDB detail request', async () => {
     const page = createPage();
+    const privatePage = page as unknown as {
+      detailContent?: { scrollToTop: (duration: number) => Promise<void> };
+    };
+    const scrollToTop = vi.fn().mockResolvedValue(undefined);
+    privatePage.detailContent = { scrollToTop };
     page.ngOnInit();
     await flushAsync();
 
@@ -997,6 +1002,7 @@ describe('ExplorePage recommendations UX', () => {
       platformIgdbId: 6,
       limit: 50
     });
+    expect(scrollToTop).toHaveBeenCalledWith(0);
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
   });
 

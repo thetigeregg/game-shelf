@@ -46,9 +46,7 @@ export function normalizeListPageStoredFilters(
   const hltbMainHoursMax = normalizeNonNegativeNumber(parsed['hltbMainHoursMax']);
 
   return {
-    sortField: isValidSortField(parsed['sortField'])
-      ? parsed['sortField']
-      : DEFAULT_GAME_LIST_FILTERS.sortField,
+    sortField: normalizeSortField(parsed['sortField']),
     sortDirection: parsed['sortDirection'] === 'desc' ? 'desc' : 'asc',
     platform: normalizeStringList(parsed['platform']),
     collections: normalizeStringList(parsed['collections']),
@@ -59,6 +57,15 @@ export function normalizeListPageStoredFilters(
     genres: normalizeStringList(parsed['genres']),
     statuses: normalizeGameStatusFilterList(parsed['statuses']),
     tags: normalizeTagFilterList(parsed['tags'], noneTagFilterValue),
+    excludedPlatform: normalizeStringList(parsed['excludedPlatform']),
+    excludedGenres: normalizeStringList(parsed['excludedGenres']),
+    excludedStatuses: normalizeGameStatusFilterList(parsed['excludedStatuses']).filter(
+      (status) => status !== 'none'
+    ),
+    excludedTags: normalizeStringList(parsed['excludedTags']).filter(
+      (tag) => tag !== noneTagFilterValue
+    ),
+    excludedGameTypes: normalizeGameTypeList(parsed['excludedGameTypes']),
     ratings: normalizeGameRatingFilterList(parsed['ratings']),
     hltbMainHoursMin:
       hltbMainHoursMin !== null && hltbMainHoursMax !== null && hltbMainHoursMin > hltbMainHoursMax
@@ -114,8 +121,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isValidSortField(value: unknown): value is GameListFilters['sortField'] {
   return (
-    value === 'title' || value === 'releaseDate' || value === 'createdAt' || value === 'platform'
+    value === 'title' ||
+    value === 'releaseDate' ||
+    value === 'createdAt' ||
+    value === 'hltb' ||
+    value === 'tas' ||
+    value === 'review' ||
+    value === 'metacritic' ||
+    value === 'platform'
   );
+}
+
+function normalizeSortField(value: unknown): GameListFilters['sortField'] {
+  if (!isValidSortField(value)) {
+    return DEFAULT_GAME_LIST_FILTERS.sortField;
+  }
+
+  return value === 'metacritic' ? 'review' : value;
 }
 
 function normalizeDateOnly(value: unknown): string | null {

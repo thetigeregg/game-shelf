@@ -86,29 +86,20 @@
           }
 
           @if (showLibrarySections) {
-            <ion-item>
+            <ion-item button detail="false" (click)="editRating.emit()">
               <ion-icon slot="start" name="star" aria-hidden="true"></ion-icon>
-              <ion-select
-                label="Rating"
-                labelPlacement="stacked"
-                placeholder="Select rating"
-                [value]="ratingValue"
-                (ionChange)="emitRatingChange($any($event).detail.value)"
-              >
-                @for (rating of ratingOptions; track rating) {
-                  <ion-select-option [value]="rating">
-                    {{ rating }}
-                  </ion-select-option>
-                }
-              </ion-select>
+              <ion-label>
+                <h2>Rating</h2>
+                <p>{{ ratingLabel }}</p>
+              </ion-label>
               <ion-button
                 slot="end"
                 class="detail-clear-button"
                 color="medium"
-                aria-label="Clear rating"
-                (click)="clearRating.emit()"
+                aria-label="Set rating"
+                (click)="$event.stopPropagation(); editRating.emit()"
               >
-                CLEAR
+                {{ ratingActionLabel }}
               </ion-button>
             </ion-item>
           }
@@ -277,6 +268,15 @@
               <ion-label>
                 <h2>HLTB Completionist</h2>
                 <p>{{ hltbCompletionistLabel }}</p>
+              </ion-label>
+            </ion-item>
+          }
+
+          @if (showLibrarySections) {
+            <ion-item>
+              <ion-label>
+                <h2>{{ reviewScoreHeadingLabel }}</h2>
+                <p>{{ reviewScoreLabel }}</p>
               </ion-label>
             </ion-item>
           }

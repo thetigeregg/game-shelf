@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import domPurify from 'dompurify';
+import { normalizeNotesValueOrNull } from '../utils/notes-normalization.utils';
 
 @Injectable({ providedIn: 'root' })
 export class HtmlSanitizerService {
@@ -28,7 +29,6 @@ export class HtmlSanitizerService {
 
     const normalized = value.replace(/\r\n?/g, '\n');
     const safeHtml = this.sanitizeHtml(normalized);
-    const plainText = this.sanitizeToPlainText(safeHtml).trim();
-    return plainText.length > 0 ? safeHtml : null;
+    return normalizeNotesValueOrNull(safeHtml);
   }
 }

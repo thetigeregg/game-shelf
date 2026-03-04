@@ -1,4 +1,10 @@
-import { GameEntry, GameRating, GameStatus, Tag } from '../../core/models/game.models';
+import {
+  GameEntry,
+  GameRating,
+  GameStatus,
+  Tag,
+  isGameRating
+} from '../../core/models/game.models';
 
 export function hasHltbData(game: GameEntry): boolean {
   return (
@@ -6,6 +12,10 @@ export function hasHltbData(game: GameEntry): boolean {
     isPositiveNumber(game.hltbMainExtraHours) ||
     isPositiveNumber(game.hltbCompletionistHours)
   );
+}
+
+export function hasReviewData(game: GameEntry): boolean {
+  return isPositiveScore(game.reviewScore ?? game.metacriticScore);
 }
 
 export function normalizeGameStatus(value: string | null | undefined): GameStatus | null {
@@ -24,9 +34,9 @@ export function normalizeGameStatus(value: string | null | undefined): GameStatu
 }
 
 export function normalizeGameRating(value: number | string | null | undefined): GameRating | null {
-  const numeric = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+  const numeric = typeof value === 'number' ? value : Number.parseFloat(value ?? '');
 
-  if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
+  if (isGameRating(numeric)) {
     return numeric;
   }
 
@@ -75,4 +85,8 @@ export function normalizeTagIds(tagIds: number[] | undefined): number[] {
 
 function isPositiveNumber(value: number | null | undefined): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isPositiveScore(value: number | null | undefined): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 100;
 }

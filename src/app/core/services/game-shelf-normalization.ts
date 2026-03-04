@@ -1,4 +1,4 @@
-import type { GameCatalogResult, GameRating } from '../models/game.models';
+import { GAME_RATING_VALUES, type GameCatalogResult, type GameRating } from '../models/game.models';
 
 export function normalizeTagIds(tagIds: number[] | undefined): number[] {
   if (!Array.isArray(tagIds)) {
@@ -64,7 +64,7 @@ export function hasCompletionTimes(result: GameCatalogResult): boolean {
 }
 
 export function normalizeRating(value: GameRating | null | undefined): GameRating | null {
-  if (value === 1 || value === 2 || value === 3 || value === 4 || value === 5) {
+  if (value !== null && value !== undefined && GAME_RATING_VALUES.includes(value)) {
     return value;
   }
 

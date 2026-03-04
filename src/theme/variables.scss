@@ -2,6 +2,27 @@
 // https://ionicframework.com/docs/theming/
 
 :root {
+  --ion-color-mc-good: #5dcb82;
+  --ion-color-mc-good-rgb: 93, 203, 130;
+  --ion-color-mc-good-contrast: #000000;
+  --ion-color-mc-good-contrast-rgb: 0, 0, 0;
+  --ion-color-mc-good-shade: #52b372;
+  --ion-color-mc-good-tint: #6dd08f;
+
+  --ion-color-mc-okay: #f5c059;
+  --ion-color-mc-okay-rgb: 245, 192, 89;
+  --ion-color-mc-okay-contrast: #000000;
+  --ion-color-mc-okay-contrast-rgb: 0, 0, 0;
+  --ion-color-mc-okay-shade: #d8a94e;
+  --ion-color-mc-okay-tint: #f6c66a;
+
+  --ion-color-mc-bad: #ed7277;
+  --ion-color-mc-bad-rgb: 237, 114, 119;
+  --ion-color-mc-bad-contrast: #000000;
+  --ion-color-mc-bad-contrast-rgb: 0, 0, 0;
+  --ion-color-mc-bad-shade: #d16469;
+  --ion-color-mc-bad-tint: #ef8085;
+
   --ion-color-ocean: #1976d2;
   --ion-color-ocean-rgb: 25, 118, 210;
   --ion-color-ocean-contrast: #ffffff;
@@ -57,6 +78,39 @@
   --ion-color-white-contrast-rgb: 17, 17, 17;
   --ion-color-forest-contrast: #111111;
   --ion-color-forest-contrast-rgb: 17, 17, 17;
+  --ion-color-mc-good-contrast: #111111;
+  --ion-color-mc-good-contrast-rgb: 17, 17, 17;
+  --ion-color-mc-okay-contrast: #111111;
+  --ion-color-mc-okay-contrast-rgb: 17, 17, 17;
+  --ion-color-mc-bad-contrast: #111111;
+  --ion-color-mc-bad-contrast-rgb: 17, 17, 17;
+}
+
+.ion-color-mc-good {
+  --ion-color-base: var(--ion-color-mc-good);
+  --ion-color-base-rgb: var(--ion-color-mc-good-rgb);
+  --ion-color-contrast: var(--ion-color-mc-good-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-mc-good-contrast-rgb);
+  --ion-color-shade: var(--ion-color-mc-good-shade);
+  --ion-color-tint: var(--ion-color-mc-good-tint);
+}
+
+.ion-color-mc-okay {
+  --ion-color-base: var(--ion-color-mc-okay);
+  --ion-color-base-rgb: var(--ion-color-mc-okay-rgb);
+  --ion-color-contrast: var(--ion-color-mc-okay-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-mc-okay-contrast-rgb);
+  --ion-color-shade: var(--ion-color-mc-okay-shade);
+  --ion-color-tint: var(--ion-color-mc-okay-tint);
+}
+
+.ion-color-mc-bad {
+  --ion-color-base: var(--ion-color-mc-bad);
+  --ion-color-base-rgb: var(--ion-color-mc-bad-rgb);
+  --ion-color-contrast: var(--ion-color-mc-bad-contrast);
+  --ion-color-contrast-rgb: var(--ion-color-mc-bad-contrast-rgb);
+  --ion-color-shade: var(--ion-color-mc-bad-shade);
+  --ion-color-tint: var(--ion-color-mc-bad-tint);
 }
 
 .ion-color-ocean {

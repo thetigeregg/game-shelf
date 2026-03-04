@@ -1,4 +1,30 @@
 export interface CacheMetricSnapshot {
+  mobygames: {
+    hits: number;
+    misses: number;
+    bypasses: number;
+    writes: number;
+    readErrors: number;
+    writeErrors: number;
+    staleServed: number;
+    revalidateScheduled: number;
+    revalidateSkipped: number;
+    revalidateSucceeded: number;
+    revalidateFailed: number;
+  };
+  metacritic: {
+    hits: number;
+    misses: number;
+    bypasses: number;
+    writes: number;
+    readErrors: number;
+    writeErrors: number;
+    staleServed: number;
+    revalidateScheduled: number;
+    revalidateSkipped: number;
+    revalidateSucceeded: number;
+    revalidateFailed: number;
+  };
   hltb: {
     hits: number;
     misses: number;
@@ -24,6 +50,32 @@ export interface CacheMetricSnapshot {
 }
 
 const metrics: CacheMetricSnapshot = {
+  mobygames: {
+    hits: 0,
+    misses: 0,
+    bypasses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0
+  },
+  metacritic: {
+    hits: 0,
+    misses: 0,
+    bypasses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0
+  },
   hltb: {
     hits: 0,
     misses: 0,
@@ -52,18 +104,54 @@ export function incrementHltbMetric(metric: keyof CacheMetricSnapshot['hltb']): 
   metrics.hltb[metric] += 1;
 }
 
+export function incrementMobygamesMetric(metric: keyof CacheMetricSnapshot['mobygames']): void {
+  metrics.mobygames[metric] += 1;
+}
+
+export function incrementMetacriticMetric(metric: keyof CacheMetricSnapshot['metacritic']): void {
+  metrics.metacritic[metric] += 1;
+}
+
 export function incrementImageMetric(metric: keyof CacheMetricSnapshot['image']): void {
   metrics.image[metric] += 1;
 }
 
 export function getCacheMetrics(): CacheMetricSnapshot {
   return {
+    mobygames: { ...metrics.mobygames },
+    metacritic: { ...metrics.metacritic },
     hltb: { ...metrics.hltb },
     image: { ...metrics.image }
   };
 }
 
 export function resetCacheMetrics(): void {
+  metrics.mobygames = {
+    hits: 0,
+    misses: 0,
+    bypasses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0
+  };
+  metrics.metacritic = {
+    hits: 0,
+    misses: 0,
+    bypasses: 0,
+    writes: 0,
+    readErrors: 0,
+    writeErrors: 0,
+    staleServed: 0,
+    revalidateScheduled: 0,
+    revalidateSkipped: 0,
+    revalidateSucceeded: 0,
+    revalidateFailed: 0
+  };
   metrics.hltb = {
     hits: 0,
     misses: 0,

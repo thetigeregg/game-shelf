@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
+import { parseRecommendationRuntimeMode } from './recommendations/runtime.js';
 
 const envFile = readEnvFilePath();
 loadDotenv({ path: envFile });
@@ -28,6 +29,9 @@ function readSecretFile(name: string, fallbackSecretName: string): string {
 function readRequiredSecretFile(name: string, fallbackSecretName: string): string {
   const value = readSecretFile(name, fallbackSecretName);
   if (!value) {
+    if (readEnv('NODE_ENV') === 'test') {
+      return `test_${name.toLowerCase()}`;
+    }
     throw new Error(`Missing required secret file for ${name} (${name}_FILE)`);
   }
   return value;
@@ -37,6 +41,12 @@ function readIntegerEnv(name: string, fallback: number): number {
   const raw = readEnv(name);
   const parsed = Number.parseInt(raw, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readNumberEnv(name: string, fallback: number): number {
+  const raw = readEnv(name);
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function readBooleanEnv(name: string, fallback: boolean): boolean {
@@ -65,6 +75,8 @@ export interface AppConfig {
   host: string;
   port: number;
   requestBodyLimitBytes: number;
+  globalRateLimitMaxRequests: number;
+  globalRateLimitWindowMs: number;
   corsAllowedOrigins: string[];
   postgresUrl: string;
   apiToken: string;
@@ -87,6 +99,19 @@ export interface AppConfig {
   hltbCacheEnableStaleWhileRevalidate: boolean;
   hltbCacheFreshTtlSeconds: number;
   hltbCacheStaleTtlSeconds: number;
+  metacriticScraperBaseUrl: string;
+  metacriticScraperToken: string;
+  metacriticCacheEnableStaleWhileRevalidate: boolean;
+  metacriticCacheFreshTtlSeconds: number;
+  metacriticCacheStaleTtlSeconds: number;
+  hltbSearchRateLimitMaxPerMinute: number;
+  metacriticSearchRateLimitMaxPerMinute: number;
+  mobygamesApiBaseUrl: string;
+  mobygamesApiKey: string;
+  mobygamesCacheEnableStaleWhileRevalidate: boolean;
+  mobygamesCacheFreshTtlSeconds: number;
+  mobygamesCacheStaleTtlSeconds: number;
+  mobygamesSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
   firebaseServiceAccountJson: string;
@@ -96,6 +121,57 @@ export interface AppConfig {
   releaseMonitorDebugLogs: boolean;
   hltbPeriodicRefreshYears: number;
   hltbPeriodicRefreshDays: number;
+  syncPushRateLimitMaxPerMinute: number;
+  syncPullRateLimitMaxPerMinute: number;
+  openaiApiKey: string;
+  recommendationsSchedulerEnabled: boolean;
+  recommendationsDailyStaleHours: number;
+  recommendationsTopLimit: number;
+  recommendationsSimilarityK: number;
+  recommendationsEmbeddingModel: string;
+  recommendationsEmbeddingDimensions: number;
+  recommendationsEmbeddingBatchSize: number;
+  recommendationsEmbeddingTimeoutMs: number;
+  recommendationsSemanticWeight: number;
+  recommendationsSimilarityStructuredWeight: number;
+  recommendationsSimilaritySemanticWeight: number;
+  recommendationsFailureBackoffMinutes: number;
+  recommendationsRuntimeModeDefault: 'NEUTRAL' | 'SHORT' | 'LONG';
+  recommendationsExplorationWeight: number;
+  recommendationsDiversityPenaltyWeight: number;
+  recommendationsRepeatPenaltyStep: number;
+  recommendationsTuningMinRated: number;
+  recommendationsLaneLimit: number;
+  recommendationsKeywordsStructuredMax: number;
+  recommendationsKeywordsEmbeddingMax: number;
+  recommendationsKeywordsGlobalMaxRatio: number;
+  recommendationsKeywordsStructuredMaxRatio: number;
+  recommendationsKeywordsMinLibraryCount: number;
+  recommendationsKeywordsWeight: number;
+  recommendationsThemesWeight: number;
+  recommendationsSimilarityThemeWeight: number;
+  recommendationsSimilarityGenreWeight: number;
+  recommendationsSimilaritySeriesWeight: number;
+  recommendationsSimilarityDeveloperWeight: number;
+  recommendationsSimilarityPublisherWeight: number;
+  recommendationsSimilarityKeywordWeight: number;
+  recommendationsDiscoveryEnabled: boolean;
+  recommendationsDiscoveryPoolSize: number;
+  recommendationsDiscoveryRefreshHours: number;
+  recommendationsDiscoveryPopularRefreshHours: number;
+  recommendationsDiscoveryRecentRefreshHours: number;
+  recommendationsDiscoveryIgdbRequestTimeoutMs: number;
+  recommendationsDiscoveryIgdbMaxRequestsPerSecond: number;
+  recommendationsDiscoveryEnrichEnabled: boolean;
+  recommendationsDiscoveryEnrichStartupDelayMs: number;
+  recommendationsDiscoveryEnrichIntervalMinutes: number;
+  recommendationsDiscoveryEnrichMaxGamesPerRun: number;
+  recommendationsDiscoveryEnrichRequestTimeoutMs: number;
+  igdbMetadataEnrichEnabled: boolean;
+  igdbMetadataEnrichBatchSize: number;
+  igdbMetadataEnrichMaxGamesPerRun: number;
+  igdbMetadataEnrichStartupDelayMs: number;
+  igdbMetadataEnrichRequestTimeoutMs: number;
 }
 
 function readTokenList(name: string, fallbackSecretName: string): string[] {
@@ -138,10 +214,32 @@ function readListEnv(name: string, fallback: string[]): string[] {
     .filter((item) => item.length > 0);
 }
 
+function readRuntimeModeDefaultEnv(
+  name: string,
+  fallback: 'NEUTRAL' | 'SHORT' | 'LONG'
+): 'NEUTRAL' | 'SHORT' | 'LONG' {
+  const parsed = parseRecommendationRuntimeMode(readEnv(name));
+  return parsed ?? fallback;
+}
+
+const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
+
+function readEmbeddingDimensionsEnv(name: string): number {
+  const value = readIntegerEnv(name, EMBEDDING_DIMENSIONS_SCHEMA);
+  if (value !== EMBEDDING_DIMENSIONS_SCHEMA) {
+    throw new Error(
+      `${name} must be ${String(EMBEDDING_DIMENSIONS_SCHEMA)} to match game_embeddings schema`
+    );
+  }
+  return value;
+}
+
 export const config: AppConfig = {
   host: readEnv('HOST', '0.0.0.0'),
   port: readIntegerEnv('PORT', 3000),
   requestBodyLimitBytes: readIntegerEnv('REQUEST_BODY_LIMIT_BYTES', 10 * 1024 * 1024),
+  globalRateLimitMaxRequests: readIntegerEnv('GLOBAL_RATE_LIMIT_MAX_REQUESTS', 2000),
+  globalRateLimitWindowMs: readIntegerEnv('GLOBAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
   corsAllowedOrigins: readListEnv('CORS_ORIGIN', [
     'http://localhost:8080',
     'http://127.0.0.1:8080',
@@ -172,6 +270,31 @@ export const config: AppConfig = {
   ),
   hltbCacheFreshTtlSeconds: readIntegerEnv('HLTB_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
   hltbCacheStaleTtlSeconds: readIntegerEnv('HLTB_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  hltbSearchRateLimitMaxPerMinute: readIntegerEnv('HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE', 240),
+  metacriticScraperBaseUrl: readEnv('METACRITIC_SCRAPER_BASE_URL', ''),
+  metacriticScraperToken: readSecretFile('METACRITIC_SCRAPER_TOKEN', 'metacritic_scraper_token'),
+  metacriticCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  metacriticCacheFreshTtlSeconds: readIntegerEnv('METACRITIC_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
+  metacriticCacheStaleTtlSeconds: readIntegerEnv('METACRITIC_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  metacriticSearchRateLimitMaxPerMinute: readIntegerEnv(
+    'METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
+    240
+  ),
+  mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
+  mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
+  mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  mobygamesCacheFreshTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_FRESH_TTL_SECONDS', 86400 * 7),
+  mobygamesCacheStaleTtlSeconds: readIntegerEnv('MOBYGAMES_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  mobygamesSearchRateLimitMaxPerMinute: readIntegerEnv(
+    'MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE',
+    12
+  ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
   firebaseServiceAccountJson: readSecretFile(
     'FIREBASE_SERVICE_ACCOUNT_JSON',
@@ -183,5 +306,139 @@ export const config: AppConfig = {
   releaseMonitorDebugLogs: readBooleanEnv('RELEASE_MONITOR_DEBUG_LOGS', false),
   hltbPeriodicRefreshYears: readIntegerEnv('HLTB_PERIODIC_REFRESH_YEARS', 3),
   hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
-  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals')
+  manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
+  syncPushRateLimitMaxPerMinute: readIntegerEnv('SYNC_PUSH_RATE_LIMIT_MAX_PER_MINUTE', 120),
+  syncPullRateLimitMaxPerMinute: readIntegerEnv('SYNC_PULL_RATE_LIMIT_MAX_PER_MINUTE', 120),
+  openaiApiKey: readSecretFile('OPENAI_API_KEY', 'openai_api_key'),
+  recommendationsSchedulerEnabled: readBooleanEnv('RECOMMENDATIONS_SCHEDULER_ENABLED', true),
+  recommendationsDailyStaleHours: readIntegerEnv('RECOMMENDATIONS_DAILY_STALE_HOURS', 24),
+  recommendationsTopLimit: readIntegerEnv('RECOMMENDATIONS_TOP_LIMIT', 200),
+  recommendationsSimilarityK: readIntegerEnv('RECOMMENDATIONS_SIMILARITY_K', 20),
+  recommendationsEmbeddingModel: readEnv(
+    'RECOMMENDATIONS_EMBEDDING_MODEL',
+    'text-embedding-3-small'
+  ),
+  recommendationsEmbeddingDimensions: readEmbeddingDimensionsEnv(
+    'RECOMMENDATIONS_EMBEDDING_DIMENSIONS'
+  ),
+  recommendationsEmbeddingBatchSize: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_BATCH_SIZE', 32),
+  recommendationsEmbeddingTimeoutMs: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_TIMEOUT_MS', 15000),
+  recommendationsSemanticWeight: readNumberEnv('RECOMMENDATIONS_SEMANTIC_WEIGHT', 2),
+  recommendationsSimilarityStructuredWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_STRUCTURED_WEIGHT',
+    0.6
+  ),
+  recommendationsSimilaritySemanticWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_SEMANTIC_WEIGHT',
+    0.4
+  ),
+  recommendationsFailureBackoffMinutes: readIntegerEnv(
+    'RECOMMENDATIONS_FAILURE_BACKOFF_MINUTES',
+    120
+  ),
+  recommendationsRuntimeModeDefault: readRuntimeModeDefaultEnv(
+    'RECOMMENDATIONS_RUNTIME_MODE_DEFAULT',
+    'NEUTRAL'
+  ),
+  recommendationsExplorationWeight: readNumberEnv('RECOMMENDATIONS_EXPLORATION_WEIGHT', 0.3),
+  recommendationsDiversityPenaltyWeight: readNumberEnv(
+    'RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT',
+    0.5
+  ),
+  recommendationsRepeatPenaltyStep: readNumberEnv('RECOMMENDATIONS_REPEAT_PENALTY_STEP', 0.2),
+  recommendationsTuningMinRated: readIntegerEnv('RECOMMENDATIONS_TUNING_MIN_RATED', 8),
+  recommendationsLaneLimit: readIntegerEnv('RECOMMENDATIONS_LANE_LIMIT', 20),
+  recommendationsKeywordsStructuredMax: readIntegerEnv(
+    'RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX',
+    100
+  ),
+  recommendationsKeywordsEmbeddingMax: readIntegerEnv('RECOMMENDATIONS_KEYWORDS_EMBEDDING_MAX', 40),
+  recommendationsKeywordsGlobalMaxRatio: readNumberEnv(
+    'RECOMMENDATIONS_KEYWORDS_GLOBAL_MAX_RATIO',
+    0.7
+  ),
+  recommendationsKeywordsStructuredMaxRatio: readNumberEnv(
+    'RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX_RATIO',
+    0.3
+  ),
+  recommendationsKeywordsMinLibraryCount: readIntegerEnv(
+    'RECOMMENDATIONS_KEYWORDS_MIN_LIBRARY_COUNT',
+    3
+  ),
+  recommendationsKeywordsWeight: readNumberEnv('RECOMMENDATIONS_KEYWORDS_WEIGHT', 0.6),
+  recommendationsThemesWeight: readNumberEnv('RECOMMENDATIONS_THEMES_WEIGHT', 1.3),
+  recommendationsSimilarityThemeWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT',
+    0.35
+  ),
+  recommendationsSimilarityGenreWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_GENRE_WEIGHT',
+    0.25
+  ),
+  recommendationsSimilaritySeriesWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_SERIES_WEIGHT',
+    0.2
+  ),
+  recommendationsSimilarityDeveloperWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_DEVELOPER_WEIGHT',
+    0.1
+  ),
+  recommendationsSimilarityPublisherWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_PUBLISHER_WEIGHT',
+    0.1
+  ),
+  recommendationsSimilarityKeywordWeight: readNumberEnv(
+    'RECOMMENDATIONS_SIMILARITY_KEYWORD_WEIGHT',
+    0.05
+  ),
+  recommendationsDiscoveryEnabled: readBooleanEnv('RECOMMENDATIONS_DISCOVERY_ENABLED', true),
+  recommendationsDiscoveryPoolSize: readIntegerEnv('RECOMMENDATIONS_DISCOVERY_POOL_SIZE', 2000),
+  recommendationsDiscoveryRefreshHours: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS',
+    24
+  ),
+  recommendationsDiscoveryPopularRefreshHours: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_POPULAR_REFRESH_HOURS',
+    readIntegerEnv('RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS', 24)
+  ),
+  recommendationsDiscoveryRecentRefreshHours: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_RECENT_REFRESH_HOURS',
+    Math.min(6, readIntegerEnv('RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS', 24))
+  ),
+  recommendationsDiscoveryIgdbRequestTimeoutMs: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS',
+    15_000
+  ),
+  recommendationsDiscoveryIgdbMaxRequestsPerSecond: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND',
+    4
+  ),
+  recommendationsDiscoveryEnrichEnabled: readBooleanEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_ENABLED',
+    true
+  ),
+  recommendationsDiscoveryEnrichStartupDelayMs: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_STARTUP_DELAY_MS',
+    5000
+  ),
+  recommendationsDiscoveryEnrichIntervalMinutes: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_INTERVAL_MINUTES',
+    30
+  ),
+  recommendationsDiscoveryEnrichMaxGamesPerRun: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_MAX_GAMES_PER_RUN',
+    500
+  ),
+  recommendationsDiscoveryEnrichRequestTimeoutMs: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_REQUEST_TIMEOUT_MS',
+    15_000
+  ),
+  igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
+  igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),
+  igdbMetadataEnrichMaxGamesPerRun: readIntegerEnv('IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN', 5000),
+  igdbMetadataEnrichStartupDelayMs: readIntegerEnv('IGDB_METADATA_ENRICH_STARTUP_DELAY_MS', 5000),
+  igdbMetadataEnrichRequestTimeoutMs: readIntegerEnv(
+    'IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS',
+    15_000
+  )
 };

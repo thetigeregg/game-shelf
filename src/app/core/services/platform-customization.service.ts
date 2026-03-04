@@ -14,7 +14,6 @@ export class PlatformCustomizationService {
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
-    'e-reader': 'Game Boy Advance',
     'e-reader / card-e reader': 'Game Boy Advance'
   };
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {

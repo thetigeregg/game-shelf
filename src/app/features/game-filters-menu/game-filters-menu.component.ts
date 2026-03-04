@@ -25,6 +25,7 @@ import {
 } from '@ionic/angular/standalone';
 import {
   DEFAULT_GAME_LIST_FILTERS,
+  GAME_RATING_VALUES,
   GameGroupByField,
   GameListFilters,
   GameRatingFilterOption,
@@ -45,6 +46,14 @@ type SortOption =
   | 'releaseDate:desc'
   | 'createdAt:asc'
   | 'createdAt:desc'
+  | 'hltb:asc'
+  | 'hltb:desc'
+  | 'tas:asc'
+  | 'tas:desc'
+  | 'review:asc'
+  | 'review:desc'
+  | 'metacritic:asc'
+  | 'metacritic:desc'
   | 'platform:asc'
   | 'platform:desc';
 
@@ -90,7 +99,10 @@ export class GameFiltersMenuComponent implements OnChanges {
     'dropped',
     'replay'
   ];
-  readonly ratingOptions: GameRatingFilterOption[] = ['none', 1, 2, 3, 4, 5];
+  readonly excludedStatusOptions: GameStatusFilterOption[] = this.statusOptions.filter(
+    (status) => status !== 'none'
+  );
+  readonly ratingOptions: GameRatingFilterOption[] = ['none', ...GAME_RATING_VALUES];
   readonly groupByOptions: { value: GameGroupByField; label: string }[] = [
     { value: 'none', label: 'None' },
     { value: 'platform', label: 'Platform' },
@@ -126,7 +138,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       ...this.filters
     };
     this.sortOption =
-      `${this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
+      `${this.draftFilters.sortField === 'metacritic' ? 'review' : this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
   }
 
   updateFilters(): void {
@@ -144,10 +156,11 @@ export class GameFiltersMenuComponent implements OnChanges {
       return;
     }
 
-    const [sortField, sortDirection] = value.split(':') as [
+    const [rawSortField, sortDirection] = value.split(':') as [
       GameListFilters['sortField'],
       GameListFilters['sortDirection']
     ];
+    const sortField = rawSortField === 'metacritic' ? 'review' : rawSortField;
     this.sortOption = value;
     this.draftFilters = {
       ...this.draftFilters,
@@ -204,6 +217,53 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       tags: this.normalizeTagSelection(normalized)
+    };
+    this.updateFilters();
+  }
+
+  onExcludedPlatformSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedPlatform: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedGenreSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedGenres: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedGameTypeSelectionChange(value: GameType[] | GameType | null | undefined): void {
+    const normalized = this.normalizeGameTypeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedGameTypes: normalized
+    };
+    this.updateFilters();
+  }
+
+  onExcludedTagSelectionChange(value: string[] | string | null | undefined): void {
+    const normalized = this.normalizeSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedTags: this.normalizeTagSelection(normalized)
+    };
+    this.updateFilters();
+  }
+
+  onExcludedStatusSelectionChange(
+    value: GameStatusFilterOption[] | GameStatusFilterOption | null | undefined
+  ): void {
+    const normalized = this.normalizeStatusSelection(value);
+    this.draftFilters = {
+      ...this.draftFilters,
+      excludedStatuses: normalized
     };
     this.updateFilters();
   }
@@ -309,7 +369,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       return 'None';
     }
 
-    return String(rating);
+    return rating.toFixed(1).replace(/\.0$/, '');
   }
 
   getGameTypeLabel(gameType: GameType): string {
@@ -416,6 +476,14 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'releaseDate:desc' ||
       value === 'createdAt:asc' ||
       value === 'createdAt:desc' ||
+      value === 'hltb:asc' ||
+      value === 'hltb:desc' ||
+      value === 'tas:asc' ||
+      value === 'tas:desc' ||
+      value === 'review:asc' ||
+      value === 'review:desc' ||
+      value === 'metacritic:asc' ||
+      value === 'metacritic:desc' ||
       value === 'platform:asc' ||
       value === 'platform:desc'
     );

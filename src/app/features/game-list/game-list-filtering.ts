@@ -7,7 +7,8 @@ import {
   GameRatingFilterOption,
   GameStatus,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  isGameRating
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -17,6 +18,10 @@ import {
   normalizeTagFilterList
 } from '../../core/utils/game-filter-utils';
 import { PLATFORM_CATALOG } from '../../core/data/platform-catalog';
+import {
+  resolveNormalizedCriticScoreForGame,
+  resolveTimeAdjustedScoreForGame
+} from '../../core/utils/time-adjusted-score.util';
 
 export interface GameGroupSection {
   key: string;
@@ -56,7 +61,6 @@ export class GameListFilteringEngine {
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
-    'e-reader': 'Game Boy Advance',
     'e-reader / card-e reader': 'Game Boy Advance'
   };
   private readonly normalizedFilterGameByKey = new Map<string, NormalizedFilterGame>();
@@ -64,6 +68,7 @@ export class GameListFilteringEngine {
     sourceGames: GameEntry[];
     sortField: GameListFilters['sortField'];
     sortDirection: GameListFilters['sortDirection'];
+    timePreference: number;
     sortedGames: GameEntry[];
   } | null = null;
   private readonly platformOrderByKey = new Map<string, number>();
@@ -208,6 +213,21 @@ export class GameListFilteringEngine {
     const normalizedGameTypes = normalizeGameTypeList(filters.gameTypes);
     const normalizedStatuses = normalizeGameStatusFilterList(filters.statuses);
     const normalizedTags = normalizeTagFilterList(filters.tags, this.noneTagFilterValue);
+    const normalizedExcludedPlatforms = [
+      ...new Set(
+        normalizeStringList(filters.excludedPlatform)
+          .map((platform) => this.getCanonicalPlatformLabel(platform))
+          .filter((platform) => platform.length > 0)
+      )
+    ];
+    const normalizedExcludedGenres = normalizeStringList(filters.excludedGenres);
+    const normalizedExcludedStatuses = normalizeGameStatusFilterList(
+      filters.excludedStatuses
+    ).filter((status) => status !== 'none');
+    const normalizedExcludedTags = normalizeStringList(filters.excludedTags).filter(
+      (tag) => tag !== this.noneTagFilterValue
+    );
+    const normalizedExcludedGameTypes = normalizeGameTypeList(filters.excludedGameTypes);
     const normalizedRatings = normalizeGameRatingFilterList(filters.ratings);
     const hltbMainHoursMin = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const hltbMainHoursMax = this.normalizeFilterHours(filters.hltbMainHoursMax);
@@ -224,6 +244,11 @@ export class GameListFilteringEngine {
       genres: normalizedGenres,
       statuses: normalizedStatuses,
       tags: normalizedTags,
+      excludedPlatform: normalizedExcludedPlatforms,
+      excludedGenres: normalizedExcludedGenres,
+      excludedStatuses: normalizedExcludedStatuses,
+      excludedTags: normalizedExcludedTags,
+      excludedGameTypes: normalizedExcludedGameTypes,
       ratings: normalizedRatings,
       hltbMainHoursMin:
         hltbMainHoursMin !== null &&
@@ -304,13 +329,19 @@ export class GameListFilteringEngine {
   applyFiltersAndSort(
     games: GameEntry[],
     filters: GameListFilters,
-    searchQuery: string
+    searchQuery: string,
+    timePreference = 15
   ): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
-    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+    const normalizedSearchQuery = this.normalizeForSearch(searchQuery);
     const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
-    const sortedGames = this.getSortedGames(games, filters.sortField, filters.sortDirection);
+    const sortedGames = this.getSortedGames(
+      games,
+      filters.sortField,
+      filters.sortDirection,
+      timePreference
+    );
 
     if (
       normalizedSearchQuery.length === 0 &&
@@ -656,14 +687,47 @@ export class GameListFilteringEngine {
     }
 
     if (filters.tags.length > 0) {
-      const matchesNoneTagFilter = filters.tags.includes(this.noneTagFilterValue);
-      const selectedTagNames = filters.tags.filter((tag) => tag !== this.noneTagFilterValue);
-      const matchesSelectedTag = selectedTagNames.some((selectedTag) =>
-        normalized.tagNames.has(selectedTag)
-      );
-      const matchesNoTags = matchesNoneTagFilter && normalized.tagNames.size === 0;
+      if (!this.matchesTagFilter(normalized.tagNames, filters.tags)) {
+        return false;
+      }
+    }
 
-      if (!matchesSelectedTag && !matchesNoTags) {
+    if (
+      filters.excludedPlatform.length > 0 &&
+      filters.excludedPlatform.includes(normalized.platform)
+    ) {
+      return false;
+    }
+
+    if (
+      filters.excludedGenres.length > 0 &&
+      filters.excludedGenres.some((excludedGenre) => normalized.genres.has(excludedGenre))
+    ) {
+      return false;
+    }
+
+    if (filters.excludedStatuses.length > 0) {
+      const gameStatus = normalized.status;
+      const matchesStatus =
+        gameStatus !== null &&
+        filters.excludedStatuses.includes(gameStatus as GameStatusFilterOption);
+
+      if (matchesStatus) {
+        return false;
+      }
+    }
+
+    if (
+      filters.excludedTags.length > 0 &&
+      this.matchesTagFilter(normalized.tagNames, filters.excludedTags)
+    ) {
+      return false;
+    }
+
+    if (filters.excludedGameTypes.length > 0) {
+      const gameType = normalized.gameType;
+
+      if (gameType && filters.excludedGameTypes.includes(gameType)) {
         return false;
       }
     }
@@ -707,7 +771,8 @@ export class GameListFilteringEngine {
   private getSortedGames(
     games: GameEntry[],
     sortField: GameListFilters['sortField'],
-    sortDirection: GameListFilters['sortDirection']
+    sortDirection: GameListFilters['sortDirection'],
+    timePreference: number
   ): GameEntry[] {
     const existingCache = this.sortedGamesCache;
 
@@ -715,20 +780,44 @@ export class GameListFilteringEngine {
       existingCache &&
       existingCache.sourceGames === games &&
       existingCache.sortField === sortField &&
-      existingCache.sortDirection === sortDirection
+      existingCache.sortDirection === sortDirection &&
+      existingCache.timePreference === timePreference
     ) {
       return existingCache.sortedGames;
     }
 
-    const sortedAsc = [...games].sort((left, right) => this.compareGames(left, right, sortField));
-    const sortedGames = sortDirection === 'desc' ? sortedAsc.reverse() : sortedAsc;
+    const sortedGames =
+      sortField === 'metacritic' || sortField === 'review'
+        ? [...games].sort((left, right) =>
+            this.compareGamesByMetacritic(left, right, sortDirection)
+          )
+        : sortField === 'tas'
+          ? [...games].sort((left, right) =>
+              this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
+            )
+          : this.applySortDirection(
+              [...games].sort((left, right) => this.compareGames(left, right, sortField)),
+              sortDirection
+            );
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
       sortDirection,
+      timePreference,
       sortedGames
     };
     return sortedGames;
+  }
+
+  private applySortDirection(
+    sortedAsc: GameEntry[],
+    sortDirection: GameListFilters['sortDirection']
+  ): GameEntry[] {
+    if (sortDirection !== 'desc') {
+      return sortedAsc;
+    }
+
+    return [...sortedAsc].reverse();
   }
 
   private hasActiveFilterConstraints(
@@ -746,6 +835,11 @@ export class GameListFilteringEngine {
       filters.gameTypes.length > 0 ||
       filters.statuses.length > 0 ||
       filters.tags.length > 0 ||
+      filters.excludedPlatform.length > 0 ||
+      filters.excludedGenres.length > 0 ||
+      filters.excludedStatuses.length > 0 ||
+      filters.excludedTags.length > 0 ||
+      filters.excludedGameTypes.length > 0 ||
       filters.ratings.length > 0 ||
       minMainHours !== null ||
       maxMainHours !== null ||
@@ -775,7 +869,7 @@ export class GameListFilteringEngine {
 
     const normalized: NormalizedFilterGame = {
       updatedAt: gameUpdatedAt,
-      titleLower: this.getDisplayTitle(game).toLowerCase(),
+      titleLower: this.normalizeForSearch(this.getDisplayTitle(game)),
       platform: this.getCanonicalPlatformLabel(
         this.getDisplayPlatformName(game),
         this.getDisplayPlatformIgdbId(game)
@@ -795,6 +889,23 @@ export class GameListFilteringEngine {
 
     this.normalizedFilterGameByKey.set(gameKey, normalized);
     return normalized;
+  }
+
+  private normalizeForSearch(value: string | null | undefined): string {
+    return (value ?? '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private matchesTagFilter(tagNames: Set<string>, filterTags: string[]): boolean {
+    const matchesNoneTagFilter = filterTags.includes(this.noneTagFilterValue);
+    const selectedTagNames = filterTags.filter((tag) => tag !== this.noneTagFilterValue);
+    const matchesSelectedTag = selectedTagNames.some((selectedTag) => tagNames.has(selectedTag));
+    const matchesNoTags = matchesNoneTagFilter && tagNames.size === 0;
+    return matchesSelectedTag || matchesNoTags;
   }
 
   private sortGamesByTitleFallback(left: GameEntry, right: GameEntry): number {
@@ -848,6 +959,29 @@ export class GameListFilteringEngine {
 
       if (leftValid === null && rightValid !== null) {
         return 1;
+      }
+
+      return this.sortGamesByTitleFallback(left, right);
+    }
+
+    if (sortField === 'hltb') {
+      const leftHltb = this.selectSortHltbHours(left);
+      const rightHltb = this.selectSortHltbHours(right);
+
+      if (leftHltb === null && rightHltb === null) {
+        return this.sortGamesByTitleFallback(left, right);
+      }
+
+      if (leftHltb === null) {
+        return -1;
+      }
+
+      if (rightHltb === null) {
+        return 1;
+      }
+
+      if (leftHltb !== rightHltb) {
+        return leftHltb - rightHltb;
       }
 
       return this.sortGamesByTitleFallback(left, right);
@@ -922,6 +1056,73 @@ export class GameListFilteringEngine {
     return this.normalizeFilterHours(game.hltbCompletionistHours);
   }
 
+  private selectSortHltbHours(game: GameEntry): number | null {
+    const candidates = [game.hltbMainHours, game.hltbMainExtraHours, game.hltbCompletionistHours];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private compareGamesByMetacritic(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection']
+  ): number {
+    return this.compareNumericSortValues(
+      resolveNormalizedCriticScoreForGame(left),
+      resolveNormalizedCriticScoreForGame(right),
+      sortDirection,
+      left,
+      right
+    );
+  }
+
+  private compareGamesByTimeAdjustedScore(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection'],
+    timePreference: number
+  ): number {
+    return this.compareNumericSortValues(
+      resolveTimeAdjustedScoreForGame(left, timePreference),
+      resolveTimeAdjustedScoreForGame(right, timePreference),
+      sortDirection,
+      left,
+      right
+    );
+  }
+
+  private compareNumericSortValues(
+    leftValue: number | null,
+    rightValue: number | null,
+    sortDirection: GameListFilters['sortDirection'],
+    left: GameEntry,
+    right: GameEntry
+  ): number {
+    if (leftValue === null && rightValue === null) {
+      return this.sortGamesByTitleFallback(left, right);
+    }
+
+    if (leftValue === null) {
+      return 1;
+    }
+
+    if (rightValue === null) {
+      return -1;
+    }
+
+    if (leftValue !== rightValue) {
+      return sortDirection === 'desc' ? rightValue - leftValue : leftValue - rightValue;
+    }
+
+    return this.sortGamesByTitleFallback(left, right);
+  }
+
   private normalizeStatus(value: string | null | undefined): GameStatus | null {
     if (
       value === 'playing' ||
@@ -938,9 +1139,21 @@ export class GameListFilteringEngine {
   }
 
   private normalizeRating(value: number | string | null | undefined): GameRating | null {
-    const numeric = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!/^[1-5](?:\.0|\.5)?$/.test(trimmed)) {
+        return null;
+      }
+    }
 
-    if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
+    const numeric =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value.trim())
+          : Number.NaN;
+
+    if (isGameRating(numeric)) {
       return numeric;
     }
 

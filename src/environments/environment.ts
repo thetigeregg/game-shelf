@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  gameApiBaseUrl: 'http://localhost:3000',
+  gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
   firebase: {
     apiKey: '',
@@ -17,7 +17,8 @@ export const environment = {
   firebaseVapidKey: '',
   featureFlags: {
     showMgcImport: false,
-    e2eFixtures: false
+    e2eFixtures: false,
+    recommendationsExploreEnabled: true
   }
 };
 

@@ -249,6 +249,25 @@ describe('ManualService', () => {
     });
   });
 
+  it('returns search fallback when search request fails', async () => {
+    const promise = firstValueFrom(service.searchManuals(8, 'god'));
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/manuals/search` &&
+        request.params.get('platformIgdbId') === '8' &&
+        request.params.get('q') === 'god'
+      );
+    });
+    req.flush({ error: 'down' }, { status: 502, statusText: 'Bad Gateway' });
+
+    await expect(promise).resolves.toEqual({
+      items: [],
+      unavailable: true,
+      reason: 'Unable to search manuals right now.'
+    });
+  });
+
   it('reads and normalizes existing override map from localStorage', () => {
     localStorage.setItem(
       MANUAL_OVERRIDES_STORAGE_KEY,

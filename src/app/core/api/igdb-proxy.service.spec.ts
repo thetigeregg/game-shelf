@@ -28,6 +28,33 @@ describe('IgdbProxyService', () => {
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/games/search`);
   });
 
+  it('accepts legacy externalId values in search payloads', async () => {
+    const promise = firstValueFrom(service.searchGames('sonic'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=sonic`);
+
+    req.flush({
+      items: [
+        {
+          externalId: '6231',
+          title: 'Sonic the Hedgehog',
+          coverUrl: '',
+          coverSource: 'igdb',
+          platforms: ['PlayStation 3', 'Xbox 360'],
+          platform: null,
+          releaseDate: '2006-11-14T00:00:00.000Z',
+          releaseYear: 2006
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        igdbGameId: '6231',
+        title: 'Sonic the Hedgehog'
+      })
+    ]);
+  });
+
   it('maps API response and sends q query param', async () => {
     const promise = firstValueFrom(service.searchGames('mario'));
 
@@ -64,6 +91,8 @@ describe('IgdbProxyService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        metacriticScore: null,
+        metacriticUrl: null,
         similarGameIgdbIds: [],
         developers: [],
         franchises: [],
@@ -78,6 +107,39 @@ describe('IgdbProxyService', () => {
         releaseDate: '2017-10-27T00:00:00.000Z',
         releaseYear: 2017
       }
+    ]);
+  });
+
+  it('normalizes themes and keywords metadata when present', async () => {
+    const promise = firstValueFrom(service.searchGames('zelda'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=zelda`);
+
+    req.flush({
+      items: [
+        {
+          igdbGameId: '200',
+          title: 'The Legend of Zelda',
+          coverUrl: '',
+          coverSource: 'none',
+          themes: [' Fantasy ', 'Fantasy', '', null],
+          themeIds: [10, 10, '11', 'x'],
+          keywords: [' Hyrule ', 'Hyrule', '', null],
+          keywordIds: [99, 99, '100', 'x'],
+          platforms: ['NES'],
+          platform: 'NES',
+          releaseDate: '1986-02-21T00:00:00.000Z',
+          releaseYear: 1986
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      expect.objectContaining({
+        themes: ['Fantasy'],
+        themeIds: [10, 11],
+        keywords: ['Hyrule'],
+        keywordIds: [99, 100]
+      })
     ]);
   });
 
@@ -161,6 +223,8 @@ describe('IgdbProxyService', () => {
       hltbMainHours: null,
       hltbMainExtraHours: null,
       hltbCompletionistHours: null,
+      metacriticScore: null,
+      metacriticUrl: null,
       similarGameIgdbIds: [],
       developers: [],
       franchises: [],
@@ -274,6 +338,8 @@ describe('IgdbProxyService', () => {
           hltbMainHours: null,
           hltbMainExtraHours: null,
           hltbCompletionistHours: null,
+          metacriticScore: null,
+          metacriticUrl: null,
           similarGameIgdbIds: [],
           developers: [],
           franchises: [],
@@ -502,6 +568,8 @@ describe('IgdbProxyService', () => {
         hltbMainHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
+        metacriticScore: null,
+        metacriticUrl: null,
         similarGameIgdbIds: [],
         developers: ['Nintendo'],
         franchises: ['The Legend of Zelda'],
@@ -648,6 +716,743 @@ describe('IgdbProxyService', () => {
     });
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
 
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('propagates 429 errors for HLTB lookup and candidate search', async () => {
+    const lookupPromise = firstValueFrom(service.lookupCompletionTimes('Super Metroid'));
+    const lookupReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Super Metroid'
+      );
+    });
+    lookupReq.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '3' })
+      }
+    );
+    await expect(lookupPromise).rejects.toThrowError('Rate limit exceeded. Retry after 3s.');
+
+    const candidatePromise = firstValueFrom(
+      service.lookupCompletionTimeCandidates('Super Metroid')
+    );
+    const candidateReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Super Metroid' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    candidateReq.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '3' })
+      }
+    );
+    await expect(candidatePromise).rejects.toThrowError('Rate limit exceeded. Retry after 3s.');
+  });
+
+  it('looks up Metacritic score and normalizes payload', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 21));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('releaseYear') === '2006' &&
+        request.params.get('platform') === 'Wii'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 92.4,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 92,
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
+    });
+  });
+
+  it('routes review score lookup by platform support matrix', async () => {
+    const metacriticPromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', 2006, 'Wii', 21)
+    );
+    const metacriticReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
+    metacriticReq.flush({
+      item: {
+        metacriticScore: 92,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
+    });
+    await expect(metacriticPromise).resolves.toEqual({
+      metacriticScore: 92,
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
+    });
+    httpMock.expectNone(
+      (request) => request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+    );
+
+    const mobyPromise = firstValueFrom(
+      service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
+    );
+    const mobyReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === '16' &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+      );
+    });
+    mobyReq.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ platform_name: 'Genesis' }],
+          moby_score: 88,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        }
+      ]
+    });
+    await expect(mobyPromise).resolves.toEqual({
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+    });
+    httpMock.expectNone((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('platformIgdbId') === '29'
+      );
+    });
+  });
+
+  it('returns null for Metacritic lookup failures', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('handles short metacritic queries and propagates 429 responses', async () => {
+    await expect(firstValueFrom(service.lookupMetacriticScore('x'))).resolves.toBeNull();
+    await expect(firstValueFrom(service.lookupMetacriticCandidates('x'))).resolves.toEqual([]);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/metacritic/search`);
+
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii', 21));
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
+    scoreReq.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '4' })
+      }
+    );
+    await expect(scorePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
+
+    const candidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21)
+    );
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/metacritic/search`);
+    await expect(candidatePromise).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+  });
+
+  it('uses MobyGames for unsupported Metacritic platform ids and normalizes payload', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const scorePromise = firstValueFrom(
+        service.lookupMetacriticScore('Shining Force', 1992, 'Genesis', 29)
+      );
+      const scoreReq = httpMock.expectOne((request) => {
+        return (
+          request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+          request.params.get('q') === 'Shining Force' &&
+          request.params.get('platform') === '16' &&
+          request.params.get('format') === 'normal' &&
+          request.params.get('include') ===
+            'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+        );
+      });
+      scoreReq.flush({
+        games: [
+          {
+            title: 'Shining Force',
+            release_date: '1992-03-20',
+            platforms: [{ name: 'Genesis' }],
+            critic_score: null,
+            moby_score: 88.2,
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          }
+        ]
+      });
+      await expect(scorePromise).resolves.toEqual({
+        metacriticScore: 88,
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+      });
+
+      // Advance the proactive throttle so the second MobyGames call fires
+      const candidatesPromise = firstValueFrom(
+        service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
+      );
+      await vi.advanceTimersByTimeAsync(5000);
+      const candidatesReq = httpMock.expectOne((request) => {
+        return (
+          request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+          request.params.get('q') === 'Shining Force' &&
+          request.params.get('platform') === '16' &&
+          request.params.get('format') === 'normal' &&
+          request.params.get('include') ===
+            'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+        );
+      });
+      candidatesReq.flush({
+        games: [
+          {
+            title: ' Shining Force ',
+            release_date: '1992-03-20',
+            platforms: [{ platform_name: ' Genesis ' }],
+            critic_score: 87.6,
+            covers: [
+              {
+                images: [
+                  {
+                    thumbnail_url: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
+                  }
+                ]
+              }
+            ],
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          },
+          {
+            title: 'Shining Force',
+            release_date: '1992',
+            platforms: [{ platform_name: 'Genesis' }],
+            critic_score: 87.1,
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          },
+          {
+            title: 'Shining Force CD',
+            release_date: null,
+            platforms: [{ name: 'Sega CD' }],
+            moby_score: 80.2,
+            moby_url: 'https://www.mobygames.com/game/456/shining-force-cd/'
+          }
+        ]
+      });
+
+      await expect(candidatesPromise).resolves.toEqual([
+        {
+          title: 'Shining Force',
+          releaseYear: 1992,
+          platform: 'Genesis',
+          metacriticScore: 88,
+          metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+        },
+        {
+          title: 'Shining Force CD',
+          releaseYear: null,
+          platform: 'Sega CD',
+          metacriticScore: 80,
+          metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/'
+        }
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('converts Moby score out of 10 to internal 100-point scale', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_name: 'SNES' }],
+          critic_score: null,
+          moby_score: 8.6,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 86,
+      metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+    });
+  });
+
+  it('uses canonical IGDB platform mapping for aliased platform ids in MobyGames lookups', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupReviewScore('Chrono Trigger', 1995, 'Super Famicom', 58)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_name: 'SNES' }],
+          critic_score: null,
+          moby_score: 8.6,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      reviewScore: 86,
+      reviewUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+      reviewSource: 'mobygames',
+      mobyScore: 8.6,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null
+    });
+  });
+
+  it('uses canonical IGDB platform mapping from aliased platform name when id is missing', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupReviewScore('Chrono Trigger', 1995, 'Super Famicom', null)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_name: 'SNES' }],
+          critic_score: null,
+          moby_score: 8.6,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      reviewScore: 86,
+      reviewUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+      reviewSource: 'mobygames',
+      mobyScore: 8.6,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null
+    });
+  });
+
+  it('resolves all current aliased platforms to canonical MobyGames platform ids', () => {
+    const privateService = service as unknown as {
+      resolveMobyGamesPlatformIdForIgdbPlatform: (
+        platformIgdbId: number | null,
+        platformName: string | null | undefined
+      ) => number | null;
+    };
+    const aliasCases: Array<{
+      platformIgdbId: number | null;
+      platformName: string;
+      expectedMobyPlatformId: number;
+    }> = [
+      { platformIgdbId: 99, platformName: 'Family Computer', expectedMobyPlatformId: 22 },
+      {
+        platformIgdbId: 51,
+        platformName: 'Family Computer Disk System',
+        expectedMobyPlatformId: 22
+      },
+      { platformIgdbId: 58, platformName: 'Super Famicom', expectedMobyPlatformId: 15 },
+      { platformIgdbId: 137, platformName: 'New Nintendo 3DS', expectedMobyPlatformId: 101 },
+      { platformIgdbId: 159, platformName: 'Nintendo DSi', expectedMobyPlatformId: 44 },
+      { platformIgdbId: 510, platformName: 'e-Reader / Card-e Reader', expectedMobyPlatformId: 12 },
+      { platformIgdbId: null, platformName: 'Family Computer', expectedMobyPlatformId: 22 },
+      {
+        platformIgdbId: null,
+        platformName: 'Family Computer Disk System',
+        expectedMobyPlatformId: 22
+      },
+      { platformIgdbId: null, platformName: 'Super Famicom', expectedMobyPlatformId: 15 },
+      { platformIgdbId: null, platformName: 'New Nintendo 3DS', expectedMobyPlatformId: 101 },
+      { platformIgdbId: null, platformName: 'Nintendo DSi', expectedMobyPlatformId: 44 },
+      {
+        platformIgdbId: null,
+        platformName: 'e-Reader / Card-e Reader',
+        expectedMobyPlatformId: 12
+      }
+    ];
+
+    for (const testCase of aliasCases) {
+      expect(
+        privateService.resolveMobyGamesPlatformIdForIgdbPlatform(
+          testCase.platformIgdbId,
+          testCase.platformName
+        )
+      ).toBe(testCase.expectedMobyPlatformId);
+    }
+  });
+
+  it('prefers Moby cover image matching selected platform id', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Shining Force' &&
+        request.params.get('platform') === '16'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Shining Force',
+          release_date: '1992-03-20',
+          platforms: [{ platform_name: 'Genesis' }],
+          moby_score: 88,
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/',
+          covers: [
+            {
+              platforms: [81],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/wrong-platform.webp' }]
+            },
+            {
+              platforms: [16],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/genesis.webp' }]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Shining Force',
+        releaseYear: 1992,
+        platform: 'Genesis',
+        metacriticScore: 88,
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+        imageUrl: 'https://cdn.mobygames.com/covers/genesis.webp'
+      }
+    ]);
+  });
+
+  it('uses matched platform entry instead of first platform entry for Moby candidates', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [
+            { platform_id: 14, platform_name: 'PlayStation' },
+            { platform_id: 15, platform_name: 'SNES' }
+          ],
+          moby_score: 95,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+          covers: [
+            {
+              platforms: [{ platform_name: 'Nintendo DS' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-ds.webp' }]
+            },
+            {
+              platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-snes.webp' }]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Chrono Trigger',
+        releaseYear: 1995,
+        platform: 'SNES',
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+        imageUrl: 'https://cdn.mobygames.com/covers/chrono-snes.webp'
+      }
+    ]);
+  });
+
+  it('prefers Moby cover image URL containing preferred platform token when cover platform tags are missing', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Chrono Trigger' &&
+        request.params.get('platform') === '15'
+      );
+    });
+
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: '1995-03-11',
+          platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+          moby_score: 95,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+          covers: [
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-nintendo-ds.webp'
+                }
+              ]
+            },
+            {
+              images: [
+                {
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-snes.webp'
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    await expect(candidatesPromise).resolves.toEqual([
+      {
+        title: 'Chrono Trigger',
+        releaseYear: 1995,
+        platform: 'SNES',
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+      }
+    ]);
+  });
+
+  it('uses MobyGames when platform id is missing', async () => {
+    const scorePromise = firstValueFrom(service.lookupMetacriticScore('Okami', 2006, 'Wii'));
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platform') === '82' &&
+        request.params.get('releaseYear') === null &&
+        request.params.get('format') === 'normal' &&
+        request.params.get('include') ===
+          'title,moby_url,moby_score,critic_score,platforms,release_date,covers'
+      );
+    });
+    scoreReq.flush({
+      games: [
+        {
+          title: 'Okami',
+          release_date: '2006-04-20',
+          platforms: [{ name: 'Wii' }],
+          moby_score: 91,
+          moby_url: 'https://www.mobygames.com/game/okami/'
+        }
+      ]
+    });
+
+    await expect(scorePromise).resolves.toEqual({
+      metacriticScore: 91,
+      metacriticUrl: 'https://www.mobygames.com/game/okami/'
+    });
+  });
+
+  it('looks up Metacritic candidates and normalizes candidate payload', async () => {
+    const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('releaseYear') === '2006' &&
+        request.params.get('platform') === 'Wii'
+      );
+    });
+
+    req.flush({
+      candidates: [
+        {
+          title: ' Okami ',
+          releaseYear: 2006,
+          platform: ' Wii ',
+          metacriticScore: 93.2,
+          metacriticUrl: '//www.metacritic.com/game/okami/',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+        },
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 93,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticScore: 93,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+      }
+    ]);
+  });
+
+  it('drops empty metacritic payloads and invalid metacritic candidates', async () => {
+    const nullItemPromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
+    );
+    const nullItemReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
+    nullItemReq.flush({ item: null });
+    await expect(nullItemPromise).resolves.toBeNull();
+
+    const scorePromise = firstValueFrom(
+      service.lookupMetacriticScore('Okami', undefined, undefined, 21)
+    );
+    const scoreReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('platformIgdbId') === '21'
+      );
+    });
+    scoreReq.flush({
+      item: {
+        metacriticScore: null,
+        metacriticUrl: 'ftp://invalid'
+      }
+    });
+    await expect(scorePromise).resolves.toBeNull();
+
+    const nonArrayCandidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const nonArrayCandidateReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    nonArrayCandidateReq.flush({ candidates: {} });
+    await expect(nonArrayCandidatePromise).resolves.toEqual([]);
+
+    const candidatePromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const candidateReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    candidateReq.flush({
+      candidates: [
+        {
+          title: '   ',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 93,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        },
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 200,
+          metacriticUrl: null
+        }
+      ]
+    });
+    await expect(candidatePromise).resolves.toEqual([]);
+  });
+
+  it('returns empty metacritic candidate list for non-rate-limit failures', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
     await expect(promise).resolves.toEqual([]);
   });
 
@@ -830,5 +1635,722 @@ describe('IgdbProxyService', () => {
 
     localStorage.removeItem('game-shelf-platform-list-cache-v1');
     expect(privateService.loadCachedPlatformList()).toEqual([]);
+  });
+
+  it('returns empty cached platform list when cache is non-array JSON', () => {
+    const privateService = service as unknown as {
+      loadCachedPlatformList: () => Array<{ id: number; name: string }>;
+    };
+
+    localStorage.setItem('game-shelf-platform-list-cache-v1', JSON.stringify({ foo: 'bar' }));
+    expect(privateService.loadCachedPlatformList()).toEqual([]);
+  });
+
+  it('returns empty popularity types list for non-array items response', async () => {
+    const promise = firstValueFrom(service.listPopularityTypes());
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/popularity/types`);
+    req.flush({ items: null });
+
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('returns empty popularity games list for non-array items response', async () => {
+    const promise = firstValueFrom(service.listPopularityGames(7, 20, 0));
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/popularity/primitives` &&
+        request.params.get('popularityTypeId') === '7'
+      );
+    });
+    req.flush({ items: 'unexpected-string' });
+
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('uses MobyGames with known game id and sets id param in request', async () => {
+    const scorePromise = firstValueFrom(
+      service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19, 1597)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search` &&
+        request.params.get('q') === 'Final Fantasy VI' &&
+        request.params.get('id') === '1597' &&
+        request.params.get('platform') === '15'
+      );
+    });
+    req.flush({
+      games: [
+        {
+          game_id: 1597,
+          title: 'Final Fantasy III',
+          release_date: '1994-10-20',
+          platforms: [{ platform_id: 15, platform_name: 'SNES' }],
+          moby_score: 9.1,
+          moby_url: 'https://www.mobygames.com/game/1597/final-fantasy-iii/'
+        }
+      ]
+    });
+
+    const result = await scorePromise;
+    expect(result).not.toBeNull();
+    expect(result?.reviewUrl).toContain('mobygames.com');
+  });
+
+  it('normalizes Moby release date via Date.parse fallback for non-ISO formats', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupReviewCandidates('Chrono Trigger', null, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush({
+      games: [
+        {
+          title: 'Chrono Trigger',
+          release_date: 'March 11, 1995',
+          platforms: [{ platform_name: 'SNES' }],
+          moby_score: 9.5,
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
+    });
+
+    const results = await candidatesPromise;
+    expect(results).toHaveLength(1);
+    expect(results[0]?.releaseYear).toBe(1995);
+  });
+
+  it('returns null platform for MobyGames results with no matching platform', async () => {
+    const candidatesPromise = firstValueFrom(
+      service.lookupReviewCandidates('Unknown Game', null, 'Atari 2600', 59)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush({
+      games: [
+        {
+          title: 'Unknown Game',
+          release_date: '1984',
+          platforms: null,
+          moby_score: 7.0,
+          moby_url: 'https://www.mobygames.com/game/9999/unknown-game/'
+        }
+      ]
+    });
+
+    const results = await candidatesPromise;
+    expect(results).toHaveLength(1);
+    expect(results[0]?.platform).toBeNull();
+  });
+
+  it('enforces active cooldown in lookupReviewScore for MobyGames path', async () => {
+    const firstRequest = firstValueFrom(
+      service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '10' })
+      }
+    );
+    await expect(firstRequest).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+
+    const duringCooldown = firstValueFrom(
+      service.lookupReviewScore('Chrono Trigger', 1995, 'SNES', 19)
+    );
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+  });
+
+  it('enforces active cooldown in lookupReviewCandidates for MobyGames path', async () => {
+    const firstRequest = firstValueFrom(
+      service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`;
+    });
+    req.flush(
+      { message: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '8' })
+      }
+    );
+    await expect(firstRequest).rejects.toThrowError('Rate limit exceeded. Retry after 8s.');
+
+    const duringCooldown = firstValueFrom(
+      service.lookupReviewCandidates('Golden Axe', 1989, 'Genesis', 29)
+    );
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+  });
+
+  it('proactively throttles rapid sequential lookupReviewScore MobyGames calls', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // First call: slot is free, no delay
+      const firstPromise = firstValueFrom(
+        service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19)
+      );
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush({ games: [] });
+      await firstPromise;
+
+      // Second call immediately: slot not yet available, must wait ~5000 ms
+      const secondPromise = firstValueFrom(
+        service.lookupReviewScore('Chrono Trigger', 1995, 'SNES', 19)
+      );
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      // After advancing time the deferred request fires
+      await vi.advanceTimersByTimeAsync(5000);
+      const secondReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      secondReq.flush({ games: [] });
+      await secondPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('proactively throttles rapid sequential lookupReviewCandidates MobyGames calls', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // First call: no delay
+      const firstPromise = firstValueFrom(
+        service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+      );
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush({ games: [] });
+      await firstPromise;
+
+      // Second call immediately: must wait ~5000 ms before HTTP fires
+      const secondPromise = firstValueFrom(
+        service.lookupReviewCandidates('Golden Axe', 1989, 'Genesis', 29)
+      );
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      await vi.advanceTimersByTimeAsync(5000);
+      const secondReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      secondReq.flush({ games: [] });
+      await secondPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('spaces five simultaneous MobyGames lookupReviewScore calls 5 s apart', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const titles = ['Game A', 'Game B', 'Game C', 'Game D', 'Game E'];
+      const promises = titles.map((title) =>
+        firstValueFrom(service.lookupReviewScore(title, 2000, 'SNES', 19))
+      );
+
+      // Only the first request should be pending immediately
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush({ games: [] });
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      // Each subsequent request fires after another 5 s
+      for (let i = 1; i < titles.length; i++) {
+        await vi.advanceTimersByTimeAsync(5000);
+        const req = httpMock.expectOne(
+          (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+        );
+        req.flush({ games: [] });
+      }
+
+      await Promise.all(promises);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns null for non-rate-limit MobyGames errors in lookupReviewScore', async () => {
+    const promise = firstValueFrom(service.lookupReviewScore('Final Fantasy VI', 1994, 'SNES', 19));
+    const req = httpMock.expectOne(
+      (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+    );
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('returns empty list for non-rate-limit MobyGames errors in lookupReviewCandidates', async () => {
+    const promise = firstValueFrom(
+      service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+    );
+    const req = httpMock.expectOne(
+      (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+    );
+    req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it('cancels queued lookupReviewCandidates when cooldown activates during throttle delay', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // First subscribe fires immediately (mobyDelayMs=0, no cooldown active yet)
+      const firstPromise = firstValueFrom(
+        service.lookupReviewCandidates('Shining Force', 1992, 'Genesis', 29)
+      );
+
+      // Second subscribe queued with 5 s delay; the cooldown pre-check passes (cooldown not active yet)
+      const secondPromise = firstValueFrom(
+        service.lookupReviewCandidates('Golden Axe', 1989, 'Genesis', 29)
+      );
+
+      // Flush first request with 429 → activates rateLimitCooldownUntilMs (T + 10 s)
+      const firstReq = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      firstReq.flush(
+        { message: 'rate limited' },
+        {
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: new HttpHeaders({ 'Retry-After': '10' })
+        }
+      );
+      await expect(firstPromise).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+
+      // Advance timers 5 s → second request's switchMap fires and re-checks the now-active cooldown
+      await vi.advanceTimersByTimeAsync(5000);
+
+      // No HTTP request should have been dispatched for the second call
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+      await expect(secondPromise).rejects.toThrowError('Rate limit exceeded. Retry after 5s.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('releases slot when lookupReviewScore subscription is cancelled during timer delay', async () => {
+    vi.useFakeTimers();
+
+    try {
+      // Call 1 fires immediately
+      const call1Promise = firstValueFrom(service.lookupReviewScore('Game A', 2000, 'SNES', 19));
+      const req1 = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      req1.flush({ games: [] });
+      await call1Promise;
+
+      // Call 2 gets a 5 s slot — subscribe then immediately cancel (unsubscribe before timer fires)
+      const sub2 = service.lookupReviewScore('Game B', 2000, 'SNES', 19).subscribe();
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+      sub2.unsubscribe(); // slot should be released
+
+      // Call 3 should reclaim the same 5 s slot (not 10 s) because call 2 released it
+      const call3Promise = firstValueFrom(service.lookupReviewScore('Game C', 2000, 'SNES', 19));
+      httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
+
+      // Only 5 s needed (not 10 s) because the cancelled slot was returned
+      await vi.advanceTimersByTimeAsync(5000);
+      const req3 = httpMock.expectOne(
+        (r) => r.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
+      );
+      req3.flush({ games: [] });
+      await call3Promise;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('loads recommendation lanes with explicit runtime mode and limit', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationLanes({
+        target: 'BACKLOG',
+        runtimeMode: 'SHORT',
+        limit: 15
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('runtimeMode') === 'SHORT' &&
+        request.params.get('limit') === '15'
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'SHORT',
+      runId: 12,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      lanes: {
+        overall: [],
+        hiddenGems: [],
+        exploration: [],
+        blended: [],
+        popular: [],
+        recent: []
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'SHORT',
+      runId: 12,
+      generatedAt: '2026-03-03T09:00:00.000Z',
+      lanes: {
+        overall: [],
+        hiddenGems: [],
+        exploration: [],
+        blended: [],
+        popular: [],
+        recent: []
+      }
+    });
+  });
+
+  it('loads recommendation top with clamped limit and normalized response defaults', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationsTop({
+        target: 'BACKLOG',
+        runtimeMode: 'LONG',
+        limit: 999
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('runtimeMode') === 'LONG' &&
+        request.params.get('limit') === '200'
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'LONG',
+      runId: '13',
+      generatedAt: 'invalid-date',
+      items: [{}]
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'LONG',
+      runId: 13,
+      generatedAt: '1970-01-01T00:00:00.000Z',
+      items: []
+    });
+  });
+
+  it('posts manual recommendation rebuild request payload', async () => {
+    const promise = firstValueFrom(
+      service.rebuildRecommendations({ target: 'WISHLIST', force: true })
+    );
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ target: 'WISHLIST', force: true });
+    req.flush({ target: 'WISHLIST', runId: '9', status: 'SUCCESS' });
+
+    await expect(promise).resolves.toEqual({
+      target: 'WISHLIST',
+      runId: 9,
+      status: 'SUCCESS',
+      reusedRunId: null
+    });
+  });
+
+  it('normalizes malformed recommendation rebuild response payload', async () => {
+    const promise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
+    req.flush({ target: 'BACKLOG', runId: 'oops', status: 'BAD', reusedRunId: 'x9' });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runId: 0,
+      status: 'FAILED',
+      reusedRunId: null
+    });
+  });
+
+  it('returns cooldown error before recommendation requests are dispatched', async () => {
+    (service as unknown as { rateLimitCooldownUntilMs: number }).rateLimitCooldownUntilMs =
+      Date.now() + 1_000;
+
+    const topPromise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const rebuildPromise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
+    const similarPromise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: '1',
+        platformIgdbId: 6
+      })
+    );
+
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/top`);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/lanes`);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/similar/1`);
+
+    await expect(topPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(lanesPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(rebuildPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(similarPromise).rejects.toThrowError(/Rate limit exceeded/);
+  });
+
+  it('maps recommendation endpoint failures to recommendation API errors', async () => {
+    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const lanesReq = httpMock.expectOne(
+      (request) =>
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
+        request.params.get('target') === 'BACKLOG'
+    );
+    lanesReq.flush(
+      { error: 'No recommendations available.' },
+      { status: 404, statusText: 'Not Found' }
+    );
+    await expect(lanesPromise).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    (service as unknown as { rateLimitCooldownUntilMs: number }).rateLimitCooldownUntilMs = 0;
+
+    const rebuildPromise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
+    const rebuildReq = httpMock.expectOne(
+      `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`
+    );
+    rebuildReq.flush({ error: 'cooldown' }, { status: 429, statusText: 'Too Many Requests' });
+    await expect(rebuildPromise).rejects.toThrowError(/Rate limit exceeded/);
+    (service as unknown as { rateLimitCooldownUntilMs: number }).rateLimitCooldownUntilMs = 0;
+
+    const similarPromise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: '42',
+        platformIgdbId: 6
+      })
+    );
+    const similarReq = httpMock.expectOne(
+      (request) =>
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/similar/42` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('platformIgdbId') === '6'
+    );
+    similarReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
+    await expect(similarPromise).rejects.toMatchObject({ code: 'REQUEST_FAILED' });
+  });
+
+  it('rejects recommendation similar requests with invalid identity input', async () => {
+    const invalidPromise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: 'abc',
+        platformIgdbId: 0
+      })
+    );
+
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/similar/abc`);
+    await expect(invalidPromise).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+  });
+
+  it('loads recommendation similar items with shared theme and keyword tokens', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: '11549',
+        platformIgdbId: 37,
+        limit: 3
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/similar/11549` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('platformIgdbId') === '37' &&
+        request.params.get('limit') === '3'
+      );
+    });
+
+    req.flush({
+      source: {
+        igdbGameId: '11549',
+        platformIgdbId: 37
+      },
+      items: [
+        {
+          igdbGameId: '11043',
+          platformIgdbId: 37,
+          similarity: 0.8734,
+          reasons: {
+            summary: 'Shared tokens and embedding proximity',
+            structuredSimilarity: 0.7123,
+            semanticSimilarity: 0.9051,
+            blendedSimilarity: 0.7894,
+            sharedTokens: {
+              genres: ['Action'],
+              developers: ['Nintendo'],
+              publishers: ['Nintendo'],
+              franchises: ['Mario'],
+              collections: ['Super Mario'],
+              themes: ['Fantasy'],
+              keywords: ['multiple endings']
+            }
+          }
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      runtimeMode: 'NEUTRAL',
+      source: {
+        igdbGameId: '11549',
+        platformIgdbId: 37
+      },
+      items: [
+        {
+          igdbGameId: '11043',
+          platformIgdbId: 37,
+          similarity: 0.8734,
+          reasons: {
+            summary: 'Shared tokens and embedding proximity',
+            structuredSimilarity: 0.7123,
+            semanticSimilarity: 0.9051,
+            blendedSimilarity: 0.7894,
+            sharedTokens: {
+              genres: ['Action'],
+              developers: ['Nintendo'],
+              publishers: ['Nintendo'],
+              franchises: ['Mario'],
+              collections: ['Super Mario'],
+              themes: ['Fantasy'],
+              keywords: ['multiple endings']
+            }
+          }
+        }
+      ]
+    });
+  });
+
+  it('maps recommendation not-found responses to friendly error', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush(
+      { error: 'No recommendations available. Trigger a rebuild first.' },
+      { status: 404, statusText: 'Not Found' }
+    );
+
+    await expect(promise).rejects.toThrowError(
+      'No recommendations available yet. Build recommendations to get started.'
+    );
+  });
+
+  it('maps recommendation 429 responses to cooldown error code', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush({ error: 'cooldown' }, { status: 429, statusText: 'Too Many Requests' });
+
+    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
+  });
+
+  it('maps recommendation 400 responses to invalid request error code', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush({ error: 'bad request' }, { status: 400, statusText: 'Bad Request' });
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'Invalid recommendation query.',
+      code: 'INVALID_REQUEST'
+    });
+  });
+
+  it('maps recommendation 500 responses to generic request failure code', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush({ error: 'server error' }, { status: 500, statusText: 'Server Error' });
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'Unable to load recommendations right now.',
+      code: 'REQUEST_FAILED'
+    });
+  });
+
+  it('prefers retry-after based recommendation cooldown error mapping', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush(
+      { error: 'rate limited' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new HttpHeaders({ 'Retry-After': '9' })
+      }
+    );
+
+    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 9s.');
+  });
+
+  it('covers recommendation normalization helper branches', () => {
+    const privateService = service as unknown as {
+      normalizeRecommendationRuntimeMode: (value: unknown) => 'NEUTRAL' | 'SHORT' | 'LONG' | null;
+      normalizeIsoDate: (value: unknown) => string;
+      normalizePositiveInteger: (value: unknown) => number | null;
+      normalizeNumericId: (value: unknown) => string;
+      toRecommendationError: (error: unknown) => Error & { code?: string };
+    };
+
+    expect(privateService.normalizeRecommendationRuntimeMode('NEUTRAL')).toBe('NEUTRAL');
+    expect(privateService.normalizeRecommendationRuntimeMode('invalid')).toBeNull();
+
+    expect(privateService.normalizeIsoDate(123)).toBe(new Date(0).toISOString());
+    expect(privateService.normalizeIsoDate('  ')).toBe(new Date(0).toISOString());
+    expect(privateService.normalizeIsoDate('not-a-date')).toBe(new Date(0).toISOString());
+    expect(privateService.normalizeIsoDate('2026-03-03T10:00:00.000Z')).toBe(
+      '2026-03-03T10:00:00.000Z'
+    );
+
+    expect(privateService.normalizePositiveInteger(12)).toBe(12);
+    expect(privateService.normalizePositiveInteger('14')).toBe(14);
+    expect(privateService.normalizePositiveInteger('0')).toBeNull();
+    expect(privateService.normalizePositiveInteger('foo')).toBeNull();
+    expect(privateService.normalizePositiveInteger(4.5)).toBeNull();
+
+    expect(privateService.normalizeNumericId(' 123 ')).toBe('123');
+    expect(privateService.normalizeNumericId('abc')).toBe('');
+    expect(privateService.normalizeNumericId(42)).toBe('42');
+    expect(privateService.normalizeNumericId(0)).toBe('');
+
+    expect(privateService.toRecommendationError(new Error('boom'))).toMatchObject({
+      message: 'Unable to load recommendations right now.',
+      code: 'REQUEST_FAILED'
+    });
   });
 });

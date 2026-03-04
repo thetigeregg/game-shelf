@@ -45,3 +45,19 @@
   justify-content: center;
   margin: 16px 0;
 }
+
+.candidate-thumbnail {
+  width: 72px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.candidate-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

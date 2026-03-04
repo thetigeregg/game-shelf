@@ -4,6 +4,12 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool } from 'pg';
 import { incrementHltbMetric } from './cache-metrics.js';
+import { config } from './config.js';
+import {
+  logUpstreamRequest,
+  logUpstreamResponse,
+  sanitizeUrlForDebugLogs
+} from './http-debug-log.js';
 
 interface HltbCacheRow {
   response_json: unknown;
@@ -62,7 +68,7 @@ export async function registerHltbCachedRoute(
     url: '/v1/hltb/search',
     config: {
       rateLimit: {
-        max: 50,
+        max: config.hltbSearchRateLimitMaxPerMinute,
         timeWindow: '1 minute'
       }
     },
@@ -371,14 +377,25 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
   }
 
   try {
-    return await fetch(targetUrl.toString(), {
+    logUpstreamRequest(request, {
+      method: 'GET',
+      url: targetUrl.toString(),
+      headers
+    });
+    const response = await fetch(targetUrl.toString(), {
       method: 'GET',
       headers
     });
+    await logUpstreamResponse(request, {
+      method: 'GET',
+      url: targetUrl.toString(),
+      response
+    });
+    return response;
   } catch (error) {
     request.log.warn({
       msg: 'hltb_scraper_request_failed',
-      url: targetUrl.toString(),
+      url: sanitizeUrlForDebugLogs(targetUrl.toString()),
       error: error instanceof Error ? error.message : String(error)
     });
 

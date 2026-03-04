@@ -960,3 +960,460 @@
 - 01387df Merge pull request #98 from thetigeregg/codex/prevent-notes-page-header-from
 - b598eac Fix notes page scrolling
 
+## v0.1.35 - 2026-02-26
+- 3245dcf Merge pull request #97 from thetigeregg/codex/fix-notes-toolbar-button-newline
+- a88951f Add edge-case tests for notes normal
+- 23b7919 Remove i flag from regex
+- c11b850 Merge branch 'main' into codex/fix-notes-toolbar-button-newline
+- fa8cabe Merge branch 'main' into codex/fix-notes-toolbar-button-newline
+- b481c5d Revert initial notes fix
+- c8848e9 Fix notes regex sanitization
+- 4ae755d Fix notes sanitization regex
+- 8dfbc36 Fix notes regex flag
+- fd55cb4 Revert notes sanitization fix
+
+## v0.1.36 - 2026-02-26
+- 4175f3a Merge pull request #99 from thetigeregg/codex/fix-note-content-clearing-issue
+- 2dcb1a6 Sanitize notes normalization input
+- 5a7cf0a Fix empty note clearing bug
+- 17bd960 Fix notes normalization parser
+- 9f6eb18 Store structure-only rich notes
+- 2e530ae Prevent empty notes from clearing
+
+## v0.1.37 - 2026-02-26
+- 7e9a312 Merge pull request #100 from thetigeregg/codex/logerr
+- cbf3201 Increase coverage for sync/manual
+- aac1aea Normalize manual debug errors
+- 8b9d3f5 Add ok field to normalizeUnknownErro
+- 86ccf40 Extract shared error normalizer
+- a5c320e test(core): add sync/manual diagnostics coverage
+- 9c1ea7c refactor(game-list): normalize manual resolve errors in debug logs
+- 37102a4 refactor(core): share HTTP error normalization utility
+- 69f5709 fix(game-list): remove getter-based manual visibility logging
+- 05dee8f fix(debug): prevent XHR recursion and add sync/manual diagnostics
+
+## v0.1.38 - 2026-02-27
+- 0a5981e Merge pull request #101 from thetigeregg/codex/adjust-collection-sort-options
+- 193ef1b Review missing coverage for filters
+- d1761ee Add title fallback sorting test
+- caba72c Add HLTB sort and repositionPlatform
+- 9bdb8ed Add HLTB sort ordering option
+
+## v0.1.39 - 2026-02-27
+- ecaf13d Merge pull request #103 from thetigeregg/deps
+- 11f5e94 Add repo-wide npm scripts
+- c833710 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, ajv, and minimatch to latest versions
+- 1d6d7ff chore(deps): update Angular and Capacitor dependencies to latest versions
+
+## v0.1.40 - 2026-02-27
+- 0a7dce3 Merge pull request #104 from thetigeregg/codex/add-exclusion-filters-accordion
+- 8115ac3 Generate PR title and summary
+- b0be461 Add exclusion filters accordion
+- ae225c7 Add exclusion filters accordion
+- 5eb88d8 Add exclusion filters accordion
+
+## v0.1.41 - 2026-02-27
+- e611a1b Merge pull request #105 from thetigeregg/codex/fix-production-search-execution
+- dc5c539 Fix frontend game fetch response
+- 678ebdc Fix frontend contract response
+- 12547d1 Fix contract mismatch handling
+
+## v0.1.42 - 2026-02-27
+- 72e9267 Merge pull request #106 from thetigeregg/codex/metacritic
+- 35b5b76 Add missing tests for coverage
+- 8f7fe00 Improve metacritic integration tests
+- 342b946 Add metadata validator coverage
+- 67e2401 Update metacritic platform support
+- a7b148f Add Metacritic score sorting
+- f6c5725 Audit Metacritic sync gaps
+- 93d95ca Add Metacritic sorting option
+- 23a30d4 Handle IGDB rate limit errors
+- 7659df4 Handle metacritic bulk rate limits
+- 433c07f Skip unsupported Metacritic games
+- 860fdaf Display metacritic score badge
+- ee7ac29 Add Metacritic score badge styles
+- e01f531 Update Metacritic display and colors
+- b1e7e7a Update Metacritic UI colors
+- fdcfe91 Fix platformIgdbId type error
+- 70bf5f2 Add platformIgdbId typing fix
+- 2beb972 Fix platform IgdbId build error
+- ad5b7ed Fix metadata validator build
+- e36b1ea Describe new mapping behavior
+- ddbde69 Add IGDB platform display mapping
+- 653ad6e Refine Metacritic scraper filtering
+- 083239f Normalize roman numeral titles
+- c82dffb Normalize Metacritic score parsing
+- ab7379b Normalize accented metacritic titles
+- 055476c Adjust series ranking penalties
+- 13ff3d5 Add edition variant token
+- 6c9a841 Refine variant detection logic
+- 48a938e Adjust variant token scoring
+- 78a5e84 Improve Metacritic platform parsing
+- 656957d Filter Metacritic results to games
+- 04a48e6 Preserve Metacritic UI aspect ratio
+- 1aefe0c Improve Metacritic platform matching
+- e49df5b Restore Metacritic cover aspect
+- d13e385 Use category param in search
+- 769fddd Normalize Metacritic search queries
+- 3e6bc9c Implement Metacritic pipeline
+- eec6843 Add package lock
+- ec09885 Add Metacritic pipeline parity
+- 5bac7ed Add metacritic pipeline parity
+
+## v0.1.43 - 2026-02-27
+- 1359a62 Merge pull request #107 from thetigeregg/codex/fix-build-fail-issue
+- b5c49b3 Add config copy to edge build
+
+## v0.1.44 - 2026-02-27
+- 64eacdb Merge pull request #108 from thetigeregg/codex/fix-build-fail-issue
+- cbce0cf Merge branch 'main' into codex/fix-build-fail-issue
+- 0dc66ab Copy metacritic scraper src
+
+## v0.1.45 - 2026-02-28
+- b3c7be8 Merge pull request #115 from thetigeregg/copilot/set-up-copilot-instructions
+- cb0e8a1 docs(copilot): set up comprehensive Copilot instructions
+- b166f8e Initial plan
+
+## v0.2.0 - 2026-03-01
+- ece258f Merge pull request #109 from thetigeregg/codex/add-mobygames-api-support
+- 88d2240 Merge pull request #138 from thetigeregg/copilot/sub-pr-109-again
+- cc42703 fix(metadata-validator): pass mobygamesGameId and platformIgdbId through review candidate query
+- ffa7afd Merge pull request #137 from thetigeregg/copilot/sub-pr-109
+- d8c2922 refactor(test): remove duplicate top-level tests from html-sanitizer spec
+- b13381a Initial plan
+- 8e182ca Initial plan
+- b32fdac Merge pull request #136 from thetigeregg/copilot/sub-pr-109
+- bd1cd24 fix(metadata-validator): key dedupeReviewCandidates by stable identity fields only
+- 08197a4 Initial plan
+- f54f4b8 Merge pull request #135 from thetigeregg/copilot/sub-pr-109-again
+- 1da693c Merge pull request #134 from thetigeregg/copilot/sub-pr-109
+- ee63652 fix(ui): preserve one decimal place in normalizeReviewScore
+- 774a54a fix(settings): infer mobyScore from raw reviewScore in CSV import
+- 9584320 Initial plan
+- 8010da9 Initial plan
+- 2b84c19 Merge pull request #131 from thetigeregg/copilot/sub-pr-109
+- dc278a0 Merge pull request #132 from thetigeregg/copilot/sub-pr-109-again
+- f49642e Merge pull request #133 from thetigeregg/copilot/sub-pr-109-another-one
+- 59a14cc fix(db): gate v8 metacritic backfill when reviewSource is mobygames
+- 24876b2 fix(settings): widen MobyGames score normalization tolerance to <= 0.05 in CSV import
+- ec90fca refactor(filtering): remove hasMetacriticData alias, use hasReviewData directly
+- 4d19b1f Initial plan
+- 17a6490 Initial plan
+- cac765f Initial plan
+- f61e805 Merge pull request #129 from thetigeregg/copilot/sub-pr-109
+- 3aced18 Merge pull request #130 from thetigeregg/copilot/sub-pr-109-again
+- 7d1b2a6 fix(filtering): use mobyScore as ground truth for MobyGames 0–10 scale detection in sort
+- 0bdede5 fix(import): parse mobyScore before reviewScoreForCatalog in CSV import
+- 14512e0 Initial plan
+- 6b32739 Initial plan
+- a1f40e4 Merge pull request #127 from thetigeregg/copilot/sub-pr-109
+- 481e5e6 Merge pull request #128 from thetigeregg/copilot/sub-pr-109-again
+- 962acea fix(sync): normalize MobyGames reviewScore from 0–10 to 0–100 in applyGameChange
+- f35b5c1 fix(filtering): make review score sort source-aware for MobyGames 0–10 scale
+- c608a4c Initial plan
+- 433738a Initial plan
+- f837064 Merge pull request #125 from thetigeregg/copilot/sub-pr-109
+- 877c8e1 Merge pull request #126 from thetigeregg/copilot/sub-pr-109-again
+- ea09b81 fix(data): use existing.metacriticScore/Url as fallback in upsertFromCatalog
+- b6c617a fix(workflow): key dedupeReviewCandidates by stable identity fields only
+- c046d2b Initial plan
+- 6835403 Initial plan
+- 37d848c Merge pull request #124 from thetigeregg/copilot/sub-pr-109
+- 3216375 fix(settings): fix reviewScore upper bound and mobyScore zero validation in CSV import
+- fffe2b5 Initial plan
+- a34d305 Merge pull request #123 from thetigeregg/copilot/sub-pr-109-another-one
+- cdd2bbb Merge pull request #122 from thetigeregg/copilot/sub-pr-109-again
+- dda5b7c feat(data): introduce normalizeReviewScore() preserving decimal scores
+- ebff8ea fix(sync): use normalizeReviewScore to preserve decimal precision in sync payloads
+- 9a1e118 Merge pull request #121 from thetigeregg/copilot/sub-pr-109
+- 53b8cd8 fix(settings): allow MobyGames scores 0–10 in CSV import validation
+- fef35dd Initial plan
+- 3749222 Initial plan
+- 367d801 Initial plan
+- 8b48ef5 Merge pull request #120 from thetigeregg/copilot/sub-pr-109
+- b16078b test(server): fix mobygames cache test expectation for BYPASS header on short query
+- 83a8ea7 Initial plan
+- 8e7d4be Merge pull request #117 from thetigeregg/copilot/sub-pr-109
+- 98fae2c test(coverage): add backend tests for mobygames cache, http debug, and sync service review fields
+- 8c6b012 test(coverage): add targeted tests to improve patch coverage across frontend files
+- 430e1f0 Merge pull request #119 from thetigeregg/copilot/sub-pr-109-another-one
+- 3e40eeb Merge pull request #118 from thetigeregg/copilot/sub-pr-109-again
+- f08598e fix(settings): infer reviewSource from URL when not explicitly set in CSV import
+- 4983ac4 fix(data): preserve existing metacritic score/url on partial upsert
+- aec4876 Update server/src/mobygames-cache.ts
+- 32f2b5e Initial plan
+- 1765736 Initial plan
+- e6770c7 Initial plan
+- c732b94 chore: remove unused import from mobygames-cache.test.ts
+- 88a6749 chore: add chokidar and readdirp as optional dependencies in package-lock.json
+- d26aa50 Merge branch 'main' into codex/add-mobygames-api-support
+- c89345c chore: update dependencies for @fastify/cors, @fastify/middie, fastify, pg, and type definitions
+- d987251 test: add unit tests for runtime configuration, layout mode, and theme services
+- fd5120b Merge pull request #112 from thetigeregg/copilot/sub-pr-109-again
+- 82f17e9 Merge branch 'codex/add-mobygames-api-support' into copilot/sub-pr-109-again
+- df19c2a test(coverage): add tests to bring backend branch coverage above 80% threshold
+- 317ef54 Merge pull request #113 from thetigeregg/copilot/sub-pr-109
+- 0c788a4 fix(lint): fix ESLint errors in http-debug-log and mobygames-cache test files
+- 12168e2 chore(plan): outline lint fix approach for test files
+- 12b2708 Initial plan
+- 440a1d1 Merge pull request #111 from thetigeregg/copilot/sub-pr-109
+- e13ef46 test(coverage): add mobygames stale/error path tests and http-debug-log test file to meet 80% branch threshold
+- 15d0e5d chore(plan): outline UI test fix approach
+- 9c275eb Initial plan
+- c42fbc0 Initial plan
+- 80e67f5 Merge pull request #110 from thetigeregg/copilot/sub-pr-109
+- 0c0401c chore(deps): restore package-lock.json to base branch state
+- 87a4a20 test(coverage): fix failing coverage thresholds with new unit tests and config
+- 7706f0f chore(plan): outline coverage threshold fix approach
+- b28a90a Initial plan
+- cd6ba3a test: add unit tests for game list features and settings utilities
+- 20d4c8e docs(copilot): update instructions for commit messages and pull requests
+- 9b8dae7 Update mobygames request test
+- aebea61 Review mobyScore validation
+- ecfec07 Validate mobyScore range
+- 449fa3d Validate mobyScore and reviewScore
+- 354dbeb Fix moby score validation
+- 41df8dc Enforce positive moby scores
+- 81dd369 Replace manual review source heur
+- b9a38be Audit settings implementation gaps
+- 0925afc Audit review score handling
+- 4e537a2 Store raw moby score values
+- 5a4cab0 Avoid mobygames screenshots
+- 93de94c Skip caching empty Mobygames covers
+- 2016bbe Investigate cache miss after clear
+- 1e92249 Document DEBUG_HTTP_LOGS logging
+- 405cab2 Add Mobygames cover data
+- 3ea22eb Show review score fractions
+- 362dabc Switch Mobygames API to v2
+- 3b356c0 Switch mobygames API back to v2
+- 2bc1c0d Switch mobygames api defaults
+- 06e1f9f Update Mobygames cache params
+- fafa176 Update mobygames API base URL
+- 2f56bcd Fix mobygames API path
+- 68be1c1 Document review score sources
+- f44c687 Show review source label
+- 44413d7 Format Metacritic platform utils
+- 49d8a17 test(review): add e2e source-routing checks and align picker typing
+- ff6d495 Add review refresh routing tests
+- 7d5d0dc test(review): add routing and migration regression coverage
+- 501e8aa Rename metacritic pipeline refs
+- 7309f4c Add mobygames review pipeline
+- b5107dc Add review pipeline and attributions
+- 3aab956 Integrate review pipeline updates
+- 76e72a4 Implement MobyGames integration
+- 5e08306 Add attributions alert section
+- 8c3c52e Add mobygames for legacy platforms
+- eeb46b0 Add MobyGames API integration
+
+## v0.2.1 - 2026-03-01
+- b362c8c Merge pull request #139 from thetigeregg/copilot/review-rate-limiting-logic
+- 7765750 fix(api): revert overly conservative bulk metacritic constants; cooldown guard handles MobyGames 429s via retry
+- c551f4e fix(api): enforce rate-limit cooldown in lookupReviewScore and lookupReviewCandidates, respect MobyGames 12 req/min in bulk actions
+- db183bc Initial plan
+
+## v0.2.2 - 2026-03-01
+- 25bcd92 Merge pull request #140 from thetigeregg/copilot/fix-mobygames-rate-limiting
+- 92dc2a5 fix(server): restore retry-after header in MobyGames 503 queue-full response using actual delay
+- e6dcb7b Update src/app/core/api/igdb-proxy.service.ts
+- f2bd342 Update server/src/mobygames-cache.ts
+- 98217c2 Update src/app/core/api/igdb-proxy.service.ts
+- 969ecf5 fix(api): make MobyGames slot reservation cancellation-safe via releaseSlot rollback
+- 51079aa Update src/app/core/api/igdb-proxy.service.ts
+- 4c144ba test(api): add coverage for MobyGames throttle error paths and waitForMobyGamesSlot delay branch
+- b8fd3b9 fix(api): move MobyGames lookup_request traces inside defer blocks for accurate timestamps
+- 5cb0fc7 Update src/app/core/api/igdb-proxy.service.ts
+- 14c0ddb fix(api): address PR review feedback on MobyGames throttle
+- 4abde13 Update server/src/mobygames-cache.test.ts
+- 200324a fix(server): add server-side outbound throttle for MobyGames (5 s minimum interval)
+- 5c14259 fix(api): proactively throttle MobyGames requests to 0.2 req/s
+- fd5eb51 Initial plan
+
+## v0.2.3 - 2026-03-02
+- 6e61ec6 Merge pull request #144 from thetigeregg/dependabot/github_actions/actions/upload-artifact-7
+- 8cb99a2 chore(ci): bump actions/upload-artifact from 4 to 7
+
+## v0.2.4 - 2026-03-02
+- 30bff87 Merge pull request #143 from thetigeregg/dependabot/npm_and_yarn/server/types/pg-8.18.0
+- bc56385 Merge branch 'main' into dependabot/npm_and_yarn/server/types/pg-8.18.0
+- ce33122 chore(deps): bump @types/pg from 8.16.0 to 8.18.0 in /server
+
+## v0.2.5 - 2026-03-02
+- e4103b4 Merge pull request #141 from thetigeregg/dependabot/npm_and_yarn/lint-staged-16.3.1
+- c4938c0 Merge branch 'main' into dependabot/npm_and_yarn/lint-staged-16.3.1
+- 7ca8879 chore(deps): add chokidar and readdirp as optional peer dependencies for @ionic/angular-toolkit
+- c0cc942 Merge branch 'main' into dependabot/npm_and_yarn/lint-staged-16.3.1
+- 9441f5e chore(deps): bump lint-staged from 16.2.7 to 16.3.1
+
+## v0.2.6 - 2026-03-02
+- 60fc333 Merge pull request #145 from thetigeregg/dependabot/docker/edge/caddy-2.11-alpine
+- 4bb6f02 Merge branch 'main' into dependabot/docker/edge/caddy-2.11-alpine
+- a87ac97 Merge branch 'main' into dependabot/docker/edge/caddy-2.11-alpine
+- ac434c0 chore(docker): bump caddy from 2.10-alpine to 2.11-alpine in /edge
+
+## v0.2.7 - 2026-03-02
+- 6b1657d Merge pull request #147 from thetigeregg/codex/429-toast
+- b406969 Fix rate-limit toast coloring
+- 9a936dd Clarify rate limit toast handling
+- 47967c4 Audit Metacritic rate handling
+
+## v0.2.8 - 2026-03-02
+- cb66cb0 Merge pull request #148 from thetigeregg/codex/mobygames-platform-alias
+- fbf8f65 Merge branch 'main' into codex/mobygames-platform-alias
+- e7fc888 Update aliased platform mappings
+- 6c76f18 Add tests for IGDB platform aliases
+- 30fa410 Merge branch 'main' into codex/mobygames-platform-alias
+- 6cd8e60 Update platform alias lookups
+
+## v1.0.1 - 2026-03-02
+- 8b4a20d Merge pull request #149 from thetigeregg/codex/add-timeadjusted-score-metric
+- 706f60e Reject zero hours in TAS score
+- 5e95faa Check TAS zero-hour validation
+- 529b174 Review TAS and time preference
+- 27b4647 Reject zero hours in TAS calc
+- 723948b Adjust TAS to reject zero-hour HLTB
+- 54ddbdd Bump app version to 1.0.0
+- ccd1682 Audit branch changes before PR
+- 017f446 Merge branch 'main' into codex/add-timeadjusted-score-metric
+- 8ce07a2 Adjust default time preference to 15
+- 3ab5d2e Update time preference help text styling and alignment
+- 1198435 Update time preference input alignment in settings
+- 51a9d88 Add TAS sorting mode
+- 5a909bb Add TAS sorting option
+- 3394470 Add TAS sort mode with config
+
+## v1.0.2 - 2026-03-02
+- f794f39 Merge pull request #150 from thetigeregg/codex/allow-halfstep-user-ratings
+- e0b9762 Add Explore InRange coverage
+- 934f934 Audit explore branch changes
+- 3eb50ff Hide trailing zeros in ratings
+- 890628a Allow half-step user ratings
+- f03747e Allow half-step ratings
+- 0e3cc63 Allow half step ratings
+- 867619c Allow half-step user ratings
+- ad392f0 Allow half-step ratings
+
+## v1.0.3 - 2026-03-04
+- fb306eb Merge pull request #151 from thetigeregg/codex/recommendations
+- c0398e9 Align diversity penalty default
+- 5af63af Align diversity penalty default
+- a075658 Align diversity penalty default
+- 503ec68 Align diversity penalty defaults
+- 6e5219f Fix discovery detail parity
+- 36f019d Fix discovery parity issues
+- 1fef5b2 Fix discovery parity issues
+- 9991c28 Fix game similarity target updates
+- 942f797 Add segment switch for similar games
+- d19abee Trim strings in parsePositiveInteger
+- 3364f6d Add OpenAI embedding safeguards
+- 73d4a0c Add timeout validation to embeddings
+- 42785c3 Add embedding timeout handling
+- d16177e Fix similarity runtime scope
+- 8feb5c2 Fix similarity shared tokens overlap
+- 617e618 Investigate similarity boost impact
+- 0bf36b0 Ensure similar game click scrolls to
+- 9433365 Enhance styling for SimilarGameRowBadge component
+- b2b6f64 Add rationale split test
+- 425fac5 Assess Copilot feedback on logs
+- 43690b3 Simplify normalizeCriticScore logic
+- 55e4274 Simplify critic score normalization
+- 013a73b Document detail shortcut fab actions
+- bb67775 Review embedding dimension config
+- 75dcd20 Investigate Copilot suggestions
+- 8647ed9 Enforce strict rating parsing
+- d90a34d Validate rating filter inputs
+- 07223fe Validate rating filter parsing
+- 815a8d9 Pin Postgres image reference
+- b3496dc Harden positive id parsing
+- 2fed92d Remove unused OpenAI dependency
+- 03b9f6a Enforce minimum rate limit window
+- a2b691d Avoid clearing metadata when missing
+- 40c3332 Reject non-integer theme ids
+- f29a1c5 Regenerate PR summary from main diff
+- 927b359 Generate PR summary after diff
+- e0b3972 Reevaluate metadata merge behavior
+- 1dcd0e7 Reject truncated non-integer ids
+- adb0753 Audit branch and apply fixes
+- a3116c8 Audit branch and tune scroll
+- 668191d Reduce infinite scroll threshold for recommendations and similar games
+- 98ea4de Add infinite scroll to related games
+- 027fd1f Reuse discovery similar games
+- d5ae3f8 Remove frontend similar filter
+- e63529b Prevent duplicate similar games
+- 175b2ab Fix discovery game detail issues
+- a274973 Split recommendation headline lines
+- efef170 Update similar row badge display
+- df80bec Add back navigation button
+- ea8a22b Unify related games layout
+- 865a72b Restore old header template
+- 7d18c3b Fix discovery game detail FAB
+- 4d60e50 Investigate discovery detail regress
+- 721156c Merge discovery queue duplicates
+- 1fc19f3 Merge duplicate discovery games
+- 32481ce Fix discovery frontend display
+- 2826833 Add discovery lane configs
+- 676234e Add config for discovery refresh
+- d883601 Add recommendation env vars
+- 35abe5e Allow popular and recent lanes
+- 0023d44 Explain discovery cache behavior
+- 1872cf5 Filter discovery recent game query
+- 9469b4e Avoid deprecated IGDB fields
+- 35e7086 Enable recommendation enrichment
+- 25ffd91 Clarify IGDB recommendation scope
+- 66608f3 Bold scores and split rationale
+- 6536c69 Bold score values in explore
+- b785206 Update recommendation rationale
+- 5862f54 Align explore game rows
+- f309abe Fix explore game row layout
+- 7a366e0 Align explore game row layout
+- 0700688 Adjust explore game row layout
+- ca0d4f7 Add themes and keywords to recs
+- c142145 Add theme keyword explainability
+- 13b3f14 Fix rating filter half steps
+- d744256 Add IGDB themes keywords metadata
+- 24fc86c Ingest IGDB themes and keywords
+- dea8526 Add icons for selection options in Explore recommendations
+- 9e46237 Refresh Discover UI and audit rates
+- 128ee22 Update explore recommendations UI
+- cf3c746 Implement Explore recommendation MVP
+- a14220c Implement Explore UX recommendations
+- 3273dd5 Implement explore recommendations UX
+- f6d73ac Implement Explore-first rec UX
+- 6857046 Audit recommendation factor weights
+- f0e5820 Clear games table and verify boost
+- ecc08df Filter recs by status and normalize
+- 498a7a1 Add status filtering to similar recs
+- 20ecaa8 Add runtimeMode recommendations
+- bccc360 Add peer dependency flag to multiple packages in package-lock.json
+- 913aeb0 Add runtime mode materialization
+- a54ea10 Add runtimeMode materialization
+- e2a9e6f Implement semantic recommendation up
+- f6f5ba6 Implement v1 recommendation API
+- ba05508 Implement recommendation API
+
+## v1.0.4 - 2026-03-04
+- 3a03b16 Merge pull request #152 from thetigeregg/codex/enable-worktreefriendly-dev-env
+- 30da5ac Ensure pulled sync failures rollback
+- cdeca6a Adjust write-token interceptor base
+- 4cd5e3d Treat empty gameApiBaseUrl as API
+- c3f0c80 Handle empty base URL for API
+- b48fb37 Update worktree-dev status logging
+- 60c29d7 Audit final regression changes
+- e1ad008 Audit branch changes vs main
+- 74771b4 Update docs for worktree dev stack
+- 4112865 Fix frontend game loading
+- 8b205c7 Fix DB seed vector extension
+- c13a746 Merge branch 'main' into codex/enable-worktreefriendly-dev-env
+- c3b2158 Fix db seed apply missing root role
+- deab81f Fix backend port offset not applied
+- f077386 Fix sync pull returning 404
+- e5e4037 Fix worktree API port
+- a8f0f5e Add worktree bootstrap flow
+- 0cf6624 Document shared env workflow
+- aef78a7 Document worktree DB seed commands
+- 3d8452e Document worktree-safe dev commands
+
+## v1.0.5 - 2026-03-04
+- 383b255 Merge pull request #153 from thetigeregg/codex/chore-remove-tracked-nas-secrets
+- 7671149 Merge branch 'main' into codex/chore-remove-tracked-nas-secrets
+- 0ffd929 chore(secrets): stop tracking nas secret files
+

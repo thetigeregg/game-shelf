@@ -14,6 +14,7 @@ import {
 import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
 
 type GameSyncServicePrivate = {
+  applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
   applyGameChange(change: SyncChangeEvent): Promise<void>;
   applyTagChange(change: SyncChangeEvent): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
@@ -38,6 +39,9 @@ type GameSyncServicePrivate = {
   generateOperationId(): string;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
+  syncInFlight: boolean;
+  initialized: boolean;
+  baseUrl: string;
   httpClient: {
     post: (url: string, body: unknown) => Observable<unknown>;
   };
@@ -266,6 +270,117 @@ describe('GameSyncService', () => {
     expect(stored?.tagIds).toEqual([1, 2]);
   });
 
+  it('falls back to local auto id when pulled id collides with an unrelated local row', async () => {
+    await db.games.put({
+      id: 218,
+      igdbGameId: '999',
+      platformIgdbId: 48,
+      title: 'Existing Local',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PlayStation 4',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4c-id-collision',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        id: 218,
+        igdbGameId: '1234',
+        platformIgdbId: 130,
+        title: 'Pulled Game'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const localRow = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['999', 48])
+      .first();
+    const pulledRow = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['1234', 130])
+      .first();
+
+    expect(localRow?.id).toBe(218);
+    expect(localRow?.title).toBe('Existing Local');
+    expect(pulledRow).toBeDefined();
+    expect(pulledRow?.title).toBe('Pulled Game');
+    expect(pulledRow?.id).not.toBe(218);
+  });
+
+  it('strict-normalizes pulled metacritic/hltb and list metadata fields', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4b',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        hltbMainHours: -4,
+        hltbMainExtraHours: 21.234,
+        hltbCompletionistHours: 'not-a-number',
+        metacriticScore: 777,
+        metacriticUrl: 'https://www.metacritic.com/game/example/',
+        collections: [' Series A ', 'Series A', '', 3],
+        genres: [' Action ', 'Action', ''],
+        themes: [' Fantasy ', 'Fantasy', ''],
+        themeIds: [1, 1, '2', '2.5', '10x', 'x'],
+        keywords: [' Zelda ', 'Zelda', ''],
+        keywordIds: [10, 10, '11', '11.8', '20x', 'x'],
+        similarGameIgdbIds: ['123', '123', 'bad', 456],
+        releaseYear: 1700,
+        releaseDate: '',
+        rating: '6',
+        status: 'invalid',
+        gameType: 'invalid',
+        coverUrl: 'not-a-url',
+        createdAt: 'not-a-date'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.hltbMainHours).toBeNull();
+    expect(stored?.hltbMainExtraHours).toBe(21.2);
+    expect(stored?.hltbCompletionistHours).toBeNull();
+    expect(stored?.metacriticScore).toBeNull();
+    expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/example/');
+    expect(stored?.collections).toEqual(['Series A']);
+    expect(stored?.genres).toEqual(['Action']);
+    expect(stored?.themes).toEqual(['Fantasy']);
+    expect(stored?.themeIds).toEqual([1, 2]);
+    expect(stored?.keywords).toEqual(['Zelda']);
+    expect(stored?.keywordIds).toEqual([10, 11]);
+    expect(stored?.similarGameIgdbIds).toEqual(['123', '456']);
+    expect(stored?.releaseYear).toBeNull();
+    expect(stored?.releaseDate).toBeNull();
+    expect(stored?.rating).toBeNull();
+    expect(stored?.status).toBeNull();
+    expect(stored?.gameType).toBeNull();
+    expect(stored?.coverUrl).toBeNull();
+    expect(stored?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('accepts half-step ratings in pulled game payloads', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4c',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        rating: '4.5'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.rating).toBe(4.5);
+  });
+
   it('normalizes custom metadata in game upserts', async () => {
     await servicePrivate.applyGameChange({
       eventId: '5',
@@ -308,6 +423,114 @@ describe('GameSyncService', () => {
     expect(stored?.customPlatform).toBeNull();
     expect(stored?.customPlatformIgdbId).toBeNull();
     expect(stored?.customCoverUrl).toBeNull();
+  });
+
+  it('normalizes mobyScore, mobygamesGameId, and review source fields in game upserts', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7-mobygames',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 88,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobyScore: 8.8,
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(88);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBe(8.8);
+    expect(stored?.mobygamesGameId).toBe(42);
+    expect(stored?.metacriticScore).toBeNull();
+    expect(stored?.metacriticUrl).toBeNull();
+  });
+
+  it('scales MobyGames reviewScore from 0–10 to 0–100 when reviewSource is mobygames', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7b-decimal-review',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 8.8,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobyScore: 8.8,
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(88);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBe(8.8);
+  });
+
+  it('does not scale MobyGames reviewScore when it differs from mobyScore (critic_score case)', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7c-critic-score',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 75,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobyScore: 7.5,
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(75);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBe(7.5);
+  });
+
+  it('scales MobyGames reviewScore via ≤10 heuristic when mobyScore is absent', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '7d-no-mobyscore',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 8.8,
+        reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
+        reviewSource: 'mobygames',
+        mobygamesGameId: 42
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(88);
+    expect(stored?.reviewSource).toBe('mobygames');
+    expect(stored?.mobyScore).toBeNull();
+  });
+
+  it('normalizes metacritic review source and does not set moby fields', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '8-metacritic',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        reviewScore: 91,
+        reviewUrl: 'https://www.metacritic.com/game/some-game/',
+        reviewSource: 'metacritic'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.reviewScore).toBe(91);
+    expect(stored?.reviewSource).toBe('metacritic');
+    expect(stored?.metacriticScore).toBe(91);
+    expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/some-game/');
+    expect(stored?.mobyScore).toBeNull();
+    expect(stored?.mobygamesGameId).toBeNull();
   });
 
   it('applies tag delete and updates games containing deleted tag', async () => {
@@ -452,6 +675,11 @@ describe('GameSyncService', () => {
     );
     expect(servicePrivate.normalizeNotes('   ')).toBeNull();
     expect(servicePrivate.normalizeNotes('\r\nLine 1\r\n')).toBe('\nLine 1\n');
+    expect(
+      (
+        service as unknown as { normalizeExternalUrl: (value: unknown) => string | null }
+      ).normalizeExternalUrl('//www.metacritic.com/game/example/')
+    ).toBe('https://www.metacritic.com/game/example/');
   });
 
   it('normalizes custom title/platform helper branches', () => {
@@ -647,6 +875,136 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalled();
   });
 
+  it('applyPulledChanges dispatches by entity type', async () => {
+    const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
+    const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
+    const viewSpy = vi.spyOn(servicePrivate, 'applyViewChange').mockResolvedValue(undefined);
+    const settingSpy = vi.spyOn(servicePrivate, 'applySettingChange').mockImplementation(() => {});
+
+    const gameChange = {
+      eventId: '44',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ igdbGameId: 'dispatch-game' }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const tagChange = {
+      eventId: '45',
+      entityType: 'tag',
+      operation: 'upsert',
+      payload: { id: 5, name: 'Priority', color: '#ff0000' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const viewChange = {
+      eventId: '46',
+      entityType: 'view',
+      operation: 'upsert',
+      payload: { id: 11, name: 'My View', listType: 'wishlist' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const settingChange = {
+      eventId: '47',
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: { key: 'dispatch-setting', value: 'on' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+
+    await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
+
+    expect(gameSpy).toHaveBeenCalledWith(gameChange);
+    expect(tagSpy).toHaveBeenCalledWith(tagChange);
+    expect(viewSpy).toHaveBeenCalledWith(viewChange);
+    expect(settingSpy).toHaveBeenCalledWith(settingChange);
+  });
+
+  it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
+    localStorage.removeItem('test-setting');
+
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: 'cursor-before',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    vi.spyOn(servicePrivate, 'applySettingChange').mockImplementation(() => {
+      throw new Error('forced failure');
+    });
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({
+        cursor: 'cursor-after',
+        changes: [
+          {
+            eventId: '43',
+            entityType: 'setting',
+            operation: 'upsert',
+            payload: { key: 'test-setting', value: 'on' },
+            serverTimestamp: '2026-01-01T00:00:00.000Z'
+          }
+        ]
+      })
+    );
+
+    await expect(servicePrivate.pullChanges()).rejects.toThrow(
+      'Failed to apply 1 pulled sync change(s).'
+    );
+
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('cursor-before');
+    expect(localStorage.getItem('test-setting')).toBeNull();
+    expect(emitChangedSpy).not.toHaveBeenCalled();
+  });
+
+  it('retries pulled game upsert without server id on constraint errors', async () => {
+    const constraintError = Object.assign(new Error('constraint'), { name: 'ConstraintError' });
+    const putSpy = vi
+      .spyOn(db.games, 'put')
+      .mockRejectedValueOnce(constraintError)
+      .mockResolvedValueOnce(123);
+
+    await servicePrivate.applyGameChange({
+      eventId: '46',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        id: 999,
+        igdbGameId: 'retry-test',
+        platformIgdbId: 130,
+        title: 'Retry Game'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    expect(putSpy).toHaveBeenCalledTimes(2);
+    const firstArg = putSpy.mock.calls[0][0] as { id?: number };
+    const secondArg = putSpy.mock.calls[1][0] as { id?: number };
+    expect(firstArg.id).toBe(999);
+    expect(secondArg.id).toBeUndefined();
+  });
+
+  it('rethrows non-retryable put errors during pulled game upsert', async () => {
+    const abortError = Object.assign(new Error('abort'), { name: 'AbortError' });
+    const putSpy = vi.spyOn(db.games, 'put').mockRejectedValueOnce(abortError);
+
+    await expect(
+      servicePrivate.applyGameChange({
+        eventId: '47',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          id: 1001,
+          igdbGameId: 'throw-test',
+          platformIgdbId: 130,
+          title: 'Throw Game'
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      } as SyncChangeEvent)
+    ).rejects.toThrow('abort');
+
+    expect(putSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('syncNow marks connectivity degraded when push fails', async () => {
     vi.spyOn(servicePrivate, 'pushOutbox').mockRejectedValue(new Error('push failed'));
     vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
@@ -655,5 +1013,42 @@ describe('GameSyncService', () => {
 
     const connectivity = await db.syncMeta.get('connectivity');
     expect(connectivity?.value).toBe('degraded');
+  });
+
+  it('syncNow skips when in flight or offline', async () => {
+    const pushSpy = vi.spyOn(servicePrivate, 'pushOutbox');
+    const pullSpy = vi.spyOn(servicePrivate, 'pullChanges');
+
+    servicePrivate.baseUrl = 'http://localhost:3000';
+    servicePrivate.syncInFlight = true;
+    await service.syncNow();
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(pullSpy).not.toHaveBeenCalled();
+
+    servicePrivate.syncInFlight = false;
+    const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
+      onLine: false
+    } as Navigator);
+    await service.syncNow();
+    expect(pushSpy).not.toHaveBeenCalled();
+    expect(pullSpy).not.toHaveBeenCalled();
+    navigatorSpy.mockRestore();
+  });
+
+  it('initialize short-circuits when already initialized', () => {
+    servicePrivate.initialized = true;
+    const syncNowSpy = vi.spyOn(service, 'syncNow').mockResolvedValue(undefined);
+
+    service.initialize();
+
+    expect(syncNowSpy).not.toHaveBeenCalled();
+  });
+
+  it('pushOutbox exits when outbox is empty', async () => {
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+
+    await servicePrivate.pushOutbox();
+
+    expect(postSpy).not.toHaveBeenCalled();
   });
 });

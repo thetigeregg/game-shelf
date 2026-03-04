@@ -35,6 +35,7 @@ import {
   GameStatus
 } from '../../core/models/game.models';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
+import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
 
 type DetailContext = 'library' | 'explore';
@@ -65,15 +66,13 @@ export class GameDetailContentComponent {
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
-  @Input() ratingOptions: GameRating[] = [1, 2, 3, 4, 5];
   @Input() showAddToLibraryAction = false;
   @Input() isInLibrary = false;
   @Input() isAddToLibraryLoading = false;
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
-  @Output() ratingChange = new EventEmitter<number | null | undefined>();
-  @Output() clearRating = new EventEmitter<void>();
+  @Output() editRating = new EventEmitter<void>();
   @Output() openTags = new EventEmitter<void>();
   @Output() developerClick = new EventEmitter<void>();
   @Output() seriesClick = new EventEmitter<void>();
@@ -225,6 +224,14 @@ export class GameDetailContentComponent {
     return value ?? undefined;
   }
 
+  get ratingLabel(): string {
+    return this.ratingValue !== undefined ? this.formatRatingValue(this.ratingValue) : 'None';
+  }
+
+  get ratingActionLabel(): string {
+    return this.ratingValue !== undefined ? 'EDIT' : 'SET';
+  }
+
   get tagItems(): { name: string; color: string }[] {
     if (!this.showLibrarySections) {
       return [];
@@ -257,6 +264,41 @@ export class GameDetailContentComponent {
 
   get hltbCompletionistLabel(): string {
     return this.formatCompletionHours(this.game.hltbCompletionistHours);
+  }
+
+  get reviewScoreLabel(): string {
+    const score = this.normalizeReviewScore(this.game.reviewScore ?? this.game.metacriticScore);
+    if (score === null) {
+      return 'Unknown';
+    }
+
+    const source = this.resolveReviewSourceLabel();
+    if (source === 'mobygames') {
+      const rawMobyScore =
+        typeof this.game.mobyScore === 'number' && Number.isFinite(this.game.mobyScore)
+          ? this.game.mobyScore
+          : score <= 10
+            ? score
+            : score / 10;
+      const outOfTen = rawMobyScore.toFixed(1).replace(/\.0$/, '');
+      return `${outOfTen}/10`;
+    }
+
+    return `${String(score)}/100`;
+  }
+
+  get reviewScoreHeadingLabel(): string {
+    const source = this.resolveReviewSourceLabel();
+
+    if (source === 'metacritic') {
+      return 'Metacritic Score';
+    }
+
+    if (source === 'mobygames') {
+      return 'Moby Score';
+    }
+
+    return 'Review Score';
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
@@ -302,6 +344,41 @@ export class GameDetailContentComponent {
     return normalized.length > 0 ? normalized.join(', ') : 'None';
   }
 
+  private normalizeReviewScore(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    const normalized = Math.round(value * 10) / 10;
+    if (normalized <= 0 || normalized > 100) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private resolveReviewSourceLabel(): 'metacritic' | 'mobygames' | null {
+    const reviewSource =
+      (this.game as Partial<GameEntry>).reviewSource === 'metacritic' ||
+      (this.game as Partial<GameEntry>).reviewSource === 'mobygames'
+        ? (this.game as Partial<GameEntry>).reviewSource
+        : null;
+
+    if (reviewSource) {
+      return reviewSource;
+    }
+
+    const urlCandidate =
+      (this.game as Partial<GameEntry>).reviewUrl ??
+      (this.game as Partial<GameEntry>).metacriticUrl ??
+      null;
+    if (typeof urlCandidate === 'string') {
+      return detectReviewSourceFromUrl(urlCandidate);
+    }
+
+    return null;
+  }
+
   hasMetadataValue(values: string[] | null | undefined): boolean {
     return Array.isArray(values) && values.some((value) => value.trim().length > 0);
   }
@@ -325,8 +402,8 @@ export class GameDetailContentComponent {
     this.statusChange.emit(value);
   }
 
-  emitRatingChange(value: number | null | undefined): void {
-    this.ratingChange.emit(value);
+  formatRatingValue(value: number): string {
+    return value.toFixed(1).replace(/\.0$/, '');
   }
 
   onDeveloperClick(): void {

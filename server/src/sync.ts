@@ -7,6 +7,7 @@ import type {
   SyncOperationType,
   SyncPushResult
 } from './types.js';
+import { config } from './config.js';
 
 interface SyncEventRow {
   event_id: number;
@@ -37,7 +38,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     url: '/v1/sync/push',
     config: {
       rateLimit: {
-        max: 10,
+        max: config.syncPushRateLimitMaxPerMinute,
         timeWindow: '1 minute'
       }
     },
@@ -112,7 +113,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     url: '/v1/sync/pull',
     config: {
       rateLimit: {
-        max: 10,
+        max: config.syncPullRateLimitMaxPerMinute,
         timeWindow: '1 minute'
       }
     },
@@ -468,6 +469,23 @@ function parseInteger(value: unknown): number {
   return Number.NaN;
 }
 
+function parseFiniteNumber(value: unknown): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : Number.NaN;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return Number.NaN;
+    }
+    const parsed = Number.parseFloat(trimmed);
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
+  }
+
+  return Number.NaN;
+}
+
 function normalizeGamePayload(
   value: unknown
 ): Record<string, unknown> & { igdbGameId: string; platformIgdbId: number } {
@@ -498,6 +516,8 @@ function normalizeGamePayload(
   const customCoverUrlRaw =
     typeof payload.customCoverUrl === 'string' ? payload.customCoverUrl.trim() : '';
   const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
+  const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
+  const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId =
     Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
@@ -517,6 +537,12 @@ function normalizeGamePayload(
   const isEmptyHtmlPlaceholder = strippedNotes.length === 0;
   const notes =
     normalizedNotesTrimmed.length > 0 && !isEmptyHtmlPlaceholder ? normalizedNotes : null;
+  const mobygamesGameId =
+    Number.isInteger(mobygamesGameIdRaw) && mobygamesGameIdRaw > 0 ? mobygamesGameIdRaw : null;
+  const mobyScore =
+    Number.isFinite(mobyScoreRaw) && mobyScoreRaw > 0 && mobyScoreRaw <= 10
+      ? Math.round(mobyScoreRaw * 10) / 10
+      : null;
 
   return {
     ...payload,
@@ -527,6 +553,8 @@ function normalizeGamePayload(
     customPlatformIgdbId: customPlatform !== null ? customPlatformIgdbId : null,
     customCoverUrl,
     notes,
+    mobyScore,
+    mobygamesGameId,
     updatedAt
   };
 }

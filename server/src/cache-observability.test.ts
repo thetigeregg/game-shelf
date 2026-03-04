@@ -3,19 +3,35 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
-import { incrementHltbMetric, incrementImageMetric, resetCacheMetrics } from './cache-metrics.js';
+import {
+  incrementHltbMetric,
+  incrementImageMetric,
+  incrementMetacriticMetric,
+  incrementMobygamesMetric,
+  resetCacheMetrics
+} from './cache-metrics.js';
 
 type CacheStatsPayload = {
   counts: {
     imageAssets: number | null;
     hltbEntries: number | null;
+    metacriticEntries: number | null;
+    mobygamesEntries: number | null;
   };
   metrics: {
     image: {
       hits: number;
       misses: number;
     };
+    metacritic: {
+      hits: number;
+      writes: number;
+    };
     hltb: {
+      hits: number;
+      writes: number;
+    };
+    mobygames: {
       hits: number;
       writes: number;
     };
@@ -37,6 +53,14 @@ class CacheStatsPoolMock {
 
     if (normalized.includes('from hltb_search_cache')) {
       return Promise.resolve({ rows: [{ count: '13' }] });
+    }
+
+    if (normalized.includes('from metacritic_search_cache')) {
+      return Promise.resolve({ rows: [{ count: '17' }] });
+    }
+
+    if (normalized.includes('from mobygames_search_cache')) {
+      return Promise.resolve({ rows: [{ count: '19' }] });
     }
 
     throw new Error(`Unsupported SQL in CacheStatsPoolMock: ${sql}`);
@@ -61,6 +85,10 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   incrementImageMetric('misses');
   incrementHltbMetric('hits');
   incrementHltbMetric('writes');
+  incrementMetacriticMetric('hits');
+  incrementMetacriticMetric('writes');
+  incrementMobygamesMetric('hits');
+  incrementMobygamesMetric('writes');
 
   const app = Fastify();
   await registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool);
@@ -74,10 +102,16 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, 7);
   assert.equal(payload.counts.hltbEntries, 13);
+  assert.equal(payload.counts.metacriticEntries, 17);
+  assert.equal(payload.counts.mobygamesEntries, 19);
   assert.equal(payload.metrics.image.hits, 1);
   assert.equal(payload.metrics.image.misses, 1);
+  assert.equal(payload.metrics.metacritic.hits, 1);
+  assert.equal(payload.metrics.metacritic.writes, 1);
   assert.equal(payload.metrics.hltb.hits, 1);
   assert.equal(payload.metrics.hltb.writes, 1);
+  assert.equal(payload.metrics.mobygames.hits, 1);
+  assert.equal(payload.metrics.mobygames.writes, 1);
   assert.equal(payload.dbError, null);
 
   await app.close();
@@ -119,7 +153,37 @@ void test('Cache stats endpoint returns dbError when count queries fail', async 
   const payload = parseJson(response.body) as CacheStatsPayload;
   assert.equal(payload.counts.imageAssets, null);
   assert.equal(payload.counts.hltbEntries, null);
+  assert.equal(payload.counts.metacriticEntries, null);
+  assert.equal(payload.counts.mobygamesEntries, null);
   assert.equal(payload.dbError, 'db_unavailable');
+
+  await app.close();
+});
+
+void test('Cache stats endpoint returns 0 count when db rows are empty', async () => {
+  resetCacheMetrics();
+
+  class CacheStatsEmptyRowsPoolMock {
+    query(): Promise<{ rows: Array<{ count: string }> }> {
+      return Promise.resolve({ rows: [] });
+    }
+  }
+
+  const app = Fastify();
+  await registerCacheObservabilityRoutes(app, new CacheStatsEmptyRowsPoolMock() as unknown as Pool);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/cache/stats'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = parseJson(response.body) as CacheStatsPayload;
+  assert.equal(payload.counts.imageAssets, 0);
+  assert.equal(payload.counts.hltbEntries, 0);
+  assert.equal(payload.counts.metacriticEntries, 0);
+  assert.equal(payload.counts.mobygamesEntries, 0);
+  assert.equal(payload.dbError, null);
 
   await app.close();
 });

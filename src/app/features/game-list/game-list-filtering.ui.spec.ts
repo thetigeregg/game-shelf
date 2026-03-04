@@ -30,13 +30,19 @@ function makeGame(
     rating: partial.rating ?? null,
     status: partial.status ?? null,
     gameType: partial.gameType ?? null,
+    metacriticScore: partial.metacriticScore,
+    metacriticUrl: partial.metacriticUrl,
     similarGameIgdbIds: partial.similarGameIgdbIds,
     hltbMainExtraHours: partial.hltbMainExtraHours,
     hltbCompletionistHours: partial.hltbCompletionistHours,
     storyline: partial.storyline,
     summary: partial.summary,
     tagIds: partial.tagIds,
-    id: partial.id
+    id: partial.id,
+    reviewScore: partial.reviewScore,
+    reviewSource: partial.reviewSource,
+    reviewUrl: partial.reviewUrl,
+    mobyScore: partial.mobyScore
   };
 }
 
@@ -53,12 +59,18 @@ describe('GameListFilteringEngine UI behavior', () => {
       ...DEFAULT_GAME_LIST_FILTERS,
       platform: ['  Switch ', 'Switch', ''],
       tags: ['Action', noneTagFilterValue, ' Action '],
+      excludedPlatform: [' Family Computer ', 'Nintendo Entertainment System'],
+      excludedTags: [' RPG ', noneTagFilterValue, 'RPG'],
+      excludedStatuses: ['playing', 'none'],
       hltbMainHoursMin: 20,
       hltbMainHoursMax: 10
     });
 
     expect(normalized.platform).toEqual(['Switch']);
     expect(normalized.tags).toEqual([noneTagFilterValue, 'Action']);
+    expect(normalized.excludedPlatform).toEqual(['Nintendo Entertainment System']);
+    expect(normalized.excludedTags).toEqual(['RPG']);
+    expect(normalized.excludedStatuses).toEqual(['playing']);
     expect(normalized.hltbMainHoursMin).toBe(10);
     expect(normalized.hltbMainHoursMax).toBe(20);
   });
@@ -136,6 +148,30 @@ describe('GameListFilteringEngine UI behavior', () => {
     const result = engine.applyFiltersAndSort(games, filters, '');
 
     expect(result.map((game) => game.title)).toEqual(['Untagged']);
+  });
+
+  it('does not treat partially numeric rating strings as valid ratings', () => {
+    const malformedRating = makeGame({
+      igdbGameId: '1',
+      platformIgdbId: 130,
+      title: 'Malformed Rating'
+    });
+    (malformedRating as unknown as { rating: unknown }).rating = '2.5x';
+
+    const validRating = makeGame({
+      igdbGameId: '2',
+      platformIgdbId: 130,
+      title: 'Valid Rating',
+      rating: 2.5
+    });
+
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      ratings: [2.5]
+    };
+
+    const result = engine.applyFiltersAndSort([malformedRating, validRating], filters, '');
+    expect(result.map((game) => game.title)).toEqual(['Valid Rating']);
   });
 
   it('builds grouped sections with no-series bucket', () => {
@@ -280,7 +316,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     );
   });
 
-  it('treats shorthand e-Reader label as Game Boy Advance for grouping and filtering', () => {
+  it('does not treat shorthand e-Reader label as a canonical platform alias', () => {
     const games: GameEntry[] = [
       makeGame({
         igdbGameId: '1',
@@ -296,19 +332,21 @@ describe('GameListFilteringEngine UI behavior', () => {
       })
     ];
 
-    expect(engine.extractPlatforms(games)).toEqual(['Game Boy Advance']);
+    expect(engine.extractPlatforms(games).sort()).toEqual(['e-Reader', 'Game Boy Advance'].sort());
 
     const grouped = engine.buildGroupedView(games, 'platform');
-    expect(grouped.sections.map((section) => section.title)).toEqual(['Game Boy Advance']);
+    expect(grouped.sections.map((section) => section.title).sort()).toEqual(
+      ['e-Reader', 'Game Boy Advance'].sort()
+    );
 
     const normalizedFilters = engine.normalizeFilters({
       ...DEFAULT_GAME_LIST_FILTERS,
       platform: ['e-Reader']
     });
-    expect(normalizedFilters.platform).toEqual(['Game Boy Advance']);
+    expect(normalizedFilters.platform).toEqual(['e-Reader']);
 
     const filtered = engine.applyFiltersAndSort(games, normalizedFilters, '');
-    expect(filtered.map((game) => game.title).sort()).toEqual(['Card-e Game', 'GBA Game'].sort());
+    expect(filtered.map((game) => game.title)).toEqual(['Card-e Game']);
   });
 
   it('treats New Nintendo 3DS as Nintendo 3DS and Nintendo DSi as Nintendo DS', () => {
@@ -533,6 +571,78 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['Target']);
   });
 
+  it('excludes games that match exclusion filters', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Excluded By Tag',
+        tags: [{ id: 1, name: 'Backlog', color: '#fff' }],
+        genres: ['Action'],
+        status: 'playing',
+        gameType: 'main_game'
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Excluded By None Status',
+        tags: [],
+        genres: ['RPG'],
+        status: null,
+        gameType: 'expansion'
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 6,
+        title: 'Allowed',
+        tags: [{ id: 2, name: 'Favorite', color: '#000' }],
+        genres: ['Strategy'],
+        status: 'completed',
+        gameType: 'season',
+        platform: 'PC (Microsoft Windows)'
+      })
+    ];
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      excludedPlatform: ['Nintendo Switch'],
+      excludedGenres: ['Action'],
+      excludedStatuses: ['playing'],
+      excludedTags: ['Backlog'],
+      excludedGameTypes: ['expansion']
+    };
+
+    const result = engine.applyFiltersAndSort(games, filters, '');
+    expect(result.map((game) => game.title)).toEqual(['Allowed']);
+  });
+
+  it('strips legacy none exclusion values during normalization', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'No Status No Tags',
+        status: null,
+        tags: []
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Playing With Tag',
+        status: 'playing',
+        tags: [{ id: 1, name: 'Backlog', color: '#fff' }]
+      })
+    ];
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      excludedStatuses: ['none', 'playing'],
+      excludedTags: [noneTagFilterValue, 'Backlog']
+    };
+    const normalizedFilters = engine.normalizeFilters(filters);
+
+    const result = engine.applyFiltersAndSort(games, normalizedFilters, '');
+    expect(result.map((game) => game.title)).toEqual(['No Status No Tags']);
+  });
+
   it('supports none status and none rating filters', () => {
     const games: GameEntry[] = [
       makeGame({
@@ -561,6 +671,33 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['No Data']);
   });
 
+  it('supports half-step rating filters', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Half Step Match',
+        rating: 4.5
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Whole Step',
+        rating: 4
+      })
+    ];
+
+    const result = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        ratings: [4.5]
+      },
+      ''
+    );
+    expect(result.map((game) => game.title)).toEqual(['Half Step Match']);
+  });
+
   it('filters by release date range and search query', () => {
     const games: GameEntry[] = [
       makeGame({
@@ -586,6 +723,16 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     const result = engine.applyFiltersAndSort(games, filters, '  mario  ');
     expect(result.map((game) => game.title)).toEqual(['Super Mario']);
+  });
+
+  it('matches search queries with diacritic-insensitive normalization', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Pokémon Emerald' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Metroid Prime' })
+    ];
+
+    const result = engine.applyFiltersAndSort(games, DEFAULT_GAME_LIST_FILTERS, 'pokemon');
+    expect(result.map((game) => game.title)).toEqual(['Pokémon Emerald']);
   });
 
   it('sorts by title and ignores leading articles', () => {
@@ -625,6 +772,420 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Switch:B Game',
       'Switch:A Game'
     ]);
+  });
+
+  it('sorts by hltb using row fallback order and treats missing values as less-than', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'No HLTB' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Main', hltbMainHours: 8 }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Main+Extra',
+        hltbMainHours: 0,
+        hltbMainExtraHours: 12
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'Completionist',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: 15
+      }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Zero Main', hltbMainHours: 0 })
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'No HLTB',
+      'Zero Main',
+      'Main',
+      'Main+Extra',
+      'Completionist'
+    ]);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    expect(desc.map((game) => game.title)).toEqual([
+      'Completionist',
+      'Main+Extra',
+      'Main',
+      'Zero Main',
+      'No HLTB'
+    ]);
+  });
+
+  it('uses title fallback when effective hltb values are equal or both missing', () => {
+    const equalNumeric: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Bravo',
+        hltbMainHours: null,
+        hltbMainExtraHours: 10
+      }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Alpha', hltbMainHours: 10 })
+    ];
+
+    const sortedEqualNumeric = engine.applyFiltersAndSort(
+      equalNumeric,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(sortedEqualNumeric.map((game) => game.title)).toEqual(['Alpha', 'Bravo']);
+
+    const equalMissing: GameEntry[] = [
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'B Missing', hltbMainHours: null }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'A Missing', hltbMainHours: null })
+    ];
+
+    const sortedEqualMissing = engine.applyFiltersAndSort(
+      equalMissing,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(sortedEqualMissing.map((game) => game.title)).toEqual(['B Missing', 'A Missing']);
+  });
+
+  it('sorts by metacritic and always keeps missing scores last in both directions', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'No Score' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'High', metacriticScore: 90 }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Mid', metacriticScore: 70 }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'Invalid',
+        metacriticScore: 101
+      }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Low', metacriticScore: 45 })
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(asc.map((game) => game.title)).toEqual(['Low', 'Mid', 'High', 'Invalid', 'No Score']);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    expect(desc.map((game) => game.title)).toEqual(['High', 'Mid', 'Low', 'Invalid', 'No Score']);
+
+    const equalScores = engine.applyFiltersAndSort(
+      [
+        makeGame({ igdbGameId: '6', platformIgdbId: 130, title: 'Beta', metacriticScore: 70 }),
+        makeGame({ igdbGameId: '7', platformIgdbId: 130, title: 'Alpha', metacriticScore: 70 })
+      ],
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(equalScores.map((game) => game.title)).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('sorts MobyGames 0–10 scale reviewScore correctly against Metacritic 0–100 scores', () => {
+    const games: GameEntry[] = [
+      // MobyGames score on 0–10 scale (8.8 → equivalent to 88/100)
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Moby High',
+        reviewScore: 8.8,
+        reviewSource: 'mobygames'
+      }),
+      // Metacritic score on 0–100 scale
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Meta Mid',
+        reviewScore: 70,
+        reviewSource: 'metacritic'
+      }),
+      // MobyGames score on 0–100 scale (already normalized)
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Moby Norm',
+        reviewScore: 88,
+        reviewSource: 'mobygames'
+      }),
+      // No review score
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'No Score' })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    // Moby High (8.8 → 88) and Moby Norm (88) tie, Meta Mid (70) is lower, No Score last
+    expect(desc.map((game) => game.title)).toEqual([
+      'Moby High',
+      'Moby Norm',
+      'Meta Mid',
+      'No Score'
+    ]);
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'Meta Mid',
+      'Moby High',
+      'Moby Norm',
+      'No Score'
+    ]);
+  });
+
+  it('does not scale MobyGames critic_score ≤10 on 0–100 scale when mobyScore differs', () => {
+    const games: GameEntry[] = [
+      // critic_score=10 on 0–100 scale; mobyScore=1.0 differs → should NOT scale (stays at 10)
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Low Critic',
+        reviewScore: 10,
+        reviewSource: 'mobygames',
+        mobyScore: 1.0
+      }),
+      // moby_score=8.0 on 0–10 scale; reviewScore matches mobyScore → scales to 80
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'High Moby',
+        reviewScore: 8.0,
+        reviewSource: 'mobygames',
+        mobyScore: 8.0
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Mid Normal',
+        reviewScore: 50,
+        reviewSource: 'metacritic'
+      })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    // High Moby (8.0 → 80) > Mid Normal (50) > Low Critic (10, not scaled to 100)
+    expect(desc.map((game) => game.title)).toEqual(['High Moby', 'Mid Normal', 'Low Critic']);
+  });
+
+  it('does not scale metacriticScore fallback when reviewScore is null', () => {
+    const games: GameEntry[] = [
+      // reviewScore is null, falls back to metacriticScore — should NOT scale even if reviewSource is mobygames
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Fallback',
+        reviewScore: null,
+        reviewSource: 'mobygames',
+        metacriticScore: 75
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Normal',
+        reviewScore: 80,
+        reviewSource: 'metacritic'
+      })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    expect(desc.map((game) => game.title)).toEqual(['Normal', 'Fallback']);
+  });
+
+  it('sorts by TAS using HLTB fallback hierarchy and keeps missing TAS values last', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Main',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+        hltbMainHours: 10
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Main+Extra',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+        hltbMainHours: null,
+        hltbMainExtraHours: 5
+      }),
+      makeGame({
+        igdbGameId: '3',
+        platformIgdbId: 130,
+        title: 'Completionist',
+        reviewScore: 80,
+        reviewSource: 'metacritic',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: 2
+      }),
+      makeGame({
+        igdbGameId: '4',
+        platformIgdbId: 130,
+        title: 'Moby',
+        reviewScore: 8.5,
+        reviewSource: 'mobygames',
+        mobyScore: 8.5,
+        hltbMainHours: 10
+      }),
+      makeGame({
+        igdbGameId: '5',
+        platformIgdbId: 130,
+        title: 'No Hours',
+        reviewScore: 90,
+        reviewSource: 'metacritic',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }),
+      makeGame({
+        igdbGameId: '6',
+        platformIgdbId: 130,
+        title: 'No Score',
+        reviewScore: null,
+        hltbMainHours: 10
+      })
+    ];
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'tas',
+        sortDirection: 'desc'
+      },
+      '',
+      20
+    );
+    expect(desc.map((game) => game.title)).toEqual([
+      'Completionist',
+      'Moby',
+      'Main+Extra',
+      'Main',
+      'No Hours',
+      'No Score'
+    ]);
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'tas',
+        sortDirection: 'asc'
+      },
+      '',
+      20
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'Main',
+      'Main+Extra',
+      'Moby',
+      'Completionist',
+      'No Hours',
+      'No Score'
+    ]);
+  });
+
+  it('uses title fallback when TAS values are equal', () => {
+    const result = engine.applyFiltersAndSort(
+      [
+        makeGame({
+          igdbGameId: '1',
+          platformIgdbId: 130,
+          title: 'Beta',
+          reviewScore: 80,
+          reviewSource: 'metacritic',
+          hltbMainHours: 10
+        }),
+        makeGame({
+          igdbGameId: '2',
+          platformIgdbId: 130,
+          title: 'Alpha',
+          reviewScore: 80,
+          reviewSource: 'metacritic',
+          hltbMainHours: 10
+        })
+      ],
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'tas',
+        sortDirection: 'desc'
+      },
+      '',
+      20
+    );
+
+    expect(result.map((game) => game.title)).toEqual(['Alpha', 'Beta']);
   });
 
   it('sorts by createdAt and handles invalid timestamps', () => {

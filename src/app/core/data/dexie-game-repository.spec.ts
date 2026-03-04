@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { TestBed } from '@angular/core/testing';
 import { AppDb } from './app-db';
 import { DexieGameRepository } from './dexie-game-repository';
-import { GameCatalogResult } from '../models/game.models';
+import { DEFAULT_GAME_LIST_FILTERS, GameCatalogResult } from '../models/game.models';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 
 describe('DexieGameRepository', () => {
@@ -72,6 +72,38 @@ describe('DexieGameRepository', () => {
     expect(stored?.hltbMainHours).toBe(12.1);
     expect(stored?.hltbMainExtraHours).toBe(18.4);
     expect(stored?.hltbCompletionistHours).toBe(30.2);
+  });
+
+  it('persists themes and keywords metadata fields from catalog payload', async () => {
+    const created = await repository.upsertFromCatalog(
+      {
+        ...mario,
+        themes: ['Platformer', 'Platformer'],
+        themeIds: [1, 1, 2],
+        keywords: ['Nintendo', 'Nintendo'],
+        keywordIds: [5, 5, 6]
+      },
+      'collection'
+    );
+
+    expect(created.themes).toEqual(['Platformer']);
+    expect(created.themeIds).toEqual([1, 2]);
+    expect(created.keywords).toEqual(['Nintendo']);
+    expect(created.keywordIds).toEqual([5, 6]);
+  });
+
+  it('rejects non-integer theme and keyword ids from catalog payload', async () => {
+    const created = await repository.upsertFromCatalog(
+      {
+        ...mario,
+        themeIds: [1, 2.7, 3],
+        keywordIds: [5, 6.1, 7]
+      },
+      'collection'
+    );
+
+    expect(created.themeIds).toEqual([1, 3]);
+    expect(created.keywordIds).toEqual([5, 7]);
   });
 
   it('moves a game to the other list when added again with same identity', async () => {
@@ -188,11 +220,11 @@ describe('DexieGameRepository', () => {
   it('updates status and rating for existing entries', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
     await repository.setGameStatus('101', 18, 'playing');
-    await repository.setGameRating('101', 18, 4);
+    await repository.setGameRating('101', 18, 4.5);
     const stored = await repository.exists('101', 18);
 
     expect(stored?.status).toBe('playing');
-    expect(stored?.rating).toBe(4);
+    expect(stored?.rating).toBe(4.5);
   });
 
   it('deduplicates and normalizes tag assignments', async () => {
@@ -249,6 +281,22 @@ describe('DexieGameRepository', () => {
     expect(cleared?.notes).toBeNull();
   });
 
+  it('stores structure-only rich-text notes', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameNotes('101', 18, '<ul><li><p></p></li></ul>');
+    const withList = await repository.exists('101', 18);
+    expect(withList?.notes).toContain('<ul');
+
+    await repository.setGameNotes(
+      '101',
+      18,
+      '<details><summary><p></p></summary><div data-type="detailsContent"><p></p></div></details>'
+    );
+    const withDetails = await repository.exists('101', 18);
+    expect(withDetails?.notes).toContain('<details');
+  });
+
   it('preserves meaningful note whitespace while sanitizing unsafe html', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 
@@ -268,6 +316,164 @@ describe('DexieGameRepository', () => {
 
     const stored = await repository.exists('101', 18);
     expect(stored?.notes).toBe('Track hidden item locations');
+  });
+
+  it('normalizes metacritic score/url on create and update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 87.6,
+        metacriticUrl: '//www.metacritic.com/game/super-mario-bros/'
+      },
+      'collection'
+    );
+
+    const created = await repository.exists('101', 18);
+    expect(created?.metacriticScore).toBe(88);
+    expect(created?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 101,
+        metacriticUrl: 'ftp://invalid'
+      },
+      'collection'
+    );
+    const invalidUpdated = await repository.exists('101', 18);
+    expect(invalidUpdated?.metacriticScore).toBeNull();
+    expect(invalidUpdated?.metacriticUrl).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 95,
+        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/'
+      },
+      'collection'
+    );
+    const httpsUpdated = await repository.exists('101', 18);
+    expect(httpsUpdated?.metacriticScore).toBe(95);
+    expect(httpsUpdated?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
+  });
+
+  it('normalizes reviewScore preserving decimals on create and update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 88.2,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+
+    const created = await repository.exists('101', 18);
+    expect(created?.reviewScore).toBe(88.2);
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 95,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+    const intUpdated = await repository.exists('101', 18);
+    expect(intUpdated?.reviewScore).toBe(95);
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 101,
+        reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        reviewSource: 'metacritic'
+      },
+      'collection'
+    );
+    const outOfRange = await repository.exists('101', 18);
+    expect(outOfRange?.reviewScore).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 0,
+        reviewUrl: null,
+        reviewSource: null
+      },
+      'collection'
+    );
+    const zeroScore = await repository.exists('101', 18);
+    expect(zeroScore?.reviewScore).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 100,
+        reviewUrl: null,
+        reviewSource: null
+      },
+      'collection'
+    );
+    const maxScore = await repository.exists('101', 18);
+    expect(maxScore?.reviewScore).toBe(100);
+  });
+
+  it('preserves existing metacritic score/url when absent in partial upsert', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        metacriticScore: 92,
+        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/'
+      },
+      'collection'
+    );
+
+    await repository.upsertFromCatalog(
+      { ...mario, title: 'Super Mario Bros. Updated' },
+      'collection'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.metacriticScore).toBe(92);
+    expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/super-mario-bros/');
+  });
+
+  it('does not backfill metacritic fields with MobyGames review data on update', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 78,
+        reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
+        reviewSource: 'mobygames',
+        metacriticScore: null,
+        metacriticUrl: null
+      },
+      'collection'
+    );
+
+    const initial = await repository.exists('101', 18);
+    expect(initial?.reviewScore).toBe(78);
+    expect(initial?.metacriticScore).toBeNull();
+    expect(initial?.metacriticUrl).toBeNull();
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        reviewScore: 82,
+        reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
+        reviewSource: 'mobygames',
+        metacriticScore: null,
+        metacriticUrl: null
+      },
+      'collection'
+    );
+
+    const updated = await repository.exists('101', 18);
+    expect(updated?.reviewScore).toBe(82);
+    expect(updated?.metacriticScore).toBeNull();
+    expect(updated?.metacriticUrl).toBeNull();
   });
 
   it('upserts tags by name and by id', async () => {
@@ -311,6 +517,8 @@ describe('DexieGameRepository', () => {
     expect(fetched?.name).toBe('My View');
     expect(fetched?.filters.platform).toEqual(['Switch']);
     expect(fetched?.filters.releaseDateFrom).toBe('2024-01-01');
+    expect(fetched?.filters.excludedStatuses).toEqual([]);
+    expect(fetched?.filters.excludedTags).toEqual([]);
     expect(fetched?.groupBy).toBe('platform');
 
     const updated = await repository.updateView(createdId, {
@@ -319,9 +527,19 @@ describe('DexieGameRepository', () => {
         sortField: 'title',
         sortDirection: 'asc',
         platform: [],
+        collections: [],
+        developers: [],
+        franchises: [],
+        publishers: [],
+        gameTypes: [],
         genres: [],
         statuses: [],
         tags: [],
+        excludedPlatform: [],
+        excludedGenres: [],
+        excludedStatuses: ['none', 'playing'],
+        excludedTags: ['__none__', 'Spoilers'],
+        excludedGameTypes: [],
         ratings: [],
         hltbMainHoursMin: null,
         hltbMainHoursMax: null,
@@ -333,6 +551,8 @@ describe('DexieGameRepository', () => {
 
     expect(updated?.name).toBe('Renamed');
     expect(updated?.groupBy).toBe('publisher');
+    expect(updated?.filters.excludedStatuses).toEqual(['playing']);
+    expect(updated?.filters.excludedTags).toEqual(['Spoilers']);
 
     const list = await repository.listViews('collection');
     expect(list).toHaveLength(1);
@@ -344,6 +564,19 @@ describe('DexieGameRepository', () => {
   it('returns undefined when updating a missing view', async () => {
     const updated = await repository.updateView(404, { name: 'Missing' });
     expect(updated).toBeUndefined();
+  });
+
+  it('falls back to default sort field when view sort field is invalid', async () => {
+    const created = await repository.createView({
+      name: 'Sort fallback',
+      listType: 'collection',
+      filters: {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'unsupported' as never
+      },
+      groupBy: 'none'
+    });
+    expect(created.filters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
   });
 
   it('throws for invalid game and view inputs', async () => {
@@ -422,5 +655,33 @@ describe('DexieGameRepository', () => {
     });
     db = TestBed.inject(AppDb);
     repository = TestBed.inject(DexieGameRepository);
+  });
+
+  it('preserves incoming similarGameIgdbIds when updating an existing game', async () => {
+    await repository.upsertFromCatalog(
+      { ...mario, similarGameIgdbIds: ['200', '300'] },
+      'collection'
+    );
+    const created = await repository.exists('101', 18);
+    expect(created?.similarGameIgdbIds).toEqual(['200', '300']);
+
+    await repository.upsertFromCatalog(
+      { ...mario, similarGameIgdbIds: ['400', '500'] },
+      'collection'
+    );
+    const updated = await repository.exists('101', 18);
+    expect(updated?.similarGameIgdbIds).toEqual(['400', '500']);
+  });
+
+  it('returns null for custom platform igdb id when it matches the default platform', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.setGameCustomMetadata('101', 18, {
+      title: null,
+      platform: { name: 'NES', igdbId: 18 }
+    });
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.customPlatformIgdbId).toBeNull();
   });
 });

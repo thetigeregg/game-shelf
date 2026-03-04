@@ -1412,3 +1412,8 @@
 - aef78a7 Document worktree DB seed commands
 - 3d8452e Document worktree-safe dev commands
 
+## v1.0.5 - 2026-03-04
+- 383b255 Merge pull request #153 from thetigeregg/codex/chore-remove-tracked-nas-secrets
+- 7671149 Merge branch 'main' into codex/chore-remove-tracked-nas-secrets
+- 0ffd929 chore(secrets): stop tracking nas secret files
+

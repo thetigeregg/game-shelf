@@ -1,6 +1,5 @@
 import { buildTokenEntries } from './normalize.js';
 import { TOKEN_FAMILY_WEIGHT, buildPreferenceProfile } from './profile.js';
-import { ratingToSignal } from './rating.js';
 import { buildGameKey } from './semantic.js';
 import { NormalizedGameRecord, TunedRecommendationWeights } from './types.js';
 
@@ -139,13 +138,4 @@ function clamp(value: number, min: number, max: number): number {
   }
 
   return Math.max(min, Math.min(max, value));
-}
-
-export function ratingStepSignal(value: number | null): number {
-  if (value === null) {
-    return 0;
-  }
-
-  const signal = ratingToSignal(value);
-  return signal ?? 0;
 }

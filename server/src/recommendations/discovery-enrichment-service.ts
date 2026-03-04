@@ -43,6 +43,7 @@ interface MetacriticResponse {
 
 export class DiscoveryEnrichmentService {
   private intervalHandle: NodeJS.Timeout | null = null;
+  private startupTimeoutHandle: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly repository: RecommendationRepository,
@@ -55,8 +56,9 @@ export class DiscoveryEnrichmentService {
       return;
     }
 
-    setTimeout(
+    this.startupTimeoutHandle = setTimeout(
       () => {
+        this.startupTimeoutHandle = null;
         void this.runOnce().catch((error: unknown) => {
           console.warn('[recommendations.discovery_enrichment] startup_run_failed', {
             message: error instanceof Error ? error.message : String(error)
@@ -79,12 +81,15 @@ export class DiscoveryEnrichmentService {
   }
 
   stop(): void {
-    if (!this.intervalHandle) {
-      return;
+    if (this.startupTimeoutHandle) {
+      clearTimeout(this.startupTimeoutHandle);
+      this.startupTimeoutHandle = null;
     }
 
-    clearInterval(this.intervalHandle);
-    this.intervalHandle = null;
+    if (this.intervalHandle) {
+      clearInterval(this.intervalHandle);
+      this.intervalHandle = null;
+    }
   }
 
   async runOnce(): Promise<DiscoveryEnrichmentSummary | null> {

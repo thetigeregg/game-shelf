@@ -874,6 +874,44 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalled();
   });
 
+  it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
+    localStorage.removeItem('test-setting');
+
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: 'cursor-before',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    vi.spyOn(servicePrivate, 'applySettingChange').mockImplementation(() => {
+      throw new Error('forced failure');
+    });
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({
+        cursor: 'cursor-after',
+        changes: [
+          {
+            eventId: '43',
+            entityType: 'setting',
+            operation: 'upsert',
+            payload: { key: 'test-setting', value: 'on' },
+            serverTimestamp: '2026-01-01T00:00:00.000Z'
+          }
+        ]
+      })
+    );
+
+    await expect(servicePrivate.pullChanges()).rejects.toThrow(
+      'Failed to apply 1 pulled sync change(s).'
+    );
+
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('cursor-before');
+    expect(localStorage.getItem('test-setting')).toBeNull();
+    expect(emitChangedSpy).not.toHaveBeenCalled();
+  });
+
   it('syncNow marks connectivity degraded when push fails', async () => {
     vi.spyOn(servicePrivate, 'pushOutbox').mockRejectedValue(new Error('push failed'));
     vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);

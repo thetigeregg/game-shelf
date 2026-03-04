@@ -282,7 +282,10 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
-    await this.applyPulledChanges(changes);
+    const failedChanges = await this.applyPulledChanges(changes);
+    if (failedChanges > 0) {
+      throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
+    }
 
     const nextCursor =
       typeof response.cursor === 'string' && response.cursor.trim().length > 0
@@ -293,7 +296,9 @@ export class GameSyncService implements SyncOutboxWriter {
     this.debugLogService.debug('sync.pull.applied', { changes: changes.length });
   }
 
-  private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
+  private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<number> {
+    let failedChanges = 0;
+
     await this.db.transaction('rw', this.db.games, this.db.tags, this.db.views, async () => {
       for (const change of changes) {
         try {
@@ -314,6 +319,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
           this.applySettingChange(change);
         } catch (error: unknown) {
+          failedChanges += 1;
           this.debugLogService.error('sync.pull.change_failed', {
             eventId: change.eventId,
             entityType: change.entityType,
@@ -323,6 +329,8 @@ export class GameSyncService implements SyncOutboxWriter {
         }
       }
     });
+
+    return failedChanges;
   }
 
   private parsePositiveInteger(value: unknown): number | null {

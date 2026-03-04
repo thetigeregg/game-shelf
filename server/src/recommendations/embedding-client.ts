@@ -88,6 +88,14 @@ export class OpenAiEmbeddingClient implements EmbeddingClient {
         if (!Array.isArray(entry.embedding)) {
           throw new Error('OpenAI embeddings response entry is missing embedding data.');
         }
+        if (entry.embedding.length !== this.dimensions) {
+          throw new Error(
+            `OpenAI embeddings response entry has incorrect dimension: expected ${String(this.dimensions)}, received ${String(entry.embedding.length)}.`
+          );
+        }
+        if (!entry.embedding.every((value) => Number.isFinite(value))) {
+          throw new Error('OpenAI embeddings response entry contains non-finite embedding values.');
+        }
 
         return entry.embedding;
       });

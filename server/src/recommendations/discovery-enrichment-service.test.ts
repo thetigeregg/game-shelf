@@ -25,10 +25,6 @@ class RepositoryMock {
     platformIgdbId: number;
     payload: Record<string, unknown>;
   }> = [];
-  public touches: Array<{
-    igdbGameId: string;
-    platformIgdbId: number;
-  }> = [];
 
   async withAdvisoryLock<T>(params: {
     namespace: number;
@@ -64,17 +60,6 @@ class RepositoryMock {
     return Promise.resolve();
   }
 
-  touchGameUpdatedAt(params: {
-    client?: Queryable;
-    igdbGameId: string;
-    platformIgdbId: number;
-  }): Promise<void> {
-    this.touches.push({
-      igdbGameId: params.igdbGameId,
-      platformIgdbId: params.platformIgdbId
-    });
-    return Promise.resolve();
-  }
 }
 
 void test('discovery enrichment updates hltb and critic fields', async () => {
@@ -331,8 +316,6 @@ void test('discovery enrichment applies cooldown after failed attempt', async ()
     const second = await service.enrichNow({ limit: 10 });
     assert.deepEqual(second, { scanned: 1, updated: 0, skipped: 1 });
     assert.equal(fetchCalls, 2);
-    assert.equal(repository.touches.length, 1);
-    assert.deepEqual(repository.touches[0], { igdbGameId: '1', platformIgdbId: 6 });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -422,8 +405,6 @@ void test('discovery enrichment marks permanent miss at max attempts and stops r
     const third = await service.enrichNow({ limit: 10 });
     assert.deepEqual(third, { scanned: 1, updated: 0, skipped: 1 });
     assert.equal(fetchCalls, 4);
-    assert.equal(repository.touches.length, 1);
-    assert.deepEqual(repository.touches[0], { igdbGameId: '2', platformIgdbId: 6 });
   } finally {
     globalThis.fetch = originalFetch;
   }

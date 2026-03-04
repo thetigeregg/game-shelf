@@ -88,7 +88,9 @@ const sharedEnv = {
 };
 
 function defaultSeedPath() {
-  const base = process.env.DEV_DB_SEED_PATH || path.join(os.homedir(), '.cache', 'game-shelf', 'dev-db-seed', 'latest.sql.gz');
+  const base =
+    process.env.DEV_DB_SEED_PATH ||
+    path.join(os.homedir(), '.cache', 'game-shelf', 'dev-db-seed', 'latest.sql.gz');
   return path.resolve(base);
 }
 
@@ -162,7 +164,9 @@ function printInfo() {
   } else if (existsSync(sharedEnvFilePath)) {
     console.log(`Env file: ${localEnvPath} (will bootstrap from ${sharedEnvFilePath})`);
   } else {
-    console.log(`Env file: ${localEnvPath} (missing; optional template not found at ${sharedEnvFilePath})`);
+    console.log(
+      `Env file: ${localEnvPath} (missing; optional template not found at ${sharedEnvFilePath})`
+    );
   }
   console.log(`DB seed file: ${defaultSeedPath()}`);
 }
@@ -181,9 +185,49 @@ function ensureLocalEnvFromSharedTemplate() {
   console.log(`Bootstrapped .env from shared template: ${sharedEnvFilePath}`);
 }
 
+function listMissingDependencyDirs() {
+  const requiredNodeModules = [
+    path.resolve(cwd, 'node_modules'),
+    path.resolve(cwd, 'server', 'node_modules'),
+    path.resolve(cwd, 'worker', 'node_modules'),
+    path.resolve(cwd, 'hltb-scraper', 'node_modules'),
+    path.resolve(cwd, 'metacritic-scraper', 'node_modules')
+  ];
+
+  return requiredNodeModules.filter((moduleDir) => !existsSync(moduleDir));
+}
+
+function ensureDependenciesInstalled(forceInstall = false) {
+  const missing = listMissingDependencyDirs();
+
+  if (!forceInstall && missing.length === 0) {
+    return;
+  }
+
+  if (missing.length > 0) {
+    console.log('Missing dependency directories detected:');
+    for (const moduleDir of missing) {
+      console.log(`  - ${moduleDir}`);
+    }
+  }
+
+  console.log('Installing workspace dependencies via: npm run i:all');
+  run('npm', ['run', 'i:all'], sharedEnv);
+}
+
 function runStack(action) {
   if (action === 'up') {
-    run('docker', [...composeArgs, 'up', '-d', '--build', 'postgres', 'hltb-scraper', 'metacritic-scraper', 'api', 'edge']);
+    run('docker', [
+      ...composeArgs,
+      'up',
+      '-d',
+      '--build',
+      'postgres',
+      'hltb-scraper',
+      'metacritic-scraper',
+      'api',
+      'edge'
+    ]);
     return;
   }
 
@@ -199,12 +243,29 @@ function runStack(action) {
   }
 
   if (action === 'restart') {
-    run('docker', [...composeArgs, 'restart', 'edge', 'api', 'postgres', 'hltb-scraper', 'metacritic-scraper']);
+    run('docker', [
+      ...composeArgs,
+      'restart',
+      'edge',
+      'api',
+      'postgres',
+      'hltb-scraper',
+      'metacritic-scraper'
+    ]);
     return;
   }
 
   if (action === 'logs') {
-    run('docker', [...composeArgs, 'logs', '-f', 'edge', 'api', 'postgres', 'hltb-scraper', 'metacritic-scraper']);
+    run('docker', [
+      ...composeArgs,
+      'logs',
+      '-f',
+      'edge',
+      'api',
+      'postgres',
+      'hltb-scraper',
+      'metacritic-scraper'
+    ]);
     return;
   }
 
@@ -234,7 +295,11 @@ function runFrontend() {
   writeFileSync(proxyPath, `${JSON.stringify(proxyConfig, null, 2)}\n`, 'utf8');
 
   run('npm', ['run', 'prestart'], sharedEnv);
-  run('npx', ['ng', 'serve', '--port', String(ports.FRONTEND_PORT), '--proxy-config', proxyPath], sharedEnv);
+  run(
+    'npx',
+    ['ng', 'serve', '--port', String(ports.FRONTEND_PORT), '--proxy-config', proxyPath],
+    sharedEnv
+  );
 }
 
 function ensurePostgresRunning() {
@@ -290,7 +355,9 @@ function dbSeedApply(force) {
   ensurePostgresRunning();
 
   if (!force && !isCurrentDbEmpty()) {
-    console.log('Current worktree DB is not empty. Skipping seed restore. Use --force to overwrite.');
+    console.log(
+      'Current worktree DB is not empty. Skipping seed restore. Use --force to overwrite.'
+    );
     return;
   }
 
@@ -338,10 +405,11 @@ function parseOptions(values) {
 }
 
 if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
-  console.log('Usage: node scripts/worktree-dev.mjs <info|frontend|stack|db> [action]');
+  console.log('Usage: node scripts/worktree-dev.mjs <info|bootstrap|frontend|stack|db> [action]');
   console.log('');
   console.log('Commands:');
   console.log('  info                      Show derived project name, ports, and seed path');
+  console.log('  bootstrap                 Bootstrap .env and install deps if missing');
   console.log('  frontend                  Run Angular dev server for this worktree');
   console.log('  stack up                  Start worktree-isolated docker stack');
   console.log('  stack up-seed             Start stack and seed DB only when empty');
@@ -349,7 +417,9 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
   console.log('  stack restart             Restart worktree-isolated services');
   console.log('  stack logs                Follow stack logs');
   console.log('  stack ps                  Show stack status');
-  console.log('  db seed-refresh           Create/update shared seed dump from current worktree DB');
+  console.log(
+    '  db seed-refresh           Create/update shared seed dump from current worktree DB'
+  );
   console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
   console.log('');
   console.log('Optional env vars:');
@@ -364,9 +434,17 @@ if (args[0] === 'info') {
   process.exit(0);
 }
 
+if (args[0] === 'bootstrap') {
+  ensureLocalEnvFromSharedTemplate();
+  printInfo();
+  ensureDependenciesInstalled(false);
+  process.exit(0);
+}
+
 if (args[0] === 'frontend') {
   ensureLocalEnvFromSharedTemplate();
   printInfo();
+  ensureDependenciesInstalled(false);
   runFrontend();
   process.exit(0);
 }

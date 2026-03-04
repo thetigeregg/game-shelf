@@ -13,6 +13,7 @@
     "dev:stack:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "dev:backend:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f edge api postgres hltb-scraper metacritic-scraper",
     "dev:worktree:info": "node scripts/worktree-dev.mjs info",
+    "dev:worktree:bootstrap": "node scripts/worktree-dev.mjs bootstrap",
     "dev:worktree:start": "node scripts/worktree-dev.mjs frontend",
     "dev:worktree:stack:up": "node scripts/worktree-dev.mjs stack up",
     "dev:worktree:stack:up:seed": "node scripts/worktree-dev.mjs stack up-seed",

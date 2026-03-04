@@ -1417,3 +1417,7 @@
 - 7671149 Merge branch 'main' into codex/chore-remove-tracked-nas-secrets
 - 0ffd929 chore(secrets): stop tracking nas secret files
 
+## v1.0.6 - 2026-03-04
+- 02c915e Merge pull request #154 from thetigeregg/codex/fixy
+- 9b55e16 Summarize Caddyfile proxy fix
+

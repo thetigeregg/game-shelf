@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { book, documentText, globe, logoGoogle, logoYoutube, search } from 'ionicons/icons';
@@ -10,17 +10,17 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
   standalone: true,
   imports: [IonFab, IonFabButton, IonFabList, IonIcon],
   template: `
-    <ion-fab vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
+    <ion-fab #fab vertical="bottom" horizontal="end" class="detail-shortcuts-fab">
       <ion-fab-button size="small" aria-label="Open web shortcuts">
         <ion-icon name="globe" aria-hidden="true"></ion-icon>
       </ion-fab-button>
-      <ion-fab-list side="top" (click)="listClick.emit()">
+      <ion-fab-list side="top" (click)="onListClick()">
         @if (showNotesShortcut) {
           <ion-fab-button
             class="shortcut-notes"
             color="deep-ocean"
             aria-label="Open notes editor"
-            (click)="notesClick.emit()"
+            (click)="onNotesClick()"
           >
             <ion-icon name="document-text" aria-hidden="true"></ion-icon>
           </ion-fab-button>
@@ -30,7 +30,7 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
             class="shortcut-manual"
             color="ocean"
             aria-label="Open game manual PDF"
-            (click)="openManualClick.emit()"
+            (click)="onOpenManualClick()"
           >
             <ion-icon name="book" aria-hidden="true"></ion-icon>
           </ion-fab-button>
@@ -40,7 +40,7 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
             class="shortcut-manual-find"
             color="dark-gray"
             aria-label="Find game manual PDF"
-            (click)="findManualClick.emit()"
+            (click)="onFindManualClick()"
           >
             <ion-icon name="search" aria-hidden="true"></ion-icon>
           </ion-fab-button>
@@ -49,7 +49,7 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
           class="shortcut-google"
           color="forest"
           aria-label="Search on Google"
-          (click)="shortcutSearch.emit('google')"
+          (click)="onShortcutSearch('google')"
         >
           <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
         </ion-fab-button>
@@ -57,7 +57,7 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
           class="shortcut-youtube"
           color="firetruck"
           aria-label="Search on YouTube"
-          (click)="shortcutSearch.emit('youtube')"
+          (click)="onShortcutSearch('youtube')"
         >
           <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
         </ion-fab-button>
@@ -65,7 +65,7 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
           class="shortcut-wikipedia"
           color="white"
           aria-label="Search on Wikipedia"
-          (click)="shortcutSearch.emit('wikipedia')"
+          (click)="onShortcutSearch('wikipedia')"
         >
           <span class="shortcut-text" aria-hidden="true">W</span>
         </ion-fab-button>
@@ -73,7 +73,7 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
           class="shortcut-gamefaqs"
           color="royal"
           aria-label="Search on GameFAQs"
-          (click)="shortcutSearch.emit('gamefaqs')"
+          (click)="onShortcutSearch('gamefaqs')"
         >
           <span class="shortcut-text" aria-hidden="true">G</span>
         </ion-fab-button>
@@ -102,6 +102,8 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
   ]
 })
 export class DetailShortcutsFabComponent {
+  @ViewChild('fab') private fab?: IonFab;
+
   @Input() showNotesShortcut = false;
   @Input() showOpenManualButton = false;
   @Input() showFindManualButton = false;
@@ -121,5 +123,33 @@ export class DetailShortcutsFabComponent {
       logoGoogle,
       logoYoutube
     });
+  }
+
+  onListClick(): void {
+    this.listClick.emit();
+  }
+
+  onNotesClick(): void {
+    this.notesClick.emit();
+    this.closeFab();
+  }
+
+  onOpenManualClick(): void {
+    this.openManualClick.emit();
+    this.closeFab();
+  }
+
+  onFindManualClick(): void {
+    this.findManualClick.emit();
+    this.closeFab();
+  }
+
+  onShortcutSearch(provider: ShortcutProvider): void {
+    this.shortcutSearch.emit(provider);
+    this.closeFab();
+  }
+
+  private closeFab(): void {
+    void this.fab?.close();
   }
 }

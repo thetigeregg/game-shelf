@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  gameApiBaseUrl: '/api',
+  gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
   featureFlags: {
     showMgcImport: false,

@@ -145,4 +145,7 @@ void test('similarity series overlap de-duplicates shared collection+franchise l
     edgeWithBoth.reasons.structuredSimilarity,
     edgeCollectionOnly.reasons.structuredSimilarity
   );
+  assert.deepEqual(edgeWithBoth.reasons.sharedTokens.collections, ['Mario']);
+  assert.deepEqual(edgeWithBoth.reasons.sharedTokens.franchises, []);
+  assert.equal(edgeWithBoth.reasons.summary.includes('same franchise'), false);
 });

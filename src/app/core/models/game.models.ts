@@ -185,9 +185,9 @@ export interface RecommendationLanesResponse {
 
 export interface RecommendationRebuildResponse {
   target: RecommendationTarget;
-  runId: string;
+  runId: number;
   status: 'SUCCESS' | 'FAILED' | 'SKIPPED' | 'LOCKED' | 'BACKOFF_SKIPPED';
-  reusedRunId?: string | null;
+  reusedRunId?: number | null;
 }
 
 export interface RecommendationSimilarityReasons {

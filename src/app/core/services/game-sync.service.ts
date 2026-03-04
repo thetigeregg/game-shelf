@@ -7,6 +7,8 @@ import {
   ClientSyncOperation,
   DEFAULT_GAME_LIST_FILTERS,
   GameEntry,
+  GameScreenshot,
+  GameVideo,
   GameListView,
   SyncChangeEvent,
   SyncPushResult,
@@ -439,6 +441,8 @@ export class GameSyncService implements SyncOutboxWriter {
       themeIds: this.normalizePositiveIntegerList(payload.themeIds),
       keywords: this.normalizeStringList(payload.keywords),
       keywordIds: this.normalizePositiveIntegerList(payload.keywordIds),
+      screenshots: this.normalizeGameScreenshots(payload.screenshots),
+      videos: this.normalizeGameVideos(payload.videos),
       publishers: this.normalizeStringList(payload.publishers),
       platform,
       customPlatform: this.normalizeCustomPlatform(
@@ -684,6 +688,91 @@ export class GameSyncService implements SyncOutboxWriter {
           .filter((entry) => Number.isInteger(entry) && entry > 0)
       )
     ];
+  }
+
+  private normalizeGameScreenshots(value: unknown): GameScreenshot[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: GameScreenshot[] = [];
+
+    for (const entry of value) {
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+
+      const imageIdRaw = (entry as { imageId?: unknown }).imageId;
+      const imageId = typeof imageIdRaw === 'string' ? imageIdRaw.trim() : '';
+      if (imageId.length === 0) {
+        continue;
+      }
+
+      const id = this.parsePositiveInteger((entry as { id?: unknown }).id);
+      const dedupeKey = id !== null ? `id:${String(id)}` : `image:${imageId}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      normalized.push({
+        id,
+        imageId,
+        url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
+        width: this.parsePositiveInteger((entry as { width?: unknown }).width),
+        height: this.parsePositiveInteger((entry as { height?: unknown }).height)
+      });
+
+      if (normalized.length >= 20) {
+        break;
+      }
+    }
+
+    return normalized;
+  }
+
+  private normalizeGameVideos(value: unknown): GameVideo[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: GameVideo[] = [];
+
+    for (const entry of value) {
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+
+      const videoIdRaw = (entry as { videoId?: unknown }).videoId;
+      const videoId = typeof videoIdRaw === 'string' ? videoIdRaw.trim() : '';
+      if (videoId.length === 0) {
+        continue;
+      }
+
+      const id = this.parsePositiveInteger((entry as { id?: unknown }).id);
+      const dedupeKey = id !== null ? `id:${String(id)}` : `video:${videoId}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      const nameRaw = (entry as { name?: unknown }).name;
+      const name = typeof nameRaw === 'string' ? nameRaw.trim() : '';
+      normalized.push({
+        id,
+        name: name.length > 0 ? name : null,
+        videoId,
+        url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+      });
+
+      if (normalized.length >= 5) {
+        break;
+      }
+    }
+
+    return normalized;
   }
 
   private normalizeTagIds(value: unknown): number[] {

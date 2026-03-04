@@ -60,6 +60,8 @@ export class MetadataEnrichmentRepository {
         OR COALESCE(jsonb_typeof(payload -> 'themeIds'), '') <> 'array'
         OR COALESCE(jsonb_typeof(payload -> 'keywords'), '') <> 'array'
         OR COALESCE(jsonb_typeof(payload -> 'keywordIds'), '') <> 'array'
+        OR COALESCE(jsonb_typeof(payload -> 'screenshots'), '') <> 'array'
+        OR COALESCE(jsonb_typeof(payload -> 'videos'), '') <> 'array'
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC
       LIMIT $1
       `,

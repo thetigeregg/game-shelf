@@ -1,8 +1,10 @@
 :8080 {
   encode gzip zstd
 
-  handle_path /api/* {
-    reverse_proxy api:3000
+  @api path /api/*
+  handle @api {
+    uri strip_prefix /api
+    reverse_proxy http://api:3000
   }
 
   handle_path /manuals/* {

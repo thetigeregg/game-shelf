@@ -76,6 +76,34 @@ void test('generateEmbeddings validates response entry count and embedding prese
       )
     )) as typeof fetch;
   await assert.rejects(() => client.generateEmbeddings(['a', 'b']), /missing embedding data/);
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [
+            { index: 0, embedding: [1, 0] },
+            { index: 1, embedding: [0, 1, 0] }
+          ]
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    )) as typeof fetch;
+  await assert.rejects(() => client.generateEmbeddings(['a', 'b']), /incorrect dimension/);
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [
+            { index: 0, embedding: [1, Number.NaN, 0] },
+            { index: 1, embedding: [0, 1, 0] }
+          ]
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    )) as typeof fetch;
+  await assert.rejects(() => client.generateEmbeddings(['a', 'b']), /non-finite embedding values/);
   restoreFetch();
 });
 

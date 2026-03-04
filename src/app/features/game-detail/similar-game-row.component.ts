@@ -31,8 +31,12 @@ export interface SimilarGameRowBadge {
             }
           </div>
         }
-        @if (headline && headline.trim().length > 0) {
-          <p class="similar-row-headline">{{ headline }}</p>
+        @if (headlineLines.length > 0) {
+          <div class="similar-row-headline">
+            @for (line of headlineLines; track line) {
+              <p><span aria-hidden="true">&bull;</span> {{ line }}</p>
+            }
+          </div>
         }
       </ion-label>
     </ion-item>
@@ -75,6 +79,10 @@ export interface SimilarGameRowBadge {
         margin-top: 6px;
         font-size: 0.8rem;
       }
+
+      .similar-row-headline p {
+        margin: 0 0 4px;
+      }
     `
   ]
 })
@@ -86,6 +94,24 @@ export class SimilarGameRowComponent {
   @Input() badges: SimilarGameRowBadge[] = [];
 
   @Output() rowClick = new EventEmitter<void>();
+
+  get headlineLines(): string[] {
+    if (typeof this.headline !== 'string') {
+      return [];
+    }
+
+    const normalized = this.headline.trim();
+    if (normalized.length === 0) {
+      return [];
+    }
+
+    const lines = normalized
+      .split(/\s*[•;|]\s*/g)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    return lines.length > 0 ? lines : [normalized];
+  }
 
   onImageError(event: Event): void {
     const target = event.target;

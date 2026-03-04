@@ -37,4 +37,16 @@ describe('SimilarGameRowComponent', () => {
     component.onImageError({ target: div } as unknown as Event);
     expect(div.tagName).toBe('DIV');
   });
+
+  it('splits headline into rationale lines by separators', () => {
+    const component = new SimilarGameRowComponent();
+    component.headline = 'Theme overlap • Strong semantic match; Low critic profile | Exploration';
+
+    expect(component.headlineLines).toEqual([
+      'Theme overlap',
+      'Strong semantic match',
+      'Low critic profile',
+      'Exploration'
+    ]);
+  });
 });

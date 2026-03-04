@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  gameApiBaseUrl: 'http://localhost:3000',
+  gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
   featureFlags: {
     showMgcImport: false,

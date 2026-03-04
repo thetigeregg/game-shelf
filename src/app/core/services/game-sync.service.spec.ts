@@ -14,6 +14,7 @@ import {
 import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
 
 type GameSyncServicePrivate = {
+  applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
   applyGameChange(change: SyncChangeEvent): Promise<void>;
   applyTagChange(change: SyncChangeEvent): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
@@ -267,6 +268,51 @@ describe('GameSyncService', () => {
     expect(stored?.listType).toBe('collection');
     expect(stored?.coverSource).toBe('none');
     expect(stored?.tagIds).toEqual([1, 2]);
+  });
+
+  it('falls back to local auto id when pulled id collides with an unrelated local row', async () => {
+    await db.games.put({
+      id: 218,
+      igdbGameId: '999',
+      platformIgdbId: 48,
+      title: 'Existing Local',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PlayStation 4',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4c-id-collision',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        id: 218,
+        igdbGameId: '1234',
+        platformIgdbId: 130,
+        title: 'Pulled Game'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const localRow = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['999', 48])
+      .first();
+    const pulledRow = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['1234', 130])
+      .first();
+
+    expect(localRow?.id).toBe(218);
+    expect(localRow?.title).toBe('Existing Local');
+    expect(pulledRow).toBeDefined();
+    expect(pulledRow?.title).toBe('Pulled Game');
+    expect(pulledRow?.id).not.toBe(218);
   });
 
   it('strict-normalizes pulled metacritic/hltb and list metadata fields', async () => {
@@ -829,6 +875,136 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalled();
   });
 
+  it('applyPulledChanges dispatches by entity type', async () => {
+    const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
+    const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
+    const viewSpy = vi.spyOn(servicePrivate, 'applyViewChange').mockResolvedValue(undefined);
+    const settingSpy = vi.spyOn(servicePrivate, 'applySettingChange').mockImplementation(() => {});
+
+    const gameChange = {
+      eventId: '44',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ igdbGameId: 'dispatch-game' }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const tagChange = {
+      eventId: '45',
+      entityType: 'tag',
+      operation: 'upsert',
+      payload: { id: 5, name: 'Priority', color: '#ff0000' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const viewChange = {
+      eventId: '46',
+      entityType: 'view',
+      operation: 'upsert',
+      payload: { id: 11, name: 'My View', listType: 'wishlist' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const settingChange = {
+      eventId: '47',
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: { key: 'dispatch-setting', value: 'on' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+
+    await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
+
+    expect(gameSpy).toHaveBeenCalledWith(gameChange);
+    expect(tagSpy).toHaveBeenCalledWith(tagChange);
+    expect(viewSpy).toHaveBeenCalledWith(viewChange);
+    expect(settingSpy).toHaveBeenCalledWith(settingChange);
+  });
+
+  it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
+    localStorage.removeItem('test-setting');
+
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: 'cursor-before',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    vi.spyOn(servicePrivate, 'applySettingChange').mockImplementation(() => {
+      throw new Error('forced failure');
+    });
+    vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({
+        cursor: 'cursor-after',
+        changes: [
+          {
+            eventId: '43',
+            entityType: 'setting',
+            operation: 'upsert',
+            payload: { key: 'test-setting', value: 'on' },
+            serverTimestamp: '2026-01-01T00:00:00.000Z'
+          }
+        ]
+      })
+    );
+
+    await expect(servicePrivate.pullChanges()).rejects.toThrow(
+      'Failed to apply 1 pulled sync change(s).'
+    );
+
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('cursor-before');
+    expect(localStorage.getItem('test-setting')).toBeNull();
+    expect(emitChangedSpy).not.toHaveBeenCalled();
+  });
+
+  it('retries pulled game upsert without server id on constraint errors', async () => {
+    const constraintError = Object.assign(new Error('constraint'), { name: 'ConstraintError' });
+    const putSpy = vi
+      .spyOn(db.games, 'put')
+      .mockRejectedValueOnce(constraintError)
+      .mockResolvedValueOnce(123);
+
+    await servicePrivate.applyGameChange({
+      eventId: '46',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        id: 999,
+        igdbGameId: 'retry-test',
+        platformIgdbId: 130,
+        title: 'Retry Game'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    expect(putSpy).toHaveBeenCalledTimes(2);
+    const firstArg = putSpy.mock.calls[0][0] as { id?: number };
+    const secondArg = putSpy.mock.calls[1][0] as { id?: number };
+    expect(firstArg.id).toBe(999);
+    expect(secondArg.id).toBeUndefined();
+  });
+
+  it('rethrows non-retryable put errors during pulled game upsert', async () => {
+    const abortError = Object.assign(new Error('abort'), { name: 'AbortError' });
+    const putSpy = vi.spyOn(db.games, 'put').mockRejectedValueOnce(abortError);
+
+    await expect(
+      servicePrivate.applyGameChange({
+        eventId: '47',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          id: 1001,
+          igdbGameId: 'throw-test',
+          platformIgdbId: 130,
+          title: 'Throw Game'
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      } as SyncChangeEvent)
+    ).rejects.toThrow('abort');
+
+    expect(putSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('syncNow marks connectivity degraded when push fails', async () => {
     vi.spyOn(servicePrivate, 'pushOutbox').mockRejectedValue(new Error('push failed'));
     vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
@@ -839,14 +1015,9 @@ describe('GameSyncService', () => {
     expect(connectivity?.value).toBe('degraded');
   });
 
-  it('syncNow skips when baseUrl is missing, in flight, or offline', async () => {
+  it('syncNow skips when in flight or offline', async () => {
     const pushSpy = vi.spyOn(servicePrivate, 'pushOutbox');
     const pullSpy = vi.spyOn(servicePrivate, 'pullChanges');
-
-    servicePrivate.baseUrl = '';
-    await service.syncNow();
-    expect(pushSpy).not.toHaveBeenCalled();
-    expect(pullSpy).not.toHaveBeenCalled();
 
     servicePrivate.baseUrl = 'http://localhost:3000';
     servicePrivate.syncInFlight = true;

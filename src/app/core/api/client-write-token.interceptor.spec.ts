@@ -58,11 +58,11 @@ describe('ClientWriteTokenInterceptor', () => {
     await expect(promise).resolves.toEqual({ ok: true });
   });
 
-  it('adds client write token when request targets API base URL exactly', async () => {
+  it('adds client write token for relative API root requests', async () => {
     clientWriteAuth.setToken('device-token-b');
-    const promise = firstValueFrom(httpClient.post(environment.gameApiBaseUrl, {}));
+    const promise = firstValueFrom(httpClient.post('/v1', {}));
 
-    const req = httpMock.expectOne(environment.gameApiBaseUrl);
+    const req = httpMock.expectOne('/v1');
     expect(req.request.headers.get(CLIENT_WRITE_TOKEN_HEADER_NAME)).toBe('device-token-b');
     req.flush({ ok: true });
 

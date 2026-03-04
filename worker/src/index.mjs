@@ -17,6 +17,8 @@ const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const POPULARITY_TYPES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
+const MAX_SCREENSHOTS_PER_GAME = 20;
+const MAX_VIDEOS_PER_GAME = 5;
 
 const tokenCache = {
   accessToken: null,
@@ -560,6 +562,8 @@ export function normalizeIgdbGame(game) {
   const themeIds = normalizeIgdbNestedIds(game?.themes);
   const keywords = normalizeIgdbNamedCollection(game?.keywords);
   const keywordIds = normalizeIgdbNestedIds(game?.keywords);
+  const screenshots = normalizeIgdbScreenshots(game?.screenshots);
+  const videos = normalizeIgdbVideos(game?.videos);
   const storyline = normalizeOptionalText(game?.storyline);
   const summary = normalizeOptionalText(game?.summary);
 
@@ -586,6 +590,8 @@ export function normalizeIgdbGame(game) {
     themeIds,
     keywords,
     keywordIds,
+    screenshots,
+    videos,
     platforms,
     platformOptions,
     platform: platforms.length === 1 ? platforms[0] : null,
@@ -593,6 +599,86 @@ export function normalizeIgdbGame(game) {
     releaseDate,
     releaseYear
   };
+}
+
+function normalizeIgdbScreenshots(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  for (const value of values) {
+    const imageId = typeof value?.image_id === 'string' ? value.image_id.trim() : '';
+
+    if (!imageId) {
+      continue;
+    }
+
+    const id = Number(value?.id);
+    const normalizedId = Number.isInteger(id) && id > 0 ? id : null;
+    const dedupeKey = normalizedId !== null ? `id:${String(normalizedId)}` : `image:${imageId}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    const width = Number(value?.width);
+    const height = Number(value?.height);
+    normalized.push({
+      id: normalizedId,
+      imageId,
+      url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
+      width: Number.isInteger(width) && width > 0 ? width : null,
+      height: Number.isInteger(height) && height > 0 ? height : null
+    });
+
+    if (normalized.length >= MAX_SCREENSHOTS_PER_GAME) {
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeIgdbVideos(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  for (const value of values) {
+    const videoId = typeof value?.video_id === 'string' ? value.video_id.trim() : '';
+
+    if (!videoId) {
+      continue;
+    }
+
+    const id = Number(value?.id);
+    const normalizedId = Number.isInteger(id) && id > 0 ? id : null;
+    const dedupeKey = normalizedId !== null ? `id:${String(normalizedId)}` : `video:${videoId}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    const name = typeof value?.name === 'string' ? value.name.trim() : '';
+    normalized.push({
+      id: normalizedId,
+      name: name.length > 0 ? name : null,
+      videoId,
+      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+    });
+
+    if (normalized.length >= MAX_VIDEOS_PER_GAME) {
+      break;
+    }
+  }
+
+  return normalized;
 }
 
 function normalizeOptionalText(value) {
@@ -1356,7 +1442,7 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
 
   const body = [
     `where id = (${uniqueIds.join(',')});`,
-    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
+    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
     `limit ${uniqueIds.length};`
   ].join(' ');
 
@@ -1511,17 +1597,17 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
   const queryVariants = [
     {
       fields:
-        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null
     },
     {
       fields:
-        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null
     },
     {
       fields:
-        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null
     }
   ];
@@ -1689,7 +1775,7 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   const timeoutMs = getIgdbRequestTimeoutMs(env);
   const body = [
     `where id = ${gameId};`,
-    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
+    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
     'limit 1;'
   ].join(' ');
 

@@ -48,11 +48,12 @@ export class ClientWriteTokenInterceptor implements HttpInterceptor {
   }
 
   private isApiRequest(url: string): boolean {
+    const normalizedUrl = url.trim();
+
     if (this.apiBaseUrl.length === 0) {
-      return false;
+      return normalizedUrl === '/v1' || normalizedUrl.startsWith('/v1/');
     }
 
-    const normalizedUrl = url.trim();
     return normalizedUrl === this.apiBaseUrl || normalizedUrl.startsWith(`${this.apiBaseUrl}/`);
   }
 }

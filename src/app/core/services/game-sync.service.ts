@@ -118,11 +118,6 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   async syncNow(): Promise<void> {
-    if (!this.baseUrl) {
-      this.debugLogService.warn('sync.sync_now.skipped_missing_base_url');
-      return;
-    }
-
     if (this.syncInFlight) {
       this.debugLogService.debug('sync.sync_now.skipped_in_flight');
       return;
@@ -299,24 +294,39 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
+    let failedChanges = 0;
+
     await this.db.transaction('rw', this.db.games, this.db.tags, this.db.views, async () => {
       for (const change of changes) {
-        if (change.entityType === 'game') {
-          await this.applyGameChange(change);
-          continue;
-        }
+        try {
+          if (change.entityType === 'game') {
+            await this.applyGameChange(change);
+            continue;
+          }
 
-        if (change.entityType === 'tag') {
-          await this.applyTagChange(change);
-          continue;
-        }
+          if (change.entityType === 'tag') {
+            await this.applyTagChange(change);
+            continue;
+          }
 
-        if (change.entityType === 'view') {
-          await this.applyViewChange(change);
-          continue;
-        }
+          if (change.entityType === 'view') {
+            await this.applyViewChange(change);
+            continue;
+          }
 
-        this.applySettingChange(change);
+          this.applySettingChange(change);
+        } catch (error: unknown) {
+          failedChanges += 1;
+          this.debugLogService.error('sync.pull.change_failed', {
+            eventId: change.eventId,
+            entityType: change.entityType,
+            operation: change.operation,
+            error: normalizeHttpError(error)
+          });
+        }
+      }
+      if (failedChanges > 0) {
+        throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
       }
     });
   }
@@ -403,8 +413,20 @@ export class GameSyncService implements SyncOutboxWriter {
       normalizedReviewSource === 'metacritic'
         ? (explicitMetacriticUrl ?? normalizedReviewUrl)
         : explicitMetacriticUrl;
+    const existingByIdentity = await this.db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals([igdbGameId, platformIgdbId])
+      .first();
+    const serverId = this.parsePositiveInteger(payload.id);
+    const existingByServerId = serverId !== null ? await this.db.games.get(serverId) : undefined;
+    const serverIdCanBeReused =
+      serverId !== null &&
+      (existingByServerId === undefined ||
+        (existingByServerId.igdbGameId === igdbGameId &&
+          existingByServerId.platformIgdbId === platformIgdbId));
+
     const normalized: GameEntry = {
-      id: this.parsePositiveInteger(payload.id) ?? undefined,
+      id: existingByIdentity?.id ?? (serverIdCanBeReused ? serverId : undefined),
       igdbGameId,
       platformIgdbId,
       title,
@@ -463,7 +485,25 @@ export class GameSyncService implements SyncOutboxWriter {
       updatedAt
     };
 
-    await this.db.games.put(normalized);
+    try {
+      await this.db.games.put(normalized);
+    } catch (error: unknown) {
+      const shouldRetryWithoutServerId =
+        existingByIdentity === undefined &&
+        serverId !== null &&
+        normalized.id === serverId &&
+        error instanceof Error &&
+        (error.name === 'ConstraintError' || error.name === 'DataError');
+
+      if (!shouldRetryWithoutServerId) {
+        throw error;
+      }
+
+      await this.db.games.put({
+        ...normalized,
+        id: undefined
+      });
+    }
   }
 
   private normalizeCustomTitle(value: unknown, defaultTitle: string): string | null {

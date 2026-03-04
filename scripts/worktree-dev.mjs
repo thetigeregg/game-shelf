@@ -314,7 +314,7 @@ function ensurePostgresRunning() {
 
 function isCurrentDbEmpty() {
   const query = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `psql -Atq -U "${'${POSTGRES_USER}'}" -d "${'${POSTGRES_DB}'}" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"`
+    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -Atq -U "$user" -d "$db" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"`
   )}`;
   const output = runShellCapture(query).trim();
   const count = Number.parseInt(output || '0', 10);
@@ -327,15 +327,18 @@ function isCurrentDbEmpty() {
 
 function dbSeedRefresh() {
   const seedPath = defaultSeedPath();
+  const tempSqlPath = `${seedPath}.tmp.sql`;
   mkdirSync(path.dirname(seedPath), { recursive: true });
 
   ensurePostgresRunning();
 
   console.log(`Refreshing DB seed from current worktree postgres into: ${seedPath}`);
-  const command = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `pg_dump --clean --if-exists --no-owner --no-privileges -U "${'${POSTGRES_USER}'}" -d "${'${POSTGRES_DB}'}"`
-  )} | gzip -c > ${shellEscape(seedPath)}`;
-  runShell(command);
+  const dumpCommand = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
+    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; pg_dump --clean --if-exists --no-owner --no-privileges -U "$user" -d "$db"`
+  )} > ${shellEscape(tempSqlPath)}`;
+  runShell(dumpCommand);
+  runShell(`gzip -c ${shellEscape(tempSqlPath)} > ${shellEscape(seedPath)}`);
+  runShell(`rm -f ${shellEscape(tempSqlPath)}`);
   console.log('Seed refresh complete.');
 }
 
@@ -350,7 +353,7 @@ function dbSeedRestoreFromFile(seedPath) {
     : `cat ${shellEscape(seedPath)}`;
 
   const restoreCmd = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
-    `psql -v ON_ERROR_STOP=1 -U "${'${POSTGRES_USER}'}" -d "${'${POSTGRES_DB}'}"`
+    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -v ON_ERROR_STOP=1 -U "$user" -d "$db"`
   )}`;
 
   runShell(`${sourceCmd} | ${restoreCmd}`);

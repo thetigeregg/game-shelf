@@ -103,3 +103,46 @@ void test('similarity graph excludes same game across different platforms', () =
     false
   );
 });
+
+void test('similarity series overlap de-duplicates shared collection+franchise labels', () => {
+  const baseGame = buildGame({
+    igdbGameId: '1',
+    title: 'Mario Source',
+    collections: ['Mario'],
+    franchises: ['Mario']
+  });
+
+  const targetWithBoth = buildGame({
+    igdbGameId: '2',
+    title: 'Mario Both',
+    collections: ['Mario'],
+    franchises: ['Mario']
+  });
+
+  const targetCollectionOnly = buildGame({
+    igdbGameId: '3',
+    title: 'Mario Collection Only',
+    collections: ['Mario'],
+    franchises: []
+  });
+
+  const edges = buildSimilarityGraph({
+    games: [baseGame, targetWithBoth, targetCollectionOnly],
+    topK: 5,
+    embeddingsByGame: new Map()
+  });
+
+  const edgeWithBoth = edges.find(
+    (edge) => edge.sourceIgdbGameId === '1' && edge.similarIgdbGameId === '2'
+  );
+  const edgeCollectionOnly = edges.find(
+    (edge) => edge.sourceIgdbGameId === '1' && edge.similarIgdbGameId === '3'
+  );
+
+  assert.ok(edgeWithBoth);
+  assert.ok(edgeCollectionOnly);
+  assert.equal(
+    edgeWithBoth.reasons.structuredSimilarity,
+    edgeCollectionOnly.reasons.structuredSimilarity
+  );
+});

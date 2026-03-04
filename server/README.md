@@ -154,7 +154,7 @@ Provide either:
 
 ```bash
 cd ..
-npm run dev:stack:up
+npm run dev:worktree:stack:up
 ```
 
 This starts the API in Docker with Postgres + HLTB scraper dependencies.

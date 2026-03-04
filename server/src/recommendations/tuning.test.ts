@@ -84,3 +84,79 @@ void test('tuneRecommendationWeights preserves mobygames 0-100 critic variance',
 
   assert.equal(tuned.criticWeight > 0, true);
 });
+
+void test('computeCorrelation handles mismatched and zero-variance inputs', () => {
+  assert.equal(computeCorrelation([1, 2], [1]), 0);
+  assert.equal(computeCorrelation([1, 1, 1], [2, 2, 2]), 0);
+});
+
+void test('tuneRecommendationWeights handles NaN ratings and alternate critic fallbacks', () => {
+  const defaults = {
+    tasteWeight: 1,
+    semanticWeight: 2,
+    criticWeight: 1,
+    runtimeWeight: 1
+  };
+
+  const games: NormalizedGameRecord[] = [
+    buildGame({
+      igdbGameId: 'g1',
+      rating: Number.NaN,
+      metacriticScore: 88,
+      runtimeHours: 70,
+      genres: ['RPG']
+    }),
+    buildGame({
+      igdbGameId: 'g2',
+      rating: 4.5,
+      metacriticScore: 82,
+      runtimeHours: 12,
+      genres: ['RPG']
+    }),
+    buildGame({
+      igdbGameId: 'g3',
+      rating: 4,
+      mobyScore: 8.2,
+      runtimeHours: 25,
+      genres: ['Action']
+    }),
+    buildGame({
+      igdbGameId: 'g4',
+      rating: 3.5,
+      reviewScore: 8.5,
+      reviewSource: 'mobygames',
+      runtimeHours: 5,
+      genres: ['Action']
+    }),
+    buildGame({ igdbGameId: 'g5', rating: 3, reviewScore: 60, runtimeHours: 18, genres: ['RPG'] }),
+    buildGame({
+      igdbGameId: 'g6',
+      rating: 2.5,
+      metacriticScore: 50,
+      runtimeHours: null,
+      genres: []
+    }),
+    buildGame({ igdbGameId: 'g7', rating: 2, mobyScore: 5.5, runtimeHours: 55, genres: [] }),
+    buildGame({ igdbGameId: 'g8', rating: 1.5, reviewScore: 35, runtimeHours: 3, genres: [] })
+  ];
+
+  const tuned = tuneRecommendationWeights({
+    games,
+    semanticSimilarityByGame: new Map([
+      ['g2::1', 0.9],
+      ['g3::1', 0.7],
+      ['g4::1', 0.6],
+      ['g5::1', 0.4],
+      ['g6::1', 0.2],
+      ['g7::1', 0.1],
+      ['g8::1', 0.05]
+    ]),
+    minimumRated: 7,
+    defaults
+  });
+
+  assert.equal(Number.isFinite(tuned.tasteWeight), true);
+  assert.equal(Number.isFinite(tuned.semanticWeight), true);
+  assert.equal(Number.isFinite(tuned.criticWeight), true);
+  assert.equal(Number.isFinite(tuned.runtimeWeight), true);
+});

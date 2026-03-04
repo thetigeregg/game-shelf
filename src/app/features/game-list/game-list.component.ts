@@ -1169,7 +1169,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private scrollDetailToTop(): void {
     window.requestAnimationFrame(() => {
-      void this.detailContent?.scrollToTop(180);
+      void this.detailContent?.scrollToTop(0);
     });
   }
 

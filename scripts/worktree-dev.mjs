@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -61,6 +61,16 @@ const ports = {
   METACRITIC_HOST_PORT: 8789 + portOffset
 };
 
+const localEnvPath = path.resolve(cwd, '.env');
+const defaultSharedEnvFile = path.join(os.homedir(), '.config', 'game-shelf', 'worktree.env');
+const sharedEnvFilePath =
+  (process.env.WORKTREE_ENV_FILE && process.env.WORKTREE_ENV_FILE.trim()) || defaultSharedEnvFile;
+
+const defaultSharedSecretsDir = path.join(os.homedir(), '.config', 'game-shelf', 'nas-secrets');
+const secretsHostDir =
+  (process.env.SECRETS_HOST_DIR && process.env.SECRETS_HOST_DIR.trim()) ||
+  (existsSync(defaultSharedSecretsDir) ? defaultSharedSecretsDir : '');
+
 const corsOrigin = [
   `http://127.0.0.1:${ports.FRONTEND_PORT}`,
   `http://localhost:${ports.FRONTEND_PORT}`,
@@ -70,6 +80,7 @@ const corsOrigin = [
 
 const sharedEnv = {
   ...process.env,
+  ...(secretsHostDir ? { SECRETS_HOST_DIR: secretsHostDir } : {}),
   COMPOSE_PROJECT_NAME: projectName,
   ...ports,
   CORS_ORIGIN: corsOrigin,
@@ -141,7 +152,33 @@ function printInfo() {
   console.log(`  postgres:   127.0.0.1:${ports.POSTGRES_HOST_PORT}`);
   console.log(`  hltb:       http://127.0.0.1:${ports.HLTB_HOST_PORT}`);
   console.log(`  metacritic: http://127.0.0.1:${ports.METACRITIC_HOST_PORT}`);
+  if (secretsHostDir) {
+    console.log(`Secrets dir: ${secretsHostDir}`);
+  } else {
+    console.log('Secrets dir: ./nas-secrets (worktree-local default)');
+  }
+  if (existsSync(localEnvPath)) {
+    console.log(`Env file: ${localEnvPath}`);
+  } else if (existsSync(sharedEnvFilePath)) {
+    console.log(`Env file: ${localEnvPath} (will bootstrap from ${sharedEnvFilePath})`);
+  } else {
+    console.log(`Env file: ${localEnvPath} (missing; optional template not found at ${sharedEnvFilePath})`);
+  }
   console.log(`DB seed file: ${defaultSeedPath()}`);
+}
+
+function ensureLocalEnvFromSharedTemplate() {
+  if (existsSync(localEnvPath)) {
+    return;
+  }
+
+  if (!existsSync(sharedEnvFilePath)) {
+    return;
+  }
+
+  mkdirSync(path.dirname(localEnvPath), { recursive: true });
+  copyFileSync(sharedEnvFilePath, localEnvPath);
+  console.log(`Bootstrapped .env from shared template: ${sharedEnvFilePath}`);
 }
 
 function runStack(action) {
@@ -317,6 +354,7 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
   console.log('');
   console.log('Optional env vars:');
   console.log('  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-2000)');
+  console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
   console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
   process.exit(0);
 }
@@ -327,6 +365,7 @@ if (args[0] === 'info') {
 }
 
 if (args[0] === 'frontend') {
+  ensureLocalEnvFromSharedTemplate();
   printInfo();
   runFrontend();
   process.exit(0);
@@ -337,6 +376,7 @@ if (args[0] === 'stack') {
     console.error('Missing stack action. Use: up | up-seed | down | restart | logs | ps');
     process.exit(1);
   }
+  ensureLocalEnvFromSharedTemplate();
   printInfo();
   runStack(args[1]);
   process.exit(0);
@@ -347,6 +387,7 @@ if (args[0] === 'db') {
     console.error('Missing db action. Use: seed-refresh | seed-apply | seed-apply-force');
     process.exit(1);
   }
+  ensureLocalEnvFromSharedTemplate();
   printInfo();
   runDb(args[1], parseOptions(args.slice(2)));
   process.exit(0);

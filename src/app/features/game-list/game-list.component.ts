@@ -961,10 +961,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.openGameDetailInternal(previous);
   }
 
-  closeDetailShortcutsFab(): void {
-    // No-op hook retained for shared shortcut-fab click handler.
-  }
-
   get shouldShowNotesShortcut(): boolean {
     return this.listType === 'collection' && this.selectedGame !== null;
   }
@@ -1000,7 +996,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isNoteDirty = false;
     this.isNotesOpen = true;
     this.isNotesModalOpen = !this.isDesktopDetailLayout;
-    this.closeDetailShortcutsFab();
     this.changeDetectorRef.markForCheck();
   }
 

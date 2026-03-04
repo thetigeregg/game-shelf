@@ -124,6 +124,7 @@ export interface AppConfig {
   recommendationsEmbeddingModel: string;
   recommendationsEmbeddingDimensions: number;
   recommendationsEmbeddingBatchSize: number;
+  recommendationsEmbeddingTimeoutMs: number;
   recommendationsSemanticWeight: number;
   recommendationsSimilarityStructuredWeight: number;
   recommendationsSimilaritySemanticWeight: number;
@@ -304,6 +305,7 @@ export const config: AppConfig = {
     'RECOMMENDATIONS_EMBEDDING_DIMENSIONS'
   ),
   recommendationsEmbeddingBatchSize: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_BATCH_SIZE', 32),
+  recommendationsEmbeddingTimeoutMs: readIntegerEnv('RECOMMENDATIONS_EMBEDDING_TIMEOUT_MS', 15000),
   recommendationsSemanticWeight: readNumberEnv('RECOMMENDATIONS_SEMANTIC_WEIGHT', 2),
   recommendationsSimilarityStructuredWeight: readNumberEnv(
     'RECOMMENDATIONS_SIMILARITY_STRUCTURED_WEIGHT',

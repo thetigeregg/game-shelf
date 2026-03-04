@@ -105,3 +105,34 @@ void test('generateEmbeddings returns vectors sorted by index', async () => {
   ]);
   restoreFetch();
 });
+
+void test('generateEmbeddings aborts on request timeout', async () => {
+  globalThis.fetch = ((_: string, init?: RequestInit) => {
+    return new Promise<Response>((_resolve, reject) => {
+      const signal = init?.signal;
+      if (!signal) {
+        reject(new Error('missing abort signal'));
+        return;
+      }
+
+      signal.addEventListener('abort', () => {
+        const abortError = new Error('aborted');
+        abortError.name = 'AbortError';
+        reject(abortError);
+      });
+    });
+  }) as typeof fetch;
+
+  const client = new OpenAiEmbeddingClient({
+    apiKey: 'key',
+    model: 'text-embedding-3-small',
+    dimensions: 3,
+    timeoutMs: 5
+  });
+
+  await assert.rejects(
+    () => client.generateEmbeddings(['a']),
+    /OpenAI embeddings request timed out after 5ms/
+  );
+  restoreFetch();
+});

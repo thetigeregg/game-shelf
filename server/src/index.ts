@@ -49,7 +49,8 @@ async function main(): Promise<void> {
   const embeddingClient = new OpenAiEmbeddingClient({
     apiKey: config.openaiApiKey,
     model: config.recommendationsEmbeddingModel,
-    dimensions: config.recommendationsEmbeddingDimensions
+    dimensions: config.recommendationsEmbeddingDimensions,
+    timeoutMs: config.recommendationsEmbeddingTimeoutMs
   });
   const discoveryIgdbClient = new DiscoveryIgdbClient({
     twitchClientId: config.twitchClientId,

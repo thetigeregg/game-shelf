@@ -44,26 +44,55 @@ cp .env.example .env
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
 
-4. Start local stack (`postgres` + `hltb-scraper` + `api` + `edge`):
+4. Start local stack (`postgres` + `hltb-scraper` + `api` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
-npm run dev:stack:up
+npm run dev:worktree:stack:up
+```
+
+To start stack and auto-seed the DB only when empty:
+
+```bash
+npm run dev:worktree:stack:up:seed
 ```
 
 5. (Optional) Follow API logs:
 
 ```bash
-npm run dev:backend:logs
+npm run dev:worktree:backend:logs
 ```
 
 6. Run frontend:
 
 ```bash
-npm start
+npm run dev:worktree:start
 ```
 
-Frontend dev server runs on `http://localhost:8100`.
-Manual URLs resolve from the API to `http://127.0.0.1:8080/manuals/...` during dev (served by local `edge`).
+Frontend dev server port is derived from worktree context (shown by `npm run dev:worktree:info`).
+Manual URLs resolve through the worktree-local `edge` service during dev.
+When using `dev:worktree:*` commands, ports are derived from the current worktree path and shown by:
+
+```bash
+npm run dev:worktree:info
+```
+
+This allows multiple worktrees to run concurrently without Docker/container/port clashes.
+For faster realistic testing without cross-worktree DB pollution:
+
+1. Refresh a shared seed dump from a known-good local DB:
+
+```bash
+npm run dev:worktree:db:seed:refresh
+```
+
+2. Apply that seed into a worktree-local DB:
+
+```bash
+npm run dev:worktree:db:seed:apply
+```
+
+The default seed file path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` (override with `DEV_DB_SEED_PATH`).
+`seed:apply` restores only when the current worktree DB is empty; use `npm run dev:worktree:db:seed:apply:force` to overwrite.
 When `REQUIRE_AUTH=true`, set `Settings -> Debug -> Device Write Token` on each device using a token from `nas-secrets/client_write_tokens`.
 For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-deployment.md) (`Local Docker-based API development`).
 

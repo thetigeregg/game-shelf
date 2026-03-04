@@ -56,6 +56,12 @@ For worktree-safe startup (isolated project name + ports), use:
 npm run dev:worktree:stack:up
 ```
 
+To start stack and auto-seed the DB only when empty:
+
+```bash
+npm run dev:worktree:stack:up:seed
+```
+
 5. (Optional) Follow API logs:
 
 ```bash
@@ -83,6 +89,22 @@ npm run dev:worktree:info
 ```
 
 This allows multiple worktrees to run concurrently without Docker/container/port clashes.
+For faster realistic testing without cross-worktree DB pollution:
+
+1. Refresh a shared seed dump from a known-good local DB:
+
+```bash
+npm run dev:worktree:db:seed:refresh
+```
+
+2. Apply that seed into a worktree-local DB:
+
+```bash
+npm run dev:worktree:db:seed:apply
+```
+
+The default seed file path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` (override with `DEV_DB_SEED_PATH`).
+`seed:apply` restores only when the current worktree DB is empty; use `npm run dev:worktree:db:seed:apply:force` to overwrite.
 When `REQUIRE_AUTH=true`, set `Settings -> Debug -> Device Write Token` on each device using a token from `nas-secrets/client_write_tokens`.
 For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-deployment.md) (`Local Docker-based API development`).
 

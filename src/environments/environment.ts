@@ -8,7 +8,8 @@ export const environment = {
   manualsBaseUrl: '/manuals',
   featureFlags: {
     showMgcImport: false,
-    e2eFixtures: false
+    e2eFixtures: false,
+    recommendationsExploreEnabled: true
   }
 };
 

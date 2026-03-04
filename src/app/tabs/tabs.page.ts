@@ -1,9 +1,9 @@
 import { Component } from '@angular/core';
 import { IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { compass, gameController, heart } from 'ionicons/icons';
+import { compass, gameController, heart, sparkles } from 'ionicons/icons';
 
-addIcons({ compass, gameController, heart });
+addIcons({ compass, gameController, heart, sparkles });
 
 @Component({
   selector: 'app-tabs',

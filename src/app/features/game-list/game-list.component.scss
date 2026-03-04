@@ -191,18 +191,10 @@ ion-item.game-row-selected {
 
 .similar-games-header {
   border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
-  margin-bottom: 6px;
 }
 
-.detail-shortcuts-fab {
-  margin-bottom: 8px;
-  margin-right: 8px;
-}
-
-.detail-shortcuts-fab .shortcut-text {
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1;
+.segment-toolbar {
+  border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
 }
 
 ion-item h2 {

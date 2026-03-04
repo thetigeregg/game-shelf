@@ -72,6 +72,10 @@ export interface GameCatalogResult {
   developers?: string[];
   franchises?: string[];
   genres?: string[];
+  themes?: string[];
+  themeIds?: number[];
+  keywords?: string[];
+  keywordIds?: number[];
   publishers?: string[];
   platforms: string[];
   platformOptions?: GameCatalogPlatformOption[];
@@ -93,6 +97,129 @@ export interface PopularityGameResult {
   externalPopularitySource: number | null;
   value: number | null;
   calculatedAt: string | null;
+}
+
+export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
+export type RecommendationLaneKey =
+  | 'overall'
+  | 'hiddenGems'
+  | 'exploration'
+  | 'blended'
+  | 'popular'
+  | 'recent';
+
+export interface RecommendationScoreComponents {
+  taste: number;
+  novelty: number;
+  runtimeFit: number;
+  criticBoost: number;
+  recencyBoost: number;
+  semantic: number;
+  exploration: number;
+  diversityPenalty: number;
+  repeatPenalty: number;
+}
+
+export interface RecommendationExplanationBullet {
+  type:
+    | 'taste'
+    | 'novelty'
+    | 'runtime'
+    | 'critic'
+    | 'recency'
+    | 'semantic'
+    | 'exploration'
+    | 'diversity'
+    | 'repeat';
+  label: string;
+  evidence: string[];
+  delta: number;
+}
+
+export interface RecommendationExplanation {
+  headline: string;
+  bullets: RecommendationExplanationBullet[];
+  matchedTokens: {
+    genres: string[];
+    developers: string[];
+    publishers: string[];
+    franchises: string[];
+    collections: string[];
+    themes: string[];
+    keywords: string[];
+  };
+}
+
+export interface RecommendationItem {
+  rank: number;
+  igdbGameId: string;
+  platformIgdbId: number;
+  scoreTotal: number;
+  scoreComponents: RecommendationScoreComponents;
+  explanations: RecommendationExplanation;
+}
+
+export interface RecommendationTopResponse {
+  target: RecommendationTarget;
+  runtimeMode: RecommendationRuntimeMode;
+  runId: number;
+  generatedAt: string;
+  items: RecommendationItem[];
+}
+
+export interface RecommendationLanesResponse {
+  target: RecommendationTarget;
+  runtimeMode: RecommendationRuntimeMode;
+  runId: number;
+  generatedAt: string;
+  lanes: {
+    overall: RecommendationItem[];
+    hiddenGems: RecommendationItem[];
+    exploration: RecommendationItem[];
+    blended: RecommendationItem[];
+    popular: RecommendationItem[];
+    recent: RecommendationItem[];
+  };
+}
+
+export interface RecommendationRebuildResponse {
+  target: RecommendationTarget;
+  runId: number;
+  status: 'SUCCESS' | 'FAILED' | 'SKIPPED' | 'LOCKED' | 'BACKOFF_SKIPPED';
+  reusedRunId?: number | null;
+}
+
+export interface RecommendationSimilarityReasons {
+  summary: string;
+  structuredSimilarity: number;
+  semanticSimilarity: number;
+  blendedSimilarity: number;
+  sharedTokens: {
+    genres: string[];
+    developers: string[];
+    publishers: string[];
+    franchises: string[];
+    collections: string[];
+    themes: string[];
+    keywords: string[];
+  };
+}
+
+export interface RecommendationSimilarItem {
+  igdbGameId: string;
+  platformIgdbId: number;
+  similarity: number;
+  reasons: RecommendationSimilarityReasons;
+}
+
+export interface RecommendationSimilarResponse {
+  runtimeMode: RecommendationRuntimeMode;
+  source: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  };
+  items: RecommendationSimilarItem[];
 }
 
 export interface GameEntry {
@@ -122,6 +249,10 @@ export interface GameEntry {
   developers?: string[];
   franchises?: string[];
   genres?: string[];
+  themes?: string[];
+  themeIds?: number[];
+  keywords?: string[];
+  keywordIds?: number[];
   publishers?: string[];
   platform: string;
   platformIgdbId: number;

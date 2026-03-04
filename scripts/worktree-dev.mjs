@@ -50,6 +50,10 @@ function shellEscape(value) {
   return `'${String(value).replace(/'/g, `'"'"'`)}'`;
 }
 
+function configState(value) {
+  return value ? '[configured]' : '(not set)';
+}
+
 const worktreeHint = sanitize(detectWorktreeHint(cwd), 24) || 'default';
 const portOffset = computeOffset(cwd);
 const projectHash = createHash('sha256').update(cwd).digest('hex').slice(0, 6);
@@ -158,20 +162,18 @@ function printInfo() {
   console.log(`  hltb:       http://127.0.0.1:${ports.HLTB_HOST_PORT}`);
   console.log(`  metacritic: http://127.0.0.1:${ports.METACRITIC_HOST_PORT}`);
   if (secretsHostDir) {
-    console.log(`Secrets dir: ${secretsHostDir}`);
+    console.log(`Secrets dir: ${configState(secretsHostDir)}`);
   } else {
     console.log('Secrets dir: ./nas-secrets (worktree-local default)');
   }
   if (existsSync(localEnvPath)) {
-    console.log(`Env file: ${localEnvPath}`);
+    console.log('Env file: [present]');
   } else if (existsSync(sharedEnvFilePath)) {
-    console.log(`Env file: ${localEnvPath} (will bootstrap from ${sharedEnvFilePath})`);
+    console.log('Env file: [missing; shared template configured]');
   } else {
-    console.log(
-      `Env file: ${localEnvPath} (missing; optional template not found at ${sharedEnvFilePath})`
-    );
+    console.log('Env file: [missing; shared template not configured]');
   }
-  console.log(`DB seed file: ${defaultSeedPath()}`);
+  console.log(`DB seed file: ${configState(defaultSeedPath())}`);
 }
 
 function ensureLocalEnvFromSharedTemplate() {
@@ -185,7 +187,7 @@ function ensureLocalEnvFromSharedTemplate() {
 
   mkdirSync(path.dirname(localEnvPath), { recursive: true });
   copyFileSync(sharedEnvFilePath, localEnvPath);
-  console.log(`Bootstrapped .env from shared template: ${sharedEnvFilePath}`);
+  console.log('Bootstrapped .env from shared template');
 }
 
 function listMissingDependencyDirs() {
@@ -336,7 +338,7 @@ function dbSeedRefresh() {
 
   ensurePostgresRunning();
 
-  console.log(`Refreshing DB seed from current worktree postgres into: ${seedPath}`);
+  console.log('Refreshing DB seed from current worktree postgres');
   const dumpCommand = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
     `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; pg_dump --clean --if-exists --no-owner --no-privileges -U "$user" -d "$db"`
   )} > ${shellEscape(tempSqlPath)}`;
@@ -402,7 +404,7 @@ function dbSeedApply(force) {
     return;
   }
 
-  console.log(`Restoring DB seed into current worktree postgres from: ${seedPath}`);
+  console.log('Restoring DB seed into current worktree postgres');
   dbSeedRestoreFromFile(seedPath);
   console.log('Seed restore complete.');
 }

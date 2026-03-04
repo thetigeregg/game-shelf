@@ -276,6 +276,18 @@ export class ViewsPage implements OnInit {
       return `Date added ${direction}`;
     }
 
+    if (sortField === 'hltb') {
+      return `HLTB ${direction}`;
+    }
+
+    if (sortField === 'tas') {
+      return `TAS ${direction}`;
+    }
+
+    if (sortField === 'metacritic' || sortField === 'review') {
+      return `Review ${direction}`;
+    }
+
     if (sortField === 'platform') {
       return `Platform ${direction}`;
     }

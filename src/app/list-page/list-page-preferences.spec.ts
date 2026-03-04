@@ -52,7 +52,9 @@ describe('list-page-preferences', () => {
         genres: ['RPG', 'RPG', ''],
         statuses: ['playing', 'invalid'],
         tags: ['Action', '__none__', 'Action', 'RPG'],
-        ratings: [1, 5, 'none', 8],
+        excludedStatuses: ['none', 'playing'],
+        excludedTags: ['__none__', 'Spoilers'],
+        ratings: [1, 4.5, 5, 'none', 8],
         hltbMainHoursMin: 25,
         hltbMainHoursMax: 10,
         releaseDateFrom: '2025-02-01T00:00:00.000Z',
@@ -73,7 +75,12 @@ describe('list-page-preferences', () => {
       genres: ['RPG'],
       statuses: ['playing'],
       tags: ['__none__', 'Action', 'RPG'],
-      ratings: [1, 5, 'none'],
+      excludedPlatform: [],
+      excludedGenres: [],
+      excludedStatuses: ['playing'],
+      excludedTags: ['Spoilers'],
+      excludedGameTypes: [],
+      ratings: [1, 4.5, 5, 'none'],
       hltbMainHoursMin: 10,
       hltbMainHoursMax: 25,
       releaseDateFrom: '2025-02-01',
@@ -100,6 +107,45 @@ describe('list-page-preferences', () => {
 
     const restored = parseListPagePreferences(serializeListPagePreferences(original), '__none__');
     expect(restored).toEqual(original);
+  });
+
+  it('accepts hltb as a valid sort field from stored preferences', () => {
+    const normalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'hltb',
+        sortDirection: 'asc'
+      },
+      '__none__'
+    );
+
+    expect(normalized.sortField).toBe('hltb');
+    expect(normalized.sortDirection).toBe('asc');
+  });
+
+  it('accepts tas as a valid sort field from stored preferences', () => {
+    const normalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'tas',
+        sortDirection: 'desc'
+      },
+      '__none__'
+    );
+
+    expect(normalized.sortField).toBe('tas');
+    expect(normalized.sortDirection).toBe('desc');
+  });
+
+  it('migrates metacritic sort field from stored preferences to review', () => {
+    const normalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'metacritic',
+        sortDirection: 'desc'
+      },
+      '__none__'
+    );
+
+    expect(normalized.sortField).toBe('review');
+    expect(normalized.sortDirection).toBe('desc');
   });
 
   it('normalizes unknown group values to none', () => {

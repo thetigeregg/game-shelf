@@ -1,3 +1,4 @@
+import { isGameRating } from '../core/models/game.models';
 import type {
   GameCatalogResult,
   GameGroupByField,
@@ -201,9 +202,9 @@ export function normalizeRating(value: string): GameRating | null {
     return null;
   }
 
-  const parsed = Number.parseInt(normalized, 10);
+  const parsed = Number.parseFloat(normalized);
 
-  if (parsed === 1 || parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5) {
+  if (isGameRating(parsed)) {
     return parsed;
   }
 
@@ -291,23 +292,48 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
       tags: Array.isArray(parsed.tags)
         ? parsed.tags.filter((value) => typeof value === 'string')
         : [],
-      ratings: Array.isArray(parsed.ratings)
-        ? parsed.ratings.filter(
+      excludedPlatform: Array.isArray(parsed.excludedPlatform)
+        ? parsed.excludedPlatform.filter((value) => typeof value === 'string')
+        : [],
+      excludedGenres: Array.isArray(parsed.excludedGenres)
+        ? parsed.excludedGenres.filter((value) => typeof value === 'string')
+        : [],
+      excludedStatuses: Array.isArray(parsed.excludedStatuses)
+        ? parsed.excludedStatuses.filter(
             (value) =>
-              value === 'none' ||
-              value === 1 ||
-              value === 2 ||
-              value === 3 ||
-              value === 4 ||
-              normalizeRating(String(value)) === 5
+              value === 'playing' ||
+              value === 'wantToPlay' ||
+              value === 'completed' ||
+              value === 'paused' ||
+              value === 'dropped' ||
+              normalizeStatus(value) === 'replay'
           )
+        : [],
+      excludedTags: Array.isArray(parsed.excludedTags)
+        ? parsed.excludedTags.filter((value) => typeof value === 'string' && value !== '__none__')
+        : [],
+      excludedGameTypes: Array.isArray(parsed.excludedGameTypes)
+        ? parsed.excludedGameTypes.filter((value) =>
+            VALID_GAME_TYPES.includes(value as NonNullable<GameCatalogResult['gameType']>)
+          )
+        : [],
+      ratings: Array.isArray(parsed.ratings)
+        ? parsed.ratings
+            .map((value) => (value === 'none' ? 'none' : normalizeRating(String(value))))
+            .filter((value): value is GameRating | 'none' => value === 'none' || value !== null)
         : [],
       sortField:
         parsed.sortField === 'title' ||
         parsed.sortField === 'releaseDate' ||
         parsed.sortField === 'createdAt' ||
+        parsed.sortField === 'hltb' ||
+        parsed.sortField === 'tas' ||
+        parsed.sortField === 'review' ||
+        parsed.sortField === 'metacritic' ||
         parsed.sortField === 'platform'
-          ? parsed.sortField
+          ? parsed.sortField === 'metacritic'
+            ? 'review'
+            : parsed.sortField
           : defaultFilters.sortField,
       sortDirection: parsed.sortDirection === 'desc' ? 'desc' : 'asc',
       hltbMainHoursMin:

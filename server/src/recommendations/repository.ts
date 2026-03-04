@@ -252,7 +252,8 @@ export class RecommendationRepository {
 
   async listDiscoveryRowsMissingEnrichment(
     limit: number,
-    queryable: Queryable = this.pool
+    queryable: Queryable = this.pool,
+    options?: { nowIso?: string; maxAttempts?: number }
   ): Promise<
     Array<{
       igdbGameId: string;
@@ -261,56 +262,87 @@ export class RecommendationRepository {
     }>
   > {
     const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
+    const nowIso = options?.nowIso ?? new Date().toISOString();
+    const maxAttempts =
+      typeof options?.maxAttempts === 'number' && Number.isFinite(options.maxAttempts)
+        ? Math.max(1, Math.trunc(options.maxAttempts))
+        : 1;
     const result = await queryable.query<DiscoveryGameRow>(
       `
+      WITH candidate_rows AS (
+        SELECT
+          igdb_game_id,
+          platform_igdb_id,
+          payload,
+          updated_at,
+          CASE
+            WHEN BTRIM(COALESCE(payload->>'hltbMainHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+            THEN (BTRIM(payload->>'hltbMainHours'))::numeric > 0
+            ELSE false
+          END AS has_hltb_main,
+          CASE
+            WHEN BTRIM(COALESCE(payload->>'hltbMainExtraHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+            THEN (BTRIM(payload->>'hltbMainExtraHours'))::numeric > 0
+            ELSE false
+          END AS has_hltb_main_extra,
+          CASE
+            WHEN BTRIM(COALESCE(payload->>'hltbCompletionistHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+            THEN (BTRIM(payload->>'hltbCompletionistHours'))::numeric > 0
+            ELSE false
+          END AS has_hltb_completionist,
+          CASE
+            WHEN BTRIM(COALESCE(payload->>'reviewScore', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+            THEN (BTRIM(payload->>'reviewScore'))::numeric > 0
+            ELSE false
+          END AS has_review_score,
+          CASE
+            WHEN BTRIM(COALESCE(payload->>'metacriticScore', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+            THEN (BTRIM(payload->>'metacriticScore'))::numeric > 0
+            ELSE false
+          END AS has_metacritic_score,
+          BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'nextTryAt', '')) AS hltb_next_try_at,
+          BTRIM(COALESCE(payload->'enrichmentRetry'->'metacritic'->>'nextTryAt', '')) AS metacritic_next_try_at,
+          CASE
+            WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'attempts', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->'enrichmentRetry'->'hltb'->>'attempts'))::int
+            ELSE 0
+          END AS hltb_attempts,
+          CASE
+            WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'metacritic'->>'attempts', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->'enrichmentRetry'->'metacritic'->>'attempts'))::int
+            ELSE 0
+          END AS metacritic_attempts,
+          payload->'enrichmentRetry'->'hltb'->>'permanentMiss' = 'true' AS hltb_permanent_miss,
+          payload->'enrichmentRetry'->'metacritic'->>'permanentMiss' = 'true' AS metacritic_permanent_miss
+        FROM games
+        WHERE COALESCE(payload->>'listType', '') = 'discovery'
+      )
       SELECT igdb_game_id, platform_igdb_id, payload
-      FROM games
-      WHERE COALESCE(payload->>'listType', '') = 'discovery'
-        AND (
-          (
-            NOT (
-              CASE
-                WHEN BTRIM(COALESCE(payload->>'hltbMainHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                THEN (BTRIM(payload->>'hltbMainHours'))::numeric > 0
-                ELSE false
-              END
-            )
-            AND NOT (
-              CASE
-                WHEN BTRIM(COALESCE(payload->>'hltbMainExtraHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                THEN (BTRIM(payload->>'hltbMainExtraHours'))::numeric > 0
-                ELSE false
-              END
-            )
-            AND NOT (
-              CASE
-                WHEN BTRIM(COALESCE(payload->>'hltbCompletionistHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                THEN (BTRIM(payload->>'hltbCompletionistHours'))::numeric > 0
-                ELSE false
-              END
-            )
+      FROM candidate_rows
+      WHERE (
+          NOT (has_hltb_main OR has_hltb_main_extra OR has_hltb_completionist)
+          AND NOT hltb_permanent_miss
+          AND hltb_attempts < $2
+          AND (
+            hltb_next_try_at = ''
+            OR hltb_next_try_at !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+            OR hltb_next_try_at <= $3
           )
-          OR (
-            NOT (
-              CASE
-                WHEN BTRIM(COALESCE(payload->>'reviewScore', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                THEN (BTRIM(payload->>'reviewScore'))::numeric > 0
-                ELSE false
-              END
-            )
-            AND NOT (
-              CASE
-                WHEN BTRIM(COALESCE(payload->>'metacriticScore', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                THEN (BTRIM(payload->>'metacriticScore'))::numeric > 0
-                ELSE false
-              END
-            )
+        )
+        OR (
+          NOT (has_review_score OR has_metacritic_score)
+          AND NOT metacritic_permanent_miss
+          AND metacritic_attempts < $2
+          AND (
+            metacritic_next_try_at = ''
+            OR metacritic_next_try_at !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+            OR metacritic_next_try_at <= $3
           )
         )
       ORDER BY updated_at ASC
       LIMIT $1
       `,
-      [normalizedLimit]
+      [normalizedLimit, maxAttempts, nowIso]
     );
 
     return result.rows.map((row) => ({
@@ -336,21 +368,6 @@ export class RecommendationRepository {
       WHERE igdb_game_id = $1 AND platform_igdb_id = $2
       `,
       [params.igdbGameId, params.platformIgdbId, JSON.stringify(params.payload)]
-    );
-  }
-
-  async touchGameUpdatedAt(params: {
-    client?: Queryable;
-    igdbGameId: string;
-    platformIgdbId: number;
-  }): Promise<void> {
-    await (params.client ?? this.pool).query(
-      `
-      UPDATE games
-      SET updated_at = NOW()
-      WHERE igdb_game_id = $1 AND platform_igdb_id = $2
-      `,
-      [params.igdbGameId, params.platformIgdbId]
     );
   }
 

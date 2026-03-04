@@ -29,11 +29,6 @@ export interface DiscoveryEnrichmentSummary {
   skipped: number;
 }
 
-interface EnrichPayloadResult {
-  payload: Record<string, unknown> | null;
-  skippedForCooldown: boolean;
-}
-
 interface HltbResponse {
   item?: {
     hltbMainHours?: number | null;
@@ -153,21 +148,18 @@ export class DiscoveryEnrichmentService {
     const queryable = params?.queryable;
     const rows = await this.repository.listDiscoveryRowsMissingEnrichment(
       params?.limit ?? this.options.maxGamesPerRun,
-      queryable
+      queryable,
+      {
+        nowIso: new Date(this.now()).toISOString(),
+        maxAttempts: this.options.maxAttempts
+      }
     );
 
     let updated = 0;
     let skipped = 0;
     for (const row of rows) {
-      const result = await this.enrichPayload(row.payload, row.platformIgdbId);
-      if (!result.payload || JSON.stringify(result.payload) === JSON.stringify(row.payload)) {
-        if (result.skippedForCooldown) {
-          await this.repository.touchGameUpdatedAt({
-            client: queryable,
-            igdbGameId: row.igdbGameId,
-            platformIgdbId: row.platformIgdbId
-          });
-        }
+      const next = await this.enrichPayload(row.payload, row.platformIgdbId);
+      if (!next || JSON.stringify(next) === JSON.stringify(row.payload)) {
         skipped += 1;
         continue;
       }
@@ -176,7 +168,7 @@ export class DiscoveryEnrichmentService {
         client: queryable,
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
-        payload: result.payload
+        payload: next
       });
       updated += 1;
     }
@@ -187,10 +179,10 @@ export class DiscoveryEnrichmentService {
   private async enrichPayload(
     payload: Record<string, unknown>,
     platformIgdbId: number
-  ): Promise<EnrichPayloadResult> {
+  ): Promise<Record<string, unknown> | null> {
     const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     if (title.length < 2) {
-      return { payload: null, skippedForCooldown: false };
+      return null;
     }
 
     const releaseYear =
@@ -234,7 +226,7 @@ export class DiscoveryEnrichmentService {
         needsMetacritic: !hasCritic
       });
       applyRetryState(next, nextRetryState);
-      return { payload: next, skippedForCooldown: true };
+      return next;
     }
 
     const [hltbResponse, metacriticResponse] = await Promise.all([
@@ -327,7 +319,7 @@ export class DiscoveryEnrichmentService {
       })
     );
 
-    return { payload: next, skippedForCooldown: false };
+    return next;
   }
 
   private buildLocalUrl(path: string, query: Record<string, string>): string {

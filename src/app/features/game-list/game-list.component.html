@@ -354,18 +354,40 @@
           <ion-list-header class="similar-games-header">
             <ion-label>More Like This</ion-label>
           </ion-list-header>
-          @if (isSimilarLibraryGamesLoading) {
+          <ion-toolbar class="segment-toolbar">
+            <ion-segment
+              [value]="similarDetailMode"
+              (ionChange)="onSimilarDetailModeChange($any($event).detail.value)"
+            >
+              <ion-segment-button value="library">
+                <ion-label>In Library</ion-label>
+              </ion-segment-button>
+              <ion-segment-button value="discovery">
+                <ion-label>Discover Related</ion-label>
+              </ion-segment-button>
+            </ion-segment>
+          </ion-toolbar>
+
+          @if (similarDetailMode === 'library' && isSimilarLibraryGamesLoading) {
             <ion-item>
               <ion-spinner slot="start" name="crescent"></ion-spinner>
               <ion-label>Loading similar games...</ion-label>
             </ion-item>
           }
-          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length === 0) {
+          @if (
+            similarDetailMode === 'library' &&
+            !isSimilarLibraryGamesLoading &&
+            similarLibraryGames.length === 0
+          ) {
             <ion-item>
               <ion-label color="medium">No similar recommendations available.</ion-label>
             </ion-item>
           }
-          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
+          @if (
+            similarDetailMode === 'library' &&
+            !isSimilarLibraryGamesLoading &&
+            similarLibraryGames.length > 0
+          ) {
             @for (
               similarGame of getVisibleSimilarLibraryGames();
               track trackByExternalId($index, similarGame.game)
@@ -383,6 +405,49 @@
               [disabled]="!canLoadMoreSimilarLibraryGames()"
               threshold="15px"
               (ionInfinite)="loadMoreSimilarLibraryGames($event)"
+            >
+              <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
+            </ion-infinite-scroll>
+          }
+          @if (similarDetailMode === 'discovery' && isSimilarDiscoveryGamesLoading) {
+            <ion-item>
+              <ion-spinner slot="start" name="crescent"></ion-spinner>
+              <ion-label>Loading discovery suggestions...</ion-label>
+            </ion-item>
+          }
+          @if (
+            similarDetailMode === 'discovery' &&
+            !isSimilarDiscoveryGamesLoading &&
+            similarDiscoveryGames.length === 0
+          ) {
+            <ion-item>
+              <ion-label color="medium"
+                >No discovery suggestions available for this game.</ion-label
+              >
+            </ion-item>
+          }
+          @if (
+            similarDetailMode === 'discovery' &&
+            !isSimilarDiscoveryGamesLoading &&
+            similarDiscoveryGames.length > 0
+          ) {
+            @for (
+              similarGame of getVisibleSimilarDiscoveryGames();
+              track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
+            ) {
+              <app-similar-game-row
+                [title]="similarGame.title"
+                [coverUrl]="similarGame.coverUrl"
+                [subtitle]="similarGame.subtitle"
+                [badges]="getSimilarDiscoveryBadges(similarGame)"
+                [headline]="similarGame.reasons.summary"
+                (rowClick)="onSimilarDiscoveryRowClick(similarGame)"
+              ></app-similar-game-row>
+            }
+            <ion-infinite-scroll
+              [disabled]="!canLoadMoreSimilarDiscoveryGames()"
+              threshold="15px"
+              (ionInfinite)="loadMoreSimilarDiscoveryGames($event)"
             >
               <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
             </ion-infinite-scroll>

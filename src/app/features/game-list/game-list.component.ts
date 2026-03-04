@@ -42,6 +42,8 @@ import {
   IonTitle,
   IonButtons,
   IonButton,
+  IonSegment,
+  IonSegmentButton,
   IonSelect,
   IonSelectOption,
   IonSearchbar,
@@ -79,6 +81,7 @@ import {
   ReviewMatchCandidate,
   GameRating,
   RecommendationSimilarityReasons,
+  RecommendationSimilarResponse,
   RecommendationTarget,
   GameStatus,
   GameType,
@@ -175,6 +178,25 @@ interface SimilarLibraryGameRow {
   reasons: RecommendationSimilarityReasons;
 }
 
+type SimilarDetailMode = 'library' | 'discovery';
+
+interface SimilarDiscoveryGameRow {
+  igdbGameId: string;
+  platformIgdbId: number;
+  title: string;
+  coverUrl: string | null;
+  subtitle: string;
+  similarity: number;
+  reasons: RecommendationSimilarityReasons;
+}
+
+interface RecommendationDisplayMetadata {
+  title: string;
+  coverUrl: string | null;
+  platformLabel: string;
+  releaseYear: number | null;
+}
+
 type NotesToolbarAction =
   | 'bold'
   | 'italic'
@@ -214,6 +236,8 @@ type NotesToolbarAction =
     IonTitle,
     IonButtons,
     IonButton,
+    IonSegment,
+    IonSegmentButton,
     IonSelect,
     IonSelectOption,
     IonSearchbar,
@@ -263,6 +287,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly CUSTOM_COVER_SCALE_FACTORS = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
   private static readonly SIMILAR_LIBRARY_PAGE_SIZE = 5;
   private static readonly SIMILAR_LIBRARY_FETCH_LIMIT = 50;
+  private static readonly SIMILAR_LIBRARY_LOAD_TIMEOUT_MS = 10000;
+  private static readonly SIMILAR_DISCOVERY_PAGE_SIZE = 5;
+  private static readonly SIMILAR_DISCOVERY_FETCH_LIMIT = 50;
+  private static readonly SIMILAR_DISCOVERY_LOAD_TIMEOUT_MS = 10000;
   private static readonly MANUAL_SHORTCUT_PLATFORM_WHITELIST = new Set<number>([
     4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
     5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120
@@ -308,9 +336,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
   hasReviewPickerSearched = false;
   selectedGame: GameEntry | null = null;
   detailNavigationStack: GameEntry[] = [];
+  similarDetailMode: SimilarDetailMode = 'library';
   similarLibraryGames: SimilarLibraryGameRow[] = [];
   visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
   isSimilarLibraryGamesLoading = false;
+  similarDiscoveryGames: SimilarDiscoveryGameRow[] = [];
+  visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
+  isSimilarDiscoveryGamesLoading = false;
   ratingTargetGame: GameEntry | null = null;
   ratingDraft: GameRating = 3;
   clearRatingOnSave = false;
@@ -371,6 +403,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly filteringEngine = new GameListFilteringEngine(this.noneTagFilterValue);
   private imagePickerSearchRequestId = 0;
   private similarLibraryLoadRequestId = 0;
+  private similarDiscoveryLoadRequestId = 0;
   private manualResolutionRequestId = 0;
   private rowActionsSlidingItem: IonItemSliding | null = null;
   private readonly gameShelfService = inject(GameShelfService);
@@ -398,6 +431,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('gameDetailModal', { read: ElementRef })
   private gameDetailModalRef?: ElementRef<HTMLElement>;
+  private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
+  private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
   private imageErrorLogCount = 0;
   private notesAutosaveTimeoutId: number | null = null;
   private notesAutosaveFailureCount = 0;
@@ -1160,7 +1195,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.isNotesOpen = true;
     }
     this.resetDetailTextExpansion();
+    this.similarDetailMode = 'library';
     this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
+    this.similarDiscoveryGames = [];
+    this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
+    this.isSimilarDiscoveryGamesLoading = false;
     this.resetImagePickerState();
     this.resetReviewPickerState();
     this.resetManualPickerState();
@@ -1212,10 +1251,15 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isNotesModalOpen = false;
     this.selectedGame = null;
     this.detailNavigationStack = [];
+    this.similarDetailMode = 'library';
     this.similarLibraryGames = [];
     this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     this.isSimilarLibraryGamesLoading = false;
+    this.similarDiscoveryGames = [];
+    this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
+    this.isSimilarDiscoveryGamesLoading = false;
     this.similarLibraryLoadRequestId += 1;
+    this.similarDiscoveryLoadRequestId += 1;
     this.manualResolutionRequestId += 1;
     this.resetDetailTextExpansion();
     this.resetImagePickerState();
@@ -3075,14 +3119,20 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     try {
       const [similarResponse, libraryGames] = await Promise.all([
-        firstValueFrom(
-          this.igdbProxyService.getRecommendationSimilar({
-            target: this.getRecommendationTargetForListType(),
-            igdbGameId: game.igdbGameId,
-            platformIgdbId: game.platformIgdbId,
-            limit: GameListComponent.SIMILAR_LIBRARY_FETCH_LIMIT
-          })
-        ),
+        Promise.race([
+          firstValueFrom(
+            this.igdbProxyService.getRecommendationSimilar({
+              target: this.getRecommendationTargetForListType(),
+              igdbGameId: game.igdbGameId,
+              platformIgdbId: game.platformIgdbId,
+              limit: GameListComponent.SIMILAR_LIBRARY_FETCH_LIMIT
+            })
+          ),
+          this.delayReject<RecommendationSimilarResponse>(
+            GameListComponent.SIMILAR_LIBRARY_LOAD_TIMEOUT_MS,
+            'similar_library_recommendations_timeout'
+          )
+        ]),
         Promise.race([
           this.gameShelfService.listLibraryGames(),
           this.delayReject<GameEntry[]>(10000, 'similar_library_load_timeout')
@@ -3127,6 +3177,95 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
+  onSimilarDetailModeChange(value: unknown): void {
+    const mode = value === 'library' || value === 'discovery' ? value : null;
+    if (!mode || this.similarDetailMode === mode) {
+      return;
+    }
+
+    this.similarDetailMode = mode;
+    this.changeDetectorRef.markForCheck();
+
+    if (!this.selectedGame) {
+      return;
+    }
+
+    if (mode === 'library') {
+      if (this.similarLibraryGames.length === 0 && !this.isSimilarLibraryGamesLoading) {
+        void this.loadSimilarLibraryGamesForDetail(this.selectedGame);
+      }
+      return;
+    }
+
+    if (this.similarDiscoveryGames.length === 0 && !this.isSimilarDiscoveryGamesLoading) {
+      void this.loadSimilarDiscoveryGamesForDetail(this.selectedGame);
+    }
+  }
+
+  private async loadSimilarDiscoveryGamesForDetail(game: GameEntry): Promise<void> {
+    const requestId = ++this.similarDiscoveryLoadRequestId;
+
+    this.isSimilarDiscoveryGamesLoading = true;
+    this.similarDiscoveryGames = [];
+    this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const response = await Promise.race([
+        firstValueFrom(
+          this.igdbProxyService.getRecommendationSimilar({
+            target: 'DISCOVERY',
+            igdbGameId: game.igdbGameId,
+            platformIgdbId: game.platformIgdbId,
+            limit: GameListComponent.SIMILAR_DISCOVERY_FETCH_LIMIT
+          })
+        ),
+        this.delayReject<RecommendationSimilarResponse>(
+          GameListComponent.SIMILAR_DISCOVERY_LOAD_TIMEOUT_MS,
+          'similar_discovery_load_timeout'
+        )
+      ]);
+
+      if (requestId !== this.similarDiscoveryLoadRequestId) {
+        return;
+      }
+
+      await this.ensureSimilarDiscoveryDisplayMetadata(response.items);
+
+      if (requestId !== this.similarDiscoveryLoadRequestId) {
+        return;
+      }
+
+      this.similarDiscoveryGames = response.items.map((item) => {
+        const metadata =
+          this.recommendationDisplayMetadata.get(
+            this.buildRecommendationIdentityKey(item.igdbGameId, item.platformIgdbId)
+          ) ?? null;
+
+        return {
+          igdbGameId: item.igdbGameId,
+          platformIgdbId: item.platformIgdbId,
+          title: metadata?.title ?? `Game #${item.igdbGameId}`,
+          coverUrl: metadata?.coverUrl ?? null,
+          subtitle: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+          similarity: item.similarity,
+          reasons: item.reasons
+        } satisfies SimilarDiscoveryGameRow;
+      });
+      this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
+    } catch {
+      if (requestId === this.similarDiscoveryLoadRequestId) {
+        this.similarDiscoveryGames = [];
+        this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
+      }
+    } finally {
+      if (requestId === this.similarDiscoveryLoadRequestId) {
+        this.isSimilarDiscoveryGamesLoading = false;
+        this.changeDetectorRef.markForCheck();
+      }
+    }
+  }
+
   private getRecommendationTargetForListType(): RecommendationTarget {
     return this.listType === 'collection' ? 'BACKLOG' : 'WISHLIST';
   }
@@ -3143,6 +3282,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.similarLibraryGames.slice(0, this.visibleSimilarLibraryGamesCount);
   }
 
+  getVisibleSimilarDiscoveryGames(): SimilarDiscoveryGameRow[] {
+    return this.similarDiscoveryGames.slice(0, this.visibleSimilarDiscoveryGamesCount);
+  }
+
   getSimilarGameBadges(row: SimilarLibraryGameRow): Array<{
     text: string;
     color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
@@ -3154,9 +3297,119 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.visibleSimilarLibraryGamesCount < this.similarLibraryGames.length;
   }
 
+  canLoadMoreSimilarDiscoveryGames(): boolean {
+    return this.visibleSimilarDiscoveryGamesCount < this.similarDiscoveryGames.length;
+  }
+
   async loadMoreSimilarLibraryGames(event: Event): Promise<void> {
     this.visibleSimilarLibraryGamesCount += GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     await completeIonInfiniteScroll(event);
+  }
+
+  async loadMoreSimilarDiscoveryGames(event: Event): Promise<void> {
+    this.visibleSimilarDiscoveryGamesCount += GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
+    await completeIonInfiniteScroll(event);
+  }
+
+  onSimilarDiscoveryRowClick(_row: SimilarDiscoveryGameRow): void {
+    void this.presentToast('Open Discover tab to view full details for discovery suggestions.');
+  }
+
+  getSimilarDiscoveryBadges(row: SimilarDiscoveryGameRow): Array<{
+    text: string;
+    color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
+  }> {
+    return [{ text: `Blend ${row.similarity.toFixed(2)}`, color: 'primary' }];
+  }
+
+  private buildRecommendationIdentityKey(igdbGameId: string, platformIgdbId: number): string {
+    return `${igdbGameId}::${String(platformIgdbId)}`;
+  }
+
+  private async ensureSimilarDiscoveryDisplayMetadata(
+    items: Array<{ igdbGameId: string; platformIgdbId: number }>
+  ): Promise<void> {
+    const groupedPlatformIds = new Map<string, Set<number>>();
+
+    for (const item of items) {
+      const identityKey = this.buildRecommendationIdentityKey(item.igdbGameId, item.platformIgdbId);
+      if (this.recommendationDisplayMetadata.has(identityKey)) {
+        continue;
+      }
+
+      const platformIds = groupedPlatformIds.get(item.igdbGameId);
+      if (platformIds) {
+        platformIds.add(item.platformIgdbId);
+      } else {
+        groupedPlatformIds.set(item.igdbGameId, new Set([item.platformIgdbId]));
+      }
+    }
+
+    if (groupedPlatformIds.size === 0) {
+      return;
+    }
+
+    await this.populateRecommendationDisplayMetadata(groupedPlatformIds);
+  }
+
+  private async populateRecommendationDisplayMetadata(
+    groupedPlatformIds: Map<string, Set<number>>
+  ): Promise<void> {
+    const groupedEntries = Array.from(groupedPlatformIds.entries());
+
+    for (let index = 0; index < groupedEntries.length; index += 4) {
+      const batch = groupedEntries.slice(index, index + 4);
+      await Promise.all(
+        batch.map(async ([igdbGameId, platformIds]) => {
+          const catalog =
+            this.recommendationCatalogCache.get(igdbGameId) ??
+            (await this.fetchRecommendationCatalogResult(igdbGameId));
+          if (!catalog) {
+            return;
+          }
+
+          for (const platformIgdbId of platformIds) {
+            this.recommendationDisplayMetadata.set(
+              this.buildRecommendationIdentityKey(igdbGameId, platformIgdbId),
+              {
+                title: catalog.title.trim().length > 0 ? catalog.title : `Game #${igdbGameId}`,
+                coverUrl: catalog.coverUrl,
+                platformLabel: this.resolveCatalogPlatformLabel(catalog, platformIgdbId),
+                releaseYear: catalog.releaseYear ?? null
+              }
+            );
+          }
+        })
+      );
+    }
+  }
+
+  private async fetchRecommendationCatalogResult(
+    igdbGameId: string
+  ): Promise<GameCatalogResult | null> {
+    try {
+      const catalog = await firstValueFrom(this.igdbProxyService.getGameById(igdbGameId));
+      this.recommendationCatalogCache.set(igdbGameId, catalog);
+      return catalog;
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveCatalogPlatformLabel(catalog: GameCatalogResult, platformIgdbId: number): string {
+    const platformOption = Array.isArray(catalog.platformOptions)
+      ? (catalog.platformOptions.find((option) => option.id === platformIgdbId) ?? null)
+      : null;
+
+    const platformName =
+      platformOption?.name ??
+      (catalog.platformIgdbId === platformIgdbId &&
+      typeof catalog.platform === 'string' &&
+      catalog.platform.trim().length > 0
+        ? catalog.platform.trim()
+        : null);
+
+    return this.getPlatformLabel(platformName, platformIgdbId);
   }
 
   getGameDisplayTitle(game: GameEntry): string {

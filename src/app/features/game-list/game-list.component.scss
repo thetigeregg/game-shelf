@@ -191,7 +191,10 @@ ion-item.game-row-selected {
 
 .similar-games-header {
   border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
-  margin-bottom: 6px;
+}
+
+.segment-toolbar {
+  border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
 }
 
 ion-item h2 {

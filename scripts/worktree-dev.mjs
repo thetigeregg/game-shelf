@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 const cwd = process.cwd();
 const args = process.argv.slice(2);
 const composeArgs = ['compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml'];
+const MAX_PORT_OFFSET = 10000;
 
 function sanitize(value, maxLength = 63) {
   return value
@@ -32,15 +33,17 @@ function computeOffset(repoPath) {
   const explicitOffset = process.env.WORKTREE_PORT_OFFSET;
   if (explicitOffset !== undefined) {
     const parsed = Number.parseInt(explicitOffset, 10);
-    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 2000) {
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_PORT_OFFSET) {
       return parsed;
     }
-    console.error('WORKTREE_PORT_OFFSET must be an integer between 0 and 2000');
+    console.error(
+      `WORKTREE_PORT_OFFSET must be an integer between 0 and ${String(MAX_PORT_OFFSET)}`
+    );
     process.exit(1);
   }
 
   const hashHex = createHash('sha256').update(repoPath).digest('hex');
-  return Number.parseInt(hashHex.slice(0, 4), 16) % 200;
+  return Number.parseInt(hashHex.slice(0, 8), 16) % MAX_PORT_OFFSET;
 }
 
 function shellEscape(value) {
@@ -328,6 +331,7 @@ function isCurrentDbEmpty() {
 function dbSeedRefresh() {
   const seedPath = defaultSeedPath();
   const tempSqlPath = `${seedPath}.tmp.sql`;
+  const tempGzipPath = `${seedPath}.tmp.gz`;
   mkdirSync(path.dirname(seedPath), { recursive: true });
 
   ensurePostgresRunning();
@@ -337,7 +341,35 @@ function dbSeedRefresh() {
     `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; pg_dump --clean --if-exists --no-owner --no-privileges -U "$user" -d "$db"`
   )} > ${shellEscape(tempSqlPath)}`;
   runShell(dumpCommand);
-  runShell(`gzip -c ${shellEscape(tempSqlPath)} > ${shellEscape(seedPath)}`);
+
+  const sqlSizeBytes = statSync(tempSqlPath).size;
+  if (sqlSizeBytes < 1024) {
+    runShell(`rm -f ${shellEscape(tempSqlPath)}`);
+    console.error(
+      `Seed refresh aborted: dump looks too small (${String(sqlSizeBytes)} bytes). Existing seed preserved.`
+    );
+    process.exit(1);
+  }
+
+  const dumpLooksValid = spawnSync(
+    'sh',
+    ['-lc', `grep -Eq "^(CREATE TABLE|COPY )" ${shellEscape(tempSqlPath)}`],
+    {
+      cwd,
+      env: sharedEnv,
+      stdio: 'ignore'
+    }
+  );
+  if (dumpLooksValid.status !== 0) {
+    runShell(`rm -f ${shellEscape(tempSqlPath)}`);
+    console.error(
+      'Seed refresh aborted: dump did not include expected schema/data statements. Existing seed preserved.'
+    );
+    process.exit(1);
+  }
+
+  runShell(`gzip -c ${shellEscape(tempSqlPath)} > ${shellEscape(tempGzipPath)}`);
+  runShell(`mv ${shellEscape(tempGzipPath)} ${shellEscape(seedPath)}`);
   runShell(`rm -f ${shellEscape(tempSqlPath)}`);
   console.log('Seed refresh complete.');
 }
@@ -432,7 +464,9 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
   console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
   console.log('');
   console.log('Optional env vars:');
-  console.log('  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-2000)');
+  console.log(
+    `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String(MAX_PORT_OFFSET)})`
+  );
   console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
   console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
   process.exit(0);

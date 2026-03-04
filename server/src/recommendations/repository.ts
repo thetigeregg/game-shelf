@@ -268,13 +268,43 @@ export class RecommendationRepository {
       WHERE COALESCE(payload->>'listType', '') = 'discovery'
         AND (
           (
-            COALESCE((payload->>'hltbMainHours')::text, '') = ''
-            AND COALESCE((payload->>'hltbMainExtraHours')::text, '') = ''
-            AND COALESCE((payload->>'hltbCompletionistHours')::text, '') = ''
+            NOT (
+              CASE
+                WHEN BTRIM(COALESCE(payload->>'hltbMainHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                THEN (BTRIM(payload->>'hltbMainHours'))::numeric > 0
+                ELSE false
+              END
+            )
+            AND NOT (
+              CASE
+                WHEN BTRIM(COALESCE(payload->>'hltbMainExtraHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                THEN (BTRIM(payload->>'hltbMainExtraHours'))::numeric > 0
+                ELSE false
+              END
+            )
+            AND NOT (
+              CASE
+                WHEN BTRIM(COALESCE(payload->>'hltbCompletionistHours', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                THEN (BTRIM(payload->>'hltbCompletionistHours'))::numeric > 0
+                ELSE false
+              END
+            )
           )
           OR (
-            COALESCE((payload->>'reviewScore')::text, '') = ''
-            AND COALESCE((payload->>'metacriticScore')::text, '') = ''
+            NOT (
+              CASE
+                WHEN BTRIM(COALESCE(payload->>'reviewScore', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                THEN (BTRIM(payload->>'reviewScore'))::numeric > 0
+                ELSE false
+              END
+            )
+            AND NOT (
+              CASE
+                WHEN BTRIM(COALESCE(payload->>'metacriticScore', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                THEN (BTRIM(payload->>'metacriticScore'))::numeric > 0
+                ELSE false
+              END
+            )
           )
         )
       ORDER BY updated_at ASC

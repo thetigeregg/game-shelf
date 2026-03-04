@@ -2039,7 +2039,7 @@ describe('IgdbProxyService', () => {
 
     await expect(promise).resolves.toEqual({
       target: 'WISHLIST',
-      runId: '9',
+      runId: 9,
       status: 'SUCCESS',
       reusedRunId: null
     });

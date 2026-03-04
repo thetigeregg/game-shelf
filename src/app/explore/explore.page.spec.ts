@@ -161,7 +161,7 @@ describe('ExplorePage recommendations UX', () => {
     vi.clearAllMocks();
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(of(mockLanesResponse));
     igdbProxyServiceMock.rebuildRecommendations.mockReturnValue(
-      of({ target: 'BACKLOG', runId: '2', status: 'SUCCESS' })
+      of({ target: 'BACKLOG', runId: 2, status: 'SUCCESS' })
     );
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
     igdbProxyServiceMock.getRecommendationSimilar.mockReturnValue(

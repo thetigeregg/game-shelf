@@ -1195,6 +1195,7 @@ export class ExplorePage implements OnInit {
       const response = await firstValueFrom(
         this.igdbProxyService.getRecommendationSimilar({
           target: this.selectedTarget,
+          runtimeMode: this.selectedRuntimeMode,
           igdbGameId: item.igdbGameId,
           platformIgdbId: item.platformIgdbId,
           limit: ExplorePage.SIMILAR_FETCH_LIMIT

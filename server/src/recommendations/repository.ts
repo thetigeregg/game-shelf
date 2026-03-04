@@ -417,7 +417,7 @@ export class RecommendationRepository {
       igdbGameId: string;
       platformIgdbId: number;
     }>;
-    similarityEdges: SimilarityEdge[];
+    similarityEdgesByMode: Record<RecommendationRuntimeMode, SimilarityEdge[]>;
   }): Promise<void> {
     await params.client.query('BEGIN');
 
@@ -502,32 +502,38 @@ export class RecommendationRepository {
         }
       }
 
-      await params.client.query('TRUNCATE TABLE game_similarity');
-
-      for (const edge of params.similarityEdges) {
-        await params.client.query(
-          `
-          INSERT INTO game_similarity
-            (
-              source_igdb_game_id,
-              source_platform_igdb_id,
-              similar_igdb_game_id,
-              similar_platform_igdb_id,
-              similarity,
-              reasons,
-              updated_at
-            )
-          VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())
-          `,
-          [
-            edge.sourceIgdbGameId,
-            edge.sourcePlatformIgdbId,
-            edge.similarIgdbGameId,
-            edge.similarPlatformIgdbId,
-            edge.similarity,
-            JSON.stringify(edge.reasons)
-          ]
-        );
+      for (const [runtimeMode, edges] of Object.entries(params.similarityEdgesByMode) as Array<
+        [RecommendationRuntimeMode, SimilarityEdge[]]
+      >) {
+        for (const edge of edges) {
+          await params.client.query(
+            `
+            INSERT INTO game_similarity
+              (
+                run_id,
+                runtime_mode,
+                source_igdb_game_id,
+                source_platform_igdb_id,
+                similar_igdb_game_id,
+                similar_platform_igdb_id,
+                similarity,
+                reasons,
+                updated_at
+              )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())
+            `,
+            [
+              params.runId,
+              runtimeMode,
+              edge.sourceIgdbGameId,
+              edge.sourcePlatformIgdbId,
+              edge.similarIgdbGameId,
+              edge.similarPlatformIgdbId,
+              edge.similarity,
+              JSON.stringify(edge.reasons)
+            ]
+          );
+        }
       }
 
       for (const update of params.historyUpdates) {
@@ -679,6 +685,7 @@ export class RecommendationRepository {
     igdbGameId: string;
     platformIgdbId: number;
     target: RecommendationTarget;
+    runtimeMode: RecommendationRuntimeMode;
     limit: number;
   }): Promise<
     Array<{
@@ -688,6 +695,11 @@ export class RecommendationRepository {
       reasons: SimilarityEdge['reasons'];
     }>
   > {
+    const run = await this.getLatestSuccessfulRun(params.target);
+    if (!run) {
+      return [];
+    }
+
     const statusFilter = buildStatusFilterForTarget(params.target);
     const result = await this.pool.query<SimilarityRow>(
       `
@@ -696,14 +708,19 @@ export class RecommendationRepository {
       INNER JOIN games
         ON games.igdb_game_id = game_similarity.similar_igdb_game_id
        AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
-      WHERE source_igdb_game_id = $1 AND source_platform_igdb_id = $2
-        AND similar_igdb_game_id <> $1
-        AND COALESCE(games.payload->>'listType', '') = $3
-        AND COALESCE(games.payload->>'status', '') = ANY($4::text[])
-      ORDER BY similarity DESC
-      LIMIT $5
+      WHERE run_id = $1
+        AND runtime_mode = $2
+        AND source_igdb_game_id = $3
+        AND source_platform_igdb_id = $4
+        AND similar_igdb_game_id <> $3
+        AND COALESCE(games.payload->>'listType', '') = $5
+        AND COALESCE(games.payload->>'status', '') = ANY($6::text[])
+      ORDER BY similarity DESC, similar_igdb_game_id ASC, similar_platform_igdb_id ASC
+      LIMIT $7
       `,
       [
+        run.id,
+        params.runtimeMode,
         params.igdbGameId,
         params.platformIgdbId,
         statusFilter.listType,

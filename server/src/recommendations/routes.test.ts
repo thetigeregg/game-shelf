@@ -88,29 +88,32 @@ function createServiceMock(
       }),
     rebuild: () =>
       Promise.resolve({ target: 'BACKLOG' as const, runId: 12, status: 'SUCCESS' as const }),
-    getSimilarGames: () =>
-      Promise.resolve([
-        {
-          igdbGameId: '2',
-          platformIgdbId: 6,
-          similarity: 0.88,
-          reasons: {
-            summary: 'same series',
-            structuredSimilarity: 0.8,
-            semanticSimilarity: 0.7,
-            blendedSimilarity: 0.76,
-            sharedTokens: {
-              genres: [],
-              developers: [],
-              publishers: [],
-              franchises: [],
-              collections: ['Mario'],
-              themes: [],
-              keywords: []
+    getSimilarGames: (params) =>
+      Promise.resolve({
+        runtimeMode: params.runtimeMode ?? 'NEUTRAL',
+        items: [
+          {
+            igdbGameId: '2',
+            platformIgdbId: 6,
+            similarity: 0.88,
+            reasons: {
+              summary: 'same series',
+              structuredSimilarity: 0.8,
+              semanticSimilarity: 0.7,
+              blendedSimilarity: 0.76,
+              sharedTokens: {
+                genres: [],
+                developers: [],
+                publishers: [],
+                franchises: [],
+                collections: ['Mario'],
+                themes: [],
+                keywords: []
+              }
             }
           }
-        }
-      ])
+        ]
+      })
   };
 
   return { ...base, ...overrides };
@@ -336,13 +339,20 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
   });
   assert.equal(invalidId.statusCode, 400);
 
+  const invalidRuntime = await app.inject({
+    method: 'GET',
+    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=FAST&platformIgdbId=6'
+  });
+  assert.equal(invalidRuntime.statusCode, 400);
+
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?target=BACKLOG&platformIgdbId=6&limit=5'
+    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=SHORT&platformIgdbId=6&limit=5'
   });
 
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body) as {
+    runtimeMode: RecommendationRuntimeMode;
     items: Array<{
       reasons?: {
         blendedSimilarity?: number;
@@ -350,6 +360,7 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
       };
     }>;
   };
+  assert.equal(body.runtimeMode, 'SHORT');
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.reasons?.blendedSimilarity, 0.76);
   assert.deepEqual(body.items[0]?.reasons?.sharedTokens?.themes, []);

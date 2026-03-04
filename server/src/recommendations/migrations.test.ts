@@ -24,6 +24,13 @@ void test('recommendation migrations are present and idempotent runner executes 
     true
   );
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS game_similarity'), true);
+  assert.equal(recommendationSql.includes('ADD COLUMN IF NOT EXISTS run_id BIGINT'), true);
+  assert.equal(recommendationSql.includes('ADD COLUMN IF NOT EXISTS runtime_mode TEXT'), true);
+  assert.equal(
+    recommendationSql.includes('game_similarity_runtime_mode_check') &&
+      recommendationSql.includes("('NEUTRAL', 'SHORT', 'LONG')"),
+    true
+  );
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS recommendation_lanes'), true);
   assert.equal(
     recommendationSql.includes(
@@ -39,6 +46,7 @@ void test('recommendation migrations are present and idempotent runner executes 
   assert.equal(recommendationSql.includes('USING ivfflat (embedding vector_cosine_ops)'), true);
   assert.equal(recommendationSql.includes('recommendations_run_mode_rank_idx'), true);
   assert.equal(recommendationSql.includes('recommendation_lanes_run_mode_lane_rank_idx'), true);
+  assert.equal(recommendationSql.includes('game_similarity_run_mode_source_similarity_idx'), true);
   assert.equal(recommendationSql.includes('recommendation_history_target_mode_last_idx'), true);
 
   const client = new FakeMigrationClient();

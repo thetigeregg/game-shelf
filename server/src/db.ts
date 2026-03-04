@@ -217,6 +217,8 @@ export const MIGRATIONS: string[] = [
   `,
   `
   CREATE TABLE IF NOT EXISTS game_similarity (
+    run_id BIGINT,
+    runtime_mode TEXT,
     source_igdb_game_id TEXT NOT NULL,
     source_platform_igdb_id INTEGER NOT NULL,
     similar_igdb_game_id TEXT NOT NULL,
@@ -239,8 +241,98 @@ export const MIGRATIONS: string[] = [
   );
   `,
   `
-  CREATE INDEX IF NOT EXISTS game_similarity_source_similarity_idx
-  ON game_similarity (source_igdb_game_id, source_platform_igdb_id, similarity DESC);
+  ALTER TABLE game_similarity
+  ADD COLUMN IF NOT EXISTS run_id BIGINT;
+  `,
+  `
+  ALTER TABLE game_similarity
+  ADD COLUMN IF NOT EXISTS runtime_mode TEXT;
+  `,
+  `
+  UPDATE game_similarity
+  SET runtime_mode = 'NEUTRAL'
+  WHERE runtime_mode IS NULL;
+  `,
+  `
+  DELETE FROM game_similarity
+  WHERE run_id IS NULL;
+  `,
+  `
+  ALTER TABLE game_similarity
+  ALTER COLUMN runtime_mode SET DEFAULT 'NEUTRAL';
+  `,
+  `
+  ALTER TABLE game_similarity
+  ALTER COLUMN runtime_mode SET NOT NULL;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'game_similarity_runtime_mode_check'
+    ) THEN
+      ALTER TABLE game_similarity
+      ADD CONSTRAINT game_similarity_runtime_mode_check
+      CHECK (runtime_mode IN ('NEUTRAL', 'SHORT', 'LONG'));
+    END IF;
+  END $$;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'game_similarity_run_fk'
+    ) THEN
+      ALTER TABLE game_similarity
+      ADD CONSTRAINT game_similarity_run_fk
+      FOREIGN KEY (run_id)
+      REFERENCES recommendation_runs(id)
+      ON DELETE CASCADE;
+    END IF;
+  END $$;
+  `,
+  `
+  ALTER TABLE game_similarity
+  ALTER COLUMN run_id SET NOT NULL;
+  `,
+  `
+  ALTER TABLE game_similarity
+  DROP CONSTRAINT IF EXISTS game_similarity_pkey;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'game_similarity_pkey'
+    ) THEN
+      ALTER TABLE game_similarity
+      ADD CONSTRAINT game_similarity_pkey
+      PRIMARY KEY (
+        run_id,
+        runtime_mode,
+        source_igdb_game_id,
+        source_platform_igdb_id,
+        similar_igdb_game_id,
+        similar_platform_igdb_id
+      );
+    END IF;
+  END $$;
+  `,
+  `
+  DROP INDEX IF EXISTS game_similarity_source_similarity_idx;
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS game_similarity_run_mode_source_similarity_idx
+  ON game_similarity (
+    run_id,
+    runtime_mode,
+    source_igdb_game_id,
+    source_platform_igdb_id,
+    similarity DESC
+  );
   `,
   `
   CREATE TABLE IF NOT EXISTS recommendation_lanes (

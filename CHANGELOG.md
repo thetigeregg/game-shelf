@@ -1390,3 +1390,25 @@
 - f6f5ba6 Implement v1 recommendation API
 - ba05508 Implement recommendation API
 
+## v1.0.4 - 2026-03-04
+- 3a03b16 Merge pull request #152 from thetigeregg/codex/enable-worktreefriendly-dev-env
+- 30da5ac Ensure pulled sync failures rollback
+- cdeca6a Adjust write-token interceptor base
+- 4cd5e3d Treat empty gameApiBaseUrl as API
+- c3f0c80 Handle empty base URL for API
+- b48fb37 Update worktree-dev status logging
+- 60c29d7 Audit final regression changes
+- e1ad008 Audit branch changes vs main
+- 74771b4 Update docs for worktree dev stack
+- 4112865 Fix frontend game loading
+- 8b205c7 Fix DB seed vector extension
+- c13a746 Merge branch 'main' into codex/enable-worktreefriendly-dev-env
+- c3b2158 Fix db seed apply missing root role
+- deab81f Fix backend port offset not applied
+- f077386 Fix sync pull returning 404
+- e5e4037 Fix worktree API port
+- a8f0f5e Add worktree bootstrap flow
+- 0cf6624 Document shared env workflow
+- aef78a7 Document worktree DB seed commands
+- 3d8452e Document worktree-safe dev commands
+

@@ -358,7 +358,50 @@
             [isInLibrary]="isSimilarDiscoveryInLibrary"
             [isAddToLibraryLoading]="isSimilarDiscoveryAddLoading"
             (addToLibrary)="addSimilarDiscoveryDetailToLibrary()"
-          ></app-game-detail-content>
+          >
+            <ion-list lines="full" detail-secondary-content>
+              <ion-list-header class="similar-games-header">
+                <ion-label>More Like This</ion-label>
+              </ion-list-header>
+              @if (isSimilarDiscoveryDetailRelatedLoading) {
+                <ion-item>
+                  <ion-spinner slot="start" name="crescent"></ion-spinner>
+                  <ion-label>Loading similar games...</ion-label>
+                </ion-item>
+              } @else if (similarDiscoveryDetailRelatedError.length > 0) {
+                <ion-item lines="none">
+                  <ion-label color="medium">{{ similarDiscoveryDetailRelatedError }}</ion-label>
+                </ion-item>
+              } @else if (similarDiscoveryDetailRelatedGames.length === 0) {
+                <ion-item lines="none">
+                  <ion-label color="medium">No similar recommendations available.</ion-label>
+                </ion-item>
+              } @else {
+                @for (
+                  similarGame of getVisibleSimilarDiscoveryDetailRelatedGames();
+                  track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
+                ) {
+                  <app-similar-game-row
+                    [title]="similarGame.title"
+                    [coverUrl]="similarGame.coverUrl"
+                    [subtitle]="similarGame.subtitle"
+                    [badges]="getSimilarDiscoveryBadges(similarGame)"
+                    [headline]="similarGame.reasons.summary"
+                    (rowClick)="onSimilarDiscoveryRowClick(similarGame)"
+                  ></app-similar-game-row>
+                }
+                <ion-infinite-scroll
+                  [disabled]="!canLoadMoreSimilarDiscoveryDetailRelatedGames()"
+                  threshold="15px"
+                  (ionInfinite)="loadMoreSimilarDiscoveryDetailRelatedGames($event)"
+                >
+                  <ion-infinite-scroll-content
+                    loadingSpinner="crescent"
+                  ></ion-infinite-scroll-content>
+                </ion-infinite-scroll>
+              }
+            </ion-list>
+          </app-game-detail-content>
         }
       } @else {
         <app-game-detail-content
@@ -485,17 +528,15 @@
         </app-game-detail-content>
       }
     </div>
-    @if (!isSimilarDiscoveryDetailModalOpen) {
-      <app-detail-shortcuts-fab
-        [showNotesShortcut]="shouldShowNotesShortcut"
-        [showOpenManualButton]="shouldShowOpenManualButton"
-        [showFindManualButton]="shouldShowFindManualButton"
-        (notesClick)="openNotesEditor()"
-        (openManualClick)="openManualPdf()"
-        (findManualClick)="openManualPickerModal()"
-        (shortcutSearch)="openShortcutSearch($event)"
-      ></app-detail-shortcuts-fab>
-    }
+    <app-detail-shortcuts-fab
+      [showNotesShortcut]="shouldShowNotesShortcut"
+      [showOpenManualButton]="shouldShowOpenManualButton"
+      [showFindManualButton]="shouldShowFindManualButton"
+      (notesClick)="openNotesEditor()"
+      (openManualClick)="openManualPdf()"
+      (findManualClick)="openManualPickerModal()"
+      (shortcutSearch)="openShortcutSearch($event)"
+    ></app-detail-shortcuts-fab>
   </ion-content>
 </ng-template>
 

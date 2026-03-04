@@ -282,6 +282,10 @@ describe('GameSyncService', () => {
         metacriticUrl: 'https://www.metacritic.com/game/example/',
         collections: [' Series A ', 'Series A', '', 3],
         genres: [' Action ', 'Action', ''],
+        themes: [' Fantasy ', 'Fantasy', ''],
+        themeIds: [1, 1, '2', '2.5', '10x', 'x'],
+        keywords: [' Zelda ', 'Zelda', ''],
+        keywordIds: [10, 10, '11', '11.8', '20x', 'x'],
         similarGameIgdbIds: ['123', '123', 'bad', 456],
         releaseYear: 1700,
         releaseDate: '',
@@ -302,6 +306,10 @@ describe('GameSyncService', () => {
     expect(stored?.metacriticUrl).toBe('https://www.metacritic.com/game/example/');
     expect(stored?.collections).toEqual(['Series A']);
     expect(stored?.genres).toEqual(['Action']);
+    expect(stored?.themes).toEqual(['Fantasy']);
+    expect(stored?.themeIds).toEqual([1, 2]);
+    expect(stored?.keywords).toEqual(['Zelda']);
+    expect(stored?.keywordIds).toEqual([10, 11]);
     expect(stored?.similarGameIgdbIds).toEqual(['123', '456']);
     expect(stored?.releaseYear).toBeNull();
     expect(stored?.releaseDate).toBeNull();

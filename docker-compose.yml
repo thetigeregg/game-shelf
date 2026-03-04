@@ -1,6 +1,5 @@
 services:
   edge:
-    container_name: gameshelf-edge
     build:
       context: .
       dockerfile: edge/Dockerfile
@@ -24,13 +23,12 @@ services:
     depends_on:
       - api
     ports:
-      - '127.0.0.1:8080:8080'
+      - '127.0.0.1:${EDGE_HOST_PORT:-8080}:8080'
     volumes:
       - ./nas-data/manuals:/manuals:ro
     restart: unless-stopped
 
   api:
-    container_name: gameshelf-api
     build:
       context: .
       dockerfile: server/Dockerfile
@@ -88,7 +86,6 @@ services:
     restart: unless-stopped
 
   postgres:
-    container_name: gameshelf-postgres
     image: postgres:16-alpine
     environment:
       TZ: ${TZ:-Europe/Zurich}
@@ -110,7 +107,6 @@ services:
     restart: unless-stopped
 
   hltb-scraper:
-    container_name: gameshelf-hltb-scraper
     build:
       context: .
       dockerfile: hltb-scraper/Dockerfile
@@ -126,7 +122,6 @@ services:
     restart: unless-stopped
 
   metacritic-scraper:
-    container_name: gameshelf-metacritic-scraper
     build:
       context: .
       dockerfile: metacritic-scraper/Dockerfile
@@ -142,7 +137,6 @@ services:
     restart: unless-stopped
 
   backup:
-    container_name: gameshelf-backup
     build:
       context: .
       dockerfile: backup/Dockerfile

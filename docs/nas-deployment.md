@@ -172,6 +172,19 @@ Key metadata env vars in `.env`:
 npm run dev:stack:up
 ```
 
+If you are running multiple git worktrees at once, use the worktree-safe commands instead:
+
+```bash
+npm run dev:worktree:stack:up
+npm run dev:worktree:start
+```
+
+Inspect the derived project/ports with:
+
+```bash
+npm run dev:worktree:info
+```
+
 4. API is reachable at `http://127.0.0.1:3000` and frontend can run with:
 
 ```bash

@@ -20,6 +20,8 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-api:main`
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-backup:main`
+   - Postgres image defaults to immutable digest-pinned `pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff`.
+     Set `POSTGRES_IMAGE` only when you explicitly want to override this pin.
 3. In Portainer, add a registry credential for `ghcr.io`:
    - Username: your GitHub username
    - Password/token: GitHub PAT with `read:packages` (and `repo` if repo/packages are private)
@@ -33,6 +35,7 @@ Required app secrets (one secret per file):
 - `twitch_client_secret`
 - `thegamesdb_api_key`
 - `hltb_scraper_token` (optional)
+- `openai_api_key` (required for semantic recommendation embeddings)
 - `postgres_user`
 - `postgres_password`
 
@@ -50,8 +53,10 @@ Common stack env vars:
 - `TWITCH_CLIENT_ID_FILE`
 - `TWITCH_CLIENT_SECRET_FILE`
 - `THEGAMESDB_API_KEY_FILE`
+- `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
+- `POSTGRES_IMAGE` (optional override; keep digest-pinned reference to avoid mutable-tag supply-chain risk)
 - `PGUSER_FILE` (backup service DB user)
 - `PGPASSWORD_FILE` (backup service DB password)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
@@ -60,6 +65,42 @@ Common stack env vars:
 - `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
 - `BACKUP_PGDUMP_RETRY_DELAY_SECONDS` (optional; defaults to `5`)
+- `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT` (optional; `NEUTRAL|SHORT|LONG`, default `NEUTRAL`)
+- `RECOMMENDATIONS_EXPLORATION_WEIGHT` (optional; default `0.3`)
+- `RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT` (optional; default `0.5`)
+- `RECOMMENDATIONS_REPEAT_PENALTY_STEP` (optional; default `0.2`)
+- `RECOMMENDATIONS_TUNING_MIN_RATED` (optional; default `8`)
+- `RECOMMENDATIONS_LANE_LIMIT` (optional; default `20`)
+- `RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX` (optional; default `100`)
+- `RECOMMENDATIONS_KEYWORDS_EMBEDDING_MAX` (optional; default `40`)
+- `RECOMMENDATIONS_KEYWORDS_GLOBAL_MAX_RATIO` (optional; default `0.7`)
+- `RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX_RATIO` (optional; default `0.3`)
+- `RECOMMENDATIONS_KEYWORDS_MIN_LIBRARY_COUNT` (optional; default `3`)
+- `RECOMMENDATIONS_KEYWORDS_WEIGHT` (optional; default `0.6`)
+- `RECOMMENDATIONS_THEMES_WEIGHT` (optional; default `1.3`)
+- `RECOMMENDATIONS_SIMILARITY_THEME_WEIGHT` (optional; default `0.35`)
+- `RECOMMENDATIONS_SIMILARITY_GENRE_WEIGHT` (optional; default `0.25`)
+- `RECOMMENDATIONS_SIMILARITY_SERIES_WEIGHT` (optional; default `0.20`)
+- `RECOMMENDATIONS_SIMILARITY_DEVELOPER_WEIGHT` (optional; default `0.10`)
+- `RECOMMENDATIONS_SIMILARITY_PUBLISHER_WEIGHT` (optional; default `0.10`)
+- `RECOMMENDATIONS_SIMILARITY_KEYWORD_WEIGHT` (optional; default `0.05`)
+- `RECOMMENDATIONS_DISCOVERY_ENABLED` (optional; default `true`)
+- `RECOMMENDATIONS_DISCOVERY_POOL_SIZE` (optional; default `2000`)
+- `RECOMMENDATIONS_DISCOVERY_REFRESH_HOURS` (optional; default `24`)
+- `RECOMMENDATIONS_DISCOVERY_POPULAR_REFRESH_HOURS` (optional; default `24`)
+- `RECOMMENDATIONS_DISCOVERY_RECENT_REFRESH_HOURS` (optional; default `6`)
+- `RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS` (optional; default `15000`)
+- `RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND` (optional; default `4`)
+- `RECOMMENDATIONS_DISCOVERY_ENRICH_ENABLED` (optional; default `true`)
+- `RECOMMENDATIONS_DISCOVERY_ENRICH_STARTUP_DELAY_MS` (optional; default `5000`)
+- `RECOMMENDATIONS_DISCOVERY_ENRICH_INTERVAL_MINUTES` (optional; default `30`)
+- `RECOMMENDATIONS_DISCOVERY_ENRICH_MAX_GAMES_PER_RUN` (optional; default `500`)
+- `RECOMMENDATIONS_DISCOVERY_ENRICH_REQUEST_TIMEOUT_MS` (optional; default `15000`)
+- `IGDB_METADATA_ENRICH_ENABLED` (optional; default `true`)
+- `IGDB_METADATA_ENRICH_BATCH_SIZE` (optional; default `200`)
+- `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN` (optional; default `5000`)
+- `IGDB_METADATA_ENRICH_STARTUP_DELAY_MS` (optional; default `5000`)
+- `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (optional; default `15000`)
 
 Security note:
 
@@ -104,6 +145,7 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/twitch_client_secret`
 - `/volume1/docker/secrets/gameshelf/thegamesdb_api_key`
 - `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
+- `/volume1/docker/secrets/gameshelf/openai_api_key` (required for semantic recommendation embeddings)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
 - `/volume1/docker/secrets/gameshelf/postgres_password`
 
@@ -153,6 +195,7 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/hltb_scraper_token` (optional)
 `nas-secrets/metacritic_scraper_token` (optional)
 `nas-secrets/mobygames_api_key` (required for MobyGames review lookups)
+`nas-secrets/openai_api_key` (required for semantic recommendation embeddings)
 
 2. Create local non-secret env file:
 
@@ -165,6 +208,15 @@ Key metadata env vars in `.env`:
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=240`
 - `MOBYGAMES_API_BASE_URL=https://api.mobygames.com/v2`
 - `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=12` (0.2 requests/second)
+
+Key recommendation env vars in `.env`:
+
+- `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT=NEUTRAL`
+- `RECOMMENDATIONS_EXPLORATION_WEIGHT=0.3`
+- `RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT=0.5`
+- `RECOMMENDATIONS_REPEAT_PENALTY_STEP=0.2`
+- `RECOMMENDATIONS_TUNING_MIN_RATED=8`
+- `RECOMMENDATIONS_LANE_LIMIT=20`
 
 3. Start the dev stack:
 

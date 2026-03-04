@@ -12,6 +12,16 @@ import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
+import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
+import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
+import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
+import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
+import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
+import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
+import { RecommendationRepository } from './recommendations/repository.js';
+import { registerRecommendationRoutes } from './recommendations/routes.js';
+import { RecommendationScheduler } from './recommendations/scheduler.js';
+import { RecommendationService } from './recommendations/service.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
@@ -34,12 +44,98 @@ async function main(): Promise<void> {
     bodyLimit: config.requestBodyLimitBytes,
     logger: true
   });
+  const recommendationRepository = new RecommendationRepository(pool);
+  const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
+  const embeddingClient = new OpenAiEmbeddingClient({
+    apiKey: config.openaiApiKey,
+    model: config.recommendationsEmbeddingModel,
+    dimensions: config.recommendationsEmbeddingDimensions,
+    timeoutMs: config.recommendationsEmbeddingTimeoutMs
+  });
+  const discoveryIgdbClient = new DiscoveryIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
+    maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
+  });
+  const discoveryEnrichmentService = new DiscoveryEnrichmentService(recommendationRepository, {
+    enabled: config.recommendationsDiscoveryEnrichEnabled,
+    startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
+    intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
+    maxGamesPerRun: config.recommendationsDiscoveryEnrichMaxGamesPerRun,
+    requestTimeoutMs: config.recommendationsDiscoveryEnrichRequestTimeoutMs,
+    apiBaseUrl: `http://127.0.0.1:${String(config.port)}`
+  });
+  const recommendationService = new RecommendationService(
+    recommendationRepository,
+    {
+      topLimit: config.recommendationsTopLimit,
+      laneLimit: config.recommendationsLaneLimit,
+      similarityK: config.recommendationsSimilarityK,
+      staleHours: config.recommendationsDailyStaleHours,
+      failureBackoffMinutes: config.recommendationsFailureBackoffMinutes,
+      semanticWeight: config.recommendationsSemanticWeight,
+      similarityStructuredWeight: config.recommendationsSimilarityStructuredWeight,
+      similaritySemanticWeight: config.recommendationsSimilaritySemanticWeight,
+      embeddingModel: config.recommendationsEmbeddingModel,
+      embeddingDimensions: config.recommendationsEmbeddingDimensions,
+      embeddingBatchSize: config.recommendationsEmbeddingBatchSize,
+      runtimeModeDefault: config.recommendationsRuntimeModeDefault,
+      explorationWeight: config.recommendationsExplorationWeight,
+      diversityPenaltyWeight: config.recommendationsDiversityPenaltyWeight,
+      repeatPenaltyStep: config.recommendationsRepeatPenaltyStep,
+      tuningMinRated: config.recommendationsTuningMinRated,
+      keywordsStructuredMax: config.recommendationsKeywordsStructuredMax,
+      keywordsEmbeddingMax: config.recommendationsKeywordsEmbeddingMax,
+      keywordsGlobalMaxRatio: config.recommendationsKeywordsGlobalMaxRatio,
+      keywordsStructuredMaxRatio: config.recommendationsKeywordsStructuredMaxRatio,
+      keywordsMinLibraryCount: config.recommendationsKeywordsMinLibraryCount,
+      keywordsWeight: config.recommendationsKeywordsWeight,
+      themesWeight: config.recommendationsThemesWeight,
+      similarityThemeWeight: config.recommendationsSimilarityThemeWeight,
+      similarityGenreWeight: config.recommendationsSimilarityGenreWeight,
+      similaritySeriesWeight: config.recommendationsSimilaritySeriesWeight,
+      similarityDeveloperWeight: config.recommendationsSimilarityDeveloperWeight,
+      similarityPublisherWeight: config.recommendationsSimilarityPublisherWeight,
+      similarityKeywordWeight: config.recommendationsSimilarityKeywordWeight,
+      discoveryEnabled: config.recommendationsDiscoveryEnabled,
+      discoveryPoolSize: config.recommendationsDiscoveryPoolSize,
+      discoveryRefreshHours: config.recommendationsDiscoveryRefreshHours,
+      discoveryPopularRefreshHours: config.recommendationsDiscoveryPopularRefreshHours,
+      discoveryRecentRefreshHours: config.recommendationsDiscoveryRecentRefreshHours,
+      discoveryIgdbRequestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
+      discoveryIgdbMaxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
+    },
+    {
+      embeddingClient,
+      discoveryClient: discoveryIgdbClient,
+      discoveryEnrichmentService
+    }
+  );
+  const recommendationScheduler = new RecommendationScheduler(recommendationService, {
+    enabled: config.recommendationsSchedulerEnabled
+  });
+  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
+  });
+  const metadataEnrichmentService = new MetadataEnrichmentService(
+    metadataEnrichmentRepository,
+    metadataEnrichmentClient,
+    {
+      enabled: config.igdbMetadataEnrichEnabled,
+      batchSize: config.igdbMetadataEnrichBatchSize,
+      maxGamesPerRun: config.igdbMetadataEnrichMaxGamesPerRun,
+      startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
+    }
+  );
 
   // Register global rate limit FIRST
   await app.register(rateLimit, {
     global: true,
-    max: 100,
-    timeWindow: '15 minutes'
+    max: config.globalRateLimitMaxRequests,
+    timeWindow: `${String(Math.max(1, Math.floor(config.globalRateLimitWindowMs / 1000)))} seconds`
   });
 
   await app.register(cors, {
@@ -181,6 +277,7 @@ async function main(): Promise<void> {
     freshTtlSeconds: config.mobygamesCacheFreshTtlSeconds,
     staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds
   });
+  await registerRecommendationRoutes(app, recommendationService);
 
   app.setNotFoundHandler((request, reply) => {
     reply.code(404).send({ error: 'Not found' });
@@ -190,6 +287,9 @@ async function main(): Promise<void> {
     host: config.host,
     port: config.port
   });
+  recommendationScheduler.start();
+  discoveryEnrichmentService.start();
+  metadataEnrichmentService.start();
 }
 
 function validateSecurityConfig(): void {

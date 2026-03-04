@@ -44,13 +44,7 @@ cp .env.example .env
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
 
-4. Start local stack (`postgres` + `hltb-scraper` + `api` + `edge`):
-
-```bash
-npm run dev:stack:up
-```
-
-For worktree-safe startup (isolated project name + ports), use:
+4. Start local stack (`postgres` + `hltb-scraper` + `api` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
 npm run dev:worktree:stack:up
@@ -65,23 +59,17 @@ npm run dev:worktree:stack:up:seed
 5. (Optional) Follow API logs:
 
 ```bash
-npm run dev:backend:logs
+npm run dev:worktree:backend:logs
 ```
 
 6. Run frontend:
 
 ```bash
-npm start
-```
-
-For worktree-safe frontend (matching isolated ports/proxy target), use:
-
-```bash
 npm run dev:worktree:start
 ```
 
-Frontend dev server runs on `http://localhost:8100`.
-Manual URLs resolve from the API to `http://127.0.0.1:8080/manuals/...` during dev (served by local `edge`).
+Frontend dev server port is derived from worktree context (shown by `npm run dev:worktree:info`).
+Manual URLs resolve through the worktree-local `edge` service during dev.
 When using `dev:worktree:*` commands, ports are derived from the current worktree path and shown by:
 
 ```bash

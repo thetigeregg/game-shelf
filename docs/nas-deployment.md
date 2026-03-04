@@ -218,13 +218,7 @@ Key recommendation env vars in `.env`:
 - `RECOMMENDATIONS_TUNING_MIN_RATED=8`
 - `RECOMMENDATIONS_LANE_LIMIT=20`
 
-3. Start the dev stack:
-
-```bash
-npm run dev:stack:up
-```
-
-If you are running multiple git worktrees at once, use the worktree-safe commands instead:
+3. Start the dev stack with worktree-safe commands:
 
 ```bash
 npm run dev:worktree:stack:up
@@ -265,13 +259,13 @@ npm run dev:worktree:db:seed:apply:force
 
 Default seed path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` and can be overridden with `DEV_DB_SEED_PATH`.
 
-4. API is reachable at `http://127.0.0.1:3000` and frontend can run with:
+4. Ports are derived per worktree. Check current URLs with:
 
 ```bash
-npm start
+npm run dev:worktree:info
 ```
 
-In local dev, Angular proxies `/manuals/...` requests to `edge` on `http://127.0.0.1:8080` so manual PDF links resolve without a separate host script.
+In local dev, Angular proxies `/manuals/...` requests to the worktree-local `edge` service so manual PDF links resolve without a separate host script.
 After first launch on each device, open `Settings -> Debug -> Device Write Token` and set a token listed in `client_write_tokens`.
 
 ## 4. Publish over Tailscale only

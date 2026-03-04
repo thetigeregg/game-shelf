@@ -54,6 +54,22 @@ function configState(value) {
   return value ? '[configured]' : '(not set)';
 }
 
+function expandUserPath(value) {
+  if (!value) {
+    return value;
+  }
+
+  if (value === '~') {
+    return os.homedir();
+  }
+
+  if (value.startsWith('~/')) {
+    return path.join(os.homedir(), value.slice(2));
+  }
+
+  return value;
+}
+
 const worktreeHint = sanitize(detectWorktreeHint(cwd), 24) || 'default';
 const portOffset = computeOffset(cwd);
 const projectHash = createHash('sha256').update(cwd).digest('hex').slice(0, 6);
@@ -71,12 +87,15 @@ const ports = {
 const localEnvPath = path.resolve(cwd, '.env');
 const defaultSharedEnvFile = path.join(os.homedir(), '.config', 'game-shelf', 'worktree.env');
 const sharedEnvFilePath =
-  (process.env.WORKTREE_ENV_FILE && process.env.WORKTREE_ENV_FILE.trim()) || defaultSharedEnvFile;
+  expandUserPath(process.env.WORKTREE_ENV_FILE && process.env.WORKTREE_ENV_FILE.trim()) ||
+  defaultSharedEnvFile;
 
 const defaultSharedSecretsDir = path.join(os.homedir(), '.config', 'game-shelf', 'nas-secrets');
+const explicitSecretsHostDir = expandUserPath(
+  process.env.SECRETS_HOST_DIR && process.env.SECRETS_HOST_DIR.trim()
+);
 const secretsHostDir =
-  (process.env.SECRETS_HOST_DIR && process.env.SECRETS_HOST_DIR.trim()) ||
-  (existsSync(defaultSharedSecretsDir) ? defaultSharedSecretsDir : '');
+  explicitSecretsHostDir || (existsSync(defaultSharedSecretsDir) ? defaultSharedSecretsDir : '');
 
 const corsOrigin = [
   `http://127.0.0.1:${ports.FRONTEND_PORT}`,
@@ -96,7 +115,7 @@ const sharedEnv = {
 
 function defaultSeedPath() {
   const base =
-    process.env.DEV_DB_SEED_PATH ||
+    expandUserPath(process.env.DEV_DB_SEED_PATH) ||
     path.join(os.homedir(), '.cache', 'game-shelf', 'dev-db-seed', 'latest.sql.gz');
   return path.resolve(base);
 }

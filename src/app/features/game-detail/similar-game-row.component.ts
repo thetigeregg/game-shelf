@@ -43,6 +43,15 @@ export interface SimilarGameRowBadge {
   `,
   styles: [
     `
+      ion-item {
+        --padding-top: 8px;
+        --padding-bottom: 8px;
+      }
+
+      ion-label {
+        margin: 0;
+      }
+
       .similar-cover {
         width: 64px;
         height: 88px;

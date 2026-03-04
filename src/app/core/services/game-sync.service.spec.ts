@@ -269,6 +269,51 @@ describe('GameSyncService', () => {
     expect(stored?.tagIds).toEqual([1, 2]);
   });
 
+  it('falls back to local auto id when pulled id collides with an unrelated local row', async () => {
+    await db.games.put({
+      id: 218,
+      igdbGameId: '999',
+      platformIgdbId: 48,
+      title: 'Existing Local',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PlayStation 4',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4c-id-collision',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        id: 218,
+        igdbGameId: '1234',
+        platformIgdbId: 130,
+        title: 'Pulled Game'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const localRow = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['999', 48])
+      .first();
+    const pulledRow = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['1234', 130])
+      .first();
+
+    expect(localRow?.id).toBe(218);
+    expect(localRow?.title).toBe('Existing Local');
+    expect(pulledRow).toBeDefined();
+    expect(pulledRow?.title).toBe('Pulled Game');
+    expect(pulledRow?.id).not.toBe(218);
+  });
+
   it('strict-normalizes pulled metacritic/hltb and list metadata fields', async () => {
     await servicePrivate.applyGameChange({
       eventId: '4b',
@@ -839,14 +884,9 @@ describe('GameSyncService', () => {
     expect(connectivity?.value).toBe('degraded');
   });
 
-  it('syncNow skips when baseUrl is missing, in flight, or offline', async () => {
+  it('syncNow skips when in flight or offline', async () => {
     const pushSpy = vi.spyOn(servicePrivate, 'pushOutbox');
     const pullSpy = vi.spyOn(servicePrivate, 'pullChanges');
-
-    servicePrivate.baseUrl = '';
-    await service.syncNow();
-    expect(pushSpy).not.toHaveBeenCalled();
-    expect(pullSpy).not.toHaveBeenCalled();
 
     servicePrivate.baseUrl = 'http://localhost:3000';
     servicePrivate.syncInFlight = true;

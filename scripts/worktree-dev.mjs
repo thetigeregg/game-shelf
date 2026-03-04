@@ -94,11 +94,6 @@ function defaultSeedPath() {
   return path.resolve(base);
 }
 
-function shouldStripVectorExtension() {
-  const raw = (process.env.DEV_DB_SEED_STRIP_VECTOR ?? 'true').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
-}
-
 function run(command, commandArgs, env = sharedEnv) {
   const result = spawnSync(command, commandArgs, {
     cwd,
@@ -353,12 +348,9 @@ function dbSeedRestoreFromFile(seedPath) {
     process.exit(1);
   }
 
-  const sourceCmdRaw = seedPath.endsWith('.gz')
+  const sourceCmd = seedPath.endsWith('.gz')
     ? `gzip -dc ${shellEscape(seedPath)}`
     : `cat ${shellEscape(seedPath)}`;
-  const sourceCmd = shouldStripVectorExtension()
-    ? `${sourceCmdRaw} | sed -E '/^[[:space:]]*(CREATE|COMMENT ON|DROP)[[:space:]]+EXTENSION[[:space:]].*vector[[:space:]]*;/Id'`
-    : sourceCmdRaw;
 
   const restoreCmd = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
     `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -v ON_ERROR_STOP=1 -U "$user" -d "$db"`
@@ -443,9 +435,6 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
   console.log('  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-2000)');
   console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
   console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
-  console.log(
-    '  DEV_DB_SEED_STRIP_VECTOR  Strip vector extension statements during seed apply (default true)'
-  );
   process.exit(0);
 }
 

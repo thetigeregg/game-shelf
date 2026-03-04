@@ -725,16 +725,13 @@ export class DexieGameRepository implements GameRepository {
     const normalized: GameScreenshot[] = [];
 
     for (const value of values) {
-      if (!value || typeof value !== 'object') {
-        continue;
-      }
-
       const imageId = typeof value.imageId === 'string' ? value.imageId.trim() : '';
       if (imageId.length === 0) {
         continue;
       }
 
-      const id = Number.isInteger(value.id) && value.id > 0 ? value.id : null;
+      const rawId = value.id;
+      const id = typeof rawId === 'number' && Number.isInteger(rawId) && rawId > 0 ? rawId : null;
       const dedupeKey = id !== null ? `id:${String(id)}` : `image:${imageId}`;
       if (seen.has(dedupeKey)) {
         continue;
@@ -745,8 +742,14 @@ export class DexieGameRepository implements GameRepository {
         id,
         imageId,
         url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
-        width: Number.isInteger(value.width) && value.width > 0 ? value.width : null,
-        height: Number.isInteger(value.height) && value.height > 0 ? value.height : null
+        width:
+          typeof value.width === 'number' && Number.isInteger(value.width) && value.width > 0
+            ? value.width
+            : null,
+        height:
+          typeof value.height === 'number' && Number.isInteger(value.height) && value.height > 0
+            ? value.height
+            : null
       });
 
       if (normalized.length >= 20) {
@@ -766,16 +769,13 @@ export class DexieGameRepository implements GameRepository {
     const normalized: GameVideo[] = [];
 
     for (const value of values) {
-      if (!value || typeof value !== 'object') {
-        continue;
-      }
-
       const videoId = typeof value.videoId === 'string' ? value.videoId.trim() : '';
       if (videoId.length === 0) {
         continue;
       }
 
-      const id = Number.isInteger(value.id) && value.id > 0 ? value.id : null;
+      const rawId = value.id;
+      const id = typeof rawId === 'number' && Number.isInteger(rawId) && rawId > 0 ? rawId : null;
       const dedupeKey = id !== null ? `id:${String(id)}` : `video:${videoId}`;
       if (seen.has(dedupeKey)) {
         continue;

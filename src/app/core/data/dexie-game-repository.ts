@@ -7,11 +7,13 @@ import {
   GAME_RATING_VALUES,
   GameCatalogResult,
   GameEntry,
+  GameScreenshot,
   GameGroupByField,
   GameListFilters,
   GameListView,
   GameRating,
   GameStatus,
+  GameVideo,
   ListType,
   Tag
 } from '../models/game.models';
@@ -114,6 +116,8 @@ export class DexieGameRepository implements GameRepository {
         themeIds: this.normalizePositiveIntegerList(result.themeIds),
         keywords: this.normalizeTextList(result.keywords),
         keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
+        screenshots: this.normalizeGameScreenshots(result.screenshots),
+        videos: this.normalizeGameVideos(result.videos),
         publishers: this.normalizeTextList(result.publishers),
         platform: normalizedPlatformName,
         platformIgdbId: normalizedPlatformIgdbId,
@@ -177,6 +181,8 @@ export class DexieGameRepository implements GameRepository {
       themeIds: this.normalizePositiveIntegerList(result.themeIds),
       keywords: this.normalizeTextList(result.keywords),
       keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
+      screenshots: this.normalizeGameScreenshots(result.screenshots),
+      videos: this.normalizeGameVideos(result.videos),
       publishers: this.normalizeTextList(result.publishers),
       platform: normalizedPlatformName,
       platformIgdbId: normalizedPlatformIgdbId,
@@ -708,6 +714,88 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
+  }
+
+  private normalizeGameScreenshots(values: GameScreenshot[] | undefined): GameScreenshot[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: GameScreenshot[] = [];
+
+    for (const value of values) {
+      if (!value || typeof value !== 'object') {
+        continue;
+      }
+
+      const imageId = typeof value.imageId === 'string' ? value.imageId.trim() : '';
+      if (imageId.length === 0) {
+        continue;
+      }
+
+      const id = Number.isInteger(value.id) && value.id > 0 ? value.id : null;
+      const dedupeKey = id !== null ? `id:${String(id)}` : `image:${imageId}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      normalized.push({
+        id,
+        imageId,
+        url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
+        width: Number.isInteger(value.width) && value.width > 0 ? value.width : null,
+        height: Number.isInteger(value.height) && value.height > 0 ? value.height : null
+      });
+
+      if (normalized.length >= 20) {
+        break;
+      }
+    }
+
+    return normalized;
+  }
+
+  private normalizeGameVideos(values: GameVideo[] | undefined): GameVideo[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: GameVideo[] = [];
+
+    for (const value of values) {
+      if (!value || typeof value !== 'object') {
+        continue;
+      }
+
+      const videoId = typeof value.videoId === 'string' ? value.videoId.trim() : '';
+      if (videoId.length === 0) {
+        continue;
+      }
+
+      const id = Number.isInteger(value.id) && value.id > 0 ? value.id : null;
+      const dedupeKey = id !== null ? `id:${String(id)}` : `video:${videoId}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      const name = typeof value.name === 'string' ? value.name.trim() : '';
+      normalized.push({
+        id,
+        name: name.length > 0 ? name : null,
+        videoId,
+        url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+      });
+
+      if (normalized.length >= 5) {
+        break;
+      }
+    }
+
+    return normalized;
   }
 
   private normalizeCompletionHours(value: number | null | undefined): number | null {

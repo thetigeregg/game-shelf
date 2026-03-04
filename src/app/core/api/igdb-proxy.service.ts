@@ -6,7 +6,9 @@ import { environment } from '../../../environments/environment';
 import {
   GameCatalogPlatformOption,
   GameCatalogResult,
+  GameScreenshot,
   GameType,
+  GameVideo,
   HltbCompletionTimes,
   HltbMatchCandidate,
   MetacriticMatchCandidate,
@@ -149,6 +151,8 @@ interface RecommendationSimilarApiResponse {
 export class IgdbProxyService implements GameSearchApi {
   private static readonly RATE_LIMIT_FALLBACK_COOLDOWN_MS = 20_000;
   private static readonly MOBYGAMES_MIN_INTERVAL_MS = 5_000;
+  private static readonly MAX_SCREENSHOTS_PER_GAME = 20;
+  private static readonly MAX_VIDEOS_PER_GAME = 5;
   private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
   private readonly platformCacheStorageKey = 'game-shelf-platform-list-cache-v1';
   private readonly searchUrl = `${environment.gameApiBaseUrl}/v1/games/search`;
@@ -987,6 +991,10 @@ export class IgdbProxyService implements GameSearchApi {
       ...(result.keywordIds !== undefined
         ? { keywordIds: this.normalizePositiveIntegerList(result.keywordIds) }
         : {}),
+      ...(result.screenshots !== undefined
+        ? { screenshots: this.normalizeGameScreenshots(result.screenshots) }
+        : {}),
+      ...(result.videos !== undefined ? { videos: this.normalizeGameVideos(result.videos) } : {}),
       publishers: this.normalizeTextList(result.publishers),
       platforms,
       platformOptions,
@@ -1947,6 +1955,91 @@ export class IgdbProxyService implements GameSearchApi {
           .filter((entry) => Number.isInteger(entry) && entry > 0)
       )
     ];
+  }
+
+  private normalizeGameScreenshots(values: unknown): GameScreenshot[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: GameScreenshot[] = [];
+
+    for (const value of values) {
+      if (!value || typeof value !== 'object') {
+        continue;
+      }
+
+      const imageIdRaw = (value as { imageId?: unknown }).imageId;
+      const imageId = typeof imageIdRaw === 'string' ? imageIdRaw.trim() : '';
+      if (imageId.length === 0) {
+        continue;
+      }
+
+      const id = this.normalizePositiveInteger((value as { id?: unknown }).id);
+      const dedupeKey = id !== null ? `id:${String(id)}` : `image:${imageId}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      normalized.push({
+        id,
+        imageId,
+        url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
+        width: this.normalizePositiveInteger((value as { width?: unknown }).width),
+        height: this.normalizePositiveInteger((value as { height?: unknown }).height)
+      });
+
+      if (normalized.length >= IgdbProxyService.MAX_SCREENSHOTS_PER_GAME) {
+        break;
+      }
+    }
+
+    return normalized;
+  }
+
+  private normalizeGameVideos(values: unknown): GameVideo[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: GameVideo[] = [];
+
+    for (const value of values) {
+      if (!value || typeof value !== 'object') {
+        continue;
+      }
+
+      const videoIdRaw = (value as { videoId?: unknown }).videoId;
+      const videoId = typeof videoIdRaw === 'string' ? videoIdRaw.trim() : '';
+      if (videoId.length === 0) {
+        continue;
+      }
+
+      const id = this.normalizePositiveInteger((value as { id?: unknown }).id);
+      const dedupeKey = id !== null ? `id:${String(id)}` : `video:${videoId}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      const name = (value as { name?: unknown }).name;
+      const normalizedName = typeof name === 'string' ? name.trim() : '';
+      normalized.push({
+        id,
+        name: normalizedName.length > 0 ? normalizedName : null,
+        videoId,
+        url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+      });
+
+      if (normalized.length >= IgdbProxyService.MAX_VIDEOS_PER_GAME) {
+        break;
+      }
+    }
+
+    return normalized;
   }
 
   private normalizePopularityTypes(

@@ -122,7 +122,9 @@ function mergeMetadataIntoPayload(
     themes: metadata.themes,
     themeIds: metadata.themeIds,
     keywords: metadata.keywords,
-    keywordIds: metadata.keywordIds
+    keywordIds: metadata.keywordIds,
+    screenshots: metadata.screenshots,
+    videos: metadata.videos
   };
 }
 

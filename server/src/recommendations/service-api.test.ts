@@ -453,3 +453,235 @@ void test('service constructor can build default dependencies', () => {
   });
   assert.ok(service);
 });
+
+void test('service discovery rebuild refreshes per-source pool, prunes, and enriches', async () => {
+  const upsertDiscoveryCalls: Array<{ source: string; rows: number }> = [];
+  const pruneCalls: Array<{ source: string; keepKeys: string[] }> = [];
+  const settingsWrites: Array<{ key: string; value: string }> = [];
+  const fetchedSources: string[] = [];
+  let enrichCalls = 0;
+
+  const catalogGame = sampleGame();
+  const ratedLibraryGame: NormalizedGameRecord = {
+    ...catalogGame,
+    igdbGameId: '10',
+    platformIgdbId: 6,
+    listType: 'collection',
+    rating: 4.5,
+    status: 'wantToPlay'
+  };
+  const discoveryPopular: NormalizedGameRecord = {
+    ...catalogGame,
+    igdbGameId: '20',
+    platformIgdbId: 6,
+    listType: 'discovery',
+    discoverySource: 'popular',
+    rating: null,
+    status: null
+  };
+  const discoveryRecent: NormalizedGameRecord = {
+    ...catalogGame,
+    igdbGameId: '30',
+    platformIgdbId: 48,
+    listType: 'discovery',
+    discoverySource: 'recent',
+    rating: null,
+    status: null
+  };
+  const games = [ratedLibraryGame, discoveryPopular, discoveryRecent];
+
+  const repository = {
+    withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
+      acquired: true as const,
+      value: await callback({})
+    }),
+    getLatestRun: () => Promise.resolve(null),
+    listNormalizedGames: () => Promise.resolve(games),
+    listRecommendationHistory: () => Promise.resolve(new Map()),
+    getLatestSuccessfulRun: () => Promise.resolve(null),
+    createRun: () => Promise.resolve(55),
+    finalizeRunSuccess: () => Promise.resolve(undefined),
+    markRunFailed: () => Promise.resolve(),
+    getDiscoveryPoolLatestUpdatedAt: () => Promise.resolve(null),
+    getSetting: (key: string) => {
+      if (key.startsWith('recommendations.discovery.source_last_refreshed.')) {
+        return Promise.resolve('1970-01-01T00:00:00.000Z');
+      }
+      if (key.startsWith('recommendations.discovery.source_hash.')) {
+        return Promise.resolve('different-hash');
+      }
+      return Promise.resolve(null);
+    },
+    upsertDiscoveryGames: (params: { rows: Array<{ payload: Record<string, unknown> }> }) => {
+      const rawSource = params.rows[0]?.payload['discoverySource'];
+      const source = typeof rawSource === 'string' ? rawSource : '';
+      upsertDiscoveryCalls.push({ source, rows: params.rows.length });
+      return Promise.resolve();
+    },
+    pruneDiscoveryGamesBySource: (params: { source: string; keepKeys: string[] }) => {
+      pruneCalls.push({ source: params.source, keepKeys: params.keepKeys });
+      return Promise.resolve();
+    },
+    upsertSetting: (params: { settingKey: string; settingValue: string }) => {
+      settingsWrites.push({ key: params.settingKey, value: params.settingValue });
+      return Promise.resolve();
+    }
+  };
+
+  const discoveryClient = {
+    fetchDiscoveryCandidatesBySource: (params: {
+      source: 'popular' | 'recent';
+      poolSize: number;
+      preferredPlatformIds: number[];
+    }) => {
+      fetchedSources.push(
+        `${params.source}:${String(params.poolSize)}:${params.preferredPlatformIds.join(',')}`
+      );
+      const shared = {
+        source: params.source,
+        sourceScore: params.source === 'popular' ? 0.9 : 0.8
+      } as const;
+      return Promise.resolve([
+        // Strict-excluded because key matches existing collection game (10::6).
+        { igdbGameId: '10', platformIgdbId: 6, payload: {}, ...shared },
+        {
+          igdbGameId: params.source === 'popular' ? '21' : '31',
+          platformIgdbId: 6,
+          payload: {},
+          ...shared
+        }
+      ]);
+    }
+  };
+
+  const discoveryEnrichmentService = {
+    enrichNow: (_params: { limit: number }) => {
+      enrichCalls += 1;
+      return Promise.resolve({ scanned: 0, updated: 0, skipped: 0 });
+    }
+  };
+
+  const embeddingRepository = {
+    listGameEmbeddings: () => Promise.resolve([]),
+    upsertGameEmbeddings: () => Promise.resolve(undefined)
+  };
+  const embeddingClient = {
+    generateEmbeddings: () =>
+      Promise.resolve(
+        games.map((_game, index) => [1 + index * 0.01, 0.5 + index * 0.01, 0.25 + index * 0.01])
+      )
+  };
+
+  const service = new RecommendationService(
+    repository as never,
+    { ...baseOptions(), discoveryEnabled: true },
+    {
+      embeddingRepository: embeddingRepository as never,
+      embeddingClient,
+      discoveryClient: discoveryClient as never,
+      discoveryEnrichmentService: discoveryEnrichmentService as never,
+      nowProvider: () => NOW
+    }
+  );
+
+  const result = await service.rebuild({ target: 'DISCOVERY', force: false });
+  assert.deepEqual(result, {
+    target: 'DISCOVERY',
+    runId: 55,
+    status: 'SUCCESS'
+  });
+  assert.equal(fetchedSources.length, 2);
+  assert.ok(fetchedSources.some((value) => value.startsWith('popular:2000:6')));
+  assert.ok(fetchedSources.some((value) => value.startsWith('recent:2000:6')));
+  assert.deepEqual(upsertDiscoveryCalls.map((entry) => entry.source).sort(), ['popular', 'recent']);
+  assert.ok(upsertDiscoveryCalls.every((entry) => entry.rows === 1));
+  assert.deepEqual(pruneCalls.map((entry) => entry.source).sort(), ['popular', 'recent']);
+  assert.ok(
+    settingsWrites.some(
+      (entry) =>
+        entry.key === 'recommendations.discovery.source_hash.popular' && entry.value.length > 0
+    )
+  );
+  assert.ok(
+    settingsWrites.some(
+      (entry) => entry.key === 'recommendations.discovery.source_last_refreshed.recent'
+    )
+  );
+  assert.equal(enrichCalls, 1);
+});
+
+void test('service discovery rebuild skips source refresh when markers are fresh', async () => {
+  let discoveryFetchCalls = 0;
+  const games: NormalizedGameRecord[] = [
+    {
+      ...sampleGame(),
+      igdbGameId: '11',
+      platformIgdbId: 6,
+      listType: 'collection',
+      rating: 4.5,
+      status: null
+    },
+    {
+      ...sampleGame(),
+      igdbGameId: '22',
+      platformIgdbId: 6,
+      listType: 'discovery',
+      discoverySource: 'popular',
+      rating: null,
+      status: null
+    }
+  ];
+
+  const repository = {
+    withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
+      acquired: true as const,
+      value: await callback({})
+    }),
+    getLatestRun: () => Promise.resolve(null),
+    listNormalizedGames: () => Promise.resolve(games),
+    listRecommendationHistory: () => Promise.resolve(new Map()),
+    getLatestSuccessfulRun: () => Promise.resolve(null),
+    createRun: () => Promise.resolve(56),
+    finalizeRunSuccess: () => Promise.resolve(undefined),
+    markRunFailed: () => Promise.resolve(),
+    getDiscoveryPoolLatestUpdatedAt: () => Promise.resolve(null),
+    getSetting: (key: string) => {
+      if (key.startsWith('recommendations.discovery.source_last_refreshed.')) {
+        return Promise.resolve(new Date(NOW).toISOString());
+      }
+      return Promise.resolve(null);
+    },
+    upsertDiscoveryGames: () => Promise.resolve(),
+    pruneDiscoveryGamesBySource: () => Promise.resolve(),
+    upsertSetting: () => Promise.resolve()
+  };
+  const discoveryClient = {
+    fetchDiscoveryCandidatesBySource: () => {
+      discoveryFetchCalls += 1;
+      return Promise.resolve([]);
+    }
+  };
+  const embeddingRepository = {
+    listGameEmbeddings: () => Promise.resolve([]),
+    upsertGameEmbeddings: () => Promise.resolve(undefined)
+  };
+  const embeddingClient = {
+    generateEmbeddings: () =>
+      Promise.resolve(games.map((_game, index) => [0.1 + index * 0.01, 0.2, 0.3]))
+  };
+
+  const service = new RecommendationService(
+    repository as never,
+    { ...baseOptions(), discoveryEnabled: true },
+    {
+      embeddingRepository: embeddingRepository as never,
+      embeddingClient,
+      discoveryClient: discoveryClient as never,
+      nowProvider: () => NOW
+    }
+  );
+
+  const result = await service.rebuild({ target: 'DISCOVERY', force: false });
+  assert.equal(result.status, 'SUCCESS');
+  assert.equal(discoveryFetchCalls, 0);
+});

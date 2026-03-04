@@ -107,7 +107,10 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
       intervalMinutes: 30,
       maxGamesPerRun: 50,
       requestTimeoutMs: 1000,
-      apiBaseUrl: 'http://127.0.0.1:3000'
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
     });
     const result = await service.enrichNow({ limit: 10 });
 
@@ -135,7 +138,10 @@ void test('discovery enrichment runOnce returns null when lock is unavailable', 
     intervalMinutes: 30,
     maxGamesPerRun: 50,
     requestTimeoutMs: 1000,
-    apiBaseUrl: 'http://127.0.0.1:3000'
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168
   });
 
   const result = await service.runOnce();
@@ -150,7 +156,10 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
     intervalMinutes: 30,
     maxGamesPerRun: 50,
     requestTimeoutMs: 1000,
-    apiBaseUrl: 'http://127.0.0.1:3000'
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168
   });
 
   assert.equal(await disabledService.runOnce(), null);
@@ -177,7 +186,10 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
       intervalMinutes: 30,
       maxGamesPerRun: 50,
       requestTimeoutMs: 1000,
-      apiBaseUrl: 'http://127.0.0.1:3000'
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
     });
     const result = await service.enrichNow({ limit: 10 });
     assert.deepEqual(result, {
@@ -199,7 +211,10 @@ void test('discovery enrichment start/stop guards interval lifecycle', () => {
     intervalMinutes: 0,
     maxGamesPerRun: 50,
     requestTimeoutMs: 1000,
-    apiBaseUrl: 'http://127.0.0.1:3000'
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168
   });
 
   const originalSetTimeout = globalThis.setTimeout;
@@ -238,4 +253,69 @@ void test('discovery enrichment start/stop guards interval lifecycle', () => {
   assert.equal(clearCalls, 1);
   assert.ok(timeoutCalls.some((value) => value === 10));
   assert.ok(timeoutCalls.some((value) => value === 60_000));
+});
+
+void test('discovery enrichment applies cooldown after failed attempt', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Never Match Game',
+        releaseYear: 2001,
+        platform: 'PC',
+        listType: 'discovery'
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const baseNow = Date.parse('2026-01-01T00:00:00.000Z');
+    let nowMs = baseNow;
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => nowMs
+    );
+
+    const first = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(first, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+    assert.equal(repository.updates.length, 1);
+    const firstPayload = repository.updates[0].payload;
+    assert.equal(typeof firstPayload.enrichmentRetry, 'object');
+
+    repository.rows = [
+      {
+        igdbGameId: '1',
+        platformIgdbId: 6,
+        payload: firstPayload
+      }
+    ];
+    nowMs = baseNow + 30 * 60 * 1000;
+
+    const second = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(second, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

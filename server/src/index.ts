@@ -64,7 +64,10 @@ async function main(): Promise<void> {
     intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
     maxGamesPerRun: config.recommendationsDiscoveryEnrichMaxGamesPerRun,
     requestTimeoutMs: config.recommendationsDiscoveryEnrichRequestTimeoutMs,
-    apiBaseUrl: `http://127.0.0.1:${String(config.port)}`
+    apiBaseUrl: `http://127.0.0.1:${String(config.port)}`,
+    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+    backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
+    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours
   });
   const recommendationService = new RecommendationService(
     recommendationRepository,

@@ -284,6 +284,12 @@ function runFrontend() {
 
   const proxyPath = path.join(tempDir, `proxy.worktree.${worktreeHint}.json`);
   const proxyConfig = {
+    '/api': {
+      target: `http://127.0.0.1:${ports.API_HOST_PORT}`,
+      secure: false,
+      changeOrigin: true,
+      logLevel: 'warn'
+    },
     '/manuals': {
       target: `http://127.0.0.1:${ports.EDGE_HOST_PORT}`,
       secure: false,

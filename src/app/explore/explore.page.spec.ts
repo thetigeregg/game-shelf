@@ -207,6 +207,20 @@ describe('ExplorePage recommendations UX', () => {
     expect(page.getDisplayTitle(page.getActiveLaneItems()[0])).toBe('Cached Local Title');
   });
 
+  it('sets disabled state when recommendations feature flag is off', () => {
+    const page = createPage();
+    Object.defineProperty(page, 'recommendationFeatureEnabled', {
+      value: false,
+      configurable: true
+    });
+
+    page.ngOnInit();
+
+    expect(page.recommendationErrorCode).toBe('REQUEST_FAILED');
+    expect(page.recommendationError).toContain('disabled');
+    expect(igdbProxyServiceMock.getRecommendationLanes).not.toHaveBeenCalled();
+  });
+
   it('switching target/runtime triggers recommendation fetch with selected tuple', async () => {
     const page = createPage();
     page.ngOnInit();
@@ -220,6 +234,31 @@ describe('ExplorePage recommendations UX', () => {
       runtimeMode: 'SHORT',
       limit: 200
     });
+  });
+
+  it('uses cache and ignores invalid/same selection updates', async () => {
+    const page = createPage();
+    const privatePage = page as unknown as {
+      loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      buildCacheKey: (target: string, runtimeMode: string) => string;
+      lanesCache: Map<string, typeof mockLanesResponse>;
+    };
+    page.ngOnInit();
+    await flushAsync();
+
+    const firstCallCount = igdbProxyServiceMock.getRecommendationLanes.mock.calls.length;
+    await page.onTargetChange('BACKLOG');
+    await page.onTargetChange('invalid-target');
+    await page.onRuntimeModeChange('NEUTRAL');
+    await page.onRuntimeModeChange('invalid-runtime');
+    page.onLaneChange('invalid-lane');
+    expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledTimes(firstCallCount);
+
+    const cacheKey = privatePage.buildCacheKey('BACKLOG', 'NEUTRAL');
+    privatePage.lanesCache.set(cacheKey, mockLanesResponse);
+    await privatePage.loadRecommendationLanes(false);
+    expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledTimes(firstCallCount);
+    expect(page.activeLanesResponse?.runId).toBe(1);
   });
 
   it('paginates recommendations in pages of 10', async () => {
@@ -805,6 +844,67 @@ describe('ExplorePage recommendations UX', () => {
     expect(page.normalizeRecommendationError(new Error('x')).code).toBe('REQUEST_FAILED');
   });
 
+  it('covers recommendation refresh and display fallback helper branches', async () => {
+    const page = createPage();
+    const privatePage = page as unknown as {
+      refreshRecommendations: (event: Event) => Promise<void>;
+      getDisplayTitle: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
+      getPlatformLabel: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
+      getReleaseYear: (item: (typeof mockLanesResponse.lanes.overall)[0]) => number | null;
+      getCoverUrl: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
+      getScoreBadge: (item: (typeof mockLanesResponse.lanes.overall)[0]) => { text: string };
+      getConfidenceBadge: (item: (typeof mockLanesResponse.lanes.overall)[0]) => { text: string };
+      canLoadMoreRecommendations: () => boolean;
+      visibleRecommendationCount: number;
+      activeLanesResponse: typeof mockLanesResponse | null;
+      localGameCacheByIdentity: Map<string, unknown>;
+      recommendationDisplayMetadata: Map<
+        string,
+        {
+          title: string;
+          coverUrl: string | null;
+          platformLabel: string;
+          releaseYear: number | null;
+        }
+      >;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+    };
+
+    page.ngOnInit();
+    await flushAsync();
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await privatePage.refreshRecommendations({ target: { complete } } as unknown as Event);
+    expect(complete).toHaveBeenCalledOnce();
+
+    const row = mockLanesResponse.lanes.overall[0];
+    const key = privatePage.buildIdentityKey(row.igdbGameId, row.platformIgdbId);
+    privatePage.localGameCacheByIdentity.clear();
+    privatePage.recommendationDisplayMetadata.set(key, {
+      title: 'Catalog Fallback Title',
+      coverUrl: null,
+      platformLabel: 'PlayStation 2',
+      releaseYear: 2002
+    });
+
+    expect(privatePage.getDisplayTitle(row)).toBe('Catalog Fallback Title');
+    expect(privatePage.getPlatformLabel(row)).toBe('PlayStation 2');
+    expect(privatePage.getReleaseYear(row)).toBe(2002);
+    expect(privatePage.getCoverUrl(row)).toContain('placeholder');
+    expect(privatePage.getScoreBadge(row).text).toContain('Score');
+    expect(privatePage.getConfidenceBadge(row).text).toContain('Confidence');
+
+    privatePage.activeLanesResponse = {
+      ...mockLanesResponse,
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [row, { ...row, rank: 2, igdbGameId: '200' }]
+      }
+    };
+    privatePage.visibleRecommendationCount = 1;
+    expect(privatePage.canLoadMoreRecommendations()).toBe(true);
+  });
+
   it('covers remaining recommendation helper branches', async () => {
     const page = createPage() as unknown as {
       activeLanesResponse: typeof mockLanesResponse | null;
@@ -961,6 +1061,47 @@ describe('ExplorePage recommendations UX', () => {
     expect(anchor.rel).toBe('noopener noreferrer external');
     expect(clickSpy).toHaveBeenCalledOnce();
     createElementSpy.mockRestore();
+  });
+
+  it('populates recommendation metadata per platform batch with title fallback', async () => {
+    const page = createPage() as unknown as {
+      populateRecommendationDisplayMetadata: (
+        groupedPlatformIds: Map<string, Set<number>>
+      ) => Promise<void>;
+      recommendationDisplayMetadata: Map<
+        string,
+        {
+          title: string;
+          coverUrl: string | null;
+          platformLabel: string;
+          releaseYear: number | null;
+        }
+      >;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+    };
+
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(
+      of({
+        igdbGameId: '700',
+        title: ' ',
+        platform: null,
+        platformIgdbId: 6,
+        releaseYear: null,
+        coverUrl: null,
+        platformOptions: [
+          { id: 6, name: 'PC' },
+          { id: 48, name: 'PS4' }
+        ]
+      })
+    );
+
+    await page.populateRecommendationDisplayMetadata(new Map([['700', new Set([6, 48])]]));
+
+    const first = page.recommendationDisplayMetadata.get(page.buildIdentityKey('700', 6));
+    const second = page.recommendationDisplayMetadata.get(page.buildIdentityKey('700', 48));
+    expect(first?.title).toBe('Game #700');
+    expect(first?.platformLabel).toBe('PC');
+    expect(second?.platformLabel).toBe('PS4');
   });
 
   it('covers list-type picker confirm/cancel branches', async () => {

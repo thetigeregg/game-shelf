@@ -2028,6 +2028,41 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('loads recommendation top with clamped limit and normalized response defaults', async () => {
+    const promise = firstValueFrom(
+      service.getRecommendationsTop({
+        target: 'BACKLOG',
+        runtimeMode: 'LONG',
+        limit: 999
+      })
+    );
+
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('runtimeMode') === 'LONG' &&
+        request.params.get('limit') === '200'
+      );
+    });
+
+    req.flush({
+      target: 'BACKLOG',
+      runtimeMode: 'LONG',
+      runId: '13',
+      generatedAt: 'invalid-date',
+      items: [{}]
+    });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runtimeMode: 'LONG',
+      runId: 13,
+      generatedAt: '1970-01-01T00:00:00.000Z',
+      items: []
+    });
+  });
+
   it('posts manual recommendation rebuild request payload', async () => {
     const promise = firstValueFrom(
       service.rebuildRecommendations({ target: 'WISHLIST', force: true })
@@ -2043,6 +2078,97 @@ describe('IgdbProxyService', () => {
       status: 'SUCCESS',
       reusedRunId: null
     });
+  });
+
+  it('normalizes malformed recommendation rebuild response payload', async () => {
+    const promise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
+    req.flush({ target: 'BACKLOG', runId: 'oops', status: 'BAD', reusedRunId: 'x9' });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runId: 0,
+      status: 'FAILED',
+      reusedRunId: null
+    });
+  });
+
+  it('returns cooldown error before recommendation requests are dispatched', async () => {
+    (service as unknown as { rateLimitCooldownUntilMs: number }).rateLimitCooldownUntilMs =
+      Date.now() + 1_000;
+
+    const topPromise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const rebuildPromise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
+    const similarPromise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: '1',
+        platformIgdbId: 6
+      })
+    );
+
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/top`);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/lanes`);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/similar/1`);
+
+    await expect(topPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(lanesPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(rebuildPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(similarPromise).rejects.toThrowError(/Rate limit exceeded/);
+  });
+
+  it('maps recommendation endpoint failures to recommendation API errors', async () => {
+    const lanesPromise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const lanesReq = httpMock.expectOne(
+      (request) =>
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes` &&
+        request.params.get('target') === 'BACKLOG'
+    );
+    lanesReq.flush(
+      { error: 'No recommendations available.' },
+      { status: 404, statusText: 'Not Found' }
+    );
+    await expect(lanesPromise).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    (service as unknown as { rateLimitCooldownUntilMs: number }).rateLimitCooldownUntilMs = 0;
+
+    const rebuildPromise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
+    const rebuildReq = httpMock.expectOne(
+      `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`
+    );
+    rebuildReq.flush({ error: 'cooldown' }, { status: 429, statusText: 'Too Many Requests' });
+    await expect(rebuildPromise).rejects.toThrowError(/Rate limit exceeded/);
+    (service as unknown as { rateLimitCooldownUntilMs: number }).rateLimitCooldownUntilMs = 0;
+
+    const similarPromise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: '42',
+        platformIgdbId: 6
+      })
+    );
+    const similarReq = httpMock.expectOne(
+      (request) =>
+        request.url === `${environment.gameApiBaseUrl}/v1/recommendations/similar/42` &&
+        request.params.get('target') === 'BACKLOG' &&
+        request.params.get('platformIgdbId') === '6'
+    );
+    similarReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
+    await expect(similarPromise).rejects.toMatchObject({ code: 'REQUEST_FAILED' });
+  });
+
+  it('rejects recommendation similar requests with invalid identity input', async () => {
+    const invalidPromise = firstValueFrom(
+      service.getRecommendationSimilar({
+        target: 'BACKLOG',
+        igdbGameId: 'abc',
+        platformIgdbId: 0
+      })
+    );
+
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/similar/abc`);
+    await expect(invalidPromise).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
   });
 
   it('loads recommendation similar items with shared theme and keyword tokens', async () => {

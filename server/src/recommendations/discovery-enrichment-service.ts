@@ -108,7 +108,7 @@ export class DiscoveryEnrichmentService {
 
     console.info('[recommendations.discovery_enrichment] completed', {
       ...lock.value,
-      startedAt: new Date(this.now()).toISOString()
+      completedAt: new Date(this.now()).toISOString()
     });
     return lock.value;
   }

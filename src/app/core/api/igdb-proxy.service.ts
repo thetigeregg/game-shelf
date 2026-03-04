@@ -132,6 +132,13 @@ interface RecommendationLanesApiResponse {
   lanes?: unknown;
 }
 
+interface RecommendationRebuildApiResponse {
+  target?: unknown;
+  runId?: unknown;
+  status?: unknown;
+  reusedRunId?: unknown;
+}
+
 interface RecommendationSimilarApiResponse {
   source?: unknown;
   items?: unknown;
@@ -845,7 +852,7 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return this.httpClient
-      .post<RecommendationRebuildResponse>(this.recommendationsRebuildUrl, {
+      .post<RecommendationRebuildApiResponse>(this.recommendationsRebuildUrl, {
         target: params.target,
         ...(params.force === true ? { force: true } : {})
       })
@@ -2098,14 +2105,23 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private normalizeRecommendationRebuildResponse(
-    value: RecommendationRebuildResponse,
+    value: RecommendationRebuildApiResponse,
     fallbackTarget: RecommendationTarget
   ): RecommendationRebuildResponse {
+    const status =
+      value.status === 'SUCCESS' ||
+      value.status === 'FAILED' ||
+      value.status === 'SKIPPED' ||
+      value.status === 'LOCKED' ||
+      value.status === 'BACKOFF_SKIPPED'
+        ? value.status
+        : 'FAILED';
+
     return {
       target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
-      runId: value.runId,
-      status: value.status,
-      reusedRunId: value.reusedRunId ?? null
+      runId: this.normalizePositiveInteger(value.runId) ?? 0,
+      status,
+      reusedRunId: this.normalizePositiveInteger(value.reusedRunId) ?? null
     };
   }
 

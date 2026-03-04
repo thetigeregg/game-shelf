@@ -139,7 +139,7 @@ function weightedStructuredSimilarity(
 
   const theme = jaccardForFamilies(left, right, ['themes']);
   const genre = jaccardForFamilies(left, right, ['genres']);
-  const series = jaccardForFamilies(left, right, ['collections', 'franchises']);
+  const series = jaccardForSeriesFamilies(left, right);
   const developer = jaccardForFamilies(left, right, ['developers']);
   const publisher = jaccardForFamilies(left, right, ['publishers']);
   const keyword = jaccardForFamilies(left, right, ['keywords']);
@@ -200,6 +200,49 @@ function jaccardForFamilies(
 
   const union = leftSet.size + rightSet.size - intersection;
   return union <= 0 ? 0 : intersection / union;
+}
+
+function jaccardForSeriesFamilies(
+  left: Map<string, TokenEntry>,
+  right: Map<string, TokenEntry>
+): number {
+  const leftSet = collectSeriesLabels(left);
+  const rightSet = collectSeriesLabels(right);
+
+  if (leftSet.size === 0 && rightSet.size === 0) {
+    return 0;
+  }
+
+  let intersection = 0;
+  for (const label of leftSet) {
+    if (rightSet.has(label)) {
+      intersection += 1;
+    }
+  }
+
+  const union = leftSet.size + rightSet.size - intersection;
+  return union <= 0 ? 0 : intersection / union;
+}
+
+function collectSeriesLabels(tokens: Map<string, TokenEntry>): Set<string> {
+  const labels = new Set<string>();
+
+  for (const token of tokens.values()) {
+    if (token.family !== 'collections' && token.family !== 'franchises') {
+      continue;
+    }
+
+    const normalized = normalizeTokenLabel(token.label);
+    if (normalized.length > 0) {
+      labels.add(normalized);
+    }
+  }
+
+  return labels;
+}
+
+function normalizeTokenLabel(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function resolveSemanticSimilarity(left: number[] | null, right: number[] | null): number {

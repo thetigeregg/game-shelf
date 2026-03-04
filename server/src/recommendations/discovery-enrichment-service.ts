@@ -29,6 +29,11 @@ export interface DiscoveryEnrichmentSummary {
   skipped: number;
 }
 
+interface EnrichPayloadResult {
+  payload: Record<string, unknown> | null;
+  skippedForCooldown: boolean;
+}
+
 interface HltbResponse {
   item?: {
     hltbMainHours?: number | null;
@@ -154,8 +159,15 @@ export class DiscoveryEnrichmentService {
     let updated = 0;
     let skipped = 0;
     for (const row of rows) {
-      const next = await this.enrichPayload(row.payload, row.platformIgdbId);
-      if (!next || JSON.stringify(next) === JSON.stringify(row.payload)) {
+      const result = await this.enrichPayload(row.payload, row.platformIgdbId);
+      if (!result.payload || JSON.stringify(result.payload) === JSON.stringify(row.payload)) {
+        if (result.skippedForCooldown) {
+          await this.repository.touchGameUpdatedAt({
+            client: queryable,
+            igdbGameId: row.igdbGameId,
+            platformIgdbId: row.platformIgdbId
+          });
+        }
         skipped += 1;
         continue;
       }
@@ -164,7 +176,7 @@ export class DiscoveryEnrichmentService {
         client: queryable,
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
-        payload: next
+        payload: result.payload
       });
       updated += 1;
     }
@@ -175,10 +187,10 @@ export class DiscoveryEnrichmentService {
   private async enrichPayload(
     payload: Record<string, unknown>,
     platformIgdbId: number
-  ): Promise<Record<string, unknown> | null> {
+  ): Promise<EnrichPayloadResult> {
     const title = typeof payload.title === 'string' ? payload.title.trim() : '';
     if (title.length < 2) {
-      return null;
+      return { payload: null, skippedForCooldown: false };
     }
 
     const releaseYear =
@@ -222,7 +234,7 @@ export class DiscoveryEnrichmentService {
         needsMetacritic: !hasCritic
       });
       applyRetryState(next, nextRetryState);
-      return next;
+      return { payload: next, skippedForCooldown: true };
     }
 
     const [hltbResponse, metacriticResponse] = await Promise.all([
@@ -315,7 +327,7 @@ export class DiscoveryEnrichmentService {
       })
     );
 
-    return next;
+    return { payload: next, skippedForCooldown: false };
   }
 
   private buildLocalUrl(path: string, query: Record<string, string>): string {

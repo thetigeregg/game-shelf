@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const cwd = process.cwd();
 const args = process.argv.slice(2);
+const composeArgs = ['compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml'];
 
 function sanitize(value, maxLength = 63) {
   return value
@@ -41,6 +43,10 @@ function computeOffset(repoPath) {
   return Number.parseInt(hashHex.slice(0, 4), 16) % 200;
 }
 
+function shellEscape(value) {
+  return `'${String(value).replace(/'/g, `'"'"'`)}'`;
+}
+
 const worktreeHint = sanitize(detectWorktreeHint(cwd), 24) || 'default';
 const portOffset = computeOffset(cwd);
 const projectHash = createHash('sha256').update(cwd).digest('hex').slice(0, 6);
@@ -70,6 +76,11 @@ const sharedEnv = {
   MANUALS_PUBLIC_BASE_URL: `http://127.0.0.1:${ports.EDGE_HOST_PORT}/manuals`
 };
 
+function defaultSeedPath() {
+  const base = process.env.DEV_DB_SEED_PATH || path.join(os.homedir(), '.cache', 'game-shelf', 'dev-db-seed', 'latest.sql.gz');
+  return path.resolve(base);
+}
+
 function run(command, commandArgs, env = sharedEnv) {
   const result = spawnSync(command, commandArgs, {
     cwd,
@@ -85,6 +96,40 @@ function run(command, commandArgs, env = sharedEnv) {
   }
 }
 
+function runCapture(command, commandArgs, env = sharedEnv) {
+  const result = spawnSync(command, commandArgs, {
+    cwd,
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8'
+  });
+
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+
+  if (typeof result.status === 'number' && result.status !== 0) {
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
+    }
+    if (result.stderr) {
+      process.stderr.write(result.stderr);
+    }
+    process.exit(result.status);
+  }
+
+  return result.stdout ?? '';
+}
+
+function runShell(command, env = sharedEnv) {
+  run('sh', ['-lc', command], env);
+}
+
+function runShellCapture(command, env = sharedEnv) {
+  return runCapture('sh', ['-lc', command], env);
+}
+
 function printInfo() {
   console.log(`Worktree path: ${cwd}`);
   console.log(`Compose project: ${projectName}`);
@@ -96,13 +141,18 @@ function printInfo() {
   console.log(`  postgres:   127.0.0.1:${ports.POSTGRES_HOST_PORT}`);
   console.log(`  hltb:       http://127.0.0.1:${ports.HLTB_HOST_PORT}`);
   console.log(`  metacritic: http://127.0.0.1:${ports.METACRITIC_HOST_PORT}`);
+  console.log(`DB seed file: ${defaultSeedPath()}`);
 }
 
 function runStack(action) {
-  const composeArgs = ['compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml'];
-
   if (action === 'up') {
     run('docker', [...composeArgs, 'up', '-d', '--build', 'postgres', 'hltb-scraper', 'metacritic-scraper', 'api', 'edge']);
+    return;
+  }
+
+  if (action === 'up-seed') {
+    runStack('up');
+    dbSeedApply(false);
     return;
   }
 
@@ -126,7 +176,7 @@ function runStack(action) {
     return;
   }
 
-  console.error('Unknown stack action. Use: up | down | restart | logs | ps');
+  console.error('Unknown stack action. Use: up | up-seed | down | restart | logs | ps');
   process.exit(1);
 }
 
@@ -150,17 +200,124 @@ function runFrontend() {
   run('npx', ['ng', 'serve', '--port', String(ports.FRONTEND_PORT), '--proxy-config', proxyPath], sharedEnv);
 }
 
+function ensurePostgresRunning() {
+  run('docker', [...composeArgs, 'up', '-d', 'postgres']);
+}
+
+function isCurrentDbEmpty() {
+  const query = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
+    `psql -Atq -U "${'${POSTGRES_USER}'}" -d "${'${POSTGRES_DB}'}" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';"`
+  )}`;
+  const output = runShellCapture(query).trim();
+  const count = Number.parseInt(output || '0', 10);
+  if (!Number.isInteger(count)) {
+    console.error(`Unable to determine table count from postgres output: ${output}`);
+    process.exit(1);
+  }
+  return count === 0;
+}
+
+function dbSeedRefresh() {
+  const seedPath = defaultSeedPath();
+  mkdirSync(path.dirname(seedPath), { recursive: true });
+
+  ensurePostgresRunning();
+
+  console.log(`Refreshing DB seed from current worktree postgres into: ${seedPath}`);
+  const command = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
+    `pg_dump --clean --if-exists --no-owner --no-privileges -U "${'${POSTGRES_USER}'}" -d "${'${POSTGRES_DB}'}"`
+  )} | gzip -c > ${shellEscape(seedPath)}`;
+  runShell(command);
+  console.log('Seed refresh complete.');
+}
+
+function dbSeedRestoreFromFile(seedPath) {
+  if (!existsSync(seedPath)) {
+    console.error(`Seed file not found: ${seedPath}`);
+    process.exit(1);
+  }
+
+  const sourceCmd = seedPath.endsWith('.gz')
+    ? `gzip -dc ${shellEscape(seedPath)}`
+    : `cat ${shellEscape(seedPath)}`;
+
+  const restoreCmd = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
+    `psql -v ON_ERROR_STOP=1 -U "${'${POSTGRES_USER}'}" -d "${'${POSTGRES_DB}'}"`
+  )}`;
+
+  runShell(`${sourceCmd} | ${restoreCmd}`);
+}
+
+function dbSeedApply(force) {
+  const seedPath = defaultSeedPath();
+  ensurePostgresRunning();
+
+  if (!force && !isCurrentDbEmpty()) {
+    console.log('Current worktree DB is not empty. Skipping seed restore. Use --force to overwrite.');
+    return;
+  }
+
+  console.log(`Restoring DB seed into current worktree postgres from: ${seedPath}`);
+  dbSeedRestoreFromFile(seedPath);
+  console.log('Seed restore complete.');
+}
+
+function runDb(command, opts) {
+  if (command === 'seed-refresh') {
+    dbSeedRefresh();
+    return;
+  }
+
+  if (command === 'seed-apply') {
+    dbSeedApply(Boolean(opts.force));
+    return;
+  }
+
+  if (command === 'seed-apply-force') {
+    dbSeedApply(true);
+    return;
+  }
+
+  console.error('Unknown db command. Use: seed-refresh | seed-apply | seed-apply-force');
+  process.exit(1);
+}
+
+function parseOptions(values) {
+  const options = {
+    force: false
+  };
+
+  for (const value of values) {
+    if (value === '--force') {
+      options.force = true;
+      continue;
+    }
+
+    console.error(`Unknown option: ${value}`);
+    process.exit(1);
+  }
+
+  return options;
+}
+
 if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
-  console.log('Usage: node scripts/worktree-dev.mjs <info|frontend|stack> [action]');
+  console.log('Usage: node scripts/worktree-dev.mjs <info|frontend|stack|db> [action]');
   console.log('');
   console.log('Commands:');
-  console.log('  info                 Show derived project name and ports');
-  console.log('  frontend             Run Angular dev server for this worktree');
-  console.log('  stack up             Start worktree-isolated docker stack');
-  console.log('  stack down           Stop/remove worktree-isolated docker stack');
-  console.log('  stack restart        Restart worktree-isolated services');
-  console.log('  stack logs           Follow stack logs');
-  console.log('  stack ps             Show stack status');
+  console.log('  info                      Show derived project name, ports, and seed path');
+  console.log('  frontend                  Run Angular dev server for this worktree');
+  console.log('  stack up                  Start worktree-isolated docker stack');
+  console.log('  stack up-seed             Start stack and seed DB only when empty');
+  console.log('  stack down                Stop/remove worktree-isolated docker stack');
+  console.log('  stack restart             Restart worktree-isolated services');
+  console.log('  stack logs                Follow stack logs');
+  console.log('  stack ps                  Show stack status');
+  console.log('  db seed-refresh           Create/update shared seed dump from current worktree DB');
+  console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
+  console.log('');
+  console.log('Optional env vars:');
+  console.log('  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-2000)');
+  console.log('  DEV_DB_SEED_PATH          Override shared seed file path');
   process.exit(0);
 }
 
@@ -177,11 +334,21 @@ if (args[0] === 'frontend') {
 
 if (args[0] === 'stack') {
   if (!args[1]) {
-    console.error('Missing stack action. Use: up | down | restart | logs | ps');
+    console.error('Missing stack action. Use: up | up-seed | down | restart | logs | ps');
     process.exit(1);
   }
   printInfo();
   runStack(args[1]);
+  process.exit(0);
+}
+
+if (args[0] === 'db') {
+  if (!args[1]) {
+    console.error('Missing db action. Use: seed-refresh | seed-apply | seed-apply-force');
+    process.exit(1);
+  }
+  printInfo();
+  runDb(args[1], parseOptions(args.slice(2)));
   process.exit(0);
 }
 

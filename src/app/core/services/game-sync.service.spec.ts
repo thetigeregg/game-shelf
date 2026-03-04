@@ -14,6 +14,7 @@ import {
 import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
 
 type GameSyncServicePrivate = {
+  applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
   applyGameChange(change: SyncChangeEvent): Promise<void>;
   applyTagChange(change: SyncChangeEvent): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
@@ -874,6 +875,49 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalled();
   });
 
+  it('applyPulledChanges dispatches by entity type', async () => {
+    const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
+    const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
+    const viewSpy = vi.spyOn(servicePrivate, 'applyViewChange').mockResolvedValue(undefined);
+    const settingSpy = vi.spyOn(servicePrivate, 'applySettingChange').mockImplementation(() => {});
+
+    const gameChange = {
+      eventId: '44',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({ igdbGameId: 'dispatch-game' }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const tagChange = {
+      eventId: '45',
+      entityType: 'tag',
+      operation: 'upsert',
+      payload: { id: 5, name: 'Priority', color: '#ff0000' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const viewChange = {
+      eventId: '46',
+      entityType: 'view',
+      operation: 'upsert',
+      payload: { id: 11, name: 'My View', listType: 'wishlist' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+    const settingChange = {
+      eventId: '47',
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: { key: 'dispatch-setting', value: 'on' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent;
+
+    await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
+
+    expect(gameSpy).toHaveBeenCalledWith(gameChange);
+    expect(tagSpy).toHaveBeenCalledWith(tagChange);
+    expect(viewSpy).toHaveBeenCalledWith(viewChange);
+    expect(settingSpy).toHaveBeenCalledWith(settingChange);
+  });
+
   it('pullChanges does not advance cursor when one or more changes fail to apply', async () => {
     localStorage.removeItem('test-setting');
 
@@ -910,6 +954,55 @@ describe('GameSyncService', () => {
     expect(cursor?.value).toBe('cursor-before');
     expect(localStorage.getItem('test-setting')).toBeNull();
     expect(emitChangedSpy).not.toHaveBeenCalled();
+  });
+
+  it('retries pulled game upsert without server id on constraint errors', async () => {
+    const constraintError = Object.assign(new Error('constraint'), { name: 'ConstraintError' });
+    const putSpy = vi
+      .spyOn(db.games, 'put')
+      .mockRejectedValueOnce(constraintError)
+      .mockResolvedValueOnce(123);
+
+    await servicePrivate.applyGameChange({
+      eventId: '46',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        id: 999,
+        igdbGameId: 'retry-test',
+        platformIgdbId: 130,
+        title: 'Retry Game'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    expect(putSpy).toHaveBeenCalledTimes(2);
+    const firstArg = putSpy.mock.calls[0][0] as { id?: number };
+    const secondArg = putSpy.mock.calls[1][0] as { id?: number };
+    expect(firstArg.id).toBe(999);
+    expect(secondArg.id).toBeUndefined();
+  });
+
+  it('rethrows non-retryable put errors during pulled game upsert', async () => {
+    const abortError = Object.assign(new Error('abort'), { name: 'AbortError' });
+    const putSpy = vi.spyOn(db.games, 'put').mockRejectedValueOnce(abortError);
+
+    await expect(
+      servicePrivate.applyGameChange({
+        eventId: '47',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          id: 1001,
+          igdbGameId: 'throw-test',
+          platformIgdbId: 130,
+          title: 'Throw Game'
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      } as SyncChangeEvent)
+    ).rejects.toThrow('abort');
+
+    expect(putSpy).toHaveBeenCalledTimes(1);
   });
 
   it('syncNow marks connectivity degraded when push fails', async () => {

@@ -309,6 +309,21 @@ export class RecommendationRepository {
     );
   }
 
+  async touchGameUpdatedAt(params: {
+    client?: Queryable;
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): Promise<void> {
+    await (params.client ?? this.pool).query(
+      `
+      UPDATE games
+      SET updated_at = NOW()
+      WHERE igdb_game_id = $1 AND platform_igdb_id = $2
+      `,
+      [params.igdbGameId, params.platformIgdbId]
+    );
+  }
+
   async getRuntimeModeDefault(
     queryable: Queryable = this.pool
   ): Promise<RecommendationRuntimeMode | null> {

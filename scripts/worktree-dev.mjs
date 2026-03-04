@@ -31,13 +31,14 @@ function detectWorktreeHint(repoPath) {
 
 function computeOffset(repoPath) {
   const explicitOffset = process.env.WORKTREE_PORT_OFFSET;
+  const maxExplicitOffset = MAX_PORT_OFFSET - 1;
   if (explicitOffset !== undefined) {
     const parsed = Number.parseInt(explicitOffset, 10);
-    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_PORT_OFFSET) {
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= maxExplicitOffset) {
       return parsed;
     }
     console.error(
-      `WORKTREE_PORT_OFFSET must be an integer between 0 and ${String(MAX_PORT_OFFSET)}`
+      `WORKTREE_PORT_OFFSET must be an integer between 0 and ${String(maxExplicitOffset)}`
     );
     process.exit(1);
   }
@@ -486,7 +487,7 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
   console.log('');
   console.log('Optional env vars:');
   console.log(
-    `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String(MAX_PORT_OFFSET)})`
+    `  WORKTREE_PORT_OFFSET      Force a fixed per-worktree offset (0-${String(MAX_PORT_OFFSET - 1)})`
   );
   console.log('  WORKTREE_ENV_FILE         Shared template used to auto-bootstrap .env');
   console.log('  DEV_DB_SEED_PATH          Override shared seed file path');

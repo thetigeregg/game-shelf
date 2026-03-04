@@ -368,13 +368,15 @@
           @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
             @for (
               similarGame of getVisibleSimilarLibraryGames();
-              track trackByExternalId($index, similarGame)
+              track trackByExternalId($index, similarGame.game)
             ) {
               <app-similar-game-row
-                [title]="getGameDisplayTitle(similarGame)"
-                [coverUrl]="getRowCoverUrl(similarGame)"
+                [title]="getGameDisplayTitle(similarGame.game)"
+                [coverUrl]="getRowCoverUrl(similarGame.game)"
                 [subtitle]="getSimilarGameSubtitle(similarGame)"
-                (rowClick)="onGameRowClick(similarGame, true)"
+                [badges]="getSimilarGameBadges(similarGame)"
+                [headline]="similarGame.reasons.summary"
+                (rowClick)="onGameRowClick(similarGame.game, true)"
               ></app-similar-game-row>
             }
             <ion-infinite-scroll

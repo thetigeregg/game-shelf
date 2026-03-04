@@ -113,12 +113,18 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
 describe('game-list review actions', () => {
   it('paginates similar library games in pages of 5', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
-      similarLibraryGames: GameEntry[];
+      similarLibraryGames: Array<{
+        game: GameEntry;
+        similarity: number;
+        reasons: { summary: string };
+      }>;
       visibleSimilarLibraryGamesCount: number;
     };
-    const games = Array.from({ length: 11 }, (_, index) =>
-      createGame({ igdbGameId: String(index + 1), platformIgdbId: 6 })
-    );
+    const games = Array.from({ length: 11 }, (_, index) => ({
+      game: createGame({ igdbGameId: String(index + 1), platformIgdbId: 6 }),
+      similarity: 0.8,
+      reasons: { summary: 'same series' }
+    }));
 
     Object.assign(page, {
       similarLibraryGames: games,

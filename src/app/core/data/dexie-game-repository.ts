@@ -110,6 +110,10 @@ export class DexieGameRepository implements GameRepository {
         developers: this.normalizeTextList(result.developers),
         franchises: this.normalizeTextList(result.franchises),
         genres: this.normalizeTextList(result.genres),
+        themes: this.normalizeTextList(result.themes),
+        themeIds: this.normalizePositiveIntegerList(result.themeIds),
+        keywords: this.normalizeTextList(result.keywords),
+        keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
         publishers: this.normalizeTextList(result.publishers),
         platform: normalizedPlatformName,
         platformIgdbId: normalizedPlatformIgdbId,
@@ -169,6 +173,10 @@ export class DexieGameRepository implements GameRepository {
       developers: this.normalizeTextList(result.developers),
       franchises: this.normalizeTextList(result.franchises),
       genres: this.normalizeTextList(result.genres),
+      themes: this.normalizeTextList(result.themes),
+      themeIds: this.normalizePositiveIntegerList(result.themeIds),
+      keywords: this.normalizeTextList(result.keywords),
+      keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
       publishers: this.normalizeTextList(result.publishers),
       platform: normalizedPlatformName,
       platformIgdbId: normalizedPlatformIgdbId,
@@ -692,6 +700,14 @@ export class DexieGameRepository implements GameRepository {
           .filter((value) => /^\d+$/.test(value))
       )
     ];
+  }
+
+  private normalizePositiveIntegerList(values: number[] | undefined): number[] {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
   }
 
   private normalizeCompletionHours(value: number | null | undefined): number | null {

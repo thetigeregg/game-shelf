@@ -1,7 +1,20 @@
+.explore-row-label {
+  margin-right: 0;
+}
+
 .loading-state {
   display: flex;
   justify-content: center;
   padding: 16px;
+}
+
+.similar-header {
+  --min-height: 0;
+
+  ion-note {
+    font-size: 0.8rem;
+    padding-bottom: 4px;
+  }
 }
 
 .explore-cover {
@@ -11,9 +24,9 @@
   border-radius: 6px;
   overflow: hidden;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  background: var(--ion-color-light);
+  align-self: flex-start;
 }
 
 .explore-cover-image {
@@ -27,45 +40,108 @@ ion-label h2 {
   margin-bottom: 4px;
 }
 
-ion-label p {
+ion-label p:not(.recommendation-headline) {
   margin: 0;
 }
 
-.detail-shortcuts-fab {
-  margin-bottom: 8px;
-  margin-right: 8px;
+.recommendation-headline {
+  margin-block: 6px;
+  color: var(--ion-color-medium);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
-.detail-shortcuts-fab .shortcut-google {
-  --background: #2e7d32;
-  --background-activated: #256529;
-  --background-hover: #256529;
-  --color: #ffffff;
+.recommendation-headline::before {
+  content: '•';
+  color: var(--ion-color-medium);
+  line-height: 1.1;
+  flex: 0 0 auto;
 }
 
-.detail-shortcuts-fab .shortcut-youtube {
-  --background: #ff0000;
-  --background-activated: #cc0000;
-  --background-hover: #cc0000;
-  --color: #ffffff;
+.lane-context-copy {
+  color: var(--ion-color-medium);
+  font-size: 0.82rem;
 }
 
-.detail-shortcuts-fab .shortcut-wikipedia {
-  --background: #ffffff;
-  --background-activated: #f1f1f1;
-  --background-hover: #f1f1f1;
-  --color: #111111;
+.lane-context {
+  border-bottom: 1px solid color-mix(in srgb, var(--ion-color-medium) 20%, transparent);
 }
 
-.detail-shortcuts-fab .shortcut-gamefaqs {
-  --background: #6a1b9a;
-  --background-activated: #54167b;
-  --background-hover: #54167b;
-  --color: #ffffff;
+.recommendation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
 }
 
-.detail-shortcuts-fab .shortcut-text {
-  font-size: 0.9rem;
+.recommendation-chips ion-chip {
+  margin: 0;
+  font-size: 0.7rem;
+}
+
+.recommendation-chips ion-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.recommendation-details {
+  margin-top: 2px;
+  margin-bottom: 0;
+  padding: 0 12px;
+  border-bottom: 0.55px solid rgba(var(--ion-color-medium-rgb), 0.3);
+}
+
+.recommendation-details p {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  font-size: 0.69rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--ion-color-medium);
+}
+
+.recommendation-detail-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  column-gap: 8px;
+  align-items: start;
+}
+
+.recommendation-detail-delta {
   font-weight: 700;
-  line-height: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.recommendation-detail-text {
+  display: block;
+}
+
+ion-accordion-group > ion-accordion:last-of-type ion-item[slot='header'] {
+  --border-width: 0 0 0.55px 0;
+}
+
+.empty-state-hint {
+  margin-top: 6px;
+  color: var(--ion-color-medium);
+  font-size: 0.82rem;
+}
+
+.empty-state-token-hint {
+  margin-top: 4px;
+  color: var(--ion-color-primary);
+  font-size: 0.8rem;
+}
+
+.empty-state-icon {
+  font-size: 1.25rem;
+  color: var(--ion-color-primary);
+}
+
+.similar-section {
+  margin-top: 8px;
 }

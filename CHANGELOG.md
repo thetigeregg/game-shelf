@@ -1292,3 +1292,101 @@
 - 867619c Allow half-step user ratings
 - ad392f0 Allow half-step ratings
 
+## v1.0.3 - 2026-03-04
+- fb306eb Merge pull request #151 from thetigeregg/codex/recommendations
+- c0398e9 Align diversity penalty default
+- 5af63af Align diversity penalty default
+- a075658 Align diversity penalty default
+- 503ec68 Align diversity penalty defaults
+- 6e5219f Fix discovery detail parity
+- 36f019d Fix discovery parity issues
+- 1fef5b2 Fix discovery parity issues
+- 9991c28 Fix game similarity target updates
+- 942f797 Add segment switch for similar games
+- d19abee Trim strings in parsePositiveInteger
+- 3364f6d Add OpenAI embedding safeguards
+- 73d4a0c Add timeout validation to embeddings
+- 42785c3 Add embedding timeout handling
+- d16177e Fix similarity runtime scope
+- 8feb5c2 Fix similarity shared tokens overlap
+- 617e618 Investigate similarity boost impact
+- 0bf36b0 Ensure similar game click scrolls to
+- 9433365 Enhance styling for SimilarGameRowBadge component
+- b2b6f64 Add rationale split test
+- 425fac5 Assess Copilot feedback on logs
+- 43690b3 Simplify normalizeCriticScore logic
+- 55e4274 Simplify critic score normalization
+- 013a73b Document detail shortcut fab actions
+- bb67775 Review embedding dimension config
+- 75dcd20 Investigate Copilot suggestions
+- 8647ed9 Enforce strict rating parsing
+- d90a34d Validate rating filter inputs
+- 07223fe Validate rating filter parsing
+- 815a8d9 Pin Postgres image reference
+- b3496dc Harden positive id parsing
+- 2fed92d Remove unused OpenAI dependency
+- 03b9f6a Enforce minimum rate limit window
+- a2b691d Avoid clearing metadata when missing
+- 40c3332 Reject non-integer theme ids
+- f29a1c5 Regenerate PR summary from main diff
+- 927b359 Generate PR summary after diff
+- e0b3972 Reevaluate metadata merge behavior
+- 1dcd0e7 Reject truncated non-integer ids
+- adb0753 Audit branch and apply fixes
+- a3116c8 Audit branch and tune scroll
+- 668191d Reduce infinite scroll threshold for recommendations and similar games
+- 98ea4de Add infinite scroll to related games
+- 027fd1f Reuse discovery similar games
+- d5ae3f8 Remove frontend similar filter
+- e63529b Prevent duplicate similar games
+- 175b2ab Fix discovery game detail issues
+- a274973 Split recommendation headline lines
+- efef170 Update similar row badge display
+- df80bec Add back navigation button
+- ea8a22b Unify related games layout
+- 865a72b Restore old header template
+- 7d18c3b Fix discovery game detail FAB
+- 4d60e50 Investigate discovery detail regress
+- 721156c Merge discovery queue duplicates
+- 1fc19f3 Merge duplicate discovery games
+- 32481ce Fix discovery frontend display
+- 2826833 Add discovery lane configs
+- 676234e Add config for discovery refresh
+- d883601 Add recommendation env vars
+- 35abe5e Allow popular and recent lanes
+- 0023d44 Explain discovery cache behavior
+- 1872cf5 Filter discovery recent game query
+- 9469b4e Avoid deprecated IGDB fields
+- 35e7086 Enable recommendation enrichment
+- 25ffd91 Clarify IGDB recommendation scope
+- 66608f3 Bold scores and split rationale
+- 6536c69 Bold score values in explore
+- b785206 Update recommendation rationale
+- 5862f54 Align explore game rows
+- f309abe Fix explore game row layout
+- 7a366e0 Align explore game row layout
+- 0700688 Adjust explore game row layout
+- ca0d4f7 Add themes and keywords to recs
+- c142145 Add theme keyword explainability
+- 13b3f14 Fix rating filter half steps
+- d744256 Add IGDB themes keywords metadata
+- 24fc86c Ingest IGDB themes and keywords
+- dea8526 Add icons for selection options in Explore recommendations
+- 9e46237 Refresh Discover UI and audit rates
+- 128ee22 Update explore recommendations UI
+- cf3c746 Implement Explore recommendation MVP
+- a14220c Implement Explore UX recommendations
+- 3273dd5 Implement explore recommendations UX
+- f6d73ac Implement Explore-first rec UX
+- 6857046 Audit recommendation factor weights
+- f0e5820 Clear games table and verify boost
+- ecc08df Filter recs by status and normalize
+- 498a7a1 Add status filtering to similar recs
+- 20ecaa8 Add runtimeMode recommendations
+- bccc360 Add peer dependency flag to multiple packages in package-lock.json
+- 913aeb0 Add runtime mode materialization
+- a54ea10 Add runtimeMode materialization
+- e2a9e6f Implement semantic recommendation up
+- f6f5ba6 Implement v1 recommendation API
+- ba05508 Implement recommendation API
+

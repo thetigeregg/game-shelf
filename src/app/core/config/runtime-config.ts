@@ -3,6 +3,7 @@ import { environment } from '../../../environments/environment';
 interface RuntimeFeatureFlags {
   showMgcImport?: boolean;
   e2eFixtures?: boolean;
+  recommendationsExploreEnabled?: boolean;
 }
 
 interface RuntimeConfig {
@@ -75,4 +76,18 @@ export function getAppVersion(): string {
   }
 
   return '0.0.0';
+}
+
+export function isRecommendationsExploreEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    const runtimeValue = parseBoolean(
+      window.__GAME_SHELF_RUNTIME_CONFIG__?.featureFlags?.recommendationsExploreEnabled
+    );
+
+    if (runtimeValue !== null) {
+      return runtimeValue;
+    }
+  }
+
+  return environment.featureFlags.recommendationsExploreEnabled;
 }

@@ -1,8 +1,8 @@
 import {
-  GAME_RATING_VALUES,
   GameRatingFilterOption,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  isGameRating
 } from '../models/game.models';
 
 export function normalizeStringList(value: unknown): string[] {
@@ -68,9 +68,7 @@ export function normalizeGameStatusFilterList(value: unknown): GameStatusFilterO
 }
 
 export function isGameRatingFilterOption(value: unknown): value is GameRatingFilterOption {
-  return (
-    value === 'none' || GAME_RATING_VALUES.includes(value as (typeof GAME_RATING_VALUES)[number])
-  );
+  return normalizeGameRatingFilterOption(value) !== null;
 }
 
 export function normalizeGameRatingFilterList(value: unknown): GameRatingFilterOption[] {
@@ -78,7 +76,37 @@ export function normalizeGameRatingFilterList(value: unknown): GameRatingFilterO
     return [];
   }
 
-  return [...new Set(value.filter(isGameRatingFilterOption))];
+  const normalized = value
+    .map((entry) => normalizeGameRatingFilterOption(entry))
+    .filter((entry): entry is GameRatingFilterOption => entry !== null);
+
+  return [...new Set(normalized)];
+}
+
+function normalizeGameRatingFilterOption(value: unknown): GameRatingFilterOption | null {
+  if (value === 'none') {
+    return 'none';
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^[1-5](?:\.0|\.5)?$/.test(trimmed)) {
+      return null;
+    }
+  }
+
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value.trim())
+        : Number.NaN;
+
+  if (isGameRating(numeric)) {
+    return numeric;
+  }
+
+  return null;
 }
 
 export function normalizeNonNegativeNumber(value: unknown): number | null {

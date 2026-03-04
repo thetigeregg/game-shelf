@@ -39,16 +39,28 @@ describe('DetailShortcutsFabComponent', () => {
     const component = new DetailShortcutsFabComponent();
     const shortcutSpy = vi.fn();
     const notesSpy = vi.fn();
+    const manualSpy = vi.fn();
+    const findManualSpy = vi.fn();
+    const listSpy = vi.fn();
     const closeSpy = vi.fn();
     component.shortcutSearch.subscribe(shortcutSpy);
     component.notesClick.subscribe(notesSpy);
+    component.openManualClick.subscribe(manualSpy);
+    component.findManualClick.subscribe(findManualSpy);
+    component.listClick.subscribe(listSpy);
     (component as unknown as { fab?: { close: () => void } }).fab = { close: closeSpy };
 
+    component.onListClick();
     component.onShortcutSearch('google');
     component.onNotesClick();
+    component.onOpenManualClick();
+    component.onFindManualClick();
 
     expect(shortcutSpy).toHaveBeenCalledWith('google');
     expect(notesSpy).toHaveBeenCalledOnce();
-    expect(closeSpy).toHaveBeenCalledTimes(2);
+    expect(manualSpy).toHaveBeenCalledOnce();
+    expect(findManualSpy).toHaveBeenCalledOnce();
+    expect(listSpy).toHaveBeenCalledOnce();
+    expect(closeSpy).toHaveBeenCalledTimes(4);
   });
 });

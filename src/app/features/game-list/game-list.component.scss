@@ -31,15 +31,47 @@ ion-item-sliding ion-item ion-label {
   font-size: 0.85rem;
 }
 
-.hltb-main-indicator {
+.row-metadata-indicators {
   position: absolute;
   right: 10px;
   bottom: 10px;
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hltb-main-indicator {
   color: var(--ion-color-medium);
   font-size: 0.76rem;
   font-weight: 600;
   line-height: 1;
+}
+
+.metacritic-score-indicator {
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #000000;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.metacritic-score-indicator.mc-good {
+  background: var(--ion-color-mc-good);
+}
+
+.metacritic-score-indicator.mc-okay {
+  background: var(--ion-color-mc-okay);
+}
+
+.metacritic-score-indicator.mc-bad {
+  background: var(--ion-color-mc-bad);
 }
 
 .detail-clear-button {
@@ -159,18 +191,10 @@ ion-item.game-row-selected {
 
 .similar-games-header {
   border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
-  margin-bottom: 6px;
 }
 
-.detail-shortcuts-fab {
-  margin-bottom: 8px;
-  margin-right: 8px;
-}
-
-.detail-shortcuts-fab .shortcut-text {
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1;
+.segment-toolbar {
+  border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.28);
 }
 
 ion-item h2 {
@@ -234,6 +258,22 @@ ion-item p {
   height: 100%;
   object-fit: contain;
   border-radius: 8px;
+}
+
+.candidate-thumbnail {
+  width: 72px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.candidate-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .group-header-title {

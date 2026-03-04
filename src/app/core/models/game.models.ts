@@ -2,7 +2,11 @@ export type ListType = 'collection' | 'wishlist';
 export type CoverSource = 'thegamesdb' | 'igdb' | 'none';
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
 export type GameStatusFilterOption = GameStatus | 'none';
-export type GameRating = 1 | 2 | 3 | 4 | 5;
+export const GAME_RATING_VALUES = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] as const;
+export type GameRating = (typeof GAME_RATING_VALUES)[number];
+export function isGameRating(value: unknown): value is GameRating {
+  return typeof value === 'number' && GAME_RATING_VALUES.includes(value as GameRating);
+}
 export type GameRatingFilterOption = GameRating | 'none';
 export type GameType =
   | 'main_game'
@@ -20,6 +24,7 @@ export type GameType =
   | 'fork'
   | 'pack'
   | 'update';
+export type ReviewSource = 'metacritic' | 'mobygames';
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -55,11 +60,22 @@ export interface GameCatalogResult {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  reviewScore?: number | null;
+  reviewUrl?: string | null;
+  reviewSource?: ReviewSource | null;
+  mobyScore?: number | null;
+  mobygamesGameId?: number | null;
+  metacriticScore?: number | null;
+  metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
   collections?: string[];
   developers?: string[];
   franchises?: string[];
   genres?: string[];
+  themes?: string[];
+  themeIds?: number[];
+  keywords?: string[];
+  keywordIds?: number[];
   publishers?: string[];
   platforms: string[];
   platformOptions?: GameCatalogPlatformOption[];
@@ -83,6 +99,129 @@ export interface PopularityGameResult {
   calculatedAt: string | null;
 }
 
+export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
+export type RecommendationLaneKey =
+  | 'overall'
+  | 'hiddenGems'
+  | 'exploration'
+  | 'blended'
+  | 'popular'
+  | 'recent';
+
+export interface RecommendationScoreComponents {
+  taste: number;
+  novelty: number;
+  runtimeFit: number;
+  criticBoost: number;
+  recencyBoost: number;
+  semantic: number;
+  exploration: number;
+  diversityPenalty: number;
+  repeatPenalty: number;
+}
+
+export interface RecommendationExplanationBullet {
+  type:
+    | 'taste'
+    | 'novelty'
+    | 'runtime'
+    | 'critic'
+    | 'recency'
+    | 'semantic'
+    | 'exploration'
+    | 'diversity'
+    | 'repeat';
+  label: string;
+  evidence: string[];
+  delta: number;
+}
+
+export interface RecommendationExplanation {
+  headline: string;
+  bullets: RecommendationExplanationBullet[];
+  matchedTokens: {
+    genres: string[];
+    developers: string[];
+    publishers: string[];
+    franchises: string[];
+    collections: string[];
+    themes: string[];
+    keywords: string[];
+  };
+}
+
+export interface RecommendationItem {
+  rank: number;
+  igdbGameId: string;
+  platformIgdbId: number;
+  scoreTotal: number;
+  scoreComponents: RecommendationScoreComponents;
+  explanations: RecommendationExplanation;
+}
+
+export interface RecommendationTopResponse {
+  target: RecommendationTarget;
+  runtimeMode: RecommendationRuntimeMode;
+  runId: number;
+  generatedAt: string;
+  items: RecommendationItem[];
+}
+
+export interface RecommendationLanesResponse {
+  target: RecommendationTarget;
+  runtimeMode: RecommendationRuntimeMode;
+  runId: number;
+  generatedAt: string;
+  lanes: {
+    overall: RecommendationItem[];
+    hiddenGems: RecommendationItem[];
+    exploration: RecommendationItem[];
+    blended: RecommendationItem[];
+    popular: RecommendationItem[];
+    recent: RecommendationItem[];
+  };
+}
+
+export interface RecommendationRebuildResponse {
+  target: RecommendationTarget;
+  runId: number;
+  status: 'SUCCESS' | 'FAILED' | 'SKIPPED' | 'LOCKED' | 'BACKOFF_SKIPPED';
+  reusedRunId?: number | null;
+}
+
+export interface RecommendationSimilarityReasons {
+  summary: string;
+  structuredSimilarity: number;
+  semanticSimilarity: number;
+  blendedSimilarity: number;
+  sharedTokens: {
+    genres: string[];
+    developers: string[];
+    publishers: string[];
+    franchises: string[];
+    collections: string[];
+    themes: string[];
+    keywords: string[];
+  };
+}
+
+export interface RecommendationSimilarItem {
+  igdbGameId: string;
+  platformIgdbId: number;
+  similarity: number;
+  reasons: RecommendationSimilarityReasons;
+}
+
+export interface RecommendationSimilarResponse {
+  runtimeMode: RecommendationRuntimeMode;
+  source: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  };
+  items: RecommendationSimilarItem[];
+}
+
 export interface GameEntry {
   id?: number;
   igdbGameId: string;
@@ -98,11 +237,22 @@ export interface GameEntry {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  reviewScore?: number | null;
+  reviewUrl?: string | null;
+  reviewSource?: ReviewSource | null;
+  mobyScore?: number | null;
+  mobygamesGameId?: number | null;
+  metacriticScore?: number | null;
+  metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
   collections?: string[];
   developers?: string[];
   franchises?: string[];
   genres?: string[];
+  themes?: string[];
+  themeIds?: number[];
+  keywords?: string[];
+  keywordIds?: number[];
   publishers?: string[];
   platform: string;
   platformIgdbId: number;
@@ -126,6 +276,36 @@ export interface HltbCompletionTimes {
 }
 
 export interface HltbMatchCandidate extends HltbCompletionTimes {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  imageUrl?: string | null;
+}
+
+export interface MetacriticScoreResult {
+  metacriticScore: number | null;
+  metacriticUrl: string | null;
+}
+
+export interface MetacriticMatchCandidate extends MetacriticScoreResult {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  imageUrl?: string | null;
+}
+
+export interface ReviewScoreResult {
+  reviewScore: number | null;
+  reviewUrl: string | null;
+  reviewSource: ReviewSource | null;
+  mobyScore?: number | null;
+  mobygamesGameId?: number | null;
+  // Compatibility aliases for legacy call sites.
+  metacriticScore?: number | null;
+  metacriticUrl?: string | null;
+}
+
+export interface ReviewMatchCandidate extends ReviewScoreResult {
   title: string;
   releaseYear: number | null;
   platform: string | null;
@@ -181,7 +361,15 @@ export interface SyncPushResult {
   normalizedPayload?: unknown;
 }
 
-export type GameSortField = 'title' | 'releaseDate' | 'createdAt' | 'platform';
+export type GameSortField =
+  | 'title'
+  | 'releaseDate'
+  | 'createdAt'
+  | 'hltb'
+  | 'tas'
+  | 'review'
+  | 'metacritic'
+  | 'platform';
 export type SortDirection = 'asc' | 'desc';
 export type GameGroupByField =
   | 'none'
@@ -206,6 +394,11 @@ export interface GameListFilters {
   genres: string[];
   statuses: GameStatusFilterOption[];
   tags: string[];
+  excludedPlatform: string[];
+  excludedGenres: string[];
+  excludedStatuses: GameStatusFilterOption[];
+  excludedTags: string[];
+  excludedGameTypes: GameType[];
   ratings: GameRatingFilterOption[];
   hltbMainHoursMin: number | null;
   hltbMainHoursMax: number | null;
@@ -225,6 +418,11 @@ export const DEFAULT_GAME_LIST_FILTERS: GameListFilters = {
   genres: [],
   statuses: [],
   tags: [],
+  excludedPlatform: [],
+  excludedGenres: [],
+  excludedStatuses: [],
+  excludedTags: [],
+  excludedGameTypes: [],
   ratings: [],
   hltbMainHoursMin: null,
   hltbMainHoursMax: null,

@@ -11,6 +11,7 @@ import {
 } from '../models/game.models';
 import { GameShelfService } from './game-shelf.service';
 import { PlatformOrderService } from './platform-order.service';
+import { ClientWriteAuthService } from './client-write-auth.service';
 
 describe('GameShelfService', () => {
   let repository: {
@@ -60,9 +61,17 @@ describe('GameShelfService', () => {
       searchBoxArtByTitle: vi.fn(),
       lookupCompletionTimes: vi.fn(),
       lookupCompletionTimeCandidates: vi.fn(),
+      lookupMetacriticScore: vi.fn(),
+      lookupMetacriticCandidates: vi.fn(),
+      lookupReviewScore: vi.fn(),
+      lookupReviewCandidates: vi.fn(),
       listPopularityTypes: vi.fn(),
       listPopularityGames: vi.fn()
     };
+
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+    searchApi.lookupReviewScore.mockReturnValue(of(null));
+    searchApi.lookupReviewCandidates.mockReturnValue(of([]));
 
     appDb = {
       imageCache: {
@@ -227,6 +236,115 @@ describe('GameShelfService', () => {
     );
   });
 
+  it('skips review score lookup when game already has a valid review score', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '500',
+      title: 'Already Scored',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      reviewScore: 85,
+      reviewUrl: 'https://www.metacritic.com/game/already-scored/',
+      reviewSource: 'metacritic',
+      releaseDate: null,
+      releaseYear: 2022
+    };
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).not.toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it('triggers review score lookup when review score is out of valid range', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '501',
+      title: 'Out Of Range Score',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      reviewScore: 150,
+      releaseDate: null,
+      releaseYear: 2022
+    };
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith(
+      'Out Of Range Score',
+      2022,
+      'Switch',
+      130
+    );
+  });
+
+  it('enriches games with review score during add when available', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017
+    };
+
+    searchApi.lookupReviewScore.mockReturnValue(
+      of({
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
+        reviewSource: 'metacritic'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Mario Kart', 2017, 'Switch', 130);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(2);
+    expect(repository.upsertFromCatalog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/',
+        reviewSource: 'metacritic',
+        metacriticScore: 85,
+        metacriticUrl: 'https://www.metacritic.com/game/mario-kart-8-deluxe/'
+      }),
+      'collection'
+    );
+  });
+
   it('continues add when HLTB lookup fails', async () => {
     const game: GameCatalogResult = {
       igdbGameId: '123',
@@ -254,6 +372,40 @@ describe('GameShelfService', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({ igdbGameId: '123', platform: 'Switch', platformIgdbId: 130 }),
+      'collection'
+    );
+  });
+
+  it('continues add when review lookup fails', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017
+    };
+
+    searchApi.lookupReviewScore.mockReturnValue(throwError(() => new Error('reviews down')));
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'collection',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+
+    await service.addGame(game, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Mario Kart', 2017, 'Switch', 130);
     expect(repository.upsertFromCatalog).toHaveBeenCalledTimes(1);
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({ igdbGameId: '123', platform: 'Switch', platformIgdbId: 130 }),
@@ -529,6 +681,62 @@ describe('GameShelfService', () => {
     expect(getItemSpy).toHaveBeenCalled();
   });
 
+  it('includes client write token in server purge request when token is configured', async () => {
+    const clientWriteAuthService = TestBed.inject(ClientWriteAuthService);
+    vi.spyOn(clientWriteAuthService, 'getToken').mockReturnValue('test-write-token');
+
+    repository.listAll.mockResolvedValue([
+      {
+        igdbGameId: '9999',
+        title: 'Token Test',
+        platformIgdbId: 167,
+        platform: 'PlayStation 5',
+        coverUrl: 'https://cdn.thegamesdb.net/images/original/box/front/token-test.jpg',
+        coverSource: 'thegamesdb',
+        customCoverUrl: null,
+        listType: 'collection',
+        createdAt: 'x',
+        updatedAt: 'x'
+      } as GameEntry
+    ]);
+    searchApi.getGameById.mockReturnValue(
+      of({
+        igdbGameId: '9999',
+        title: 'Token Test',
+        coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/token-test.jpg',
+        coverSource: 'igdb',
+        platform: 'PlayStation 5',
+        platformIgdbId: 167,
+        platforms: ['PlayStation 5'],
+        releaseDate: null,
+        releaseYear: null
+      } as GameCatalogResult)
+    );
+    repository.updateCover.mockResolvedValue({
+      igdbGameId: '9999',
+      title: 'Token Test',
+      platformIgdbId: 167,
+      platform: 'PlayStation 5',
+      coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/token-test.jpg',
+      coverSource: 'igdb',
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x'
+    } as GameEntry);
+
+    let capturedHeaders: HeadersInit | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      capturedHeaders = init?.headers;
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    });
+
+    await service.migratePreferredPlatformCoversToIgdb();
+
+    expect(capturedHeaders).toBeDefined();
+    const headersRecord = capturedHeaders as Record<string, string>;
+    expect(headersRecord['X-Game-Shelf-Client-Token']).toBe('test-write-token');
+  });
+
   it('delegates search platform list retrieval', async () => {
     const platformOrderService = TestBed.inject(PlatformOrderService);
     platformOrderService.setOrder(['Nintendo Switch', 'PC (Microsoft Windows)']);
@@ -776,6 +984,113 @@ describe('GameShelfService', () => {
       }),
       'collection'
     );
+  });
+
+  it('refreshes game Metacritic score using lookup values', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Zack & Wiki',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: '2007-10-16T00:00:00.000Z',
+      releaseYear: 2007,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupReviewScore.mockReturnValue(
+      of({
+        reviewScore: 87,
+        reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        reviewSource: 'metacritic'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameMetacriticScore('123', 5);
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, null);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+      }),
+      'collection'
+    );
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('refreshes game Metacritic score using override query values', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      metacriticScore: 90,
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupReviewScore.mockReturnValue(
+      of({
+        reviewScore: 90,
+        reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        reviewSource: 'metacritic'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameMetacriticScoreWithQuery('123', 5, {
+      title: 'Zack & Wiki',
+      releaseYear: 2007,
+      platform: 'Wii'
+    });
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, null);
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('returns empty metacritic candidates for short queries and trims valid queries', async () => {
+    await expect(firstValueFrom(service.searchMetacriticCandidates('x'))).resolves.toEqual([]);
+    expect(searchApi.lookupReviewCandidates).not.toHaveBeenCalled();
+
+    searchApi.lookupReviewCandidates.mockReturnValue(of([]));
+    await firstValueFrom(service.searchMetacriticCandidates('  Okami  ', 2006, 'Wii', 19));
+    expect(searchApi.lookupReviewCandidates).toHaveBeenCalledWith('Okami', 2006, 'Wii', 19);
+  });
+
+  it('throws for metacritic refresh when target game no longer exists', async () => {
+    repository.exists.mockResolvedValue(undefined);
+
+    await expect(service.refreshGameMetacriticScore('123', 5)).rejects.toThrowError(
+      'Game entry no longer exists.'
+    );
+    await expect(
+      service.refreshGameMetacriticScoreWithQuery('123', 5, { title: 'Any' })
+    ).rejects.toThrowError('Game entry no longer exists.');
   });
 
   it('returns empty box art results for short queries', async () => {
@@ -1189,7 +1504,7 @@ describe('GameShelfService', () => {
 
     repository.setGameTags.mockResolvedValue(base);
     repository.setGameStatus.mockResolvedValue({ ...base, status: 'playing' });
-    repository.setGameRating.mockResolvedValue({ ...base, rating: 3 });
+    repository.setGameRating.mockResolvedValue({ ...base, rating: 3.5 });
     repository.setGameNotes.mockResolvedValue({ ...base, notes: 'checkpoint before boss' });
     repository.listTags.mockResolvedValue([
       { id: 1, name: 'Backlog', color: '#111111', createdAt: 'x', updatedAt: 'x' },
@@ -1198,12 +1513,12 @@ describe('GameShelfService', () => {
 
     const tagged = await service.setGameTags('123', 130, [1, 2]);
     const statused = await service.setGameStatus('123', 130, 'playing');
-    const rated = await service.setGameRating('123', 130, 3);
+    const rated = await service.setGameRating('123', 130, 3.5);
     const noted = await service.setGameNotes('123', 130, 'checkpoint before boss');
 
     expect(tagged.tags?.map((tag) => tag.name)).toEqual(['Backlog', 'Co-op']);
     expect(statused.status).toBe('playing');
-    expect(rated.rating).toBe(3);
+    expect(rated.rating).toBe(3.5);
     expect(noted.notes).toBe('checkpoint before boss');
   });
 

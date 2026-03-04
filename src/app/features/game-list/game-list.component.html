@@ -91,12 +91,25 @@
       @if (getRating(game); as rating) {
         <div class="rating-indicator">
           <ion-icon name="star" aria-hidden="true"></ion-icon>
-          <span>{{ rating }}</span>
+          <span>{{ formatRatingValue(rating) }}</span>
         </div>
       }
       @if (getRowHltbHoursLabel(game); as mainHours) {
-        <div class="hltb-main-indicator">
-          {{ mainHours }}
+        <div class="row-metadata-indicators">
+          <div class="hltb-main-indicator">
+            {{ mainHours }}
+          </div>
+          @if (hasValidRowReviewScore(game)) {
+            <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
+              {{ getRowReviewScore(game) }}
+            </div>
+          }
+        </div>
+      } @else if (hasValidRowReviewScore(game)) {
+        <div class="row-metadata-indicators">
+          <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
+            {{ getRowReviewScore(game) }}
+          </div>
         </div>
       }
 
@@ -208,7 +221,7 @@
   <ng-template>
     <ion-header [translucent]="true">
       <ion-toolbar>
-        @if (detailNavigationStack.length > 0) {
+        @if (shouldShowDetailBackButton) {
           <ion-buttons slot="start">
             <ion-button
               fill="clear"
@@ -219,17 +232,17 @@
             </ion-button>
           </ion-buttons>
         }
-        <ion-title>{{
-          (selectedGame ? getGameDisplayTitle(selectedGame) : '') || 'Game Details'
-        }}</ion-title>
+        <ion-title>{{ detailModalTitle }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button
-            fill="clear"
-            aria-label="Game detail actions"
-            [id]="getDetailActionsTriggerId()"
-          >
-            <ion-icon name="ellipsis-horizontal" slot="icon-only"></ion-icon>
-          </ion-button>
+          @if (!isSimilarDiscoveryDetailModalOpen) {
+            <ion-button
+              fill="clear"
+              aria-label="Game detail actions"
+              [id]="getDetailActionsTriggerId()"
+            >
+              <ion-icon name="ellipsis-horizontal" slot="icon-only"></ion-icon>
+            </ion-button>
+          }
           <ion-button fill="clear" aria-label="Close game details" (click)="closeGameDetailModal()">
             <ion-icon name="close" slot="icon-only"></ion-icon>
           </ion-button>
@@ -237,48 +250,56 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-popover
-      [id]="getDetailActionsPopoverId()"
-      [trigger]="getDetailActionsTriggerId()"
-      triggerAction="click"
-    >
-      <ng-template>
-        <ion-content>
-          <ion-list lines="none">
-            <ion-item button detail="false" (click)="refreshSelectedGameMetadataFromPopover()">
-              Refresh metadata
-            </ion-item>
-            <ion-item
-              button
-              detail="false"
-              (click)="refreshSelectedGameCompletionTimesFromPopover()"
-            >
-              Update HLTB data
-            </ion-item>
-            <ion-item button detail="false" (click)="openFixHltbMatchFromPopover()">
-              Fix HLTB match
-            </ion-item>
-            <ion-item button detail="false" (click)="openImagePickerFromPopover()">
-              Update image
-            </ion-item>
-            <ion-item button detail="false" (click)="openFixMatchFromPopover()">
-              Fix IGDB match
-            </ion-item>
-            <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
-              Edit metadata
-            </ion-item>
-            <ion-item
-              button
-              detail="false"
-              color="danger"
-              (click)="deleteSelectedGameFromPopover()"
-            >
-              Delete
-            </ion-item>
-          </ion-list>
-        </ion-content>
-      </ng-template>
-    </ion-popover>
+    @if (!isSimilarDiscoveryDetailModalOpen) {
+      <ion-popover
+        [id]="getDetailActionsPopoverId()"
+        [trigger]="getDetailActionsTriggerId()"
+        triggerAction="click"
+      >
+        <ng-template>
+          <ion-content>
+            <ion-list lines="none">
+              <ion-item button detail="false" (click)="refreshSelectedGameMetadataFromPopover()">
+                Refresh metadata
+              </ion-item>
+              <ion-item
+                button
+                detail="false"
+                (click)="refreshSelectedGameCompletionTimesFromPopover()"
+              >
+                Update HLTB data
+              </ion-item>
+              <ion-item button detail="false" (click)="refreshSelectedGameReviewFromPopover()">
+                Update review data
+              </ion-item>
+              <ion-item button detail="false" (click)="openFixHltbMatchFromPopover()">
+                Fix HLTB match
+              </ion-item>
+              <ion-item button detail="false" (click)="openFixReviewMatchFromPopover()">
+                Fix review match
+              </ion-item>
+              <ion-item button detail="false" (click)="openImagePickerFromPopover()">
+                Update image
+              </ion-item>
+              <ion-item button detail="false" (click)="openFixMatchFromPopover()">
+                Fix IGDB match
+              </ion-item>
+              <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
+                Edit metadata
+              </ion-item>
+              <ion-item
+                button
+                detail="false"
+                color="danger"
+                (click)="deleteSelectedGameFromPopover()"
+              >
+                Delete
+              </ion-item>
+            </ion-list>
+          </ion-content>
+        </ng-template>
+      </ion-popover>
+    }
 
     @if (selectedGame; as game) {
       @if (isDesktopDetailLayout) {
@@ -317,128 +338,205 @@
     appAutoContentOffsets
   >
     <div class="detail-content-inner">
-      <app-game-detail-content
-        [game]="getDetailGamePayload(game)"
-        context="library"
-        [statusOptions]="statusOptions"
-        [ratingOptions]="ratingOptions"
-        (statusChange)="onSelectedGameStatusChange($event)"
-        (clearStatus)="clearSelectedGameStatus()"
-        (ratingChange)="onSelectedGameRatingChange($event)"
-        (clearRating)="clearSelectedGameRating()"
-        (openTags)="openSelectedGameTagsFromDetail()"
-        (developerClick)="onDetailDeveloperClick()"
-        (seriesClick)="onDetailSeriesClick()"
-        (franchiseClick)="onDetailFranchiseClick()"
-        (genreClick)="onDetailGenreClick()"
-        (publisherClick)="onDetailPublisherClick()"
-      >
-        <ion-list lines="full" detail-secondary-content>
-          <ion-list-header class="similar-games-header">
-            <ion-label>Similar Games In Your Library</ion-label>
-          </ion-list-header>
-          @if (isSimilarLibraryGamesLoading) {
-            <ion-item>
-              <ion-spinner slot="start" name="crescent"></ion-spinner>
-              <ion-label>Loading similar games...</ion-label>
-            </ion-item>
-          }
-          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length === 0) {
-            <ion-item>
-              <ion-label color="medium">No similar games found in your library.</ion-label>
-            </ion-item>
-          }
-          @if (!isSimilarLibraryGamesLoading && similarLibraryGames.length > 0) {
-            @for (
-              similarGame of similarLibraryGames;
-              track trackByExternalId($index, similarGame)
-            ) {
-              <ng-container
-                *ngTemplateOutlet="
-                  gameRowTemplate;
-                  context: { $implicit: similarGame, fromSimilarDetailSection: true }
-                "
-              ></ng-container>
+      @if (isSimilarDiscoveryDetailModalOpen) {
+        <ion-loading
+          [isOpen]="isSimilarDiscoveryDetailLoading"
+          message="Loading game details..."
+          spinner="crescent"
+          [backdropDismiss]="false"
+        ></ion-loading>
+        @if (similarDiscoveryDetailErrorMessage.length > 0) {
+          <ion-item lines="none">
+            <ion-text color="danger">{{ similarDiscoveryDetailErrorMessage }}</ion-text>
+          </ion-item>
+        }
+        @if (similarDiscoveryDetail; as discoveryGame) {
+          <app-game-detail-content
+            [game]="discoveryGame"
+            context="explore"
+            [showAddToLibraryAction]="true"
+            [isInLibrary]="isSimilarDiscoveryInLibrary"
+            [isAddToLibraryLoading]="isSimilarDiscoveryAddLoading"
+            (addToLibrary)="addSimilarDiscoveryDetailToLibrary()"
+          >
+            <ion-list lines="full" detail-secondary-content>
+              <ion-list-header class="similar-games-header">
+                <ion-label>More Like This</ion-label>
+              </ion-list-header>
+              @if (isSimilarDiscoveryDetailRelatedLoading) {
+                <ion-item>
+                  <ion-spinner slot="start" name="crescent"></ion-spinner>
+                  <ion-label>Loading similar games...</ion-label>
+                </ion-item>
+              } @else if (similarDiscoveryDetailRelatedError.length > 0) {
+                <ion-item lines="none">
+                  <ion-label color="medium">{{ similarDiscoveryDetailRelatedError }}</ion-label>
+                </ion-item>
+              } @else if (similarDiscoveryDetailRelatedGames.length === 0) {
+                <ion-item lines="none">
+                  <ion-label color="medium">No similar recommendations available.</ion-label>
+                </ion-item>
+              } @else {
+                @for (
+                  similarGame of getVisibleSimilarDiscoveryDetailRelatedGames();
+                  track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
+                ) {
+                  <app-similar-game-row
+                    [title]="similarGame.title"
+                    [coverUrl]="similarGame.coverUrl"
+                    [subtitle]="similarGame.subtitle"
+                    [badges]="getSimilarDiscoveryBadges(similarGame)"
+                    [headline]="similarGame.reasons.summary"
+                    (rowClick)="onSimilarDiscoveryRowClick(similarGame)"
+                  ></app-similar-game-row>
+                }
+                <ion-infinite-scroll
+                  [disabled]="!canLoadMoreSimilarDiscoveryDetailRelatedGames()"
+                  threshold="15px"
+                  (ionInfinite)="loadMoreSimilarDiscoveryDetailRelatedGames($event)"
+                >
+                  <ion-infinite-scroll-content
+                    loadingSpinner="crescent"
+                  ></ion-infinite-scroll-content>
+                </ion-infinite-scroll>
+              }
+            </ion-list>
+          </app-game-detail-content>
+        }
+      } @else {
+        <app-game-detail-content
+          [game]="getDetailGamePayload(game)"
+          context="library"
+          [statusOptions]="statusOptions"
+          (statusChange)="onSelectedGameStatusChange($event)"
+          (clearStatus)="clearSelectedGameStatus()"
+          (editRating)="openSelectedGameRatingFromDetail()"
+          (openTags)="openSelectedGameTagsFromDetail()"
+          (developerClick)="onDetailDeveloperClick()"
+          (seriesClick)="onDetailSeriesClick()"
+          (franchiseClick)="onDetailFranchiseClick()"
+          (genreClick)="onDetailGenreClick()"
+          (publisherClick)="onDetailPublisherClick()"
+        >
+          <ion-list lines="full" detail-secondary-content>
+            <ion-list-header class="similar-games-header">
+              <ion-label>More Like This</ion-label>
+            </ion-list-header>
+            <ion-toolbar class="segment-toolbar">
+              <ion-segment
+                [value]="similarDetailMode"
+                (ionChange)="onSimilarDetailModeChange($any($event).detail.value)"
+              >
+                <ion-segment-button value="library">
+                  <ion-label>In Library</ion-label>
+                </ion-segment-button>
+                <ion-segment-button value="discovery">
+                  <ion-label>Discover Related</ion-label>
+                </ion-segment-button>
+              </ion-segment>
+            </ion-toolbar>
+
+            @if (similarDetailMode === 'library' && isSimilarLibraryGamesLoading) {
+              <ion-item>
+                <ion-spinner slot="start" name="crescent"></ion-spinner>
+                <ion-label>Loading similar games...</ion-label>
+              </ion-item>
             }
-          }
-        </ion-list>
-      </app-game-detail-content>
+            @if (
+              similarDetailMode === 'library' &&
+              !isSimilarLibraryGamesLoading &&
+              similarLibraryGames.length === 0
+            ) {
+              <ion-item>
+                <ion-label color="medium">No similar recommendations available.</ion-label>
+              </ion-item>
+            }
+            @if (
+              similarDetailMode === 'library' &&
+              !isSimilarLibraryGamesLoading &&
+              similarLibraryGames.length > 0
+            ) {
+              @for (
+                similarGame of getVisibleSimilarLibraryGames();
+                track trackByExternalId($index, similarGame.game)
+              ) {
+                <app-similar-game-row
+                  [title]="getGameDisplayTitle(similarGame.game)"
+                  [coverUrl]="getRowCoverUrl(similarGame.game)"
+                  [subtitle]="getSimilarGameSubtitle(similarGame)"
+                  [badges]="getSimilarGameBadges(similarGame)"
+                  [headline]="similarGame.reasons.summary"
+                  (rowClick)="onGameRowClick(similarGame.game, true)"
+                ></app-similar-game-row>
+              }
+              <ion-infinite-scroll
+                [disabled]="!canLoadMoreSimilarLibraryGames()"
+                threshold="15px"
+                (ionInfinite)="loadMoreSimilarLibraryGames($event)"
+              >
+                <ion-infinite-scroll-content
+                  loadingSpinner="crescent"
+                ></ion-infinite-scroll-content>
+              </ion-infinite-scroll>
+            }
+            @if (similarDetailMode === 'discovery' && isSimilarDiscoveryGamesLoading) {
+              <ion-item>
+                <ion-spinner slot="start" name="crescent"></ion-spinner>
+                <ion-label>Loading discovery suggestions...</ion-label>
+              </ion-item>
+            }
+            @if (
+              similarDetailMode === 'discovery' &&
+              !isSimilarDiscoveryGamesLoading &&
+              similarDiscoveryGames.length === 0
+            ) {
+              <ion-item>
+                <ion-label color="medium"
+                  >No discovery suggestions available for this game.</ion-label
+                >
+              </ion-item>
+            }
+            @if (
+              similarDetailMode === 'discovery' &&
+              !isSimilarDiscoveryGamesLoading &&
+              similarDiscoveryGames.length > 0
+            ) {
+              @for (
+                similarGame of getVisibleSimilarDiscoveryGames();
+                track similarGame.igdbGameId + '-' + similarGame.platformIgdbId
+              ) {
+                <app-similar-game-row
+                  [title]="similarGame.title"
+                  [coverUrl]="similarGame.coverUrl"
+                  [subtitle]="similarGame.subtitle"
+                  [badges]="getSimilarDiscoveryBadges(similarGame)"
+                  [headline]="similarGame.reasons.summary"
+                  (rowClick)="onSimilarDiscoveryRowClick(similarGame)"
+                ></app-similar-game-row>
+              }
+              <ion-infinite-scroll
+                [disabled]="!canLoadMoreSimilarDiscoveryGames()"
+                threshold="15px"
+                (ionInfinite)="loadMoreSimilarDiscoveryGames($event)"
+              >
+                <ion-infinite-scroll-content
+                  loadingSpinner="crescent"
+                ></ion-infinite-scroll-content>
+              </ion-infinite-scroll>
+            }
+          </ion-list>
+        </app-game-detail-content>
+      }
     </div>
-    <ion-fab
-      #detailShortcutsFab
-      slot="fixed"
-      vertical="bottom"
-      horizontal="end"
-      class="detail-shortcuts-fab"
-    >
-      <ion-fab-button size="small" aria-label="Open web shortcuts">
-        <ion-icon name="globe" aria-hidden="true"></ion-icon>
-      </ion-fab-button>
-      <ion-fab-list side="top" (click)="closeDetailShortcutsFab()">
-        @if (shouldShowNotesShortcut) {
-          <ion-fab-button
-            class="shortcut-notes"
-            color="deep-ocean"
-            aria-label="Open notes editor"
-            (click)="openNotesEditor()"
-          >
-            <ion-icon name="document-text" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
-        @if (shouldShowOpenManualButton) {
-          <ion-fab-button
-            class="shortcut-manual"
-            color="ocean"
-            aria-label="Open game manual PDF"
-            (click)="openManualPdf()"
-          >
-            <ion-icon name="book" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
-        @if (shouldShowFindManualButton) {
-          <ion-fab-button
-            class="shortcut-manual-find"
-            color="dark-gray"
-            aria-label="Find game manual PDF"
-            (click)="openManualPickerModal()"
-          >
-            <ion-icon name="search" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
-        <ion-fab-button
-          class="shortcut-google"
-          color="forest"
-          aria-label="Search on Google"
-          (click)="openShortcutSearch('google')"
-        >
-          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-youtube"
-          color="firetruck"
-          aria-label="Search on YouTube"
-          (click)="openShortcutSearch('youtube')"
-        >
-          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-wikipedia"
-          color="white"
-          aria-label="Search on Wikipedia"
-          (click)="openShortcutSearch('wikipedia')"
-        >
-          <span class="shortcut-text" aria-hidden="true">W</span>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-gamefaqs"
-          color="royal"
-          aria-label="Search on GameFAQs"
-          (click)="openShortcutSearch('gamefaqs')"
-        >
-          <span class="shortcut-text" aria-hidden="true">G</span>
-        </ion-fab-button>
-      </ion-fab-list>
-    </ion-fab>
+    <app-detail-shortcuts-fab
+      [showNotesShortcut]="shouldShowNotesShortcut"
+      [showOpenManualButton]="shouldShowOpenManualButton"
+      [showFindManualButton]="shouldShowFindManualButton"
+      (notesClick)="openNotesEditor()"
+      (openManualClick)="openManualPdf()"
+      (findManualClick)="openManualPickerModal()"
+      (shortcutSearch)="openShortcutSearch($event)"
+    ></app-detail-shortcuts-fab>
   </ion-content>
 </ng-template>
 
@@ -900,6 +998,92 @@
   </ng-template>
 </ion-modal>
 
+<ion-modal [isOpen]="isReviewPickerModalOpen" (didDismiss)="closeReviewPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select Review Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closeReviewPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding gs-safe-bottom">
+      <ion-item lines="none">
+        <ion-searchbar
+          [value]="reviewPickerQuery"
+          placeholder="Search Review"
+          show-clear-button="focus"
+          (ionInput)="onReviewPickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button slot="end" [disabled]="isReviewPickerLoading" (click)="runReviewPickerSearch()"
+          >Search</ion-button
+        >
+      </ion-item>
+
+      @if (isReviewPickerLoading) {
+        <div class="picker-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (!isReviewPickerLoading && reviewPickerError) {
+        <p class="picker-state ion-text-center">
+          {{ reviewPickerError }}
+        </p>
+      }
+
+      @if (
+        hasReviewPickerSearched &&
+        !isReviewPickerLoading &&
+        !reviewPickerError &&
+        reviewPickerResults.length === 0
+      ) {
+        <p class="picker-state ion-text-center">No review results found.</p>
+      }
+
+      @if (!isReviewPickerLoading && reviewPickerResults.length > 0) {
+        <ion-list>
+          @for (candidate of reviewPickerResults; track candidate) {
+            <ion-item button detail="false" (click)="applySelectedReviewCandidate(candidate)">
+              @if (candidate.imageUrl) {
+                <div slot="start" class="candidate-thumbnail">
+                  <img [src]="candidate.imageUrl" alt="Review result cover" />
+                </div>
+              }
+              <ion-label>
+                <h2>{{ candidate.title }}</h2>
+                <p>
+                  {{ candidate.releaseYear || 'Unknown year' }}
+                  @if (candidate.platform) {
+                    <span> · {{ candidate.platform }}</span>
+                  }
+                </p>
+                <p>
+                  Score:
+                  <strong>{{ candidate.reviewScore ?? candidate.metacriticScore ?? '?' }}</strong>
+                </p>
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+
+      <ion-item lines="none">
+        <ion-button
+          expand="block"
+          fill="outline"
+          [disabled]="isReviewPickerLoading"
+          (click)="useOriginalReviewLookup()"
+        >
+          Use Original Match
+        </ion-button>
+      </ion-item>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
 <ion-modal [isOpen]="isRatingModalOpen" (didDismiss)="closeRatingModal()">
   <ng-template>
     <ion-header>
@@ -924,11 +1108,12 @@
         class="rating-range"
         min="1"
         max="5"
-        step="1"
+        step="0.5"
         [value]="ratingDraft"
         [snaps]="true"
         [ticks]="true"
         [pin]="true"
+        [pinFormatter]="formatRatingPin"
         (ionChange)="onRatingRangeChange($event)"
       >
         <ion-icon slot="start" name="star-outline" aria-hidden="true"></ion-icon>

@@ -78,6 +78,7 @@ import {
   HltbMatchCandidate,
   ReviewMatchCandidate,
   GameRating,
+  RecommendationSimilarityReasons,
   RecommendationTarget,
   GameStatus,
   GameType,
@@ -166,6 +167,12 @@ export interface GameListSelectionState {
   active: boolean;
   selectedCount: number;
   allDisplayedSelected: boolean;
+}
+
+interface SimilarLibraryGameRow {
+  game: GameEntry;
+  similarity: number;
+  reasons: RecommendationSimilarityReasons;
 }
 
 type NotesToolbarAction =
@@ -301,7 +308,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   hasReviewPickerSearched = false;
   selectedGame: GameEntry | null = null;
   detailNavigationStack: GameEntry[] = [];
-  similarLibraryGames: GameEntry[] = [];
+  similarLibraryGames: SimilarLibraryGameRow[] = [];
   visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
   isSimilarLibraryGamesLoading = false;
   ratingTargetGame: GameEntry | null = null;
@@ -3092,11 +3099,20 @@ export class GameListComponent implements OnChanges, OnDestroy {
       }
 
       this.similarLibraryGames = similarResponse.items
-        .map(
-          (item) =>
-            libraryByIdentity.get(`${item.igdbGameId}::${String(item.platformIgdbId)}`) ?? null
-        )
-        .filter((entry): entry is GameEntry => entry !== null);
+        .map((item) => {
+          const game =
+            libraryByIdentity.get(`${item.igdbGameId}::${String(item.platformIgdbId)}`) ?? null;
+          if (!game) {
+            return null;
+          }
+
+          return {
+            game,
+            similarity: item.similarity,
+            reasons: item.reasons
+          } satisfies SimilarLibraryGameRow;
+        })
+        .filter((entry): entry is SimilarLibraryGameRow => entry !== null);
       this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     } catch {
       if (requestId === this.similarLibraryLoadRequestId) {
@@ -3115,15 +3131,23 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.listType === 'collection' ? 'BACKLOG' : 'WISHLIST';
   }
 
-  getSimilarGameSubtitle(game: GameEntry): string {
+  getSimilarGameSubtitle(row: SimilarLibraryGameRow): string {
+    const game = row.game;
     const year = Number.isInteger(game.releaseYear) ? String(game.releaseYear) : 'Unknown year';
     const displayPlatform = this.getGameDisplayPlatform(game);
     const platform = this.getPlatformLabel(displayPlatform.name, displayPlatform.igdbId);
     return `${year} · ${platform}`;
   }
 
-  getVisibleSimilarLibraryGames(): GameEntry[] {
+  getVisibleSimilarLibraryGames(): SimilarLibraryGameRow[] {
     return this.similarLibraryGames.slice(0, this.visibleSimilarLibraryGamesCount);
+  }
+
+  getSimilarGameBadges(row: SimilarLibraryGameRow): Array<{
+    text: string;
+    color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
+  }> {
+    return [{ text: `Blend ${row.similarity.toFixed(2)}`, color: 'primary' }];
   }
 
   canLoadMoreSimilarLibraryGames(): boolean {

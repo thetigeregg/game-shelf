@@ -37,6 +37,8 @@ import {
   TunedRecommendationWeights
 } from './types.js';
 
+const RANKING_DEDUPE_BUFFER = 25;
+
 export interface RecommendationServiceOptions {
   topLimit: number;
   laneLimit: number;
@@ -618,13 +620,14 @@ export class RecommendationService implements RecommendationServiceApi {
     } = params;
     const profile = buildPreferenceProfile(games);
     const candidates = selectCandidates(games, target);
+    const rankedLimit = Math.min(candidates.length, this.options.topLimit + RANKING_DEDUPE_BUFFER);
 
     return createModeRecord((runtimeMode) => {
       const ranked = buildRankedScores({
         candidates,
         target,
         profile,
-        limit: Math.max(candidates.length, this.options.topLimit),
+        limit: rankedLimit,
         runtimeMode,
         semanticSimilarityByGame,
         tunedWeights,

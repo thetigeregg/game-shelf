@@ -435,6 +435,10 @@ export class GameSyncService implements SyncOutboxWriter {
       developers: this.normalizeStringList(payload.developers),
       franchises: this.normalizeStringList(payload.franchises),
       genres: this.normalizeStringList(payload.genres),
+      themes: this.normalizeStringList(payload.themes),
+      themeIds: this.normalizePositiveIntegerList(payload.themeIds),
+      keywords: this.normalizeStringList(payload.keywords),
+      keywordIds: this.normalizePositiveIntegerList(payload.keywordIds),
       publishers: this.normalizeStringList(payload.publishers),
       platform,
       customPlatform: this.normalizeCustomPlatform(
@@ -653,6 +657,31 @@ export class GameSyncService implements SyncOutboxWriter {
         value
           .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
           .filter((entry) => entry.length > 0)
+      )
+    ];
+  }
+
+  private normalizePositiveIntegerList(value: unknown): number[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return [
+      ...new Set(
+        value
+          .map((entry) => {
+            if (typeof entry === 'number') {
+              return Number.isInteger(entry) ? entry : Number.NaN;
+            }
+
+            if (typeof entry === 'string') {
+              const trimmed = entry.trim();
+              return /^\d+$/.test(trimmed) ? Number.parseInt(trimmed, 10) : Number.NaN;
+            }
+
+            return Number.NaN;
+          })
+          .filter((entry) => Number.isInteger(entry) && entry > 0)
       )
     ];
   }

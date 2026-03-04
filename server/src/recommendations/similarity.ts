@@ -287,6 +287,8 @@ function buildReasons(params: {
     }
   }
 
+  dedupeSeriesSharedTokens(sharedTokens);
+
   for (const family of TOKEN_FAMILIES) {
     sharedTokens[family] = sharedTokens[family].slice(0, 3);
   }
@@ -339,6 +341,22 @@ function buildSummary(
   }
 
   return parts.length > 0 ? parts.join(' • ') : 'Shared metadata and semantic overlap';
+}
+
+function dedupeSeriesSharedTokens(sharedTokens: SimilarityReasons['sharedTokens']): void {
+  if (sharedTokens.collections.length === 0 || sharedTokens.franchises.length === 0) {
+    return;
+  }
+
+  const collectionLabels = new Set(
+    sharedTokens.collections
+      .map((label) => normalizeTokenLabel(label))
+      .filter((label) => label.length > 0)
+  );
+
+  sharedTokens.franchises = sharedTokens.franchises.filter(
+    (label) => !collectionLabels.has(normalizeTokenLabel(label))
+  );
 }
 
 function compareSimilarityEdges(left: SimilarityEdge, right: SimilarityEdge): number {

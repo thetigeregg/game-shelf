@@ -413,11 +413,13 @@ function shouldAttemptProvider(params: {
   nowMs: number;
   maxAttempts: number;
 }): boolean {
+  const maxAttempts = Math.max(1, params.maxAttempts);
+
   if (params.state.permanentMiss) {
     return false;
   }
 
-  if (params.state.attempts >= params.maxAttempts) {
+  if (params.state.attempts >= maxAttempts) {
     return false;
   }
 

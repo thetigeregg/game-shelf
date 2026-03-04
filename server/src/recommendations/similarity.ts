@@ -27,6 +27,8 @@ const TOKEN_FAMILIES: TokenFamily[] = [
 export function buildSimilarityGraph(params: {
   games: NormalizedGameRecord[];
   topK: number;
+  sourceGames?: NormalizedGameRecord[];
+  targetGames?: NormalizedGameRecord[];
   embeddingsByGame?: Map<string, number[]>;
   structuredWeight?: number;
   semanticWeight?: number;
@@ -43,6 +45,8 @@ export function buildSimilarityGraph(params: {
   const {
     games,
     topK,
+    sourceGames = games,
+    targetGames = games,
     embeddingsByGame = new Map<string, number[]>(),
     structuredWeight = 0.6,
     semanticWeight = 0.4,
@@ -57,28 +61,30 @@ export function buildSimilarityGraph(params: {
     }
   } = params;
 
-  const index = games.map((game) => {
+  const indexByKey = new Map<string, GameTokenIndex>();
+  for (const game of games) {
     const tokens = buildTokenEntries(game, { structuredKeywordsByGame });
     const key = buildGameKey(game.igdbGameId, game.platformIgdbId);
-    return {
+    indexByKey.set(key, {
       game,
       byKey: new Map(tokens.map((token) => [token.key, token])),
       embedding: embeddingsByGame.get(key) ?? null
-    } satisfies GameTokenIndex;
-  });
+    });
+  }
+
+  const sourceIndex = sourceGames
+    .map((game) => indexByKey.get(buildGameKey(game.igdbGameId, game.platformIgdbId)) ?? null)
+    .filter((entry): entry is GameTokenIndex => entry !== null);
+  const targetIndex = targetGames
+    .map((game) => indexByKey.get(buildGameKey(game.igdbGameId, game.platformIgdbId)) ?? null)
+    .filter((entry): entry is GameTokenIndex => entry !== null);
 
   const edges: SimilarityEdge[] = [];
 
-  for (let sourceIndex = 0; sourceIndex < index.length; sourceIndex += 1) {
-    const source = index[sourceIndex];
+  for (const source of sourceIndex) {
     const candidates: SimilarityEdge[] = [];
 
-    for (let targetIndex = 0; targetIndex < index.length; targetIndex += 1) {
-      if (sourceIndex === targetIndex) {
-        continue;
-      }
-
-      const target = index[targetIndex];
+    for (const target of targetIndex) {
       if (source.game.igdbGameId === target.game.igdbGameId) {
         continue;
       }

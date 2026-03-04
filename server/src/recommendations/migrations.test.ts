@@ -25,7 +25,9 @@ void test('recommendation migrations are present and idempotent runner executes 
   );
   assert.equal(recommendationSql.includes('CREATE TABLE IF NOT EXISTS game_similarity'), true);
   assert.equal(recommendationSql.includes('ADD COLUMN IF NOT EXISTS run_id BIGINT'), true);
+  assert.equal(recommendationSql.includes('ADD COLUMN IF NOT EXISTS target TEXT'), true);
   assert.equal(recommendationSql.includes('ADD COLUMN IF NOT EXISTS runtime_mode TEXT'), true);
+  assert.equal(recommendationSql.includes('game_similarity_target_check'), true);
   assert.equal(
     recommendationSql.includes('game_similarity_runtime_mode_check') &&
       recommendationSql.includes("('NEUTRAL', 'SHORT', 'LONG')"),

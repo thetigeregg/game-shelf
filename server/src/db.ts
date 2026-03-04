@@ -218,6 +218,7 @@ export const MIGRATIONS: string[] = [
   `
   CREATE TABLE IF NOT EXISTS game_similarity (
     run_id BIGINT,
+    target TEXT,
     runtime_mode TEXT,
     source_igdb_game_id TEXT NOT NULL,
     source_platform_igdb_id INTEGER NOT NULL,
@@ -246,7 +247,19 @@ export const MIGRATIONS: string[] = [
   `,
   `
   ALTER TABLE game_similarity
+  ADD COLUMN IF NOT EXISTS target TEXT;
+  `,
+  `
+  ALTER TABLE game_similarity
   ADD COLUMN IF NOT EXISTS runtime_mode TEXT;
+  `,
+  `
+  UPDATE game_similarity gs
+  SET target = rr.target
+  FROM recommendation_runs rr
+  WHERE gs.target IS NULL
+    AND gs.run_id IS NOT NULL
+    AND rr.id = gs.run_id;
   `,
   `
   UPDATE game_similarity
@@ -264,6 +277,23 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE game_similarity
   ALTER COLUMN runtime_mode SET NOT NULL;
+  `,
+  `
+  ALTER TABLE game_similarity
+  ALTER COLUMN target SET NOT NULL;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'game_similarity_target_check'
+    ) THEN
+      ALTER TABLE game_similarity
+      ADD CONSTRAINT game_similarity_target_check
+      CHECK (target IN ('BACKLOG', 'WISHLIST', 'DISCOVERY'));
+    END IF;
+  END $$;
   `,
   `
   DO $$
@@ -312,6 +342,7 @@ export const MIGRATIONS: string[] = [
       ADD CONSTRAINT game_similarity_pkey
       PRIMARY KEY (
         run_id,
+        target,
         runtime_mode,
         source_igdb_game_id,
         source_platform_igdb_id,
@@ -328,6 +359,7 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS game_similarity_run_mode_source_similarity_idx
   ON game_similarity (
     run_id,
+    target,
     runtime_mode,
     source_igdb_game_id,
     source_platform_igdb_id,

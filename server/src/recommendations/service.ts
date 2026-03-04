@@ -250,8 +250,11 @@ export class RecommendationService implements RecommendationServiceApi {
           recommendationsByMode
         });
         const historyUpdates = this.buildHistoryUpdates(params.target, recommendationsByMode);
+        const similarityTargets = selectCandidates(games, params.target);
         const similarityEdges = buildSimilarityGraph({
           games,
+          sourceGames: games,
+          targetGames: similarityTargets,
           topK: this.options.similarityK,
           embeddingsByGame,
           structuredWeight: this.options.similarityStructuredWeight,
@@ -271,6 +274,7 @@ export class RecommendationService implements RecommendationServiceApi {
         await this.repository.finalizeRunSuccess({
           client,
           runId,
+          target: params.target,
           recommendationsByMode,
           lanesByMode,
           historyUpdates,

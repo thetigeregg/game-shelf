@@ -409,6 +409,7 @@ export class RecommendationRepository {
   async finalizeRunSuccess(params: {
     client: Queryable;
     runId: number;
+    target: RecommendationTarget;
     recommendationsByMode: Record<RecommendationRuntimeMode, RankedRecommendationItem[]>;
     lanesByMode: Record<RecommendationRuntimeMode, RecommendationLaneCollection>;
     historyUpdates: Array<{
@@ -511,6 +512,7 @@ export class RecommendationRepository {
             INSERT INTO game_similarity
               (
                 run_id,
+                target,
                 runtime_mode,
                 source_igdb_game_id,
                 source_platform_igdb_id,
@@ -520,10 +522,11 @@ export class RecommendationRepository {
                 reasons,
                 updated_at
               )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW())
             `,
             [
               params.runId,
+              params.target,
               runtimeMode,
               edge.sourceIgdbGameId,
               edge.sourcePlatformIgdbId,
@@ -709,17 +712,19 @@ export class RecommendationRepository {
         ON games.igdb_game_id = game_similarity.similar_igdb_game_id
        AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
       WHERE run_id = $1
-        AND runtime_mode = $2
-        AND source_igdb_game_id = $3
-        AND source_platform_igdb_id = $4
-        AND similar_igdb_game_id <> $3
-        AND COALESCE(games.payload->>'listType', '') = $5
-        AND COALESCE(games.payload->>'status', '') = ANY($6::text[])
+        AND target = $2
+        AND runtime_mode = $3
+        AND source_igdb_game_id = $4
+        AND source_platform_igdb_id = $5
+        AND similar_igdb_game_id <> $4
+        AND COALESCE(games.payload->>'listType', '') = $6
+        AND COALESCE(games.payload->>'status', '') = ANY($7::text[])
       ORDER BY similarity DESC, similar_igdb_game_id ASC, similar_platform_igdb_id ASC
-      LIMIT $7
+      LIMIT $8
       `,
       [
         run.id,
+        params.target,
         params.runtimeMode,
         params.igdbGameId,
         params.platformIgdbId,

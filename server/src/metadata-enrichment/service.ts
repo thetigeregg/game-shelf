@@ -103,7 +103,7 @@ export class MetadataEnrichmentService {
 
     console.info('[metadata_enrichment] completed', {
       ...lockResult.value,
-      startedAt: new Date(this.now()).toISOString()
+      completedAt: new Date(this.now()).toISOString()
     });
     return lockResult.value;
   }

@@ -267,7 +267,11 @@ export class RecommendationRepository {
       FROM games
       WHERE COALESCE(payload->>'listType', '') = 'discovery'
         AND (
-          COALESCE((payload->>'hltbMainHours')::text, '') = ''
+          (
+            COALESCE((payload->>'hltbMainHours')::text, '') = ''
+            AND COALESCE((payload->>'hltbMainExtraHours')::text, '') = ''
+            AND COALESCE((payload->>'hltbCompletionistHours')::text, '') = ''
+          )
           OR (
             COALESCE((payload->>'reviewScore')::text, '') = ''
             AND COALESCE((payload->>'metacriticScore')::text, '') = ''

@@ -18,6 +18,9 @@ export interface DiscoveryEnrichmentServiceOptions {
   maxGamesPerRun: number;
   requestTimeoutMs: number;
   apiBaseUrl: string;
+  maxAttempts: number;
+  backoffBaseMinutes: number;
+  backoffMaxHours: number;
 }
 
 export interface DiscoveryEnrichmentSummary {
@@ -39,6 +42,18 @@ interface MetacriticResponse {
     metacriticScore?: number | null;
     metacriticUrl?: string | null;
   } | null;
+}
+
+interface ProviderRetryState {
+  attempts: number;
+  lastTriedAt: string | null;
+  nextTryAt: string | null;
+  permanentMiss: boolean;
+}
+
+interface DiscoveryEnrichmentRetryState {
+  hltb: ProviderRetryState;
+  metacritic: ProviderRetryState;
 }
 
 export class DiscoveryEnrichmentService {
@@ -174,52 +189,128 @@ export class DiscoveryEnrichmentService {
       typeof payload.platform === 'string' && payload.platform.trim().length > 0
         ? payload.platform.trim()
         : null;
+    const hasHltb = hasPositiveNumber(payload.hltbMainHours);
+    const hasCritic =
+      hasPositiveNumber(payload.reviewScore) || hasPositiveNumber(payload.metacriticScore);
+    const nowMs = this.now();
+    const nowIso = new Date(nowMs).toISOString();
+
+    const retryState = parseRetryState(payload.enrichmentRetry);
+    const shouldTryHltb =
+      !hasHltb &&
+      shouldAttemptProvider({
+        state: retryState.hltb,
+        nowMs,
+        maxAttempts: this.options.maxAttempts
+      });
+    const shouldTryMetacritic =
+      !hasCritic &&
+      shouldAttemptProvider({
+        state: retryState.metacritic,
+        nowMs,
+        maxAttempts: this.options.maxAttempts
+      });
+
+    if (!shouldTryHltb && !shouldTryMetacritic) {
+      const next = { ...payload };
+      const nextRetryState = buildNextRetryState({
+        current: retryState,
+        needsHltb: !hasHltb,
+        needsMetacritic: !hasCritic
+      });
+      applyRetryState(next, nextRetryState);
+      return next;
+    }
 
     const [hltbResponse, metacriticResponse] = await Promise.all([
-      this.fetchJson<HltbResponse>(
-        this.buildLocalUrl('/v1/hltb/search', {
-          q: title,
-          ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
-          ...(platform ? { platform } : {})
-        })
-      ),
-      this.fetchJson<MetacriticResponse>(
-        this.buildLocalUrl('/v1/metacritic/search', {
-          q: title,
-          ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
-          ...(platform ? { platform } : {}),
-          platformIgdbId: String(platformIgdbId)
-        })
-      )
+      shouldTryHltb
+        ? this.fetchJson<HltbResponse>(
+            this.buildLocalUrl('/v1/hltb/search', {
+              q: title,
+              ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
+              ...(platform ? { platform } : {})
+            })
+          )
+        : Promise.resolve(null),
+      shouldTryMetacritic
+        ? this.fetchJson<MetacriticResponse>(
+            this.buildLocalUrl('/v1/metacritic/search', {
+              q: title,
+              ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
+              ...(platform ? { platform } : {}),
+              platformIgdbId: String(platformIgdbId)
+            })
+          )
+        : Promise.resolve(null)
     ]);
 
     const next: Record<string, unknown> = { ...payload };
+    const nextRetryState: DiscoveryEnrichmentRetryState = {
+      hltb: retryState.hltb,
+      metacritic: retryState.metacritic
+    };
+
     const hltbItem = hltbResponse?.item ?? null;
+    let foundHltb = hasHltb;
     if (hltbItem) {
       if (typeof hltbItem.hltbMainHours === 'number' && hltbItem.hltbMainHours > 0) {
         next.hltbMainHours = round2(hltbItem.hltbMainHours);
+        foundHltb = true;
       }
       if (typeof hltbItem.hltbMainExtraHours === 'number' && hltbItem.hltbMainExtraHours > 0) {
         next.hltbMainExtraHours = round2(hltbItem.hltbMainExtraHours);
+        foundHltb = true;
       }
       if (
         typeof hltbItem.hltbCompletionistHours === 'number' &&
         hltbItem.hltbCompletionistHours > 0
       ) {
         next.hltbCompletionistHours = round2(hltbItem.hltbCompletionistHours);
+        foundHltb = true;
       }
+    }
+    if (shouldTryHltb) {
+      nextRetryState.hltb = nextProviderRetryState({
+        current: retryState.hltb,
+        nowIso,
+        success: foundHltb,
+        maxAttempts: this.options.maxAttempts,
+        backoffBaseMinutes: this.options.backoffBaseMinutes,
+        backoffMaxHours: this.options.backoffMaxHours
+      });
     }
 
     const critic = metacriticResponse?.item ?? null;
+    let foundCritic = hasCritic;
     if (critic && typeof critic.metacriticScore === 'number' && critic.metacriticScore > 0) {
       next.reviewSource = 'metacritic';
       next.reviewScore = round2(critic.metacriticScore);
       next.metacriticScore = round2(critic.metacriticScore);
+      foundCritic = true;
       if (typeof critic.metacriticUrl === 'string' && critic.metacriticUrl.trim().length > 0) {
         next.metacriticUrl = critic.metacriticUrl.trim();
         next.reviewUrl = critic.metacriticUrl.trim();
       }
     }
+    if (shouldTryMetacritic) {
+      nextRetryState.metacritic = nextProviderRetryState({
+        current: retryState.metacritic,
+        nowIso,
+        success: foundCritic,
+        maxAttempts: this.options.maxAttempts,
+        backoffBaseMinutes: this.options.backoffBaseMinutes,
+        backoffMaxHours: this.options.backoffMaxHours
+      });
+    }
+
+    applyRetryState(
+      next,
+      buildNextRetryState({
+        current: nextRetryState,
+        needsHltb: !foundHltb,
+        needsMetacritic: !foundCritic
+      })
+    );
 
     return next;
   }
@@ -259,4 +350,148 @@ export class DiscoveryEnrichmentService {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function hasPositiveNumber(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function parseRetryState(value: unknown): DiscoveryEnrichmentRetryState {
+  const source =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  return {
+    hltb: parseProviderRetryState(source.hltb),
+    metacritic: parseProviderRetryState(source.metacritic)
+  };
+}
+
+function parseProviderRetryState(value: unknown): ProviderRetryState {
+  const source =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const attemptsRaw = source.attempts;
+  const attempts =
+    typeof attemptsRaw === 'number' && Number.isInteger(attemptsRaw) && attemptsRaw > 0
+      ? attemptsRaw
+      : 0;
+
+  const lastTriedAt =
+    typeof source.lastTriedAt === 'string' && Number.isFinite(Date.parse(source.lastTriedAt))
+      ? source.lastTriedAt
+      : null;
+  const nextTryAt =
+    typeof source.nextTryAt === 'string' && Number.isFinite(Date.parse(source.nextTryAt))
+      ? source.nextTryAt
+      : null;
+  const permanentMiss = source.permanentMiss === true;
+
+  return { attempts, lastTriedAt, nextTryAt, permanentMiss };
+}
+
+function shouldAttemptProvider(params: {
+  state: ProviderRetryState;
+  nowMs: number;
+  maxAttempts: number;
+}): boolean {
+  if (params.state.permanentMiss) {
+    return false;
+  }
+
+  if (params.state.attempts >= params.maxAttempts) {
+    return false;
+  }
+
+  if (params.state.nextTryAt) {
+    const nextTryAtMs = Date.parse(params.state.nextTryAt);
+    if (Number.isFinite(nextTryAtMs) && params.nowMs < nextTryAtMs) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function nextProviderRetryState(params: {
+  current: ProviderRetryState;
+  nowIso: string;
+  success: boolean;
+  maxAttempts: number;
+  backoffBaseMinutes: number;
+  backoffMaxHours: number;
+}): ProviderRetryState {
+  if (params.success) {
+    return {
+      attempts: 0,
+      lastTriedAt: params.nowIso,
+      nextTryAt: null,
+      permanentMiss: false
+    };
+  }
+
+  const attempts = Math.max(0, params.current.attempts) + 1;
+  const maxAttempts = Math.max(1, params.maxAttempts);
+  const baseMinutes = Math.max(1, params.backoffBaseMinutes);
+  const maxHours = Math.max(1, params.backoffMaxHours);
+
+  if (attempts >= maxAttempts) {
+    return {
+      attempts,
+      lastTriedAt: params.nowIso,
+      nextTryAt: null,
+      permanentMiss: true
+    };
+  }
+
+  const exponent = Math.max(0, attempts - 1);
+  const delayMinutes = Math.min(baseMinutes * 2 ** exponent, maxHours * 60);
+  const nextTryAt = new Date(Date.parse(params.nowIso) + delayMinutes * 60 * 1000).toISOString();
+
+  return {
+    attempts,
+    lastTriedAt: params.nowIso,
+    nextTryAt,
+    permanentMiss: false
+  };
+}
+
+function buildNextRetryState(params: {
+  current: DiscoveryEnrichmentRetryState;
+  needsHltb: boolean;
+  needsMetacritic: boolean;
+}): DiscoveryEnrichmentRetryState {
+  return {
+    hltb: params.needsHltb
+      ? params.current.hltb
+      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
+    metacritic: params.needsMetacritic
+      ? params.current.metacritic
+      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false }
+  };
+}
+
+function applyRetryState(
+  payload: Record<string, unknown>,
+  state: DiscoveryEnrichmentRetryState
+): void {
+  const shouldKeepHltb = hasMeaningfulRetryState(state.hltb);
+  const shouldKeepMetacritic = hasMeaningfulRetryState(state.metacritic);
+
+  if (!shouldKeepHltb && !shouldKeepMetacritic) {
+    delete payload.enrichmentRetry;
+    return;
+  }
+
+  payload.enrichmentRetry = {
+    ...(shouldKeepHltb ? { hltb: state.hltb } : {}),
+    ...(shouldKeepMetacritic ? { metacritic: state.metacritic } : {})
+  };
+}
+
+function hasMeaningfulRetryState(state: ProviderRetryState): boolean {
+  return state.attempts > 0 || state.permanentMiss || state.nextTryAt !== null;
 }

@@ -189,7 +189,10 @@ export class DiscoveryEnrichmentService {
       typeof payload.platform === 'string' && payload.platform.trim().length > 0
         ? payload.platform.trim()
         : null;
-    const hasHltb = hasPositiveNumber(payload.hltbMainHours);
+    const hasHltb =
+      hasPositiveNumber(payload.hltbMainHours) ||
+      hasPositiveNumber(payload.hltbMainExtraHours) ||
+      hasPositiveNumber(payload.hltbCompletionistHours);
     const hasCritic =
       hasPositiveNumber(payload.reviewScore) || hasPositiveNumber(payload.metacriticScore);
     const nowMs = this.now();

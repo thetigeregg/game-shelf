@@ -50,6 +50,12 @@ cp .env.example .env
 npm run dev:stack:up
 ```
 
+For worktree-safe startup (isolated project name + ports), use:
+
+```bash
+npm run dev:worktree:stack:up
+```
+
 5. (Optional) Follow API logs:
 
 ```bash
@@ -62,8 +68,21 @@ npm run dev:backend:logs
 npm start
 ```
 
+For worktree-safe frontend (matching isolated ports/proxy target), use:
+
+```bash
+npm run dev:worktree:start
+```
+
 Frontend dev server runs on `http://localhost:8100`.
 Manual URLs resolve from the API to `http://127.0.0.1:8080/manuals/...` during dev (served by local `edge`).
+When using `dev:worktree:*` commands, ports are derived from the current worktree path and shown by:
+
+```bash
+npm run dev:worktree:info
+```
+
+This allows multiple worktrees to run concurrently without Docker/container/port clashes.
 When `REQUIRE_AUTH=true`, set `Settings -> Debug -> Device Write Token` on each device using a token from `nas-secrets/client_write_tokens`.
 For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-deployment.md) (`Local Docker-based API development`).
 

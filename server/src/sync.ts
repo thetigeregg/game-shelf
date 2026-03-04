@@ -7,6 +7,7 @@ import type {
   SyncOperationType,
   SyncPushResult
 } from './types.js';
+import { config } from './config.js';
 
 interface SyncEventRow {
   event_id: number;
@@ -37,7 +38,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     url: '/v1/sync/push',
     config: {
       rateLimit: {
-        max: 10,
+        max: config.syncPushRateLimitMaxPerMinute,
         timeWindow: '1 minute'
       }
     },
@@ -112,7 +113,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     url: '/v1/sync/pull',
     config: {
       rateLimit: {
-        max: 10,
+        max: config.syncPullRateLimitMaxPerMinute,
         timeWindow: '1 minute'
       }
     },

@@ -150,6 +150,30 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['Untagged']);
   });
 
+  it('does not treat partially numeric rating strings as valid ratings', () => {
+    const malformedRating = makeGame({
+      igdbGameId: '1',
+      platformIgdbId: 130,
+      title: 'Malformed Rating'
+    });
+    (malformedRating as unknown as { rating: unknown }).rating = '2.5x';
+
+    const validRating = makeGame({
+      igdbGameId: '2',
+      platformIgdbId: 130,
+      title: 'Valid Rating',
+      rating: 2.5
+    });
+
+    const filters: GameListFilters = {
+      ...DEFAULT_GAME_LIST_FILTERS,
+      ratings: [2.5]
+    };
+
+    const result = engine.applyFiltersAndSort([malformedRating, validRating], filters, '');
+    expect(result.map((game) => game.title)).toEqual(['Valid Rating']);
+  });
+
   it('builds grouped sections with no-series bucket', () => {
     const games: GameEntry[] = [
       makeGame({
@@ -647,6 +671,33 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => game.title)).toEqual(['No Data']);
   });
 
+  it('supports half-step rating filters', () => {
+    const games: GameEntry[] = [
+      makeGame({
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        title: 'Half Step Match',
+        rating: 4.5
+      }),
+      makeGame({
+        igdbGameId: '2',
+        platformIgdbId: 130,
+        title: 'Whole Step',
+        rating: 4
+      })
+    ];
+
+    const result = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        ratings: [4.5]
+      },
+      ''
+    );
+    expect(result.map((game) => game.title)).toEqual(['Half Step Match']);
+  });
+
   it('filters by release date range and search query', () => {
     const games: GameEntry[] = [
       makeGame({
@@ -672,6 +723,16 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     const result = engine.applyFiltersAndSort(games, filters, '  mario  ');
     expect(result.map((game) => game.title)).toEqual(['Super Mario']);
+  });
+
+  it('matches search queries with diacritic-insensitive normalization', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Pokémon Emerald' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Metroid Prime' })
+    ];
+
+    const result = engine.applyFiltersAndSort(games, DEFAULT_GAME_LIST_FILTERS, 'pokemon');
+    expect(result.map((game) => game.title)).toEqual(['Pokémon Emerald']);
   });
 
   it('sorts by title and ignores leading articles', () => {

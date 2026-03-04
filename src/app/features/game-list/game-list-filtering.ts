@@ -7,7 +7,8 @@ import {
   GameRatingFilterOption,
   GameStatus,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  isGameRating
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -332,7 +333,7 @@ export class GameListFilteringEngine {
     timePreference = 15
   ): GameEntry[] {
     this.pruneNormalizedFilterCache(games);
-    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+    const normalizedSearchQuery = this.normalizeForSearch(searchQuery);
     const minMainHours = this.normalizeFilterHours(filters.hltbMainHoursMin);
     const maxMainHours = this.normalizeFilterHours(filters.hltbMainHoursMax);
     const sortedGames = this.getSortedGames(
@@ -868,7 +869,7 @@ export class GameListFilteringEngine {
 
     const normalized: NormalizedFilterGame = {
       updatedAt: gameUpdatedAt,
-      titleLower: this.getDisplayTitle(game).toLowerCase(),
+      titleLower: this.normalizeForSearch(this.getDisplayTitle(game)),
       platform: this.getCanonicalPlatformLabel(
         this.getDisplayPlatformName(game),
         this.getDisplayPlatformIgdbId(game)
@@ -888,6 +889,15 @@ export class GameListFilteringEngine {
 
     this.normalizedFilterGameByKey.set(gameKey, normalized);
     return normalized;
+  }
+
+  private normalizeForSearch(value: string | null | undefined): string {
+    return (value ?? '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private matchesTagFilter(tagNames: Set<string>, filterTags: string[]): boolean {
@@ -1129,9 +1139,21 @@ export class GameListFilteringEngine {
   }
 
   private normalizeRating(value: number | string | null | undefined): GameRating | null {
-    const numeric = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!/^[1-5](?:\.0|\.5)?$/.test(trimmed)) {
+        return null;
+      }
+    }
 
-    if (numeric === 1 || numeric === 2 || numeric === 3 || numeric === 4 || numeric === 5) {
+    const numeric =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value.trim())
+          : Number.NaN;
+
+    if (isGameRating(numeric)) {
       return numeric;
     }
 

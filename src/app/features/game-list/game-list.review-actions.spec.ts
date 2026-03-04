@@ -21,12 +21,15 @@ vi.mock('@ionic/angular/standalone', () => {
     IonItemOption: Stub,
     IonPopover: Stub,
     IonContent: Stub,
+    IonLoading: Stub,
     IonModal: Stub,
     IonHeader: Stub,
     IonToolbar: Stub,
     IonTitle: Stub,
     IonButtons: Stub,
     IonButton: Stub,
+    IonSegment: Stub,
+    IonSegmentButton: Stub,
     IonSelect: Stub,
     IonSelectOption: Stub,
     IonSearchbar: Stub,
@@ -43,7 +46,9 @@ vi.mock('@ionic/angular/standalone', () => {
     IonFabList: Stub,
     IonInput: Stub,
     IonMenu: Stub,
-    IonSplitPane: Stub
+    IonSplitPane: Stub,
+    IonInfiniteScroll: Stub,
+    IonInfiniteScrollContent: Stub
   };
 });
 
@@ -109,6 +114,34 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
 }
 
 describe('game-list review actions', () => {
+  it('paginates similar library games in pages of 5', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      similarLibraryGames: Array<{
+        game: GameEntry;
+        similarity: number;
+        reasons: { summary: string };
+      }>;
+      visibleSimilarLibraryGamesCount: number;
+    };
+    const games = Array.from({ length: 11 }, (_, index) => ({
+      game: createGame({ igdbGameId: String(index + 1), platformIgdbId: 6 }),
+      similarity: 0.8,
+      reasons: { summary: 'same series' }
+    }));
+
+    Object.assign(page, {
+      similarLibraryGames: games,
+      visibleSimilarLibraryGamesCount: 5
+    });
+
+    expect(page.getVisibleSimilarLibraryGames()).toHaveLength(5);
+    expect(page.canLoadMoreSimilarLibraryGames()).toBe(true);
+
+    const complete = vi.fn().mockResolvedValue(undefined);
+    await page.loadMoreSimilarLibraryGames({ target: { complete } } as unknown as Event);
+    expect(page.getVisibleSimilarLibraryGames()).toHaveLength(10);
+  });
+
   it('bulk review update processes all selected platforms with review copy', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       displayedGames: GameEntry[];

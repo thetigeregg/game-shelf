@@ -64,8 +64,15 @@ class RepositoryMock {
     return Promise.resolve();
   }
 
-  touchGameUpdatedAt(params: { igdbGameId: string; platformIgdbId: number }): Promise<void> {
-    this.touches.push(params);
+  touchGameUpdatedAt(params: {
+    client?: Queryable;
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): Promise<void> {
+    this.touches.push({
+      igdbGameId: params.igdbGameId,
+      platformIgdbId: params.platformIgdbId
+    });
     return Promise.resolve();
   }
 }

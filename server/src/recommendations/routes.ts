@@ -239,8 +239,12 @@ function parsePositiveInteger(value: unknown): number | null {
     return value;
   }
 
-  if (typeof value === 'string' && /^\d+$/.test(value)) {
-    const parsed = Number.parseInt(value, 10);
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    if (!/^\d+$/.test(normalized)) {
+      return null;
+    }
+    const parsed = Number.parseInt(normalized, 10);
     return parsed > 0 ? parsed : null;
   }
 

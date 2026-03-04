@@ -36,6 +36,7 @@ import {
   IonItemOption,
   IonPopover,
   IonContent,
+  IonLoading,
   IonModal,
   IonHeader,
   IonToolbar,
@@ -126,6 +127,7 @@ import {
   parseTagSelection
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
+import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
@@ -230,6 +232,7 @@ type NotesToolbarAction =
     IonItemOption,
     IonPopover,
     IonContent,
+    IonLoading,
     IonModal,
     IonHeader,
     IonToolbar,
@@ -369,6 +372,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
   savedNoteValue = '';
   notesEditor: Editor | null = null;
   isDesktopDetailLayout = false;
+  isSimilarDiscoveryDetailModalOpen = false;
+  isSimilarDiscoveryDetailLoading = false;
+  similarDiscoveryDetailErrorMessage = '';
+  similarDiscoveryDetail: GameCatalogResult | GameEntry | null = null;
+  isSimilarDiscoveryInLibrary = false;
+  isSimilarDiscoveryAddLoading = false;
   editMetadataTitle = '';
   editMetadataPlatformIgdbId: number | null = null;
   editMetadataPlatformOptions: GameCatalogPlatformOption[] = [];
@@ -419,6 +428,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly layoutModeService = inject(LayoutModeService);
   private readonly timePreferenceService = inject(TimePreferenceService);
   private readonly igdbProxyService = inject(IgdbProxyService);
+  private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
@@ -994,6 +1004,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
+    if (this.isSimilarDiscoveryDetailModalOpen) {
+      this.closeSimilarDiscoveryDetailModal();
+      this.scrollDetailToTop();
+      return;
+    }
+
     const previous = this.detailNavigationStack.pop();
 
     if (!previous) {
@@ -1009,6 +1025,22 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   get detailPrimaryPaneContentId(): string {
     return `game-detail-primary-content-${this.listType}`;
+  }
+
+  get detailModalTitle(): string {
+    if (this.isSimilarDiscoveryDetailModalOpen && this.similarDiscoveryDetail) {
+      const title =
+        typeof this.similarDiscoveryDetail.title === 'string'
+          ? this.similarDiscoveryDetail.title.trim()
+          : '';
+      return title.length > 0 ? title : 'Game Details';
+    }
+
+    return (this.selectedGame ? this.getGameDisplayTitle(this.selectedGame) : '') || 'Game Details';
+  }
+
+  get shouldShowDetailBackButton(): boolean {
+    return this.detailNavigationStack.length > 0 || this.isSimilarDiscoveryDetailModalOpen;
   }
 
   get notesMenuId(): string {
@@ -1196,6 +1228,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
     this.resetDetailTextExpansion();
     this.similarDetailMode = 'library';
+    this.isSimilarDiscoveryDetailModalOpen = false;
+    this.isSimilarDiscoveryDetailLoading = false;
+    this.similarDiscoveryDetailErrorMessage = '';
+    this.similarDiscoveryDetail = null;
+    this.isSimilarDiscoveryInLibrary = false;
+    this.isSimilarDiscoveryAddLoading = false;
     this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     this.similarDiscoveryGames = [];
     this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
@@ -1252,6 +1290,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.selectedGame = null;
     this.detailNavigationStack = [];
     this.similarDetailMode = 'library';
+    this.isSimilarDiscoveryDetailModalOpen = false;
+    this.isSimilarDiscoveryDetailLoading = false;
+    this.similarDiscoveryDetailErrorMessage = '';
+    this.similarDiscoveryDetail = null;
+    this.isSimilarDiscoveryInLibrary = false;
+    this.isSimilarDiscoveryAddLoading = false;
     this.similarLibraryGames = [];
     this.visibleSimilarLibraryGamesCount = GameListComponent.SIMILAR_LIBRARY_PAGE_SIZE;
     this.isSimilarLibraryGamesLoading = false;
@@ -3311,8 +3355,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await completeIonInfiniteScroll(event);
   }
 
-  onSimilarDiscoveryRowClick(_row: SimilarDiscoveryGameRow): void {
-    void this.presentToast('Open Discover tab to view full details for discovery suggestions.');
+  onSimilarDiscoveryRowClick(row: SimilarDiscoveryGameRow): void {
+    void this.openSimilarDiscoveryDetail(row);
   }
 
   getSimilarDiscoveryBadges(row: SimilarDiscoveryGameRow): Array<{
@@ -3320,6 +3364,83 @@ export class GameListComponent implements OnChanges, OnDestroy {
     color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
   }> {
     return [{ text: `Blend ${row.similarity.toFixed(2)}`, color: 'primary' }];
+  }
+
+  private async openSimilarDiscoveryDetail(row: SimilarDiscoveryGameRow): Promise<void> {
+    this.isSimilarDiscoveryDetailModalOpen = true;
+    this.isSimilarDiscoveryDetailLoading = true;
+    this.similarDiscoveryDetailErrorMessage = '';
+    this.similarDiscoveryDetail = null;
+    this.isSimilarDiscoveryInLibrary = false;
+    this.isSimilarDiscoveryAddLoading = false;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const localEntry = await this.gameShelfService.findGameByIdentity(
+        row.igdbGameId,
+        row.platformIgdbId
+      );
+
+      if (localEntry) {
+        this.similarDiscoveryDetail = localEntry;
+        this.isSimilarDiscoveryInLibrary = true;
+        return;
+      }
+
+      const catalog = await firstValueFrom(this.igdbProxyService.getGameById(row.igdbGameId));
+      this.similarDiscoveryDetail = this.withCatalogPlatformContext(catalog, row.platformIgdbId);
+    } catch (error) {
+      this.similarDiscoveryDetailErrorMessage =
+        error instanceof Error ? error.message : 'Unable to load game details.';
+    } finally {
+      this.isSimilarDiscoveryDetailLoading = false;
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
+  closeSimilarDiscoveryDetailModal(): void {
+    this.isSimilarDiscoveryDetailModalOpen = false;
+    this.isSimilarDiscoveryDetailLoading = false;
+    this.similarDiscoveryDetailErrorMessage = '';
+    this.similarDiscoveryDetail = null;
+    this.isSimilarDiscoveryInLibrary = false;
+    this.isSimilarDiscoveryAddLoading = false;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  async addSimilarDiscoveryDetailToLibrary(): Promise<void> {
+    if (
+      this.isSimilarDiscoveryInLibrary ||
+      this.isSimilarDiscoveryAddLoading ||
+      !this.similarDiscoveryDetail ||
+      this.isLibraryEntry(this.similarDiscoveryDetail)
+    ) {
+      return;
+    }
+
+    const listType = await this.pickListTypeForAdd();
+    if (!listType) {
+      return;
+    }
+
+    this.isSimilarDiscoveryAddLoading = true;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const addResult = await this.addToLibraryWorkflow.addToLibrary(
+        this.similarDiscoveryDetail,
+        listType
+      );
+      if (addResult.status === 'added' && addResult.entry) {
+        this.similarDiscoveryDetail = addResult.entry;
+      }
+      if (addResult.status === 'added' || addResult.status === 'duplicate') {
+        this.isSimilarDiscoveryInLibrary = true;
+      }
+    } finally {
+      this.isSimilarDiscoveryAddLoading = false;
+      this.changeDetectorRef.markForCheck();
+    }
   }
 
   private buildRecommendationIdentityKey(igdbGameId: string, platformIgdbId: number): string {
@@ -3410,6 +3531,65 @@ export class GameListComponent implements OnChanges, OnDestroy {
         : null);
 
     return this.getPlatformLabel(platformName, platformIgdbId);
+  }
+
+  private withCatalogPlatformContext(
+    catalog: GameCatalogResult,
+    platformIgdbId: number
+  ): GameCatalogResult {
+    const platformOption = Array.isArray(catalog.platformOptions)
+      ? (catalog.platformOptions.find((option) => option.id === platformIgdbId) ?? null)
+      : null;
+    const selectedPlatformName =
+      platformOption?.name.trim() ??
+      (catalog.platformIgdbId === platformIgdbId &&
+      typeof catalog.platform === 'string' &&
+      catalog.platform.trim().length > 0
+        ? catalog.platform.trim()
+        : null);
+
+    return {
+      ...catalog,
+      platformIgdbId,
+      platform: selectedPlatformName
+    };
+  }
+
+  private isLibraryEntry(value: GameCatalogResult | GameEntry | null): value is GameEntry {
+    if (!value) {
+      return false;
+    }
+
+    return (
+      typeof (value as Partial<GameEntry>).listType === 'string' &&
+      ((value as Partial<GameEntry>).listType === 'collection' ||
+        (value as Partial<GameEntry>).listType === 'wishlist')
+    );
+  }
+
+  private async pickListTypeForAdd(): Promise<ListType | null> {
+    let selected: ListType = 'collection';
+    const alert = await this.alertController.create({
+      header: 'Add to Library',
+      message: 'Choose where to save this game.',
+      inputs: [
+        { type: 'radio', label: 'Collection', value: 'collection', checked: true },
+        { type: 'radio', label: 'Wishlist', value: 'wishlist', checked: false }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Add',
+          handler: (value: unknown) => {
+            selected = value === 'wishlist' ? 'wishlist' : 'collection';
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    return role === 'cancel' ? null : selected;
   }
 
   getGameDisplayTitle(game: GameEntry): string {

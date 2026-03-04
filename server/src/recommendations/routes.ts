@@ -175,6 +175,7 @@ export function registerRecommendationRoutes(
       const params = request.params as { igdbGameId?: unknown };
       const query = request.query as {
         target?: unknown;
+        runtimeMode?: unknown;
         platformIgdbId?: unknown;
         limit?: unknown;
       };
@@ -201,12 +202,21 @@ export function registerRecommendationRoutes(
           .send({ error: 'Query parameter target must be BACKLOG, WISHLIST, or DISCOVERY.' });
         return;
       }
+      const runtimeMode = parseRuntimeModeOrNull(query.runtimeMode);
+      if (query.runtimeMode !== undefined && runtimeMode === null) {
+        reply
+          .code(400)
+          .send({ error: 'Query parameter runtimeMode must be NEUTRAL, SHORT, or LONG.' });
+        return;
+      }
 
       const limit = parsePositiveInteger(query.limit) ?? 20;
-      const items = await service.getSimilarGames({
+      await service.rebuildIfStale(target, 'stale-read');
+      const result = await service.getSimilarGames({
         igdbGameId,
         platformIgdbId,
         target,
+        runtimeMode,
         limit
       });
 
@@ -215,7 +225,8 @@ export function registerRecommendationRoutes(
           igdbGameId,
           platformIgdbId
         },
-        items
+        runtimeMode: result.runtimeMode,
+        items: result.items
       });
     }
   });

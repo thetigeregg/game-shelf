@@ -2220,6 +2220,7 @@ describe('IgdbProxyService', () => {
     });
 
     await expect(promise).resolves.toEqual({
+      runtimeMode: 'NEUTRAL',
       source: {
         igdbGameId: '11549',
         platformIgdbId: 37

@@ -140,6 +140,7 @@ interface RecommendationRebuildApiResponse {
 }
 
 interface RecommendationSimilarApiResponse {
+  runtimeMode?: unknown;
   source?: unknown;
   items?: unknown;
 }
@@ -864,6 +865,7 @@ export class IgdbProxyService implements GameSearchApi {
 
   getRecommendationSimilar(params: {
     target: RecommendationTarget;
+    runtimeMode?: RecommendationRuntimeMode;
     igdbGameId: string;
     platformIgdbId: number;
     limit?: number;
@@ -884,6 +886,7 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     const normalizedTarget = this.normalizeRecommendationTarget(params.target);
+    const normalizedRuntimeMode = this.normalizeRecommendationRuntimeMode(params.runtimeMode);
     const normalizedLimit =
       Number.isInteger(params.limit) && (params.limit as number) > 0
         ? Math.min(params.limit as number, 50)
@@ -892,6 +895,9 @@ export class IgdbProxyService implements GameSearchApi {
       'target',
       normalizedTarget
     );
+    if (normalizedRuntimeMode) {
+      query = query.set('runtimeMode', normalizedRuntimeMode);
+    }
     query = query.set('platformIgdbId', String(normalizedPlatformIgdbId));
     query = query.set('limit', String(normalizedLimit));
     const url = `${this.recommendationsSimilarBaseUrl}/${encodeURIComponent(normalizedGameId)}`;
@@ -2236,6 +2242,7 @@ export class IgdbProxyService implements GameSearchApi {
         : {};
 
     return {
+      runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
       source: {
         igdbGameId: this.normalizeNumericId(sourceRaw['igdbGameId']) || fallbackSource.igdbGameId,
         platformIgdbId:

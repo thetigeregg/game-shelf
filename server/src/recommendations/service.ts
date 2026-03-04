@@ -124,15 +124,17 @@ export interface RecommendationServiceApi {
     igdbGameId: string;
     platformIgdbId: number;
     target: RecommendationTarget;
+    runtimeMode?: RecommendationRuntimeMode | null;
     limit: number;
-  }): Promise<
-    Array<{
+  }): Promise<{
+    runtimeMode: RecommendationRuntimeMode;
+    items: Array<{
       igdbGameId: string;
       platformIgdbId: number;
       similarity: number;
       reasons: SimilarityReasons;
-    }>
-  >;
+    }>;
+  }>;
 }
 
 export class RecommendationService implements RecommendationServiceApi {
@@ -264,6 +266,7 @@ export class RecommendationService implements RecommendationServiceApi {
             keywords: this.options.similarityKeywordWeight
           }
         });
+        const similarityEdgesByMode = createModeRecord(() => similarityEdges);
 
         await this.repository.finalizeRunSuccess({
           client,
@@ -271,7 +274,7 @@ export class RecommendationService implements RecommendationServiceApi {
           recommendationsByMode,
           lanesByMode,
           historyUpdates,
-          similarityEdges
+          similarityEdgesByMode
         });
 
         return {
@@ -396,29 +399,36 @@ export class RecommendationService implements RecommendationServiceApi {
     igdbGameId: string;
     platformIgdbId: number;
     target: RecommendationTarget;
+    runtimeMode?: RecommendationRuntimeMode | null;
     limit: number;
-  }): Promise<
-    Array<{
+  }): Promise<{
+    runtimeMode: RecommendationRuntimeMode;
+    items: Array<{
       igdbGameId: string;
       platformIgdbId: number;
       similarity: number;
       reasons: SimilarityReasons;
-    }>
-  > {
+    }>;
+  }> {
+    const resolvedRuntimeMode = await this.resolveRuntimeMode(params.runtimeMode);
     const safeLimit = normalizeLimit(params.limit, 50);
     const rows = await this.repository.readSimilarGames({
       igdbGameId: params.igdbGameId,
       platformIgdbId: params.platformIgdbId,
       target: params.target,
+      runtimeMode: resolvedRuntimeMode,
       limit: safeLimit
     });
 
-    return rows.map((row) => ({
-      igdbGameId: row.igdbGameId,
-      platformIgdbId: row.platformIgdbId,
-      similarity: row.similarity,
-      reasons: row.reasons
-    }));
+    return {
+      runtimeMode: resolvedRuntimeMode,
+      items: rows.map((row) => ({
+        igdbGameId: row.igdbGameId,
+        platformIgdbId: row.platformIgdbId,
+        similarity: row.similarity,
+        reasons: row.reasons
+      }))
+    };
   }
 
   private async ensureEmbeddings(params: {

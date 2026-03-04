@@ -131,7 +131,7 @@ function sampleItem(): RankedRecommendationItem {
 void test('service resolves runtime mode and read APIs with safe limits', async () => {
   const readTopCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
   const readLaneCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
-  const readSimilarCalls: Array<{ limit: number }> = [];
+  const readSimilarCalls: Array<{ limit: number; runtimeMode: RecommendationRuntimeMode }> = [];
 
   const lanes: RecommendationLaneCollection = {
     overall: [sampleItem()],
@@ -155,8 +155,8 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
       readLaneCalls.push({ limit: params.limit, runtimeMode: params.runtimeMode });
       return Promise.resolve({ run: sampleRun(), lanes });
     },
-    readSimilarGames: (params: { limit: number }) => {
-      readSimilarCalls.push({ limit: params.limit });
+    readSimilarGames: (params: { limit: number; runtimeMode: RecommendationRuntimeMode }) => {
+      readSimilarCalls.push({ limit: params.limit, runtimeMode: params.runtimeMode });
       return Promise.resolve([
         {
           igdbGameId: '200',
@@ -197,12 +197,14 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
     target: 'BACKLOG',
     igdbGameId: '100',
     platformIgdbId: 6,
+    runtimeMode: 'LONG',
     limit: 999
   });
-  assert.equal(similar.length, 1);
+  assert.equal(similar.runtimeMode, 'LONG');
+  assert.equal(similar.items.length, 1);
   assert.deepEqual(readTopCalls, [{ limit: 200, runtimeMode: 'SHORT' }]);
   assert.deepEqual(readLaneCalls, [{ limit: 20, runtimeMode: 'SHORT' }]);
-  assert.deepEqual(readSimilarCalls, [{ limit: 50 }]);
+  assert.deepEqual(readSimilarCalls, [{ limit: 50, runtimeMode: 'LONG' }]);
 });
 
 void test('service returns LOCKED when target lock cannot be acquired', async () => {

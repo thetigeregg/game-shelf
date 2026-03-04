@@ -998,6 +998,7 @@ describe('ExplorePage recommendations UX', () => {
     expect(igdbProxyServiceMock.getGameById).not.toHaveBeenCalled();
     expect(igdbProxyServiceMock.getRecommendationSimilar).toHaveBeenCalledWith({
       target: 'BACKLOG',
+      runtimeMode: 'NEUTRAL',
       igdbGameId: '100',
       platformIgdbId: 6,
       limit: 50

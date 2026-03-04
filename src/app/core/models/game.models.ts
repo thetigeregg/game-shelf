@@ -214,6 +214,7 @@ export interface RecommendationSimilarItem {
 }
 
 export interface RecommendationSimilarResponse {
+  runtimeMode: RecommendationRuntimeMode;
   source: {
     igdbGameId: string;
     platformIgdbId: number;

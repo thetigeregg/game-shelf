@@ -59,7 +59,6 @@ class RepositoryMock {
     this.updates.push(params);
     return Promise.resolve();
   }
-
 }
 
 void test('discovery enrichment updates hltb and critic fields', async () => {
@@ -444,7 +443,9 @@ void test('discovery enrichment does not increment retry state on transient prov
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (() => {
     fetchCalls += 1;
-    return Promise.resolve(new Response(JSON.stringify({ error: 'upstream_down' }), { status: 500 }));
+    return Promise.resolve(
+      new Response(JSON.stringify({ error: 'upstream_down' }), { status: 500 })
+    );
   }) as typeof fetch;
 
   try {
@@ -481,6 +482,61 @@ void test('discovery enrichment does not increment retry state on transient prov
     assert.deepEqual(second, { scanned: 1, updated: 0, skipped: 1 });
     assert.equal(repository.updates.length, 0);
     assert.equal(fetchCalls, 4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment increments retry state on 204 no-content responses', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '5',
+      platformIgdbId: 6,
+      payload: {
+        title: 'No Content Game',
+        releaseYear: 2005,
+        platform: 'PC',
+        listType: 'discovery'
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(null, { status: 204 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => Date.parse('2026-01-01T02:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(repository.updates.length, 1);
+    assert.equal(fetchCalls, 2);
+
+    const retry = repository.updates[0].payload.enrichmentRetry as {
+      hltb?: { attempts: number };
+      metacritic?: { attempts: number };
+    };
+    assert.equal(retry.hltb?.attempts, 1);
+    assert.equal(retry.metacritic?.attempts, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -4,7 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Observable, of } from 'rxjs';
 import { AppDb } from '../data/app-db';
-import { GameSyncService } from './game-sync.service';
+import { DISCOVERY_POLLUTION_REMEDIATION_META_KEY, GameSyncService } from './game-sync.service';
 import { SyncEventsService } from './sync-events.service';
 import { PLATFORM_ORDER_STORAGE_KEY, PlatformOrderService } from './platform-order.service';
 import {
@@ -960,7 +960,7 @@ describe('GameSyncService', () => {
     await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
 
     const cursor = await db.syncMeta.get('cursor');
-    const marker = await db.syncMeta.get('discoveryPollutionRemediationV1');
+    const marker = await db.syncMeta.get(DISCOVERY_POLLUTION_REMEDIATION_META_KEY);
     expect(cursor?.value).toBe('0');
     expect(marker?.value).toBe('done');
 

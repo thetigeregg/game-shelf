@@ -36,6 +36,8 @@ interface SyncPullResponse {
   changes: SyncChangeEvent[];
 }
 
+export const DISCOVERY_POLLUTION_REMEDIATION_META_KEY = 'discoveryPollutionRemediationV1';
+
 @Injectable({ providedIn: 'root' })
 export class GameSyncService implements SyncOutboxWriter {
   private static readonly SYNC_INTERVAL_MS = 30_000;
@@ -47,7 +49,8 @@ export class GameSyncService implements SyncOutboxWriter {
   private static readonly META_CURSOR_KEY = 'cursor';
   private static readonly META_LAST_SYNC_KEY = 'lastSyncAt';
   private static readonly META_CONNECTIVITY_KEY = 'connectivity';
-  private static readonly META_DISCOVERY_REMEDIATION_V1_KEY = 'discoveryPollutionRemediationV1';
+  private static readonly META_DISCOVERY_REMEDIATION_V1_KEY =
+    DISCOVERY_POLLUTION_REMEDIATION_META_KEY;
 
   private readonly db = inject(AppDb);
   private readonly httpClient = inject(HttpClient);

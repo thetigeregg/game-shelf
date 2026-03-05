@@ -422,6 +422,60 @@ describe('GameSyncService', () => {
     expect(stored?.videos).toHaveLength(1);
   });
 
+  it('normalizes and replaces media arrays when pulled upsert includes media fields', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      screenshots: [{ id: 1, imageId: 'old', url: '', width: 1, height: 1 }],
+      videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4d-replace-media-arrays',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        screenshots: [
+          { id: '2', image_id: 'new-image', width: '1280', height: '720' },
+          { id: 2, image_id: 'new-image' }
+        ],
+        videos: [
+          { id: '3', name: ' Trailer ', video_id: 'abc def' },
+          { id: 3, name: 'Duplicate', video_id: 'abc def' }
+        ]
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.screenshots).toEqual([
+      {
+        id: 2,
+        imageId: 'new-image',
+        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/new-image.jpg',
+        width: 1280,
+        height: 720
+      }
+    ]);
+    expect(stored?.videos).toEqual([
+      {
+        id: 3,
+        name: 'Trailer',
+        videoId: 'abc def',
+        url: 'https://www.youtube.com/watch?v=abc%20def'
+      }
+    ]);
+  });
+
   it('accepts half-step ratings in pulled game payloads', async () => {
     await servicePrivate.applyGameChange({
       eventId: '4c',

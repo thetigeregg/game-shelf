@@ -244,6 +244,51 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('normalizes game media fields from IGDB id payload', async () => {
+    const promise = firstValueFrom(service.getGameById('101'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/101`);
+    req.flush({
+      item: {
+        igdbGameId: '101',
+        title: 'Media Test',
+        coverUrl: null,
+        coverSource: 'igdb',
+        platforms: ['Nintendo Switch'],
+        platform: 'Nintendo Switch',
+        platformIgdbId: 130,
+        screenshots: [
+          { id: 10, image_id: 'abc', width: '1280', height: '720' },
+          { id: 10, image_id: 'abc' }
+        ],
+        videos: [
+          { id: 20, name: ' Trailer ', video_id: 'PIF_fqFZEuk' },
+          { id: 20, name: 'Duplicate', video_id: 'PIF_fqFZEuk' }
+        ]
+      }
+    });
+
+    await expect(promise).resolves.toMatchObject({
+      igdbGameId: '101',
+      screenshots: [
+        {
+          id: 10,
+          imageId: 'abc',
+          url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc.jpg',
+          width: 1280,
+          height: 720
+        }
+      ],
+      videos: [
+        {
+          id: 20,
+          name: 'Trailer',
+          videoId: 'PIF_fqFZEuk',
+          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+        }
+      ]
+    });
+  });
+
   it('maps refresh endpoint failure to user-safe error', async () => {
     const promise = firstValueFrom(service.getGameById('100'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);

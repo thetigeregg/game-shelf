@@ -44,6 +44,11 @@ interface MetacriticResponse {
   } | null;
 }
 
+interface FetchJsonResult<T> {
+  ok: boolean;
+  value: T | null;
+}
+
 interface ProviderRetryState {
   attempts: number;
   lastTriedAt: string | null;
@@ -257,7 +262,7 @@ export class DiscoveryEnrichmentService {
       metacritic: retryState.metacritic
     };
 
-    const hltbItem = hltbResponse?.item ?? null;
+    const hltbItem = hltbResponse?.ok ? hltbResponse.value?.item ?? null : null;
     let foundHltb = hasHltb;
     if (hltbItem) {
       if (typeof hltbItem.hltbMainHours === 'number' && hltbItem.hltbMainHours > 0) {
@@ -276,7 +281,7 @@ export class DiscoveryEnrichmentService {
         foundHltb = true;
       }
     }
-    if (shouldTryHltb) {
+    if (shouldTryHltb && hltbResponse?.ok) {
       nextRetryState.hltb = nextProviderRetryState({
         current: retryState.hltb,
         nowIso,
@@ -287,7 +292,7 @@ export class DiscoveryEnrichmentService {
       });
     }
 
-    const critic = metacriticResponse?.item ?? null;
+    const critic = metacriticResponse?.ok ? metacriticResponse.value?.item ?? null : null;
     let foundCritic = hasCritic;
     if (critic && typeof critic.metacriticScore === 'number' && critic.metacriticScore > 0) {
       next.reviewSource = 'metacritic';
@@ -299,7 +304,7 @@ export class DiscoveryEnrichmentService {
         next.reviewUrl = critic.metacriticUrl.trim();
       }
     }
-    if (shouldTryMetacritic) {
+    if (shouldTryMetacritic && metacriticResponse?.ok) {
       nextRetryState.metacritic = nextProviderRetryState({
         current: retryState.metacritic,
         nowIso,
@@ -330,7 +335,7 @@ export class DiscoveryEnrichmentService {
     return url.toString();
   }
 
-  private async fetchJson<T>(url: string): Promise<T | null> {
+  private async fetchJson<T>(url: string): Promise<FetchJsonResult<T>> {
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       controller.abort();
@@ -344,11 +349,11 @@ export class DiscoveryEnrichmentService {
         signal: controller.signal
       });
       if (!response.ok) {
-        return null;
+        return { ok: false, value: null };
       }
-      return (await response.json()) as T;
+      return { ok: true, value: (await response.json()) as T };
     } catch {
-      return null;
+      return { ok: false, value: null };
     } finally {
       clearTimeout(timeout);
     }

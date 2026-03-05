@@ -300,8 +300,18 @@ export class RecommendationRepository {
             THEN (BTRIM(payload->>'metacriticScore'))::numeric > 0
             ELSE false
           END AS has_metacritic_score,
-          BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'nextTryAt', '')) AS hltb_next_try_at,
-          BTRIM(COALESCE(payload->'enrichmentRetry'->'metacritic'->>'nextTryAt', '')) AS metacritic_next_try_at,
+          CASE
+            WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'nextTryAt', '')) ~
+              '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+            THEN (BTRIM(payload->'enrichmentRetry'->'hltb'->>'nextTryAt'))::timestamptz
+            ELSE NULL
+          END AS hltb_next_try_at_ts,
+          CASE
+            WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'metacritic'->>'nextTryAt', '')) ~
+              '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+            THEN (BTRIM(payload->'enrichmentRetry'->'metacritic'->>'nextTryAt'))::timestamptz
+            ELSE NULL
+          END AS metacritic_next_try_at_ts,
           CASE
             WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'attempts', '')) ~ '^[0-9]+$'
             THEN (BTRIM(payload->'enrichmentRetry'->'hltb'->>'attempts'))::int
@@ -329,20 +339,15 @@ export class RecommendationRepository {
           NOT (has_hltb_main OR has_hltb_main_extra OR has_hltb_completionist)
           AND NOT hltb_permanent_miss
           AND hltb_attempts < $2
-          AND (
-            hltb_next_try_at = ''
-            OR hltb_next_try_at !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
-            OR hltb_next_try_at <= $3
-          )
+          AND (hltb_next_try_at_ts IS NULL OR hltb_next_try_at_ts <= $3::timestamptz)
         )
         OR (
           NOT (has_review_score OR has_metacritic_score)
           AND NOT metacritic_permanent_miss
           AND metacritic_attempts < $2
           AND (
-            metacritic_next_try_at = ''
-            OR metacritic_next_try_at !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
-            OR metacritic_next_try_at <= $3
+            metacritic_next_try_at_ts IS NULL
+            OR metacritic_next_try_at_ts <= $3::timestamptz
           )
         )
       ORDER BY updated_at ASC

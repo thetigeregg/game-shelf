@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { MetadataEnrichmentIgdbClient } from './igdb-client.js';
 import { MetadataEnrichmentRepository } from './repository.js';
 import {
@@ -93,7 +94,7 @@ export class MetadataEnrichmentService {
             !needsMetadata && isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
           completedAt
         });
-        const changed = JSON.stringify(mergedPayload) !== JSON.stringify(row.payload);
+        const changed = !isDeepStrictEqual(mergedPayload, row.payload);
 
         if (!changed) {
           summary.skippedRows += 1;

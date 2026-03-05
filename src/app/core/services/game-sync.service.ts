@@ -392,11 +392,14 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
-    const rawPayload = change.payload as Record<string, unknown>;
+    const rawPayload =
+      change.payload && typeof change.payload === 'object'
+        ? (change.payload as Record<string, unknown>)
+        : {};
     const pulledListType =
       typeof rawPayload['listType'] === 'string' ? rawPayload['listType'].trim() : '';
 
-    const payload = change.payload as Partial<GameEntry>;
+    const payload = rawPayload as Partial<GameEntry>;
     const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
     const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
 

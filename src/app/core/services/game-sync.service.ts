@@ -408,6 +408,15 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     if (pulledListType === 'discovery') {
+      const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
+        igdbGameId,
+        platformIgdbId
+      );
+
+      if (hasPendingLocalWrite) {
+        return;
+      }
+
       const existingByIdentity = await this.db.games
         .where('[igdbGameId+platformIgdbId]')
         .equals([igdbGameId, platformIgdbId])
@@ -1006,6 +1015,29 @@ export class GameSyncService implements SyncOutboxWriter {
   private async getMeta(key: string): Promise<string | null> {
     const entry = await this.db.syncMeta.get(key);
     return entry?.value ?? null;
+  }
+
+  private async hasPendingGameOutboxOperation(
+    igdbGameId: string,
+    platformIgdbId: number
+  ): Promise<boolean> {
+    const pendingGameOps = await this.db.outbox.where('entityType').equals('game').toArray();
+
+    return pendingGameOps.some((entry) => {
+      const payload =
+        entry.payload && typeof entry.payload === 'object'
+          ? (entry.payload as Record<string, unknown>)
+          : null;
+      if (!payload) {
+        return false;
+      }
+
+      const payloadGameId =
+        typeof payload['igdbGameId'] === 'string' ? payload['igdbGameId'].trim() : '';
+      const payloadPlatformId = this.parsePositiveInteger(payload['platformIgdbId']);
+
+      return payloadGameId === igdbGameId && payloadPlatformId === platformIgdbId;
+    });
   }
 
   private async setMeta(key: string, value: string): Promise<void> {

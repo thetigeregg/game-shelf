@@ -1511,3 +1511,12 @@
 - 96cdd6d Merge branch 'main' into codex/fixr
 - 406876e Update dompurify to 3.3.2
 
+## v1.1.5 - 2026-03-05
+- 50793da Force push
+- 2707002 Merge pull request #169 from thetigeregg/codex/discovery-excludes-owned-game
+- 7c7166d Force push
+- f274937 Merge branch 'dependabot/npm_and_yarn/server/fastify-5.8.1' into codex/discovery-excludes-owned-game
+- c033936 Update discovery filter by game id
+- a0c83fc Force push
+- cb89b1e chore(deps): bump fastify from 5.7.4 to 5.8.1 in /server
+

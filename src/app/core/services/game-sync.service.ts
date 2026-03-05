@@ -28,7 +28,7 @@ import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-med
 
 interface SyncPushResponse {
   results: SyncPushResult[];
-  cursor: string;
+  cursor?: string;
 }
 
 interface SyncPullResponse {
@@ -172,7 +172,6 @@ export class GameSyncService implements SyncOutboxWriter {
     );
     const ackedIds = new Set<string>();
     const failedResults: SyncPushResult[] = [];
-    let latestCursor: string | null = null;
 
     for (const batch of operationBatches) {
       this.debugLogService.debug('sync.push.batch.request', { batchSize: batch.length });
@@ -187,10 +186,6 @@ export class GameSyncService implements SyncOutboxWriter {
         hasCursor: typeof response.cursor === 'string' && response.cursor.trim().length > 0
       });
 
-      if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
-        latestCursor = response.cursor.trim();
-      }
-
       const batchResults = Array.isArray(response.results) ? response.results : [];
 
       batchResults
@@ -200,10 +195,6 @@ export class GameSyncService implements SyncOutboxWriter {
         .forEach((opId) => ackedIds.add(opId));
 
       failedResults.push(...batchResults.filter((result) => result.status === 'failed'));
-    }
-
-    if (latestCursor) {
-      await this.setMeta(GameSyncService.META_CURSOR_KEY, latestCursor);
     }
 
     if (ackedIds.size > 0) {

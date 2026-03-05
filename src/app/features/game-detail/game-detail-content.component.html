@@ -16,6 +16,7 @@
           @for (slide of mediaSlides; track slide.key) {
             <swiper-slide>
               <app-detail-media-slide
+                [class.with-pagination]="mediaSlides.length > 1"
                 [src]="slide.src"
                 [alt]="displayTitle"
               ></app-detail-media-slide>

@@ -28,13 +28,15 @@ import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-med
 
 interface SyncPushResponse {
   results: SyncPushResult[];
-  cursor: string;
+  cursor?: string;
 }
 
 interface SyncPullResponse {
   cursor: string;
   changes: SyncChangeEvent[];
 }
+
+export const DISCOVERY_POLLUTION_REMEDIATION_META_KEY = 'discoveryPollutionRemediationV1';
 
 @Injectable({ providedIn: 'root' })
 export class GameSyncService implements SyncOutboxWriter {
@@ -92,7 +94,15 @@ export class GameSyncService implements SyncOutboxWriter {
       GameSyncService.META_CONNECTIVITY_KEY,
       this.isOnline() ? 'online' : 'offline'
     );
-    void this.syncNow();
+    void this.runDiscoveryPollutionRemediationIfNeeded()
+      .catch((error: unknown) => {
+        this.debugLogService.error('sync.discovery_pollution_remediation_failed', {
+          error: normalizeHttpError(error)
+        });
+      })
+      .finally(() => {
+        void this.syncNow();
+      });
   }
 
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
@@ -172,7 +182,6 @@ export class GameSyncService implements SyncOutboxWriter {
     );
     const ackedIds = new Set<string>();
     const failedResults: SyncPushResult[] = [];
-    let latestCursor: string | null = null;
 
     for (const batch of operationBatches) {
       this.debugLogService.debug('sync.push.batch.request', { batchSize: batch.length });
@@ -187,10 +196,6 @@ export class GameSyncService implements SyncOutboxWriter {
         hasCursor: typeof response.cursor === 'string' && response.cursor.trim().length > 0
       });
 
-      if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
-        latestCursor = response.cursor.trim();
-      }
-
       const batchResults = Array.isArray(response.results) ? response.results : [];
 
       batchResults
@@ -200,10 +205,6 @@ export class GameSyncService implements SyncOutboxWriter {
         .forEach((opId) => ackedIds.add(opId));
 
       failedResults.push(...batchResults.filter((result) => result.status === 'failed'));
-    }
-
-    if (latestCursor) {
-      await this.setMeta(GameSyncService.META_CURSOR_KEY, latestCursor);
     }
 
     if (ackedIds.size > 0) {
@@ -324,39 +325,48 @@ export class GameSyncService implements SyncOutboxWriter {
   private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
     let failedChanges = 0;
 
-    await this.db.transaction('rw', this.db.games, this.db.tags, this.db.views, async () => {
-      for (const change of changes) {
-        try {
-          if (change.entityType === 'game') {
-            await this.applyGameChange(change);
-            continue;
-          }
+    await this.db.transaction(
+      'rw',
+      this.db.games,
+      this.db.tags,
+      this.db.views,
+      this.db.outbox,
+      async () => {
+        const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
 
-          if (change.entityType === 'tag') {
-            await this.applyTagChange(change);
-            continue;
-          }
+        for (const change of changes) {
+          try {
+            if (change.entityType === 'game') {
+              await this.applyGameChange(change, pendingGameOutboxKeys);
+              continue;
+            }
 
-          if (change.entityType === 'view') {
-            await this.applyViewChange(change);
-            continue;
-          }
+            if (change.entityType === 'tag') {
+              await this.applyTagChange(change);
+              continue;
+            }
 
-          this.applySettingChange(change);
-        } catch (error: unknown) {
-          failedChanges += 1;
-          this.debugLogService.error('sync.pull.change_failed', {
-            eventId: change.eventId,
-            entityType: change.entityType,
-            operation: change.operation,
-            error: normalizeHttpError(error)
-          });
+            if (change.entityType === 'view') {
+              await this.applyViewChange(change);
+              continue;
+            }
+
+            this.applySettingChange(change);
+          } catch (error: unknown) {
+            failedChanges += 1;
+            this.debugLogService.error('sync.pull.change_failed', {
+              eventId: change.eventId,
+              entityType: change.entityType,
+              operation: change.operation,
+              error: normalizeHttpError(error)
+            });
+          }
+        }
+        if (failedChanges > 0) {
+          throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
         }
       }
-      if (failedChanges > 0) {
-        throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
-      }
-    });
+    );
   }
 
   private parsePositiveInteger(value: unknown): number | null {
@@ -370,7 +380,10 @@ export class GameSyncService implements SyncOutboxWriter {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
-  private async applyGameChange(change: SyncChangeEvent): Promise<void> {
+  private async applyGameChange(
+    change: SyncChangeEvent,
+    pendingGameOutboxKeys?: ReadonlySet<string>
+  ): Promise<void> {
     if (change.operation === 'delete') {
       const payload = change.payload as { igdbGameId?: unknown; platformIgdbId?: unknown };
       const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
@@ -391,11 +404,40 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
-    const payload = change.payload as Partial<GameEntry>;
+    const rawPayload =
+      change.payload && typeof change.payload === 'object'
+        ? (change.payload as Record<string, unknown>)
+        : {};
+    const pulledListType =
+      typeof rawPayload['listType'] === 'string' ? rawPayload['listType'].trim() : '';
+
+    const payload = rawPayload as Partial<GameEntry>;
     const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
     const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
 
     if (!igdbGameId || platformIgdbId === null) {
+      return;
+    }
+
+    if (pulledListType === 'discovery') {
+      const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
+        igdbGameId,
+        platformIgdbId,
+        pendingGameOutboxKeys
+      );
+
+      if (hasPendingLocalWrite) {
+        return;
+      }
+
+      const existingByIdentity = await this.db.games
+        .where('[igdbGameId+platformIgdbId]')
+        .equals([igdbGameId, platformIgdbId])
+        .first();
+
+      if (existingByIdentity?.id !== undefined) {
+        await this.db.games.delete(existingByIdentity.id);
+      }
       return;
     }
 
@@ -988,6 +1030,50 @@ export class GameSyncService implements SyncOutboxWriter {
     return entry?.value ?? null;
   }
 
+  private async hasPendingGameOutboxOperation(
+    igdbGameId: string,
+    platformIgdbId: number,
+    pendingGameOutboxKeys?: ReadonlySet<string>
+  ): Promise<boolean> {
+    if (pendingGameOutboxKeys) {
+      return pendingGameOutboxKeys.has(this.buildGameIdentityKey(igdbGameId, platformIgdbId));
+    }
+
+    const pendingGameOutboxKeysNow = await this.loadPendingGameOutboxKeys();
+    return pendingGameOutboxKeysNow.has(this.buildGameIdentityKey(igdbGameId, platformIgdbId));
+  }
+
+  private async loadPendingGameOutboxKeys(): Promise<Set<string>> {
+    const pendingGameOps = await this.db.outbox.where('entityType').equals('game').toArray();
+    const keys = new Set<string>();
+
+    pendingGameOps.forEach((entry) => {
+      const payload =
+        entry.payload && typeof entry.payload === 'object'
+          ? (entry.payload as Record<string, unknown>)
+          : null;
+      if (!payload) {
+        return;
+      }
+
+      const payloadGameId =
+        typeof payload['igdbGameId'] === 'string' ? payload['igdbGameId'].trim() : '';
+      const payloadPlatformId = this.parsePositiveInteger(payload['platformIgdbId']);
+
+      if (payloadGameId.length === 0 || payloadPlatformId === null) {
+        return;
+      }
+
+      keys.add(this.buildGameIdentityKey(payloadGameId, payloadPlatformId));
+    });
+
+    return keys;
+  }
+
+  private buildGameIdentityKey(igdbGameId: string, platformIgdbId: number): string {
+    return `${igdbGameId}::${String(platformIgdbId)}`;
+  }
+
   private async setMeta(key: string, value: string): Promise<void> {
     const entry: SyncMetaEntry = {
       key,
@@ -996,6 +1082,31 @@ export class GameSyncService implements SyncOutboxWriter {
     };
 
     await this.db.syncMeta.put(entry);
+  }
+
+  private async runDiscoveryPollutionRemediationIfNeeded(): Promise<void> {
+    const marker = await this.getMeta(DISCOVERY_POLLUTION_REMEDIATION_META_KEY);
+
+    if (marker === 'done') {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
+      const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
+
+      await syncMetaTable.put({
+        key: GameSyncService.META_CURSOR_KEY,
+        value: '0',
+        updatedAt: now
+      });
+      await syncMetaTable.put({
+        key: DISCOVERY_POLLUTION_REMEDIATION_META_KEY,
+        value: 'done',
+        updatedAt: now
+      });
+    });
+    this.debugLogService.info('sync.discovery_pollution_remediation_applied');
   }
 
   private async requestPersistentStorage(): Promise<void> {

@@ -1484,3 +1484,25 @@
 - 77033e5 Merge branch 'main' into codex/screenshots-videos
 - 904a31f Update media normalization dedupe
 
+## v1.1.3 - 2026-03-05
+- 07b43e3 Merge pull request #163 from thetigeregg/codex/pollution-fix
+- 78dcd26 Optimize game outbox filtering
+- 8b3b224 Optimize pending game checks
+- 2a935e6 Optimize game outbox lookup
+- 5ecb610 Fix HLTB discovery retry handling
+- 9442cbb Add shim to post-checkout hook
+- 7722f4d Ensure post-checkout hook runs
+- 6b3e84e Review discovery sync safeguards
+- c4919b8 Audit discovery cleanup logic
+- cec30c2 Await remediation before sync
+- 9521bbf Await remediation before sync
+- 205e411 Preserve collection games on sync
+- 0b58de7 Prevent discovery record deletion
+- 8d598c2 Use canonical timestamp in test
+- a4c5ee8 Add flag check to husky post-check
+- 975c109 Delete local game on discovery upser
+- 761f0b1 Clarify pushOutbox cursor behavior
+- 79af92a Provide live cleanup command
+- 89d586a Investigate missing discovery finger
+- 69c0757 Count game discovery fingerprints
+

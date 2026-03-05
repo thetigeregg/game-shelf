@@ -262,7 +262,7 @@ export class DiscoveryEnrichmentService {
       metacritic: retryState.metacritic
     };
 
-    const hltbItem = hltbResponse?.ok ? hltbResponse.value?.item ?? null : null;
+    const hltbItem = hltbResponse?.ok ? (hltbResponse.value?.item ?? null) : null;
     let foundHltb = hasHltb;
     if (hltbItem) {
       if (typeof hltbItem.hltbMainHours === 'number' && hltbItem.hltbMainHours > 0) {
@@ -292,7 +292,7 @@ export class DiscoveryEnrichmentService {
       });
     }
 
-    const critic = metacriticResponse?.ok ? metacriticResponse.value?.item ?? null : null;
+    const critic = metacriticResponse?.ok ? (metacriticResponse.value?.item ?? null) : null;
     let foundCritic = hasCritic;
     if (critic && typeof critic.metacriticScore === 'number' && critic.metacriticScore > 0) {
       next.reviewSource = 'metacritic';
@@ -351,7 +351,16 @@ export class DiscoveryEnrichmentService {
       if (!response.ok) {
         return { ok: false, value: null };
       }
-      return { ok: true, value: (await response.json()) as T };
+      if (response.status === 204) {
+        return { ok: true, value: null };
+      }
+
+      const bodyText = await response.text();
+      if (bodyText.trim().length === 0) {
+        return { ok: true, value: null };
+      }
+
+      return { ok: true, value: JSON.parse(bodyText) as T };
     } catch {
       return { ok: false, value: null };
     } finally {

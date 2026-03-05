@@ -79,7 +79,9 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
           themes: ['Fantasy'],
           themeIds: [1],
           keywords: ['Plumber'],
-          keywordIds: [100]
+          keywordIds: [100],
+          screenshots: [],
+          videos: []
         }
       ]
     ])
@@ -99,6 +101,10 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
   assert.equal(repository.updates.length, 2);
   assert.deepEqual(repository.updates[0]?.payload['themes'], ['Fantasy']);
   assert.deepEqual(repository.updates[1]?.payload['keywords'], ['Plumber']);
+  assert.equal(typeof repository.updates[0]?.payload['taxonomyEnrichedAt'], 'string');
+  assert.equal(repository.updates[0]?.payload['taxonomyEnrichmentStatus'], 'success');
+  assert.equal(typeof repository.updates[0]?.payload['mediaEnrichedAt'], 'string');
+  assert.equal(repository.updates[0]?.payload['mediaEnrichmentStatus'], 'success');
 });
 
 void test('metadata enrichment skips when advisory lock is not acquired', async () => {
@@ -128,8 +134,28 @@ void test('metadata enrichment tolerates failed batches and still updates succes
   ];
   const igdbClient = new IgdbClientMock(
     new Map([
-      ['1', { themes: ['T1'], themeIds: [10], keywords: ['K1'], keywordIds: [11] }],
-      ['2', { themes: ['T2'], themeIds: [20], keywords: ['K2'], keywordIds: [22] }]
+      [
+        '1',
+        {
+          themes: ['T1'],
+          themeIds: [10],
+          keywords: ['K1'],
+          keywordIds: [11],
+          screenshots: [],
+          videos: []
+        }
+      ],
+      [
+        '2',
+        {
+          themes: ['T2'],
+          themeIds: [20],
+          keywords: ['K2'],
+          keywordIds: [22],
+          screenshots: [],
+          videos: []
+        }
+      ]
     ])
   );
   igdbClient.failuresForBatchContaining.add('2');
@@ -148,7 +174,9 @@ void test('metadata enrichment tolerates failed batches and still updates succes
 
   const gameOne = repository.updates.find((entry) => entry.igdbGameId === '1');
   const gameTwo = repository.updates.find((entry) => entry.igdbGameId === '2');
-  assert.deepEqual(gameOne?.payload['themes'], ['T1']);
+  assert.ok(gameOne);
+  assert.deepEqual(gameOne.payload['themes'], ['T1']);
+  assert.equal(gameOne.payload['taxonomyEnrichmentStatus'], 'success');
   assert.equal(gameTwo, undefined);
 });
 
@@ -156,7 +184,19 @@ void test('metadata enrichment is idempotent on rerun', async () => {
   const repository = new RepositoryMock();
   repository.rows = [{ igdbGameId: '10', platformIgdbId: 6, payload: { title: 'Game' } }];
   const igdbClient = new IgdbClientMock(
-    new Map([['10', { themes: ['Arcade'], themeIds: [3], keywords: ['Retro'], keywordIds: [4] }]])
+    new Map([
+      [
+        '10',
+        {
+          themes: ['Arcade'],
+          themeIds: [3],
+          keywords: ['Retro'],
+          keywordIds: [4],
+          screenshots: [],
+          videos: []
+        }
+      ]
+    ])
   );
 
   const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
@@ -173,4 +213,62 @@ void test('metadata enrichment is idempotent on rerun', async () => {
   assert.ok(second);
   assert.equal(first.updatedRows, 1);
   assert.equal(second.updatedRows, 0);
+});
+
+void test('metadata enrichment marks no_data when IGDB returns no row for a fetched id', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [{ igdbGameId: '404', platformIgdbId: 6, payload: { title: 'Missing' } }];
+  const igdbClient = new IgdbClientMock(new Map());
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.updatedRows, 1);
+  assert.equal(repository.updates.length, 1);
+  assert.equal(repository.updates[0]?.payload['taxonomyEnrichmentStatus'], 'no_data');
+  assert.equal(repository.updates[0]?.payload['mediaEnrichmentStatus'], 'no_data');
+  assert.equal(typeof repository.updates[0]?.payload['taxonomyEnrichedAt'], 'string');
+  assert.equal(typeof repository.updates[0]?.payload['mediaEnrichedAt'], 'string');
+});
+
+void test('metadata enrichment backfills sync marker without IGDB fetch when metadata already exists', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '20',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Synced Later',
+        taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
+        mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        themes: ['Action'],
+        keywords: ['Shooter'],
+        screenshots: [],
+        videos: []
+      }
+    }
+  ];
+  const igdbClient = new IgdbClientMock(new Map());
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.uniqueGamesRequested, 0);
+  assert.equal(summary.updatedRows, 1);
+  assert.equal(repository.updates.length, 1);
+  const updated = repository.updates[0];
+  assert.ok(updated);
+  assert.equal(typeof updated.payload['metadataSyncEnqueuedAt'], 'string');
+  assert.deepEqual(updated.payload['themes'], ['Action']);
 });

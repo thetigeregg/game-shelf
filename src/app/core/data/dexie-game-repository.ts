@@ -112,12 +112,30 @@ export class DexieGameRepository implements GameRepository {
         developers: this.normalizeTextList(result.developers),
         franchises: this.normalizeTextList(result.franchises),
         genres: this.normalizeTextList(result.genres),
-        themes: this.normalizeTextList(result.themes),
-        themeIds: this.normalizePositiveIntegerList(result.themeIds),
-        keywords: this.normalizeTextList(result.keywords),
-        keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
-        screenshots: this.normalizeGameScreenshots(result.screenshots),
-        videos: this.normalizeGameVideos(result.videos),
+        themes:
+          result.themes === undefined
+            ? this.normalizeTextList(existing.themes)
+            : this.normalizeTextList(result.themes),
+        themeIds:
+          result.themeIds === undefined
+            ? this.normalizePositiveIntegerList(existing.themeIds)
+            : this.normalizePositiveIntegerList(result.themeIds),
+        keywords:
+          result.keywords === undefined
+            ? this.normalizeTextList(existing.keywords)
+            : this.normalizeTextList(result.keywords),
+        keywordIds:
+          result.keywordIds === undefined
+            ? this.normalizePositiveIntegerList(existing.keywordIds)
+            : this.normalizePositiveIntegerList(result.keywordIds),
+        screenshots:
+          result.screenshots === undefined
+            ? this.normalizeGameScreenshots(existing.screenshots)
+            : this.normalizeGameScreenshots(result.screenshots),
+        videos:
+          result.videos === undefined
+            ? this.normalizeGameVideos(existing.videos)
+            : this.normalizeGameVideos(result.videos),
         publishers: this.normalizeTextList(result.publishers),
         platform: normalizedPlatformName,
         platformIgdbId: normalizedPlatformIgdbId,

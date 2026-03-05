@@ -7,13 +7,11 @@ import {
   GAME_RATING_VALUES,
   GameCatalogResult,
   GameEntry,
-  GameScreenshot,
   GameGroupByField,
   GameListFilters,
   GameListView,
   GameRating,
   GameStatus,
-  GameVideo,
   ListType,
   Tag
 } from '../models/game.models';
@@ -27,6 +25,7 @@ import {
 import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
+import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -130,12 +129,12 @@ export class DexieGameRepository implements GameRepository {
             : this.normalizePositiveIntegerList(result.keywordIds),
         screenshots:
           result.screenshots === undefined
-            ? this.normalizeGameScreenshots(existing.screenshots)
-            : this.normalizeGameScreenshots(result.screenshots),
+            ? normalizeGameScreenshots(existing.screenshots, { maxItems: 20 })
+            : normalizeGameScreenshots(result.screenshots, { maxItems: 20 }),
         videos:
           result.videos === undefined
-            ? this.normalizeGameVideos(existing.videos)
-            : this.normalizeGameVideos(result.videos),
+            ? normalizeGameVideos(existing.videos, { maxItems: 5 })
+            : normalizeGameVideos(result.videos, { maxItems: 5 }),
         publishers: this.normalizeTextList(result.publishers),
         platform: normalizedPlatformName,
         platformIgdbId: normalizedPlatformIgdbId,
@@ -199,8 +198,8 @@ export class DexieGameRepository implements GameRepository {
       themeIds: this.normalizePositiveIntegerList(result.themeIds),
       keywords: this.normalizeTextList(result.keywords),
       keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
-      screenshots: this.normalizeGameScreenshots(result.screenshots),
-      videos: this.normalizeGameVideos(result.videos),
+      screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }),
+      videos: normalizeGameVideos(result.videos, { maxItems: 5 }),
       publishers: this.normalizeTextList(result.publishers),
       platform: normalizedPlatformName,
       platformIgdbId: normalizedPlatformIgdbId,
@@ -732,88 +731,6 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return [...new Set(values.filter((value) => Number.isInteger(value) && value > 0))];
-  }
-
-  private normalizeGameScreenshots(values: GameScreenshot[] | undefined): GameScreenshot[] {
-    if (!Array.isArray(values)) {
-      return [];
-    }
-
-    const seen = new Set<string>();
-    const normalized: GameScreenshot[] = [];
-
-    for (const value of values) {
-      const imageId = typeof value.imageId === 'string' ? value.imageId.trim() : '';
-      if (imageId.length === 0) {
-        continue;
-      }
-
-      const rawId = value.id;
-      const id = typeof rawId === 'number' && Number.isInteger(rawId) && rawId > 0 ? rawId : null;
-      const dedupeKey = id !== null ? `id:${String(id)}` : `image:${imageId}`;
-      if (seen.has(dedupeKey)) {
-        continue;
-      }
-
-      seen.add(dedupeKey);
-      normalized.push({
-        id,
-        imageId,
-        url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
-        width:
-          typeof value.width === 'number' && Number.isInteger(value.width) && value.width > 0
-            ? value.width
-            : null,
-        height:
-          typeof value.height === 'number' && Number.isInteger(value.height) && value.height > 0
-            ? value.height
-            : null
-      });
-
-      if (normalized.length >= 20) {
-        break;
-      }
-    }
-
-    return normalized;
-  }
-
-  private normalizeGameVideos(values: GameVideo[] | undefined): GameVideo[] {
-    if (!Array.isArray(values)) {
-      return [];
-    }
-
-    const seen = new Set<string>();
-    const normalized: GameVideo[] = [];
-
-    for (const value of values) {
-      const videoId = typeof value.videoId === 'string' ? value.videoId.trim() : '';
-      if (videoId.length === 0) {
-        continue;
-      }
-
-      const rawId = value.id;
-      const id = typeof rawId === 'number' && Number.isInteger(rawId) && rawId > 0 ? rawId : null;
-      const dedupeKey = id !== null ? `id:${String(id)}` : `video:${videoId}`;
-      if (seen.has(dedupeKey)) {
-        continue;
-      }
-
-      seen.add(dedupeKey);
-      const name = typeof value.name === 'string' ? value.name.trim() : '';
-      normalized.push({
-        id,
-        name: name.length > 0 ? name : null,
-        videoId,
-        url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
-      });
-
-      if (normalized.length >= 5) {
-        break;
-      }
-    }
-
-    return normalized;
   }
 
   private normalizeCompletionHours(value: number | null | undefined): number | null {

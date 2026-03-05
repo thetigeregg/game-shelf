@@ -1,9 +1,8 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, inject } from '@angular/core';
 import {
   IonButton,
   IonButtons,
   IonCard,
-  IonCardContent,
   IonCardHeader,
   IonCardTitle,
   IonContent,
@@ -14,6 +13,13 @@ import {
 } from '@ionic/angular/standalone';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { GameVideo } from '../../core/models/game.models';
+
+interface DetailVideoViewModel {
+  key: string;
+  title: string;
+  watchUrl: string;
+  embedUrl: SafeResourceUrl;
+}
 
 @Component({
   selector: 'app-detail-videos-modal',
@@ -30,94 +36,69 @@ import { GameVideo } from '../../core/models/game.models';
     IonContent,
     IonCard,
     IonCardHeader,
-    IonCardTitle,
-    IonCardContent
+    IonCardTitle
   ]
 })
-export class DetailVideosModalComponent {
+export class DetailVideosModalComponent implements OnChanges {
   private readonly domSanitizer = inject(DomSanitizer);
 
   @Input() isOpen = false;
   @Input() videos: GameVideo[] | null | undefined;
   @Output() dismiss = new EventEmitter<void>();
+  normalizedVideos: DetailVideoViewModel[] = [];
 
-  get normalizedVideos(): GameVideo[] {
-    if (!Array.isArray(this.videos)) {
+  ngOnChanges(): void {
+    this.normalizedVideos = this.buildNormalizedVideos(this.videos);
+  }
+
+  private buildNormalizedVideos(videos: GameVideo[] | null | undefined): DetailVideoViewModel[] {
+    if (!Array.isArray(videos)) {
       return [];
     }
 
-    return this.videos
+    const seen = new Set<string>();
+    return videos
       .map((video) => {
         const id =
           Number.isInteger(video.id) && (video.id as number) > 0 ? (video.id as number) : null;
         const videoId = typeof video.videoId === 'string' ? video.videoId.trim() : '';
         const name = typeof video.name === 'string' ? video.name.trim() : '';
-        const url = typeof video.url === 'string' ? video.url.trim() : '';
+        const title = name.length > 0 ? name : 'Video';
+        const key = id !== null ? `id:${String(id)}` : `video:${videoId}`;
         return {
-          id,
+          key,
           videoId,
-          name: name.length > 0 ? name : null,
-          url
+          title
         };
       })
-      .filter((video) => video.videoId.length > 0 && video.url.length > 0);
+      .filter((video) => video.videoId.length > 0 && isValidYouTubeVideoId(video.videoId))
+      .filter(
+        (video, index, items) =>
+          items.findIndex((candidate) => candidate.key === video.key) === index
+      )
+      .map((video, index) => {
+        const dedupeKey = `video:${video.videoId}`;
+        if (seen.has(dedupeKey)) {
+          return null;
+        }
+
+        seen.add(dedupeKey);
+        const title = video.title === 'Video' ? `Video ${String(index + 1)}` : video.title;
+        const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(video.videoId)}`;
+        const embedUrl = this.domSanitizer.bypassSecurityTrustResourceUrl(
+          `https://www.youtube.com/embed/${video.videoId}`
+        );
+        return {
+          key: video.key,
+          title,
+          watchUrl,
+          embedUrl
+        } satisfies DetailVideoViewModel;
+      })
+      .filter((video): video is DetailVideoViewModel => video !== null);
   }
+}
 
-  getVideoTitle(video: GameVideo, index: number): string {
-    const name = typeof video.name === 'string' ? video.name.trim() : '';
-    return name.length > 0 ? name : `Video ${String(index + 1)}`;
-  }
-
-  isDirectPlayableVideoUrl(url: string | null | undefined): boolean {
-    const normalized = typeof url === 'string' ? url.trim().toLowerCase() : '';
-    return (
-      normalized.endsWith('.mp4') ||
-      normalized.endsWith('.webm') ||
-      normalized.endsWith('.ogg') ||
-      normalized.endsWith('.m4v') ||
-      normalized.endsWith('.mov')
-    );
-  }
-
-  getEmbedUrl(video: GameVideo): SafeResourceUrl | null {
-    const raw = this.toYoutubeEmbedUrl(video.url);
-    return raw ? this.domSanitizer.bypassSecurityTrustResourceUrl(raw) : null;
-  }
-
-  openVideoUrl(url: string | null | undefined): void {
-    const normalized = typeof url === 'string' ? url.trim() : '';
-    if (!normalized) {
-      return;
-    }
-
-    if (typeof window !== 'undefined') {
-      window.open(normalized, '_blank', 'noopener');
-    }
-  }
-
-  private toYoutubeEmbedUrl(url: string | null | undefined): string | null {
-    const normalized = typeof url === 'string' ? url.trim() : '';
-    if (!normalized) {
-      return null;
-    }
-
-    try {
-      const parsed = new URL(normalized);
-      const host = parsed.hostname.toLowerCase();
-
-      if (host.includes('youtube.com')) {
-        const videoId = parsed.searchParams.get('v')?.trim() ?? '';
-        return videoId.length > 0 ? `https://www.youtube.com/embed/${videoId}` : null;
-      }
-
-      if (host === 'youtu.be') {
-        const videoId = parsed.pathname.replace('/', '').trim();
-        return videoId.length > 0 ? `https://www.youtube.com/embed/${videoId}` : null;
-      }
-    } catch {
-      return null;
-    }
-
-    return null;
-  }
+function isValidYouTubeVideoId(value: string): boolean {
+  return /^[A-Za-z0-9_-]{11}$/.test(value);
 }

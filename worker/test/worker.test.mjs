@@ -144,6 +144,8 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     themeIds: [],
     keywords: [],
     keywordIds: [],
+    screenshots: [],
+    videos: [],
     platforms: ['Nintendo Switch'],
     platformOptions: [{ id: null, name: 'Nintendo Switch' }],
     platform: 'Nintendo Switch',
@@ -214,7 +216,7 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
   assert.equal(
     calls.igdbBodies[0].includes(
-      'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'
+      'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'
     ),
     true
   );

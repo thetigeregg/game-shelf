@@ -1,0 +1,17 @@
+git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+
+case "$git_dir" in
+  */worktrees/*) ;;
+  *) exit 0 ;;
+esac
+
+if [ -d node_modules ] \
+  && [ -d server/node_modules ] \
+  && [ -d worker/node_modules ] \
+  && [ -d hltb-scraper/node_modules ] \
+  && [ -d metacritic-scraper/node_modules ]; then
+  exit 0
+fi
+
+echo "[worktree] Installing dependencies (npm run i:all)..."
+npm run i:all

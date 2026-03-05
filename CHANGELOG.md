@@ -1442,3 +1442,37 @@
 - 3b7b7c2 feat: add audit fix command for all dependencies
 - 209f3c4 Run audit fix
 
+## v1.1.1 - 2026-03-05
+- a93935b Merge pull request #161 from thetigeregg/codex/screenshots-videos
+- fefe3f8 Trim options size before use
+- 9a1dde5 Allow explicit nulls in sync upsert
+- b5f3a3e Allow null clears in sync
+- ced03a2 Improve patch coverage and lint
+- 5085be6 Guard game payload update
+- c682957 Add payload equality guard
+- f43d8b2 Prevent metadata payload churn
+- b221764 Add deep equality payload check
+- 04e53a7 Fix failing unit tests and run suite
+- 347e845 Audit prod allowlist effects
+- 925c53a Review manual override video UI
+- ff3efe6 Reorder manual action buttons
+- 75cd6e2 Reorder shortcuts and move manual
+- cba5986 Add videos button and modal
+- 024ce98 Add videos modal fab shortcut
+- c059295 Enable swiper coverflow and lazy
+- 5e007f5 Add Swiper lazy loading preloader
+- 68da668 Adjust swiper pagination spacing
+- d4c546d Fix pagination spacing logic
+- 32ccb42 Update swiper params
+- 1c1dbe3 Update swiper navigation icons
+- 5a289fd Fix detail-cover padding
+- 9782b76 Add Swiper carousel to detail
+- afcb10c Add swiper dependency to package.json and package-lock.json
+- 689b5f8 Fix worktree seeding sync history
+- d9d0683 Format generated platform artifacts
+- 458a66c Merge branch 'main' into codex/screenshots-videos
+- 4649ab7 Update repository sync tests
+- 2f6b905 Add IGDB screenshot enrichment
+- a6e4817 Merge branch 'main' into codex/screenshots-videos
+- 5809577 Add support for screenshots and videos in metadata enrichment
+

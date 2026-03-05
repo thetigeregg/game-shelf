@@ -33,50 +33,54 @@
 
 .detail-content-inner-under-header .detail-cover {
   margin-top: calc(var(--offset-top, 0px) * -1);
-  padding-top: calc(16px + var(--offset-top, 0px));
   height: calc(350px + var(--offset-top, 0px));
+}
+
+.detail-content-inner-under-header .detail-cover app-detail-media-slide {
+  --detail-media-image-inset-top: calc(16px + var(--offset-top, 0px));
 }
 
 .detail-cover {
   position: relative;
-  padding: 16px;
+  display: block;
   height: 350px;
   box-sizing: border-box;
   overflow: hidden;
-}
-
-.detail-cover-swiper {
   width: 100%;
-  height: 100%;
-  display: block;
+  padding: 0;
 }
 
-.detail-cover-swiper swiper-slide {
+.detail-cover swiper-slide {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-.detail-cover-swiper::part(container) {
+.detail-cover::part(container) {
   width: 100%;
   height: 100%;
+  padding: 0;
 }
 
-.detail-cover-swiper::part(button-prev),
-.detail-cover-swiper::part(button-next) {
+.detail-cover::part(wrapper) {
+  padding: 0;
+}
+
+.detail-cover::part(button-prev),
+.detail-cover::part(button-next) {
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
-.detail-cover-swiper::part(pagination) {
+.detail-cover::part(pagination) {
   bottom: 6px;
 }
 
-.detail-cover-swiper::part(bullet) {
+.detail-cover::part(bullet) {
   background: rgba(255, 255, 255, 0.5);
 }
 
-.detail-cover-swiper::part(bullet-active) {
+.detail-cover::part(bullet-active) {
   background: #ffffff;
 }
 

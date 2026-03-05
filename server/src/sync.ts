@@ -206,7 +206,7 @@ async function applyGameOperation(
     INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
     VALUES ($1, $2, $3::jsonb, NOW())
     ON CONFLICT (igdb_game_id, platform_igdb_id)
-    DO UPDATE SET payload = jsonb_strip_nulls(
+    DO UPDATE SET payload = (
       EXCLUDED.payload || jsonb_build_object(
         'themes', COALESCE(EXCLUDED.payload -> 'themes', games.payload -> 'themes'),
         'themeIds', COALESCE(EXCLUDED.payload -> 'themeIds', games.payload -> 'themeIds'),

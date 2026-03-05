@@ -1,4 +1,8 @@
 import { IGDB_TO_THEGAMESDB_PLATFORM_ID } from './platform-id-map.mjs';
+import {
+  normalizeIgdbScreenshotList,
+  normalizeIgdbVideoList
+} from '../../shared/igdb-media-normalization.mjs';
 
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -17,8 +21,6 @@ const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const POPULARITY_TYPES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
-const MAX_SCREENSHOTS_PER_GAME = 20;
-const MAX_VIDEOS_PER_GAME = 5;
 
 const tokenCache = {
   accessToken: null,
@@ -562,8 +564,11 @@ export function normalizeIgdbGame(game) {
   const themeIds = normalizeIgdbNestedIds(game?.themes);
   const keywords = normalizeIgdbNamedCollection(game?.keywords);
   const keywordIds = normalizeIgdbNestedIds(game?.keywords);
-  const screenshots = normalizeIgdbScreenshots(game?.screenshots);
-  const videos = normalizeIgdbVideos(game?.videos);
+  const screenshots = normalizeIgdbScreenshotList(game?.screenshots, {
+    limit: 20,
+    size: 't_screenshot_huge'
+  });
+  const videos = normalizeIgdbVideoList(game?.videos, { limit: 5 });
   const storyline = normalizeOptionalText(game?.storyline);
   const summary = normalizeOptionalText(game?.summary);
 
@@ -599,86 +604,6 @@ export function normalizeIgdbGame(game) {
     releaseDate,
     releaseYear
   };
-}
-
-function normalizeIgdbScreenshots(values) {
-  if (!Array.isArray(values)) {
-    return [];
-  }
-
-  const seen = new Set();
-  const normalized = [];
-
-  for (const value of values) {
-    const imageId = typeof value?.image_id === 'string' ? value.image_id.trim() : '';
-
-    if (!imageId) {
-      continue;
-    }
-
-    const id = Number(value?.id);
-    const normalizedId = Number.isInteger(id) && id > 0 ? id : null;
-    const dedupeKey = normalizedId !== null ? `id:${String(normalizedId)}` : `image:${imageId}`;
-    if (seen.has(dedupeKey)) {
-      continue;
-    }
-
-    seen.add(dedupeKey);
-    const width = Number(value?.width);
-    const height = Number(value?.height);
-    normalized.push({
-      id: normalizedId,
-      imageId,
-      url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
-      width: Number.isInteger(width) && width > 0 ? width : null,
-      height: Number.isInteger(height) && height > 0 ? height : null
-    });
-
-    if (normalized.length >= MAX_SCREENSHOTS_PER_GAME) {
-      break;
-    }
-  }
-
-  return normalized;
-}
-
-function normalizeIgdbVideos(values) {
-  if (!Array.isArray(values)) {
-    return [];
-  }
-
-  const seen = new Set();
-  const normalized = [];
-
-  for (const value of values) {
-    const videoId = typeof value?.video_id === 'string' ? value.video_id.trim() : '';
-
-    if (!videoId) {
-      continue;
-    }
-
-    const id = Number(value?.id);
-    const normalizedId = Number.isInteger(id) && id > 0 ? id : null;
-    const dedupeKey = normalizedId !== null ? `id:${String(normalizedId)}` : `video:${videoId}`;
-    if (seen.has(dedupeKey)) {
-      continue;
-    }
-
-    seen.add(dedupeKey);
-    const name = typeof value?.name === 'string' ? value.name.trim() : '';
-    normalized.push({
-      id: normalizedId,
-      name: name.length > 0 ? name : null,
-      videoId,
-      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
-    });
-
-    if (normalized.length >= MAX_VIDEOS_PER_GAME) {
-      break;
-    }
-  }
-
-  return normalized;
 }
 
 function normalizeOptionalText(value) {

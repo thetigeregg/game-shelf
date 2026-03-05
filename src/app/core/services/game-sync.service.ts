@@ -96,8 +96,15 @@ export class GameSyncService implements SyncOutboxWriter {
       GameSyncService.META_CONNECTIVITY_KEY,
       this.isOnline() ? 'online' : 'offline'
     );
-    void this.runDiscoveryPollutionRemediationIfNeeded();
-    void this.syncNow();
+    void this.runDiscoveryPollutionRemediationIfNeeded()
+      .catch((error: unknown) => {
+        this.debugLogService.error('sync.discovery_pollution_remediation_failed', {
+          error: normalizeHttpError(error)
+        });
+      })
+      .finally(() => {
+        void this.syncNow();
+      });
   }
 
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {

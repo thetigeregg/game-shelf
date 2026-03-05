@@ -391,15 +391,19 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
+    const rawPayload = change.payload as Record<string, unknown>;
+    const pulledListType =
+      typeof rawPayload['listType'] === 'string' ? rawPayload['listType'].trim() : '';
+
+    if (pulledListType === 'discovery') {
+      return;
+    }
+
     const payload = change.payload as Partial<GameEntry>;
     const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
     const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
 
     if (!igdbGameId || platformIgdbId === null) {
-      return;
-    }
-
-    if (payload.listType === 'discovery') {
       return;
     }
 

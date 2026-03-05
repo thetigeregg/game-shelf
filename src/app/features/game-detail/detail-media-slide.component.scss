@@ -7,6 +7,10 @@
   --detail-media-image-inset-bottom: 16px;
 }
 
+:host(.with-pagination) {
+  --detail-media-image-inset-bottom: 20px;
+}
+
 .detail-media-slide {
   position: relative;
   display: flex;

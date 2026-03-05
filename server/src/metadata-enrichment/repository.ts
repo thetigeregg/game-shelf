@@ -86,7 +86,9 @@ export class MetadataEnrichmentRepository {
       WITH updated AS (
         UPDATE games
         SET payload = $3::jsonb, updated_at = NOW()
-        WHERE igdb_game_id = $1 AND platform_igdb_id = $2
+        WHERE igdb_game_id = $1
+          AND platform_igdb_id = $2
+          AND payload IS DISTINCT FROM $3::jsonb
         RETURNING igdb_game_id, platform_igdb_id, payload
       )
       INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)

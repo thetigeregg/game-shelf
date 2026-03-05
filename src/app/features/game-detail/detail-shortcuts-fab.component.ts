@@ -15,16 +15,6 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
         <ion-icon name="globe" aria-hidden="true"></ion-icon>
       </ion-fab-button>
       <ion-fab-list side="top" (click)="onListClick()">
-        @if (showVideosShortcut) {
-          <ion-fab-button
-            class="shortcut-videos"
-            color="ocean"
-            aria-label="Open game videos"
-            (click)="onVideosClick()"
-          >
-            <ion-icon name="film" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
         @if (showNotesShortcut) {
           <ion-fab-button
             class="shortcut-notes"
@@ -45,31 +35,13 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
             <ion-icon name="book" aria-hidden="true"></ion-icon>
           </ion-fab-button>
         }
-        @if (showFindManualButton) {
-          <ion-fab-button
-            class="shortcut-manual-find"
-            color="dark-gray"
-            aria-label="Find game manual PDF"
-            (click)="onFindManualClick()"
-          >
-            <ion-icon name="search" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
         <ion-fab-button
-          class="shortcut-google"
-          color="forest"
-          aria-label="Search on Google"
-          (click)="onShortcutSearch('google')"
+          class="shortcut-gamefaqs"
+          color="royal"
+          aria-label="Search on GameFAQs"
+          (click)="onShortcutSearch('gamefaqs')"
         >
-          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-youtube"
-          color="firetruck"
-          aria-label="Search on YouTube"
-          (click)="onShortcutSearch('youtube')"
-        >
-          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
+          <span class="shortcut-text" aria-hidden="true">G</span>
         </ion-fab-button>
         <ion-fab-button
           class="shortcut-wikipedia"
@@ -80,13 +52,41 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
           <span class="shortcut-text" aria-hidden="true">W</span>
         </ion-fab-button>
         <ion-fab-button
-          class="shortcut-gamefaqs"
-          color="royal"
-          aria-label="Search on GameFAQs"
-          (click)="onShortcutSearch('gamefaqs')"
+          class="shortcut-youtube"
+          color="firetruck"
+          aria-label="Search on YouTube"
+          (click)="onShortcutSearch('youtube')"
         >
-          <span class="shortcut-text" aria-hidden="true">G</span>
+          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
         </ion-fab-button>
+        @if (showVideosShortcut) {
+          <ion-fab-button
+            class="shortcut-videos"
+            color="ocean"
+            aria-label="Open game videos"
+            (click)="onVideosClick()"
+          >
+            <ion-icon name="film" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        <ion-fab-button
+          class="shortcut-google"
+          color="forest"
+          aria-label="Search on Google"
+          (click)="onShortcutSearch('google')"
+        >
+          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
+        </ion-fab-button>
+        @if (showFindManualButton) {
+          <ion-fab-button
+            class="shortcut-manual-find"
+            color="dark-gray"
+            aria-label="Find game manual PDF"
+            (click)="onFindManualClick()"
+          >
+            <ion-icon name="search" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
       </ion-fab-list>
     </ion-fab>
   `,

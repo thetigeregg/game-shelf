@@ -9,6 +9,14 @@
   margin: 0 0 12px 0;
 }
 
+ion-card-header {
+  padding: 10px 14px;
+
+  ion-card-title {
+    font-size: 1.2rem;
+  }
+}
+
 .detail-video-player,
 .detail-video-embed {
   width: 100%;

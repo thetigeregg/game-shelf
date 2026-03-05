@@ -332,10 +332,12 @@ export class GameSyncService implements SyncOutboxWriter {
       this.db.views,
       this.db.outbox,
       async () => {
+        const pendingGameOutboxKeys = await this.loadPendingGameOutboxKeys();
+
         for (const change of changes) {
           try {
             if (change.entityType === 'game') {
-              await this.applyGameChange(change);
+              await this.applyGameChange(change, pendingGameOutboxKeys);
               continue;
             }
 
@@ -378,7 +380,10 @@ export class GameSyncService implements SyncOutboxWriter {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
-  private async applyGameChange(change: SyncChangeEvent): Promise<void> {
+  private async applyGameChange(
+    change: SyncChangeEvent,
+    pendingGameOutboxKeys?: ReadonlySet<string>
+  ): Promise<void> {
     if (change.operation === 'delete') {
       const payload = change.payload as { igdbGameId?: unknown; platformIgdbId?: unknown };
       const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
@@ -417,7 +422,8 @@ export class GameSyncService implements SyncOutboxWriter {
     if (pulledListType === 'discovery') {
       const hasPendingLocalWrite = await this.hasPendingGameOutboxOperation(
         igdbGameId,
-        platformIgdbId
+        platformIgdbId,
+        pendingGameOutboxKeys
       );
 
       if (hasPendingLocalWrite) {
@@ -1026,25 +1032,46 @@ export class GameSyncService implements SyncOutboxWriter {
 
   private async hasPendingGameOutboxOperation(
     igdbGameId: string,
-    platformIgdbId: number
+    platformIgdbId: number,
+    pendingGameOutboxKeys?: ReadonlySet<string>
   ): Promise<boolean> {
-    const pendingGameOps = await this.db.outbox.where('entityType').equals('game').toArray();
+    if (pendingGameOutboxKeys) {
+      return pendingGameOutboxKeys.has(this.buildGameIdentityKey(igdbGameId, platformIgdbId));
+    }
 
-    return pendingGameOps.some((entry) => {
+    const pendingGameOutboxKeysNow = await this.loadPendingGameOutboxKeys();
+    return pendingGameOutboxKeysNow.has(this.buildGameIdentityKey(igdbGameId, platformIgdbId));
+  }
+
+  private async loadPendingGameOutboxKeys(): Promise<Set<string>> {
+    const pendingGameOps = await this.db.outbox.where('entityType').equals('game').toArray();
+    const keys = new Set<string>();
+
+    pendingGameOps.forEach((entry) => {
       const payload =
         entry.payload && typeof entry.payload === 'object'
           ? (entry.payload as Record<string, unknown>)
           : null;
       if (!payload) {
-        return false;
+        return;
       }
 
       const payloadGameId =
         typeof payload['igdbGameId'] === 'string' ? payload['igdbGameId'].trim() : '';
       const payloadPlatformId = this.parsePositiveInteger(payload['platformIgdbId']);
 
-      return payloadGameId === igdbGameId && payloadPlatformId === platformIgdbId;
+      if (payloadGameId.length === 0 || payloadPlatformId === null) {
+        return;
+      }
+
+      keys.add(this.buildGameIdentityKey(payloadGameId, payloadPlatformId));
     });
+
+    return keys;
+  }
+
+  private buildGameIdentityKey(igdbGameId: string, platformIgdbId: number): string {
+    return `${igdbGameId}::${String(platformIgdbId)}`;
   }
 
   private async setMeta(key: string, value: string): Promise<void> {

@@ -1093,12 +1093,14 @@ export class GameSyncService implements SyncOutboxWriter {
 
     const now = new Date().toISOString();
     await this.db.transaction('rw', this.db.syncMeta, async (tx) => {
-      await tx.table('syncMeta').put({
+      const syncMetaTable = tx.table<SyncMetaEntry, string>(this.db.syncMeta.name);
+
+      await syncMetaTable.put({
         key: GameSyncService.META_CURSOR_KEY,
         value: '0',
         updatedAt: now
       });
-      await tx.table('syncMeta').put({
+      await syncMetaTable.put({
         key: DISCOVERY_POLLUTION_REMEDIATION_META_KEY,
         value: 'done',
         updatedAt: now

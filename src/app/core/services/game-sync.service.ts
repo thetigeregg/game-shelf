@@ -459,12 +459,30 @@ export class GameSyncService implements SyncOutboxWriter {
       developers: this.normalizeStringList(payload.developers),
       franchises: this.normalizeStringList(payload.franchises),
       genres: this.normalizeStringList(payload.genres),
-      themes: this.normalizeStringList(payload.themes),
-      themeIds: this.normalizePositiveIntegerList(payload.themeIds),
-      keywords: this.normalizeStringList(payload.keywords),
-      keywordIds: this.normalizePositiveIntegerList(payload.keywordIds),
-      screenshots: this.normalizeGameScreenshots(payload.screenshots),
-      videos: this.normalizeGameVideos(payload.videos),
+      themes:
+        payload.themes === undefined
+          ? this.normalizeStringList(existingByIdentity?.themes)
+          : this.normalizeStringList(payload.themes),
+      themeIds:
+        payload.themeIds === undefined
+          ? this.normalizePositiveIntegerList(existingByIdentity?.themeIds)
+          : this.normalizePositiveIntegerList(payload.themeIds),
+      keywords:
+        payload.keywords === undefined
+          ? this.normalizeStringList(existingByIdentity?.keywords)
+          : this.normalizeStringList(payload.keywords),
+      keywordIds:
+        payload.keywordIds === undefined
+          ? this.normalizePositiveIntegerList(existingByIdentity?.keywordIds)
+          : this.normalizePositiveIntegerList(payload.keywordIds),
+      screenshots:
+        payload.screenshots === undefined
+          ? this.normalizeGameScreenshots(existingByIdentity?.screenshots)
+          : this.normalizeGameScreenshots(payload.screenshots),
+      videos:
+        payload.videos === undefined
+          ? this.normalizeGameVideos(existingByIdentity?.videos)
+          : this.normalizeGameVideos(payload.videos),
       publishers: this.normalizeStringList(payload.publishers),
       platform,
       customPlatform: this.normalizeCustomPlatform(

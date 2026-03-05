@@ -366,6 +366,62 @@ describe('GameSyncService', () => {
     expect(stored?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
+  it('preserves existing enriched arrays when a pulled upsert omits them', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      themes: ['Action'],
+      themeIds: [1],
+      keywords: ['aliens'],
+      keywordIds: [10],
+      screenshots: [
+        {
+          id: 5673,
+          imageId: 'hjnzngnrtwr82jzmmkef',
+          url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
+          width: 1280,
+          height: 720
+        }
+      ],
+      videos: [
+        {
+          id: 3164,
+          name: 'Next-gen Launch Trailer',
+          videoId: 'PIF_fqFZEuk',
+          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+        }
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4c-preserve-enrichment-arrays',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        title: 'Updated Title'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Updated Title');
+    expect(stored?.themes).toEqual(['Action']);
+    expect(stored?.themeIds).toEqual([1]);
+    expect(stored?.keywords).toEqual(['aliens']);
+    expect(stored?.keywordIds).toEqual([10]);
+    expect(stored?.screenshots).toHaveLength(1);
+    expect(stored?.videos).toHaveLength(1);
+  });
+
   it('accepts half-step ratings in pulled game payloads', async () => {
     await servicePrivate.applyGameChange({
       eventId: '4c',

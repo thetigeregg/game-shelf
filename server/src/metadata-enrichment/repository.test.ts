@@ -98,6 +98,7 @@ void test('repository update writes sync event for changed game payload', async 
 
   const sql = pool.queries[0]?.sql ?? '';
   assert.equal(sql.includes('WITH updated AS'), true);
+  assert.equal(sql.includes('payload IS DISTINCT FROM $3::jsonb'), true);
   assert.equal(sql.includes('INSERT INTO sync_events'), true);
   assert.equal(sql.includes("'game'"), true);
   assert.equal(sql.includes("'upsert'"), true);

@@ -74,4 +74,26 @@ describe('DetailVideosModalComponent', () => {
     expect(component.normalizedVideos).toHaveLength(1);
     expect(component.normalizedVideos[0]?.title).toBe('Video 1');
   });
+
+  it('returns empty normalized list for non-array input', () => {
+    const component = createComponent();
+    component.videos = null;
+    component.ngOnChanges();
+    expect(component.normalizedVideos).toEqual([]);
+  });
+
+  it('filters invalid youtube ids and dedupes by key before deduping by video id', () => {
+    const component = createComponent();
+    component.videos = [
+      { id: 7, name: ' A ', videoId: 'PIF_fqFZEuk', url: '' },
+      { id: 7, name: 'A2', videoId: 'PIF_fqFZEuk', url: '' },
+      { id: null, name: 'B', videoId: 'PIF_fqFZEuk', url: '' },
+      { id: null, name: '', videoId: 'bad-id', url: '' }
+    ];
+
+    component.ngOnChanges();
+
+    expect(component.normalizedVideos).toHaveLength(1);
+    expect(component.normalizedVideos[0]?.title).toBe('A');
+  });
 });

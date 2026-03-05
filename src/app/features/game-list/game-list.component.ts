@@ -76,6 +76,7 @@ import {
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
+  GameVideo,
   GameGroupByField,
   GameListFilters,
   HltbMatchCandidate,
@@ -131,6 +132,7 @@ import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workf
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
+import { DetailVideosModalComponent } from '../game-detail/detail-videos-modal.component';
 import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import {
@@ -262,6 +264,7 @@ type NotesToolbarAction =
     GameSearchComponent,
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
+    DetailVideosModalComponent,
     SimilarGameRowComponent
   ]
 })
@@ -329,6 +332,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   isImagePickerModalOpen = false;
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
+  isVideosModalOpen = false;
   isHltbUpdateLoading = false;
   isReviewUpdateLoading = false;
   isHltbPickerModalOpen = false;
@@ -1225,6 +1229,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.isVideosModalOpen = false;
     this.resetNoteEditorState();
     if (keepDesktopNotesPaneOpen && this.listType === 'collection') {
       this.savedNoteValue = this.normalizeNotesValue(game.notes);
@@ -1300,6 +1305,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isManualPickerModalOpen = false;
     this.isNotesOpen = false;
     this.isNotesModalOpen = false;
+    this.isVideosModalOpen = false;
     this.selectedGame = null;
     this.detailNavigationStack = [];
     this.similarDetailMode = 'library';
@@ -2495,6 +2501,26 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.openExternalUrl(url);
+  }
+
+  get detailVideos(): GameVideo[] {
+    return Array.isArray(this.selectedGame?.videos) ? this.selectedGame.videos : [];
+  }
+
+  get hasDetailVideosShortcut(): boolean {
+    return this.detailVideos.length > 0;
+  }
+
+  openVideosModal(): void {
+    if (!this.hasDetailVideosShortcut) {
+      return;
+    }
+
+    this.isVideosModalOpen = true;
+  }
+
+  closeVideosModal(): void {
+    this.isVideosModalOpen = false;
   }
 
   get shouldShowOpenManualButton(): boolean {

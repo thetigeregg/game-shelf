@@ -1,0 +1,54 @@
+<ion-modal [isOpen]="isOpen" (didDismiss)="dismiss.emit()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Videos</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="dismiss.emit()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="detail-videos-content gs-safe-bottom">
+      @for (video of normalizedVideos; track video.id ?? video.videoId; let index = $index) {
+        <ion-card class="detail-video-card">
+          @if (isDirectPlayableVideoUrl(video.url)) {
+            <video class="detail-video-player" controls playsinline preload="metadata">
+              <source [src]="video.url" />
+            </video>
+          } @else if (getEmbedUrl(video); as embedUrl) {
+            <div class="detail-video-embed-wrap">
+              <iframe
+                class="detail-video-embed"
+                [src]="embedUrl"
+                title="Game video"
+                loading="lazy"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allow="
+                  accelerometer;
+                  autoplay;
+                  clipboard-write;
+                  encrypted-media;
+                  gyroscope;
+                  picture-in-picture;
+                  web-share;
+                "
+                allowfullscreen
+              ></iframe>
+            </div>
+          }
+
+          <ion-card-header>
+            <ion-card-title>{{ getVideoTitle(video, index) }}</ion-card-title>
+          </ion-card-header>
+
+          <ion-card-content>
+            <ion-button fill="clear" size="small" (click)="openVideoUrl(video.url)">
+              Open Source
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+      }
+    </ion-content>
+  </ng-template>
+</ion-modal>

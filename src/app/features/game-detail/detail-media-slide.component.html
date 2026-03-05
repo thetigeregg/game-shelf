@@ -1,0 +1,7 @@
+<div class="detail-media-slide">
+  <div
+    class="detail-media-slide-backdrop"
+    [style.background-image]="displaySrc ? 'url(' + displaySrc + ')' : 'none'"
+  ></div>
+  <img [src]="displaySrc" [alt]="alt" (load)="onImageLoad($event)" (error)="onImageError($event)" />
+</div>

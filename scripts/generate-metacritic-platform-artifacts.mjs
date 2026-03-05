@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { format } from 'prettier';
+import { format, resolveConfig } from 'prettier';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -60,8 +60,10 @@ async function main() {
   }
 
   const platformIds = toSortedPlatformIds(parsedCanonical);
+  const prettierConfig = (await resolveConfig(frontendSupportPath)) ?? {};
 
   const formattedFrontendSource = await format(buildFrontendSupportSource(platformIds), {
+    ...prettierConfig,
     filepath: frontendSupportPath
   });
 

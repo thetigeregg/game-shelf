@@ -325,39 +325,46 @@ export class GameSyncService implements SyncOutboxWriter {
   private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
     let failedChanges = 0;
 
-    await this.db.transaction('rw', this.db.games, this.db.tags, this.db.views, async () => {
-      for (const change of changes) {
-        try {
-          if (change.entityType === 'game') {
-            await this.applyGameChange(change);
-            continue;
-          }
+    await this.db.transaction(
+      'rw',
+      this.db.games,
+      this.db.tags,
+      this.db.views,
+      this.db.outbox,
+      async () => {
+        for (const change of changes) {
+          try {
+            if (change.entityType === 'game') {
+              await this.applyGameChange(change);
+              continue;
+            }
 
-          if (change.entityType === 'tag') {
-            await this.applyTagChange(change);
-            continue;
-          }
+            if (change.entityType === 'tag') {
+              await this.applyTagChange(change);
+              continue;
+            }
 
-          if (change.entityType === 'view') {
-            await this.applyViewChange(change);
-            continue;
-          }
+            if (change.entityType === 'view') {
+              await this.applyViewChange(change);
+              continue;
+            }
 
-          this.applySettingChange(change);
-        } catch (error: unknown) {
-          failedChanges += 1;
-          this.debugLogService.error('sync.pull.change_failed', {
-            eventId: change.eventId,
-            entityType: change.entityType,
-            operation: change.operation,
-            error: normalizeHttpError(error)
-          });
+            this.applySettingChange(change);
+          } catch (error: unknown) {
+            failedChanges += 1;
+            this.debugLogService.error('sync.pull.change_failed', {
+              eventId: change.eventId,
+              entityType: change.entityType,
+              operation: change.operation,
+              error: normalizeHttpError(error)
+            });
+          }
+        }
+        if (failedChanges > 0) {
+          throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
         }
       }
-      if (failedChanges > 0) {
-        throw new Error(`Failed to apply ${String(failedChanges)} pulled sync change(s).`);
-      }
-    });
+    );
   }
 
   private parsePositiveInteger(value: unknown): number | null {

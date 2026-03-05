@@ -139,6 +139,51 @@ describe('DexieGameRepository', () => {
     expect(stored?.videos).toHaveLength(1);
   });
 
+  it('normalizes and replaces media arrays when catalog update explicitly includes media fields', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        screenshots: [{ id: 1, imageId: 'old-image', url: '', width: 1, height: 1 }],
+        videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }]
+      },
+      'collection'
+    );
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        screenshots: [
+          { id: 2, image_id: ' next-image ', width: '1280', height: '720' } as never,
+          { id: 2, image_id: 'next-image' } as never
+        ],
+        videos: [
+          { id: 3, name: ' Trailer ', video_id: 'abc def' } as never,
+          { id: 3, name: 'Duplicate', video_id: 'abc def' } as never
+        ]
+      },
+      'collection'
+    );
+
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
+    expect(stored?.screenshots).toEqual([
+      {
+        id: 2,
+        imageId: 'next-image',
+        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/next-image.jpg',
+        width: 1280,
+        height: 720
+      }
+    ]);
+    expect(stored?.videos).toEqual([
+      {
+        id: 3,
+        name: 'Trailer',
+        videoId: 'abc def',
+        url: 'https://www.youtube.com/watch?v=abc%20def'
+      }
+    ]);
+  });
+
   it('rejects non-integer theme and keyword ids from catalog payload', async () => {
     const created = await repository.upsertFromCatalog(
       {

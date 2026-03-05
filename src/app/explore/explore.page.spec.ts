@@ -593,6 +593,38 @@ describe('ExplorePage recommendations UX', () => {
     expect(img.src).toContain('assets/icon/placeholder.png');
   });
 
+  it('exposes detail videos and opens/closes videos modal based on active detail game', () => {
+    const page = createPage();
+
+    expect(page.detailVideos).toEqual([]);
+    expect(page.hasDetailVideosShortcut).toBe(false);
+
+    page.openVideosModal();
+    expect(page.isVideosModalOpen).toBe(false);
+
+    page.selectedGameDetail = {
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-03-03T00:00:00.000Z',
+      updatedAt: '2026-03-03T00:00:00.000Z',
+      videos: [{ id: 1, name: 'Trailer', videoId: 'PIF_fqFZEuk', url: '' }]
+    };
+
+    expect(page.detailVideos).toHaveLength(1);
+    expect(page.hasDetailVideosShortcut).toBe(true);
+    page.openVideosModal();
+    expect(page.isVideosModalOpen).toBe(true);
+    page.closeVideosModal();
+    expect(page.isVideosModalOpen).toBe(false);
+  });
+
   it('resets detail modal state on close', () => {
     const page = createPage();
     page.isGameDetailModalOpen = true;

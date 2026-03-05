@@ -272,3 +272,41 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
   assert.equal(typeof updated.payload['metadataSyncEnqueuedAt'], 'string');
   assert.deepEqual(updated.payload['themes'], ['Action']);
 });
+
+void test('metadata enrichment skips row when enrichment and sync markers are already present', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '30',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Already Done',
+        themes: ['Action'],
+        keywords: ['Shooter'],
+        screenshots: [],
+        videos: [],
+        taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
+        mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z'
+      }
+    }
+  ];
+
+  const service = new MetadataEnrichmentService(
+    repository as never,
+    new IgdbClientMock(new Map()) as never,
+    {
+      enabled: true,
+      batchSize: 200,
+      maxGamesPerRun: 5000,
+      startupDelayMs: 0
+    }
+  );
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.uniqueGamesRequested, 0);
+  assert.equal(summary.updatedRows, 0);
+  assert.equal(summary.skippedRows, 1);
+  assert.equal(repository.updates.length, 0);
+});

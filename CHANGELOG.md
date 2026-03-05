@@ -1437,3 +1437,8 @@
 - 6c23ff2 Merge branch 'main' into codex/fixy
 - 9d19e5e Add discovery enrich backoff limits
 
+## v1.1.0 - 2026-03-05
+- 90be8e2 Merge pull request #160 from thetigeregg/bump
+- 3b7b7c2 feat: add audit fix command for all dependencies
+- 209f3c4 Run audit fix
+

@@ -1,4 +1,8 @@
 import { IGDB_TO_THEGAMESDB_PLATFORM_ID } from './platform-id-map.mjs';
+import {
+  normalizeIgdbScreenshotList,
+  normalizeIgdbVideoList
+} from '../../shared/igdb-media-normalization.mjs';
 
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -560,6 +564,11 @@ export function normalizeIgdbGame(game) {
   const themeIds = normalizeIgdbNestedIds(game?.themes);
   const keywords = normalizeIgdbNamedCollection(game?.keywords);
   const keywordIds = normalizeIgdbNestedIds(game?.keywords);
+  const screenshots = normalizeIgdbScreenshotList(game?.screenshots, {
+    limit: 20,
+    size: 't_screenshot_huge'
+  });
+  const videos = normalizeIgdbVideoList(game?.videos, { limit: 5 });
   const storyline = normalizeOptionalText(game?.storyline);
   const summary = normalizeOptionalText(game?.summary);
 
@@ -586,6 +595,8 @@ export function normalizeIgdbGame(game) {
     themeIds,
     keywords,
     keywordIds,
+    screenshots,
+    videos,
     platforms,
     platformOptions,
     platform: platforms.length === 1 ? platforms[0] : null,
@@ -1356,7 +1367,7 @@ async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
 
   const body = [
     `where id = (${uniqueIds.join(',')});`,
-    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
+    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
     `limit ${uniqueIds.length};`
   ].join(' ');
 
@@ -1511,17 +1522,17 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
   const queryVariants = [
     {
       fields:
-        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null
     },
     {
       fields:
-        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null
     },
     {
       fields:
-        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
+        'id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
       sort: null
     }
   ];
@@ -1689,7 +1700,7 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   const timeoutMs = getIgdbRequestTimeoutMs(env);
   const body = [
     `where id = ${gameId};`,
-    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
+    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
     'limit 1;'
   ].join(' ');
 

@@ -56,10 +56,9 @@ export class MetadataEnrichmentRepository {
       SELECT igdb_game_id, platform_igdb_id, payload
       FROM games
       WHERE
-        COALESCE(jsonb_typeof(payload -> 'themes'), '') <> 'array'
-        OR COALESCE(jsonb_typeof(payload -> 'themeIds'), '') <> 'array'
-        OR COALESCE(jsonb_typeof(payload -> 'keywords'), '') <> 'array'
-        OR COALESCE(jsonb_typeof(payload -> 'keywordIds'), '') <> 'array'
+        COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
+        OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
+        OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC
       LIMIT $1
       `,
@@ -84,9 +83,22 @@ export class MetadataEnrichmentRepository {
   }): Promise<void> {
     await (params.client ?? this.pool).query(
       `
-      UPDATE games
-      SET payload = $3::jsonb, updated_at = NOW()
-      WHERE igdb_game_id = $1 AND platform_igdb_id = $2
+      WITH updated AS (
+        UPDATE games
+        SET payload = $3::jsonb, updated_at = NOW()
+        WHERE igdb_game_id = $1
+          AND platform_igdb_id = $2
+          AND payload IS DISTINCT FROM $3::jsonb
+        RETURNING igdb_game_id, platform_igdb_id, payload
+      )
+      INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)
+      SELECT
+        'game',
+        updated.igdb_game_id || '::' || updated.platform_igdb_id::text,
+        'upsert',
+        updated.payload,
+        NOW()
+      FROM updated
       `,
       [params.igdbGameId, params.platformIgdbId, JSON.stringify(params.payload)]
     );

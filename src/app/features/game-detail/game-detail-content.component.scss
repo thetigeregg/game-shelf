@@ -33,47 +33,55 @@
 
 .detail-content-inner-under-header .detail-cover {
   margin-top: calc(var(--offset-top, 0px) * -1);
-  padding-top: calc(16px + var(--offset-top, 0px));
   height: calc(350px + var(--offset-top, 0px));
+}
+
+.detail-content-inner-under-header .detail-cover app-detail-media-slide {
+  --detail-media-image-inset-top: calc(16px + var(--offset-top, 0px));
 }
 
 .detail-cover {
   position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
+  display: block;
   height: 350px;
   box-sizing: border-box;
   overflow: hidden;
+  width: 100%;
+  padding: 0;
 }
 
-.detail-cover img {
-  position: relative;
-  z-index: 1;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  border-radius: 5px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-}
-
-.detail-cover-backdrop {
-  position: absolute;
-  top: 0;
-  left: 0;
+.detail-cover swiper-slide {
+  display: block;
   width: 100%;
   height: 100%;
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  filter: blur(10px);
-  opacity: 0.5;
-  transform: scale(1.05);
-  pointer-events: none;
-  z-index: 0;
+}
+
+.detail-cover::part(container) {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+
+.detail-cover::part(wrapper) {
+  padding: 0;
+}
+
+.detail-cover::part(button-prev),
+.detail-cover::part(button-next) {
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.detail-cover::part(pagination) {
+  bottom: 6px;
+}
+
+.detail-cover::part(bullet) {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.detail-cover::part(bullet-active) {
+  background: #ffffff;
 }
 
 .detail-game-name {

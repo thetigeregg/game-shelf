@@ -24,6 +24,7 @@ import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { DebugLogService } from './debug-log.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
 import { detectReviewSourceFromUrl } from '../utils/url-host.util';
+import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -38,6 +39,8 @@ interface SyncPullResponse {
 @Injectable({ providedIn: 'root' })
 export class GameSyncService implements SyncOutboxWriter {
   private static readonly SYNC_INTERVAL_MS = 30_000;
+  private static readonly SYNC_PULL_PAGE_SIZE = 1000;
+  private static readonly SYNC_PULL_MAX_PAGES_PER_RUN = 20;
   private static readonly MAX_PUSH_BODY_BYTES = 8 * 1024 * 1024;
   private static readonly PUSH_BODY_PREFIX_BYTES = '{"operations":['.length;
   private static readonly PUSH_BODY_SUFFIX_BYTES = ']}'.length;
@@ -262,35 +265,60 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private async pullChanges(): Promise<void> {
-    const cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
-    this.debugLogService.debug('sync.pull.request', { hasCursor: Boolean(cursor) });
-    const response = await firstValueFrom(
-      this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
-        cursor: cursor ?? null
-      })
-    );
-    const changes = Array.isArray(response.changes) ? response.changes : [];
-    this.debugLogService.debug('sync.pull.response', {
-      changes: changes.length,
-      hasCursor: typeof response.cursor === 'string' && response.cursor.trim().length > 0
-    });
+    let cursor = await this.getMeta(GameSyncService.META_CURSOR_KEY);
+    let pagesPulled = 0;
+    let totalAppliedChanges = 0;
 
-    if (changes.length === 0) {
-      if (typeof response.cursor === 'string' && response.cursor.trim().length > 0) {
-        await this.setMeta(GameSyncService.META_CURSOR_KEY, response.cursor.trim());
+    while (pagesPulled < GameSyncService.SYNC_PULL_MAX_PAGES_PER_RUN) {
+      this.debugLogService.debug('sync.pull.request', { hasCursor: Boolean(cursor), pagesPulled });
+      const response = await firstValueFrom(
+        this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
+          cursor: cursor ?? null
+        })
+      );
+      const changes = Array.isArray(response.changes) ? response.changes : [];
+      const responseCursor =
+        typeof response.cursor === 'string' && response.cursor.trim().length > 0
+          ? response.cursor.trim()
+          : null;
+
+      this.debugLogService.debug('sync.pull.response', {
+        changes: changes.length,
+        hasCursor: responseCursor !== null
+      });
+
+      if (changes.length === 0) {
+        if (responseCursor !== null) {
+          await this.setMeta(GameSyncService.META_CURSOR_KEY, responseCursor);
+        }
+        break;
       }
-      return;
+
+      await this.applyPulledChanges(changes);
+
+      const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;
+      await this.setMeta(GameSyncService.META_CURSOR_KEY, nextCursor);
+      totalAppliedChanges += changes.length;
+      pagesPulled += 1;
+
+      if (changes.length < GameSyncService.SYNC_PULL_PAGE_SIZE) {
+        break;
+      }
+
+      if (cursor === nextCursor) {
+        break;
+      }
+
+      cursor = nextCursor;
     }
 
-    await this.applyPulledChanges(changes);
-
-    const nextCursor =
-      typeof response.cursor === 'string' && response.cursor.trim().length > 0
-        ? response.cursor.trim()
-        : changes[changes.length - 1].eventId;
-    await this.setMeta(GameSyncService.META_CURSOR_KEY, nextCursor);
-    this.syncEvents.emitChanged();
-    this.debugLogService.debug('sync.pull.applied', { changes: changes.length });
+    if (totalAppliedChanges > 0) {
+      this.syncEvents.emitChanged();
+      this.debugLogService.debug('sync.pull.applied', {
+        changes: totalAppliedChanges,
+        pagesPulled
+      });
+    }
   }
 
   private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
@@ -457,10 +485,30 @@ export class GameSyncService implements SyncOutboxWriter {
       developers: this.normalizeStringList(payload.developers),
       franchises: this.normalizeStringList(payload.franchises),
       genres: this.normalizeStringList(payload.genres),
-      themes: this.normalizeStringList(payload.themes),
-      themeIds: this.normalizePositiveIntegerList(payload.themeIds),
-      keywords: this.normalizeStringList(payload.keywords),
-      keywordIds: this.normalizePositiveIntegerList(payload.keywordIds),
+      themes:
+        payload.themes === undefined
+          ? this.normalizeStringList(existingByIdentity?.themes)
+          : this.normalizeStringList(payload.themes),
+      themeIds:
+        payload.themeIds === undefined
+          ? this.normalizePositiveIntegerList(existingByIdentity?.themeIds)
+          : this.normalizePositiveIntegerList(payload.themeIds),
+      keywords:
+        payload.keywords === undefined
+          ? this.normalizeStringList(existingByIdentity?.keywords)
+          : this.normalizeStringList(payload.keywords),
+      keywordIds:
+        payload.keywordIds === undefined
+          ? this.normalizePositiveIntegerList(existingByIdentity?.keywordIds)
+          : this.normalizePositiveIntegerList(payload.keywordIds),
+      screenshots:
+        payload.screenshots === undefined
+          ? normalizeGameScreenshots(existingByIdentity?.screenshots, { maxItems: 20 })
+          : normalizeGameScreenshots(payload.screenshots, { maxItems: 20 }),
+      videos:
+        payload.videos === undefined
+          ? normalizeGameVideos(existingByIdentity?.videos, { maxItems: 5 })
+          : normalizeGameVideos(payload.videos, { maxItems: 5 }),
       publishers: this.normalizeStringList(payload.publishers),
       platform,
       customPlatform: this.normalizeCustomPlatform(

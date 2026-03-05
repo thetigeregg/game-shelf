@@ -6,7 +6,7 @@ import { registerSyncRoutes } from './sync.js';
 class FakeSyncClient {
   private latestEventId = 0;
 
-  query(sql: string): Promise<{ rows: unknown[] }> {
+  query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalized.startsWith('select result from idempotency_keys')) {
@@ -14,7 +14,8 @@ class FakeSyncClient {
     }
 
     if (normalized.startsWith('insert into games')) {
-      return Promise.resolve({ rows: [] });
+      const payload = parsePayload(params[2]);
+      return Promise.resolve({ rows: [{ payload }] });
     }
 
     if (normalized.startsWith('insert into sync_events')) {
@@ -94,3 +95,80 @@ void test('sync push normalizes game notes line endings', async () => {
 
   await app.close();
 });
+
+void test('sync push returns merged game payload from upsert result', async () => {
+  class MergeAwareSyncClient extends FakeSyncClient {
+    override query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
+      const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (normalized.startsWith('insert into games')) {
+        const payload = parsePayload(params[2]);
+        return Promise.resolve({
+          rows: [
+            {
+              payload: {
+                ...payload,
+                themes: ['Action'],
+                keywords: ['aliens'],
+                screenshots: [{ id: 1, imageId: 'abc' }],
+                videos: [{ id: 2, videoId: 'vid' }]
+              }
+            }
+          ]
+        });
+      }
+      return super.query(sql, params);
+    }
+  }
+
+  class MergeAwarePool extends FakePool {
+    override connect(): Promise<MergeAwareSyncClient> {
+      return Promise.resolve(new MergeAwareSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new MergeAwarePool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-merge-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '123',
+            platformIgdbId: 130,
+            title: 'Game',
+            platform: 'Switch',
+            listType: 'collection'
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  assert.deepEqual(body.results[0]?.normalizedPayload?.['themes'], ['Action']);
+  assert.deepEqual(body.results[0]?.normalizedPayload?.['keywords'], ['aliens']);
+
+  await app.close();
+});
+
+function parsePayload(value: unknown): Record<string, unknown> {
+  if (typeof value === 'string') {
+    return JSON.parse(value) as Record<string, unknown>;
+  }
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return {};
+}

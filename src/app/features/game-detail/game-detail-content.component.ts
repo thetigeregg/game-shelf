@@ -1,4 +1,11 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import {
+  CUSTOM_ELEMENTS_SCHEMA,
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  inject
+} from '@angular/core';
 import {
   IonBadge,
   IonButton,
@@ -32,21 +39,26 @@ import {
   GameCatalogResult,
   GameEntry,
   GameRating,
+  GameScreenshot,
   GameStatus
 } from '../../core/models/game.models';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
+import { DetailMediaSlideComponent } from './detail-media-slide.component';
 
 type DetailContext = 'library' | 'explore';
 type DetailGame = GameCatalogResult | GameEntry;
+type DetailMediaSlide = { key: string; src: string };
 
 @Component({
   selector: 'app-game-detail-content',
   templateUrl: './game-detail-content.component.html',
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [
+    DetailMediaSlideComponent,
     IonGrid,
     IonRow,
     IonCol,
@@ -61,8 +73,6 @@ type DetailGame = GameCatalogResult | GameEntry;
   ]
 })
 export class GameDetailContentComponent {
-  private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';
-  private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
@@ -436,60 +446,6 @@ export class GameDetailContentComponent {
     }
   }
 
-  onImageLoad(event: Event): void {
-    const target = event.target;
-
-    if (target instanceof HTMLImageElement) {
-      target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY] = '';
-    }
-  }
-
-  onImageError(event: Event): void {
-    const target = event.target;
-
-    if (target instanceof HTMLImageElement) {
-      const currentSrc = (target.currentSrc || target.src || '').trim();
-
-      if (currentSrc.includes(GameDetailContentComponent.PLACEHOLDER_SRC)) {
-        return;
-      }
-
-      const hasRetried = target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY] === '1';
-
-      if (!hasRetried) {
-        target.dataset[GameDetailContentComponent.RETRY_DATASET_KEY] = '1';
-        const retrySrc = this.buildRetryImageSrc(currentSrc);
-
-        if (retrySrc) {
-          target.src = retrySrc;
-          return;
-        }
-      }
-
-      target.src = GameDetailContentComponent.PLACEHOLDER_SRC;
-    }
-  }
-
-  private buildRetryImageSrc(source: string): string | null {
-    const normalized = source.trim();
-
-    if (!normalized || normalized.startsWith('data:image/')) {
-      return null;
-    }
-
-    if (normalized.startsWith('blob:')) {
-      return normalized;
-    }
-
-    try {
-      const parsed = new URL(normalized, window.location.origin);
-      parsed.searchParams.set('_img_retry', Date.now().toString());
-      return parsed.toString();
-    } catch {
-      return normalized;
-    }
-  }
-
   private getAliasedPlatformLabel(name: string, platformIgdbId: number | null): string {
     if (name.trim().length > 0) {
       const aliased = this.platformCustomizationService
@@ -588,5 +544,53 @@ export class GameDetailContentComponent {
 
     const title = typeof this.game.title === 'string' ? this.game.title.trim() : '';
     return title.length > 0 ? title : 'Unknown title';
+  }
+
+  get mediaSlides(): DetailMediaSlide[] {
+    const slides: DetailMediaSlide[] = [];
+    const seen = new Set<string>();
+
+    const coverUrl = typeof this.game.coverUrl === 'string' ? this.game.coverUrl.trim() : '';
+    if (coverUrl.length > 0) {
+      slides.push({ key: `cover:${coverUrl}`, src: coverUrl });
+      seen.add(coverUrl);
+    }
+
+    for (const screenshot of this.getValidScreenshots(this.game.screenshots)) {
+      if (seen.has(screenshot.url)) {
+        continue;
+      }
+
+      const key =
+        screenshot.id !== null
+          ? `screenshot:${String(screenshot.id)}`
+          : `screenshot:${screenshot.imageId}`;
+      slides.push({ key, src: screenshot.url });
+      seen.add(screenshot.url);
+    }
+
+    return slides.length > 0 ? slides : [{ key: 'placeholder', src: '' }];
+  }
+
+  private getValidScreenshots(value: GameScreenshot[] | null | undefined): Array<{
+    id: number | null;
+    imageId: string;
+    url: string;
+  }> {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((screenshot) => {
+        const id =
+          Number.isInteger(screenshot.id) && (screenshot.id as number) > 0
+            ? (screenshot.id as number)
+            : null;
+        const imageId = typeof screenshot.imageId === 'string' ? screenshot.imageId.trim() : '';
+        const url = typeof screenshot.url === 'string' ? screenshot.url.trim() : '';
+        return { id, imageId, url };
+      })
+      .filter((screenshot) => screenshot.imageId.length > 0 && screenshot.url.length > 0);
   }
 }

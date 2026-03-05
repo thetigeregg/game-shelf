@@ -399,6 +399,10 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
+    if (payload.listType === 'discovery') {
+      return;
+    }
+
     const title =
       typeof payload.title === 'string' && payload.title.trim().length > 0
         ? payload.title.trim()

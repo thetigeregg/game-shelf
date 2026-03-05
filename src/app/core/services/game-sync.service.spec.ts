@@ -39,6 +39,7 @@ type GameSyncServicePrivate = {
   generateOperationId(): string;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
+  runDiscoveryPollutionRemediationIfNeeded(): Promise<void>;
   syncInFlight: boolean;
   initialized: boolean;
   baseUrl: string;
@@ -273,6 +274,41 @@ describe('GameSyncService', () => {
   it('ignores pulled discovery game upserts', async () => {
     await servicePrivate.applyGameChange({
       eventId: '4-discovery',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        igdbGameId: '194558',
+        platformIgdbId: 6,
+        listType: 'discovery',
+        discoverySource: 'recent'
+      }),
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .first();
+    expect(stored).toBeUndefined();
+  });
+
+  it('deletes existing local game when pulled discovery upsert arrives', async () => {
+    await db.games.put({
+      igdbGameId: '194558',
+      platformIgdbId: 6,
+      title: 'Arknights: Endfield',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PC',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-03-05T14:15:12.648Z',
+      updatedAt: '2026-03-05T14:15:12.648Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4-discovery-delete-local',
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({
@@ -918,6 +954,25 @@ describe('GameSyncService', () => {
 
     navigatorSpy.mockRestore();
     cryptoSpy.mockRestore();
+  });
+
+  it('applies one-time discovery pollution remediation by resetting cursor to 0', async () => {
+    await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
+
+    const cursor = await db.syncMeta.get('cursor');
+    const marker = await db.syncMeta.get('discoveryPollutionRemediationV1');
+    expect(cursor?.value).toBe('0');
+    expect(marker?.value).toBe('done');
+
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '123',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
+    const unchangedCursor = await db.syncMeta.get('cursor');
+    expect(unchangedCursor?.value).toBe('123');
   });
 
   it('pushOutbox acks applied operations and records failures without advancing cursor', async () => {

@@ -47,6 +47,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private static readonly META_CURSOR_KEY = 'cursor';
   private static readonly META_LAST_SYNC_KEY = 'lastSyncAt';
   private static readonly META_CONNECTIVITY_KEY = 'connectivity';
+  private static readonly META_DISCOVERY_REMEDIATION_V1_KEY = 'discoveryPollutionRemediationV1';
 
   private readonly db = inject(AppDb);
   private readonly httpClient = inject(HttpClient);
@@ -92,6 +93,7 @@ export class GameSyncService implements SyncOutboxWriter {
       GameSyncService.META_CONNECTIVITY_KEY,
       this.isOnline() ? 'online' : 'offline'
     );
+    void this.runDiscoveryPollutionRemediationIfNeeded();
     void this.syncNow();
   }
 
@@ -386,15 +388,23 @@ export class GameSyncService implements SyncOutboxWriter {
     const pulledListType =
       typeof rawPayload['listType'] === 'string' ? rawPayload['listType'].trim() : '';
 
-    if (pulledListType === 'discovery') {
-      return;
-    }
-
     const payload = change.payload as Partial<GameEntry>;
     const igdbGameId = typeof payload.igdbGameId === 'string' ? payload.igdbGameId.trim() : '';
     const platformIgdbId = this.parsePositiveInteger(payload.platformIgdbId);
 
     if (!igdbGameId || platformIgdbId === null) {
+      return;
+    }
+
+    if (pulledListType === 'discovery') {
+      const existingByIdentity = await this.db.games
+        .where('[igdbGameId+platformIgdbId]')
+        .equals([igdbGameId, platformIgdbId])
+        .first();
+
+      if (existingByIdentity?.id !== undefined) {
+        await this.db.games.delete(existingByIdentity.id);
+      }
       return;
     }
 
@@ -995,6 +1005,18 @@ export class GameSyncService implements SyncOutboxWriter {
     };
 
     await this.db.syncMeta.put(entry);
+  }
+
+  private async runDiscoveryPollutionRemediationIfNeeded(): Promise<void> {
+    const marker = await this.getMeta(GameSyncService.META_DISCOVERY_REMEDIATION_V1_KEY);
+
+    if (marker === 'done') {
+      return;
+    }
+
+    await this.setMeta(GameSyncService.META_CURSOR_KEY, '0');
+    await this.setMeta(GameSyncService.META_DISCOVERY_REMEDIATION_V1_KEY, 'done');
+    this.debugLogService.info('sync.discovery_pollution_remediation_applied');
   }
 
   private async requestPersistentStorage(): Promise<void> {

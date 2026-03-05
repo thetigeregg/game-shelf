@@ -287,6 +287,11 @@
               <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
                 Edit metadata
               </ion-item>
+              @if (shouldShowFindManualButton) {
+                <ion-item button detail="false" (click)="openManualPickerFromPopover()">
+                  Find manual
+                </ion-item>
+              }
               <ion-item
                 button
                 detail="false"
@@ -532,11 +537,9 @@
       [showVideosShortcut]="hasDetailVideosShortcut"
       [showNotesShortcut]="shouldShowNotesShortcut"
       [showOpenManualButton]="shouldShowOpenManualButton"
-      [showFindManualButton]="shouldShowFindManualButton"
       (videosClick)="openVideosModal()"
       (notesClick)="openNotesEditor()"
       (openManualClick)="openManualPdf()"
-      (findManualClick)="openManualPickerModal()"
       (shortcutSearch)="openShortcutSearch($event)"
     ></app-detail-shortcuts-fab>
   </ion-content>

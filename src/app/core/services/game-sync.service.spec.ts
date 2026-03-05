@@ -931,6 +931,50 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalled();
   });
 
+  it('pullChanges paginates and applies subsequent pages in one run', async () => {
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    const pageOneChanges = Array.from({ length: 1000 }, (_, index) => ({
+      eventId: String(index + 1),
+      entityType: 'setting' as const,
+      operation: 'upsert' as const,
+      payload: { key: `k-${String(index + 1)}`, value: 'v1' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    }));
+    const pageTwoChanges = [
+      {
+        eventId: '1001',
+        entityType: 'setting' as const,
+        operation: 'upsert' as const,
+        payload: { key: 'k-1001', value: 'v2' },
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      }
+    ];
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValueOnce(
+        of({
+          cursor: 'cursor-1000',
+          changes: pageOneChanges
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          cursor: 'cursor-1001',
+          changes: pageTwoChanges
+        })
+      );
+
+    await servicePrivate.pullChanges();
+
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem('k-1')).toBe('v1');
+    expect(localStorage.getItem('k-1001')).toBe('v2');
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('cursor-1001');
+    expect(emitChangedSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('applyPulledChanges dispatches by entity type', async () => {
     const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
     const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);

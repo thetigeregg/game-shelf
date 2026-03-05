@@ -21,6 +21,10 @@ interface IdempotencyRow {
   result: SyncPushResult;
 }
 
+interface UpsertedGamePayloadRow {
+  payload: Record<string, unknown>;
+}
+
 interface PushBody {
   operations?: unknown;
 }
@@ -197,21 +201,23 @@ async function applyGameOperation(
   const payload = normalizeGamePayload(operation.payload);
   const gameKey = `${payload.igdbGameId}::${String(payload.platformIgdbId)}`;
 
-  await client.query(
+  const upsertResult = await client.query<UpsertedGamePayloadRow>(
     `
     INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
     VALUES ($1, $2, $3::jsonb, NOW())
     ON CONFLICT (igdb_game_id, platform_igdb_id)
-    DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+    DO UPDATE SET payload = games.payload || EXCLUDED.payload, updated_at = NOW()
+    RETURNING payload
     `,
     [payload.igdbGameId, payload.platformIgdbId, JSON.stringify(payload)]
   );
-  await appendSyncEvent(client, 'game', gameKey, 'upsert', payload);
+  const normalizedPayload = upsertResult.rows[0]?.payload ?? payload;
+  await appendSyncEvent(client, 'game', gameKey, 'upsert', normalizedPayload);
 
   return {
     opId: operation.opId,
     status: 'applied',
-    normalizedPayload: payload
+    normalizedPayload
   };
 }
 

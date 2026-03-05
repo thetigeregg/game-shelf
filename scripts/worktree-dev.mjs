@@ -357,6 +357,7 @@ function dbSeedRefresh() {
   mkdirSync(path.dirname(seedPath), { recursive: true });
 
   ensurePostgresRunning();
+  reconcileGameSyncHistory();
 
   console.log('Refreshing DB seed from current worktree postgres');
   const dumpCommand = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
@@ -426,7 +427,18 @@ function dbSeedApply(force) {
 
   console.log('Restoring DB seed into current worktree postgres');
   dbSeedRestoreFromFile(seedPath);
+  reconcileGameSyncHistory();
   console.log('Seed restore complete.');
+}
+
+function reconcileGameSyncHistory() {
+  console.log('Reconciling game sync history with current games table');
+  const reconcileCmd = `docker ${composeArgs.join(' ')} exec -T postgres sh -lc ${shellEscape(
+    `user_file="\${POSTGRES_USER_FILE:-/run/secrets/postgres_user}"; user="$(tr -d '\\r\\n' < "$user_file")"; db="\${POSTGRES_DB:-gameshelf}"; psql -v ON_ERROR_STOP=1 -U "$user" -d "$db" -c "BEGIN; DELETE FROM sync_events WHERE entity_type = 'game'; INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp) SELECT 'game', igdb_game_id || '::' || platform_igdb_id::text, 'upsert', payload, NOW() FROM games; COMMIT;"`
+  )}`;
+
+  runShell(reconcileCmd);
+  console.log('Game sync history reconciliation complete.');
 }
 
 function runDb(command, opts) {
@@ -445,7 +457,15 @@ function runDb(command, opts) {
     return;
   }
 
-  console.error('Unknown db command. Use: seed-refresh | seed-apply | seed-apply-force');
+  if (command === 'sync-rebuild') {
+    ensurePostgresRunning();
+    reconcileGameSyncHistory();
+    return;
+  }
+
+  console.error(
+    'Unknown db command. Use: seed-refresh | seed-apply | seed-apply-force | sync-rebuild'
+  );
   process.exit(1);
 }
 
@@ -484,6 +504,7 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
     '  db seed-refresh           Create/update shared seed dump from current worktree DB'
   );
   console.log('  db seed-apply [--force]   Restore shared seed dump into current worktree DB');
+  console.log('  db sync-rebuild           Rebuild game sync events from current games table');
   console.log('');
   console.log('Optional env vars:');
   console.log(

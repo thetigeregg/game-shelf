@@ -312,8 +312,14 @@ export class RecommendationRepository {
             THEN (BTRIM(payload->'enrichmentRetry'->'metacritic'->>'attempts'))::int
             ELSE 0
           END AS metacritic_attempts,
-          payload->'enrichmentRetry'->'hltb'->>'permanentMiss' = 'true' AS hltb_permanent_miss,
-          payload->'enrichmentRetry'->'metacritic'->>'permanentMiss' = 'true' AS metacritic_permanent_miss
+          COALESCE(
+            payload->'enrichmentRetry'->'hltb'->>'permanentMiss' = 'true',
+            false
+          ) AS hltb_permanent_miss,
+          COALESCE(
+            payload->'enrichmentRetry'->'metacritic'->>'permanentMiss' = 'true',
+            false
+          ) AS metacritic_permanent_miss
         FROM games
         WHERE COALESCE(payload->>'listType', '') = 'discovery'
       )

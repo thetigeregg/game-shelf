@@ -13,12 +13,14 @@
           slides-per-view="1"
           space-between="0"
         >
-          @for (slide of mediaSlides; track slide.key) {
+          @for (slide of mediaSlides; track slide.key; let index = $index) {
             <swiper-slide>
               <app-detail-media-slide
                 [class.with-pagination]="mediaSlides.length > 1"
                 [src]="slide.src"
                 [alt]="displayTitle"
+                [loading]="index === 0 ? 'eager' : 'lazy'"
+                [showPreloader]="index > 0"
               ></app-detail-media-slide>
             </swiper-slide>
           }

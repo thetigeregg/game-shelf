@@ -410,6 +410,82 @@ void test('discovery enrichment marks permanent miss at max attempts and stops r
   }
 });
 
+void test('discovery enrichment does not increment retry state on transient provider failures', async () => {
+  const repository = new RepositoryMock();
+  const initialPayload = {
+    title: 'Provider Outage Game',
+    releaseYear: 2004,
+    platform: 'PC',
+    listType: 'discovery',
+    enrichmentRetry: {
+      hltb: {
+        attempts: 1,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: false
+      },
+      metacritic: {
+        attempts: 1,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: false
+      }
+    }
+  };
+  repository.rows = [
+    {
+      igdbGameId: '4',
+      platformIgdbId: 6,
+      payload: initialPayload
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ error: 'upstream_down' }), { status: 500 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 2,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => Date.parse('2026-01-01T02:00:00.000Z')
+    );
+
+    const first = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(first, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(repository.updates.length, 0);
+    assert.equal(fetchCalls, 2);
+
+    repository.rows = [
+      {
+        igdbGameId: '4',
+        platformIgdbId: 6,
+        payload: initialPayload
+      }
+    ];
+
+    const second = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(second, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(repository.updates.length, 0);
+    assert.equal(fetchCalls, 4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('discovery enrichment clears retry state after successful retry', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

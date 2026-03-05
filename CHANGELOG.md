@@ -1476,3 +1476,11 @@
 - a6e4817 Merge branch 'main' into codex/screenshots-videos
 - 5809577 Add support for screenshots and videos in metadata enrichment
 
+## v1.1.2 - 2026-03-05
+- 545981c Merge pull request #162 from thetigeregg/codex/screenshots-videos
+- 77555c0 Investigate ui test proxy errors
+- ce03b04 Rename upload step for raw coverage artifacts in CI workflow
+- e07ac5b Summarize igdb media fix
+- 77033e5 Merge branch 'main' into codex/screenshots-videos
+- 904a31f Update media normalization dedupe
+

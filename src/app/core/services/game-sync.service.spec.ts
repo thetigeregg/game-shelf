@@ -15,7 +15,10 @@ import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
 
 type GameSyncServicePrivate = {
   applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
-  applyGameChange(change: SyncChangeEvent): Promise<void>;
+  applyGameChange(
+    change: SyncChangeEvent,
+    pendingGameOutboxKeys?: ReadonlySet<string>
+  ): Promise<void>;
   applyTagChange(change: SyncChangeEvent): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
   applySettingChange(change: SyncChangeEvent): Promise<void>;

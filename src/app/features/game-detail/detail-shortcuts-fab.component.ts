@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { book, documentText, globe, logoGoogle, logoYoutube, search } from 'ionicons/icons';
+import { book, documentText, film, globe, logoGoogle, logoYoutube, search } from 'ionicons/icons';
 
 type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 
@@ -15,6 +15,16 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
         <ion-icon name="globe" aria-hidden="true"></ion-icon>
       </ion-fab-button>
       <ion-fab-list side="top" (click)="onListClick()">
+        @if (showVideosShortcut) {
+          <ion-fab-button
+            class="shortcut-videos"
+            color="ocean"
+            aria-label="Open game videos"
+            (click)="onVideosClick()"
+          >
+            <ion-icon name="film" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
         @if (showNotesShortcut) {
           <ion-fab-button
             class="shortcut-notes"
@@ -104,11 +114,13 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 export class DetailShortcutsFabComponent {
   @ViewChild('fab') private fab?: IonFab;
 
+  @Input() showVideosShortcut = false;
   @Input() showNotesShortcut = false;
   @Input() showOpenManualButton = false;
   @Input() showFindManualButton = false;
 
   @Output() listClick = new EventEmitter<void>();
+  @Output() videosClick = new EventEmitter<void>();
   @Output() notesClick = new EventEmitter<void>();
   @Output() openManualClick = new EventEmitter<void>();
   @Output() findManualClick = new EventEmitter<void>();
@@ -117,6 +129,7 @@ export class DetailShortcutsFabComponent {
   constructor() {
     addIcons({
       globe,
+      film,
       documentText,
       book,
       search,
@@ -127,6 +140,11 @@ export class DetailShortcutsFabComponent {
 
   onListClick(): void {
     this.listClick.emit();
+  }
+
+  onVideosClick(): void {
+    this.videosClick.emit();
+    this.closeFab();
   }
 
   onNotesClick(): void {

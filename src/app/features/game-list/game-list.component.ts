@@ -2514,7 +2514,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   get hasDetailVideosShortcut(): boolean {
-    return this.detailVideos.length > 0;
+    return this.detailVideos.some((video) => isValidYouTubeVideoId(video.videoId));
   }
 
   openVideosModal(): void {
@@ -4697,4 +4697,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
       book
     });
   }
+}
+
+function isValidYouTubeVideoId(value: unknown): boolean {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{11}$/.test(value.trim());
 }

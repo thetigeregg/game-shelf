@@ -255,4 +255,25 @@ describe('game-list review actions', () => {
     expect(page.detailVideos[0]?.videoId).toBe('Qf8JjQvYUFs');
     expect(page.hasDetailVideosShortcut).toBe(true);
   });
+
+  it('hasDetailVideosShortcut is false when active detail videos are not valid YouTube ids', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isSimilarDiscoveryDetailModalOpen: boolean;
+      similarDiscoveryDetail: GameCatalogResult | GameEntry | null;
+    };
+    const selected = {
+      ...createGame(),
+      videos: [{ id: 1, name: 'Invalid', videoId: 'abc def', url: '' }]
+    } as GameEntry;
+
+    Object.assign(page, {
+      selectedGame: selected,
+      isSimilarDiscoveryDetailModalOpen: false,
+      similarDiscoveryDetail: null
+    });
+
+    expect(page.detailVideos).toHaveLength(1);
+    expect(page.hasDetailVideosShortcut).toBe(false);
+  });
 });

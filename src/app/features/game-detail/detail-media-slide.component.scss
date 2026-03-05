@@ -40,6 +40,14 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 
+.detail-media-slide .swiper-zoom-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
 .detail-media-slide-backdrop {
   position: absolute;
   top: 0;

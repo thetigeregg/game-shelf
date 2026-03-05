@@ -284,7 +284,10 @@ describe('GameSyncService', () => {
       serverTimestamp: '2026-03-05T14:15:00.000Z'
     } as SyncChangeEvent);
 
-    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['194558', 6]).first();
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .first();
     expect(stored).toBeUndefined();
   });
 
@@ -917,7 +920,7 @@ describe('GameSyncService', () => {
     cryptoSpy.mockRestore();
   });
 
-  it('pushOutbox acks applied operations, records failures, and updates cursor', async () => {
+  it('pushOutbox acks applied operations and records failures without advancing cursor', async () => {
     const now = '2026-01-01T00:00:00.000Z';
     await db.outbox.bulkPut([
       {
@@ -956,12 +959,10 @@ describe('GameSyncService', () => {
 
     const opA = await db.outbox.get('op-a');
     const opB = await db.outbox.get('op-b');
-    const cursor = await db.syncMeta.get('cursor');
-
     expect(opA).toBeUndefined();
     expect(opB?.attemptCount).toBe(1);
     expect(opB?.lastError).toBe('boom');
-    expect(cursor?.value).toBe('cursor-1');
+    expect(await db.syncMeta.get('cursor')).toBeUndefined();
   });
 
   it('pullChanges updates cursor when response has no changes', async () => {

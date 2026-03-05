@@ -13,6 +13,8 @@ export interface MetadataEnrichmentServiceOptions {
   startupDelayMs: number;
 }
 
+type EnrichmentStatus = 'success' | 'no_data';
+
 export class MetadataEnrichmentService {
   constructor(
     private readonly repository: MetadataEnrichmentRepository,
@@ -56,13 +58,19 @@ export class MetadataEnrichmentService {
         return summary;
       }
 
-      const uniqueGameIds = [...new Set(rows.map((row) => row.igdbGameId))];
+      const rowsNeedingMetadata = rows.filter((row) => rowNeedsMetadataFetch(row.payload));
+      const uniqueGameIds = [...new Set(rowsNeedingMetadata.map((row) => row.igdbGameId))];
       summary.uniqueGamesRequested = uniqueGameIds.length;
       const metadataByGameId = new Map<string, IgdbMetadataRecord>();
+      const successfullyFetchedGameIds = new Set<string>();
+      const completedAt = new Date(this.now()).toISOString();
 
       for (const batch of sliceIntoBatches(uniqueGameIds, this.options.batchSize)) {
         try {
           const fetched = await this.igdbClient.fetchGameMetadataByIds(batch);
+          for (const gameId of batch) {
+            successfullyFetchedGameIds.add(gameId);
+          }
           fetched.forEach((value, key) => {
             metadataByGameId.set(key, value);
           });
@@ -76,7 +84,15 @@ export class MetadataEnrichmentService {
       }
 
       for (const row of rows) {
-        const mergedPayload = mergeMetadataIntoPayload(row, metadataByGameId.get(row.igdbGameId));
+        const needsMetadata = rowNeedsMetadataFetch(row.payload);
+        const mergedPayload = mergeMetadataIntoPayload({
+          row,
+          metadata: metadataByGameId.get(row.igdbGameId),
+          metadataFetched: needsMetadata && successfullyFetchedGameIds.has(row.igdbGameId),
+          needsSyncBackfill:
+            !needsMetadata && isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
+          completedAt
+        });
         const changed = JSON.stringify(mergedPayload) !== JSON.stringify(row.payload);
 
         if (!changed) {
@@ -109,23 +125,59 @@ export class MetadataEnrichmentService {
   }
 }
 
-function mergeMetadataIntoPayload(
-  row: MetadataEnrichmentGameRow,
-  metadata: IgdbMetadataRecord | undefined
-): Record<string, unknown> {
-  if (!metadata) {
-    return row.payload;
+function mergeMetadataIntoPayload(params: {
+  row: MetadataEnrichmentGameRow;
+  metadata: IgdbMetadataRecord | undefined;
+  metadataFetched: boolean;
+  needsSyncBackfill: boolean;
+  completedAt: string;
+}): Record<string, unknown> {
+  if (!params.metadataFetched && !params.needsSyncBackfill) {
+    return params.row.payload;
   }
 
+  if (!params.metadataFetched) {
+    return {
+      ...params.row.payload,
+      metadataSyncEnqueuedAt: params.completedAt
+    };
+  }
+
+  const status: EnrichmentStatus = params.metadata ? 'success' : 'no_data';
+
   return {
-    ...row.payload,
-    themes: metadata.themes,
-    themeIds: metadata.themeIds,
-    keywords: metadata.keywords,
-    keywordIds: metadata.keywordIds,
-    screenshots: metadata.screenshots,
-    videos: metadata.videos
+    ...params.row.payload,
+    ...(params.metadata
+      ? {
+          themes: params.metadata.themes,
+          themeIds: params.metadata.themeIds,
+          keywords: params.metadata.keywords,
+          keywordIds: params.metadata.keywordIds,
+          screenshots: params.metadata.screenshots,
+          videos: params.metadata.videos
+        }
+      : {}),
+    taxonomyEnrichmentStatus: status,
+    taxonomyEnrichedAt: params.completedAt,
+    mediaEnrichmentStatus: status,
+    mediaEnrichedAt: params.completedAt,
+    metadataSyncEnqueuedAt: params.completedAt
   };
+}
+
+function rowNeedsMetadataFetch(payload: Record<string, unknown>): boolean {
+  return (
+    isBlank(payloadValueAsString(payload['taxonomyEnrichedAt'])) ||
+    isBlank(payloadValueAsString(payload['mediaEnrichedAt']))
+  );
+}
+
+function payloadValueAsString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function isBlank(value: string): boolean {
+  return value.trim().length === 0;
 }
 
 function sliceIntoBatches<T>(items: T[], batchSize: number): T[][] {

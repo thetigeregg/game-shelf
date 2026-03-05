@@ -34,7 +34,7 @@ class PoolMock {
   }
 }
 
-void test('repository selects rows missing themes/keywords arrays', async () => {
+void test('repository selects rows missing enrichment markers', async () => {
   const pool = new PoolMock({
     onQuery: () => ({
       rows: [{ igdb_game_id: '1520', platform_igdb_id: 4, payload: { title: 'Game' } }]
@@ -48,8 +48,12 @@ void test('repository selects rows missing themes/keywords arrays', async () => 
   assert.equal(rows[0]?.platformIgdbId, 4);
 
   const sql = pool.queries[0]?.sql ?? '';
-  assert.equal(sql.includes("COALESCE(jsonb_typeof(payload -> 'themes'), '') <> 'array'"), true);
-  assert.equal(sql.includes("COALESCE(jsonb_typeof(payload -> 'keywords'), '') <> 'array'"), true);
+  assert.equal(
+    sql.includes("COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''"),
+    true
+  );
+  assert.equal(sql.includes("COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''"), true);
+  assert.equal(/metadataSyncEnqueuedAt/.test(sql), true);
 });
 
 void test('repository wraps callback with advisory lock and unlock', async () => {
@@ -80,4 +84,26 @@ void test('repository wraps callback with advisory lock and unlock', async () =>
     queries.some((sql) => sql.includes('pg_advisory_unlock')),
     true
   );
+});
+
+void test('repository update writes sync event for changed game payload', async () => {
+  const pool = new PoolMock();
+  const repository = new MetadataEnrichmentRepository(pool as never);
+
+  await repository.updateGamePayload({
+    igdbGameId: '1520',
+    platformIgdbId: 6,
+    payload: { title: 'Mario', themes: ['Action'] }
+  });
+
+  const sql = pool.queries[0]?.sql ?? '';
+  assert.equal(sql.includes('WITH updated AS'), true);
+  assert.equal(sql.includes('INSERT INTO sync_events'), true);
+  assert.equal(sql.includes("'game'"), true);
+  assert.equal(sql.includes("'upsert'"), true);
+  assert.deepEqual(pool.queries[0]?.params, [
+    '1520',
+    6,
+    JSON.stringify({ title: 'Mario', themes: ['Action'] })
+  ]);
 });

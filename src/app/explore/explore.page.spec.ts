@@ -48,7 +48,10 @@ vi.mock('@ionic/angular/standalone', () => {
     IonInfiniteScrollContent: Dummy,
     IonBadge: Dummy,
     IonAccordion: Dummy,
-    IonAccordionGroup: Dummy
+    IonAccordionGroup: Dummy,
+    IonCard: Dummy,
+    IonCardHeader: Dummy,
+    IonCardTitle: Dummy
   };
 });
 vi.mock('../features/game-detail/game-detail-content.component', () => ({

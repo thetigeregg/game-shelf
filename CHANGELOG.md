@@ -1417,3 +1417,28 @@
 - 7671149 Merge branch 'main' into codex/chore-remove-tracked-nas-secrets
 - 0ffd929 chore(secrets): stop tracking nas secret files
 
+## v1.0.6 - 2026-03-04
+- 02c915e Merge pull request #154 from thetigeregg/codex/fixy
+- 9b55e16 Summarize Caddyfile proxy fix
+
+## v1.0.7 - 2026-03-05
+- 2930b05 Merge pull request #157 from thetigeregg/codex/fixy
+- c027646 Clamp enrichment maxAttempts
+- 203f88c Align HLTB zero handling
+- 63cbef1 Handle zero HLTB hours
+- 22b0b08 Prevent skipping zero HLTB rows
+- 1f223d4 Align HLTB enrichment logic
+- 7ce4482 Add permanentMiss backoff tests
+- 994f542 Fix HLTB detection logic
+- 6e0e82b Include all HLTB fields check
+- c4699a4 Write PR summary from diff
+- 71785d5 Summarize diff against origin main
+- 72ac81d Update HLTB presence check
+- 6c23ff2 Merge branch 'main' into codex/fixy
+- 9d19e5e Add discovery enrich backoff limits
+
+## v1.1.0 - 2026-03-05
+- 90be8e2 Merge pull request #160 from thetigeregg/bump
+- 3b7b7c2 feat: add audit fix command for all dependencies
+- 209f3c4 Run audit fix
+

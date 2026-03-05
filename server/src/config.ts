@@ -160,6 +160,9 @@ export interface AppConfig {
   recommendationsDiscoveryEnrichIntervalMinutes: number;
   recommendationsDiscoveryEnrichMaxGamesPerRun: number;
   recommendationsDiscoveryEnrichRequestTimeoutMs: number;
+  recommendationsDiscoveryEnrichMaxAttempts: number;
+  recommendationsDiscoveryEnrichBackoffBaseMinutes: number;
+  recommendationsDiscoveryEnrichBackoffMaxHours: number;
   igdbMetadataEnrichEnabled: boolean;
   igdbMetadataEnrichBatchSize: number;
   igdbMetadataEnrichMaxGamesPerRun: number;
@@ -415,6 +418,18 @@ export const config: AppConfig = {
   recommendationsDiscoveryEnrichRequestTimeoutMs: readIntegerEnv(
     'RECOMMENDATIONS_DISCOVERY_ENRICH_REQUEST_TIMEOUT_MS',
     15_000
+  ),
+  recommendationsDiscoveryEnrichMaxAttempts: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_MAX_ATTEMPTS',
+    6
+  ),
+  recommendationsDiscoveryEnrichBackoffBaseMinutes: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_BACKOFF_BASE_MINUTES',
+    60
+  ),
+  recommendationsDiscoveryEnrichBackoffMaxHours: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_BACKOFF_MAX_HOURS',
+    168
   ),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),

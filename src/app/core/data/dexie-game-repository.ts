@@ -25,6 +25,7 @@ import {
 import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
+import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -110,10 +111,30 @@ export class DexieGameRepository implements GameRepository {
         developers: this.normalizeTextList(result.developers),
         franchises: this.normalizeTextList(result.franchises),
         genres: this.normalizeTextList(result.genres),
-        themes: this.normalizeTextList(result.themes),
-        themeIds: this.normalizePositiveIntegerList(result.themeIds),
-        keywords: this.normalizeTextList(result.keywords),
-        keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
+        themes:
+          result.themes === undefined
+            ? this.normalizeTextList(existing.themes)
+            : this.normalizeTextList(result.themes),
+        themeIds:
+          result.themeIds === undefined
+            ? this.normalizePositiveIntegerList(existing.themeIds)
+            : this.normalizePositiveIntegerList(result.themeIds),
+        keywords:
+          result.keywords === undefined
+            ? this.normalizeTextList(existing.keywords)
+            : this.normalizeTextList(result.keywords),
+        keywordIds:
+          result.keywordIds === undefined
+            ? this.normalizePositiveIntegerList(existing.keywordIds)
+            : this.normalizePositiveIntegerList(result.keywordIds),
+        screenshots:
+          result.screenshots === undefined
+            ? normalizeGameScreenshots(existing.screenshots, { maxItems: 20 })
+            : normalizeGameScreenshots(result.screenshots, { maxItems: 20 }),
+        videos:
+          result.videos === undefined
+            ? normalizeGameVideos(existing.videos, { maxItems: 5 })
+            : normalizeGameVideos(result.videos, { maxItems: 5 }),
         publishers: this.normalizeTextList(result.publishers),
         platform: normalizedPlatformName,
         platformIgdbId: normalizedPlatformIgdbId,
@@ -177,6 +198,8 @@ export class DexieGameRepository implements GameRepository {
       themeIds: this.normalizePositiveIntegerList(result.themeIds),
       keywords: this.normalizeTextList(result.keywords),
       keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
+      screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }),
+      videos: normalizeGameVideos(result.videos, { maxItems: 5 }),
       publishers: this.normalizeTextList(result.publishers),
       platform: normalizedPlatformName,
       platformIgdbId: normalizedPlatformIgdbId,

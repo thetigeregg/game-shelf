@@ -49,6 +49,21 @@ export interface GameTag {
   color: string;
 }
 
+export interface GameScreenshot {
+  id: number | null;
+  imageId: string;
+  url: string;
+  width: number | null;
+  height: number | null;
+}
+
+export interface GameVideo {
+  id: number | null;
+  name: string | null;
+  videoId: string;
+  url: string;
+}
+
 export interface GameCatalogResult {
   igdbGameId: string;
   title: string;
@@ -76,6 +91,8 @@ export interface GameCatalogResult {
   themeIds?: number[];
   keywords?: string[];
   keywordIds?: number[];
+  screenshots?: GameScreenshot[];
+  videos?: GameVideo[];
   publishers?: string[];
   platforms: string[];
   platformOptions?: GameCatalogPlatformOption[];
@@ -253,6 +270,8 @@ export interface GameEntry {
   themeIds?: number[];
   keywords?: string[];
   keywordIds?: number[];
+  screenshots?: GameScreenshot[];
+  videos?: GameVideo[];
   publishers?: string[];
   platform: string;
   platformIgdbId: number;

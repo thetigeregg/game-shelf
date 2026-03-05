@@ -366,6 +366,116 @@ describe('GameSyncService', () => {
     expect(stored?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
+  it('preserves existing enriched arrays when a pulled upsert omits them', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      themes: ['Action'],
+      themeIds: [1],
+      keywords: ['aliens'],
+      keywordIds: [10],
+      screenshots: [
+        {
+          id: 5673,
+          imageId: 'hjnzngnrtwr82jzmmkef',
+          url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
+          width: 1280,
+          height: 720
+        }
+      ],
+      videos: [
+        {
+          id: 3164,
+          name: 'Next-gen Launch Trailer',
+          videoId: 'PIF_fqFZEuk',
+          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+        }
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4c-preserve-enrichment-arrays',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        title: 'Updated Title'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Updated Title');
+    expect(stored?.themes).toEqual(['Action']);
+    expect(stored?.themeIds).toEqual([1]);
+    expect(stored?.keywords).toEqual(['aliens']);
+    expect(stored?.keywordIds).toEqual([10]);
+    expect(stored?.screenshots).toHaveLength(1);
+    expect(stored?.videos).toHaveLength(1);
+  });
+
+  it('normalizes and replaces media arrays when pulled upsert includes media fields', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      screenshots: [{ id: 1, imageId: 'old', url: '', width: 1, height: 1 }],
+      videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4d-replace-media-arrays',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        screenshots: [
+          { id: '2', image_id: 'new-image', width: '1280', height: '720' },
+          { id: 2, image_id: 'new-image' }
+        ],
+        videos: [
+          { id: '3', name: ' Trailer ', video_id: 'abc def' },
+          { id: 3, name: 'Duplicate', video_id: 'abc def' }
+        ]
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.screenshots).toEqual([
+      {
+        id: 2,
+        imageId: 'new-image',
+        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/new-image.jpg',
+        width: 1280,
+        height: 720
+      }
+    ]);
+    expect(stored?.videos).toEqual([
+      {
+        id: 3,
+        name: 'Trailer',
+        videoId: 'abc def',
+        url: 'https://www.youtube.com/watch?v=abc%20def'
+      }
+    ]);
+  });
+
   it('accepts half-step ratings in pulled game payloads', async () => {
     await servicePrivate.applyGameChange({
       eventId: '4c',
@@ -873,6 +983,50 @@ describe('GameSyncService', () => {
     expect(cursor?.value).toBe('42');
     expect(localStorage.getItem('test-setting')).toBe('on');
     expect(emitChangedSpy).toHaveBeenCalled();
+  });
+
+  it('pullChanges paginates and applies subsequent pages in one run', async () => {
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    const pageOneChanges = Array.from({ length: 1000 }, (_, index) => ({
+      eventId: String(index + 1),
+      entityType: 'setting' as const,
+      operation: 'upsert' as const,
+      payload: { key: `k-${String(index + 1)}`, value: 'v1' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    }));
+    const pageTwoChanges = [
+      {
+        eventId: '1001',
+        entityType: 'setting' as const,
+        operation: 'upsert' as const,
+        payload: { key: 'k-1001', value: 'v2' },
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      }
+    ];
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValueOnce(
+        of({
+          cursor: 'cursor-1000',
+          changes: pageOneChanges
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          cursor: 'cursor-1001',
+          changes: pageTwoChanges
+        })
+      );
+
+    await servicePrivate.pullChanges();
+
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem('k-1')).toBe('v1');
+    expect(localStorage.getItem('k-1001')).toBe('v2');
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('cursor-1001');
+    expect(emitChangedSpy).toHaveBeenCalledTimes(1);
   });
 
   it('applyPulledChanges dispatches by entity type', async () => {

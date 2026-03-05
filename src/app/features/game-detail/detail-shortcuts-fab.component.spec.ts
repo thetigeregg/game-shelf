@@ -23,8 +23,7 @@ vi.mock('ionicons/icons', () => ({
   film: {},
   globe: {},
   logoGoogle: {},
-  logoYoutube: {},
-  search: {}
+  logoYoutube: {}
 }));
 
 describe('DetailShortcutsFabComponent', () => {
@@ -33,7 +32,6 @@ describe('DetailShortcutsFabComponent', () => {
     expect(component.showVideosShortcut).toBe(false);
     expect(component.showNotesShortcut).toBe(false);
     expect(component.showOpenManualButton).toBe(false);
-    expect(component.showFindManualButton).toBe(false);
     expect(addIconsMock).toHaveBeenCalledOnce();
   });
 
@@ -43,14 +41,12 @@ describe('DetailShortcutsFabComponent', () => {
     const notesSpy = vi.fn();
     const videosSpy = vi.fn();
     const manualSpy = vi.fn();
-    const findManualSpy = vi.fn();
     const listSpy = vi.fn();
     const closeSpy = vi.fn();
     component.shortcutSearch.subscribe(shortcutSpy);
     component.notesClick.subscribe(notesSpy);
     component.videosClick.subscribe(videosSpy);
     component.openManualClick.subscribe(manualSpy);
-    component.findManualClick.subscribe(findManualSpy);
     component.listClick.subscribe(listSpy);
     (component as unknown as { fab?: { close: () => void } }).fab = { close: closeSpy };
 
@@ -59,14 +55,12 @@ describe('DetailShortcutsFabComponent', () => {
     component.onVideosClick();
     component.onNotesClick();
     component.onOpenManualClick();
-    component.onFindManualClick();
 
     expect(shortcutSpy).toHaveBeenCalledWith('google');
     expect(videosSpy).toHaveBeenCalledOnce();
     expect(notesSpy).toHaveBeenCalledOnce();
     expect(manualSpy).toHaveBeenCalledOnce();
-    expect(findManualSpy).toHaveBeenCalledOnce();
     expect(listSpy).toHaveBeenCalledOnce();
-    expect(closeSpy).toHaveBeenCalledTimes(5);
+    expect(closeSpy).toHaveBeenCalledTimes(4);
   });
 });

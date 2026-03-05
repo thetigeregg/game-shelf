@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { book, documentText, film, globe, logoGoogle, logoYoutube, search } from 'ionicons/icons';
+import { book, documentText, film, globe, logoGoogle, logoYoutube } from 'ionicons/icons';
 
 type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 
@@ -77,16 +77,6 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
         >
           <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
         </ion-fab-button>
-        @if (showFindManualButton) {
-          <ion-fab-button
-            class="shortcut-manual-find"
-            color="dark-gray"
-            aria-label="Find game manual PDF"
-            (click)="onFindManualClick()"
-          >
-            <ion-icon name="search" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
       </ion-fab-list>
     </ion-fab>
   `,
@@ -117,13 +107,11 @@ export class DetailShortcutsFabComponent {
   @Input() showVideosShortcut = false;
   @Input() showNotesShortcut = false;
   @Input() showOpenManualButton = false;
-  @Input() showFindManualButton = false;
 
   @Output() listClick = new EventEmitter<void>();
   @Output() videosClick = new EventEmitter<void>();
   @Output() notesClick = new EventEmitter<void>();
   @Output() openManualClick = new EventEmitter<void>();
-  @Output() findManualClick = new EventEmitter<void>();
   @Output() shortcutSearch = new EventEmitter<ShortcutProvider>();
 
   constructor() {
@@ -132,7 +120,6 @@ export class DetailShortcutsFabComponent {
       film,
       documentText,
       book,
-      search,
       logoGoogle,
       logoYoutube
     });
@@ -154,11 +141,6 @@ export class DetailShortcutsFabComponent {
 
   onOpenManualClick(): void {
     this.openManualClick.emit();
-    this.closeFab();
-  }
-
-  onFindManualClick(): void {
-    this.findManualClick.emit();
     this.closeFab();
   }
 

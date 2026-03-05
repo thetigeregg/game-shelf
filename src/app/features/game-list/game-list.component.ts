@@ -1716,6 +1716,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.openEditMetadataModal();
   }
 
+  async openManualPickerFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+    this.openManualPickerModal();
+  }
+
   async deleteSelectedGameFromPopover(): Promise<void> {
     await this.dismissDetailActionsPopover();
 

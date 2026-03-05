@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { GameEntry } from '../../core/models/game.models';
+import type { GameCatalogResult, GameEntry } from '../../core/models/game.models';
 
 vi.mock('@ionic/angular/standalone', () => {
   const Stub = () => null;
@@ -28,6 +28,9 @@ vi.mock('@ionic/angular/standalone', () => {
     IonTitle: Stub,
     IonButtons: Stub,
     IonButton: Stub,
+    IonCard: Stub,
+    IonCardHeader: Stub,
+    IonCardTitle: Stub,
     IonSegment: Stub,
     IonSegmentButton: Stub,
     IonSelect: Stub,
@@ -219,5 +222,37 @@ describe('game-list review actions', () => {
       'warning'
     );
     expect((page as { isMetacriticUpdateLoading: boolean }).isMetacriticUpdateLoading).toBe(false);
+  });
+
+  it('detailVideos uses actively viewed detail game in similar discovery mode', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isSimilarDiscoveryDetailModalOpen: boolean;
+      similarDiscoveryDetail: GameCatalogResult | GameEntry | null;
+    };
+    const selected = createGame({
+      videos: [{ id: 1, name: 'Selected', videoId: 'PIF_fqFZEuk', url: '' }]
+    });
+    const discovery: GameCatalogResult = {
+      igdbGameId: '2',
+      title: 'Discovery',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      platforms: ['Switch'],
+      releaseDate: null,
+      releaseYear: null,
+      videos: [{ id: 2, name: 'Discovery', videoId: 'Qf8JjQvYUFs', url: '' }]
+    };
+
+    Object.assign(page, {
+      selectedGame: selected,
+      isSimilarDiscoveryDetailModalOpen: true,
+      similarDiscoveryDetail: discovery
+    });
+
+    expect(page.detailVideos[0]?.videoId).toBe('Qf8JjQvYUFs');
+    expect(page.hasDetailVideosShortcut).toBe(true);
   });
 });

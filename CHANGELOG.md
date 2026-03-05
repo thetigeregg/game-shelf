@@ -1506,3 +1506,8 @@
 - 89d586a Investigate missing discovery finger
 - 69c0757 Count game discovery fingerprints
 
+## v1.1.4 - 2026-03-05
+- a286458 Merge pull request #166 from thetigeregg/codex/fixr
+- 96cdd6d Merge branch 'main' into codex/fixr
+- 406876e Update dompurify to 3.3.2
+

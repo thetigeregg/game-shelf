@@ -3,16 +3,24 @@
     <ion-row>
       <ion-col size="12" size-xl="6">
         <div class="detail-cover">
-          <div
-            class="detail-cover-backdrop"
-            [style.background-image]="game.coverUrl ? 'url(' + game.coverUrl + ')' : 'none'"
-          ></div>
-          <img
-            [src]="game.coverUrl || 'assets/icon/placeholder.png'"
-            [alt]="displayTitle"
-            (load)="onImageLoad($event)"
-            (error)="onImageError($event)"
-          />
+          <swiper-container
+            class="detail-cover-swiper"
+            [attr.allow-touch-move]="mediaSlides.length > 1 ? 'true' : 'false'"
+            [attr.navigation]="mediaSlides.length > 1 ? 'true' : 'false'"
+            [attr.pagination]="mediaSlides.length > 1 ? 'true' : 'false'"
+            [attr.loop]="mediaSlides.length > 1 ? 'true' : 'false'"
+            slides-per-view="1"
+            space-between="0"
+          >
+            @for (slide of mediaSlides; track slide.key) {
+              <swiper-slide>
+                <app-detail-media-slide
+                  [src]="slide.src"
+                  [alt]="displayTitle"
+                ></app-detail-media-slide>
+              </swiper-slide>
+            }
+          </swiper-container>
         </div>
         <ion-list lines="full">
           <ion-item>

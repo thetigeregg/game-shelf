@@ -206,7 +206,21 @@ async function applyGameOperation(
     INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
     VALUES ($1, $2, $3::jsonb, NOW())
     ON CONFLICT (igdb_game_id, platform_igdb_id)
-    DO UPDATE SET payload = games.payload || EXCLUDED.payload, updated_at = NOW()
+    DO UPDATE SET payload = jsonb_strip_nulls(
+      EXCLUDED.payload || jsonb_build_object(
+        'themes', COALESCE(EXCLUDED.payload -> 'themes', games.payload -> 'themes'),
+        'themeIds', COALESCE(EXCLUDED.payload -> 'themeIds', games.payload -> 'themeIds'),
+        'keywords', COALESCE(EXCLUDED.payload -> 'keywords', games.payload -> 'keywords'),
+        'keywordIds', COALESCE(EXCLUDED.payload -> 'keywordIds', games.payload -> 'keywordIds'),
+        'screenshots', COALESCE(EXCLUDED.payload -> 'screenshots', games.payload -> 'screenshots'),
+        'videos', COALESCE(EXCLUDED.payload -> 'videos', games.payload -> 'videos'),
+        'taxonomyEnrichedAt', COALESCE(EXCLUDED.payload -> 'taxonomyEnrichedAt', games.payload -> 'taxonomyEnrichedAt'),
+        'taxonomyEnrichmentStatus', COALESCE(EXCLUDED.payload -> 'taxonomyEnrichmentStatus', games.payload -> 'taxonomyEnrichmentStatus'),
+        'mediaEnrichedAt', COALESCE(EXCLUDED.payload -> 'mediaEnrichedAt', games.payload -> 'mediaEnrichedAt'),
+        'mediaEnrichmentStatus', COALESCE(EXCLUDED.payload -> 'mediaEnrichmentStatus', games.payload -> 'mediaEnrichmentStatus'),
+        'metadataSyncEnqueuedAt', COALESCE(EXCLUDED.payload -> 'metadataSyncEnqueuedAt', games.payload -> 'metadataSyncEnqueuedAt')
+      )
+    ), updated_at = NOW()
     RETURNING payload
     `,
     [payload.igdbGameId, payload.platformIgdbId, JSON.stringify(payload)]

@@ -10,36 +10,34 @@
     </ion-header>
 
     <ion-content class="detail-videos-content gs-safe-bottom">
-      @for (video of normalizedVideos; track video.id ?? video.videoId; let index = $index) {
+      @for (video of normalizedVideos; track video.key) {
         <ion-card class="detail-video-card">
-          @if (isDirectPlayableVideoUrl(video.url)) {
-            <video class="detail-video-player" controls playsinline preload="metadata">
-              <source [src]="video.url" />
-            </video>
-          } @else if (getEmbedUrl(video); as embedUrl) {
-            <div class="detail-video-embed-wrap">
-              <iframe
-                class="detail-video-embed"
-                [src]="embedUrl"
-                title="Game video"
-                loading="lazy"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allow="
-                  accelerometer;
-                  autoplay;
-                  clipboard-write;
-                  encrypted-media;
-                  gyroscope;
-                  picture-in-picture;
-                  web-share;
-                "
-                allowfullscreen
-              ></iframe>
-            </div>
-          }
+          <div class="detail-video-embed-wrap">
+            <iframe
+              class="detail-video-embed"
+              [src]="video.embedUrl"
+              title="Game video"
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allow="
+                accelerometer;
+                autoplay;
+                clipboard-write;
+                encrypted-media;
+                gyroscope;
+                picture-in-picture;
+                web-share;
+              "
+              allowfullscreen
+            ></iframe>
+          </div>
 
           <ion-card-header>
-            <ion-card-title>{{ getVideoTitle(video, index) }}</ion-card-title>
+            <ion-card-title>
+              <a [href]="video.watchUrl" target="_blank" rel="noopener noreferrer">{{
+                video.title
+              }}</a>
+            </ion-card-title>
           </ion-card-header>
         </ion-card>
       }

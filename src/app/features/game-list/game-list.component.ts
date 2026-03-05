@@ -2509,7 +2509,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   get detailVideos(): GameVideo[] {
-    return Array.isArray(this.selectedGame?.videos) ? this.selectedGame.videos : [];
+    const activeDetailGame = this.getActiveDetailGameForUi();
+    return Array.isArray(activeDetailGame?.videos) ? activeDetailGame.videos : [];
   }
 
   get hasDetailVideosShortcut(): boolean {
@@ -3750,17 +3751,24 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private getActiveDetailTitleForSearch(): string {
-    if (this.isSimilarDiscoveryDetailModalOpen && this.similarDiscoveryDetail) {
-      const discoveryTitle =
-        typeof this.similarDiscoveryDetail.title === 'string'
-          ? this.similarDiscoveryDetail.title.trim()
-          : '';
-      if (discoveryTitle.length > 0) {
-        return discoveryTitle;
+    const activeDetailGame = this.getActiveDetailGameForUi();
+    if (activeDetailGame) {
+      const activeTitle =
+        typeof activeDetailGame.title === 'string' ? activeDetailGame.title.trim() : '';
+      if (activeTitle.length > 0) {
+        return activeTitle;
       }
     }
 
     return this.selectedGame?.title.trim() ?? '';
+  }
+
+  private getActiveDetailGameForUi(): GameCatalogResult | GameEntry | null {
+    if (this.isSimilarDiscoveryDetailModalOpen && this.similarDiscoveryDetail) {
+      return this.similarDiscoveryDetail;
+    }
+
+    return this.selectedGame;
   }
 
   getGameDisplayTitle(game: GameEntry): string {

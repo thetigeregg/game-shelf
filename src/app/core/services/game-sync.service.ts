@@ -49,8 +49,6 @@ export class GameSyncService implements SyncOutboxWriter {
   private static readonly META_CURSOR_KEY = 'cursor';
   private static readonly META_LAST_SYNC_KEY = 'lastSyncAt';
   private static readonly META_CONNECTIVITY_KEY = 'connectivity';
-  private static readonly META_DISCOVERY_REMEDIATION_V1_KEY =
-    DISCOVERY_POLLUTION_REMEDIATION_META_KEY;
 
   private readonly db = inject(AppDb);
   private readonly httpClient = inject(HttpClient);
@@ -1018,7 +1016,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private async runDiscoveryPollutionRemediationIfNeeded(): Promise<void> {
-    const marker = await this.getMeta(GameSyncService.META_DISCOVERY_REMEDIATION_V1_KEY);
+    const marker = await this.getMeta(DISCOVERY_POLLUTION_REMEDIATION_META_KEY);
 
     if (marker === 'done') {
       return;
@@ -1032,7 +1030,7 @@ export class GameSyncService implements SyncOutboxWriter {
         updatedAt: now
       });
       await tx.table('syncMeta').put({
-        key: GameSyncService.META_DISCOVERY_REMEDIATION_V1_KEY,
+        key: DISCOVERY_POLLUTION_REMEDIATION_META_KEY,
         value: 'done',
         updatedAt: now
       });

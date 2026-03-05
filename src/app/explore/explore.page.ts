@@ -62,6 +62,7 @@ import {
 } from '../features/game-list/game-list-detail-actions';
 import { isRecommendationsExploreEnabled } from '../core/config/runtime-config';
 import { completeIonInfiniteScroll } from '../core/utils/ion-infinite-scroll.utils';
+import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
 import {
   compass,
@@ -1621,8 +1622,4 @@ export class ExplorePage implements OnInit {
     anchor.rel = 'noopener noreferrer external';
     anchor.click();
   }
-}
-
-function isValidYouTubeVideoId(value: unknown): boolean {
-  return typeof value === 'string' && /^[A-Za-z0-9_-]{11}$/.test(value.trim());
 }

@@ -13,6 +13,7 @@ import {
 } from '@ionic/angular/standalone';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { GameVideo } from '../../core/models/game.models';
+import { isValidYouTubeVideoId } from '../../core/utils/youtube-video.util';
 
 interface DetailVideoViewModel {
   key: string;
@@ -97,8 +98,4 @@ export class DetailVideosModalComponent implements OnChanges {
       })
       .filter((video): video is DetailVideoViewModel => video !== null);
   }
-}
-
-function isValidYouTubeVideoId(value: string): boolean {
-  return /^[A-Za-z0-9_-]{11}$/.test(value);
 }

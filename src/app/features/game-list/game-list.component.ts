@@ -118,6 +118,7 @@ import {
   getCompressionOutputMimeType,
   loadImageFromDataUrl
 } from './game-list-image-utils';
+import { isValidYouTubeVideoId } from '../../core/utils/youtube-video.util';
 import {
   buildTagInput,
   hasHltbData,
@@ -4697,8 +4698,4 @@ export class GameListComponent implements OnChanges, OnDestroy {
       book
     });
   }
-}
-
-function isValidYouTubeVideoId(value: unknown): boolean {
-  return typeof value === 'string' && /^[A-Za-z0-9_-]{11}$/.test(value.trim());
 }

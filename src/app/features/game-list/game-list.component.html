@@ -529,9 +529,11 @@
       }
     </div>
     <app-detail-shortcuts-fab
+      [showVideosShortcut]="hasDetailVideosShortcut"
       [showNotesShortcut]="shouldShowNotesShortcut"
       [showOpenManualButton]="shouldShowOpenManualButton"
       [showFindManualButton]="shouldShowFindManualButton"
+      (videosClick)="openVideosModal()"
       (notesClick)="openNotesEditor()"
       (openManualClick)="openManualPdf()"
       (findManualClick)="openManualPickerModal()"
@@ -624,6 +626,12 @@
     <ng-container [ngTemplateOutlet]="notesPanelTemplate"></ng-container>
   </ng-template>
 </ion-modal>
+
+<app-detail-videos-modal
+  [isOpen]="isVideosModalOpen"
+  [videos]="detailVideos"
+  (dismiss)="closeVideosModal()"
+></app-detail-videos-modal>
 
 <input
   #customCoverFileInput

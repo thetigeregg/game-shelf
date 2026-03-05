@@ -38,6 +38,7 @@ import {
   GameEntry,
   GameRating,
   GameStatus,
+  GameVideo,
   ListType,
   RecommendationItem,
   RecommendationLaneKey,
@@ -49,6 +50,7 @@ import {
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../features/game-detail/detail-shortcuts-fab.component';
+import { DetailVideosModalComponent } from '../features/game-detail/detail-videos-modal.component';
 import { SimilarGameRowComponent } from '../features/game-detail/similar-game-row.component';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -125,6 +127,7 @@ interface RecommendationDisplayMetadata {
     NgTemplateOutlet,
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
+    DetailVideosModalComponent,
     SimilarGameRowComponent
   ]
 })
@@ -178,6 +181,7 @@ export class ExplorePage implements OnInit {
   activeDetailRecommendation: RecommendationItem | null = null;
   detailNavigationStack: RecommendationItem[] = [];
   isRatingModalOpen = false;
+  isVideosModalOpen = false;
   ratingDraft: GameRating = 3;
   clearRatingOnSave = false;
   readonly statusOptions: { value: GameStatus; label: string }[] = [
@@ -505,6 +509,7 @@ export class ExplorePage implements OnInit {
     }
 
     this.isGameDetailModalOpen = true;
+    this.isVideosModalOpen = false;
     this.isLoadingDetail = !local && !initialCatalog;
     this.detailErrorMessage = '';
     this.detailContext = local ? 'library' : 'explore';
@@ -564,6 +569,7 @@ export class ExplorePage implements OnInit {
   closeGameDetailModal(): void {
     this.isGameDetailModalOpen = false;
     this.isRatingModalOpen = false;
+    this.isVideosModalOpen = false;
     this.ratingDraft = 3;
     this.clearRatingOnSave = false;
     this.isLoadingDetail = false;
@@ -802,6 +808,26 @@ export class ExplorePage implements OnInit {
     }
 
     this.openExternalUrl(url);
+  }
+
+  get detailVideos(): GameVideo[] {
+    return Array.isArray(this.selectedGameDetail?.videos) ? this.selectedGameDetail.videos : [];
+  }
+
+  get hasDetailVideosShortcut(): boolean {
+    return this.detailVideos.length > 0;
+  }
+
+  openVideosModal(): void {
+    if (!this.hasDetailVideosShortcut) {
+      return;
+    }
+
+    this.isVideosModalOpen = true;
+  }
+
+  closeVideosModal(): void {
+    this.isVideosModalOpen = false;
   }
 
   onImageError(event: Event): void {

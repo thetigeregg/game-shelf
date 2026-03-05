@@ -270,6 +270,24 @@ describe('GameSyncService', () => {
     expect(stored?.tagIds).toEqual([1, 2]);
   });
 
+  it('ignores pulled discovery game upserts', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4-discovery',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        igdbGameId: '194558',
+        platformIgdbId: 6,
+        listType: 'discovery',
+        discoverySource: 'recent'
+      }),
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['194558', 6]).first();
+    expect(stored).toBeUndefined();
+  });
+
   it('falls back to local auto id when pulled id collides with an unrelated local row', async () => {
     await db.games.put({
       id: 218,

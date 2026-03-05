@@ -19,6 +19,9 @@ import { GameSyncService } from './app/core/services/game-sync.service';
 import { isDevMode, provideZoneChangeDetection } from '@angular/core';
 import { provideServiceWorker } from '@angular/service-worker';
 import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.interceptor';
+import { register as registerSwiperElements } from 'swiper/element/bundle';
+
+registerSwiperElements();
 
 bootstrapApplication(AppComponent, {
   providers: [

@@ -327,6 +327,52 @@ describe('GameSyncService', () => {
     expect(stored).toBeUndefined();
   });
 
+  it('keeps existing local game when discovery upsert matches pending local outbox write', async () => {
+    const now = '2026-01-01T00:00:00.000Z';
+    await db.games.put({
+      igdbGameId: '194558',
+      platformIgdbId: 6,
+      title: 'Arknights: Endfield',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PC',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: now,
+      updatedAt: now
+    });
+    await db.outbox.put({
+      opId: 'pending-194558-6',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: { igdbGameId: '194558', platformIgdbId: 6 },
+      clientTimestamp: now,
+      createdAt: now,
+      attemptCount: 0,
+      lastError: null
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4-discovery-keep-local',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        igdbGameId: '194558',
+        platformIgdbId: 6,
+        listType: 'discovery',
+        discoverySource: 'recent'
+      }),
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .first();
+    expect(stored?.listType).toBe('collection');
+  });
+
   it('falls back to local auto id when pulled id collides with an unrelated local row', async () => {
     await db.games.put({
       id: 218,

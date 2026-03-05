@@ -625,6 +625,29 @@ describe('ExplorePage recommendations UX', () => {
     expect(page.isVideosModalOpen).toBe(false);
   });
 
+  it('hides videos shortcut when all active detail videos have invalid YouTube ids', () => {
+    const page = createPage();
+    page.selectedGameDetail = {
+      igdbGameId: '100',
+      platformIgdbId: 6,
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-03-03T00:00:00.000Z',
+      updatedAt: '2026-03-03T00:00:00.000Z',
+      videos: [{ id: 1, name: 'Invalid', videoId: 'abc def', url: '' }]
+    };
+
+    expect(page.detailVideos).toHaveLength(1);
+    expect(page.hasDetailVideosShortcut).toBe(false);
+    page.openVideosModal();
+    expect(page.isVideosModalOpen).toBe(false);
+  });
+
   it('resets detail modal state on close', () => {
     const page = createPage();
     page.isGameDetailModalOpen = true;

@@ -3,5 +3,14 @@
     class="detail-media-slide-backdrop"
     [style.background-image]="displaySrc ? 'url(' + displaySrc + ')' : 'none'"
   ></div>
-  <img [src]="displaySrc" [alt]="alt" (load)="onImageLoad($event)" (error)="onImageError($event)" />
+  <img
+    [src]="displaySrc"
+    [alt]="alt"
+    [loading]="loading"
+    (load)="onImageLoad($event)"
+    (error)="onImageError($event)"
+  />
+  @if (showPreloader) {
+    <div class="swiper-lazy-preloader"></div>
+  }
 </div>

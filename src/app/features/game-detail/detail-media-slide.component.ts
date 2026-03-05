@@ -11,6 +11,8 @@ export class DetailMediaSlideComponent {
   private static readonly RETRY_DATASET_KEY = 'detailRetryAttempted';
   @Input() src: string | null | undefined;
   @Input() alt = '';
+  @Input() loading: 'eager' | 'lazy' = 'eager';
+  @Input() showPreloader = false;
 
   get displaySrc(): string {
     const value = typeof this.src === 'string' ? this.src.trim() : '';

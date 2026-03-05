@@ -1234,7 +1234,7 @@ describe('GameSyncService', () => {
 
     await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
 
-    expect(gameSpy).toHaveBeenCalledWith(gameChange);
+    expect(gameSpy).toHaveBeenCalledWith(gameChange, expect.any(Set));
     expect(tagSpy).toHaveBeenCalledWith(tagChange);
     expect(viewSpy).toHaveBeenCalledWith(viewChange);
     expect(settingSpy).toHaveBeenCalledWith(settingChange);

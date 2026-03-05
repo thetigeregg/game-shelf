@@ -5,6 +5,8 @@ case "$git_dir" in
   *) exit 0 ;;
 esac
 
+[ "$3" = "0" ] && exit 0
+
 if [ -d node_modules ] \
   && [ -d server/node_modules ] \
   && [ -d worker/node_modules ] \

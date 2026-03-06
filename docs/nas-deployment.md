@@ -68,6 +68,10 @@ Common stack env vars:
 - `RELEASE_MONITOR_DEBUG_LOGS` (optional; defaults `false`)
 - `HLTB_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
+
+Release notification defaults:
+
+- Notifications are opt-in. If no synced setting exists for `game-shelf:notifications:release:enabled`, the backend treats notifications as disabled.
 - `BACKUP_SCHEDULE_TIME` (optional; defaults to `00:00` in container timezone)
 - `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)

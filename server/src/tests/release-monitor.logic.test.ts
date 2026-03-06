@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Pool } from 'pg';
-import { releaseMonitorInternals } from '../release-monitor.js';
+import { config } from '../config.js';
+import { releaseMonitorInternals, startReleaseMonitor } from '../release-monitor.js';
 
 class NotificationSettingsPoolMock {
   constructor(private readonly rows: Array<{ setting_key: string; setting_value: string }>) {}
@@ -294,4 +295,268 @@ void test('hltb and metacritic refresh due checks respect existing values and re
     releaseMonitorInternals.isMetacriticRefreshDue('invalid-date', payloadWithMetacritic, now),
     true
   );
+});
+
+void test('derive release state and past-years checks handle precision edge cases', () => {
+  const now = new Date('2026-03-06T10:00:00.000Z');
+
+  assert.equal(
+    releaseMonitorInternals.deriveReleaseState(
+      { precision: 'unknown', marker: null, date: null, year: null, display: null },
+      now
+    ),
+    'unknown'
+  );
+  assert.equal(
+    releaseMonitorInternals.deriveReleaseState(
+      {
+        precision: 'day',
+        marker: '2026-03-07',
+        date: '2026-03-07',
+        year: 2026,
+        display: '2026-03-07'
+      },
+      now
+    ),
+    'scheduled'
+  );
+  assert.equal(
+    releaseMonitorInternals.deriveReleaseState(
+      {
+        precision: 'month',
+        marker: '2026-01',
+        date: null,
+        year: 2026,
+        display: '2026-01'
+      },
+      now
+    ),
+    'released'
+  );
+  assert.equal(
+    releaseMonitorInternals.deriveReleaseState(
+      {
+        precision: 'quarter',
+        marker: 'bad',
+        date: null,
+        year: 2026,
+        display: 'bad'
+      },
+      now
+    ),
+    'unknown'
+  );
+
+  assert.equal(
+    releaseMonitorInternals.isWithinPastYears(
+      {
+        precision: 'year',
+        marker: '2025',
+        date: null,
+        year: 2025,
+        display: '2025'
+      },
+      now,
+      3
+    ),
+    true
+  );
+  assert.equal(
+    releaseMonitorInternals.isWithinPastYears(
+      {
+        precision: 'year',
+        marker: '2010',
+        date: null,
+        year: 2010,
+        display: '2010'
+      },
+      now,
+      3
+    ),
+    false
+  );
+  assert.equal(
+    releaseMonitorInternals.isWithinPastYears(
+      {
+        precision: 'quarter',
+        marker: 'bad',
+        date: null,
+        year: 2026,
+        display: 'bad'
+      },
+      now,
+      3
+    ),
+    false
+  );
+});
+
+void test('computeNextCheckAt covers precision windows and periodic refresh cadence', () => {
+  const now = new Date('2026-03-06T10:00:00.000Z');
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  const within30Days = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'day',
+        marker: '2026-03-10',
+        date: '2026-03-10',
+        year: 2026,
+        display: '2026-03-10'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+  assert.equal(Math.round((within30Days - now.getTime()) / (60 * 60 * 1000)), 6);
+
+  const monthFuture = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'month',
+        marker: '2026-11',
+        date: null,
+        year: 2026,
+        display: '2026-11'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+  assert.equal(Math.round((monthFuture - now.getTime()) / oneDayMs), 7);
+
+  const quarterPast = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'quarter',
+        marker: '2025-Q1',
+        date: null,
+        year: 2025,
+        display: 'Q1 2025'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+  assert.equal(Math.round((quarterPast - now.getTime()) / oneDayMs), 30);
+
+  const yearFuture = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'year',
+        marker: '2027',
+        date: null,
+        year: 2027,
+        display: '2027'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+  assert.equal(Math.round((yearFuture - now.getTime()) / oneDayMs), 30);
+
+  const refreshSoonest = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'day',
+        marker: '2026-12-01',
+        date: '2026-12-01',
+        year: 2026,
+        display: '2026-12-01'
+      },
+      now,
+      true,
+      null,
+      true,
+      '2026-03-01T10:00:00.000Z'
+    )
+  );
+  assert.equal(refreshSoonest, now.getTime());
+});
+
+void test('normalizers handle invalid marker and precision inputs', () => {
+  assert.deepEqual(releaseMonitorInternals.normalizeReleaseInfoFromPrecision('month', '2026-13'), {
+    precision: 'month',
+    marker: '2026-13',
+    date: null,
+    year: 2026,
+    display: '2026-13'
+  });
+  assert.deepEqual(
+    releaseMonitorInternals.normalizeReleaseInfoFromPrecision('quarter', '2026-Q9'),
+    {
+      precision: 'unknown',
+      marker: null,
+      date: null,
+      year: null,
+      display: null
+    }
+  );
+  assert.deepEqual(releaseMonitorInternals.normalizeReleaseInfoFromPrecision('day', 'not-a-day'), {
+    precision: 'unknown',
+    marker: null,
+    date: null,
+    year: null,
+    display: null
+  });
+  assert.equal(releaseMonitorInternals.normalizeReleasePrecision('month'), 'month');
+  assert.equal(releaseMonitorInternals.normalizeReleasePrecision('n/a'), null);
+  assert.equal(
+    releaseMonitorInternals.normalizeDateString('2026-11-19T10:00:00.000Z'),
+    '2026-11-19'
+  );
+  assert.equal(releaseMonitorInternals.normalizeDateString('Q4 2026'), null);
+});
+
+void test('startReleaseMonitor returns inert monitor when disabled', () => {
+  const original = config.releaseMonitorEnabled;
+  config.releaseMonitorEnabled = false;
+  try {
+    const monitor = startReleaseMonitor({} as Pool);
+    monitor.stop();
+  } finally {
+    config.releaseMonitorEnabled = original;
+  }
+});
+
+void test('loadActiveTokenSet paginates active tokens with stable ordering', async () => {
+  const seenParams: unknown[][] = [];
+  const firstPage = Array.from({ length: 1000 }, (_, index) => ({
+    token: `token-${String(index).padStart(4, '0')}`
+  }));
+  const pool = {
+    query: (_sql: string, params: unknown[]) => {
+      seenParams.push(params);
+      if (params.length === 1) {
+        return Promise.resolve({
+          rows: firstPage
+        });
+      }
+      if (params[0] === 'token-0999') {
+        return Promise.resolve({
+          rows: [{ token: 'token-1000' }]
+        });
+      }
+      return Promise.resolve({ rows: [] });
+    }
+  };
+
+  const set = await releaseMonitorInternals.loadActiveTokenSet(pool as unknown as Pool);
+  assert.equal(set.has('token-0000'), true);
+  assert.equal(set.has('token-0999'), true);
+  assert.equal(set.has('token-1000'), true);
+  assert.equal(set.size, 1001);
+  assert.equal(seenParams.length >= 2, true);
 });

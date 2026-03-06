@@ -16,6 +16,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `POST /v1/notifications/fcm/register`
 - `POST /v1/notifications/fcm/unregister`
 - `GET /v1/notifications/observability` (optional, debug/admin)
+- `POST /v1/notifications/test` (optional, debug/admin)
 - `GET /v1/manuals/resolve`
 - `GET /v1/manuals/search`
 - `GET /v1/recommendations/top`

@@ -3,6 +3,10 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
 import { parseRecommendationRuntimeMode } from './recommendations/runtime.js';
+import {
+  DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
+} from './recommendations/discovery-enrichment-defaults.js';
 
 const envFile = readEnvFilePath();
 loadDotenv({ path: envFile });
@@ -163,6 +167,8 @@ export interface AppConfig {
   recommendationsDiscoveryEnrichMaxAttempts: number;
   recommendationsDiscoveryEnrichBackoffBaseMinutes: number;
   recommendationsDiscoveryEnrichBackoffMaxHours: number;
+  recommendationsDiscoveryEnrichRearmAfterDays: number;
+  recommendationsDiscoveryEnrichRearmRecentReleaseYears: number;
   igdbMetadataEnrichEnabled: boolean;
   igdbMetadataEnrichBatchSize: number;
   igdbMetadataEnrichMaxGamesPerRun: number;
@@ -430,6 +436,14 @@ export const config: AppConfig = {
   recommendationsDiscoveryEnrichBackoffMaxHours: readIntegerEnv(
     'RECOMMENDATIONS_DISCOVERY_ENRICH_BACKOFF_MAX_HOURS',
     168
+  ),
+  recommendationsDiscoveryEnrichRearmAfterDays: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_REARM_AFTER_DAYS',
+    DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT
+  ),
+  recommendationsDiscoveryEnrichRearmRecentReleaseYears: readIntegerEnv(
+    'RECOMMENDATIONS_DISCOVERY_ENRICH_REARM_RECENT_RELEASE_YEARS',
+    DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
   ),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),

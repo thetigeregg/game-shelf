@@ -58,7 +58,7 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
-  const discoveryEnrichmentService = new DiscoveryEnrichmentService(recommendationRepository, {
+  const discoveryEnrichmentServiceOptions = {
     enabled: config.recommendationsDiscoveryEnrichEnabled,
     startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
     intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
@@ -67,8 +67,14 @@ async function main(): Promise<void> {
     apiBaseUrl: `http://127.0.0.1:${String(config.port)}`,
     maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
     backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
-    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours
-  });
+    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
+    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
+  };
+  const discoveryEnrichmentService = new DiscoveryEnrichmentService(
+    recommendationRepository,
+    discoveryEnrichmentServiceOptions
+  );
   const recommendationService = new RecommendationService(
     recommendationRepository,
     {

@@ -3,7 +3,7 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import {
   DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
   DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
-} from './discovery-enrichment-query.js';
+} from './discovery-enrichment-defaults.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;

@@ -409,39 +409,48 @@ async function processGameRow(
   } catch (error) {
     stats.gameFailures += 1;
     const nextCheckAt = new Date(Date.now() + ONE_DAY_MS).toISOString();
-    await pool.query(
-      `
-      INSERT INTO release_watch_state (
-        igdb_game_id,
-        platform_igdb_id,
-        last_known_release_marker,
-        last_known_release_precision,
-        last_known_release_date,
-        last_known_release_year,
-        last_seen_state,
-        next_check_at,
-        last_error,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, NOW())
-      ON CONFLICT (igdb_game_id, platform_igdb_id)
-      DO UPDATE SET
-        next_check_at = EXCLUDED.next_check_at,
-        last_error = EXCLUDED.last_error,
-        updated_at = NOW()
-      `,
-      [
-        row.igdb_game_id,
-        row.platform_igdb_id,
-        releaseBefore.marker,
-        releaseBefore.precision,
-        releaseBefore.date,
-        releaseBefore.year,
-        normalizeReleaseState(row.last_seen_state) ?? 'unknown',
-        nextCheckAt,
-        error instanceof Error ? error.message : String(error)
-      ]
-    );
+    try {
+      await pool.query(
+        `
+        INSERT INTO release_watch_state (
+          igdb_game_id,
+          platform_igdb_id,
+          last_known_release_marker,
+          last_known_release_precision,
+          last_known_release_date,
+          last_known_release_year,
+          last_seen_state,
+          next_check_at,
+          last_error,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, NOW())
+        ON CONFLICT (igdb_game_id, platform_igdb_id)
+        DO UPDATE SET
+          next_check_at = EXCLUDED.next_check_at,
+          last_error = EXCLUDED.last_error,
+          updated_at = NOW()
+        `,
+        [
+          row.igdb_game_id,
+          row.platform_igdb_id,
+          releaseBefore.marker,
+          releaseBefore.precision,
+          releaseBefore.date,
+          releaseBefore.year,
+          normalizeReleaseState(row.last_seen_state) ?? 'unknown',
+          nextCheckAt,
+          error instanceof Error ? error.message : String(error)
+        ]
+      );
+    } catch (persistenceError) {
+      console.warn('[release-monitor] failure_state_persist_failed', {
+        igdbGameId: row.igdb_game_id,
+        platformIgdbId: row.platform_igdb_id,
+        error:
+          persistenceError instanceof Error ? persistenceError.message : String(persistenceError)
+      });
+    }
     if (config.releaseMonitorDebugLogs) {
       console.warn('[release-monitor] game_failed', {
         igdbGameId: row.igdb_game_id,

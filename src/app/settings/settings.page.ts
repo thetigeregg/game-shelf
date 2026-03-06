@@ -594,8 +594,8 @@ export class SettingsPage {
     }
 
     this.releaseNotificationsEnabled = false;
-    await this.notificationService.disableReleaseNotifications();
-    await this.presentToast('Notifications disabled on this device.');
+    const result = await this.notificationService.disableReleaseNotifications();
+    await this.presentToast(result.message, result.ok ? 'primary' : 'warning');
   }
 
   onReleaseEventToggleChange(

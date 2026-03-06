@@ -105,6 +105,8 @@ export const MIGRATIONS: string[] = [
   CREATE TABLE IF NOT EXISTS release_watch_state (
     igdb_game_id TEXT NOT NULL,
     platform_igdb_id INTEGER NOT NULL,
+    last_known_release_marker TEXT,
+    last_known_release_precision TEXT NOT NULL DEFAULT 'unknown',
     last_known_release_date DATE,
     last_known_release_year INTEGER,
     last_seen_state TEXT NOT NULL DEFAULT 'unknown',
@@ -123,6 +125,27 @@ export const MIGRATIONS: string[] = [
   `
   CREATE INDEX IF NOT EXISTS release_watch_state_next_check_idx
   ON release_watch_state (next_check_at);
+  `,
+  `
+  ALTER TABLE release_watch_state
+  ADD COLUMN IF NOT EXISTS last_known_release_marker TEXT;
+  `,
+  `
+  ALTER TABLE release_watch_state
+  ADD COLUMN IF NOT EXISTS last_known_release_precision TEXT NOT NULL DEFAULT 'unknown';
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'release_watch_state_release_precision_check'
+    ) THEN
+      ALTER TABLE release_watch_state
+      ADD CONSTRAINT release_watch_state_release_precision_check
+      CHECK (last_known_release_precision IN ('unknown', 'year', 'quarter', 'month', 'day'));
+    END IF;
+  END $$;
   `,
   `
   CREATE TABLE IF NOT EXISTS release_notification_log (

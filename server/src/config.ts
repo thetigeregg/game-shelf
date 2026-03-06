@@ -120,6 +120,7 @@ export interface AppConfig {
   manualsPublicBaseUrl: string;
   firebaseServiceAccountJson: string;
   notificationsTestEndpointEnabled: boolean;
+  notificationsObservabilityEndpointEnabled: boolean;
   releaseMonitorEnabled: boolean;
   releaseMonitorIntervalSeconds: number;
   releaseMonitorBatchSize: number;
@@ -130,6 +131,8 @@ export interface AppConfig {
   fcmTokenCleanupIntervalHours: number;
   fcmTokenStaleDeactivateDays: number;
   fcmTokenInactivePurgeDays: number;
+  releaseMonitorWarnSendFailureRatio: number;
+  releaseMonitorWarnInvalidTokenRatio: number;
   syncPushRateLimitMaxPerMinute: number;
   syncPullRateLimitMaxPerMinute: number;
   openaiApiKey: string;
@@ -315,6 +318,10 @@ export const config: AppConfig = {
     'firebase_service_account_json'
   ),
   notificationsTestEndpointEnabled: readBooleanEnv('NOTIFICATIONS_TEST_ENDPOINT_ENABLED', false),
+  notificationsObservabilityEndpointEnabled: readBooleanEnv(
+    'NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED',
+    false
+  ),
   releaseMonitorEnabled: readBooleanEnv('RELEASE_MONITOR_ENABLED', true),
   releaseMonitorIntervalSeconds: readIntegerEnv('RELEASE_MONITOR_INTERVAL_SECONDS', 900),
   releaseMonitorBatchSize: readIntegerEnv('RELEASE_MONITOR_BATCH_SIZE', 100),
@@ -325,6 +332,11 @@ export const config: AppConfig = {
   fcmTokenCleanupIntervalHours: readIntegerEnv('FCM_TOKEN_CLEANUP_INTERVAL_HOURS', 24),
   fcmTokenStaleDeactivateDays: readIntegerEnv('FCM_TOKEN_STALE_DEACTIVATE_DAYS', 60),
   fcmTokenInactivePurgeDays: readIntegerEnv('FCM_TOKEN_INACTIVE_PURGE_DAYS', 180),
+  releaseMonitorWarnSendFailureRatio: readNumberEnv('RELEASE_MONITOR_WARN_SEND_FAILURE_RATIO', 0.5),
+  releaseMonitorWarnInvalidTokenRatio: readNumberEnv(
+    'RELEASE_MONITOR_WARN_INVALID_TOKEN_RATIO',
+    0.2
+  ),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
   syncPushRateLimitMaxPerMinute: readIntegerEnv('SYNC_PUSH_RATE_LIMIT_MAX_PER_MINUTE', 120),
   syncPullRateLimitMaxPerMinute: readIntegerEnv('SYNC_PULL_RATE_LIMIT_MAX_PER_MINUTE', 120),

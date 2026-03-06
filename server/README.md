@@ -15,6 +15,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/images/proxy`
 - `POST /v1/notifications/fcm/register`
 - `POST /v1/notifications/fcm/unregister`
+- `GET /v1/notifications/observability` (optional, debug/admin)
 - `GET /v1/manuals/resolve`
 - `GET /v1/manuals/search`
 - `GET /v1/recommendations/top`
@@ -91,12 +92,15 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
+- `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `GET /v1/notifications/observability`
 - `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (default `30`)
 - `FCM_TOKEN_CLEANUP_ENABLED` (`true|false`, default `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (default `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (default `60`)
 - `FCM_TOKEN_INACTIVE_PURGE_DAYS` (default `180`)
+- `RELEASE_MONITOR_WARN_SEND_FAILURE_RATIO` (default `0.5`)
+- `RELEASE_MONITOR_WARN_INVALID_TOKEN_RATIO` (default `0.2`)
 
 Release notification preference defaults:
 

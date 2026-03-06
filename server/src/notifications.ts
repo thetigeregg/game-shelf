@@ -15,26 +15,48 @@ interface UnregisterBody {
   token?: unknown;
 }
 
+const REGISTER_RATE_LIMIT = {
+  max: 30,
+  timeWindow: '1 minute'
+} as const;
+
+const UNREGISTER_RATE_LIMIT = {
+  max: 30,
+  timeWindow: '1 minute'
+} as const;
+
+const TEST_RATE_LIMIT = {
+  max: 5,
+  timeWindow: '1 minute'
+} as const;
+
 export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): void {
-  app.post('/v1/notifications/fcm/register', async (request, reply) => {
-    const body = (request.body ?? {}) as RegisterBody;
-    const token = normalizeToken(body.token);
+  app.post(
+    '/v1/notifications/fcm/register',
+    {
+      config: {
+        rateLimit: REGISTER_RATE_LIMIT
+      }
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as RegisterBody;
+      const token = normalizeToken(body.token);
 
-    if (token === null) {
-      reply.code(400).send({ error: 'Invalid token.' });
-      return;
-    }
+      if (token === null) {
+        reply.code(400).send({ error: 'Invalid token.' });
+        return;
+      }
 
-    const platform = normalizePlatform(body.platform);
-    const appVersion = normalizeOptionalString(body.appVersion, 64);
-    const userAgent = normalizeOptionalString(body.userAgent, 512);
-    const timezone = normalizeOptionalString(body.timezone, 128);
+      const platform = normalizePlatform(body.platform);
+      const appVersion = normalizeOptionalString(body.appVersion, 64);
+      const userAgent = normalizeOptionalString(body.userAgent, 512);
+      const timezone = normalizeOptionalString(body.timezone, 128);
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query(
-        `
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          `
         INSERT INTO fcm_tokens (token, platform, is_active, timezone, app_version, user_agent, last_seen_at, created_at, updated_at)
         VALUES ($1, $2, TRUE, $3, $4, $5, NOW(), NOW(), NOW())
         ON CONFLICT (token)
@@ -47,79 +69,96 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
           last_seen_at = NOW(),
           updated_at = NOW()
         `,
-        [token, platform, timezone, appVersion, userAgent]
-      );
-      await client.query('COMMIT');
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-
-    reply.send({ ok: true });
-  });
-
-  app.post('/v1/notifications/fcm/unregister', async (request, reply) => {
-    const body = (request.body ?? {}) as UnregisterBody;
-    const token = normalizeToken(body.token);
-
-    if (token === null) {
-      reply.code(400).send({ error: 'Invalid token.' });
-      return;
-    }
-
-    await pool.query(
-      `
-      UPDATE fcm_tokens
-      SET is_active = FALSE, updated_at = NOW()
-      WHERE token = $1
-      `,
-      [token]
-    );
-
-    reply.send({ ok: true });
-  });
-
-  app.post('/v1/notifications/test', async (_request, reply) => {
-    if (!config.notificationsTestEndpointEnabled) {
-      reply.code(404).send({ error: 'Not found' });
-      return;
-    }
-
-    const result = await pool.query<{ token: string }>(
-      `
-      SELECT token
-      FROM fcm_tokens
-      WHERE is_active = TRUE
-      `
-    );
-    const tokens = result.rows.map((row) => row.token);
-    const sendResult = await sendFcmMulticast(tokens, {
-      title: 'Game Shelf Test Notification',
-      body: `Sent at ${new Date().toISOString()}`,
-      data: {
-        eventType: 'test',
-        route: '/tabs/wishlist'
+          [token, platform, timezone, appVersion, userAgent]
+        );
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
       }
-    });
 
-    if (sendResult.invalidTokens.length > 0) {
+      reply.send({ ok: true });
+    }
+  );
+
+  app.post(
+    '/v1/notifications/fcm/unregister',
+    {
+      config: {
+        rateLimit: UNREGISTER_RATE_LIMIT
+      }
+    },
+    async (request, reply) => {
+      const body = (request.body ?? {}) as UnregisterBody;
+      const token = normalizeToken(body.token);
+
+      if (token === null) {
+        reply.code(400).send({ error: 'Invalid token.' });
+        return;
+      }
+
       await pool.query(
         `
         UPDATE fcm_tokens
         SET is_active = FALSE, updated_at = NOW()
-        WHERE token = ANY($1::text[])
+        WHERE token = $1
         `,
-        [sendResult.invalidTokens]
+        [token]
       );
-    }
 
-    reply.send({
-      ok: true,
-      ...sendResult
-    });
-  });
+      reply.send({ ok: true });
+    }
+  );
+
+  app.post(
+    '/v1/notifications/test',
+    {
+      config: {
+        rateLimit: TEST_RATE_LIMIT
+      }
+    },
+    async (_request, reply) => {
+      if (!config.notificationsTestEndpointEnabled) {
+        reply.code(404).send({ error: 'Not found' });
+        return;
+      }
+
+      const result = await pool.query<{ token: string }>(
+        `
+        SELECT token
+        FROM fcm_tokens
+        WHERE is_active = TRUE
+        `
+      );
+      const tokens = result.rows.map((row) => row.token);
+      const sendResult = await sendFcmMulticast(tokens, {
+        title: 'Game Shelf Test Notification',
+        body: `Sent at ${new Date().toISOString()}`,
+        data: {
+          eventType: 'test',
+          route: '/tabs/wishlist'
+        }
+      });
+
+      if (sendResult.invalidTokens.length > 0) {
+        await pool.query(
+          `
+          UPDATE fcm_tokens
+          SET is_active = FALSE, updated_at = NOW()
+          WHERE token = ANY($1::text[])
+          `,
+          [sendResult.invalidTokens]
+        );
+      }
+
+      reply.send({
+        ok: true,
+        ...sendResult
+      });
+    }
+  );
 }
 
 function normalizeToken(value: unknown): string | null {

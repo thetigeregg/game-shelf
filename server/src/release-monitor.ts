@@ -797,11 +797,13 @@ function formatDateOnly(value: Date): string {
 
 function normalizeDateString(value: string | null | undefined): string | null {
   const normalized = typeof value === 'string' ? value.trim() : '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+
+  const isoPrefixMatch = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:T.*)?$/);
+  if (!isoPrefixMatch) {
     return null;
   }
 
-  return normalized;
+  return isoPrefixMatch[1];
 }
 
 function stringOrNull(value: unknown): string | null {

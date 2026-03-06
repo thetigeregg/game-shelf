@@ -90,6 +90,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RELEASE_MONITOR_INTERVAL_SECONDS` (default `900`)
 - `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
+- `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
 - `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (default `30`)
 

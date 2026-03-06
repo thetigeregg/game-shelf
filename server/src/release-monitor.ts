@@ -13,12 +13,15 @@ type ReleaseEventType =
   | 'release_date_removed'
   | 'release_day';
 type ReleaseState = 'unknown' | 'scheduled' | 'released';
+type ReleasePrecision = 'unknown' | 'year' | 'quarter' | 'month' | 'day';
 
 interface DueGameRow {
   igdb_game_id: string;
   platform_igdb_id: number;
   payload: Record<string, unknown> | null;
   watch_exists: boolean;
+  last_known_release_marker: string | null;
+  last_known_release_precision: string | null;
   last_known_release_date: string | null;
   last_known_release_year: number | null;
   last_seen_state: string | null;
@@ -41,7 +44,15 @@ interface ReleaseEvent {
   title: string;
   body: string;
   eventKey: string;
-  releaseDate: string | null;
+  releaseMarker: string | null;
+}
+
+interface ReleaseInfo {
+  precision: ReleasePrecision;
+  marker: string | null;
+  date: string | null;
+  year: number | null;
+  display: string | null;
 }
 
 interface MonitorStartResult {
@@ -125,6 +136,8 @@ async function processDueGames(pool: Pool): Promise<void> {
       g.platform_igdb_id,
       g.payload,
       (rws.igdb_game_id IS NOT NULL) AS watch_exists,
+      rws.last_known_release_marker,
+      rws.last_known_release_precision,
       rws.last_known_release_date,
       rws.last_known_release_year,
       rws.last_seen_state,
@@ -183,12 +196,13 @@ async function processGameRow(
   const title = stringOrFallback(originalPayload['title'], 'Unknown title');
   const platformName = stringOrNull(originalPayload['platform']);
   const platformIgdbId = row.platform_igdb_id;
-  const releaseDateBefore = normalizeDateString(
-    row.last_known_release_date ?? stringOrNull(originalPayload['releaseDate'])
-  );
-  const releaseYearBefore = integerOrNull(
-    row.last_known_release_year ?? originalPayload['releaseYear']
-  );
+  const releaseBefore = deriveReleaseInfo({
+    marker: stringOrNull(row.last_known_release_marker),
+    precision: normalizeReleasePrecision(row.last_known_release_precision),
+    releaseDate:
+      stringOrNull(row.last_known_release_date) ?? stringOrNull(originalPayload['releaseDate']),
+    releaseYear: integerOrNull(row.last_known_release_year ?? originalPayload['releaseYear'])
+  });
 
   let lastHltbRefreshAt = row.last_hltb_refresh_at;
 
@@ -202,12 +216,16 @@ async function processGameRow(
       }
     }
 
-    const releaseDateAfter = normalizeDateString(stringOrNull(mergedPayload['releaseDate']));
-    const releaseYearAfter = integerOrNull(mergedPayload['releaseYear']);
-    const releaseStateAfter = deriveReleaseState(releaseDateAfter, now);
+    const releaseAfter = deriveReleaseInfo({
+      marker: null,
+      precision: null,
+      releaseDate: stringOrNull(mergedPayload['releaseDate']),
+      releaseYear: integerOrNull(mergedPayload['releaseYear'])
+    });
+    const releaseStateAfter = deriveReleaseState(releaseAfter, now);
     const releaseStateBefore =
-      normalizeReleaseState(row.last_seen_state) ?? deriveReleaseState(releaseDateBefore, now);
-    const hltbEligible = isWithinPastYears(releaseDateAfter, now, config.hltbPeriodicRefreshYears);
+      normalizeReleaseState(row.last_seen_state) ?? deriveReleaseState(releaseBefore, now);
+    const hltbEligible = isWithinPastYears(releaseAfter, now, config.hltbPeriodicRefreshYears);
     const hasExistingHltb = hasHltbValues(mergedPayload);
 
     if (isBootstrap && hasExistingHltb && hltbEligible) {
@@ -247,8 +265,8 @@ async function processGameRow(
           igdbGameId: row.igdb_game_id,
           platformIgdbId,
           title: stringOrFallback(mergedPayload['title'], title),
-          releaseDateBefore,
-          releaseDateAfter,
+          releaseBefore,
+          releaseAfter,
           now
         });
 
@@ -265,7 +283,7 @@ async function processGameRow(
 
       const shouldSkipReleaseDay =
         event.type === 'release_day' &&
-        lastNotifiedReleaseDay === normalizeDateString(event.releaseDate);
+        lastNotifiedReleaseDay === normalizeDateString(event.releaseMarker);
       if (shouldSkipReleaseDay) {
         stats.eventsReleaseDayAlreadyNotified += 1;
         continue;
@@ -293,7 +311,7 @@ async function processGameRow(
           eventKey: event.eventKey,
           igdbGameId: row.igdb_game_id,
           platformIgdbId: String(platformIgdbId),
-          releaseDate: event.releaseDate ?? '',
+          releaseDate: event.releaseMarker ?? '',
           route: '/tabs/wishlist'
         }
       });
@@ -327,24 +345,17 @@ async function processGameRow(
       }
     }
 
-    const nextCheckAt = computeNextCheckAt(
-      releaseDateAfter,
-      releaseYearAfter,
-      now,
-      hltbEligible,
-      lastHltbRefreshAt
-    );
+    const nextCheckAt = computeNextCheckAt(releaseAfter, now, hltbEligible, lastHltbRefreshAt);
     await upsertWatchState(pool, {
       igdbGameId: row.igdb_game_id,
       platformIgdbId,
-      releaseDate: releaseDateAfter,
-      releaseYear: releaseYearAfter,
+      release: releaseAfter,
       releaseState: releaseStateAfter,
       lastIgdRefreshAt: isBootstrap ? null : nowIso,
       lastHltbRefreshAt,
       nextCheckAt,
       sentEventTypes,
-      releaseDateBefore,
+      releaseBefore,
       releaseStateBefore
     });
   } catch (error) {
@@ -355,6 +366,8 @@ async function processGameRow(
       INSERT INTO release_watch_state (
         igdb_game_id,
         platform_igdb_id,
+        last_known_release_marker,
+        last_known_release_precision,
         last_known_release_date,
         last_known_release_year,
         last_seen_state,
@@ -362,7 +375,7 @@ async function processGameRow(
         last_error,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, NOW())
       ON CONFLICT (igdb_game_id, platform_igdb_id)
       DO UPDATE SET
         next_check_at = EXCLUDED.next_check_at,
@@ -372,8 +385,10 @@ async function processGameRow(
       [
         row.igdb_game_id,
         row.platform_igdb_id,
-        releaseDateBefore,
-        releaseYearBefore,
+        releaseBefore.marker,
+        releaseBefore.precision,
+        releaseBefore.date,
+        releaseBefore.year,
         normalizeReleaseState(row.last_seen_state) ?? 'unknown',
         nextCheckAt,
         error instanceof Error ? error.message : String(error)
@@ -567,51 +582,68 @@ function buildReleaseEvents(args: {
   igdbGameId: string;
   platformIgdbId: number;
   title: string;
-  releaseDateBefore: string | null;
-  releaseDateAfter: string | null;
+  releaseBefore: ReleaseInfo;
+  releaseAfter: ReleaseInfo;
   now: Date;
 }): ReleaseEvent[] {
   const events: ReleaseEvent[] = [];
-  const before = args.releaseDateBefore;
-  const after = args.releaseDateAfter;
+  const before = args.releaseBefore;
+  const after = args.releaseAfter;
+  const beforeKnown = before.precision !== 'unknown' && before.marker !== null;
+  const afterKnown = after.precision !== 'unknown' && after.marker !== null;
 
-  if (before === null && after !== null) {
+  if (!beforeKnown && afterKnown) {
+    const afterMarker = after.marker ?? 'unknown';
+    const afterDisplay = after.display ?? afterMarker;
     events.push({
       type: 'release_date_set',
       title: `${args.title}: Release date set`,
-      body: `${args.title} now has a release date (${after}).`,
-      eventKey: `release_date_set:${args.igdbGameId}:${String(args.platformIgdbId)}:${after}`,
-      releaseDate: after
+      body: `${args.title} now has a release timing (${afterDisplay}).`,
+      eventKey: `release_date_set:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.precision}:${afterMarker}`,
+      releaseMarker: afterMarker
     });
   }
 
-  if (before !== null && after !== null && before !== after) {
+  if (
+    beforeKnown &&
+    afterKnown &&
+    (before.marker !== after.marker || before.precision !== after.precision)
+  ) {
+    const beforeMarker = before.marker ?? 'unknown';
+    const afterMarker = after.marker ?? 'unknown';
+    const beforeDisplay = before.display ?? beforeMarker;
+    const afterDisplay = after.display ?? afterMarker;
     events.push({
       type: 'release_date_changed',
       title: `${args.title}: Release date changed`,
-      body: `${args.title} moved from ${before} to ${after}.`,
-      eventKey: `release_date_changed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before}:${after}`,
-      releaseDate: after
+      body: `${args.title} moved from ${beforeDisplay} to ${afterDisplay}.`,
+      eventKey: `release_date_changed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}:${after.precision}:${afterMarker}`,
+      releaseMarker: afterMarker
     });
   }
 
-  if (before !== null && after === null) {
+  if (beforeKnown && !afterKnown) {
+    const beforeMarker = before.marker ?? 'unknown';
     events.push({
       type: 'release_date_removed',
       title: `${args.title}: Release date removed`,
       body: `${args.title} no longer has a confirmed release date.`,
-      eventKey: `release_date_removed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before}`,
-      releaseDate: null
+      eventKey: `release_date_removed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}`,
+      releaseMarker: null
     });
   }
 
-  if (after !== null && after === formatDateOnly(args.now)) {
+  if (
+    after.precision === 'day' &&
+    after.marker !== null &&
+    after.marker === formatDateOnly(args.now)
+  ) {
     events.push({
       type: 'release_day',
       title: `${args.title} releases today`,
       body: `${args.title} has reached its scheduled release date.`,
-      eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after}`,
-      releaseDate: after
+      eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.marker}`,
+      releaseMarker: after.marker
     });
   }
 
@@ -639,7 +671,7 @@ async function reserveNotificationLog(
       JSON.stringify({
         title: event.title,
         body: event.body,
-        releaseDate: event.releaseDate
+        releaseDate: event.releaseMarker
       })
     ]
   );
@@ -663,7 +695,7 @@ async function finalizeNotificationLog(
       JSON.stringify({
         title: event.title,
         body: event.body,
-        releaseDate: event.releaseDate
+        releaseDate: event.releaseMarker
       }),
       sentCount,
       eventKey
@@ -720,14 +752,13 @@ async function upsertWatchState(
   args: {
     igdbGameId: string;
     platformIgdbId: number;
-    releaseDate: string | null;
-    releaseYear: number | null;
+    release: ReleaseInfo;
     releaseState: ReleaseState;
     lastIgdRefreshAt: string | null;
     lastHltbRefreshAt: string | null;
     nextCheckAt: string;
     sentEventTypes: Set<ReleaseEventType>;
-    releaseDateBefore: string | null;
+    releaseBefore: ReleaseInfo;
     releaseStateBefore: ReleaseState;
   }
 ): Promise<void> {
@@ -739,13 +770,15 @@ async function upsertWatchState(
     ? new Date().toISOString()
     : null;
   const updateReleaseDay =
-    args.sentEventTypes.has('release_day') && args.releaseDate ? args.releaseDate : null;
+    args.sentEventTypes.has('release_day') && args.release.date ? args.release.date : null;
 
   await pool.query(
     `
     INSERT INTO release_watch_state (
       igdb_game_id,
       platform_igdb_id,
+      last_known_release_marker,
+      last_known_release_precision,
       last_known_release_date,
       last_known_release_year,
       last_seen_state,
@@ -759,9 +792,11 @@ async function upsertWatchState(
       last_error,
       updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8::timestamptz, $9::timestamptz, $10::timestamptz, $11::timestamptz, $12, NULL, NOW())
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, $10::timestamptz, $11::timestamptz, $12::timestamptz, $13::timestamptz, $14, NULL, NOW())
     ON CONFLICT (igdb_game_id, platform_igdb_id)
     DO UPDATE SET
+      last_known_release_marker = EXCLUDED.last_known_release_marker,
+      last_known_release_precision = EXCLUDED.last_known_release_precision,
       last_known_release_date = EXCLUDED.last_known_release_date,
       last_known_release_year = EXCLUDED.last_known_release_year,
       last_seen_state = EXCLUDED.last_seen_state,
@@ -778,8 +813,10 @@ async function upsertWatchState(
     [
       args.igdbGameId,
       args.platformIgdbId,
-      args.releaseDate,
-      args.releaseYear,
+      args.release.marker,
+      args.release.precision,
+      args.release.date,
+      args.release.year,
       args.releaseState,
       args.lastIgdRefreshAt,
       args.lastHltbRefreshAt,
@@ -795,8 +832,10 @@ async function upsertWatchState(
     console.info('[release-monitor] state_updated', {
       igdbGameId: args.igdbGameId,
       platformIgdbId: args.platformIgdbId,
-      releaseDateBefore: args.releaseDateBefore,
-      releaseDateAfter: args.releaseDate,
+      releaseDateBefore: args.releaseBefore.marker,
+      releaseDateAfter: args.release.marker,
+      releasePrecisionBefore: args.releaseBefore.precision,
+      releasePrecisionAfter: args.release.precision,
       releaseStateBefore: args.releaseStateBefore,
       releaseStateAfter: args.releaseState,
       nextCheckAt: args.nextCheckAt,
@@ -806,8 +845,7 @@ async function upsertWatchState(
 }
 
 function computeNextCheckAt(
-  releaseDate: string | null,
-  releaseYear: number | null,
+  release: ReleaseInfo,
   now: Date,
   hltbEligible: boolean,
   lastHltbRefreshAt: string | null
@@ -815,15 +853,15 @@ function computeNextCheckAt(
   const nowMs = now.getTime();
   let nextReleaseCheckMs = nowMs + ONE_DAY_MS;
 
-  if (releaseDate === null) {
+  if (release.precision === 'unknown') {
     const currentYear = now.getUTCFullYear();
-    if (releaseYear !== null && releaseYear < currentYear) {
+    if (release.year !== null && release.year < currentYear) {
       nextReleaseCheckMs = nowMs + 365 * ONE_DAY_MS;
     } else {
       nextReleaseCheckMs = nowMs + 7 * ONE_DAY_MS;
     }
-  } else {
-    const releaseMs = Date.parse(`${releaseDate}T00:00:00.000Z`);
+  } else if (release.precision === 'day' && release.date) {
+    const releaseMs = Date.parse(`${release.date}T00:00:00.000Z`);
     const deltaDays = Math.floor((releaseMs - nowMs) / ONE_DAY_MS);
 
     if (deltaDays >= 0 && deltaDays <= 30) {
@@ -834,6 +872,21 @@ function computeNextCheckAt(
       nextReleaseCheckMs = nowMs + ONE_DAY_MS;
     } else {
       nextReleaseCheckMs = nowMs + 365 * ONE_DAY_MS;
+    }
+  } else if (release.precision === 'month' || release.precision === 'quarter') {
+    const releaseMs = getReleaseInfoTimestamp(release);
+    if (releaseMs !== null) {
+      const deltaDays = Math.floor((releaseMs - nowMs) / ONE_DAY_MS);
+      nextReleaseCheckMs = deltaDays > 0 ? nowMs + 7 * ONE_DAY_MS : nowMs + 30 * ONE_DAY_MS;
+    } else {
+      nextReleaseCheckMs = nowMs + 7 * ONE_DAY_MS;
+    }
+  } else if (release.precision === 'year') {
+    const currentYear = now.getUTCFullYear();
+    if (release.year !== null && release.year < currentYear) {
+      nextReleaseCheckMs = nowMs + 365 * ONE_DAY_MS;
+    } else {
+      nextReleaseCheckMs = nowMs + 30 * ONE_DAY_MS;
     }
   }
 
@@ -879,13 +932,22 @@ function hasHltbValues(payload: Record<string, unknown>): boolean {
   );
 }
 
-function deriveReleaseState(releaseDate: string | null, now: Date): ReleaseState {
-  if (releaseDate === null) {
+function deriveReleaseState(release: ReleaseInfo, now: Date): ReleaseState {
+  if (release.precision === 'unknown' || release.marker === null) {
     return 'unknown';
   }
 
+  if (release.precision !== 'day') {
+    const releaseTimestamp = getReleaseInfoTimestamp(release);
+    if (releaseTimestamp === null) {
+      return 'unknown';
+    }
+
+    return releaseTimestamp > now.getTime() ? 'scheduled' : 'released';
+  }
+
   const nowDate = formatDateOnly(now);
-  return releaseDate > nowDate ? 'scheduled' : 'released';
+  return release.date !== null && release.date > nowDate ? 'scheduled' : 'released';
 }
 
 function normalizeReleaseState(value: string | null): ReleaseState | null {
@@ -896,18 +958,235 @@ function normalizeReleaseState(value: string | null): ReleaseState | null {
   return null;
 }
 
-function isWithinPastYears(releaseDate: string | null, now: Date, years: number): boolean {
-  if (!releaseDate) {
+function isWithinPastYears(release: ReleaseInfo, now: Date, years: number): boolean {
+  if (release.precision === 'unknown' || release.marker === null) {
     return false;
   }
 
-  const releaseMs = Date.parse(`${releaseDate}T00:00:00.000Z`);
+  const releaseMs = getReleaseInfoTimestamp(release);
+  if (releaseMs === null) {
+    return false;
+  }
+
   if (!Number.isFinite(releaseMs)) {
     return false;
   }
 
   const thresholdMs = now.getTime() - Math.max(1, years) * 365 * ONE_DAY_MS;
   return releaseMs >= thresholdMs;
+}
+
+function deriveReleaseInfo(input: {
+  marker: string | null;
+  precision: ReleasePrecision | null;
+  releaseDate: string | null;
+  releaseYear: number | null;
+}): ReleaseInfo {
+  if (input.precision && input.precision !== 'unknown' && input.marker) {
+    return normalizeReleaseInfoFromPrecision(input.precision, input.marker);
+  }
+
+  const fromDate = parseReleaseMarkerFromString(input.releaseDate);
+  if (fromDate) {
+    return normalizeReleaseInfoFromPrecision(fromDate.precision, fromDate.marker);
+  }
+
+  if (input.releaseYear !== null) {
+    return normalizeReleaseInfoFromPrecision('year', String(input.releaseYear));
+  }
+
+  return {
+    precision: 'unknown',
+    marker: null,
+    date: null,
+    year: null,
+    display: null
+  };
+}
+
+function normalizeReleaseInfoFromPrecision(
+  precision: ReleasePrecision,
+  marker: string
+): ReleaseInfo {
+  const normalizedMarker = marker.trim();
+
+  if (precision === 'day') {
+    const day = normalizeDateString(normalizedMarker);
+    if (day === null) {
+      return {
+        precision: 'unknown',
+        marker: null,
+        date: null,
+        year: null,
+        display: null
+      };
+    }
+
+    return {
+      precision: 'day',
+      marker: day,
+      date: day,
+      year: integerOrNull(day.slice(0, 4)),
+      display: day
+    };
+  }
+
+  if (precision === 'month') {
+    const monthMatch = normalizedMarker.match(/^(\d{4})-(\d{2})$/);
+    if (!monthMatch) {
+      return {
+        precision: 'unknown',
+        marker: null,
+        date: null,
+        year: null,
+        display: null
+      };
+    }
+
+    return {
+      precision: 'month',
+      marker: `${monthMatch[1]}-${monthMatch[2]}`,
+      date: null,
+      year: integerOrNull(monthMatch[1]),
+      display: `${monthMatch[1]}-${monthMatch[2]}`
+    };
+  }
+
+  if (precision === 'quarter') {
+    const quarterMatch = normalizedMarker.match(/^(\d{4})-Q([1-4])$/i);
+    if (!quarterMatch) {
+      return {
+        precision: 'unknown',
+        marker: null,
+        date: null,
+        year: null,
+        display: null
+      };
+    }
+
+    const year = quarterMatch[1];
+    const quarter = quarterMatch[2];
+    return {
+      precision: 'quarter',
+      marker: `${year}-Q${quarter}`,
+      date: null,
+      year: integerOrNull(year),
+      display: `Q${quarter} ${year}`
+    };
+  }
+
+  if (precision === 'year') {
+    const yearMatch = normalizedMarker.match(/^(\d{4})$/);
+    if (!yearMatch) {
+      return {
+        precision: 'unknown',
+        marker: null,
+        date: null,
+        year: null,
+        display: null
+      };
+    }
+
+    return {
+      precision: 'year',
+      marker: yearMatch[1],
+      date: null,
+      year: integerOrNull(yearMatch[1]),
+      display: yearMatch[1]
+    };
+  }
+
+  return {
+    precision: 'unknown',
+    marker: null,
+    date: null,
+    year: null,
+    display: null
+  };
+}
+
+function parseReleaseMarkerFromString(value: string | null): {
+  precision: ReleasePrecision;
+  marker: string;
+} | null {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (!normalized) {
+    return null;
+  }
+
+  const day = normalizeDateString(normalized);
+  if (day !== null) {
+    return { precision: 'day', marker: day };
+  }
+
+  const monthMatch = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    return { precision: 'month', marker: `${monthMatch[1]}-${monthMatch[2]}` };
+  }
+
+  const quarterMatch = normalized.match(/^(\d{4})-Q([1-4])$/i);
+  if (quarterMatch) {
+    return { precision: 'quarter', marker: `${quarterMatch[1]}-Q${quarterMatch[2]}` };
+  }
+
+  const yearMatch = normalized.match(/^(\d{4})$/);
+  if (yearMatch) {
+    return { precision: 'year', marker: yearMatch[1] };
+  }
+
+  const quarterNaturalMatch = normalized.match(/^Q([1-4])\s+(\d{4})$/i);
+  if (quarterNaturalMatch) {
+    return { precision: 'quarter', marker: `${quarterNaturalMatch[2]}-Q${quarterNaturalMatch[1]}` };
+  }
+
+  return null;
+}
+
+function getReleaseInfoTimestamp(release: ReleaseInfo): number | null {
+  if (release.precision === 'day' && release.date) {
+    const ms = Date.parse(`${release.date}T00:00:00.000Z`);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  if (release.precision === 'month' && release.marker) {
+    const ms = Date.parse(`${release.marker}-01T00:00:00.000Z`);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  if (release.precision === 'quarter' && release.marker) {
+    const match = release.marker.match(/^(\d{4})-Q([1-4])$/i);
+    if (!match) {
+      return null;
+    }
+
+    const year = Number.parseInt(match[1], 10);
+    const quarter = Number.parseInt(match[2], 10);
+    const month = quarter * 3 - 2;
+    const monthLabel = String(month).padStart(2, '0');
+    const ms = Date.parse(`${String(year)}-${monthLabel}-01T00:00:00.000Z`);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  if (release.precision === 'year' && release.year !== null) {
+    const ms = Date.parse(`${String(release.year)}-01-01T00:00:00.000Z`);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  return null;
+}
+
+function normalizeReleasePrecision(value: string | null): ReleasePrecision | null {
+  if (
+    value === 'unknown' ||
+    value === 'year' ||
+    value === 'quarter' ||
+    value === 'month' ||
+    value === 'day'
+  ) {
+    return value;
+  }
+
+  return null;
 }
 
 function formatDateOnly(value: Date): string {
@@ -1020,6 +1299,11 @@ function emitRunSummary(stats: MonitorRunStats): void {
   }
 
   console.info('[release-monitor] run_summary', stats);
+
+  const healthWarnings = evaluateRunHealth(stats);
+  healthWarnings.forEach((warning) => {
+    console.warn('[release-monitor] run_health_warning', warning);
+  });
 }
 
 async function runFcmTokenCleanupIfDue(pool: Pool, stats: MonitorRunStats): Promise<void> {
@@ -1068,6 +1352,42 @@ function resetFcmTokenCleanupScheduleForTests(): void {
   nextFcmTokenCleanupAtMs = 0;
 }
 
+function evaluateRunHealth(stats: MonitorRunStats): Array<{ code: string; detail: string }> {
+  const warnings: Array<{ code: string; detail: string }> = [];
+  const totalSendResponses = stats.sendBatchSuccess + stats.sendBatchFailure;
+  const sendFailureRatio = totalSendResponses > 0 ? stats.sendBatchFailure / totalSendResponses : 0;
+  if (
+    totalSendResponses > 0 &&
+    sendFailureRatio >= Math.max(0, config.releaseMonitorWarnSendFailureRatio)
+  ) {
+    warnings.push({
+      code: 'send_failure_ratio_high',
+      detail: `failure_ratio=${sendFailureRatio.toFixed(3)} threshold=${config.releaseMonitorWarnSendFailureRatio.toFixed(3)}`
+    });
+  }
+
+  const invalidRatio =
+    stats.sendBatchSuccess > 0 ? stats.invalidTokensDeactivated / stats.sendBatchSuccess : 0;
+  if (
+    stats.sendBatchSuccess > 0 &&
+    invalidRatio >= Math.max(0, config.releaseMonitorWarnInvalidTokenRatio)
+  ) {
+    warnings.push({
+      code: 'invalid_token_ratio_high',
+      detail: `invalid_ratio=${invalidRatio.toFixed(3)} threshold=${config.releaseMonitorWarnInvalidTokenRatio.toFixed(3)}`
+    });
+  }
+
+  if (stats.gameFailures > 0) {
+    warnings.push({
+      code: 'game_failures_present',
+      detail: `game_failures=${String(stats.gameFailures)}`
+    });
+  }
+
+  return warnings;
+}
+
 export const releaseMonitorInternals = {
   buildReleaseEvents,
   computeNextCheckAt,
@@ -1080,5 +1400,6 @@ export const releaseMonitorInternals = {
   releaseNotificationLogReservation,
   withGameLock,
   runFcmTokenCleanupIfDue,
-  resetFcmTokenCleanupScheduleForTests
+  resetFcmTokenCleanupScheduleForTests,
+  evaluateRunHealth
 };

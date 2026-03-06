@@ -18,8 +18,20 @@ void test('release events include set/changed/removed/day transitions', () => {
     igdbGameId: '52189',
     platformIgdbId: 167,
     title: 'Grand Theft Auto VI',
-    releaseDateBefore: null,
-    releaseDateAfter: '2026-12-01',
+    releaseBefore: {
+      precision: 'unknown',
+      marker: null,
+      date: null,
+      year: null,
+      display: null
+    },
+    releaseAfter: {
+      precision: 'day',
+      marker: '2026-12-01',
+      date: '2026-12-01',
+      year: 2026,
+      display: '2026-12-01'
+    },
     now
   });
   assert.deepEqual(
@@ -31,8 +43,20 @@ void test('release events include set/changed/removed/day transitions', () => {
     igdbGameId: '52189',
     platformIgdbId: 167,
     title: 'Grand Theft Auto VI',
-    releaseDateBefore: '2026-12-01',
-    releaseDateAfter: '2026-03-06',
+    releaseBefore: {
+      precision: 'day',
+      marker: '2026-12-01',
+      date: '2026-12-01',
+      year: 2026,
+      display: '2026-12-01'
+    },
+    releaseAfter: {
+      precision: 'day',
+      marker: '2026-03-06',
+      date: '2026-03-06',
+      year: 2026,
+      display: '2026-03-06'
+    },
     now
   });
   assert.deepEqual(
@@ -44,13 +68,50 @@ void test('release events include set/changed/removed/day transitions', () => {
     igdbGameId: '52189',
     platformIgdbId: 167,
     title: 'Grand Theft Auto VI',
-    releaseDateBefore: '2026-12-01',
-    releaseDateAfter: null,
+    releaseBefore: {
+      precision: 'day',
+      marker: '2026-12-01',
+      date: '2026-12-01',
+      year: 2026,
+      display: '2026-12-01'
+    },
+    releaseAfter: {
+      precision: 'unknown',
+      marker: null,
+      date: null,
+      year: null,
+      display: null
+    },
     now
   });
   assert.deepEqual(
     removedEvents.map((entry) => entry.type),
     ['release_date_removed']
+  );
+
+  const impreciseChangedEvents = releaseMonitorInternals.buildReleaseEvents({
+    igdbGameId: '92550',
+    platformIgdbId: 167,
+    title: 'Fable',
+    releaseBefore: {
+      precision: 'year',
+      marker: '2026',
+      date: null,
+      year: 2026,
+      display: '2026'
+    },
+    releaseAfter: {
+      precision: 'quarter',
+      marker: '2026-Q4',
+      date: null,
+      year: 2026,
+      display: 'Q4 2026'
+    },
+    now
+  });
+  assert.deepEqual(
+    impreciseChangedEvents.map((entry) => entry.type),
+    ['release_date_changed']
   );
 });
 
@@ -59,13 +120,35 @@ void test('unknown release date cadence is weekly for future/unknown year and ye
   const oneDayMs = 24 * 60 * 60 * 1000;
 
   const weeklyNextCheck = Date.parse(
-    releaseMonitorInternals.computeNextCheckAt(null, 2026, now, false, null)
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'unknown',
+        marker: null,
+        date: null,
+        year: 2026,
+        display: null
+      },
+      now,
+      false,
+      null
+    )
   );
   const weeklyDeltaDays = Math.round((weeklyNextCheck - now.getTime()) / oneDayMs);
   assert.equal(weeklyDeltaDays, 7);
 
   const yearlyNextCheck = Date.parse(
-    releaseMonitorInternals.computeNextCheckAt(null, 1980, now, false, null)
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'unknown',
+        marker: null,
+        date: null,
+        year: 1980,
+        display: null
+      },
+      now,
+      false,
+      null
+    )
   );
   const yearlyDeltaDays = Math.round((yearlyNextCheck - now.getTime()) / oneDayMs);
   assert.equal(yearlyDeltaDays, 365);

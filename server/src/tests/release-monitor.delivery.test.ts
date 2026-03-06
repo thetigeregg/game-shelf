@@ -188,7 +188,7 @@ void test('notification reservation inserts once per event key', async () => {
     title: 'Game: Release date set',
     body: 'Game now has a release date.',
     eventKey: 'release_date_set:1:167:2026-11-19',
-    releaseDate: '2026-11-19'
+    releaseMarker: '2026-11-19'
   } as const;
 
   const first = await releaseMonitorInternals.reserveNotificationLog(
@@ -216,7 +216,7 @@ void test('notification reservation can be finalized and is no longer removable 
     title: 'Game: Release date changed',
     body: 'Game moved dates.',
     eventKey: 'release_date_changed:1:167:2026-11-19:2026-12-01',
-    releaseDate: '2026-12-01'
+    releaseMarker: '2026-12-01'
   } as const;
 
   await releaseMonitorInternals.reserveNotificationLog(pool as unknown as Pool, event, '1', 167);
@@ -298,4 +298,22 @@ void test('token cleanup respects interval and skips immediate re-run', async ()
   assert.equal(pool.staleUpdates, 1);
   assert.equal(pool.prunedDeletes, 1);
   assert.equal(statsSecondRun.tokenCleanupRan, false);
+});
+
+void test('evaluateRunHealth warns when send failure and invalid token ratios are high', () => {
+  const warnings = releaseMonitorInternals.evaluateRunHealth({
+    ...createRunStats(),
+    sendBatchSuccess: 10,
+    sendBatchFailure: 20,
+    invalidTokensDeactivated: 4
+  });
+
+  assert.equal(
+    warnings.some((entry) => entry.code === 'send_failure_ratio_high'),
+    true
+  );
+  assert.equal(
+    warnings.some((entry) => entry.code === 'invalid_token_ratio_high'),
+    true
+  );
 });

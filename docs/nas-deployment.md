@@ -67,12 +67,15 @@ Common stack env vars:
 - `RELEASE_MONITOR_BATCH_SIZE` (optional; defaults `100`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (optional; defaults `false`)
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (optional; defaults `false`; enables `POST /v1/notifications/test`)
+- `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (optional; defaults `false`; enables `GET /v1/notifications/observability`)
 - `HLTB_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
 - `FCM_TOKEN_CLEANUP_ENABLED` (optional; defaults `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (optional; defaults `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (optional; defaults `60`)
 - `FCM_TOKEN_INACTIVE_PURGE_DAYS` (optional; defaults `180`)
+- `RELEASE_MONITOR_WARN_SEND_FAILURE_RATIO` (optional; defaults `0.5`)
+- `RELEASE_MONITOR_WARN_INVALID_TOKEN_RATIO` (optional; defaults `0.2`)
 
 Release notification defaults:
 

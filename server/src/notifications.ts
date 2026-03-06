@@ -30,7 +30,80 @@ const TEST_RATE_LIMIT = {
   timeWindow: '1 minute'
 } as const;
 
+const OBSERVABILITY_RATE_LIMIT = {
+  max: 10,
+  timeWindow: '1 minute'
+} as const;
+
 export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): void {
+  app.get(
+    '/v1/notifications/observability',
+    {
+      config: {
+        rateLimit: OBSERVABILITY_RATE_LIMIT
+      }
+    },
+    async (_request, reply) => {
+      if (!config.notificationsObservabilityEndpointEnabled) {
+        reply.code(404).send({ error: 'Not found' });
+        return;
+      }
+
+      const tokenStatsResult = await pool.query<{
+        active_tokens: string;
+        inactive_tokens: string;
+      }>(
+        `
+        SELECT
+          COUNT(*) FILTER (WHERE is_active = TRUE)::text AS active_tokens,
+          COUNT(*) FILTER (WHERE is_active = FALSE)::text AS inactive_tokens
+        FROM fcm_tokens
+        `
+      );
+      const recentInvalidResult = await pool.query<{ invalidated_last_24h: string }>(
+        `
+        SELECT COUNT(*)::text AS invalidated_last_24h
+        FROM fcm_tokens
+        WHERE is_active = FALSE
+          AND updated_at >= NOW() - INTERVAL '24 hours'
+        `
+      );
+      const eventStatsResult = await pool.query<{
+        event_type: string;
+        event_count: string;
+        sent_total: string;
+      }>(
+        `
+        SELECT
+          event_type,
+          COUNT(*)::text AS event_count,
+          COALESCE(SUM(sent_count), 0)::text AS sent_total
+        FROM release_notification_log
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
+        GROUP BY event_type
+        ORDER BY event_type ASC
+        `
+      );
+
+      const recentEvents = eventStatsResult.rows.map((row) => ({
+        eventType: row.event_type,
+        eventCount: Number.parseInt(row.event_count, 10) || 0,
+        sentTotal: Number.parseInt(row.sent_total, 10) || 0
+      }));
+
+      reply.send({
+        windowHours: 24,
+        tokens: {
+          active: Number.parseInt(tokenStatsResult.rows[0]?.active_tokens ?? '0', 10) || 0,
+          inactive: Number.parseInt(tokenStatsResult.rows[0]?.inactive_tokens ?? '0', 10) || 0,
+          invalidatedLast24h:
+            Number.parseInt(recentInvalidResult.rows[0]?.invalidated_last_24h ?? '0', 10) || 0
+        },
+        events: recentEvents
+      });
+    }
+  );
+
   app.post(
     '/v1/notifications/fcm/register',
     {

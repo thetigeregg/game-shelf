@@ -26,10 +26,8 @@ export function buildDiscoveryEnrichmentSelectionParams(
 ): DiscoveryEnrichmentSelectionParams {
   const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
   const nowCandidate = options?.nowIso;
-  const nowMs =
-    typeof nowCandidate === 'string' && Number.isFinite(Date.parse(nowCandidate))
-      ? Date.parse(nowCandidate)
-      : Date.now();
+  const parsedNowMs = typeof nowCandidate === 'string' ? Date.parse(nowCandidate) : Number.NaN;
+  const nowMs = Number.isFinite(parsedNowMs) ? parsedNowMs : Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const maxAttempts =
     typeof options?.maxAttempts === 'number' && Number.isFinite(options.maxAttempts)

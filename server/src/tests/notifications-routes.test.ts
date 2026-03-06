@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
+import { config } from '../config.js';
 import { registerNotificationRoutes } from '../notifications.js';
 
 interface TokenRow {
@@ -25,6 +26,8 @@ class MockClient {
 
 class MockNotificationsPool {
   private readonly tokens = new Map<string, TokenRow>();
+  private readonly inactiveTokens = new Set<string>();
+  private readonly queryCalls: string[] = [];
 
   seedToken(row: TokenRow): void {
     this.tokens.set(row.token, { ...row });
@@ -34,12 +37,17 @@ class MockNotificationsPool {
     return this.tokens.get(token) ?? null;
   }
 
+  getQueryCalls(): string[] {
+    return [...this.queryCalls];
+  }
+
   connect(): Promise<MockClient> {
     return Promise.resolve(new MockClient(this));
   }
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
     const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+    this.queryCalls.push(normalizedSql);
 
     if (
       normalizedSql.startsWith(
@@ -81,6 +89,52 @@ class MockNotificationsPool {
       return Promise.resolve({ rows: [] });
     }
 
+    if (
+      normalizedSql.startsWith(
+        'select count(*) filter (where is_active = true)::text as active_tokens'
+      )
+    ) {
+      return Promise.resolve({
+        rows: [
+          {
+            active_tokens: String(this.tokens.size),
+            inactive_tokens: String(this.inactiveTokens.size)
+          }
+        ]
+      });
+    }
+
+    if (normalizedSql.startsWith('select count(*)::text as invalidated_last_24h from fcm_tokens')) {
+      return Promise.resolve({ rows: [{ invalidated_last_24h: '1' }] });
+    }
+
+    if (normalizedSql.startsWith('select event_type, count(*)::text as event_count')) {
+      return Promise.resolve({
+        rows: [{ event_type: 'release_date_set', event_count: '2', sent_total: '3' }]
+      });
+    }
+
+    if (normalizedSql.startsWith('select token from fcm_tokens where is_active = true')) {
+      return Promise.resolve({
+        rows: [...this.tokens.keys()].map((token) => ({ token }))
+      });
+    }
+
+    if (
+      normalizedSql.startsWith(
+        'update fcm_tokens set is_active = false, updated_at = now() where token = any'
+      )
+    ) {
+      const invalidTokens = Array.isArray(params[0]) ? (params[0] as string[]) : [];
+      invalidTokens.forEach((token) => {
+        const existing = this.tokens.get(token);
+        if (existing) {
+          this.tokens.set(token, { ...existing, is_active: false });
+        }
+      });
+      return Promise.resolve({ rows: [] });
+    }
+
     return Promise.resolve({ rows: [] });
   }
 }
@@ -98,6 +152,54 @@ function normalizeNullableString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function parseObservabilityBody(raw: string): {
+  windowHours: number;
+  tokens: { active: number; inactive: number; invalidatedLast24h: number };
+  events: Array<{ eventType: string; eventCount: number; sentTotal: number }>;
+} {
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('invalid observability response');
+  }
+  const candidate = parsed as {
+    windowHours?: unknown;
+    tokens?: { active?: unknown; inactive?: unknown; invalidatedLast24h?: unknown };
+    events?: Array<{ eventType?: unknown; eventCount?: unknown; sentTotal?: unknown }>;
+  };
+
+  return {
+    windowHours: typeof candidate.windowHours === 'number' ? candidate.windowHours : 0,
+    tokens: {
+      active: typeof candidate.tokens?.active === 'number' ? candidate.tokens.active : 0,
+      inactive: typeof candidate.tokens?.inactive === 'number' ? candidate.tokens.inactive : 0,
+      invalidatedLast24h:
+        typeof candidate.tokens?.invalidatedLast24h === 'number'
+          ? candidate.tokens.invalidatedLast24h
+          : 0
+    },
+    events: Array.isArray(candidate.events)
+      ? candidate.events.map((entry) => ({
+          eventType: typeof entry.eventType === 'string' ? entry.eventType : '',
+          eventCount: typeof entry.eventCount === 'number' ? entry.eventCount : 0,
+          sentTotal: typeof entry.sentTotal === 'number' ? entry.sentTotal : 0
+        }))
+      : []
+  };
+}
+
+function parseTestBody(raw: string): { ok: boolean; successCount: number; failureCount: number } {
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('invalid test response');
+  }
+  const candidate = parsed as { ok?: unknown; successCount?: unknown; failureCount?: unknown };
+  return {
+    ok: candidate.ok === true,
+    successCount: typeof candidate.successCount === 'number' ? candidate.successCount : 0,
+    failureCount: typeof candidate.failureCount === 'number' ? candidate.failureCount : 0
+  };
 }
 
 void test('FCM register keeps existing active tokens on other devices', async () => {
@@ -168,4 +270,114 @@ void test('FCM unregister deactivates only the requested token', async () => {
   assert.equal(pool.getToken('token-b-bbbbbbbbbbbb')?.is_active, true);
 
   await app.close();
+});
+
+void test('notifications observability is gated and requires auth when enabled', async () => {
+  const pool = new MockNotificationsPool();
+  const app = Fastify();
+
+  const originalEnabled = config.notificationsObservabilityEndpointEnabled;
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  config.notificationsObservabilityEndpointEnabled = false;
+  config.requireAuth = true;
+  config.apiToken = 'admin-token';
+
+  try {
+    registerNotificationRoutes(app, pool as unknown as Pool);
+
+    const disabledResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/notifications/observability'
+    });
+    assert.equal(disabledResponse.statusCode, 404);
+
+    config.notificationsObservabilityEndpointEnabled = true;
+
+    const unauthorizedResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/notifications/observability'
+    });
+    assert.equal(unauthorizedResponse.statusCode, 401);
+
+    const authorizedResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/notifications/observability',
+      headers: {
+        authorization: 'Bearer admin-token'
+      }
+    });
+    assert.equal(authorizedResponse.statusCode, 200);
+
+    const body = parseObservabilityBody(authorizedResponse.body);
+    assert.equal(body.windowHours, 24);
+    assert.equal(body.tokens.invalidatedLast24h, 1);
+    assert.equal(body.events[0]?.eventType, 'release_date_set');
+  } finally {
+    config.notificationsObservabilityEndpointEnabled = originalEnabled;
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    await app.close();
+  }
+});
+
+void test('notifications test endpoint is gated and requires auth when enabled', async () => {
+  const pool = new MockNotificationsPool();
+  pool.seedToken({
+    token: 'token-a-aaaaaaaaaaaa',
+    platform: 'web',
+    is_active: true,
+    timezone: null,
+    app_version: null,
+    user_agent: null
+  });
+  const app = Fastify();
+
+  const originalEnabled = config.notificationsTestEndpointEnabled;
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  const originalFirebaseJson = config.firebaseServiceAccountJson;
+  config.notificationsTestEndpointEnabled = false;
+  config.requireAuth = true;
+  config.apiToken = 'admin-token';
+  config.firebaseServiceAccountJson = '';
+
+  try {
+    registerNotificationRoutes(app, pool as unknown as Pool);
+
+    const disabledResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/notifications/test',
+      payload: {}
+    });
+    assert.equal(disabledResponse.statusCode, 404);
+
+    config.notificationsTestEndpointEnabled = true;
+
+    const unauthorizedResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/notifications/test',
+      payload: {}
+    });
+    assert.equal(unauthorizedResponse.statusCode, 401);
+
+    const authorizedResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/notifications/test',
+      payload: {},
+      headers: {
+        authorization: 'Bearer admin-token'
+      }
+    });
+    assert.equal(authorizedResponse.statusCode, 200);
+    const body = parseTestBody(authorizedResponse.body);
+    assert.equal(body.ok, true);
+    assert.equal(body.failureCount, 1);
+  } finally {
+    config.notificationsTestEndpointEnabled = originalEnabled;
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    config.firebaseServiceAccountJson = originalFirebaseJson;
+    await app.close();
+  }
 });

@@ -1582,6 +1582,8 @@ function evaluateRunHealth(stats: MonitorRunStats): Array<{ code: string; detail
 }
 
 export const releaseMonitorInternals = {
+  processDueGames,
+  processGameRow,
   buildReleaseEvents,
   computeNextCheckAt,
   deriveReleaseState,
@@ -1603,5 +1605,6 @@ export const releaseMonitorInternals = {
   withGameLock,
   runFcmTokenCleanupIfDue,
   createMonitorRuntimeState,
-  evaluateRunHealth
+  evaluateRunHealth,
+  loadActiveTokenSet
 };

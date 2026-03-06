@@ -202,7 +202,7 @@ export class NotificationService {
       ).catch(() => undefined);
     }
 
-    if (this.messaging && storedToken) {
+    if (this.messaging) {
       await deleteToken(this.messaging).catch(() => undefined);
     }
 

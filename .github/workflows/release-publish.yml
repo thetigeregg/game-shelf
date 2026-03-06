@@ -105,6 +105,7 @@ jobs:
           ref: ${{ needs.release.outputs.release_sha }}
 
       - name: Write production Firebase environment
+        if: matrix.image_name == 'game-shelf-edge'
         run: |
           required=(
             FIREBASE_API_KEY_PROD

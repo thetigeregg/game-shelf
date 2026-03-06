@@ -289,9 +289,9 @@ async function processGameRow(
         stats.metacriticRefreshSuccesses += 1;
         mergedPayload = {
           ...mergedPayload,
-          metacriticScore: integerOrNull(refreshedMetacritic.metacriticScore),
+          metacriticScore: numberOrNull(refreshedMetacritic.metacriticScore),
           metacriticUrl: stringOrNull(refreshedMetacritic.metacriticUrl),
-          reviewScore: integerOrNull(refreshedMetacritic.metacriticScore),
+          reviewScore: numberOrNull(refreshedMetacritic.metacriticScore),
           reviewUrl: stringOrNull(refreshedMetacritic.metacriticUrl),
           reviewSource: 'metacritic'
         };

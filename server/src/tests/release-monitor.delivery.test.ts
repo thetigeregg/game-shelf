@@ -1,0 +1,210 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import type { Pool } from 'pg';
+import { releaseMonitorInternals } from '../release-monitor.js';
+
+interface NotificationLogRow {
+  eventKey: string;
+  sentCount: number;
+  payload: string;
+}
+
+class NotificationLogPoolMock {
+  private readonly logs = new Map<string, NotificationLogRow>();
+
+  query(
+    sql: string,
+    params: unknown[] = []
+  ): Promise<{ rows: Array<{ inserted: number }>; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (
+      normalizedSql.startsWith(
+        'insert into release_notification_log (event_type, igdb_game_id, platform_igdb_id, event_key, payload, sent_count) values'
+      )
+    ) {
+      const eventKey = toStringOrFallback(params[3], '');
+      if (!eventKey || this.logs.has(eventKey)) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+
+      this.logs.set(eventKey, {
+        eventKey,
+        payload: toStringOrFallback(params[4], '{}'),
+        sentCount: 0
+      });
+
+      return Promise.resolve({ rows: [{ inserted: 1 }], rowCount: 1 });
+    }
+
+    if (
+      normalizedSql.startsWith(
+        'update release_notification_log set payload = $1::jsonb, sent_count = $2 where event_key = $3'
+      )
+    ) {
+      const payload = toStringOrFallback(params[0], '{}');
+      const sentCount = toIntegerOrFallback(params[1], 0);
+      const eventKey = toStringOrFallback(params[2], '');
+      const existing = this.logs.get(eventKey);
+      if (existing) {
+        this.logs.set(eventKey, { ...existing, payload, sentCount });
+      }
+      return Promise.resolve({ rows: [], rowCount: existing ? 1 : 0 });
+    }
+
+    if (
+      normalizedSql.startsWith(
+        'delete from release_notification_log where event_key = $1 and sent_count = 0'
+      )
+    ) {
+      const eventKey = toStringOrFallback(params[0], '');
+      const existing = this.logs.get(eventKey);
+      if (existing && existing.sentCount === 0) {
+        this.logs.delete(eventKey);
+        return Promise.resolve({ rows: [], rowCount: 1 });
+      }
+
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
+
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  }
+
+  get(eventKey: string): NotificationLogRow | null {
+    return this.logs.get(eventKey) ?? null;
+  }
+}
+
+class AdvisoryLockClientMock {
+  private readonly lockAvailable: boolean;
+  unlockCount = 0;
+
+  constructor(lockAvailable: boolean) {
+    this.lockAvailable = lockAvailable;
+  }
+
+  query(sql: string): Promise<{ rows: Array<{ locked: boolean }>; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (normalizedSql.startsWith('select pg_try_advisory_lock')) {
+      return Promise.resolve({
+        rows: [{ locked: this.lockAvailable }],
+        rowCount: 1
+      });
+    }
+
+    if (normalizedSql.startsWith('select pg_advisory_unlock')) {
+      this.unlockCount += 1;
+      return Promise.resolve({
+        rows: [{ locked: true }],
+        rowCount: 1
+      });
+    }
+
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  }
+
+  release(): void {}
+}
+
+class AdvisoryLockPoolMock {
+  readonly client: AdvisoryLockClientMock;
+
+  constructor(lockAvailable: boolean) {
+    this.client = new AdvisoryLockClientMock(lockAvailable);
+  }
+
+  connect(): Promise<AdvisoryLockClientMock> {
+    return Promise.resolve(this.client);
+  }
+}
+
+function toStringOrFallback(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function toIntegerOrFallback(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    return value;
+  }
+  return fallback;
+}
+
+void test('notification reservation inserts once per event key', async () => {
+  const pool = new NotificationLogPoolMock();
+  const event = {
+    type: 'release_date_set',
+    title: 'Game: Release date set',
+    body: 'Game now has a release date.',
+    eventKey: 'release_date_set:1:167:2026-11-19',
+    releaseDate: '2026-11-19'
+  } as const;
+
+  const first = await releaseMonitorInternals.reserveNotificationLog(
+    pool as unknown as Pool,
+    event,
+    '1',
+    167
+  );
+  const second = await releaseMonitorInternals.reserveNotificationLog(
+    pool as unknown as Pool,
+    event,
+    '1',
+    167
+  );
+
+  assert.equal(first, true);
+  assert.equal(second, false);
+  assert.equal(pool.get(event.eventKey)?.sentCount, 0);
+});
+
+void test('notification reservation can be finalized and is no longer removable as pending', async () => {
+  const pool = new NotificationLogPoolMock();
+  const event = {
+    type: 'release_date_changed',
+    title: 'Game: Release date changed',
+    body: 'Game moved dates.',
+    eventKey: 'release_date_changed:1:167:2026-11-19:2026-12-01',
+    releaseDate: '2026-12-01'
+  } as const;
+
+  await releaseMonitorInternals.reserveNotificationLog(pool as unknown as Pool, event, '1', 167);
+  await releaseMonitorInternals.finalizeNotificationLog(
+    pool as unknown as Pool,
+    event,
+    event.eventKey,
+    2
+  );
+  await releaseMonitorInternals.releaseNotificationLogReservation(
+    pool as unknown as Pool,
+    event.eventKey
+  );
+
+  assert.equal(pool.get(event.eventKey)?.sentCount, 2);
+});
+
+void test('withGameLock executes handler and unlocks when lock acquired', async () => {
+  const pool = new AdvisoryLockPoolMock(true);
+  let handlerRuns = 0;
+
+  await releaseMonitorInternals.withGameLock(pool as unknown as Pool, '52189', 167, () => {
+    handlerRuns += 1;
+    return Promise.resolve();
+  });
+
+  assert.equal(handlerRuns, 1);
+  assert.equal(pool.client.unlockCount, 1);
+});
+
+void test('withGameLock skips handler when lock is not acquired', async () => {
+  const pool = new AdvisoryLockPoolMock(false);
+  let handlerRuns = 0;
+
+  await releaseMonitorInternals.withGameLock(pool as unknown as Pool, '52189', 167, () => {
+    handlerRuns += 1;
+    return Promise.resolve();
+  });
+
+  assert.equal(handlerRuns, 0);
+  assert.equal(pool.client.unlockCount, 0);
+});

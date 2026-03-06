@@ -66,6 +66,7 @@ Common stack env vars:
 - `RELEASE_MONITOR_INTERVAL_SECONDS` (optional; defaults `900`)
 - `RELEASE_MONITOR_BATCH_SIZE` (optional; defaults `100`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (optional; defaults `false`)
+- `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (optional; defaults `false`; enables `POST /v1/notifications/test`)
 - `HLTB_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
 

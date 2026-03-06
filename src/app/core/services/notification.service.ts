@@ -245,7 +245,7 @@ export class NotificationService {
       };
     }
 
-    await firstValueFrom(
+    const registeredOnBackend = await firstValueFrom(
       this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/register`, {
         token,
         platform: this.resolveDevicePlatform(),
@@ -257,6 +257,13 @@ export class NotificationService {
       console.error('[notifications] backend_register_failed', error);
       return null;
     });
+
+    if (!registeredOnBackend) {
+      return {
+        ok: false,
+        message: 'Unable to save this device token on the server.'
+      };
+    }
 
     try {
       localStorage.setItem(FCM_DEVICE_TOKEN_STORAGE_KEY, token);

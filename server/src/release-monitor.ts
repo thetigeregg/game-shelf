@@ -778,7 +778,7 @@ async function reserveNotificationLog(
     ]
   );
 
-  return result.rowCount > 0 && (result.rows[0]?.inserted ?? 0) === 1;
+  return (result.rowCount ?? 0) > 0;
 }
 
 async function finalizeNotificationLog(

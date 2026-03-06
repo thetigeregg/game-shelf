@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Messaging } from '@angular/fire/messaging';
 import { deleteToken, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { environment } from '../../../environments/environment';
-import { getFirebaseVapidKey, getFirebaseWebConfig } from '../config/runtime-config';
+import { getAppVersion, getFirebaseVapidKey, getFirebaseWebConfig } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
@@ -250,7 +250,7 @@ export class NotificationService {
       this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/register`, {
         token,
         platform: this.resolveDevicePlatform(),
-        appVersion: this.resolveUserAgentPlatform(),
+        appVersion: getAppVersion(),
         userAgent: navigator.userAgent,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       })
@@ -302,14 +302,6 @@ export class NotificationService {
     }
 
     return 'web';
-  }
-
-  private resolveUserAgentPlatform(): string | null {
-    const navigatorWithUserAgentData = navigator as Navigator & {
-      userAgentData?: { platform?: string };
-    };
-    const platform = navigatorWithUserAgentData.userAgentData?.platform;
-    return typeof platform === 'string' && platform.trim().length > 0 ? platform.trim() : null;
   }
 
   private buildFirebaseWorkerUrl(): string {

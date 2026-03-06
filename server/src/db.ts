@@ -90,7 +90,6 @@ export const MIGRATIONS: string[] = [
   );
   `,
   `
-
   CREATE TABLE IF NOT EXISTS metacritic_search_cache (
     cache_key TEXT PRIMARY KEY,
     query_title TEXT NOT NULL,

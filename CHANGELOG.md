@@ -1548,3 +1548,9 @@
 - 2bd3762 Merge branch 'main' into codex/discovery-game-retry-limit
 - 762bb2f Add rearm logic for HLTB
 
+## v1.1.9 - 2026-03-06
+- 1659584 Merge pull request #172 from thetigeregg/codex/convert-game-rating-modal-to
+- fcb1c8c Convert rating modal to sheets
+- 2ce1fe4 Convert game rating modal to sheet
+- ffc1760 Convert rating modal to sheet
+

@@ -1,9 +1,9 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import {
   buildDiscoveryEnrichmentSelectionParams,
-  DiscoveryEnrichmentSelectionOptions,
   LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL
 } from './discovery-enrichment-query.js';
+import type { DiscoveryEnrichmentSelectionOptions } from './discovery-enrichment-query.js';
 import { normalizeDbGameRow } from './normalize.js';
 import { parseRecommendationRuntimeMode } from './runtime.js';
 import { buildGameKey } from './semantic.js';

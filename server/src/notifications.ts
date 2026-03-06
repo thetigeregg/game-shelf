@@ -33,7 +33,6 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query('UPDATE fcm_tokens SET is_active = FALSE, updated_at = NOW() WHERE token <> $1', [token]);
       await client.query(
         `
         INSERT INTO fcm_tokens (token, platform, is_active, timezone, app_version, user_agent, last_seen_at, created_at, updated_at)
@@ -48,7 +47,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
           last_seen_at = NOW(),
           updated_at = NOW()
         `,
-        [token, platform, timezone, appVersion, userAgent],
+        [token, platform, timezone, appVersion, userAgent]
       );
       await client.query('COMMIT');
     } catch (error) {
@@ -76,7 +75,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
       SET is_active = FALSE, updated_at = NOW()
       WHERE token = $1
       `,
-      [token],
+      [token]
     );
 
     reply.send({ ok: true });
@@ -93,16 +92,16 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
       SELECT token
       FROM fcm_tokens
       WHERE is_active = TRUE
-      `,
+      `
     );
-    const tokens = result.rows.map(row => row.token);
+    const tokens = result.rows.map((row) => row.token);
     const sendResult = await sendFcmMulticast(tokens, {
       title: 'Game Shelf Test Notification',
       body: `Sent at ${new Date().toISOString()}`,
       data: {
         eventType: 'test',
-        route: '/tabs/wishlist',
-      },
+        route: '/tabs/wishlist'
+      }
     });
 
     if (sendResult.invalidTokens.length > 0) {
@@ -112,13 +111,13 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
         SET is_active = FALSE, updated_at = NOW()
         WHERE token = ANY($1::text[])
         `,
-        [sendResult.invalidTokens],
+        [sendResult.invalidTokens]
       );
     }
 
     reply.send({
       ok: true,
-      ...sendResult,
+      ...sendResult
     });
   });
 }

@@ -100,7 +100,8 @@ async function processDueGames(pool: Pool): Promise<void> {
     FROM games g
     LEFT JOIN release_watch_state rws
       ON rws.igdb_game_id = g.igdb_game_id AND rws.platform_igdb_id = g.platform_igdb_id
-    WHERE COALESCE(rws.next_check_at, NOW()) <= NOW()
+    WHERE (g.payload->>'listType') IN ('collection', 'wishlist')
+      AND COALESCE(rws.next_check_at, NOW()) <= NOW()
     ORDER BY COALESCE(rws.next_check_at, NOW()) ASC
     LIMIT $1
     `,
@@ -264,7 +265,13 @@ async function processGameRow(
       }
     }
 
-    const nextCheckAt = computeNextCheckAt(releaseDateAfter, now, hltbEligible, lastHltbRefreshAt);
+    const nextCheckAt = computeNextCheckAt(
+      releaseDateAfter,
+      releaseYearAfter,
+      now,
+      hltbEligible,
+      lastHltbRefreshAt
+    );
     await upsertWatchState(pool, {
       igdbGameId: row.igdb_game_id,
       platformIgdbId,
@@ -446,7 +453,7 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
   );
 
   const valueByKey = new Map(result.rows.map((row) => [row.setting_key, row.setting_value]));
-  const enabledRaw = (valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY) ?? 'true')
+  const enabledRaw = (valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY) ?? 'false')
     .trim()
     .toLowerCase();
   const enabled = enabledRaw !== 'false' && enabledRaw !== '0' && enabledRaw !== 'no';
@@ -681,6 +688,7 @@ async function upsertWatchState(
 
 function computeNextCheckAt(
   releaseDate: string | null,
+  releaseYear: number | null,
   now: Date,
   hltbEligible: boolean,
   lastHltbRefreshAt: string | null
@@ -689,7 +697,12 @@ function computeNextCheckAt(
   let nextReleaseCheckMs = nowMs + ONE_DAY_MS;
 
   if (releaseDate === null) {
-    nextReleaseCheckMs = nowMs + ONE_DAY_MS;
+    const currentYear = now.getUTCFullYear();
+    if (releaseYear !== null && releaseYear < currentYear) {
+      nextReleaseCheckMs = nowMs + 365 * ONE_DAY_MS;
+    } else {
+      nextReleaseCheckMs = nowMs + 7 * ONE_DAY_MS;
+    }
   } else {
     const releaseMs = Date.parse(`${releaseDate}T00:00:00.000Z`);
     const deltaDays = Math.floor((releaseMs - nowMs) / ONE_DAY_MS);

@@ -119,6 +119,7 @@ export interface AppConfig {
   manualsDir: string;
   manualsPublicBaseUrl: string;
   firebaseServiceAccountJson: string;
+  notificationsTestEndpointEnabled: boolean;
   releaseMonitorEnabled: boolean;
   releaseMonitorIntervalSeconds: number;
   releaseMonitorBatchSize: number;
@@ -309,6 +310,7 @@ export const config: AppConfig = {
     'FIREBASE_SERVICE_ACCOUNT_JSON',
     'firebase_service_account_json'
   ),
+  notificationsTestEndpointEnabled: readBooleanEnv('NOTIFICATIONS_TEST_ENDPOINT_ENABLED', false),
   releaseMonitorEnabled: readBooleanEnv('RELEASE_MONITOR_ENABLED', true),
   releaseMonitorIntervalSeconds: readIntegerEnv('RELEASE_MONITOR_INTERVAL_SECONDS', 900),
   releaseMonitorBatchSize: readIntegerEnv('RELEASE_MONITOR_BATCH_SIZE', 100),

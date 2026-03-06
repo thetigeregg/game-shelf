@@ -82,7 +82,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
   });
 
   app.post('/v1/notifications/test', async (_request, reply) => {
-    if (!config.releaseMonitorDebugLogs) {
+    if (!config.notificationsTestEndpointEnabled) {
       reply.code(404).send({ error: 'Not found' });
       return;
     }

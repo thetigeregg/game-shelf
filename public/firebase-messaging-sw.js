@@ -50,6 +50,10 @@ if (messaging) {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const route = event.notification?.data?.route || '/tabs/wishlist';
+  const routeFromPayload = event.notification?.data?.route;
+  const route =
+    typeof routeFromPayload === 'string' && routeFromPayload.startsWith('/')
+      ? routeFromPayload
+      : '/tabs/wishlist';
   event.waitUntil(clients.openWindow(route));
 });

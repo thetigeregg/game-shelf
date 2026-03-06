@@ -119,7 +119,9 @@ async function processDueGames(pool: Pool): Promise<void> {
   const activeTokens = tokenRows.rows.map((row) => row.token);
 
   for (const row of dueRows.rows) {
-    await processGameRow(pool, row, preferences, activeTokens);
+    await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
+      await processGameRow(pool, row, preferences, activeTokens);
+    });
   }
 }
 
@@ -217,12 +219,12 @@ async function processGameRow(
         continue;
       }
 
-      const alreadyLogged = await hasNotificationLog(pool, event.eventKey);
-      if (alreadyLogged) {
+      if (activeTokens.length === 0) {
         continue;
       }
 
-      if (activeTokens.length === 0) {
+      const reserved = await reserveNotificationLog(pool, event, row.igdb_game_id, platformIgdbId);
+      if (!reserved) {
         continue;
       }
 
@@ -240,18 +242,13 @@ async function processGameRow(
       });
 
       if (sendResult.successCount <= 0) {
+        await releaseNotificationLogReservation(pool, event.eventKey);
         continue;
       }
 
       sentEventTypes.add(event.type);
 
-      await insertNotificationLog(
-        pool,
-        event,
-        row.igdb_game_id,
-        platformIgdbId,
-        sendResult.successCount
-      );
+      await finalizeNotificationLog(pool, event, event.eventKey, sendResult.successCount);
 
       if (sendResult.invalidTokens.length > 0) {
         await pool.query(
@@ -555,44 +552,99 @@ function buildReleaseEvents(args: {
   return events;
 }
 
-async function hasNotificationLog(pool: Pool, eventKey: string): Promise<boolean> {
-  const result = await pool.query<{ exists: boolean }>(
-    'SELECT EXISTS(SELECT 1 FROM release_notification_log WHERE event_key = $1) AS exists',
-    [eventKey]
-  );
-
-  return result.rows[0]?.exists ?? false;
-}
-
-async function insertNotificationLog(
+async function reserveNotificationLog(
   pool: Pool,
   event: ReleaseEvent,
   igdbGameId: string,
-  platformIgdbId: number,
-  sentCount: number
+  platformIgdbId: number
 ): Promise<boolean> {
+  const result = await pool.query<{ inserted: number }>(
+    `
+    INSERT INTO release_notification_log (event_type, igdb_game_id, platform_igdb_id, event_key, payload, sent_count)
+    VALUES ($1, $2, $3, $4, $5::jsonb, 0)
+    ON CONFLICT (event_key) DO NOTHING
+    RETURNING 1 AS inserted
+    `,
+    [
+      event.type,
+      igdbGameId,
+      platformIgdbId,
+      event.eventKey,
+      JSON.stringify({
+        title: event.title,
+        body: event.body,
+        releaseDate: event.releaseDate
+      })
+    ]
+  );
+
+  return result.rowCount > 0 && (result.rows[0]?.inserted ?? 0) === 1;
+}
+
+async function finalizeNotificationLog(
+  pool: Pool,
+  event: ReleaseEvent,
+  eventKey: string,
+  sentCount: number
+): Promise<void> {
+  await pool.query(
+    `
+    UPDATE release_notification_log
+    SET payload = $1::jsonb, sent_count = $2
+    WHERE event_key = $3
+    `,
+    [
+      JSON.stringify({
+        title: event.title,
+        body: event.body,
+        releaseDate: event.releaseDate
+      }),
+      sentCount,
+      eventKey
+    ]
+  );
+}
+
+async function releaseNotificationLogReservation(pool: Pool, eventKey: string): Promise<void> {
+  await pool.query(
+    `
+    DELETE FROM release_notification_log
+    WHERE event_key = $1
+      AND sent_count = 0
+    `,
+    [eventKey]
+  );
+}
+
+async function withGameLock(
+  pool: Pool,
+  igdbGameId: string,
+  platformIgdbId: number,
+  handler: () => Promise<void>
+): Promise<void> {
+  const client = await pool.connect();
+
   try {
-    await pool.query(
-      `
-      INSERT INTO release_notification_log (event_type, igdb_game_id, platform_igdb_id, event_key, payload, sent_count)
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-      `,
-      [
-        event.type,
-        igdbGameId,
-        platformIgdbId,
-        event.eventKey,
-        JSON.stringify({
-          title: event.title,
-          body: event.body,
-          releaseDate: event.releaseDate
-        }),
-        sentCount
-      ]
+    const lockResult = await client.query<{ locked: boolean }>(
+      'SELECT pg_try_advisory_lock(hashtext($1), $2) AS locked',
+      [igdbGameId, platformIgdbId]
     );
-    return true;
-  } catch {
-    return false;
+    const locked = lockResult.rows[0]?.locked ?? false;
+
+    if (!locked) {
+      return;
+    }
+
+    try {
+      await handler();
+    } finally {
+      await client.query('SELECT pg_advisory_unlock(hashtext($1), $2)', [
+        igdbGameId,
+        platformIgdbId
+      ]);
+    }
+  } finally {
+    client.release();
   }
 }
 

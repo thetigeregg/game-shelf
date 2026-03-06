@@ -175,9 +175,9 @@ export class NotificationService {
     return result;
   }
 
-  async disableReleaseNotifications(): Promise<void> {
+  async disableReleaseNotifications(): Promise<{ ok: boolean; message: string }> {
     this.setReleaseNotificationsEnabled(false);
-    await this.unregisterCurrentDevice();
+    return this.unregisterCurrentDevice();
   }
 
   setReleaseNotificationsEnabled(enabled: boolean): void {
@@ -191,26 +191,38 @@ export class NotificationService {
     this.queueSettingUpsert(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, value);
   }
 
-  async unregisterCurrentDevice(): Promise<void> {
+  async unregisterCurrentDevice(): Promise<{ ok: boolean; message: string }> {
     const storedToken = this.readStoredToken();
+    const backendUnregisterOk = storedToken
+      ? await firstValueFrom(
+          this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/unregister`, {
+            token: storedToken
+          })
+        )
+          .then(() => true)
+          .catch(() => false)
+      : true;
 
-    if (storedToken) {
-      await firstValueFrom(
-        this.httpClient.post(`${environment.gameApiBaseUrl}/v1/notifications/fcm/unregister`, {
-          token: storedToken
-        })
-      ).catch(() => undefined);
-    }
-
-    if (this.messaging) {
-      await deleteToken(this.messaging).catch(() => undefined);
-    }
+    const firebaseDeleteOk = this.messaging
+      ? await deleteToken(this.messaging)
+          .then(() => true)
+          .catch(() => false)
+      : true;
 
     try {
       localStorage.removeItem(FCM_DEVICE_TOKEN_STORAGE_KEY);
     } catch {
       // Ignore storage failures.
     }
+
+    if (backendUnregisterOk && firebaseDeleteOk) {
+      return { ok: true, message: 'Notifications disabled on this device.' };
+    }
+
+    return {
+      ok: false,
+      message: 'Notifications were disabled locally, but device unregister did not fully complete.'
+    };
   }
 
   private async registerCurrentDevice(): Promise<

@@ -1,4 +1,6 @@
 import { config } from './config.js';
+import { cert, getApps, initializeApp, type ServiceAccount } from 'firebase-admin/app';
+import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 
 export interface FcmSendPayload {
   title: string;
@@ -12,40 +14,25 @@ export interface FcmSendResult {
   invalidTokens: string[];
 }
 
-type FirebaseAdminModule = {
-  cert: (serviceAccount: Record<string, unknown>) => unknown;
-  initializeApp: (options: { credential: unknown }) => void;
-  getApps: () => unknown[];
-};
-
-type FirebaseMessagingModule = {
-  getMessaging: () => {
-    sendEachForMulticast: (message: {
-      tokens: string[];
-      notification: { title: string; body: string };
-      data: Record<string, string>;
-    }) => Promise<{
-      responses: Array<{ success: boolean; error?: { code?: string; message?: string } }>;
-      successCount: number;
-      failureCount: number;
-    }>;
-  };
-};
-
 let initialized = false;
 
 export function hasConfiguredFcm(): boolean {
   return config.firebaseServiceAccountJson.length > 0;
 }
 
-export async function sendFcmMulticast(tokens: string[], payload: FcmSendPayload): Promise<FcmSendResult> {
-  const activeTokens = [...new Set(tokens.map(token => token.trim()).filter(token => token.length > 0))];
+export async function sendFcmMulticast(
+  tokens: string[],
+  payload: FcmSendPayload
+): Promise<FcmSendResult> {
+  const activeTokens = [
+    ...new Set(tokens.map((token) => token.trim()).filter((token) => token.length > 0))
+  ];
 
   if (activeTokens.length === 0) {
     return {
       successCount: 0,
       failureCount: 0,
-      invalidTokens: [],
+      invalidTokens: []
     };
   }
 
@@ -53,23 +40,23 @@ export async function sendFcmMulticast(tokens: string[], payload: FcmSendPayload
     return {
       successCount: 0,
       failureCount: activeTokens.length,
-      invalidTokens: [],
+      invalidTokens: []
     };
   }
 
-  const messaging = await resolveMessaging();
+  const messaging = resolveMessaging();
   const tokenChunks = chunk(activeTokens, 500);
   const responses = await Promise.all(
-    tokenChunks.map(async tokenChunk => {
+    tokenChunks.map(async (tokenChunk) => {
       return messaging.sendEachForMulticast({
         tokens: tokenChunk,
         notification: {
           title: payload.title,
-          body: payload.body,
+          body: payload.body
         },
-        data: payload.data,
+        data: payload.data
       });
-    }),
+    })
   );
 
   const invalidTokens: string[] = [];
@@ -88,7 +75,10 @@ export async function sendFcmMulticast(tokens: string[], payload: FcmSendPayload
       }
 
       const code = entry.error?.code ?? '';
-      if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+      if (
+        code.includes('registration-token-not-registered') ||
+        code.includes('invalid-registration-token')
+      ) {
         const token = tokenChunk[entryIndex];
         if (token) {
           invalidTokens.push(token);
@@ -100,26 +90,23 @@ export async function sendFcmMulticast(tokens: string[], payload: FcmSendPayload
   return {
     successCount,
     failureCount,
-    invalidTokens: [...new Set(invalidTokens)],
+    invalidTokens: [...new Set(invalidTokens)]
   };
 }
 
-async function resolveMessaging(): Promise<ReturnType<FirebaseMessagingModule['getMessaging']>> {
-  const adminModule = await import('firebase-admin/app') as unknown as FirebaseAdminModule;
-  const messagingModule = await import('firebase-admin/messaging') as unknown as FirebaseMessagingModule;
-
+function resolveMessaging(): Messaging {
   if (!initialized) {
-    const apps = adminModule.getApps();
+    const apps = getApps();
     if (apps.length === 0) {
-      const parsed = JSON.parse(config.firebaseServiceAccountJson) as Record<string, unknown>;
-      adminModule.initializeApp({
-        credential: adminModule.cert(parsed),
+      const parsed = JSON.parse(config.firebaseServiceAccountJson) as ServiceAccount;
+      initializeApp({
+        credential: cert(parsed)
       });
     }
     initialized = true;
   }
 
-  return messagingModule.getMessaging();
+  return getMessaging();
 }
 
 function chunk<T>(items: T[], size: number): T[][] {

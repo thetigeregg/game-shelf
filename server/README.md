@@ -95,6 +95,8 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `GET /v1/notifications/observability`
 - `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (default `30`)
+- `METACRITIC_PERIODIC_REFRESH_YEARS` (default `3`)
+- `METACRITIC_PERIODIC_REFRESH_DAYS` (default `30`)
 - `FCM_TOKEN_CLEANUP_ENABLED` (`true|false`, default `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (default `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (default `60`)

@@ -108,6 +108,7 @@ Release notification preference defaults:
 
 - If `game-shelf:notifications:release:enabled` is missing in settings, notifications are treated as disabled (opt-in).
 - Event toggles default to enabled once notifications are explicitly enabled by the user.
+- Preferences are currently global (single-user deployment assumption). A multi-user deployment must scope notification preferences per user/device before enabling shared use.
 
 ### Non-secret env vars (recommendations)
 

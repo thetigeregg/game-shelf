@@ -623,3 +623,202 @@ void test('discovery enrichment clears retry state after successful retry', asyn
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('discovery enrichment rearms capped retry state for recent releases after cooldown days', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '4',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Recent Rearm Game',
+        releaseYear: 2026,
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          },
+          metacritic: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          }
+        }
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+
+    const retry = repository.updates[0].payload.enrichmentRetry as {
+      hltb: { attempts: number; permanentMiss: boolean };
+      metacritic: { attempts: number; permanentMiss: boolean };
+    };
+    assert.equal(retry.hltb.attempts, 1);
+    assert.equal(retry.hltb.permanentMiss, false);
+    assert.equal(retry.metacritic.attempts, 1);
+    assert.equal(retry.metacritic.permanentMiss, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment rearms capped retry state when release year is missing', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '5',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Unknown Release Rearm',
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          },
+          metacritic: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          }
+        }
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment keeps permanent miss for older releases outside rearm window', async () => {
+  const repository = new RepositoryMock();
+  const oldPayload = {
+    title: 'Old Permanent Miss',
+    releaseYear: 2020,
+    platform: 'PC',
+    listType: 'discovery',
+    enrichmentRetry: {
+      hltb: {
+        attempts: 6,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: true
+      },
+      metacritic: {
+        attempts: 6,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: true
+      }
+    }
+  };
+  repository.rows = [
+    {
+      igdbGameId: '6',
+      platformIgdbId: 6,
+      payload: oldPayload
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 0);
+    assert.equal(repository.updates.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -398,7 +398,7 @@ async function processGameRow(
       platformIgdbId,
       release: releaseAfter,
       releaseState: releaseStateAfter,
-      lastIgdRefreshAt: isBootstrap ? null : nowIso,
+      lastIgdbRefreshAt: isBootstrap ? null : nowIso,
       lastHltbRefreshAt,
       lastMetacriticRefreshAt,
       nextCheckAt,
@@ -833,7 +833,7 @@ async function upsertWatchState(
     platformIgdbId: number;
     release: ReleaseInfo;
     releaseState: ReleaseState;
-    lastIgdRefreshAt: string | null;
+    lastIgdbRefreshAt: string | null;
     lastHltbRefreshAt: string | null;
     lastMetacriticRefreshAt: string | null;
     nextCheckAt: string;
@@ -900,7 +900,7 @@ async function upsertWatchState(
       args.release.date,
       args.release.year,
       args.releaseState,
-      args.lastIgdRefreshAt,
+      args.lastIgdbRefreshAt,
       args.lastHltbRefreshAt,
       args.lastMetacriticRefreshAt,
       args.nextCheckAt,

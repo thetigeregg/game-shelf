@@ -586,9 +586,7 @@ export class SettingsPage {
   }
 
   async onReleaseNotificationsEnabledChange(enabled: boolean): Promise<void> {
-    const nextEnabled = enabled;
-
-    if (nextEnabled) {
+    if (enabled) {
       const result = await this.notificationService.enableReleaseNotifications();
       this.releaseNotificationsEnabled = result.ok;
       await this.presentToast(result.message, result.ok ? 'primary' : 'warning');

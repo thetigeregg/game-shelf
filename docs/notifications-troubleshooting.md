@@ -24,11 +24,13 @@
 
 ```bash
 curl -X POST http://127.0.0.1:3000/v1/notifications/test \
+  -H 'authorization: Bearer <API_TOKEN>' \
   -H 'content-type: application/json' \
   -d '{}'
 ```
 
 Expected: `{"ok":true,...}` with `successCount >= 1`.
+If `REQUIRE_AUTH=false`, the authorization header is optional.
 
 ## 4. Observability Endpoint
 

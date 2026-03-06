@@ -800,6 +800,7 @@ async function withGameLock(
   handler: () => Promise<void>
 ): Promise<boolean> {
   const client = await pool.connect();
+  let shouldDestroyClient = false;
 
   try {
     const lockResult = await client.query<{ locked: boolean }>(
@@ -816,13 +817,18 @@ async function withGameLock(
       await handler();
       return true;
     } finally {
-      await client.query('SELECT pg_advisory_unlock(hashtext($1), $2)', [
-        igdbGameId,
-        platformIgdbId
-      ]);
+      try {
+        await client.query('SELECT pg_advisory_unlock(hashtext($1), $2)', [
+          igdbGameId,
+          platformIgdbId
+        ]);
+      } catch (error) {
+        shouldDestroyClient = true;
+        throw error;
+      }
     }
   } finally {
-    client.release();
+    client.release(shouldDestroyClient);
   }
 }
 

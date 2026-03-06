@@ -88,6 +88,8 @@ export const MIGRATIONS: string[] = [
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  `,
+  `
 
   CREATE TABLE IF NOT EXISTS metacritic_search_cache (
     cache_key TEXT PRIMARY KEY,
@@ -133,6 +135,8 @@ export const MIGRATIONS: string[] = [
     sent_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  `,
+  `
   CREATE TABLE IF NOT EXISTS mobygames_search_cache (
     cache_key TEXT PRIMARY KEY,
     query_title TEXT NOT NULL,

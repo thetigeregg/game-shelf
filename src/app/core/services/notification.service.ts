@@ -45,6 +45,7 @@ export class NotificationService {
 
     onMessage(this.messaging, (payload) => {
       console.info('[notifications] foreground_message', payload);
+      this.showForegroundNotification(payload);
     });
 
     if (!this.isReleaseNotificationsEnabled()) {
@@ -307,6 +308,35 @@ export class NotificationService {
     const configJson = JSON.stringify(environment.firebase);
     const encoded = encodeURIComponent(configJson);
     return `/firebase-messaging-sw.js?firebaseConfig=${encoded}`;
+  }
+
+  private showForegroundNotification(payload: {
+    notification?: { title?: string; body?: string };
+    data?: Record<string, string>;
+  }): void {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      return;
+    }
+
+    const title = payload.notification?.title?.trim() || 'Game Shelf';
+    const body = payload.notification?.body?.trim() || '';
+
+    try {
+      const notification = new Notification(title, {
+        body,
+        data: payload.data ?? {}
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        const route = payload.data?.['route'];
+        if (typeof route === 'string' && route.startsWith('/')) {
+          window.location.assign(route);
+        }
+      };
+    } catch (error) {
+      console.error('[notifications] foreground_notification_failed', error);
+    }
   }
 
   private readStoredToken(): string | null {

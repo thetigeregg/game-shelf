@@ -822,20 +822,31 @@ async function withGameLock(
       return false;
     }
 
+    let handlerError: Error | null = null;
     try {
       await handler();
-      return true;
-    } finally {
-      try {
-        await client.query('SELECT pg_advisory_unlock(hashtext($1), $2)', [
-          igdbGameId,
-          platformIgdbId
-        ]);
-      } catch (error) {
-        shouldDestroyClient = true;
-        throw error;
-      }
+    } catch (error) {
+      handlerError = error instanceof Error ? error : new Error(String(error));
     }
+
+    try {
+      await client.query('SELECT pg_advisory_unlock(hashtext($1), $2)', [
+        igdbGameId,
+        platformIgdbId
+      ]);
+    } catch (error) {
+      shouldDestroyClient = true;
+      if (handlerError !== null) {
+        throw handlerError;
+      }
+      throw error instanceof Error ? error : new Error(String(error));
+    }
+
+    if (handlerError !== null) {
+      throw handlerError;
+    }
+
+    return true;
   } finally {
     client.release(shouldDestroyClient);
   }

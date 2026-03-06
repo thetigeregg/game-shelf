@@ -126,6 +126,10 @@ export interface AppConfig {
   releaseMonitorDebugLogs: boolean;
   hltbPeriodicRefreshYears: number;
   hltbPeriodicRefreshDays: number;
+  fcmTokenCleanupEnabled: boolean;
+  fcmTokenCleanupIntervalHours: number;
+  fcmTokenStaleDeactivateDays: number;
+  fcmTokenInactivePurgeDays: number;
   syncPushRateLimitMaxPerMinute: number;
   syncPullRateLimitMaxPerMinute: number;
   openaiApiKey: string;
@@ -317,6 +321,10 @@ export const config: AppConfig = {
   releaseMonitorDebugLogs: readBooleanEnv('RELEASE_MONITOR_DEBUG_LOGS', false),
   hltbPeriodicRefreshYears: readIntegerEnv('HLTB_PERIODIC_REFRESH_YEARS', 3),
   hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
+  fcmTokenCleanupEnabled: readBooleanEnv('FCM_TOKEN_CLEANUP_ENABLED', true),
+  fcmTokenCleanupIntervalHours: readIntegerEnv('FCM_TOKEN_CLEANUP_INTERVAL_HOURS', 24),
+  fcmTokenStaleDeactivateDays: readIntegerEnv('FCM_TOKEN_STALE_DEACTIVATE_DAYS', 60),
+  fcmTokenInactivePurgeDays: readIntegerEnv('FCM_TOKEN_INACTIVE_PURGE_DAYS', 180),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
   syncPushRateLimitMaxPerMinute: readIntegerEnv('SYNC_PUSH_RATE_LIMIT_MAX_PER_MINUTE', 120),
   syncPullRateLimitMaxPerMinute: readIntegerEnv('SYNC_PULL_RATE_LIMIT_MAX_PER_MINUTE', 120),

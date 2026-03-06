@@ -326,11 +326,24 @@ function runFrontend() {
   writeFileSync(proxyPath, `${JSON.stringify(proxyConfig, null, 2)}\n`, 'utf8');
 
   run('npm', ['run', 'prestart'], sharedEnv);
-  run(
-    'npx',
-    ['ng', 'serve', '--port', String(ports.FRONTEND_PORT), '--proxy-config', proxyPath],
-    sharedEnv
-  );
+  const localEnvironmentPath = path.resolve(cwd, 'src', 'environments', 'environment.local.ts');
+  const serveArgs = [
+    'ng',
+    'serve',
+    '--port',
+    String(ports.FRONTEND_PORT),
+    '--proxy-config',
+    proxyPath
+  ];
+
+  if (existsSync(localEnvironmentPath)) {
+    serveArgs.push('--configuration', 'local');
+    console.log('Using Angular local configuration (environment.local.ts)');
+  } else {
+    console.log('Using Angular development configuration (environment.ts)');
+  }
+
+  run('npx', serveArgs, sharedEnv);
 }
 
 function ensurePostgresRunning() {

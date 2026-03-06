@@ -166,13 +166,13 @@ class ReleaseMonitorFlowClientMock {
   query(sql: string): Promise<{ rows: Array<{ locked: boolean }>; rowCount: number }> {
     const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
     if (normalizedSql.startsWith('select pg_try_advisory_lock')) {
-      return { rows: [{ locked: true }], rowCount: 1 };
+      return Promise.resolve({ rows: [{ locked: true }], rowCount: 1 });
     }
     if (normalizedSql.startsWith('select pg_advisory_unlock')) {
       this.unlockCount += 1;
-      return { rows: [{ locked: true }], rowCount: 1 };
+      return Promise.resolve({ rows: [{ locked: true }], rowCount: 1 });
     }
-    return { rows: [], rowCount: 0 };
+    return Promise.resolve({ rows: [], rowCount: 0 });
   }
 
   release(): void {}

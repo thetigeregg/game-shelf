@@ -271,6 +271,8 @@ async function processGameRow(
           hltbCompletionistHours: numberOrNull(refreshedHltb.hltbCompletionistHours)
         };
       }
+      // Advance cadence on attempt (not just success) to avoid repeatedly
+      // hammering the scraper for titles that currently return no match.
       lastHltbRefreshAt = nowIso;
     }
 
@@ -294,6 +296,8 @@ async function processGameRow(
           reviewSource: 'metacritic'
         };
       }
+      // Advance cadence on attempt (not just success) to avoid repeatedly
+      // hammering the scraper for titles that currently return no match.
       lastMetacriticRefreshAt = nowIso;
     }
 

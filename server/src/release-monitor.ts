@@ -916,5 +916,9 @@ export const releaseMonitorInternals = {
   deriveReleaseState,
   isWithinPastYears,
   normalizeDateString,
-  readNotificationPreferences
+  readNotificationPreferences,
+  reserveNotificationLog,
+  finalizeNotificationLog,
+  releaseNotificationLogReservation,
+  withGameLock
 };

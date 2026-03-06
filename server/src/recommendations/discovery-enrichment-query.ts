@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
 
+export const DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT = 30;
+export const DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT = 1;
+
 export interface DiscoveryEnrichmentSelectionOptions {
   nowIso?: string;
   maxAttempts?: number;
@@ -36,12 +39,12 @@ export function buildDiscoveryEnrichmentSelectionParams(
   const rearmAfterDays =
     typeof options?.rearmAfterDays === 'number' && Number.isFinite(options.rearmAfterDays)
       ? Math.max(1, Math.trunc(options.rearmAfterDays))
-      : 30;
+      : DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT;
   const rearmRecentReleaseYears =
     typeof options?.rearmRecentReleaseYears === 'number' &&
     Number.isFinite(options.rearmRecentReleaseYears)
       ? Math.max(1, Math.trunc(options.rearmRecentReleaseYears))
-      : 1;
+      : DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT;
   const currentYear = new Date(nowIso).getUTCFullYear();
   const rearmMinReleaseYear = currentYear - rearmRecentReleaseYears + 1;
 

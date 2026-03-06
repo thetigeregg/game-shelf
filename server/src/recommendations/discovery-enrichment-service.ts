@@ -1,5 +1,9 @@
 import { RecommendationRepository } from './repository.js';
 import type { QueryResult, QueryResultRow } from 'pg';
+import {
+  DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
+} from './discovery-enrichment-query.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;
@@ -364,7 +368,7 @@ export class DiscoveryEnrichmentService {
     if (typeof raw === 'number' && Number.isFinite(raw)) {
       return Math.max(1, Math.trunc(raw));
     }
-    return 30;
+    return DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT;
   }
 
   private getRearmRecentReleaseYears(): number {
@@ -372,7 +376,7 @@ export class DiscoveryEnrichmentService {
     if (typeof raw === 'number' && Number.isFinite(raw)) {
       return Math.max(1, Math.trunc(raw));
     }
-    return 1;
+    return DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT;
   }
 
   private async fetchJson<T>(url: string): Promise<FetchJsonResult<T>> {

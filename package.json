@@ -113,6 +113,14 @@
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   },
+  "overrides": {
+    "@angular/fire": {
+      "@angular/common": "$@angular/common",
+      "@angular/core": "$@angular/core",
+      "@angular/platform-browser": "$@angular/platform-browser",
+      "@angular/platform-browser-dynamic": "$@angular/platform-browser-dynamic"
+    }
+  },
   "description": "A game library tracker with metadata enrichment, manual lookup, and import workflows.",
   "lint-staged": {
     "*.{ts,js,mjs,cjs}": "npx eslint --fix",

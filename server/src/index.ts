@@ -13,7 +13,11 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
-import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
+import {
+  DiscoveryEnrichmentService,
+  type DiscoveryEnrichmentServiceOptions
+} from './recommendations/discovery-enrichment-service.js';
+import { resolveDiscoveryEnrichmentRuntimeConfig } from './recommendations/discovery-enrichment-runtime-config.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
@@ -58,7 +62,8 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
-  const discoveryEnrichmentService = new DiscoveryEnrichmentService(recommendationRepository, {
+  const discoveryEnrichmentRuntimeConfig = resolveDiscoveryEnrichmentRuntimeConfig();
+  const discoveryEnrichmentServiceOptions = {
     enabled: config.recommendationsDiscoveryEnrichEnabled,
     startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
     intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
@@ -68,9 +73,13 @@ async function main(): Promise<void> {
     maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
     backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
     backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
-    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
-  });
+    rearmAfterDays: discoveryEnrichmentRuntimeConfig.rearmAfterDays,
+    rearmRecentReleaseYears: discoveryEnrichmentRuntimeConfig.rearmRecentReleaseYears
+  } as DiscoveryEnrichmentServiceOptions;
+  const discoveryEnrichmentService = new DiscoveryEnrichmentService(
+    recommendationRepository,
+    discoveryEnrichmentServiceOptions
+  );
   const recommendationService = new RecommendationService(
     recommendationRepository,
     {

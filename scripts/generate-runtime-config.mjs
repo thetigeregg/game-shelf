@@ -90,12 +90,23 @@ const envValues = {
 
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);
+const firebaseWebConfig = {
+  apiKey: String(envValues.FIREBASE_WEB_API_KEY ?? ''),
+  authDomain: String(envValues.FIREBASE_WEB_AUTH_DOMAIN ?? ''),
+  projectId: String(envValues.FIREBASE_WEB_PROJECT_ID ?? ''),
+  storageBucket: String(envValues.FIREBASE_WEB_STORAGE_BUCKET ?? ''),
+  messagingSenderId: String(envValues.FIREBASE_WEB_MESSAGING_SENDER_ID ?? ''),
+  appId: String(envValues.FIREBASE_WEB_APP_ID ?? '')
+};
+const firebaseVapidKey = String(envValues.FIREBASE_WEB_VAPID_KEY ?? '');
 
 const output = `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
   window.__GAME_SHELF_RUNTIME_CONFIG__,
   {
     appVersion: ${JSON.stringify(appVersion)},
+    firebase: ${JSON.stringify(firebaseWebConfig, null, 4)},
+    firebaseVapidKey: ${JSON.stringify(firebaseVapidKey)},
     featureFlags: {
       showMgcImport: ${showMgcImport},
       e2eFixtures: ${e2eFixtures},

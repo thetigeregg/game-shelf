@@ -67,7 +67,9 @@ async function main(): Promise<void> {
     apiBaseUrl: `http://127.0.0.1:${String(config.port)}`,
     maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
     backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
-    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours
+    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
+    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
   });
   const recommendationService = new RecommendationService(
     recommendationRepository,

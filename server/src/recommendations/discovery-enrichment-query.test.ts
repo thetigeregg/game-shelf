@@ -32,3 +32,24 @@ void test('buildDiscoveryEnrichmentSelectionParams normalizes custom values', ()
     rearmMinReleaseYear: 2025
   });
 });
+
+void test('buildDiscoveryEnrichmentSelectionParams falls back when nowIso is invalid', () => {
+  const realNow = Date.now;
+  Date.now = () => Date.parse('2026-03-10T00:00:00.000Z');
+  try {
+    const params = buildDiscoveryEnrichmentSelectionParams(10, {
+      nowIso: 'not-a-date',
+      rearmRecentReleaseYears: 2
+    });
+
+    assert.deepEqual(params, {
+      normalizedLimit: 10,
+      maxAttempts: 1,
+      nowIso: '2026-03-10T00:00:00.000Z',
+      rearmAfterDays: 30,
+      rearmMinReleaseYear: 2025
+    });
+  } finally {
+    Date.now = realNow;
+  }
+});

@@ -39,8 +39,11 @@ If `REQUIRE_AUTH=false`, the authorization header is optional.
 - Query:
 
 ```bash
-curl http://127.0.0.1:3000/v1/notifications/observability
+curl http://127.0.0.1:3000/v1/notifications/observability \
+  -H 'authorization: Bearer <API_TOKEN>'
 ```
+
+If `REQUIRE_AUTH=false`, the authorization header is optional.
 
 Use this to check:
 - active/inactive token counts

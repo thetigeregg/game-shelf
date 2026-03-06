@@ -675,7 +675,7 @@ void test('discovery enrichment rearms capped retry state for recent releases af
         backoffMaxHours: 168,
         rearmAfterDays: 30,
         rearmRecentReleaseYears: 1
-      } as never,
+      },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );
 
@@ -746,7 +746,7 @@ void test('discovery enrichment rearms capped retry state when release year is m
         backoffMaxHours: 168,
         rearmAfterDays: 30,
         rearmRecentReleaseYears: 1
-      } as never,
+      },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );
 
@@ -810,7 +810,7 @@ void test('discovery enrichment keeps permanent miss for older releases outside 
         backoffMaxHours: 168,
         rearmAfterDays: 30,
         rearmRecentReleaseYears: 1
-      } as never,
+      },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );
 
@@ -874,7 +874,7 @@ void test('discovery enrichment does not rearm before cooldown days elapse', asy
         backoffMaxHours: 168,
         rearmAfterDays: 30,
         rearmRecentReleaseYears: 1
-      } as never,
+      },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );
 

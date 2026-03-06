@@ -13,10 +13,7 @@ import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
-import {
-  DiscoveryEnrichmentService,
-  type DiscoveryEnrichmentServiceOptions
-} from './recommendations/discovery-enrichment-service.js';
+import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { resolveDiscoveryEnrichmentRuntimeConfig } from './recommendations/discovery-enrichment-runtime-config.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
@@ -75,7 +72,7 @@ async function main(): Promise<void> {
     backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
     rearmAfterDays: discoveryEnrichmentRuntimeConfig.rearmAfterDays,
     rearmRecentReleaseYears: discoveryEnrichmentRuntimeConfig.rearmRecentReleaseYears
-  } as DiscoveryEnrichmentServiceOptions;
+  };
   const discoveryEnrichmentService = new DiscoveryEnrichmentService(
     recommendationRepository,
     discoveryEnrichmentServiceOptions

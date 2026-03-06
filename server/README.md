@@ -65,6 +65,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `METACRITIC_SCRAPER_TOKEN_FILE` (defaults to `/run/secrets/metacritic_scraper_token`)
 - `MOBYGAMES_API_KEY_FILE` (defaults to `/run/secrets/mobygames_api_key`)
 - `OPENAI_API_KEY_FILE` (defaults to `/run/secrets/openai_api_key`) for semantic recommendation embeddings
+- `FIREBASE_SERVICE_ACCOUNT_JSON_FILE` (defaults to `/run/secrets/firebase_service_account_json`) for FCM push notifications
 
 ### Non-secret env vars (metadata/caching/rate limit)
 
@@ -85,6 +86,17 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`
 - `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE` (default `12`, matching `0.2` requests/second)
 - `DEBUG_HTTP_LOGS` (`true|false`, default `false`) enables sanitized upstream request/response logs for IGDB/TheGamesDB, HLTB, Metacritic, and MobyGames.
+- `RELEASE_MONITOR_ENABLED` (`true|false`, default `true`)
+- `RELEASE_MONITOR_INTERVAL_SECONDS` (default `900`)
+- `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
+- `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
+- `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)
+- `HLTB_PERIODIC_REFRESH_DAYS` (default `30`)
+
+Release notification preference defaults:
+
+- If `game-shelf:notifications:release:enabled` is missing in settings, notifications are treated as disabled (opt-in).
+- Event toggles default to enabled once notifications are explicitly enabled by the user.
 
 ### Non-secret env vars (recommendations)
 

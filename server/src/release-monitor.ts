@@ -855,3 +855,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isJsonEqual(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
+
+export const releaseMonitorInternals = {
+  buildReleaseEvents,
+  computeNextCheckAt,
+  deriveReleaseState,
+  isWithinPastYears,
+  normalizeDateString,
+  readNotificationPreferences
+};

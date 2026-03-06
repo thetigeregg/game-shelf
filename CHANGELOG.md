@@ -1520,3 +1520,6 @@
 - a0c83fc Force push
 - cb89b1e chore(deps): bump fastify from 5.7.4 to 5.8.1 in /server
 
+## v1.1.6 - 2026-03-06
+- a7a5b05 Force push
+

@@ -119,6 +119,27 @@ class AdvisoryLockPoolMock {
   }
 }
 
+class TokenCleanupPoolMock {
+  staleUpdates = 0;
+  prunedDeletes = 0;
+
+  query(sql: string): Promise<{ rows: Array<{ inserted: number }>; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (normalizedSql.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
+      this.staleUpdates += 1;
+      return Promise.resolve({ rows: [], rowCount: 3 });
+    }
+
+    if (normalizedSql.startsWith('delete from fcm_tokens where is_active = false')) {
+      this.prunedDeletes += 1;
+      return Promise.resolve({ rows: [], rowCount: 2 });
+    }
+
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  }
+}
+
 function toStringOrFallback(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback;
 }
@@ -128,6 +149,36 @@ function toIntegerOrFallback(value: unknown, fallback: number): number {
     return value;
   }
   return fallback;
+}
+
+function createRunStats() {
+  return {
+    startedAtIso: new Date().toISOString(),
+    dueGames: 0,
+    activeTokensAtStart: 0,
+    processedWithLock: 0,
+    lockSkipped: 0,
+    gameFailures: 0,
+    igdbRefreshAttempts: 0,
+    igdbRefreshSuccesses: 0,
+    hltbRefreshAttempts: 0,
+    hltbRefreshSuccesses: 0,
+    eventsConsidered: 0,
+    eventsDisabled: 0,
+    eventsReleaseDayAlreadyNotified: 0,
+    eventsSkippedNoTokens: 0,
+    eventsSkippedDuplicate: 0,
+    eventsReserved: 0,
+    sendAttempts: 0,
+    sendBatchSuccess: 0,
+    sendBatchFailure: 0,
+    sendNoSuccessReservationsReleased: 0,
+    eventsSent: 0,
+    invalidTokensDeactivated: 0,
+    tokenCleanupRan: false,
+    tokensDeactivatedByCleanup: 0,
+    tokensPrunedByCleanup: 0
+  };
 }
 
 void test('notification reservation inserts once per event key', async () => {
@@ -187,11 +238,17 @@ void test('withGameLock executes handler and unlocks when lock acquired', async 
   const pool = new AdvisoryLockPoolMock(true);
   let handlerRuns = 0;
 
-  await releaseMonitorInternals.withGameLock(pool as unknown as Pool, '52189', 167, () => {
-    handlerRuns += 1;
-    return Promise.resolve();
-  });
+  const locked = await releaseMonitorInternals.withGameLock(
+    pool as unknown as Pool,
+    '52189',
+    167,
+    () => {
+      handlerRuns += 1;
+      return Promise.resolve();
+    }
+  );
 
+  assert.equal(locked, true);
   assert.equal(handlerRuns, 1);
   assert.equal(pool.client.unlockCount, 1);
 });
@@ -200,11 +257,45 @@ void test('withGameLock skips handler when lock is not acquired', async () => {
   const pool = new AdvisoryLockPoolMock(false);
   let handlerRuns = 0;
 
-  await releaseMonitorInternals.withGameLock(pool as unknown as Pool, '52189', 167, () => {
-    handlerRuns += 1;
-    return Promise.resolve();
-  });
+  const locked = await releaseMonitorInternals.withGameLock(
+    pool as unknown as Pool,
+    '52189',
+    167,
+    () => {
+      handlerRuns += 1;
+      return Promise.resolve();
+    }
+  );
 
+  assert.equal(locked, false);
   assert.equal(handlerRuns, 0);
   assert.equal(pool.client.unlockCount, 0);
+});
+
+void test('token cleanup updates stale active tokens and prunes old inactive tokens', async () => {
+  const pool = new TokenCleanupPoolMock();
+  const stats = createRunStats();
+  releaseMonitorInternals.resetFcmTokenCleanupScheduleForTests();
+
+  await releaseMonitorInternals.runFcmTokenCleanupIfDue(pool as unknown as Pool, stats);
+
+  assert.equal(pool.staleUpdates, 1);
+  assert.equal(pool.prunedDeletes, 1);
+  assert.equal(stats.tokenCleanupRan, true);
+  assert.equal(stats.tokensDeactivatedByCleanup, 3);
+  assert.equal(stats.tokensPrunedByCleanup, 2);
+});
+
+void test('token cleanup respects interval and skips immediate re-run', async () => {
+  const pool = new TokenCleanupPoolMock();
+  const statsFirstRun = createRunStats();
+  const statsSecondRun = createRunStats();
+  releaseMonitorInternals.resetFcmTokenCleanupScheduleForTests();
+
+  await releaseMonitorInternals.runFcmTokenCleanupIfDue(pool as unknown as Pool, statsFirstRun);
+  await releaseMonitorInternals.runFcmTokenCleanupIfDue(pool as unknown as Pool, statsSecondRun);
+
+  assert.equal(pool.staleUpdates, 1);
+  assert.equal(pool.prunedDeletes, 1);
+  assert.equal(statsSecondRun.tokenCleanupRan, false);
 });

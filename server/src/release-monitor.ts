@@ -48,6 +48,36 @@ interface MonitorStartResult {
   stop: () => void;
 }
 
+interface MonitorRunStats {
+  startedAtIso: string;
+  dueGames: number;
+  activeTokensAtStart: number;
+  processedWithLock: number;
+  lockSkipped: number;
+  gameFailures: number;
+  igdbRefreshAttempts: number;
+  igdbRefreshSuccesses: number;
+  hltbRefreshAttempts: number;
+  hltbRefreshSuccesses: number;
+  eventsConsidered: number;
+  eventsDisabled: number;
+  eventsReleaseDayAlreadyNotified: number;
+  eventsSkippedNoTokens: number;
+  eventsSkippedDuplicate: number;
+  eventsReserved: number;
+  sendAttempts: number;
+  sendBatchSuccess: number;
+  sendBatchFailure: number;
+  sendNoSuccessReservationsReleased: number;
+  eventsSent: number;
+  invalidTokensDeactivated: number;
+  tokenCleanupRan: boolean;
+  tokensDeactivatedByCleanup: number;
+  tokensPrunedByCleanup: number;
+}
+
+let nextFcmTokenCleanupAtMs = 0;
+
 export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   if (!config.releaseMonitorEnabled) {
     console.info('[release-monitor] disabled');
@@ -85,6 +115,9 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
 }
 
 async function processDueGames(pool: Pool): Promise<void> {
+  const stats = createMonitorRunStats();
+  await runFcmTokenCleanupIfDue(pool, stats);
+
   const dueRows = await pool.query<DueGameRow>(
     `
     SELECT
@@ -107,8 +140,10 @@ async function processDueGames(pool: Pool): Promise<void> {
     `,
     [config.releaseMonitorBatchSize]
   );
+  stats.dueGames = dueRows.rows.length;
 
   if (dueRows.rows.length === 0) {
+    emitRunSummary(stats);
     return;
   }
 
@@ -116,20 +151,29 @@ async function processDueGames(pool: Pool): Promise<void> {
   const tokenRows = await pool.query<{ token: string }>(
     'SELECT token FROM fcm_tokens WHERE is_active = TRUE'
   );
-  const activeTokens = tokenRows.rows.map((row) => row.token);
+  const activeTokenSet = new Set(tokenRows.rows.map((row) => row.token));
+  stats.activeTokensAtStart = activeTokenSet.size;
 
   for (const row of dueRows.rows) {
-    await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
-      await processGameRow(pool, row, preferences, activeTokens);
+    const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
+      await processGameRow(pool, row, preferences, activeTokenSet, stats);
     });
+    if (locked) {
+      stats.processedWithLock += 1;
+    } else {
+      stats.lockSkipped += 1;
+    }
   }
+
+  emitRunSummary(stats);
 }
 
 async function processGameRow(
   pool: Pool,
   row: DueGameRow,
   preferences: NotificationPreferences,
-  activeTokens: string[]
+  activeTokenSet: Set<string>,
+  stats: MonitorRunStats
 ): Promise<void> {
   const now = new Date();
   const nowIso = now.toISOString();
@@ -150,8 +194,10 @@ async function processGameRow(
 
   try {
     if (!isBootstrap) {
+      stats.igdbRefreshAttempts += 1;
       const refreshed = await fetchGameById(row.igdb_game_id);
       if (refreshed) {
+        stats.igdbRefreshSuccesses += 1;
         mergedPayload = mergePayloadForRefresh(originalPayload, refreshed);
       }
     }
@@ -172,6 +218,7 @@ async function processGameRow(
     const hltbDue = !isBootstrap && isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
 
     if (hltbEligible && hltbDue) {
+      stats.hltbRefreshAttempts += 1;
       const refreshedHltb = await fetchHltbPayload({
         title: stringOrFallback(mergedPayload['title'], title),
         releaseYear: integerOrNull(mergedPayload['releaseYear']),
@@ -179,6 +226,7 @@ async function processGameRow(
       });
 
       if (refreshedHltb) {
+        stats.hltbRefreshSuccesses += 1;
         mergedPayload = {
           ...mergedPayload,
           hltbMainHours: numberOrNull(refreshedHltb.hltbMainHours),
@@ -208,7 +256,10 @@ async function processGameRow(
     const lastNotifiedReleaseDay = normalizeDateString(row.last_notified_release_day);
 
     for (const event of releaseEvents) {
+      stats.eventsConsidered += 1;
+
       if (!isEventEnabled(preferences, event.type)) {
+        stats.eventsDisabled += 1;
         continue;
       }
 
@@ -216,19 +267,25 @@ async function processGameRow(
         event.type === 'release_day' &&
         lastNotifiedReleaseDay === normalizeDateString(event.releaseDate);
       if (shouldSkipReleaseDay) {
+        stats.eventsReleaseDayAlreadyNotified += 1;
         continue;
       }
 
-      if (activeTokens.length === 0) {
+      if (activeTokenSet.size === 0) {
+        stats.eventsSkippedNoTokens += 1;
         continue;
       }
 
       const reserved = await reserveNotificationLog(pool, event, row.igdb_game_id, platformIgdbId);
       if (!reserved) {
+        stats.eventsSkippedDuplicate += 1;
         continue;
       }
+      stats.eventsReserved += 1;
 
-      const sendResult = await sendFcmMulticast(activeTokens, {
+      stats.sendAttempts += 1;
+
+      const sendResult = await sendFcmMulticast([...activeTokenSet], {
         title: event.title,
         body: event.body,
         data: {
@@ -240,17 +297,25 @@ async function processGameRow(
           route: '/tabs/wishlist'
         }
       });
+      stats.sendBatchSuccess += sendResult.successCount;
+      stats.sendBatchFailure += sendResult.failureCount;
 
       if (sendResult.successCount <= 0) {
         await releaseNotificationLogReservation(pool, event.eventKey);
+        stats.sendNoSuccessReservationsReleased += 1;
         continue;
       }
 
       sentEventTypes.add(event.type);
+      stats.eventsSent += 1;
 
       await finalizeNotificationLog(pool, event, event.eventKey, sendResult.successCount);
 
       if (sendResult.invalidTokens.length > 0) {
+        sendResult.invalidTokens.forEach((token) => {
+          activeTokenSet.delete(token);
+        });
+        stats.invalidTokensDeactivated += sendResult.invalidTokens.length;
         await pool.query(
           `
           UPDATE fcm_tokens
@@ -283,6 +348,7 @@ async function processGameRow(
       releaseStateBefore
     });
   } catch (error) {
+    stats.gameFailures += 1;
     const nextCheckAt = new Date(Date.now() + ONE_DAY_MS).toISOString();
     await pool.query(
       `
@@ -621,7 +687,7 @@ async function withGameLock(
   igdbGameId: string,
   platformIgdbId: number,
   handler: () => Promise<void>
-): Promise<void> {
+): Promise<boolean> {
   const client = await pool.connect();
 
   try {
@@ -632,11 +698,12 @@ async function withGameLock(
     const locked = lockResult.rows[0]?.locked ?? false;
 
     if (!locked) {
-      return;
+      return false;
     }
 
     try {
       await handler();
+      return true;
     } finally {
       await client.query('SELECT pg_advisory_unlock(hashtext($1), $2)', [
         igdbGameId,
@@ -910,6 +977,97 @@ function isJsonEqual(left: Record<string, unknown>, right: Record<string, unknow
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function createMonitorRunStats(): MonitorRunStats {
+  return {
+    startedAtIso: new Date().toISOString(),
+    dueGames: 0,
+    activeTokensAtStart: 0,
+    processedWithLock: 0,
+    lockSkipped: 0,
+    gameFailures: 0,
+    igdbRefreshAttempts: 0,
+    igdbRefreshSuccesses: 0,
+    hltbRefreshAttempts: 0,
+    hltbRefreshSuccesses: 0,
+    eventsConsidered: 0,
+    eventsDisabled: 0,
+    eventsReleaseDayAlreadyNotified: 0,
+    eventsSkippedNoTokens: 0,
+    eventsSkippedDuplicate: 0,
+    eventsReserved: 0,
+    sendAttempts: 0,
+    sendBatchSuccess: 0,
+    sendBatchFailure: 0,
+    sendNoSuccessReservationsReleased: 0,
+    eventsSent: 0,
+    invalidTokensDeactivated: 0,
+    tokenCleanupRan: false,
+    tokensDeactivatedByCleanup: 0,
+    tokensPrunedByCleanup: 0
+  };
+}
+
+function emitRunSummary(stats: MonitorRunStats): void {
+  const shouldLog =
+    config.releaseMonitorDebugLogs ||
+    stats.dueGames > 0 ||
+    stats.tokenCleanupRan ||
+    stats.eventsSent > 0 ||
+    stats.gameFailures > 0;
+
+  if (!shouldLog) {
+    return;
+  }
+
+  console.info('[release-monitor] run_summary', stats);
+}
+
+async function runFcmTokenCleanupIfDue(pool: Pool, stats: MonitorRunStats): Promise<void> {
+  if (!config.fcmTokenCleanupEnabled) {
+    return;
+  }
+
+  const nowMs = Date.now();
+  if (nowMs < nextFcmTokenCleanupAtMs) {
+    return;
+  }
+
+  nextFcmTokenCleanupAtMs =
+    nowMs + Math.max(1, config.fcmTokenCleanupIntervalHours) * 60 * 60 * 1000;
+
+  try {
+    const staleDeactivateResult = await pool.query(
+      `
+      UPDATE fcm_tokens
+      SET is_active = FALSE, updated_at = NOW()
+      WHERE is_active = TRUE
+        AND last_seen_at < NOW() - ($1::int * INTERVAL '1 day')
+      `,
+      [config.fcmTokenStaleDeactivateDays]
+    );
+    const pruneResult = await pool.query(
+      `
+      DELETE FROM fcm_tokens
+      WHERE is_active = FALSE
+        AND updated_at < NOW() - ($1::int * INTERVAL '1 day')
+      `,
+      [config.fcmTokenInactivePurgeDays]
+    );
+
+    stats.tokenCleanupRan = true;
+    stats.tokensDeactivatedByCleanup = staleDeactivateResult.rowCount ?? 0;
+    stats.tokensPrunedByCleanup = pruneResult.rowCount ?? 0;
+  } catch (error) {
+    console.warn('[release-monitor] token_cleanup_failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
+function resetFcmTokenCleanupScheduleForTests(): void {
+  nextFcmTokenCleanupAtMs = 0;
+}
+
 export const releaseMonitorInternals = {
   buildReleaseEvents,
   computeNextCheckAt,
@@ -920,5 +1078,7 @@ export const releaseMonitorInternals = {
   reserveNotificationLog,
   finalizeNotificationLog,
   releaseNotificationLogReservation,
-  withGameLock
+  withGameLock,
+  runFcmTokenCleanupIfDue,
+  resetFcmTokenCleanupScheduleForTests
 };

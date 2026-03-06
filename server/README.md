@@ -93,6 +93,10 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
 - `HLTB_PERIODIC_REFRESH_YEARS` (default `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (default `30`)
+- `FCM_TOKEN_CLEANUP_ENABLED` (`true|false`, default `true`)
+- `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (default `24`)
+- `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (default `60`)
+- `FCM_TOKEN_INACTIVE_PURGE_DAYS` (default `180`)
 
 Release notification preference defaults:
 

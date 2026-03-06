@@ -130,6 +130,8 @@ void test('unknown release date cadence is weekly for future/unknown year and ye
       },
       now,
       false,
+      null,
+      false,
       null
     )
   );
@@ -146,6 +148,8 @@ void test('unknown release date cadence is weekly for future/unknown year and ye
         display: null
       },
       now,
+      false,
+      null,
       false,
       null
     )

@@ -70,6 +70,8 @@ Common stack env vars:
 - `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (optional; defaults `false`; enables `GET /v1/notifications/observability`)
 - `HLTB_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
+- `METACRITIC_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
+- `METACRITIC_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
 - `FCM_TOKEN_CLEANUP_ENABLED` (optional; defaults `true`)
 - `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (optional; defaults `24`)
 - `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (optional; defaults `60`)

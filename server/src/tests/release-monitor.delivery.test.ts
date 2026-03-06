@@ -163,6 +163,8 @@ function createRunStats() {
     igdbRefreshSuccesses: 0,
     hltbRefreshAttempts: 0,
     hltbRefreshSuccesses: 0,
+    metacriticRefreshAttempts: 0,
+    metacriticRefreshSuccesses: 0,
     eventsConsidered: 0,
     eventsDisabled: 0,
     eventsReleaseDayAlreadyNotified: 0,

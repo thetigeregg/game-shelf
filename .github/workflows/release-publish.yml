@@ -138,6 +138,11 @@ jobs:
               appId: '${FIREBASE_APP_ID_PROD}',
             },
             firebaseVapidKey: '${FIREBASE_VAPID_KEY_PROD}',
+            featureFlags: {
+              showMgcImport: false,
+              e2eFixtures: false,
+              recommendationsExploreEnabled: true,
+            },
           };
           EOF
         env:

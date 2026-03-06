@@ -1,5 +1,10 @@
 import { Component, inject } from '@angular/core';
-import { AlertController, IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
+import {
+  AlertController,
+  IonApp,
+  IonRouterOutlet,
+  ToastController
+} from '@ionic/angular/standalone';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';
@@ -23,6 +28,7 @@ export class AppComponent {
   private readonly gameShelfService = inject(GameShelfService);
   private readonly e2eFixtureService = inject(E2eFixtureService);
   private readonly alertController = inject(AlertController);
+  private readonly toastController = inject(ToastController);
   private readonly notificationService = inject(NotificationService);
 
   constructor() {
@@ -64,8 +70,9 @@ export class AppComponent {
         {
           text: 'Enable',
           role: 'confirm',
-          handler: () => {
-            void this.notificationService.enableReleaseNotifications();
+          handler: async () => {
+            const result = await this.notificationService.enableReleaseNotifications();
+            await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
           }
         }
       ]
@@ -98,5 +105,19 @@ export class AppComponent {
 
     await alert.present();
     window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion);
+  }
+
+  private async presentNotificationToast(
+    message: string,
+    color: 'primary' | 'warning'
+  ): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      color,
+      duration: 3500,
+      position: 'bottom'
+    });
+
+    await toast.present();
   }
 }

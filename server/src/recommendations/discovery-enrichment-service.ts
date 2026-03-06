@@ -158,7 +158,9 @@ export class DiscoveryEnrichmentService {
       queryable,
       {
         nowIso: new Date(this.now()).toISOString(),
-        maxAttempts: this.options.maxAttempts
+        maxAttempts: this.options.maxAttempts,
+        rearmAfterDays: this.options.rearmAfterDays ?? 30,
+        rearmRecentReleaseYears: this.options.rearmRecentReleaseYears ?? 1
       }
     );
 

@@ -265,7 +265,12 @@ export class RecommendationRepository {
   async listDiscoveryRowsMissingEnrichment(
     limit: number,
     queryable: Queryable = this.pool,
-    options?: { nowIso?: string; maxAttempts?: number }
+    options?: {
+      nowIso?: string;
+      maxAttempts?: number;
+      rearmAfterDays?: number;
+      rearmRecentReleaseYears?: number;
+    }
   ): Promise<
     Array<{
       igdbGameId: string;
@@ -279,6 +284,17 @@ export class RecommendationRepository {
       typeof options?.maxAttempts === 'number' && Number.isFinite(options.maxAttempts)
         ? Math.max(1, Math.trunc(options.maxAttempts))
         : 1;
+    const rearmAfterDays =
+      typeof options?.rearmAfterDays === 'number' && Number.isFinite(options.rearmAfterDays)
+        ? Math.max(1, Math.trunc(options.rearmAfterDays))
+        : 30;
+    const rearmRecentReleaseYears =
+      typeof options?.rearmRecentReleaseYears === 'number' &&
+      Number.isFinite(options.rearmRecentReleaseYears)
+        ? Math.max(1, Math.trunc(options.rearmRecentReleaseYears))
+        : 1;
+    const currentYear = new Date(nowIso).getUTCFullYear();
+    const rearmMinReleaseYear = currentYear - rearmRecentReleaseYears + 1;
     const result = await queryable.query<DiscoveryGameRow>(
       `
       WITH candidate_rows AS (
@@ -313,17 +329,34 @@ export class RecommendationRepository {
             ELSE false
           END AS has_metacritic_score,
           CASE
+            WHEN BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]{4}$'
+            THEN (BTRIM(payload->>'releaseYear'))::int
+            ELSE NULL
+          END AS release_year,
+          CASE
             WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'nextTryAt', '')) ~
               '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
             THEN (BTRIM(payload->'enrichmentRetry'->'hltb'->>'nextTryAt'))::timestamptz
             ELSE NULL
           END AS hltb_next_try_at_ts,
           CASE
+            WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'lastTriedAt', '')) ~
+              '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+            THEN (BTRIM(payload->'enrichmentRetry'->'hltb'->>'lastTriedAt'))::timestamptz
+            ELSE NULL
+          END AS hltb_last_tried_at_ts,
+          CASE
             WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'metacritic'->>'nextTryAt', '')) ~
               '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
             THEN (BTRIM(payload->'enrichmentRetry'->'metacritic'->>'nextTryAt'))::timestamptz
             ELSE NULL
           END AS metacritic_next_try_at_ts,
+          CASE
+            WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'metacritic'->>'lastTriedAt', '')) ~
+              '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+            THEN (BTRIM(payload->'enrichmentRetry'->'metacritic'->>'lastTriedAt'))::timestamptz
+            ELSE NULL
+          END AS metacritic_last_tried_at_ts,
           CASE
             WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'attempts', '')) ~ '^[0-9]+$'
             THEN (BTRIM(payload->'enrichmentRetry'->'hltb'->>'attempts'))::int
@@ -349,23 +382,47 @@ export class RecommendationRepository {
       FROM candidate_rows
       WHERE (
           NOT (has_hltb_main OR has_hltb_main_extra OR has_hltb_completionist)
-          AND NOT hltb_permanent_miss
-          AND hltb_attempts < $2
-          AND (hltb_next_try_at_ts IS NULL OR hltb_next_try_at_ts <= $3::timestamptz)
+          AND (
+            (
+              NOT hltb_permanent_miss
+              AND hltb_attempts < $2
+              AND (hltb_next_try_at_ts IS NULL OR hltb_next_try_at_ts <= $3::timestamptz)
+            )
+            OR (
+              (hltb_permanent_miss OR hltb_attempts >= $2)
+              AND (release_year IS NULL OR release_year >= $5)
+              AND (
+                hltb_last_tried_at_ts IS NULL
+                OR hltb_last_tried_at_ts <= ($3::timestamptz - make_interval(days => $4))
+              )
+            )
+          )
         )
         OR (
           NOT (has_review_score OR has_metacritic_score)
-          AND NOT metacritic_permanent_miss
-          AND metacritic_attempts < $2
           AND (
-            metacritic_next_try_at_ts IS NULL
-            OR metacritic_next_try_at_ts <= $3::timestamptz
+            (
+              NOT metacritic_permanent_miss
+              AND metacritic_attempts < $2
+              AND (
+                metacritic_next_try_at_ts IS NULL
+                OR metacritic_next_try_at_ts <= $3::timestamptz
+              )
+            )
+            OR (
+              (metacritic_permanent_miss OR metacritic_attempts >= $2)
+              AND (release_year IS NULL OR release_year >= $5)
+              AND (
+                metacritic_last_tried_at_ts IS NULL
+                OR metacritic_last_tried_at_ts <= ($3::timestamptz - make_interval(days => $4))
+              )
+            )
           )
         )
       ORDER BY updated_at ASC
       LIMIT $1
       `,
-      [normalizedLimit, maxAttempts, nowIso]
+      [normalizedLimit, maxAttempts, nowIso, rearmAfterDays, rearmMinReleaseYear]
     );
 
     return result.rows.map((row) => ({

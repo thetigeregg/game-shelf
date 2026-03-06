@@ -21,8 +21,6 @@ export interface DiscoveryEnrichmentServiceOptions {
   maxAttempts: number;
   backoffBaseMinutes: number;
   backoffMaxHours: number;
-  rearmAfterDays?: number;
-  rearmRecentReleaseYears?: number;
 }
 
 export interface DiscoveryEnrichmentSummary {
@@ -159,8 +157,8 @@ export class DiscoveryEnrichmentService {
       {
         nowIso: new Date(this.now()).toISOString(),
         maxAttempts: this.options.maxAttempts,
-        rearmAfterDays: this.options.rearmAfterDays ?? 30,
-        rearmRecentReleaseYears: this.options.rearmRecentReleaseYears ?? 1
+        rearmAfterDays: this.getRearmAfterDays(),
+        rearmRecentReleaseYears: this.getRearmRecentReleaseYears()
       }
     );
 
@@ -210,6 +208,8 @@ export class DiscoveryEnrichmentService {
       hasPositiveNumber(payload.reviewScore) || hasPositiveNumber(payload.metacriticScore);
     const nowMs = this.now();
     const nowIso = new Date(nowMs).toISOString();
+    const rearmAfterDays = this.getRearmAfterDays();
+    const rearmRecentReleaseYears = this.getRearmRecentReleaseYears();
 
     const retryState = parseRetryState(payload.enrichmentRetry);
     const nextRetryStateBase: DiscoveryEnrichmentRetryState = {
@@ -217,16 +217,16 @@ export class DiscoveryEnrichmentService {
         state: retryState.hltb,
         nowMs,
         releaseYear,
-        rearmAfterDays: this.options.rearmAfterDays ?? 30,
-        rearmRecentReleaseYears: this.options.rearmRecentReleaseYears ?? 1,
+        rearmAfterDays,
+        rearmRecentReleaseYears,
         maxAttempts: this.options.maxAttempts
       }),
       metacritic: maybeRearmProviderRetryState({
         state: retryState.metacritic,
         nowMs,
         releaseYear,
-        rearmAfterDays: this.options.rearmAfterDays ?? 30,
-        rearmRecentReleaseYears: this.options.rearmRecentReleaseYears ?? 1,
+        rearmAfterDays,
+        rearmRecentReleaseYears,
         maxAttempts: this.options.maxAttempts
       })
     };
@@ -355,6 +355,22 @@ export class DiscoveryEnrichmentService {
       url.searchParams.set(key, value);
     }
     return url.toString();
+  }
+
+  private getRearmAfterDays(): number {
+    const raw = (this.options as { rearmAfterDays?: unknown }).rearmAfterDays;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return Math.max(1, Math.trunc(raw));
+    }
+    return 30;
+  }
+
+  private getRearmRecentReleaseYears(): number {
+    const raw = (this.options as { rearmRecentReleaseYears?: unknown }).rearmRecentReleaseYears;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return Math.max(1, Math.trunc(raw));
+    }
+    return 1;
   }
 
   private async fetchJson<T>(url: string): Promise<FetchJsonResult<T>> {

@@ -1,5 +1,9 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
-import { readFileSync } from 'node:fs';
+import {
+  buildDiscoveryEnrichmentSelectionParams,
+  DiscoveryEnrichmentSelectionOptions,
+  LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL
+} from './discovery-enrichment-query.js';
 import { normalizeDbGameRow } from './normalize.js';
 import { parseRecommendationRuntimeMode } from './runtime.js';
 import { buildGameKey } from './semantic.js';
@@ -94,10 +98,6 @@ interface DiscoveryGameRow extends QueryResultRow {
 }
 
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
-const LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL = readFileSync(
-  new URL('./sql/list-discovery-rows-missing-enrichment.sql', import.meta.url),
-  'utf8'
-);
 
 export class RecommendationRepository {
   constructor(private readonly pool: Pool) {}
@@ -270,12 +270,7 @@ export class RecommendationRepository {
   async listDiscoveryRowsMissingEnrichment(
     limit: number,
     queryable: Queryable = this.pool,
-    options?: {
-      nowIso?: string;
-      maxAttempts?: number;
-      rearmAfterDays?: number;
-      rearmRecentReleaseYears?: number;
-    }
+    options?: DiscoveryEnrichmentSelectionOptions
   ): Promise<
     Array<{
       igdbGameId: string;
@@ -283,26 +278,16 @@ export class RecommendationRepository {
       payload: Record<string, unknown>;
     }>
   > {
-    const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
-    const nowIso = options?.nowIso ?? new Date().toISOString();
-    const maxAttempts =
-      typeof options?.maxAttempts === 'number' && Number.isFinite(options.maxAttempts)
-        ? Math.max(1, Math.trunc(options.maxAttempts))
-        : 1;
-    const rearmAfterDays =
-      typeof options?.rearmAfterDays === 'number' && Number.isFinite(options.rearmAfterDays)
-        ? Math.max(1, Math.trunc(options.rearmAfterDays))
-        : 30;
-    const rearmRecentReleaseYears =
-      typeof options?.rearmRecentReleaseYears === 'number' &&
-      Number.isFinite(options.rearmRecentReleaseYears)
-        ? Math.max(1, Math.trunc(options.rearmRecentReleaseYears))
-        : 1;
-    const currentYear = new Date(nowIso).getUTCFullYear();
-    const rearmMinReleaseYear = currentYear - rearmRecentReleaseYears + 1;
+    const params = buildDiscoveryEnrichmentSelectionParams(limit, options);
     const result = await queryable.query<DiscoveryGameRow>(
       LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL,
-      [normalizedLimit, maxAttempts, nowIso, rearmAfterDays, rearmMinReleaseYear]
+      [
+        params.normalizedLimit,
+        params.maxAttempts,
+        params.nowIso,
+        params.rearmAfterDays,
+        params.rearmMinReleaseYear
+      ]
     );
 
     return result.rows.map((row) => ({

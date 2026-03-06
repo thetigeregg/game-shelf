@@ -100,9 +100,9 @@ const firebaseWebConfig = {
 };
 const firebaseVapidKey = String(envValues.FIREBASE_WEB_VAPID_KEY ?? '');
 
-const output = `window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
+const output = `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   {},
-  window.__GAME_SHELF_RUNTIME_CONFIG__,
+  globalThis.__GAME_SHELF_RUNTIME_CONFIG__,
   {
     appVersion: ${JSON.stringify(appVersion)},
     firebase: ${JSON.stringify(firebaseWebConfig, null, 4)},

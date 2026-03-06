@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
-
-export const DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT = 30;
-export const DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT = 1;
+import {
+  DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
+} from './discovery-enrichment-defaults.js';
 
 export interface DiscoveryEnrichmentSelectionOptions {
   nowIso?: string;

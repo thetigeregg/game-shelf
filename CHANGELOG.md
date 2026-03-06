@@ -1528,3 +1528,23 @@
 - f80d8ac Update package lock
 - f833119 Fix discovery query for Project Gorg
 
+## v1.1.8 - 2026-03-06
+- dbafaec Merge pull request #171 from thetigeregg/codex/discovery-game-retry-limit
+- d85194a Reuse config helpers for discovery
+- a785be1 Refactor discovery config helpers
+- 3d7b50a Centralize discovery enrich env
+- f934424 Type discovery enrichment options
+- 89426e5 Add rearm fields to discovery opts
+- 043560a Add rearm options to discovery types
+- 918452f Adjust DiscoveryEnrichment imports
+- a3ce241 Fix discovery enrichment date logic
+- 63523f1 Fix transient retry state handling
+- 5a7c554 Add coverage for repository.ts
+- 7c31b7b Add repository coverage option2
+- da84b58 Force push
+- 4ca7239 Explain codecov coverage failure
+- 2d8ccf2 Explain codecov patch coverage
+- 527e29f Explain codecov and regen summary
+- 2bd3762 Merge branch 'main' into codex/discovery-game-retry-limit
+- 762bb2f Add rearm logic for HLTB
+

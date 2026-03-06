@@ -195,11 +195,11 @@ class ReleaseMonitorFlowPoolMock {
     const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalizedSql.startsWith('select g.igdb_game_id')) {
-      return { rows: this.dueRows, rowCount: this.dueRows.length };
+      return Promise.resolve({ rows: this.dueRows, rowCount: this.dueRows.length });
     }
 
     if (normalizedSql.startsWith('select setting_key, setting_value from settings')) {
-      return {
+      return Promise.resolve({
         rows: [
           { setting_key: 'game-shelf:notifications:release:enabled', setting_value: 'false' },
           {
@@ -208,7 +208,7 @@ class ReleaseMonitorFlowPoolMock {
           }
         ],
         rowCount: 2
-      };
+      });
     }
 
     if (
@@ -216,44 +216,44 @@ class ReleaseMonitorFlowPoolMock {
         'select token from fcm_tokens where is_active = true order by token asc limit $1'
       )
     ) {
-      return { rows: [], rowCount: 0 };
+      return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     if (normalizedSql.startsWith('insert into release_watch_state')) {
       this.watchStateWrites += 1;
-      return { rows: [], rowCount: 1 };
+      return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     if (normalizedSql.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
-      return { rows: [], rowCount: 0 };
+      return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     if (normalizedSql.startsWith('delete from fcm_tokens where is_active = false')) {
-      return { rows: [], rowCount: 0 };
+      return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     if (normalizedSql.startsWith('insert into release_notification_log')) {
-      return { rows: [{ inserted: 1 }], rowCount: 1 };
+      return Promise.resolve({ rows: [{ inserted: 1 }], rowCount: 1 });
     }
 
     if (normalizedSql.startsWith('update release_notification_log set payload = $1::jsonb')) {
-      return { rows: [], rowCount: 1 };
+      return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     if (normalizedSql.startsWith('delete from release_notification_log where event_key = $1')) {
-      return { rows: [], rowCount: 1 };
+      return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     if (normalizedSql.startsWith('update games set payload = $3::jsonb')) {
-      return { rows: [], rowCount: 1 };
+      return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     if (normalizedSql.startsWith('insert into sync_events')) {
-      return { rows: [], rowCount: 1 };
+      return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     void params;
-    return { rows: [], rowCount: 0 };
+    return Promise.resolve({ rows: [], rowCount: 0 });
   }
 }
 

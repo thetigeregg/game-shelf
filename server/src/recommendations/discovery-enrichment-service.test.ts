@@ -822,3 +822,67 @@ void test('discovery enrichment keeps permanent miss for older releases outside 
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('discovery enrichment does not rearm before cooldown days elapse', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '7',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Cooldown Not Elapsed',
+        releaseYear: 2026,
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 6,
+            lastTriedAt: '2026-03-05T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          },
+          metacritic: {
+            attempts: 6,
+            lastTriedAt: '2026-03-05T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          }
+        }
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 0);
+    assert.equal(repository.updates.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

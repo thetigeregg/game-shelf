@@ -93,6 +93,7 @@
         <ion-toggle
           slot="end"
           [checked]="releaseNotificationEvents.set"
+          [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('set', $any($event).detail.checked)"
         ></ion-toggle>
       </ion-item>
@@ -101,6 +102,7 @@
         <ion-toggle
           slot="end"
           [checked]="releaseNotificationEvents.changed"
+          [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('changed', $any($event).detail.checked)"
         ></ion-toggle>
       </ion-item>
@@ -109,6 +111,7 @@
         <ion-toggle
           slot="end"
           [checked]="releaseNotificationEvents.removed"
+          [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('removed', $any($event).detail.checked)"
         ></ion-toggle>
       </ion-item>
@@ -117,6 +120,7 @@
         <ion-toggle
           slot="end"
           [checked]="releaseNotificationEvents.day"
+          [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('day', $any($event).detail.checked)"
         ></ion-toggle>
       </ion-item>

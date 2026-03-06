@@ -611,6 +611,9 @@ async function appendSyncEvent(
 }
 
 async function readNotificationPreferences(pool: Pool): Promise<NotificationPreferences> {
+  // Current deployment model is single-user/personal server, so notification
+  // settings are treated as global preferences from the shared settings table.
+  // If this becomes multi-user, this read path must be scoped per user/device.
   const result = await pool.query<{ setting_key: string; setting_value: string }>(
     `
     SELECT setting_key, setting_value

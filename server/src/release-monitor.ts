@@ -224,8 +224,8 @@ async function processGameRow(
     }
 
     const releaseAfter = deriveReleaseInfo({
-      marker: null,
-      precision: null,
+      marker: stringOrNull(mergedPayload['releaseMarker']),
+      precision: normalizeReleasePrecision(stringOrNull(mergedPayload['releasePrecision'])),
       releaseDate: stringOrNull(mergedPayload['releaseDate']),
       releaseYear: integerOrNull(mergedPayload['releaseYear'])
     });
@@ -554,6 +554,11 @@ function mergePayloadForRefresh(
     genres: arrayOfStringsOrEmpty(refreshed['genres']),
     publishers: arrayOfStringsOrEmpty(refreshed['publishers']),
     releaseDate: stringOrNull(refreshed['releaseDate']),
+    releaseMarker:
+      stringOrNull(refreshed['releaseMarker']) ?? stringOrNull(existing['releaseMarker']),
+    releasePrecision:
+      normalizeReleasePrecision(stringOrNull(refreshed['releasePrecision'])) ??
+      normalizeReleasePrecision(stringOrNull(existing['releasePrecision'])),
     releaseYear: integerOrNull(refreshed['releaseYear']),
     updatedAt: new Date().toISOString()
   };

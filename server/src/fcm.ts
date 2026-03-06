@@ -14,6 +14,9 @@ export interface FcmSendResult {
   invalidTokens: string[];
 }
 
+let cachedServiceAccount: ServiceAccount | null = null;
+let cachedServiceAccountError: Error | null = null;
+
 export function hasConfiguredFcm(): boolean {
   return config.firebaseServiceAccountJson.length > 0;
 }
@@ -94,7 +97,7 @@ export async function sendFcmMulticast(
 
 function resolveMessaging(): Messaging {
   if (getApps().length === 0) {
-    const parsed = JSON.parse(config.firebaseServiceAccountJson) as ServiceAccount;
+    const parsed = resolveServiceAccount();
     try {
       initializeApp({
         credential: cert(parsed)
@@ -110,6 +113,30 @@ function resolveMessaging(): Messaging {
   }
 
   return getMessaging();
+}
+
+function resolveServiceAccount(): ServiceAccount {
+  if (cachedServiceAccount) {
+    return cachedServiceAccount;
+  }
+
+  if (cachedServiceAccountError) {
+    throw cachedServiceAccountError;
+  }
+
+  try {
+    const parsedUnknown = JSON.parse(config.firebaseServiceAccountJson) as unknown;
+    if (!parsedUnknown || typeof parsedUnknown !== 'object') {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON must be a JSON object.');
+    }
+    cachedServiceAccount = parsedUnknown as ServiceAccount;
+    return cachedServiceAccount;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON.';
+    cachedServiceAccountError = new Error(`Invalid FIREBASE_SERVICE_ACCOUNT_JSON: ${message}`);
+    throw cachedServiceAccountError;
+  }
 }
 
 function chunk<T>(items: T[], size: number): T[][] {

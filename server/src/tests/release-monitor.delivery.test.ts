@@ -77,10 +77,12 @@ class NotificationLogPoolMock {
 
 class AdvisoryLockClientMock {
   private readonly lockAvailable: boolean;
+  private readonly throwOnUnlock: boolean;
   unlockCount = 0;
 
-  constructor(lockAvailable: boolean) {
+  constructor(lockAvailable: boolean, throwOnUnlock = false) {
     this.lockAvailable = lockAvailable;
+    this.throwOnUnlock = throwOnUnlock;
   }
 
   query(sql: string): Promise<{ rows: Array<{ locked: boolean }>; rowCount: number }> {
@@ -95,6 +97,9 @@ class AdvisoryLockClientMock {
 
     if (normalizedSql.startsWith('select pg_advisory_unlock')) {
       this.unlockCount += 1;
+      if (this.throwOnUnlock) {
+        throw new Error('unlock_failed');
+      }
       return Promise.resolve({
         rows: [{ locked: true }],
         rowCount: 1
@@ -110,8 +115,8 @@ class AdvisoryLockClientMock {
 class AdvisoryLockPoolMock {
   readonly client: AdvisoryLockClientMock;
 
-  constructor(lockAvailable: boolean) {
-    this.client = new AdvisoryLockClientMock(lockAvailable);
+  constructor(lockAvailable: boolean, throwOnUnlock = false) {
+    this.client = new AdvisoryLockClientMock(lockAvailable, throwOnUnlock);
   }
 
   connect(): Promise<AdvisoryLockClientMock> {
@@ -384,6 +389,17 @@ void test('withGameLock skips handler when lock is not acquired', async () => {
   assert.equal(locked, false);
   assert.equal(handlerRuns, 0);
   assert.equal(pool.client.unlockCount, 0);
+});
+
+void test('withGameLock preserves handler error even when unlock fails', async () => {
+  const pool = new AdvisoryLockPoolMock(true, true);
+
+  await assert.rejects(
+    releaseMonitorInternals.withGameLock(pool as unknown as Pool, '52189', 167, () => {
+      throw new Error('handler_failed');
+    }),
+    /handler_failed/
+  );
 });
 
 void test('token cleanup updates stale active tokens and prunes old inactive tokens', async () => {

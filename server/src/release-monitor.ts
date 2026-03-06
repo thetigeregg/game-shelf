@@ -6,6 +6,8 @@ import { fetchMetadataPathFromWorker } from './metadata.js';
 const RELEASE_NOTIFICATIONS_ENABLED_KEY = 'game-shelf:notifications:release:enabled';
 const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+// Safety bound to prevent unbounded memory growth if token volume spikes.
+const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -1444,6 +1446,7 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
   const activeTokenSet = new Set<string>();
   const pageSize = 1000;
   let cursor: string | null = null;
+  let capped = false;
 
   for (;;) {
     let rows: Array<{ token: string }>;
@@ -1478,9 +1481,17 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
       break;
     }
 
-    rows.forEach((row) => {
+    for (const row of rows) {
+      if (activeTokenSet.size >= MAX_ACTIVE_TOKENS_PER_RUN) {
+        capped = true;
+        break;
+      }
       activeTokenSet.add(row.token);
-    });
+    }
+
+    if (capped) {
+      break;
+    }
 
     const lastToken = rows[rows.length - 1]?.token;
     if (typeof lastToken !== 'string' || rows.length < pageSize) {
@@ -1488,6 +1499,13 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
     }
 
     cursor = lastToken;
+  }
+
+  if (capped) {
+    console.warn('[release-monitor] active_tokens_capped', {
+      maxActiveTokensPerRun: MAX_ACTIVE_TOKENS_PER_RUN,
+      loadedActiveTokens: activeTokenSet.size
+    });
   }
 
   return activeTokenSet;

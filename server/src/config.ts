@@ -3,6 +3,10 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
 import { parseRecommendationRuntimeMode } from './recommendations/runtime.js';
+import {
+  DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
+} from './recommendations/discovery-enrichment-defaults.js';
 
 const envFile = readEnvFilePath();
 loadDotenv({ path: envFile });
@@ -435,11 +439,11 @@ export const config: AppConfig = {
   ),
   recommendationsDiscoveryEnrichRearmAfterDays: readIntegerEnv(
     'RECOMMENDATIONS_DISCOVERY_ENRICH_REARM_AFTER_DAYS',
-    30
+    DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT
   ),
   recommendationsDiscoveryEnrichRearmRecentReleaseYears: readIntegerEnv(
     'RECOMMENDATIONS_DISCOVERY_ENRICH_REARM_RECENT_RELEASE_YEARS',
-    1
+    DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
   ),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),

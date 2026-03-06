@@ -1,5 +1,9 @@
 import { RecommendationRepository } from './repository.js';
 import type { QueryResult, QueryResultRow } from 'pg';
+import {
+  DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
+} from './discovery-enrichment-defaults.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;
@@ -21,6 +25,8 @@ export interface DiscoveryEnrichmentServiceOptions {
   maxAttempts: number;
   backoffBaseMinutes: number;
   backoffMaxHours: number;
+  rearmAfterDays?: number;
+  rearmRecentReleaseYears?: number;
 }
 
 export interface DiscoveryEnrichmentSummary {
@@ -156,7 +162,9 @@ export class DiscoveryEnrichmentService {
       queryable,
       {
         nowIso: new Date(this.now()).toISOString(),
-        maxAttempts: this.options.maxAttempts
+        maxAttempts: this.options.maxAttempts,
+        rearmAfterDays: this.getRearmAfterDays(),
+        rearmRecentReleaseYears: this.getRearmRecentReleaseYears()
       }
     );
 
@@ -206,19 +214,39 @@ export class DiscoveryEnrichmentService {
       hasPositiveNumber(payload.reviewScore) || hasPositiveNumber(payload.metacriticScore);
     const nowMs = this.now();
     const nowIso = new Date(nowMs).toISOString();
+    const rearmAfterDays = this.getRearmAfterDays();
+    const rearmRecentReleaseYears = this.getRearmRecentReleaseYears();
 
     const retryState = parseRetryState(payload.enrichmentRetry);
+    const nextRetryStateBase: DiscoveryEnrichmentRetryState = {
+      hltb: maybeRearmProviderRetryState({
+        state: retryState.hltb,
+        nowMs,
+        releaseYear,
+        rearmAfterDays,
+        rearmRecentReleaseYears,
+        maxAttempts: this.options.maxAttempts
+      }),
+      metacritic: maybeRearmProviderRetryState({
+        state: retryState.metacritic,
+        nowMs,
+        releaseYear,
+        rearmAfterDays,
+        rearmRecentReleaseYears,
+        maxAttempts: this.options.maxAttempts
+      })
+    };
     const shouldTryHltb =
       !hasHltb &&
       shouldAttemptProvider({
-        state: retryState.hltb,
+        state: nextRetryStateBase.hltb,
         nowMs,
         maxAttempts: this.options.maxAttempts
       });
     const shouldTryMetacritic =
       !hasCritic &&
       shouldAttemptProvider({
-        state: retryState.metacritic,
+        state: nextRetryStateBase.metacritic,
         nowMs,
         maxAttempts: this.options.maxAttempts
       });
@@ -226,7 +254,7 @@ export class DiscoveryEnrichmentService {
     if (!shouldTryHltb && !shouldTryMetacritic) {
       const next = { ...payload };
       const nextRetryState = buildNextRetryState({
-        current: retryState,
+        current: nextRetryStateBase,
         needsHltb: !hasHltb,
         needsMetacritic: !hasCritic
       });
@@ -258,8 +286,8 @@ export class DiscoveryEnrichmentService {
 
     const next: Record<string, unknown> = { ...payload };
     const nextRetryState: DiscoveryEnrichmentRetryState = {
-      hltb: retryState.hltb,
-      metacritic: retryState.metacritic
+      hltb: nextRetryStateBase.hltb,
+      metacritic: nextRetryStateBase.metacritic
     };
 
     const hltbItem = hltbResponse?.ok ? (hltbResponse.value?.item ?? null) : null;
@@ -283,7 +311,7 @@ export class DiscoveryEnrichmentService {
     }
     if (shouldTryHltb && hltbResponse?.ok) {
       nextRetryState.hltb = nextProviderRetryState({
-        current: retryState.hltb,
+        current: nextRetryStateBase.hltb,
         nowIso,
         success: foundHltb,
         maxAttempts: this.options.maxAttempts,
@@ -306,7 +334,7 @@ export class DiscoveryEnrichmentService {
     }
     if (shouldTryMetacritic && metacriticResponse?.ok) {
       nextRetryState.metacritic = nextProviderRetryState({
-        current: retryState.metacritic,
+        current: nextRetryStateBase.metacritic,
         nowIso,
         success: foundCritic,
         maxAttempts: this.options.maxAttempts,
@@ -333,6 +361,22 @@ export class DiscoveryEnrichmentService {
       url.searchParams.set(key, value);
     }
     return url.toString();
+  }
+
+  private getRearmAfterDays(): number {
+    const raw = this.options.rearmAfterDays;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return Math.max(1, Math.trunc(raw));
+    }
+    return DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT;
+  }
+
+  private getRearmRecentReleaseYears(): number {
+    const raw = this.options.rearmRecentReleaseYears;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return Math.max(1, Math.trunc(raw));
+    }
+    return DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT;
   }
 
   private async fetchJson<T>(url: string): Promise<FetchJsonResult<T>> {
@@ -517,4 +561,56 @@ function applyRetryState(
 
 function hasMeaningfulRetryState(state: ProviderRetryState): boolean {
   return state.attempts > 0 || state.permanentMiss || state.nextTryAt !== null;
+}
+
+function maybeRearmProviderRetryState(params: {
+  state: ProviderRetryState;
+  nowMs: number;
+  releaseYear: number | null;
+  rearmAfterDays: number;
+  rearmRecentReleaseYears: number;
+  maxAttempts: number;
+}): ProviderRetryState {
+  const normalizedMaxAttempts = Math.max(1, params.maxAttempts);
+  const isCapped = params.state.permanentMiss || params.state.attempts >= normalizedMaxAttempts;
+  if (!isCapped) {
+    return params.state;
+  }
+
+  if (
+    !isRearmReleaseYearEligible(params.releaseYear, params.nowMs, params.rearmRecentReleaseYears)
+  ) {
+    return params.state;
+  }
+
+  const rearmAfterDays = Math.max(1, params.rearmAfterDays);
+  const rearmAfterMs = rearmAfterDays * 24 * 60 * 60 * 1000;
+  const lastTriedAtMs = params.state.lastTriedAt
+    ? Date.parse(params.state.lastTriedAt)
+    : Number.NaN;
+  if (Number.isFinite(lastTriedAtMs) && params.nowMs - lastTriedAtMs < rearmAfterMs) {
+    return params.state;
+  }
+
+  return {
+    attempts: 0,
+    lastTriedAt: null,
+    nextTryAt: null,
+    permanentMiss: false
+  };
+}
+
+function isRearmReleaseYearEligible(
+  releaseYear: number | null,
+  nowMs: number,
+  rearmRecentReleaseYears: number
+): boolean {
+  if (releaseYear === null) {
+    return true;
+  }
+
+  const normalizedYears = Math.max(1, Math.trunc(rearmRecentReleaseYears));
+  const currentYear = new Date(nowMs).getUTCFullYear();
+  const minReleaseYear = currentYear - normalizedYears + 1;
+  return releaseYear >= minReleaseYear;
 }

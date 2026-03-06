@@ -191,7 +191,19 @@ export class RecommendationRepository {
         VALUES ($1, $2, $3::jsonb, NOW())
         ON CONFLICT (igdb_game_id, platform_igdb_id)
         DO UPDATE
-          SET payload = EXCLUDED.payload,
+          SET payload = EXCLUDED.payload || jsonb_strip_nulls(
+                jsonb_build_object(
+                  'hltbMainHours', games.payload->'hltbMainHours',
+                  'hltbMainExtraHours', games.payload->'hltbMainExtraHours',
+                  'hltbCompletionistHours', games.payload->'hltbCompletionistHours',
+                  'reviewSource', games.payload->'reviewSource',
+                  'reviewScore', games.payload->'reviewScore',
+                  'metacriticScore', games.payload->'metacriticScore',
+                  'metacriticUrl', games.payload->'metacriticUrl',
+                  'reviewUrl', games.payload->'reviewUrl',
+                  'enrichmentRetry', games.payload->'enrichmentRetry'
+                )
+              ),
               updated_at = NOW()
         WHERE COALESCE(games.payload->>'listType', '') = 'discovery'
           AND games.payload IS DISTINCT FROM EXCLUDED.payload

@@ -168,10 +168,7 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
   }
 
   const preferences = await readNotificationPreferences(pool);
-  const tokenRows = await pool.query<{ token: string }>(
-    'SELECT token FROM fcm_tokens WHERE is_active = TRUE'
-  );
-  const activeTokenSet = new Set(tokenRows.rows.map((row) => row.token));
+  const activeTokenSet = await loadActiveTokenSet(pool);
   stats.activeTokensAtStart = activeTokenSet.size;
 
   for (const row of dueRows.rows) {
@@ -1415,6 +1412,59 @@ function createMonitorRunStats(): MonitorRunStats {
     tokensDeactivatedByCleanup: 0,
     tokensPrunedByCleanup: 0
   };
+}
+
+async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
+  const activeTokenSet = new Set<string>();
+  const pageSize = 1000;
+  let cursor: string | null = null;
+
+  for (;;) {
+    let rows: Array<{ token: string }>;
+    if (cursor === null) {
+      const result = await pool.query<{ token: string }>(
+        `
+        SELECT token
+        FROM fcm_tokens
+        WHERE is_active = TRUE
+        ORDER BY token ASC
+        LIMIT $1
+        `,
+        [pageSize]
+      );
+      rows = result.rows;
+    } else {
+      const result = await pool.query<{ token: string }>(
+        `
+        SELECT token
+        FROM fcm_tokens
+        WHERE is_active = TRUE
+          AND token > $1
+        ORDER BY token ASC
+        LIMIT $2
+        `,
+        [cursor, pageSize]
+      );
+      rows = result.rows;
+    }
+
+    if (rows.length === 0) {
+      break;
+    }
+
+    rows.forEach((row) => {
+      activeTokenSet.add(row.token);
+    });
+
+    const lastToken = rows[rows.length - 1]?.token;
+    if (typeof lastToken !== 'string' || rows.length < pageSize) {
+      break;
+    }
+
+    cursor = lastToken;
+  }
+
+  return activeTokenSet;
 }
 
 function emitRunSummary(stats: MonitorRunStats): void {

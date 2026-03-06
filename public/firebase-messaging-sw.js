@@ -6,21 +6,36 @@ const defaultConfig = {
   messagingSenderId: '',
   appId: ''
 };
-const configFromQuery = (() => {
+const runtimeConfig = (() => {
   try {
-    const url = new URL(self.location.href);
-    const raw = url.searchParams.get('firebaseConfig');
-    if (!raw) {
-      return null;
+    importScripts('/assets/runtime-config.js');
+  } catch {
+    // Runtime config is optional in development/fallback contexts.
+  }
+
+  try {
+    const runtime = globalThis.__GAME_SHELF_RUNTIME_CONFIG__;
+    const firebaseConfig = runtime?.firebase;
+    if (!firebaseConfig || typeof firebaseConfig !== 'object') {
+      return defaultConfig;
     }
 
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    return {
+      apiKey: typeof firebaseConfig.apiKey === 'string' ? firebaseConfig.apiKey : '',
+      authDomain: typeof firebaseConfig.authDomain === 'string' ? firebaseConfig.authDomain : '',
+      projectId: typeof firebaseConfig.projectId === 'string' ? firebaseConfig.projectId : '',
+      storageBucket:
+        typeof firebaseConfig.storageBucket === 'string' ? firebaseConfig.storageBucket : '',
+      messagingSenderId:
+        typeof firebaseConfig.messagingSenderId === 'string'
+          ? firebaseConfig.messagingSenderId
+          : '',
+      appId: typeof firebaseConfig.appId === 'string' ? firebaseConfig.appId : ''
+    };
   } catch {
-    return null;
+    return defaultConfig;
   }
 })();
-const runtimeConfig = configFromQuery || self.GAME_SHELF_FIREBASE_CONFIG || defaultConfig;
 
 let messaging = null;
 

@@ -20,14 +20,14 @@ import { isDevMode, provideZoneChangeDetection } from '@angular/core';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { getMessaging, provideMessaging } from '@angular/fire/messaging';
-import { environment } from './environments/environment';
+import { getFirebaseWebConfig } from './app/core/config/runtime-config';
 import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.interceptor';
 import { register as registerSwiperElements } from 'swiper/element/bundle';
 
 registerSwiperElements();
 
 function hasFirebaseMessagingConfig(): boolean {
-  const firebase = environment.firebase;
+  const firebase = getFirebaseWebConfig();
 
   const requiredKeys: Array<keyof typeof firebase> = [
     'apiKey',
@@ -44,7 +44,7 @@ function hasFirebaseMessagingConfig(): boolean {
 
 const firebaseProviders = hasFirebaseMessagingConfig()
   ? [
-      provideFirebaseApp(() => initializeApp(environment.firebase)),
+      provideFirebaseApp(() => initializeApp(getFirebaseWebConfig())),
       provideMessaging(() => getMessaging())
     ]
   : [];

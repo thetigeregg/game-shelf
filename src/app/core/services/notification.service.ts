@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Messaging } from '@angular/fire/messaging';
 import { deleteToken, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { environment } from '../../../environments/environment';
+import { getFirebaseVapidKey, getFirebaseWebConfig } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
@@ -219,7 +220,7 @@ export class NotificationService {
     }
 
     const serviceWorkerRegistration = await this.resolveServiceWorkerRegistration();
-    const vapidKey = environment.firebaseVapidKey.trim();
+    const vapidKey = getFirebaseVapidKey().trim();
 
     if (!serviceWorkerRegistration) {
       return { ok: false, message: 'Unable to register notification service worker.' };
@@ -312,7 +313,7 @@ export class NotificationService {
   }
 
   private buildFirebaseWorkerUrl(): string {
-    const configJson = JSON.stringify(environment.firebase);
+    const configJson = JSON.stringify(getFirebaseWebConfig());
     const encoded = encodeURIComponent(configJson);
     return `/firebase-messaging-sw.js?firebaseConfig=${encoded}`;
   }

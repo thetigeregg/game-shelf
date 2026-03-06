@@ -33,12 +33,20 @@ function readSecretFile(name: string, fallbackSecretName: string): string {
 function readRequiredSecretFile(name: string, fallbackSecretName: string): string {
   const value = readSecretFile(name, fallbackSecretName);
   if (!value) {
-    if (readEnv('NODE_ENV') === 'test') {
+    if (isTestRuntime()) {
       return `test_${name.toLowerCase()}`;
     }
     throw new Error(`Missing required secret file for ${name} (${name}_FILE)`);
   }
   return value;
+}
+
+function isTestRuntime(): boolean {
+  if (readEnv('NODE_ENV') === 'test') {
+    return true;
+  }
+
+  return process.argv.includes('--test') || process.execArgv.includes('--test');
 }
 
 function readIntegerEnv(name: string, fallback: number): number {

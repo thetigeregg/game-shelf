@@ -14,7 +14,6 @@ import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
-import { resolveDiscoveryEnrichmentRuntimeConfig } from './recommendations/discovery-enrichment-runtime-config.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
@@ -59,7 +58,6 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
-  const discoveryEnrichmentRuntimeConfig = resolveDiscoveryEnrichmentRuntimeConfig();
   const discoveryEnrichmentServiceOptions = {
     enabled: config.recommendationsDiscoveryEnrichEnabled,
     startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
@@ -70,8 +68,8 @@ async function main(): Promise<void> {
     maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
     backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
     backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
-    rearmAfterDays: discoveryEnrichmentRuntimeConfig.rearmAfterDays,
-    rearmRecentReleaseYears: discoveryEnrichmentRuntimeConfig.rearmRecentReleaseYears
+    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
   };
   const discoveryEnrichmentService = new DiscoveryEnrichmentService(
     recommendationRepository,

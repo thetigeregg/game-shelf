@@ -69,6 +69,10 @@ Common stack env vars:
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (optional; defaults `false`; enables `POST /v1/notifications/test`)
 - `HLTB_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
 - `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
+- `FCM_TOKEN_CLEANUP_ENABLED` (optional; defaults `true`)
+- `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (optional; defaults `24`)
+- `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (optional; defaults `60`)
+- `FCM_TOKEN_INACTIVE_PURGE_DAYS` (optional; defaults `180`)
 
 Release notification defaults:
 

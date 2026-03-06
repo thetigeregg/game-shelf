@@ -26,14 +26,28 @@ export class NotificationService {
     optional: true
   });
   private initialized = false;
+  private initializing: Promise<void> | null = null;
 
   async initialize(): Promise<void> {
     if (this.initialized) {
       return;
     }
 
-    this.initialized = true;
+    if (this.initializing) {
+      await this.initializing;
+      return;
+    }
 
+    this.initializing = this.initializeInternal();
+    try {
+      await this.initializing;
+      this.initialized = true;
+    } finally {
+      this.initializing = null;
+    }
+  }
+
+  private async initializeInternal(): Promise<void> {
     if (!this.messaging) {
       return;
     }

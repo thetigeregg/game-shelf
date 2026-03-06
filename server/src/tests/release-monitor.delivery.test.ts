@@ -277,9 +277,13 @@ void test('withGameLock skips handler when lock is not acquired', async () => {
 void test('token cleanup updates stale active tokens and prunes old inactive tokens', async () => {
   const pool = new TokenCleanupPoolMock();
   const stats = createRunStats();
-  releaseMonitorInternals.resetFcmTokenCleanupScheduleForTests();
+  const runtimeState = releaseMonitorInternals.createMonitorRuntimeState();
 
-  await releaseMonitorInternals.runFcmTokenCleanupIfDue(pool as unknown as Pool, stats);
+  await releaseMonitorInternals.runFcmTokenCleanupIfDue(
+    pool as unknown as Pool,
+    stats,
+    runtimeState
+  );
 
   assert.equal(pool.staleUpdates, 1);
   assert.equal(pool.prunedDeletes, 1);
@@ -292,10 +296,18 @@ void test('token cleanup respects interval and skips immediate re-run', async ()
   const pool = new TokenCleanupPoolMock();
   const statsFirstRun = createRunStats();
   const statsSecondRun = createRunStats();
-  releaseMonitorInternals.resetFcmTokenCleanupScheduleForTests();
+  const runtimeState = releaseMonitorInternals.createMonitorRuntimeState();
 
-  await releaseMonitorInternals.runFcmTokenCleanupIfDue(pool as unknown as Pool, statsFirstRun);
-  await releaseMonitorInternals.runFcmTokenCleanupIfDue(pool as unknown as Pool, statsSecondRun);
+  await releaseMonitorInternals.runFcmTokenCleanupIfDue(
+    pool as unknown as Pool,
+    statsFirstRun,
+    runtimeState
+  );
+  await releaseMonitorInternals.runFcmTokenCleanupIfDue(
+    pool as unknown as Pool,
+    statsSecondRun,
+    runtimeState
+  );
 
   assert.equal(pool.staleUpdates, 1);
   assert.equal(pool.prunedDeletes, 1);

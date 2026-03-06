@@ -90,7 +90,9 @@ interface MonitorRunStats {
   tokensPrunedByCleanup: number;
 }
 
-let nextFcmTokenCleanupAtMs = 0;
+interface MonitorRuntimeState {
+  nextFcmTokenCleanupAtMs: number;
+}
 
 export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   if (!config.releaseMonitorEnabled) {
@@ -99,6 +101,7 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   }
 
   let running = false;
+  const runtimeState = createMonitorRuntimeState();
 
   const runOnce = async (): Promise<void> => {
     if (running) {
@@ -107,7 +110,7 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
 
     running = true;
     try {
-      await processDueGames(pool);
+      await processDueGames(pool, runtimeState);
     } catch (error) {
       console.error('[release-monitor] run_failed', error);
     } finally {
@@ -128,9 +131,9 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   };
 }
 
-async function processDueGames(pool: Pool): Promise<void> {
+async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): Promise<void> {
   const stats = createMonitorRunStats();
-  await runFcmTokenCleanupIfDue(pool, stats);
+  await runFcmTokenCleanupIfDue(pool, stats, runtimeState);
 
   const dueRows = await pool.query<DueGameRow>(
     `
@@ -1434,17 +1437,21 @@ function emitRunSummary(stats: MonitorRunStats): void {
   });
 }
 
-async function runFcmTokenCleanupIfDue(pool: Pool, stats: MonitorRunStats): Promise<void> {
+async function runFcmTokenCleanupIfDue(
+  pool: Pool,
+  stats: MonitorRunStats,
+  runtimeState: MonitorRuntimeState
+): Promise<void> {
   if (!config.fcmTokenCleanupEnabled) {
     return;
   }
 
   const nowMs = Date.now();
-  if (nowMs < nextFcmTokenCleanupAtMs) {
+  if (nowMs < runtimeState.nextFcmTokenCleanupAtMs) {
     return;
   }
 
-  nextFcmTokenCleanupAtMs =
+  runtimeState.nextFcmTokenCleanupAtMs =
     nowMs + Math.max(1, config.fcmTokenCleanupIntervalHours) * 60 * 60 * 1000;
 
   try {
@@ -1476,8 +1483,10 @@ async function runFcmTokenCleanupIfDue(pool: Pool, stats: MonitorRunStats): Prom
   }
 }
 
-function resetFcmTokenCleanupScheduleForTests(): void {
-  nextFcmTokenCleanupAtMs = 0;
+function createMonitorRuntimeState(): MonitorRuntimeState {
+  return {
+    nextFcmTokenCleanupAtMs: 0
+  };
 }
 
 function evaluateRunHealth(stats: MonitorRunStats): Array<{ code: string; detail: string }> {
@@ -1528,6 +1537,6 @@ export const releaseMonitorInternals = {
   releaseNotificationLogReservation,
   withGameLock,
   runFcmTokenCleanupIfDue,
-  resetFcmTokenCleanupScheduleForTests,
+  createMonitorRuntimeState,
   evaluateRunHealth
 };

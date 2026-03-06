@@ -1,7 +1,8 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { config } from './config.js';
 import { sendFcmMulticast } from './fcm.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 interface RegisterBody {
   token?: unknown;
@@ -46,6 +47,9 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
     async (_request, reply) => {
       if (!config.notificationsObservabilityEndpointEnabled) {
         reply.code(404).send({ error: 'Not found' });
+        return;
+      }
+      if (!isNotificationAdminAuthorized(_request, reply)) {
         return;
       }
 
@@ -197,6 +201,9 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
         reply.code(404).send({ error: 'Not found' });
         return;
       }
+      if (!isNotificationAdminAuthorized(_request, reply)) {
+        return;
+      }
 
       const result = await pool.query<{ token: string }>(
         `
@@ -232,6 +239,26 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
       });
     }
   );
+}
+
+function isNotificationAdminAuthorized(
+  request: FastifyRequest,
+  reply: { code: (statusCode: number) => { send: (payload: unknown) => void } }
+): boolean {
+  const authorized = isAuthorizedMutatingRequest({
+    requireAuth: config.requireAuth,
+    apiToken: config.apiToken,
+    clientWriteTokens: config.clientWriteTokens,
+    authorizationHeader: request.headers.authorization,
+    clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME]
+  });
+
+  if (!authorized) {
+    reply.code(401).send({ error: 'Unauthorized' });
+    return false;
+  }
+
+  return true;
 }
 
 function normalizeToken(value: unknown): string | null {

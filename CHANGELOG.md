@@ -1523,3 +1523,8 @@
 ## v1.1.6 - 2026-03-06
 - a7a5b05 Force push
 
+## v1.1.7 - 2026-03-06
+- 781b17a Merge pull request #170 from thetigeregg/codex/discovery-game-retry-limit
+- f80d8ac Update package lock
+- f833119 Fix discovery query for Project Gorg
+

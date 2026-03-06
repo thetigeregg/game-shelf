@@ -1,4 +1,9 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import {
+  buildDiscoveryEnrichmentSelectionParams,
+  LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL
+} from './discovery-enrichment-query.js';
+import type { DiscoveryEnrichmentSelectionOptions } from './discovery-enrichment-query.js';
 import { normalizeDbGameRow } from './normalize.js';
 import { parseRecommendationRuntimeMode } from './runtime.js';
 import { buildGameKey } from './semantic.js';
@@ -191,7 +196,19 @@ export class RecommendationRepository {
         VALUES ($1, $2, $3::jsonb, NOW())
         ON CONFLICT (igdb_game_id, platform_igdb_id)
         DO UPDATE
-          SET payload = EXCLUDED.payload,
+          SET payload = EXCLUDED.payload || jsonb_strip_nulls(
+                jsonb_build_object(
+                  'hltbMainHours', games.payload->'hltbMainHours',
+                  'hltbMainExtraHours', games.payload->'hltbMainExtraHours',
+                  'hltbCompletionistHours', games.payload->'hltbCompletionistHours',
+                  'reviewSource', games.payload->'reviewSource',
+                  'reviewScore', games.payload->'reviewScore',
+                  'metacriticScore', games.payload->'metacriticScore',
+                  'metacriticUrl', games.payload->'metacriticUrl',
+                  'reviewUrl', games.payload->'reviewUrl',
+                  'enrichmentRetry', games.payload->'enrichmentRetry'
+                )
+              ),
               updated_at = NOW()
         WHERE COALESCE(games.payload->>'listType', '') = 'discovery'
           AND games.payload IS DISTINCT FROM EXCLUDED.payload
@@ -252,7 +269,8 @@ export class RecommendationRepository {
 
   async listDiscoveryRowsMissingEnrichment(
     limit: number,
-    queryable: Queryable = this.pool
+    queryable: Queryable = this.pool,
+    options?: DiscoveryEnrichmentSelectionOptions
   ): Promise<
     Array<{
       igdbGameId: string;
@@ -260,23 +278,16 @@ export class RecommendationRepository {
       payload: Record<string, unknown>;
     }>
   > {
-    const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
+    const params = buildDiscoveryEnrichmentSelectionParams(limit, options);
     const result = await queryable.query<DiscoveryGameRow>(
-      `
-      SELECT igdb_game_id, platform_igdb_id, payload
-      FROM games
-      WHERE COALESCE(payload->>'listType', '') = 'discovery'
-        AND (
-          COALESCE((payload->>'hltbMainHours')::text, '') = ''
-          OR (
-            COALESCE((payload->>'reviewScore')::text, '') = ''
-            AND COALESCE((payload->>'metacriticScore')::text, '') = ''
-          )
-        )
-      ORDER BY updated_at ASC
-      LIMIT $1
-      `,
-      [normalizedLimit]
+      LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL,
+      [
+        params.normalizedLimit,
+        params.maxAttempts,
+        params.nowIso,
+        params.rearmAfterDays,
+        params.rearmMinReleaseYear
+      ]
     );
 
     return result.rows.map((row) => ({

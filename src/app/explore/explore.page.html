@@ -236,12 +236,20 @@
 
       @if (selectedGameDetail) {
         <app-detail-shortcuts-fab
+          [showVideosShortcut]="hasDetailVideosShortcut"
+          (videosClick)="openVideosModal()"
           (shortcutSearch)="openShortcutSearch($event)"
         ></app-detail-shortcuts-fab>
       }
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<app-detail-videos-modal
+  [isOpen]="isVideosModalOpen"
+  [videos]="detailVideos"
+  (dismiss)="closeVideosModal()"
+></app-detail-videos-modal>
 
 <ng-template
   #recommendationRowTemplate
@@ -322,7 +330,14 @@
   </div>
 </ng-template>
 
-<ion-modal [isOpen]="isRatingModalOpen" (didDismiss)="closeRatingModal()">
+<ion-modal
+  class="sheet-modal"
+  [isOpen]="isRatingModalOpen"
+  [breakpoints]="[0, 0.4]"
+  [initialBreakpoint]="0.4"
+  handle="true"
+  (didDismiss)="closeRatingModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>

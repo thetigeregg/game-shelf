@@ -1417,3 +1417,140 @@
 - 7671149 Merge branch 'main' into codex/chore-remove-tracked-nas-secrets
 - 0ffd929 chore(secrets): stop tracking nas secret files
 
+## v1.0.6 - 2026-03-04
+- 02c915e Merge pull request #154 from thetigeregg/codex/fixy
+- 9b55e16 Summarize Caddyfile proxy fix
+
+## v1.0.7 - 2026-03-05
+- 2930b05 Merge pull request #157 from thetigeregg/codex/fixy
+- c027646 Clamp enrichment maxAttempts
+- 203f88c Align HLTB zero handling
+- 63cbef1 Handle zero HLTB hours
+- 22b0b08 Prevent skipping zero HLTB rows
+- 1f223d4 Align HLTB enrichment logic
+- 7ce4482 Add permanentMiss backoff tests
+- 994f542 Fix HLTB detection logic
+- 6e0e82b Include all HLTB fields check
+- c4699a4 Write PR summary from diff
+- 71785d5 Summarize diff against origin main
+- 72ac81d Update HLTB presence check
+- 6c23ff2 Merge branch 'main' into codex/fixy
+- 9d19e5e Add discovery enrich backoff limits
+
+## v1.1.0 - 2026-03-05
+- 90be8e2 Merge pull request #160 from thetigeregg/bump
+- 3b7b7c2 feat: add audit fix command for all dependencies
+- 209f3c4 Run audit fix
+
+## v1.1.1 - 2026-03-05
+- a93935b Merge pull request #161 from thetigeregg/codex/screenshots-videos
+- fefe3f8 Trim options size before use
+- 9a1dde5 Allow explicit nulls in sync upsert
+- b5f3a3e Allow null clears in sync
+- ced03a2 Improve patch coverage and lint
+- 5085be6 Guard game payload update
+- c682957 Add payload equality guard
+- f43d8b2 Prevent metadata payload churn
+- b221764 Add deep equality payload check
+- 04e53a7 Fix failing unit tests and run suite
+- 347e845 Audit prod allowlist effects
+- 925c53a Review manual override video UI
+- ff3efe6 Reorder manual action buttons
+- 75cd6e2 Reorder shortcuts and move manual
+- cba5986 Add videos button and modal
+- 024ce98 Add videos modal fab shortcut
+- c059295 Enable swiper coverflow and lazy
+- 5e007f5 Add Swiper lazy loading preloader
+- 68da668 Adjust swiper pagination spacing
+- d4c546d Fix pagination spacing logic
+- 32ccb42 Update swiper params
+- 1c1dbe3 Update swiper navigation icons
+- 5a289fd Fix detail-cover padding
+- 9782b76 Add Swiper carousel to detail
+- afcb10c Add swiper dependency to package.json and package-lock.json
+- 689b5f8 Fix worktree seeding sync history
+- d9d0683 Format generated platform artifacts
+- 458a66c Merge branch 'main' into codex/screenshots-videos
+- 4649ab7 Update repository sync tests
+- 2f6b905 Add IGDB screenshot enrichment
+- a6e4817 Merge branch 'main' into codex/screenshots-videos
+- 5809577 Add support for screenshots and videos in metadata enrichment
+
+## v1.1.2 - 2026-03-05
+- 545981c Merge pull request #162 from thetigeregg/codex/screenshots-videos
+- 77555c0 Investigate ui test proxy errors
+- ce03b04 Rename upload step for raw coverage artifacts in CI workflow
+- e07ac5b Summarize igdb media fix
+- 77033e5 Merge branch 'main' into codex/screenshots-videos
+- 904a31f Update media normalization dedupe
+
+## v1.1.3 - 2026-03-05
+- 07b43e3 Merge pull request #163 from thetigeregg/codex/pollution-fix
+- 78dcd26 Optimize game outbox filtering
+- 8b3b224 Optimize pending game checks
+- 2a935e6 Optimize game outbox lookup
+- 5ecb610 Fix HLTB discovery retry handling
+- 9442cbb Add shim to post-checkout hook
+- 7722f4d Ensure post-checkout hook runs
+- 6b3e84e Review discovery sync safeguards
+- c4919b8 Audit discovery cleanup logic
+- cec30c2 Await remediation before sync
+- 9521bbf Await remediation before sync
+- 205e411 Preserve collection games on sync
+- 0b58de7 Prevent discovery record deletion
+- 8d598c2 Use canonical timestamp in test
+- a4c5ee8 Add flag check to husky post-check
+- 975c109 Delete local game on discovery upser
+- 761f0b1 Clarify pushOutbox cursor behavior
+- 79af92a Provide live cleanup command
+- 89d586a Investigate missing discovery finger
+- 69c0757 Count game discovery fingerprints
+
+## v1.1.4 - 2026-03-05
+- a286458 Merge pull request #166 from thetigeregg/codex/fixr
+- 96cdd6d Merge branch 'main' into codex/fixr
+- 406876e Update dompurify to 3.3.2
+
+## v1.1.5 - 2026-03-05
+- 50793da Force push
+- 2707002 Merge pull request #169 from thetigeregg/codex/discovery-excludes-owned-game
+- 7c7166d Force push
+- f274937 Merge branch 'dependabot/npm_and_yarn/server/fastify-5.8.1' into codex/discovery-excludes-owned-game
+- c033936 Update discovery filter by game id
+- a0c83fc Force push
+- cb89b1e chore(deps): bump fastify from 5.7.4 to 5.8.1 in /server
+
+## v1.1.6 - 2026-03-06
+- a7a5b05 Force push
+
+## v1.1.7 - 2026-03-06
+- 781b17a Merge pull request #170 from thetigeregg/codex/discovery-game-retry-limit
+- f80d8ac Update package lock
+- f833119 Fix discovery query for Project Gorg
+
+## v1.1.8 - 2026-03-06
+- dbafaec Merge pull request #171 from thetigeregg/codex/discovery-game-retry-limit
+- d85194a Reuse config helpers for discovery
+- a785be1 Refactor discovery config helpers
+- 3d7b50a Centralize discovery enrich env
+- f934424 Type discovery enrichment options
+- 89426e5 Add rearm fields to discovery opts
+- 043560a Add rearm options to discovery types
+- 918452f Adjust DiscoveryEnrichment imports
+- a3ce241 Fix discovery enrichment date logic
+- 63523f1 Fix transient retry state handling
+- 5a7c554 Add coverage for repository.ts
+- 7c31b7b Add repository coverage option2
+- da84b58 Force push
+- 4ca7239 Explain codecov coverage failure
+- 2d8ccf2 Explain codecov patch coverage
+- 527e29f Explain codecov and regen summary
+- 2bd3762 Merge branch 'main' into codex/discovery-game-retry-limit
+- 762bb2f Add rearm logic for HLTB
+
+## v1.1.9 - 2026-03-06
+- 1659584 Merge pull request #172 from thetigeregg/codex/convert-game-rating-modal-to
+- fcb1c8c Convert rating modal to sheets
+- 2ce1fe4 Convert game rating modal to sheet
+- ffc1760 Convert rating modal to sheet
+

@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.0.5",
+  "version": "1.1.9",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -39,6 +39,7 @@
     "i:all": "npm i && npm --prefix server i && npm --prefix worker i && npm --prefix hltb-scraper i && npm --prefix metacritic-scraper i",
     "ci:all": "npm ci && npm --prefix server ci && npm --prefix worker ci && npm --prefix hltb-scraper ci && npm --prefix metacritic-scraper ci",
     "audit:all": "npm audit && npm --prefix server audit && npm --prefix worker audit && npm --prefix hltb-scraper audit && npm --prefix metacritic-scraper audit",
+    "audit:fix:all": "npm audit fix && npm --prefix server audit fix && npm --prefix worker audit fix && npm --prefix hltb-scraper audit fix && npm --prefix metacritic-scraper audit fix",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh"
   },
@@ -68,13 +69,14 @@
     "@tiptap/pm": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
     "dexie": "^4.3.0",
-    "dompurify": "^3.3.1",
+    "dompurify": "^3.3.2",
     "fake-indexeddb": "^6.2.5",
     "firebase": "^11.10.0",
     "ionicons": "^8.0.13",
     "ngx-tiptap": "^14.0.1",
     "remixicon": "^4.9.1",
     "rxjs": "~7.8.2",
+    "swiper": "^12.1.2",
     "tslib": "^2.8.1",
     "zone.js": "~0.16.1"
   },
@@ -94,7 +96,6 @@
     "@eslint/eslintrc": "^3.3.4",
     "@eslint/js": "^9.39.3",
     "@ionic/angular-toolkit": "^12.3.0",
-    "@types/dompurify": "^3.2.0",
     "@types/node": "^22.19.13",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",

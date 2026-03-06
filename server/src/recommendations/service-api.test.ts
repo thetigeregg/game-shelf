@@ -588,8 +588,8 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
         sourceScore: params.source === 'popular' ? 0.9 : 0.8
       } as const;
       return Promise.resolve([
-        // Strict-excluded because key matches existing collection game (10::6).
-        { igdbGameId: '10', platformIgdbId: 6, payload: {}, ...shared },
+        // Strict-excluded by IGDB game id because collection already has game 10 on another platform.
+        { igdbGameId: '10', platformIgdbId: 48, payload: {}, ...shared },
         {
           igdbGameId: params.source === 'popular' ? '21' : '31',
           platformIgdbId: 6,

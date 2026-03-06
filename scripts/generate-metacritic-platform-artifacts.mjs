@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { format, resolveConfig } from 'prettier';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -59,9 +60,15 @@ async function main() {
   }
 
   const platformIds = toSortedPlatformIds(parsedCanonical);
+  const prettierConfig = (await resolveConfig(frontendSupportPath)) ?? {};
+
+  const formattedFrontendSource = await format(buildFrontendSupportSource(platformIds), {
+    ...prettierConfig,
+    filepath: frontendSupportPath
+  });
 
   await fs.writeFile(scraperMapPath, stringifyJson(parsedCanonical), 'utf8');
-  await fs.writeFile(frontendSupportPath, buildFrontendSupportSource(platformIds), 'utf8');
+  await fs.writeFile(frontendSupportPath, formattedFrontendSource, 'utf8');
 }
 
 await main();

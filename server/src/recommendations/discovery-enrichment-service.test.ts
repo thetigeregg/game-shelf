@@ -107,7 +107,10 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
       intervalMinutes: 30,
       maxGamesPerRun: 50,
       requestTimeoutMs: 1000,
-      apiBaseUrl: 'http://127.0.0.1:3000'
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
     });
     const result = await service.enrichNow({ limit: 10 });
 
@@ -135,7 +138,10 @@ void test('discovery enrichment runOnce returns null when lock is unavailable', 
     intervalMinutes: 30,
     maxGamesPerRun: 50,
     requestTimeoutMs: 1000,
-    apiBaseUrl: 'http://127.0.0.1:3000'
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168
   });
 
   const result = await service.runOnce();
@@ -150,7 +156,10 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
     intervalMinutes: 30,
     maxGamesPerRun: 50,
     requestTimeoutMs: 1000,
-    apiBaseUrl: 'http://127.0.0.1:3000'
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168
   });
 
   assert.equal(await disabledService.runOnce(), null);
@@ -177,7 +186,10 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
       intervalMinutes: 30,
       maxGamesPerRun: 50,
       requestTimeoutMs: 1000,
-      apiBaseUrl: 'http://127.0.0.1:3000'
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
     });
     const result = await service.enrichNow({ limit: 10 });
     assert.deepEqual(result, {
@@ -199,7 +211,10 @@ void test('discovery enrichment start/stop guards interval lifecycle', () => {
     intervalMinutes: 0,
     maxGamesPerRun: 50,
     requestTimeoutMs: 1000,
-    apiBaseUrl: 'http://127.0.0.1:3000'
+    apiBaseUrl: 'http://127.0.0.1:3000',
+    maxAttempts: 6,
+    backoffBaseMinutes: 60,
+    backoffMaxHours: 168
   });
 
   const originalSetTimeout = globalThis.setTimeout;
@@ -238,4 +253,636 @@ void test('discovery enrichment start/stop guards interval lifecycle', () => {
   assert.equal(clearCalls, 1);
   assert.ok(timeoutCalls.some((value) => value === 10));
   assert.ok(timeoutCalls.some((value) => value === 60_000));
+});
+
+void test('discovery enrichment applies cooldown after failed attempt', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Never Match Game',
+        releaseYear: 2001,
+        platform: 'PC',
+        listType: 'discovery'
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const baseNow = Date.parse('2026-01-01T00:00:00.000Z');
+    let nowMs = baseNow;
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => nowMs
+    );
+
+    const first = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(first, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+    assert.equal(repository.updates.length, 1);
+    const firstPayload = repository.updates[0].payload;
+    assert.equal(typeof firstPayload.enrichmentRetry, 'object');
+
+    repository.rows = [
+      {
+        igdbGameId: '1',
+        platformIgdbId: 6,
+        payload: firstPayload
+      }
+    ];
+    nowMs = baseNow + 30 * 60 * 1000;
+
+    const second = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(second, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment marks permanent miss at max attempts and stops retrying', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '2',
+      platformIgdbId: 6,
+      payload: {
+        title: 'No Match Forever',
+        releaseYear: 2002,
+        platform: 'PC',
+        listType: 'discovery'
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const baseNow = Date.parse('2026-01-01T00:00:00.000Z');
+    let nowMs = baseNow;
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 2,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => nowMs
+    );
+
+    const first = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(first, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+    const firstPayload = repository.updates[0].payload;
+    assert.equal(
+      typeof (firstPayload.enrichmentRetry as Record<string, unknown>)['hltb'],
+      'object'
+    );
+
+    repository.rows = [
+      {
+        igdbGameId: '2',
+        platformIgdbId: 6,
+        payload: firstPayload
+      }
+    ];
+    nowMs = baseNow + 2 * 60 * 60 * 1000;
+
+    const second = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(second, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 4);
+    const secondPayload = repository.updates[1].payload;
+    const retry = secondPayload.enrichmentRetry as {
+      hltb: { attempts: number; permanentMiss: boolean };
+      metacritic: { attempts: number; permanentMiss: boolean };
+    };
+    assert.equal(retry.hltb.attempts, 2);
+    assert.equal(retry.hltb.permanentMiss, true);
+    assert.equal(retry.metacritic.attempts, 2);
+    assert.equal(retry.metacritic.permanentMiss, true);
+
+    repository.rows = [
+      {
+        igdbGameId: '2',
+        platformIgdbId: 6,
+        payload: secondPayload
+      }
+    ];
+    nowMs = baseNow + 24 * 60 * 60 * 1000;
+
+    const third = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(third, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment does not increment retry state on transient provider failures', async () => {
+  const repository = new RepositoryMock();
+  const initialPayload = {
+    title: 'Provider Outage Game',
+    releaseYear: 2004,
+    platform: 'PC',
+    listType: 'discovery',
+    enrichmentRetry: {
+      hltb: {
+        attempts: 1,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: false
+      },
+      metacritic: {
+        attempts: 1,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: false
+      }
+    }
+  };
+  repository.rows = [
+    {
+      igdbGameId: '4',
+      platformIgdbId: 6,
+      payload: initialPayload
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(
+      new Response(JSON.stringify({ error: 'upstream_down' }), { status: 500 })
+    );
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 2,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => Date.parse('2026-01-01T02:00:00.000Z')
+    );
+
+    const first = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(first, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(repository.updates.length, 0);
+    assert.equal(fetchCalls, 2);
+
+    repository.rows = [
+      {
+        igdbGameId: '4',
+        platformIgdbId: 6,
+        payload: initialPayload
+      }
+    ];
+
+    const second = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(second, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(repository.updates.length, 0);
+    assert.equal(fetchCalls, 4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment increments retry state on 204 no-content responses', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '5',
+      platformIgdbId: 6,
+      payload: {
+        title: 'No Content Game',
+        releaseYear: 2005,
+        platform: 'PC',
+        listType: 'discovery'
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(null, { status: 204 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => Date.parse('2026-01-01T02:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(repository.updates.length, 1);
+    assert.equal(fetchCalls, 2);
+
+    const retry = repository.updates[0].payload.enrichmentRetry as {
+      hltb?: { attempts: number };
+      metacritic?: { attempts: number };
+    };
+    assert.equal(retry.hltb?.attempts, 1);
+    assert.equal(retry.metacritic?.attempts, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment clears retry state after successful retry', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '3',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Eventually Match',
+        releaseYear: 2003,
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 2,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: '2026-01-01T01:00:00.000Z',
+            permanentMiss: false
+          },
+          metacritic: {
+            attempts: 2,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: '2026-01-01T01:00:00.000Z',
+            permanentMiss: false
+          }
+        }
+      }
+    }
+  ];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 10.5 }
+          }),
+          { status: 200 }
+        )
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: { metacriticScore: 79, metacriticUrl: 'https://www.metacritic.com/game/example' }
+        }),
+        { status: 200 }
+      )
+    );
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => Date.parse('2026-01-01T02:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(repository.updates.length, 1);
+    const updatedPayload = repository.updates[0].payload;
+    assert.equal(updatedPayload.hltbMainHours, 10.5);
+    assert.equal(updatedPayload.metacriticScore, 79);
+    assert.equal('enrichmentRetry' in updatedPayload, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment rearms capped retry state for recent releases after cooldown days', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '4',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Recent Rearm Game',
+        releaseYear: 2026,
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          },
+          metacritic: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          }
+        }
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+
+    const retry = repository.updates[0].payload.enrichmentRetry as {
+      hltb: { attempts: number; permanentMiss: boolean };
+      metacritic: { attempts: number; permanentMiss: boolean };
+    };
+    assert.equal(retry.hltb.attempts, 1);
+    assert.equal(retry.hltb.permanentMiss, false);
+    assert.equal(retry.metacritic.attempts, 1);
+    assert.equal(retry.metacritic.permanentMiss, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment rearms capped retry state when release year is missing', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '5',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Unknown Release Rearm',
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          },
+          metacritic: {
+            attempts: 6,
+            lastTriedAt: '2026-01-01T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          }
+        }
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 1, skipped: 0 });
+    assert.equal(fetchCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment keeps permanent miss for older releases outside rearm window', async () => {
+  const repository = new RepositoryMock();
+  const oldPayload = {
+    title: 'Old Permanent Miss',
+    releaseYear: 2020,
+    platform: 'PC',
+    listType: 'discovery',
+    enrichmentRetry: {
+      hltb: {
+        attempts: 6,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: true
+      },
+      metacritic: {
+        attempts: 6,
+        lastTriedAt: '2026-01-01T00:00:00.000Z',
+        nextTryAt: null,
+        permanentMiss: true
+      }
+    }
+  };
+  repository.rows = [
+    {
+      igdbGameId: '6',
+      platformIgdbId: 6,
+      payload: oldPayload
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 0);
+    assert.equal(repository.updates.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment does not rearm before cooldown days elapse', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '7',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Cooldown Not Elapsed',
+        releaseYear: 2026,
+        platform: 'PC',
+        listType: 'discovery',
+        enrichmentRetry: {
+          hltb: {
+            attempts: 6,
+            lastTriedAt: '2026-03-05T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          },
+          metacritic: {
+            attempts: 6,
+            lastTriedAt: '2026-03-05T00:00:00.000Z',
+            nextTryAt: null,
+            permanentMiss: true
+          }
+        }
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168,
+        rearmAfterDays: 30,
+        rearmRecentReleaseYears: 1
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z')
+    );
+
+    const result = await service.enrichNow({ limit: 10 });
+    assert.deepEqual(result, { scanned: 1, updated: 0, skipped: 1 });
+    assert.equal(fetchCalls, 0);
+    assert.equal(repository.updates.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

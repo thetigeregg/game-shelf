@@ -2,18 +2,30 @@
   <ion-grid class="detail-layout-grid" fixed>
     <ion-row>
       <ion-col size="12" size-xl="6">
-        <div class="detail-cover">
-          <div
-            class="detail-cover-backdrop"
-            [style.background-image]="game.coverUrl ? 'url(' + game.coverUrl + ')' : 'none'"
-          ></div>
-          <img
-            [src]="game.coverUrl || 'assets/icon/placeholder.png'"
-            [alt]="displayTitle"
-            (load)="onImageLoad($event)"
-            (error)="onImageError($event)"
-          />
-        </div>
+        <swiper-container
+          class="detail-cover"
+          [attr.allow-touch-move]="mediaSlides.length > 1 ? 'true' : 'false'"
+          navigation="false"
+          [attr.pagination]="mediaSlides.length > 1 ? 'true' : 'false'"
+          pagination-dynamic-bullets="true"
+          pagination-dynamic-main-bullets="3"
+          zoom="true"
+          loop="false"
+          slides-per-view="1"
+          space-between="0"
+        >
+          @for (slide of mediaSlides; track slide.key; let index = $index) {
+            <swiper-slide>
+              <app-detail-media-slide
+                [class.with-pagination]="mediaSlides.length > 1"
+                [src]="slide.src"
+                [alt]="displayTitle"
+                [loading]="index === 0 ? 'eager' : 'lazy'"
+                [showPreloader]="index > 0"
+              ></app-detail-media-slide>
+            </swiper-slide>
+          }
+        </swiper-container>
         <ion-list lines="full">
           <ion-item>
             <ion-icon slot="start" name="game-controller" aria-hidden="true"></ion-icon>

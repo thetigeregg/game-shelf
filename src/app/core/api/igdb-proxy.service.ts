@@ -32,6 +32,7 @@ import { StrictHttpParameterCodec } from './strict-http-parameter-codec';
 import { isMetacriticPlatformSupported } from '../utils/metacritic-platform-support';
 import { resolveMobyGamesPlatformId } from '../utils/mobygames-platform-map';
 import { detectReviewSourceFromUrl } from '../utils/url-host.util';
+import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 
 interface SearchResponse {
   items: GameCatalogResult[];
@@ -986,6 +987,12 @@ export class IgdbProxyService implements GameSearchApi {
         : {}),
       ...(result.keywordIds !== undefined
         ? { keywordIds: this.normalizePositiveIntegerList(result.keywordIds) }
+        : {}),
+      ...(result.screenshots !== undefined
+        ? { screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }) }
+        : {}),
+      ...(result.videos !== undefined
+        ? { videos: normalizeGameVideos(result.videos, { maxItems: 5 }) }
         : {}),
       publishers: this.normalizeTextList(result.publishers),
       platforms,

@@ -1,4 +1,15 @@
 import { IgdbMetadataRecord } from './types.js';
+import * as mediaNormalization from '../../../shared/igdb-media-normalization.mjs';
+
+const normalizeIgdbScreenshotList = mediaNormalization.normalizeIgdbScreenshotList as (
+  value: unknown,
+  options?: { limit?: number; size?: string }
+) => IgdbMetadataRecord['screenshots'];
+
+const normalizeIgdbVideoList = mediaNormalization.normalizeIgdbVideoList as (
+  value: unknown,
+  options?: { limit?: number }
+) => IgdbMetadataRecord['videos'];
 
 interface TokenCache {
   accessToken: string;
@@ -36,7 +47,13 @@ export class MetadataEnrichmentIgdbClient {
     const token = await this.getAccessToken();
     const body = [
       `where id = (${normalizedIds.join(',')});`,
-      'fields id,themes.id,themes.name,keywords.id,keywords.name;',
+      [
+        'fields id',
+        'themes.id,themes.name',
+        'keywords.id,keywords.name',
+        'screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height',
+        'videos.id,videos.name,videos.video_id;'
+      ].join(','),
       `limit ${String(normalizedIds.length)};`
     ].join(' ');
 
@@ -70,7 +87,14 @@ export class MetadataEnrichmentIgdbClient {
         themes: normalizeNameList((row as { themes?: unknown }).themes),
         themeIds: normalizeIdList((row as { themes?: unknown }).themes),
         keywords: normalizeNameList((row as { keywords?: unknown }).keywords),
-        keywordIds: normalizeIdList((row as { keywords?: unknown }).keywords)
+        keywordIds: normalizeIdList((row as { keywords?: unknown }).keywords),
+        screenshots: normalizeIgdbScreenshotList((row as { screenshots?: unknown }).screenshots, {
+          limit: 20,
+          size: 't_screenshot_huge'
+        }),
+        videos: normalizeIgdbVideoList((row as { videos?: unknown }).videos, {
+          limit: 5
+        })
       });
     }
 

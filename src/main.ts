@@ -22,6 +22,9 @@ import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { getMessaging, provideMessaging } from '@angular/fire/messaging';
 import { environment } from './environments/environment';
 import { ClientWriteTokenInterceptor } from './app/core/api/client-write-token.interceptor';
+import { register as registerSwiperElements } from 'swiper/element/bundle';
+
+registerSwiperElements();
 
 function hasFirebaseMessagingConfig(): boolean {
   const firebase = environment.firebase;

@@ -1,0 +1,35 @@
+.detail-videos-content {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+}
+
+.detail-video-card {
+  margin: 0 0 12px 0;
+}
+
+ion-card-header {
+  padding: 10px 14px;
+
+  ion-card-title {
+    font-size: 1.2rem;
+  }
+}
+
+.detail-video-embed {
+  width: 100%;
+  display: block;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  background: #000;
+}
+
+.detail-video-embed-wrap {
+  background: #000;
+}
+
+ion-card-title a {
+  color: inherit;
+  text-decoration: none;
+}

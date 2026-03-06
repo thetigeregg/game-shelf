@@ -76,6 +76,7 @@ import {
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameEntry,
+  GameVideo,
   GameGroupByField,
   GameListFilters,
   HltbMatchCandidate,
@@ -117,6 +118,7 @@ import {
   getCompressionOutputMimeType,
   loadImageFromDataUrl
 } from './game-list-image-utils';
+import { isValidYouTubeVideoId } from '../../core/utils/youtube-video.util';
 import {
   buildTagInput,
   hasHltbData,
@@ -131,6 +133,7 @@ import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workf
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
+import { DetailVideosModalComponent } from '../game-detail/detail-videos-modal.component';
 import { SimilarGameRowComponent } from '../game-detail/similar-game-row.component';
 import { AutoContentOffsetsDirective } from '../../core/directives/auto-content-offsets.directive';
 import {
@@ -262,6 +265,7 @@ type NotesToolbarAction =
     GameSearchComponent,
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
+    DetailVideosModalComponent,
     SimilarGameRowComponent
   ]
 })
@@ -329,6 +333,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   isImagePickerModalOpen = false;
   isFixMatchModalOpen = false;
   isRatingModalOpen = false;
+  isVideosModalOpen = false;
   isHltbUpdateLoading = false;
   isReviewUpdateLoading = false;
   isHltbPickerModalOpen = false;
@@ -1225,6 +1230,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
     this.selectedGame = game;
     this.isGameDetailModalOpen = true;
+    this.isVideosModalOpen = false;
     this.resetNoteEditorState();
     if (keepDesktopNotesPaneOpen && this.listType === 'collection') {
       this.savedNoteValue = this.normalizeNotesValue(game.notes);
@@ -1300,6 +1306,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isManualPickerModalOpen = false;
     this.isNotesOpen = false;
     this.isNotesModalOpen = false;
+    this.isVideosModalOpen = false;
     this.selectedGame = null;
     this.detailNavigationStack = [];
     this.similarDetailMode = 'library';
@@ -1708,6 +1715,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
   async openEditMetadataFromPopover(): Promise<void> {
     await this.dismissDetailActionsPopover();
     await this.openEditMetadataModal();
+  }
+
+  async openManualPickerFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+    this.openManualPickerModal();
   }
 
   async deleteSelectedGameFromPopover(): Promise<void> {
@@ -2495,6 +2507,27 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.openExternalUrl(url);
+  }
+
+  get detailVideos(): GameVideo[] {
+    const activeDetailGame = this.getActiveDetailGameForUi();
+    return Array.isArray(activeDetailGame?.videos) ? activeDetailGame.videos : [];
+  }
+
+  get hasDetailVideosShortcut(): boolean {
+    return this.detailVideos.some((video) => isValidYouTubeVideoId(video.videoId));
+  }
+
+  openVideosModal(): void {
+    if (!this.hasDetailVideosShortcut) {
+      return;
+    }
+
+    this.isVideosModalOpen = true;
+  }
+
+  closeVideosModal(): void {
+    this.isVideosModalOpen = false;
   }
 
   get shouldShowOpenManualButton(): boolean {
@@ -3719,17 +3752,24 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private getActiveDetailTitleForSearch(): string {
-    if (this.isSimilarDiscoveryDetailModalOpen && this.similarDiscoveryDetail) {
-      const discoveryTitle =
-        typeof this.similarDiscoveryDetail.title === 'string'
-          ? this.similarDiscoveryDetail.title.trim()
-          : '';
-      if (discoveryTitle.length > 0) {
-        return discoveryTitle;
+    const activeDetailGame = this.getActiveDetailGameForUi();
+    if (activeDetailGame) {
+      const activeTitle =
+        typeof activeDetailGame.title === 'string' ? activeDetailGame.title.trim() : '';
+      if (activeTitle.length > 0) {
+        return activeTitle;
       }
     }
 
     return this.selectedGame?.title.trim() ?? '';
+  }
+
+  private getActiveDetailGameForUi(): GameCatalogResult | GameEntry | null {
+    if (this.isSimilarDiscoveryDetailModalOpen && this.similarDiscoveryDetail) {
+      return this.similarDiscoveryDetail;
+    }
+
+    return this.selectedGame;
   }
 
   getGameDisplayTitle(game: GameEntry): string {

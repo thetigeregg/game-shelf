@@ -1,0 +1,46 @@
+<ion-modal [isOpen]="isOpen" (didDismiss)="dismiss.emit()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Videos</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="dismiss.emit()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="detail-videos-content gs-safe-bottom">
+      @for (video of normalizedVideos; track video.key) {
+        <ion-card class="detail-video-card">
+          <div class="detail-video-embed-wrap">
+            <iframe
+              class="detail-video-embed"
+              [src]="video.embedUrl"
+              [attr.title]="video.title"
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allow="
+                accelerometer;
+                autoplay;
+                clipboard-write;
+                encrypted-media;
+                gyroscope;
+                picture-in-picture;
+                web-share;
+              "
+              allowfullscreen
+            ></iframe>
+          </div>
+
+          <ion-card-header>
+            <ion-card-title>
+              <a [href]="video.watchUrl" target="_blank" rel="noopener noreferrer">{{
+                video.title
+              }}</a>
+            </ion-card-title>
+          </ion-card-header>
+        </ion-card>
+      }
+    </ion-content>
+  </ng-template>
+</ion-modal>

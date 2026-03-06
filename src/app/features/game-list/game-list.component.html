@@ -287,6 +287,11 @@
               <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
                 Edit metadata
               </ion-item>
+              @if (shouldShowFindManualButton) {
+                <ion-item button detail="false" (click)="openManualPickerFromPopover()">
+                  Find manual
+                </ion-item>
+              }
               <ion-item
                 button
                 detail="false"
@@ -529,12 +534,12 @@
       }
     </div>
     <app-detail-shortcuts-fab
+      [showVideosShortcut]="hasDetailVideosShortcut"
       [showNotesShortcut]="shouldShowNotesShortcut"
       [showOpenManualButton]="shouldShowOpenManualButton"
-      [showFindManualButton]="shouldShowFindManualButton"
+      (videosClick)="openVideosModal()"
       (notesClick)="openNotesEditor()"
       (openManualClick)="openManualPdf()"
-      (findManualClick)="openManualPickerModal()"
       (shortcutSearch)="openShortcutSearch($event)"
     ></app-detail-shortcuts-fab>
   </ion-content>
@@ -624,6 +629,12 @@
     <ng-container [ngTemplateOutlet]="notesPanelTemplate"></ng-container>
   </ng-template>
 </ion-modal>
+
+<app-detail-videos-modal
+  [isOpen]="isVideosModalOpen"
+  [videos]="detailVideos"
+  (dismiss)="closeVideosModal()"
+></app-detail-videos-modal>
 
 <input
   #customCoverFileInput
@@ -1084,7 +1095,14 @@
   </ng-template>
 </ion-modal>
 
-<ion-modal [isOpen]="isRatingModalOpen" (didDismiss)="closeRatingModal()">
+<ion-modal
+  class="sheet-modal"
+  [isOpen]="isRatingModalOpen"
+  [breakpoints]="[0, 0.4]"
+  [initialBreakpoint]="0.4"
+  handle="true"
+  (didDismiss)="closeRatingModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>

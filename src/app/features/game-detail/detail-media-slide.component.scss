@@ -1,0 +1,65 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  --detail-media-image-inset-top: 16px;
+  --detail-media-image-inset-inline: 16px;
+  --detail-media-image-inset-bottom: 16px;
+}
+
+:host(.with-pagination) {
+  --detail-media-image-inset-bottom: 20px;
+}
+
+.detail-media-slide {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.detail-media-slide img {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: auto;
+  margin-top: var(--detail-media-image-inset-top, 16px);
+  margin-right: var(--detail-media-image-inset-inline, 16px);
+  margin-bottom: var(--detail-media-image-inset-bottom, 16px);
+  margin-left: var(--detail-media-image-inset-inline, 16px);
+  max-width: calc(100% - (var(--detail-media-image-inset-inline, 16px) * 2));
+  max-height: calc(
+    100% -
+      (var(--detail-media-image-inset-top, 16px) + var(--detail-media-image-inset-bottom, 16px))
+  );
+  object-fit: contain;
+  border-radius: 5px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.detail-media-slide .swiper-zoom-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.detail-media-slide-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(10px);
+  opacity: 0.5;
+  transform: scale(1.05);
+  pointer-events: none;
+  z-index: 0;
+}

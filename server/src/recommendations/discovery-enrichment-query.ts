@@ -25,7 +25,12 @@ export function buildDiscoveryEnrichmentSelectionParams(
   options?: DiscoveryEnrichmentSelectionOptions
 ): DiscoveryEnrichmentSelectionParams {
   const normalizedLimit = Number.isInteger(limit) && limit > 0 ? limit : 1;
-  const nowIso = options?.nowIso ?? new Date().toISOString();
+  const nowCandidate = options?.nowIso;
+  const nowMs =
+    typeof nowCandidate === 'string' && Number.isFinite(Date.parse(nowCandidate))
+      ? Date.parse(nowCandidate)
+      : Date.now();
+  const nowIso = new Date(nowMs).toISOString();
   const maxAttempts =
     typeof options?.maxAttempts === 'number' && Number.isFinite(options.maxAttempts)
       ? Math.max(1, Math.trunc(options.maxAttempts))

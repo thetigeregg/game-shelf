@@ -95,9 +95,18 @@ export async function sendFcmMulticast(
 function resolveMessaging(): Messaging {
   if (getApps().length === 0) {
     const parsed = JSON.parse(config.firebaseServiceAccountJson) as ServiceAccount;
-    initializeApp({
-      credential: cert(parsed)
-    });
+    try {
+      initializeApp({
+        credential: cert(parsed)
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isDuplicateInit =
+        message.includes('already exists') || message.includes('duplicate-app');
+      if (!isDuplicateInit) {
+        throw error;
+      }
+    }
   }
 
   return getMessaging();

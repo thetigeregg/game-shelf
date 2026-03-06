@@ -126,6 +126,7 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS release_watch_state_next_check_idx
   ON release_watch_state (next_check_at);
   `,
+  // Backfill columns for existing deployments created before release_watch_state schema expansion.
   `
   ALTER TABLE release_watch_state
   ADD COLUMN IF NOT EXISTS last_known_release_marker TEXT;

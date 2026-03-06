@@ -305,8 +305,6 @@ async function main(): Promise<void> {
     await pool.end();
   });
 
-  await registerHltbCachedRoute(app, pool);
-
   await app.listen({
     host: config.host,
     port: config.port

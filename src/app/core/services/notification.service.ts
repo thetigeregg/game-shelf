@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Messaging } from '@angular/fire/messaging';
 import { deleteToken, getToken, isSupported, onMessage } from 'firebase/messaging';
@@ -21,6 +22,7 @@ export interface ReleaseNotificationEventsPreference {
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly httpClient = inject(HttpClient);
+  private readonly router = inject(Router);
   private readonly messaging = inject(Messaging, { optional: true });
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
     optional: true
@@ -356,7 +358,9 @@ export class NotificationService {
         window.focus();
         const route = payload.data?.['route'];
         if (typeof route === 'string' && route.startsWith('/')) {
-          window.location.assign(route);
+          void this.router.navigateByUrl(route).catch(() => {
+            window.location.assign(route);
+          });
         }
       };
     } catch (error) {

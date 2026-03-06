@@ -330,7 +330,14 @@
   </div>
 </ng-template>
 
-<ion-modal [isOpen]="isRatingModalOpen" (didDismiss)="closeRatingModal()">
+<ion-modal
+  [isOpen]="isRatingModalOpen"
+  [breakpoints]="[0, 0.5, 0.85]"
+  [initialBreakpoint]="0.5"
+  [backdropBreakpoint]="0.5"
+  handle="true"
+  (didDismiss)="closeRatingModal()"
+>
   <ng-template>
     <ion-header>
       <ion-toolbar>

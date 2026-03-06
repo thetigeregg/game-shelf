@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { IonFab, IonFabButton, IonFabList, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { book, documentText, globe, logoGoogle, logoYoutube, search } from 'ionicons/icons';
+import { book, documentText, film, globe, logoGoogle, logoYoutube } from 'ionicons/icons';
 
 type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 
@@ -35,31 +35,13 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
             <ion-icon name="book" aria-hidden="true"></ion-icon>
           </ion-fab-button>
         }
-        @if (showFindManualButton) {
-          <ion-fab-button
-            class="shortcut-manual-find"
-            color="dark-gray"
-            aria-label="Find game manual PDF"
-            (click)="onFindManualClick()"
-          >
-            <ion-icon name="search" aria-hidden="true"></ion-icon>
-          </ion-fab-button>
-        }
         <ion-fab-button
-          class="shortcut-google"
-          color="forest"
-          aria-label="Search on Google"
-          (click)="onShortcutSearch('google')"
+          class="shortcut-gamefaqs"
+          color="royal"
+          aria-label="Search on GameFAQs"
+          (click)="onShortcutSearch('gamefaqs')"
         >
-          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
-        </ion-fab-button>
-        <ion-fab-button
-          class="shortcut-youtube"
-          color="firetruck"
-          aria-label="Search on YouTube"
-          (click)="onShortcutSearch('youtube')"
-        >
-          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
+          <span class="shortcut-text" aria-hidden="true">G</span>
         </ion-fab-button>
         <ion-fab-button
           class="shortcut-wikipedia"
@@ -70,12 +52,30 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
           <span class="shortcut-text" aria-hidden="true">W</span>
         </ion-fab-button>
         <ion-fab-button
-          class="shortcut-gamefaqs"
-          color="royal"
-          aria-label="Search on GameFAQs"
-          (click)="onShortcutSearch('gamefaqs')"
+          class="shortcut-youtube"
+          color="firetruck"
+          aria-label="Search on YouTube"
+          (click)="onShortcutSearch('youtube')"
         >
-          <span class="shortcut-text" aria-hidden="true">G</span>
+          <ion-icon name="logo-youtube" aria-hidden="true"></ion-icon>
+        </ion-fab-button>
+        @if (showVideosShortcut) {
+          <ion-fab-button
+            class="shortcut-videos"
+            color="ocean"
+            aria-label="Open game videos"
+            (click)="onVideosClick()"
+          >
+            <ion-icon name="film" aria-hidden="true"></ion-icon>
+          </ion-fab-button>
+        }
+        <ion-fab-button
+          class="shortcut-google"
+          color="forest"
+          aria-label="Search on Google"
+          (click)="onShortcutSearch('google')"
+        >
+          <ion-icon name="logo-google" aria-hidden="true"></ion-icon>
         </ion-fab-button>
       </ion-fab-list>
     </ion-fab>
@@ -104,22 +104,22 @@ type ShortcutProvider = 'google' | 'youtube' | 'wikipedia' | 'gamefaqs';
 export class DetailShortcutsFabComponent {
   @ViewChild('fab') private fab?: IonFab;
 
+  @Input() showVideosShortcut = false;
   @Input() showNotesShortcut = false;
   @Input() showOpenManualButton = false;
-  @Input() showFindManualButton = false;
 
   @Output() listClick = new EventEmitter<void>();
+  @Output() videosClick = new EventEmitter<void>();
   @Output() notesClick = new EventEmitter<void>();
   @Output() openManualClick = new EventEmitter<void>();
-  @Output() findManualClick = new EventEmitter<void>();
   @Output() shortcutSearch = new EventEmitter<ShortcutProvider>();
 
   constructor() {
     addIcons({
       globe,
+      film,
       documentText,
       book,
-      search,
       logoGoogle,
       logoYoutube
     });
@@ -129,6 +129,11 @@ export class DetailShortcutsFabComponent {
     this.listClick.emit();
   }
 
+  onVideosClick(): void {
+    this.videosClick.emit();
+    this.closeFab();
+  }
+
   onNotesClick(): void {
     this.notesClick.emit();
     this.closeFab();
@@ -136,11 +141,6 @@ export class DetailShortcutsFabComponent {
 
   onOpenManualClick(): void {
     this.openManualClick.emit();
-    this.closeFab();
-  }
-
-  onFindManualClick(): void {
-    this.findManualClick.emit();
     this.closeFab();
   }
 

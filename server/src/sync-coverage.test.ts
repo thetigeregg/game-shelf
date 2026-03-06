@@ -103,7 +103,6 @@ class CoverageSyncClient {
     if (
       normalized.startsWith('update tags set payload') ||
       normalized.startsWith('update views set payload') ||
-      normalized.startsWith('insert into games') ||
       normalized.startsWith('delete from games') ||
       normalized.startsWith('delete from tags') ||
       normalized.startsWith('delete from views') ||
@@ -111,6 +110,11 @@ class CoverageSyncClient {
       normalized.startsWith('delete from settings')
     ) {
       return Promise.resolve({ rows: [] });
+    }
+
+    if (normalized.startsWith('insert into games')) {
+      const payload = JSON.parse(toPrimitiveString(params[2]) || '{}') as Record<string, unknown>;
+      return Promise.resolve({ rows: [{ payload }] });
     }
 
     throw new Error(`Unexpected SQL: ${sql}`);

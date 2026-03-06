@@ -7,6 +7,104 @@ const viewportByMode: Record<ViewportMode, { width: number; height: number }> = 
   mobile: { width: 390, height: 844 }
 };
 
+function isBackendProxyUrl(url: string): boolean {
+  return /\/(v1|manuals)\//.test(url);
+}
+
+const backendRequestFailuresByPage = new WeakMap<Page, string[]>();
+
+function parseOperationIdsFromSyncPushRequestBody(rawBody: string | null): string[] {
+  if (typeof rawBody !== 'string' || rawBody.trim().length === 0) {
+    return [];
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    if (!parsed || typeof parsed !== 'object') {
+      return [];
+    }
+
+    const operations = (parsed as { operations?: unknown }).operations;
+    if (!Array.isArray(operations)) {
+      return [];
+    }
+
+    return operations
+      .map((operation) =>
+        operation && typeof operation === 'object' && 'opId' in operation
+          ? (operation as { opId?: unknown }).opId
+          : null
+      )
+      .filter((opId): opId is string => typeof opId === 'string' && opId.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+test.beforeEach(async ({ page }) => {
+  const backendRequestFailures: string[] = [];
+  backendRequestFailuresByPage.set(page, backendRequestFailures);
+  page.on('requestfailed', (request) => {
+    const url = request.url();
+    if (!isBackendProxyUrl(url)) {
+      return;
+    }
+
+    const failure = request.failure()?.errorText ?? 'unknown';
+    backendRequestFailures.push(`${request.method()} ${url} :: ${failure}`);
+  });
+
+  await page.route('**/v1/sync/pull', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ cursor: new Date().toISOString(), changes: [] })
+    });
+  });
+
+  await page.route('**/v1/sync/push', async (route) => {
+    const operationIds = parseOperationIdsFromSyncPushRequestBody(route.request().postData());
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        cursor: new Date().toISOString(),
+        results: operationIds.map((opId) => ({ opId, status: 'applied' }))
+      })
+    });
+  });
+
+  await page.route('**/v1/recommendations/similar/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [] })
+    });
+  });
+
+  await page.route('**/v1/recommendations/lanes**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ lanes: [] })
+    });
+  });
+
+  await page.route('**/v1/manuals/resolve**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ resolvedUrl: null })
+    });
+  });
+});
+
+test.afterEach(({ page }) => {
+  const backendRequestFailures = backendRequestFailuresByPage.get(page) ?? [];
+  expect(backendRequestFailures, backendRequestFailures.join('\n')).toEqual([]);
+});
+
 async function dismissVersionAlertIfPresent(page: Page): Promise<void> {
   const versionAlert = page.getByRole('alertdialog', { name: 'App Updated' });
   const okButton = page.getByRole('button', { name: 'OK' });

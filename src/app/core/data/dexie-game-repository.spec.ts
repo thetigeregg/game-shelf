@@ -92,6 +92,98 @@ describe('DexieGameRepository', () => {
     expect(created.keywordIds).toEqual([5, 6]);
   });
 
+  it('preserves existing taxonomy and media arrays when catalog update omits those fields', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        themes: ['Platformer'],
+        themeIds: [1],
+        keywords: ['Nintendo'],
+        keywordIds: [5],
+        screenshots: [
+          {
+            id: 5673,
+            imageId: 'hjnzngnrtwr82jzmmkef',
+            url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
+            width: 1280,
+            height: 720
+          }
+        ],
+        videos: [
+          {
+            id: 3164,
+            name: 'Next-gen Launch Trailer',
+            videoId: 'PIF_fqFZEuk',
+            url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+          }
+        ]
+      },
+      'collection'
+    );
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        title: 'Super Mario Bros. Updated'
+      },
+      'collection'
+    );
+
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
+    expect(stored?.title).toBe('Super Mario Bros. Updated');
+    expect(stored?.themes).toEqual(['Platformer']);
+    expect(stored?.themeIds).toEqual([1]);
+    expect(stored?.keywords).toEqual(['Nintendo']);
+    expect(stored?.keywordIds).toEqual([5]);
+    expect(stored?.screenshots).toHaveLength(1);
+    expect(stored?.videos).toHaveLength(1);
+  });
+
+  it('normalizes and replaces media arrays when catalog update explicitly includes media fields', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        screenshots: [{ id: 1, imageId: 'old-image', url: '', width: 1, height: 1 }],
+        videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }]
+      },
+      'collection'
+    );
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        screenshots: [
+          { id: 2, image_id: ' next-image ', width: '1280', height: '720' } as never,
+          { id: 2, image_id: 'next-image' } as never
+        ],
+        videos: [
+          { id: 3, name: ' Trailer ', video_id: 'abc def' } as never,
+          { id: 3, name: 'Duplicate', video_id: 'abc def' } as never
+        ]
+      },
+      'collection'
+    );
+
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
+    expect(stored?.screenshots).toEqual([
+      {
+        id: 2,
+        imageId: 'next-image',
+        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/next-image.jpg',
+        width: 1280,
+        height: 720
+      }
+    ]);
+    expect(stored?.videos).toEqual([
+      {
+        id: 3,
+        name: 'Trailer',
+        videoId: 'abc def',
+        url: 'https://www.youtube.com/watch?v=abc%20def'
+      }
+    ]);
+  });
+
   it('rejects non-integer theme and keyword ids from catalog payload', async () => {
     const created = await repository.upsertFromCatalog(
       {

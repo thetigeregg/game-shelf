@@ -4,7 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Observable, of } from 'rxjs';
 import { AppDb } from '../data/app-db';
-import { GameSyncService } from './game-sync.service';
+import { DISCOVERY_POLLUTION_REMEDIATION_META_KEY, GameSyncService } from './game-sync.service';
 import { SyncEventsService } from './sync-events.service';
 import { PLATFORM_ORDER_STORAGE_KEY, PlatformOrderService } from './platform-order.service';
 import {
@@ -15,7 +15,10 @@ import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
 
 type GameSyncServicePrivate = {
   applyPulledChanges(changes: SyncChangeEvent[]): Promise<void>;
-  applyGameChange(change: SyncChangeEvent): Promise<void>;
+  applyGameChange(
+    change: SyncChangeEvent,
+    pendingGameOutboxKeys?: ReadonlySet<string>
+  ): Promise<void>;
   applyTagChange(change: SyncChangeEvent): Promise<void>;
   applyViewChange(change: SyncChangeEvent): Promise<void>;
   applySettingChange(change: SyncChangeEvent): Promise<void>;
@@ -39,6 +42,7 @@ type GameSyncServicePrivate = {
   generateOperationId(): string;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
+  runDiscoveryPollutionRemediationIfNeeded(): Promise<void>;
   syncInFlight: boolean;
   initialized: boolean;
   baseUrl: string;
@@ -270,6 +274,156 @@ describe('GameSyncService', () => {
     expect(stored?.tagIds).toEqual([1, 2]);
   });
 
+  it('ignores pulled discovery game upserts', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4-discovery',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        igdbGameId: '194558',
+        platformIgdbId: 6,
+        listType: 'discovery',
+        discoverySource: 'recent'
+      }),
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .first();
+    expect(stored).toBeUndefined();
+  });
+
+  it('deletes existing local game when pulled discovery upsert arrives', async () => {
+    await db.games.put({
+      igdbGameId: '194558',
+      platformIgdbId: 6,
+      title: 'Arknights: Endfield',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PC',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-03-05T14:15:12.648Z',
+      updatedAt: '2026-03-05T14:15:12.648Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4-discovery-delete-local',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        igdbGameId: '194558',
+        platformIgdbId: 6,
+        listType: 'discovery',
+        discoverySource: 'recent'
+      }),
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .first();
+    expect(stored).toBeUndefined();
+  });
+
+  it('keeps existing local game when discovery upsert matches pending local outbox write', async () => {
+    const now = '2026-01-01T00:00:00.000Z';
+    await db.games.put({
+      igdbGameId: '194558',
+      platformIgdbId: 6,
+      title: 'Arknights: Endfield',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PC',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: now,
+      updatedAt: now
+    });
+    await db.outbox.put({
+      opId: 'pending-194558-6',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: { igdbGameId: '194558', platformIgdbId: 6 },
+      clientTimestamp: now,
+      createdAt: now,
+      attemptCount: 0,
+      lastError: null
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4-discovery-keep-local',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        igdbGameId: '194558',
+        platformIgdbId: 6,
+        listType: 'discovery',
+        discoverySource: 'recent'
+      }),
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .first();
+    expect(stored?.listType).toBe('collection');
+  });
+
+  it('keeps local game on discovery pull via applyPulledChanges when matching outbox write exists', async () => {
+    const now = '2026-01-01T00:00:00.000Z';
+    await db.games.put({
+      igdbGameId: '194558',
+      platformIgdbId: 6,
+      title: 'Arknights: Endfield',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'PC',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: now,
+      updatedAt: now
+    });
+    await db.outbox.put({
+      opId: 'pending-194558-6-2',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: { igdbGameId: '194558', platformIgdbId: 6 },
+      clientTimestamp: now,
+      createdAt: now,
+      attemptCount: 0,
+      lastError: null
+    });
+
+    await servicePrivate.applyPulledChanges([
+      {
+        eventId: '4-discovery-keep-local-transactional',
+        entityType: 'game',
+        operation: 'upsert',
+        payload: createBaseGame({
+          igdbGameId: '194558',
+          platformIgdbId: 6,
+          listType: 'discovery',
+          discoverySource: 'recent'
+        }),
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      } as SyncChangeEvent
+    ]);
+
+    const stored = await db.games
+      .where('[igdbGameId+platformIgdbId]')
+      .equals(['194558', 6])
+      .first();
+    expect(stored?.listType).toBe('collection');
+  });
+
   it('falls back to local auto id when pulled id collides with an unrelated local row', async () => {
     await db.games.put({
       id: 218,
@@ -364,6 +518,116 @@ describe('GameSyncService', () => {
     expect(stored?.gameType).toBeNull();
     expect(stored?.coverUrl).toBeNull();
     expect(stored?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('preserves existing enriched arrays when a pulled upsert omits them', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      themes: ['Action'],
+      themeIds: [1],
+      keywords: ['aliens'],
+      keywordIds: [10],
+      screenshots: [
+        {
+          id: 5673,
+          imageId: 'hjnzngnrtwr82jzmmkef',
+          url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
+          width: 1280,
+          height: 720
+        }
+      ],
+      videos: [
+        {
+          id: 3164,
+          name: 'Next-gen Launch Trailer',
+          videoId: 'PIF_fqFZEuk',
+          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+        }
+      ],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4c-preserve-enrichment-arrays',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        title: 'Updated Title'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Updated Title');
+    expect(stored?.themes).toEqual(['Action']);
+    expect(stored?.themeIds).toEqual([1]);
+    expect(stored?.keywords).toEqual(['aliens']);
+    expect(stored?.keywordIds).toEqual([10]);
+    expect(stored?.screenshots).toHaveLength(1);
+    expect(stored?.videos).toHaveLength(1);
+  });
+
+  it('normalizes and replaces media arrays when pulled upsert includes media fields', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      screenshots: [{ id: 1, imageId: 'old', url: '', width: 1, height: 1 }],
+      videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4d-replace-media-arrays',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        screenshots: [
+          { id: '2', image_id: 'new-image', width: '1280', height: '720' },
+          { id: 2, image_id: 'new-image' }
+        ],
+        videos: [
+          { id: '3', name: ' Trailer ', video_id: 'abc def' },
+          { id: 3, name: 'Duplicate', video_id: 'abc def' }
+        ]
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.screenshots).toEqual([
+      {
+        id: 2,
+        imageId: 'new-image',
+        url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/new-image.jpg',
+        width: 1280,
+        height: 720
+      }
+    ]);
+    expect(stored?.videos).toEqual([
+      {
+        id: 3,
+        name: 'Trailer',
+        videoId: 'abc def',
+        url: 'https://www.youtube.com/watch?v=abc%20def'
+      }
+    ]);
   });
 
   it('accepts half-step ratings in pulled game payloads', async () => {
@@ -789,7 +1053,26 @@ describe('GameSyncService', () => {
     cryptoSpy.mockRestore();
   });
 
-  it('pushOutbox acks applied operations, records failures, and updates cursor', async () => {
+  it('applies one-time discovery pollution remediation by resetting cursor to 0', async () => {
+    await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
+
+    const cursor = await db.syncMeta.get('cursor');
+    const marker = await db.syncMeta.get(DISCOVERY_POLLUTION_REMEDIATION_META_KEY);
+    expect(cursor?.value).toBe('0');
+    expect(marker?.value).toBe('done');
+
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '123',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
+    const unchangedCursor = await db.syncMeta.get('cursor');
+    expect(unchangedCursor?.value).toBe('123');
+  });
+
+  it('pushOutbox acks applied operations and records failures without advancing cursor', async () => {
     const now = '2026-01-01T00:00:00.000Z';
     await db.outbox.bulkPut([
       {
@@ -828,12 +1111,10 @@ describe('GameSyncService', () => {
 
     const opA = await db.outbox.get('op-a');
     const opB = await db.outbox.get('op-b');
-    const cursor = await db.syncMeta.get('cursor');
-
     expect(opA).toBeUndefined();
     expect(opB?.attemptCount).toBe(1);
     expect(opB?.lastError).toBe('boom');
-    expect(cursor?.value).toBe('cursor-1');
+    expect(await db.syncMeta.get('cursor')).toBeUndefined();
   });
 
   it('pullChanges updates cursor when response has no changes', async () => {
@@ -875,6 +1156,50 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalled();
   });
 
+  it('pullChanges paginates and applies subsequent pages in one run', async () => {
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    const pageOneChanges = Array.from({ length: 1000 }, (_, index) => ({
+      eventId: String(index + 1),
+      entityType: 'setting' as const,
+      operation: 'upsert' as const,
+      payload: { key: `k-${String(index + 1)}`, value: 'v1' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    }));
+    const pageTwoChanges = [
+      {
+        eventId: '1001',
+        entityType: 'setting' as const,
+        operation: 'upsert' as const,
+        payload: { key: 'k-1001', value: 'v2' },
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      }
+    ];
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValueOnce(
+        of({
+          cursor: 'cursor-1000',
+          changes: pageOneChanges
+        })
+      )
+      .mockReturnValueOnce(
+        of({
+          cursor: 'cursor-1001',
+          changes: pageTwoChanges
+        })
+      );
+
+    await servicePrivate.pullChanges();
+
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem('k-1')).toBe('v1');
+    expect(localStorage.getItem('k-1001')).toBe('v2');
+    const cursor = await db.syncMeta.get('cursor');
+    expect(cursor?.value).toBe('cursor-1001');
+    expect(emitChangedSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('applyPulledChanges dispatches by entity type', async () => {
     const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
     const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
@@ -912,7 +1237,7 @@ describe('GameSyncService', () => {
 
     await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
 
-    expect(gameSpy).toHaveBeenCalledWith(gameChange);
+    expect(gameSpy).toHaveBeenCalledWith(gameChange, expect.any(Set));
     expect(tagSpy).toHaveBeenCalledWith(tagChange);
     expect(viewSpy).toHaveBeenCalledWith(viewChange);
     expect(settingSpy).toHaveBeenCalledWith(settingChange);

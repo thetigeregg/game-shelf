@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { format, resolveConfig } from 'prettier';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -56,8 +57,14 @@ async function main() {
   if (entries.length === 0) {
     throw new Error('Canonical MobyGames platform map did not yield any valid platform mappings.');
   }
+  const prettierConfig = (await resolveConfig(frontendSupportPath)) ?? {};
 
-  await fs.writeFile(frontendSupportPath, buildFrontendSupportSource(entries), 'utf8');
+  const formattedFrontendSource = await format(buildFrontendSupportSource(entries), {
+    ...prettierConfig,
+    filepath: frontendSupportPath
+  });
+
+  await fs.writeFile(frontendSupportPath, formattedFrontendSource, 'utf8');
 }
 
 await main();

@@ -10,6 +10,7 @@ RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY server/src ./src
 COPY worker/src ../worker/src
+COPY shared ../shared
 
 EXPOSE 3000
 

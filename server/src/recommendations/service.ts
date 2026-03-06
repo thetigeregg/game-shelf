@@ -882,7 +882,7 @@ export class RecommendationService implements RecommendationServiceApi {
           .filter((id) => Number.isInteger(id) && id > 0)
       )
     ];
-    const strictExcluded = new Set(
+    const strictExcludedGameIds = new Set(
       games
         .filter(
           (game) =>
@@ -891,7 +891,7 @@ export class RecommendationService implements RecommendationServiceApi {
             game.status === 'completed' ||
             game.status === 'dropped'
         )
-        .map((game) => buildGameKey(game.igdbGameId, game.platformIgdbId))
+        .map((game) => game.igdbGameId.trim())
     );
     const nowIso = new Date(this.nowProvider()).toISOString();
 
@@ -923,7 +923,7 @@ export class RecommendationService implements RecommendationServiceApi {
       });
 
       const upsertRows = fetched
-        .filter((row) => !strictExcluded.has(buildGameKey(row.igdbGameId, row.platformIgdbId)))
+        .filter((row) => !strictExcludedGameIds.has(row.igdbGameId.trim()))
         .map((row) => ({
           igdbGameId: row.igdbGameId,
           platformIgdbId: row.platformIgdbId,

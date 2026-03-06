@@ -21,6 +21,8 @@ export interface DiscoveryEnrichmentServiceOptions {
   maxAttempts: number;
   backoffBaseMinutes: number;
   backoffMaxHours: number;
+  rearmAfterDays?: number;
+  rearmRecentReleaseYears?: number;
 }
 
 export interface DiscoveryEnrichmentSummary {
@@ -358,7 +360,7 @@ export class DiscoveryEnrichmentService {
   }
 
   private getRearmAfterDays(): number {
-    const raw = (this.options as { rearmAfterDays?: unknown }).rearmAfterDays;
+    const raw = this.options.rearmAfterDays;
     if (typeof raw === 'number' && Number.isFinite(raw)) {
       return Math.max(1, Math.trunc(raw));
     }
@@ -366,7 +368,7 @@ export class DiscoveryEnrichmentService {
   }
 
   private getRearmRecentReleaseYears(): number {
-    const raw = (this.options as { rearmRecentReleaseYears?: unknown }).rearmRecentReleaseYears;
+    const raw = this.options.rearmRecentReleaseYears;
     if (typeof raw === 'number' && Number.isFinite(raw)) {
       return Math.max(1, Math.trunc(raw));
     }

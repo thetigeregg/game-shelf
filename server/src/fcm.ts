@@ -14,8 +14,6 @@ export interface FcmSendResult {
   invalidTokens: string[];
 }
 
-let initialized = false;
-
 export function hasConfiguredFcm(): boolean {
   return config.firebaseServiceAccountJson.length > 0;
 }
@@ -95,15 +93,11 @@ export async function sendFcmMulticast(
 }
 
 function resolveMessaging(): Messaging {
-  if (!initialized) {
-    const apps = getApps();
-    if (apps.length === 0) {
-      const parsed = JSON.parse(config.firebaseServiceAccountJson) as ServiceAccount;
-      initializeApp({
-        credential: cert(parsed)
-      });
-    }
-    initialized = true;
+  if (getApps().length === 0) {
+    const parsed = JSON.parse(config.firebaseServiceAccountJson) as ServiceAccount;
+    initializeApp({
+      credential: cert(parsed)
+    });
   }
 
   return getMessaging();

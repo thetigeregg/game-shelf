@@ -140,6 +140,118 @@ class TokenCleanupPoolMock {
   }
 }
 
+interface DueGameSeedRow {
+  igdb_game_id: string;
+  platform_igdb_id: number;
+  payload: Record<string, unknown>;
+  watch_exists: boolean;
+  last_known_release_marker: string | null;
+  last_known_release_precision: string | null;
+  last_known_release_date: string | null;
+  last_known_release_year: number | null;
+  last_seen_state: string | null;
+  last_hltb_refresh_at: string | null;
+  last_metacritic_refresh_at: string | null;
+  last_notified_release_day: string | null;
+}
+
+class ReleaseMonitorFlowClientMock {
+  unlockCount = 0;
+
+  query(sql: string): Promise<{ rows: Array<{ locked: boolean }>; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (normalizedSql.startsWith('select pg_try_advisory_lock')) {
+      return { rows: [{ locked: true }], rowCount: 1 };
+    }
+    if (normalizedSql.startsWith('select pg_advisory_unlock')) {
+      this.unlockCount += 1;
+      return { rows: [{ locked: true }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  }
+
+  release(): void {}
+}
+
+class ReleaseMonitorFlowPoolMock {
+  readonly client = new ReleaseMonitorFlowClientMock();
+  private readonly dueRows: DueGameSeedRow[];
+  watchStateWrites = 0;
+
+  constructor(dueRows: DueGameSeedRow[]) {
+    this.dueRows = dueRows;
+  }
+
+  connect(): Promise<ReleaseMonitorFlowClientMock> {
+    return Promise.resolve(this.client);
+  }
+
+  query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (normalizedSql.startsWith('select g.igdb_game_id')) {
+      return { rows: this.dueRows, rowCount: this.dueRows.length };
+    }
+
+    if (normalizedSql.startsWith('select setting_key, setting_value from settings')) {
+      return {
+        rows: [
+          { setting_key: 'game-shelf:notifications:release:enabled', setting_value: 'false' },
+          {
+            setting_key: 'game-shelf:notifications:release:events',
+            setting_value: JSON.stringify({ set: true, changed: true, removed: true, day: true })
+          }
+        ],
+        rowCount: 2
+      };
+    }
+
+    if (
+      normalizedSql.startsWith(
+        'select token from fcm_tokens where is_active = true order by token asc limit $1'
+      )
+    ) {
+      return { rows: [], rowCount: 0 };
+    }
+
+    if (normalizedSql.startsWith('insert into release_watch_state')) {
+      this.watchStateWrites += 1;
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalizedSql.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
+      return { rows: [], rowCount: 0 };
+    }
+
+    if (normalizedSql.startsWith('delete from fcm_tokens where is_active = false')) {
+      return { rows: [], rowCount: 0 };
+    }
+
+    if (normalizedSql.startsWith('insert into release_notification_log')) {
+      return { rows: [{ inserted: 1 }], rowCount: 1 };
+    }
+
+    if (normalizedSql.startsWith('update release_notification_log set payload = $1::jsonb')) {
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalizedSql.startsWith('delete from release_notification_log where event_key = $1')) {
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalizedSql.startsWith('update games set payload = $3::jsonb')) {
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalizedSql.startsWith('insert into sync_events')) {
+      return { rows: [], rowCount: 1 };
+    }
+
+    void params;
+    return { rows: [], rowCount: 0 };
+  }
+}
+
 function toStringOrFallback(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback;
 }
@@ -330,4 +442,35 @@ void test('evaluateRunHealth warns when send failure and invalid token ratios ar
     warnings.some((entry) => entry.code === 'invalid_token_ratio_high'),
     true
   );
+});
+
+void test('processDueGames handles bootstrap rows and writes watch state', async () => {
+  const pool = new ReleaseMonitorFlowPoolMock([
+    {
+      igdb_game_id: '52189',
+      platform_igdb_id: 167,
+      payload: {
+        title: 'Grand Theft Auto VI',
+        platform: 'PlayStation 5',
+        releaseDate: '2026-11-19',
+        releaseYear: 2026,
+        listType: 'wishlist'
+      },
+      watch_exists: false,
+      last_known_release_marker: null,
+      last_known_release_precision: null,
+      last_known_release_date: null,
+      last_known_release_year: null,
+      last_seen_state: null,
+      last_hltb_refresh_at: null,
+      last_metacritic_refresh_at: null,
+      last_notified_release_day: null
+    }
+  ]);
+
+  const runtimeState = releaseMonitorInternals.createMonitorRuntimeState();
+  await releaseMonitorInternals.processDueGames(pool as unknown as Pool, runtimeState);
+
+  assert.equal(pool.watchStateWrites, 1);
+  assert.equal(pool.client.unlockCount, 1);
 });

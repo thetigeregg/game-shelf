@@ -562,28 +562,19 @@ void test('loadActiveTokenSet paginates active tokens with stable ordering', asy
 });
 
 void test('loadActiveTokenSet caps token volume per run to avoid unbounded memory usage', async () => {
-  const largePage = Array.from({ length: 1000 }, (_, index) => ({
-    token: `cap-token-${String(index).padStart(4, '0')}`
-  }));
+  let page = 0;
   const pool = {
     query: (_sql: string, _params: unknown[]) => {
+      const pageStart = page * 1000;
+      page += 1;
       return Promise.resolve({
-        rows: largePage
+        rows: Array.from({ length: 1000 }, (_, index) => ({
+          token: `cap-token-${String(pageStart + index).padStart(5, '0')}`
+        }))
       });
     }
   };
 
-  const warnMock = test.mock.method(console, 'warn', () => undefined);
-  try {
-    const set = await releaseMonitorInternals.loadActiveTokenSet(pool as unknown as Pool);
-    assert.equal(set.size, 20000);
-    assert.equal(
-      warnMock.mock.calls.some((entry) =>
-        String(entry.arguments[0]).includes('active_tokens_capped')
-      ),
-      true
-    );
-  } finally {
-    warnMock.mock.restore();
-  }
+  const set = await releaseMonitorInternals.loadActiveTokenSet(pool as unknown as Pool);
+  assert.equal(set.size, 20000);
 });

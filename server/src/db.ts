@@ -112,6 +112,7 @@ export const MIGRATIONS: string[] = [
     last_seen_state TEXT NOT NULL DEFAULT 'unknown',
     last_igdb_refresh_at TIMESTAMPTZ,
     last_hltb_refresh_at TIMESTAMPTZ,
+    last_metacritic_refresh_at TIMESTAMPTZ,
     next_check_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_notified_set_at TIMESTAMPTZ,
     last_notified_change_at TIMESTAMPTZ,
@@ -133,6 +134,10 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE release_watch_state
   ADD COLUMN IF NOT EXISTS last_known_release_precision TEXT NOT NULL DEFAULT 'unknown';
+  `,
+  `
+  ALTER TABLE release_watch_state
+  ADD COLUMN IF NOT EXISTS last_metacritic_refresh_at TIMESTAMPTZ;
   `,
   `
   DO $$

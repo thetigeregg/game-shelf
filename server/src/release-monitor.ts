@@ -26,6 +26,7 @@ interface DueGameRow {
   last_known_release_year: number | null;
   last_seen_state: string | null;
   last_hltb_refresh_at: string | null;
+  last_metacritic_refresh_at: string | null;
   last_notified_release_day: string | null;
 }
 
@@ -70,6 +71,8 @@ interface MonitorRunStats {
   igdbRefreshSuccesses: number;
   hltbRefreshAttempts: number;
   hltbRefreshSuccesses: number;
+  metacriticRefreshAttempts: number;
+  metacriticRefreshSuccesses: number;
   eventsConsidered: number;
   eventsDisabled: number;
   eventsReleaseDayAlreadyNotified: number;
@@ -142,6 +145,7 @@ async function processDueGames(pool: Pool): Promise<void> {
       rws.last_known_release_year,
       rws.last_seen_state,
       rws.last_hltb_refresh_at,
+      rws.last_metacritic_refresh_at,
       rws.last_notified_release_day
     FROM games g
     LEFT JOIN release_watch_state rws
@@ -205,6 +209,7 @@ async function processGameRow(
   });
 
   let lastHltbRefreshAt = row.last_hltb_refresh_at;
+  let lastMetacriticRefreshAt = row.last_metacritic_refresh_at;
 
   try {
     if (!isBootstrap) {
@@ -226,14 +231,26 @@ async function processGameRow(
     const releaseStateBefore =
       normalizeReleaseState(row.last_seen_state) ?? deriveReleaseState(releaseBefore, now);
     const hltbEligible = isWithinPastYears(releaseAfter, now, config.hltbPeriodicRefreshYears);
+    const metacriticEligible = isWithinPastYears(
+      releaseAfter,
+      now,
+      config.metacriticPeriodicRefreshYears
+    );
     const hasExistingHltb = hasHltbValues(mergedPayload);
+    const hasExistingMetacritic = hasMetacriticValues(mergedPayload);
 
     if (isBootstrap && hasExistingHltb && hltbEligible) {
       // Seed periodic timer from existing library metadata to avoid immediate re-scrape flood.
       lastHltbRefreshAt = nowIso;
     }
+    if (isBootstrap && hasExistingMetacritic && metacriticEligible) {
+      // Seed periodic timer from existing library metadata to avoid immediate re-scrape flood.
+      lastMetacriticRefreshAt = nowIso;
+    }
 
     const hltbDue = !isBootstrap && isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
+    const metacriticDue =
+      !isBootstrap && isMetacriticRefreshDue(lastMetacriticRefreshAt, mergedPayload, now);
 
     if (hltbEligible && hltbDue) {
       stats.hltbRefreshAttempts += 1;
@@ -253,6 +270,29 @@ async function processGameRow(
         };
       }
       lastHltbRefreshAt = nowIso;
+    }
+
+    if (metacriticEligible && metacriticDue) {
+      stats.metacriticRefreshAttempts += 1;
+      const refreshedMetacritic = await fetchMetacriticPayload({
+        title: stringOrFallback(mergedPayload['title'], title),
+        releaseYear: integerOrNull(mergedPayload['releaseYear']),
+        platform: stringOrNull(mergedPayload['platform']) ?? platformName,
+        platformIgdbId
+      });
+
+      if (refreshedMetacritic) {
+        stats.metacriticRefreshSuccesses += 1;
+        mergedPayload = {
+          ...mergedPayload,
+          metacriticScore: integerOrNull(refreshedMetacritic.metacriticScore),
+          metacriticUrl: stringOrNull(refreshedMetacritic.metacriticUrl),
+          reviewScore: integerOrNull(refreshedMetacritic.metacriticScore),
+          reviewUrl: stringOrNull(refreshedMetacritic.metacriticUrl),
+          reviewSource: 'metacritic'
+        };
+      }
+      lastMetacriticRefreshAt = nowIso;
     }
 
     if (!isJsonEqual(originalPayload, mergedPayload)) {
@@ -345,7 +385,14 @@ async function processGameRow(
       }
     }
 
-    const nextCheckAt = computeNextCheckAt(releaseAfter, now, hltbEligible, lastHltbRefreshAt);
+    const nextCheckAt = computeNextCheckAt(
+      releaseAfter,
+      now,
+      hltbEligible,
+      lastHltbRefreshAt,
+      metacriticEligible,
+      lastMetacriticRefreshAt
+    );
     await upsertWatchState(pool, {
       igdbGameId: row.igdb_game_id,
       platformIgdbId,
@@ -353,6 +400,7 @@ async function processGameRow(
       releaseState: releaseStateAfter,
       lastIgdRefreshAt: isBootstrap ? null : nowIso,
       lastHltbRefreshAt,
+      lastMetacriticRefreshAt,
       nextCheckAt,
       sentEventTypes,
       releaseBefore,
@@ -422,6 +470,13 @@ interface HltbApiResponse {
   } | null;
 }
 
+interface MetacriticApiResponse {
+  item?: {
+    metacriticScore?: unknown;
+    metacriticUrl?: unknown;
+  } | null;
+}
+
 async function fetchHltbPayload(params: {
   title: string;
   releaseYear: number | null;
@@ -441,6 +496,30 @@ async function fetchHltbPayload(params: {
   }
 
   const payload = (await response.json()) as HltbApiResponse;
+  return payload.item ?? null;
+}
+
+async function fetchMetacriticPayload(params: {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  platformIgdbId: number;
+}): Promise<MetacriticApiResponse['item'] | null> {
+  if (params.title.trim().length < 2) {
+    return null;
+  }
+
+  const response = await fetchMetadataPathFromWorker('/v1/metacritic/search', {
+    q: params.title,
+    releaseYear: params.releaseYear ?? undefined,
+    platform: params.platform ?? undefined,
+    platformIgdbId: params.platformIgdbId
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as MetacriticApiResponse;
   return payload.item ?? null;
 }
 
@@ -756,6 +835,7 @@ async function upsertWatchState(
     releaseState: ReleaseState;
     lastIgdRefreshAt: string | null;
     lastHltbRefreshAt: string | null;
+    lastMetacriticRefreshAt: string | null;
     nextCheckAt: string;
     sentEventTypes: Set<ReleaseEventType>;
     releaseBefore: ReleaseInfo;
@@ -784,6 +864,7 @@ async function upsertWatchState(
       last_seen_state,
       last_igdb_refresh_at,
       last_hltb_refresh_at,
+      last_metacritic_refresh_at,
       next_check_at,
       last_notified_set_at,
       last_notified_change_at,
@@ -792,7 +873,7 @@ async function upsertWatchState(
       last_error,
       updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, $10::timestamptz, $11::timestamptz, $12::timestamptz, $13::timestamptz, $14, NULL, NOW())
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, $10::timestamptz, $11::timestamptz, $12::timestamptz, $13::timestamptz, $14::timestamptz, $15, NULL, NOW())
     ON CONFLICT (igdb_game_id, platform_igdb_id)
     DO UPDATE SET
       last_known_release_marker = EXCLUDED.last_known_release_marker,
@@ -802,6 +883,7 @@ async function upsertWatchState(
       last_seen_state = EXCLUDED.last_seen_state,
       last_igdb_refresh_at = EXCLUDED.last_igdb_refresh_at,
       last_hltb_refresh_at = EXCLUDED.last_hltb_refresh_at,
+      last_metacritic_refresh_at = EXCLUDED.last_metacritic_refresh_at,
       next_check_at = EXCLUDED.next_check_at,
       last_notified_set_at = COALESCE(EXCLUDED.last_notified_set_at, release_watch_state.last_notified_set_at),
       last_notified_change_at = COALESCE(EXCLUDED.last_notified_change_at, release_watch_state.last_notified_change_at),
@@ -820,6 +902,7 @@ async function upsertWatchState(
       args.releaseState,
       args.lastIgdRefreshAt,
       args.lastHltbRefreshAt,
+      args.lastMetacriticRefreshAt,
       args.nextCheckAt,
       updateSetAt,
       updateChangeAt,
@@ -848,7 +931,9 @@ function computeNextCheckAt(
   release: ReleaseInfo,
   now: Date,
   hltbEligible: boolean,
-  lastHltbRefreshAt: string | null
+  lastHltbRefreshAt: string | null,
+  metacriticEligible: boolean,
+  lastMetacriticRefreshAt: string | null
 ): string {
   const nowMs = now.getTime();
   let nextReleaseCheckMs = nowMs + ONE_DAY_MS;
@@ -890,15 +975,26 @@ function computeNextCheckAt(
     }
   }
 
-  if (!hltbEligible) {
-    return new Date(nextReleaseCheckMs).toISOString();
+  let nextRefreshCheckMs = Number.POSITIVE_INFINITY;
+  if (hltbEligible) {
+    const hltbIntervalMs = Math.max(1, config.hltbPeriodicRefreshDays) * ONE_DAY_MS;
+    const hltbLastMs = lastHltbRefreshAt ? Date.parse(lastHltbRefreshAt) : Number.NaN;
+    const nextHltbCheckMs = Number.isFinite(hltbLastMs) ? hltbLastMs + hltbIntervalMs : nowMs;
+    nextRefreshCheckMs = Math.min(nextRefreshCheckMs, nextHltbCheckMs);
   }
 
-  const hltbIntervalMs = Math.max(1, config.hltbPeriodicRefreshDays) * ONE_DAY_MS;
-  const hltbLastMs = lastHltbRefreshAt ? Date.parse(lastHltbRefreshAt) : Number.NaN;
-  const nextHltbCheckMs = Number.isFinite(hltbLastMs) ? hltbLastMs + hltbIntervalMs : nowMs;
+  if (metacriticEligible) {
+    const metacriticIntervalMs = Math.max(1, config.metacriticPeriodicRefreshDays) * ONE_DAY_MS;
+    const metacriticLastMs = lastMetacriticRefreshAt
+      ? Date.parse(lastMetacriticRefreshAt)
+      : Number.NaN;
+    const nextMetacriticCheckMs = Number.isFinite(metacriticLastMs)
+      ? metacriticLastMs + metacriticIntervalMs
+      : nowMs;
+    nextRefreshCheckMs = Math.min(nextRefreshCheckMs, nextMetacriticCheckMs);
+  }
 
-  return new Date(Math.min(nextReleaseCheckMs, nextHltbCheckMs)).toISOString();
+  return new Date(Math.min(nextReleaseCheckMs, nextRefreshCheckMs)).toISOString();
 }
 
 function isHltbRefreshDue(
@@ -929,6 +1025,36 @@ function hasHltbValues(payload: Record<string, unknown>): boolean {
     numberOrNull(payload['hltbMainHours']) !== null ||
     numberOrNull(payload['hltbMainExtraHours']) !== null ||
     numberOrNull(payload['hltbCompletionistHours']) !== null
+  );
+}
+
+function isMetacriticRefreshDue(
+  lastMetacriticRefreshAt: string | null,
+  payload: Record<string, unknown>,
+  now: Date
+): boolean {
+  const hasMetacritic = hasMetacriticValues(payload);
+  if (!hasMetacritic) {
+    return true;
+  }
+
+  if (!lastMetacriticRefreshAt) {
+    return true;
+  }
+
+  const refreshedAtMs = Date.parse(lastMetacriticRefreshAt);
+  if (!Number.isFinite(refreshedAtMs)) {
+    return true;
+  }
+
+  const ageMs = now.getTime() - refreshedAtMs;
+  return ageMs >= Math.max(1, config.metacriticPeriodicRefreshDays) * ONE_DAY_MS;
+}
+
+function hasMetacriticValues(payload: Record<string, unknown>): boolean {
+  return (
+    integerOrNull(payload['metacriticScore']) !== null ||
+    stringOrNull(payload['metacriticUrl']) !== null
   );
 }
 
@@ -1268,6 +1394,8 @@ function createMonitorRunStats(): MonitorRunStats {
     igdbRefreshSuccesses: 0,
     hltbRefreshAttempts: 0,
     hltbRefreshSuccesses: 0,
+    metacriticRefreshAttempts: 0,
+    metacriticRefreshSuccesses: 0,
     eventsConsidered: 0,
     eventsDisabled: 0,
     eventsReleaseDayAlreadyNotified: 0,

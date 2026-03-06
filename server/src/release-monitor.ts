@@ -740,6 +740,8 @@ function buildReleaseEvents(args: {
     after.marker !== null &&
     after.marker === formatDateOnly(args.now)
   ) {
+    // This can evaluate true across multiple monitor runs on release day; delivery
+    // remains single-shot via event_key reservation in release_notification_log.
     events.push({
       type: 'release_day',
       title: `${args.title} releases today`,

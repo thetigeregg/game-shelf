@@ -1554,3 +1554,7 @@
 - 2ce1fe4 Convert game rating modal to sheet
 - ffc1760 Convert rating modal to sheet
 
+## v1.1.10 - 2026-03-06
+- debc485 Merge pull request #174 from thetigeregg/dependabot/npm_and_yarn/server/express-rate-limit-8.2.2
+- 10906f5 chore(deps): bump express-rate-limit from 8.2.1 to 8.2.2 in /server
+

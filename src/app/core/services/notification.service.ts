@@ -94,11 +94,12 @@ export class NotificationService {
       }
 
       const parsed = JSON.parse(raw) as Record<string, unknown>;
+      // Default to enabled unless a toggle is explicitly persisted as false.
       return {
-        set: parsed['set'] === false ? false : true,
-        changed: parsed['changed'] === false ? false : true,
-        removed: parsed['removed'] === false ? false : true,
-        day: parsed['day'] === false ? false : true
+        set: parsed['set'] !== false,
+        changed: parsed['changed'] !== false,
+        removed: parsed['removed'] !== false,
+        day: parsed['day'] !== false
       };
     } catch {
       return {

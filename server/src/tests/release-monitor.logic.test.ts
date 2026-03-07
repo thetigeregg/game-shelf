@@ -488,11 +488,11 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
 
 void test('normalizers handle invalid marker and precision inputs', () => {
   assert.deepEqual(releaseMonitorInternals.normalizeReleaseInfoFromPrecision('month', '2026-13'), {
-    precision: 'month',
-    marker: '2026-13',
+    precision: 'unknown',
+    marker: null,
     date: null,
-    year: 2026,
-    display: '2026-13'
+    year: null,
+    display: null
   });
   assert.deepEqual(
     releaseMonitorInternals.normalizeReleaseInfoFromPrecision('quarter', '2026-Q9'),

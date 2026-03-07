@@ -633,6 +633,34 @@ describe('SettingsPage CSV review fields', () => {
     expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('false');
   });
 
+  it('does not persist disabled import state when unregister fails', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    localStorage.setItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, 'true');
+
+    const registerSpy = vi
+      .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+    const unregisterSpy = vi
+      .spyOn(notificationService, 'unregisterCurrentDevice')
+      .mockResolvedValue({ ok: false, message: 'failed' });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+        value: 'false'
+      }
+    ]);
+
+    expect(registerSpy).not.toHaveBeenCalled();
+    expect(unregisterSpy).toHaveBeenCalledOnce();
+    expect(setEnabledSpy).not.toHaveBeenCalledWith(false);
+    expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('true');
+    expect(page.releaseNotificationsEnabled).toBe(true);
+  });
+
   it('normalizes imported release notification events before applying and syncing', async () => {
     const page = createPage();
 

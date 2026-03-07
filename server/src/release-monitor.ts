@@ -59,7 +59,7 @@ interface ReleaseInfo {
 }
 
 interface MonitorStartResult {
-  stop: () => void;
+  stop: () => Promise<void>;
 }
 
 interface MonitorRunStats {
@@ -99,25 +99,34 @@ interface MonitorRuntimeState {
 export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   if (!config.releaseMonitorEnabled) {
     console.info('[release-monitor] disabled');
-    return { stop: () => undefined };
+    return { stop: () => Promise.resolve() };
   }
 
   let running = false;
+  let stopped = false;
+  let currentRun: Promise<void> | null = null;
   const runtimeState = createMonitorRuntimeState();
 
   const runOnce = async (): Promise<void> => {
-    if (running) {
+    if (stopped || running) {
       return;
     }
 
     running = true;
-    try {
+    const run = (async () => {
       await processDueGames(pool, runtimeState);
-    } catch (error) {
-      console.error('[release-monitor] run_failed', error);
-    } finally {
-      running = false;
-    }
+    })()
+      .catch((error: unknown) => {
+        console.error('[release-monitor] run_failed', error);
+      })
+      .finally(() => {
+        running = false;
+        if (currentRun === run) {
+          currentRun = null;
+        }
+      });
+    currentRun = run;
+    await run;
   };
 
   void runOnce();
@@ -127,8 +136,12 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   }, intervalMs);
 
   return {
-    stop: () => {
+    stop: async () => {
+      stopped = true;
       clearInterval(timer);
+      if (currentRun) {
+        await currentRun;
+      }
     }
   };
 }

@@ -1115,11 +1115,16 @@ function isHltbRefreshDue(
 }
 
 function hasHltbValues(payload: Record<string, unknown>): boolean {
-  return (
-    numberOrNull(payload['hltbMainHours']) !== null ||
-    numberOrNull(payload['hltbMainExtraHours']) !== null ||
-    numberOrNull(payload['hltbCompletionistHours']) !== null
-  );
+  const hltbMainHours = payload['hltbMainHours'];
+  const hltbMainExtraHours = payload['hltbMainExtraHours'];
+  const hltbCompletionistHours = payload['hltbCompletionistHours'];
+  const hasMainHours = typeof hltbMainHours === 'number' && Number.isFinite(hltbMainHours);
+  const hasMainExtraHours =
+    typeof hltbMainExtraHours === 'number' && Number.isFinite(hltbMainExtraHours);
+  const hasCompletionistHours =
+    typeof hltbCompletionistHours === 'number' && Number.isFinite(hltbCompletionistHours);
+
+  return hasMainHours || hasMainExtraHours || hasCompletionistHours;
 }
 
 function isMetacriticRefreshDue(

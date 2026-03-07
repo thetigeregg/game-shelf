@@ -74,9 +74,8 @@ export class AppComponent {
         {
           text: 'Enable',
           role: 'confirm',
-          handler: async () => {
-            const result = await this.notificationService.enableReleaseNotifications();
-            await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
+          handler: () => {
+            void this.enableReleaseNotificationsFromPrompt();
           }
         }
       ]
@@ -123,5 +122,10 @@ export class AppComponent {
     });
 
     await toast.present();
+  }
+
+  private async enableReleaseNotificationsFromPrompt(): Promise<void> {
+    const result = await this.notificationService.enableReleaseNotifications();
+    await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
   }
 }

@@ -3343,10 +3343,12 @@ export class SettingsPage {
         return;
       }
 
-      try {
-        localStorage.setItem(row.key, row.value);
-      } catch {
-        // Ignore storage write failures.
+      if (row.key !== RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
+        try {
+          localStorage.setItem(row.key, row.value);
+        } catch {
+          // Ignore storage write failures.
+        }
       }
 
       if (
@@ -3373,13 +3375,20 @@ export class SettingsPage {
           normalizedEnabledRaw !== 'false' &&
           normalizedEnabledRaw !== '0' &&
           normalizedEnabledRaw !== 'no';
-        this.releaseNotificationsEnabled = normalizedEnabled;
-        this.notificationService.setReleaseNotificationsEnabled(normalizedEnabled);
+        const previousEnabledState = this.notificationService.isReleaseNotificationsEnabled();
 
-        if (this.releaseNotificationsEnabled) {
+        if (normalizedEnabled) {
+          this.notificationService.setReleaseNotificationsEnabled(true);
+          this.releaseNotificationsEnabled = true;
           await this.notificationService.registerCurrentDeviceIfPermitted();
         } else {
-          await this.notificationService.unregisterCurrentDevice();
+          const result = await this.notificationService.unregisterCurrentDevice();
+          if (result.ok) {
+            this.notificationService.setReleaseNotificationsEnabled(false);
+            this.releaseNotificationsEnabled = false;
+          } else {
+            this.releaseNotificationsEnabled = previousEnabledState;
+          }
         }
       }
 

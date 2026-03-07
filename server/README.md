@@ -113,7 +113,8 @@ Release notification preference defaults:
 
 ### Non-secret env vars (recommendations)
 
-- `RECOMMENDATIONS_SCHEDULER_ENABLED`
+- `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `recommendations-worker`; API process no longer runs scheduler ticks)
+- `RECOMMENDATIONS_ENRICH_API_BASE_URL` (worker-only; defaults to `http://api:3000` for discovery enrichment lookups)
 - `RECOMMENDATIONS_DAILY_STALE_HOURS`
 - `RECOMMENDATIONS_TOP_LIMIT`
 - `RECOMMENDATIONS_SIMILARITY_K`

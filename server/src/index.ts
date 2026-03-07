@@ -20,7 +20,6 @@ import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.j
 import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { registerRecommendationRoutes } from './recommendations/routes.js';
-import { RecommendationScheduler } from './recommendations/scheduler.js';
 import { RecommendationService } from './recommendations/service.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
@@ -125,9 +124,6 @@ async function main(): Promise<void> {
       discoveryEnrichmentService
     }
   );
-  const recommendationScheduler = new RecommendationScheduler(recommendationService, {
-    enabled: config.recommendationsSchedulerEnabled
-  });
   const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
     twitchClientId: config.twitchClientId,
     twitchClientSecret: config.twitchClientSecret,
@@ -313,7 +309,11 @@ async function main(): Promise<void> {
       host: config.host,
       port: config.port
     });
-    recommendationScheduler.start();
+    if (config.recommendationsSchedulerEnabled) {
+      console.info(
+        '[recommendations] RECOMMENDATIONS_SCHEDULER_ENABLED is set on API process; scheduler execution is handled by recommendations-worker'
+      );
+    }
     discoveryEnrichmentService.start();
     metadataEnrichmentService.start();
   } catch (error) {

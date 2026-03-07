@@ -82,6 +82,8 @@ Common stack env vars:
 - `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
 - `BACKUP_PGDUMP_RETRY_DELAY_SECONDS` (optional; defaults to `5`)
+- `RECOMMENDATIONS_SCHEDULER_ENABLED` (optional; defaults `true`; consumed by `recommendations-worker`)
+- `RECOMMENDATIONS_ENRICH_API_BASE_URL` (optional; defaults `http://api:3000`; worker-only)
 - `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT` (optional; `NEUTRAL|SHORT|LONG`, default `NEUTRAL`)
 - `RECOMMENDATIONS_EXPLORATION_WEIGHT` (optional; default `0.3`)
 - `RECOMMENDATIONS_DIVERSITY_PENALTY_WEIGHT` (optional; default `0.5`)

@@ -37,11 +37,18 @@ const runtimeConfig = (() => {
   }
 })();
 
+// Keep aligned with frontend `firebase` package version in package.json.
+const FIREBASE_CDN_VERSION = '11.10.0';
+
 let messaging = null;
 
 try {
-  importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging-compat.js');
+  importScripts(
+    `https://www.gstatic.com/firebasejs/${FIREBASE_CDN_VERSION}/firebase-app-compat.js`
+  );
+  importScripts(
+    `https://www.gstatic.com/firebasejs/${FIREBASE_CDN_VERSION}/firebase-messaging-compat.js`
+  );
 
   if (runtimeConfig && runtimeConfig.messagingSenderId) {
     firebase.initializeApp(runtimeConfig);

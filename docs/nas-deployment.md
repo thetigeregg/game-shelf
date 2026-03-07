@@ -85,6 +85,7 @@ Common stack env vars:
 - `BACKUP_PGDUMP_RETRY_DELAY_SECONDS` (optional; defaults to `5`)
 - `RECOMMENDATIONS_SCHEDULER_ENABLED` (optional; defaults `true`; consumed by `recommendations-worker`)
 - `RECOMMENDATIONS_JOB_CONCURRENCY` (optional; defaults `1`; consumed by `recommendations-worker`)
+- `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (optional; defaults `1`; consumed by `recommendations-worker`)
 - `RECOMMENDATIONS_ENRICH_API_BASE_URL` (optional; defaults `http://api:3000`; worker-only)
 - `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT` (optional; `NEUTRAL|SHORT|LONG`, default `NEUTRAL`)
 - `RECOMMENDATIONS_EXPLORATION_WEIGHT` (optional; default `0.3`)
@@ -129,6 +130,9 @@ Common stack env vars:
 - `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (optional; default `15000`)
 - `METADATA_ENRICHMENT_JOB_CONCURRENCY` (optional; default `1`; consumed by `recommendations-worker`)
 - `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (optional; default `60`; consumed by `recommendations-worker`)
+- `CACHE_REVALIDATION_JOB_CONCURRENCY` (optional; default `2`; consumed by `recommendations-worker`)
+- `MANUALS_CATALOG_JOB_CONCURRENCY` (optional; default `1`; consumed by `recommendations-worker`)
+- `MANUALS_DIR` (optional; default `/data/manuals`; should match mounted manuals path)
 
 Release notification defaults:
 

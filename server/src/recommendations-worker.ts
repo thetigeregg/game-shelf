@@ -8,6 +8,10 @@ import { createPool } from './db.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
 import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
+import { processQueuedHltbCacheRevalidation } from './hltb-cache.js';
+import { processQueuedManualsCatalogRefresh } from './manuals.js';
+import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
+import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -40,6 +44,10 @@ function readPositiveIntegerEnv(name: string, fallback: number): number {
 
 function isRecommendationTarget(value: unknown): value is RecommendationTarget {
   return value === 'BACKLOG' || value === 'WISHLIST' || value === 'DISCOVERY';
+}
+
+function stringOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value : '';
 }
 
 async function main(): Promise<void> {
@@ -137,9 +145,22 @@ async function main(): Promise<void> {
   const recommendationConcurrency = readPositiveIntegerEnv('RECOMMENDATIONS_JOB_CONCURRENCY', 1);
   const metadataConcurrency = readPositiveIntegerEnv('METADATA_ENRICHMENT_JOB_CONCURRENCY', 1);
   const releaseMonitorConcurrency = readPositiveIntegerEnv('RELEASE_MONITOR_JOB_CONCURRENCY', 2);
+  const discoveryEnrichmentConcurrency = readPositiveIntegerEnv(
+    'DISCOVERY_ENRICHMENT_JOB_CONCURRENCY',
+    1
+  );
+  const cacheRevalidationConcurrency = readPositiveIntegerEnv(
+    'CACHE_REVALIDATION_JOB_CONCURRENCY',
+    2
+  );
+  const manualsCatalogConcurrency = readPositiveIntegerEnv('MANUALS_CATALOG_JOB_CONCURRENCY', 1);
   const metadataIntervalMinutes = readPositiveIntegerEnv(
     'METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES',
     60
+  );
+  const discoveryIntervalMinutes = Math.max(
+    1,
+    config.recommendationsDiscoveryEnrichIntervalMinutes
   );
 
   let shuttingDown = false;
@@ -192,6 +213,22 @@ async function main(): Promise<void> {
     });
   };
 
+  const scheduleDiscoveryEnrichmentJob = async (): Promise<void> => {
+    if (!config.recommendationsDiscoveryEnrichEnabled) {
+      return;
+    }
+    await jobs.enqueue({
+      jobType: 'discovery_enrichment_run',
+      dedupeKey: 'discovery-enrichment:run',
+      payload: {
+        requestedAt: new Date().toISOString(),
+        requestedBy: 'background-worker'
+      },
+      priority: 95,
+      maxAttempts: 3
+    });
+  };
+
   const dispatchJob = async (job: ClaimedBackgroundJob): Promise<Record<string, unknown>> => {
     switch (job.jobType) {
       case 'recommendations_rebuild': {
@@ -219,6 +256,35 @@ async function main(): Promise<void> {
       case 'release_monitor_game': {
         await releaseMonitorInternals.processQueuedReleaseMonitorGame(pool, job.payload);
         return { processed: true };
+      }
+      case 'discovery_enrichment_run': {
+        const summary = await discoveryEnrichmentService.runOnce();
+        return { summary };
+      }
+      case 'hltb_cache_revalidate': {
+        await processQueuedHltbCacheRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          requestUrl: stringOrEmpty(job.payload['requestUrl'])
+        });
+        return { revalidated: true };
+      }
+      case 'metacritic_cache_revalidate': {
+        await processQueuedMetacriticCacheRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          requestUrl: stringOrEmpty(job.payload['requestUrl'])
+        });
+        return { revalidated: true };
+      }
+      case 'mobygames_cache_revalidate': {
+        await processQueuedMobyGamesCacheRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          requestUrl: stringOrEmpty(job.payload['requestUrl'])
+        });
+        return { revalidated: true };
+      }
+      case 'manuals_catalog_refresh': {
+        const summary = await processQueuedManualsCatalogRefresh(pool, config.manualsDir);
+        return { summary };
       }
       default: {
         const unknownType: never = job.jobType;
@@ -263,6 +329,11 @@ async function main(): Promise<void> {
   startConsumers('recommendations_rebuild', recommendationConcurrency);
   startConsumers('metadata_enrichment_run', metadataConcurrency);
   startConsumers('release_monitor_game', releaseMonitorConcurrency);
+  startConsumers('discovery_enrichment_run', discoveryEnrichmentConcurrency);
+  startConsumers('hltb_cache_revalidate', cacheRevalidationConcurrency);
+  startConsumers('metacritic_cache_revalidate', cacheRevalidationConcurrency);
+  startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);
+  startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
 
   void runRecommendationSchedulerTick();
   const recommendationSchedulerTimer = setInterval(() => {
@@ -272,6 +343,7 @@ async function main(): Promise<void> {
   setTimeout(
     () => {
       void scheduleMetadataJob();
+      void scheduleDiscoveryEnrichmentJob();
     },
     Math.max(0, config.igdbMetadataEnrichStartupDelayMs)
   );
@@ -281,14 +353,24 @@ async function main(): Promise<void> {
     },
     Math.max(1, metadataIntervalMinutes) * 60 * 1000
   );
+  const discoveryEnrichmentTimer = setInterval(
+    () => {
+      void scheduleDiscoveryEnrichmentJob();
+    },
+    discoveryIntervalMinutes * 60 * 1000
+  );
 
   console.info('[background-worker] started', {
     recommendationSchedulerEnabled: config.recommendationsSchedulerEnabled,
     recommendationConcurrency,
     metadataConcurrency,
     releaseMonitorConcurrency,
+    discoveryEnrichmentConcurrency,
+    cacheRevalidationConcurrency,
+    manualsCatalogConcurrency,
     metadataEnabled: config.igdbMetadataEnrichEnabled,
     metadataIntervalMinutes,
+    discoveryIntervalMinutes,
     discoveryEnabled: config.recommendationsDiscoveryEnabled,
     discoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,
     discoveryEnrichApiBaseUrl: readDiscoveryEnrichmentApiBaseUrl()
@@ -300,6 +382,7 @@ async function main(): Promise<void> {
         clearInterval(interval);
         clearInterval(recommendationSchedulerTimer);
         clearInterval(metadataTimer);
+        clearInterval(discoveryEnrichmentTimer);
         resolve();
       }
     }, 250);

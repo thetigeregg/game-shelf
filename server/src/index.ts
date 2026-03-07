@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from 'fastify-rate-limit';
+import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
   });
   let closeHookRegistered = false;
   let releaseMonitor: ReturnType<typeof startReleaseMonitor> | null = null;
+  const backgroundJobs = new BackgroundJobRepository(pool);
   const recommendationRepository = new RecommendationRepository(pool);
   const embeddingClient = new OpenAiEmbeddingClient({
     apiKey: config.openaiApiKey,
@@ -260,16 +262,56 @@ async function main(): Promise<void> {
     await registerCacheObservabilityRoutes(app, pool);
     registerManualRoutes(app, {
       manualsDir: config.manualsDir,
-      manualsPublicBaseUrl: config.manualsPublicBaseUrl
+      manualsPublicBaseUrl: config.manualsPublicBaseUrl,
+      mode: 'queue',
+      queuePool: pool,
+      enqueueCatalogRefreshJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'manuals_catalog_refresh',
+          dedupeKey: 'manuals-catalog-refresh',
+          payload,
+          priority: 110,
+          maxAttempts: 3
+        });
+      }
     });
 
     releaseMonitor = startReleaseMonitor(pool);
-    await registerHltbCachedRoute(app, pool);
-    await registerMetacriticCachedRoute(app, pool);
+    await registerHltbCachedRoute(app, pool, {
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'hltb_cache_revalidate',
+          dedupeKey: `hltb-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
+    await registerMetacriticCachedRoute(app, pool, {
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'metacritic_cache_revalidate',
+          dedupeKey: `metacritic-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
     await registerMobyGamesCachedRoute(app, pool, {
       enableStaleWhileRevalidate: config.mobygamesCacheEnableStaleWhileRevalidate,
       freshTtlSeconds: config.mobygamesCacheFreshTtlSeconds,
-      staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds
+      staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'mobygames_cache_revalidate',
+          dedupeKey: `mobygames-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
     });
     await registerRecommendationRoutes(app, recommendationService);
 
@@ -295,7 +337,6 @@ async function main(): Promise<void> {
         '[recommendations] RECOMMENDATIONS_SCHEDULER_ENABLED is set on API process; scheduler execution is handled by recommendations-worker'
       );
     }
-    discoveryEnrichmentService.start();
   } catch (error) {
     if (closeHookRegistered) {
       await app.close().catch(() => undefined);

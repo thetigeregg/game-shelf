@@ -265,6 +265,46 @@ describe('NotificationService', () => {
     expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
   });
 
+  it('registerCurrentDeviceIfPermitted short-circuits when notifications are disabled', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'false');
+
+    const result = await service.registerCurrentDeviceIfPermitted();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('disabled');
+  });
+
+  it('registerCurrentDeviceIfPermitted registers when enabled and permission granted', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    setNotificationMock({
+      permission: 'granted',
+      requestPermission: () => Promise.resolve('granted')
+    });
+    const registerSpy = vi
+      .spyOn(
+        service as unknown as {
+          registerCurrentDevice: () => Promise<{ ok: boolean; token?: string; message?: string }>;
+        },
+        'registerCurrentDevice'
+      )
+      .mockResolvedValue({ ok: true, token: 'abc' });
+
+    const result = await service.registerCurrentDeviceIfPermitted();
+    expect(result.ok).toBe(true);
+    expect(registerSpy).toHaveBeenCalledOnce();
+  });
+
+  it('registerCurrentDeviceIfPermitted returns failure when permission is not granted', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    setNotificationMock({
+      permission: 'default',
+      requestPermission: () => Promise.resolve('default')
+    });
+
+    const result = await service.registerCurrentDeviceIfPermitted();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('not been granted');
+  });
+
   it('resolves service worker registrations for existing, new, and error states', async () => {
     const getRegistration = vi
       .fn()

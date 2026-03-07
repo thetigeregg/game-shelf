@@ -69,6 +69,7 @@ import { PlatformOrderService } from '../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
+import { RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY } from '../core/services/notification.service';
 import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY
@@ -581,5 +582,43 @@ describe('SettingsPage CSV review fields', () => {
         value: '15'
       }
     });
+  });
+
+  it('registers device when imported release notifications setting is enabled', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    vi.spyOn(notificationService, 'isReleaseNotificationsEnabled').mockReturnValue(true);
+    const registerSpy = vi
+      .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+        value: 'true'
+      }
+    ]);
+
+    expect(registerSpy).toHaveBeenCalledOnce();
+  });
+
+  it('does not register device when imported release notifications setting is disabled', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    vi.spyOn(notificationService, 'isReleaseNotificationsEnabled').mockReturnValue(false);
+    const registerSpy = vi
+      .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+        value: 'false'
+      }
+    ]);
+
+    expect(registerSpy).not.toHaveBeenCalled();
   });
 });

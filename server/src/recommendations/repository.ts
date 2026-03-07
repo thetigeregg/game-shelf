@@ -11,6 +11,8 @@ import {
   GameEmbeddingUpsertInput,
   GameStatus,
   NormalizedGameRecord,
+  RecommendationRebuildJob,
+  RecommendationRebuildQueueReason,
   RankedRecommendationItem,
   RecommendationHistoryEntry,
   RecommendationLaneCollection,
@@ -89,6 +91,15 @@ interface DiscoveryUpdatedAtRow extends QueryResultRow {
 }
 interface SettingRow extends QueryResultRow {
   setting_value: string;
+}
+
+interface BackgroundJobInsertRow extends QueryResultRow {
+  id: number;
+}
+
+interface BackgroundJobRow extends QueryResultRow {
+  id: number;
+  payload: unknown;
 }
 
 interface DiscoveryGameRow extends QueryResultRow {
@@ -351,6 +362,173 @@ export class RecommendationRepository {
       DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()
       `,
       [params.settingKey, params.settingValue]
+    );
+  }
+
+  async enqueueRecommendationRebuildJob(params: {
+    target: RecommendationTarget;
+    force: boolean;
+    triggeredBy: 'manual' | 'scheduler' | 'stale-read';
+    reason: RecommendationRebuildQueueReason;
+  }): Promise<{ jobId: number; deduped: boolean }> {
+    const dedupeKey = `recommendations:rebuild:${params.target}:${params.force ? 'force' : 'normal'}`;
+    const payload = JSON.stringify({
+      target: params.target,
+      force: params.force,
+      triggeredBy: params.triggeredBy,
+      reason: params.reason
+    });
+    const insertResult = await this.pool.query<BackgroundJobInsertRow>(
+      `
+      INSERT INTO background_jobs
+        (job_type, dedupe_key, payload, status, priority, attempts, max_attempts, available_at, created_at, updated_at)
+      VALUES
+        ('recommendations_rebuild', $1, $2::jsonb, 'pending', 100, 0, 5, NOW(), NOW(), NOW())
+      ON CONFLICT (dedupe_key)
+      WHERE dedupe_key IS NOT NULL AND status IN ('pending', 'running')
+      DO NOTHING
+      RETURNING id
+      `,
+      [dedupeKey, payload]
+    );
+
+    if ((insertResult.rowCount ?? 0) > 0 && insertResult.rows[0]) {
+      return { jobId: insertResult.rows[0].id, deduped: false };
+    }
+
+    const existingResult = await this.pool.query<BackgroundJobInsertRow>(
+      `
+      SELECT id
+      FROM background_jobs
+      WHERE dedupe_key = $1
+        AND status IN ('pending', 'running')
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [dedupeKey]
+    );
+
+    if ((existingResult.rowCount ?? 0) > 0 && existingResult.rows[0]) {
+      return { jobId: existingResult.rows[0].id, deduped: true };
+    }
+
+    const fallbackInsert = await this.pool.query<BackgroundJobInsertRow>(
+      `
+      INSERT INTO background_jobs
+        (job_type, dedupe_key, payload, status, priority, attempts, max_attempts, available_at, created_at, updated_at)
+      VALUES
+        ('recommendations_rebuild', NULL, $1::jsonb, 'pending', 100, 0, 5, NOW(), NOW(), NOW())
+      RETURNING id
+      `,
+      [payload]
+    );
+
+    return { jobId: fallbackInsert.rows[0].id, deduped: false };
+  }
+
+  async claimRecommendationRebuildJob(workerId: string): Promise<RecommendationRebuildJob | null> {
+    const result = await this.pool.query<BackgroundJobRow>(
+      `
+      WITH next_job AS (
+        SELECT id
+        FROM background_jobs
+        WHERE job_type = 'recommendations_rebuild'
+          AND status = 'pending'
+          AND available_at <= NOW()
+        ORDER BY priority ASC, id ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      )
+      UPDATE background_jobs
+      SET
+        status = 'running',
+        attempts = attempts + 1,
+        locked_by = $1,
+        locked_at = NOW(),
+        updated_at = NOW()
+      WHERE id IN (SELECT id FROM next_job)
+      RETURNING id, payload
+      `,
+      [workerId]
+    );
+
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    const payload =
+      row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+        ? (row.payload as Record<string, unknown>)
+        : {};
+
+    const target =
+      payload['target'] === 'BACKLOG' ||
+      payload['target'] === 'WISHLIST' ||
+      payload['target'] === 'DISCOVERY'
+        ? payload['target']
+        : null;
+
+    if (target === null) {
+      return null;
+    }
+
+    const triggeredBy =
+      payload['triggeredBy'] === 'manual' ||
+      payload['triggeredBy'] === 'scheduler' ||
+      payload['triggeredBy'] === 'stale-read'
+        ? payload['triggeredBy']
+        : 'manual';
+    const reason =
+      payload['reason'] === 'missing' ||
+      payload['reason'] === 'stale' ||
+      payload['reason'] === 'forced'
+        ? payload['reason']
+        : 'forced';
+
+    return {
+      id: row.id,
+      target,
+      force: payload['force'] === true,
+      triggeredBy,
+      reason
+    };
+  }
+
+  async completeBackgroundJob(
+    jobId: number,
+    resultPayload: Record<string, unknown>
+  ): Promise<void> {
+    await this.pool.query(
+      `
+      UPDATE background_jobs
+      SET
+        status = 'succeeded',
+        result = $2::jsonb,
+        finished_at = NOW(),
+        locked_by = NULL,
+        locked_at = NULL,
+        updated_at = NOW()
+      WHERE id = $1
+      `,
+      [jobId, JSON.stringify(resultPayload)]
+    );
+  }
+
+  async failBackgroundJob(jobId: number, errorMessage: string): Promise<void> {
+    await this.pool.query(
+      `
+      UPDATE background_jobs
+      SET
+        status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END,
+        available_at = CASE WHEN attempts >= max_attempts THEN available_at ELSE NOW() + (attempts * INTERVAL '30 seconds') END,
+        last_error = $2,
+        locked_by = NULL,
+        locked_at = NULL,
+        updated_at = NOW()
+      WHERE id = $1
+      `,
+      [jobId, errorMessage]
     );
   }
 

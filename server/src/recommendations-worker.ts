@@ -6,6 +6,7 @@ import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js'
 import { RecommendationRepository } from './recommendations/repository.js';
 import { RecommendationScheduler } from './recommendations/scheduler.js';
 import { RecommendationService } from './recommendations/service.js';
+import type { RecommendationRebuildJob } from './recommendations/types.js';
 
 function readDiscoveryEnrichmentApiBaseUrl(): string {
   const raw =
@@ -97,6 +98,7 @@ async function main(): Promise<void> {
   const recommendationScheduler = new RecommendationScheduler(recommendationService, {
     enabled: config.recommendationsSchedulerEnabled
   });
+  const workerId = `recommendations-worker:${String(process.pid)}`;
 
   let shuttingDown = false;
   const stop = async (signal: string): Promise<void> => {
@@ -119,6 +121,39 @@ async function main(): Promise<void> {
 
   recommendationScheduler.start();
 
+  const queueLoop = async (): Promise<void> => {
+    while (!shuttingDown) {
+      let claimed: RecommendationRebuildJob | null = null;
+      try {
+        claimed = await recommendationRepository.claimRecommendationRebuildJob(workerId);
+      } catch (error) {
+        console.error('[recommendations-worker] claim_failed', error);
+        await sleep(1_000);
+        continue;
+      }
+
+      if (!claimed) {
+        await sleep(500);
+        continue;
+      }
+
+      try {
+        const result = await recommendationService.rebuild({
+          target: claimed.target,
+          force: claimed.force,
+          triggeredBy: claimed.triggeredBy
+        });
+        await recommendationRepository.completeBackgroundJob(claimed.id, {
+          runResult: result
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await recommendationRepository.failBackgroundJob(claimed.id, message);
+      }
+    }
+  };
+  void queueLoop();
+
   console.info('[recommendations-worker] started', {
     schedulerEnabled: config.recommendationsSchedulerEnabled,
     discoveryEnabled: config.recommendationsDiscoveryEnabled,
@@ -131,6 +166,12 @@ async function main(): Promise<void> {
   }
 
   await new Promise<void>(() => undefined);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 main().catch((error: unknown) => {

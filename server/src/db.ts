@@ -535,6 +535,35 @@ export const MIGRATIONS: string[] = [
   ON game_embeddings
   USING ivfflat (embedding vector_cosine_ops)
   WITH (lists = 100);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS background_jobs (
+    id BIGSERIAL PRIMARY KEY,
+    job_type TEXT NOT NULL,
+    dedupe_key TEXT,
+    payload JSONB NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed')),
+    priority INTEGER NOT NULL DEFAULT 100,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 5,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_by TEXT,
+    locked_at TIMESTAMPTZ,
+    last_error TEXT,
+    result JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS background_jobs_pending_idx
+  ON background_jobs (status, priority, available_at, id);
+  `,
+  `
+  CREATE UNIQUE INDEX IF NOT EXISTS background_jobs_active_dedupe_idx
+  ON background_jobs (dedupe_key)
+  WHERE dedupe_key IS NOT NULL AND status IN ('pending', 'running');
   `
 ];
 

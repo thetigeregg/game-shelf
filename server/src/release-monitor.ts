@@ -296,9 +296,9 @@ async function processGameRow(
         stats.hltbRefreshSuccesses += 1;
         mergedPayload = {
           ...mergedPayload,
-          hltbMainHours: numberOrNull(refreshedHltb.hltbMainHours),
-          hltbMainExtraHours: numberOrNull(refreshedHltb.hltbMainExtraHours),
-          hltbCompletionistHours: numberOrNull(refreshedHltb.hltbCompletionistHours)
+          hltbMainHours: finiteNumberOrNull(refreshedHltb.hltbMainHours),
+          hltbMainExtraHours: finiteNumberOrNull(refreshedHltb.hltbMainExtraHours),
+          hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.hltbCompletionistHours)
         };
       }
       // Advance cadence on attempt (not just success) to avoid repeatedly
@@ -1734,6 +1734,8 @@ export const releaseMonitorInternals = {
   hasHltbValues,
   isMetacriticRefreshDue,
   hasMetacriticValues,
+  finiteNumberOrNull,
+  numberOrNull,
   normalizeDateString,
   mergeMetacriticRefreshPayload,
   readNotificationPreferences,

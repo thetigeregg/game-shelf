@@ -164,14 +164,50 @@ async function main(): Promise<void> {
   );
 
   let shuttingDown = false;
+  const inFlightJobs = new Set<Promise<void>>();
+  const consumerLoops = new Set<Promise<void>>();
+  let metadataStartupTimer: ReturnType<typeof setTimeout> | null = null;
+  let recommendationSchedulerTimer: ReturnType<typeof setInterval> | null = null;
+  let metadataTimer: ReturnType<typeof setInterval> | null = null;
+  let discoveryEnrichmentTimer: ReturnType<typeof setInterval> | null = null;
+
+  const stopTimers = (): void => {
+    if (metadataStartupTimer) {
+      clearTimeout(metadataStartupTimer);
+      metadataStartupTimer = null;
+    }
+    if (recommendationSchedulerTimer) {
+      clearInterval(recommendationSchedulerTimer);
+      recommendationSchedulerTimer = null;
+    }
+    if (metadataTimer) {
+      clearInterval(metadataTimer);
+      metadataTimer = null;
+    }
+    if (discoveryEnrichmentTimer) {
+      clearInterval(discoveryEnrichmentTimer);
+      discoveryEnrichmentTimer = null;
+    }
+  };
+
   const stop = async (signal: string): Promise<void> => {
     if (shuttingDown) {
       return;
     }
     shuttingDown = true;
     console.info('[background-worker] stopping', { signal });
+    stopTimers();
     discoveryEnrichmentService.stop();
-    await pool.end();
+    await Promise.allSettled(Array.from(consumerLoops));
+    await Promise.allSettled(Array.from(inFlightJobs));
+    try {
+      await pool.end();
+    } catch (error) {
+      console.error('[background-worker] failed to close database pool during shutdown', {
+        signal,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   };
 
   process.on('SIGINT', () => {
@@ -182,7 +218,7 @@ async function main(): Promise<void> {
   });
 
   const runRecommendationSchedulerTick = async (): Promise<void> => {
-    if (!config.recommendationsSchedulerEnabled) {
+    if (shuttingDown || !config.recommendationsSchedulerEnabled) {
       return;
     }
     for (const target of RECOMMENDATION_TARGETS) {
@@ -198,7 +234,7 @@ async function main(): Promise<void> {
   };
 
   const scheduleMetadataJob = async (): Promise<void> => {
-    if (!config.igdbMetadataEnrichEnabled) {
+    if (shuttingDown || !config.igdbMetadataEnrichEnabled) {
       return;
     }
     await jobs.enqueue({
@@ -214,7 +250,7 @@ async function main(): Promise<void> {
   };
 
   const scheduleDiscoveryEnrichmentJob = async (): Promise<void> => {
-    if (!config.recommendationsDiscoveryEnrichEnabled) {
+    if (shuttingDown || !config.recommendationsDiscoveryEnrichEnabled) {
       return;
     }
     await jobs.enqueue({
@@ -295,7 +331,7 @@ async function main(): Promise<void> {
 
   const startConsumers = (jobType: BackgroundJobType, concurrency: number): void => {
     for (let index = 0; index < concurrency; index += 1) {
-      void (async () => {
+      const consumerLoop = (async () => {
         while (!shuttingDown) {
           let claimed: ClaimedBackgroundJob | null = null;
           try {
@@ -314,15 +350,27 @@ async function main(): Promise<void> {
             continue;
           }
 
+          const processClaimedJob = (async () => {
+            try {
+              const result = await dispatchJob(claimed);
+              await jobs.complete(claimed.id, result);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              await jobs.fail(claimed.id, message);
+            }
+          })();
+          inFlightJobs.add(processClaimedJob);
           try {
-            const result = await dispatchJob(claimed);
-            await jobs.complete(claimed.id, result);
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            await jobs.fail(claimed.id, message);
+            await processClaimedJob;
+          } finally {
+            inFlightJobs.delete(processClaimedJob);
           }
         }
       })();
+      consumerLoops.add(consumerLoop);
+      void consumerLoop.finally(() => {
+        consumerLoops.delete(consumerLoop);
+      });
     }
   };
 
@@ -336,24 +384,24 @@ async function main(): Promise<void> {
   startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
 
   void runRecommendationSchedulerTick();
-  const recommendationSchedulerTimer = setInterval(() => {
+  recommendationSchedulerTimer = setInterval(() => {
     void runRecommendationSchedulerTick();
   }, RECOMMENDATION_SCHEDULER_INTERVAL_MS);
 
-  setTimeout(
+  metadataStartupTimer = setTimeout(
     () => {
       void scheduleMetadataJob();
       void scheduleDiscoveryEnrichmentJob();
     },
     Math.max(0, config.igdbMetadataEnrichStartupDelayMs)
   );
-  const metadataTimer = setInterval(
+  metadataTimer = setInterval(
     () => {
       void scheduleMetadataJob();
     },
     Math.max(1, metadataIntervalMinutes) * 60 * 1000
   );
-  const discoveryEnrichmentTimer = setInterval(
+  discoveryEnrichmentTimer = setInterval(
     () => {
       void scheduleDiscoveryEnrichmentJob();
     },
@@ -380,9 +428,6 @@ async function main(): Promise<void> {
     const interval = setInterval(() => {
       if (shuttingDown) {
         clearInterval(interval);
-        clearInterval(recommendationSchedulerTimer);
-        clearInterval(metadataTimer);
-        clearInterval(discoveryEnrichmentTimer);
         resolve();
       }
     }, 250);

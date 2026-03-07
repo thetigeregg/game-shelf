@@ -556,6 +556,28 @@ void test('metacritic merge does not overwrite non-metacritic review source fiel
   assert.equal(merged['reviewUrl'], 'https://opencritic.example/game');
 });
 
+void test('metacritic merge preserves zero score when review source is metacritic', () => {
+  const merged = releaseMonitorInternals.mergeMetacriticRefreshPayload(
+    {
+      reviewSource: 'metacritic',
+      reviewScore: 72,
+      reviewUrl: 'https://metacritic.example/old',
+      metacriticScore: 72,
+      metacriticUrl: 'https://metacritic.example/old'
+    },
+    {
+      metacriticScore: 0,
+      metacriticUrl: 'https://metacritic.example/new'
+    }
+  );
+
+  assert.equal(merged['metacriticScore'], 0);
+  assert.equal(merged['metacriticUrl'], 'https://metacritic.example/new');
+  assert.equal(merged['reviewSource'], 'metacritic');
+  assert.equal(merged['reviewScore'], 0);
+  assert.equal(merged['reviewUrl'], 'https://metacritic.example/new');
+});
+
 void test('startReleaseMonitor returns inert monitor when disabled', async () => {
   const original = config.releaseMonitorEnabled;
   config.releaseMonitorEnabled = false;

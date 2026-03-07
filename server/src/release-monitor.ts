@@ -601,9 +601,10 @@ function mergeMetacriticRefreshPayload(
     metacriticUrl?: unknown;
   }
 ): Record<string, unknown> {
+  const normalizedMetacriticScore = finiteNumberOrNull(refreshed.metacriticScore);
   const nextPayload: Record<string, unknown> = {
     ...existing,
-    metacriticScore: numberOrNull(refreshed.metacriticScore),
+    metacriticScore: normalizedMetacriticScore,
     metacriticUrl: stringOrNull(refreshed.metacriticUrl)
   };
 
@@ -612,7 +613,7 @@ function mergeMetacriticRefreshPayload(
     existingReviewSource === null || existingReviewSource === 'metacritic';
 
   if (shouldOverwriteReview) {
-    nextPayload['reviewScore'] = numberOrNull(refreshed.metacriticScore);
+    nextPayload['reviewScore'] = normalizedMetacriticScore;
     nextPayload['reviewUrl'] = stringOrNull(refreshed.metacriticUrl);
     nextPayload['reviewSource'] = 'metacritic';
   }
@@ -1466,6 +1467,14 @@ function integerOrNull(value: unknown): number | null {
 
 function numberOrNull(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+}
+
+function finiteNumberOrNull(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return null;
   }
 

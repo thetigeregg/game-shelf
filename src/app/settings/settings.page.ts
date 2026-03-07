@@ -371,7 +371,7 @@ export class SettingsPage {
   selectedColorScheme: ColorSchemePreference = 'system';
   clientWriteTokenConfigured = false;
   verboseTracingEnabled = false;
-  releaseNotificationsEnabled = true;
+  releaseNotificationsEnabled = false;
   releaseNotificationEvents: ReleaseNotificationEventsPreference = {
     set: true,
     changed: true,

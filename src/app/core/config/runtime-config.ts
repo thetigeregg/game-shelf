@@ -17,6 +17,7 @@ interface RuntimeFirebaseConfig {
 
 interface RuntimeConfig {
   appVersion?: string;
+  firebaseCdnVersion?: string;
   featureFlags?: RuntimeFeatureFlags;
   firebase?: RuntimeFirebaseConfig;
   firebaseVapidKey?: string;

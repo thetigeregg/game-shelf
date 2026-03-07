@@ -6,7 +6,18 @@ const defaultConfig = {
   messagingSenderId: '',
   appId: ''
 };
-const runtimeConfig = (() => {
+const DEFAULT_FIREBASE_CDN_VERSION = '11.10.0';
+
+function normalizeRuntimeString(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+const runtimeBootstrap = (() => {
   try {
     importScripts('/assets/runtime-config.js');
   } catch {
@@ -17,28 +28,37 @@ const runtimeConfig = (() => {
     const runtime = globalThis.__GAME_SHELF_RUNTIME_CONFIG__;
     const firebaseConfig = runtime?.firebase;
     if (!firebaseConfig || typeof firebaseConfig !== 'object') {
-      return defaultConfig;
+      return {
+        firebaseConfig: defaultConfig,
+        firebaseCdnVersion: normalizeRuntimeString(runtime?.firebaseCdnVersion)
+      };
     }
 
     return {
-      apiKey: typeof firebaseConfig.apiKey === 'string' ? firebaseConfig.apiKey : '',
-      authDomain: typeof firebaseConfig.authDomain === 'string' ? firebaseConfig.authDomain : '',
-      projectId: typeof firebaseConfig.projectId === 'string' ? firebaseConfig.projectId : '',
-      storageBucket:
-        typeof firebaseConfig.storageBucket === 'string' ? firebaseConfig.storageBucket : '',
-      messagingSenderId:
-        typeof firebaseConfig.messagingSenderId === 'string'
-          ? firebaseConfig.messagingSenderId
-          : '',
-      appId: typeof firebaseConfig.appId === 'string' ? firebaseConfig.appId : ''
+      firebaseConfig: {
+        apiKey: typeof firebaseConfig.apiKey === 'string' ? firebaseConfig.apiKey : '',
+        authDomain: typeof firebaseConfig.authDomain === 'string' ? firebaseConfig.authDomain : '',
+        projectId: typeof firebaseConfig.projectId === 'string' ? firebaseConfig.projectId : '',
+        storageBucket:
+          typeof firebaseConfig.storageBucket === 'string' ? firebaseConfig.storageBucket : '',
+        messagingSenderId:
+          typeof firebaseConfig.messagingSenderId === 'string'
+            ? firebaseConfig.messagingSenderId
+            : '',
+        appId: typeof firebaseConfig.appId === 'string' ? firebaseConfig.appId : ''
+      },
+      firebaseCdnVersion: normalizeRuntimeString(runtime?.firebaseCdnVersion)
     };
   } catch {
-    return defaultConfig;
+    return {
+      firebaseConfig: defaultConfig,
+      firebaseCdnVersion: null
+    };
   }
 })();
 
-// Keep aligned with frontend `firebase` package version in package.json.
-const FIREBASE_CDN_VERSION = '11.10.0';
+const runtimeConfig = runtimeBootstrap.firebaseConfig;
+const FIREBASE_CDN_VERSION = runtimeBootstrap.firebaseCdnVersion ?? DEFAULT_FIREBASE_CDN_VERSION;
 
 let messaging = null;
 

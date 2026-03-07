@@ -383,19 +383,22 @@ export class NotificationService {
     const title = payload.notification?.title?.trim() || 'Game Shelf';
     const body = payload.notification?.body?.trim() || '';
     const data = payload.data ?? {};
+    const route = data['route'];
+    const normalizedRoute = typeof route === 'string' && route.startsWith('/') ? route : null;
+    const notificationData =
+      normalizedRoute === null ? { ...data } : { ...data, route: normalizedRoute };
 
     const showWindowNotification = (): void => {
       const notification = new Notification(title, {
         body,
-        data
+        data: notificationData
       });
 
       notification.onclick = () => {
         window.focus();
-        const route = data['route'];
-        if (typeof route === 'string' && route.startsWith('/')) {
-          void this.router.navigateByUrl(route).catch(() => {
-            window.location.assign(route);
+        if (normalizedRoute) {
+          void this.router.navigateByUrl(normalizedRoute).catch(() => {
+            window.location.assign(normalizedRoute);
           });
         }
       };
@@ -408,9 +411,11 @@ export class NotificationService {
         .getRegistration(workerUrl)
         .then((registration) => {
           if (registration && typeof registration.showNotification === 'function') {
+            // In this path, click routing is handled by firebase-messaging-sw.js
+            // (service worker notificationclick), not Angular router callbacks.
             return registration.showNotification(title, {
               body,
-              data
+              data: notificationData
             });
           }
 

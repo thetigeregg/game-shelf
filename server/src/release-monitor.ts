@@ -183,14 +183,8 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
     return;
   }
 
-  const preferences = await readNotificationPreferences(pool);
-  const activeTokenSet = await loadActiveTokenSet(pool);
-  stats.activeTokensAtStart = activeTokenSet.size;
-
   for (const row of dueRows.rows) {
     try {
-      void preferences;
-      void activeTokenSet;
       const queued = await enqueueReleaseMonitorGameJob(pool, row);
       if (queued) {
         stats.processedWithLock += 1;

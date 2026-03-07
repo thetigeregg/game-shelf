@@ -6,6 +6,9 @@ const defaultConfig = {
   messagingSenderId: '',
   appId: ''
 };
+// Emergency fallback only when runtime config cannot be loaded.
+// Keep this in sync with DEFAULT_FIREBASE_CDN_VERSION in
+// scripts/generate-runtime-config.mjs.
 const DEFAULT_FIREBASE_CDN_VERSION = '11.10.0';
 
 function normalizeRuntimeString(value) {

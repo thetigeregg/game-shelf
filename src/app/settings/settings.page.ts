@@ -3388,8 +3388,32 @@ export class SettingsPage {
       }
 
       if (row.key === RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY) {
+        let normalizedValue = row.value;
+        try {
+          const parsed = JSON.parse(row.value) as Record<string, unknown>;
+          normalizedValue = JSON.stringify({
+            set: parsed['set'] === false ? false : true,
+            changed: parsed['changed'] === false ? false : true,
+            removed: parsed['removed'] === false ? false : true,
+            day: parsed['day'] === false ? false : true
+          });
+        } catch {
+          normalizedValue = JSON.stringify({
+            set: true,
+            changed: true,
+            removed: true,
+            day: true
+          });
+        }
+
+        try {
+          localStorage.setItem(row.key, normalizedValue);
+        } catch {
+          // Ignore storage write failures.
+        }
+
         this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
-        this.queueSettingUpsert(row.key, row.value);
+        this.queueSettingUpsert(row.key, normalizedValue);
       }
 
       if (row.key === TIME_PREFERENCE_STORAGE_KEY) {

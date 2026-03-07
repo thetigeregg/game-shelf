@@ -69,7 +69,10 @@ import { PlatformOrderService } from '../core/services/platform-order.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { DebugLogService } from '../core/services/debug-log.service';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
-import { RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY } from '../core/services/notification.service';
+import {
+  RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+  RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY
+} from '../core/services/notification.service';
 import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY
@@ -620,5 +623,40 @@ describe('SettingsPage CSV review fields', () => {
 
     expect(registerSpy).not.toHaveBeenCalled();
     expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('false');
+  });
+
+  it('normalizes imported release notification events before applying and syncing', async () => {
+    const page = createPage();
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+        value: JSON.stringify({
+          set: false,
+          changed: 'yes',
+          removed: null,
+          day: 1
+        })
+      }
+    ]);
+
+    expect(page.releaseNotificationEvents).toEqual({
+      set: false,
+      changed: true,
+      removed: true,
+      day: true
+    });
+    expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
+      '{"set":false,"changed":true,"removed":true,"day":true}'
+    );
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+        value: '{"set":false,"changed":true,"removed":true,"day":true}'
+      }
+    });
   });
 });

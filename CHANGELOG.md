@@ -1558,3 +1558,131 @@
 - debc485 Merge pull request #174 from thetigeregg/dependabot/npm_and_yarn/server/express-rate-limit-8.2.2
 - 10906f5 chore(deps): bump express-rate-limit from 8.2.1 to 8.2.2 in /server
 
+## v1.1.11 - 2026-03-07
+- b951892 Merge pull request #173 from thetigeregg/fcm
+- bd01423 Refactor alert enable handler
+- 9578077 Document notification routing incons
+- e9cba5e Align import notification toggle
+- 404366c Ensure app close on startup failure
+- 6616db4 Allow zero HLTB hours in payload
+- 6211bd1 Avoid duplicate notification upserts
+- 1ca1e21 Fix notification registration type
+- 5e74955 Defer release notification flag
+- eaa74a8 Document refresh delay for new games
+- dad0605 Guard notification on worker ready
+- 11cab9c Fix firebase SW fallback version
+- 657293d Restrict release eligibility to past
+- 3d4f82e Sequence version notification alerts
+- b256c62 Document notification sync ordering
+- 1748045 Confirm advisory lock duration
+- abb19b4 Simplify boolean normalization
+- ba9baa6 Add rollback for release toggle
+- 5bfe4ff Retain metacritic zero values
+- f85bec5 Add runtime firebase CDN version
+- bc82c88 Remove redundant FCM init guard
+- 8ff5d63 Fix hasHltbValues zero detection
+- 9b4a0a5 Turn off release notifications on im
+- 20caec3 Add release event import test
+- e5e7282 Sync SW Firebase CDN version
+- ed08ec6 Fix release event import order
+- 2d7bf47 Fix Metacritic score detection
+- 8558d07 Handle release monitor shutdown
+- 5d66e1c Fix release monitor shutdown
+- 7c45ca4 Fix release docs and monitor
+- b66db7f Limit notifications test tokens
+- 7206657 Fix metacritic float detection
+- 1c7dc31 Add resetFcmState helper
+- da9af65 Restrict notification admin auth to
+- 1c3a154 Prevent review overwrite
+- febddc5 Fix release notification storage
+- 898316c Validate month precision markers
+- db5ff05 Add month range validation
+- 4464e1f Log IGDB refresh null failures
+- c25f69e Fix release notification toggle fire
+- d7133ea Fix release notification sync flow
+- d5d5c36 Cache Firebase messaging instance
+- 0d87b66 Limit token length and guard init
+- b9c5891 Handle withGameLock errors per game
+- 1099580 Return notification promise
+- 87dd5b1 Return notification promise in SW
+- 588117d Use floats for Metacritic scores
+- 0b8f251 Use numberOrNull for reviewScore
+- b2d92a9 Use numberOrNull for Metacritic
+- eb38593 Fix ReleaseMonitor promise returns
+- 48c78d4 Fix Angular routing for foreground
+- 8cd979e Fix notification init routing
+- 0865465 Clarify release notification toggle
+- 38b3fb4 Merge branch 'main' into fcm
+- 81e3069 Document release day deduplication
+- 9d0fe27 Simplify release monitor success
+- 4b74562 Fix release workflow heredoc
+- dbdd37c Fix environment prod heredoc indent
+- 9e2ae54 Fix release workflow heredoc
+- 34aedeb Wrap ReleaseMonitorFlowClientMock in
+- bdd44ea Add auth header to observability c
+- 8b19dd5 Add auth header to notifications doc
+- b3ebf83 Prevent HLTB Metacritic timestamps
+- 1425bc9 Preserve release precision data
+- c0858a1 Document optional notifications test
+- 137c042 Fix release notification preference
+- 48b47ca Document token load limits
+- 4781165 Disable release event toggles
+- dbcb497 Preserve handler error on unlock
+- 30fc92e Prevent race when initializing FCM
+- b6bb802 Handle release monitor DB failure
+- 6f530d9 Handle release-monitor upsert errors
+- cc76411 Handle release monitor fallback
+- 5a81f87 Handle release-monitor query errors
+- f8a8351 Fix release monitor error recovery
+- 72039ac Harden notification prefs parsing
+- 2de1aa7 Clarify upgrade columns comment
+- 90ac4ab Store firebase config in file
+- b48b295 Add auth guard to notification test
+- 271fd9c Batch FCM token retrieval
+- 7a60b42 Encapsulate release monitor state
+- eb29f52 Fix release monitor token handling
+- 0ba7df9 Fix Firebase init flag handling
+- 0b07de7 Correct lastIgdbRefreshAt typo
+- 601ec57 Fix release workflow heredoc
+- 94d680b Add featureFlags to prod env gen
+- e886f0e Limit production Firebase env step
+- 467ea51 Remove redundant nextEnabled check
+- 438b578 Fix notification appVersion field
+- f414bb4 Fix notification preference scope
+- 75c971b Fix notification preferences scoping
+- 8c5b8a1 Fix notification service appVersion
+- f0f4347 Add metacritic refresh vars
+- 66dae34 Review recent server config updates
+- 6b21641 Add FCM token cleanup env
+- b1ee911 Add runtime Firebase config flags
+- 9e6ab25 Audit release monitor implementation
+- ace69bf Audit PWA notifications flow
+- f416595 Review IGDB game response log
+- aa37747 Investigate missing release log
+- 6ee2939 Clarify Firebase secrets setup
+- 17303b0 Add recreate worktree stack script
+- cfbe464 Locate duplicated Fastify routes
+- 91411e7 Fix duplicate hltb route
+- 9261ef0 Review branch alignment with Fire
+- 0c6d79d Document release notification info
+- 7af7f67 Validate merged branch changes
+- 5ac68b6 Merge branch 'main' into fcm
+- f8d8b8a chore: update dependencies and version for game-shelf and game-shelf-server
+- 9e2580b chore(package): add overrides for Angular Fire dependencies
+- f42fc28 Merge branch 'main' into fcm
+- a2c8131 Merge branch 'main' into fcm
+- 7f5ec07 Merge branch 'main' into fcm
+- b688e8a Validate merge for regressions
+- 063a242 Merge branch 'main' into fcm
+- c81f9a3 Investigate stopped service worker
+- 55b7126 Fix release notification service
+- 78b3749 Prompt for release notifications
+- 40e8161 Add CI production env writer
+- 2ef5c0c Add Firebase local env config
+- 776f369 Clarify Firebase setup and refresh
+- 334aa00 Explain release monitor refresh flow
+- 81a7be3 Add monitoring env vars
+- c3af4c9 Implement game monitoring service
+- 8dc97c6 Implement monitoring for new games
+- 40b7c87 Brainstorm new-game data updates
+

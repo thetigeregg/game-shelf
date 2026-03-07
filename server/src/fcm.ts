@@ -116,19 +116,16 @@ function resolveMessaging(): Messaging {
     return cachedMessaging;
   }
 
-  if (apps.length === 0) {
-    const parsed = resolveServiceAccount();
-    try {
-      initializeApp({
-        credential: cert(parsed)
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const isDuplicateInit =
-        message.includes('already exists') || message.includes('duplicate-app');
-      if (!isDuplicateInit) {
-        throw error;
-      }
+  const parsed = resolveServiceAccount();
+  try {
+    initializeApp({
+      credential: cert(parsed)
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const isDuplicateInit = message.includes('already exists') || message.includes('duplicate-app');
+    if (!isDuplicateInit) {
+      throw error;
     }
   }
 

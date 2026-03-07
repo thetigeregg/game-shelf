@@ -16,6 +16,7 @@ export interface FcmSendResult {
 
 let cachedServiceAccount: ServiceAccount | null = null;
 let cachedServiceAccountError: Error | null = null;
+let cachedMessaging: Messaging | null = null;
 
 export function hasConfiguredFcm(): boolean {
   return config.firebaseServiceAccountJson.length > 0;
@@ -96,6 +97,10 @@ export async function sendFcmMulticast(
 }
 
 function resolveMessaging(): Messaging {
+  if (cachedMessaging) {
+    return cachedMessaging;
+  }
+
   if (getApps().length === 0) {
     const parsed = resolveServiceAccount();
     try {
@@ -112,7 +117,8 @@ function resolveMessaging(): Messaging {
     }
   }
 
-  return getMessaging();
+  cachedMessaging = getMessaging();
+  return cachedMessaging;
 }
 
 function resolveServiceAccount(): ServiceAccount {

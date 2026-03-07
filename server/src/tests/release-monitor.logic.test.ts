@@ -606,6 +606,11 @@ void test('metacritic merge preserves zero score when review source is metacriti
   assert.equal(merged['reviewUrl'], 'https://metacritic.example/new');
 });
 
+void test('number normalizers treat zero correctly for HLTB vs positive-only fields', () => {
+  assert.equal(releaseMonitorInternals.finiteNumberOrNull(0), 0);
+  assert.equal(releaseMonitorInternals.numberOrNull(0), null);
+});
+
 void test('startReleaseMonitor returns inert monitor when disabled', async () => {
   const original = config.releaseMonitorEnabled;
   config.releaseMonitorEnabled = false;

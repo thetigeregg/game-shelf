@@ -564,6 +564,11 @@ export const MIGRATIONS: string[] = [
   CREATE UNIQUE INDEX IF NOT EXISTS background_jobs_active_dedupe_idx
   ON background_jobs (dedupe_key)
   WHERE dedupe_key IS NOT NULL AND status IN ('pending', 'running');
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS background_jobs_terminal_finished_idx
+  ON background_jobs (status, finished_at, id)
+  WHERE status IN ('succeeded', 'failed') AND finished_at IS NOT NULL;
   `
 ];
 

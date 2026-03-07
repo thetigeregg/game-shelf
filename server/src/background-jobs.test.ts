@@ -180,3 +180,22 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
   const replay = await repository.requeueFailed({ limit: 10 });
   assert.deepEqual(replay, { requeuedCount: 2, jobIds: [5, 6] });
 });
+
+void test('background jobs purgeFinishedOlderThan deletes terminal rows with bounded inputs', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 11 }, { id: 12 }],
+    rowCount: 2
+  }));
+  const repository = new BackgroundJobRepository(pool as never);
+
+  const result = await repository.purgeFinishedOlderThan({
+    retentionDays: 0,
+    limit: 999_999
+  });
+  assert.deepEqual(result, { deletedCount: 2, jobIds: [11, 12] });
+
+  const params = pool.queries[0]?.params;
+  assert.ok(params);
+  assert.equal(params[0], 1);
+  assert.equal(params[1], 10_000);
+});

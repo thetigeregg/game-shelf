@@ -158,6 +158,12 @@ async function main(): Promise<void> {
     'METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES',
     60
   );
+  const jobsRetentionDays = readPositiveIntegerEnv('BACKGROUND_JOBS_RETENTION_DAYS', 30);
+  const jobsCleanupIntervalMinutes = readPositiveIntegerEnv(
+    'BACKGROUND_JOBS_CLEANUP_INTERVAL_MINUTES',
+    60
+  );
+  const jobsCleanupBatchSize = readPositiveIntegerEnv('BACKGROUND_JOBS_CLEANUP_BATCH_SIZE', 1000);
   const discoveryIntervalMinutes = Math.max(
     1,
     config.recommendationsDiscoveryEnrichIntervalMinutes
@@ -170,6 +176,7 @@ async function main(): Promise<void> {
   let recommendationSchedulerTimer: ReturnType<typeof setInterval> | null = null;
   let metadataTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryEnrichmentTimer: ReturnType<typeof setInterval> | null = null;
+  let backgroundJobsCleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   const stopTimers = (): void => {
     if (metadataStartupTimer) {
@@ -187,6 +194,10 @@ async function main(): Promise<void> {
     if (discoveryEnrichmentTimer) {
       clearInterval(discoveryEnrichmentTimer);
       discoveryEnrichmentTimer = null;
+    }
+    if (backgroundJobsCleanupTimer) {
+      clearInterval(backgroundJobsCleanupTimer);
+      backgroundJobsCleanupTimer = null;
     }
   };
 
@@ -263,6 +274,29 @@ async function main(): Promise<void> {
       priority: 95,
       maxAttempts: 3
     });
+  };
+
+  const runBackgroundJobsCleanup = async (): Promise<void> => {
+    if (shuttingDown) {
+      return;
+    }
+    try {
+      const result = await jobs.purgeFinishedOlderThan({
+        retentionDays: jobsRetentionDays,
+        limit: jobsCleanupBatchSize
+      });
+      if (result.deletedCount > 0) {
+        console.info('[background-worker] background_jobs_cleanup', {
+          deletedCount: result.deletedCount,
+          retentionDays: jobsRetentionDays,
+          batchSize: jobsCleanupBatchSize
+        });
+      }
+    } catch (error) {
+      console.error('[background-worker] background_jobs_cleanup_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   };
 
   const dispatchJob = async (job: ClaimedBackgroundJob): Promise<Record<string, unknown>> => {
@@ -407,6 +441,13 @@ async function main(): Promise<void> {
     },
     discoveryIntervalMinutes * 60 * 1000
   );
+  backgroundJobsCleanupTimer = setInterval(
+    () => {
+      void runBackgroundJobsCleanup();
+    },
+    Math.max(1, jobsCleanupIntervalMinutes) * 60 * 1000
+  );
+  void runBackgroundJobsCleanup();
 
   console.info('[background-worker] started', {
     recommendationSchedulerEnabled: config.recommendationsSchedulerEnabled,
@@ -418,6 +459,9 @@ async function main(): Promise<void> {
     manualsCatalogConcurrency,
     metadataEnabled: config.igdbMetadataEnrichEnabled,
     metadataIntervalMinutes,
+    backgroundJobsRetentionDays: jobsRetentionDays,
+    backgroundJobsCleanupIntervalMinutes: jobsCleanupIntervalMinutes,
+    backgroundJobsCleanupBatchSize: jobsCleanupBatchSize,
     discoveryIntervalMinutes,
     discoveryEnabled: config.recommendationsDiscoveryEnabled,
     discoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,

@@ -159,7 +159,7 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    command: ["npm", "run", "start:recommendations-worker"]
+    command: ["npm", "run", "start:background-worker"]
     environment:
       TZ: ${TZ:-Europe/Zurich}
       DATABASE_URL_FILE: ${DATABASE_URL_FILE:-/run/secrets/database_url}

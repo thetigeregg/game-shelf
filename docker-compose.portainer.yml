@@ -156,7 +156,7 @@ services:
   recommendations-worker:
     container_name: gameshelf-recommendations-worker
     image: ${API_IMAGE:-ghcr.io/thetigeregg/game-shelf-api:main}
-    command: ["npm", "run", "start:recommendations-worker"]
+    command: ["npm", "run", "start:background-worker"]
     environment:
       TZ: ${TZ:-Europe/Zurich}
       DATABASE_URL_FILE: ${DATABASE_URL_FILE:-/run/secrets/database_url}

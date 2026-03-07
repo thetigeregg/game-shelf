@@ -532,12 +532,12 @@ describe('SettingsPage CSV review fields', () => {
     });
   });
 
-  it('refreshes and queues time preference when imported as a setting row', () => {
+  it('refreshes and queues time preference when imported as a setting row', async () => {
     const page = createPage();
     localStorage.removeItem(TIME_PREFERENCE_STORAGE_KEY);
     expect(page.timePreference).toBe(15);
 
-    page['applyImportedSettings']([
+    await page['applyImportedSettings']([
       {
         kind: 'setting',
         key: TIME_PREFERENCE_STORAGE_KEY,
@@ -557,12 +557,12 @@ describe('SettingsPage CSV review fields', () => {
     });
   });
 
-  it('normalizes invalid imported time preference before persisting and syncing', () => {
+  it('normalizes invalid imported time preference before persisting and syncing', async () => {
     const page = createPage();
     localStorage.removeItem(TIME_PREFERENCE_STORAGE_KEY);
     expect(page.timePreference).toBe(15);
 
-    page['applyImportedSettings']([
+    await page['applyImportedSettings']([
       {
         kind: 'setting',
         key: TIME_PREFERENCE_STORAGE_KEY,

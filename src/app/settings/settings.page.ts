@@ -1406,7 +1406,7 @@ export class SettingsPage {
 
       for (const settingRow of settingRows) {
         try {
-          this.applyImportedSettings([settingRow]);
+          await this.applyImportedSettings([settingRow]);
           settingsApplied += 1;
         } catch {
           failedRows += 1;
@@ -3331,8 +3331,8 @@ export class SettingsPage {
     return entries;
   }
 
-  private applyImportedSettings(rows: ParsedSettingImportRow[]): void {
-    rows.forEach((row) => {
+  private async applyImportedSettings(rows: ParsedSettingImportRow[]): Promise<void> {
+    for (const row of rows) {
       if (row.key === LEGACY_PRIMARY_COLOR_STORAGE_KEY) {
         try {
           localStorage.removeItem(LEGACY_PRIMARY_COLOR_STORAGE_KEY);
@@ -3368,6 +3368,9 @@ export class SettingsPage {
 
       if (row.key === RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
         this.releaseNotificationsEnabled = this.notificationService.isReleaseNotificationsEnabled();
+        if (this.releaseNotificationsEnabled) {
+          await this.notificationService.registerCurrentDeviceIfPermitted();
+        }
         this.queueSettingUpsert(row.key, row.value);
       }
 
@@ -3390,7 +3393,7 @@ export class SettingsPage {
 
         this.queueSettingUpsert(row.key, normalizedValue);
       }
-    });
+    }
   }
 
   private persistPlatformDisplayNames(): void {

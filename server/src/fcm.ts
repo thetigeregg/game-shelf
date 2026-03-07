@@ -107,7 +107,16 @@ function resolveMessaging(): Messaging {
     return cachedMessaging;
   }
 
-  if (getApps().length === 0) {
+  const apps = getApps();
+  if (apps.length > 0) {
+    // If Firebase is already initialized (for example by another module path),
+    // prefer that runtime state over any previously cached parse failure.
+    cachedServiceAccountError = null;
+    cachedMessaging = getMessaging(apps[0]);
+    return cachedMessaging;
+  }
+
+  if (apps.length === 0) {
     const parsed = resolveServiceAccount();
     try {
       initializeApp({

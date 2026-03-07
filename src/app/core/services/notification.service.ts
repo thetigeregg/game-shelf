@@ -191,6 +191,33 @@ export class NotificationService {
     return result;
   }
 
+  async registerCurrentDeviceIfPermitted(): Promise<{ ok: boolean; message: string }> {
+    if (!this.isReleaseNotificationsEnabled()) {
+      return { ok: false, message: 'Release notifications are disabled.' };
+    }
+
+    if (!this.messaging) {
+      return { ok: false, message: 'Notifications are not supported on this device.' };
+    }
+
+    const supported = await isSupported().catch(() => false);
+
+    if (!supported) {
+      return { ok: false, message: 'Notifications are not supported in this browser.' };
+    }
+
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      return { ok: false, message: 'Notification permission has not been granted on this device.' };
+    }
+
+    const registrationResult = await this.registerCurrentDevice();
+    if (!registrationResult.ok) {
+      return { ok: false, message: registrationResult.message };
+    }
+
+    return { ok: true, message: 'Notifications enabled on this device.' };
+  }
+
   async disableReleaseNotifications(): Promise<{ ok: boolean; message: string }> {
     this.setReleaseNotificationsEnabled(false);
     return this.unregisterCurrentDevice();

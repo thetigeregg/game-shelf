@@ -255,6 +255,20 @@ describe('NotificationService', () => {
     expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
   });
 
+  it('persists enabled state only after successful enable flow returns', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'false');
+
+    const requestSpy = vi.spyOn(service, 'requestPermissionAndRegister').mockImplementation(() => {
+      expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('false');
+      return Promise.resolve({ ok: true, message: 'ok' });
+    });
+
+    const result = await service.enableReleaseNotifications();
+    expect(result.ok).toBe(true);
+    expect(requestSpy).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('game-shelf:notifications:release:enabled')).toBe('true');
+  });
+
   it('returns success when disable flow unregisters cleanly', async () => {
     vi.spyOn(service, 'unregisterCurrentDevice').mockResolvedValue({
       ok: true,

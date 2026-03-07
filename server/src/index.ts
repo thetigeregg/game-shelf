@@ -15,9 +15,6 @@ import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
-import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
-import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
-import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { registerRecommendationRoutes } from './recommendations/routes.js';
 import { RecommendationService } from './recommendations/service.js';
@@ -48,7 +45,6 @@ async function main(): Promise<void> {
   let closeHookRegistered = false;
   let releaseMonitor: ReturnType<typeof startReleaseMonitor> | null = null;
   const recommendationRepository = new RecommendationRepository(pool);
-  const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
   const embeddingClient = new OpenAiEmbeddingClient({
     apiKey: config.openaiApiKey,
     model: config.recommendationsEmbeddingModel,
@@ -122,21 +118,6 @@ async function main(): Promise<void> {
       embeddingClient,
       discoveryClient: discoveryIgdbClient,
       discoveryEnrichmentService
-    }
-  );
-  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
-    twitchClientId: config.twitchClientId,
-    twitchClientSecret: config.twitchClientSecret,
-    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
-  });
-  const metadataEnrichmentService = new MetadataEnrichmentService(
-    metadataEnrichmentRepository,
-    metadataEnrichmentClient,
-    {
-      enabled: config.igdbMetadataEnrichEnabled,
-      batchSize: config.igdbMetadataEnrichBatchSize,
-      maxGamesPerRun: config.igdbMetadataEnrichMaxGamesPerRun,
-      startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
     }
   );
 
@@ -315,7 +296,6 @@ async function main(): Promise<void> {
       );
     }
     discoveryEnrichmentService.start();
-    metadataEnrichmentService.start();
   } catch (error) {
     if (closeHookRegistered) {
       await app.close().catch(() => undefined);

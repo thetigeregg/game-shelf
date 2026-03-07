@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { config } from './config.js';
+import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
 
@@ -188,10 +189,10 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
 
   for (const row of dueRows.rows) {
     try {
-      const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
-        await processGameRow(pool, row, preferences, activeTokenSet, stats);
-      });
-      if (locked) {
+      void preferences;
+      void activeTokenSet;
+      const queued = await enqueueReleaseMonitorGameJob(pool, row);
+      if (queued) {
         stats.processedWithLock += 1;
       } else {
         stats.lockSkipped += 1;
@@ -209,6 +210,87 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
   }
 
   emitRunSummary(stats);
+}
+
+async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promise<boolean> {
+  const jobs = new BackgroundJobRepository(pool);
+  const dedupeKey = `release-monitor:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
+  const payload: Record<string, unknown> = {
+    igdb_game_id: row.igdb_game_id,
+    platform_igdb_id: row.platform_igdb_id,
+    payload: row.payload ?? {},
+    watch_exists: row.watch_exists,
+    last_known_release_marker: row.last_known_release_marker,
+    last_known_release_precision: row.last_known_release_precision,
+    last_known_release_date: row.last_known_release_date,
+    last_known_release_year: row.last_known_release_year,
+    last_seen_state: row.last_seen_state,
+    last_hltb_refresh_at: row.last_hltb_refresh_at,
+    last_metacritic_refresh_at: row.last_metacritic_refresh_at,
+    last_notified_release_day: row.last_notified_release_day
+  };
+  const queued = await jobs.enqueue({
+    jobType: 'release_monitor_game',
+    dedupeKey,
+    payload,
+    priority: 80,
+    maxAttempts: 5
+  });
+  return !queued.deduped;
+}
+
+function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRow | null {
+  const igdbGameId = stringOrNull(payload['igdb_game_id']);
+  const platformIgdbId = integerOrNull(payload['platform_igdb_id']);
+  if (igdbGameId === null || platformIgdbId === null) {
+    return null;
+  }
+
+  const rowPayloadRaw = payload['payload'];
+  const rowPayload =
+    rowPayloadRaw && typeof rowPayloadRaw === 'object' && !Array.isArray(rowPayloadRaw)
+      ? (rowPayloadRaw as Record<string, unknown>)
+      : null;
+
+  return {
+    igdb_game_id: igdbGameId,
+    platform_igdb_id: platformIgdbId,
+    payload: rowPayload,
+    watch_exists: payload['watch_exists'] === true,
+    last_known_release_marker: stringOrNull(payload['last_known_release_marker']),
+    last_known_release_precision: stringOrNull(payload['last_known_release_precision']),
+    last_known_release_date: stringOrNull(payload['last_known_release_date']),
+    last_known_release_year: integerOrNull(payload['last_known_release_year']),
+    last_seen_state: stringOrNull(payload['last_seen_state']),
+    last_hltb_refresh_at: stringOrNull(payload['last_hltb_refresh_at']),
+    last_metacritic_refresh_at: stringOrNull(payload['last_metacritic_refresh_at']),
+    last_notified_release_day: stringOrNull(payload['last_notified_release_day'])
+  };
+}
+
+async function processQueuedReleaseMonitorGame(
+  pool: Pool,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const row = parseDueGameRowFromPayload(payload);
+  if (!row) {
+    throw new Error('Invalid release monitor game payload.');
+  }
+
+  const stats = createMonitorRunStats();
+  const preferences = await readNotificationPreferences(pool);
+  const activeTokenSet = await loadActiveTokenSet(pool);
+  stats.activeTokensAtStart = activeTokenSet.size;
+
+  const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
+    await processGameRow(pool, row, preferences, activeTokenSet, stats);
+  });
+  if (!locked && config.releaseMonitorDebugLogs) {
+    console.info('[release-monitor] queued_game_lock_skipped', {
+      igdbGameId: row.igdb_game_id,
+      platformIgdbId: row.platform_igdb_id
+    });
+  }
 }
 
 async function processGameRow(
@@ -1721,6 +1803,8 @@ function evaluateRunHealth(stats: MonitorRunStats): Array<{ code: string; detail
 export const releaseMonitorInternals = {
   processDueGames,
   processGameRow,
+  enqueueReleaseMonitorGameJob,
+  processQueuedReleaseMonitorGame,
   buildReleaseEvents,
   computeNextCheckAt,
   deriveReleaseState,

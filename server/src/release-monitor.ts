@@ -1227,6 +1227,16 @@ function normalizeReleaseInfoFromPrecision(
         display: null
       };
     }
+    const monthValue = Number.parseInt(monthMatch[2], 10);
+    if (!Number.isInteger(monthValue) || monthValue < 1 || monthValue > 12) {
+      return {
+        precision: 'unknown',
+        marker: null,
+        date: null,
+        year: null,
+        display: null
+      };
+    }
 
     return {
       precision: 'month',

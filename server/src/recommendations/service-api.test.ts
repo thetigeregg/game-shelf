@@ -251,6 +251,50 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
   assert.deepEqual(readSimilarCalls, [{ limit: 50, runtimeMode: 'LONG' }]);
 });
 
+void test('service enqueues rebuild when stale or missing', async () => {
+  const queued: Array<{ target: string; force: boolean; triggeredBy: string; reason: string }> = [];
+  const repository = {
+    getLatestSuccessfulRun: () => Promise.resolve(null),
+    enqueueRecommendationRebuildJob: (params: {
+      target: string;
+      force: boolean;
+      triggeredBy: string;
+      reason: string;
+    }) => {
+      queued.push(params);
+      return Promise.resolve({ jobId: 44, deduped: false });
+    }
+  };
+
+  const service = new RecommendationService(repository as never, baseOptions(), {
+    nowProvider: () => NOW
+  });
+
+  const missing = await service.ensureRebuildQueuedIfStale('BACKLOG', 'stale-read');
+  assert.equal(missing.queued, true);
+  assert.equal(missing.reason, 'missing');
+  assert.equal(missing.jobId, 44);
+  assert.equal(queued[0]?.reason, 'missing');
+});
+
+void test('service does not enqueue rebuild when latest run is fresh', async () => {
+  const repository = {
+    getLatestSuccessfulRun: () => Promise.resolve(sampleRun()),
+    enqueueRecommendationRebuildJob: () => {
+      throw new Error('should_not_enqueue');
+    }
+  };
+
+  const service = new RecommendationService(repository as never, baseOptions(), {
+    nowProvider: () => NOW
+  });
+
+  const fresh = await service.ensureRebuildQueuedIfStale('BACKLOG', 'stale-read');
+  assert.equal(fresh.queued, false);
+  assert.equal(fresh.reason, 'fresh');
+  assert.equal(fresh.jobId, null);
+});
+
 void test('service returns LOCKED when target lock cannot be acquired', async () => {
   const repository = {
     withTargetLock: () => Promise.resolve({ acquired: false as const })

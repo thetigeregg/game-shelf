@@ -509,6 +509,11 @@ describe('NotificationService', () => {
   });
 
   it('uses router navigation for foreground notification route clicks', async () => {
+    const originalServiceWorker = navigator.serviceWorker;
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {}
+    });
     const notificationInstance: { onclick: (() => void) | null } = { onclick: null };
     setForegroundNotificationMock(notificationInstance);
 
@@ -528,9 +533,18 @@ describe('NotificationService', () => {
     await Promise.resolve();
 
     expect(router.navigateByUrl).toHaveBeenCalledWith('/tabs/wishlist');
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: originalServiceWorker
+    });
   });
 
   it('handles foreground click when router navigation fails', async () => {
+    const originalServiceWorker = navigator.serviceWorker;
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {}
+    });
     const notificationInstance: { onclick: (() => void) | null } = { onclick: null };
     setForegroundNotificationMock(notificationInstance);
     router.navigateByUrl.mockRejectedValueOnce(new Error('router failed'));
@@ -551,9 +565,18 @@ describe('NotificationService', () => {
     await Promise.resolve();
 
     expect(router.navigateByUrl).toHaveBeenCalledWith('/tabs/wishlist');
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: originalServiceWorker
+    });
   });
 
   it('logs foreground notification construction failures', () => {
+    const originalServiceWorker = navigator.serviceWorker;
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {}
+    });
     const notificationConstructor = vi.fn(() => {
       throw new Error('notification constructor failed');
     }) as unknown as typeof Notification;
@@ -581,6 +604,10 @@ describe('NotificationService', () => {
     });
 
     expect(errorSpy).toHaveBeenCalled();
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: originalServiceWorker
+    });
   });
 
   it('enqueues settings upserts when outbox writer is configured', () => {

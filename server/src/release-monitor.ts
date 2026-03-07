@@ -627,6 +627,9 @@ async function upsertGamePayload(
   platformIgdbId: number,
   payload: Record<string, unknown>
 ): Promise<void> {
+  // Intentionally use a dedicated transaction so game payload and sync event
+  // are committed atomically. Concurrency is still serialized by withGameLock:
+  // advisory lock ownership is session-scoped and held for the entire handler.
   const client = await pool.connect();
 
   try {
@@ -881,6 +884,9 @@ async function withGameLock(
   let shouldDestroyClient = false;
 
   try {
+    // Session-level advisory lock: this lock remains held on this connection
+    // until explicit pg_advisory_unlock (or connection termination). We keep
+    // this client checked out while handler() runs to serialize per-game work.
     const lockResult = await client.query<{ locked: boolean }>(
       'SELECT pg_try_advisory_lock(hashtext($1), $2) AS locked',
       [igdbGameId, platformIgdbId]

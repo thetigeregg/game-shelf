@@ -44,14 +44,22 @@ export function registerRecommendationRoutes(
       const result = await service.getTopRecommendations(target, limit, runtimeMode);
 
       if (!result) {
+        let responseJobId = queueState.jobId;
+        let responseReason = queueState.reason;
         if (!queueState.queued) {
-          await service.enqueueRebuild({ target, force: false, triggeredBy: 'stale-read' });
+          const fallbackQueue = await service.enqueueRebuild({
+            target,
+            force: false,
+            triggeredBy: 'stale-read'
+          });
+          responseJobId = fallbackQueue.jobId;
+          responseReason = 'missing';
         }
         reply.code(202).send({
           target,
           status: 'QUEUED',
-          jobId: queueState.jobId,
-          reason: queueState.reason,
+          jobId: responseJobId,
+          reason: responseReason,
           error: 'No recommendations available yet. Rebuild has been queued.'
         });
         return;
@@ -103,14 +111,22 @@ export function registerRecommendationRoutes(
       const result = await service.getRecommendationLanes(target, limit, runtimeMode);
 
       if (!result) {
+        let responseJobId = queueState.jobId;
+        let responseReason = queueState.reason;
         if (!queueState.queued) {
-          await service.enqueueRebuild({ target, force: false, triggeredBy: 'stale-read' });
+          const fallbackQueue = await service.enqueueRebuild({
+            target,
+            force: false,
+            triggeredBy: 'stale-read'
+          });
+          responseJobId = fallbackQueue.jobId;
+          responseReason = 'missing';
         }
         reply.code(202).send({
           target,
           status: 'QUEUED',
-          jobId: queueState.jobId,
-          reason: queueState.reason,
+          jobId: responseJobId,
+          reason: responseReason,
           error: 'No recommendations available yet. Rebuild has been queued.'
         });
         return;

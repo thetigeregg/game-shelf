@@ -1146,10 +1146,9 @@ function isMetacriticRefreshDue(
 }
 
 function hasMetacriticValues(payload: Record<string, unknown>): boolean {
-  return (
-    numberOrNull(payload['metacriticScore']) !== null ||
-    stringOrNull(payload['metacriticUrl']) !== null
-  );
+  const metacriticScore = payload['metacriticScore'];
+  const hasFiniteScore = typeof metacriticScore === 'number' && Number.isFinite(metacriticScore);
+  return hasFiniteScore || stringOrNull(payload['metacriticUrl']) !== null;
 }
 
 function deriveReleaseState(release: ReleaseInfo, now: Date): ReleaseState {

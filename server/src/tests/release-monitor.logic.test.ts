@@ -279,6 +279,7 @@ void test('hltb and metacritic refresh due checks respect existing values and re
 
   assert.equal(releaseMonitorInternals.hasHltbValues(payloadWithHltb), true);
   assert.equal(releaseMonitorInternals.hasMetacriticValues(payloadWithMetacritic), true);
+  assert.equal(releaseMonitorInternals.hasMetacriticValues({ metacriticScore: 0 }), true);
   assert.equal(releaseMonitorInternals.hasHltbValues({}), false);
   assert.equal(releaseMonitorInternals.hasMetacriticValues({}), false);
 
@@ -294,6 +295,14 @@ void test('hltb and metacritic refresh due checks respect existing values and re
   assert.equal(
     releaseMonitorInternals.isMetacriticRefreshDue('invalid-date', payloadWithMetacritic, now),
     true
+  );
+  assert.equal(
+    releaseMonitorInternals.isMetacriticRefreshDue(
+      '2026-03-06T09:59:00.000Z',
+      { metacriticScore: 0 },
+      now
+    ),
+    false
   );
 });
 

@@ -102,6 +102,21 @@ void test('background jobs claimNext normalizes invalid payloads to empty object
   assert.deepEqual(claimed.payload, {});
 });
 
+void test('background jobs claimNext query keeps FIFO priority semantics with skip locked', async () => {
+  const pool = new PoolMock(() => ({ rows: [], rowCount: 0 }));
+  const repository = new BackgroundJobRepository(pool as never);
+
+  await repository.claimNext('worker-3', 'release_monitor_game');
+
+  const query = pool.queries[0];
+  assert.ok(query);
+  const normalizedSql = query.sql.replace(/\s+/g, ' ').trim().toLowerCase();
+  assert.ok(normalizedSql.includes("where job_type = $2 and status = 'pending'"));
+  assert.ok(normalizedSql.includes('order by priority asc, id asc'));
+  assert.ok(normalizedSql.includes('for update skip locked'));
+  assert.ok(normalizedSql.includes('attempts = attempts + 1'));
+});
+
 void test('background jobs complete and fail write status updates', async () => {
   const pool = new PoolMock(() => ({ rows: [], rowCount: 1 }));
   const repository = new BackgroundJobRepository(pool as never);
@@ -112,6 +127,27 @@ void test('background jobs complete and fail write status updates', async () => 
   assert.equal(pool.queries.length, 2);
   assert.equal(pool.queries[0]?.params?.[0], 11);
   assert.equal(pool.queries[1]?.params?.[0], 11);
+});
+
+void test('background jobs fail query supports retry and terminal failure transitions', async () => {
+  const pool = new PoolMock(() => ({ rows: [], rowCount: 1 }));
+  const repository = new BackgroundJobRepository(pool as never);
+
+  await repository.fail(12, 'broken');
+
+  const query = pool.queries[0];
+  assert.ok(query);
+  const normalizedSql = query.sql.replace(/\s+/g, ' ').trim().toLowerCase();
+  assert.ok(
+    normalizedSql.includes(
+      "status = case when attempts >= max_attempts then 'failed' else 'pending' end"
+    )
+  );
+  assert.ok(normalizedSql.includes('available_at = case when attempts >= max_attempts'));
+  const params = query.params;
+  assert.ok(params);
+  assert.equal(params[0], 12);
+  assert.equal(params[1], 'broken');
 });
 
 void test('background jobs stats, failed listing, and replay are mapped correctly', async () => {
@@ -179,6 +215,12 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
 
   const replay = await repository.requeueFailed({ limit: 10 });
   assert.deepEqual(replay, { requeuedCount: 2, jobIds: [5, 6] });
+  const replayQuery = pool.queries[2];
+  assert.ok(replayQuery);
+  const normalizedReplaySql = replayQuery.sql.replace(/\s+/g, ' ').trim().toLowerCase();
+  assert.ok(normalizedReplaySql.includes("set status = 'pending'"));
+  assert.ok(normalizedReplaySql.includes('last_error = null'));
+  assert.ok(normalizedReplaySql.includes('finished_at = null'));
 });
 
 void test('background jobs purgeFinishedOlderThan deletes terminal rows with bounded inputs', async () => {

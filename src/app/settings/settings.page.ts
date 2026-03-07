@@ -3340,7 +3340,7 @@ export class SettingsPage {
         } catch {
           // Ignore storage write failures.
         }
-        return;
+        continue;
       }
 
       if (row.key !== RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {

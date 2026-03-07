@@ -587,6 +587,35 @@ describe('SettingsPage CSV review fields', () => {
     });
   });
 
+  it('continues processing later rows when legacy primary color key is present', async () => {
+    const page = createPage();
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: 'game-shelf-primary-color',
+        value: '#ff0000'
+      },
+      {
+        kind: 'setting',
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '33'
+      }
+    ]);
+
+    expect(localStorage.getItem('game-shelf-primary-color')).toBeNull();
+    expect(timePreferenceServiceMock.refreshFromStorage).toHaveBeenCalled();
+    expect(page.timePreference).toBe(33);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '33'
+      }
+    });
+  });
+
   it('registers device when imported release notifications setting is enabled', async () => {
     const page = createPage();
     const notificationService = page['notificationService'];

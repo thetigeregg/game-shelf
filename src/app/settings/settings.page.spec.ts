@@ -667,4 +667,42 @@ describe('SettingsPage CSV review fields', () => {
       }
     });
   });
+
+  it('keeps release notifications disabled when disable succeeds', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    const disableSpy = vi
+      .spyOn(notificationService, 'disableReleaseNotifications')
+      .mockResolvedValue({
+        ok: true,
+        message: 'disabled'
+      });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
+    page.releaseNotificationsEnabled = true;
+
+    await page.onReleaseNotificationsEnabledChange(false);
+
+    expect(disableSpy).toHaveBeenCalledOnce();
+    expect(page.releaseNotificationsEnabled).toBe(false);
+    expect(setEnabledSpy).not.toHaveBeenCalled();
+  });
+
+  it('rolls release notifications toggle back when disable fails', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    const disableSpy = vi
+      .spyOn(notificationService, 'disableReleaseNotifications')
+      .mockResolvedValue({
+        ok: false,
+        message: 'failed'
+      });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
+    page.releaseNotificationsEnabled = true;
+
+    await page.onReleaseNotificationsEnabledChange(false);
+
+    expect(disableSpy).toHaveBeenCalledOnce();
+    expect(page.releaseNotificationsEnabled).toBe(true);
+    expect(setEnabledSpy).toHaveBeenCalledWith(true);
+  });
 });

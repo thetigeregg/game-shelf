@@ -542,12 +542,12 @@ void test('metacritic merge does not overwrite non-metacritic review source fiel
   assert.equal(merged['reviewUrl'], 'https://opencritic.example/game');
 });
 
-void test('startReleaseMonitor returns inert monitor when disabled', () => {
+void test('startReleaseMonitor returns inert monitor when disabled', async () => {
   const original = config.releaseMonitorEnabled;
   config.releaseMonitorEnabled = false;
   try {
     const monitor = startReleaseMonitor({} as Pool);
-    monitor.stop();
+    await monitor.stop();
   } finally {
     config.releaseMonitorEnabled = original;
   }

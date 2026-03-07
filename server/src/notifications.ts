@@ -31,6 +31,8 @@ const TEST_RATE_LIMIT = {
   timeWindow: '1 minute'
 } as const;
 
+const TEST_ENDPOINT_MAX_ACTIVE_TOKENS = 5_000;
+
 const OBSERVABILITY_RATE_LIMIT = {
   max: 10,
   timeWindow: '1 minute'
@@ -210,7 +212,10 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
         SELECT token
         FROM fcm_tokens
         WHERE is_active = TRUE
-        `
+        ORDER BY token ASC
+        LIMIT $1
+        `,
+        [TEST_ENDPOINT_MAX_ACTIVE_TOKENS]
       );
       const tokens = result.rows.map((row) => row.token);
       const sendResult = await sendFcmMulticast(tokens, {

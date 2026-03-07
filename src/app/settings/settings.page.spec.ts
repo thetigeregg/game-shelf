@@ -703,6 +703,6 @@ describe('SettingsPage CSV review fields', () => {
 
     expect(disableSpy).toHaveBeenCalledOnce();
     expect(page.releaseNotificationsEnabled).toBe(true);
-    expect(setEnabledSpy).toHaveBeenCalledWith(true);
+    expect(setEnabledSpy).not.toHaveBeenCalled();
   });
 });

@@ -596,9 +596,6 @@ export class SettingsPage {
     const previousEnabledState = this.releaseNotificationsEnabled;
     const result = await this.notificationService.disableReleaseNotifications();
     this.releaseNotificationsEnabled = result.ok ? false : previousEnabledState;
-    if (!result.ok && previousEnabledState) {
-      this.notificationService.setReleaseNotificationsEnabled(true);
-    }
     await this.presentToast(result.message, result.ok ? 'primary' : 'warning');
   }
 

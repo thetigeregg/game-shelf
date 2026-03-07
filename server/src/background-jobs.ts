@@ -3,7 +3,12 @@ import type { Pool, QueryResultRow } from 'pg';
 export type BackgroundJobType =
   | 'recommendations_rebuild'
   | 'metadata_enrichment_run'
-  | 'release_monitor_game';
+  | 'release_monitor_game'
+  | 'discovery_enrichment_run'
+  | 'hltb_cache_revalidate'
+  | 'metacritic_cache_revalidate'
+  | 'mobygames_cache_revalidate'
+  | 'manuals_catalog_refresh';
 
 interface BackgroundJobInsertRow extends QueryResultRow {
   id: number;

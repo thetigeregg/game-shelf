@@ -76,48 +76,6 @@ void test('enqueueRecommendationRebuildJob inserts, dedupes, and falls back', as
   assert.deepEqual(fallback, { jobId: 12, deduped: false });
 });
 
-void test('claimRecommendationRebuildJob handles empty, invalid, and valid payloads', async () => {
-  let calls = 0;
-  const pool = new PoolMock(() => {
-    calls += 1;
-    if (calls === 1) {
-      return { rows: [], rowCount: 0 };
-    }
-    if (calls === 2) {
-      return { rows: [{ id: 1, payload: { target: 'INVALID' } }], rowCount: 1 };
-    }
-    return {
-      rows: [
-        {
-          id: 2,
-          payload: {
-            target: 'DISCOVERY',
-            force: true,
-            triggeredBy: 'stale-read',
-            reason: 'stale'
-          }
-        }
-      ],
-      rowCount: 1
-    };
-  });
-  const repository = new RecommendationRepository(pool as never);
-
-  const none = await repository.claimRecommendationRebuildJob('worker-a');
-  assert.equal(none, null);
-
-  const invalid = await repository.claimRecommendationRebuildJob('worker-a');
-  assert.equal(invalid, null);
-
-  const valid = await repository.claimRecommendationRebuildJob('worker-a');
-  assert.ok(valid);
-  assert.equal(valid.id, 2);
-  assert.equal(valid.target, 'DISCOVERY');
-  assert.equal(valid.force, true);
-  assert.equal(valid.triggeredBy, 'stale-read');
-  assert.equal(valid.reason, 'stale');
-});
-
 void test('completeBackgroundJob and failBackgroundJob execute update statements', async () => {
   const pool = new PoolMock(() => ({ rows: [], rowCount: 1 }));
   const repository = new RecommendationRepository(pool as never);

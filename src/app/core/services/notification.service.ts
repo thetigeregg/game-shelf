@@ -224,8 +224,11 @@ export class NotificationService {
   }
 
   async disableReleaseNotifications(): Promise<{ ok: boolean; message: string }> {
-    this.setReleaseNotificationsEnabled(false);
-    return this.unregisterCurrentDevice();
+    const result = await this.unregisterCurrentDevice();
+    if (result.ok) {
+      this.setReleaseNotificationsEnabled(false);
+    }
+    return result;
   }
 
   setReleaseNotificationsEnabled(enabled: boolean): void {

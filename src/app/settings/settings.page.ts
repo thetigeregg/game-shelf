@@ -3374,20 +3374,13 @@ export class SettingsPage {
           normalizedEnabledRaw !== '0' &&
           normalizedEnabledRaw !== 'no';
         this.releaseNotificationsEnabled = normalizedEnabled;
-
-        const normalizedValue = normalizedEnabled ? 'true' : 'false';
-        try {
-          localStorage.setItem(row.key, normalizedValue);
-        } catch {
-          // Ignore storage write failures.
-        }
+        this.notificationService.setReleaseNotificationsEnabled(normalizedEnabled);
 
         if (this.releaseNotificationsEnabled) {
           await this.notificationService.registerCurrentDeviceIfPermitted();
         } else {
           await this.notificationService.unregisterCurrentDevice();
         }
-        this.queueSettingUpsert(row.key, normalizedValue);
       }
 
       if (row.key === RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY) {

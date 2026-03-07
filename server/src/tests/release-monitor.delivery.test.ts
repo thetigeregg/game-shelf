@@ -160,45 +160,16 @@ interface DueGameSeedRow {
   last_notified_release_day: string | null;
 }
 
-class ReleaseMonitorFlowClientMock {
-  unlockCount = 0;
-  private unlockFailuresRemaining: number;
-
-  constructor(unlockFailuresRemaining = 0) {
-    this.unlockFailuresRemaining = unlockFailuresRemaining;
-  }
-
-  query(sql: string): Promise<{ rows: Array<{ locked: boolean }>; rowCount: number }> {
-    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
-    if (normalizedSql.startsWith('select pg_try_advisory_lock')) {
-      return Promise.resolve({ rows: [{ locked: true }], rowCount: 1 });
-    }
-    if (normalizedSql.startsWith('select pg_advisory_unlock')) {
-      this.unlockCount += 1;
-      if (this.unlockFailuresRemaining > 0) {
-        this.unlockFailuresRemaining -= 1;
-        return Promise.reject(new Error('unlock_failed'));
-      }
-      return Promise.resolve({ rows: [{ locked: true }], rowCount: 1 });
-    }
-    return Promise.resolve({ rows: [], rowCount: 0 });
-  }
-
-  release(): void {}
-}
-
 class ReleaseMonitorFlowPoolMock {
-  readonly client: ReleaseMonitorFlowClientMock;
   private readonly dueRows: DueGameSeedRow[];
-  watchStateWrites = 0;
+  queuedJobs = 0;
+  private readonly queuedByDedupeKey = new Map<string, number>();
+  private nextJobId = 1;
+  private enqueueFailuresRemaining: number;
 
-  constructor(dueRows: DueGameSeedRow[], options?: { unlockFailuresRemaining?: number }) {
+  constructor(dueRows: DueGameSeedRow[], options?: { enqueueFailuresRemaining?: number }) {
     this.dueRows = dueRows;
-    this.client = new ReleaseMonitorFlowClientMock(options?.unlockFailuresRemaining ?? 0);
-  }
-
-  connect(): Promise<ReleaseMonitorFlowClientMock> {
-    return Promise.resolve(this.client);
+    this.enqueueFailuresRemaining = options?.enqueueFailuresRemaining ?? 0;
   }
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
@@ -229,9 +200,32 @@ class ReleaseMonitorFlowPoolMock {
       return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
-    if (normalizedSql.startsWith('insert into release_watch_state')) {
-      this.watchStateWrites += 1;
-      return Promise.resolve({ rows: [], rowCount: 1 });
+    if (normalizedSql.startsWith('insert into background_jobs')) {
+      if (this.enqueueFailuresRemaining > 0) {
+        this.enqueueFailuresRemaining -= 1;
+        return Promise.reject(new Error('enqueue_failed'));
+      }
+      const dedupeKey = toStringOrFallback(params[1], '');
+      const existingId = this.queuedByDedupeKey.get(dedupeKey);
+      if (existingId) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+      const jobId = this.nextJobId;
+      this.nextJobId += 1;
+      if (dedupeKey) {
+        this.queuedByDedupeKey.set(dedupeKey, jobId);
+      }
+      this.queuedJobs += 1;
+      return Promise.resolve({ rows: [{ id: jobId }], rowCount: 1 });
+    }
+
+    if (normalizedSql.startsWith('select id from background_jobs where dedupe_key = $1')) {
+      const dedupeKey = toStringOrFallback(params[0], '');
+      const existingId = this.queuedByDedupeKey.get(dedupeKey);
+      if (!existingId) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+      return Promise.resolve({ rows: [{ id: existingId }], rowCount: 1 });
     }
 
     if (normalizedSql.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
@@ -470,7 +464,7 @@ void test('evaluateRunHealth warns when send failure and invalid token ratios ar
   );
 });
 
-void test('processDueGames handles bootstrap rows and writes watch state', async () => {
+void test('processDueGames enqueues release monitor jobs for bootstrap rows', async () => {
   const pool = new ReleaseMonitorFlowPoolMock([
     {
       igdb_game_id: '52189',
@@ -497,11 +491,10 @@ void test('processDueGames handles bootstrap rows and writes watch state', async
   const runtimeState = releaseMonitorInternals.createMonitorRuntimeState();
   await releaseMonitorInternals.processDueGames(pool as unknown as Pool, runtimeState);
 
-  assert.equal(pool.watchStateWrites, 1);
-  assert.equal(pool.client.unlockCount, 1);
+  assert.equal(pool.queuedJobs, 1);
 });
 
-void test('processDueGames continues when a game lock release fails', async () => {
+void test('processDueGames continues when enqueue fails for one game', async () => {
   const pool = new ReleaseMonitorFlowPoolMock(
     [
       {
@@ -544,7 +537,7 @@ void test('processDueGames continues when a game lock release fails', async () =
         last_notified_release_day: null
       }
     ],
-    { unlockFailuresRemaining: 1 }
+    { enqueueFailuresRemaining: 1 }
   );
 
   const runtimeState = releaseMonitorInternals.createMonitorRuntimeState();
@@ -552,6 +545,5 @@ void test('processDueGames continues when a game lock release fails', async () =
     releaseMonitorInternals.processDueGames(pool as unknown as Pool, runtimeState)
   );
 
-  assert.equal(pool.watchStateWrites, 2);
-  assert.equal(pool.client.unlockCount, 2);
+  assert.equal(pool.queuedJobs, 1);
 });

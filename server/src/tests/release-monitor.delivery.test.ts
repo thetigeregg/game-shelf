@@ -162,6 +162,11 @@ interface DueGameSeedRow {
 
 class ReleaseMonitorFlowClientMock {
   unlockCount = 0;
+  private unlockFailuresRemaining: number;
+
+  constructor(unlockFailuresRemaining = 0) {
+    this.unlockFailuresRemaining = unlockFailuresRemaining;
+  }
 
   query(sql: string): Promise<{ rows: Array<{ locked: boolean }>; rowCount: number }> {
     const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -170,6 +175,10 @@ class ReleaseMonitorFlowClientMock {
     }
     if (normalizedSql.startsWith('select pg_advisory_unlock')) {
       this.unlockCount += 1;
+      if (this.unlockFailuresRemaining > 0) {
+        this.unlockFailuresRemaining -= 1;
+        return Promise.reject(new Error('unlock_failed'));
+      }
       return Promise.resolve({ rows: [{ locked: true }], rowCount: 1 });
     }
     return Promise.resolve({ rows: [], rowCount: 0 });
@@ -179,12 +188,13 @@ class ReleaseMonitorFlowClientMock {
 }
 
 class ReleaseMonitorFlowPoolMock {
-  readonly client = new ReleaseMonitorFlowClientMock();
+  readonly client: ReleaseMonitorFlowClientMock;
   private readonly dueRows: DueGameSeedRow[];
   watchStateWrites = 0;
 
-  constructor(dueRows: DueGameSeedRow[]) {
+  constructor(dueRows: DueGameSeedRow[], options?: { unlockFailuresRemaining?: number }) {
     this.dueRows = dueRows;
+    this.client = new ReleaseMonitorFlowClientMock(options?.unlockFailuresRemaining ?? 0);
   }
 
   connect(): Promise<ReleaseMonitorFlowClientMock> {
@@ -489,4 +499,59 @@ void test('processDueGames handles bootstrap rows and writes watch state', async
 
   assert.equal(pool.watchStateWrites, 1);
   assert.equal(pool.client.unlockCount, 1);
+});
+
+void test('processDueGames continues when a game lock release fails', async () => {
+  const pool = new ReleaseMonitorFlowPoolMock(
+    [
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Grand Theft Auto VI',
+          platform: 'PlayStation 5',
+          releaseDate: '2026-11-19',
+          releaseYear: 2026,
+          listType: 'wishlist'
+        },
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null
+      },
+      {
+        igdb_game_id: '92550',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Fable',
+          platform: 'PlayStation 5',
+          releaseYear: 2026,
+          listType: 'wishlist'
+        },
+        watch_exists: false,
+        last_known_release_marker: null,
+        last_known_release_precision: null,
+        last_known_release_date: null,
+        last_known_release_year: null,
+        last_seen_state: null,
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null
+      }
+    ],
+    { unlockFailuresRemaining: 1 }
+  );
+
+  const runtimeState = releaseMonitorInternals.createMonitorRuntimeState();
+  await assert.doesNotReject(
+    releaseMonitorInternals.processDueGames(pool as unknown as Pool, runtimeState)
+  );
+
+  assert.equal(pool.watchStateWrites, 2);
+  assert.equal(pool.client.unlockCount, 2);
 });

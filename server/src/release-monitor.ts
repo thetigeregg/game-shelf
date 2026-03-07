@@ -174,13 +174,24 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
   stats.activeTokensAtStart = activeTokenSet.size;
 
   for (const row of dueRows.rows) {
-    const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
-      await processGameRow(pool, row, preferences, activeTokenSet, stats);
-    });
-    if (locked) {
-      stats.processedWithLock += 1;
-    } else {
-      stats.lockSkipped += 1;
+    try {
+      const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
+        await processGameRow(pool, row, preferences, activeTokenSet, stats);
+      });
+      if (locked) {
+        stats.processedWithLock += 1;
+      } else {
+        stats.lockSkipped += 1;
+      }
+    } catch (error) {
+      stats.gameFailures += 1;
+      if (config.releaseMonitorDebugLogs) {
+        console.warn('[release-monitor] lock_or_process_failed', {
+          igdbGameId: row.igdb_game_id,
+          platformIgdbId: row.platform_igdb_id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
     }
   }
 

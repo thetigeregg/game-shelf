@@ -379,22 +379,58 @@ export class NotificationService {
 
     const title = payload.notification?.title?.trim() || 'Game Shelf';
     const body = payload.notification?.body?.trim() || '';
+    const data = payload.data ?? {};
 
-    try {
+    const showWindowNotification = (): void => {
       const notification = new Notification(title, {
         body,
-        data: payload.data ?? {}
+        data
       });
 
       notification.onclick = () => {
         window.focus();
-        const route = payload.data?.['route'];
+        const route = data['route'];
         if (typeof route === 'string' && route.startsWith('/')) {
           void this.router.navigateByUrl(route).catch(() => {
             window.location.assign(route);
           });
         }
       };
+    };
+
+    const serviceWorkerApi = navigator.serviceWorker;
+    if (typeof serviceWorkerApi.getRegistration === 'function') {
+      const workerUrl = this.buildFirebaseWorkerUrl();
+      const registrationPromise = Promise.resolve(
+        serviceWorkerApi.getRegistration(workerUrl) as
+          | Promise<ServiceWorkerRegistration | undefined>
+          | ServiceWorkerRegistration
+          | undefined
+      );
+      void registrationPromise
+        .then((registration) => {
+          if (registration && typeof registration.showNotification === 'function') {
+            return registration.showNotification(title, {
+              body,
+              data
+            });
+          }
+
+          showWindowNotification();
+          return undefined;
+        })
+        .catch((error: unknown) => {
+          try {
+            showWindowNotification();
+          } catch {
+            console.error('[notifications] foreground_notification_failed', error);
+          }
+        });
+      return;
+    }
+
+    try {
+      showWindowNotification();
     } catch (error) {
       console.error('[notifications] foreground_notification_failed', error);
     }

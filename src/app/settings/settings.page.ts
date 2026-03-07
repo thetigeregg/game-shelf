@@ -3343,7 +3343,10 @@ export class SettingsPage {
         continue;
       }
 
-      if (row.key !== RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
+      if (
+        row.key !== RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY &&
+        row.key !== RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY
+      ) {
         try {
           localStorage.setItem(row.key, row.value);
         } catch {

@@ -13,6 +13,9 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/metacritic/search`
 - `GET /v1/mobygames/search`
 - `GET /v1/images/proxy`
+- `GET /v1/background-jobs/stats` (admin/debug)
+- `GET /v1/background-jobs/failed` (admin/debug)
+- `POST /v1/background-jobs/replay` (admin/debug)
 - `POST /v1/notifications/fcm/register`
 - `POST /v1/notifications/fcm/unregister`
 - `GET /v1/notifications/observability` (optional, debug/admin)
@@ -193,6 +196,14 @@ Provide either:
 
 - `Authorization: Bearer <API_TOKEN>`
 - `X-Game-Shelf-Client-Token: <device-token>` (must match configured `CLIENT_WRITE_TOKENS`)
+
+Background job admin routes:
+
+- `GET /v1/background-jobs/stats`
+- `GET /v1/background-jobs/failed`
+- `POST /v1/background-jobs/replay`
+
+These require API bearer authorization when `REQUIRE_AUTH=true` (client write tokens are not accepted).
 
 ## Run locally
 

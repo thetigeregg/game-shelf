@@ -584,6 +584,8 @@ void test('enqueueReleaseMonitorGameJob dedupes per game-platform key', async ()
 
 class QueuedGamePoolMock {
   readonly client = new AdvisoryLockClientMock(false);
+  settingsReads = 0;
+  tokenReads = 0;
 
   connect(): Promise<AdvisoryLockClientMock> {
     return Promise.resolve(this.client);
@@ -593,6 +595,7 @@ class QueuedGamePoolMock {
     const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (normalizedSql.startsWith('select setting_key, setting_value from settings')) {
+      this.settingsReads += 1;
       return Promise.resolve({
         rows: [],
         rowCount: 0
@@ -604,6 +607,7 @@ class QueuedGamePoolMock {
         'select token from fcm_tokens where is_active = true order by token asc limit $1'
       )
     ) {
+      this.tokenReads += 1;
       return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
@@ -612,6 +616,7 @@ class QueuedGamePoolMock {
 }
 
 void test('processQueuedReleaseMonitorGame validates payload and tolerates lock miss', async () => {
+  releaseMonitorInternals.clearQueuedGameContextCache();
   const pool = new QueuedGamePoolMock();
 
   await assert.rejects(
@@ -632,4 +637,26 @@ void test('processQueuedReleaseMonitorGame validates payload and tolerates lock 
       watch_exists: false
     })
   );
+});
+
+void test('processQueuedReleaseMonitorGame reuses short-lived cached settings and tokens', async () => {
+  releaseMonitorInternals.clearQueuedGameContextCache();
+  const pool = new QueuedGamePoolMock();
+  const payload = {
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      releaseYear: 2026,
+      listType: 'wishlist'
+    },
+    watch_exists: false
+  };
+
+  await releaseMonitorInternals.processQueuedReleaseMonitorGame(pool as unknown as Pool, payload);
+  await releaseMonitorInternals.processQueuedReleaseMonitorGame(pool as unknown as Pool, payload);
+
+  assert.equal(pool.settingsReads, 1);
+  assert.equal(pool.tokenReads, 1);
 });

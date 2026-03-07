@@ -9,6 +9,7 @@ const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // Safety bound to prevent unbounded memory growth if token volume spikes.
 const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
+const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -96,6 +97,15 @@ interface MonitorRunStats {
 interface MonitorRuntimeState {
   nextFcmTokenCleanupAtMs: number;
 }
+
+interface QueuedGameContextCacheEntry {
+  loadedAtMs: number;
+  preferences: NotificationPreferences;
+  activeTokenSet: Set<string>;
+}
+
+let queuedGameContextCache = new WeakMap<Pool, QueuedGameContextCacheEntry>();
+let queuedGameContextInflight = new WeakMap<Pool, Promise<QueuedGameContextCacheEntry>>();
 
 export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   if (!config.releaseMonitorEnabled) {
@@ -277,8 +287,9 @@ async function processQueuedReleaseMonitorGame(
   }
 
   const stats = createMonitorRunStats();
-  const preferences = await readNotificationPreferences(pool);
-  const activeTokenSet = await loadActiveTokenSet(pool);
+  const queuedContext = await getQueuedGameContext(pool);
+  const preferences = queuedContext.preferences;
+  const activeTokenSet = queuedContext.activeTokenSet;
   stats.activeTokensAtStart = activeTokenSet.size;
 
   const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
@@ -291,6 +302,41 @@ async function processQueuedReleaseMonitorGame(
     });
   }
   /* c8 ignore stop */
+}
+
+async function getQueuedGameContext(pool: Pool): Promise<QueuedGameContextCacheEntry> {
+  const nowMs = Date.now();
+  const cached = queuedGameContextCache.get(pool);
+  if (cached && nowMs - cached.loadedAtMs <= QUEUED_GAME_CONTEXT_CACHE_TTL_MS) {
+    return cached;
+  }
+
+  const inflight = queuedGameContextInflight.get(pool);
+  if (inflight) {
+    return inflight;
+  }
+
+  const loader = (async () => {
+    const preferences = await readNotificationPreferences(pool);
+    const activeTokenSet = await loadActiveTokenSet(pool);
+    const entry: QueuedGameContextCacheEntry = {
+      loadedAtMs: Date.now(),
+      preferences,
+      activeTokenSet
+    };
+    queuedGameContextCache.set(pool, entry);
+    return entry;
+  })().finally(() => {
+    queuedGameContextInflight.delete(pool);
+  });
+
+  queuedGameContextInflight.set(pool, loader);
+  return loader;
+}
+
+function clearQueuedGameContextCache(): void {
+  queuedGameContextCache = new WeakMap<Pool, QueuedGameContextCacheEntry>();
+  queuedGameContextInflight = new WeakMap<Pool, Promise<QueuedGameContextCacheEntry>>();
 }
 
 async function processGameRow(
@@ -1830,5 +1876,6 @@ export const releaseMonitorInternals = {
   runFcmTokenCleanupIfDue,
   createMonitorRuntimeState,
   evaluateRunHealth,
-  loadActiveTokenSet
+  loadActiveTokenSet,
+  clearQueuedGameContextCache
 };

@@ -3383,6 +3383,8 @@ export class SettingsPage {
 
         if (this.releaseNotificationsEnabled) {
           await this.notificationService.registerCurrentDeviceIfPermitted();
+        } else {
+          await this.notificationService.unregisterCurrentDevice();
         }
         this.queueSettingUpsert(row.key, normalizedValue);
       }

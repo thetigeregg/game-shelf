@@ -235,6 +235,29 @@ void test('FCM register keeps existing active tokens on other devices', async ()
   await app.close();
 });
 
+void test('FCM register rejects oversized tokens', async () => {
+  const pool = new MockNotificationsPool();
+  const app = Fastify();
+  registerNotificationRoutes(app, pool as unknown as Pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/notifications/fcm/register',
+    payload: {
+      token: `token-${'x'.repeat(600)}`,
+      platform: 'web'
+    }
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(
+    pool.getQueryCalls().some((sql) => sql.startsWith('insert into fcm_tokens')),
+    false
+  );
+
+  await app.close();
+});
+
 void test('FCM unregister deactivates only the requested token', async () => {
   const pool = new MockNotificationsPool();
   pool.seedToken({

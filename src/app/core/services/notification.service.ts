@@ -412,7 +412,10 @@ export class NotificationService {
         .then((registration) => {
           if (registration && typeof registration.showNotification === 'function') {
             // In this path, click routing is handled by firebase-messaging-sw.js
-            // (service worker notificationclick), not Angular router callbacks.
+            // (service worker notificationclick + clients.openWindow), not Angular
+            // router callbacks in this tab. This intentionally matches background
+            // notification behavior; direct window Notification fallback below
+            // keeps in-tab router navigation.
             return registration.showNotification(title, {
               body,
               data: notificationData

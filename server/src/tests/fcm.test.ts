@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { config } from '../config.js';
-import { hasConfiguredFcm, sendFcmMulticast } from '../fcm.js';
+import { hasConfiguredFcm, resetFcmStateForTests, sendFcmMulticast } from '../fcm.js';
 
 void test('hasConfiguredFcm reflects service account config presence', () => {
   const original = config.firebaseServiceAccountJson;
   try {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = '';
     assert.equal(hasConfiguredFcm(), false);
     config.firebaseServiceAccountJson = '{"projectId":"p"}';
     assert.equal(hasConfiguredFcm(), true);
   } finally {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = original;
   }
 });
@@ -18,6 +20,7 @@ void test('hasConfiguredFcm reflects service account config presence', () => {
 void test('sendFcmMulticast handles empty and unconfigured token flows', async () => {
   const original = config.firebaseServiceAccountJson;
   try {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = '';
 
     const emptyResult = await sendFcmMulticast(['', '  '], {
@@ -42,6 +45,7 @@ void test('sendFcmMulticast handles empty and unconfigured token flows', async (
       invalidTokens: []
     });
   } finally {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = original;
   }
 });
@@ -49,6 +53,7 @@ void test('sendFcmMulticast handles empty and unconfigured token flows', async (
 void test('sendFcmMulticast surfaces invalid Firebase service account JSON once configured', async () => {
   const original = config.firebaseServiceAccountJson;
   try {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = '{bad-json';
 
     await assert.rejects(
@@ -67,6 +72,7 @@ void test('sendFcmMulticast surfaces invalid Firebase service account JSON once 
       }
     );
   } finally {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = original;
   }
 });
@@ -74,6 +80,7 @@ void test('sendFcmMulticast surfaces invalid Firebase service account JSON once 
 void test('sendFcmMulticast continues rejecting after an initial parse failure', async () => {
   const original = config.firebaseServiceAccountJson;
   try {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = '{bad-json';
 
     await assert.rejects(() =>
@@ -92,6 +99,7 @@ void test('sendFcmMulticast continues rejecting after an initial parse failure',
       })
     );
   } finally {
+    resetFcmStateForTests();
     config.firebaseServiceAccountJson = original;
   }
 });

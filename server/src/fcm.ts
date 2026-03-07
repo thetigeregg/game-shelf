@@ -18,6 +18,12 @@ let cachedServiceAccount: ServiceAccount | null = null;
 let cachedServiceAccountError: Error | null = null;
 let cachedMessaging: Messaging | null = null;
 
+export function resetFcmStateForTests(): void {
+  cachedServiceAccount = null;
+  cachedServiceAccountError = null;
+  cachedMessaging = null;
+}
+
 export function hasConfiguredFcm(): boolean {
   return config.firebaseServiceAccountJson.length > 0;
 }

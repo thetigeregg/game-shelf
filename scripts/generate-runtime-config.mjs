@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 const ENV_PATH = resolve(process.cwd(), '.env');
 const OUTPUT_PATH = resolve(process.cwd(), 'src/assets/runtime-config.js');
 const PACKAGE_JSON_PATH = resolve(process.cwd(), 'package.json');
+const DEFAULT_FIREBASE_CDN_VERSION = '11.10.0';
 
 function parseDotEnv(content) {
   const values = {};
@@ -63,8 +64,23 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
+function resolveFirebaseCdnVersion(rawVersion) {
+  if (typeof rawVersion !== 'string') {
+    return DEFAULT_FIREBASE_CDN_VERSION;
+  }
+
+  const trimmed = rawVersion.trim();
+  if (trimmed.length === 0) {
+    return DEFAULT_FIREBASE_CDN_VERSION;
+  }
+
+  const match = trimmed.match(/\d+\.\d+\.\d+/);
+  return match ? match[0] : DEFAULT_FIREBASE_CDN_VERSION;
+}
+
 let dotenvValues = {};
 let appVersion = '0.0.0';
+let firebaseCdnVersion = DEFAULT_FIREBASE_CDN_VERSION;
 
 try {
   const envContent = readFileSync(ENV_PATH, 'utf8');
@@ -78,8 +94,12 @@ try {
   if (typeof packageJson.version === 'string' && packageJson.version.trim().length > 0) {
     appVersion = packageJson.version.trim();
   }
+  firebaseCdnVersion = resolveFirebaseCdnVersion(
+    packageJson?.dependencies?.firebase ?? packageJson?.devDependencies?.firebase
+  );
 } catch {
   appVersion = '0.0.0';
+  firebaseCdnVersion = DEFAULT_FIREBASE_CDN_VERSION;
 }
 
 // Allow CI/e2e/runtime environment variables to override local .env values.
@@ -105,6 +125,7 @@ const output = `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
   globalThis.__GAME_SHELF_RUNTIME_CONFIG__,
   {
     appVersion: ${JSON.stringify(appVersion)},
+    firebaseCdnVersion: ${JSON.stringify(firebaseCdnVersion)},
     firebase: ${JSON.stringify(firebaseWebConfig, null, 4)},
     firebaseVapidKey: ${JSON.stringify(firebaseVapidKey)},
     featureFlags: {

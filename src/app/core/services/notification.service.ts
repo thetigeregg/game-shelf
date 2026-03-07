@@ -29,6 +29,7 @@ export class NotificationService {
   });
   private initialized = false;
   private initializing: Promise<void> | null = null;
+  private foregroundMessageListenerAttached = false;
 
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -60,10 +61,13 @@ export class NotificationService {
       return;
     }
 
-    onMessage(this.messaging, (payload) => {
-      console.info('[notifications] foreground_message', payload);
-      this.showForegroundNotification(payload);
-    });
+    if (!this.foregroundMessageListenerAttached) {
+      onMessage(this.messaging, (payload) => {
+        console.info('[notifications] foreground_message', payload);
+        this.showForegroundNotification(payload);
+      });
+      this.foregroundMessageListenerAttached = true;
+    }
 
     if (!this.isReleaseNotificationsEnabled()) {
       return;

@@ -33,12 +33,20 @@ function readSecretFile(name: string, fallbackSecretName: string): string {
 function readRequiredSecretFile(name: string, fallbackSecretName: string): string {
   const value = readSecretFile(name, fallbackSecretName);
   if (!value) {
-    if (readEnv('NODE_ENV') === 'test') {
+    if (isTestRuntime()) {
       return `test_${name.toLowerCase()}`;
     }
     throw new Error(`Missing required secret file for ${name} (${name}_FILE)`);
   }
   return value;
+}
+
+function isTestRuntime(): boolean {
+  if (readEnv('NODE_ENV') === 'test') {
+    return true;
+  }
+
+  return process.argv.includes('--test') || process.execArgv.includes('--test');
 }
 
 function readIntegerEnv(name: string, fallback: number): number {
@@ -118,6 +126,23 @@ export interface AppConfig {
   mobygamesSearchRateLimitMaxPerMinute: number;
   manualsDir: string;
   manualsPublicBaseUrl: string;
+  firebaseServiceAccountJson: string;
+  notificationsTestEndpointEnabled: boolean;
+  notificationsObservabilityEndpointEnabled: boolean;
+  releaseMonitorEnabled: boolean;
+  releaseMonitorIntervalSeconds: number;
+  releaseMonitorBatchSize: number;
+  releaseMonitorDebugLogs: boolean;
+  hltbPeriodicRefreshYears: number;
+  hltbPeriodicRefreshDays: number;
+  metacriticPeriodicRefreshYears: number;
+  metacriticPeriodicRefreshDays: number;
+  fcmTokenCleanupEnabled: boolean;
+  fcmTokenCleanupIntervalHours: number;
+  fcmTokenStaleDeactivateDays: number;
+  fcmTokenInactivePurgeDays: number;
+  releaseMonitorWarnSendFailureRatio: number;
+  releaseMonitorWarnInvalidTokenRatio: number;
   syncPushRateLimitMaxPerMinute: number;
   syncPullRateLimitMaxPerMinute: number;
   openaiApiKey: string;
@@ -298,6 +323,32 @@ export const config: AppConfig = {
     12
   ),
   manualsDir: readPathEnv('MANUALS_DIR', path.resolve(serverRootDir, '../nas-data/manuals')),
+  firebaseServiceAccountJson: readSecretFile(
+    'FIREBASE_SERVICE_ACCOUNT_JSON',
+    'firebase_service_account_json'
+  ),
+  notificationsTestEndpointEnabled: readBooleanEnv('NOTIFICATIONS_TEST_ENDPOINT_ENABLED', false),
+  notificationsObservabilityEndpointEnabled: readBooleanEnv(
+    'NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED',
+    false
+  ),
+  releaseMonitorEnabled: readBooleanEnv('RELEASE_MONITOR_ENABLED', true),
+  releaseMonitorIntervalSeconds: readIntegerEnv('RELEASE_MONITOR_INTERVAL_SECONDS', 900),
+  releaseMonitorBatchSize: readIntegerEnv('RELEASE_MONITOR_BATCH_SIZE', 100),
+  releaseMonitorDebugLogs: readBooleanEnv('RELEASE_MONITOR_DEBUG_LOGS', false),
+  hltbPeriodicRefreshYears: readIntegerEnv('HLTB_PERIODIC_REFRESH_YEARS', 3),
+  hltbPeriodicRefreshDays: readIntegerEnv('HLTB_PERIODIC_REFRESH_DAYS', 30),
+  metacriticPeriodicRefreshYears: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_YEARS', 3),
+  metacriticPeriodicRefreshDays: readIntegerEnv('METACRITIC_PERIODIC_REFRESH_DAYS', 30),
+  fcmTokenCleanupEnabled: readBooleanEnv('FCM_TOKEN_CLEANUP_ENABLED', true),
+  fcmTokenCleanupIntervalHours: readIntegerEnv('FCM_TOKEN_CLEANUP_INTERVAL_HOURS', 24),
+  fcmTokenStaleDeactivateDays: readIntegerEnv('FCM_TOKEN_STALE_DEACTIVATE_DAYS', 60),
+  fcmTokenInactivePurgeDays: readIntegerEnv('FCM_TOKEN_INACTIVE_PURGE_DAYS', 180),
+  releaseMonitorWarnSendFailureRatio: readNumberEnv('RELEASE_MONITOR_WARN_SEND_FAILURE_RATIO', 0.5),
+  releaseMonitorWarnInvalidTokenRatio: readNumberEnv(
+    'RELEASE_MONITOR_WARN_INVALID_TOKEN_RATIO',
+    0.2
+  ),
   manualsPublicBaseUrl: readEnv('MANUALS_PUBLIC_BASE_URL', '/manuals'),
   syncPushRateLimitMaxPerMinute: readIntegerEnv('SYNC_PUSH_RATE_LIMIT_MAX_PER_MINUTE', 120),
   syncPullRateLimitMaxPerMinute: readIntegerEnv('SYNC_PULL_RATE_LIMIT_MAX_PER_MINUTE', 120),

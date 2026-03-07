@@ -77,6 +77,19 @@ export const MIGRATIONS: string[] = [
   );
   `,
   `
+  CREATE TABLE IF NOT EXISTS fcm_tokens (
+    token TEXT PRIMARY KEY,
+    platform TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    timezone TEXT,
+    app_version TEXT,
+    user_agent TEXT,
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `
   CREATE TABLE IF NOT EXISTS metacritic_search_cache (
     cache_key TEXT PRIMARY KEY,
     query_title TEXT NOT NULL,
@@ -85,6 +98,70 @@ export const MIGRATIONS: string[] = [
     include_candidates BOOLEAN NOT NULL DEFAULT FALSE,
     response_json JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS release_watch_state (
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    last_known_release_marker TEXT,
+    last_known_release_precision TEXT NOT NULL DEFAULT 'unknown',
+    last_known_release_date DATE,
+    last_known_release_year INTEGER,
+    last_seen_state TEXT NOT NULL DEFAULT 'unknown',
+    last_igdb_refresh_at TIMESTAMPTZ,
+    last_hltb_refresh_at TIMESTAMPTZ,
+    last_metacritic_refresh_at TIMESTAMPTZ,
+    next_check_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_notified_set_at TIMESTAMPTZ,
+    last_notified_change_at TIMESTAMPTZ,
+    last_notified_unset_at TIMESTAMPTZ,
+    last_notified_release_day DATE,
+    last_error TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (igdb_game_id, platform_igdb_id)
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS release_watch_state_next_check_idx
+  ON release_watch_state (next_check_at);
+  `,
+  // Backfill columns for existing deployments created before release_watch_state schema expansion.
+  `
+  ALTER TABLE release_watch_state
+  ADD COLUMN IF NOT EXISTS last_known_release_marker TEXT;
+  `,
+  `
+  ALTER TABLE release_watch_state
+  ADD COLUMN IF NOT EXISTS last_known_release_precision TEXT NOT NULL DEFAULT 'unknown';
+  `,
+  `
+  ALTER TABLE release_watch_state
+  ADD COLUMN IF NOT EXISTS last_metacritic_refresh_at TIMESTAMPTZ;
+  `,
+  `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'release_watch_state_release_precision_check'
+    ) THEN
+      ALTER TABLE release_watch_state
+      ADD CONSTRAINT release_watch_state_release_precision_check
+      CHECK (last_known_release_precision IN ('unknown', 'year', 'quarter', 'month', 'day'));
+    END IF;
+  END $$;
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS release_notification_log (
+    id BIGSERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    igdb_game_id TEXT NOT NULL,
+    platform_igdb_id INTEGER NOT NULL,
+    event_key TEXT NOT NULL UNIQUE,
+    payload JSONB NOT NULL,
+    sent_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   `,
   `

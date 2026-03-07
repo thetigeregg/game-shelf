@@ -6,9 +6,21 @@ interface RuntimeFeatureFlags {
   recommendationsExploreEnabled?: boolean;
 }
 
+interface RuntimeFirebaseConfig {
+  apiKey?: string;
+  authDomain?: string;
+  projectId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+}
+
 interface RuntimeConfig {
   appVersion?: string;
+  firebaseCdnVersion?: string;
   featureFlags?: RuntimeFeatureFlags;
+  firebase?: RuntimeFirebaseConfig;
+  firebaseVapidKey?: string;
 }
 
 declare global {
@@ -90,4 +102,56 @@ export function isRecommendationsExploreEnabled(): boolean {
   }
 
   return environment.featureFlags.recommendationsExploreEnabled;
+}
+
+export function getFirebaseWebConfig(): {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+} {
+  const fallback = environment.firebase;
+
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const candidate = window.__GAME_SHELF_RUNTIME_CONFIG__?.firebase;
+  if (!candidate || typeof candidate !== 'object') {
+    return fallback;
+  }
+
+  return {
+    apiKey: normalizeRuntimeString(candidate.apiKey) ?? fallback.apiKey,
+    authDomain: normalizeRuntimeString(candidate.authDomain) ?? fallback.authDomain,
+    projectId: normalizeRuntimeString(candidate.projectId) ?? fallback.projectId,
+    storageBucket: normalizeRuntimeString(candidate.storageBucket) ?? fallback.storageBucket,
+    messagingSenderId:
+      normalizeRuntimeString(candidate.messagingSenderId) ?? fallback.messagingSenderId,
+    appId: normalizeRuntimeString(candidate.appId) ?? fallback.appId
+  };
+}
+
+export function getFirebaseVapidKey(): string {
+  if (typeof window !== 'undefined') {
+    const runtimeValue = normalizeRuntimeString(
+      window.__GAME_SHELF_RUNTIME_CONFIG__?.firebaseVapidKey
+    );
+    if (runtimeValue !== null) {
+      return runtimeValue;
+    }
+  }
+
+  return environment.firebaseVapidKey;
+}
+
+function normalizeRuntimeString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }

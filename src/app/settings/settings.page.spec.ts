@@ -70,6 +70,10 @@ import { PlatformCustomizationService } from '../core/services/platform-customiz
 import { DebugLogService } from '../core/services/debug-log.service';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import {
+  RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+  RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY
+} from '../core/services/notification.service';
+import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY
 } from '../core/services/time-preference.service';
@@ -532,12 +536,12 @@ describe('SettingsPage CSV review fields', () => {
     });
   });
 
-  it('refreshes and queues time preference when imported as a setting row', () => {
+  it('refreshes and queues time preference when imported as a setting row', async () => {
     const page = createPage();
     localStorage.removeItem(TIME_PREFERENCE_STORAGE_KEY);
     expect(page.timePreference).toBe(15);
 
-    page['applyImportedSettings']([
+    await page['applyImportedSettings']([
       {
         kind: 'setting',
         key: TIME_PREFERENCE_STORAGE_KEY,
@@ -557,12 +561,12 @@ describe('SettingsPage CSV review fields', () => {
     });
   });
 
-  it('normalizes invalid imported time preference before persisting and syncing', () => {
+  it('normalizes invalid imported time preference before persisting and syncing', async () => {
     const page = createPage();
     localStorage.removeItem(TIME_PREFERENCE_STORAGE_KEY);
     expect(page.timePreference).toBe(15);
 
-    page['applyImportedSettings']([
+    await page['applyImportedSettings']([
       {
         kind: 'setting',
         key: TIME_PREFERENCE_STORAGE_KEY,
@@ -581,5 +585,183 @@ describe('SettingsPage CSV review fields', () => {
         value: '15'
       }
     });
+  });
+
+  it('continues processing later rows when legacy primary color key is present', async () => {
+    const page = createPage();
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: 'game-shelf-primary-color',
+        value: '#ff0000'
+      },
+      {
+        kind: 'setting',
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '33'
+      }
+    ]);
+
+    expect(localStorage.getItem('game-shelf-primary-color')).toBeNull();
+    expect(timePreferenceServiceMock.refreshFromStorage).toHaveBeenCalled();
+    expect(page.timePreference).toBe(33);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: TIME_PREFERENCE_STORAGE_KEY,
+        value: '33'
+      }
+    });
+  });
+
+  it('registers device when imported release notifications setting is enabled', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    const registerSpy = vi
+      .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+    const unregisterSpy = vi
+      .spyOn(notificationService, 'unregisterCurrentDevice')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+        value: 'true'
+      }
+    ]);
+
+    expect(registerSpy).toHaveBeenCalledOnce();
+    expect(unregisterSpy).not.toHaveBeenCalled();
+    expect(setEnabledSpy).toHaveBeenCalledWith(true);
+    expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('true');
+  });
+
+  it('does not register device when imported release notifications setting is disabled', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    const registerSpy = vi
+      .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+    const unregisterSpy = vi
+      .spyOn(notificationService, 'unregisterCurrentDevice')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+        value: 'false'
+      }
+    ]);
+
+    expect(registerSpy).not.toHaveBeenCalled();
+    expect(unregisterSpy).toHaveBeenCalledOnce();
+    expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('false');
+  });
+
+  it('does not persist disabled import state when unregister fails', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    localStorage.setItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY, 'true');
+
+    const registerSpy = vi
+      .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
+      .mockResolvedValue({ ok: true, message: 'ok' });
+    const unregisterSpy = vi
+      .spyOn(notificationService, 'unregisterCurrentDevice')
+      .mockResolvedValue({ ok: false, message: 'failed' });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+        value: 'false'
+      }
+    ]);
+
+    expect(registerSpy).not.toHaveBeenCalled();
+    expect(unregisterSpy).toHaveBeenCalledOnce();
+    expect(setEnabledSpy).not.toHaveBeenCalledWith(false);
+    expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('true');
+    expect(page.releaseNotificationsEnabled).toBe(true);
+  });
+
+  it('normalizes imported release notification events before applying and syncing', async () => {
+    const page = createPage();
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+        value: JSON.stringify({
+          set: false,
+          changed: 'yes',
+          removed: null,
+          day: 1
+        })
+      }
+    ]);
+
+    expect(page.releaseNotificationEvents).toEqual({
+      set: false,
+      changed: true,
+      removed: true,
+      day: true
+    });
+    expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
+      '{"set":false,"changed":true,"removed":true,"day":true}'
+    );
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+        value: '{"set":false,"changed":true,"removed":true,"day":true}'
+      }
+    });
+  });
+
+  it('keeps release notifications disabled when disable succeeds', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    const disableSpy = vi
+      .spyOn(notificationService, 'disableReleaseNotifications')
+      .mockResolvedValue({
+        ok: true,
+        message: 'disabled'
+      });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
+    page.releaseNotificationsEnabled = true;
+
+    await page.onReleaseNotificationsEnabledChange(false);
+
+    expect(disableSpy).toHaveBeenCalledOnce();
+    expect(page.releaseNotificationsEnabled).toBe(false);
+    expect(setEnabledSpy).not.toHaveBeenCalled();
+  });
+
+  it('rolls release notifications toggle back when disable fails', async () => {
+    const page = createPage();
+    const notificationService = page['notificationService'];
+    const disableSpy = vi
+      .spyOn(notificationService, 'disableReleaseNotifications')
+      .mockResolvedValue({
+        ok: false,
+        message: 'failed'
+      });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
+    page.releaseNotificationsEnabled = true;
+
+    await page.onReleaseNotificationsEnabledChange(false);
+
+    expect(disableSpy).toHaveBeenCalledOnce();
+    expect(page.releaseNotificationsEnabled).toBe(true);
+    expect(setEnabledSpy).not.toHaveBeenCalled();
   });
 });

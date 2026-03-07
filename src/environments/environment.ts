@@ -6,6 +6,15 @@ export const environment = {
   production: false,
   gameApiBaseUrl: '',
   manualsBaseUrl: '/manuals',
+  firebase: {
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: ''
+  },
+  firebaseVapidKey: '',
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,

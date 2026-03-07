@@ -263,7 +263,7 @@ function isNotificationAdminAuthorized(
 
 function normalizeToken(value: unknown): string | null {
   const normalized = typeof value === 'string' ? value.trim() : '';
-  return normalized.length >= 16 ? normalized : null;
+  return normalized.length >= 16 && normalized.length <= 512 ? normalized : null;
 }
 
 function normalizePlatform(value: unknown): string {

@@ -61,6 +61,23 @@ Common stack env vars:
 - `PGPASSWORD_FILE` (backup service DB password)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+- `FIREBASE_SERVICE_ACCOUNT_JSON_FILE` (required for FCM notifications; defaults to `/run/secrets/firebase_service_account_json`)
+- `RELEASE_MONITOR_ENABLED` (optional; defaults `true`)
+- `RELEASE_MONITOR_INTERVAL_SECONDS` (optional; defaults `900`)
+- `RELEASE_MONITOR_BATCH_SIZE` (optional; defaults `100`)
+- `RELEASE_MONITOR_DEBUG_LOGS` (optional; defaults `false`)
+- `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (optional; defaults `false`; enables `POST /v1/notifications/test`)
+- `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (optional; defaults `false`; enables `GET /v1/notifications/observability`)
+- `HLTB_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
+- `HLTB_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
+- `METACRITIC_PERIODIC_REFRESH_YEARS` (optional; defaults `3`)
+- `METACRITIC_PERIODIC_REFRESH_DAYS` (optional; defaults `30`)
+- `FCM_TOKEN_CLEANUP_ENABLED` (optional; defaults `true`)
+- `FCM_TOKEN_CLEANUP_INTERVAL_HOURS` (optional; defaults `24`)
+- `FCM_TOKEN_STALE_DEACTIVATE_DAYS` (optional; defaults `60`)
+- `FCM_TOKEN_INACTIVE_PURGE_DAYS` (optional; defaults `180`)
+- `RELEASE_MONITOR_WARN_SEND_FAILURE_RATIO` (optional; defaults `0.5`)
+- `RELEASE_MONITOR_WARN_INVALID_TOKEN_RATIO` (optional; defaults `0.2`)
 - `BACKUP_SCHEDULE_TIME` (optional; defaults to `00:00` in container timezone)
 - `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
@@ -106,6 +123,10 @@ Common stack env vars:
 - `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN` (optional; default `5000`)
 - `IGDB_METADATA_ENRICH_STARTUP_DELAY_MS` (optional; default `5000`)
 - `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (optional; default `15000`)
+
+Release notification defaults:
+
+- Notifications are opt-in. If no synced setting exists for `game-shelf:notifications:release:enabled`, the backend treats notifications as disabled.
 
 Security note:
 
@@ -153,6 +174,7 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/openai_api_key` (required for semantic recommendation embeddings)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
 - `/volume1/docker/secrets/gameshelf/postgres_password`
+- `/volume1/docker/secrets/gameshelf/firebase_service_account_json` (required for FCM notifications)
 
 You can override individual directories if needed:
 
@@ -198,6 +220,7 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/postgres_user`
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
+`nas-secrets/firebase_service_account_json` (required for FCM notifications)
 `nas-secrets/metacritic_scraper_token` (optional)
 `nas-secrets/mobygames_api_key` (required for MobyGames review lookups)
 `nas-secrets/openai_api_key` (required for semantic recommendation embeddings)

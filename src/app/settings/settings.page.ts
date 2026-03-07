@@ -109,6 +109,12 @@ import {
   resolveTransientRetryDelayMs
 } from './settings-mgc.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
+import {
+  NotificationService,
+  RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+  RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
+  ReleaseNotificationEventsPreference
+} from '../core/services/notification.service';
 import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
@@ -365,6 +371,13 @@ export class SettingsPage {
   selectedColorScheme: ColorSchemePreference = 'system';
   clientWriteTokenConfigured = false;
   verboseTracingEnabled = false;
+  releaseNotificationsEnabled = false;
+  releaseNotificationEvents: ReleaseNotificationEventsPreference = {
+    set: true,
+    changed: true,
+    removed: true,
+    day: true
+  };
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
   timePreference = 15;
@@ -415,12 +428,15 @@ export class SettingsPage {
   private readonly router = inject(Router);
   private readonly debugLogService = inject(DebugLogService);
   private readonly clientWriteAuthService = inject(ClientWriteAuthService);
+  private readonly notificationService = inject(NotificationService);
   private readonly timePreferenceService = inject(TimePreferenceService);
 
   constructor() {
     this.selectedColorScheme = this.themeService.getColorSchemePreference();
     this.clientWriteTokenConfigured = this.clientWriteAuthService.hasToken();
     this.verboseTracingEnabled = this.debugLogService.isVerboseTracingEnabled();
+    this.releaseNotificationsEnabled = this.notificationService.isReleaseNotificationsEnabled();
+    this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
     this.imageCacheLimitMb = this.imageCacheService.getLimitMb();
     this.timePreference = this.timePreferenceService.getTimePreference();
     void this.refreshImageCacheUsage();
@@ -567,6 +583,31 @@ export class SettingsPage {
     this.clientWriteAuthService.clearToken();
     this.clientWriteTokenConfigured = false;
     await this.presentToast('Device write token removed.');
+  }
+
+  async onReleaseNotificationsEnabledChange(enabled: boolean): Promise<void> {
+    if (enabled) {
+      const result = await this.notificationService.enableReleaseNotifications();
+      this.releaseNotificationsEnabled = result.ok;
+      await this.presentToast(result.message, result.ok ? 'primary' : 'warning');
+      return;
+    }
+
+    const previousEnabledState = this.releaseNotificationsEnabled;
+    const result = await this.notificationService.disableReleaseNotifications();
+    this.releaseNotificationsEnabled = result.ok ? false : previousEnabledState;
+    await this.presentToast(result.message, result.ok ? 'primary' : 'warning');
+  }
+
+  onReleaseEventToggleChange(
+    eventKey: keyof ReleaseNotificationEventsPreference,
+    enabled: boolean
+  ): void {
+    this.releaseNotificationEvents = {
+      ...this.releaseNotificationEvents,
+      [eventKey]: enabled
+    };
+    this.persistReleaseNotificationEvents();
   }
 
   async purgeLocalImageCache(): Promise<void> {
@@ -1366,7 +1407,7 @@ export class SettingsPage {
 
       for (const settingRow of settingRows) {
         try {
-          this.applyImportedSettings([settingRow]);
+          await this.applyImportedSettings([settingRow]);
           settingsApplied += 1;
         } catch {
           failedRows += 1;
@@ -3291,21 +3332,26 @@ export class SettingsPage {
     return entries;
   }
 
-  private applyImportedSettings(rows: ParsedSettingImportRow[]): void {
-    rows.forEach((row) => {
+  private async applyImportedSettings(rows: ParsedSettingImportRow[]): Promise<void> {
+    for (const row of rows) {
       if (row.key === LEGACY_PRIMARY_COLOR_STORAGE_KEY) {
         try {
           localStorage.removeItem(LEGACY_PRIMARY_COLOR_STORAGE_KEY);
         } catch {
           // Ignore storage write failures.
         }
-        return;
+        continue;
       }
 
-      try {
-        localStorage.setItem(row.key, row.value);
-      } catch {
-        // Ignore storage write failures.
+      if (
+        row.key !== RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY &&
+        row.key !== RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY
+      ) {
+        try {
+          localStorage.setItem(row.key, row.value);
+        } catch {
+          // Ignore storage write failures.
+        }
       }
 
       if (
@@ -3326,6 +3372,58 @@ export class SettingsPage {
         this.queueSettingUpsert(row.key, row.value);
       }
 
+      if (row.key === RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
+        const normalizedEnabledRaw = row.value.trim().toLowerCase();
+        const normalizedEnabled =
+          normalizedEnabledRaw !== 'false' &&
+          normalizedEnabledRaw !== '0' &&
+          normalizedEnabledRaw !== 'no';
+        const previousEnabledState = this.notificationService.isReleaseNotificationsEnabled();
+
+        if (normalizedEnabled) {
+          this.notificationService.setReleaseNotificationsEnabled(true);
+          this.releaseNotificationsEnabled = true;
+          await this.notificationService.registerCurrentDeviceIfPermitted();
+        } else {
+          const result = await this.notificationService.unregisterCurrentDevice();
+          if (result.ok) {
+            this.notificationService.setReleaseNotificationsEnabled(false);
+            this.releaseNotificationsEnabled = false;
+          } else {
+            this.releaseNotificationsEnabled = previousEnabledState;
+          }
+        }
+      }
+
+      if (row.key === RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY) {
+        let normalizedValue = row.value;
+        try {
+          const parsed = JSON.parse(row.value) as Record<string, unknown>;
+          normalizedValue = JSON.stringify({
+            set: parsed['set'] !== false,
+            changed: parsed['changed'] !== false,
+            removed: parsed['removed'] !== false,
+            day: parsed['day'] !== false
+          });
+        } catch {
+          normalizedValue = JSON.stringify({
+            set: true,
+            changed: true,
+            removed: true,
+            day: true
+          });
+        }
+
+        try {
+          localStorage.setItem(row.key, normalizedValue);
+        } catch {
+          // Ignore storage write failures.
+        }
+
+        this.releaseNotificationEvents = this.notificationService.readReleaseEventPreferences();
+        this.queueSettingUpsert(row.key, normalizedValue);
+      }
+
       if (row.key === TIME_PREFERENCE_STORAGE_KEY) {
         this.timePreferenceService.refreshFromStorage();
         const normalizedTimePreference = this.timePreferenceService.getTimePreference();
@@ -3340,7 +3438,7 @@ export class SettingsPage {
 
         this.queueSettingUpsert(row.key, normalizedValue);
       }
-    });
+    }
   }
 
   private persistPlatformDisplayNames(): void {
@@ -3380,6 +3478,18 @@ export class SettingsPage {
         customName
       };
     });
+  }
+
+  private persistReleaseNotificationEvents(): void {
+    const value = JSON.stringify(this.releaseNotificationEvents);
+
+    try {
+      localStorage.setItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY, value);
+    } catch {
+      // Ignore storage write failures.
+    }
+
+    this.queueSettingUpsert(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY, value);
   }
 
   private queueSettingUpsert(key: string, value: string): void {

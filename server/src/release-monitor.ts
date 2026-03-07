@@ -304,14 +304,10 @@ async function processGameRow(
 
       if (refreshedMetacritic) {
         stats.metacriticRefreshSuccesses += 1;
-        mergedPayload = {
-          ...mergedPayload,
-          metacriticScore: numberOrNull(refreshedMetacritic.metacriticScore),
-          metacriticUrl: stringOrNull(refreshedMetacritic.metacriticUrl),
-          reviewScore: numberOrNull(refreshedMetacritic.metacriticScore),
-          reviewUrl: stringOrNull(refreshedMetacritic.metacriticUrl),
-          reviewSource: 'metacritic'
-        };
+        mergedPayload = mergeMetacriticRefreshPayload(mergedPayload, {
+          metacriticScore: refreshedMetacritic.metacriticScore,
+          metacriticUrl: refreshedMetacritic.metacriticUrl
+        });
       }
       // Advance cadence on attempt (not just success) to avoid repeatedly
       // hammering the scraper for titles that currently return no match.
@@ -583,6 +579,32 @@ function mergePayloadForRefresh(
     releaseYear: integerOrNull(refreshed['releaseYear']),
     updatedAt: new Date().toISOString()
   };
+}
+
+function mergeMetacriticRefreshPayload(
+  existing: Record<string, unknown>,
+  refreshed: {
+    metacriticScore?: unknown;
+    metacriticUrl?: unknown;
+  }
+): Record<string, unknown> {
+  const nextPayload: Record<string, unknown> = {
+    ...existing,
+    metacriticScore: numberOrNull(refreshed.metacriticScore),
+    metacriticUrl: stringOrNull(refreshed.metacriticUrl)
+  };
+
+  const existingReviewSource = stringOrNull(existing['reviewSource']);
+  const shouldOverwriteReview =
+    existingReviewSource === null || existingReviewSource === 'metacritic';
+
+  if (shouldOverwriteReview) {
+    nextPayload['reviewScore'] = numberOrNull(refreshed.metacriticScore);
+    nextPayload['reviewUrl'] = stringOrNull(refreshed.metacriticUrl);
+    nextPayload['reviewSource'] = 'metacritic';
+  }
+
+  return nextPayload;
 }
 
 async function upsertGamePayload(
@@ -1677,6 +1699,7 @@ export const releaseMonitorInternals = {
   isMetacriticRefreshDue,
   hasMetacriticValues,
   normalizeDateString,
+  mergeMetacriticRefreshPayload,
   readNotificationPreferences,
   reserveNotificationLog,
   finalizeNotificationLog,

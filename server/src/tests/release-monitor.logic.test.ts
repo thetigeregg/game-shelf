@@ -520,6 +520,28 @@ void test('normalizers handle invalid marker and precision inputs', () => {
   assert.equal(releaseMonitorInternals.normalizeDateString('Q4 2026'), null);
 });
 
+void test('metacritic merge does not overwrite non-metacritic review source fields', () => {
+  const merged = releaseMonitorInternals.mergeMetacriticRefreshPayload(
+    {
+      reviewSource: 'opencritic',
+      reviewScore: 91,
+      reviewUrl: 'https://opencritic.example/game',
+      metacriticScore: null,
+      metacriticUrl: null
+    },
+    {
+      metacriticScore: 88.5,
+      metacriticUrl: 'https://metacritic.example/game'
+    }
+  );
+
+  assert.equal(merged['metacriticScore'], 88.5);
+  assert.equal(merged['metacriticUrl'], 'https://metacritic.example/game');
+  assert.equal(merged['reviewSource'], 'opencritic');
+  assert.equal(merged['reviewScore'], 91);
+  assert.equal(merged['reviewUrl'], 'https://opencritic.example/game');
+});
+
 void test('startReleaseMonitor returns inert monitor when disabled', () => {
   const original = config.releaseMonitorEnabled;
   config.releaseMonitorEnabled = false;

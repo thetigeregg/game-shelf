@@ -1,4 +1,5 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { BackgroundJobRepository } from '../background-jobs.js';
 import {
   buildDiscoveryEnrichmentSelectionParams,
   LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL
@@ -92,10 +93,6 @@ interface SettingRow extends QueryResultRow {
   setting_value: string;
 }
 
-interface BackgroundJobInsertRow extends QueryResultRow {
-  id: number;
-}
-
 interface DiscoveryGameRow extends QueryResultRow {
   igdb_game_id: string;
   platform_igdb_id: number;
@@ -105,7 +102,11 @@ interface DiscoveryGameRow extends QueryResultRow {
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
 
 export class RecommendationRepository {
-  constructor(private readonly pool: Pool) {}
+  private readonly backgroundJobs: BackgroundJobRepository;
+
+  constructor(private readonly pool: Pool) {
+    this.backgroundJobs = new BackgroundJobRepository(pool);
+  }
 
   async withAdvisoryLock<T>(params: {
     namespace: number;
@@ -366,101 +367,30 @@ export class RecommendationRepository {
     reason: RecommendationRebuildQueueReason;
   }): Promise<{ jobId: number; deduped: boolean }> {
     const dedupeKey = `recommendations:rebuild:${params.target}:${params.force ? 'force' : 'normal'}`;
-    const payload = JSON.stringify({
+    const payload = {
       target: params.target,
       force: params.force,
       triggeredBy: params.triggeredBy,
       reason: params.reason
+    };
+    return this.backgroundJobs.enqueue({
+      jobType: 'recommendations_rebuild',
+      payload,
+      dedupeKey,
+      priority: 100,
+      maxAttempts: 5
     });
-    /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in repository tests */
-    const insertResult = await this.pool.query<BackgroundJobInsertRow>(
-      `
-      INSERT INTO background_jobs
-        (job_type, dedupe_key, payload, status, priority, attempts, max_attempts, available_at, created_at, updated_at)
-      VALUES
-        ('recommendations_rebuild', $1, $2::jsonb, 'pending', 100, 0, 5, NOW(), NOW(), NOW())
-      ON CONFLICT (dedupe_key)
-      WHERE dedupe_key IS NOT NULL AND status IN ('pending', 'running')
-      DO NOTHING
-      RETURNING id
-      `,
-      [dedupeKey, payload]
-    );
-
-    if ((insertResult.rowCount ?? 0) > 0 && insertResult.rows[0]) {
-      return { jobId: insertResult.rows[0].id, deduped: false };
-    }
-
-    const existingResult = await this.pool.query<BackgroundJobInsertRow>(
-      `
-      SELECT id
-      FROM background_jobs
-      WHERE dedupe_key = $1
-        AND status IN ('pending', 'running')
-      ORDER BY id DESC
-      LIMIT 1
-      `,
-      [dedupeKey]
-    );
-
-    if ((existingResult.rowCount ?? 0) > 0 && existingResult.rows[0]) {
-      return { jobId: existingResult.rows[0].id, deduped: true };
-    }
-
-    const fallbackInsert = await this.pool.query<BackgroundJobInsertRow>(
-      `
-      INSERT INTO background_jobs
-        (job_type, dedupe_key, payload, status, priority, attempts, max_attempts, available_at, created_at, updated_at)
-      VALUES
-        ('recommendations_rebuild', NULL, $1::jsonb, 'pending', 100, 0, 5, NOW(), NOW(), NOW())
-      RETURNING id
-      `,
-      [payload]
-    );
-    /* c8 ignore stop */
-
-    return { jobId: fallbackInsert.rows[0].id, deduped: false };
   }
 
   async completeBackgroundJob(
     jobId: number,
     resultPayload: Record<string, unknown>
   ): Promise<void> {
-    /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in repository tests */
-    await this.pool.query(
-      `
-      UPDATE background_jobs
-      SET
-        status = 'succeeded',
-        result = $2::jsonb,
-        finished_at = NOW(),
-        locked_by = NULL,
-        locked_at = NULL,
-        updated_at = NOW()
-      WHERE id = $1
-      `,
-      [jobId, JSON.stringify(resultPayload)]
-    );
-    /* c8 ignore stop */
+    await this.backgroundJobs.complete(jobId, resultPayload);
   }
 
   async failBackgroundJob(jobId: number, errorMessage: string): Promise<void> {
-    /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in repository tests */
-    await this.pool.query(
-      `
-      UPDATE background_jobs
-      SET
-        status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END,
-        available_at = CASE WHEN attempts >= max_attempts THEN available_at ELSE NOW() + (attempts * INTERVAL '30 seconds') END,
-        last_error = $2,
-        locked_by = NULL,
-        locked_at = NULL,
-        updated_at = NOW()
-      WHERE id = $1
-      `,
-      [jobId, errorMessage]
-    );
-    /* c8 ignore stop */
+    await this.backgroundJobs.fail(jobId, errorMessage);
   }
 
   async getLatestRun(

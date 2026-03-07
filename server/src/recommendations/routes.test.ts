@@ -207,10 +207,24 @@ void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fall
 });
 
 void test('GET /v1/recommendations/top and /lanes validate runtime mode and queue when missing', async () => {
+  let enqueueCalls = 0;
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(
     app,
     createServiceMock({
+      ensureRebuildQueuedIfStale: () =>
+        Promise.resolve({
+          queued: false,
+          reason: 'fresh',
+          jobId: null
+        }),
+      enqueueRebuild: () => {
+        enqueueCalls += 1;
+        return Promise.resolve({
+          jobId: 333 + enqueueCalls,
+          deduped: false
+        });
+      },
       getTopRecommendations: () => Promise.resolve(null),
       getRecommendationLanes: () => Promise.resolve(null)
     })
@@ -227,6 +241,9 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
     url: '/v1/recommendations/top?target=BACKLOG&limit=invalid'
   });
   assert.equal(notFoundTop.statusCode, 202);
+  const notFoundTopBody = JSON.parse(notFoundTop.body) as { status?: string; jobId?: number };
+  assert.equal(notFoundTopBody.status, 'QUEUED');
+  assert.equal(notFoundTopBody.jobId, 334);
 
   const invalidLanesRuntime = await app.inject({
     method: 'GET',
@@ -239,6 +256,9 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
     url: '/v1/recommendations/lanes?target=BACKLOG'
   });
   assert.equal(notFoundLanes.statusCode, 202);
+  const notFoundLanesBody = JSON.parse(notFoundLanes.body) as { status?: string; jobId?: number };
+  assert.equal(notFoundLanesBody.status, 'QUEUED');
+  assert.equal(notFoundLanesBody.jobId, 335);
 
   await app.close();
 });

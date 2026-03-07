@@ -425,6 +425,28 @@ describe('NotificationService', () => {
     expect(initializeInternalSpy).toHaveBeenCalledTimes(2);
   });
 
+  it('does not register duplicate foreground listener on initialize retry after failure', async () => {
+    localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
+    setNotificationMock({
+      permission: 'granted',
+      requestPermission: () => Promise.resolve('granted')
+    });
+    vi.spyOn(
+      service as unknown as {
+        registerCurrentDevice: () => Promise<{ ok: boolean; token?: string }>;
+      },
+      'registerCurrentDevice'
+    )
+      .mockRejectedValueOnce(new Error('register failed'))
+      .mockResolvedValueOnce({ ok: true, token: 'abc' });
+    const beforeCount = onMessageMock.mock.calls.length;
+
+    await expect(service.initialize()).rejects.toThrow('register failed');
+    await expect(service.initialize()).resolves.toBeUndefined();
+
+    expect(onMessageMock.mock.calls.length - beforeCount).toBe(1);
+  });
+
   it('prompts for release notifications only when no preference is stored', async () => {
     setNotificationMock({
       permission: 'default',

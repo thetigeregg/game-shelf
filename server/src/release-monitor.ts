@@ -1134,7 +1134,7 @@ function isMetacriticRefreshDue(
 
 function hasMetacriticValues(payload: Record<string, unknown>): boolean {
   return (
-    integerOrNull(payload['metacriticScore']) !== null ||
+    numberOrNull(payload['metacriticScore']) !== null ||
     stringOrNull(payload['metacriticUrl']) !== null
   );
 }

@@ -1203,6 +1203,10 @@ function isWithinPastYears(release: ReleaseInfo, now: Date, years: number): bool
     return false;
   }
 
+  if (releaseMs > now.getTime()) {
+    return false;
+  }
+
   const thresholdMs = now.getTime() - Math.max(1, years) * 365 * ONE_DAY_MS;
   return releaseMs >= thresholdMs;
 }

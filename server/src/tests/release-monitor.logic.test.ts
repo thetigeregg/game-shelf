@@ -403,6 +403,20 @@ void test('derive release state and past-years checks handle precision edge case
     ),
     false
   );
+  assert.equal(
+    releaseMonitorInternals.isWithinPastYears(
+      {
+        precision: 'year',
+        marker: '2027',
+        date: null,
+        year: 2027,
+        display: '2027'
+      },
+      now,
+      3
+    ),
+    false
+  );
 });
 
 void test('computeNextCheckAt covers precision windows and periodic refresh cadence', () => {

@@ -231,6 +231,12 @@ async function processGameRow(
       if (refreshed) {
         stats.igdbRefreshSuccesses += 1;
         mergedPayload = mergePayloadForRefresh(originalPayload, refreshed);
+      } else if (config.releaseMonitorDebugLogs) {
+        console.debug('[release-monitor] igdb_refresh_empty', {
+          igdbGameId: row.igdb_game_id,
+          platformIgdbId,
+          title
+        });
       }
     }
 

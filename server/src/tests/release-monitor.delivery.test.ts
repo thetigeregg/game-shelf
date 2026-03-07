@@ -547,3 +547,89 @@ void test('processDueGames continues when enqueue fails for one game', async () 
 
   assert.equal(pool.queuedJobs, 1);
 });
+
+void test('enqueueReleaseMonitorGameJob dedupes per game-platform key', async () => {
+  const row = {
+    igdb_game_id: '52189',
+    platform_igdb_id: 167,
+    payload: {
+      title: 'Grand Theft Auto VI',
+      platform: 'PlayStation 5',
+      listType: 'wishlist'
+    },
+    watch_exists: false,
+    last_known_release_marker: null,
+    last_known_release_precision: null,
+    last_known_release_date: null,
+    last_known_release_year: null,
+    last_seen_state: null,
+    last_hltb_refresh_at: null,
+    last_metacritic_refresh_at: null,
+    last_notified_release_day: null
+  };
+
+  const pool = new ReleaseMonitorFlowPoolMock([row]);
+  const first = await releaseMonitorInternals.enqueueReleaseMonitorGameJob(
+    pool as unknown as Pool,
+    row
+  );
+  const second = await releaseMonitorInternals.enqueueReleaseMonitorGameJob(
+    pool as unknown as Pool,
+    row
+  );
+
+  assert.equal(first, true);
+  assert.equal(second, false);
+});
+
+class QueuedGamePoolMock {
+  readonly client = new AdvisoryLockClientMock(false);
+
+  connect(): Promise<AdvisoryLockClientMock> {
+    return Promise.resolve(this.client);
+  }
+
+  query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (normalizedSql.startsWith('select setting_key, setting_value from settings')) {
+      return Promise.resolve({
+        rows: [],
+        rowCount: 0
+      });
+    }
+
+    if (
+      normalizedSql.startsWith(
+        'select token from fcm_tokens where is_active = true order by token asc limit $1'
+      )
+    ) {
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
+
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  }
+}
+
+void test('processQueuedReleaseMonitorGame validates payload and tolerates lock miss', async () => {
+  const pool = new QueuedGamePoolMock();
+
+  await assert.rejects(
+    releaseMonitorInternals.processQueuedReleaseMonitorGame(pool as unknown as Pool, {}),
+    /Invalid release monitor game payload/
+  );
+
+  await assert.doesNotReject(
+    releaseMonitorInternals.processQueuedReleaseMonitorGame(pool as unknown as Pool, {
+      igdb_game_id: '52189',
+      platform_igdb_id: 167,
+      payload: {
+        title: 'Grand Theft Auto VI',
+        platform: 'PlayStation 5',
+        releaseYear: 2026,
+        listType: 'wishlist'
+      },
+      watch_exists: false
+    })
+  );
+});

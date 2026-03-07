@@ -20,9 +20,55 @@ interface BackgroundJobClaimRow extends QueryResultRow {
   payload: unknown;
 }
 
+interface BackgroundJobStatsRow extends QueryResultRow {
+  job_type: BackgroundJobType;
+  pending_count: string;
+  running_count: string;
+  failed_count: string;
+  succeeded_count: string;
+  oldest_pending_seconds: string | null;
+}
+
+interface BackgroundJobFailedRow extends QueryResultRow {
+  id: number;
+  job_type: BackgroundJobType;
+  attempts: number;
+  max_attempts: number;
+  available_at: string;
+  updated_at: string;
+  finished_at: string | null;
+  last_error: string | null;
+  payload: unknown;
+}
+
+interface BackgroundJobIdRow extends QueryResultRow {
+  id: number;
+}
+
 export interface ClaimedBackgroundJob {
   id: number;
   jobType: BackgroundJobType;
+  payload: Record<string, unknown>;
+}
+
+export interface BackgroundJobTypeStats {
+  jobType: BackgroundJobType;
+  pending: number;
+  running: number;
+  failed: number;
+  succeeded: number;
+  oldestPendingSeconds: number | null;
+}
+
+export interface FailedBackgroundJob {
+  id: number;
+  jobType: BackgroundJobType;
+  attempts: number;
+  maxAttempts: number;
+  availableAt: string;
+  updatedAt: string;
+  finishedAt: string | null;
+  lastError: string | null;
   payload: Record<string, unknown>;
 }
 
@@ -173,5 +219,122 @@ export class BackgroundJobRepository {
       `,
       [jobId, errorMessage]
     );
+  }
+
+  async getTypeStats(): Promise<BackgroundJobTypeStats[]> {
+    const result = await this.pool.query<BackgroundJobStatsRow>(
+      `
+      SELECT
+        job_type,
+        COUNT(*) FILTER (WHERE status = 'pending')::text AS pending_count,
+        COUNT(*) FILTER (WHERE status = 'running')::text AS running_count,
+        COUNT(*) FILTER (WHERE status = 'failed')::text AS failed_count,
+        COUNT(*) FILTER (WHERE status = 'succeeded')::text AS succeeded_count,
+        (
+          EXTRACT(EPOCH FROM (NOW() - MIN(created_at) FILTER (WHERE status = 'pending')))
+        )::text AS oldest_pending_seconds
+      FROM background_jobs
+      GROUP BY job_type
+      ORDER BY job_type ASC
+      `
+    );
+
+    return result.rows.map((row) => ({
+      jobType: row.job_type,
+      pending: Number.parseInt(row.pending_count, 10) || 0,
+      running: Number.parseInt(row.running_count, 10) || 0,
+      failed: Number.parseInt(row.failed_count, 10) || 0,
+      succeeded: Number.parseInt(row.succeeded_count, 10) || 0,
+      oldestPendingSeconds:
+        row.oldest_pending_seconds && Number.isFinite(Number.parseFloat(row.oldest_pending_seconds))
+          ? Number.parseFloat(row.oldest_pending_seconds)
+          : null
+    }));
+  }
+
+  async listFailed(params?: {
+    jobType?: BackgroundJobType | null;
+    failedBeforeIso?: string | null;
+    limit?: number;
+  }): Promise<FailedBackgroundJob[]> {
+    const limit = Number.isInteger(params?.limit)
+      ? Math.max(1, Math.min(500, params?.limit ?? 0))
+      : 100;
+    const result = await this.pool.query<BackgroundJobFailedRow>(
+      `
+      SELECT
+        id,
+        job_type,
+        attempts,
+        max_attempts,
+        available_at::text AS available_at,
+        updated_at::text AS updated_at,
+        finished_at::text AS finished_at,
+        last_error,
+        payload
+      FROM background_jobs
+      WHERE status = 'failed'
+        AND ($1::text IS NULL OR job_type = $1)
+        AND ($2::timestamptz IS NULL OR COALESCE(finished_at, updated_at) <= $2::timestamptz)
+      ORDER BY COALESCE(finished_at, updated_at) DESC, id DESC
+      LIMIT $3
+      `,
+      [params?.jobType ?? null, params?.failedBeforeIso ?? null, limit]
+    );
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      jobType: row.job_type,
+      attempts: row.attempts,
+      maxAttempts: row.max_attempts,
+      availableAt: row.available_at,
+      updatedAt: row.updated_at,
+      finishedAt: row.finished_at,
+      lastError: row.last_error,
+      payload:
+        row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+          ? (row.payload as Record<string, unknown>)
+          : {}
+    }));
+  }
+
+  async requeueFailed(params?: {
+    jobType?: BackgroundJobType | null;
+    failedBeforeIso?: string | null;
+    limit?: number;
+  }): Promise<{ requeuedCount: number; jobIds: number[] }> {
+    const limit = Number.isInteger(params?.limit)
+      ? Math.max(1, Math.min(500, params?.limit ?? 0))
+      : 100;
+    const result = await this.pool.query<BackgroundJobIdRow>(
+      `
+      WITH candidates AS (
+        SELECT id
+        FROM background_jobs
+        WHERE status = 'failed'
+          AND ($1::text IS NULL OR job_type = $1)
+          AND ($2::timestamptz IS NULL OR COALESCE(finished_at, updated_at) <= $2::timestamptz)
+        ORDER BY COALESCE(finished_at, updated_at) DESC, id DESC
+        LIMIT $3
+      )
+      UPDATE background_jobs
+      SET
+        status = 'pending',
+        available_at = NOW(),
+        locked_by = NULL,
+        locked_at = NULL,
+        last_error = NULL,
+        finished_at = NULL,
+        updated_at = NOW()
+      WHERE id IN (SELECT id FROM candidates)
+      RETURNING id
+      `,
+      [params?.jobType ?? null, params?.failedBeforeIso ?? null, limit]
+    );
+
+    return {
+      requeuedCount: result.rowCount ?? 0,
+      jobIds: result.rows.map((row) => row.id)
+    };
   }
 }

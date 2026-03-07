@@ -28,9 +28,15 @@ interface MetacriticCacheRouteOptions {
   fetchMetadata?: (request: FastifyRequest) => Promise<Response>;
   now?: () => number;
   scheduleBackgroundRefresh?: (task: () => Promise<void>) => void;
+  enqueueRevalidationJob?: (payload: MetacriticCacheRevalidationPayload) => void;
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
+}
+
+export interface MetacriticCacheRevalidationPayload {
+  cacheKey: string;
+  requestUrl: string;
 }
 
 const DEFAULT_METACRITIC_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
@@ -108,7 +114,8 @@ export async function registerMetacriticCachedRoute(
                   normalized,
                   fetchMetadata,
                   pool,
-                  scheduleBackgroundRefresh
+                  scheduleBackgroundRefresh,
+                  options.enqueueRevalidationJob
                 );
                 reply.header('X-GameShelf-METACRITIC-Cache', 'HIT_STALE');
                 reply.header(
@@ -224,8 +231,18 @@ function scheduleMetacriticRevalidation(
   normalizedQuery: NormalizedMetacriticQuery,
   fetchMetadata: (request: FastifyRequest) => Promise<Response>,
   pool: Pool,
-  scheduleBackgroundRefresh: (task: () => Promise<void>) => void
+  scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
+  enqueueRevalidationJob?: (payload: MetacriticCacheRevalidationPayload) => void
 ): boolean {
+  if (enqueueRevalidationJob) {
+    incrementMetacriticMetric('revalidateScheduled');
+    enqueueRevalidationJob({
+      cacheKey,
+      requestUrl: request.url
+    });
+    return true;
+  }
+
   if (revalidationInFlightByKey.has(cacheKey)) {
     incrementMetacriticMetric('revalidateSkipped');
     return false;
@@ -275,6 +292,93 @@ function scheduleMetacriticRevalidation(
   });
 
   return true;
+}
+
+export async function processQueuedMetacriticCacheRevalidation(
+  pool: Pool,
+  payload: MetacriticCacheRevalidationPayload
+): Promise<void> {
+  const normalizedQuery = normalizeMetacriticQuery(payload.requestUrl);
+  if (!normalizedQuery) {
+    throw new Error('Invalid Metacritic revalidation payload query.');
+  }
+
+  const response = await fetchMetacriticFromScraper(normalizedQuery);
+  if (!response.ok) {
+    throw new Error(
+      `Metacritic revalidation request failed with status ${String(response.status)}.`
+    );
+  }
+
+  const parsed = await safeReadJson(response);
+  if (parsed === null || !isCacheableMetacriticPayload(normalizedQuery, parsed)) {
+    throw new Error('Metacritic revalidation returned uncacheable payload.');
+  }
+
+  await pool.query(
+    `
+    INSERT INTO metacritic_search_cache (cache_key, query_title, release_year, platform, include_candidates, response_json, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())
+    ON CONFLICT (cache_key)
+    DO UPDATE SET
+      response_json = EXCLUDED.response_json,
+      updated_at = NOW()
+    `,
+    [
+      payload.cacheKey,
+      normalizedQuery.query,
+      normalizedQuery.releaseYear,
+      normalizedQuery.platform,
+      normalizedQuery.includeCandidates,
+      JSON.stringify(parsed)
+    ]
+  );
+}
+
+async function fetchMetacriticFromScraper(query: NormalizedMetacriticQuery): Promise<Response> {
+  const baseUrl = readEnv('METACRITIC_SCRAPER_BASE_URL').trim();
+  if (!baseUrl) {
+    return new Response(
+      JSON.stringify({ error: 'METACRITIC scraper base URL is not configured' }),
+      {
+        status: 503,
+        headers: { 'content-type': 'application/json' }
+      }
+    );
+  }
+
+  const targetUrl = new URL('/v1/metacritic/search', baseUrl);
+  targetUrl.searchParams.set('q', query.query);
+  if (query.releaseYear !== null) {
+    targetUrl.searchParams.set('releaseYear', String(query.releaseYear));
+  }
+  if (query.platform !== null) {
+    targetUrl.searchParams.set('platform', query.platform);
+  }
+  if (query.platformIgdbId !== null) {
+    targetUrl.searchParams.set('platformIgdbId', String(query.platformIgdbId));
+  }
+  if (query.includeCandidates) {
+    targetUrl.searchParams.set('includeCandidates', '1');
+  }
+
+  const headers = new Headers();
+  const scraperToken = readSecretFile(
+    'METACRITIC_SCRAPER_TOKEN',
+    'metacritic_scraper_token'
+  ).trim();
+  if (scraperToken.length > 0) {
+    headers.set('Authorization', `Bearer ${scraperToken}`);
+  }
+
+  try {
+    return await fetch(targetUrl.toString(), { method: 'GET', headers });
+  } catch {
+    return new Response(JSON.stringify({ error: 'METACRITIC scraper request failed' }), {
+      status: 502,
+      headers: { 'content-type': 'application/json' }
+    });
+  }
 }
 
 async function persistMetacriticCacheEntry(

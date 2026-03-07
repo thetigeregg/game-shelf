@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node --enable-source-maps --import tsx src/index.ts",
+    "start:recommendations-worker": "node --enable-source-maps --import tsx src/recommendations-worker.ts",
     "test": "timeout 180s env NODE_ENV=test node --test --test-timeout=30000 --test-force-exit --import tsx src/**/*.test.ts",
     "test:coverage": "mkdir -p coverage && timeout 300s env NODE_ENV=test node --test --test-timeout=30000 --test-force-exit --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 --test-coverage-include='src/**/*.ts' --test-coverage-exclude='src/**/*.test.ts' --test-reporter=spec --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=coverage/lcov.info --import tsx src/**/*.test.ts && node ../scripts/coverage/normalize-lcov-paths.mjs coverage/lcov.info server"
   },

@@ -11,7 +11,6 @@ import {
   GameEmbeddingUpsertInput,
   GameStatus,
   NormalizedGameRecord,
-  RecommendationRebuildJob,
   RecommendationRebuildQueueReason,
   RankedRecommendationItem,
   RecommendationHistoryEntry,
@@ -95,11 +94,6 @@ interface SettingRow extends QueryResultRow {
 
 interface BackgroundJobInsertRow extends QueryResultRow {
   id: number;
-}
-
-interface BackgroundJobRow extends QueryResultRow {
-  id: number;
-  payload: unknown;
 }
 
 interface DiscoveryGameRow extends QueryResultRow {
@@ -426,77 +420,6 @@ export class RecommendationRepository {
     /* c8 ignore stop */
 
     return { jobId: fallbackInsert.rows[0].id, deduped: false };
-  }
-
-  async claimRecommendationRebuildJob(workerId: string): Promise<RecommendationRebuildJob | null> {
-    /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in repository tests */
-    const result = await this.pool.query<BackgroundJobRow>(
-      `
-      WITH next_job AS (
-        SELECT id
-        FROM background_jobs
-        WHERE job_type = 'recommendations_rebuild'
-          AND status = 'pending'
-          AND available_at <= NOW()
-        ORDER BY priority ASC, id ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT 1
-      )
-      UPDATE background_jobs
-      SET
-        status = 'running',
-        attempts = attempts + 1,
-        locked_by = $1,
-        locked_at = NOW(),
-        updated_at = NOW()
-      WHERE id IN (SELECT id FROM next_job)
-      RETURNING id, payload
-      `,
-      [workerId]
-    );
-    /* c8 ignore stop */
-
-    if ((result.rowCount ?? 0) === 0) {
-      return null;
-    }
-
-    const row = result.rows[0];
-    const payload =
-      row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
-        ? (row.payload as Record<string, unknown>)
-        : {};
-
-    const target =
-      payload['target'] === 'BACKLOG' ||
-      payload['target'] === 'WISHLIST' ||
-      payload['target'] === 'DISCOVERY'
-        ? payload['target']
-        : null;
-
-    if (target === null) {
-      return null;
-    }
-
-    const triggeredBy =
-      payload['triggeredBy'] === 'manual' ||
-      payload['triggeredBy'] === 'scheduler' ||
-      payload['triggeredBy'] === 'stale-read'
-        ? payload['triggeredBy']
-        : 'manual';
-    const reason =
-      payload['reason'] === 'missing' ||
-      payload['reason'] === 'stale' ||
-      payload['reason'] === 'forced'
-        ? payload['reason']
-        : 'forced';
-
-    return {
-      id: row.id,
-      target,
-      force: payload['force'] === true,
-      triggeredBy,
-      reason
-    };
   }
 
   async completeBackgroundJob(

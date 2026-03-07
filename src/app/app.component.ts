@@ -42,9 +42,13 @@ export class AppComponent {
     this.debugLogService.initialize();
     this.themeService.initialize();
     this.gameSyncService.initialize();
-    void this.initializeNotifications();
     void this.gameShelfService.migratePreferredPlatformCoversToIgdb();
-    void this.presentVersionAlertIfNeeded();
+    await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
+      console.error('[app] version_alert_failed', error);
+    });
+    await this.initializeNotifications().catch((error: unknown) => {
+      console.error('[app] notifications_init_failed', error);
+    });
   }
 
   private async initializeNotifications(): Promise<void> {

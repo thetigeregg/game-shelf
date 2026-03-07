@@ -404,13 +404,8 @@ export class NotificationService {
     const serviceWorkerApi = navigator.serviceWorker;
     if (typeof serviceWorkerApi.getRegistration === 'function') {
       const workerUrl = this.buildFirebaseWorkerUrl();
-      const registrationPromise = Promise.resolve(
-        serviceWorkerApi.getRegistration(workerUrl) as
-          | Promise<ServiceWorkerRegistration | undefined>
-          | ServiceWorkerRegistration
-          | undefined
-      );
-      void registrationPromise
+      void serviceWorkerApi
+        .getRegistration(workerUrl)
         .then((registration) => {
           if (registration && typeof registration.showNotification === 'function') {
             return registration.showNotification(title, {

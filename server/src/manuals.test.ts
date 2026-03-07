@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import {
   normalizeManualTitle,
   parsePlatformIdFromFolderName,
+  processQueuedManualsCatalogRefresh,
   registerManualRoutes,
   scoreManualTitleMatch
 } from './manuals.js';
@@ -36,6 +37,31 @@ type RefreshPayload = {
   unavailable?: boolean;
   count?: number;
 };
+
+class SettingsPoolMock {
+  private settingValue: string | null = null;
+
+  query(
+    sql: string,
+    params?: unknown[]
+  ): Promise<{ rows: Array<{ setting_value: string }>; rowCount: number }> {
+    const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (normalized.startsWith('insert into settings')) {
+      this.settingValue = typeof params?.[1] === 'string' ? params[1] : null;
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+    if (normalized.startsWith('select setting_value from settings')) {
+      if (!this.settingValue) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+      return Promise.resolve({
+        rows: [{ setting_value: this.settingValue }],
+        rowCount: 1
+      });
+    }
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  }
+}
 
 function parseJson(body: string): unknown {
   return JSON.parse(body) as unknown;
@@ -391,6 +417,34 @@ void test('manual routes set no-store cache headers', async () => {
 
   await app.close();
   await fs.rm(fixture.rootDir, { recursive: true, force: true });
+});
+
+void test('queue snapshot round-trip preserves trigram-based manual matching', async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'manuals-queue-snapshot-'));
+  await fs.mkdir(path.join(rootDir, 'PlayStation 2__pid-8'), { recursive: true });
+  await fs.writeFile(path.join(rootDir, 'PlayStation 2__pid-8/God of War II.pdf'), 'pdf');
+
+  const queuePool = new SettingsPoolMock();
+  await processQueuedManualsCatalogRefresh(queuePool as never, rootDir);
+
+  const app = Fastify();
+  registerManualRoutes(app, {
+    manualsDir: rootDir,
+    manualsPublicBaseUrl: '/manuals',
+    mode: 'queue',
+    queuePool: queuePool as never
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/manuals/resolve?platformIgdbId=8&title=God%20of%20War%20II'
+  });
+  assert.equal(response.statusCode, 200);
+  const payload = parseJson(response.body) as MatchPayload;
+  assert.equal(payload.status, 'matched');
+
+  await app.close();
+  await fs.rm(rootDir, { recursive: true, force: true });
 });
 
 async function buildFixtureTree(): Promise<{ rootDir: string }> {

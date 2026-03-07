@@ -644,6 +644,24 @@ interface ManualCatalogSnapshotRecord {
   catalog: ManualCatalog;
 }
 
+interface ManualCatalogSnapshotEntry {
+  platformIgdbId: number;
+  fileName: string;
+  relativePath: string;
+  normalizedTitle: string;
+  tokens?: unknown;
+  trigrams?: unknown;
+}
+
+interface SerializedManualCatalogSnapshotRecord {
+  builtAt?: unknown;
+  catalog?: {
+    entries?: unknown;
+    unavailable?: unknown;
+    reason?: unknown;
+  };
+}
+
 async function readManualCatalogSnapshot(pool: Pool): Promise<ManualCatalogSnapshotRecord | null> {
   const result = await pool.query<ManualCatalogSnapshotRow>(
     `
@@ -660,18 +678,12 @@ async function readManualCatalogSnapshot(pool: Pool): Promise<ManualCatalogSnaps
   }
 
   try {
-    const parsed = JSON.parse(raw) as {
-      builtAt?: unknown;
-      catalog?: unknown;
-    };
+    const parsed = JSON.parse(raw) as SerializedManualCatalogSnapshotRecord;
     const builtAt =
       typeof parsed.builtAt === 'string' && Number.isFinite(Date.parse(parsed.builtAt))
         ? parsed.builtAt
         : null;
-    const catalog =
-      parsed.catalog && typeof parsed.catalog === 'object' && !Array.isArray(parsed.catalog)
-        ? (parsed.catalog as ManualCatalog)
-        : null;
+    const catalog = normalizeManualCatalogSnapshot(parsed.catalog);
     if (!builtAt || !catalog) {
       return null;
     }
@@ -688,7 +700,7 @@ async function writeManualCatalogSnapshot(
 ): Promise<void> {
   const payload = JSON.stringify({
     builtAt,
-    catalog
+    catalog: serializeManualCatalogForSnapshot(catalog)
   });
   await pool.query(
     `
@@ -701,6 +713,97 @@ async function writeManualCatalogSnapshot(
     `,
     [MANUALS_CATALOG_SNAPSHOT_KEY, payload]
   );
+}
+
+function normalizeManualCatalogSnapshot(value: unknown): ManualCatalog | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const raw = value as { entries?: unknown; unavailable?: unknown; reason?: unknown };
+  if (!Array.isArray(raw.entries)) {
+    return null;
+  }
+
+  const entries: ManualCatalogEntry[] = [];
+  for (const entry of raw.entries) {
+    const normalizedEntry = normalizeManualCatalogEntrySnapshot(entry);
+    if (normalizedEntry) {
+      entries.push(normalizedEntry);
+    }
+  }
+
+  return {
+    entries,
+    unavailable: raw.unavailable === true,
+    reason: typeof raw.reason === 'string' ? raw.reason : null
+  };
+}
+
+function normalizeManualCatalogEntrySnapshot(value: unknown): ManualCatalogEntry | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const entry = value as ManualCatalogSnapshotEntry;
+  if (!Number.isInteger(entry.platformIgdbId) || entry.platformIgdbId <= 0) {
+    return null;
+  }
+  if (typeof entry.fileName !== 'string' || entry.fileName.trim().length === 0) {
+    return null;
+  }
+  const relativePath = normalizeManualRelativePath(entry.relativePath);
+  if (!relativePath) {
+    return null;
+  }
+  const normalizedTitle = normalizeManualTitle(entry.normalizedTitle);
+  if (!normalizedTitle) {
+    return null;
+  }
+
+  const tokens = Array.isArray(entry.tokens)
+    ? entry.tokens.filter((token): token is string => typeof token === 'string' && token.length > 0)
+    : normalizedTitle.split(' ').filter(Boolean);
+  const trigrams = Array.isArray(entry.trigrams)
+    ? new Set(
+        entry.trigrams.filter(
+          (trigram): trigram is string => typeof trigram === 'string' && trigram.length > 0
+        )
+      )
+    : buildTrigrams(normalizedTitle);
+
+  return {
+    platformIgdbId: entry.platformIgdbId,
+    fileName: entry.fileName,
+    relativePath,
+    normalizedTitle,
+    tokens,
+    trigrams
+  };
+}
+
+function serializeManualCatalogForSnapshot(catalog: ManualCatalog): {
+  entries: Array<{
+    platformIgdbId: number;
+    fileName: string;
+    relativePath: string;
+    normalizedTitle: string;
+    tokens: string[];
+    trigrams: string[];
+  }>;
+  unavailable: boolean;
+  reason: string | null;
+} {
+  return {
+    entries: catalog.entries.map((entry) => ({
+      platformIgdbId: entry.platformIgdbId,
+      fileName: entry.fileName,
+      relativePath: entry.relativePath,
+      normalizedTitle: entry.normalizedTitle,
+      tokens: entry.tokens,
+      trigrams: Array.from(entry.trigrams)
+    })),
+    unavailable: catalog.unavailable,
+    reason: catalog.reason
+  };
 }
 
 function buildManualUrl(baseUrl: string, relativePath: string): string {

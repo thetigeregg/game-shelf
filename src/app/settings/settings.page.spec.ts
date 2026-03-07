@@ -587,7 +587,6 @@ describe('SettingsPage CSV review fields', () => {
   it('registers device when imported release notifications setting is enabled', async () => {
     const page = createPage();
     const notificationService = page['notificationService'];
-    vi.spyOn(notificationService, 'isReleaseNotificationsEnabled').mockReturnValue(true);
     const registerSpy = vi
       .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
       .mockResolvedValue({ ok: true, message: 'ok' });
@@ -601,12 +600,12 @@ describe('SettingsPage CSV review fields', () => {
     ]);
 
     expect(registerSpy).toHaveBeenCalledOnce();
+    expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('true');
   });
 
   it('does not register device when imported release notifications setting is disabled', async () => {
     const page = createPage();
     const notificationService = page['notificationService'];
-    vi.spyOn(notificationService, 'isReleaseNotificationsEnabled').mockReturnValue(false);
     const registerSpy = vi
       .spyOn(notificationService, 'registerCurrentDeviceIfPermitted')
       .mockResolvedValue({ ok: true, message: 'ok' });
@@ -620,5 +619,6 @@ describe('SettingsPage CSV review fields', () => {
     ]);
 
     expect(registerSpy).not.toHaveBeenCalled();
+    expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('false');
   });
 });

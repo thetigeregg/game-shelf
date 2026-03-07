@@ -323,6 +323,15 @@ void test('notifications observability is gated and requires auth when enabled',
     });
     assert.equal(unauthorizedResponse.statusCode, 401);
 
+    const clientTokenUnauthorizedResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/notifications/observability',
+      headers: {
+        'x-game-shelf-client-token': 'client-write-token'
+      }
+    });
+    assert.equal(clientTokenUnauthorizedResponse.statusCode, 401);
+
     const authorizedResponse = await app.inject({
       method: 'GET',
       url: '/v1/notifications/observability',
@@ -359,10 +368,12 @@ void test('notifications test endpoint is gated and requires auth when enabled',
   const originalEnabled = config.notificationsTestEndpointEnabled;
   const originalRequireAuth = config.requireAuth;
   const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
   const originalFirebaseJson = config.firebaseServiceAccountJson;
   config.notificationsTestEndpointEnabled = false;
   config.requireAuth = true;
   config.apiToken = 'admin-token';
+  config.clientWriteTokens = ['client-write-token'];
   config.firebaseServiceAccountJson = '';
 
   try {
@@ -384,6 +395,16 @@ void test('notifications test endpoint is gated and requires auth when enabled',
     });
     assert.equal(unauthorizedResponse.statusCode, 401);
 
+    const clientTokenUnauthorizedResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/notifications/test',
+      payload: {},
+      headers: {
+        'x-game-shelf-client-token': 'client-write-token'
+      }
+    });
+    assert.equal(clientTokenUnauthorizedResponse.statusCode, 401);
+
     const authorizedResponse = await app.inject({
       method: 'POST',
       url: '/v1/notifications/test',
@@ -400,6 +421,7 @@ void test('notifications test endpoint is gated and requires auth when enabled',
     config.notificationsTestEndpointEnabled = originalEnabled;
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
     config.firebaseServiceAccountJson = originalFirebaseJson;
     await app.close();
   }

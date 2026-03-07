@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { config } from './config.js';
 import { sendFcmMulticast } from './fcm.js';
-import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
+import { isAuthorizedMutatingRequest } from './request-security.js';
 
 interface RegisterBody {
   token?: unknown;
@@ -248,9 +248,9 @@ function isNotificationAdminAuthorized(
   const authorized = isAuthorizedMutatingRequest({
     requireAuth: config.requireAuth,
     apiToken: config.apiToken,
-    clientWriteTokens: config.clientWriteTokens,
+    clientWriteTokens: [],
     authorizationHeader: request.headers.authorization,
-    clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME]
+    clientWriteTokenHeader: undefined
   });
 
   if (!authorized) {

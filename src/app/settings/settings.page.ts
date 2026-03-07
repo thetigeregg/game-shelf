@@ -3398,10 +3398,10 @@ export class SettingsPage {
         try {
           const parsed = JSON.parse(row.value) as Record<string, unknown>;
           normalizedValue = JSON.stringify({
-            set: parsed['set'] === false ? false : true,
-            changed: parsed['changed'] === false ? false : true,
-            removed: parsed['removed'] === false ? false : true,
-            day: parsed['day'] === false ? false : true
+            set: parsed['set'] !== false,
+            changed: parsed['changed'] !== false,
+            removed: parsed['removed'] !== false,
+            day: parsed['day'] !== false
           });
         } catch {
           normalizedValue = JSON.stringify({

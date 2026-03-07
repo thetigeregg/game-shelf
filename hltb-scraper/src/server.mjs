@@ -10,7 +10,7 @@ function readEnvOrFile(name) {
       return fs.readFileSync(resolved, 'utf8').trim();
     } catch (error) {
       throw new Error(
-        `Failed to read configuration secret for "${name}" from path "${resolved}": ${error.message}`,
+        `Failed to read configuration secret for "${name}" from path "${resolved}": ${error.message}`
       );
     }
   }

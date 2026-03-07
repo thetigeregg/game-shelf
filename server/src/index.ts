@@ -25,6 +25,8 @@ import { RecommendationService } from './recommendations/service.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
+import { registerNotificationRoutes } from './notifications.js';
+import { startReleaseMonitor } from './release-monitor.js';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
   isAuthorizedMutatingRequest,
@@ -44,6 +46,8 @@ async function main(): Promise<void> {
     bodyLimit: config.requestBodyLimitBytes,
     logger: true
   });
+  let closeHookRegistered = false;
+  let releaseMonitor: ReturnType<typeof startReleaseMonitor> | null = null;
   const recommendationRepository = new RecommendationRepository(pool);
   const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
   const embeddingClient = new OpenAiEmbeddingClient({
@@ -140,165 +144,189 @@ async function main(): Promise<void> {
     }
   );
 
-  // Register global rate limit FIRST
-  await app.register(rateLimit, {
-    global: true,
-    max: config.globalRateLimitMaxRequests,
-    timeWindow: `${String(Math.max(1, Math.floor(config.globalRateLimitWindowMs / 1000)))} seconds`
-  });
+  try {
+    // Register global rate limit FIRST
+    await app.register(rateLimit, {
+      global: true,
+      max: config.globalRateLimitMaxRequests,
+      timeWindow: `${String(Math.max(1, Math.floor(config.globalRateLimitWindowMs / 1000)))} seconds`
+    });
 
-  await app.register(cors, {
-    origin: true,
-    credentials: true
-  });
+    await app.register(cors, {
+      origin: true,
+      credentials: true
+    });
 
-  await ensureMiddieRegistered(app);
+    await ensureMiddieRegistered(app);
 
-  app.use((request: IncomingMessage, response: ServerResponse, next) => {
-    if (!shouldRequireAuth(request.method ?? '')) {
+    app.use((request: IncomingMessage, response: ServerResponse, next) => {
+      if (!shouldRequireAuth(request.method ?? '')) {
+        next();
+        return;
+      }
+
+      if (
+        !isAuthorizedMutatingRequest({
+          requireAuth: config.requireAuth,
+          apiToken: config.apiToken,
+          clientWriteTokens: config.clientWriteTokens,
+          authorizationHeader: request.headers.authorization,
+          clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME]
+        })
+      ) {
+        response.statusCode = 401;
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+
       next();
-      return;
+    });
+
+    // Health endpoint
+    app.route({
+      method: 'GET',
+      url: '/v1/health',
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute'
+        }
+      },
+      handler: async (request, reply) => {
+        try {
+          await pool.query('SELECT 1');
+          reply.send({ ok: true });
+        } catch {
+          reply.code(503).send({ ok: false });
+        }
+      }
+    });
+
+    // Metadata proxy routes — FIXED FOR CODEQL
+    app.route({
+      method: 'GET',
+      url: '/v1/games/search',
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute'
+        }
+      },
+      handler: proxyMetadataToWorker
+    });
+
+    app.route({
+      method: 'GET',
+      url: '/v1/games/:id',
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute'
+        }
+      },
+      handler: proxyMetadataToWorker
+    });
+
+    app.route({
+      method: 'GET',
+      url: '/v1/platforms',
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute'
+        }
+      },
+      handler: proxyMetadataToWorker
+    });
+
+    app.route({
+      method: 'GET',
+      url: '/v1/popularity/types',
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute'
+        }
+      },
+      handler: proxyMetadataToWorker
+    });
+
+    app.route({
+      method: 'GET',
+      url: '/v1/popularity/primitives',
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute'
+        }
+      },
+      handler: proxyMetadataToWorker
+    });
+
+    app.route({
+      method: 'GET',
+      url: '/v1/images/boxart/search',
+      config: {
+        rateLimit: {
+          max: 50,
+          timeWindow: '1 minute'
+        }
+      },
+      handler: proxyMetadataToWorker
+    });
+
+    // Register modular routes AFTER rateLimit
+    await registerSyncRoutes(app, pool);
+    registerNotificationRoutes(app, pool);
+    await registerImageProxyRoute(app, pool, imageCacheDir);
+    await registerCacheObservabilityRoutes(app, pool);
+    registerManualRoutes(app, {
+      manualsDir: config.manualsDir,
+      manualsPublicBaseUrl: config.manualsPublicBaseUrl
+    });
+
+    releaseMonitor = startReleaseMonitor(pool);
+    await registerHltbCachedRoute(app, pool);
+    await registerMetacriticCachedRoute(app, pool);
+    await registerMobyGamesCachedRoute(app, pool, {
+      enableStaleWhileRevalidate: config.mobygamesCacheEnableStaleWhileRevalidate,
+      freshTtlSeconds: config.mobygamesCacheFreshTtlSeconds,
+      staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds
+    });
+    await registerRecommendationRoutes(app, recommendationService);
+
+    app.setNotFoundHandler((request, reply) => {
+      reply.code(404).send({
+        error: 'Not found',
+        path: request.url
+      });
+    });
+
+    app.addHook('onClose', async () => {
+      await releaseMonitor?.stop();
+      await pool.end();
+    });
+    closeHookRegistered = true;
+
+    await app.listen({
+      host: config.host,
+      port: config.port
+    });
+    recommendationScheduler.start();
+    discoveryEnrichmentService.start();
+    metadataEnrichmentService.start();
+  } catch (error) {
+    if (closeHookRegistered) {
+      await app.close().catch(() => undefined);
+    } else {
+      if (releaseMonitor) {
+        await releaseMonitor.stop().catch(() => undefined);
+      }
+      await pool.end().catch(() => undefined);
     }
-
-    if (
-      !isAuthorizedMutatingRequest({
-        requireAuth: config.requireAuth,
-        apiToken: config.apiToken,
-        clientWriteTokens: config.clientWriteTokens,
-        authorizationHeader: request.headers.authorization,
-        clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME]
-      })
-    ) {
-      response.statusCode = 401;
-      response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify({ error: 'Unauthorized' }));
-      return;
-    }
-
-    next();
-  });
-
-  // Health endpoint
-  app.route({
-    method: 'GET',
-    url: '/v1/health',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute'
-      }
-    },
-    handler: async (request, reply) => {
-      try {
-        await pool.query('SELECT 1');
-        reply.send({ ok: true });
-      } catch {
-        reply.code(503).send({ ok: false });
-      }
-    }
-  });
-
-  // Metadata proxy routes — FIXED FOR CODEQL
-  app.route({
-    method: 'GET',
-    url: '/v1/games/search',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute'
-      }
-    },
-    handler: proxyMetadataToWorker
-  });
-
-  app.route({
-    method: 'GET',
-    url: '/v1/games/:id',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute'
-      }
-    },
-    handler: proxyMetadataToWorker
-  });
-
-  app.route({
-    method: 'GET',
-    url: '/v1/platforms',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute'
-      }
-    },
-    handler: proxyMetadataToWorker
-  });
-
-  app.route({
-    method: 'GET',
-    url: '/v1/popularity/types',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute'
-      }
-    },
-    handler: proxyMetadataToWorker
-  });
-
-  app.route({
-    method: 'GET',
-    url: '/v1/popularity/primitives',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute'
-      }
-    },
-    handler: proxyMetadataToWorker
-  });
-
-  app.route({
-    method: 'GET',
-    url: '/v1/images/boxart/search',
-    config: {
-      rateLimit: {
-        max: 50,
-        timeWindow: '1 minute'
-      }
-    },
-    handler: proxyMetadataToWorker
-  });
-
-  // Register modular routes AFTER rateLimit
-  await registerSyncRoutes(app, pool);
-  await registerImageProxyRoute(app, pool, imageCacheDir);
-  await registerCacheObservabilityRoutes(app, pool);
-  registerManualRoutes(app, {
-    manualsDir: config.manualsDir,
-    manualsPublicBaseUrl: config.manualsPublicBaseUrl
-  });
-  await registerHltbCachedRoute(app, pool);
-  await registerMetacriticCachedRoute(app, pool);
-  await registerMobyGamesCachedRoute(app, pool, {
-    enableStaleWhileRevalidate: config.mobygamesCacheEnableStaleWhileRevalidate,
-    freshTtlSeconds: config.mobygamesCacheFreshTtlSeconds,
-    staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds
-  });
-  await registerRecommendationRoutes(app, recommendationService);
-
-  app.setNotFoundHandler((request, reply) => {
-    reply.code(404).send({ error: 'Not found' });
-  });
-
-  await app.listen({
-    host: config.host,
-    port: config.port
-  });
-  recommendationScheduler.start();
-  discoveryEnrichmentService.start();
-  metadataEnrichmentService.start();
+    throw error;
+  }
 }
 
 function validateSecurityConfig(): void {

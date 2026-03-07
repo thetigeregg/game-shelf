@@ -1,14 +1,19 @@
 import { Component, inject } from '@angular/core';
-import { AlertController, IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
+import {
+  AlertController,
+  IonApp,
+  IonRouterOutlet,
+  ToastController
+} from '@ionic/angular/standalone';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
 import { DebugLogService } from './core/services/debug-log.service';
 import { GameShelfService } from './core/services/game-shelf.service';
+import { NotificationService } from './core/services/notification.service';
 import { E2eFixtureService } from './core/services/e2e-fixture.service';
 import { getAppVersion, isE2eFixturesEnabled } from './core/config/runtime-config';
 
 const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
-
 @Component({
   selector: 'app-root',
   templateUrl: 'app.component.html',
@@ -23,6 +28,8 @@ export class AppComponent {
   private readonly gameShelfService = inject(GameShelfService);
   private readonly e2eFixtureService = inject(E2eFixtureService);
   private readonly alertController = inject(AlertController);
+  private readonly toastController = inject(ToastController);
+  private readonly notificationService = inject(NotificationService);
 
   constructor() {
     void this.initializeApp();
@@ -36,7 +43,45 @@ export class AppComponent {
     this.themeService.initialize();
     this.gameSyncService.initialize();
     void this.gameShelfService.migratePreferredPlatformCoversToIgdb();
-    void this.presentVersionAlertIfNeeded();
+    await this.presentVersionAlertIfNeeded().catch((error: unknown) => {
+      console.error('[app] version_alert_failed', error);
+    });
+    await this.initializeNotifications().catch((error: unknown) => {
+      console.error('[app] notifications_init_failed', error);
+    });
+  }
+
+  private async initializeNotifications(): Promise<void> {
+    await this.notificationService.initialize();
+
+    const shouldPrompt = await this.notificationService.shouldPromptForReleaseNotifications();
+
+    if (!shouldPrompt) {
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Enable Release Notifications?',
+      message: 'Get alerts when release dates are set, changed, removed, or when a game releases.',
+      buttons: [
+        {
+          text: 'Not now',
+          role: 'cancel',
+          handler: () => {
+            this.notificationService.setReleaseNotificationsEnabled(false);
+          }
+        },
+        {
+          text: 'Enable',
+          role: 'confirm',
+          handler: () => {
+            void this.enableReleaseNotificationsFromPrompt();
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   private async presentVersionAlertIfNeeded(): Promise<void> {
@@ -63,5 +108,24 @@ export class AppComponent {
 
     await alert.present();
     window.localStorage.setItem(LAST_SEEN_APP_VERSION_STORAGE_KEY, currentVersion);
+  }
+
+  private async presentNotificationToast(
+    message: string,
+    color: 'primary' | 'warning'
+  ): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      color,
+      duration: 3500,
+      position: 'bottom'
+    });
+
+    await toast.present();
+  }
+
+  private async enableReleaseNotificationsFromPrompt(): Promise<void> {
+    const result = await this.notificationService.enableReleaseNotifications();
+    await this.presentNotificationToast(result.message, result.ok ? 'primary' : 'warning');
   }
 }

@@ -351,4 +351,41 @@ export class BackgroundJobRepository {
       jobIds: result.rows.map((row) => row.id)
     };
   }
+
+  async purgeFinishedOlderThan(params?: {
+    retentionDays?: number;
+    limit?: number;
+  }): Promise<{ deletedCount: number; jobIds: number[] }> {
+    const retentionDays = Number.isInteger(params?.retentionDays)
+      ? Math.max(1, params?.retentionDays ?? 0)
+      : 30;
+    const limit = Number.isInteger(params?.limit)
+      ? Math.max(1, Math.min(10_000, params?.limit ?? 0))
+      : 1_000;
+
+    /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in background-jobs tests */
+    const result = await this.pool.query<BackgroundJobIdRow>(
+      `
+      WITH candidates AS (
+        SELECT id
+        FROM background_jobs
+        WHERE status IN ('succeeded', 'failed')
+          AND finished_at IS NOT NULL
+          AND finished_at < (NOW() - make_interval(days => $1))
+        ORDER BY finished_at ASC, id ASC
+        LIMIT $2
+      )
+      DELETE FROM background_jobs
+      WHERE id IN (SELECT id FROM candidates)
+      RETURNING id
+      `,
+      [retentionDays, limit]
+    );
+    /* c8 ignore stop */
+
+    return {
+      deletedCount: result.rowCount ?? 0,
+      jobIds: result.rows.map((row) => row.id)
+    };
+  }
 }

@@ -301,7 +301,7 @@ async function main(): Promise<void> {
   });
 
   app.addHook('onClose', async () => {
-    releaseMonitor.stop();
+    await releaseMonitor.stop();
     await pool.end();
   });
 

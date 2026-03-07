@@ -78,10 +78,6 @@ Common stack env vars:
 - `FCM_TOKEN_INACTIVE_PURGE_DAYS` (optional; defaults `180`)
 - `RELEASE_MONITOR_WARN_SEND_FAILURE_RATIO` (optional; defaults `0.5`)
 - `RELEASE_MONITOR_WARN_INVALID_TOKEN_RATIO` (optional; defaults `0.2`)
-
-Release notification defaults:
-
-- Notifications are opt-in. If no synced setting exists for `game-shelf:notifications:release:enabled`, the backend treats notifications as disabled.
 - `BACKUP_SCHEDULE_TIME` (optional; defaults to `00:00` in container timezone)
 - `BACKUP_KEEP_COUNT` (optional; defaults to `14`)
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
@@ -127,6 +123,10 @@ Release notification defaults:
 - `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN` (optional; default `5000`)
 - `IGDB_METADATA_ENRICH_STARTUP_DELAY_MS` (optional; default `5000`)
 - `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (optional; default `15000`)
+
+Release notification defaults:
+
+- Notifications are opt-in. If no synced setting exists for `game-shelf:notifications:release:enabled`, the backend treats notifications as disabled.
 
 Security note:
 

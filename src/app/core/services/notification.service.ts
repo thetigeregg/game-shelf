@@ -187,6 +187,7 @@ export class NotificationService {
     const result = await this.requestPermissionAndRegister();
 
     if (result.ok) {
+      // Persist enabled only after permission + backend/device registration succeeds.
       this.setReleaseNotificationsEnabled(true);
       return result;
     }

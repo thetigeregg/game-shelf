@@ -59,7 +59,7 @@ if (messaging) {
       body: notification.body || '',
       data: payload.data || {}
     };
-    self.registration.showNotification(title, options);
+    return self.registration.showNotification(title, options);
   });
 }
 

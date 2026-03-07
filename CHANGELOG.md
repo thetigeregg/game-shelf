@@ -1686,3 +1686,9 @@
 - 8dc97c6 Implement monitoring for new games
 - 40b7c87 Brainstorm new-game data updates
 
+## v1.1.12 - 2026-03-07
+- aeea264 Merge pull request #177 from thetigeregg/fix
+- d5bbc65 Update dependencies
+- 1192442 Update packages
+- cc09b60 Fix audit issues
+

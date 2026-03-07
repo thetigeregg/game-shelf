@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from 'fastify-rate-limit';
+import { registerBackgroundJobRoutes } from './background-jobs-routes.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
@@ -260,6 +261,7 @@ async function main(): Promise<void> {
     registerNotificationRoutes(app, pool);
     await registerImageProxyRoute(app, pool, imageCacheDir);
     await registerCacheObservabilityRoutes(app, pool);
+    registerBackgroundJobRoutes(app, pool);
     registerManualRoutes(app, {
       manualsDir: config.manualsDir,
       manualsPublicBaseUrl: config.manualsPublicBaseUrl,

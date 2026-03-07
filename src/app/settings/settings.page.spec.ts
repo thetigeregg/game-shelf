@@ -625,6 +625,7 @@ describe('SettingsPage CSV review fields', () => {
     const unregisterSpy = vi
       .spyOn(notificationService, 'unregisterCurrentDevice')
       .mockResolvedValue({ ok: true, message: 'ok' });
+    const setEnabledSpy = vi.spyOn(notificationService, 'setReleaseNotificationsEnabled');
 
     await page['applyImportedSettings']([
       {
@@ -636,6 +637,7 @@ describe('SettingsPage CSV review fields', () => {
 
     expect(registerSpy).toHaveBeenCalledOnce();
     expect(unregisterSpy).not.toHaveBeenCalled();
+    expect(setEnabledSpy).toHaveBeenCalledWith(true);
     expect(localStorage.getItem(RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY)).toBe('true');
   });
 

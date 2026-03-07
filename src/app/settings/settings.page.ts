@@ -3367,11 +3367,24 @@ export class SettingsPage {
       }
 
       if (row.key === RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
-        this.releaseNotificationsEnabled = this.notificationService.isReleaseNotificationsEnabled();
+        const normalizedEnabledRaw = row.value.trim().toLowerCase();
+        const normalizedEnabled =
+          normalizedEnabledRaw !== 'false' &&
+          normalizedEnabledRaw !== '0' &&
+          normalizedEnabledRaw !== 'no';
+        this.releaseNotificationsEnabled = normalizedEnabled;
+
+        const normalizedValue = normalizedEnabled ? 'true' : 'false';
+        try {
+          localStorage.setItem(row.key, normalizedValue);
+        } catch {
+          // Ignore storage write failures.
+        }
+
         if (this.releaseNotificationsEnabled) {
           await this.notificationService.registerCurrentDeviceIfPermitted();
         }
-        this.queueSettingUpsert(row.key, row.value);
+        this.queueSettingUpsert(row.key, normalizedValue);
       }
 
       if (row.key === RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY) {

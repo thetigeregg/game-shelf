@@ -1692,3 +1692,41 @@
 - 1192442 Update packages
 - cc09b60 Fix audit issues
 
+## v1.1.13 - 2026-03-08
+- 4fb846a Merge pull request #178 from thetigeregg/fix
+- 3f95c13 Document background worker env vars
+- 220f667 Fix drift integration test assertion
+- a5ee464 Add Postgres drift CI service
+- c271114 Fix recommendations primary key
+- 8091a0f Fix duplicate primary key migration
+- 501dca0 Fix worker dev flow updates
+- ad486b1 Update dev worktree stack docs
+- 60a914a Add background worker to dev flow
+- 1e9d2f7 Handle queued recommendation status
+- 1afc291 Reset job attempts on replay
+- dde96f1 Reset job attempts on replay
+- e3978f1 Fix job replay attempts reset
+- 812860e Fix finished_at for failed jobs
+- 9299fd1 Fix recommendation rebuild enqueue
+- f7e6bb7 Add comments to background job queue
+- ddab921 Document portainer env secrets
+- 935eabb Fix manual catalog snapshot
+- 5d1ec67 Address PR note for recommendations
+- bc0cd88 Restrict background job stats query
+- 4cefb27 Add graceful shutdown handling
+- 8ada4cf Return fallback jobId on enqueue
+- 0d0174a Include fallback jobId in queue
+- 2fa38ad Comment docker compose env vars
+- 2c25ee3 Audit claimRecommendationRebuildJob
+- d9e6bcc Increase coverage for background job
+- 9e949b7 Improve recommendation job coverage
+- 36d8455 Improve recommendation rebuild job
+- b042c63 Generate PR summary using template
+- c1faf7c Merge branch 'main' into fix
+- de7f643 Document background job admin routes
+- 07c864e Move job processing to queue
+- 03bcc12 Add job concurrency config
+- dae9020 Rework architecture for async jobs
+- b3f3a81 Add background job architecture for
+- 36a4645 Offload recommendations CPU work
+

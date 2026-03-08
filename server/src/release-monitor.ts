@@ -170,7 +170,7 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
     startedAtIso: stats.startedAtIso,
     batchSize: config.releaseMonitorBatchSize,
     dueSelectionSource:
-      "games.listType IN ('collection','wishlist') with COALESCE(release_watch_state.next_check_at, NOW()) <= NOW()"
+      "(g.payload->>'listType') IN ('collection','wishlist') AND COALESCE(rws.next_check_at, NOW()) <= NOW()"
   });
   await runFcmTokenCleanupIfDue(pool, stats, runtimeState);
 

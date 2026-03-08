@@ -259,19 +259,32 @@ export const MIGRATIONS: string[] = [
   DROP CONSTRAINT IF EXISTS recommendations_run_id_igdb_game_id_platform_igdb_id_key;
   `,
   `
-  ALTER TABLE recommendations
-  DROP CONSTRAINT IF EXISTS recommendations_pkey;
-  `,
-  `
   DO $$
+  DECLARE
+    existing_pkey_name TEXT;
+    existing_pkey_def TEXT;
   BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'recommendations_pkey'
-    ) THEN
+    SELECT c.conname, pg_get_constraintdef(c.oid)
+    INTO existing_pkey_name, existing_pkey_def
+    FROM pg_constraint c
+    WHERE c.conrelid = 'recommendations'::regclass
+      AND c.contype = 'p'
+    LIMIT 1;
+
+    IF existing_pkey_name IS NULL THEN
       ALTER TABLE recommendations
       ADD CONSTRAINT recommendations_pkey
       PRIMARY KEY (run_id, runtime_mode, rank);
+    ELSIF existing_pkey_def NOT LIKE 'PRIMARY KEY (run_id, runtime_mode, rank)%' THEN
+      EXECUTE format('ALTER TABLE recommendations DROP CONSTRAINT %I', existing_pkey_name);
+      ALTER TABLE recommendations
+      ADD CONSTRAINT recommendations_pkey
+      PRIMARY KEY (run_id, runtime_mode, rank);
+    ELSIF existing_pkey_name <> 'recommendations_pkey' THEN
+      EXECUTE format(
+        'ALTER TABLE recommendations RENAME CONSTRAINT %I TO recommendations_pkey',
+        existing_pkey_name
+      );
     END IF;
   END $$;
   `,

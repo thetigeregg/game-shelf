@@ -389,6 +389,26 @@ void test('failStaleRunningRuns marks old RUNNING rows as FAILED', async () => {
   assert.deepEqual(query.params, [30, 'BACKLOG', 'orphan recovery']);
 });
 
+void test('failStaleRunningRuns clamps defaults and supports null target filter', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 90 }],
+    rowCount: 1
+  }));
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.failStaleRunningRuns({
+    maxAgeMinutes: 0,
+    errorMessage: ' '
+  });
+
+  assert.deepEqual(result, { failedCount: 1, runIds: [90] });
+  const query = pool.queries[0];
+  assert.ok(query.params);
+  assert.equal(query.params[0], 1);
+  assert.equal(query.params[1], null);
+  assert.equal(query.params[2], 'orphaned RUNNING run recovered after worker loss');
+});
+
 void test('readTopRecommendations returns rows for DISCOVERY target', async () => {
   const pool = new PoolMock((sql) => {
     if (sql.includes('FROM recommendation_runs')) {

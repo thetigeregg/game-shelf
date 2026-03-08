@@ -323,13 +323,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{apiBaseUrl}}/v1/manuals/resolve?igdbGameId=1942&platformIgdbId=6",
+              "raw": "{{apiBaseUrl}}/v1/manuals/resolve?title=Halo&platformIgdbId=6",
               "host": ["{{apiBaseUrl}}"],
               "path": ["v1", "manuals", "resolve"],
               "query": [
                 {
-                  "key": "igdbGameId",
-                  "value": "1942"
+                  "key": "title",
+                  "value": "Halo"
                 },
                 {
                   "key": "platformIgdbId",
@@ -337,7 +337,7 @@
                 }
               ]
             },
-            "description": "Checks manuals lookup path and DB connectivity for manual catalog queries."
+            "description": "Checks manuals resolve path using title matching and platform scoping."
           }
         },
         {
@@ -463,7 +463,7 @@
           }
         },
         {
-          "name": "Manuals Refresh (Queue)",
+          "name": "Manuals Refresh (Snapshot + Optional Queue Trigger)",
           "request": {
             "method": "POST",
             "header": [
@@ -484,7 +484,7 @@
                 }
               ]
             },
-            "description": "Queues manuals catalog refresh without forcing immediate inline rebuild."
+            "description": "Returns manuals catalog refresh status/count immediately; may enqueue a background refresh in queue mode when stale or when force=true."
           }
         },
         {

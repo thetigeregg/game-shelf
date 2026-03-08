@@ -161,7 +161,8 @@ async function main(): Promise<void> {
       console.info('[api] request_completed', {
         requestId: request.id,
         method: request.method,
-        path: request.routeOptions.url,
+        url: request.url,
+        route: request.routeOptions.url,
         statusCode: reply.statusCode,
         durationMs
       });

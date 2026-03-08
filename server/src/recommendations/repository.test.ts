@@ -174,3 +174,127 @@ void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-sp
   assert.equal(similarityQuery.params[2], 'LONG');
   assert.equal(similarityQuery.params[3], 'NEUTRAL');
 });
+
+void test('finalizeRunSuccess writes batched recommendation artifacts and commits transaction', async () => {
+  const pool = new PoolMock(() => ({ rows: [] }));
+  const repository = new RecommendationRepository(pool as never);
+  const queries: Array<{ sql: string; params: unknown[] | undefined }> = [];
+  const client = {
+    query: (sql: string, params?: unknown[]) => {
+      queries.push({ sql, params });
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+  };
+
+  const buildRecommendationItem = (index: number) => ({
+    igdbGameId: String(200 + index),
+    platformIgdbId: 6,
+    rank: index + 1,
+    scoreTotal: 1.23 + index,
+    scoreComponents: {
+      taste: 1,
+      novelty: 0,
+      runtimeFit: 0,
+      criticBoost: 0,
+      recencyBoost: 0,
+      semantic: 0,
+      exploration: 0,
+      diversityPenalty: 0,
+      repeatPenalty: 0
+    },
+    explanations: {
+      headline: 'h',
+      bullets: [],
+      matchedTokens: {
+        genres: [],
+        developers: [],
+        publishers: [],
+        franchises: [],
+        collections: [],
+        themes: [],
+        keywords: []
+      }
+    }
+  });
+  const recommendationItems = [buildRecommendationItem(0), buildRecommendationItem(1)];
+
+  const makeLanes = () => ({
+    overall: [buildRecommendationItem(0)],
+    hiddenGems: [buildRecommendationItem(1)],
+    exploration: [buildRecommendationItem(0)],
+    blended: [buildRecommendationItem(1)],
+    popular: [buildRecommendationItem(0)],
+    recent: [buildRecommendationItem(1)]
+  });
+  const historyUpdates = Array.from({ length: 501 }, (_, index) => ({
+    target: 'BACKLOG' as const,
+    runtimeMode: 'NEUTRAL' as const,
+    igdbGameId: String(8000 + index),
+    platformIgdbId: 6
+  }));
+  const similarityEdges = Array.from({ length: 501 }, (_, index) => ({
+    sourceIgdbGameId: String(100 + index),
+    sourcePlatformIgdbId: 6,
+    similarIgdbGameId: String(200 + index),
+    similarPlatformIgdbId: 6,
+    similarity: 0.91,
+    reasons: {
+      summary: 'fallback',
+      structuredSimilarity: 0.8,
+      semanticSimilarity: 0.9,
+      blendedSimilarity: 0.85,
+      sharedTokens: {
+        genres: [],
+        developers: [],
+        publishers: [],
+        franchises: [],
+        collections: [],
+        themes: [],
+        keywords: []
+      }
+    }
+  }));
+
+  await repository.finalizeRunSuccess({
+    client,
+    runId: 55,
+    target: 'BACKLOG',
+    recommendationsByMode: {
+      NEUTRAL: recommendationItems,
+      SHORT: recommendationItems,
+      LONG: recommendationItems
+    },
+    lanesByMode: {
+      NEUTRAL: makeLanes(),
+      SHORT: makeLanes(),
+      LONG: makeLanes()
+    },
+    historyUpdates,
+    similarityEdges
+  });
+
+  assert.equal(queries[0]?.sql, 'BEGIN');
+  assert.equal(queries.at(-1)?.sql, 'COMMIT');
+  assert.equal(
+    queries.some((query) => query.sql.includes('INSERT INTO recommendations')),
+    true
+  );
+  assert.equal(
+    queries.some((query) => query.sql.includes('INSERT INTO recommendation_lanes')),
+    true
+  );
+  const similarityInsert = queries.find((query) =>
+    query.sql.includes('INSERT INTO game_similarity')
+  );
+  assert.ok(similarityInsert);
+  assert.ok(similarityInsert.params);
+  assert.equal(similarityInsert.params[2], 'NEUTRAL');
+  assert.equal(
+    queries.some((query) => query.sql.includes('INSERT INTO recommendation_history')),
+    true
+  );
+  assert.equal(
+    queries.some((query) => query.sql.includes('UPDATE recommendation_runs')),
+    true
+  );
+});

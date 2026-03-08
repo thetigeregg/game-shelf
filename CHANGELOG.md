@@ -1730,3 +1730,18 @@
 - b3f3a81 Add background job architecture for
 - 36a4645 Offload recommendations CPU work
 
+## v1.1.14 - 2026-03-08
+- 7a4039b Merge pull request #179 from thetigeregg/codex/investigate-production-issue
+- e121c03 Fix migration test and pool cleanup
+- 3b2fc94 Export MigrationUnlockError
+- cf74a3b Export MigrationUnlockError
+- 740f29d Treat migration unlock failures as …
+- 547e089 Add migration lock ordering check
+- 246e0d7 Escape advisory lock identifier
+- 54d6595 Harden migration locking
+- b66e3bf Define migration lock constants
+- 0bcb72b Define migration lock keys
+- 17b63c5 Add migration lock constants and ref
+- 672dd13 Define migration lock constants
+- 6a92d05 Fix prod peer flag removals
+

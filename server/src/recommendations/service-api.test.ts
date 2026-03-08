@@ -490,6 +490,67 @@ void test('service rebuild returns SKIPPED when input/settings hashes match late
   });
 });
 
+void test('service rebuild skip check ignores recommendation history count churn', async () => {
+  let latestSuccessful: RecommendationRunSummary | null = null;
+  let createRunCalls = 0;
+  let listHistoryCalls = 0;
+  const repository = {
+    withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
+      acquired: true as const,
+      value: await callback({})
+    }),
+    getLatestRun: () => Promise.resolve(null),
+    listNormalizedGames: () => Promise.resolve([sampleGame()]),
+    listRecommendationHistory: () => {
+      const rebuildRound = Math.floor(listHistoryCalls / 3);
+      listHistoryCalls += 1;
+      return Promise.resolve(
+        new Map([['100::6', { recommendationCount: rebuildRound + 1, lastRecommendedAt: '' }]])
+      );
+    },
+    getLatestSuccessfulRun: () => Promise.resolve(latestSuccessful),
+    createRun: (params: { settingsHash: string; inputHash: string }) => {
+      createRunCalls += 1;
+      latestSuccessful = sampleRun({
+        id: 88,
+        settingsHash: params.settingsHash,
+        inputHash: params.inputHash
+      });
+      return Promise.resolve(88);
+    },
+    finalizeRunSuccess: () => Promise.resolve(undefined),
+    markRunFailed: () => {
+      assert.fail('markRunFailed should not be called');
+    }
+  };
+
+  const embeddingRepository = {
+    listGameEmbeddings: () => Promise.resolve([]),
+    upsertGameEmbeddings: () => Promise.resolve(undefined)
+  };
+  const embeddingClient = {
+    generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]])
+  };
+
+  const service = new RecommendationService(repository as never, baseOptions(), {
+    embeddingRepository: embeddingRepository as never,
+    embeddingClient,
+    nowProvider: () => NOW
+  });
+
+  const first = await service.rebuild({ target: 'BACKLOG', force: true });
+  assert.equal(first.status, 'SUCCESS');
+
+  const second = await service.rebuild({ target: 'BACKLOG', force: false });
+  assert.deepEqual(second, {
+    target: 'BACKLOG',
+    runId: 88,
+    status: 'SKIPPED',
+    reusedRunId: 88
+  });
+  assert.equal(createRunCalls, 1);
+});
+
 void test('service rebuild marks run failed when embedding vectors are invalid', async () => {
   let markRunFailedCalls = 0;
   const repository = {

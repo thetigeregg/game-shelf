@@ -653,6 +653,7 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
 
   const client = await pool.connect();
   let shouldDestroyClient = false;
+  let migrationError: Error | null = null;
 
   try {
     await runMigrations(client);
@@ -660,9 +661,22 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
     if (isMigrationUnlockError(error)) {
       shouldDestroyClient = true;
     }
-    throw error;
+    migrationError = error instanceof Error ? error : new Error(String(error));
   } finally {
     client.release(shouldDestroyClient);
+  }
+
+  if (migrationError !== null) {
+    try {
+      await pool.end();
+    } catch (poolEndError) {
+      console.error('[db] pool_end_after_migration_failure_error', {
+        message: poolEndError instanceof Error ? poolEndError.message : String(poolEndError),
+        originalMigrationError: { message: migrationError.message }
+      });
+    }
+
+    throw migrationError;
   }
 
   return pool;

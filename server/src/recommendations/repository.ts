@@ -103,6 +103,10 @@ const RECOMMENDATION_LOCK_NAMESPACE = 77191;
 
 export class RecommendationRepository {
   private readonly backgroundJobs: BackgroundJobRepository;
+  private static readonly RECOMMENDATIONS_INSERT_BATCH_SIZE = 500;
+  private static readonly RECOMMENDATION_LANES_INSERT_BATCH_SIZE = 500;
+  private static readonly RECOMMENDATION_HISTORY_UPSERT_BATCH_SIZE = 500;
+  private static readonly SIMILARITY_INSERT_BATCH_SIZE = 500;
 
   constructor(private readonly pool: Pool) {
     this.backgroundJobs = new BackgroundJobRepository(pool);
@@ -478,7 +482,35 @@ export class RecommendationRepository {
       for (const [runtimeMode, items] of Object.entries(params.recommendationsByMode) as Array<
         [RecommendationRuntimeMode, RankedRecommendationItem[]]
       >) {
-        for (const item of items) {
+        for (
+          let offset = 0;
+          offset < items.length;
+          offset += RecommendationRepository.RECOMMENDATIONS_INSERT_BATCH_SIZE
+        ) {
+          const batch = items.slice(
+            offset,
+            offset + RecommendationRepository.RECOMMENDATIONS_INSERT_BATCH_SIZE
+          );
+          const values: unknown[] = [];
+          const tuples: string[] = [];
+
+          for (const item of batch) {
+            const baseIndex = values.length;
+            tuples.push(
+              `(${sqlParam(baseIndex + 1)}, ${sqlParam(baseIndex + 2)}, ${sqlParam(baseIndex + 3)}, ${sqlParam(baseIndex + 4)}, ${sqlParam(baseIndex + 5)}, ${sqlParam(baseIndex + 6)}, ${sqlParam(baseIndex + 7)}::jsonb, ${sqlParam(baseIndex + 8)}::jsonb)`
+            );
+            values.push(
+              params.runId,
+              runtimeMode,
+              item.rank,
+              item.igdbGameId,
+              item.platformIgdbId,
+              item.scoreTotal,
+              JSON.stringify(item.scoreComponents),
+              JSON.stringify(item.explanations)
+            );
+          }
+
           await params.client.query(
             `
             INSERT INTO recommendations
@@ -492,18 +524,9 @@ export class RecommendationRepository {
                 score_components,
                 explanations
               )
-            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
+            VALUES ${tuples.join(',\n')}
             `,
-            [
-              params.runId,
-              runtimeMode,
-              item.rank,
-              item.igdbGameId,
-              item.platformIgdbId,
-              item.scoreTotal,
-              JSON.stringify(item.scoreComponents),
-              JSON.stringify(item.explanations)
-            ]
+            values
           );
         }
       }
@@ -521,8 +544,37 @@ export class RecommendationRepository {
         ] as RecommendationLaneKey[]) {
           const items = lanes[lane];
 
-          for (let index = 0; index < items.length; index += 1) {
-            const item = items[index];
+          for (
+            let offset = 0;
+            offset < items.length;
+            offset += RecommendationRepository.RECOMMENDATION_LANES_INSERT_BATCH_SIZE
+          ) {
+            const batch = items.slice(
+              offset,
+              offset + RecommendationRepository.RECOMMENDATION_LANES_INSERT_BATCH_SIZE
+            );
+            const values: unknown[] = [];
+            const tuples: string[] = [];
+
+            for (let index = 0; index < batch.length; index += 1) {
+              const item = batch[index];
+              const baseIndex = values.length;
+              tuples.push(
+                `(${sqlParam(baseIndex + 1)}, ${sqlParam(baseIndex + 2)}, ${sqlParam(baseIndex + 3)}, ${sqlParam(baseIndex + 4)}, ${sqlParam(baseIndex + 5)}, ${sqlParam(baseIndex + 6)}, ${sqlParam(baseIndex + 7)}, ${sqlParam(baseIndex + 8)}::jsonb, ${sqlParam(baseIndex + 9)}::jsonb)`
+              );
+              values.push(
+                params.runId,
+                runtimeMode,
+                lane,
+                offset + index + 1,
+                item.igdbGameId,
+                item.platformIgdbId,
+                item.scoreTotal,
+                JSON.stringify(item.scoreComponents),
+                JSON.stringify(item.explanations)
+              );
+            }
+
             await params.client.query(
               `
               INSERT INTO recommendation_lanes
@@ -537,72 +589,97 @@ export class RecommendationRepository {
                   score_components,
                   explanations
                 )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)
+              VALUES ${tuples.join(',\n')}
               `,
-              [
-                params.runId,
-                runtimeMode,
-                lane,
-                index + 1,
-                item.igdbGameId,
-                item.platformIgdbId,
-                item.scoreTotal,
-                JSON.stringify(item.scoreComponents),
-                JSON.stringify(item.explanations)
-              ]
+              values
             );
           }
         }
       }
 
-      for (const [runtimeMode, edges] of Object.entries(params.similarityEdgesByMode) as Array<
-        [RecommendationRuntimeMode, SimilarityEdge[]]
-      >) {
-        for (const edge of edges) {
-          await params.client.query(
-            `
-            INSERT INTO game_similarity
-              (
-                run_id,
-                target,
-                runtime_mode,
-                source_igdb_game_id,
-                source_platform_igdb_id,
-                similar_igdb_game_id,
-                similar_platform_igdb_id,
-                similarity,
-                reasons,
-                updated_at
-              )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW())
-            `,
-            [
-              params.runId,
-              params.target,
-              runtimeMode,
-              edge.sourceIgdbGameId,
-              edge.sourcePlatformIgdbId,
-              edge.similarIgdbGameId,
-              edge.similarPlatformIgdbId,
-              edge.similarity,
-              JSON.stringify(edge.reasons)
-            ]
+      const similarityEdges = params.similarityEdgesByMode.NEUTRAL;
+      for (
+        let offset = 0;
+        offset < similarityEdges.length;
+        offset += RecommendationRepository.SIMILARITY_INSERT_BATCH_SIZE
+      ) {
+        const batch = similarityEdges.slice(
+          offset,
+          offset + RecommendationRepository.SIMILARITY_INSERT_BATCH_SIZE
+        );
+        const values: unknown[] = [];
+        const tuples: string[] = [];
+
+        for (const edge of batch) {
+          const baseIndex = values.length;
+          tuples.push(
+            `(${sqlParam(baseIndex + 1)}, ${sqlParam(baseIndex + 2)}, ${sqlParam(baseIndex + 3)}, ${sqlParam(baseIndex + 4)}, ${sqlParam(baseIndex + 5)}, ${sqlParam(baseIndex + 6)}, ${sqlParam(baseIndex + 7)}, ${sqlParam(baseIndex + 8)}, ${sqlParam(baseIndex + 9)}::jsonb, NOW())`
+          );
+          values.push(
+            params.runId,
+            params.target,
+            'NEUTRAL',
+            edge.sourceIgdbGameId,
+            edge.sourcePlatformIgdbId,
+            edge.similarIgdbGameId,
+            edge.similarPlatformIgdbId,
+            edge.similarity,
+            JSON.stringify(edge.reasons)
           );
         }
+
+        await params.client.query(
+          `
+          INSERT INTO game_similarity
+            (
+              run_id,
+              target,
+              runtime_mode,
+              source_igdb_game_id,
+              source_platform_igdb_id,
+              similar_igdb_game_id,
+              similar_platform_igdb_id,
+              similarity,
+              reasons,
+              updated_at
+            )
+          VALUES ${tuples.join(',\n')}
+          `,
+          values
+        );
       }
 
-      for (const update of params.historyUpdates) {
+      for (
+        let offset = 0;
+        offset < params.historyUpdates.length;
+        offset += RecommendationRepository.RECOMMENDATION_HISTORY_UPSERT_BATCH_SIZE
+      ) {
+        const batch = params.historyUpdates.slice(
+          offset,
+          offset + RecommendationRepository.RECOMMENDATION_HISTORY_UPSERT_BATCH_SIZE
+        );
+        const values: unknown[] = [];
+        const tuples: string[] = [];
+
+        for (const update of batch) {
+          const baseIndex = values.length;
+          tuples.push(
+            `(${sqlParam(baseIndex + 1)}, ${sqlParam(baseIndex + 2)}, ${sqlParam(baseIndex + 3)}, ${sqlParam(baseIndex + 4)}, 1, NOW())`
+          );
+          values.push(update.target, update.runtimeMode, update.igdbGameId, update.platformIgdbId);
+        }
+
         await params.client.query(
           `
           INSERT INTO recommendation_history
             (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at)
-          VALUES ($1, $2, $3, $4, 1, NOW())
+          VALUES ${tuples.join(',\n')}
           ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id)
           DO UPDATE
             SET recommendation_count = recommendation_history.recommendation_count + 1,
                 last_recommended_at = NOW()
           `,
-          [update.target, update.runtimeMode, update.igdbGameId, update.platformIgdbId]
+          values
         );
       }
 
@@ -765,7 +842,7 @@ export class RecommendationRepository {
        AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
       WHERE run_id = $1
         AND target = $2
-        AND runtime_mode = $3
+        AND runtime_mode = ANY($3::text[])
         AND source_igdb_game_id = $4
         AND source_platform_igdb_id = $5
         AND similar_igdb_game_id <> $4
@@ -777,7 +854,7 @@ export class RecommendationRepository {
       [
         run.id,
         params.target,
-        params.runtimeMode,
+        [params.runtimeMode, 'NEUTRAL'],
         params.igdbGameId,
         params.platformIgdbId,
         statusFilter.listType,
@@ -926,6 +1003,10 @@ function buildStatusFilterForTarget(target: RecommendationTarget): {
     listType: 'wishlist',
     allowedStatuses: ['', 'wantToPlay', 'playing', 'paused', 'replay']
   };
+}
+
+function sqlParam(index: number): string {
+  return `$${String(index)}`;
 }
 
 function mapRunSummary(row: RunRow): RecommendationRunSummary {

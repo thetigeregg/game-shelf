@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  isRecommendationTarget,
+  readDiscoveryEnrichmentApiBaseUrl,
+  readPositiveIntegerEnv,
+  stringOrEmpty
+} from './background-worker.js';
+
+void test('background worker reads discovery enrich API base URL with trim + fallback', () => {
+  const previous = process.env.RECOMMENDATIONS_ENRICH_API_BASE_URL;
+  try {
+    process.env.RECOMMENDATIONS_ENRICH_API_BASE_URL = '  http://api:3000  ';
+    assert.equal(readDiscoveryEnrichmentApiBaseUrl(), 'http://api:3000');
+
+    process.env.RECOMMENDATIONS_ENRICH_API_BASE_URL = '   ';
+    assert.equal(readDiscoveryEnrichmentApiBaseUrl(), 'http://api:3000');
+  } finally {
+    if (previous === undefined) {
+      Reflect.deleteProperty(process.env, 'RECOMMENDATIONS_ENRICH_API_BASE_URL');
+    } else {
+      process.env.RECOMMENDATIONS_ENRICH_API_BASE_URL = previous;
+    }
+  }
+});
+
+void test('background worker positive integer env parser keeps sane fallback', () => {
+  const key = 'BACKGROUND_WORKER_TEST_INTEGER';
+  const previous = process.env[key];
+  try {
+    process.env[key] = '7';
+    assert.equal(readPositiveIntegerEnv(key, 3), 7);
+
+    process.env[key] = '0';
+    assert.equal(readPositiveIntegerEnv(key, 3), 3);
+
+    process.env[key] = '-2';
+    assert.equal(readPositiveIntegerEnv(key, 3), 3);
+
+    process.env[key] = 'not-a-number';
+    assert.equal(readPositiveIntegerEnv(key, 3), 3);
+  } finally {
+    if (previous === undefined) {
+      Reflect.deleteProperty(process.env, key);
+    } else {
+      process.env[key] = previous;
+    }
+  }
+});
+
+void test('background worker helper guards recommendation target + string payloads', () => {
+  assert.equal(isRecommendationTarget('BACKLOG'), true);
+  assert.equal(isRecommendationTarget('WISHLIST'), true);
+  assert.equal(isRecommendationTarget('DISCOVERY'), true);
+  assert.equal(isRecommendationTarget('INVALID'), false);
+  assert.equal(isRecommendationTarget(null), false);
+
+  assert.equal(stringOrEmpty('value'), 'value');
+  assert.equal(stringOrEmpty(123), '');
+  assert.equal(stringOrEmpty(undefined), '');
+});

@@ -649,7 +649,17 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
 export async function runMigrations(client: {
   query: (sql: string) => Promise<unknown>;
 }): Promise<void> {
-  for (const migration of MIGRATIONS) {
-    await client.query(migration);
+  // Serialize DDL across API/worker processes to avoid concurrent CREATE TABLE races.
+  const migrationLockSql = 'SELECT pg_advisory_lock(1624158462, 92290041);';
+  const migrationUnlockSql = 'SELECT pg_advisory_unlock(1624158462, 92290041);';
+
+  await client.query(migrationLockSql);
+
+  try {
+    for (const migration of MIGRATIONS) {
+      await client.query(migration);
+    }
+  } finally {
+    await client.query(migrationUnlockSql);
   }
 }

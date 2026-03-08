@@ -55,7 +55,16 @@ void test('recommendation migrations are present and idempotent runner executes 
   await runMigrations(client);
   await runMigrations(client);
 
-  assert.equal(client.statements.length, MIGRATIONS.length * 2);
+  const advisoryLockStatements = client.statements.filter((statement) =>
+    statement.includes('pg_advisory_lock')
+  );
+  const advisoryUnlockStatements = client.statements.filter((statement) =>
+    statement.includes('pg_advisory_unlock')
+  );
+
+  assert.equal(advisoryLockStatements.length, 2);
+  assert.equal(advisoryUnlockStatements.length, 2);
+  assert.equal(client.statements.length, MIGRATIONS.length * 2 + 4);
 });
 
 void test('migration SQL scopes constraint checks to target tables for drift safety', () => {

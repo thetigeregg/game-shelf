@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "b66e9f15-3ccd-4ba0-9f5c-3c479908c12f",
-    "name": "Game Shelf - Prod Observability",
-    "description": "Production observability/admin checks for Game Shelf API behind edge (/api). Auth header uses Postman Vault token: {{vault:AUTH_TOKEN}}.",
+    "name": "Game Shelf - Prod Ops Checks",
+    "description": "Production read-only observability checks and controlled admin probes for Game Shelf API behind edge (/api). Auth header uses Postman Vault token: {{vault:AUTH_TOKEN}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -39,8 +39,8 @@
   ],
   "item": [
     {
-      "name": "Prod Observability Endpoints",
-      "description": "Endpoints currently implemented for health/observability/admin monitoring.",
+      "name": "Observability (Read-Only)",
+      "description": "Read-only health and observability endpoints for routine production monitoring.",
       "item": [
         {
           "name": "API Health",
@@ -221,8 +221,8 @@
       ]
     },
     {
-      "name": "Recommended Additional Admin Pings",
-      "description": "Useful liveness and dependency checks beyond observability-only routes.",
+      "name": "Admin Probes (Controlled Writes)",
+      "description": "Low-risk admin probes (queue triggers and targeted diagnostics) for production operations.",
       "item": [
         {
           "name": "Recommendations Top (Smoke)",

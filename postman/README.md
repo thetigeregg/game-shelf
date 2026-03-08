@@ -5,7 +5,7 @@ This folder is the source of truth for Game Shelf operational API checks.
 ## Files
 
 - `game-shelf.postman_collection.json`
-  - Production observability/admin ping collection.
+  - Production ops collection (read-only observability + controlled admin probes).
   - Uses Postman Vault token variable: `{{vault:AUTH_TOKEN}}`.
 
 ## Import

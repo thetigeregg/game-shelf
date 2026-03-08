@@ -655,8 +655,9 @@ export async function runMigrations(client: {
   // Use a stable, namespaced key hashed by Postgres to avoid hard-coded magic numbers
   // and keep collision risk negligible for this app-specific migration lock.
   const migrationLockId = 'game-shelf:migrations:v1';
-  const migrationLockSql = `SELECT pg_advisory_lock(hashtextextended('${migrationLockId}', 0));`;
-  const migrationUnlockSql = `SELECT pg_advisory_unlock(hashtextextended('${migrationLockId}', 0));`;
+  const migrationLockIdSqlLiteral = migrationLockId.replace(/'/g, "''");
+  const migrationLockSql = `SELECT pg_advisory_lock(hashtextextended('${migrationLockIdSqlLiteral}', 0));`;
+  const migrationUnlockSql = `SELECT pg_advisory_unlock(hashtextextended('${migrationLockIdSqlLiteral}', 0));`;
 
   await client.query(migrationLockSql);
 

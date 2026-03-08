@@ -649,9 +649,11 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
 export async function runMigrations(client: {
   query: (sql: string) => Promise<unknown>;
 }): Promise<void> {
-  // Serialize DDL across API/worker processes to avoid concurrent CREATE TABLE races.
-  const migrationLockSql = 'SELECT pg_advisory_lock(1624158462, 92290041);';
-  const migrationUnlockSql = 'SELECT pg_advisory_unlock(1624158462, 92290041);';
+  // Use a stable, namespaced key hashed by Postgres to avoid hard-coded magic numbers
+  // and keep collision risk negligible for this app-specific migration lock.
+  const migrationLockId = 'game-shelf:migrations:v1';
+  const migrationLockSql = `SELECT pg_advisory_lock(hashtextextended('${migrationLockId}', 0));`;
+  const migrationUnlockSql = `SELECT pg_advisory_unlock(hashtextextended('${migrationLockId}', 0));`;
 
   await client.query(migrationLockSql);
 

@@ -144,6 +144,7 @@ void test('background jobs fail query supports retry and terminal failure transi
     )
   );
   assert.ok(normalizedSql.includes('available_at = case when attempts >= max_attempts'));
+  assert.ok(normalizedSql.includes('finished_at = case when attempts >= max_attempts then now()'));
   const params = query.params;
   assert.ok(params);
   assert.equal(params[0], 12);

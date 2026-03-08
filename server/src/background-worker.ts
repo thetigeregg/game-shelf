@@ -23,7 +23,7 @@ import { releaseMonitorInternals } from './release-monitor.js';
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
 const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
 
-function readDiscoveryEnrichmentApiBaseUrl(): string {
+export function readDiscoveryEnrichmentApiBaseUrl(): string {
   const raw =
     typeof process.env.RECOMMENDATIONS_ENRICH_API_BASE_URL === 'string'
       ? process.env.RECOMMENDATIONS_ENRICH_API_BASE_URL.trim()
@@ -36,20 +36,21 @@ function readDiscoveryEnrichmentApiBaseUrl(): string {
   return 'http://api:3000';
 }
 
-function readPositiveIntegerEnv(name: string, fallback: number): number {
+export function readPositiveIntegerEnv(name: string, fallback: number): number {
   const raw = typeof process.env[name] === 'string' ? process.env[name].trim() : '';
   const parsed = Number.parseInt(raw, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function isRecommendationTarget(value: unknown): value is RecommendationTarget {
+export function isRecommendationTarget(value: unknown): value is RecommendationTarget {
   return value === 'BACKLOG' || value === 'WISHLIST' || value === 'DISCOVERY';
 }
 
-function stringOrEmpty(value: unknown): string {
+export function stringOrEmpty(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+/* node:coverage disable */
 async function main(): Promise<void> {
   const pool = await createPool(config.postgresUrl);
   const jobs = new BackgroundJobRepository(pool);
@@ -477,6 +478,7 @@ async function main(): Promise<void> {
     }, 250);
   });
 }
+/* node:coverage enable */
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -484,7 +486,9 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-main().catch((error: unknown) => {
-  console.error('[background-worker] fatal', error);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test') {
+  main().catch((error: unknown) => {
+    console.error('[background-worker] fatal', error);
+    process.exit(1);
+  });
+}

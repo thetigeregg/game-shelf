@@ -44,7 +44,7 @@ cp .env.example .env
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
 
-4. Start local stack (`postgres` + `hltb-scraper` + `api` + `edge`) in worktree-safe mode (isolated project name + ports):
+4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `api` + `background-worker` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
 npm run dev:worktree:stack:up
@@ -56,10 +56,10 @@ To start stack and auto-seed the DB only when empty:
 npm run dev:worktree:stack:up:seed
 ```
 
-5. (Optional) Follow API logs:
+5. (Optional) Follow stack logs:
 
 ```bash
-npm run dev:worktree:backend:logs
+npm run dev:worktree:stack:logs
 ```
 
 6. Run frontend:

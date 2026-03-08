@@ -173,6 +173,22 @@ async function main(): Promise<void> {
     'BACKGROUND_JOBS_STATS_INTERVAL_MINUTES',
     5
   );
+  const staleJobRecoveryMinutes = readPositiveIntegerEnv(
+    'BACKGROUND_JOBS_STALE_RUNNING_MINUTES',
+    30
+  );
+  const staleJobRecoveryIntervalMinutes = readPositiveIntegerEnv(
+    'BACKGROUND_JOBS_STALE_RECOVERY_INTERVAL_MINUTES',
+    5
+  );
+  const recommendationRunRecoveryMinutes = readPositiveIntegerEnv(
+    'RECOMMENDATION_RUN_STALE_MINUTES',
+    30
+  );
+  const backgroundJobHeartbeatSeconds = readPositiveIntegerEnv(
+    'BACKGROUND_JOB_LOCK_HEARTBEAT_SECONDS',
+    30
+  );
   const discoveryIntervalMinutes = Math.max(
     1,
     config.recommendationsDiscoveryEnrichIntervalMinutes
@@ -187,6 +203,7 @@ async function main(): Promise<void> {
   let discoveryEnrichmentTimer: ReturnType<typeof setInterval> | null = null;
   let backgroundJobsCleanupTimer: ReturnType<typeof setInterval> | null = null;
   let queueStatsTimer: ReturnType<typeof setInterval> | null = null;
+  let staleJobRecoveryTimer: ReturnType<typeof setInterval> | null = null;
 
   const stopTimers = (): void => {
     if (metadataStartupTimer) {
@@ -212,6 +229,10 @@ async function main(): Promise<void> {
     if (queueStatsTimer) {
       clearInterval(queueStatsTimer);
       queueStatsTimer = null;
+    }
+    if (staleJobRecoveryTimer) {
+      clearInterval(staleJobRecoveryTimer);
+      staleJobRecoveryTimer = null;
     }
   };
 
@@ -407,6 +428,45 @@ async function main(): Promise<void> {
     }
   };
 
+  const recoverStaleWork = async (): Promise<void> => {
+    if (shuttingDown) {
+      return;
+    }
+    try {
+      const staleJobs = await jobs.requeueStaleRunning({
+        maxAgeMinutes: staleJobRecoveryMinutes,
+        recoveryError: 'stale running lock recovered by background worker'
+      });
+      if (staleJobs.requeuedCount > 0) {
+        console.warn('[background-worker] stale_jobs_requeued', {
+          requeuedCount: staleJobs.requeuedCount,
+          maxAgeMinutes: staleJobRecoveryMinutes
+        });
+      }
+    } catch (error) {
+      console.error('[background-worker] stale_jobs_requeue_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+
+    try {
+      const staleRuns = await recommendationRepository.failStaleRunningRuns({
+        maxAgeMinutes: recommendationRunRecoveryMinutes,
+        errorMessage: 'orphaned RUNNING run recovered after worker loss'
+      });
+      if (staleRuns.failedCount > 0) {
+        console.warn('[background-worker] stale_recommendation_runs_failed', {
+          failedCount: staleRuns.failedCount,
+          maxAgeMinutes: recommendationRunRecoveryMinutes
+        });
+      }
+    } catch (error) {
+      console.error('[background-worker] stale_recommendation_runs_failed_recovery', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  };
+
   const dispatchJob = async (job: ClaimedBackgroundJob): Promise<Record<string, unknown>> => {
     switch (job.jobType) {
       case 'recommendations_rebuild': {
@@ -521,6 +581,24 @@ async function main(): Promise<void> {
             const startedAt = Date.now();
             const jobContext = buildJobContext(claimed);
             console.info('[background-worker] job_started', jobContext);
+            const heartbeatTimer = setInterval(
+              () => {
+                void jobs
+                  .heartbeat(claimed.id, workerId)
+                  .then((updated) => {
+                    if (!updated) {
+                      console.warn('[background-worker] job_heartbeat_missed', jobContext);
+                    }
+                  })
+                  .catch((error: unknown) => {
+                    console.warn('[background-worker] job_heartbeat_failed', {
+                      ...jobContext,
+                      error: error instanceof Error ? error.message : String(error)
+                    });
+                  });
+              },
+              Math.max(1, backgroundJobHeartbeatSeconds) * 1000
+            );
             try {
               const result = await dispatchJob(claimed);
               await jobs.complete(claimed.id, result);
@@ -536,6 +614,8 @@ async function main(): Promise<void> {
                 durationMs: Date.now() - startedAt,
                 error: message
               });
+            } finally {
+              clearInterval(heartbeatTimer);
             }
           })();
           inFlightJobs.add(processClaimedJob);
@@ -593,6 +673,13 @@ async function main(): Promise<void> {
     Math.max(1, jobsCleanupIntervalMinutes) * 60 * 1000
   );
   void runBackgroundJobsCleanup();
+  staleJobRecoveryTimer = setInterval(
+    () => {
+      void recoverStaleWork();
+    },
+    Math.max(1, staleJobRecoveryIntervalMinutes) * 60 * 1000
+  );
+  void recoverStaleWork();
   queueStatsTimer = setInterval(
     () => {
       void logQueuePressure();
@@ -615,6 +702,10 @@ async function main(): Promise<void> {
     backgroundJobsCleanupIntervalMinutes: jobsCleanupIntervalMinutes,
     backgroundJobsCleanupBatchSize: jobsCleanupBatchSize,
     queueStatsIntervalMinutes,
+    staleJobRecoveryMinutes,
+    staleJobRecoveryIntervalMinutes,
+    recommendationRunRecoveryMinutes,
+    backgroundJobHeartbeatSeconds,
     discoveryIntervalMinutes,
     discoveryEnabled: config.recommendationsDiscoveryEnabled,
     discoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,

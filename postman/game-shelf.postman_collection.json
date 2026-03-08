@@ -98,13 +98,7 @@
           "name": "Background Jobs Stats",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{apiBaseUrl}}/v1/background-jobs/stats",
               "host": ["{{apiBaseUrl}}"],

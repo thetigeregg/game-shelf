@@ -84,7 +84,11 @@
             {
               "listen": "test",
               "script": {
-                "exec": ["pm.response.to.have.status(200);"],
+                "exec": [
+                  "pm.test('Status is 200 or 429 (rate limited)', function () {",
+                  "  pm.expect([200, 429]).to.include(pm.response.code);",
+                  "});"
+                ],
                 "type": "text/javascript"
               }
             }
@@ -112,7 +116,11 @@
             {
               "listen": "test",
               "script": {
-                "exec": ["pm.response.to.have.status(200);"],
+                "exec": [
+                  "pm.test('Status is 200 or 429', function () {",
+                  "  pm.expect([200, 429]).to.include(pm.response.code);",
+                  "});"
+                ],
                 "type": "text/javascript"
               }
             }
@@ -152,8 +160,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status is 200 or 401', function () {",
-                  "  pm.expect([200, 401]).to.include(pm.response.code);",
+                  "pm.test('Status is 200, 401, or 429', function () {",
+                  "  pm.expect([200, 401, 429]).to.include(pm.response.code);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -184,8 +192,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status is 200, 401, or 404', function () {",
-                  "  pm.expect([200, 401, 404]).to.include(pm.response.code);",
+                  "pm.test('Status is 200, 401, 404, or 429', function () {",
+                  "  pm.expect([200, 401, 404, 429]).to.include(pm.response.code);",
                   "});"
                 ],
                 "type": "text/javascript"

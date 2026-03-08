@@ -418,16 +418,19 @@ export const MIGRATIONS: string[] = [
   ALTER COLUMN run_id SET NOT NULL;
   `,
   `
-  ALTER TABLE game_similarity
-  DROP CONSTRAINT IF EXISTS game_similarity_pkey;
-  `,
-  `
   DO $$
+  DECLARE
+    existing_pkey_name TEXT;
+    existing_pkey_def TEXT;
   BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_pkey'
-    ) THEN
+    SELECT c.conname, pg_get_constraintdef(c.oid)
+    INTO existing_pkey_name, existing_pkey_def
+    FROM pg_constraint c
+    WHERE c.conrelid = 'game_similarity'::regclass
+      AND c.contype = 'p'
+    LIMIT 1;
+
+    IF existing_pkey_name IS NULL THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_pkey
       PRIMARY KEY (
@@ -438,6 +441,24 @@ export const MIGRATIONS: string[] = [
         source_platform_igdb_id,
         similar_igdb_game_id,
         similar_platform_igdb_id
+      );
+    ELSIF existing_pkey_def NOT LIKE 'PRIMARY KEY (run_id, target, runtime_mode, source_igdb_game_id, source_platform_igdb_id, similar_igdb_game_id, similar_platform_igdb_id)%' THEN
+      EXECUTE format('ALTER TABLE game_similarity DROP CONSTRAINT %I', existing_pkey_name);
+      ALTER TABLE game_similarity
+      ADD CONSTRAINT game_similarity_pkey
+      PRIMARY KEY (
+        run_id,
+        target,
+        runtime_mode,
+        source_igdb_game_id,
+        source_platform_igdb_id,
+        similar_igdb_game_id,
+        similar_platform_igdb_id
+      );
+    ELSIF existing_pkey_name <> 'game_similarity_pkey' THEN
+      EXECUTE format(
+        'ALTER TABLE game_similarity RENAME CONSTRAINT %I TO game_similarity_pkey',
+        existing_pkey_name
       );
     END IF;
   END $$;

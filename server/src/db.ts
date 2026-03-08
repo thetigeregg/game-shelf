@@ -143,8 +143,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'release_watch_state_release_precision_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'release_watch_state_release_precision_check'
+        AND c.conrelid = 'release_watch_state'::regclass
     ) THEN
       ALTER TABLE release_watch_state
       ADD CONSTRAINT release_watch_state_release_precision_check
@@ -195,8 +197,9 @@ export const MIGRATIONS: string[] = [
   BEGIN
     IF EXISTS (
       SELECT 1
-      FROM pg_constraint
-      WHERE conname = 'recommendation_runs_target_check'
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendation_runs_target_check'
+        AND c.conrelid = 'recommendation_runs'::regclass
     ) THEN
       ALTER TABLE recommendation_runs
       DROP CONSTRAINT recommendation_runs_target_check;
@@ -245,8 +248,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'recommendations_runtime_mode_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendations_runtime_mode_check'
+        AND c.conrelid = 'recommendations'::regclass
     ) THEN
       ALTER TABLE recommendations
       ADD CONSTRAINT recommendations_runtime_mode_check
@@ -259,19 +264,32 @@ export const MIGRATIONS: string[] = [
   DROP CONSTRAINT IF EXISTS recommendations_run_id_igdb_game_id_platform_igdb_id_key;
   `,
   `
-  ALTER TABLE recommendations
-  DROP CONSTRAINT IF EXISTS recommendations_pkey;
-  `,
-  `
   DO $$
+  DECLARE
+    existing_pkey_name TEXT;
+    existing_pkey_def TEXT;
   BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'recommendations_pkey'
-    ) THEN
+    SELECT c.conname, pg_get_constraintdef(c.oid)
+    INTO existing_pkey_name, existing_pkey_def
+    FROM pg_constraint c
+    WHERE c.conrelid = 'recommendations'::regclass
+      AND c.contype = 'p'
+    LIMIT 1;
+
+    IF existing_pkey_name IS NULL THEN
       ALTER TABLE recommendations
       ADD CONSTRAINT recommendations_pkey
       PRIMARY KEY (run_id, runtime_mode, rank);
+    ELSIF existing_pkey_def NOT LIKE 'PRIMARY KEY (run_id, runtime_mode, rank)%' THEN
+      EXECUTE format('ALTER TABLE recommendations DROP CONSTRAINT %I', existing_pkey_name);
+      ALTER TABLE recommendations
+      ADD CONSTRAINT recommendations_pkey
+      PRIMARY KEY (run_id, runtime_mode, rank);
+    ELSIF existing_pkey_name <> 'recommendations_pkey' THEN
+      EXECUTE format(
+        'ALTER TABLE recommendations RENAME CONSTRAINT %I TO recommendations_pkey',
+        existing_pkey_name
+      );
     END IF;
   END $$;
   `,
@@ -279,8 +297,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'recommendations_run_runtime_game_uid'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendations_run_runtime_game_uid'
+        AND c.conrelid = 'recommendations'::regclass
     ) THEN
       ALTER TABLE recommendations
       ADD CONSTRAINT recommendations_run_runtime_game_uid
@@ -363,8 +383,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_target_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'game_similarity_target_check'
+        AND c.conrelid = 'game_similarity'::regclass
     ) THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_target_check
@@ -376,8 +398,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_runtime_mode_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'game_similarity_runtime_mode_check'
+        AND c.conrelid = 'game_similarity'::regclass
     ) THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_runtime_mode_check
@@ -389,8 +413,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_run_fk'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'game_similarity_run_fk'
+        AND c.conrelid = 'game_similarity'::regclass
     ) THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_run_fk
@@ -405,16 +431,19 @@ export const MIGRATIONS: string[] = [
   ALTER COLUMN run_id SET NOT NULL;
   `,
   `
-  ALTER TABLE game_similarity
-  DROP CONSTRAINT IF EXISTS game_similarity_pkey;
-  `,
-  `
   DO $$
+  DECLARE
+    existing_pkey_name TEXT;
+    existing_pkey_def TEXT;
   BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_pkey'
-    ) THEN
+    SELECT c.conname, pg_get_constraintdef(c.oid)
+    INTO existing_pkey_name, existing_pkey_def
+    FROM pg_constraint c
+    WHERE c.conrelid = 'game_similarity'::regclass
+      AND c.contype = 'p'
+    LIMIT 1;
+
+    IF existing_pkey_name IS NULL THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_pkey
       PRIMARY KEY (
@@ -425,6 +454,24 @@ export const MIGRATIONS: string[] = [
         source_platform_igdb_id,
         similar_igdb_game_id,
         similar_platform_igdb_id
+      );
+    ELSIF existing_pkey_def NOT LIKE 'PRIMARY KEY (run_id, target, runtime_mode, source_igdb_game_id, source_platform_igdb_id, similar_igdb_game_id, similar_platform_igdb_id)%' THEN
+      EXECUTE format('ALTER TABLE game_similarity DROP CONSTRAINT %I', existing_pkey_name);
+      ALTER TABLE game_similarity
+      ADD CONSTRAINT game_similarity_pkey
+      PRIMARY KEY (
+        run_id,
+        target,
+        runtime_mode,
+        source_igdb_game_id,
+        source_platform_igdb_id,
+        similar_igdb_game_id,
+        similar_platform_igdb_id
+      );
+    ELSIF existing_pkey_name <> 'game_similarity_pkey' THEN
+      EXECUTE format(
+        'ALTER TABLE game_similarity RENAME CONSTRAINT %I TO game_similarity_pkey',
+        existing_pkey_name
       );
     END IF;
   END $$;
@@ -470,8 +517,9 @@ export const MIGRATIONS: string[] = [
   BEGIN
     IF EXISTS (
       SELECT 1
-      FROM pg_constraint
-      WHERE conname = 'recommendation_lanes_lane_check'
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendation_lanes_lane_check'
+        AND c.conrelid = 'recommendation_lanes'::regclass
     ) THEN
       ALTER TABLE recommendation_lanes
       DROP CONSTRAINT recommendation_lanes_lane_check;
@@ -504,8 +552,9 @@ export const MIGRATIONS: string[] = [
   BEGIN
     IF EXISTS (
       SELECT 1
-      FROM pg_constraint
-      WHERE conname = 'recommendation_history_target_check'
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendation_history_target_check'
+        AND c.conrelid = 'recommendation_history'::regclass
     ) THEN
       ALTER TABLE recommendation_history
       DROP CONSTRAINT recommendation_history_target_check;
@@ -535,6 +584,40 @@ export const MIGRATIONS: string[] = [
   ON game_embeddings
   USING ivfflat (embedding vector_cosine_ops)
   WITH (lists = 100);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS background_jobs (
+    id BIGSERIAL PRIMARY KEY,
+    job_type TEXT NOT NULL,
+    dedupe_key TEXT,
+    payload JSONB NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed')),
+    priority INTEGER NOT NULL DEFAULT 100,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 5,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_by TEXT,
+    locked_at TIMESTAMPTZ,
+    last_error TEXT,
+    result JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ
+  );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS background_jobs_pending_idx
+  ON background_jobs (status, priority, available_at, id);
+  `,
+  `
+  CREATE UNIQUE INDEX IF NOT EXISTS background_jobs_active_dedupe_idx
+  ON background_jobs (dedupe_key)
+  WHERE dedupe_key IS NOT NULL AND status IN ('pending', 'running');
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS background_jobs_terminal_finished_idx
+  ON background_jobs (status, finished_at, id)
+  WHERE status IN ('succeeded', 'failed') AND finished_at IS NOT NULL;
   `
 ];
 

@@ -1,4 +1,5 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { BackgroundJobRepository } from '../background-jobs.js';
 import {
   buildDiscoveryEnrichmentSelectionParams,
   LIST_DISCOVERY_ROWS_MISSING_ENRICHMENT_SQL
@@ -11,6 +12,7 @@ import {
   GameEmbeddingUpsertInput,
   GameStatus,
   NormalizedGameRecord,
+  RecommendationRebuildQueueReason,
   RankedRecommendationItem,
   RecommendationHistoryEntry,
   RecommendationLaneCollection,
@@ -100,7 +102,11 @@ interface DiscoveryGameRow extends QueryResultRow {
 const RECOMMENDATION_LOCK_NAMESPACE = 77191;
 
 export class RecommendationRepository {
-  constructor(private readonly pool: Pool) {}
+  private readonly backgroundJobs: BackgroundJobRepository;
+
+  constructor(private readonly pool: Pool) {
+    this.backgroundJobs = new BackgroundJobRepository(pool);
+  }
 
   async withAdvisoryLock<T>(params: {
     namespace: number;
@@ -353,6 +359,41 @@ export class RecommendationRepository {
       [params.settingKey, params.settingValue]
     );
   }
+
+  /* node:coverage disable */
+  async enqueueRecommendationRebuildJob(params: {
+    target: RecommendationTarget;
+    force: boolean;
+    triggeredBy: 'manual' | 'scheduler' | 'stale-read';
+    reason: RecommendationRebuildQueueReason;
+  }): Promise<{ jobId: number; deduped: boolean }> {
+    const dedupeKey = `recommendations:rebuild:${params.target}:${params.force ? 'force' : 'normal'}`;
+    const payload = {
+      target: params.target,
+      force: params.force,
+      triggeredBy: params.triggeredBy,
+      reason: params.reason
+    };
+    return this.backgroundJobs.enqueue({
+      jobType: 'recommendations_rebuild',
+      payload,
+      dedupeKey,
+      priority: 100,
+      maxAttempts: 5
+    });
+  }
+
+  async completeBackgroundJob(
+    jobId: number,
+    resultPayload: Record<string, unknown>
+  ): Promise<void> {
+    await this.backgroundJobs.complete(jobId, resultPayload);
+  }
+
+  async failBackgroundJob(jobId: number, errorMessage: string): Promise<void> {
+    await this.backgroundJobs.fail(jobId, errorMessage);
+  }
+  /* node:coverage enable */
 
   async getLatestRun(
     target: RecommendationTarget,

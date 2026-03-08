@@ -40,12 +40,27 @@ export function registerRecommendationRoutes(
       }
 
       const limit = parsePositiveInteger(query.limit) ?? 20;
-      await service.rebuildIfStale(target, 'stale-read');
+      const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
       const result = await service.getTopRecommendations(target, limit, runtimeMode);
 
       if (!result) {
-        reply.code(404).send({
-          error: 'No recommendations available. Trigger a rebuild first.'
+        let responseJobId = queueState.jobId;
+        let responseReason = queueState.reason;
+        if (!queueState.queued) {
+          const fallbackQueue = await service.enqueueRebuild({
+            target,
+            force: false,
+            triggeredBy: 'stale-read'
+          });
+          responseJobId = fallbackQueue.jobId;
+          responseReason = 'missing';
+        }
+        reply.code(202).send({
+          target,
+          status: 'QUEUED',
+          jobId: responseJobId,
+          reason: responseReason,
+          error: 'No recommendations available yet. Rebuild has been queued.'
         });
         return;
       }
@@ -55,6 +70,9 @@ export function registerRecommendationRoutes(
         runtimeMode: result.runtimeMode,
         runId: result.run.id,
         generatedAt: result.run.finishedAt ?? result.run.startedAt,
+        staleRefreshQueued: queueState.queued,
+        staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
+        staleRefreshJobId: queueState.jobId,
         items: result.items
       });
     }
@@ -89,12 +107,27 @@ export function registerRecommendationRoutes(
       }
 
       const limit = parsePositiveInteger(query.limit) ?? 20;
-      await service.rebuildIfStale(target, 'stale-read');
+      const queueState = await service.ensureRebuildQueuedIfStale(target, 'stale-read');
       const result = await service.getRecommendationLanes(target, limit, runtimeMode);
 
       if (!result) {
-        reply.code(404).send({
-          error: 'No recommendations available. Trigger a rebuild first.'
+        let responseJobId = queueState.jobId;
+        let responseReason = queueState.reason;
+        if (!queueState.queued) {
+          const fallbackQueue = await service.enqueueRebuild({
+            target,
+            force: false,
+            triggeredBy: 'stale-read'
+          });
+          responseJobId = fallbackQueue.jobId;
+          responseReason = 'missing';
+        }
+        reply.code(202).send({
+          target,
+          status: 'QUEUED',
+          jobId: responseJobId,
+          reason: responseReason,
+          error: 'No recommendations available yet. Rebuild has been queued.'
         });
         return;
       }
@@ -104,6 +137,9 @@ export function registerRecommendationRoutes(
         runtimeMode: result.runtimeMode,
         runId: result.run.id,
         generatedAt: result.run.finishedAt ?? result.run.startedAt,
+        staleRefreshQueued: queueState.queued,
+        staleRefreshReason: queueState.reason === 'fresh' ? null : queueState.reason,
+        staleRefreshJobId: queueState.jobId,
         lanes: result.lanes
       });
     }
@@ -128,36 +164,12 @@ export function registerRecommendationRoutes(
       }
 
       const force = body.force === true;
-      const result = await service.rebuild({ target, force, triggeredBy: 'manual' });
-
-      if (result.status === 'LOCKED') {
-        reply.code(409).send({ error: 'Rebuild already running for target.', target });
-        return;
-      }
-
-      if (result.status === 'BACKOFF_SKIPPED') {
-        reply.code(429).send({
-          target,
-          status: result.status,
-          error: 'Automatic rebuild is in failure backoff cooldown.'
-        });
-        return;
-      }
-
-      if (result.status === 'FAILED') {
-        reply.code(500).send({
-          target,
-          runId: result.runId,
-          status: result.status
-        });
-        return;
-      }
-
-      reply.send({
+      const result = await service.enqueueRebuild({ target, force, triggeredBy: 'manual' });
+      reply.code(202).send({
         target,
-        runId: result.runId,
-        status: result.status,
-        reusedRunId: result.status === 'SKIPPED' ? (result.reusedRunId ?? null) : null
+        status: 'QUEUED',
+        jobId: result.jobId,
+        deduped: result.deduped
       });
     }
   });
@@ -211,7 +223,7 @@ export function registerRecommendationRoutes(
       }
 
       const limit = parsePositiveInteger(query.limit) ?? 20;
-      await service.rebuildIfStale(target, 'stale-read');
+      await service.ensureRebuildQueuedIfStale(target, 'stale-read');
       const result = await service.getSimilarGames({
         igdbGameId,
         platformIgdbId,

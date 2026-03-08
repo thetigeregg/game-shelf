@@ -1758,3 +1758,15 @@
 - 5876768 Add background job logging
 - 2c1fc5c Add background worker lifecycle logs
 
+## v1.1.16 - 2026-03-08
+- f9789dc Merge pull request #181 from thetigeregg/codex/add-prod-observability-endpoints
+- b8fc6c9 Adjust Postman manual tests
+- ace8323 Merge branch 'main' into codex/add-prod-observability-endpoints
+- 15bfba9 Allow 429 in Postman status tests
+- 715161a Allow blank failedBefore default
+- dc03c0b Update failedBefore handling
+- a128bb1 Audit Postman collection names
+- 5893685 Document postman prod ops collection
+- cd2ecf5 Add prod observability Postman
+- 9706623 Add prod observability Postman
+

@@ -279,20 +279,65 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
     queries.some((query) => query.sql.includes('INSERT INTO recommendations')),
     true
   );
+  const recommendationInserts = queries.filter((query) =>
+    query.sql.includes('INSERT INTO recommendations')
+  );
+  assert.equal(recommendationInserts.length, 3);
+  const firstRecommendationInsert = recommendationInserts[0];
+  assert.ok(firstRecommendationInsert);
+  assert.ok(firstRecommendationInsert.params);
+  assert.equal(
+    firstRecommendationInsert.sql.includes('($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb),'),
+    true
+  );
+  assert.equal(firstRecommendationInsert.params[0], 55);
+  assert.equal(firstRecommendationInsert.params[1], 'NEUTRAL');
+  assert.equal(firstRecommendationInsert.params.length, 16);
   assert.equal(
     queries.some((query) => query.sql.includes('INSERT INTO recommendation_lanes')),
     true
   );
+  const laneInserts = queries.filter((query) =>
+    query.sql.includes('INSERT INTO recommendation_lanes')
+  );
+  assert.equal(laneInserts.length, 18);
+  const firstLaneInsert = laneInserts[0];
+  assert.ok(firstLaneInsert);
+  assert.ok(firstLaneInsert.params);
+  assert.equal(
+    firstLaneInsert.sql.includes('($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)'),
+    true
+  );
+  assert.equal(firstLaneInsert.params[0], 55);
+  assert.equal(firstLaneInsert.params[1], 'NEUTRAL');
+  assert.equal(firstLaneInsert.params[2], 'overall');
   const similarityInsert = queries.find((query) =>
     query.sql.includes('INSERT INTO game_similarity')
   );
   assert.ok(similarityInsert);
   assert.ok(similarityInsert.params);
   assert.equal(similarityInsert.params[2], 'NEUTRAL');
+  const similarityInserts = queries.filter((query) =>
+    query.sql.includes('INSERT INTO game_similarity')
+  );
+  assert.equal(similarityInserts.length, 2);
+  assert.equal(similarityInserts[0]?.params?.length, 500 * 9);
+  assert.equal(similarityInserts[1]?.params?.length, 1 * 9);
+  assert.equal(
+    similarityInserts[0]?.sql.includes('($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW())'),
+    true
+  );
   assert.equal(
     queries.some((query) => query.sql.includes('INSERT INTO recommendation_history')),
     true
   );
+  const historyInserts = queries.filter((query) =>
+    query.sql.includes('INSERT INTO recommendation_history')
+  );
+  assert.equal(historyInserts.length, 2);
+  assert.equal(historyInserts[0]?.params?.length, 500 * 4);
+  assert.equal(historyInserts[1]?.params?.length, 1 * 4);
+  assert.equal(historyInserts[0]?.sql.includes('($1, $2, $3, $4, 1, NOW())'), true);
   assert.equal(
     queries.some((query) => query.sql.includes('UPDATE recommendation_runs')),
     true

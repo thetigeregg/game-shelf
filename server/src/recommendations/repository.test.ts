@@ -343,3 +343,107 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
     true
   );
 });
+
+void test('markRunFailed updates run status and error message', async () => {
+  const queries: Array<{ sql: string; params: unknown[] | undefined }> = [];
+  const pool = new PoolMock(() => ({ rows: [] }));
+  const repository = new RecommendationRepository(pool as never);
+  const client = {
+    query: (sql: string, params?: unknown[]) => {
+      queries.push({ sql, params });
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+  };
+
+  await repository.markRunFailed({
+    client,
+    runId: 77,
+    errorMessage: 'boom'
+  });
+
+  assert.equal(queries.length, 1);
+  assert.equal(queries[0]?.sql.includes("UPDATE recommendation_runs SET status = 'FAILED'"), true);
+  assert.deepEqual(queries[0]?.params, [77, 'boom']);
+});
+
+void test('readTopRecommendations returns rows for DISCOVERY target', async () => {
+  const pool = new PoolMock((sql) => {
+    if (sql.includes('FROM recommendation_runs')) {
+      return {
+        rows: [
+          {
+            id: 31,
+            target: 'DISCOVERY',
+            status: 'SUCCESS',
+            settings_hash: 's',
+            input_hash: 'i',
+            started_at: '2026-03-01T00:00:00.000Z',
+            finished_at: '2026-03-01T00:10:00.000Z',
+            error: null
+          }
+        ]
+      };
+    }
+
+    if (sql.includes('FROM recommendations')) {
+      return {
+        rows: [
+          {
+            rank: 1,
+            igdb_game_id: '300',
+            platform_igdb_id: 6,
+            score_total: '0.91',
+            score_components: {
+              taste: 0,
+              novelty: 0,
+              runtimeFit: 0,
+              criticBoost: 0,
+              recencyBoost: 0,
+              semantic: 0,
+              exploration: 0,
+              diversityPenalty: 0,
+              repeatPenalty: 0
+            },
+            explanations: {
+              headline: 'h',
+              bullets: [],
+              matchedTokens: {
+                genres: [],
+                developers: [],
+                publishers: [],
+                franchises: [],
+                collections: [],
+                themes: [],
+                keywords: []
+              }
+            }
+          }
+        ]
+      };
+    }
+
+    return { rows: [] };
+  });
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.readTopRecommendations({
+    target: 'DISCOVERY',
+    runtimeMode: 'NEUTRAL',
+    limit: 10
+  });
+
+  assert.ok(result);
+  assert.equal(result.run.target, 'DISCOVERY');
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.igdbGameId, '300');
+  assert.equal(result.items[0]?.scoreTotal, 0.91);
+
+  const recommendationQuery = pool.queries.find((query) =>
+    query.sql.includes('FROM recommendations')
+  );
+  assert.ok(recommendationQuery?.params);
+  assert.equal(recommendationQuery.params[1], 'NEUTRAL');
+  assert.equal(recommendationQuery.params[2], 'discovery');
+  assert.deepEqual(recommendationQuery.params[3], ['', 'wantToPlay']);
+  assert.equal(recommendationQuery.params[4], 10);
+});

@@ -621,6 +621,18 @@ export const MIGRATIONS: string[] = [
   `
 ];
 
+class MigrationUnlockError extends Error {
+  readonly unlockError: Error;
+  readonly migrationError: Error | null;
+
+  constructor(unlockError: Error, migrationError: Error | null) {
+    super('failed to release migration advisory lock', { cause: unlockError });
+    this.name = 'MigrationUnlockError';
+    this.unlockError = unlockError;
+    this.migrationError = migrationError;
+  }
+}
+
 export async function createPool(databaseUrl: string): Promise<Pool> {
   const pool = new Pool({
     connectionString: databaseUrl,
@@ -636,11 +648,17 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
   });
 
   const client = await pool.connect();
+  let shouldDestroyClient = false;
 
   try {
     await runMigrations(client);
+  } catch (error) {
+    if (error instanceof MigrationUnlockError) {
+      shouldDestroyClient = true;
+    }
+    throw error;
   } finally {
-    client.release();
+    client.release(shouldDestroyClient);
   }
 
   return pool;
@@ -678,10 +696,7 @@ export async function runMigrations(client: {
         originalMigrationError:
           migrationError instanceof Error ? { message: migrationError.message } : migrationError
       });
-
-      if (!migrationError) {
-        throw normalizedUnlockError;
-      }
+      throw new MigrationUnlockError(normalizedUnlockError, migrationError);
     }
   }
 

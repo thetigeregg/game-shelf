@@ -575,6 +575,39 @@ export class RecommendationRepository {
     );
   }
 
+  async failStaleRunningRuns(params?: {
+    maxAgeMinutes?: number;
+    errorMessage?: string;
+    target?: RecommendationTarget | null;
+  }): Promise<{ failedCount: number; runIds: number[] }> {
+    const maxAgeMinutes = Number.isInteger(params?.maxAgeMinutes)
+      ? Math.max(1, params?.maxAgeMinutes ?? 0)
+      : 30;
+    const errorMessage =
+      typeof params?.errorMessage === 'string' && params.errorMessage.trim().length > 0
+        ? params.errorMessage.trim()
+        : 'orphaned RUNNING run recovered after worker loss';
+
+    const result = await this.pool.query<{ id: number }>(
+      `
+      UPDATE recommendation_runs
+      SET status = 'FAILED',
+          finished_at = NOW(),
+          error = COALESCE(error, $3)
+      WHERE status = 'RUNNING'
+        AND started_at < (NOW() - make_interval(mins => $1))
+        AND ($2::text IS NULL OR target = $2)
+      RETURNING id
+      `,
+      [maxAgeMinutes, params?.target ?? null, errorMessage]
+    );
+
+    return {
+      failedCount: result.rowCount ?? 0,
+      runIds: result.rows.map((row) => row.id)
+    };
+  }
+
   async readTopRecommendations(params: {
     target: RecommendationTarget;
     runtimeMode: RecommendationRuntimeMode;

@@ -117,3 +117,60 @@ void test('recommendation repository includes capped rows eligible for rearm in 
   assert.equal(sql.includes('(release_year IS NULL OR release_year >= $5)'), true);
   assert.deepEqual(query.params, [5, 6, '2026-03-10T00:00:00.000Z', 30, 2026]);
 });
+
+void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-specific queries', async () => {
+  const pool = new PoolMock((sql) => {
+    if (sql.includes('FROM recommendation_runs')) {
+      return {
+        rows: [
+          {
+            id: 21,
+            target: 'BACKLOG',
+            status: 'SUCCESS',
+            settings_hash: 's',
+            input_hash: 'i',
+            started_at: '2026-03-01T00:00:00.000Z',
+            finished_at: '2026-03-01T00:10:00.000Z',
+            error: null
+          }
+        ]
+      };
+    }
+
+    if (sql.includes('FROM game_similarity')) {
+      return {
+        rows: [
+          {
+            similar_igdb_game_id: '200',
+            similar_platform_igdb_id: 6,
+            similarity: '0.91',
+            reasons: { summary: 'fallback' }
+          }
+        ]
+      };
+    }
+
+    return { rows: [] };
+  });
+  const repository = new RecommendationRepository(pool as never);
+
+  const rows = await repository.readSimilarGames({
+    igdbGameId: '100',
+    platformIgdbId: 6,
+    target: 'BACKLOG',
+    runtimeMode: 'LONG',
+    limit: 5
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.igdbGameId, '200');
+  assert.equal(rows[0]?.similarity, 0.91);
+
+  const similarityQuery = pool.queries.find((query) => query.sql.includes('FROM game_similarity'));
+  assert.ok(similarityQuery);
+  assert.ok(similarityQuery.params);
+  assert.equal(similarityQuery.sql.includes('runtime_mode = ANY(ARRAY[$3::text, $4::text])'), true);
+  assert.equal(similarityQuery.sql.includes('ROW_NUMBER() OVER'), true);
+  assert.equal(similarityQuery.params[2], 'LONG');
+  assert.equal(similarityQuery.params[3], 'NEUTRAL');
+});

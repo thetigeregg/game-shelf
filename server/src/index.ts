@@ -39,7 +39,12 @@ async function main(): Promise<void> {
     pid: process.pid,
     host: config.host,
     port: config.port,
-    nodeEnv: process.env.NODE_ENV ?? ''
+    nodeEnv: process.env.NODE_ENV ?? '',
+    requireAuth: config.requireAuth,
+    releaseMonitorEnabled: config.releaseMonitorEnabled,
+    recommendationsSchedulerEnabled: config.recommendationsSchedulerEnabled,
+    recommendationsDiscoveryEnabled: config.recommendationsDiscoveryEnabled,
+    recommendationsDiscoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled
   });
   validateSecurityConfig();
   const pool = await createPool(config.postgresUrl);
@@ -50,6 +55,7 @@ async function main(): Promise<void> {
     bodyLimit: config.requestBodyLimitBytes,
     logger: true
   });
+  const requestStartedAtMs = new Map<string, number>();
   let closeHookRegistered = false;
   let releaseMonitor: ReturnType<typeof startReleaseMonitor> | null = null;
   const backgroundJobs = new BackgroundJobRepository(pool);
@@ -144,6 +150,22 @@ async function main(): Promise<void> {
     });
 
     await ensureMiddieRegistered(app);
+    app.addHook('onRequest', (request, _reply, done) => {
+      requestStartedAtMs.set(request.id, Date.now());
+      done();
+    });
+    app.addHook('onResponse', async (request, reply) => {
+      const startedAt = requestStartedAtMs.get(request.id);
+      const durationMs = startedAt ? Date.now() - startedAt : null;
+      requestStartedAtMs.delete(request.id);
+      console.info('[api] request_completed', {
+        requestId: request.id,
+        method: request.method,
+        path: request.routeOptions.url,
+        statusCode: reply.statusCode,
+        durationMs
+      });
+    });
 
     app.use((request: IncomingMessage, response: ServerResponse, next) => {
       if (!shouldRequireAuth(request.method ?? '')) {

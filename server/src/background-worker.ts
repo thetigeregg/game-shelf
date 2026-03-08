@@ -169,6 +169,10 @@ async function main(): Promise<void> {
     60
   );
   const jobsCleanupBatchSize = readPositiveIntegerEnv('BACKGROUND_JOBS_CLEANUP_BATCH_SIZE', 1000);
+  const queueStatsIntervalMinutes = readPositiveIntegerEnv(
+    'BACKGROUND_JOBS_STATS_INTERVAL_MINUTES',
+    5
+  );
   const discoveryIntervalMinutes = Math.max(
     1,
     config.recommendationsDiscoveryEnrichIntervalMinutes
@@ -182,6 +186,7 @@ async function main(): Promise<void> {
   let metadataTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryEnrichmentTimer: ReturnType<typeof setInterval> | null = null;
   let backgroundJobsCleanupTimer: ReturnType<typeof setInterval> | null = null;
+  let queueStatsTimer: ReturnType<typeof setInterval> | null = null;
 
   const stopTimers = (): void => {
     if (metadataStartupTimer) {
@@ -203,6 +208,10 @@ async function main(): Promise<void> {
     if (backgroundJobsCleanupTimer) {
       clearInterval(backgroundJobsCleanupTimer);
       backgroundJobsCleanupTimer = null;
+    }
+    if (queueStatsTimer) {
+      clearInterval(queueStatsTimer);
+      queueStatsTimer = null;
     }
   };
 
@@ -238,48 +247,103 @@ async function main(): Promise<void> {
     if (shuttingDown || !config.recommendationsSchedulerEnabled) {
       return;
     }
+    const startedAt = Date.now();
+    let queuedCount = 0;
+    let dedupedCount = 0;
+    let freshCount = 0;
+    let failedCount = 0;
+    const targetResults: Array<Record<string, unknown>> = [];
     for (const target of RECOMMENDATION_TARGETS) {
       try {
-        await recommendationService.ensureRebuildQueuedIfStale(target, 'scheduler');
+        const result = await recommendationService.ensureRebuildQueuedIfStale(target, 'scheduler');
+        if (result.reason === 'fresh') {
+          freshCount += 1;
+        } else if (result.queued) {
+          queuedCount += 1;
+          if (result.reason === 'deduped') {
+            dedupedCount += 1;
+          }
+        }
+        targetResults.push({
+          target,
+          queued: result.queued,
+          reason: result.reason,
+          jobId: result.jobId
+        });
       } catch (error) {
+        failedCount += 1;
+        targetResults.push({
+          target,
+          error: error instanceof Error ? error.message : String(error)
+        });
         console.error('[background-worker] recommendation_scheduler_tick_failed', {
           target,
           error: error instanceof Error ? error.message : String(error)
         });
       }
     }
+    console.info('[background-worker] recommendation_scheduler_tick', {
+      queuedCount,
+      dedupedCount,
+      freshCount,
+      failedCount,
+      durationMs: Date.now() - startedAt,
+      targets: targetResults
+    });
   };
 
   const scheduleMetadataJob = async (): Promise<void> => {
     if (shuttingDown || !config.igdbMetadataEnrichEnabled) {
       return;
     }
-    await jobs.enqueue({
-      jobType: 'metadata_enrichment_run',
-      dedupeKey: 'metadata-enrichment:run',
-      payload: {
-        requestedAt: new Date().toISOString(),
-        requestedBy: 'background-worker'
-      },
-      priority: 90,
-      maxAttempts: 3
-    });
+    try {
+      const enqueueResult = await jobs.enqueue({
+        jobType: 'metadata_enrichment_run',
+        dedupeKey: 'metadata-enrichment:run',
+        payload: {
+          requestedAt: new Date().toISOString(),
+          requestedBy: 'background-worker'
+        },
+        priority: 90,
+        maxAttempts: 3
+      });
+      console.info('[background-worker] metadata_enrichment_enqueue', {
+        queued: !enqueueResult.deduped,
+        deduped: enqueueResult.deduped,
+        jobId: enqueueResult.jobId
+      });
+    } catch (error) {
+      console.error('[background-worker] metadata_enrichment_enqueue_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   };
 
   const scheduleDiscoveryEnrichmentJob = async (): Promise<void> => {
     if (shuttingDown || !config.recommendationsDiscoveryEnrichEnabled) {
       return;
     }
-    await jobs.enqueue({
-      jobType: 'discovery_enrichment_run',
-      dedupeKey: 'discovery-enrichment:run',
-      payload: {
-        requestedAt: new Date().toISOString(),
-        requestedBy: 'background-worker'
-      },
-      priority: 95,
-      maxAttempts: 3
-    });
+    try {
+      const enqueueResult = await jobs.enqueue({
+        jobType: 'discovery_enrichment_run',
+        dedupeKey: 'discovery-enrichment:run',
+        payload: {
+          requestedAt: new Date().toISOString(),
+          requestedBy: 'background-worker'
+        },
+        priority: 95,
+        maxAttempts: 3
+      });
+      console.info('[background-worker] discovery_enrichment_enqueue', {
+        queued: !enqueueResult.deduped,
+        deduped: enqueueResult.deduped,
+        jobId: enqueueResult.jobId
+      });
+    } catch (error) {
+      console.error('[background-worker] discovery_enrichment_enqueue_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   };
 
   const runBackgroundJobsCleanup = async (): Promise<void> => {
@@ -300,6 +364,32 @@ async function main(): Promise<void> {
       }
     } catch (error) {
       console.error('[background-worker] background_jobs_cleanup_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  };
+
+  const logQueuePressure = async (): Promise<void> => {
+    if (shuttingDown) {
+      return;
+    }
+    try {
+      const typeStats = await jobs.getTypeStats();
+      const totals = typeStats.reduce(
+        (acc, row) => ({
+          pending: acc.pending + row.pending,
+          running: acc.running + row.running,
+          failed: acc.failed + row.failed,
+          succeeded: acc.succeeded + row.succeeded
+        }),
+        { pending: 0, running: 0, failed: 0, succeeded: 0 }
+      );
+      console.info('[background-worker] queue_pressure', {
+        totals,
+        byType: typeStats
+      });
+    } catch (error) {
+      console.error('[background-worker] queue_pressure_failed', {
         error: error instanceof Error ? error.message : String(error)
       });
     }
@@ -491,6 +581,13 @@ async function main(): Promise<void> {
     Math.max(1, jobsCleanupIntervalMinutes) * 60 * 1000
   );
   void runBackgroundJobsCleanup();
+  queueStatsTimer = setInterval(
+    () => {
+      void logQueuePressure();
+    },
+    Math.max(1, queueStatsIntervalMinutes) * 60 * 1000
+  );
+  void logQueuePressure();
 
   console.info('[background-worker] started', {
     recommendationSchedulerEnabled: config.recommendationsSchedulerEnabled,
@@ -505,6 +602,7 @@ async function main(): Promise<void> {
     backgroundJobsRetentionDays: jobsRetentionDays,
     backgroundJobsCleanupIntervalMinutes: jobsCleanupIntervalMinutes,
     backgroundJobsCleanupBatchSize: jobsCleanupBatchSize,
+    queueStatsIntervalMinutes,
     discoveryIntervalMinutes,
     discoveryEnabled: config.recommendationsDiscoveryEnabled,
     discoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,

@@ -118,6 +118,13 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   let stopped = false;
   let currentRun: Promise<void> | null = null;
   const runtimeState = createMonitorRuntimeState();
+  const intervalMs = Math.max(30, config.releaseMonitorIntervalSeconds) * 1000;
+  console.info('[release-monitor] started', {
+    intervalMs,
+    batchSize: config.releaseMonitorBatchSize,
+    hltbPeriodicRefreshDays: config.hltbPeriodicRefreshDays,
+    metacriticPeriodicRefreshDays: config.metacriticPeriodicRefreshDays
+  });
 
   const runOnce = async (): Promise<void> => {
     if (stopped || running) {
@@ -142,7 +149,6 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   };
 
   void runOnce();
-  const intervalMs = Math.max(30, config.releaseMonitorIntervalSeconds) * 1000;
   const timer = setInterval(() => {
     void runOnce();
   }, intervalMs);
@@ -160,6 +166,12 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
 
 async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): Promise<void> {
   const stats = createMonitorRunStats();
+  console.info('[release-monitor] run_started', {
+    startedAtIso: stats.startedAtIso,
+    batchSize: config.releaseMonitorBatchSize,
+    dueSelectionSource:
+      "games.listType IN ('collection','wishlist') with COALESCE(release_watch_state.next_check_at, NOW()) <= NOW()"
+  });
   await runFcmTokenCleanupIfDue(pool, stats, runtimeState);
 
   const dueRows = await pool.query<DueGameRow>(

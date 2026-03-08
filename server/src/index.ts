@@ -370,28 +370,36 @@ async function main(): Promise<void> {
     });
 
     let shuttingDown = false;
-    const stop = async (signal: string): Promise<void> => {
+    const stop = async (signal: string): Promise<boolean> => {
       if (shuttingDown) {
-        return;
+        return true;
       }
       shuttingDown = true;
       console.info('[api] stopping', { signal });
       try {
         await app.close();
         console.info('[api] stopped', { signal });
+        return true;
       } catch (error) {
         console.error('[api] stop_failed', {
           signal,
           error: error instanceof Error ? error.message : String(error)
         });
+        return false;
       }
     };
 
+    const handleSignal = async (signal: 'SIGINT' | 'SIGTERM'): Promise<void> => {
+      const cleanShutdown = await stop(signal);
+      process.exitCode = cleanShutdown ? 0 : 1;
+      process.exit();
+    };
+
     process.on('SIGINT', () => {
-      void stop('SIGINT').finally(() => process.exit(0));
+      void handleSignal('SIGINT');
     });
     process.on('SIGTERM', () => {
-      void stop('SIGTERM').finally(() => process.exit(0));
+      void handleSignal('SIGTERM');
     });
 
     if (config.recommendationsSchedulerEnabled) {

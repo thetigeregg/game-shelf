@@ -649,6 +649,9 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
 export async function runMigrations(client: {
   query: (sql: string) => Promise<unknown>;
 }): Promise<void> {
+  const toError = (value: unknown): Error =>
+    value instanceof Error ? value : new Error(String(value));
+
   // Use a stable, namespaced key hashed by Postgres to avoid hard-coded magic numbers
   // and keep collision risk negligible for this app-specific migration lock.
   const migrationLockId = 'game-shelf:migrations:v1';
@@ -657,11 +660,31 @@ export async function runMigrations(client: {
 
   await client.query(migrationLockSql);
 
+  let migrationError: Error | null = null;
   try {
     for (const migration of MIGRATIONS) {
       await client.query(migration);
     }
+  } catch (error) {
+    migrationError = toError(error);
   } finally {
-    await client.query(migrationUnlockSql);
+    try {
+      await client.query(migrationUnlockSql);
+    } catch (unlockError) {
+      const normalizedUnlockError = toError(unlockError);
+      console.error('[db] migration_unlock_error', {
+        message: normalizedUnlockError.message,
+        originalMigrationError:
+          migrationError instanceof Error ? { message: migrationError.message } : migrationError
+      });
+
+      if (!migrationError) {
+        throw normalizedUnlockError;
+      }
+    }
+  }
+
+  if (migrationError) {
+    throw migrationError;
   }
 }

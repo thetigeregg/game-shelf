@@ -330,6 +330,259 @@
             },
             "description": "Checks manuals lookup path and DB connectivity for manual catalog queries."
           }
+        },
+        {
+          "name": "Recommendations Lanes (Smoke)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/recommendations/lanes?target=BACKLOG&limit=1",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "recommendations", "lanes"],
+              "query": [
+                {
+                  "key": "target",
+                  "value": "BACKLOG"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Low-cost read check for lane generation and recommendation availability."
+          }
+        },
+        {
+          "name": "Recommendations Rebuild BACKLOG (Queue)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"BACKLOG\",\n  \"force\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/recommendations/rebuild",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "recommendations", "rebuild"]
+            },
+            "description": "Queues recommendation rebuild for BACKLOG target."
+          }
+        },
+        {
+          "name": "Recommendations Rebuild WISHLIST (Queue)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"WISHLIST\",\n  \"force\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/recommendations/rebuild",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "recommendations", "rebuild"]
+            },
+            "description": "Queues recommendation rebuild for WISHLIST target."
+          }
+        },
+        {
+          "name": "Recommendations Rebuild DISCOVERY (Queue)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"DISCOVERY\",\n  \"force\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/recommendations/rebuild",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "recommendations", "rebuild"]
+            },
+            "description": "Queues recommendation rebuild for DISCOVERY target."
+          }
+        },
+        {
+          "name": "Manuals Refresh (Queue)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/manuals/refresh?force=false",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "manuals", "refresh"],
+              "query": [
+                {
+                  "key": "force",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Queues manuals catalog refresh without forcing immediate inline rebuild."
+          }
+        },
+        {
+          "name": "Notifications Test (Optional Feature)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/notifications/test",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "notifications", "test"]
+            },
+            "description": "Controlled push delivery test. Requires NOTIFICATIONS_TEST_ENDPOINT_ENABLED=true."
+          }
+        },
+        {
+          "name": "Background Jobs Failed - Recommendations Rebuild",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/background-jobs/failed?jobType=recommendations_rebuild&limit=10",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "background-jobs", "failed"],
+              "query": [
+                {
+                  "key": "jobType",
+                  "value": "recommendations_rebuild"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Focused failed-job check for recommendation rebuild pipeline."
+          }
+        },
+        {
+          "name": "Background Jobs Failed - Metadata Enrichment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/background-jobs/failed?jobType=metadata_enrichment_run&limit=10",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "background-jobs", "failed"],
+              "query": [
+                {
+                  "key": "jobType",
+                  "value": "metadata_enrichment_run"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Focused failed-job check for metadata enrichment pipeline."
+          }
+        },
+        {
+          "name": "Background Jobs Failed - Release Monitor",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/background-jobs/failed?jobType=release_monitor_game&limit=10",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "background-jobs", "failed"],
+              "query": [
+                {
+                  "key": "jobType",
+                  "value": "release_monitor_game"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Focused failed-job check for release monitor delivery pipeline."
+          }
         }
       ]
     }

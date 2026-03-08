@@ -49,6 +49,13 @@ jobs:
       - name: Install backend package dependencies
         run: npm --prefix server ci && npm --prefix worker ci
 
+      - name: Validate Postman collections JSON
+        run: |
+          for file in postman/*.postman_collection.json; do
+            [ -e "$file" ] || continue
+            jq empty "$file"
+          done
+
       - name: Lint
         run: npm run lint
 

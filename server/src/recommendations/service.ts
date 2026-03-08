@@ -213,7 +213,6 @@ export class RecommendationService implements RecommendationServiceApi {
         });
         games = await this.repository.listNormalizedGames(client);
       }
-      const histories = await this.loadHistoryByMode(params.target, client);
       const keywordArtifacts = this.buildKeywordArtifacts(games);
       const settingsHash = this.computeSettingsHash();
       const inputHash = this.computeInputHash(games, params.target, keywordArtifacts);
@@ -232,6 +231,8 @@ export class RecommendationService implements RecommendationServiceApi {
           reusedRunId: latestSuccess.id
         };
       }
+
+      const histories = await this.loadHistoryByMode(params.target, client);
 
       const runId = await this.repository.createRun({
         client,
@@ -285,8 +286,6 @@ export class RecommendationService implements RecommendationServiceApi {
             keywords: this.options.similarityKeywordWeight
           }
         });
-        const similarityEdgesByMode = createModeRecord(() => similarityEdges);
-
         await this.repository.finalizeRunSuccess({
           client,
           runId,
@@ -294,7 +293,7 @@ export class RecommendationService implements RecommendationServiceApi {
           recommendationsByMode,
           lanesByMode,
           historyUpdates,
-          similarityEdgesByMode
+          similarityEdges
         });
 
         return {

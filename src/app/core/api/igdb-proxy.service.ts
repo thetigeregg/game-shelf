@@ -123,6 +123,9 @@ interface RecommendationTopApiResponse {
   runId?: unknown;
   generatedAt?: unknown;
   items?: unknown;
+  status?: unknown;
+  reason?: unknown;
+  error?: unknown;
 }
 
 interface RecommendationLanesApiResponse {
@@ -131,6 +134,9 @@ interface RecommendationLanesApiResponse {
   runId?: unknown;
   generatedAt?: unknown;
   lanes?: unknown;
+  status?: unknown;
+  reason?: unknown;
+  error?: unknown;
 }
 
 interface RecommendationRebuildApiResponse {

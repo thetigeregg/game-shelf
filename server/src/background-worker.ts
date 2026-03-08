@@ -52,6 +52,10 @@ export function stringOrEmpty(value: unknown): string {
 
 /* node:coverage disable */
 async function main(): Promise<void> {
+  console.info('[background-worker] starting', {
+    pid: process.pid,
+    nodeEnv: process.env.NODE_ENV ?? ''
+  });
   const pool = await createPool(config.postgresUrl);
   const jobs = new BackgroundJobRepository(pool);
   const recommendationRepository = new RecommendationRepository(pool);
@@ -220,6 +224,7 @@ async function main(): Promise<void> {
         error: error instanceof Error ? error.message : String(error)
       });
     }
+    console.info('[background-worker] stopped', { signal });
   };
 
   process.on('SIGINT', () => {
@@ -364,6 +369,29 @@ async function main(): Promise<void> {
     }
   };
 
+  const buildJobContext = (job: ClaimedBackgroundJob): Record<string, unknown> => {
+    const context: Record<string, unknown> = {
+      jobId: job.id,
+      jobType: job.jobType
+    };
+
+    if (job.jobType === 'recommendations_rebuild') {
+      context.target = job.payload['target'];
+      context.force = job.payload['force'] === true;
+    } else if (job.jobType === 'release_monitor_game') {
+      context.igdbGameId = job.payload['igdbGameId'];
+      context.platformIgdbId = job.payload['platformIgdbId'];
+    } else if (
+      job.jobType === 'hltb_cache_revalidate' ||
+      job.jobType === 'metacritic_cache_revalidate' ||
+      job.jobType === 'mobygames_cache_revalidate'
+    ) {
+      context.cacheKey = job.payload['cacheKey'];
+    }
+
+    return context;
+  };
+
   const startConsumers = (jobType: BackgroundJobType, concurrency: number): void => {
     for (let index = 0; index < concurrency; index += 1) {
       const consumerLoop = (async () => {
@@ -385,13 +413,27 @@ async function main(): Promise<void> {
             continue;
           }
 
+          console.info('[background-worker] job_claimed', buildJobContext(claimed));
+
           const processClaimedJob = (async () => {
+            const startedAt = Date.now();
+            const jobContext = buildJobContext(claimed);
+            console.info('[background-worker] job_started', jobContext);
             try {
               const result = await dispatchJob(claimed);
               await jobs.complete(claimed.id, result);
+              console.info('[background-worker] job_succeeded', {
+                ...jobContext,
+                durationMs: Date.now() - startedAt
+              });
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               await jobs.fail(claimed.id, message);
+              console.error('[background-worker] job_failed', {
+                ...jobContext,
+                durationMs: Date.now() - startedAt,
+                error: message
+              });
             }
           })();
           inFlightJobs.add(processClaimedJob);

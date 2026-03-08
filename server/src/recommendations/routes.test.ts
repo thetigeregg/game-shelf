@@ -10,6 +10,17 @@ function createServiceMock(
 ): RecommendationServiceApi {
   const base: RecommendationServiceApi = {
     rebuildIfStale: () => Promise.resolve(null),
+    ensureRebuildQueuedIfStale: () =>
+      Promise.resolve({
+        queued: false,
+        reason: 'fresh',
+        jobId: null
+      }),
+    enqueueRebuild: () =>
+      Promise.resolve({
+        jobId: 101,
+        deduped: false
+      }),
     resolveRuntimeMode: (runtimeMode) => Promise.resolve(runtimeMode ?? 'NEUTRAL'),
     getTopRecommendations: (_target, _limit, runtimeMode) =>
       Promise.resolve({
@@ -195,11 +206,25 @@ void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fall
   await app.close();
 });
 
-void test('GET /v1/recommendations/top and /lanes validate runtime mode and not-found responses', async () => {
+void test('GET /v1/recommendations/top and /lanes validate runtime mode and queue when missing', async () => {
+  let enqueueCalls = 0;
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(
     app,
     createServiceMock({
+      ensureRebuildQueuedIfStale: () =>
+        Promise.resolve({
+          queued: false,
+          reason: 'fresh',
+          jobId: null
+        }),
+      enqueueRebuild: () => {
+        enqueueCalls += 1;
+        return Promise.resolve({
+          jobId: 333 + enqueueCalls,
+          deduped: false
+        });
+      },
       getTopRecommendations: () => Promise.resolve(null),
       getRecommendationLanes: () => Promise.resolve(null)
     })
@@ -215,7 +240,10 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and not-
     method: 'GET',
     url: '/v1/recommendations/top?target=BACKLOG&limit=invalid'
   });
-  assert.equal(notFoundTop.statusCode, 404);
+  assert.equal(notFoundTop.statusCode, 202);
+  const notFoundTopBody = JSON.parse(notFoundTop.body) as { status?: string; jobId?: number };
+  assert.equal(notFoundTopBody.status, 'QUEUED');
+  assert.equal(notFoundTopBody.jobId, 334);
 
   const invalidLanesRuntime = await app.inject({
     method: 'GET',
@@ -227,17 +255,24 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and not-
     method: 'GET',
     url: '/v1/recommendations/lanes?target=BACKLOG'
   });
-  assert.equal(notFoundLanes.statusCode, 404);
+  assert.equal(notFoundLanes.statusCode, 202);
+  const notFoundLanesBody = JSON.parse(notFoundLanes.body) as { status?: string; jobId?: number };
+  assert.equal(notFoundLanesBody.status, 'QUEUED');
+  assert.equal(notFoundLanesBody.jobId, 335);
 
   await app.close();
 });
 
-void test('POST /v1/recommendations/rebuild validates target and handles locks', async () => {
+void test('POST /v1/recommendations/rebuild validates target and queues rebuild job', async () => {
   const app = fastifyFactory({ logger: false });
   await registerRecommendationRoutes(
     app,
     createServiceMock({
-      rebuild: () => Promise.resolve({ target: 'BACKLOG', status: 'LOCKED' })
+      enqueueRebuild: () =>
+        Promise.resolve({
+          jobId: 55,
+          deduped: true
+        })
     })
   );
 
@@ -249,68 +284,39 @@ void test('POST /v1/recommendations/rebuild validates target and handles locks',
 
   assert.equal(invalid.statusCode, 400);
 
-  const locked = await app.inject({
+  const queued = await app.inject({
     method: 'POST',
     url: '/v1/recommendations/rebuild',
     payload: { target: 'BACKLOG' }
   });
 
-  assert.equal(locked.statusCode, 409);
+  assert.equal(queued.statusCode, 202);
+  const queuedBody = JSON.parse(queued.body) as { status: string; jobId: number; deduped: boolean };
+  assert.equal(queuedBody.status, 'QUEUED');
+  assert.equal(queuedBody.jobId, 55);
+  assert.equal(queuedBody.deduped, true);
 
   await app.close();
 });
 
-void test('POST /v1/recommendations/rebuild handles backoff, failed, and skipped payloads', async () => {
+void test('POST /v1/recommendations/rebuild queues force jobs', async () => {
   const app = fastifyFactory({ logger: false });
-  const states: Array<'BACKOFF_SKIPPED' | 'FAILED' | 'SKIPPED'> = [
-    'BACKOFF_SKIPPED',
-    'FAILED',
-    'SKIPPED'
-  ];
   await registerRecommendationRoutes(
     app,
     createServiceMock({
-      rebuild: () => {
-        const state = states.shift();
-        if (state === 'BACKOFF_SKIPPED') {
-          return Promise.resolve({ target: 'BACKLOG', status: 'BACKOFF_SKIPPED' as const });
-        }
-        if (state === 'FAILED') {
-          return Promise.resolve({ target: 'BACKLOG', runId: 8, status: 'FAILED' as const });
-        }
-        return Promise.resolve({
-          target: 'BACKLOG',
-          runId: 9,
-          status: 'SKIPPED' as const,
-          reusedRunId: 7
-        });
-      }
+      enqueueRebuild: () => Promise.resolve({ jobId: 77, deduped: false })
     })
   );
 
-  const backoff = await app.inject({
+  const queued = await app.inject({
     method: 'POST',
     url: '/v1/recommendations/rebuild',
     payload: { target: 'BACKLOG', force: true }
   });
-  assert.equal(backoff.statusCode, 429);
-
-  const failed = await app.inject({
-    method: 'POST',
-    url: '/v1/recommendations/rebuild',
-    payload: { target: 'BACKLOG' }
-  });
-  assert.equal(failed.statusCode, 500);
-
-  const skipped = await app.inject({
-    method: 'POST',
-    url: '/v1/recommendations/rebuild',
-    payload: { target: 'BACKLOG' }
-  });
-  assert.equal(skipped.statusCode, 200);
-  const body = JSON.parse(skipped.body) as { reusedRunId?: number | null; status?: string };
-  assert.equal(body.status, 'SKIPPED');
-  assert.equal(body.reusedRunId, 7);
+  assert.equal(queued.statusCode, 202);
+  const body = JSON.parse(queued.body) as { status?: string; jobId?: number };
+  assert.equal(body.status, 'QUEUED');
+  assert.equal(body.jobId, 77);
 
   await app.close();
 });

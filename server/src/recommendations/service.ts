@@ -28,6 +28,7 @@ import {
   NormalizedGameRecord,
   RankedRecommendationItem,
   RebuildResult,
+  RecommendationRebuildQueueReason,
   RecommendationLaneCollection,
   RecommendationRunSummary,
   RecommendationRuntimeMode,
@@ -101,6 +102,19 @@ export interface RecommendationServiceApi {
     target: RecommendationTarget,
     triggeredBy: 'scheduler' | 'stale-read'
   ): Promise<RebuildAttemptResult | null>;
+  ensureRebuildQueuedIfStale(
+    target: RecommendationTarget,
+    triggeredBy: 'scheduler' | 'stale-read'
+  ): Promise<{
+    queued: boolean;
+    reason: RecommendationRebuildQueueReason | 'fresh';
+    jobId: number | null;
+  }>;
+  enqueueRebuild(params: {
+    target: RecommendationTarget;
+    force: boolean;
+    triggeredBy: 'manual' | 'scheduler' | 'stale-read';
+  }): Promise<{ jobId: number; deduped: boolean }>;
   resolveRuntimeMode(
     runtimeMode?: RecommendationRuntimeMode | null
   ): Promise<RecommendationRuntimeMode>;
@@ -329,6 +343,47 @@ export class RecommendationService implements RecommendationServiceApi {
       target,
       force: false,
       triggeredBy
+    });
+  }
+
+  async ensureRebuildQueuedIfStale(
+    target: RecommendationTarget,
+    triggeredBy: 'scheduler' | 'stale-read'
+  ): Promise<{
+    queued: boolean;
+    reason: RecommendationRebuildQueueReason | 'fresh';
+    jobId: number | null;
+  }> {
+    const latest = await this.repository.getLatestSuccessfulRun(target);
+
+    if (latest && !this.isStale(latest)) {
+      return { queued: false, reason: 'fresh', jobId: null };
+    }
+
+    const reason: RecommendationRebuildQueueReason = latest ? 'stale' : 'missing';
+    const queued = await this.repository.enqueueRecommendationRebuildJob({
+      target,
+      force: false,
+      triggeredBy,
+      reason
+    });
+    return {
+      queued: true,
+      reason,
+      jobId: queued.jobId
+    };
+  }
+
+  async enqueueRebuild(params: {
+    target: RecommendationTarget;
+    force: boolean;
+    triggeredBy: 'manual' | 'scheduler' | 'stale-read';
+  }): Promise<{ jobId: number; deduped: boolean }> {
+    return this.repository.enqueueRecommendationRebuildJob({
+      target: params.target,
+      force: params.force,
+      triggeredBy: params.triggeredBy,
+      reason: params.force ? 'forced' : 'stale'
     });
   }
 

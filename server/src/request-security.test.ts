@@ -111,7 +111,8 @@ void test('server route inventory remains audited and mutating routes require au
     './metacritic-cache.ts',
     './mobygames-cache.ts',
     './manuals.ts',
-    './cache-observability.ts'
+    './cache-observability.ts',
+    './background-jobs-routes.ts'
   ];
   const routeMethodRegex = /app\.(get|post|put|patch|delete|options|head)\(\s*'([^']+)'/g;
   const routeObjectRegex = /app\.route\(\s*\{\s*method:\s*'([^']+)'\s*,\s*url:\s*'([^']+)'/g;
@@ -143,6 +144,8 @@ void test('server route inventory remains audited and mutating routes require au
 
   const expectedRoutes: Array<{ method: string; path: string }> = [
     { method: 'GET', path: '/v1/cache/stats' },
+    { method: 'GET', path: '/v1/background-jobs/failed' },
+    { method: 'GET', path: '/v1/background-jobs/stats' },
     { method: 'GET', path: '/v1/games/:id' },
     { method: 'GET', path: '/v1/games/search' },
     { method: 'GET', path: '/v1/health' },
@@ -157,6 +160,7 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'GET', path: '/v1/popularity/primitives' },
     { method: 'GET', path: '/v1/popularity/types' },
     { method: 'POST', path: '/v1/images/cache/purge' },
+    { method: 'POST', path: '/v1/background-jobs/replay' },
     { method: 'POST', path: '/v1/manuals/refresh' },
     { method: 'POST', path: '/v1/sync/pull' },
     { method: 'POST', path: '/v1/sync/push' }

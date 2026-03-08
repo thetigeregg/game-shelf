@@ -203,7 +203,7 @@ export interface RecommendationLanesResponse {
 export interface RecommendationRebuildResponse {
   target: RecommendationTarget;
   runId: number;
-  status: 'SUCCESS' | 'FAILED' | 'SKIPPED' | 'LOCKED' | 'BACKOFF_SKIPPED';
+  status: 'QUEUED' | 'SUCCESS' | 'FAILED' | 'SKIPPED' | 'LOCKED' | 'BACKOFF_SKIPPED';
   reusedRunId?: number | null;
 }
 

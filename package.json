@@ -16,7 +16,7 @@
     "dev:worktree:stack:restart": "node scripts/worktree-dev.mjs stack restart",
     "dev:worktree:stack:recreate": "node scripts/worktree-dev.mjs stack down && node scripts/worktree-dev.mjs stack up",
     "dev:worktree:stack:down": "node scripts/worktree-dev.mjs stack down",
-    "dev:worktree:backend:logs": "node scripts/worktree-dev.mjs stack logs",
+    "dev:worktree:stack:logs": "node scripts/worktree-dev.mjs stack logs",
     "dev:worktree:stack:ps": "node scripts/worktree-dev.mjs stack ps",
     "dev:worktree:db:seed:refresh": "node scripts/worktree-dev.mjs db seed-refresh",
     "dev:worktree:db:seed:apply": "node scripts/worktree-dev.mjs db seed-apply",

@@ -5,6 +5,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from 'fastify-rate-limit';
+import { registerBackgroundJobRoutes } from './background-jobs-routes.js';
+import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { registerCacheObservabilityRoutes } from './cache-observability.js';
 import { createPool } from './db.js';
@@ -15,12 +17,8 @@ import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
-import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
-import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
-import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { registerRecommendationRoutes } from './recommendations/routes.js';
-import { RecommendationScheduler } from './recommendations/scheduler.js';
 import { RecommendationService } from './recommendations/service.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
@@ -48,8 +46,8 @@ async function main(): Promise<void> {
   });
   let closeHookRegistered = false;
   let releaseMonitor: ReturnType<typeof startReleaseMonitor> | null = null;
+  const backgroundJobs = new BackgroundJobRepository(pool);
   const recommendationRepository = new RecommendationRepository(pool);
-  const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
   const embeddingClient = new OpenAiEmbeddingClient({
     apiKey: config.openaiApiKey,
     model: config.recommendationsEmbeddingModel,
@@ -123,24 +121,6 @@ async function main(): Promise<void> {
       embeddingClient,
       discoveryClient: discoveryIgdbClient,
       discoveryEnrichmentService
-    }
-  );
-  const recommendationScheduler = new RecommendationScheduler(recommendationService, {
-    enabled: config.recommendationsSchedulerEnabled
-  });
-  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
-    twitchClientId: config.twitchClientId,
-    twitchClientSecret: config.twitchClientSecret,
-    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
-  });
-  const metadataEnrichmentService = new MetadataEnrichmentService(
-    metadataEnrichmentRepository,
-    metadataEnrichmentClient,
-    {
-      enabled: config.igdbMetadataEnrichEnabled,
-      batchSize: config.igdbMetadataEnrichBatchSize,
-      maxGamesPerRun: config.igdbMetadataEnrichMaxGamesPerRun,
-      startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
     }
   );
 
@@ -281,18 +261,59 @@ async function main(): Promise<void> {
     registerNotificationRoutes(app, pool);
     await registerImageProxyRoute(app, pool, imageCacheDir);
     await registerCacheObservabilityRoutes(app, pool);
+    registerBackgroundJobRoutes(app, pool);
     registerManualRoutes(app, {
       manualsDir: config.manualsDir,
-      manualsPublicBaseUrl: config.manualsPublicBaseUrl
+      manualsPublicBaseUrl: config.manualsPublicBaseUrl,
+      mode: 'queue',
+      queuePool: pool,
+      enqueueCatalogRefreshJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'manuals_catalog_refresh',
+          dedupeKey: 'manuals-catalog-refresh',
+          payload,
+          priority: 110,
+          maxAttempts: 3
+        });
+      }
     });
 
     releaseMonitor = startReleaseMonitor(pool);
-    await registerHltbCachedRoute(app, pool);
-    await registerMetacriticCachedRoute(app, pool);
+    await registerHltbCachedRoute(app, pool, {
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'hltb_cache_revalidate',
+          dedupeKey: `hltb-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
+    await registerMetacriticCachedRoute(app, pool, {
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'metacritic_cache_revalidate',
+          dedupeKey: `metacritic-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
     await registerMobyGamesCachedRoute(app, pool, {
       enableStaleWhileRevalidate: config.mobygamesCacheEnableStaleWhileRevalidate,
       freshTtlSeconds: config.mobygamesCacheFreshTtlSeconds,
-      staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds
+      staleTtlSeconds: config.mobygamesCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'mobygames_cache_revalidate',
+          dedupeKey: `mobygames-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
     });
     await registerRecommendationRoutes(app, recommendationService);
 
@@ -313,9 +334,11 @@ async function main(): Promise<void> {
       host: config.host,
       port: config.port
     });
-    recommendationScheduler.start();
-    discoveryEnrichmentService.start();
-    metadataEnrichmentService.start();
+    if (config.recommendationsSchedulerEnabled) {
+      console.info(
+        '[recommendations] RECOMMENDATIONS_SCHEDULER_ENABLED is set on API process; scheduler execution is handled by background-worker'
+      );
+    }
   } catch (error) {
     if (closeHookRegistered) {
       await app.close().catch(() => undefined);

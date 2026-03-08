@@ -835,26 +835,45 @@ export class RecommendationRepository {
     const statusFilter = buildStatusFilterForTarget(params.target);
     const result = await this.pool.query<SimilarityRow>(
       `
+      WITH ranked AS (
+        SELECT
+          game_similarity.similar_igdb_game_id,
+          game_similarity.similar_platform_igdb_id,
+          game_similarity.similarity,
+          game_similarity.reasons,
+          CASE WHEN game_similarity.runtime_mode = $3 THEN 0 ELSE 1 END AS mode_priority,
+          ROW_NUMBER() OVER (
+            PARTITION BY game_similarity.similar_igdb_game_id, game_similarity.similar_platform_igdb_id
+            ORDER BY
+              CASE WHEN game_similarity.runtime_mode = $3 THEN 0 ELSE 1 END ASC,
+              game_similarity.similarity DESC,
+              game_similarity.similar_igdb_game_id ASC,
+              game_similarity.similar_platform_igdb_id ASC
+          ) AS mode_rank
+        FROM game_similarity
+        INNER JOIN games
+          ON games.igdb_game_id = game_similarity.similar_igdb_game_id
+         AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
+        WHERE game_similarity.run_id = $1
+          AND game_similarity.target = $2
+          AND game_similarity.runtime_mode = ANY(ARRAY[$3::text, $4::text])
+          AND game_similarity.source_igdb_game_id = $5
+          AND game_similarity.source_platform_igdb_id = $6
+          AND game_similarity.similar_igdb_game_id <> $5
+          AND COALESCE(games.payload->>'listType', '') = $7
+          AND COALESCE(games.payload->>'status', '') = ANY($8::text[])
+      )
       SELECT similar_igdb_game_id, similar_platform_igdb_id, similarity, reasons
-      FROM game_similarity
-      INNER JOIN games
-        ON games.igdb_game_id = game_similarity.similar_igdb_game_id
-       AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
-      WHERE run_id = $1
-        AND target = $2
-        AND runtime_mode = ANY($3::text[])
-        AND source_igdb_game_id = $4
-        AND source_platform_igdb_id = $5
-        AND similar_igdb_game_id <> $4
-        AND COALESCE(games.payload->>'listType', '') = $6
-        AND COALESCE(games.payload->>'status', '') = ANY($7::text[])
-      ORDER BY similarity DESC, similar_igdb_game_id ASC, similar_platform_igdb_id ASC
-      LIMIT $8
+      FROM ranked
+      WHERE mode_rank = 1
+      ORDER BY similarity DESC, mode_priority ASC, similar_igdb_game_id ASC, similar_platform_igdb_id ASC
+      LIMIT $9
       `,
       [
         run.id,
         params.target,
-        [params.runtimeMode, 'NEUTRAL'],
+        params.runtimeMode,
+        'NEUTRAL',
         params.igdbGameId,
         params.platformIgdbId,
         statusFilter.listType,

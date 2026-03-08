@@ -153,8 +153,8 @@ services:
       - ${SECRETS_HOST_DIR}:/run/secrets:ro
     restart: unless-stopped
 
-  recommendations-worker:
-    container_name: gameshelf-recommendations-worker
+  background-worker:
+    container_name: gameshelf-background-worker
     image: ${API_IMAGE:-ghcr.io/thetigeregg/game-shelf-api:main}
     command: ["npm", "run", "start:background-worker"]
     environment:

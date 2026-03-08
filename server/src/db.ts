@@ -143,8 +143,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'release_watch_state_release_precision_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'release_watch_state_release_precision_check'
+        AND c.conrelid = 'release_watch_state'::regclass
     ) THEN
       ALTER TABLE release_watch_state
       ADD CONSTRAINT release_watch_state_release_precision_check
@@ -195,8 +197,9 @@ export const MIGRATIONS: string[] = [
   BEGIN
     IF EXISTS (
       SELECT 1
-      FROM pg_constraint
-      WHERE conname = 'recommendation_runs_target_check'
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendation_runs_target_check'
+        AND c.conrelid = 'recommendation_runs'::regclass
     ) THEN
       ALTER TABLE recommendation_runs
       DROP CONSTRAINT recommendation_runs_target_check;
@@ -245,8 +248,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'recommendations_runtime_mode_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendations_runtime_mode_check'
+        AND c.conrelid = 'recommendations'::regclass
     ) THEN
       ALTER TABLE recommendations
       ADD CONSTRAINT recommendations_runtime_mode_check
@@ -292,8 +297,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'recommendations_run_runtime_game_uid'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendations_run_runtime_game_uid'
+        AND c.conrelid = 'recommendations'::regclass
     ) THEN
       ALTER TABLE recommendations
       ADD CONSTRAINT recommendations_run_runtime_game_uid
@@ -376,8 +383,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_target_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'game_similarity_target_check'
+        AND c.conrelid = 'game_similarity'::regclass
     ) THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_target_check
@@ -389,8 +398,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_runtime_mode_check'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'game_similarity_runtime_mode_check'
+        AND c.conrelid = 'game_similarity'::regclass
     ) THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_runtime_mode_check
@@ -402,8 +413,10 @@ export const MIGRATIONS: string[] = [
   DO $$
   BEGIN
     IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint
-      WHERE conname = 'game_similarity_run_fk'
+      SELECT 1
+      FROM pg_constraint c
+      WHERE c.conname = 'game_similarity_run_fk'
+        AND c.conrelid = 'game_similarity'::regclass
     ) THEN
       ALTER TABLE game_similarity
       ADD CONSTRAINT game_similarity_run_fk
@@ -504,8 +517,9 @@ export const MIGRATIONS: string[] = [
   BEGIN
     IF EXISTS (
       SELECT 1
-      FROM pg_constraint
-      WHERE conname = 'recommendation_lanes_lane_check'
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendation_lanes_lane_check'
+        AND c.conrelid = 'recommendation_lanes'::regclass
     ) THEN
       ALTER TABLE recommendation_lanes
       DROP CONSTRAINT recommendation_lanes_lane_check;
@@ -538,8 +552,9 @@ export const MIGRATIONS: string[] = [
   BEGIN
     IF EXISTS (
       SELECT 1
-      FROM pg_constraint
-      WHERE conname = 'recommendation_history_target_check'
+      FROM pg_constraint c
+      WHERE c.conname = 'recommendation_history_target_check'
+        AND c.conrelid = 'recommendation_history'::regclass
     ) THEN
       ALTER TABLE recommendation_history
       DROP CONSTRAINT recommendation_history_target_check;

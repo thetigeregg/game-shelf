@@ -1770,3 +1770,14 @@
 - cd2ecf5 Add prod observability Postman
 - 9706623 Add prod observability Postman
 
+## v1.1.17 - 2026-03-08
+- 4638de7 Merge pull request #182 from thetigeregg/codex/perfs
+- 758de21 Add finalizeRunSuccess batch test
+- 9d4a801 Add tests for finalizeRunSuccess
+- ac88ba2 Fix loops in finalizeRunSuccess
+- 0928f50 Fix mode fallback dedupe
+- d7493e9 Implement deterministic fallback
+- 8a9c799 Fix recommendation fallback query
+- 122a410 Fix runtime mode fallback logic
+- f8864c9 Summarize recent request log
+

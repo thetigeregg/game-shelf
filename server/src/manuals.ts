@@ -1,8 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { Pool } from 'pg';
 
 const MANUAL_SCAN_CACHE_TTL_MS = 60_000;
+const MANUALS_CATALOG_SNAPSHOT_KEY = 'manuals.catalog.snapshot.v1';
 const AUTO_MATCH_MIN_SCORE = 0.86;
 const AUTO_MATCH_MIN_GAP = 0.08;
 const MAX_CANDIDATES = 12;
@@ -58,6 +60,16 @@ interface RefreshQuery {
 interface RegisterManualRoutesOptions {
   manualsDir: string;
   manualsPublicBaseUrl: string;
+  mode?: 'inline' | 'queue';
+  queuePool?: Pool;
+  enqueueCatalogRefreshJob?: (payload: ManualsCatalogRefreshPayload) => void;
+  queueSnapshotTtlMs?: number;
+}
+
+export interface ManualsCatalogRefreshPayload {
+  reason: string;
+  requestedAt: string;
+  force: boolean;
 }
 
 export function parsePlatformIdFromFolderName(folderName: string): number | null {
@@ -133,6 +145,7 @@ export function registerManualRoutes(
   const normalizedManualsPublicBaseUrl = normalizeManualsPublicBaseUrl(
     options.manualsPublicBaseUrl
   );
+  const mode = options.mode ?? 'inline';
   let cachedCatalog: ManualCatalog | null = null;
   let cacheExpiresAt = 0;
 
@@ -311,6 +324,10 @@ export function registerManualRoutes(
   });
 
   async function readCatalog(params: { force: boolean }): Promise<ManualCatalog> {
+    if (mode === 'queue') {
+      return readCatalogViaQueue(params);
+    }
+
     const now = Date.now();
 
     if (!params.force && cachedCatalog && now < cacheExpiresAt) {
@@ -321,6 +338,49 @@ export function registerManualRoutes(
     cachedCatalog = next;
     cacheExpiresAt = now + MANUAL_SCAN_CACHE_TTL_MS;
     return next;
+  }
+
+  async function readCatalogViaQueue(params: { force: boolean }): Promise<ManualCatalog> {
+    const queuePool = options.queuePool;
+    if (!queuePool) {
+      return {
+        entries: [],
+        unavailable: true,
+        reason: 'manuals queue mode requires queuePool'
+      };
+    }
+
+    const now = Date.now();
+    const snapshotTtlMs = Math.max(5_000, options.queueSnapshotTtlMs ?? MANUAL_SCAN_CACHE_TTL_MS);
+
+    if (!params.force && cachedCatalog && now < cacheExpiresAt) {
+      return cachedCatalog;
+    }
+
+    const snapshot = await readManualCatalogSnapshot(queuePool);
+    const builtAtMs = snapshot?.builtAt ? Date.parse(snapshot.builtAt) : Number.NaN;
+    const hasFreshSnapshot = Number.isFinite(builtAtMs) && now - builtAtMs <= snapshotTtlMs;
+    const shouldQueueRefresh = params.force || !hasFreshSnapshot;
+
+    if (shouldQueueRefresh && options.enqueueCatalogRefreshJob) {
+      options.enqueueCatalogRefreshJob({
+        reason: params.force ? 'manual-refresh-endpoint' : 'manual-catalog-stale',
+        requestedAt: new Date(now).toISOString(),
+        force: params.force
+      });
+    }
+
+    if (snapshot?.catalog) {
+      cachedCatalog = snapshot.catalog;
+      cacheExpiresAt = now + MANUAL_SCAN_CACHE_TTL_MS;
+      return snapshot.catalog;
+    }
+
+    return {
+      entries: [],
+      unavailable: true,
+      reason: 'Manual catalog is warming up.'
+    };
   }
 }
 
@@ -351,6 +411,18 @@ async function scanManualsDirectory(manualsDir: string): Promise<ManualCatalog> 
     ),
     unavailable: false,
     reason: null
+  };
+}
+
+export async function processQueuedManualsCatalogRefresh(
+  pool: Pool,
+  manualsDir: string
+): Promise<{ count: number; unavailable: boolean }> {
+  const catalog = await scanManualsDirectory(manualsDir);
+  await writeManualCatalogSnapshot(pool, catalog, new Date().toISOString());
+  return {
+    count: catalog.entries.length,
+    unavailable: catalog.unavailable
   };
 }
 
@@ -560,6 +632,177 @@ function toCandidateResponse(
     relativePath: entry.relativePath,
     score: Number(Math.max(0, Math.min(1, score)).toFixed(4)),
     url: buildManualUrl(manualsPublicBaseUrl, entry.relativePath)
+  };
+}
+
+interface ManualCatalogSnapshotRow {
+  setting_value: string;
+}
+
+interface ManualCatalogSnapshotRecord {
+  builtAt: string;
+  catalog: ManualCatalog;
+}
+
+interface ManualCatalogSnapshotEntry {
+  platformIgdbId: number;
+  fileName: string;
+  relativePath: string;
+  normalizedTitle: string;
+  tokens?: unknown;
+  trigrams?: unknown;
+}
+
+interface SerializedManualCatalogSnapshotRecord {
+  builtAt?: unknown;
+  catalog?: {
+    entries?: unknown;
+    unavailable?: unknown;
+    reason?: unknown;
+  };
+}
+
+async function readManualCatalogSnapshot(pool: Pool): Promise<ManualCatalogSnapshotRecord | null> {
+  const result = await pool.query<ManualCatalogSnapshotRow>(
+    `
+    SELECT setting_value
+    FROM settings
+    WHERE setting_key = $1
+    LIMIT 1
+    `,
+    [MANUALS_CATALOG_SNAPSHOT_KEY]
+  );
+  const raw = result.rows[0]?.setting_value;
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as SerializedManualCatalogSnapshotRecord;
+    const builtAt =
+      typeof parsed.builtAt === 'string' && Number.isFinite(Date.parse(parsed.builtAt))
+        ? parsed.builtAt
+        : null;
+    const catalog = normalizeManualCatalogSnapshot(parsed.catalog);
+    if (!builtAt || !catalog) {
+      return null;
+    }
+    return { builtAt, catalog };
+  } catch {
+    return null;
+  }
+}
+
+async function writeManualCatalogSnapshot(
+  pool: Pool,
+  catalog: ManualCatalog,
+  builtAt: string
+): Promise<void> {
+  const payload = JSON.stringify({
+    builtAt,
+    catalog: serializeManualCatalogForSnapshot(catalog)
+  });
+  await pool.query(
+    `
+    INSERT INTO settings (setting_key, setting_value, updated_at)
+    VALUES ($1, $2, NOW())
+    ON CONFLICT (setting_key)
+    DO UPDATE SET
+      setting_value = EXCLUDED.setting_value,
+      updated_at = NOW()
+    `,
+    [MANUALS_CATALOG_SNAPSHOT_KEY, payload]
+  );
+}
+
+function normalizeManualCatalogSnapshot(value: unknown): ManualCatalog | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const raw = value as { entries?: unknown; unavailable?: unknown; reason?: unknown };
+  if (!Array.isArray(raw.entries)) {
+    return null;
+  }
+
+  const entries: ManualCatalogEntry[] = [];
+  for (const entry of raw.entries) {
+    const normalizedEntry = normalizeManualCatalogEntrySnapshot(entry);
+    if (normalizedEntry) {
+      entries.push(normalizedEntry);
+    }
+  }
+
+  return {
+    entries,
+    unavailable: raw.unavailable === true,
+    reason: typeof raw.reason === 'string' ? raw.reason : null
+  };
+}
+
+function normalizeManualCatalogEntrySnapshot(value: unknown): ManualCatalogEntry | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const entry = value as ManualCatalogSnapshotEntry;
+  if (!Number.isInteger(entry.platformIgdbId) || entry.platformIgdbId <= 0) {
+    return null;
+  }
+  if (typeof entry.fileName !== 'string' || entry.fileName.trim().length === 0) {
+    return null;
+  }
+  const relativePath = normalizeManualRelativePath(entry.relativePath);
+  if (!relativePath) {
+    return null;
+  }
+  const normalizedTitle = normalizeManualTitle(entry.normalizedTitle);
+  if (!normalizedTitle) {
+    return null;
+  }
+
+  const tokens = Array.isArray(entry.tokens)
+    ? entry.tokens.filter((token): token is string => typeof token === 'string' && token.length > 0)
+    : normalizedTitle.split(' ').filter(Boolean);
+  const trigrams = Array.isArray(entry.trigrams)
+    ? new Set(
+        entry.trigrams.filter(
+          (trigram): trigram is string => typeof trigram === 'string' && trigram.length > 0
+        )
+      )
+    : buildTrigrams(normalizedTitle);
+
+  return {
+    platformIgdbId: entry.platformIgdbId,
+    fileName: entry.fileName,
+    relativePath,
+    normalizedTitle,
+    tokens,
+    trigrams
+  };
+}
+
+function serializeManualCatalogForSnapshot(catalog: ManualCatalog): {
+  entries: Array<{
+    platformIgdbId: number;
+    fileName: string;
+    relativePath: string;
+    normalizedTitle: string;
+    tokens: string[];
+    trigrams: string[];
+  }>;
+  unavailable: boolean;
+  reason: string | null;
+} {
+  return {
+    entries: catalog.entries.map((entry) => ({
+      platformIgdbId: entry.platformIgdbId,
+      fileName: entry.fileName,
+      relativePath: entry.relativePath,
+      normalizedTitle: entry.normalizedTitle,
+      tokens: entry.tokens,
+      trigrams: Array.from(entry.trigrams)
+    })),
+    unavailable: catalog.unavailable,
+    reason: catalog.reason
   };
 }
 

@@ -1,6 +1,7 @@
 export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
 export type RecommendationRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type RecommendationRunTrigger = 'manual' | 'scheduler' | 'stale-read';
+export type RecommendationRebuildQueueReason = 'missing' | 'stale' | 'forced';
 export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
 export type RecommendationLaneKey =
   | 'overall'
@@ -176,6 +177,14 @@ export interface RebuildResult {
   runId: number;
   status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
   reusedRunId?: number;
+}
+
+export interface RecommendationRebuildJob {
+  id: number;
+  target: RecommendationTarget;
+  force: boolean;
+  triggeredBy: RecommendationRunTrigger;
+  reason: RecommendationRebuildQueueReason;
 }
 
 export interface TunedRecommendationWeights {

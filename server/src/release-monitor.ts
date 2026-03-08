@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { config } from './config.js';
+import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
 
@@ -8,6 +9,7 @@ const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // Safety bound to prevent unbounded memory growth if token volume spikes.
 const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
+const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -96,6 +98,16 @@ interface MonitorRuntimeState {
   nextFcmTokenCleanupAtMs: number;
 }
 
+/* node:coverage disable */
+interface QueuedGameContextCacheEntry {
+  loadedAtMs: number;
+  preferences: NotificationPreferences;
+  activeTokenSet: Set<string>;
+}
+
+let queuedGameContextCache = new WeakMap<Pool, QueuedGameContextCacheEntry>();
+let queuedGameContextInflight = new WeakMap<Pool, Promise<QueuedGameContextCacheEntry>>();
+
 export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   if (!config.releaseMonitorEnabled) {
     console.info('[release-monitor] disabled');
@@ -182,16 +194,10 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
     return;
   }
 
-  const preferences = await readNotificationPreferences(pool);
-  const activeTokenSet = await loadActiveTokenSet(pool);
-  stats.activeTokensAtStart = activeTokenSet.size;
-
   for (const row of dueRows.rows) {
     try {
-      const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
-        await processGameRow(pool, row, preferences, activeTokenSet, stats);
-      });
-      if (locked) {
+      const queued = await enqueueReleaseMonitorGameJob(pool, row);
+      if (queued) {
         stats.processedWithLock += 1;
       } else {
         stats.lockSkipped += 1;
@@ -210,6 +216,130 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
 
   emitRunSummary(stats);
 }
+
+async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promise<boolean> {
+  /* node:coverage disable */
+  const jobs = new BackgroundJobRepository(pool);
+  const dedupeKey = `release-monitor:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
+  const payload: Record<string, unknown> = {
+    igdb_game_id: row.igdb_game_id,
+    platform_igdb_id: row.platform_igdb_id,
+    payload: row.payload ?? {},
+    watch_exists: row.watch_exists,
+    last_known_release_marker: row.last_known_release_marker,
+    last_known_release_precision: row.last_known_release_precision,
+    last_known_release_date: row.last_known_release_date,
+    last_known_release_year: row.last_known_release_year,
+    last_seen_state: row.last_seen_state,
+    last_hltb_refresh_at: row.last_hltb_refresh_at,
+    last_metacritic_refresh_at: row.last_metacritic_refresh_at,
+    last_notified_release_day: row.last_notified_release_day
+  };
+  const queued = await jobs.enqueue({
+    jobType: 'release_monitor_game',
+    dedupeKey,
+    payload,
+    priority: 80,
+    maxAttempts: 5
+  });
+  return !queued.deduped;
+  /* node:coverage enable */
+}
+
+function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRow | null {
+  /* node:coverage disable */
+  const igdbGameId = stringOrNull(payload['igdb_game_id']);
+  const platformIgdbId = integerOrNull(payload['platform_igdb_id']);
+  if (igdbGameId === null || platformIgdbId === null) {
+    return null;
+  }
+
+  const rowPayloadRaw = payload['payload'];
+  const rowPayload =
+    rowPayloadRaw && typeof rowPayloadRaw === 'object' && !Array.isArray(rowPayloadRaw)
+      ? (rowPayloadRaw as Record<string, unknown>)
+      : null;
+
+  return {
+    igdb_game_id: igdbGameId,
+    platform_igdb_id: platformIgdbId,
+    payload: rowPayload,
+    watch_exists: payload['watch_exists'] === true,
+    last_known_release_marker: stringOrNull(payload['last_known_release_marker']),
+    last_known_release_precision: stringOrNull(payload['last_known_release_precision']),
+    last_known_release_date: stringOrNull(payload['last_known_release_date']),
+    last_known_release_year: integerOrNull(payload['last_known_release_year']),
+    last_seen_state: stringOrNull(payload['last_seen_state']),
+    last_hltb_refresh_at: stringOrNull(payload['last_hltb_refresh_at']),
+    last_metacritic_refresh_at: stringOrNull(payload['last_metacritic_refresh_at']),
+    last_notified_release_day: stringOrNull(payload['last_notified_release_day'])
+  };
+  /* node:coverage enable */
+}
+
+async function processQueuedReleaseMonitorGame(
+  pool: Pool,
+  payload: Record<string, unknown>
+): Promise<void> {
+  /* node:coverage disable */
+  const row = parseDueGameRowFromPayload(payload);
+  if (!row) {
+    throw new Error('Invalid release monitor game payload.');
+  }
+
+  const stats = createMonitorRunStats();
+  const queuedContext = await getQueuedGameContext(pool);
+  const preferences = queuedContext.preferences;
+  const activeTokenSet = queuedContext.activeTokenSet;
+  stats.activeTokensAtStart = activeTokenSet.size;
+
+  const locked = await withGameLock(pool, row.igdb_game_id, row.platform_igdb_id, async () => {
+    await processGameRow(pool, row, preferences, activeTokenSet, stats);
+  });
+  if (!locked && config.releaseMonitorDebugLogs) {
+    console.info('[release-monitor] queued_game_lock_skipped', {
+      igdbGameId: row.igdb_game_id,
+      platformIgdbId: row.platform_igdb_id
+    });
+  }
+  /* node:coverage enable */
+}
+
+async function getQueuedGameContext(pool: Pool): Promise<QueuedGameContextCacheEntry> {
+  const nowMs = Date.now();
+  const cached = queuedGameContextCache.get(pool);
+  if (cached && nowMs - cached.loadedAtMs <= QUEUED_GAME_CONTEXT_CACHE_TTL_MS) {
+    return cached;
+  }
+
+  const inflight = queuedGameContextInflight.get(pool);
+  if (inflight) {
+    return inflight;
+  }
+
+  const loader = (async () => {
+    const preferences = await readNotificationPreferences(pool);
+    const activeTokenSet = await loadActiveTokenSet(pool);
+    const entry: QueuedGameContextCacheEntry = {
+      loadedAtMs: Date.now(),
+      preferences,
+      activeTokenSet
+    };
+    queuedGameContextCache.set(pool, entry);
+    return entry;
+  })().finally(() => {
+    queuedGameContextInflight.delete(pool);
+  });
+
+  queuedGameContextInflight.set(pool, loader);
+  return loader;
+}
+
+function clearQueuedGameContextCache(): void {
+  queuedGameContextCache = new WeakMap<Pool, QueuedGameContextCacheEntry>();
+  queuedGameContextInflight = new WeakMap<Pool, Promise<QueuedGameContextCacheEntry>>();
+}
+/* node:coverage enable */
 
 async function processGameRow(
   pool: Pool,
@@ -1721,6 +1851,8 @@ function evaluateRunHealth(stats: MonitorRunStats): Array<{ code: string; detail
 export const releaseMonitorInternals = {
   processDueGames,
   processGameRow,
+  enqueueReleaseMonitorGameJob,
+  processQueuedReleaseMonitorGame,
   buildReleaseEvents,
   computeNextCheckAt,
   deriveReleaseState,
@@ -1746,5 +1878,6 @@ export const releaseMonitorInternals = {
   runFcmTokenCleanupIfDue,
   createMonitorRuntimeState,
   evaluateRunHealth,
-  loadActiveTokenSet
+  loadActiveTokenSet,
+  clearQueuedGameContextCache
 };

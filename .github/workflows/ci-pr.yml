@@ -18,6 +18,20 @@ jobs:
     name: Quality Checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres_drift:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: drift_test
+          POSTGRES_USER: drift
+          POSTGRES_PASSWORD: drift
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U drift -d drift_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout
@@ -42,6 +56,8 @@ jobs:
         run: npm run test
 
       - name: Backend tests
+        env:
+          MIGRATION_DRIFT_TEST_DATABASE_URL: postgresql://drift:drift@127.0.0.1:55432/drift_test
         run: npm run test:backend:coverage
 
       - name: Upload frontend coverage to Codecov

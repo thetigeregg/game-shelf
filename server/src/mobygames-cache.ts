@@ -33,6 +33,7 @@ interface MobyGamesCacheRouteOptions {
   fetchMetadata?: (request: FastifyRequest) => Promise<Response>;
   now?: () => number;
   scheduleBackgroundRefresh?: (task: () => Promise<void>) => void;
+  enqueueRevalidationJob?: (payload: MobyGamesCacheRevalidationPayload) => void;
   enableStaleWhileRevalidate?: boolean;
   freshTtlSeconds?: number;
   staleTtlSeconds?: number;
@@ -41,6 +42,11 @@ interface MobyGamesCacheRouteOptions {
 interface MobyGamesCredentials {
   baseUrl: string;
   apiKey: string;
+}
+
+export interface MobyGamesCacheRevalidationPayload {
+  cacheKey: string;
+  requestUrl: string;
 }
 
 const DEFAULT_MOBYGAMES_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
@@ -130,7 +136,8 @@ export async function registerMobyGamesCachedRoute(
                   normalized,
                   fetchMetadata,
                   pool,
-                  scheduleBackgroundRefresh
+                  scheduleBackgroundRefresh,
+                  options.enqueueRevalidationJob
                 );
                 logMobygamesCacheDecision(
                   request,
@@ -352,8 +359,18 @@ function scheduleMobyGamesRevalidation(
   normalizedQuery: NormalizedMobyGamesQuery,
   fetchMetadata: (request: FastifyRequest) => Promise<Response>,
   pool: Pool,
-  scheduleBackgroundRefresh: (task: () => Promise<void>) => void
+  scheduleBackgroundRefresh: (task: () => Promise<void>) => void,
+  enqueueRevalidationJob?: (payload: MobyGamesCacheRevalidationPayload) => void
 ): boolean {
+  if (enqueueRevalidationJob) {
+    incrementMobygamesMetric('revalidateScheduled');
+    enqueueRevalidationJob({
+      cacheKey,
+      requestUrl: request.url
+    });
+    return true;
+  }
+
   if (revalidationInFlightByKey.has(cacheKey)) {
     incrementMobygamesMetric('revalidateSkipped');
     return false;
@@ -403,6 +420,41 @@ function scheduleMobyGamesRevalidation(
   });
 
   return true;
+}
+
+export async function processQueuedMobyGamesCacheRevalidation(
+  pool: Pool,
+  payload: MobyGamesCacheRevalidationPayload
+): Promise<void> {
+  const normalizedQuery = normalizeMobyGamesQuery(payload.requestUrl);
+  if (!normalizedQuery) {
+    throw new Error('Invalid MobyGames revalidation payload query.');
+  }
+
+  const credentials = resolveMobyGamesCredentials();
+  const response = await fetchMetadataFromMobyGamesQuery(normalizedQuery, credentials);
+  if (!response.ok) {
+    throw new Error(
+      `MobyGames revalidation request failed with status ${String(response.status)}.`
+    );
+  }
+
+  const parsed = await safeReadJson(response);
+  if (parsed === null || !isCacheableMobyGamesPayload(parsed)) {
+    throw new Error('MobyGames revalidation returned uncacheable payload.');
+  }
+
+  await pool.query(
+    `
+    INSERT INTO mobygames_search_cache (cache_key, query_title, platform, response_json, updated_at)
+    VALUES ($1, $2, $3, $4::jsonb, NOW())
+    ON CONFLICT (cache_key)
+    DO UPDATE SET
+      response_json = EXCLUDED.response_json,
+      updated_at = NOW()
+    `,
+    [payload.cacheKey, normalizedQuery.query, normalizedQuery.platform, JSON.stringify(parsed)]
+  );
 }
 
 async function persistMobyGamesCacheEntry(
@@ -484,6 +536,25 @@ async function fetchMetadataFromMobyGames(
   request: FastifyRequest,
   credentials: MobyGamesCredentials
 ): Promise<Response> {
+  const normalized = normalizeMobyGamesQuery(request.url);
+
+  if (!normalized) {
+    return new Response(JSON.stringify({ games: [] }), {
+      status: 200,
+      headers: {
+        'content-type': 'application/json'
+      }
+    });
+  }
+
+  return fetchMetadataFromMobyGamesQuery(normalized, credentials, request);
+}
+
+async function fetchMetadataFromMobyGamesQuery(
+  normalized: NormalizedMobyGamesQuery,
+  credentials: MobyGamesCredentials,
+  request?: FastifyRequest
+): Promise<Response> {
   const baseUrl = credentials.baseUrl;
   const apiKey = credentials.apiKey;
 
@@ -499,17 +570,6 @@ async function fetchMetadataFromMobyGames(
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'MobyGames API key is not configured' }), {
       status: 503,
-      headers: {
-        'content-type': 'application/json'
-      }
-    });
-  }
-
-  const normalized = normalizeMobyGamesQuery(request.url);
-
-  if (!normalized) {
-    return new Response(JSON.stringify({ games: [] }), {
-      status: 200,
       headers: {
         'content-type': 'application/json'
       }
@@ -542,25 +602,31 @@ async function fetchMetadataFromMobyGames(
         }
       );
     }
-    logUpstreamRequest(request, {
-      method: 'GET',
-      url: targetUrl.toString()
-    });
+    if (request) {
+      logUpstreamRequest(request, {
+        method: 'GET',
+        url: targetUrl.toString()
+      });
+    }
     const response = await fetch(targetUrl.toString(), {
       method: 'GET'
     });
-    await logUpstreamResponse(request, {
-      method: 'GET',
-      url: targetUrl.toString(),
-      response
-    });
+    if (request) {
+      await logUpstreamResponse(request, {
+        method: 'GET',
+        url: targetUrl.toString(),
+        response
+      });
+    }
     return response;
   } catch (error) {
-    request.log.warn({
-      msg: 'mobygames_request_failed',
-      url: sanitizeUrlForDebugLogs(targetUrl.toString()),
-      error: error instanceof Error ? error.message : String(error)
-    });
+    if (request) {
+      request.log.warn({
+        msg: 'mobygames_request_failed',
+        url: sanitizeUrlForDebugLogs(targetUrl.toString()),
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
 
     return new Response(JSON.stringify({ error: 'MobyGames request failed' }), {
       status: 502,

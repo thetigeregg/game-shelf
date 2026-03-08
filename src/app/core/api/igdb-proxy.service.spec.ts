@@ -2323,6 +2323,48 @@ describe('IgdbProxyService', () => {
     );
   });
 
+  it('maps recommendation queued top responses to not-found error', async () => {
+    const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/top`;
+    });
+    req.flush(
+      {
+        target: 'BACKLOG',
+        status: 'QUEUED',
+        reason: 'missing',
+        error: 'No recommendations available yet. Rebuild has been queued.'
+      },
+      { status: 202, statusText: 'Accepted' }
+    );
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'No recommendations available yet. Build recommendations to get started.',
+      code: 'NOT_FOUND'
+    });
+  });
+
+  it('maps recommendation queued lanes responses to not-found error', async () => {
+    const promise = firstValueFrom(service.getRecommendationLanes({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne((request) => {
+      return request.url === `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
+    });
+    req.flush(
+      {
+        target: 'BACKLOG',
+        status: 'QUEUED',
+        reason: 'missing',
+        error: 'No recommendations available yet. Rebuild has been queued.'
+      },
+      { status: 202, statusText: 'Accepted' }
+    );
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'No recommendations available yet. Build recommendations to get started.',
+      code: 'NOT_FOUND'
+    });
+  });
+
   it('maps recommendation 429 responses to cooldown error code', async () => {
     const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
     const req = httpMock.expectOne((request) => {
@@ -2383,6 +2425,7 @@ describe('IgdbProxyService', () => {
       normalizePositiveInteger: (value: unknown) => number | null;
       normalizeNumericId: (value: unknown) => string;
       toRecommendationError: (error: unknown) => Error & { code?: string };
+      createRecommendationApiError: (code: string, message: string) => Error & { code?: string };
     };
 
     expect(privateService.normalizeRecommendationRuntimeMode('NEUTRAL')).toBe('NEUTRAL');
@@ -2410,5 +2453,8 @@ describe('IgdbProxyService', () => {
       message: 'Unable to load recommendations right now.',
       code: 'REQUEST_FAILED'
     });
+
+    const existingError = privateService.createRecommendationApiError('NOT_FOUND', 'existing');
+    expect(privateService.toRecommendationError(existingError)).toBe(existingError);
   });
 });

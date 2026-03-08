@@ -1,0 +1,337 @@
+{
+  "info": {
+    "_postman_id": "b66e9f15-3ccd-4ba0-9f5c-3c479908c12f",
+    "name": "Game Shelf - Prod Observability",
+    "description": "Production observability/admin checks for Game Shelf API behind edge (/api). Auth header uses Postman Vault token: {{vault:AUTH_TOKEN}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "edgeBaseUrl",
+      "value": "https://your-prod-host",
+      "type": "string"
+    },
+    {
+      "key": "apiBasePath",
+      "value": "/api",
+      "type": "string"
+    },
+    {
+      "key": "apiBaseUrl",
+      "value": "{{edgeBaseUrl}}{{apiBasePath}}",
+      "type": "string"
+    },
+    {
+      "key": "failedBeforeIso",
+      "value": "2026-01-01T00:00:00.000Z",
+      "type": "string"
+    },
+    {
+      "key": "hltbScraperBaseUrl",
+      "value": "http://hltb-scraper:8788",
+      "type": "string"
+    },
+    {
+      "key": "metacriticScraperBaseUrl",
+      "value": "http://metacritic-scraper:8789",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Prod Observability Endpoints",
+      "description": "Endpoints currently implemented for health/observability/admin monitoring.",
+      "item": [
+        {
+          "name": "API Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/health",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "health"]
+            },
+            "description": "Core API health check. Expected 200 with { ok: true } when DB reachable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 or 503', function () {",
+                  "  pm.expect([200, 503]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cache Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/cache/stats",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "cache", "stats"]
+            },
+            "description": "Cache metrics and count snapshots."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.response.to.have.status(200);"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Background Jobs Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/background-jobs/stats",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "background-jobs", "stats"]
+            },
+            "description": "Queue depth and state per background job type."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.response.to.have.status(200);"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Background Jobs Failed (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/background-jobs/failed?limit=25&failedBefore={{failedBeforeIso}}",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "background-jobs", "failed"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "25"
+                },
+                {
+                  "key": "failedBefore",
+                  "value": "{{failedBeforeIso}}"
+                }
+              ]
+            },
+            "description": "Admin endpoint for failed job inventory."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 or 401', function () {",
+                  "  pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications Observability (Optional Feature)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/notifications/observability",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "notifications", "observability"]
+            },
+            "description": "Returns token activity and recent notification event stats. Requires NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED=true."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200, 401, or 404', function () {",
+                  "  pm.expect([200, 401, 404]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "HLTB Scraper Health (Internal Service)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{hltbScraperBaseUrl}}/health",
+              "host": ["{{hltbScraperBaseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Internal container health endpoint. Reachable only if scraper network endpoint is exposed from where Postman runs."
+          }
+        },
+        {
+          "name": "Metacritic Scraper Health (Internal Service)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{metacriticScraperBaseUrl}}/health",
+              "host": ["{{metacriticScraperBaseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Internal container health endpoint. Reachable only if scraper network endpoint is exposed from where Postman runs."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recommended Additional Admin Pings",
+      "description": "Useful liveness and dependency checks beyond observability-only routes.",
+      "item": [
+        {
+          "name": "Recommendations Top (Smoke)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/recommendations/top?target=BACKLOG&limit=1",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "recommendations", "top"],
+              "query": [
+                {
+                  "key": "target",
+                  "value": "BACKLOG"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Checks recommendation read path and DB availability from an app-user perspective."
+          }
+        },
+        {
+          "name": "HLTB Search Upstream Smoke",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/hltb/search?q=halo",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "hltb", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "halo"
+                }
+              ]
+            },
+            "description": "Checks API->HLTB scraper integration and external fetch behavior."
+          }
+        },
+        {
+          "name": "Metacritic Search Upstream Smoke",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/metacritic/search?q=halo",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "metacritic", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "halo"
+                }
+              ]
+            },
+            "description": "Checks API->Metacritic scraper integration and external fetch behavior."
+          }
+        },
+        {
+          "name": "MobyGames Search Upstream Smoke",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/mobygames/search?q=halo&limit=1",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "mobygames", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "halo"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Checks API->MobyGames upstream path and API key wiring."
+          }
+        },
+        {
+          "name": "Manuals Resolve Smoke",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{apiBaseUrl}}/v1/manuals/resolve?igdbGameId=1942&platformIgdbId=6",
+              "host": ["{{apiBaseUrl}}"],
+              "path": ["v1", "manuals", "resolve"],
+              "query": [
+                {
+                  "key": "igdbGameId",
+                  "value": "1942"
+                },
+                {
+                  "key": "platformIgdbId",
+                  "value": "6"
+                }
+              ]
+            },
+            "description": "Checks manuals lookup path and DB connectivity for manual catalog queries."
+          }
+        }
+      ]
+    }
+  ]
+}

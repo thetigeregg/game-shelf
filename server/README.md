@@ -181,6 +181,9 @@ Release notification preference defaults:
 
 ### Non-secret env vars (queued maintenance jobs)
 
+- `BACKGROUND_JOBS_RETENTION_DAYS` (consumed by `background-worker`; default `30`)
+- `BACKGROUND_JOBS_CLEANUP_INTERVAL_MINUTES` (consumed by `background-worker`; default `60`)
+- `BACKGROUND_JOBS_CLEANUP_BATCH_SIZE` (consumed by `background-worker`; default `1000`)
 - `CACHE_REVALIDATION_JOB_CONCURRENCY` (consumed by `background-worker`; default `2`)
 - `MANUALS_CATALOG_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
 - `MANUALS_DIR` (used by API and worker; default `/data/manuals` in Docker)

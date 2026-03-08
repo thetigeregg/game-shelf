@@ -687,6 +687,10 @@ export async function runMigrations(client: {
 }): Promise<void> {
   const toError = (value: unknown): Error =>
     value instanceof Error ? value : new Error(String(value));
+  const startedAt = Date.now();
+  console.info('[db] migrations_start', {
+    statementCount: MIGRATIONS.length
+  });
 
   // Use a stable, namespaced key hashed by Postgres to avoid hard-coded magic numbers
   // and keep collision risk negligible for this app-specific migration lock.
@@ -703,33 +707,48 @@ export async function runMigrations(client: {
   `;
 
   try {
-    await client.query(migrationLockSql);
-  } catch (lockError) {
-    throw toError(lockError);
-  }
-
-  let migrationError: Error | null = null;
-  try {
-    for (const migration of MIGRATIONS) {
-      await client.query(migration);
-    }
-  } catch (error) {
-    migrationError = toError(error);
-  } finally {
     try {
-      await client.query(migrationUnlockSql);
-    } catch (unlockError) {
-      const normalizedUnlockError = toError(unlockError);
-      console.error('[db] migration_unlock_error', {
-        message: normalizedUnlockError.message,
-        originalMigrationError:
-          migrationError instanceof Error ? { message: migrationError.message } : migrationError
-      });
-      throw new MigrationUnlockError(normalizedUnlockError, migrationError);
+      await client.query(migrationLockSql);
+    } catch (lockError) {
+      throw toError(lockError);
     }
-  }
 
-  if (migrationError) {
-    throw migrationError;
+    let migrationError: Error | null = null;
+    try {
+      for (const migration of MIGRATIONS) {
+        await client.query(migration);
+      }
+    } catch (error) {
+      migrationError = toError(error);
+    } finally {
+      try {
+        await client.query(migrationUnlockSql);
+      } catch (unlockError) {
+        const normalizedUnlockError = toError(unlockError);
+        console.error('[db] migration_unlock_error', {
+          message: normalizedUnlockError.message,
+          originalMigrationError:
+            migrationError instanceof Error ? { message: migrationError.message } : migrationError
+        });
+        throw new MigrationUnlockError(normalizedUnlockError, migrationError);
+      }
+    }
+
+    if (migrationError) {
+      throw migrationError;
+    }
+
+    console.info('[db] migrations_done', {
+      statementCount: MIGRATIONS.length,
+      durationMs: Date.now() - startedAt
+    });
+  } catch (error) {
+    const normalizedError = toError(error);
+    console.error('[db] migrations_failed', {
+      statementCount: MIGRATIONS.length,
+      durationMs: Date.now() - startedAt,
+      message: normalizedError.message
+    });
+    throw normalizedError;
   }
 }

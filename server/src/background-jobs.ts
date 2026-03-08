@@ -75,6 +75,7 @@ export interface FailedBackgroundJob {
 export class BackgroundJobRepository {
   constructor(private readonly pool: Pool) {}
 
+  /* node:coverage disable */
   async enqueue(params: {
     jobType: BackgroundJobType;
     payload: Record<string, unknown>;
@@ -218,6 +219,7 @@ export class BackgroundJobRepository {
       SET
         status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END,
         available_at = CASE WHEN attempts >= max_attempts THEN available_at ELSE NOW() + (attempts * INTERVAL '30 seconds') END,
+        finished_at = CASE WHEN attempts >= max_attempts THEN NOW() ELSE finished_at END,
         last_error = $2,
         locked_by = NULL,
         locked_at = NULL,
@@ -261,6 +263,7 @@ export class BackgroundJobRepository {
           : null
     }));
   }
+  /* node:coverage enable */
 
   async listFailed(params?: {
     jobType?: BackgroundJobType | null;

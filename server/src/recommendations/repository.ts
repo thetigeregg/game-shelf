@@ -474,7 +474,7 @@ export class RecommendationRepository {
       igdbGameId: string;
       platformIgdbId: number;
     }>;
-    similarityEdgesByMode: Record<RecommendationRuntimeMode, SimilarityEdge[]>;
+    similarityEdges: SimilarityEdge[];
   }): Promise<void> {
     await params.client.query('BEGIN');
 
@@ -597,7 +597,7 @@ export class RecommendationRepository {
         }
       }
 
-      const similarityEdges = params.similarityEdgesByMode.NEUTRAL;
+      const similarityEdges = params.similarityEdges;
       for (
         let offset = 0;
         offset < similarityEdges.length;

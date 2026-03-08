@@ -10,6 +10,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // Safety bound to prevent unbounded memory growth if token volume spikes.
 const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
+const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -118,6 +119,13 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   let stopped = false;
   let currentRun: Promise<void> | null = null;
   const runtimeState = createMonitorRuntimeState();
+  const intervalMs = Math.max(30, config.releaseMonitorIntervalSeconds) * 1000;
+  console.info('[release-monitor] started', {
+    intervalMs,
+    batchSize: config.releaseMonitorBatchSize,
+    hltbPeriodicRefreshDays: config.hltbPeriodicRefreshDays,
+    metacriticPeriodicRefreshDays: config.metacriticPeriodicRefreshDays
+  });
 
   const runOnce = async (): Promise<void> => {
     if (stopped || running) {
@@ -142,7 +150,6 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
   };
 
   void runOnce();
-  const intervalMs = Math.max(30, config.releaseMonitorIntervalSeconds) * 1000;
   const timer = setInterval(() => {
     void runOnce();
   }, intervalMs);
@@ -160,6 +167,11 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
 
 async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): Promise<void> {
   const stats = createMonitorRunStats();
+  console.info('[release-monitor] run_started', {
+    startedAtIso: stats.startedAtIso,
+    batchSize: config.releaseMonitorBatchSize,
+    dueSelectionSource: DUE_SELECTION_SOURCE_ID
+  });
   await runFcmTokenCleanupIfDue(pool, stats, runtimeState);
 
   const dueRows = await pool.query<DueGameRow>(

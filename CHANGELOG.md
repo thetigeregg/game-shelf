@@ -1745,3 +1745,16 @@
 - 672dd13 Define migration lock constants
 - 6a92d05 Fix prod peer flag removals
 
+## v1.1.15 - 2026-03-08
+- 82d49cb Merge pull request #180 from thetigeregg/codex/investigate-production-issue
+- 99cfca7 Align background worker payload keys
+- 01fb083 Log request raw url and route
+- 7a1d9ec Clarify release monitor SQL log
+- ba9fa02 Fix release monitor log text
+- 4be59fc Update release monitor logs
+- 907dbe5 Align release monitor SQL string
+- 15001c7 Update release monitor SQL note
+- af20d06 Merge branch 'main' into codex/investigate-production-issue
+- 5876768 Add background job logging
+- 2c1fc5c Add background worker lifecycle logs
+

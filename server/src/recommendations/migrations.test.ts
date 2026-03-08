@@ -65,6 +65,40 @@ void test('recommendation migrations are present and idempotent runner executes 
   assert.equal(advisoryLockStatements.length, 2);
   assert.equal(advisoryUnlockStatements.length, 2);
   assert.equal(client.statements.length, MIGRATIONS.length * 2 + 4);
+
+  const firstLockIndex = client.statements.findIndex((statement) =>
+    statement.includes('pg_advisory_lock')
+  );
+  const firstMigrationIndex = client.statements.findIndex(
+    (statement) =>
+      !statement.includes('pg_advisory_lock') && !statement.includes('pg_advisory_unlock')
+  );
+  const firstUnlockIndex = client.statements.findIndex((statement) =>
+    statement.includes('pg_advisory_unlock')
+  );
+  assert.notEqual(firstLockIndex, -1);
+  assert.notEqual(firstMigrationIndex, -1);
+  assert.notEqual(firstUnlockIndex, -1);
+  assert.ok(firstLockIndex < firstMigrationIndex);
+  assert.ok(firstMigrationIndex < firstUnlockIndex);
+
+  const secondLockIndex = client.statements.findIndex(
+    (statement, index) => index > firstUnlockIndex && statement.includes('pg_advisory_lock')
+  );
+  const secondMigrationIndex = client.statements.findIndex(
+    (statement, index) =>
+      index > secondLockIndex &&
+      !statement.includes('pg_advisory_lock') &&
+      !statement.includes('pg_advisory_unlock')
+  );
+  const secondUnlockIndex = client.statements.findIndex(
+    (statement, index) => index > secondMigrationIndex && statement.includes('pg_advisory_unlock')
+  );
+  assert.notEqual(secondLockIndex, -1);
+  assert.notEqual(secondMigrationIndex, -1);
+  assert.notEqual(secondUnlockIndex, -1);
+  assert.ok(secondLockIndex < secondMigrationIndex);
+  assert.ok(secondMigrationIndex < secondUnlockIndex);
 });
 
 void test('migration SQL scopes constraint checks to target tables for drift safety', () => {

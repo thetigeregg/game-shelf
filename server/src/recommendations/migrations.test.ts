@@ -20,14 +20,8 @@ void test('runMigrations normalizes non-error throw values', async () => {
       if (sql.includes(lockSqlPattern) || sql.includes(unlockSqlPattern)) {
         return Promise.resolve();
       }
-      return {
-        then(
-          _resolve: ((value: void | PromiseLike<void>) => void) | undefined,
-          reject: ((reason: unknown) => void) | undefined
-        ) {
-          reject?.('migration_failed_as_string');
-        }
-      } as Promise<void>;
+      const nonErrorReason: unknown = 'migration_failed_as_string';
+      return Promise.reject(nonErrorReason as Error);
     }
   };
 

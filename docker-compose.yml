@@ -155,7 +155,7 @@ services:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
     restart: unless-stopped
 
-  recommendations-worker:
+  background-worker:
     build:
       context: .
       dockerfile: server/Dockerfile

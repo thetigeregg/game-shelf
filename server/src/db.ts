@@ -621,7 +621,7 @@ export const MIGRATIONS: string[] = [
   `
 ];
 
-class MigrationUnlockError extends Error {
+export class MigrationUnlockError extends Error {
   readonly unlockError: Error;
   readonly migrationError: Error | null;
 
@@ -631,6 +631,10 @@ class MigrationUnlockError extends Error {
     this.unlockError = unlockError;
     this.migrationError = migrationError;
   }
+}
+
+export function isMigrationUnlockError(error: unknown): error is MigrationUnlockError {
+  return error instanceof MigrationUnlockError;
 }
 
 export async function createPool(databaseUrl: string): Promise<Pool> {
@@ -653,7 +657,7 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
   try {
     await runMigrations(client);
   } catch (error) {
-    if (error instanceof MigrationUnlockError) {
+    if (isMigrationUnlockError(error)) {
       shouldDestroyClient = true;
     }
     throw error;

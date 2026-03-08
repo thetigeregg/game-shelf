@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { MIGRATIONS, runMigrations } from '../db.js';
+import { Pool } from 'pg';
+import { MIGRATIONS, createPool, isMigrationUnlockError, runMigrations } from '../db.js';
 
 class FakeMigrationClient {
   readonly statements: string[] = [];
@@ -10,6 +11,60 @@ class FakeMigrationClient {
     return Promise.resolve();
   }
 }
+
+void test('runMigrations normalizes non-error throw values', async () => {
+  const lockSqlPattern = 'pg_advisory_lock';
+  const unlockSqlPattern = 'pg_advisory_unlock';
+  const migrationClient = {
+    query(sql: string): Promise<void> {
+      if (sql.includes(lockSqlPattern) || sql.includes(unlockSqlPattern)) {
+        return Promise.resolve();
+      }
+      const nonErrorReason: unknown = 'migration_failed_as_string';
+      return Promise.reject(nonErrorReason as Error);
+    }
+  };
+
+  await assert.rejects(
+    runMigrations(migrationClient),
+    (error: unknown) =>
+      error instanceof Error && error.message.includes('migration_failed_as_string')
+  );
+});
+
+void test('createPool destroys client when migration unlock fails', async () => {
+  const originalConnectDescriptor = Object.getOwnPropertyDescriptor(Pool.prototype, 'connect');
+  const releaseCalls: boolean[] = [];
+
+  const fakeClient = {
+    query(sql: string): Promise<unknown> {
+      if (sql.includes('pg_advisory_unlock')) {
+        return Promise.reject(new Error('unlock_failed'));
+      }
+      return Promise.resolve();
+    },
+    release(destroy?: boolean): void {
+      releaseCalls.push(destroy ?? false);
+    }
+  };
+
+  Pool.prototype.connect = function connect(): Promise<typeof fakeClient> {
+    return Promise.resolve(fakeClient);
+  };
+
+  try {
+    await assert.rejects(
+      createPool('postgres://example:example@localhost:5432/example'),
+      (error: unknown) =>
+        isMigrationUnlockError(error) && error.unlockError.message === 'unlock_failed'
+    );
+    assert.deepEqual(releaseCalls, [true]);
+  } finally {
+    if (originalConnectDescriptor) {
+      Object.defineProperty(Pool.prototype, 'connect', originalConnectDescriptor);
+    }
+  }
+});
 
 void test('recommendation migrations are present and idempotent runner executes all statements', async () => {
   const recommendationSql = MIGRATIONS.join('\n');
@@ -55,7 +110,50 @@ void test('recommendation migrations are present and idempotent runner executes 
   await runMigrations(client);
   await runMigrations(client);
 
-  assert.equal(client.statements.length, MIGRATIONS.length * 2);
+  const advisoryLockStatements = client.statements.filter((statement) =>
+    statement.includes('pg_advisory_lock')
+  );
+  const advisoryUnlockStatements = client.statements.filter((statement) =>
+    statement.includes('pg_advisory_unlock')
+  );
+
+  assert.equal(advisoryLockStatements.length, 2);
+  assert.equal(advisoryUnlockStatements.length, 2);
+  assert.equal(client.statements.length, MIGRATIONS.length * 2 + 4);
+
+  const firstLockIndex = client.statements.findIndex((statement) =>
+    statement.includes('pg_advisory_lock')
+  );
+  const firstMigrationIndex = client.statements.findIndex(
+    (statement) =>
+      !statement.includes('pg_advisory_lock') && !statement.includes('pg_advisory_unlock')
+  );
+  const firstUnlockIndex = client.statements.findIndex((statement) =>
+    statement.includes('pg_advisory_unlock')
+  );
+  assert.notEqual(firstLockIndex, -1);
+  assert.notEqual(firstMigrationIndex, -1);
+  assert.notEqual(firstUnlockIndex, -1);
+  assert.ok(firstLockIndex < firstMigrationIndex);
+  assert.ok(firstMigrationIndex < firstUnlockIndex);
+
+  const secondLockIndex = client.statements.findIndex(
+    (statement, index) => index > firstUnlockIndex && statement.includes('pg_advisory_lock')
+  );
+  const secondMigrationIndex = client.statements.findIndex(
+    (statement, index) =>
+      index > secondLockIndex &&
+      !statement.includes('pg_advisory_lock') &&
+      !statement.includes('pg_advisory_unlock')
+  );
+  const secondUnlockIndex = client.statements.findIndex(
+    (statement, index) => index > secondMigrationIndex && statement.includes('pg_advisory_unlock')
+  );
+  assert.notEqual(secondLockIndex, -1);
+  assert.notEqual(secondMigrationIndex, -1);
+  assert.notEqual(secondUnlockIndex, -1);
+  assert.ok(secondLockIndex < secondMigrationIndex);
+  assert.ok(secondMigrationIndex < secondUnlockIndex);
 });
 
 void test('migration SQL scopes constraint checks to target tables for drift safety', () => {

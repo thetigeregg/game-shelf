@@ -621,6 +621,22 @@ export const MIGRATIONS: string[] = [
   `
 ];
 
+export class MigrationUnlockError extends Error {
+  readonly unlockError: Error;
+  readonly migrationError: Error | null;
+
+  constructor(unlockError: Error, migrationError: Error | null) {
+    super('failed to release migration advisory lock', { cause: unlockError });
+    this.name = 'MigrationUnlockError';
+    this.unlockError = unlockError;
+    this.migrationError = migrationError;
+  }
+}
+
+export function isMigrationUnlockError(error: unknown): error is MigrationUnlockError {
+  return error instanceof MigrationUnlockError;
+}
+
 export async function createPool(databaseUrl: string): Promise<Pool> {
   const pool = new Pool({
     connectionString: databaseUrl,
@@ -636,11 +652,31 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
   });
 
   const client = await pool.connect();
+  let shouldDestroyClient = false;
+  let migrationError: Error | null = null;
 
   try {
     await runMigrations(client);
+  } catch (error) {
+    if (isMigrationUnlockError(error)) {
+      shouldDestroyClient = true;
+    }
+    migrationError = error instanceof Error ? error : new Error(String(error));
   } finally {
-    client.release();
+    client.release(shouldDestroyClient);
+  }
+
+  if (migrationError !== null) {
+    try {
+      await pool.end();
+    } catch (poolEndError) {
+      console.error('[db] pool_end_after_migration_failure_error', {
+        message: poolEndError instanceof Error ? poolEndError.message : String(poolEndError),
+        originalMigrationError: { message: migrationError.message }
+      });
+    }
+
+    throw migrationError;
   }
 
   return pool;
@@ -649,7 +685,51 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
 export async function runMigrations(client: {
   query: (sql: string) => Promise<unknown>;
 }): Promise<void> {
-  for (const migration of MIGRATIONS) {
-    await client.query(migration);
+  const toError = (value: unknown): Error =>
+    value instanceof Error ? value : new Error(String(value));
+
+  // Use a stable, namespaced key hashed by Postgres to avoid hard-coded magic numbers
+  // and keep collision risk negligible for this app-specific migration lock.
+  const migrationLockId = 'game-shelf:migrations:v1';
+  const migrationLockIdSqlLiteral = migrationLockId.replace(/'/g, "''");
+  const migrationLockSql = `SELECT pg_advisory_lock(hashtextextended('${migrationLockIdSqlLiteral}', 0));`;
+  const migrationUnlockSql = `
+  DO $$
+  BEGIN
+    IF NOT pg_advisory_unlock(hashtextextended('${migrationLockIdSqlLiteral}', 0)) THEN
+      RAISE EXCEPTION 'failed to release migration advisory lock';
+    END IF;
+  END $$;
+  `;
+
+  try {
+    await client.query(migrationLockSql);
+  } catch (lockError) {
+    throw toError(lockError);
+  }
+
+  let migrationError: Error | null = null;
+  try {
+    for (const migration of MIGRATIONS) {
+      await client.query(migration);
+    }
+  } catch (error) {
+    migrationError = toError(error);
+  } finally {
+    try {
+      await client.query(migrationUnlockSql);
+    } catch (unlockError) {
+      const normalizedUnlockError = toError(unlockError);
+      console.error('[db] migration_unlock_error', {
+        message: normalizedUnlockError.message,
+        originalMigrationError:
+          migrationError instanceof Error ? { message: migrationError.message } : migrationError
+      });
+      throw new MigrationUnlockError(normalizedUnlockError, migrationError);
+    }
+  }
+
+  if (migrationError) {
+    throw migrationError;
   }
 }

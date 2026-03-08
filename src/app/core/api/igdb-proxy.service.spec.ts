@@ -2125,6 +2125,19 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('preserves queued recommendation rebuild status from API', async () => {
+    const promise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
+    req.flush({ target: 'BACKLOG', runId: '21', status: 'QUEUED' });
+
+    await expect(promise).resolves.toEqual({
+      target: 'BACKLOG',
+      runId: 21,
+      status: 'QUEUED',
+      reusedRunId: null
+    });
+  });
+
   it('normalizes malformed recommendation rebuild response payload', async () => {
     const promise = firstValueFrom(service.rebuildRecommendations({ target: 'BACKLOG' }));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);

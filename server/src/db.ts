@@ -702,7 +702,11 @@ export async function runMigrations(client: {
   END $$;
   `;
 
-  await client.query(migrationLockSql);
+  try {
+    await client.query(migrationLockSql);
+  } catch (lockError) {
+    throw toError(lockError);
+  }
 
   let migrationError: Error | null = null;
   try {

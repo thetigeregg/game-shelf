@@ -462,7 +462,6 @@ export class RecommendationRepository {
     return result.rows[0].id;
   }
 
-  /* node:coverage disable */
   async finalizeRunSuccess(params: {
     client: Queryable;
     runId: number;
@@ -699,7 +698,6 @@ export class RecommendationRepository {
       throw error;
     }
   }
-  /* node:coverage enable */
 
   async markRunFailed(params: {
     client: Queryable;

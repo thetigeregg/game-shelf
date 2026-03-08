@@ -35,6 +35,12 @@ import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main(): Promise<void> {
+  console.info('[api] starting', {
+    pid: process.pid,
+    host: config.host,
+    port: config.port,
+    nodeEnv: process.env.NODE_ENV ?? ''
+  });
   validateSecurityConfig();
   const pool = await createPool(config.postgresUrl);
 
@@ -334,12 +340,46 @@ async function main(): Promise<void> {
       host: config.host,
       port: config.port
     });
+    console.info('[api] started', {
+      pid: process.pid,
+      host: config.host,
+      port: config.port
+    });
+
+    let shuttingDown = false;
+    const stop = async (signal: string): Promise<void> => {
+      if (shuttingDown) {
+        return;
+      }
+      shuttingDown = true;
+      console.info('[api] stopping', { signal });
+      try {
+        await app.close();
+        console.info('[api] stopped', { signal });
+      } catch (error) {
+        console.error('[api] stop_failed', {
+          signal,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    };
+
+    process.on('SIGINT', () => {
+      void stop('SIGINT').finally(() => process.exit(0));
+    });
+    process.on('SIGTERM', () => {
+      void stop('SIGTERM').finally(() => process.exit(0));
+    });
+
     if (config.recommendationsSchedulerEnabled) {
       console.info(
         '[recommendations] RECOMMENDATIONS_SCHEDULER_ENABLED is set on API process; scheduler execution is handled by background-worker'
       );
     }
   } catch (error) {
+    console.error('[api] startup_failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     if (closeHookRegistered) {
       await app.close().catch(() => undefined);
     } else {
@@ -361,7 +401,7 @@ function validateSecurityConfig(): void {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  console.error('[api] fatal', error);
   process.exit(1);
 });
 

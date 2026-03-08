@@ -213,10 +213,9 @@ export class RecommendationService implements RecommendationServiceApi {
         });
         games = await this.repository.listNormalizedGames(client);
       }
-      const histories = await this.loadHistoryByMode(params.target, client);
       const keywordArtifacts = this.buildKeywordArtifacts(games);
       const settingsHash = this.computeSettingsHash();
-      const inputHash = this.computeInputHash(games, params.target, histories, keywordArtifacts);
+      const inputHash = this.computeInputHash(games, params.target, keywordArtifacts);
       const latestSuccess = await this.repository.getLatestSuccessfulRun(params.target, client);
 
       if (
@@ -232,6 +231,8 @@ export class RecommendationService implements RecommendationServiceApi {
           reusedRunId: latestSuccess.id
         };
       }
+
+      const histories = await this.loadHistoryByMode(params.target, client);
 
       const runId = await this.repository.createRun({
         client,
@@ -285,8 +286,6 @@ export class RecommendationService implements RecommendationServiceApi {
             keywords: this.options.similarityKeywordWeight
           }
         });
-        const similarityEdgesByMode = createModeRecord(() => similarityEdges);
-
         await this.repository.finalizeRunSuccess({
           client,
           runId,
@@ -294,7 +293,7 @@ export class RecommendationService implements RecommendationServiceApi {
           recommendationsByMode,
           lanesByMode,
           historyUpdates,
-          similarityEdgesByMode
+          similarityEdges
         });
 
         return {
@@ -832,7 +831,6 @@ export class RecommendationService implements RecommendationServiceApi {
   private computeInputHash(
     games: NormalizedGameRecord[],
     target: RecommendationTarget,
-    histories: Record<RecommendationRuntimeMode, Map<string, { recommendationCount: number }>>,
     keywordArtifacts: {
       embeddingKeywordsByGame: Map<string, string[]>;
       structuredKeywordsByGame: Map<string, string[]>;
@@ -872,17 +870,9 @@ export class RecommendationService implements RecommendationServiceApi {
         return left.platformIgdbId - right.platformIgdbId;
       });
 
-    const historyMaterial = RECOMMENDATION_RUNTIME_MODES.map((mode) => ({
-      mode,
-      entries: [...histories[mode].entries()]
-        .map(([key, entry]) => ({ key, recommendationCount: entry.recommendationCount }))
-        .sort((left, right) => left.key.localeCompare(right.key, 'en'))
-    }));
-
     return sha256({
       target,
       material,
-      historyMaterial,
       keywordArtifacts: {
         embedding: [...keywordArtifacts.embeddingKeywordsByGame.entries()]
           .map(([key, keywords]) => ({ key, keywords: [...keywords].sort() }))

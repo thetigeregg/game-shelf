@@ -9,6 +9,13 @@ import { normalizeDbGameRow } from './normalize.js';
 import { parseRecommendationRuntimeMode } from './runtime.js';
 import { buildGameKey } from './semantic.js';
 import {
+  buildHistoryUpsertBatch,
+  buildRecommendationLanesInsertBatch,
+  buildRecommendationsInsertBatch,
+  buildSimilarityInsertBatch,
+  chunkItems
+} from './batch-sql.js';
+import {
   GameEmbeddingUpsertInput,
   GameStatus,
   NormalizedGameRecord,
@@ -360,7 +367,6 @@ export class RecommendationRepository {
     );
   }
 
-  /* node:coverage disable */
   async enqueueRecommendationRebuildJob(params: {
     target: RecommendationTarget;
     force: boolean;
@@ -393,7 +399,6 @@ export class RecommendationRepository {
   async failBackgroundJob(jobId: number, errorMessage: string): Promise<void> {
     await this.backgroundJobs.fail(jobId, errorMessage);
   }
-  /* node:coverage enable */
 
   async getLatestRun(
     target: RecommendationTarget,
@@ -470,7 +475,7 @@ export class RecommendationRepository {
       igdbGameId: string;
       platformIgdbId: number;
     }>;
-    similarityEdgesByMode: Record<RecommendationRuntimeMode, SimilarityEdge[]>;
+    similarityEdges: SimilarityEdge[];
   }): Promise<void> {
     await params.client.query('BEGIN');
 
@@ -478,39 +483,22 @@ export class RecommendationRepository {
       for (const [runtimeMode, items] of Object.entries(params.recommendationsByMode) as Array<
         [RecommendationRuntimeMode, RankedRecommendationItem[]]
       >) {
-        for (const item of items) {
+        for (const batch of chunkItems(items, 500)) {
+          const insertBatch = buildRecommendationsInsertBatch({
+            runId: params.runId,
+            runtimeMode,
+            items: batch
+          });
+
           await params.client.query(
-            `
-            INSERT INTO recommendations
-              (
-                run_id,
-                runtime_mode,
-                rank,
-                igdb_game_id,
-                platform_igdb_id,
-                score_total,
-                score_components,
-                explanations
-              )
-            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
-            `,
-            [
-              params.runId,
-              runtimeMode,
-              item.rank,
-              item.igdbGameId,
-              item.platformIgdbId,
-              item.scoreTotal,
-              JSON.stringify(item.scoreComponents),
-              JSON.stringify(item.explanations)
-            ]
+            `INSERT INTO recommendations (run_id, runtime_mode, rank, igdb_game_id, platform_igdb_id, score_total, score_components, explanations) VALUES ${insertBatch.sqlValues}`,
+            insertBatch.values
           );
         }
       }
 
-      for (const [runtimeMode, lanes] of Object.entries(params.lanesByMode) as Array<
-        [RecommendationRuntimeMode, RecommendationLaneCollection]
-      >) {
+      for (const runtimeMode of Object.keys(params.lanesByMode) as RecommendationRuntimeMode[]) {
+        const lanes = params.lanesByMode[runtimeMode];
         for (const lane of [
           'overall',
           'hiddenGems',
@@ -521,97 +509,51 @@ export class RecommendationRepository {
         ] as RecommendationLaneKey[]) {
           const items = lanes[lane];
 
-          for (let index = 0; index < items.length; index += 1) {
-            const item = items[index];
+          let rankOffset = 0;
+          for (const batch of chunkItems(items, 500)) {
+            const insertBatch = buildRecommendationLanesInsertBatch({
+              runId: params.runId,
+              runtimeMode,
+              lane,
+              items: batch,
+              rankOffset
+            });
+            rankOffset += batch.length;
+
             await params.client.query(
-              `
-              INSERT INTO recommendation_lanes
-                (
-                  run_id,
-                  runtime_mode,
-                  lane,
-                  rank,
-                  igdb_game_id,
-                  platform_igdb_id,
-                  score_total,
-                  score_components,
-                  explanations
-                )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)
-              `,
-              [
-                params.runId,
-                runtimeMode,
-                lane,
-                index + 1,
-                item.igdbGameId,
-                item.platformIgdbId,
-                item.scoreTotal,
-                JSON.stringify(item.scoreComponents),
-                JSON.stringify(item.explanations)
-              ]
+              `INSERT INTO recommendation_lanes (run_id, runtime_mode, lane, rank, igdb_game_id, platform_igdb_id, score_total, score_components, explanations) VALUES ${insertBatch.sqlValues}`,
+              insertBatch.values
             );
           }
         }
       }
 
-      for (const [runtimeMode, edges] of Object.entries(params.similarityEdgesByMode) as Array<
-        [RecommendationRuntimeMode, SimilarityEdge[]]
-      >) {
-        for (const edge of edges) {
-          await params.client.query(
-            `
-            INSERT INTO game_similarity
-              (
-                run_id,
-                target,
-                runtime_mode,
-                source_igdb_game_id,
-                source_platform_igdb_id,
-                similar_igdb_game_id,
-                similar_platform_igdb_id,
-                similarity,
-                reasons,
-                updated_at
-              )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW())
-            `,
-            [
-              params.runId,
-              params.target,
-              runtimeMode,
-              edge.sourceIgdbGameId,
-              edge.sourcePlatformIgdbId,
-              edge.similarIgdbGameId,
-              edge.similarPlatformIgdbId,
-              edge.similarity,
-              JSON.stringify(edge.reasons)
-            ]
-          );
-        }
+      const similarityEdges = params.similarityEdges;
+      for (const batch of chunkItems(similarityEdges, 500)) {
+        const insertBatch = buildSimilarityInsertBatch({
+          runId: params.runId,
+          target: params.target,
+          runtimeMode: 'NEUTRAL',
+          edges: batch
+        });
+
+        await params.client.query(
+          `INSERT INTO game_similarity (run_id, target, runtime_mode, source_igdb_game_id, source_platform_igdb_id, similar_igdb_game_id, similar_platform_igdb_id, similarity, reasons, updated_at) VALUES ${insertBatch.sqlValues}`,
+          insertBatch.values
+        );
       }
 
-      for (const update of params.historyUpdates) {
+      for (const batch of chunkItems(params.historyUpdates, 500)) {
+        const upsertBatch = buildHistoryUpsertBatch(batch);
+
         await params.client.query(
-          `
-          INSERT INTO recommendation_history
-            (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at)
-          VALUES ($1, $2, $3, $4, 1, NOW())
-          ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id)
-          DO UPDATE
-            SET recommendation_count = recommendation_history.recommendation_count + 1,
-                last_recommended_at = NOW()
-          `,
-          [update.target, update.runtimeMode, update.igdbGameId, update.platformIgdbId]
+          `INSERT INTO recommendation_history (target, runtime_mode, igdb_game_id, platform_igdb_id, recommendation_count, last_recommended_at) VALUES ${upsertBatch.sqlValues} ON CONFLICT (target, runtime_mode, igdb_game_id, platform_igdb_id) DO UPDATE SET recommendation_count = recommendation_history.recommendation_count + 1, last_recommended_at = NOW()`,
+          upsertBatch.values
         );
       }
 
       await params.client.query(
-        `
-        UPDATE recommendation_runs
-        SET status = 'SUCCESS', finished_at = NOW(), error = NULL
-        WHERE id = $1
-        `,
+        "UPDATE recommendation_runs SET status = 'SUCCESS', finished_at = NOW(), error = NULL WHERE id = $1",
         [params.runId]
       );
 
@@ -628,11 +570,7 @@ export class RecommendationRepository {
     errorMessage: string;
   }): Promise<void> {
     await params.client.query(
-      `
-      UPDATE recommendation_runs
-      SET status = 'FAILED', finished_at = NOW(), error = $2
-      WHERE id = $1
-      `,
+      "UPDATE recommendation_runs SET status = 'FAILED', finished_at = NOW(), error = $2 WHERE id = $1",
       [params.runId, params.errorMessage]
     );
   }
@@ -758,26 +696,45 @@ export class RecommendationRepository {
     const statusFilter = buildStatusFilterForTarget(params.target);
     const result = await this.pool.query<SimilarityRow>(
       `
+      WITH ranked AS (
+        SELECT
+          game_similarity.similar_igdb_game_id,
+          game_similarity.similar_platform_igdb_id,
+          game_similarity.similarity,
+          game_similarity.reasons,
+          CASE WHEN game_similarity.runtime_mode = $3 THEN 0 ELSE 1 END AS mode_priority,
+          ROW_NUMBER() OVER (
+            PARTITION BY game_similarity.similar_igdb_game_id, game_similarity.similar_platform_igdb_id
+            ORDER BY
+              CASE WHEN game_similarity.runtime_mode = $3 THEN 0 ELSE 1 END ASC,
+              game_similarity.similarity DESC,
+              game_similarity.similar_igdb_game_id ASC,
+              game_similarity.similar_platform_igdb_id ASC
+          ) AS mode_rank
+        FROM game_similarity
+        INNER JOIN games
+          ON games.igdb_game_id = game_similarity.similar_igdb_game_id
+         AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
+        WHERE game_similarity.run_id = $1
+          AND game_similarity.target = $2
+          AND game_similarity.runtime_mode = ANY(ARRAY[$3::text, $4::text])
+          AND game_similarity.source_igdb_game_id = $5
+          AND game_similarity.source_platform_igdb_id = $6
+          AND game_similarity.similar_igdb_game_id <> $5
+          AND COALESCE(games.payload->>'listType', '') = $7
+          AND COALESCE(games.payload->>'status', '') = ANY($8::text[])
+      )
       SELECT similar_igdb_game_id, similar_platform_igdb_id, similarity, reasons
-      FROM game_similarity
-      INNER JOIN games
-        ON games.igdb_game_id = game_similarity.similar_igdb_game_id
-       AND games.platform_igdb_id = game_similarity.similar_platform_igdb_id
-      WHERE run_id = $1
-        AND target = $2
-        AND runtime_mode = $3
-        AND source_igdb_game_id = $4
-        AND source_platform_igdb_id = $5
-        AND similar_igdb_game_id <> $4
-        AND COALESCE(games.payload->>'listType', '') = $6
-        AND COALESCE(games.payload->>'status', '') = ANY($7::text[])
-      ORDER BY similarity DESC, similar_igdb_game_id ASC, similar_platform_igdb_id ASC
-      LIMIT $8
+      FROM ranked
+      WHERE mode_rank = 1
+      ORDER BY similarity DESC, mode_priority ASC, similar_igdb_game_id ASC, similar_platform_igdb_id ASC
+      LIMIT $9
       `,
       [
         run.id,
         params.target,
         params.runtimeMode,
+        'NEUTRAL',
         params.igdbGameId,
         params.platformIgdbId,
         statusFilter.listType,

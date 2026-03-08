@@ -10,6 +10,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // Safety bound to prevent unbounded memory growth if token volume spikes.
 const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
+const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
 
 type ReleaseEventType =
   | 'release_date_set'
@@ -169,8 +170,7 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
   console.info('[release-monitor] run_started', {
     startedAtIso: stats.startedAtIso,
     batchSize: config.releaseMonitorBatchSize,
-    dueSelectionSource:
-      "(g.payload->>'listType') IN ('collection','wishlist') AND COALESCE(rws.next_check_at, NOW()) <= NOW()"
+    dueSelectionSource: DUE_SELECTION_SOURCE_ID
   });
   await runFcmTokenCleanupIfDue(pool, stats, runtimeState);
 

@@ -817,7 +817,10 @@ export class IgdbProxyService implements GameSearchApi {
     return this.httpClient
       .get<RecommendationTopApiResponse>(this.recommendationsTopUrl, { params: query })
       .pipe(
-        map((response) => this.normalizeRecommendationTopResponse(response, params.target)),
+        map((response) => {
+          this.throwIfRecommendationQueued(response);
+          return this.normalizeRecommendationTopResponse(response, params.target);
+        }),
         catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
       );
   }
@@ -838,7 +841,10 @@ export class IgdbProxyService implements GameSearchApi {
     return this.httpClient
       .get<RecommendationLanesApiResponse>(this.recommendationsLanesUrl, { params: query })
       .pipe(
-        map((response) => this.normalizeRecommendationLanesResponse(response, params.target)),
+        map((response) => {
+          this.throwIfRecommendationQueued(response);
+          return this.normalizeRecommendationLanesResponse(response, params.target);
+        }),
         catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
       );
   }
@@ -2406,6 +2412,10 @@ export class IgdbProxyService implements GameSearchApi {
   }
 
   private toRecommendationError(error: unknown): Error {
+    if (this.isRecommendationApiError(error)) {
+      return error;
+    }
+
     const rateLimitError = this.toRateLimitError(error);
     if (rateLimitError) {
       return rateLimitError;
@@ -2437,6 +2447,28 @@ export class IgdbProxyService implements GameSearchApi {
     return this.createRecommendationApiError(
       'REQUEST_FAILED',
       'Unable to load recommendations right now.'
+    );
+  }
+
+  private throwIfRecommendationQueued(value: { status?: unknown; error?: unknown }): void {
+    if (value.status === 'QUEUED') {
+      throw this.createRecommendationApiError(
+        'NOT_FOUND',
+        'No recommendations available yet. Build recommendations to get started.'
+      );
+    }
+  }
+
+  private isRecommendationApiError(error: unknown): error is Error & { code: string } {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    return (
+      (error as { code?: unknown }).code === 'NOT_FOUND' ||
+      (error as { code?: unknown }).code === 'RATE_LIMITED' ||
+      (error as { code?: unknown }).code === 'REQUEST_FAILED' ||
+      (error as { code?: unknown }).code === 'INVALID_REQUEST'
     );
   }
 

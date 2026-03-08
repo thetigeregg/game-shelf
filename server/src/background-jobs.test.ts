@@ -220,6 +220,7 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
   assert.ok(replayQuery);
   const normalizedReplaySql = replayQuery.sql.replace(/\s+/g, ' ').trim().toLowerCase();
   assert.ok(normalizedReplaySql.includes("set status = 'pending'"));
+  assert.ok(normalizedReplaySql.includes('attempts = 0'));
   assert.ok(normalizedReplaySql.includes('last_error = null'));
   assert.ok(normalizedReplaySql.includes('finished_at = null'));
 });

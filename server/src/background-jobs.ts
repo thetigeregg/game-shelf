@@ -337,6 +337,7 @@ export class BackgroundJobRepository {
       SET
         status = 'pending',
         available_at = NOW(),
+        attempts = 0,
         locked_by = NULL,
         locked_at = NULL,
         last_error = NULL,

@@ -94,7 +94,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RELEASE_MONITOR_ENABLED` (`true|false`, default `true`)
 - `RELEASE_MONITOR_INTERVAL_SECONDS` (default `900`)
 - `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
-- `RELEASE_MONITOR_JOB_CONCURRENCY` (consumed by `recommendations-worker`; default `2`)
+- `RELEASE_MONITOR_JOB_CONCURRENCY` (consumed by `background-worker`; default `2`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
 - `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `GET /v1/notifications/observability`
@@ -117,9 +117,9 @@ Release notification preference defaults:
 
 ### Non-secret env vars (recommendations)
 
-- `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `recommendations-worker`; API process no longer runs scheduler ticks)
-- `RECOMMENDATIONS_JOB_CONCURRENCY` (consumed by `recommendations-worker`; default `1`)
-- `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (consumed by `recommendations-worker`; default `1`)
+- `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `background-worker`; API process no longer runs scheduler ticks)
+- `RECOMMENDATIONS_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
+- `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
 - `RECOMMENDATIONS_ENRICH_API_BASE_URL` (worker-only; defaults to `http://api:3000` for discovery enrichment lookups)
 - `RECOMMENDATIONS_DAILY_STALE_HOURS`
 - `RECOMMENDATIONS_TOP_LIMIT`
@@ -176,13 +176,13 @@ Release notification preference defaults:
 - `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN` (default `5000`)
 - `IGDB_METADATA_ENRICH_STARTUP_DELAY_MS` (default `5000`)
 - `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (default `15000`)
-- `METADATA_ENRICHMENT_JOB_CONCURRENCY` (consumed by `recommendations-worker`; default `1`)
-- `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (consumed by `recommendations-worker`; default `60`)
+- `METADATA_ENRICHMENT_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
+- `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (consumed by `background-worker`; default `60`)
 
 ### Non-secret env vars (queued maintenance jobs)
 
-- `CACHE_REVALIDATION_JOB_CONCURRENCY` (consumed by `recommendations-worker`; default `2`)
-- `MANUALS_CATALOG_JOB_CONCURRENCY` (consumed by `recommendations-worker`; default `1`)
+- `CACHE_REVALIDATION_JOB_CONCURRENCY` (consumed by `background-worker`; default `2`)
+- `MANUALS_CATALOG_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
 - `MANUALS_DIR` (used by API and worker; default `/data/manuals` in Docker)
 
 Runtime mode resolution for recommendation reads:

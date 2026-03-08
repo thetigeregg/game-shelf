@@ -336,7 +336,7 @@ async function main(): Promise<void> {
     });
     if (config.recommendationsSchedulerEnabled) {
       console.info(
-        '[recommendations] RECOMMENDATIONS_SCHEDULER_ENABLED is set on API process; scheduler execution is handled by recommendations-worker'
+        '[recommendations] RECOMMENDATIONS_SCHEDULER_ENABLED is set on API process; scheduler execution is handled by background-worker'
       );
     }
   } catch (error) {

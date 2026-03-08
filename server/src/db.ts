@@ -693,7 +693,14 @@ export async function runMigrations(client: {
   const migrationLockId = 'game-shelf:migrations:v1';
   const migrationLockIdSqlLiteral = migrationLockId.replace(/'/g, "''");
   const migrationLockSql = `SELECT pg_advisory_lock(hashtextextended('${migrationLockIdSqlLiteral}', 0));`;
-  const migrationUnlockSql = `SELECT pg_advisory_unlock(hashtextextended('${migrationLockIdSqlLiteral}', 0));`;
+  const migrationUnlockSql = `
+  DO $$
+  BEGIN
+    IF NOT pg_advisory_unlock(hashtextextended('${migrationLockIdSqlLiteral}', 0)) THEN
+      RAISE EXCEPTION 'failed to release migration advisory lock';
+    END IF;
+  END $$;
+  `;
 
   await client.query(migrationLockSql);
 

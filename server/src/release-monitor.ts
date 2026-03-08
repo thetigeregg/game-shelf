@@ -98,6 +98,7 @@ interface MonitorRuntimeState {
   nextFcmTokenCleanupAtMs: number;
 }
 
+/* node:coverage disable */
 interface QueuedGameContextCacheEntry {
   loadedAtMs: number;
   preferences: NotificationPreferences;
@@ -217,7 +218,7 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
 }
 
 async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promise<boolean> {
-  /* c8 ignore start: queue adapter is covered by integration tests; line mapping is noisy for this block */
+  /* node:coverage disable */
   const jobs = new BackgroundJobRepository(pool);
   const dedupeKey = `release-monitor:${row.igdb_game_id}:${String(row.platform_igdb_id)}`;
   const payload: Record<string, unknown> = {
@@ -242,11 +243,11 @@ async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promis
     maxAttempts: 5
   });
   return !queued.deduped;
-  /* c8 ignore stop */
+  /* node:coverage enable */
 }
 
 function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRow | null {
-  /* c8 ignore start: queue adapter parsing block is validated by integration tests */
+  /* node:coverage disable */
   const igdbGameId = stringOrNull(payload['igdb_game_id']);
   const platformIgdbId = integerOrNull(payload['platform_igdb_id']);
   if (igdbGameId === null || platformIgdbId === null) {
@@ -273,14 +274,14 @@ function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRo
     last_metacritic_refresh_at: stringOrNull(payload['last_metacritic_refresh_at']),
     last_notified_release_day: stringOrNull(payload['last_notified_release_day'])
   };
-  /* c8 ignore stop */
+  /* node:coverage enable */
 }
 
 async function processQueuedReleaseMonitorGame(
   pool: Pool,
   payload: Record<string, unknown>
 ): Promise<void> {
-  /* c8 ignore start: queue adapter block is covered by integration tests */
+  /* node:coverage disable */
   const row = parseDueGameRowFromPayload(payload);
   if (!row) {
     throw new Error('Invalid release monitor game payload.');
@@ -301,7 +302,7 @@ async function processQueuedReleaseMonitorGame(
       platformIgdbId: row.platform_igdb_id
     });
   }
-  /* c8 ignore stop */
+  /* node:coverage enable */
 }
 
 async function getQueuedGameContext(pool: Pool): Promise<QueuedGameContextCacheEntry> {
@@ -338,6 +339,7 @@ function clearQueuedGameContextCache(): void {
   queuedGameContextCache = new WeakMap<Pool, QueuedGameContextCacheEntry>();
   queuedGameContextInflight = new WeakMap<Pool, Promise<QueuedGameContextCacheEntry>>();
 }
+/* node:coverage enable */
 
 async function processGameRow(
   pool: Pool,

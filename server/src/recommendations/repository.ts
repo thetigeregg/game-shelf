@@ -364,7 +364,6 @@ export class RecommendationRepository {
     );
   }
 
-  /* node:coverage disable */
   async enqueueRecommendationRebuildJob(params: {
     target: RecommendationTarget;
     force: boolean;
@@ -397,7 +396,6 @@ export class RecommendationRepository {
   async failBackgroundJob(jobId: number, errorMessage: string): Promise<void> {
     await this.backgroundJobs.fail(jobId, errorMessage);
   }
-  /* node:coverage enable */
 
   async getLatestRun(
     target: RecommendationTarget,

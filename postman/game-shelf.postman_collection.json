@@ -23,7 +23,7 @@
     },
     {
       "key": "failedBeforeIso",
-      "value": "2026-01-01T00:00:00.000Z",
+      "value": "",
       "type": "string"
     },
     {
@@ -130,7 +130,7 @@
               }
             ],
             "url": {
-              "raw": "{{apiBaseUrl}}/v1/background-jobs/failed?limit=25&failedBefore={{failedBeforeIso}}",
+              "raw": "{{apiBaseUrl}}/v1/background-jobs/failed?limit=25",
               "host": ["{{apiBaseUrl}}"],
               "path": ["v1", "background-jobs", "failed"],
               "query": [
@@ -140,7 +140,8 @@
                 },
                 {
                   "key": "failedBefore",
-                  "value": "{{failedBeforeIso}}"
+                  "value": "{{failedBeforeIso}}",
+                  "disabled": true
                 }
               ]
             },

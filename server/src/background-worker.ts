@@ -225,15 +225,23 @@ async function main(): Promise<void> {
     discoveryEnrichmentService.stop();
     await Promise.allSettled(Array.from(consumerLoops));
     await Promise.allSettled(Array.from(inFlightJobs));
+    let dbPoolClosed = false;
+    let poolCloseErrorMessage: string | null = null;
     try {
       await pool.end();
+      dbPoolClosed = true;
     } catch (error) {
+      poolCloseErrorMessage = error instanceof Error ? error.message : String(error);
       console.error('[background-worker] failed to close database pool during shutdown', {
         signal,
-        error: error instanceof Error ? error.message : String(error)
+        error: poolCloseErrorMessage
       });
     }
-    console.info('[background-worker] stopped', { signal });
+    console.info('[background-worker] stopped', {
+      signal,
+      dbPoolClosed,
+      poolCloseErrorMessage
+    });
   };
 
   process.on('SIGINT', () => {

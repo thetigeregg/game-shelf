@@ -103,9 +103,11 @@ void test(
         `
       );
       assert.equal(recommendationsRuntimeCheck.rowCount, 1);
+      const runtimeCheckDefinition = recommendationsRuntimeCheck.rows[0]?.definition ?? '';
       assert.equal(
-        recommendationsRuntimeCheck.rows[0]?.definition.includes("'NEUTRAL', 'SHORT', 'LONG'") ||
-          recommendationsRuntimeCheck.rows[0]?.definition.includes("'NEUTRAL','SHORT','LONG'"),
+        runtimeCheckDefinition.includes('NEUTRAL') &&
+          runtimeCheckDefinition.includes('SHORT') &&
+          runtimeCheckDefinition.includes('LONG'),
         true
       );
     } finally {

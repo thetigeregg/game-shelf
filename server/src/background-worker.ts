@@ -257,8 +257,9 @@ async function main(): Promise<void> {
     }
     const startedAt = Date.now();
     let queuedCount = 0;
-    let dedupedCount = 0;
     let freshCount = 0;
+    let missingCount = 0;
+    let staleCount = 0;
     let failedCount = 0;
     const targetResults: Array<Record<string, unknown>> = [];
     for (const target of RECOMMENDATION_TARGETS) {
@@ -268,8 +269,10 @@ async function main(): Promise<void> {
           freshCount += 1;
         } else if (result.queued) {
           queuedCount += 1;
-          if (result.reason === 'deduped') {
-            dedupedCount += 1;
+          if (result.reason === 'missing') {
+            missingCount += 1;
+          } else if (result.reason === 'stale') {
+            staleCount += 1;
           }
         }
         targetResults.push({
@@ -292,8 +295,9 @@ async function main(): Promise<void> {
     }
     console.info('[background-worker] recommendation_scheduler_tick', {
       queuedCount,
-      dedupedCount,
       freshCount,
+      missingCount,
+      staleCount,
       failedCount,
       durationMs: Date.now() - startedAt,
       targets: targetResults

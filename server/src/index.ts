@@ -35,6 +35,17 @@ import { registerSyncRoutes } from './sync.js';
 const serverRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main(): Promise<void> {
+  console.info('[api] starting', {
+    pid: process.pid,
+    host: config.host,
+    port: config.port,
+    nodeEnv: process.env.NODE_ENV ?? '',
+    requireAuth: config.requireAuth,
+    releaseMonitorEnabled: config.releaseMonitorEnabled,
+    recommendationsSchedulerEnabled: config.recommendationsSchedulerEnabled,
+    recommendationsDiscoveryEnabled: config.recommendationsDiscoveryEnabled,
+    recommendationsDiscoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled
+  });
   validateSecurityConfig();
   const pool = await createPool(config.postgresUrl);
 
@@ -44,6 +55,7 @@ async function main(): Promise<void> {
     bodyLimit: config.requestBodyLimitBytes,
     logger: true
   });
+  const requestStartedAtMs = new Map<string, number>();
   let closeHookRegistered = false;
   let releaseMonitor: ReturnType<typeof startReleaseMonitor> | null = null;
   const backgroundJobs = new BackgroundJobRepository(pool);
@@ -138,6 +150,23 @@ async function main(): Promise<void> {
     });
 
     await ensureMiddieRegistered(app);
+    app.addHook('onRequest', (request, _reply, done) => {
+      requestStartedAtMs.set(request.id, Date.now());
+      done();
+    });
+    app.addHook('onResponse', async (request, reply) => {
+      const startedAt = requestStartedAtMs.get(request.id);
+      const durationMs = startedAt ? Date.now() - startedAt : null;
+      requestStartedAtMs.delete(request.id);
+      console.info('[api] request_completed', {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+        route: request.routeOptions.url,
+        statusCode: reply.statusCode,
+        durationMs
+      });
+    });
 
     app.use((request: IncomingMessage, response: ServerResponse, next) => {
       if (!shouldRequireAuth(request.method ?? '')) {
@@ -334,12 +363,54 @@ async function main(): Promise<void> {
       host: config.host,
       port: config.port
     });
+    console.info('[api] started', {
+      pid: process.pid,
+      host: config.host,
+      port: config.port
+    });
+
+    let shuttingDown = false;
+    const stop = async (signal: string): Promise<boolean> => {
+      if (shuttingDown) {
+        return true;
+      }
+      shuttingDown = true;
+      console.info('[api] stopping', { signal });
+      try {
+        await app.close();
+        console.info('[api] stopped', { signal });
+        return true;
+      } catch (error) {
+        console.error('[api] stop_failed', {
+          signal,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return false;
+      }
+    };
+
+    const handleSignal = async (signal: 'SIGINT' | 'SIGTERM'): Promise<void> => {
+      const cleanShutdown = await stop(signal);
+      process.exitCode = cleanShutdown ? 0 : 1;
+      process.exit();
+    };
+
+    process.on('SIGINT', () => {
+      void handleSignal('SIGINT');
+    });
+    process.on('SIGTERM', () => {
+      void handleSignal('SIGTERM');
+    });
+
     if (config.recommendationsSchedulerEnabled) {
       console.info(
         '[recommendations] RECOMMENDATIONS_SCHEDULER_ENABLED is set on API process; scheduler execution is handled by background-worker'
       );
     }
   } catch (error) {
+    console.error('[api] startup_failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
     if (closeHookRegistered) {
       await app.close().catch(() => undefined);
     } else {
@@ -361,7 +432,7 @@ function validateSecurityConfig(): void {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  console.error('[api] fatal', error);
   process.exit(1);
 });
 

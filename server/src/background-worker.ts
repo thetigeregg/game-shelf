@@ -469,8 +469,8 @@ async function main(): Promise<void> {
       context.target = job.payload['target'];
       context.force = job.payload['force'] === true;
     } else if (job.jobType === 'release_monitor_game') {
-      context.igdbGameId = job.payload['igdbGameId'];
-      context.platformIgdbId = job.payload['platformIgdbId'];
+      context.igdbGameId = job.payload['igdbGameId'] ?? job.payload['igdb_game_id'];
+      context.platformIgdbId = job.payload['platformIgdbId'] ?? job.payload['platform_igdb_id'];
     } else if (
       job.jobType === 'hltb_cache_revalidate' ||
       job.jobType === 'metacritic_cache_revalidate' ||

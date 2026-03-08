@@ -2122,6 +2122,7 @@ export class IgdbProxyService implements GameSearchApi {
     fallbackTarget: RecommendationTarget
   ): RecommendationRebuildResponse {
     const status =
+      value.status === 'QUEUED' ||
       value.status === 'SUCCESS' ||
       value.status === 'FAILED' ||
       value.status === 'SKIPPED' ||

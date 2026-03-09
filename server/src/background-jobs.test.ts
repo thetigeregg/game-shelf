@@ -129,6 +129,28 @@ void test('background jobs complete and fail write status updates', async () => 
   assert.equal(pool.queries[1]?.params?.[0], 11);
 });
 
+void test('background jobs heartbeat only refreshes lock for matching worker', async () => {
+  const pool = new PoolMock(() => ({ rows: [{ id: 11 }], rowCount: 1 }));
+  const repository = new BackgroundJobRepository(pool as never);
+
+  const touched = await repository.heartbeat(11, 'background-worker:11');
+  assert.equal(touched, true);
+
+  const query = pool.queries[0];
+  assert.ok(query);
+  const normalizedSql = query.sql.replace(/\s+/g, ' ').trim().toLowerCase();
+  assert.ok(normalizedSql.includes("where id = $1 and status = 'running' and locked_by = $2"));
+  assert.deepEqual(query.params, [11, 'background-worker:11']);
+});
+
+void test('background jobs heartbeat returns false when lock ownership does not match', async () => {
+  const pool = new PoolMock(() => ({ rows: [], rowCount: 0 }));
+  const repository = new BackgroundJobRepository(pool as never);
+
+  const touched = await repository.heartbeat(21, 'background-worker:99');
+  assert.equal(touched, false);
+});
+
 void test('background jobs fail query supports retry and terminal failure transitions', async () => {
   const pool = new PoolMock(() => ({ rows: [], rowCount: 1 }));
   const repository = new BackgroundJobRepository(pool as never);
@@ -223,6 +245,53 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
   assert.ok(normalizedReplaySql.includes('attempts = 0'));
   assert.ok(normalizedReplaySql.includes('last_error = null'));
   assert.ok(normalizedReplaySql.includes('finished_at = null'));
+});
+
+void test('background jobs requeueStaleRunning re-queues stale running jobs to pending without resetting attempts', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 15 }, { id: 16 }],
+    rowCount: 2
+  }));
+  const repository = new BackgroundJobRepository(pool as never);
+
+  const result = await repository.requeueStaleRunning({
+    maxAgeMinutes: 45,
+    limit: 2,
+    jobType: 'recommendations_rebuild',
+    recoveryError: 'stale lock recovered'
+  });
+  assert.deepEqual(result, { requeuedCount: 2, jobIds: [15, 16] });
+
+  const query = pool.queries[0];
+  assert.ok(query);
+  const normalizedSql = query.sql.replace(/\s+/g, ' ').trim().toLowerCase();
+  assert.ok(normalizedSql.includes("where status = 'running'"));
+  assert.ok(normalizedSql.includes('locked_at < (now() - make_interval(mins => $1))'));
+  assert.ok(normalizedSql.includes("set status = 'pending'"));
+  assert.ok(!normalizedSql.includes('attempts = 0'));
+  assert.deepEqual(query.params, [45, 'recommendations_rebuild', 2, 'stale lock recovered']);
+});
+
+void test('background jobs requeueStaleRunning clamps defaults and falls back to default recovery reason when blank', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 31 }],
+    rowCount: 1
+  }));
+  const repository = new BackgroundJobRepository(pool as never);
+
+  const result = await repository.requeueStaleRunning({
+    maxAgeMinutes: 0,
+    limit: 999_999,
+    recoveryError: '  '
+  });
+  assert.deepEqual(result, { requeuedCount: 1, jobIds: [31] });
+
+  const params = pool.queries[0]?.params;
+  assert.ok(params);
+  assert.equal(params[0], 1);
+  assert.equal(params[1], null);
+  assert.equal(params[2], 10_000);
+  assert.equal(params[3], 'stale running lock recovered by background worker');
 });
 
 void test('background jobs purgeFinishedOlderThan deletes terminal rows with bounded inputs', async () => {

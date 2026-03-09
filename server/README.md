@@ -120,7 +120,7 @@ Release notification preference defaults:
 - `BACKGROUND_WORKER_MODE` (`all|general|recommendations`; runtime fallback `all` if unset/invalid; compose default for `worker-general` is `general`)
 - `BACKGROUND_WORKER_MODE_RECOMMENDATIONS` (docker-compose/Portainer stack variable only; sets `BACKGROUND_WORKER_MODE` for `worker-recommendations`; compose default `recommendations`; not read directly by Node runtime)
 - `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `worker-general`; API process no longer runs scheduler ticks)
-- `RECOMMENDATIONS_JOB_CONCURRENCY` (consumed by `worker-recommendations`; default `1`)
+- `RECOMMENDATIONS_JOB_CONCURRENCY` (read by worker runtime; applies when `BACKGROUND_WORKER_MODE` includes recommendations work (`all` or `recommendations`); default `1`)
 - `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
 - `RECOMMENDATIONS_ENRICH_API_BASE_URL` (worker-only; defaults to `http://api:3000` for discovery enrichment lookups)
 - `RECOMMENDATIONS_DAILY_STALE_HOURS`

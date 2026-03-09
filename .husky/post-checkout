@@ -19,6 +19,6 @@ fi
 
 echo "[worktree] Running worktree bootstrap..."
 node scripts/worktree-dev.mjs bootstrap || {
-  echo "[worktree] dependency install failed"
+  echo "[worktree] worktree bootstrap failed"
   exit 1
 }

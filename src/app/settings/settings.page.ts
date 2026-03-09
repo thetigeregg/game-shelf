@@ -3452,7 +3452,23 @@ export class SettingsPage {
 
       if (row.key === RECOMMENDATION_IGNORED_STORAGE_KEY) {
         this.recommendationIgnoreService.refreshFromStorage();
-        this.queueSettingUpsert(row.key, row.value);
+        const normalizedValue = this.recommendationIgnoreService.getSerializedSettingValue();
+
+        if (typeof normalizedValue === 'string') {
+          try {
+            localStorage.setItem(row.key, normalizedValue);
+          } catch {
+            // Ignore storage write failures.
+          }
+          this.queueSettingUpsert(row.key, normalizedValue);
+        } else {
+          try {
+            localStorage.removeItem(row.key);
+          } catch {
+            // Ignore storage write failures.
+          }
+          this.queueSettingDelete(row.key);
+        }
       }
     }
   }

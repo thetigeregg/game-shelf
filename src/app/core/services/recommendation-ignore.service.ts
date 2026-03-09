@@ -45,6 +45,18 @@ export class RecommendationIgnoreService {
     this.setEntries(this.readEntriesFromStorage());
   }
 
+  getSerializedSettingValue(): string | null {
+    if (this.entriesSubject.value.length === 0) {
+      return null;
+    }
+
+    const payload: RecommendationIgnoredPayload = {
+      version: RECOMMENDATION_IGNORED_PAYLOAD_VERSION,
+      entries: this.entriesSubject.value
+    };
+    return JSON.stringify(payload);
+  }
+
   isIgnored(igdbGameId: string): boolean {
     const normalized = this.normalizeGameId(igdbGameId);
     return normalized !== null && this.ignoredIdSet.has(normalized);

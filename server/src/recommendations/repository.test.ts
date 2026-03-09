@@ -412,6 +412,23 @@ void test('failStaleRunningRuns clamps defaults and supports null target filter'
   assert.equal(query.params[2], 'orphaned RUNNING run recovered after worker loss');
 });
 
+void test('failStaleRunningRuns uses defaults when params are omitted', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 101 }],
+    rowCount: 1
+  }));
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.failStaleRunningRuns();
+
+  assert.deepEqual(result, { failedCount: 1, runIds: [101] });
+  const query = pool.queries[0];
+  assert.ok(query.params);
+  assert.equal(query.params[0], 30);
+  assert.equal(query.params[1], null);
+  assert.equal(query.params[2], 'orphaned RUNNING run recovered after worker loss');
+});
+
 void test('readTopRecommendations returns rows for DISCOVERY target', async () => {
   const pool = new PoolMock((sql) => {
     if (sql.includes('FROM recommendation_runs')) {

@@ -63,7 +63,12 @@ void test('background worker helper guards recommendation target + string payloa
 
 void test('background worker mode parser supports general/recommendations/all with sane fallback', () => {
   const previous = process.env.BACKGROUND_WORKER_MODE;
+  const warn = console.warn;
+  const warnings: unknown[][] = [];
   try {
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args);
+    };
     process.env.BACKGROUND_WORKER_MODE = 'general';
     assert.equal(readBackgroundWorkerMode(), 'general');
 
@@ -78,7 +83,14 @@ void test('background worker mode parser supports general/recommendations/all wi
 
     process.env.BACKGROUND_WORKER_MODE = 'invalid';
     assert.equal(readBackgroundWorkerMode(), 'all');
+    assert.equal(warnings.length, 1);
+    assert.equal(
+      warnings[0]?.[0],
+      '[background-worker] invalid BACKGROUND_WORKER_MODE; falling back to all'
+    );
+    assert.deepEqual(warnings[0]?.[1], { rawValue: 'invalid' });
   } finally {
+    console.warn = warn;
     if (previous === undefined) {
       Reflect.deleteProperty(process.env, 'BACKGROUND_WORKER_MODE');
     } else {

@@ -117,8 +117,8 @@ Release notification preference defaults:
 
 ### Non-secret env vars (recommendations)
 
-- `BACKGROUND_WORKER_MODE` (`all|general|recommendations`; default `all`; use `general` for `worker-general` service)
-- `BACKGROUND_WORKER_MODE_RECOMMENDATIONS` (`all|general|recommendations`; default `recommendations`; used by `worker-recommendations` service)
+- `BACKGROUND_WORKER_MODE` (`all|general|recommendations`; runtime fallback `all` if unset/invalid; compose default for `worker-general` is `general`)
+- `BACKGROUND_WORKER_MODE_RECOMMENDATIONS` (docker-compose/Portainer stack variable only; sets `BACKGROUND_WORKER_MODE` for `worker-recommendations`; compose default `recommendations`; not read directly by Node runtime)
 - `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `worker-general`; API process no longer runs scheduler ticks)
 - `RECOMMENDATIONS_JOB_CONCURRENCY` (consumed by `worker-recommendations`; default `1`)
 - `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)

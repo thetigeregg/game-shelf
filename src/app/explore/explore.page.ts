@@ -4,7 +4,6 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AlertController,
-  PopoverController,
   ToastController,
   IonContent,
   IonHeader,
@@ -208,7 +207,6 @@ export class ExplorePage implements OnInit {
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
-  private readonly popoverController = inject(PopoverController);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
@@ -331,7 +329,6 @@ export class ExplorePage implements OnInit {
 
   async openSettingsFromPopover(): Promise<void> {
     this.closeHeaderActionsPopover();
-    await this.popoverController.dismiss().catch(() => undefined);
     await this.router.navigateByUrl('/settings');
   }
 
@@ -362,7 +359,29 @@ export class ExplorePage implements OnInit {
   }
 
   hasAnyLaneItems(): boolean {
-    return this.getVisibleRecommendationItems().length > 0;
+    const lanes = this.activeLanesResponse?.lanes;
+    if (!lanes) {
+      return false;
+    }
+
+    const options = this.getLaneOptions();
+    for (const option of options) {
+      const laneItems = lanes[option.value];
+      if (!Array.isArray(laneItems) || laneItems.length === 0) {
+        continue;
+      }
+
+      const visibleItems = this.getDeduplicatedLaneItems(
+        this.filterIgnoredRecommendationItems(
+          this.filterAlreadyInLibraryRecommendationItems(laneItems)
+        )
+      );
+      if (visibleItems.length > 0) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   getLaneOptions(): Array<{ value: RecommendationLaneKey; label: string }> {

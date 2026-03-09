@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
-import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -171,9 +171,6 @@ describe('ExplorePage recommendations UX', () => {
   const toastControllerMock = {
     create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
   };
-  const popoverControllerMock = {
-    dismiss: vi.fn().mockResolvedValue(undefined)
-  };
   const routerMock = {
     navigateByUrl: vi.fn().mockResolvedValue(true)
   };
@@ -202,7 +199,6 @@ describe('ExplorePage recommendations UX', () => {
         { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
-        { provide: PopoverController, useValue: popoverControllerMock },
         { provide: Router, useValue: routerMock }
       ]
     });
@@ -888,7 +884,6 @@ describe('ExplorePage recommendations UX', () => {
     expect(page.headerActionsPopoverEvent).toBe(event);
 
     await page.openSettingsFromPopover();
-    expect(popoverControllerMock.dismiss).toHaveBeenCalledTimes(1);
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
     expect(page.isHeaderActionsPopoverOpen).toBe(false);
     expect(page.headerActionsPopoverEvent).toBeUndefined();
@@ -952,6 +947,34 @@ describe('ExplorePage recommendations UX', () => {
 
     expect(page.getActiveLaneItems()).toHaveLength(0);
     expect(page.getEmptyStateMessage()).toBe('No recommendation items available right now.');
+  });
+
+  it('shows lane-specific empty-state message when another lane has visible items', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      activeLanesResponse: typeof mockLanesResponse | null;
+      getActiveLaneItems: () => Array<{ igdbGameId: string }>;
+      getEmptyStateMessage: () => string;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        blended: [],
+        popular: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '901', platformIgdbId: 6 }],
+        recent: []
+      }
+    };
+
+    expect(page.getActiveLaneItems()).toHaveLength(0);
+    expect(page.getEmptyStateMessage()).toBe(
+      'This lane has no items for the current target and runtime mode.'
+    );
   });
 
   it('covers empty-state, similar-display, and parser helper branches', () => {

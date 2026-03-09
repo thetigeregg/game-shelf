@@ -9,15 +9,13 @@ import { SyncEventsService } from './sync-events.service';
 import { SYNC_OUTBOX_WRITER } from '../data/sync-outbox-writer';
 
 describe('RecommendationIgnoreService', () => {
-  const changed$ = new Subject<void>();
+  let changed$: Subject<void>;
   const outboxWriterMock = {
     enqueueOperation: vi.fn().mockResolvedValue(undefined)
   };
 
-  beforeEach(() => {
-    localStorage.removeItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
-    vi.clearAllMocks();
-
+  function configureTestingModule(): void {
+    changed$ = new Subject<void>();
     TestBed.configureTestingModule({
       providers: [
         RecommendationIgnoreService,
@@ -33,6 +31,12 @@ describe('RecommendationIgnoreService', () => {
         }
       ]
     });
+  }
+
+  beforeEach(() => {
+    localStorage.removeItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
+    vi.clearAllMocks();
+    configureTestingModule();
   });
 
   it('ignores by igdb id regardless of platform variants', () => {
@@ -50,6 +54,8 @@ describe('RecommendationIgnoreService', () => {
     const service = TestBed.inject(RecommendationIgnoreService);
     service.ignoreGame({ igdbGameId: '101', title: 'Chrono Trigger' });
 
+    TestBed.resetTestingModule();
+    configureTestingModule();
     const reloaded = TestBed.inject(RecommendationIgnoreService);
     reloaded.refreshFromStorage();
     expect(reloaded.isIgnored('101')).toBe(true);

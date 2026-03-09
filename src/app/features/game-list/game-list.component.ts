@@ -3641,10 +3641,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.ignoredRecommendationGameIds.has(igdbGameId);
   }
 
-  private applyIgnoredRecommendationFilterToDiscoveryRows(): void {
-    // Ignore filtering is applied at read-time so unignored games reappear without refetching.
-  }
-
   private getFilteredSimilarDiscoveryGames(): SimilarDiscoveryGameRow[] {
     if (this.ignoredRecommendationGameIds.size === 0) {
       return this.similarDiscoveryGames;
@@ -4740,7 +4736,6 @@ export class GameListComponent implements OnChanges, OnDestroy {
       .pipe(takeUntilDestroyed())
       .subscribe((ignoredIds) => {
         this.ignoredRecommendationGameIds = ignoredIds;
-        this.applyIgnoredRecommendationFilterToDiscoveryRows();
 
         if (
           this.similarDiscoveryDetail &&

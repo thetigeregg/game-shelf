@@ -98,4 +98,19 @@ describe('RecommendationIgnoreService', () => {
     service.refreshFromStorage();
     expect(service.listIgnored()).toEqual([]);
   });
+
+  it('falls back to empty state when stored payload version is unsupported', () => {
+    localStorage.setItem(
+      RECOMMENDATION_IGNORED_STORAGE_KEY,
+      JSON.stringify({
+        version: 999,
+        entries: [
+          { igdbGameId: '101', title: 'Chrono Trigger', ignoredAt: '2026-03-09T00:00:00.000Z' }
+        ]
+      })
+    );
+    const service = TestBed.inject(RecommendationIgnoreService);
+    service.refreshFromStorage();
+    expect(service.listIgnored()).toEqual([]);
+  });
 });

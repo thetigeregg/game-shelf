@@ -360,9 +360,12 @@
             [game]="discoveryGame"
             context="explore"
             [showAddToLibraryAction]="true"
+            [showIgnoreAction]="true"
             [isInLibrary]="isSimilarDiscoveryInLibrary"
+            [isIgnored]="isSimilarDiscoveryDetailIgnored"
             [isAddToLibraryLoading]="isSimilarDiscoveryAddLoading"
             (addToLibrary)="addSimilarDiscoveryDetailToLibrary()"
+            (ignore)="ignoreSimilarDiscoveryDetailGame()"
           >
             <ion-list lines="full" detail-secondary-content>
               <ion-list-header class="similar-games-header">

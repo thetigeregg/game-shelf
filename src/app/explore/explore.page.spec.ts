@@ -8,6 +8,7 @@ import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { RecommendationIgnoreService } from '../core/services/recommendation-ignore.service';
 
 vi.mock('@ionic/angular/standalone', () => {
   const Dummy = () => null;
@@ -149,6 +150,11 @@ describe('ExplorePage recommendations UX', () => {
     setGameTags: vi.fn()
   };
 
+  const recommendationIgnoreServiceMock = {
+    ignoredIds$: of(new Set<string>()),
+    ignoreGame: vi.fn()
+  };
+
   const alertControllerMock = {
     create: vi.fn().mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
@@ -180,6 +186,7 @@ describe('ExplorePage recommendations UX', () => {
         { provide: PlatformCustomizationService, useValue: platformCustomizationMock },
         { provide: AddToLibraryWorkflowService, useValue: addToLibraryWorkflowMock },
         { provide: GameShelfService, useValue: gameShelfServiceMock },
+        { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
         { provide: ToastController, useValue: toastControllerMock }
       ]

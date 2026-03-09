@@ -130,6 +130,7 @@ import {
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
+import { RecommendationIgnoreService } from '../../core/services/recommendation-ignore.service';
 import { GameSearchComponent } from '../game-search/game-search.component';
 import { GameDetailContentComponent } from '../game-detail/game-detail-content.component';
 import { DetailShortcutsFabComponent } from '../game-detail/detail-shortcuts-fab.component';
@@ -439,6 +440,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly timePreferenceService = inject(TimePreferenceService);
   private readonly igdbProxyService = inject(IgdbProxyService);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
+  private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
@@ -453,6 +455,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private gameDetailModalRef?: ElementRef<HTMLElement>;
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
+  private ignoredRecommendationGameIds = new Set<string>();
   private imageErrorLogCount = 0;
   private notesAutosaveTimeoutId: number | null = null;
   private notesAutosaveFailureCount = 0;
@@ -3386,7 +3389,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   getVisibleSimilarDiscoveryGames(): SimilarDiscoveryGameRow[] {
-    return this.similarDiscoveryGames.slice(0, this.visibleSimilarDiscoveryGamesCount);
+    return this.getFilteredSimilarDiscoveryGames().slice(0, this.visibleSimilarDiscoveryGamesCount);
   }
 
   getSimilarGameBadges(row: SimilarLibraryGameRow): Array<{
@@ -3401,7 +3404,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   canLoadMoreSimilarDiscoveryGames(): boolean {
-    return this.visibleSimilarDiscoveryGamesCount < this.similarDiscoveryGames.length;
+    return this.visibleSimilarDiscoveryGamesCount < this.getFilteredSimilarDiscoveryGames().length;
   }
 
   async loadMoreSimilarLibraryGames(event: Event): Promise<void> {
@@ -3415,6 +3418,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   onSimilarDiscoveryRowClick(row: SimilarDiscoveryGameRow): void {
+    if (this.isRecommendationGameIgnored(row.igdbGameId)) {
+      return;
+    }
+
     void this.openSimilarDiscoveryDetail(row);
   }
 
@@ -3426,6 +3433,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private async openSimilarDiscoveryDetail(row: SimilarDiscoveryGameRow): Promise<void> {
+    if (this.isRecommendationGameIgnored(row.igdbGameId)) {
+      return;
+    }
+
     this.isSimilarDiscoveryDetailModalOpen = true;
     this.isSimilarDiscoveryDetailLoading = true;
     this.similarDiscoveryDetailErrorMessage = '';
@@ -3512,8 +3523,28 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
   }
 
+  get isSimilarDiscoveryDetailIgnored(): boolean {
+    return (
+      !!this.similarDiscoveryDetail &&
+      this.isRecommendationGameIgnored(this.similarDiscoveryDetail.igdbGameId)
+    );
+  }
+
+  ignoreSimilarDiscoveryDetailGame(): void {
+    const detail = this.similarDiscoveryDetail;
+    if (!detail) {
+      return;
+    }
+
+    this.recommendationIgnoreService.ignoreGame({
+      igdbGameId: detail.igdbGameId,
+      title: detail.title
+    });
+    this.closeSimilarDiscoveryDetailModal();
+  }
+
   getVisibleSimilarDiscoveryDetailRelatedGames(): SimilarDiscoveryGameRow[] {
-    return this.similarDiscoveryDetailRelatedGames.slice(
+    return this.getFilteredSimilarDiscoveryDetailRelatedGames().slice(
       0,
       this.visibleSimilarDiscoveryDetailRelatedCount
     );
@@ -3522,7 +3553,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   canLoadMoreSimilarDiscoveryDetailRelatedGames(): boolean {
     return (
       this.visibleSimilarDiscoveryDetailRelatedCount <
-      this.similarDiscoveryDetailRelatedGames.length
+      this.getFilteredSimilarDiscoveryDetailRelatedGames().length
     );
   }
 
@@ -3604,6 +3635,34 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private buildRecommendationIdentityKey(igdbGameId: string, platformIgdbId: number): string {
     return `${igdbGameId}::${String(platformIgdbId)}`;
+  }
+
+  private isRecommendationGameIgnored(igdbGameId: string): boolean {
+    return this.ignoredRecommendationGameIds.has(igdbGameId);
+  }
+
+  private applyIgnoredRecommendationFilterToDiscoveryRows(): void {
+    // Ignore filtering is applied at read-time so unignored games reappear without refetching.
+  }
+
+  private getFilteredSimilarDiscoveryGames(): SimilarDiscoveryGameRow[] {
+    if (this.ignoredRecommendationGameIds.size === 0) {
+      return this.similarDiscoveryGames;
+    }
+
+    return this.similarDiscoveryGames.filter(
+      (row) => !this.isRecommendationGameIgnored(row.igdbGameId)
+    );
+  }
+
+  private getFilteredSimilarDiscoveryDetailRelatedGames(): SimilarDiscoveryGameRow[] {
+    if (this.ignoredRecommendationGameIds.size === 0) {
+      return this.similarDiscoveryDetailRelatedGames;
+    }
+
+    return this.similarDiscoveryDetailRelatedGames.filter(
+      (row) => !this.isRecommendationGameIgnored(row.igdbGameId)
+    );
   }
 
   private async ensureSimilarDiscoveryDisplayMetadata(
@@ -4676,6 +4735,22 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.isDesktopDetailLayout = nextDesktop;
       this.changeDetectorRef.markForCheck();
     });
+
+    this.recommendationIgnoreService.ignoredIds$
+      .pipe(takeUntilDestroyed())
+      .subscribe((ignoredIds) => {
+        this.ignoredRecommendationGameIds = ignoredIds;
+        this.applyIgnoredRecommendationFilterToDiscoveryRows();
+
+        if (
+          this.similarDiscoveryDetail &&
+          this.isRecommendationGameIgnored(this.similarDiscoveryDetail.igdbGameId)
+        ) {
+          this.closeSimilarDiscoveryDetailModal();
+        } else {
+          this.changeDetectorRef.markForCheck();
+        }
+      });
 
     addIcons({
       star,

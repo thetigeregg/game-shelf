@@ -54,7 +54,8 @@ vi.mock('ionicons/icons', () => ({
   refresh: {},
   layers: {},
   bug: {},
-  key: {}
+  key: {},
+  eyeOff: {}
 }));
 
 import { AlertController, ToastController } from '@ionic/angular/standalone';

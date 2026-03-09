@@ -86,7 +86,7 @@ Common stack env vars:
 - `BACKGROUND_WORKER_MODE` (optional; compose default is `general` for `worker-general`; worker runtime fallback is `all` if unset/invalid)
 - `BACKGROUND_WORKER_MODE_RECOMMENDATIONS` (optional; compose/Portainer substitution var used to set `BACKGROUND_WORKER_MODE` for `worker-recommendations`; compose default is `recommendations`; if set to an invalid value, worker runtime falls back to `all`)
 - `RECOMMENDATIONS_SCHEDULER_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
-- `RECOMMENDATIONS_JOB_CONCURRENCY` (optional; defaults `1`; consumed by `worker-recommendations`)
+- `RECOMMENDATIONS_JOB_CONCURRENCY` (optional; defaults `1`; read by worker runtime; applies when `BACKGROUND_WORKER_MODE` includes recommendations work (`all` or `recommendations`))
 - `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (optional; defaults `1`; consumed by `worker-general`)
 - `RECOMMENDATIONS_ENRICH_API_BASE_URL` (optional; defaults `http://api:3000`; worker-only)
 - `RECOMMENDATIONS_RUNTIME_MODE_DEFAULT` (optional; `NEUTRAL|SHORT|LONG`, default `NEUTRAL`)

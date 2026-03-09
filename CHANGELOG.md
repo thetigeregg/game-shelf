@@ -1815,3 +1815,10 @@
 - 8047baa Merge branch 'main' into dependabot/github_actions/docker/metadata-action-6
 - e8068ab chore(ci): bump docker/metadata-action from 5 to 6
 
+## v1.1.23 - 2026-03-09
+- cfe6710 Merge pull request #192 from thetigeregg/bump
+- 008d7bb chore: update @eslint/js to version 9.39.4 and add @angular/forms dependency
+- 742450e Merge branch 'main' into bump
+- cdf1d45 Revert "chore: update firebase dependency to version 12.10.0"
+- 023b76b chore: update firebase dependency to version 12.10.0
+

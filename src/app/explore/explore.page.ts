@@ -298,9 +298,7 @@ export class ExplorePage implements OnInit {
   }
 
   getActiveLaneItems(): RecommendationItem[] {
-    return this.getDeduplicatedLaneItems(
-      this.filterIgnoredRecommendationItems(this.getRawActiveLaneItems())
-    ).slice(0, this.visibleRecommendationCount);
+    return this.getVisibleRecommendationItems().slice(0, this.visibleRecommendationCount);
   }
 
   canLoadMoreRecommendations(): boolean {
@@ -313,17 +311,11 @@ export class ExplorePage implements OnInit {
   }
 
   getVisibleSimilarRecommendationItems(): RecommendationSimilarItem[] {
-    return this.filterIgnoredSimilarItems(this.similarRecommendationItems).slice(
-      0,
-      this.visibleSimilarRecommendationCount
-    );
+    return this.getVisibleSimilarItems().slice(0, this.visibleSimilarRecommendationCount);
   }
 
   canLoadMoreSimilarRecommendations(): boolean {
-    return (
-      this.visibleSimilarRecommendationCount <
-      this.filterIgnoredSimilarItems(this.similarRecommendationItems).length
-    );
+    return this.visibleSimilarRecommendationCount < this.getVisibleSimilarItems().length;
   }
 
   async loadMoreSimilarRecommendations(event: Event): Promise<void> {
@@ -514,7 +506,7 @@ export class ExplorePage implements OnInit {
     row: RecommendationItem | RecommendationSimilarItem,
     event: Event
   ): void {
-    if (this.ignoredRecommendationGameIds.has(row.igdbGameId)) {
+    if (this.isRecommendationHidden(row.igdbGameId)) {
       return;
     }
 
@@ -530,7 +522,7 @@ export class ExplorePage implements OnInit {
     item: RecommendationItem,
     options?: { pushCurrentToStack?: boolean }
   ): Promise<void> {
-    if (this.ignoredRecommendationGameIds.has(item.igdbGameId)) {
+    if (this.isRecommendationHidden(item.igdbGameId)) {
       return;
     }
 
@@ -646,10 +638,12 @@ export class ExplorePage implements OnInit {
       );
 
       if (addResult.status === 'added' && addResult.entry) {
+        this.upsertLocalGameCache(addResult.entry);
         this.selectedGameDetail = addResult.entry;
         this.detailContext = 'library';
         this.isSelectedGameInLibrary = true;
       } else if (addResult.status === 'duplicate') {
+        await this.refreshLocalGameCache();
         this.isSelectedGameInLibrary = true;
       }
     } finally {
@@ -1138,6 +1132,22 @@ export class ExplorePage implements OnInit {
     }
   }
 
+  private upsertLocalGameCache(entry: GameEntry): void {
+    this.localGameCacheByIdentity.set(
+      this.buildIdentityKey(entry.igdbGameId, entry.platformIgdbId),
+      entry
+    );
+  }
+
+  private async refreshLocalGameCache(): Promise<void> {
+    try {
+      const localGames = await this.gameShelfService.listLibraryGames();
+      this.replaceLocalGameCache(localGames);
+    } catch {
+      // Do not block add-to-library flow on cache refresh failures.
+    }
+  }
+
   private getLocalGame(item: RecommendationItem): GameEntry | null {
     return this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
   }
@@ -1561,9 +1571,65 @@ export class ExplorePage implements OnInit {
   }
 
   private getTotalActiveRecommendationCount(): number {
+    return this.getVisibleRecommendationItems().length;
+  }
+
+  private getVisibleRecommendationItems(): RecommendationItem[] {
     return this.getDeduplicatedLaneItems(
-      this.filterIgnoredRecommendationItems(this.getRawActiveLaneItems())
-    ).length;
+      this.filterIgnoredRecommendationItems(
+        this.filterAlreadyInLibraryRecommendationItems(this.getRawActiveLaneItems())
+      )
+    );
+  }
+
+  private getVisibleSimilarItems(): RecommendationSimilarItem[] {
+    return this.filterIgnoredSimilarItems(
+      this.filterAlreadyInLibrarySimilarItems(this.similarRecommendationItems)
+    );
+  }
+
+  private getLibraryOwnedRecommendationIds(): Set<string> {
+    const ids = new Set<string>();
+
+    for (const entry of this.localGameCacheByIdentity.values()) {
+      ids.add(entry.igdbGameId);
+    }
+
+    return ids;
+  }
+
+  private shouldFilterAlreadyInLibraryRecommendations(): boolean {
+    return this.selectedTarget === 'DISCOVERY';
+  }
+
+  private filterAlreadyInLibraryRecommendationItems(
+    items: RecommendationItem[]
+  ): RecommendationItem[] {
+    if (!this.shouldFilterAlreadyInLibraryRecommendations()) {
+      return items;
+    }
+
+    const ids = this.getLibraryOwnedRecommendationIds();
+    if (ids.size === 0) {
+      return items;
+    }
+
+    return items.filter((item) => !ids.has(item.igdbGameId));
+  }
+
+  private filterAlreadyInLibrarySimilarItems(
+    items: RecommendationSimilarItem[]
+  ): RecommendationSimilarItem[] {
+    if (!this.shouldFilterAlreadyInLibraryRecommendations()) {
+      return items;
+    }
+
+    const ids = this.getLibraryOwnedRecommendationIds();
+    if (ids.size === 0) {
+      return items;
+    }
+
+    return items.filter((item) => !ids.has(item.igdbGameId));
   }
 
   private filterIgnoredRecommendationItems(items: RecommendationItem[]): RecommendationItem[] {
@@ -1587,12 +1653,24 @@ export class ExplorePage implements OnInit {
   private popPreviousNonIgnoredRecommendation(): RecommendationItem | null {
     while (this.detailNavigationStack.length > 0) {
       const previous = this.detailNavigationStack.pop() ?? null;
-      if (previous && !this.ignoredRecommendationGameIds.has(previous.igdbGameId)) {
+      if (previous && !this.isRecommendationHidden(previous.igdbGameId)) {
         return previous;
       }
     }
 
     return null;
+  }
+
+  private isRecommendationHidden(igdbGameId: string): boolean {
+    if (this.ignoredRecommendationGameIds.has(igdbGameId)) {
+      return true;
+    }
+
+    if (!this.shouldFilterAlreadyInLibraryRecommendations()) {
+      return false;
+    }
+
+    return this.getLibraryOwnedRecommendationIds().has(igdbGameId);
   }
 
   private async pickListTypeForAdd(): Promise<ListType | null> {

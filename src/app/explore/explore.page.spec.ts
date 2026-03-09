@@ -761,6 +761,11 @@ describe('ExplorePage recommendations UX', () => {
       isSelectedGameInLibrary: boolean;
       isAddToLibraryLoading: boolean;
       selectedGameDetail: unknown;
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      activeLanesResponse: typeof mockLanesResponse | null;
+      getActiveLaneItems: () => Array<{ igdbGameId: string }>;
+      localGameCacheByIdentity: Map<string, unknown>;
       pickListTypeForAdd: () => Promise<'collection' | 'wishlist' | null>;
       addSelectedGameToLibrary: () => Promise<void>;
     };
@@ -802,6 +807,54 @@ describe('ExplorePage recommendations UX', () => {
     });
     await page.addSelectedGameToLibrary();
     expect(page.detailContext).toBe('library');
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        blended: [
+          {
+            ...mockLanesResponse.lanes.overall[0],
+            igdbGameId: '300',
+            platformIgdbId: 6
+          }
+        ]
+      }
+    };
+    page.localGameCacheByIdentity.clear();
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(true);
+
+    page.detailContext = 'explore';
+    page.isSelectedGameInLibrary = false;
+    page.isAddToLibraryLoading = false;
+    page.selectedGameDetail = {
+      igdbGameId: '300',
+      title: 'Catalog',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      platformOptions: [{ id: 6, name: 'PC' }]
+    };
+    addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({
+      status: 'added',
+      entry: {
+        igdbGameId: '300',
+        title: 'Catalog',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'PC',
+        platformIgdbId: 6,
+        listType: 'collection',
+        createdAt: '2026-03-03T00:00:00.000Z',
+        updatedAt: '2026-03-03T00:00:00.000Z'
+      }
+    });
+    await page.addSelectedGameToLibrary();
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
   });
 
   it('covers empty-state, similar-display, and parser helper branches', () => {

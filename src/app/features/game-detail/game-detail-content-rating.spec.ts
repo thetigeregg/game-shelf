@@ -20,6 +20,8 @@ vi.mock('@ionic/angular/standalone', () => ({
 }));
 
 vi.mock('ionicons/icons', () => ({
+  add: {},
+  ban: {},
   build: {},
   business: {},
   calendar: {},

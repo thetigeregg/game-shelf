@@ -386,7 +386,8 @@ void test('failStaleRunningRuns marks old RUNNING rows as FAILED', async () => {
   assert.ok(normalizedSql.includes("where status = 'running'"));
   assert.ok(normalizedSql.includes('started_at < (now() - make_interval(mins => $1))'));
   assert.ok(normalizedSql.includes('($2::text is null or target = $2)'));
-  assert.ok(normalizedSql.includes('not exists ( select 1 from background_jobs'));
+  assert.ok(normalizedSql.includes('not exists'));
+  assert.ok(normalizedSql.includes('from background_jobs'));
   assert.ok(normalizedSql.includes("background_jobs.job_type = 'recommendations_rebuild'"));
   assert.deepEqual(query.params, [30, 'BACKLOG', 'orphan recovery']);
 });

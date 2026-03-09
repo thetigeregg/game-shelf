@@ -38,21 +38,29 @@
                 </ion-badge>
               }
             </ion-label>
-            @if (showAddToLibraryAction) {
-              <ion-button
-                slot="end"
-                size="default"
-                [disabled]="isAddToLibraryLoading || isInLibrary"
-                (click)="addToLibrary.emit()"
-              >
-                {{
-                  isInLibrary
-                    ? 'In Library'
-                    : isAddToLibraryLoading
-                      ? 'Adding...'
-                      : 'Add to Library'
-                }}
-              </ion-button>
+            @if (showAddToLibraryAction || showIgnoreAction) {
+              <div slot="end">
+                @if (showAddToLibraryAction) {
+                  <ion-button
+                    size="default"
+                    [disabled]="isAddToLibraryLoading || isInLibrary"
+                    (click)="addToLibrary.emit()"
+                  >
+                    {{
+                      isInLibrary
+                        ? 'In Library'
+                        : isAddToLibraryLoading
+                          ? 'Adding...'
+                          : 'Add to Library'
+                    }}
+                  </ion-button>
+                }
+                @if (showIgnoreAction) {
+                  <ion-button color="medium" [disabled]="isIgnored" (click)="ignore.emit()">
+                    {{ isIgnored ? 'Ignored' : 'Ignore' }}
+                  </ion-button>
+                }
+              </div>
             }
           </ion-item>
           <ion-item>

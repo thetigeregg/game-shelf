@@ -143,6 +143,10 @@ export class RecommendationIgnoreService {
       }
 
       const payload = parsed as Partial<RecommendationIgnoredPayload>;
+      if (payload.version !== RECOMMENDATION_IGNORED_PAYLOAD_VERSION) {
+        return [];
+      }
+
       if (!Array.isArray(payload.entries)) {
         return [];
       }

@@ -26,6 +26,39 @@
             </swiper-slide>
           }
         </swiper-container>
+        @if (showAddToLibraryAction || showIgnoreAction) {
+          <ion-toolbar class="detail-actions-toolbar">
+            <ion-buttons slot="end">
+              @if (showAddToLibraryAction) {
+                <ion-button
+                  fill="solid"
+                  [disabled]="isAddToLibraryLoading || isInLibrary"
+                  (click)="addToLibrary.emit()"
+                >
+                  <ion-icon slot="start" name="add" aria-hidden="true"></ion-icon>
+                  {{
+                    isInLibrary
+                      ? 'In Library'
+                      : isAddToLibraryLoading
+                        ? 'Adding...'
+                        : 'Add to Library'
+                  }}
+                </ion-button>
+              }
+              @if (showIgnoreAction) {
+                <ion-button
+                  fill="solid"
+                  color="medium"
+                  [disabled]="isIgnored"
+                  (click)="ignore.emit()"
+                >
+                  <ion-icon slot="start" name="ban" aria-hidden="true"></ion-icon>
+                  {{ isIgnored ? 'Ignored' : 'Ignore' }}
+                </ion-button>
+              }
+            </ion-buttons>
+          </ion-toolbar>
+        }
         <ion-list lines="full">
           <ion-item>
             <ion-icon slot="start" name="game-controller" aria-hidden="true"></ion-icon>
@@ -38,22 +71,6 @@
                 </ion-badge>
               }
             </ion-label>
-            @if (showAddToLibraryAction) {
-              <ion-button
-                slot="end"
-                size="default"
-                [disabled]="isAddToLibraryLoading || isInLibrary"
-                (click)="addToLibrary.emit()"
-              >
-                {{
-                  isInLibrary
-                    ? 'In Library'
-                    : isAddToLibraryLoading
-                      ? 'Adding...'
-                      : 'Add to Library'
-                }}
-              </ion-button>
-            }
           </ion-item>
           <ion-item>
             <ion-icon slot="start" name="hardware-chip" aria-hidden="true"></ion-icon>

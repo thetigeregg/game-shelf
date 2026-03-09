@@ -456,6 +456,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
   private ignoredRecommendationGameIds = new Set<string>();
+  private cachedFilteredSimilarDiscoveryGames: SimilarDiscoveryGameRow[] | null = null;
+  private cachedSimilarDiscoveryGamesSource: SimilarDiscoveryGameRow[] | null = null;
+  private cachedSimilarDiscoveryIgnoredIds: Set<string> | null = null;
+  private cachedFilteredSimilarDiscoveryDetailRelatedGames: SimilarDiscoveryGameRow[] | null = null;
+  private cachedSimilarDiscoveryDetailRelatedSource: SimilarDiscoveryGameRow[] | null = null;
+  private cachedSimilarDiscoveryDetailRelatedIgnoredIds: Set<string> | null = null;
   private imageErrorLogCount = 0;
   private notesAutosaveTimeoutId: number | null = null;
   private notesAutosaveFailureCount = 0;
@@ -3642,23 +3648,47 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   private getFilteredSimilarDiscoveryGames(): SimilarDiscoveryGameRow[] {
-    if (this.ignoredRecommendationGameIds.size === 0) {
-      return this.similarDiscoveryGames;
+    const sourceRows = this.similarDiscoveryGames;
+    const ignoredIds = this.ignoredRecommendationGameIds;
+    if (
+      this.cachedFilteredSimilarDiscoveryGames &&
+      this.cachedSimilarDiscoveryGamesSource === sourceRows &&
+      this.cachedSimilarDiscoveryIgnoredIds === ignoredIds
+    ) {
+      return this.cachedFilteredSimilarDiscoveryGames;
     }
 
-    return this.similarDiscoveryGames.filter(
-      (row) => !this.isRecommendationGameIgnored(row.igdbGameId)
-    );
+    const filteredRows =
+      ignoredIds.size === 0
+        ? sourceRows
+        : sourceRows.filter((row) => !this.isRecommendationGameIgnored(row.igdbGameId));
+
+    this.cachedFilteredSimilarDiscoveryGames = filteredRows;
+    this.cachedSimilarDiscoveryGamesSource = sourceRows;
+    this.cachedSimilarDiscoveryIgnoredIds = ignoredIds;
+    return filteredRows;
   }
 
   private getFilteredSimilarDiscoveryDetailRelatedGames(): SimilarDiscoveryGameRow[] {
-    if (this.ignoredRecommendationGameIds.size === 0) {
-      return this.similarDiscoveryDetailRelatedGames;
+    const sourceRows = this.similarDiscoveryDetailRelatedGames;
+    const ignoredIds = this.ignoredRecommendationGameIds;
+    if (
+      this.cachedFilteredSimilarDiscoveryDetailRelatedGames &&
+      this.cachedSimilarDiscoveryDetailRelatedSource === sourceRows &&
+      this.cachedSimilarDiscoveryDetailRelatedIgnoredIds === ignoredIds
+    ) {
+      return this.cachedFilteredSimilarDiscoveryDetailRelatedGames;
     }
 
-    return this.similarDiscoveryDetailRelatedGames.filter(
-      (row) => !this.isRecommendationGameIgnored(row.igdbGameId)
-    );
+    const filteredRows =
+      ignoredIds.size === 0
+        ? sourceRows
+        : sourceRows.filter((row) => !this.isRecommendationGameIgnored(row.igdbGameId));
+
+    this.cachedFilteredSimilarDiscoveryDetailRelatedGames = filteredRows;
+    this.cachedSimilarDiscoveryDetailRelatedSource = sourceRows;
+    this.cachedSimilarDiscoveryDetailRelatedIgnoredIds = ignoredIds;
+    return filteredRows;
   }
 
   private async ensureSimilarDiscoveryDisplayMetadata(

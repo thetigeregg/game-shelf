@@ -119,6 +119,10 @@ import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import {
+  RECOMMENDATION_IGNORED_STORAGE_KEY,
+  RecommendationIgnoreService
+} from '../core/services/recommendation-ignore.service';
+import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY
 } from '../core/services/time-preference.service';
@@ -134,7 +138,8 @@ import {
   refresh,
   layers,
   bug,
-  key
+  key,
+  eyeOff
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
@@ -428,6 +433,7 @@ export class SettingsPage {
   private readonly router = inject(Router);
   private readonly debugLogService = inject(DebugLogService);
   private readonly clientWriteAuthService = inject(ClientWriteAuthService);
+  private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   private readonly notificationService = inject(NotificationService);
   private readonly timePreferenceService = inject(TimePreferenceService);
 
@@ -451,7 +457,8 @@ export class SettingsPage {
       refresh,
       layers,
       bug,
-      key
+      key,
+      eyeOff
     });
   }
 
@@ -970,6 +977,10 @@ export class SettingsPage {
 
   openMetadataValidator(): void {
     void this.router.navigateByUrl('/metadata-validator');
+  }
+
+  openIgnoredRecommendations(): void {
+    void this.router.navigateByUrl('/settings/ignored-recommendations');
   }
 
   async onMgcImportFileSelected(event: Event): Promise<void> {
@@ -3437,6 +3448,11 @@ export class SettingsPage {
         }
 
         this.queueSettingUpsert(row.key, normalizedValue);
+      }
+
+      if (row.key === RECOMMENDATION_IGNORED_STORAGE_KEY) {
+        this.recommendationIgnoreService.refreshFromStorage();
+        this.queueSettingUpsert(row.key, row.value);
       }
     }
   }

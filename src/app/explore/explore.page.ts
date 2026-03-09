@@ -4,6 +4,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   AlertController,
+  PopoverController,
   ToastController,
   IonContent,
   IonHeader,
@@ -30,8 +31,10 @@ import {
   IonInfiniteScrollContent,
   IonBadge,
   IonAccordion,
-  IonAccordionGroup
+  IonAccordionGroup,
+  IonPopover
 } from '@ionic/angular/standalone';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import {
@@ -73,6 +76,7 @@ import {
   logoYoutube,
   search,
   chevronBack,
+  ellipsisHorizontal,
   sparkles,
   star,
   starOutline,
@@ -127,6 +131,7 @@ interface RecommendationDisplayMetadata {
     IonBadge,
     IonAccordion,
     IonAccordionGroup,
+    IonPopover,
     NgTemplateOutlet,
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
@@ -181,6 +186,8 @@ export class ExplorePage implements OnInit {
   similarRecommendationItems: RecommendationSimilarItem[] = [];
   visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
   visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
+  isHeaderActionsPopoverOpen = false;
+  headerActionsPopoverEvent: Event | undefined = undefined;
   activeDetailRecommendation: RecommendationItem | null = null;
   detailNavigationStack: RecommendationItem[] = [];
   isRatingModalOpen = false;
@@ -201,8 +208,10 @@ export class ExplorePage implements OnInit {
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
+  private readonly popoverController = inject(PopoverController);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
+  private readonly router = inject(Router);
   private readonly lanesCache = new Map<string, RecommendationLanesResponse>();
   private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
@@ -216,6 +225,7 @@ export class ExplorePage implements OnInit {
       logoGoogle,
       logoYoutube,
       chevronBack,
+      ellipsisHorizontal,
       star,
       starOutline,
       library,
@@ -295,6 +305,22 @@ export class ExplorePage implements OnInit {
     } finally {
       await this.completeRefresher(event);
     }
+  }
+
+  openHeaderActionsPopover(event: Event): void {
+    this.headerActionsPopoverEvent = event;
+    this.isHeaderActionsPopoverOpen = true;
+  }
+
+  closeHeaderActionsPopover(): void {
+    this.isHeaderActionsPopoverOpen = false;
+    this.headerActionsPopoverEvent = undefined;
+  }
+
+  async openSettingsFromPopover(): Promise<void> {
+    this.closeHeaderActionsPopover();
+    await this.popoverController.dismiss().catch(() => undefined);
+    await this.router.navigateByUrl('/settings');
   }
 
   getActiveLaneItems(): RecommendationItem[] {

@@ -133,9 +133,19 @@ Common stack env vars:
 - `BACKGROUND_JOBS_RETENTION_DAYS` (optional; default `30`; consumed by `background-worker`)
 - `BACKGROUND_JOBS_CLEANUP_INTERVAL_MINUTES` (optional; default `60`; consumed by `background-worker`)
 - `BACKGROUND_JOBS_CLEANUP_BATCH_SIZE` (optional; default `1000`; consumed by `background-worker`)
+- `BACKGROUND_JOBS_STALE_RUNNING_MINUTES` (optional; default `30`; consumed by `background-worker`)
+- `BACKGROUND_JOBS_STALE_RECOVERY_INTERVAL_MINUTES` (optional; default `5`; consumed by `background-worker`)
+- `BACKGROUND_JOBS_LOCK_HEARTBEAT_SECONDS` (optional; default `30`; consumed by `background-worker`)
+- `RECOMMENDATION_RUN_STALE_MINUTES` (optional; default `30`; consumed by `background-worker`)
 - `CACHE_REVALIDATION_JOB_CONCURRENCY` (optional; default `2`; consumed by `background-worker`)
 - `MANUALS_CATALOG_JOB_CONCURRENCY` (optional; default `1`; consumed by `background-worker`)
 - `MANUALS_DIR` (optional; default `/data/manuals`; should match mounted manuals path)
+
+Queue recovery behavior:
+
+- The worker sends lock heartbeats for in-flight jobs (`locked_at` refresh).
+- Stale `running` background jobs are automatically re-queued after `BACKGROUND_JOBS_STALE_RUNNING_MINUTES`.
+- Stale `RUNNING` recommendation runs are automatically failed after `RECOMMENDATION_RUN_STALE_MINUTES`.
 
 Release notification defaults:
 

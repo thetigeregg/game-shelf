@@ -234,3 +234,27 @@ For MobyGames lookups, provide `mobygames_api_key` in the same secrets directory
 - Metadata routes reuse the existing worker logic for response compatibility.
 - Sync routes persist server-authoritative state and emit cursor-based change events.
 - Image proxy uses filesystem-backed cache plus `image_assets` index rows in Postgres.
+
+## Critic Score Policy
+
+- `reviewScore` is a unified critic score field and must only represent provider-backed critic data.
+- Valid `reviewSource` values are `metacritic` and `mobygames`.
+- Discovery IGDB ingestion does not populate `reviewScore`.
+- Discovery enrichment treats `reviewScore` as authoritative only when `reviewSource` is set to a supported provider.
+
+### Cleanup migration behavior
+
+- On startup, API/worker processes run idempotent DB migrations automatically.
+- The migration performs three cleanup steps for legacy rows:
+  1. Backfill unified review fields from existing `metacriticScore` / `metacriticUrl` where possible.
+  2. Backfill unified review fields from existing `mobyScore` where possible.
+  3. Clear non-provider `reviewScore`/`reviewSource`/`reviewUrl` values and clear discovery `enrichmentRetry` so provider enrichment can repopulate.
+- No manual SQL is required under normal deployment.
+
+### Post-deploy operational recommendation
+
+- After deploying this change, queue recommendation rebuilds so ranking artifacts reflect cleaned critic data:
+  - `POST /v1/recommendations/rebuild` with `{"target":"DISCOVERY","force":true}`
+  - `POST /v1/recommendations/rebuild` with `{"target":"BACKLOG","force":true}`
+  - `POST /v1/recommendations/rebuild` with `{"target":"WISHLIST","force":true}`
+- Discovery rebuild also triggers a discovery enrichment pass, so Metacritic/HLTB repopulation starts immediately (in addition to scheduled worker runs).

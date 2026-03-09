@@ -105,6 +105,15 @@ void test('recommendation migrations are present and idempotent runner executes 
   assert.equal(recommendationSql.includes('recommendation_lanes_run_mode_lane_rank_idx'), true);
   assert.equal(recommendationSql.includes('game_similarity_run_mode_source_similarity_idx'), true);
   assert.equal(recommendationSql.includes('recommendation_history_target_mode_last_idx'), true);
+  assert.equal(
+    recommendationSql.includes(
+      "COALESCE(payload->>'reviewSource', '') NOT IN ('metacritic', 'mobygames')"
+    ),
+    true
+  );
+  assert.equal(recommendationSql.includes('jsonb_build_object('), true);
+  assert.equal(recommendationSql.includes("'reviewScore', NULL"), true);
+  assert.equal(recommendationSql.includes("'enrichmentRetry', NULL"), true);
 
   const client = new FakeMigrationClient();
   await runMigrations(client);

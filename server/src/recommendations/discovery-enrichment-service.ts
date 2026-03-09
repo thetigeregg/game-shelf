@@ -210,8 +210,10 @@ export class DiscoveryEnrichmentService {
       hasPositiveNumber(payload.hltbMainHours) ||
       hasPositiveNumber(payload.hltbMainExtraHours) ||
       hasPositiveNumber(payload.hltbCompletionistHours);
+    const reviewSource = parseReviewSource(payload.reviewSource);
     const hasCritic =
-      hasPositiveNumber(payload.reviewScore) || hasPositiveNumber(payload.metacriticScore);
+      hasProviderReviewScore(payload.reviewScore, reviewSource) ||
+      hasPositiveNumber(payload.metacriticScore);
     const nowMs = this.now();
     const nowIso = new Date(nowMs).toISOString();
     const rearmAfterDays = this.getRearmAfterDays();
@@ -419,6 +421,20 @@ function round2(value: number): number {
 
 function hasPositiveNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function parseReviewSource(value: unknown): 'metacritic' | 'mobygames' | null {
+  if (value === 'metacritic' || value === 'mobygames') {
+    return value;
+  }
+  return null;
+}
+
+function hasProviderReviewScore(
+  reviewScore: unknown,
+  reviewSource: 'metacritic' | 'mobygames' | null
+): boolean {
+  return reviewSource !== null && hasPositiveNumber(reviewScore);
 }
 
 function parseRetryState(value: unknown): DiscoveryEnrichmentRetryState {

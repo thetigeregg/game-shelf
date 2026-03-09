@@ -618,6 +618,80 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS background_jobs_terminal_finished_idx
   ON background_jobs (status, finished_at, id)
   WHERE status IN ('succeeded', 'failed') AND finished_at IS NOT NULL;
+  `,
+  // Canonicalize unified critic fields from provider-specific data where possible.
+  `
+  UPDATE games
+  SET
+    payload = jsonb_strip_nulls(
+      payload ||
+      jsonb_build_object(
+        'reviewScore', (BTRIM(payload->>'metacriticScore'))::numeric,
+        'reviewSource', 'metacritic',
+        'reviewUrl', NULLIF(BTRIM(COALESCE(payload->>'metacriticUrl', '')), '')
+      )
+    ),
+    updated_at = NOW()
+  WHERE
+    COALESCE(payload->>'reviewSource', '') NOT IN ('metacritic', 'mobygames')
+    AND BTRIM(COALESCE(payload->>'metacriticScore', '')) ~ '^-?[0-9]+(\.[0-9]+)?$'
+    AND (BTRIM(payload->>'metacriticScore'))::numeric > 0;
+  `,
+  `
+  UPDATE games
+  SET
+    payload = jsonb_strip_nulls(
+      payload ||
+      jsonb_build_object(
+        'reviewScore',
+        ROUND(
+          (
+            CASE
+              WHEN (BTRIM(payload->>'mobyScore'))::numeric <= 10
+              THEN (BTRIM(payload->>'mobyScore'))::numeric * 10
+              ELSE (BTRIM(payload->>'mobyScore'))::numeric
+            END
+          )::numeric,
+          2
+        ),
+        'reviewSource', 'mobygames'
+      )
+    ),
+    updated_at = NOW()
+  WHERE
+    COALESCE(payload->>'reviewSource', '') NOT IN ('metacritic', 'mobygames')
+    AND BTRIM(COALESCE(payload->>'metacriticScore', '')) !~ '^-?[0-9]+(\.[0-9]+)?$'
+    AND BTRIM(COALESCE(payload->>'mobyScore', '')) ~ '^-?[0-9]+(\.[0-9]+)?$'
+    AND (BTRIM(payload->>'mobyScore'))::numeric > 0;
+  `,
+  // Remove legacy IGDB-seeded critic scores and clear stale discovery retry metadata
+  // so provider-backed enrichment can repopulate missing review data.
+  `
+  UPDATE games
+  SET
+    payload = jsonb_strip_nulls(
+      payload ||
+      jsonb_build_object(
+        'reviewScore', NULL,
+        'reviewSource', NULL,
+        'reviewUrl', NULL
+      ) ||
+      CASE
+        WHEN COALESCE(payload->>'listType', '') = 'discovery'
+        THEN jsonb_build_object('enrichmentRetry', NULL)
+        ELSE '{}'::jsonb
+      END
+    ),
+    updated_at = NOW()
+  WHERE
+    COALESCE(payload->>'reviewSource', '') NOT IN ('metacritic', 'mobygames')
+    AND (
+      BTRIM(COALESCE(payload->>'reviewScore', '')) <> ''
+      OR (
+        COALESCE(payload->>'listType', '') = 'discovery'
+        AND payload ? 'enrichmentRetry'
+      )
+    );
   `
 ];
 

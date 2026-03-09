@@ -128,6 +128,74 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
   }
 });
 
+void test('discovery enrichment ignores non-provider reviewScore when deciding metacritic fetch', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1521',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Legacy Review Game',
+        releaseYear: 2020,
+        platform: 'PC',
+        listType: 'discovery',
+        reviewScore: 91.2,
+        reviewSource: null
+      }
+    }
+  ];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(new Response(JSON.stringify({ item: null }), { status: 200 }));
+    }
+
+    if (url.includes('/v1/metacritic/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { metacriticScore: 86, metacriticUrl: 'https://www.metacritic.com/game/example' }
+          }),
+          { status: 200 }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    });
+    const result = await service.enrichNow({ limit: 10 });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    assert.equal(repository.updates[0]?.payload.metacriticScore, 86);
+    assert.equal(repository.updates[0]?.payload.reviewScore, 86);
+    assert.equal(repository.updates[0]?.payload.reviewSource, 'metacritic');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('discovery enrichment runOnce returns null when lock is unavailable', async () => {
   const repository = new RepositoryMock();
   repository.lockAcquired = false;

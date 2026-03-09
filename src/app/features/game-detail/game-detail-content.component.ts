@@ -21,6 +21,8 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
+  add,
+  ban,
   build,
   business,
   calendar,
@@ -79,6 +81,8 @@ export class GameDetailContentComponent {
   @Input() showAddToLibraryAction = false;
   @Input() isInLibrary = false;
   @Input() isAddToLibraryLoading = false;
+  @Input() showIgnoreAction = false;
+  @Input() isIgnored = false;
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
@@ -90,6 +94,7 @@ export class GameDetailContentComponent {
   @Output() genreClick = new EventEmitter<void>();
   @Output() publisherClick = new EventEmitter<void>();
   @Output() addToLibrary = new EventEmitter<void>();
+  @Output() ignore = new EventEmitter<void>();
 
   detailTextExpanded = {
     summary: false,
@@ -100,6 +105,8 @@ export class GameDetailContentComponent {
 
   constructor() {
     addIcons({
+      add,
+      ban,
       build,
       business,
       calendar,

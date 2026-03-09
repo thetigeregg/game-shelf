@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
@@ -8,6 +9,7 @@ import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { AddToLibraryWorkflowService } from '../features/game-search/add-to-library-workflow.service';
 import { GameShelfService } from '../core/services/game-shelf.service';
+import { RecommendationIgnoreService } from '../core/services/recommendation-ignore.service';
 
 vi.mock('@ionic/angular/standalone', () => {
   const Dummy = () => null;
@@ -17,9 +19,13 @@ vi.mock('@ionic/angular/standalone', () => {
   const ToastControllerToken = function ToastController() {
     return undefined;
   };
+  const PopoverControllerToken = function PopoverController() {
+    return undefined;
+  };
   return {
     AlertController: AlertControllerToken,
     ToastController: ToastControllerToken,
+    PopoverController: PopoverControllerToken,
     IonContent: Dummy,
     IonHeader: Dummy,
     IonItem: Dummy,
@@ -49,6 +55,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonBadge: Dummy,
     IonAccordion: Dummy,
     IonAccordionGroup: Dummy,
+    IonPopover: Dummy,
     IonCard: Dummy,
     IonCardHeader: Dummy,
     IonCardTitle: Dummy
@@ -149,6 +156,11 @@ describe('ExplorePage recommendations UX', () => {
     setGameTags: vi.fn()
   };
 
+  const recommendationIgnoreServiceMock = {
+    ignoredIds$: of(new Set<string>()),
+    ignoreGame: vi.fn()
+  };
+
   const alertControllerMock = {
     create: vi.fn().mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
@@ -158,6 +170,9 @@ describe('ExplorePage recommendations UX', () => {
 
   const toastControllerMock = {
     create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
+  };
+  const routerMock = {
+    navigateByUrl: vi.fn().mockResolvedValue(true)
   };
 
   beforeEach(() => {
@@ -173,6 +188,7 @@ describe('ExplorePage recommendations UX', () => {
         items: []
       })
     );
+    routerMock.navigateByUrl.mockResolvedValue(true);
 
     TestBed.configureTestingModule({
       providers: [
@@ -180,8 +196,10 @@ describe('ExplorePage recommendations UX', () => {
         { provide: PlatformCustomizationService, useValue: platformCustomizationMock },
         { provide: AddToLibraryWorkflowService, useValue: addToLibraryWorkflowMock },
         { provide: GameShelfService, useValue: gameShelfServiceMock },
+        { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
-        { provide: ToastController, useValue: toastControllerMock }
+        { provide: ToastController, useValue: toastControllerMock },
+        { provide: Router, useValue: routerMock }
       ]
     });
   });
@@ -551,6 +569,61 @@ describe('ExplorePage recommendations UX', () => {
     expect(openSimilarRecommendation).toHaveBeenCalledTimes(1);
   });
 
+  it('blocks hidden recommendation rows and no-id ignore flows', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      activeDetailRecommendation: { igdbGameId: string; platformIgdbId: number } | null;
+      ignoredRecommendationGameIds: Set<string>;
+      libraryOwnedGameIds: Set<string>;
+      isGameDetailModalOpen: boolean;
+      onRecommendationRowClick: (
+        kind: 'recommendation' | 'similar',
+        row: { igdbGameId: string; platformIgdbId: number },
+        event: Event
+      ) => void;
+      openGameDetail: (item: { igdbGameId: string; platformIgdbId: number }) => Promise<void>;
+      openSimilarRecommendation: (
+        item: { igdbGameId: string; platformIgdbId: number },
+        event: Event
+      ) => Promise<void>;
+      confirmIgnoreSelectedGameRecommendation: () => Promise<void>;
+      ignoreSelectedGameRecommendation: (params?: { igdbGameId: string; title: string }) => void;
+      isActiveDetailIgnored: boolean;
+    };
+    page.selectedTarget = 'DISCOVERY';
+    page.ignoredRecommendationGameIds = new Set(['200']);
+    page.libraryOwnedGameIds.clear();
+    page.libraryOwnedGameIds.add('100');
+    page.activeDetailRecommendation = { igdbGameId: '200', platformIgdbId: 6 };
+
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openSimilarRecommendation = vi
+      .spyOn(page, 'openSimilarRecommendation')
+      .mockResolvedValue(undefined as never);
+    const event = new Event('click');
+    page.onRecommendationRowClick(
+      'recommendation',
+      { igdbGameId: '100', platformIgdbId: 6 },
+      event
+    );
+    page.onRecommendationRowClick('similar', { igdbGameId: '200', platformIgdbId: 6 }, event);
+
+    expect(openGameDetail).not.toHaveBeenCalled();
+    expect(openSimilarRecommendation).not.toHaveBeenCalled();
+    expect(page.isActiveDetailIgnored).toBe(true);
+
+    page.isGameDetailModalOpen = false;
+    await page.openGameDetail({ igdbGameId: '200', platformIgdbId: 6 } as never);
+    expect(page.isGameDetailModalOpen).toBe(false);
+
+    page.activeDetailRecommendation = null;
+    page.selectedGameDetail = null;
+    await page.confirmIgnoreSelectedGameRecommendation();
+    expect(alertControllerMock.create).not.toHaveBeenCalled();
+    page.ignoreSelectedGameRecommendation();
+    expect(recommendationIgnoreServiceMock.ignoreGame).not.toHaveBeenCalled();
+  });
+
   it('supports rating modal lifecycle and formatted values', () => {
     const page = createPage();
     const libraryGame = {
@@ -754,6 +827,12 @@ describe('ExplorePage recommendations UX', () => {
       isSelectedGameInLibrary: boolean;
       isAddToLibraryLoading: boolean;
       selectedGameDetail: unknown;
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      activeLanesResponse: typeof mockLanesResponse | null;
+      getActiveLaneItems: () => Array<{ igdbGameId: string }>;
+      localGameCacheByIdentity: Map<string, unknown>;
+      libraryOwnedGameIds: Set<string>;
       pickListTypeForAdd: () => Promise<'collection' | 'wishlist' | null>;
       addSelectedGameToLibrary: () => Promise<void>;
     };
@@ -795,6 +874,310 @@ describe('ExplorePage recommendations UX', () => {
     });
     await page.addSelectedGameToLibrary();
     expect(page.detailContext).toBe('library');
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        blended: [
+          {
+            ...mockLanesResponse.lanes.overall[0],
+            igdbGameId: '300',
+            platformIgdbId: 6
+          }
+        ]
+      }
+    };
+    page.localGameCacheByIdentity.clear();
+    page.libraryOwnedGameIds.clear();
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(true);
+
+    page.detailContext = 'explore';
+    page.isSelectedGameInLibrary = false;
+    page.isAddToLibraryLoading = false;
+    page.selectedGameDetail = {
+      igdbGameId: '300',
+      title: 'Catalog',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      platformOptions: [{ id: 6, name: 'PC' }]
+    };
+    addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({
+      status: 'added',
+      entry: {
+        igdbGameId: '300',
+        title: 'Catalog',
+        coverUrl: null,
+        coverSource: 'none',
+        platform: 'PC',
+        platformIgdbId: 6,
+        listType: 'collection',
+        createdAt: '2026-03-03T00:00:00.000Z',
+        updatedAt: '2026-03-03T00:00:00.000Z'
+      }
+    });
+    await page.addSelectedGameToLibrary();
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
+  });
+
+  it('covers recommendation visibility helpers and hidden-stack navigation branches', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      detailNavigationStack: Array<{ igdbGameId: string; platformIgdbId: number }>;
+      activeLanesResponse: typeof mockLanesResponse | null;
+      ignoredRecommendationGameIds: Set<string>;
+      libraryOwnedGameIds: Set<string>;
+      similarRecommendationItems: Array<{ igdbGameId: string; platformIgdbId: number }>;
+      filterAlreadyInLibrarySimilarItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+      markGameIdAsOwned: (igdbGameId: string) => void;
+      goBackInDetailNavigation: () => void;
+      openGameDetail: (item: unknown) => Promise<void>;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.libraryOwnedGameIds.clear();
+    page.libraryOwnedGameIds.add('100');
+    page.ignoredRecommendationGameIds = new Set(['200']);
+    page.similarRecommendationItems = [
+      { igdbGameId: '100', platformIgdbId: 6 },
+      { igdbGameId: '200', platformIgdbId: 6 },
+      { igdbGameId: '300', platformIgdbId: 6 }
+    ] as never;
+
+    expect(
+      page.filterAlreadyInLibrarySimilarItems([
+        { igdbGameId: '100' },
+        { igdbGameId: '300' }
+      ] as never)
+    ).toEqual([{ igdbGameId: '300' }]);
+
+    page.selectedTarget = 'BACKLOG';
+    const unfiltered = [{ igdbGameId: '100' }];
+    expect(page.filterAlreadyInLibrarySimilarItems(unfiltered as never)).toBe(unfiltered);
+
+    const beforeOwnedSize = page.libraryOwnedGameIds.size;
+    page.markGameIdAsOwned('   ');
+    expect(page.libraryOwnedGameIds.size).toBe(beforeOwnedSize);
+
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    page.selectedTarget = 'DISCOVERY';
+    page.detailNavigationStack = [
+      { igdbGameId: '100', platformIgdbId: 6 },
+      { igdbGameId: '200', platformIgdbId: 6 }
+    ];
+    page.goBackInDetailNavigation();
+    expect(openGameDetail).not.toHaveBeenCalled();
+
+    page.selectedTarget = 'BACKLOG';
+    page.detailNavigationStack = [{ igdbGameId: '300', platformIgdbId: 6 }];
+    page.goBackInDetailNavigation();
+    expect(openGameDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('covers ignored and library filters for recommendation and similar lists', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      ignoredRecommendationGameIds: Set<string>;
+      libraryOwnedGameIds: Set<string>;
+      filterAlreadyInLibrarySimilarItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+      filterIgnoredRecommendationItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+      filterIgnoredSimilarItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.libraryOwnedGameIds.clear();
+    expect(page.filterAlreadyInLibrarySimilarItems([{ igdbGameId: '1' }] as never)).toEqual([
+      { igdbGameId: '1' }
+    ]);
+
+    page.ignoredRecommendationGameIds = new Set(['2']);
+    expect(
+      page.filterIgnoredRecommendationItems([{ igdbGameId: '1' }, { igdbGameId: '2' }] as never)
+    ).toEqual([{ igdbGameId: '1' }]);
+    expect(
+      page.filterIgnoredSimilarItems([{ igdbGameId: '2' }, { igdbGameId: '3' }] as never)
+    ).toEqual([{ igdbGameId: '3' }]);
+  });
+
+  it('filters duplicate add-to-library game even if local cache refresh fails', async () => {
+    const page = createPage() as unknown as {
+      detailContext: 'explore' | 'library';
+      isSelectedGameInLibrary: boolean;
+      isAddToLibraryLoading: boolean;
+      selectedGameDetail: {
+        igdbGameId: string;
+        title: string;
+        coverUrl: null;
+        coverSource: 'none';
+        platform: string;
+        platformIgdbId: number;
+        platformOptions: Array<{ id: number; name: string }>;
+      } | null;
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      activeLanesResponse: typeof mockLanesResponse | null;
+      localGameCacheByIdentity: Map<string, unknown>;
+      libraryOwnedGameIds: Set<string>;
+      getActiveLaneItems: () => Array<{ igdbGameId: string }>;
+      pickListTypeForAdd: () => Promise<'collection' | 'wishlist' | null>;
+      addSelectedGameToLibrary: () => Promise<void>;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '300', platformIgdbId: 6 }]
+      }
+    };
+    page.localGameCacheByIdentity.clear();
+    page.libraryOwnedGameIds.clear();
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(true);
+
+    page.detailContext = 'explore';
+    page.isSelectedGameInLibrary = false;
+    page.isAddToLibraryLoading = false;
+    page.selectedGameDetail = {
+      igdbGameId: '300',
+      title: 'Catalog',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      platformOptions: [{ id: 6, name: 'PC' }]
+    };
+    vi.spyOn(page, 'pickListTypeForAdd').mockResolvedValue('collection');
+    addToLibraryWorkflowMock.addToLibrary.mockResolvedValueOnce({ status: 'duplicate' });
+    gameShelfServiceMock.listLibraryGames.mockRejectedValueOnce(new Error('refresh failed'));
+
+    await page.addSelectedGameToLibrary();
+
+    expect(page.isSelectedGameInLibrary).toBe(true);
+    expect(page.libraryOwnedGameIds.has('300')).toBe(true);
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
+  });
+
+  it('opens discover header popover and routes settings action', async () => {
+    const page = createPage() as unknown as {
+      isHeaderActionsPopoverOpen: boolean;
+      headerActionsPopoverEvent: Event | undefined;
+      openHeaderActionsPopover: (event: Event) => void;
+      openSettingsFromPopover: () => Promise<void>;
+    };
+    const event = { type: 'click' } as unknown as Event;
+
+    page.openHeaderActionsPopover(event);
+    expect(page.isHeaderActionsPopoverOpen).toBe(true);
+    expect(page.headerActionsPopoverEvent).toBe(event);
+
+    await page.openSettingsFromPopover();
+    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/settings');
+    expect(page.isHeaderActionsPopoverOpen).toBe(false);
+    expect(page.headerActionsPopoverEvent).toBeUndefined();
+  });
+
+  it('confirms ignore with captured game identity even if selection changes before confirm', async () => {
+    const page = createPage() as unknown as {
+      activeDetailRecommendation: { igdbGameId: string; platformIgdbId: number } | null;
+      selectedGameDetail: { igdbGameId: string; title: string; platformIgdbId: number } | null;
+      confirmIgnoreSelectedGameRecommendation: () => Promise<void>;
+    };
+    page.activeDetailRecommendation = { igdbGameId: '100', platformIgdbId: 6 };
+    page.selectedGameDetail = { igdbGameId: '100', title: 'Alpha', platformIgdbId: 6 };
+
+    alertControllerMock.create.mockResolvedValueOnce({
+      present: vi.fn().mockResolvedValue(undefined),
+      onDidDismiss: vi.fn().mockImplementation(() => {
+        page.activeDetailRecommendation = { igdbGameId: '200', platformIgdbId: 48 };
+        page.selectedGameDetail = { igdbGameId: '200', title: 'Beta', platformIgdbId: 48 };
+        return Promise.resolve({ role: 'confirm' });
+      })
+    });
+
+    await page.confirmIgnoreSelectedGameRecommendation();
+
+    expect(recommendationIgnoreServiceMock.ignoreGame).toHaveBeenCalledWith({
+      igdbGameId: '100',
+      title: 'Alpha'
+    });
+  });
+
+  it('uses filtered lane visibility for empty-state decisions', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      activeLanesResponse: typeof mockLanesResponse | null;
+      upsertLocalGameCache: (entry: {
+        igdbGameId: string;
+        platformIgdbId: number;
+        title: string;
+      }) => void;
+      getActiveLaneItems: () => Array<{ igdbGameId: string }>;
+      getEmptyStateMessage: () => string;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '900', platformIgdbId: 6 }]
+      }
+    };
+    page.upsertLocalGameCache({
+      igdbGameId: '900',
+      platformIgdbId: 6,
+      title: 'Owned'
+    });
+
+    expect(page.getActiveLaneItems()).toHaveLength(0);
+    expect(page.getEmptyStateMessage()).toBe('No recommendation items available right now.');
+  });
+
+  it('shows lane-specific empty-state message when another lane has visible items', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      activeLanesResponse: typeof mockLanesResponse | null;
+      getActiveLaneItems: () => Array<{ igdbGameId: string }>;
+      getEmptyStateMessage: () => string;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        blended: [],
+        popular: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '901', platformIgdbId: 6 }],
+        recent: []
+      }
+    };
+
+    expect(page.getActiveLaneItems()).toHaveLength(0);
+    expect(page.getEmptyStateMessage()).toBe(
+      'This lane has no items for the current target and runtime mode.'
+    );
   });
 
   it('covers empty-state, similar-display, and parser helper branches', () => {

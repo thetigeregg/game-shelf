@@ -1,10 +1,32 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
     <ion-title>Discover</ion-title>
+    <ion-buttons slot="end">
+      <ion-button aria-label="Open discover actions" (click)="openHeaderActionsPopover($event)">
+        <ion-icon slot="icon-only" name="ellipsis-horizontal"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
+  <ion-popover
+    [isOpen]="isHeaderActionsPopoverOpen"
+    [event]="headerActionsPopoverEvent"
+    [arrow]="false"
+    side="bottom"
+    alignment="end"
+    (didDismiss)="closeHeaderActionsPopover()"
+  >
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none">
+          <ion-item button detail="false" (click)="openSettingsFromPopover()">Settings</ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+
   <ion-refresher slot="fixed" (ionRefresh)="refreshRecommendations($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
@@ -175,9 +197,12 @@
           [context]="detailContext"
           [statusOptions]="statusOptions"
           [showAddToLibraryAction]="detailContext === 'explore'"
+          [showIgnoreAction]="detailContext === 'explore'"
           [isInLibrary]="isSelectedGameInLibrary"
+          [isIgnored]="isActiveDetailIgnored"
           [isAddToLibraryLoading]="isAddToLibraryLoading"
           (addToLibrary)="addSelectedGameToLibrary()"
+          (ignore)="confirmIgnoreSelectedGameRecommendation()"
           (statusChange)="onDetailStatusChange($event)"
           (clearStatus)="clearDetailStatus()"
           (editRating)="openDetailRatingModal()"

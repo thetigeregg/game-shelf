@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -166,6 +173,25 @@ function runShell(command, env = sharedEnv) {
   run('sh', ['-lc', command], env);
 }
 
+function hasBash() {
+  const result = spawnSync('bash', ['-lc', 'true'], {
+    cwd,
+    env: sharedEnv,
+    stdio: 'ignore'
+  });
+  return !result.error && result.status === 0;
+}
+
+function runNvmAwareShell(command, fallbackCommand, env = sharedEnv) {
+  if (hasBash()) {
+    run('bash', ['-lc', command], env);
+    return;
+  }
+
+  console.log('Warning: bash is unavailable; falling back to sh for dependency install.');
+  runShell(fallbackCommand, env);
+}
+
 function runShellCapture(command, env = sharedEnv) {
   return runCapture('sh', ['-lc', command], env);
 }
@@ -211,15 +237,37 @@ function ensureLocalEnvFromSharedTemplate() {
 }
 
 function listMissingDependencyDirs() {
-  const requiredNodeModules = [
-    path.resolve(cwd, 'node_modules'),
-    path.resolve(cwd, 'server', 'node_modules'),
-    path.resolve(cwd, 'worker', 'node_modules'),
-    path.resolve(cwd, 'hltb-scraper', 'node_modules'),
-    path.resolve(cwd, 'metacritic-scraper', 'node_modules')
+  const dependencyPackages = [
+    { packageDir: path.resolve(cwd), alwaysRequireNodeModules: true },
+    { packageDir: path.resolve(cwd, 'server') },
+    { packageDir: path.resolve(cwd, 'worker') },
+    { packageDir: path.resolve(cwd, 'hltb-scraper') },
+    { packageDir: path.resolve(cwd, 'metacritic-scraper') }
   ];
 
-  return requiredNodeModules.filter((moduleDir) => !existsSync(moduleDir));
+  return dependencyPackages
+    .filter((pkg) => pkg.alwaysRequireNodeModules || packageHasDependencies(pkg.packageDir))
+    .map((pkg) => path.resolve(pkg.packageDir, 'node_modules'))
+    .filter((moduleDir) => !existsSync(moduleDir));
+}
+
+function packageHasDependencies(packageDir) {
+  const packageJsonPath = path.resolve(packageDir, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+    const dependencyFields = ['dependencies', 'devDependencies', 'optionalDependencies'];
+
+    return dependencyFields.some((fieldName) => {
+      const value = packageJson[fieldName];
+      return Boolean(value && typeof value === 'object' && Object.keys(value).length > 0);
+    });
+  } catch {
+    return true;
+  }
 }
 
 function ensureDependenciesInstalled(forceInstall = false) {
@@ -236,8 +284,25 @@ function ensureDependenciesInstalled(forceInstall = false) {
     }
   }
 
-  console.log('Installing workspace dependencies via: npm run i:all');
-  run('npm', ['run', 'i:all'], sharedEnv);
+  console.log('Installing workspace dependencies via: npm run ci:all');
+  runNvmAwareShell(buildNvmAwareInstallCommand('ci:all'), 'npm run ci:all', sharedEnv);
+}
+
+function buildNvmAwareInstallCommand(installScript = 'i:all') {
+  return [
+    'if [ -f .nvmrc ]',
+    'then',
+    '  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"',
+    '  if [ -s "$NVM_DIR/nvm.sh" ]',
+    '  then',
+    '    . "$NVM_DIR/nvm.sh"',
+    '    nvm use',
+    '  else',
+    '    echo "Warning: .nvmrc found but nvm.sh was not found; continuing with current Node."',
+    '  fi',
+    'fi',
+    `npm run ${installScript}`
+  ].join('\n');
 }
 
 function runStack(action) {

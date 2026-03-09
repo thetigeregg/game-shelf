@@ -1,0 +1,28 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start" [collapse]="true">
+      <ion-back-button defaultHref="/settings"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Ignored Recommendations</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  @if (ignoredEntries$ | async; as entries) {
+    <ion-list lines="full">
+      @for (entry of entries; track trackByIgnoredId($index, entry)) {
+        <ion-item>
+          <ion-label>{{ entry.title }} ({{ entry.igdbGameId }})</ion-label>
+          <ion-button slot="end" fill="outline" color="medium" (click)="unignore(entry.igdbGameId)">
+            Unignore
+          </ion-button>
+        </ion-item>
+      }
+      @if (entries.length === 0) {
+        <ion-item lines="none">
+          <ion-label color="medium">No ignored recommendation games.</ion-label>
+        </ion-item>
+      }
+    </ion-list>
+  }
+</ion-content>

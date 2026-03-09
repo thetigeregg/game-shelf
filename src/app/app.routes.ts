@@ -19,6 +19,11 @@ export const routes: Routes = [
       import('./metadata-validator/metadata-validator.page').then((m) => m.MetadataValidatorPage)
   },
   {
+    path: 'settings/ignored-recommendations',
+    loadComponent: () =>
+      import('./settings/ignored-recommendations.page').then((m) => m.IgnoredRecommendationsPage)
+  },
+  {
     path: 'tabs',
     loadComponent: () => import('./tabs/tabs.page').then((m) => m.TabsPage),
     children: [

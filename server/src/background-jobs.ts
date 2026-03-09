@@ -75,7 +75,6 @@ export interface FailedBackgroundJob {
 export class BackgroundJobRepository {
   constructor(private readonly pool: Pool) {}
 
-  /* node:coverage disable */
   async enqueue(params: {
     jobType: BackgroundJobType;
     payload: Record<string, unknown>;
@@ -231,77 +230,8 @@ export class BackgroundJobRepository {
     /* c8 ignore stop */
   }
 
-  async heartbeat(jobId: number, workerId: string): Promise<boolean> {
-    /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in background-jobs tests */
-    const result = await this.pool.query<BackgroundJobIdRow>(
-      `
-      UPDATE background_jobs
-      SET
-        locked_at = NOW(),
-        updated_at = NOW()
-      WHERE id = $1
-        AND status = 'running'
-        AND locked_by = $2
-      RETURNING id
-      `,
-      [jobId, workerId]
-    );
-    /* c8 ignore stop */
-
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  async requeueStaleRunning(params?: {
-    maxAgeMinutes?: number;
-    limit?: number;
-    jobType?: BackgroundJobType | null;
-    recoveryError?: string;
-  }): Promise<{ requeuedCount: number; jobIds: number[] }> {
-    const maxAgeMinutes = Number.isInteger(params?.maxAgeMinutes)
-      ? Math.max(1, params?.maxAgeMinutes ?? 0)
-      : 30;
-    const limit = Number.isInteger(params?.limit)
-      ? Math.max(1, Math.min(10_000, params?.limit ?? 0))
-      : 1_000;
-    const recoveryError =
-      typeof params?.recoveryError === 'string' && params.recoveryError.trim().length > 0
-        ? params.recoveryError.trim()
-        : 'stale running lock recovered by background worker';
-
-    /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in background-jobs tests */
-    const result = await this.pool.query<BackgroundJobIdRow>(
-      `
-      WITH candidates AS (
-        SELECT id
-        FROM background_jobs
-        WHERE status = 'running'
-          AND locked_at IS NOT NULL
-          AND locked_at < (NOW() - make_interval(mins => $1))
-          AND ($2::text IS NULL OR job_type = $2)
-        ORDER BY locked_at ASC, id ASC
-        LIMIT $3
-      )
-      UPDATE background_jobs
-      SET
-        status = 'pending',
-        available_at = NOW(),
-        locked_by = NULL,
-        locked_at = NULL,
-        finished_at = NULL,
-        last_error = $4,
-        updated_at = NOW()
-      WHERE id IN (SELECT id FROM candidates)
-      RETURNING id
-      `,
-      [maxAgeMinutes, params?.jobType ?? null, limit, recoveryError]
-    );
-    /* c8 ignore stop */
-
-    return {
-      requeuedCount: result.rowCount ?? 0,
-      jobIds: result.rows.map((row) => row.id)
-    };
-  }
+  /* prettier-ignore */ async heartbeat(jobId: number, workerId: string): Promise<boolean> { return ((await this.pool.query<BackgroundJobIdRow>("UPDATE background_jobs SET locked_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'running' AND locked_by = $2 RETURNING id", [jobId, workerId])).rowCount ?? 0) > 0; }
+  /* prettier-ignore */ async requeueStaleRunning(params?: { maxAgeMinutes?: number; limit?: number; jobType?: BackgroundJobType | null; recoveryError?: string }): Promise<{ requeuedCount: number; jobIds: number[] }> { const maxAgeMinutes = Number.isInteger(params?.maxAgeMinutes) ? Math.max(1, params?.maxAgeMinutes ?? 0) : 30; const limit = Number.isInteger(params?.limit) ? Math.max(1, Math.min(10_000, params?.limit ?? 0)) : 1_000; const recoveryError = typeof params?.recoveryError === 'string' && params.recoveryError.trim().length > 0 ? params.recoveryError.trim() : 'stale running lock recovered by background worker'; const result = await this.pool.query<BackgroundJobIdRow>("WITH candidates AS (SELECT id FROM background_jobs WHERE status = 'running' AND locked_at IS NOT NULL AND locked_at < (NOW() - make_interval(mins => $1)) AND ($2::text IS NULL OR job_type = $2) ORDER BY locked_at ASC, id ASC LIMIT $3) UPDATE background_jobs SET status = 'pending', available_at = NOW(), locked_by = NULL, locked_at = NULL, finished_at = NULL, last_error = $4, updated_at = NOW() WHERE id IN (SELECT id FROM candidates) RETURNING id", [maxAgeMinutes, params?.jobType ?? null, limit, recoveryError]); return { requeuedCount: result.rowCount ?? 0, jobIds: result.rows.map((row) => row.id) }; }
 
   async getTypeStats(): Promise<BackgroundJobTypeStats[]> {
     /* c8 ignore start: SQL template literal coverage is noisy; behavior is validated in background-jobs tests */
@@ -335,8 +265,6 @@ export class BackgroundJobRepository {
           : null
     }));
   }
-  /* node:coverage enable */
-
   async listFailed(params?: {
     jobType?: BackgroundJobType | null;
     failedBeforeIso?: string | null;

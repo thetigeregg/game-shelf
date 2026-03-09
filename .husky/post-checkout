@@ -17,8 +17,8 @@ if [ -d node_modules ] \
   exit 0
 fi
 
-echo "[worktree] Installing dependencies (npm run i:all)..."
-npm run i:all || {
-  echo "[worktree] dependency install failed"
+echo "[worktree] Running worktree bootstrap..."
+node scripts/worktree-dev.mjs bootstrap || {
+  echo "[worktree] worktree bootstrap failed"
   exit 1
 }

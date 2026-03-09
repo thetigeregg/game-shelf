@@ -597,6 +597,13 @@ export class RecommendationRepository {
       WHERE status = 'RUNNING'
         AND started_at < (NOW() - make_interval(mins => $1))
         AND ($2::text IS NULL OR target = $2)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM background_jobs
+          WHERE background_jobs.job_type = 'recommendations_rebuild'
+            AND background_jobs.status = 'running'
+            AND COALESCE(background_jobs.payload->>'target', '') = recommendation_runs.target
+        )
       RETURNING id
       `,
       [maxAgeMinutes, params?.target ?? null, errorMessage]

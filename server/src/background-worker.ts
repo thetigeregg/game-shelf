@@ -52,13 +52,20 @@ export function stringOrEmpty(value: unknown): string {
 }
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
-  const raw =
+  const rawValue =
     typeof process.env.BACKGROUND_WORKER_MODE === 'string'
-      ? process.env.BACKGROUND_WORKER_MODE.trim().toLowerCase()
+      ? process.env.BACKGROUND_WORKER_MODE
       : '';
+  const raw = rawValue.trim().toLowerCase();
 
   if (raw === 'general' || raw === 'recommendations' || raw === 'all') {
     return raw;
+  }
+
+  if (raw.length > 0) {
+    console.warn('[background-worker] invalid BACKGROUND_WORKER_MODE; falling back to all', {
+      rawValue
+    });
   }
 
   return 'all';
@@ -166,7 +173,8 @@ async function main(): Promise<void> {
       startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
     }
   );
-  const workerId = `background-worker:${String(process.pid)}`;
+  const workerHost = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME : '';
+  const workerId = `background-worker:${workerMode}:${workerHost}:${String(process.pid)}`;
   const recommendationConcurrency = readPositiveIntegerEnv('RECOMMENDATIONS_JOB_CONCURRENCY', 1);
   const metadataConcurrency = readPositiveIntegerEnv('METADATA_ENRICHMENT_JOB_CONCURRENCY', 1);
   const releaseMonitorConcurrency = readPositiveIntegerEnv('RELEASE_MONITOR_JOB_CONCURRENCY', 2);

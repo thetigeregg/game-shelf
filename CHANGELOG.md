@@ -1800,3 +1800,9 @@
 - ecab595 Merge branch 'main' into dependabot/github_actions/docker/login-action-4
 - 3d315e6 chore(ci): bump docker/login-action from 3 to 4
 
+## v1.1.20 - 2026-03-09
+- 2e6207b Merge pull request #191 from thetigeregg/dependabot/github_actions/docker/setup-buildx-action-4
+- 6a1ddaa Merge branch 'main' into dependabot/github_actions/docker/setup-buildx-action-4
+- 598ef40 Merge branch 'main' into dependabot/github_actions/docker/setup-buildx-action-4
+- c9cba20 chore(ci): bump docker/setup-buildx-action from 3 to 4
+

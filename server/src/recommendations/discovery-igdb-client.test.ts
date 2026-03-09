@@ -193,6 +193,8 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
   assert.ok(ps4Row);
   assert.equal(ps4Row.payload.platform, 'PS4');
   assert.deepEqual(ps4Row.payload.platformOptions, [{ id: 48, name: 'PS4' }]);
+  assert.equal(ps4Row.payload.reviewScore, null);
+  assert.equal(ps4Row.payload.reviewSource, null);
 });
 
 void test('discovery merged fetch dedupes by game/platform and picks highest source score', async () => {

@@ -20,10 +20,11 @@ WITH candidate_rows AS (
       ELSE false
     END AS has_hltb_completionist,
     CASE
-      WHEN BTRIM(COALESCE(payload->>'reviewScore', '')) ~ '^-?[0-9]+(\.[0-9]+)?$'
+      WHEN COALESCE(payload->>'reviewSource', '') IN ('metacritic', 'mobygames')
+        AND BTRIM(COALESCE(payload->>'reviewScore', '')) ~ '^-?[0-9]+(\.[0-9]+)?$'
       THEN (BTRIM(payload->>'reviewScore'))::numeric > 0
       ELSE false
-    END AS has_review_score,
+    END AS has_provider_review_score,
     CASE
       WHEN BTRIM(COALESCE(payload->>'metacriticScore', '')) ~ '^-?[0-9]+(\.[0-9]+)?$'
       THEN (BTRIM(payload->>'metacriticScore'))::numeric > 0
@@ -100,7 +101,7 @@ WHERE (
     )
   )
   OR (
-    NOT (has_review_score OR has_metacritic_score)
+    NOT (has_provider_review_score OR has_metacritic_score)
     AND (
       (
         NOT metacritic_permanent_miss

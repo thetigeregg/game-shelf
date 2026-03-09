@@ -1822,3 +1822,8 @@
 - cdf1d45 Revert "chore: update firebase dependency to version 12.10.0"
 - 023b76b chore: update firebase dependency to version 12.10.0
 
+## v1.1.24 - 2026-03-09
+- 7a43e39 Merge pull request #193 from thetigeregg/codex/scoring
+- ba37ae2 Remove IGDB review scores
+- 8138e11 Remove IGDB review scores
+

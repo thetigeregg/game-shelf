@@ -41,9 +41,7 @@ interface RawIgdbGame {
     publisher?: boolean;
     company?: { name?: string };
   }>;
-  total_rating?: number;
   total_rating_count?: number;
-  aggregated_rating?: number;
   aggregated_rating_count?: number;
 }
 
@@ -221,9 +219,7 @@ export class DiscoveryIgdbClient {
         franchises: normalizeNamedList(raw.franchises),
         developers,
         publishers,
-        reviewScore: normalizeFinite(
-          raw.total_rating ?? raw.aggregated_rating ?? raw.aggregated_rating_count
-        ),
+        reviewScore: null,
         metacriticScore: null,
         mobyScore: null,
         reviewSource: null,
@@ -390,7 +386,7 @@ function buildGamesQuery(params: {
     'fields id,name,summary,storyline,first_release_date,platforms.id,platforms.name,',
     'genres.name,themes.name,keywords.name,collections.name,franchises.name,',
     'involved_companies.company.name,involved_companies.developer,involved_companies.publisher,',
-    'total_rating,total_rating_count,aggregated_rating,aggregated_rating_count;',
+    'total_rating_count,aggregated_rating_count;',
     sourceWhereClause,
     sortClause,
     `limit ${String(params.limit)};`,
@@ -513,13 +509,6 @@ function normalizeReleaseYear(value: unknown): number | null {
   return year;
 }
 
-function normalizeFinite(value: unknown): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return null;
-  }
-  return Math.round(value * 100) / 100;
-}
-
 function computeSourceScore(row: RawIgdbGame, source: 'popular' | 'recent'): number {
   if (source === 'recent') {
     const release = typeof row.first_release_date === 'number' ? row.first_release_date : 0;
@@ -532,13 +521,7 @@ function computeSourceScore(row: RawIgdbGame, source: 'popular' | 'recent'): num
       : typeof row.aggregated_rating_count === 'number'
         ? row.aggregated_rating_count
         : 0;
-  const rating =
-    typeof row.total_rating === 'number'
-      ? row.total_rating
-      : typeof row.aggregated_rating === 'number'
-        ? row.aggregated_rating
-        : 0;
-  return count * 1000 + rating;
+  return count;
 }
 
 function compareCandidates(

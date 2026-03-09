@@ -569,6 +569,61 @@ describe('ExplorePage recommendations UX', () => {
     expect(openSimilarRecommendation).toHaveBeenCalledTimes(1);
   });
 
+  it('blocks hidden recommendation rows and no-id ignore flows', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      activeDetailRecommendation: { igdbGameId: string; platformIgdbId: number } | null;
+      ignoredRecommendationGameIds: Set<string>;
+      libraryOwnedGameIds: Set<string>;
+      isGameDetailModalOpen: boolean;
+      onRecommendationRowClick: (
+        kind: 'recommendation' | 'similar',
+        row: { igdbGameId: string; platformIgdbId: number },
+        event: Event
+      ) => void;
+      openGameDetail: (item: { igdbGameId: string; platformIgdbId: number }) => Promise<void>;
+      openSimilarRecommendation: (
+        item: { igdbGameId: string; platformIgdbId: number },
+        event: Event
+      ) => Promise<void>;
+      confirmIgnoreSelectedGameRecommendation: () => Promise<void>;
+      ignoreSelectedGameRecommendation: (params?: { igdbGameId: string; title: string }) => void;
+      isActiveDetailIgnored: boolean;
+    };
+    page.selectedTarget = 'DISCOVERY';
+    page.ignoredRecommendationGameIds = new Set(['200']);
+    page.libraryOwnedGameIds.clear();
+    page.libraryOwnedGameIds.add('100');
+    page.activeDetailRecommendation = { igdbGameId: '200', platformIgdbId: 6 };
+
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    const openSimilarRecommendation = vi
+      .spyOn(page, 'openSimilarRecommendation')
+      .mockResolvedValue(undefined as never);
+    const event = new Event('click');
+    page.onRecommendationRowClick(
+      'recommendation',
+      { igdbGameId: '100', platformIgdbId: 6 },
+      event
+    );
+    page.onRecommendationRowClick('similar', { igdbGameId: '200', platformIgdbId: 6 }, event);
+
+    expect(openGameDetail).not.toHaveBeenCalled();
+    expect(openSimilarRecommendation).not.toHaveBeenCalled();
+    expect(page.isActiveDetailIgnored).toBe(true);
+
+    page.isGameDetailModalOpen = false;
+    await page.openGameDetail({ igdbGameId: '200', platformIgdbId: 6 } as never);
+    expect(page.isGameDetailModalOpen).toBe(false);
+
+    page.activeDetailRecommendation = null;
+    page.selectedGameDetail = null;
+    await page.confirmIgnoreSelectedGameRecommendation();
+    expect(alertControllerMock.create).not.toHaveBeenCalled();
+    page.ignoreSelectedGameRecommendation();
+    expect(recommendationIgnoreServiceMock.ignoreGame).not.toHaveBeenCalled();
+  });
+
   it('supports rating modal lifecycle and formatted values', () => {
     const page = createPage();
     const libraryGame = {
@@ -868,6 +923,93 @@ describe('ExplorePage recommendations UX', () => {
     });
     await page.addSelectedGameToLibrary();
     expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
+  });
+
+  it('covers recommendation visibility helpers and hidden-stack navigation branches', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      detailNavigationStack: Array<{ igdbGameId: string; platformIgdbId: number }>;
+      activeLanesResponse: typeof mockLanesResponse | null;
+      ignoredRecommendationGameIds: Set<string>;
+      libraryOwnedGameIds: Set<string>;
+      similarRecommendationItems: Array<{ igdbGameId: string; platformIgdbId: number }>;
+      filterAlreadyInLibrarySimilarItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+      markGameIdAsOwned: (igdbGameId: string) => void;
+      goBackInDetailNavigation: () => void;
+      openGameDetail: (item: unknown) => Promise<void>;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.libraryOwnedGameIds.clear();
+    page.libraryOwnedGameIds.add('100');
+    page.ignoredRecommendationGameIds = new Set(['200']);
+    page.similarRecommendationItems = [
+      { igdbGameId: '100', platformIgdbId: 6 },
+      { igdbGameId: '200', platformIgdbId: 6 },
+      { igdbGameId: '300', platformIgdbId: 6 }
+    ] as never;
+
+    expect(
+      page.filterAlreadyInLibrarySimilarItems([
+        { igdbGameId: '100' },
+        { igdbGameId: '300' }
+      ] as never)
+    ).toEqual([{ igdbGameId: '300' }]);
+
+    page.selectedTarget = 'BACKLOG';
+    const unfiltered = [{ igdbGameId: '100' }];
+    expect(page.filterAlreadyInLibrarySimilarItems(unfiltered as never)).toBe(unfiltered);
+
+    const beforeOwnedSize = page.libraryOwnedGameIds.size;
+    page.markGameIdAsOwned('   ');
+    expect(page.libraryOwnedGameIds.size).toBe(beforeOwnedSize);
+
+    const openGameDetail = vi.spyOn(page, 'openGameDetail').mockResolvedValue(undefined as never);
+    page.selectedTarget = 'DISCOVERY';
+    page.detailNavigationStack = [
+      { igdbGameId: '100', platformIgdbId: 6 },
+      { igdbGameId: '200', platformIgdbId: 6 }
+    ];
+    page.goBackInDetailNavigation();
+    expect(openGameDetail).not.toHaveBeenCalled();
+
+    page.selectedTarget = 'BACKLOG';
+    page.detailNavigationStack = [{ igdbGameId: '300', platformIgdbId: 6 }];
+    page.goBackInDetailNavigation();
+    expect(openGameDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('covers ignored and library filters for recommendation and similar lists', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      ignoredRecommendationGameIds: Set<string>;
+      libraryOwnedGameIds: Set<string>;
+      filterAlreadyInLibrarySimilarItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+      filterIgnoredRecommendationItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+      filterIgnoredSimilarItems: (
+        items: Array<{ igdbGameId: string }>
+      ) => Array<{ igdbGameId: string }>;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.libraryOwnedGameIds.clear();
+    expect(page.filterAlreadyInLibrarySimilarItems([{ igdbGameId: '1' }] as never)).toEqual([
+      { igdbGameId: '1' }
+    ]);
+
+    page.ignoredRecommendationGameIds = new Set(['2']);
+    expect(
+      page.filterIgnoredRecommendationItems([{ igdbGameId: '1' }, { igdbGameId: '2' }] as never)
+    ).toEqual([{ igdbGameId: '1' }]);
+    expect(
+      page.filterIgnoredSimilarItems([{ igdbGameId: '2' }, { igdbGameId: '3' }] as never)
+    ).toEqual([{ igdbGameId: '3' }]);
   });
 
   it('filters duplicate add-to-library game even if local cache refresh fails', async () => {

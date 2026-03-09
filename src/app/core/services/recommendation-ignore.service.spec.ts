@@ -14,22 +14,27 @@ describe('RecommendationIgnoreService', () => {
     enqueueOperation: vi.fn().mockResolvedValue(undefined)
   };
 
-  function configureTestingModule(): void {
+  function configureTestingModule(includeOutboxWriter = true): void {
     changed$ = new Subject<void>();
-    TestBed.configureTestingModule({
-      providers: [
-        RecommendationIgnoreService,
-        {
-          provide: SyncEventsService,
-          useValue: {
-            changed$: changed$.asObservable()
-          }
-        },
-        {
-          provide: SYNC_OUTBOX_WRITER,
-          useValue: outboxWriterMock
+    const providers: Array<{ provide: object; useValue: object } | object> = [
+      RecommendationIgnoreService,
+      {
+        provide: SyncEventsService,
+        useValue: {
+          changed$: changed$.asObservable()
         }
-      ]
+      }
+    ];
+
+    if (includeOutboxWriter) {
+      providers.push({
+        provide: SYNC_OUTBOX_WRITER,
+        useValue: outboxWriterMock
+      });
+    }
+
+    TestBed.configureTestingModule({
+      providers
     });
   }
 
@@ -48,6 +53,23 @@ describe('RecommendationIgnoreService', () => {
     expect(ignored).toHaveLength(1);
     expect(ignored[0].igdbGameId).toBe('700');
     expect(service.isIgnored('700')).toBe(true);
+  });
+
+  it('emits ignored id sets and serialized payload values', () => {
+    const service = TestBed.inject(RecommendationIgnoreService);
+    const emitted: string[][] = [];
+    const subscription = service.ignoredIds$.subscribe((ids) => {
+      emitted.push(Array.from(ids.values()).sort());
+    });
+
+    expect(service.getSerializedSettingValue()).toBeNull();
+    service.ignoreGame({ igdbGameId: '120', title: 'A' });
+    const serialized = service.getSerializedSettingValue();
+    expect(typeof serialized).toBe('string');
+    expect(serialized).toContain('"version":1');
+    expect(serialized).toContain('"igdbGameId":"120"');
+    expect(emitted.at(-1)).toEqual(['120']);
+    subscription.unsubscribe();
   });
 
   it('persists and restores entries from storage', () => {
@@ -92,6 +114,16 @@ describe('RecommendationIgnoreService', () => {
     expect(hasDelete).toBe(true);
   });
 
+  it('handles invalid IDs and non-existing unignore as no-ops', () => {
+    const service = TestBed.inject(RecommendationIgnoreService);
+    service.ignoreGame({ igdbGameId: 'not-a-number', title: 'Invalid' });
+    service.unignoreGame('also-invalid');
+    service.unignoreGame('9999');
+
+    expect(service.listIgnored()).toEqual([]);
+    expect(outboxWriterMock.enqueueOperation).not.toHaveBeenCalled();
+  });
+
   it('falls back to empty state when stored payload is malformed', () => {
     localStorage.setItem(RECOMMENDATION_IGNORED_STORAGE_KEY, '{bad json');
     const service = TestBed.inject(RecommendationIgnoreService);
@@ -111,6 +143,66 @@ describe('RecommendationIgnoreService', () => {
     );
     const service = TestBed.inject(RecommendationIgnoreService);
     service.refreshFromStorage();
+    expect(service.listIgnored()).toEqual([]);
+  });
+
+  it('ignores non-object payloads and payloads with non-array entries', () => {
+    localStorage.setItem(RECOMMENDATION_IGNORED_STORAGE_KEY, JSON.stringify([]));
+    const service = TestBed.inject(RecommendationIgnoreService);
+    service.refreshFromStorage();
+    expect(service.listIgnored()).toEqual([]);
+
+    localStorage.setItem(
+      RECOMMENDATION_IGNORED_STORAGE_KEY,
+      JSON.stringify({ version: 1, entries: 'bad' })
+    );
+    changed$.next();
+    expect(service.listIgnored()).toEqual([]);
+  });
+
+  it('sorts ignored entries by title then igdb id', () => {
+    localStorage.setItem(
+      RECOMMENDATION_IGNORED_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        entries: [
+          { igdbGameId: '15', title: 'zeta', ignoredAt: '2026-01-01T00:00:00.000Z' },
+          { igdbGameId: '2', title: 'Alpha', ignoredAt: '2026-01-01T00:00:00.000Z' },
+          { igdbGameId: '10', title: 'alpha', ignoredAt: '2026-01-01T00:00:00.000Z' }
+        ]
+      })
+    );
+    const service = TestBed.inject(RecommendationIgnoreService);
+    service.refreshFromStorage();
+
+    expect(service.listIgnored().map((entry) => entry.igdbGameId)).toEqual(['10', '2', '15']);
+  });
+
+  it('drops invalid entries while preserving valid ones from storage payload', () => {
+    localStorage.setItem(
+      RECOMMENDATION_IGNORED_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        entries: [
+          { igdbGameId: 'abc', title: 'Invalid', ignoredAt: '2026-01-01T00:00:00.000Z' },
+          { igdbGameId: '42', title: 'Valid', ignoredAt: '2026-01-01T00:00:00.000Z' }
+        ]
+      })
+    );
+    const service = TestBed.inject(RecommendationIgnoreService);
+    service.refreshFromStorage();
+
+    expect(service.listIgnored()).toEqual([
+      { igdbGameId: '42', title: 'Valid', ignoredAt: '2026-01-01T00:00:00.000Z' }
+    ]);
+  });
+
+  it('works without sync outbox writer', () => {
+    TestBed.resetTestingModule();
+    configureTestingModule(false);
+    const service = TestBed.inject(RecommendationIgnoreService);
+    service.ignoreGame({ igdbGameId: '1', title: 'A' });
+    service.unignoreGame('1');
     expect(service.listIgnored()).toEqual([]);
   });
 });

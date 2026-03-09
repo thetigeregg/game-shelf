@@ -254,7 +254,6 @@ services:
     environment:
       <<: *worker_common_env
       BACKGROUND_WORKER_MODE: ${BACKGROUND_WORKER_MODE_RECOMMENDATIONS:-recommendations}
-      RECOMMENDATIONS_SCHEDULER_ENABLED: ${RECOMMENDATIONS_SCHEDULER_ENABLED_RECOMMENDATIONS:-false}
     depends_on:
       - postgres
       - api

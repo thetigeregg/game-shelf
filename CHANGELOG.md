@@ -1827,3 +1827,12 @@
 - ba37ae2 Remove IGDB review scores
 - 8138e11 Remove IGDB review scores
 
+## v1.1.25 - 2026-03-09
+- be3f7d2 Merge pull request #194 from thetigeregg/codex/wroerk
+- 2ae8acc Address note
+- 6681e67 Address note
+- 158dd6f Address notes
+- 87d8746 Address notes
+- 433d740 Merge branch 'main' into codex/wroerk
+- d8ae288 refactor(worker): split background worker into general and recommendations roles
+

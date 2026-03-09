@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { AlertController, PopoverController, ToastController } from '@ionic/angular/standalone';
 import { ExplorePage } from './explore.page';
 import { IgdbProxyService } from '../core/api/igdb-proxy.service';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
@@ -18,9 +18,13 @@ vi.mock('@ionic/angular/standalone', () => {
   const ToastControllerToken = function ToastController() {
     return undefined;
   };
+  const PopoverControllerToken = function PopoverController() {
+    return undefined;
+  };
   return {
     AlertController: AlertControllerToken,
     ToastController: ToastControllerToken,
+    PopoverController: PopoverControllerToken,
     IonContent: Dummy,
     IonHeader: Dummy,
     IonItem: Dummy,
@@ -50,6 +54,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonBadge: Dummy,
     IonAccordion: Dummy,
     IonAccordionGroup: Dummy,
+    IonPopover: Dummy,
     IonCard: Dummy,
     IonCardHeader: Dummy,
     IonCardTitle: Dummy
@@ -165,6 +170,9 @@ describe('ExplorePage recommendations UX', () => {
   const toastControllerMock = {
     create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
   };
+  const popoverControllerMock = {
+    dismiss: vi.fn().mockResolvedValue(undefined)
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -188,7 +196,8 @@ describe('ExplorePage recommendations UX', () => {
         { provide: GameShelfService, useValue: gameShelfServiceMock },
         { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
-        { provide: ToastController, useValue: toastControllerMock }
+        { provide: ToastController, useValue: toastControllerMock },
+        { provide: PopoverController, useValue: popoverControllerMock }
       ]
     });
   });

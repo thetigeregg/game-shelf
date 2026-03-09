@@ -1810,3 +1810,8 @@
 - fdf04f2 Merge pull request #190 from thetigeregg/dependabot/github_actions/docker/build-push-action-7
 - 27ad35b chore(ci): bump docker/build-push-action from 6 to 7
 
+## v1.1.22 - 2026-03-09
+- 9f10f06 Merge pull request #189 from thetigeregg/dependabot/github_actions/docker/metadata-action-6
+- 8047baa Merge branch 'main' into dependabot/github_actions/docker/metadata-action-6
+- e8068ab chore(ci): bump docker/metadata-action from 5 to 6
+

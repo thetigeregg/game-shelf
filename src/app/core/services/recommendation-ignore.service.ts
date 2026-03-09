@@ -157,19 +157,24 @@ export class RecommendationIgnoreService {
     }
   }
 
-  private normalizeEntries(entries: RecommendationIgnoredEntry[]): RecommendationIgnoredEntry[] {
+  private normalizeEntries(entries: unknown[]): RecommendationIgnoredEntry[] {
     const byGameId = new Map<string, RecommendationIgnoredEntry>();
 
     for (const entry of entries) {
-      const igdbGameId = this.normalizeGameId(entry.igdbGameId);
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        continue;
+      }
+
+      const candidate = entry as Partial<RecommendationIgnoredEntry>;
+      const igdbGameId = this.normalizeGameId(candidate.igdbGameId);
       if (igdbGameId === null) {
         continue;
       }
 
-      const title = this.normalizeTitle(entry.title);
+      const title = this.normalizeTitle(candidate.title);
       const ignoredAt =
-        typeof entry.ignoredAt === 'string' && entry.ignoredAt.trim().length > 0
-          ? entry.ignoredAt
+        typeof candidate.ignoredAt === 'string' && candidate.ignoredAt.trim().length > 0
+          ? candidate.ignoredAt
           : new Date().toISOString();
 
       byGameId.set(igdbGameId, {
@@ -188,12 +193,12 @@ export class RecommendationIgnoreService {
     });
   }
 
-  private normalizeGameId(value: string): string | null {
+  private normalizeGameId(value: unknown): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return /^\d+$/.test(normalized) ? normalized : null;
   }
 
-  private normalizeTitle(value: string): string {
+  private normalizeTitle(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
   }
 

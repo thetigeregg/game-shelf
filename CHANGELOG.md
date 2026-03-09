@@ -1781,3 +1781,17 @@
 - 122a410 Fix runtime mode fallback logic
 - f8864c9 Summarize recent request log
 
+## v1.1.18 - 2026-03-09
+- 689e35a Merge pull request #183 from thetigeregg/codex/perfs
+- 34cdc1c Investigate coverage drop
+- 07f1301 Clarify background job test name
+- 3d3aa8d Fix background job heartbeat naming
+- 62b10e6 Update background jobs heartbeat env
+- f71d4e6 Update docs for BACKGROUND_JOBS lock
+- 9163999 Document new background env vars
+- 3093c48 Clarify background worker logs
+- b057769 Add background job tests and docs
+- 8cb7eda Generate PR summary and update docs
+- 97e2c25 Merge branch 'main' into codex/perfs
+- b242f92 Check running background job status
+

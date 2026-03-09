@@ -366,6 +366,69 @@ void test('markRunFailed updates run status and error message', async () => {
   assert.deepEqual(queries[0]?.params, [77, 'boom']);
 });
 
+void test('failStaleRunningRuns marks old RUNNING rows as FAILED', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 16 }, { id: 17 }],
+    rowCount: 2
+  }));
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.failStaleRunningRuns({
+    maxAgeMinutes: 30,
+    target: 'BACKLOG',
+    errorMessage: 'orphan recovery'
+  });
+
+  assert.deepEqual(result, { failedCount: 2, runIds: [16, 17] });
+  const query = pool.queries[0];
+  assert.ok(query);
+  const normalizedSql = query.sql.replace(/\s+/g, ' ').trim().toLowerCase();
+  assert.ok(normalizedSql.includes("where status = 'running'"));
+  assert.ok(normalizedSql.includes('started_at < (now() - make_interval(mins => $1))'));
+  assert.ok(normalizedSql.includes('($2::text is null or target = $2)'));
+  assert.ok(normalizedSql.includes('not exists'));
+  assert.ok(normalizedSql.includes('from background_jobs'));
+  assert.ok(normalizedSql.includes("background_jobs.job_type = 'recommendations_rebuild'"));
+  assert.deepEqual(query.params, [30, 'BACKLOG', 'orphan recovery']);
+});
+
+void test('failStaleRunningRuns clamps defaults and supports null target filter', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 90 }],
+    rowCount: 1
+  }));
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.failStaleRunningRuns({
+    maxAgeMinutes: 0,
+    errorMessage: ' '
+  });
+
+  assert.deepEqual(result, { failedCount: 1, runIds: [90] });
+  const query = pool.queries[0];
+  assert.ok(query.params);
+  assert.equal(query.params[0], 1);
+  assert.equal(query.params[1], null);
+  assert.equal(query.params[2], 'orphaned RUNNING run recovered after worker loss');
+});
+
+void test('failStaleRunningRuns uses defaults when params are omitted', async () => {
+  const pool = new PoolMock(() => ({
+    rows: [{ id: 101 }],
+    rowCount: 1
+  }));
+  const repository = new RecommendationRepository(pool as never);
+
+  const result = await repository.failStaleRunningRuns();
+
+  assert.deepEqual(result, { failedCount: 1, runIds: [101] });
+  const query = pool.queries[0];
+  assert.ok(query.params);
+  assert.equal(query.params[0], 30);
+  assert.equal(query.params[1], null);
+  assert.equal(query.params[2], 'orphaned RUNNING run recovered after worker loss');
+});
+
 void test('readTopRecommendations returns rows for DISCOVERY target', async () => {
   const pool = new PoolMock((sql) => {
     if (sql.includes('FROM recommendation_runs')) {

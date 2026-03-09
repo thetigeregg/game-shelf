@@ -360,9 +360,12 @@
             [game]="discoveryGame"
             context="explore"
             [showAddToLibraryAction]="true"
+            [showIgnoreAction]="true"
             [isInLibrary]="isSimilarDiscoveryInLibrary"
+            [isIgnored]="isSimilarDiscoveryDetailIgnored"
             [isAddToLibraryLoading]="isSimilarDiscoveryAddLoading"
             (addToLibrary)="addSimilarDiscoveryDetailToLibrary()"
+            (ignore)="ignoreSimilarDiscoveryDetailGame()"
           >
             <ion-list lines="full" detail-secondary-content>
               <ion-list-header class="similar-games-header">
@@ -377,7 +380,7 @@
                 <ion-item lines="none">
                   <ion-label color="medium">{{ similarDiscoveryDetailRelatedError }}</ion-label>
                 </ion-item>
-              } @else if (similarDiscoveryDetailRelatedGames.length === 0) {
+              } @else if (getTotalSimilarDiscoveryDetailRelatedGames() === 0) {
                 <ion-item lines="none">
                   <ion-label color="medium">No similar recommendations available.</ion-label>
                 </ion-item>
@@ -493,7 +496,7 @@
             @if (
               similarDetailMode === 'discovery' &&
               !isSimilarDiscoveryGamesLoading &&
-              similarDiscoveryGames.length === 0
+              getTotalSimilarDiscoveryGames() === 0
             ) {
               <ion-item>
                 <ion-label color="medium"
@@ -504,7 +507,7 @@
             @if (
               similarDetailMode === 'discovery' &&
               !isSimilarDiscoveryGamesLoading &&
-              similarDiscoveryGames.length > 0
+              getTotalSimilarDiscoveryGames() > 0
             ) {
               @for (
                 similarGame of getVisibleSimilarDiscoveryGames();

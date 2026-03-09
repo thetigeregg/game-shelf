@@ -54,7 +54,8 @@ vi.mock('ionicons/icons', () => ({
   refresh: {},
   layers: {},
   bug: {},
-  key: {}
+  key: {},
+  eyeOff: {}
 }));
 
 import { AlertController, ToastController } from '@ionic/angular/standalone';
@@ -77,6 +78,7 @@ import {
   TimePreferenceService,
   TIME_PREFERENCE_STORAGE_KEY
 } from '../core/services/time-preference.service';
+import { RECOMMENDATION_IGNORED_STORAGE_KEY } from '../core/services/recommendation-ignore.service';
 
 type PrivateSettingsPage = SettingsPage & Record<string, (...args: unknown[]) => unknown>;
 
@@ -612,6 +614,70 @@ describe('SettingsPage CSV review fields', () => {
       payload: {
         key: TIME_PREFERENCE_STORAGE_KEY,
         value: '33'
+      }
+    });
+  });
+
+  it('normalizes imported ignored recommendations before persisting and syncing', async () => {
+    const page = createPage();
+    const importedValue = JSON.stringify({
+      version: 1,
+      entries: [
+        { igdbGameId: '9', title: 'Alpha', ignoredAt: '2025-01-01T00:00:00.000Z' },
+        { igdbGameId: '9', title: 'Alpha Updated', ignoredAt: '2025-02-01T00:00:00.000Z' },
+        { igdbGameId: 'not-an-id', title: 'Invalid', ignoredAt: '2025-01-01T00:00:00.000Z' },
+        { igdbGameId: '10', title: 'Beta', ignoredAt: '2025-03-01T00:00:00.000Z' }
+      ]
+    });
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RECOMMENDATION_IGNORED_STORAGE_KEY,
+        value: importedValue
+      }
+    ]);
+
+    const persisted = localStorage.getItem(RECOMMENDATION_IGNORED_STORAGE_KEY);
+    expect(typeof persisted).toBe('string');
+    expect(persisted).not.toBe(importedValue);
+
+    const parsedPersisted = JSON.parse(persisted ?? '{}') as {
+      version: number;
+      entries: Array<{ igdbGameId: string; title: string; ignoredAt: string }>;
+    };
+    expect(parsedPersisted.version).toBe(1);
+    expect(parsedPersisted.entries).toEqual([
+      { igdbGameId: '9', title: 'Alpha Updated', ignoredAt: '2025-02-01T00:00:00.000Z' },
+      { igdbGameId: '10', title: 'Beta', ignoredAt: '2025-03-01T00:00:00.000Z' }
+    ]);
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: {
+        key: RECOMMENDATION_IGNORED_STORAGE_KEY,
+        value: persisted
+      }
+    });
+  });
+
+  it('deletes ignored recommendations setting when imported payload is malformed', async () => {
+    const page = createPage();
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RECOMMENDATION_IGNORED_STORAGE_KEY,
+        value: '{bad json'
+      }
+    ]);
+
+    expect(localStorage.getItem(RECOMMENDATION_IGNORED_STORAGE_KEY)).toBeNull();
+    expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
+      entityType: 'setting',
+      operation: 'delete',
+      payload: {
+        key: RECOMMENDATION_IGNORED_STORAGE_KEY
       }
     });
   });

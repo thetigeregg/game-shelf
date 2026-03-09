@@ -89,6 +89,12 @@
   overflow-wrap: anywhere;
 }
 
+.detail-actions-toolbar {
+  --border-style: solid;
+  --border-width: 0.55px 0;
+  --border-color: rgba(var(--ion-color-medium-rgb), 0.28);
+}
+
 .detail-clear-button {
   margin-left: 8px;
 }

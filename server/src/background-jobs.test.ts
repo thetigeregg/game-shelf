@@ -247,7 +247,7 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
   assert.ok(normalizedReplaySql.includes('finished_at = null'));
 });
 
-void test('background jobs requeueStaleRunning resets stale running jobs to pending', async () => {
+void test('background jobs requeueStaleRunning re-queues stale running jobs to pending without resetting attempts', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 15 }, { id: 16 }],
     rowCount: 2
@@ -268,6 +268,7 @@ void test('background jobs requeueStaleRunning resets stale running jobs to pend
   assert.ok(normalizedSql.includes("where status = 'running'"));
   assert.ok(normalizedSql.includes('locked_at < (now() - make_interval(mins => $1))'));
   assert.ok(normalizedSql.includes("set status = 'pending'"));
+  assert.ok(!normalizedSql.includes('attempts = 0'));
   assert.deepEqual(query.params, [45, 'recommendations_rebuild', 2, 'stale lock recovered']);
 });
 

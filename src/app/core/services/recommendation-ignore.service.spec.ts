@@ -197,6 +197,28 @@ describe('RecommendationIgnoreService', () => {
     ]);
   });
 
+  it('keeps valid entries when payload also contains null and primitive entries', () => {
+    localStorage.setItem(
+      RECOMMENDATION_IGNORED_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        entries: [
+          null,
+          123,
+          { igdbGameId: '55', title: 'Valid 55', ignoredAt: '2026-01-01T00:00:00.000Z' },
+          'bad',
+          { igdbGameId: 'bad-id', title: 'Invalid', ignoredAt: '2026-01-01T00:00:00.000Z' }
+        ]
+      })
+    );
+    const service = TestBed.inject(RecommendationIgnoreService);
+    service.refreshFromStorage();
+
+    expect(service.listIgnored()).toEqual([
+      { igdbGameId: '55', title: 'Valid 55', ignoredAt: '2026-01-01T00:00:00.000Z' }
+    ]);
+  });
+
   it('works without sync outbox writer', () => {
     TestBed.resetTestingModule();
     configureTestingModule(false);

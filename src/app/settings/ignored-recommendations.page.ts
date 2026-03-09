@@ -12,7 +12,10 @@ import {
   IonToolbar
 } from '@ionic/angular/standalone';
 import { AsyncPipe } from '@angular/common';
-import { RecommendationIgnoreService } from '../core/services/recommendation-ignore.service';
+import {
+  RecommendationIgnoreService,
+  RecommendationIgnoredEntry
+} from '../core/services/recommendation-ignore.service';
 
 @Component({
   selector: 'app-ignored-recommendations-page',
@@ -37,7 +40,7 @@ export class IgnoredRecommendationsPage {
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
   readonly ignoredEntries$ = this.recommendationIgnoreService.ignoredEntries$;
 
-  trackByIgnoredId(_: number, entry: { igdbGameId: string }): string {
+  trackByIgnoredId(_: number, entry: RecommendationIgnoredEntry): string {
     return entry.igdbGameId;
   }
 

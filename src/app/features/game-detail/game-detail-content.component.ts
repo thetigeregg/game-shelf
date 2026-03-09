@@ -21,6 +21,8 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
+  add,
+  ban,
   build,
   business,
   calendar,
@@ -103,6 +105,8 @@ export class GameDetailContentComponent {
 
   constructor() {
     addIcons({
+      add,
+      ban,
       build,
       business,
       calendar,

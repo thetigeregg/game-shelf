@@ -251,7 +251,8 @@ function runStack(action) {
       'hltb-scraper',
       'metacritic-scraper',
       'api',
-      'background-worker',
+      'worker-general',
+      'worker-recommendations',
       'edge'
     ]);
     return;
@@ -273,7 +274,8 @@ function runStack(action) {
       ...composeArgs,
       'restart',
       'edge',
-      'background-worker',
+      'worker-general',
+      'worker-recommendations',
       'api',
       'postgres',
       'hltb-scraper',
@@ -288,7 +290,8 @@ function runStack(action) {
       'logs',
       '-f',
       'edge',
-      'background-worker',
+      'worker-general',
+      'worker-recommendations',
       'api',
       'postgres',
       'hltb-scraper',

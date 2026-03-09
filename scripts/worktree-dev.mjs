@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -211,15 +218,42 @@ function ensureLocalEnvFromSharedTemplate() {
 }
 
 function listMissingDependencyDirs() {
-  const requiredNodeModules = [
-    path.resolve(cwd, 'node_modules'),
-    path.resolve(cwd, 'server', 'node_modules'),
-    path.resolve(cwd, 'worker', 'node_modules'),
-    path.resolve(cwd, 'hltb-scraper', 'node_modules'),
-    path.resolve(cwd, 'metacritic-scraper', 'node_modules')
+  const dependencyPackages = [
+    { packageDir: path.resolve(cwd), alwaysRequireNodeModules: true },
+    { packageDir: path.resolve(cwd, 'server') },
+    { packageDir: path.resolve(cwd, 'worker') },
+    { packageDir: path.resolve(cwd, 'hltb-scraper') },
+    { packageDir: path.resolve(cwd, 'metacritic-scraper') }
   ];
 
-  return requiredNodeModules.filter((moduleDir) => !existsSync(moduleDir));
+  return dependencyPackages
+    .filter((pkg) => pkg.alwaysRequireNodeModules || packageHasDependencies(pkg.packageDir))
+    .map((pkg) => path.resolve(pkg.packageDir, 'node_modules'))
+    .filter((moduleDir) => !existsSync(moduleDir));
+}
+
+function packageHasDependencies(packageDir) {
+  const packageJsonPath = path.resolve(packageDir, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+    const dependencyFields = [
+      'dependencies',
+      'devDependencies',
+      'optionalDependencies',
+      'peerDependencies'
+    ];
+
+    return dependencyFields.some((fieldName) => {
+      const value = packageJson[fieldName];
+      return Boolean(value && typeof value === 'object' && Object.keys(value).length > 0);
+    });
+  } catch {
+    return true;
+  }
 }
 
 function ensureDependenciesInstalled(forceInstall = false) {

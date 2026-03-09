@@ -236,11 +236,11 @@ function ensureDependenciesInstalled(forceInstall = false) {
     }
   }
 
-  console.log('Installing workspace dependencies via: npm run i:all');
-  runShell(buildNvmAwareInstallCommand(), sharedEnv);
+  console.log('Installing workspace dependencies via: npm run ci:all');
+  runShell(buildNvmAwareInstallCommand('ci:all'), sharedEnv);
 }
 
-function buildNvmAwareInstallCommand() {
+function buildNvmAwareInstallCommand(installScript = 'i:all') {
   return [
     'if [ -f .nvmrc ]',
     'then',
@@ -253,7 +253,7 @@ function buildNvmAwareInstallCommand() {
     '    echo "Warning: .nvmrc found but nvm.sh was not found; continuing with current Node."',
     '  fi',
     'fi',
-    'npm run i:all'
+    `npm run ${installScript}`
   ].join('\n');
 }
 

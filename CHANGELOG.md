@@ -1795,3 +1795,8 @@
 - 97e2c25 Merge branch 'main' into codex/perfs
 - b242f92 Check running background job status
 
+## v1.1.19 - 2026-03-09
+- 38453f8 Merge pull request #188 from thetigeregg/dependabot/github_actions/docker/login-action-4
+- ecab595 Merge branch 'main' into dependabot/github_actions/docker/login-action-4
+- 3d315e6 chore(ci): bump docker/login-action from 3 to 4
+

@@ -667,6 +667,34 @@ export class ExplorePage implements OnInit {
     });
   }
 
+  async confirmIgnoreSelectedGameRecommendation(): Promise<void> {
+    const active = this.activeDetailRecommendation;
+    const selected = this.selectedGameDetail;
+    const igdbGameId = active?.igdbGameId ?? selected?.igdbGameId ?? null;
+
+    if (!igdbGameId) {
+      return;
+    }
+
+    const title = selected?.title.trim() || (active ? this.getDisplayTitle(active) : '');
+    const displayTitle = title.length > 0 ? title : `Game #${igdbGameId}`;
+    const alert = await this.alertController.create({
+      header: 'Ignore Recommendation',
+      message: `Hide "${displayTitle}" from recommendation lists?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Ignore', role: 'confirm' }
+      ]
+    });
+
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+
+    if (role === 'confirm') {
+      this.ignoreSelectedGameRecommendation();
+    }
+  }
+
   async onDetailStatusChange(value: GameStatus | null | undefined): Promise<void> {
     const selected = this.selectedGameDetail;
 

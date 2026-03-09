@@ -242,9 +242,11 @@ function ensureDependenciesInstalled(forceInstall = false) {
 
 function buildNvmAwareInstallCommand() {
   return [
-    'if [ -f .nvmrc ]; then',
+    'if [ -f .nvmrc ]',
+    'then',
     '  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"',
-    '  if [ -s "$NVM_DIR/nvm.sh" ]; then',
+    '  if [ -s "$NVM_DIR/nvm.sh" ]',
+    '  then',
     '    . "$NVM_DIR/nvm.sh"',
     '    nvm use',
     '  else',
@@ -252,7 +254,7 @@ function buildNvmAwareInstallCommand() {
     '  fi',
     'fi',
     'npm run i:all'
-  ].join('; ');
+  ].join('\n');
 }
 
 function runStack(action) {

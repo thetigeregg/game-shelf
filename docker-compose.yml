@@ -155,12 +155,12 @@ services:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
     restart: unless-stopped
 
-  background-worker:
+  worker-general:
     build:
       context: .
       dockerfile: server/Dockerfile
     command: ["npm", "run", "start:background-worker"]
-    environment:
+    environment: &worker_common_env
       TZ: ${TZ:-Europe/Zurich}
       DATABASE_URL_FILE: ${DATABASE_URL_FILE:-/run/secrets/database_url}
       TWITCH_CLIENT_ID_FILE: ${TWITCH_CLIENT_ID_FILE:-/run/secrets/twitch_client_id}
@@ -239,6 +239,26 @@ services:
       IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN: ${IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN:-5000}
       IGDB_METADATA_ENRICH_STARTUP_DELAY_MS: ${IGDB_METADATA_ENRICH_STARTUP_DELAY_MS:-5000}
       IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS: ${IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS:-15000}
+      BACKGROUND_WORKER_MODE: ${BACKGROUND_WORKER_MODE:-general}
+    depends_on:
+      - postgres
+      - api
+      - hltb-scraper
+      - metacritic-scraper
+    volumes:
+      - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
+      - ./nas-data/manuals:/data/manuals:ro
+    restart: unless-stopped
+
+  worker-recommendations:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: ["npm", "run", "start:background-worker"]
+    environment:
+      <<: *worker_common_env
+      BACKGROUND_WORKER_MODE: ${BACKGROUND_WORKER_MODE_RECOMMENDATIONS:-recommendations}
+      RECOMMENDATIONS_SCHEDULER_ENABLED: "false"
     depends_on:
       - postgres
       - api

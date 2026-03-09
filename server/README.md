@@ -94,7 +94,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `RELEASE_MONITOR_ENABLED` (`true|false`, default `true`)
 - `RELEASE_MONITOR_INTERVAL_SECONDS` (default `900`)
 - `RELEASE_MONITOR_BATCH_SIZE` (default `100`)
-- `RELEASE_MONITOR_JOB_CONCURRENCY` (consumed by `background-worker`; default `2`)
+- `RELEASE_MONITOR_JOB_CONCURRENCY` (consumed by `worker-general`; default `2`)
 - `RELEASE_MONITOR_DEBUG_LOGS` (`true|false`, default `false`)
 - `NOTIFICATIONS_TEST_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `POST /v1/notifications/test` for controlled testing
 - `NOTIFICATIONS_OBSERVABILITY_ENDPOINT_ENABLED` (`true|false`, default `false`) enables `GET /v1/notifications/observability`
@@ -117,9 +117,11 @@ Release notification preference defaults:
 
 ### Non-secret env vars (recommendations)
 
-- `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `background-worker`; API process no longer runs scheduler ticks)
-- `RECOMMENDATIONS_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
-- `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
+- `BACKGROUND_WORKER_MODE` (`all|general|recommendations`; runtime fallback `all` if unset/invalid; compose default for `worker-general` is `general`)
+- `BACKGROUND_WORKER_MODE_RECOMMENDATIONS` (docker-compose/Portainer stack variable only; sets `BACKGROUND_WORKER_MODE` for `worker-recommendations`; compose default `recommendations`; not read directly by Node runtime)
+- `RECOMMENDATIONS_SCHEDULER_ENABLED` (consumed by `worker-general`; API process no longer runs scheduler ticks)
+- `RECOMMENDATIONS_JOB_CONCURRENCY` (read by worker runtime; applies when `BACKGROUND_WORKER_MODE` includes recommendations work (`all` or `recommendations`); default `1`)
+- `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
 - `RECOMMENDATIONS_ENRICH_API_BASE_URL` (worker-only; defaults to `http://api:3000` for discovery enrichment lookups)
 - `RECOMMENDATIONS_DAILY_STALE_HOURS`
 - `RECOMMENDATIONS_TOP_LIMIT`
@@ -176,20 +178,20 @@ Release notification preference defaults:
 - `IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN` (default `5000`)
 - `IGDB_METADATA_ENRICH_STARTUP_DELAY_MS` (default `5000`)
 - `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (default `15000`)
-- `METADATA_ENRICHMENT_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
-- `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (consumed by `background-worker`; default `60`)
+- `METADATA_ENRICHMENT_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
+- `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (consumed by `worker-general`; default `60`)
 
 ### Non-secret env vars (queued maintenance jobs)
 
-- `BACKGROUND_JOBS_RETENTION_DAYS` (consumed by `background-worker`; default `30`)
-- `BACKGROUND_JOBS_CLEANUP_INTERVAL_MINUTES` (consumed by `background-worker`; default `60`)
-- `BACKGROUND_JOBS_CLEANUP_BATCH_SIZE` (consumed by `background-worker`; default `1000`)
-- `BACKGROUND_JOBS_STALE_RUNNING_MINUTES` (consumed by `background-worker`; default `30`)
-- `BACKGROUND_JOBS_STALE_RECOVERY_INTERVAL_MINUTES` (consumed by `background-worker`; default `5`)
-- `BACKGROUND_JOBS_LOCK_HEARTBEAT_SECONDS` (consumed by `background-worker`; default `30`)
-- `RECOMMENDATION_RUN_STALE_MINUTES` (consumed by `background-worker`; default `30`)
-- `CACHE_REVALIDATION_JOB_CONCURRENCY` (consumed by `background-worker`; default `2`)
-- `MANUALS_CATALOG_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)
+- `BACKGROUND_JOBS_RETENTION_DAYS` (consumed by `worker-general`; default `30`)
+- `BACKGROUND_JOBS_CLEANUP_INTERVAL_MINUTES` (consumed by `worker-general`; default `60`)
+- `BACKGROUND_JOBS_CLEANUP_BATCH_SIZE` (consumed by `worker-general`; default `1000`)
+- `BACKGROUND_JOBS_STALE_RUNNING_MINUTES` (consumed by `worker-general`; default `30`)
+- `BACKGROUND_JOBS_STALE_RECOVERY_INTERVAL_MINUTES` (consumed by `worker-general`; default `5`)
+- `BACKGROUND_JOBS_LOCK_HEARTBEAT_SECONDS` (consumed by `worker-general` and `worker-recommendations`; default `30`)
+- `RECOMMENDATION_RUN_STALE_MINUTES` (consumed by `worker-general`; default `30`)
+- `CACHE_REVALIDATION_JOB_CONCURRENCY` (consumed by `worker-general`; default `2`)
+- `MANUALS_CATALOG_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
 - `MANUALS_DIR` (used by API and worker; default `/data/manuals` in Docker)
 
 Stale recovery behavior:

@@ -22,6 +22,7 @@ import { releaseMonitorInternals } from './release-monitor.js';
 
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
 const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
+export type BackgroundWorkerMode = 'all' | 'general' | 'recommendations';
 
 export function readDiscoveryEnrichmentApiBaseUrl(): string {
   const raw =
@@ -50,11 +51,37 @@ export function stringOrEmpty(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+export function readBackgroundWorkerMode(): BackgroundWorkerMode {
+  const rawValue =
+    typeof process.env.BACKGROUND_WORKER_MODE === 'string'
+      ? process.env.BACKGROUND_WORKER_MODE
+      : '';
+  const raw = rawValue.trim().toLowerCase();
+
+  if (raw === 'general' || raw === 'recommendations' || raw === 'all') {
+    return raw;
+  }
+
+  if (raw.length > 0) {
+    console.warn('[background-worker] invalid BACKGROUND_WORKER_MODE; falling back to all', {
+      rawValue
+    });
+  }
+
+  return 'all';
+}
+
 /* node:coverage disable */
 async function main(): Promise<void> {
+  const workerMode = readBackgroundWorkerMode();
+  const runGeneralWork = workerMode === 'all' || workerMode === 'general';
+  const runRecommendationRebuildWork = workerMode === 'all' || workerMode === 'recommendations';
   console.info('[background-worker] starting', {
     pid: process.pid,
-    nodeEnv: process.env.NODE_ENV ?? ''
+    nodeEnv: process.env.NODE_ENV ?? '',
+    workerMode,
+    runGeneralWork,
+    runRecommendationRebuildWork
   });
   const pool = await createPool(config.postgresUrl);
   const jobs = new BackgroundJobRepository(pool);
@@ -146,7 +173,8 @@ async function main(): Promise<void> {
       startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
     }
   );
-  const workerId = `background-worker:${String(process.pid)}`;
+  const workerHost = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME : '';
+  const workerId = `background-worker:${workerMode}:${workerHost}:${String(process.pid)}`;
   const recommendationConcurrency = readPositiveIntegerEnv('RECOMMENDATIONS_JOB_CONCURRENCY', 1);
   const metadataConcurrency = readPositiveIntegerEnv('METADATA_ENRICHMENT_JOB_CONCURRENCY', 1);
   const releaseMonitorConcurrency = readPositiveIntegerEnv('RELEASE_MONITOR_JOB_CONCURRENCY', 2);
@@ -633,60 +661,65 @@ async function main(): Promise<void> {
     }
   };
 
-  startConsumers('recommendations_rebuild', recommendationConcurrency);
-  startConsumers('metadata_enrichment_run', metadataConcurrency);
-  startConsumers('release_monitor_game', releaseMonitorConcurrency);
-  startConsumers('discovery_enrichment_run', discoveryEnrichmentConcurrency);
-  startConsumers('hltb_cache_revalidate', cacheRevalidationConcurrency);
-  startConsumers('metacritic_cache_revalidate', cacheRevalidationConcurrency);
-  startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);
-  startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
+  if (runRecommendationRebuildWork) {
+    startConsumers('recommendations_rebuild', recommendationConcurrency);
+  }
 
-  void runRecommendationSchedulerTick();
-  recommendationSchedulerTimer = setInterval(() => {
+  if (runGeneralWork) {
+    startConsumers('metadata_enrichment_run', metadataConcurrency);
+    startConsumers('release_monitor_game', releaseMonitorConcurrency);
+    startConsumers('discovery_enrichment_run', discoveryEnrichmentConcurrency);
+    startConsumers('hltb_cache_revalidate', cacheRevalidationConcurrency);
+    startConsumers('metacritic_cache_revalidate', cacheRevalidationConcurrency);
+    startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);
+    startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
+
     void runRecommendationSchedulerTick();
-  }, RECOMMENDATION_SCHEDULER_INTERVAL_MS);
+    recommendationSchedulerTimer = setInterval(() => {
+      void runRecommendationSchedulerTick();
+    }, RECOMMENDATION_SCHEDULER_INTERVAL_MS);
 
-  metadataStartupTimer = setTimeout(
-    () => {
-      void scheduleMetadataJob();
-      void scheduleDiscoveryEnrichmentJob();
-    },
-    Math.max(0, config.igdbMetadataEnrichStartupDelayMs)
-  );
-  metadataTimer = setInterval(
-    () => {
-      void scheduleMetadataJob();
-    },
-    Math.max(1, metadataIntervalMinutes) * 60 * 1000
-  );
-  discoveryEnrichmentTimer = setInterval(
-    () => {
-      void scheduleDiscoveryEnrichmentJob();
-    },
-    discoveryIntervalMinutes * 60 * 1000
-  );
-  backgroundJobsCleanupTimer = setInterval(
-    () => {
-      void runBackgroundJobsCleanup();
-    },
-    Math.max(1, jobsCleanupIntervalMinutes) * 60 * 1000
-  );
-  void runBackgroundJobsCleanup();
-  staleJobRecoveryTimer = setInterval(
-    () => {
-      void recoverStaleWork();
-    },
-    Math.max(1, staleJobRecoveryIntervalMinutes) * 60 * 1000
-  );
-  void recoverStaleWork();
-  queueStatsTimer = setInterval(
-    () => {
-      void logQueuePressure();
-    },
-    Math.max(1, queueStatsIntervalMinutes) * 60 * 1000
-  );
-  void logQueuePressure();
+    metadataStartupTimer = setTimeout(
+      () => {
+        void scheduleMetadataJob();
+        void scheduleDiscoveryEnrichmentJob();
+      },
+      Math.max(0, config.igdbMetadataEnrichStartupDelayMs)
+    );
+    metadataTimer = setInterval(
+      () => {
+        void scheduleMetadataJob();
+      },
+      Math.max(1, metadataIntervalMinutes) * 60 * 1000
+    );
+    discoveryEnrichmentTimer = setInterval(
+      () => {
+        void scheduleDiscoveryEnrichmentJob();
+      },
+      discoveryIntervalMinutes * 60 * 1000
+    );
+    backgroundJobsCleanupTimer = setInterval(
+      () => {
+        void runBackgroundJobsCleanup();
+      },
+      Math.max(1, jobsCleanupIntervalMinutes) * 60 * 1000
+    );
+    void runBackgroundJobsCleanup();
+    staleJobRecoveryTimer = setInterval(
+      () => {
+        void recoverStaleWork();
+      },
+      Math.max(1, staleJobRecoveryIntervalMinutes) * 60 * 1000
+    );
+    void recoverStaleWork();
+    queueStatsTimer = setInterval(
+      () => {
+        void logQueuePressure();
+      },
+      Math.max(1, queueStatsIntervalMinutes) * 60 * 1000
+    );
+    void logQueuePressure();
+  }
 
   console.info('[background-worker] started', {
     recommendationSchedulerEnabled: config.recommendationsSchedulerEnabled,
@@ -707,6 +740,9 @@ async function main(): Promise<void> {
     recommendationRunRecoveryMinutes,
     backgroundJobHeartbeatSeconds,
     discoveryIntervalMinutes,
+    workerMode,
+    runGeneralWork,
+    runRecommendationRebuildWork,
     discoveryEnabled: config.recommendationsDiscoveryEnabled,
     discoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,
     discoveryEnrichApiBaseUrl: readDiscoveryEnrichmentApiBaseUrl()

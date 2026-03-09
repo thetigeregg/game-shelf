@@ -1836,3 +1836,27 @@
 - 433d740 Merge branch 'main' into codex/wroerk
 - d8ae288 refactor(worker): split background worker into general and recommendations roles
 
+## v1.1.26 - 2026-03-09
+- c2422f0 Merge pull request #195 from thetigeregg/codex/ignore-recs
+- 8d54d1a Update Similar Discovery empty state
+- 4df1615 Use RecommendationIgnoredEntry type
+- a145e34 Validate recommendation payload
+- 7855b41 Fix lane empty state messaging
+- 34002cb Fix NVM fallback handling
+- 321a9c2 Cache filtered similar discovery
+- afadddb Cache visible recommendation lists
+- e3acf5d Ensure nvm install runs via bash
+- ac089c2 Address ignored recommendation notes
+- 8773213 Audit explore page updates
+- b011e60 Add discover header menu
+- 4aff55f Add ignore alert and toolbar polish
+- b8e0db1 Adjust discovery queue filters
+- 4d1cf12 Add toolbar buttons for game actions
+- 4732aa6 Fix recommendation ignore init error
+- ebe2684 Fix worktree bootstrap script error
+- 731f352 Fix worktree bootstrap script error
+- 795331c Fix nvm bootstrap script syntax
+- 5969345 Run nvm use before worktree install
+- 5a5be62 Ensure nvm use before npm install
+- 3210e0e Add ignore button to discovery
+

@@ -455,7 +455,7 @@ async function main(): Promise<void> {
         errorMessage: 'orphaned RUNNING run recovered after worker loss'
       });
       if (staleRuns.failedCount > 0) {
-        console.warn('[background-worker] stale_recommendation_runs_failed', {
+        console.warn('[background-worker] stale_recommendation_runs_recovered', {
           failedCount: staleRuns.failedCount,
           maxAgeMinutes: recommendationRunRecoveryMinutes
         });

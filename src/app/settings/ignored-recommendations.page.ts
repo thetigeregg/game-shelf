@@ -34,9 +34,8 @@ import { RecommendationIgnoreService } from '../core/services/recommendation-ign
   ]
 })
 export class IgnoredRecommendationsPage {
-  readonly ignoredEntries$ = this.recommendationIgnoreService.ignoredEntries$;
-
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);
+  readonly ignoredEntries$ = this.recommendationIgnoreService.ignoredEntries$;
 
   trackByIgnoredId(_: number, entry: { igdbGameId: string }): string {
     return entry.igdbGameId;

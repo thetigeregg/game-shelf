@@ -84,7 +84,7 @@ Common stack env vars:
 - `BACKUP_PGDUMP_RETRIES` (optional; defaults to `3`)
 - `BACKUP_PGDUMP_RETRY_DELAY_SECONDS` (optional; defaults to `5`)
 - `BACKGROUND_WORKER_MODE` (optional; compose default is `general` for `worker-general`; worker runtime fallback is `all` if unset/invalid)
-- `BACKGROUND_WORKER_MODE_RECOMMENDATIONS` (optional; compose default is `recommendations` for `worker-recommendations`; worker runtime fallback is `all` if unset/invalid)
+- `BACKGROUND_WORKER_MODE_RECOMMENDATIONS` (optional; compose/Portainer substitution var used to set `BACKGROUND_WORKER_MODE` for `worker-recommendations`; compose default is `recommendations`; if set to an invalid value, worker runtime falls back to `all`)
 - `RECOMMENDATIONS_SCHEDULER_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
 - `RECOMMENDATIONS_JOB_CONCURRENCY` (optional; defaults `1`; consumed by `worker-recommendations`)
 - `DISCOVERY_ENRICHMENT_JOB_CONCURRENCY` (optional; defaults `1`; consumed by `worker-general`)

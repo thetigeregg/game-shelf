@@ -271,7 +271,7 @@ void test('background jobs requeueStaleRunning resets stale running jobs to pend
   assert.deepEqual(query.params, [45, 'recommendations_rebuild', 2, 'stale lock recovered']);
 });
 
-void test('background jobs requeueStaleRunning clamps defaults and preserves non-empty recovery reason', async () => {
+void test('background jobs requeueStaleRunning clamps defaults and falls back to default recovery reason when blank', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 31 }],
     rowCount: 1

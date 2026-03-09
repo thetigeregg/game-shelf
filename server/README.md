@@ -186,7 +186,7 @@ Release notification preference defaults:
 - `BACKGROUND_JOBS_CLEANUP_BATCH_SIZE` (consumed by `background-worker`; default `1000`)
 - `BACKGROUND_JOBS_STALE_RUNNING_MINUTES` (consumed by `background-worker`; default `30`)
 - `BACKGROUND_JOBS_STALE_RECOVERY_INTERVAL_MINUTES` (consumed by `background-worker`; default `5`)
-- `BACKGROUND_JOB_LOCK_HEARTBEAT_SECONDS` (consumed by `background-worker`; default `30`)
+- `BACKGROUND_JOBS_LOCK_HEARTBEAT_SECONDS` (consumed by `background-worker`; default `30`)
 - `RECOMMENDATION_RUN_STALE_MINUTES` (consumed by `background-worker`; default `30`)
 - `CACHE_REVALIDATION_JOB_CONCURRENCY` (consumed by `background-worker`; default `2`)
 - `MANUALS_CATALOG_JOB_CONCURRENCY` (consumed by `background-worker`; default `1`)

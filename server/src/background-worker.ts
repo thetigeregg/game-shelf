@@ -186,8 +186,8 @@ async function main(): Promise<void> {
     30
   );
   const backgroundJobHeartbeatSeconds = readPositiveIntegerEnv(
-    'BACKGROUND_JOB_LOCK_HEARTBEAT_SECONDS',
-    30
+    'BACKGROUND_JOBS_LOCK_HEARTBEAT_SECONDS',
+    readPositiveIntegerEnv('BACKGROUND_JOB_LOCK_HEARTBEAT_SECONDS', 30)
   );
   const discoveryIntervalMinutes = Math.max(
     1,

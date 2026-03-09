@@ -240,12 +240,7 @@ function packageHasDependencies(packageDir) {
 
   try {
     const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-    const dependencyFields = [
-      'dependencies',
-      'devDependencies',
-      'optionalDependencies',
-      'peerDependencies'
-    ];
+    const dependencyFields = ['dependencies', 'devDependencies', 'optionalDependencies'];
 
     return dependencyFields.some((fieldName) => {
       const value = packageJson[fieldName];

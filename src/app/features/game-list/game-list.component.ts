@@ -3398,6 +3398,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return this.getFilteredSimilarDiscoveryGames().slice(0, this.visibleSimilarDiscoveryGamesCount);
   }
 
+  getTotalSimilarDiscoveryGames(): number {
+    return this.getFilteredSimilarDiscoveryGames().length;
+  }
+
   getSimilarGameBadges(row: SimilarLibraryGameRow): Array<{
     text: string;
     color: 'primary' | 'secondary' | 'tertiary' | 'success' | 'warning' | 'medium' | 'light';
@@ -3410,7 +3414,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   canLoadMoreSimilarDiscoveryGames(): boolean {
-    return this.visibleSimilarDiscoveryGamesCount < this.getFilteredSimilarDiscoveryGames().length;
+    return this.visibleSimilarDiscoveryGamesCount < this.getTotalSimilarDiscoveryGames();
   }
 
   async loadMoreSimilarLibraryGames(event: Event): Promise<void> {
@@ -3556,10 +3560,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
   }
 
+  getTotalSimilarDiscoveryDetailRelatedGames(): number {
+    return this.getFilteredSimilarDiscoveryDetailRelatedGames().length;
+  }
+
   canLoadMoreSimilarDiscoveryDetailRelatedGames(): boolean {
     return (
       this.visibleSimilarDiscoveryDetailRelatedCount <
-      this.getFilteredSimilarDiscoveryDetailRelatedGames().length
+      this.getTotalSimilarDiscoveryDetailRelatedGames()
     );
   }
 

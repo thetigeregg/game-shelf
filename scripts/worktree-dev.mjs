@@ -173,6 +173,25 @@ function runShell(command, env = sharedEnv) {
   run('sh', ['-lc', command], env);
 }
 
+function hasBash() {
+  const result = spawnSync('bash', ['-lc', 'true'], {
+    cwd,
+    env: sharedEnv,
+    stdio: 'ignore'
+  });
+  return !result.error && result.status === 0;
+}
+
+function runNvmAwareShell(command, env = sharedEnv) {
+  if (hasBash()) {
+    run('bash', ['-lc', command], env);
+    return;
+  }
+
+  console.log('Warning: bash is unavailable; falling back to sh for dependency install.');
+  runShell(command, env);
+}
+
 function runShellCapture(command, env = sharedEnv) {
   return runCapture('sh', ['-lc', command], env);
 }
@@ -266,7 +285,7 @@ function ensureDependenciesInstalled(forceInstall = false) {
   }
 
   console.log('Installing workspace dependencies via: npm run ci:all');
-  runShell(buildNvmAwareInstallCommand('ci:all'), sharedEnv);
+  runNvmAwareShell(buildNvmAwareInstallCommand('ci:all'), sharedEnv);
 }
 
 function buildNvmAwareInstallCommand(installScript = 'i:all') {

@@ -218,6 +218,12 @@ export class ExplorePage implements OnInit {
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
   private ignoredRecommendationGameIds = new Set<string>();
+  private recommendationVisibilityRevision = 0;
+  private similarVisibilityRevision = 0;
+  private cachedVisibleRecommendationItemsRevision = -1;
+  private cachedVisibleSimilarItemsRevision = -1;
+  private cachedVisibleRecommendationItems: RecommendationItem[] = [];
+  private cachedVisibleSimilarItems: RecommendationSimilarItem[] = [];
   @ViewChild('detailContent') private detailContent?: IonContent;
 
   constructor() {
@@ -239,6 +245,8 @@ export class ExplorePage implements OnInit {
       .pipe(takeUntilDestroyed())
       .subscribe((ignoredIds) => {
         this.ignoredRecommendationGameIds = ignoredIds;
+        this.invalidateRecommendationVisibility();
+        this.invalidateSimilarVisibility();
 
         if (
           this.activeDetailRecommendation &&
@@ -274,6 +282,8 @@ export class ExplorePage implements OnInit {
     this.selectedTarget = parsed;
     this.selectedLaneKey = this.selectedTarget === 'DISCOVERY' ? 'blended' : 'overall';
     this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
+    this.invalidateRecommendationVisibility();
+    this.invalidateSimilarVisibility();
     await this.loadRecommendationLanes(false);
   }
 
@@ -298,6 +308,7 @@ export class ExplorePage implements OnInit {
 
     this.selectedLaneKey = parsed;
     this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
+    this.invalidateRecommendationVisibility();
   }
 
   async refreshRecommendations(event: Event): Promise<void> {
@@ -564,6 +575,7 @@ export class ExplorePage implements OnInit {
     this.isAddToLibraryLoading = false;
     this.activeDetailRecommendation = item;
     this.similarRecommendationItems = [];
+    this.invalidateSimilarVisibility();
     this.similarRecommendationsError = '';
     this.isLoadingSimilar = false;
     this.scrollDetailToTop();
@@ -630,6 +642,7 @@ export class ExplorePage implements OnInit {
     this.isLoadingSimilar = false;
     this.similarRecommendationsError = '';
     this.similarRecommendationItems = [];
+    this.invalidateSimilarVisibility();
   }
 
   async addSelectedGameToLibrary(): Promise<void> {
@@ -953,6 +966,7 @@ export class ExplorePage implements OnInit {
 
     if (!forceRefresh && cached) {
       this.activeLanesResponse = cached;
+      this.invalidateRecommendationVisibility();
       this.recommendationError = '';
       this.recommendationErrorCode = 'NONE';
       return;
@@ -975,6 +989,7 @@ export class ExplorePage implements OnInit {
       ]);
 
       this.activeLanesResponse = response;
+      this.invalidateRecommendationVisibility();
       this.lanesCache.set(cacheKey, response);
       this.replaceLocalGameCache(localGames);
       await this.ensureRecommendationDisplayMetadata(response);
@@ -985,6 +1000,7 @@ export class ExplorePage implements OnInit {
 
       if (!cached) {
         this.activeLanesResponse = null;
+        this.invalidateRecommendationVisibility();
       }
     } finally {
       this.isLoadingRecommendations = false;
@@ -1184,6 +1200,8 @@ export class ExplorePage implements OnInit {
       );
       this.libraryOwnedGameIds.add(entry.igdbGameId);
     }
+    this.invalidateRecommendationVisibility();
+    this.invalidateSimilarVisibility();
   }
 
   private upsertLocalGameCache(entry: GameEntry): void {
@@ -1192,6 +1210,8 @@ export class ExplorePage implements OnInit {
       entry
     );
     this.libraryOwnedGameIds.add(entry.igdbGameId);
+    this.invalidateRecommendationVisibility();
+    this.invalidateSimilarVisibility();
   }
 
   private async refreshLocalGameCache(): Promise<void> {
@@ -1353,12 +1373,14 @@ export class ExplorePage implements OnInit {
       );
 
       this.similarRecommendationItems = response.items;
+      this.invalidateSimilarVisibility();
       this.visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
       await this.ensureSimilarDisplayMetadata(this.similarRecommendationItems);
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.similarRecommendationsError = normalized.message;
       this.similarRecommendationItems = [];
+      this.invalidateSimilarVisibility();
     } finally {
       this.isLoadingSimilar = false;
     }
@@ -1630,17 +1652,37 @@ export class ExplorePage implements OnInit {
   }
 
   private getVisibleRecommendationItems(): RecommendationItem[] {
-    return this.getDeduplicatedLaneItems(
+    if (this.cachedVisibleRecommendationItemsRevision === this.recommendationVisibilityRevision) {
+      return this.cachedVisibleRecommendationItems;
+    }
+
+    this.cachedVisibleRecommendationItems = this.getDeduplicatedLaneItems(
       this.filterIgnoredRecommendationItems(
         this.filterAlreadyInLibraryRecommendationItems(this.getRawActiveLaneItems())
       )
     );
+    this.cachedVisibleRecommendationItemsRevision = this.recommendationVisibilityRevision;
+    return this.cachedVisibleRecommendationItems;
   }
 
   private getVisibleSimilarItems(): RecommendationSimilarItem[] {
-    return this.filterIgnoredSimilarItems(
+    if (this.cachedVisibleSimilarItemsRevision === this.similarVisibilityRevision) {
+      return this.cachedVisibleSimilarItems;
+    }
+
+    this.cachedVisibleSimilarItems = this.filterIgnoredSimilarItems(
       this.filterAlreadyInLibrarySimilarItems(this.similarRecommendationItems)
     );
+    this.cachedVisibleSimilarItemsRevision = this.similarVisibilityRevision;
+    return this.cachedVisibleSimilarItems;
+  }
+
+  private invalidateRecommendationVisibility(): void {
+    this.recommendationVisibilityRevision += 1;
+  }
+
+  private invalidateSimilarVisibility(): void {
+    this.similarVisibilityRevision += 1;
   }
 
   private shouldFilterAlreadyInLibraryRecommendations(): boolean {

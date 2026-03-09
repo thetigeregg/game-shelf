@@ -214,6 +214,7 @@ export class ExplorePage implements OnInit {
   private readonly router = inject(Router);
   private readonly lanesCache = new Map<string, RecommendationLanesResponse>();
   private readonly localGameCacheByIdentity = new Map<string, GameEntry>();
+  private readonly libraryOwnedGameIds = new Set<string>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
   private ignoredRecommendationGameIds = new Set<string>();
@@ -350,15 +351,7 @@ export class ExplorePage implements OnInit {
   }
 
   hasAnyLaneItems(): boolean {
-    const lanes = this.activeLanesResponse?.lanes;
-
-    if (!lanes) {
-      return false;
-    }
-
-    const options =
-      this.selectedTarget === 'DISCOVERY' ? this.laneOptionsDiscovery : this.laneOptionsDefault;
-    return options.some((option) => lanes[option.value].length > 0);
+    return this.getVisibleRecommendationItems().length > 0;
   }
 
   getLaneOptions(): Array<{ value: RecommendationLaneKey; label: string }> {
@@ -677,16 +670,17 @@ export class ExplorePage implements OnInit {
     }
   }
 
-  ignoreSelectedGameRecommendation(): void {
+  ignoreSelectedGameRecommendation(params?: { igdbGameId: string; title: string }): void {
     const active = this.activeDetailRecommendation;
     const selected = this.selectedGameDetail;
-    const igdbGameId = active?.igdbGameId ?? selected?.igdbGameId ?? null;
+    const igdbGameId = params?.igdbGameId ?? active?.igdbGameId ?? selected?.igdbGameId ?? null;
 
     if (!igdbGameId) {
       return;
     }
 
-    const title = selected?.title.trim() || (active ? this.getDisplayTitle(active) : '');
+    const title =
+      params?.title ?? selected?.title.trim() ?? (active ? this.getDisplayTitle(active) : '');
     this.recommendationIgnoreService.ignoreGame({
       igdbGameId,
       title: title.length > 0 ? title : `Game #${igdbGameId}`
@@ -704,9 +698,10 @@ export class ExplorePage implements OnInit {
 
     const title = selected?.title.trim() || (active ? this.getDisplayTitle(active) : '');
     const displayTitle = title.length > 0 ? title : `Game #${igdbGameId}`;
+    const escapedTitle = this.escapeAlertMessageText(displayTitle);
     const alert = await this.alertController.create({
       header: 'Ignore Recommendation',
-      message: `Hide "${displayTitle}" from recommendation lists?`,
+      message: `Hide "${escapedTitle}" from recommendation lists?`,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         { text: 'Ignore', role: 'confirm' }
@@ -717,7 +712,10 @@ export class ExplorePage implements OnInit {
     const { role } = await alert.onDidDismiss();
 
     if (role === 'confirm') {
-      this.ignoreSelectedGameRecommendation();
+      this.ignoreSelectedGameRecommendation({
+        igdbGameId,
+        title: displayTitle
+      });
     }
   }
 
@@ -1178,11 +1176,13 @@ export class ExplorePage implements OnInit {
 
   private replaceLocalGameCache(entries: GameEntry[]): void {
     this.localGameCacheByIdentity.clear();
+    this.libraryOwnedGameIds.clear();
     for (const entry of entries) {
       this.localGameCacheByIdentity.set(
         this.buildIdentityKey(entry.igdbGameId, entry.platformIgdbId),
         entry
       );
+      this.libraryOwnedGameIds.add(entry.igdbGameId);
     }
   }
 
@@ -1191,6 +1191,7 @@ export class ExplorePage implements OnInit {
       this.buildIdentityKey(entry.igdbGameId, entry.platformIgdbId),
       entry
     );
+    this.libraryOwnedGameIds.add(entry.igdbGameId);
   }
 
   private async refreshLocalGameCache(): Promise<void> {
@@ -1642,16 +1643,6 @@ export class ExplorePage implements OnInit {
     );
   }
 
-  private getLibraryOwnedRecommendationIds(): Set<string> {
-    const ids = new Set<string>();
-
-    for (const entry of this.localGameCacheByIdentity.values()) {
-      ids.add(entry.igdbGameId);
-    }
-
-    return ids;
-  }
-
   private shouldFilterAlreadyInLibraryRecommendations(): boolean {
     return this.selectedTarget === 'DISCOVERY';
   }
@@ -1663,12 +1654,11 @@ export class ExplorePage implements OnInit {
       return items;
     }
 
-    const ids = this.getLibraryOwnedRecommendationIds();
-    if (ids.size === 0) {
+    if (this.libraryOwnedGameIds.size === 0) {
       return items;
     }
 
-    return items.filter((item) => !ids.has(item.igdbGameId));
+    return items.filter((item) => !this.libraryOwnedGameIds.has(item.igdbGameId));
   }
 
   private filterAlreadyInLibrarySimilarItems(
@@ -1678,12 +1668,11 @@ export class ExplorePage implements OnInit {
       return items;
     }
 
-    const ids = this.getLibraryOwnedRecommendationIds();
-    if (ids.size === 0) {
+    if (this.libraryOwnedGameIds.size === 0) {
       return items;
     }
 
-    return items.filter((item) => !ids.has(item.igdbGameId));
+    return items.filter((item) => !this.libraryOwnedGameIds.has(item.igdbGameId));
   }
 
   private filterIgnoredRecommendationItems(items: RecommendationItem[]): RecommendationItem[] {
@@ -1724,7 +1713,15 @@ export class ExplorePage implements OnInit {
       return false;
     }
 
-    return this.getLibraryOwnedRecommendationIds().has(igdbGameId);
+    return this.libraryOwnedGameIds.has(igdbGameId);
+  }
+
+  private escapeAlertMessageText(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
   }
 
   private async pickListTypeForAdd(): Promise<ListType | null> {

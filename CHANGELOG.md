@@ -1860,3 +1860,8 @@
 - 5a5be62 Ensure nvm use before npm install
 - 3210e0e Add ignore button to discovery
 
+## v1.1.27 - 2026-03-09
+- 23d7067 Merge pull request #196 from thetigeregg/codex/document-worktree-creation-hooks
+- dfa1bd8 Update .husky/post-checkout
+- 4777931 Verify new worktree hooks
+

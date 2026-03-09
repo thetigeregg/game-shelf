@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   isRecommendationTarget,
+  readBackgroundWorkerMode,
   readDiscoveryEnrichmentApiBaseUrl,
   readPositiveIntegerEnv,
   stringOrEmpty
@@ -58,4 +59,30 @@ void test('background worker helper guards recommendation target + string payloa
   assert.equal(stringOrEmpty('value'), 'value');
   assert.equal(stringOrEmpty(123), '');
   assert.equal(stringOrEmpty(undefined), '');
+});
+
+void test('background worker mode parser supports general/recommendations/all with sane fallback', () => {
+  const previous = process.env.BACKGROUND_WORKER_MODE;
+  try {
+    process.env.BACKGROUND_WORKER_MODE = 'general';
+    assert.equal(readBackgroundWorkerMode(), 'general');
+
+    process.env.BACKGROUND_WORKER_MODE = 'recommendations';
+    assert.equal(readBackgroundWorkerMode(), 'recommendations');
+
+    process.env.BACKGROUND_WORKER_MODE = 'all';
+    assert.equal(readBackgroundWorkerMode(), 'all');
+
+    process.env.BACKGROUND_WORKER_MODE = '  GENERAL  ';
+    assert.equal(readBackgroundWorkerMode(), 'general');
+
+    process.env.BACKGROUND_WORKER_MODE = 'invalid';
+    assert.equal(readBackgroundWorkerMode(), 'all');
+  } finally {
+    if (previous === undefined) {
+      Reflect.deleteProperty(process.env, 'BACKGROUND_WORKER_MODE');
+    } else {
+      process.env.BACKGROUND_WORKER_MODE = previous;
+    }
+  }
 });

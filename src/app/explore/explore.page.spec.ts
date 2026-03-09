@@ -870,6 +870,67 @@ describe('ExplorePage recommendations UX', () => {
     expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
   });
 
+  it('filters duplicate add-to-library game even if local cache refresh fails', async () => {
+    const page = createPage() as unknown as {
+      detailContext: 'explore' | 'library';
+      isSelectedGameInLibrary: boolean;
+      isAddToLibraryLoading: boolean;
+      selectedGameDetail: {
+        igdbGameId: string;
+        title: string;
+        coverUrl: null;
+        coverSource: 'none';
+        platform: string;
+        platformIgdbId: number;
+        platformOptions: Array<{ id: number; name: string }>;
+      } | null;
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      activeLanesResponse: typeof mockLanesResponse | null;
+      localGameCacheByIdentity: Map<string, unknown>;
+      libraryOwnedGameIds: Set<string>;
+      getActiveLaneItems: () => Array<{ igdbGameId: string }>;
+      pickListTypeForAdd: () => Promise<'collection' | 'wishlist' | null>;
+      addSelectedGameToLibrary: () => Promise<void>;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '300', platformIgdbId: 6 }]
+      }
+    };
+    page.localGameCacheByIdentity.clear();
+    page.libraryOwnedGameIds.clear();
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(true);
+
+    page.detailContext = 'explore';
+    page.isSelectedGameInLibrary = false;
+    page.isAddToLibraryLoading = false;
+    page.selectedGameDetail = {
+      igdbGameId: '300',
+      title: 'Catalog',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      platformOptions: [{ id: 6, name: 'PC' }]
+    };
+    vi.spyOn(page, 'pickListTypeForAdd').mockResolvedValue('collection');
+    addToLibraryWorkflowMock.addToLibrary.mockResolvedValueOnce({ status: 'duplicate' });
+    gameShelfServiceMock.listLibraryGames.mockRejectedValueOnce(new Error('refresh failed'));
+
+    await page.addSelectedGameToLibrary();
+
+    expect(page.isSelectedGameInLibrary).toBe(true);
+    expect(page.libraryOwnedGameIds.has('300')).toBe(true);
+    expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
+  });
+
   it('opens discover header popover and routes settings action', async () => {
     const page = createPage() as unknown as {
       isHeaderActionsPopoverOpen: boolean;

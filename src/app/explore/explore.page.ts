@@ -694,6 +694,7 @@ export class ExplorePage implements OnInit {
         this.detailContext = 'library';
         this.isSelectedGameInLibrary = true;
       } else if (addResult.status === 'duplicate') {
+        this.markGameIdAsOwned(this.selectedGameDetail.igdbGameId);
         await this.refreshLocalGameCache();
         this.isSelectedGameInLibrary = true;
       }
@@ -1228,7 +1229,15 @@ export class ExplorePage implements OnInit {
       this.buildIdentityKey(entry.igdbGameId, entry.platformIgdbId),
       entry
     );
-    this.libraryOwnedGameIds.add(entry.igdbGameId);
+    this.markGameIdAsOwned(entry.igdbGameId);
+  }
+
+  private markGameIdAsOwned(igdbGameId: string): void {
+    if (igdbGameId.trim().length === 0) {
+      return;
+    }
+
+    this.libraryOwnedGameIds.add(igdbGameId);
     this.invalidateRecommendationVisibility();
     this.invalidateSimilarVisibility();
   }

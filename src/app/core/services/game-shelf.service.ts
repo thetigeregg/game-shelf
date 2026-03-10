@@ -875,7 +875,9 @@ export class GameShelfService {
         );
 
         if (!updated) {
-          throw new Error('Game entry no longer exists.');
+          throw new Error(
+            `Game entry no longer exists (${game.igdbGameId}:${String(game.platformIgdbId)}).`
+          );
         }
 
         mutatedAny = true;
@@ -957,7 +959,9 @@ export class GameShelfService {
         );
 
         if (!updated) {
-          throw new Error('Game entry no longer exists.');
+          throw new Error(
+            `Game entry no longer exists (${game.igdbGameId}:${String(game.platformIgdbId)}).`
+          );
         }
 
         mutatedAny = true;

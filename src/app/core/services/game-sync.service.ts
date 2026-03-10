@@ -110,7 +110,11 @@ export class GameSyncService implements SyncOutboxWriter {
     const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
     await this.db.outbox.put(entry);
-    this.onOutboxEntryEnqueued(entry);
+    try {
+      this.onOutboxEntryEnqueued(entry);
+    } catch {
+      // Keep outbox enqueue resilient if optional observability logic throws.
+    }
     void this.syncNow();
   }
 

@@ -1594,7 +1594,7 @@ describe('GameShelfService', () => {
         ],
         'playing'
       )
-    ).rejects.toThrowError('Game entry no longer exists.');
+    ).rejects.toThrowError('Game entry no longer exists (456:6).');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repository.listByType).toHaveBeenCalledTimes(1);
 
@@ -1633,7 +1633,7 @@ describe('GameShelfService', () => {
         ],
         [1]
       )
-    ).rejects.toThrowError('Game entry no longer exists.');
+    ).rejects.toThrowError('Game entry no longer exists (456:6).');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repository.listByType).toHaveBeenCalledTimes(1);
 

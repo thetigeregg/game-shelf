@@ -411,26 +411,51 @@ async function persistSteamSnapshot(
   }
 ): Promise<void> {
   const fetchedAt = new Date().toISOString();
+  const preserveExisting = params.bestPrice === null;
   const nextPayload: Record<string, unknown> = {
     ...params.payload,
     steamAppId: params.steamAppId,
-    priceSource: 'steam_store',
+    priceSource: preserveExisting ? (params.payload['priceSource'] ?? null) : 'steam_store',
     priceFetchedAt: fetchedAt,
-    priceAmount: params.bestPrice?.amount ?? null,
-    priceCurrency: params.bestPrice?.currency ?? null,
-    priceRegularAmount: params.bestPrice?.initialAmount ?? null,
-    priceDiscountPercent: params.bestPrice?.discountPercent ?? null,
-    priceIsFree: params.bestPrice?.isFree ?? null,
-    priceUrl: params.bestPrice?.url ?? buildSteamAppUrl(params.steamAppId),
+    priceAmount: preserveExisting
+      ? (params.payload['priceAmount'] ?? null)
+      : params.bestPrice.amount,
+    priceCurrency: preserveExisting
+      ? (params.payload['priceCurrency'] ?? null)
+      : (params.bestPrice.currency ?? null),
+    priceRegularAmount: preserveExisting
+      ? (params.payload['priceRegularAmount'] ?? null)
+      : (params.bestPrice.initialAmount ?? null),
+    priceDiscountPercent: preserveExisting
+      ? (params.payload['priceDiscountPercent'] ?? null)
+      : (params.bestPrice.discountPercent ?? null),
+    priceIsFree: preserveExisting
+      ? (params.payload['priceIsFree'] ?? null)
+      : (params.bestPrice.isFree ?? null),
+    priceUrl: preserveExisting
+      ? (params.payload['priceUrl'] ?? buildSteamAppUrl(params.steamAppId))
+      : params.bestPrice.url,
     steamPriceCountry: params.cc,
     steamPriceFetchedAt: fetchedAt,
     steamPriceSource: 'steam_store',
-    steamPriceUrl: params.bestPrice?.url ?? buildSteamAppUrl(params.steamAppId),
-    steamPriceAmount: params.bestPrice?.amount ?? null,
-    steamPriceCurrency: params.bestPrice?.currency ?? null,
-    steamPriceInitialAmount: params.bestPrice?.initialAmount ?? null,
-    steamPriceDiscountPercent: params.bestPrice?.discountPercent ?? null,
-    steamPriceIsFree: params.bestPrice?.isFree ?? null
+    steamPriceUrl: preserveExisting
+      ? (params.payload['steamPriceUrl'] ?? buildSteamAppUrl(params.steamAppId))
+      : params.bestPrice.url,
+    steamPriceAmount: preserveExisting
+      ? (params.payload['steamPriceAmount'] ?? null)
+      : params.bestPrice.amount,
+    steamPriceCurrency: preserveExisting
+      ? (params.payload['steamPriceCurrency'] ?? null)
+      : (params.bestPrice.currency ?? null),
+    steamPriceInitialAmount: preserveExisting
+      ? (params.payload['steamPriceInitialAmount'] ?? null)
+      : (params.bestPrice.initialAmount ?? null),
+    steamPriceDiscountPercent: preserveExisting
+      ? (params.payload['steamPriceDiscountPercent'] ?? null)
+      : (params.bestPrice.discountPercent ?? null),
+    steamPriceIsFree: preserveExisting
+      ? (params.payload['steamPriceIsFree'] ?? null)
+      : (params.bestPrice.isFree ?? null)
   };
 
   await pool.query(

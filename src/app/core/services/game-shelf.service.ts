@@ -51,7 +51,11 @@ interface SteamPriceLookupApi {
 }
 
 interface PsPricesLookupApi {
-  lookupPsPrices(igdbGameId: string, platformIgdbId: number): Observable<unknown>;
+  lookupPsPrices(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title?: string | null
+  ): Observable<unknown>;
 }
 
 interface SteamPriceLookupResult {
@@ -502,6 +506,11 @@ export class GameShelfService {
     }
 
     const pricing = await this.lookupUnifiedPrice(existing.igdbGameId, existing.platformIgdbId);
+    const shouldRetainExistingPricing =
+      this.isPricingSupportedPlatform(existing.platformIgdbId) && pricing === null;
+    const effectivePricing = shouldRetainExistingPricing
+      ? this.snapshotUnifiedPriceFromGame(existing)
+      : pricing;
     const updated = await this.repository.upsertFromCatalog(
       {
         igdbGameId: existing.igdbGameId,
@@ -531,14 +540,14 @@ export class GameShelfService {
         keywords: existing.keywords ?? [],
         keywordIds: existing.keywordIds ?? [],
         steamAppId: existing.steamAppId ?? null,
-        priceSource: pricing?.source ?? null,
-        priceFetchedAt: pricing?.fetchedAt ?? new Date().toISOString(),
-        priceAmount: pricing?.amount ?? null,
-        priceCurrency: pricing?.currency ?? null,
-        priceRegularAmount: pricing?.regularAmount ?? null,
-        priceDiscountPercent: pricing?.discountPercent ?? null,
-        priceIsFree: pricing?.isFree ?? null,
-        priceUrl: pricing?.url ?? null,
+        priceSource: effectivePricing?.source ?? null,
+        priceFetchedAt: effectivePricing?.fetchedAt ?? new Date().toISOString(),
+        priceAmount: effectivePricing?.amount ?? null,
+        priceCurrency: effectivePricing?.currency ?? null,
+        priceRegularAmount: effectivePricing?.regularAmount ?? null,
+        priceDiscountPercent: effectivePricing?.discountPercent ?? null,
+        priceIsFree: effectivePricing?.isFree ?? null,
+        priceUrl: effectivePricing?.url ?? null,
         screenshots: existing.screenshots ?? [],
         videos: existing.videos ?? [],
         publishers: existing.publishers ?? [],
@@ -1426,7 +1435,8 @@ export class GameShelfService {
 
   private async lookupUnifiedPrice(
     igdbGameId: string,
-    platformIgdbId: number
+    platformIgdbId: number,
+    titleOverride?: string | null
   ): Promise<UnifiedPriceSnapshot | null> {
     if (!this.isPricingSupportedPlatform(platformIgdbId)) {
       return null;
@@ -1451,7 +1461,9 @@ export class GameShelfService {
       }
 
       const result = (await firstValueFrom(
-        pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
+        titleOverride === undefined
+          ? pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
+          : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, titleOverride ?? null)
       )) as PsPricesLookupResult;
       return this.normalizePsPricesLookupResult(result);
     }
@@ -1530,6 +1542,39 @@ export class GameShelfService {
       return `https:${normalized}`;
     }
     return null;
+  }
+
+  private snapshotUnifiedPriceFromGame(
+    game: Pick<
+      GameEntry,
+      | 'priceSource'
+      | 'priceAmount'
+      | 'priceCurrency'
+      | 'priceRegularAmount'
+      | 'priceDiscountPercent'
+      | 'priceIsFree'
+      | 'priceUrl'
+      | 'priceFetchedAt'
+    >
+  ): UnifiedPriceSnapshot | null {
+    const source = game.priceSource;
+    if (source !== 'steam_store' && source !== 'psprices') {
+      return null;
+    }
+
+    return {
+      source,
+      amount: this.normalizePriceAmount(game.priceAmount),
+      currency: this.normalizePriceCurrency(game.priceCurrency),
+      regularAmount: this.normalizePriceAmount(game.priceRegularAmount),
+      discountPercent: this.normalizePriceDiscountPercent(game.priceDiscountPercent),
+      isFree: this.normalizePriceIsFree(game.priceIsFree),
+      url: this.normalizePriceUrl(game.priceUrl),
+      fetchedAt:
+        typeof game.priceFetchedAt === 'string' && game.priceFetchedAt.trim().length > 0
+          ? game.priceFetchedAt
+          : new Date().toISOString()
+    };
   }
 
   private async lookupReviewScoreForCatalog(

@@ -976,7 +976,11 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
-  lookupPsPrices(igdbGameId: string, platformIgdbId: number): Observable<unknown> {
+  lookupPsPrices(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title?: string | null
+  ): Observable<unknown> {
     const normalizedGameId = this.normalizeNumericId(igdbGameId);
     const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
 
@@ -987,6 +991,9 @@ export class IgdbProxyService implements GameSearchApi {
     const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
       .set('igdbGameId', normalizedGameId)
       .set('platformIgdbId', String(normalizedPlatformIgdbId));
+    const normalizedTitle = typeof title === 'string' ? title.trim() : '';
+    const enrichedParams =
+      normalizedTitle.length > 0 ? params.set('title', normalizedTitle) : params;
 
     const cooldownError = this.createCooldownErrorIfActive();
 
@@ -994,7 +1001,7 @@ export class IgdbProxyService implements GameSearchApi {
       return throwError(() => cooldownError);
     }
 
-    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params }).pipe(
+    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params: enrichedParams }).pipe(
       catchError((error: unknown) => {
         const rateLimitError = this.toRateLimitError(error);
         if (rateLimitError) {

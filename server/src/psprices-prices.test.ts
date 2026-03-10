@@ -279,3 +279,67 @@ void test('PSPrices route returns fresh cached result without scraper fetch', as
 
   await app.close();
 });
+
+void test('PSPrices route can return ranked candidates for manual picker workflows', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, {
+    title: 'Monster Train 2'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Monster Train 2',
+              priceAmount: 49.9,
+              currency: 'CHF',
+              regularPriceAmount: 69.9,
+              discountPercent: 28,
+              isFree: false,
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+            },
+            candidates: [
+              {
+                title: 'Monster Train 2',
+                priceAmount: 49.9,
+                currency: 'CHF',
+                regularPriceAmount: 69.9,
+                discountPercent: 28,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+              },
+              {
+                title: 'Monster Train',
+                priceAmount: 19.9,
+                currency: 'CHF',
+                regularPriceAmount: 39.9,
+                discountPercent: 50,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/1233/monster-train'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&includeCandidates=1'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.ok(Array.isArray(body['candidates']));
+  assert.equal((body['candidates'] as unknown[]).length >= 1, true);
+
+  await app.close();
+});

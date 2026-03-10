@@ -7,6 +7,7 @@ import type {
   GameEntry,
   HltbMatchCandidate,
   MetacriticMatchCandidate,
+  PriceMatchCandidate,
   ReviewMatchCandidate
 } from '../core/models/game.models';
 
@@ -57,12 +58,14 @@ interface ShelfServiceStub {
   updateGameCover: ReturnType<typeof vi.fn>;
   searchHltbCandidates: ReturnType<typeof vi.fn>;
   searchReviewCandidates: ReturnType<typeof vi.fn>;
+  searchPricingCandidates: ReturnType<typeof vi.fn>;
   refreshGameCompletionTimesWithQuery: ReturnType<typeof vi.fn>;
   refreshGameCompletionTimes: ReturnType<typeof vi.fn>;
   searchMetacriticCandidates: ReturnType<typeof vi.fn>;
   refreshGameMetacriticScoreWithQuery: ReturnType<typeof vi.fn>;
   refreshGameMetacriticScore: ReturnType<typeof vi.fn>;
   refreshGamePricing: ReturnType<typeof vi.fn>;
+  refreshGamePricingWithQuery: ReturnType<typeof vi.fn>;
 }
 
 function createGame(partial: Partial<GameEntry> = {}): GameEntry {
@@ -132,6 +135,7 @@ function createPageHarness(): {
     updateGameCover: vi.fn(() => Promise.resolve(undefined)),
     searchHltbCandidates: vi.fn(() => of([])),
     searchReviewCandidates: vi.fn(() => of([])),
+    searchPricingCandidates: vi.fn(() => of([])),
     refreshGameCompletionTimesWithQuery: vi.fn((_a, _b, _c) =>
       Promise.resolve(createGame({ hltbMainHours: 3 }))
     ),
@@ -139,7 +143,8 @@ function createPageHarness(): {
     searchMetacriticCandidates: vi.fn(() => of([])),
     refreshGameMetacriticScoreWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame())),
     refreshGameMetacriticScore: vi.fn((_a, _b) => Promise.resolve(createGame())),
-    refreshGamePricing: vi.fn((_a, _b) => Promise.resolve(createGame()))
+    refreshGamePricing: vi.fn((_a, _b) => Promise.resolve(createGame())),
+    refreshGamePricingWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame()))
   };
   const presentToast = vi.fn(() => Promise.resolve(undefined));
   const loadingController = { create: vi.fn() };
@@ -178,6 +183,12 @@ function createPageHarness(): {
   setField(page, 'metacriticPickerResults', []);
   setField(page, 'metacriticPickerError', null);
   setField(page, 'metacriticPickerTargetGame', null);
+  setField(page, 'isPricingPickerModalOpen', false);
+  setField(page, 'isPricingPickerLoading', false);
+  setField(page, 'pricingPickerQuery', '');
+  setField(page, 'pricingPickerResults', []);
+  setField(page, 'pricingPickerError', null);
+  setField(page, 'pricingPickerTargetGame', null);
   setField(page, 'presentToast', presentToast);
   setField(
     page,
@@ -490,6 +501,21 @@ describe('MetadataValidatorPage', () => {
     );
   });
 
+  it('refreshPricingForGame opens pricing picker for psprices platforms and direct refresh for steam', async () => {
+    const { page, shelf } = createPageHarness();
+    const psGame = createGame({ igdbGameId: '2', platformIgdbId: 167, title: 'PS Game' });
+    const steamGame = createGame({ igdbGameId: '3', platformIgdbId: 6, title: 'Steam Game' });
+
+    await page.refreshPricingForGame(psGame);
+    expect(
+      (page as unknown as { isPricingPickerModalOpen: boolean }).isPricingPickerModalOpen
+    ).toBe(true);
+    expect(shelf.refreshGamePricing).not.toHaveBeenCalled();
+
+    await page.refreshPricingForGame(steamGame);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('3', 6);
+  });
+
   it('runs picker searches with guard, success, and error paths', async () => {
     const { page, shelf } = createPageHarness();
     const hltbCandidate: HltbMatchCandidate = {
@@ -509,6 +535,16 @@ describe('MetadataValidatorPage', () => {
       reviewSource: 'metacritic',
       metacriticScore: 87,
       metacriticUrl: 'https://www.metacritic.com/game/doom/'
+    };
+    const pricingCandidate: PriceMatchCandidate = {
+      title: 'Doom',
+      amount: 29.9,
+      currency: 'CHF',
+      regularAmount: 39.9,
+      discountPercent: 25,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/123/doom',
+      score: 96
     };
 
     setField(page, 'hltbPickerQuery', 'a');
@@ -547,6 +583,94 @@ describe('MetadataValidatorPage', () => {
       (page as unknown as { metacriticPickerResults: MetacriticMatchCandidate[] })
         .metacriticPickerResults
     ).toEqual([]);
+
+    setField(page, 'pricingPickerTargetGame', target);
+    setField(page, 'pricingPickerQuery', 'doom');
+    shelf.searchPricingCandidates.mockReturnValueOnce(of([pricingCandidate, pricingCandidate]));
+    await page.runPricingPickerSearch();
+    expect(shelf.searchPricingCandidates).toHaveBeenCalledWith('1', 6, 'doom');
+    expect(
+      (page as unknown as { pricingPickerResults: PriceMatchCandidate[] }).pricingPickerResults
+        .length
+    ).toBe(1);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(throwError(() => new Error('429')));
+    await page.runPricingPickerSearch();
+    expect(
+      (page as unknown as { pricingPickerResults: PriceMatchCandidate[] }).pricingPickerResults
+    ).toEqual([]);
+  });
+
+  it('applies selected/original pricing candidates across success/no-match/error', async () => {
+    const { page, shelf, presentToast } = createPageHarness();
+    const target = createGame({
+      igdbGameId: '42',
+      platformIgdbId: 167,
+      title: 'Target',
+      platform: 'PS5'
+    });
+    setField(page, 'pricingPickerTargetGame', target);
+
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('42', 167, {
+      title: 'Target'
+    });
+
+    shelf.refreshGamePricingWithQuery.mockResolvedValueOnce(
+      createGame({
+        igdbGameId: '42',
+        platformIgdbId: 167,
+        priceAmount: null,
+        priceIsFree: null
+      })
+    );
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(presentToast).toHaveBeenCalledWith('No pricing match found for Target.', 'warning');
+
+    shelf.refreshGamePricingWithQuery.mockRejectedValueOnce(new Error('fail'));
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(presentToast).toHaveBeenCalledWith('Unable to update pricing for Target.', 'danger');
+
+    shelf.refreshGamePricing.mockResolvedValueOnce(
+      createGame({
+        igdbGameId: '42',
+        platformIgdbId: 167,
+        priceAmount: 39.9,
+        priceCurrency: 'CHF'
+      })
+    );
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.useOriginalPricingLookup();
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('42', 167);
   });
 
   it('applies selected/original HLTB and Metacritic candidates across success/no-match/error', async () => {

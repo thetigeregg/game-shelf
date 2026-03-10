@@ -11,6 +11,7 @@ import {
   GameListFilters,
   GameListView,
   HltbMatchCandidate,
+  PriceMatchCandidate,
   MetacriticMatchCandidate,
   ReviewMatchCandidate,
   ReviewScoreResult,
@@ -80,6 +81,16 @@ interface PsPricesLookupResult {
     isFree?: boolean | null;
     url?: string | null;
   } | null;
+  candidates?: Array<{
+    title?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+    regularAmount?: number | null;
+    discountPercent?: number | null;
+    isFree?: boolean | null;
+    url?: string | null;
+    score?: number | null;
+  }> | null;
 }
 
 interface UnifiedPriceSnapshot {
@@ -499,13 +510,29 @@ export class GameShelfService {
   }
 
   async refreshGamePricing(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
+    return this.refreshGamePricingWithQuery(igdbGameId, platformIgdbId);
+  }
+
+  async refreshGamePricingWithQuery(
+    igdbGameId: string,
+    platformIgdbId: number,
+    query?: { title?: string | null }
+  ): Promise<GameEntry> {
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
     if (!existing) {
       throw new Error('Game entry no longer exists.');
     }
 
-    const pricing = await this.lookupUnifiedPrice(existing.igdbGameId, existing.platformIgdbId);
+    const lookupTitle =
+      typeof query?.title === 'string' && query.title.trim().length > 0
+        ? query.title.trim()
+        : undefined;
+    const pricing = await this.lookupUnifiedPrice(
+      existing.igdbGameId,
+      existing.platformIgdbId,
+      lookupTitle
+    );
     const shouldRetainExistingPricing =
       this.isPricingSupportedPlatform(existing.platformIgdbId) && pricing === null;
     const effectivePricing = shouldRetainExistingPricing
@@ -563,6 +590,36 @@ export class GameShelfService {
 
     this.listRefresh$.next();
     return updated;
+  }
+
+  searchPricingCandidates(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<PriceMatchCandidate[]> {
+    const normalizedTitle = title.trim();
+    if (normalizedTitle.length < 2 || !this.isPricingSupportedPlatform(platformIgdbId)) {
+      return of([]);
+    }
+
+    const pspricesApi = this.searchApi as Partial<PsPricesLookupApi> & {
+      lookupPsPricesCandidates?: (
+        igdbGameId: string,
+        platformIgdbId: number,
+        title: string
+      ) => Observable<unknown>;
+    };
+    if (typeof pspricesApi.lookupPsPricesCandidates !== 'function') {
+      return of([]);
+    }
+
+    return pspricesApi
+      .lookupPsPricesCandidates(igdbGameId, platformIgdbId, normalizedTitle)
+      .pipe(
+        map((response) =>
+          this.normalizePsPricesCandidates((response as PsPricesLookupResult).candidates ?? null)
+        )
+      );
   }
 
   async refreshGameReviewScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -1505,6 +1562,30 @@ export class GameShelfService {
       url: this.normalizePriceUrl(result.bestPrice.url),
       fetchedAt: new Date().toISOString()
     };
+  }
+
+  private normalizePsPricesCandidates(
+    candidates: PsPricesLookupResult['candidates']
+  ): PriceMatchCandidate[] {
+    if (!Array.isArray(candidates)) {
+      return [];
+    }
+
+    return candidates
+      .map((candidate) => ({
+        title: typeof candidate.title === 'string' ? candidate.title.trim() : '',
+        amount: this.normalizePriceAmount(candidate.amount),
+        currency: this.normalizePriceCurrency(candidate.currency),
+        regularAmount: this.normalizePriceAmount(candidate.regularAmount),
+        discountPercent: this.normalizePriceDiscountPercent(candidate.discountPercent),
+        isFree: this.normalizePriceIsFree(candidate.isFree),
+        url: this.normalizePriceUrl(candidate.url),
+        score:
+          typeof candidate.score === 'number' && Number.isFinite(candidate.score)
+            ? Math.round(candidate.score * 100) / 100
+            : null
+      }))
+      .filter((candidate) => candidate.title.length > 0);
   }
 
   private normalizePriceAmount(value: unknown): number | null {

@@ -345,3 +345,84 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+<ion-modal [isOpen]="isPricingPickerModalOpen" (didDismiss)="closePricingPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select Pricing Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closePricingPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <div class="picker-search-row">
+        <ion-searchbar
+          [value]="pricingPickerQuery"
+          placeholder="Search Pricing"
+          show-clear-button="focus"
+          (ionInput)="onPricingPickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button [disabled]="isPricingPickerLoading" (click)="runPricingPickerSearch()"
+          >Search</ion-button
+        >
+      </div>
+
+      @if (isPricingPickerLoading) {
+        <div class="picker-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerError) {
+        <p class="picker-state ion-text-center">
+          {{ pricingPickerError }}
+        </p>
+      }
+
+      @if (!isPricingPickerLoading && !pricingPickerError && pricingPickerResults.length === 0) {
+        <p class="picker-state ion-text-center">No pricing candidates found.</p>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerResults.length > 0) {
+        <ion-list>
+          @for (candidate of pricingPickerResults; track candidate) {
+            <ion-item button detail="false" (click)="applySelectedPricingCandidate(candidate)">
+              <ion-label>
+                <h2>{{ candidate.title }}</h2>
+                <p>
+                  Price:
+                  <strong>
+                    {{
+                      candidate.isFree
+                        ? 'Free'
+                        : (candidate.amount ?? '?') + ' ' + (candidate.currency ?? '')
+                    }}
+                  </strong>
+                </p>
+                <p>
+                  Regular: {{ candidate.regularAmount ?? '?' }} {{ candidate.currency ?? '' }} ·
+                  Discount: {{ candidate.discountPercent ?? 0 }}% · Match:
+                  {{ candidate.score ?? '?' }}
+                </p>
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+
+      <div class="picker-action-row">
+        <ion-button
+          expand="block"
+          fill="outline"
+          [disabled]="isPricingPickerLoading"
+          (click)="useOriginalPricingLookup()"
+        >
+          Use Original Match
+        </ion-button>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>

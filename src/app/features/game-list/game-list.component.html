@@ -693,11 +693,7 @@
   (change)="onCustomCoverFileSelected($event)"
 />
 
-<ion-modal
-  [isOpen]="isEditMetadataModalOpen"
-  [presentingElement]="gameDetailModalElement"
-  (didDismiss)="closeEditMetadataModal()"
->
+<ion-modal [isOpen]="isEditMetadataModalOpen" (didDismiss)="closeEditMetadataModal()">
   <ng-template>
     <ion-header>
       <ion-toolbar>

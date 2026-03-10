@@ -73,6 +73,10 @@ Common stack env vars:
 - `PRICING_REFRESH_INTERVAL_MINUTES` (optional; defaults `60`; consumed by `worker-general`)
 - `PRICING_REFRESH_BATCH_SIZE` (optional; defaults `200`; consumed by `worker-general`)
 - `PRICING_REFRESH_STALE_HOURS` (optional; defaults `24`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_INTERVAL_MINUTES` (optional; defaults `60`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_BATCH_SIZE` (optional; defaults `200`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_STALE_HOURS` (optional; defaults `24`; consumed by `worker-general`)
 - `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
@@ -303,6 +307,10 @@ Key metadata env vars in `.env`:
 - `PRICING_REFRESH_INTERVAL_MINUTES=60`
 - `PRICING_REFRESH_BATCH_SIZE=200`
 - `PRICING_REFRESH_STALE_HOURS=24`
+- `DISCOVERY_PRICING_REFRESH_ENABLED=true`
+- `DISCOVERY_PRICING_REFRESH_INTERVAL_MINUTES=60`
+- `DISCOVERY_PRICING_REFRESH_BATCH_SIZE=200`
+- `DISCOVERY_PRICING_REFRESH_STALE_HOURS=24`
 
 Key recommendation env vars in `.env`:
 

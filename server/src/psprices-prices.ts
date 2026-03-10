@@ -371,6 +371,10 @@ function normalizeNonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function isDiscoveryListType(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'discovery';
+}
+
 function normalizeNumberOrNull(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -930,7 +934,10 @@ async function persistPsPricesSnapshot(
     [params.igdbGameId, params.platformIgdbId, JSON.stringify(nextPayload)]
   );
 
-  if ((updateResult.rowCount ?? updateResult.rows.length) > 0) {
+  if (
+    (updateResult.rowCount ?? updateResult.rows.length) > 0 &&
+    !isDiscoveryListType(params.payload['listType'])
+  ) {
     await pool.query(
       `
       INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)

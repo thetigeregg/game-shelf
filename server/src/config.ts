@@ -137,6 +137,10 @@ export interface AppConfig {
   pricingRefreshIntervalMinutes: number;
   pricingRefreshBatchSize: number;
   pricingRefreshStaleHours: number;
+  discoveryPricingRefreshEnabled: boolean;
+  discoveryPricingRefreshIntervalMinutes: number;
+  discoveryPricingRefreshBatchSize: number;
+  discoveryPricingRefreshStaleHours: number;
   mobygamesCacheEnableStaleWhileRevalidate: boolean;
   mobygamesCacheFreshTtlSeconds: number;
   mobygamesCacheStaleTtlSeconds: number;
@@ -363,6 +367,13 @@ export const config: AppConfig = {
   pricingRefreshIntervalMinutes: readIntegerEnv('PRICING_REFRESH_INTERVAL_MINUTES', 60),
   pricingRefreshBatchSize: readIntegerEnv('PRICING_REFRESH_BATCH_SIZE', 200),
   pricingRefreshStaleHours: readIntegerEnv('PRICING_REFRESH_STALE_HOURS', 24),
+  discoveryPricingRefreshEnabled: readBooleanEnv('DISCOVERY_PRICING_REFRESH_ENABLED', true),
+  discoveryPricingRefreshIntervalMinutes: readIntegerEnv(
+    'DISCOVERY_PRICING_REFRESH_INTERVAL_MINUTES',
+    60
+  ),
+  discoveryPricingRefreshBatchSize: readIntegerEnv('DISCOVERY_PRICING_REFRESH_BATCH_SIZE', 200),
+  discoveryPricingRefreshStaleHours: readIntegerEnv('DISCOVERY_PRICING_REFRESH_STALE_HOURS', 24),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

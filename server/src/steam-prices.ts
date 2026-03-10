@@ -359,6 +359,10 @@ function normalizeNumberOrNull(value: unknown): number | null {
   return null;
 }
 
+function isDiscoveryListType(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'discovery';
+}
+
 function normalizeBooleanOrNull(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
@@ -692,7 +696,10 @@ async function persistSteamSnapshot(
     [params.igdbGameId, params.platformIgdbId, JSON.stringify(nextPayload)]
   );
 
-  if ((updateResult.rowCount ?? updateResult.rows.length) > 0) {
+  if (
+    (updateResult.rowCount ?? updateResult.rows.length) > 0 &&
+    !isDiscoveryListType(params.payload['listType'])
+  ) {
     await pool.query(
       `
       INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)

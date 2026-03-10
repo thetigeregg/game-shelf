@@ -243,13 +243,15 @@ export class GameShelfService {
   async moveGamesToList(games: readonly GameIdentity[], targetList: ListType): Promise<void> {
     let mutatedAny = false;
 
-    for (const game of games) {
-      await this.repository.moveToList(game.igdbGameId, game.platformIgdbId, targetList);
-      mutatedAny = true;
-    }
-
-    if (mutatedAny) {
-      this.listRefresh$.next();
+    try {
+      for (const game of games) {
+        await this.repository.moveToList(game.igdbGameId, game.platformIgdbId, targetList);
+        mutatedAny = true;
+      }
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
     }
   }
 
@@ -261,13 +263,15 @@ export class GameShelfService {
   async removeGames(games: readonly GameIdentity[]): Promise<void> {
     let mutatedAny = false;
 
-    for (const game of games) {
-      await this.repository.remove(game.igdbGameId, game.platformIgdbId);
-      mutatedAny = true;
-    }
-
-    if (mutatedAny) {
-      this.listRefresh$.next();
+    try {
+      for (const game of games) {
+        await this.repository.remove(game.igdbGameId, game.platformIgdbId);
+        mutatedAny = true;
+      }
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
     }
   }
 

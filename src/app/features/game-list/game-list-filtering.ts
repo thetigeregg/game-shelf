@@ -22,6 +22,7 @@ import {
   resolveNormalizedCriticScoreForGame,
   resolveTimeAdjustedScoreForGame
 } from '../../core/utils/time-adjusted-score.util';
+import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
 export interface GameGroupSection {
   key: string;
@@ -791,7 +792,7 @@ export class GameListFilteringEngine {
         ? [...games].sort((left, right) =>
             this.compareGamesByMetacritic(left, right, sortDirection)
           )
-        : sortField === 'tas'
+        : sortField === 'tas' && isTasFeatureEnabled()
           ? [...games].sort((left, right) =>
               this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
             )

@@ -61,6 +61,7 @@ import {
   serializeListPagePreferences
 } from './list-page-preferences';
 import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
+import { isTasFeatureEnabled } from '../core/config/runtime-config';
 import { addIcons } from 'ionicons';
 import {
   close,
@@ -780,7 +781,7 @@ export class ListPageComponent {
       value === 'releaseDate' ||
       value === 'createdAt' ||
       value === 'hltb' ||
-      value === 'tas' ||
+      (value === 'tas' && isTasFeatureEnabled()) ||
       value === 'review' ||
       value === 'metacritic' ||
       value === 'platform'

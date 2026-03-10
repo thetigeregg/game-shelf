@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { DEFAULT_GAME_LIST_FILTERS } from '../core/models/game.models';
 import {
@@ -22,6 +22,10 @@ import {
 } from './settings-import-export.utils';
 
 describe('settings-import-export.utils', () => {
+  afterEach(() => {
+    delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+  });
+
   it('parses string and game id arrays safely', () => {
     expect(parseStringArray('[" Action ", "", "Action", 1]')).toEqual(['Action']);
     expect(parseStringArray('not-json')).toEqual([]);
@@ -113,7 +117,21 @@ describe('settings-import-export.utils', () => {
     expect(parseFilters('not-json', DEFAULT_GAME_LIST_FILTERS)).toBeNull();
   });
 
-  it('accepts tas sort field in parsed filters', () => {
+  it('falls back from tas sort field in parsed filters when tas feature is disabled', () => {
+    const parsed = parseFilters(
+      JSON.stringify({
+        sortField: 'tas',
+        sortDirection: 'asc'
+      }),
+      DEFAULT_GAME_LIST_FILTERS
+    );
+
+    expect(parsed?.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+    expect(parsed?.sortDirection).toBe('asc');
+  });
+
+  it('accepts tas sort field in parsed filters when tas feature is enabled', () => {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
     const parsed = parseFilters(
       JSON.stringify({
         sortField: 'tas',

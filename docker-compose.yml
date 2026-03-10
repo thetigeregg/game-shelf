@@ -6,10 +6,13 @@ services:
     environment:
       TZ: ${TZ:-Europe/Zurich}
       FEATURE_MGC_IMPORT: ${FEATURE_MGC_IMPORT:-false}
+      FEATURE_TAS: ${FEATURE_TAS:-false}
     command: >-
       /bin/sh -c
-      "feature_raw=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
-      case \"$$feature_raw\" in 1|true|yes|on) feature_bool=true ;; *) feature_bool=false ;; esac;
+      "feature_raw_mgc=$$(printf '%s' \"$${FEATURE_MGC_IMPORT:-false}\" | tr '[:upper:]' '[:lower:]');
+      case \"$$feature_raw_mgc\" in 1|true|yes|on) feature_mgc_bool=true ;; *) feature_mgc_bool=false ;; esac;
+      feature_raw_tas=$$(printf '%s' \"$${FEATURE_TAS:-false}\" | tr '[:upper:]' '[:lower:]');
+      case \"$$feature_raw_tas\" in 1|true|yes|on) feature_tas_bool=true ;; *) feature_tas_bool=false ;; esac;
       mkdir -p /srv/assets;
       config_path=/srv/assets/runtime-config.js;
       tmp_path=/tmp/runtime-config.js;
@@ -17,7 +20,7 @@ services:
       grep -v '^window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport:' \"$$config_path\" > \"$$tmp_path\" || true;
       mv \"$$tmp_path\" \"$$config_path\";
       fi;
-      printf '%s' \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: $$feature_bool } });\" >> \"$$config_path\";
+      printf '%s' \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: { showMgcImport: $$feature_mgc_bool, tasEnabled: $$feature_tas_bool } });\" >> \"$$config_path\";
       echo >> \"$$config_path\";
       exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     depends_on:

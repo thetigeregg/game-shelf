@@ -38,6 +38,7 @@ import {
   normalizeGameTypeList,
   normalizeStringList
 } from '../../core/utils/game-filter-utils';
+import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
 type SortOption =
   | 'title:asc'
@@ -114,6 +115,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     { value: 'publisher', label: 'Publisher' },
     { value: 'releaseYear', label: 'Release Year' }
   ];
+  readonly tasEnabled = isTasFeatureEnabled();
 
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
@@ -133,9 +135,14 @@ export class GameFiltersMenuComponent implements OnChanges {
   sortOption: SortOption = 'title:asc';
 
   ngOnChanges(): void {
+    const normalizedSortField =
+      this.filters.sortField === 'tas' && !this.tasEnabled
+        ? DEFAULT_GAME_LIST_FILTERS.sortField
+        : this.filters.sortField;
     this.draftFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
-      ...this.filters
+      ...this.filters,
+      sortField: normalizedSortField
     };
     this.sortOption =
       `${this.draftFilters.sortField === 'metacritic' ? 'review' : this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
@@ -478,8 +485,7 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'createdAt:desc' ||
       value === 'hltb:asc' ||
       value === 'hltb:desc' ||
-      value === 'tas:asc' ||
-      value === 'tas:desc' ||
+      (this.tasEnabled && (value === 'tas:asc' || value === 'tas:desc')) ||
       value === 'review:asc' ||
       value === 'review:desc' ||
       value === 'metacritic:asc' ||

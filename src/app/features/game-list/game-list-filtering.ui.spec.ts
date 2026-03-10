@@ -50,9 +50,17 @@ describe('GameListFilteringEngine UI behavior', () => {
   const noneTagFilterValue = '__none__';
   let engine: GameListFilteringEngine;
 
+  afterEach(() => {
+    delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+  });
+
   beforeEach(() => {
     engine = new GameListFilteringEngine(noneTagFilterValue);
   });
+
+  function enableTasFeature(): void {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+  }
 
   it('normalizes filters and swaps invalid hltb range', () => {
     const normalized = engine.normalizeFilters({
@@ -1061,6 +1069,7 @@ describe('GameListFilteringEngine UI behavior', () => {
   });
 
   it('sorts by TAS using HLTB fallback hierarchy and keeps missing TAS values last', () => {
+    enableTasFeature();
     const games: GameEntry[] = [
       makeGame({
         igdbGameId: '1',
@@ -1157,6 +1166,7 @@ describe('GameListFilteringEngine UI behavior', () => {
   });
 
   it('uses title fallback when TAS values are equal', () => {
+    enableTasFeature();
     const result = engine.applyFiltersAndSort(
       [
         makeGame({

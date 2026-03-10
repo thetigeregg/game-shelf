@@ -110,7 +110,7 @@ void test('server route inventory remains audited and mutating routes require au
     './hltb-cache.ts',
     './metacritic-cache.ts',
     './mobygames-cache.ts',
-    './itad-prices.ts',
+    './steam-prices.ts',
     './manuals.ts',
     './cache-observability.ts',
     './background-jobs-routes.ts'
@@ -153,7 +153,7 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'GET', path: '/v1/hltb/search' },
     { method: 'GET', path: '/v1/images/boxart/search' },
     { method: 'GET', path: '/v1/images/proxy' },
-    { method: 'GET', path: '/v1/itad/prices' },
+    { method: 'GET', path: '/v1/steam/prices' },
     { method: 'GET', path: '/v1/manuals/resolve' },
     { method: 'GET', path: '/v1/manuals/search' },
     { method: 'GET', path: '/v1/metacritic/search' },

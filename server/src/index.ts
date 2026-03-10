@@ -14,7 +14,7 @@ import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
-import { registerItadPricesRoute } from './itad-prices.js';
+import { registerSteamPricesRoute } from './steam-prices.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -353,7 +353,7 @@ async function main(): Promise<void> {
         });
       }
     });
-    await registerItadPricesRoute(app, pool);
+    await registerSteamPricesRoute(app, pool);
     await registerRecommendationRoutes(app, recommendationService);
 
     app.setNotFoundHandler((request, reply) => {

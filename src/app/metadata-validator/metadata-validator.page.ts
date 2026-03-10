@@ -305,7 +305,10 @@ export class MetadataValidatorPage {
   }
 
   isPricingSupported(game: GameEntry): boolean {
-    return this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId);
+    return (
+      game.listType === 'wishlist' &&
+      this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId)
+    );
   }
 
   isNonPcTheGamesDbImagePresent(game: GameEntry): boolean {

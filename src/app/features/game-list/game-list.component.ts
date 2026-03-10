@@ -1037,6 +1037,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   }
 
   async updatePricingForSelectedGames(): Promise<void> {
+    if (this.listType !== 'wishlist') {
+      return;
+    }
     const selectedGames = this.getSelectedGames().filter((game) =>
       this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId)
     );
@@ -2181,6 +2184,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   async refreshSelectedGamePricing(): Promise<void> {
     if (!this.selectedGame || this.isPricingPickerLoading) {
+      return;
+    }
+    if (this.selectedGame.listType !== 'wishlist') {
+      await this.presentToast('Pricing is only available for wishlist games.', 'warning');
       return;
     }
 
@@ -4590,6 +4597,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   shouldShowExternalMetadataPricingOption(): boolean {
     return (
       !!this.selectedGame &&
+      this.selectedGame.listType === 'wishlist' &&
       this.gameShelfService.isPricingSupportedPlatform(this.selectedGame.platformIgdbId)
     );
   }
@@ -4598,8 +4606,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const selectedGames = this.getSelectedGames();
     return (
       selectedGames.length > 0 &&
-      selectedGames.every((game) =>
-        this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId)
+      selectedGames.every(
+        (game) =>
+          game.listType === 'wishlist' &&
+          this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId)
       )
     );
   }

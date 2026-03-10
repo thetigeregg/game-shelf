@@ -129,6 +129,7 @@ export async function registerPsPricesRoute(
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
       const titleOverride = normalizeNonEmptyString(query['title']);
+      const hasTitleOverride = titleOverride !== null;
       const includeCandidates = normalizeBooleanQuery(query['includeCandidates']);
 
       if (!igdbGameId || platformIgdbId === null) {
@@ -198,12 +199,14 @@ export async function registerPsPricesRoute(
         return;
       }
 
-      const cachedSnapshot = readPsPricesSnapshotFromPayload(
-        payload,
-        config.pspricesRegionPath,
-        config.pspricesShow,
-        pspricesPlatform
-      );
+      const cachedSnapshot = hasTitleOverride
+        ? null
+        : readPsPricesSnapshotFromPayload(
+            payload,
+            config.pspricesRegionPath,
+            config.pspricesShow,
+            pspricesPlatform
+          );
       if (cachedSnapshot) {
         const ageSeconds = getAgeSeconds(cachedSnapshot.fetchedAt, nowProvider());
 
@@ -855,54 +858,13 @@ async function persistPsPricesSnapshot(
 ): Promise<void> {
   const fetchedAt = new Date().toISOString();
   const preserveExisting = params.bestPrice === null;
-  const nextPayload: Record<string, unknown> = {
-    ...params.payload,
-    priceSource: preserveExisting ? (params.payload['priceSource'] ?? null) : 'psprices',
+  const patchPayload: Record<string, unknown> = {
     priceFetchedAt: fetchedAt,
-    priceAmount: preserveExisting
-      ? (params.payload['priceAmount'] ?? null)
-      : params.bestPrice.amount,
-    priceCurrency: preserveExisting
-      ? (params.payload['priceCurrency'] ?? null)
-      : (params.bestPrice.currency ?? null),
-    priceRegularAmount: preserveExisting
-      ? (params.payload['priceRegularAmount'] ?? null)
-      : (params.bestPrice.regularAmount ?? null),
-    priceDiscountPercent: preserveExisting
-      ? (params.payload['priceDiscountPercent'] ?? null)
-      : (params.bestPrice.discountPercent ?? null),
-    priceIsFree: preserveExisting
-      ? (params.payload['priceIsFree'] ?? null)
-      : (params.bestPrice.isFree ?? null),
-    priceUrl: preserveExisting
-      ? (params.payload['priceUrl'] ?? null)
-      : (params.bestPrice.url ?? null),
     psPricesFetchedAt: fetchedAt,
     psPricesSource: 'psprices',
     psPricesRegionPath: params.regionPath,
     psPricesShow: params.show,
     psPricesPlatform: params.platform,
-    psPricesTitle: preserveExisting
-      ? (params.payload['psPricesTitle'] ?? null)
-      : (params.bestPrice.title ?? null),
-    psPricesPriceAmount: preserveExisting
-      ? (params.payload['psPricesPriceAmount'] ?? null)
-      : params.bestPrice.amount,
-    psPricesPriceCurrency: preserveExisting
-      ? (params.payload['psPricesPriceCurrency'] ?? null)
-      : (params.bestPrice.currency ?? null),
-    psPricesRegularPriceAmount: preserveExisting
-      ? (params.payload['psPricesRegularPriceAmount'] ?? null)
-      : (params.bestPrice.regularAmount ?? null),
-    psPricesDiscountPercent: preserveExisting
-      ? (params.payload['psPricesDiscountPercent'] ?? null)
-      : (params.bestPrice.discountPercent ?? null),
-    psPricesIsFree: preserveExisting
-      ? (params.payload['psPricesIsFree'] ?? null)
-      : (params.bestPrice.isFree ?? null),
-    psPricesUrl: preserveExisting
-      ? (params.payload['psPricesUrl'] ?? null)
-      : (params.bestPrice.url ?? null),
     psPricesMatchQueryTitle: params.match.queryTitle,
     psPricesMatchTitle: params.match.matchedTitle,
     psPricesMatchScore: params.match.score,
@@ -918,29 +880,47 @@ async function persistPsPricesSnapshot(
       score: candidate.score
     }))
   };
+  if (!preserveExisting) {
+    patchPayload['priceSource'] = 'psprices';
+    patchPayload['priceAmount'] = params.bestPrice.amount;
+    patchPayload['priceCurrency'] = params.bestPrice.currency ?? null;
+    patchPayload['priceRegularAmount'] = params.bestPrice.regularAmount ?? null;
+    patchPayload['priceDiscountPercent'] = params.bestPrice.discountPercent ?? null;
+    patchPayload['priceIsFree'] = params.bestPrice.isFree ?? null;
+    patchPayload['priceUrl'] = params.bestPrice.url ?? null;
+    patchPayload['psPricesTitle'] = params.bestPrice.title ?? null;
+    patchPayload['psPricesPriceAmount'] = params.bestPrice.amount;
+    patchPayload['psPricesPriceCurrency'] = params.bestPrice.currency ?? null;
+    patchPayload['psPricesRegularPriceAmount'] = params.bestPrice.regularAmount ?? null;
+    patchPayload['psPricesDiscountPercent'] = params.bestPrice.discountPercent ?? null;
+    patchPayload['psPricesIsFree'] = params.bestPrice.isFree ?? null;
+    patchPayload['psPricesUrl'] = params.bestPrice.url ?? null;
+  }
 
-  const updateResult = await pool.query(
+  const updateResult = await pool.query<{ payload: unknown }>(
     `
       UPDATE games
-      SET payload = $3::jsonb, updated_at = NOW()
+      SET payload = games.payload || $3::jsonb, updated_at = NOW()
       WHERE igdb_game_id = $1
         AND platform_igdb_id = $2
-        AND payload IS DISTINCT FROM $3::jsonb
+        AND games.payload IS DISTINCT FROM (games.payload || $3::jsonb)
       RETURNING payload
     `,
-    [params.igdbGameId, params.platformIgdbId, JSON.stringify(nextPayload)]
+    [params.igdbGameId, params.platformIgdbId, JSON.stringify(patchPayload)]
   );
 
+  const updatedPayloadCandidate = normalizePayloadObject(updateResult.rows[0]?.payload);
+  const updatedPayload = updatedPayloadCandidate ?? params.payload;
   if (
     (updateResult.rowCount ?? updateResult.rows.length) > 0 &&
-    !isDiscoveryListType(params.payload['listType'])
+    !isDiscoveryListType(updatedPayload['listType'])
   ) {
     await pool.query(
       `
       INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)
       VALUES ('game', $1, 'upsert', $2::jsonb, NOW())
       `,
-      [`${params.igdbGameId}::${String(params.platformIgdbId)}`, JSON.stringify(nextPayload)]
+      [`${params.igdbGameId}::${String(params.platformIgdbId)}`, JSON.stringify(updatedPayload)]
     );
   }
 }

@@ -40,7 +40,7 @@ import { formatRateLimitedUiError, isRateLimitedMessage } from '../core/utils/ra
 import { DebugLogService } from '../core/services/debug-log.service';
 import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
 
-type MissingMetadataFilter = 'hltb' | 'metacritic' | 'nonPcTheGamesDbImage';
+type MissingMetadataFilter = 'hltb' | 'metacritic' | 'pricing' | 'nonPcTheGamesDbImage';
 
 @Component({
   selector: 'app-metadata-validator',
@@ -89,6 +89,7 @@ export class MetadataValidatorPage {
   readonly missingFilterOptions: Array<{ value: MissingMetadataFilter; label: string }> = [
     { value: 'hltb', label: 'Missing HLTB' },
     { value: 'metacritic', label: 'Missing Review' },
+    { value: 'pricing', label: 'Missing Pricing (supported platforms)' },
     { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image (non-PC)' }
   ];
 
@@ -97,6 +98,7 @@ export class MetadataValidatorPage {
   selectedGameKeys = new Set<string>();
   isBulkRefreshingHltb = false;
   isBulkRefreshingReview = false;
+  isBulkRefreshingPricing = false;
   isBulkRefreshingImage = false;
   isHltbPickerModalOpen = false;
   isHltbPickerLoading = false;
@@ -200,7 +202,10 @@ export class MetadataValidatorPage {
     const raw = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
     const normalized = raw.filter(
       (entry): entry is MissingMetadataFilter =>
-        entry === 'hltb' || entry === 'metacritic' || entry === 'nonPcTheGamesDbImage'
+        entry === 'hltb' ||
+        entry === 'metacritic' ||
+        entry === 'pricing' ||
+        entry === 'nonPcTheGamesDbImage'
     );
     this.selectedMissingFilters = [...new Set(normalized)];
     this.selectedMissingFilters$.next(this.selectedMissingFilters);
@@ -281,6 +286,14 @@ export class MetadataValidatorPage {
     return this.hasReviewMetadata(game);
   }
 
+  hasPricingMetadata(game: GameEntry): boolean {
+    return this.gameShelfService.hasUnifiedPriceData(game);
+  }
+
+  isPricingSupported(game: GameEntry): boolean {
+    return this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId);
+  }
+
   isNonPcTheGamesDbImagePresent(game: GameEntry): boolean {
     if (this.isPcPlatform(game)) {
       return false;
@@ -348,6 +361,20 @@ export class MetadataValidatorPage {
       await this.presentToast(`Updated image for ${game.title}.`);
     } catch {
       await this.presentToast(`Unable to update image for ${game.title}.`, 'danger');
+    }
+  }
+
+  async refreshPricingForGame(game: GameEntry): Promise<void> {
+    if (!this.isPricingSupported(game)) {
+      await this.presentToast('Pricing is not supported for this platform.', 'warning');
+      return;
+    }
+
+    try {
+      await this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
+      await this.presentToast(`Updated pricing for ${game.title}.`);
+    } catch {
+      await this.presentToast(`Unable to update pricing for ${game.title}.`, 'danger');
     }
   }
 
@@ -471,6 +498,54 @@ export class MetadataValidatorPage {
 
   async refreshMetacriticForSelectedGames(): Promise<void> {
     await this.refreshReviewForSelectedGames();
+  }
+
+  async refreshPricingForSelectedGames(): Promise<void> {
+    const games = this.getSelectedGames().filter((game) => this.isPricingSupported(game));
+
+    if (games.length === 0 || this.isBulkRefreshingPricing) {
+      return;
+    }
+
+    this.isBulkRefreshingPricing = true;
+
+    try {
+      const results = await runBulkActionWithRetry({
+        loadingController: this.loadingController,
+        games,
+        options: {
+          loadingPrefix: 'Updating pricing',
+          concurrency: MetadataValidatorPage.BULK_METACRITIC_CONCURRENCY,
+          interItemDelayMs: 0,
+          itemTimeoutMs: MetadataValidatorPage.BULK_METACRITIC_ITEM_TIMEOUT_MS
+        },
+        retryConfig: {
+          maxAttempts: MetadataValidatorPage.BULK_METACRITIC_MAX_ATTEMPTS,
+          retryBaseDelayMs: MetadataValidatorPage.BULK_METACRITIC_RETRY_BASE_DELAY_MS,
+          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS
+        },
+        action: (game) =>
+          this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId),
+        delay: (ms: number) => this.delay(ms)
+      });
+      const failedCount = results.filter((result) => !result.ok).length;
+      const updatedCount = results.filter((result) => result.ok).length;
+
+      if (updatedCount > 0) {
+        await this.presentToast(
+          `Updated pricing for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
+        );
+      }
+
+      if (failedCount > 0) {
+        await this.presentToast(
+          `Unable to update pricing for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
+          'danger'
+        );
+      }
+    } finally {
+      this.isBulkRefreshingPricing = false;
+    }
   }
 
   async refreshImageForSelectedGames(): Promise<void> {
@@ -768,11 +843,13 @@ export class MetadataValidatorPage {
     return games.filter((game) => {
       const missingHltb = !this.hasHltbMetadata(game);
       const missingMetacritic = !this.hasReviewMetadata(game);
+      const missingPricing = this.isPricingSupported(game) && !this.hasPricingMetadata(game);
       const missingImage = this.isMissingNonPcTheGamesDbImage(game);
 
       return (
         (filters.includes('hltb') && missingHltb) ||
         (filters.includes('metacritic') && missingMetacritic) ||
+        (filters.includes('pricing') && missingPricing) ||
         (filters.includes('nonPcTheGamesDbImage') && missingImage)
       );
     });

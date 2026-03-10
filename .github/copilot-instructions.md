@@ -13,6 +13,7 @@ Game Shelf is an Ionic + Angular PWA for tracking a personal game library with m
 - `worker/`: Shared metadata normalisation logic and tests used by server routes
 - `hltb-scraper/`: Playwright-backed HLTB lookup service
 - `metacritic-scraper/`: Metacritic lookup service
+- `psprices-scraper/`: Playwright-backed PSPrices lookup service
 - `edge/`: Caddy image that serves the frontend and proxies `/api`
 - `docs/`: Deployment and operational documentation
 - `.github/workflows/`: CI, release/publish, and secret scanning pipelines
@@ -41,16 +42,16 @@ Copy the example env file and populate secrets under `nas-secrets/`:
 cp .env.example .env
 ```
 
-Start the local Docker stack (postgres, api, edge, scrapers):
+Start the local Docker stack (worktree-safe project + ports):
 
 ```bash
-npm run dev:stack:up
+npm run dev:worktree:stack:up
 ```
 
-Run the frontend dev server at `http://localhost:8100`:
+Run the frontend dev server:
 
 ```bash
-npm start
+npm run dev:worktree:start
 ```
 
 ## Build

@@ -50,6 +50,45 @@ interface SteamPriceLookupApi {
   ): Observable<unknown>;
 }
 
+interface PsPricesLookupApi {
+  lookupPsPrices(igdbGameId: string, platformIgdbId: number): Observable<unknown>;
+}
+
+interface SteamPriceLookupResult {
+  status?: string;
+  bestPrice?: {
+    amount?: number | null;
+    currency?: string | null;
+    initialAmount?: number | null;
+    discountPercent?: number | null;
+    isFree?: boolean | null;
+    url?: string | null;
+  } | null;
+}
+
+interface PsPricesLookupResult {
+  status?: string;
+  bestPrice?: {
+    amount?: number | null;
+    currency?: string | null;
+    regularAmount?: number | null;
+    discountPercent?: number | null;
+    isFree?: boolean | null;
+    url?: string | null;
+  } | null;
+}
+
+interface UnifiedPriceSnapshot {
+  source: 'steam_store' | 'psprices';
+  amount: number | null;
+  currency: string | null;
+  regularAmount: number | null;
+  discountPercent: number | null;
+  isFree: boolean | null;
+  url: string | null;
+  fetchedAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
   private static readonly IGDB_COVER_MIGRATION_DONE_STORAGE_KEY =
@@ -71,6 +110,14 @@ export class GameShelfService {
     'visionos',
     'playstation 5',
     'nintendo switch 2'
+  ]);
+  private static readonly PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([
+    48, 167, 130, 508
+  ]);
+  private static readonly STEAM_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([6]);
+  private static readonly PRICE_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([
+    ...GameShelfService.STEAM_SUPPORTED_PLATFORM_IGDB_IDS,
+    ...GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS
   ]);
   private readonly listRefresh$ = new Subject<void>();
   private readonly syncEvents = inject(SyncEventsService);
@@ -227,11 +274,7 @@ export class GameShelfService {
     );
     this.listRefresh$.next();
     void this.enrichCatalogWithMetadataInBackground(normalizedCatalog, listType);
-    void this.refreshSteamPriceInBackground(
-      normalizedGameId,
-      normalizedPlatformIgdbId,
-      normalizedCatalog.steamAppId ?? null
-    );
+    void this.refreshGamePricingInBackground(normalizedGameId, normalizedPlatformIgdbId);
     return entry;
   }
 
@@ -449,6 +492,68 @@ export class GameShelfService {
 
   async refreshGameMetacriticScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
     return this.refreshGameReviewScore(igdbGameId, platformIgdbId);
+  }
+
+  async refreshGamePricing(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
+    const existing = await this.repository.exists(igdbGameId, platformIgdbId);
+
+    if (!existing) {
+      throw new Error('Game entry no longer exists.');
+    }
+
+    const pricing = await this.lookupUnifiedPrice(existing.igdbGameId, existing.platformIgdbId);
+    const updated = await this.repository.upsertFromCatalog(
+      {
+        igdbGameId: existing.igdbGameId,
+        title: existing.title,
+        coverUrl: existing.coverUrl,
+        coverSource: existing.coverSource,
+        storyline: existing.storyline ?? null,
+        summary: existing.summary ?? null,
+        gameType: existing.gameType ?? null,
+        hltbMainHours: existing.hltbMainHours ?? null,
+        hltbMainExtraHours: existing.hltbMainExtraHours ?? null,
+        hltbCompletionistHours: existing.hltbCompletionistHours ?? null,
+        reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
+        reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
+        reviewSource: existing.reviewSource ?? null,
+        mobyScore: existing.mobyScore ?? null,
+        mobygamesGameId: existing.mobygamesGameId ?? null,
+        metacriticScore: existing.metacriticScore ?? null,
+        metacriticUrl: existing.metacriticUrl ?? null,
+        similarGameIgdbIds: existing.similarGameIgdbIds ?? [],
+        collections: existing.collections ?? [],
+        developers: existing.developers ?? [],
+        franchises: existing.franchises ?? [],
+        genres: existing.genres ?? [],
+        themes: existing.themes ?? [],
+        themeIds: existing.themeIds ?? [],
+        keywords: existing.keywords ?? [],
+        keywordIds: existing.keywordIds ?? [],
+        steamAppId: existing.steamAppId ?? null,
+        priceSource: pricing?.source ?? null,
+        priceFetchedAt: pricing?.fetchedAt ?? new Date().toISOString(),
+        priceAmount: pricing?.amount ?? null,
+        priceCurrency: pricing?.currency ?? null,
+        priceRegularAmount: pricing?.regularAmount ?? null,
+        priceDiscountPercent: pricing?.discountPercent ?? null,
+        priceIsFree: pricing?.isFree ?? null,
+        priceUrl: pricing?.url ?? null,
+        screenshots: existing.screenshots ?? [],
+        videos: existing.videos ?? [],
+        publishers: existing.publishers ?? [],
+        platforms: [existing.platform],
+        platformOptions: [{ id: existing.platformIgdbId, name: existing.platform }],
+        platform: existing.platform,
+        platformIgdbId: existing.platformIgdbId,
+        releaseDate: existing.releaseDate,
+        releaseYear: existing.releaseYear
+      },
+      existing.listType
+    );
+
+    this.listRefresh$.next();
+    return updated;
   }
 
   async refreshGameReviewScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -783,6 +888,26 @@ export class GameShelfService {
 
     const normalizedPlatform = typeof platform === 'string' ? platform.trim().toLowerCase() : '';
     return GameShelfService.IGDB_COVER_PLATFORM_NAMES.has(normalizedPlatform);
+  }
+
+  isPricingSupportedPlatform(platformIgdbId: number | null | undefined): boolean {
+    return (
+      typeof platformIgdbId === 'number' &&
+      Number.isInteger(platformIgdbId) &&
+      GameShelfService.PRICE_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)
+    );
+  }
+
+  hasUnifiedPriceData(game: Pick<GameEntry, 'priceAmount' | 'priceIsFree'>): boolean {
+    if (
+      typeof game.priceAmount === 'number' &&
+      Number.isFinite(game.priceAmount) &&
+      game.priceAmount >= 0
+    ) {
+      return true;
+    }
+
+    return game.priceIsFree === true;
   }
 
   async updateGameCover(
@@ -1288,24 +1413,123 @@ export class GameShelfService {
     this.listRefresh$.next();
   }
 
-  private async refreshSteamPriceInBackground(
+  private async refreshGamePricingInBackground(
     igdbGameId: string,
-    platformIgdbId: number,
-    steamAppId?: number | null
+    platformIgdbId: number
   ): Promise<void> {
-    const steamPricingApi = this.searchApi as Partial<SteamPriceLookupApi>;
-
-    if (typeof steamPricingApi.lookupSteamPrice !== 'function') {
-      return;
-    }
-
     try {
-      await firstValueFrom(
-        steamPricingApi.lookupSteamPrice(igdbGameId, platformIgdbId, undefined, steamAppId)
-      );
+      await this.refreshGamePricing(igdbGameId, platformIgdbId);
     } catch {
-      // Keep add flow resilient when Steam pricing endpoint is unavailable.
+      // Keep add flow resilient when pricing endpoints are unavailable.
     }
+  }
+
+  private async lookupUnifiedPrice(
+    igdbGameId: string,
+    platformIgdbId: number
+  ): Promise<UnifiedPriceSnapshot | null> {
+    if (!this.isPricingSupportedPlatform(platformIgdbId)) {
+      return null;
+    }
+
+    if (GameShelfService.STEAM_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+      const steamPricingApi = this.searchApi as Partial<SteamPriceLookupApi>;
+      if (typeof steamPricingApi.lookupSteamPrice !== 'function') {
+        return null;
+      }
+
+      const result = (await firstValueFrom(
+        steamPricingApi.lookupSteamPrice(igdbGameId, platformIgdbId)
+      )) as SteamPriceLookupResult;
+      return this.normalizeSteamPriceLookupResult(result);
+    }
+
+    if (GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS.has(platformIgdbId)) {
+      const pspricesApi = this.searchApi as Partial<PsPricesLookupApi>;
+      if (typeof pspricesApi.lookupPsPrices !== 'function') {
+        return null;
+      }
+
+      const result = (await firstValueFrom(
+        pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
+      )) as PsPricesLookupResult;
+      return this.normalizePsPricesLookupResult(result);
+    }
+
+    return null;
+  }
+
+  private normalizeSteamPriceLookupResult(
+    result: SteamPriceLookupResult
+  ): UnifiedPriceSnapshot | null {
+    if (result.status !== 'ok' || !result.bestPrice) {
+      return null;
+    }
+
+    return {
+      source: 'steam_store',
+      amount: this.normalizePriceAmount(result.bestPrice.amount),
+      currency: this.normalizePriceCurrency(result.bestPrice.currency),
+      regularAmount: this.normalizePriceAmount(result.bestPrice.initialAmount),
+      discountPercent: this.normalizePriceDiscountPercent(result.bestPrice.discountPercent),
+      isFree: this.normalizePriceIsFree(result.bestPrice.isFree),
+      url: this.normalizePriceUrl(result.bestPrice.url),
+      fetchedAt: new Date().toISOString()
+    };
+  }
+
+  private normalizePsPricesLookupResult(result: PsPricesLookupResult): UnifiedPriceSnapshot | null {
+    if (result.status !== 'ok' || !result.bestPrice) {
+      return null;
+    }
+
+    return {
+      source: 'psprices',
+      amount: this.normalizePriceAmount(result.bestPrice.amount),
+      currency: this.normalizePriceCurrency(result.bestPrice.currency),
+      regularAmount: this.normalizePriceAmount(result.bestPrice.regularAmount),
+      discountPercent: this.normalizePriceDiscountPercent(result.bestPrice.discountPercent),
+      isFree: this.normalizePriceIsFree(result.bestPrice.isFree),
+      url: this.normalizePriceUrl(result.bestPrice.url),
+      fetchedAt: new Date().toISOString()
+    };
+  }
+
+  private normalizePriceAmount(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      return null;
+    }
+    return Math.round(value * 100) / 100;
+  }
+
+  private normalizePriceCurrency(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+  }
+
+  private normalizePriceDiscountPercent(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
+      return null;
+    }
+    return Math.round(value * 100) / 100;
+  }
+
+  private normalizePriceIsFree(value: unknown): boolean | null {
+    return typeof value === 'boolean' ? value : null;
+  }
+
+  private normalizePriceUrl(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized.length === 0) {
+      return null;
+    }
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+    if (normalized.startsWith('//')) {
+      return `https:${normalized}`;
+    }
+    return null;
   }
 
   private async lookupReviewScoreForCatalog(

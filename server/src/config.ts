@@ -124,6 +124,11 @@ export interface AppConfig {
   steamStoreApiTimeoutMs: number;
   steamDefaultCountry: string;
   steamPriceCacheTtlHours: number;
+  pspricesScraperBaseUrl: string;
+  pspricesScraperToken: string;
+  pspricesRegionPath: string;
+  pspricesShow: string;
+  pspricesPriceCacheTtlHours: number;
   mobygamesCacheEnableStaleWhileRevalidate: boolean;
   mobygamesCacheFreshTtlSeconds: number;
   mobygamesCacheStaleTtlSeconds: number;
@@ -325,6 +330,11 @@ export const config: AppConfig = {
   steamStoreApiTimeoutMs: readIntegerEnv('STEAM_STORE_API_TIMEOUT_MS', 10_000),
   steamDefaultCountry: normalizeCountryCode(readEnv('STEAM_DEFAULT_COUNTRY', 'CH')) ?? 'CH',
   steamPriceCacheTtlHours: readIntegerEnv('STEAM_PRICE_CACHE_TTL_HOURS', 24),
+  pspricesScraperBaseUrl: readEnv('PSPRICES_SCRAPER_BASE_URL', 'http://psprices-scraper:8790'),
+  pspricesScraperToken: readSecretFile('PSPRICES_SCRAPER_TOKEN', 'psprices_scraper_token'),
+  pspricesRegionPath: readEnv('PSPRICES_REGION_PATH', 'region-ch'),
+  pspricesShow: readEnv('PSPRICES_SHOW', 'games'),
+  pspricesPriceCacheTtlHours: readIntegerEnv('PSPRICES_PRICE_CACHE_TTL_HOURS', 24),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

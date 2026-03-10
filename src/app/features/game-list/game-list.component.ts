@@ -279,6 +279,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly BULK_HLTB_INTER_ITEM_DELAY_MS = 125;
   private static readonly BULK_HLTB_ITEM_TIMEOUT_MS = 30000;
   private static readonly BULK_METACRITIC_CONCURRENCY = 2;
+  private static readonly BULK_PRICING_CONCURRENCY = 2;
   private static readonly BULK_METACRITIC_INTER_ITEM_DELAY_MS = 125;
   private static readonly BULK_METACRITIC_ITEM_TIMEOUT_MS = 30000;
   private static readonly VIRTUAL_ROW_HEIGHT_PX = 112;
@@ -1005,6 +1006,43 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   async updateMetacriticForSelectedGames(): Promise<void> {
     await this.updateReviewForSelectedGames();
+  }
+
+  async updatePricingForSelectedGames(): Promise<void> {
+    const selectedGames = this.getSelectedGames().filter((game) =>
+      this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId)
+    );
+
+    if (selectedGames.length === 0) {
+      return;
+    }
+
+    const results = await this.runBulkAction(
+      selectedGames,
+      {
+        loadingPrefix: 'Updating pricing',
+        concurrency: GameListComponent.BULK_PRICING_CONCURRENCY,
+        interItemDelayMs: 0
+      },
+      (game) => this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId)
+    );
+    const failedCount = results.filter((result) => !result.ok).length;
+    const updatedCount = results.filter((result) => result.ok).length;
+
+    this.clearSelectionMode();
+
+    if (updatedCount > 0) {
+      await this.presentToast(
+        `Updated pricing for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
+      );
+    }
+
+    if (failedCount > 0) {
+      await this.presentToast(
+        `Unable to update pricing for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
+        'danger'
+      );
+    }
   }
 
   openGameDetail(game: GameEntry): void {

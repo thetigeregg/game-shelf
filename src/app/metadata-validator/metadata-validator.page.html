@@ -50,12 +50,13 @@
     </ion-item>
 
     <div class="bulk-actions-row">
-      <ion-button fill="outline" (click)="toggleSelectAllDisplayed()">
+      <ion-button fill="outline" size="small" (click)="toggleSelectAllDisplayed()">
         {{ isAllDisplayedSelected() ? 'Unselect all' : 'Select all' }}
       </ion-button>
       <ion-button
         fill="outline"
         color="medium"
+        size="small"
         [disabled]="selectedGamesCount === 0"
         (click)="clearSelection()"
       >
@@ -65,6 +66,7 @@
 
     <div class="bulk-actions-row">
       <ion-button
+        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingHltb"
         (click)="refreshHltbForSelectedGames()"
       >
@@ -74,6 +76,7 @@
         Bulk HLTB
       </ion-button>
       <ion-button
+        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingReview"
         (click)="refreshReviewForSelectedGames()"
       >
@@ -83,6 +86,7 @@
         Bulk Review
       </ion-button>
       <ion-button
+        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingPricing"
         (click)="refreshPricingForSelectedGames()"
       >
@@ -93,6 +97,7 @@
       </ion-button>
       <ion-button
         color="secondary"
+        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingImage"
         (click)="refreshImageForSelectedGames()"
       >

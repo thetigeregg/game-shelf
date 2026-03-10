@@ -10,6 +10,7 @@ interface GameRow {
 
 class GamePoolMock {
   private readonly rowsByIdentity = new Map<string, GameRow>();
+  private syncEventInsertCount = 0;
 
   seed(igdbGameId: string, platformIgdbId: number, payload: Record<string, unknown>): void {
     this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload });
@@ -19,7 +20,11 @@ class GamePoolMock {
     return this.rowsByIdentity.get(`${igdbGameId}::${String(platformIgdbId)}`)?.payload ?? null;
   }
 
-  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[] }> {
+  getSyncEventInsertCount(): number {
+    return this.syncEventInsertCount;
+  }
+
+  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[]; rowCount?: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (
@@ -42,7 +47,16 @@ class GamePoolMock {
       const payloadRaw = typeof params[2] === 'string' ? params[2] : '{}';
       const parsed = JSON.parse(payloadRaw) as Record<string, unknown>;
       this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload: parsed });
-      return Promise.resolve({ rows: [] });
+      return Promise.resolve({ rows: [{ payload: parsed }], rowCount: 1 });
+    }
+
+    if (
+      normalized.startsWith(
+        'insert into sync_events (entity_type, entity_key, operation, payload, server_timestamp)'
+      )
+    ) {
+      this.syncEventInsertCount += 1;
+      return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     throw new Error(`Unsupported SQL in GamePoolMock: ${sql}`);
@@ -231,8 +245,55 @@ void test('Steam route fetches appdetails with cc and persists normalized price 
   assert.equal(persisted['priceDiscountPercent'], 29);
   assert.equal(persisted['priceIsFree'], false);
   assert.equal(persisted['priceUrl'], 'https://store.steampowered.com/app/204100');
+  assert.equal(pool.getSyncEventInsertCount(), 1);
   assert.equal(Array.isArray(requests), true);
   assert.equal(requests.length, 1);
+
+  await app.close();
+});
+
+void test('Steam route suppresses sync event writes for discovery rows', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('960', 6, {
+    listType: 'discovery',
+    title: 'Grand Theft Auto IV',
+    steamAppId: 204100
+  });
+
+  await registerSteamPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            '204100': {
+              success: true,
+              data: {
+                is_free: false,
+                price_overview: {
+                  currency: 'CHF',
+                  initial: 6999,
+                  final: 4999,
+                  discount_percent: 29
+                }
+              }
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&cc=CH'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(pool.getSyncEventInsertCount(), 0);
 
   await app.close();
 });

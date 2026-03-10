@@ -10,6 +10,7 @@ interface GameRow {
 
 class GamePoolMock {
   private readonly rowsByIdentity = new Map<string, GameRow>();
+  private syncEventInsertCount = 0;
 
   seed(igdbGameId: string, platformIgdbId: number, payload: Record<string, unknown>): void {
     this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload });
@@ -19,7 +20,11 @@ class GamePoolMock {
     return this.rowsByIdentity.get(`${igdbGameId}::${String(platformIgdbId)}`)?.payload ?? null;
   }
 
-  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[] }> {
+  getSyncEventInsertCount(): number {
+    return this.syncEventInsertCount;
+  }
+
+  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[]; rowCount?: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (
@@ -42,7 +47,16 @@ class GamePoolMock {
       const payloadRaw = typeof params[2] === 'string' ? params[2] : '{}';
       const parsed = JSON.parse(payloadRaw) as Record<string, unknown>;
       this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload: parsed });
-      return Promise.resolve({ rows: [] });
+      return Promise.resolve({ rows: [{ payload: parsed }], rowCount: 1 });
+    }
+
+    if (
+      normalized.startsWith(
+        'insert into sync_events (entity_type, entity_key, operation, payload, server_timestamp)'
+      )
+    ) {
+      this.syncEventInsertCount += 1;
+      return Promise.resolve({ rows: [], rowCount: 1 });
     }
 
     throw new Error(`Unsupported SQL in GamePoolMock: ${sql}`);
@@ -175,7 +189,50 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
   assert.equal(persisted['priceDiscountPercent'], 28);
   assert.equal(persisted['priceIsFree'], false);
   assert.equal(persisted['priceUrl'], 'https://psprices.com/region-ch/game/1234/monster-train-2');
+  assert.equal(pool.getSyncEventInsertCount(), 1);
   assert.equal(requestUrls.length, 1);
+
+  await app.close();
+});
+
+void test('PSPrices route suppresses sync event writes for discovery rows', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, {
+    listType: 'discovery',
+    title: 'Monster Train 2'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Monster Train 2',
+              priceAmount: 49.9,
+              currency: 'CHF',
+              regularPriceAmount: 69.9,
+              discountPercent: 28,
+              isFree: false,
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(pool.getSyncEventInsertCount(), 0);
 
   await app.close();
 });

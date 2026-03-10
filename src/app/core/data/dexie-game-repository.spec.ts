@@ -749,6 +749,46 @@ describe('DexieGameRepository', () => {
     repository = TestBed.inject(DexieGameRepository);
   });
 
+  it('waits for outbox enqueue before resolving mutations', async () => {
+    let releaseEnqueue: (() => void) | null = null;
+    const writer: SyncOutboxWriter = {
+      enqueueOperation: async () =>
+        new Promise<void>((resolve) => {
+          releaseEnqueue = resolve;
+        })
+    };
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }]
+    });
+
+    const queuedDb = TestBed.inject(AppDb);
+    const queuedRepository = TestBed.inject(DexieGameRepository);
+
+    const upsertPromise = queuedRepository.upsertFromCatalog(mario, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    let resolvedEarly = false;
+    void upsertPromise.then(() => {
+      resolvedEarly = true;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(resolvedEarly).toBe(false);
+
+    releaseEnqueue?.();
+    await upsertPromise;
+
+    await queuedDb.delete();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [AppDb, DexieGameRepository]
+    });
+    db = TestBed.inject(AppDb);
+    repository = TestBed.inject(DexieGameRepository);
+  });
+
   it('preserves incoming similarGameIgdbIds when updating an existing game', async () => {
     await repository.upsertFromCatalog(
       { ...mario, similarGameIgdbIds: ['200', '300'] },

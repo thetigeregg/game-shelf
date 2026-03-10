@@ -170,6 +170,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly recommendationsLanesUrl = `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
   private readonly recommendationsRebuildUrl = `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`;
   private readonly recommendationsSimilarBaseUrl = `${environment.gameApiBaseUrl}/v1/recommendations/similar`;
+  private readonly steamPricesUrl = `${environment.gameApiBaseUrl}/v1/steam/prices`;
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
@@ -923,6 +924,49 @@ export class IgdbProxyService implements GameSearchApi {
         })
       ),
       catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
+    );
+  }
+
+  lookupSteamPrice(
+    igdbGameId: string,
+    platformIgdbId: number,
+    countryCode?: string
+  ): Observable<unknown> {
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid Steam price lookup request.'));
+    }
+
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId));
+
+    const normalizedCountryCode =
+      typeof countryCode === 'string' && /^[A-Za-z]{2}$/.test(countryCode.trim())
+        ? countryCode.trim().toUpperCase()
+        : null;
+
+    if (normalizedCountryCode !== null) {
+      params = params.set('cc', normalizedCountryCode);
+    }
+
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.steamPricesUrl, { params }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to load Steam prices.'));
+      })
     );
   }
 

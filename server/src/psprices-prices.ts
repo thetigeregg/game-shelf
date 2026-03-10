@@ -41,6 +41,13 @@ interface PsPricesCandidate extends PsPricesSnapshot {
   score: number;
 }
 
+interface CachedPsPricesSnapshot {
+  fetchedAt: string;
+  snapshot: PsPricesSnapshot;
+  match: PsPricesMatchInfo | null;
+  candidates: PsPricesCandidate[];
+}
+
 interface PsPricesRouteResponse {
   status: PsPricesRouteStatus;
   igdbGameId: string;
@@ -214,8 +221,8 @@ export async function registerPsPricesRoute(
             show: config.pspricesShow,
             cached: true,
             bestPrice: cachedSnapshot.snapshot,
-            match: null,
-            ...(includeCandidates ? { candidates: [] } : {})
+            match: cachedSnapshot.match,
+            ...(includeCandidates ? { candidates: cachedSnapshot.candidates } : {})
           };
           reply.code(200).send(cachedPayload);
           return;
@@ -258,8 +265,8 @@ export async function registerPsPricesRoute(
             show: config.pspricesShow,
             cached: true,
             bestPrice: cachedSnapshot.snapshot,
-            match: null,
-            ...(includeCandidates ? { candidates: [] } : {})
+            match: cachedSnapshot.match,
+            ...(includeCandidates ? { candidates: cachedSnapshot.candidates } : {})
           };
           reply.code(200).send(stalePayload);
           return;
@@ -285,7 +292,8 @@ export async function registerPsPricesRoute(
             show: config.pspricesShow,
             platform: pspricesPlatform,
             bestPrice: pspricesSnapshot,
-            match: pspricesLookup.match
+            match: pspricesLookup.match,
+            candidates: pspricesLookup.candidates
           });
           incrementPspricesPriceMetric('writes');
         } catch (error) {
@@ -437,7 +445,7 @@ function readPsPricesSnapshotFromPayload(
   regionPath: string,
   show: string,
   platform: string
-): { fetchedAt: string; snapshot: PsPricesSnapshot } | null {
+): CachedPsPricesSnapshot | null {
   const fetchedAt = normalizeNonEmptyString(payload['psPricesFetchedAt']);
   const cachedRegion = normalizeNonEmptyString(payload['psPricesRegionPath']);
   const cachedShow = normalizeNonEmptyString(payload['psPricesShow']);
@@ -457,6 +465,22 @@ function readPsPricesSnapshotFromPayload(
     return null;
   }
 
+  const matchQueryTitle = normalizeNonEmptyString(payload['psPricesMatchQueryTitle']);
+  const matchTitle = normalizeNonEmptyString(payload['psPricesMatchTitle']);
+  const matchScore = normalizeNumberOrNull(payload['psPricesMatchScore']);
+  const matchConfidenceRaw = normalizeNonEmptyString(payload['psPricesMatchConfidence']);
+  const matchConfidence =
+    matchConfidenceRaw === 'high' || matchConfidenceRaw === 'low' || matchConfidenceRaw === 'none'
+      ? matchConfidenceRaw
+      : null;
+  const candidatesRaw = Array.isArray(payload['psPricesCandidates'])
+    ? (payload['psPricesCandidates'] as unknown[])
+    : [];
+  const candidates = candidatesRaw
+    .map((entry) => normalizePsPricesCachedCandidate(entry))
+    .filter((entry): entry is PsPricesCandidate => entry !== null)
+    .slice(0, 30);
+
   return {
     fetchedAt,
     snapshot: {
@@ -467,7 +491,17 @@ function readPsPricesSnapshotFromPayload(
       discountPercent: normalizeNumberOrNull(payload['psPricesDiscountPercent']),
       isFree: normalizeBooleanOrNull(payload['psPricesIsFree']),
       url: normalizeNonEmptyString(payload['psPricesUrl'])
-    }
+    },
+    match:
+      matchQueryTitle && matchConfidence
+        ? {
+            queryTitle: matchQueryTitle,
+            matchedTitle: matchTitle,
+            score: matchScore,
+            confidence: matchConfidence
+          }
+        : null,
+    candidates
   };
 }
 
@@ -535,7 +569,8 @@ function schedulePspricesPriceRevalidation(params: {
         show: config.pspricesShow,
         platform: pspricesPlatform,
         bestPrice: pspricesLookup.snapshot,
-        match: pspricesLookup.match
+        match: pspricesLookup.match,
+        candidates: pspricesLookup.candidates
       });
       incrementPspricesPriceMetric('writes');
       incrementPspricesPriceMetric('revalidateSucceeded');
@@ -705,6 +740,26 @@ function normalizePsPricesCandidate(item: unknown): PsPricesSnapshot | null {
   };
 }
 
+function normalizePsPricesCachedCandidate(item: unknown): PsPricesCandidate | null {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    return null;
+  }
+
+  const record = item as Record<string, unknown>;
+  const normalized = normalizePsPricesCandidate(record);
+  if (!normalized) {
+    return null;
+  }
+
+  const scoreRaw = normalizeNumberOrNull(record['score']);
+  const score = scoreRaw !== null ? round2(scoreRaw) : 0;
+
+  return {
+    ...normalized,
+    score
+  };
+}
+
 function normalizeTitleForMatch(value: string): string {
   return value
     .toLowerCase()
@@ -773,6 +828,7 @@ async function persistPsPricesSnapshot(
     platform: string;
     bestPrice: PsPricesSnapshot | null;
     match: PsPricesMatchInfo;
+    candidates: PsPricesCandidate[];
   }
 ): Promise<void> {
   const fetchedAt = new Date().toISOString();
@@ -828,7 +884,17 @@ async function persistPsPricesSnapshot(
     psPricesMatchQueryTitle: params.match.queryTitle,
     psPricesMatchTitle: params.match.matchedTitle,
     psPricesMatchScore: params.match.score,
-    psPricesMatchConfidence: params.match.confidence
+    psPricesMatchConfidence: params.match.confidence,
+    psPricesCandidates: params.candidates.slice(0, 30).map((candidate) => ({
+      title: candidate.title,
+      amount: candidate.amount,
+      currency: candidate.currency,
+      regularAmount: candidate.regularAmount,
+      discountPercent: candidate.discountPercent,
+      isFree: candidate.isFree,
+      url: candidate.url,
+      score: candidate.score
+    }))
   };
 
   await pool.query(
@@ -888,7 +954,8 @@ export async function processQueuedPspricesPriceRevalidation(
     show: config.pspricesShow,
     platform: pspricesPlatform,
     bestPrice: pspricesLookup.snapshot,
-    match: pspricesLookup.match
+    match: pspricesLookup.match,
+    candidates: pspricesLookup.candidates
   });
 }
 

@@ -94,24 +94,31 @@
           <span>{{ formatRatingValue(rating) }}</span>
         </div>
       }
-      @if (getRowHltbHoursLabel(game); as mainHours) {
-        <div class="row-metadata-indicators">
-          <div class="hltb-main-indicator">
-            {{ mainHours }}
+      <div class="row-metadata-stack">
+        @if (listType === 'wishlist' && getRowPriceLabel(game); as rowPriceLabel) {
+          <div class="price-main-indicator">
+            {{ rowPriceLabel }}
           </div>
-          @if (hasValidRowReviewScore(game)) {
+        }
+        @if (getRowHltbHoursLabel(game); as mainHours) {
+          <div class="row-metadata-indicators">
+            <div class="hltb-main-indicator">
+              {{ mainHours }}
+            </div>
+            @if (hasValidRowReviewScore(game)) {
+              <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
+                {{ getRowReviewScore(game) }}
+              </div>
+            }
+          </div>
+        } @else if (hasValidRowReviewScore(game)) {
+          <div class="row-metadata-indicators">
             <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
               {{ getRowReviewScore(game) }}
             </div>
-          }
-        </div>
-      } @else if (hasValidRowReviewScore(game)) {
-        <div class="row-metadata-indicators">
-          <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
-            {{ getRowReviewScore(game) }}
           </div>
-        </div>
-      }
+        }
+      </div>
 
       <div slot="start" class="game-art">
         <img

@@ -34,8 +34,10 @@ import {
   hardwareChip,
   book,
   library,
+  medal,
   pricetags,
   star,
+  time,
   trophy
 } from 'ionicons/icons';
 import {
@@ -121,8 +123,10 @@ export class GameDetailContentComponent {
       hardwareChip,
       book,
       library,
+      medal,
       pricetags,
       star,
+      time,
       trophy
     });
   }

@@ -1013,6 +1013,47 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
+  lookupPsPricesCandidates(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown> {
+    const normalizedTitle = title.trim();
+    if (normalizedTitle.length < 2) {
+      return of({ status: 'unavailable', candidates: [] });
+    }
+
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid PSPrices lookup request.'));
+    }
+
+    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId))
+      .set('title', normalizedTitle)
+      .set('includeCandidates', '1');
+
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to load PSPrices data.'));
+      })
+    );
+  }
+
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
     const payload = result as GameCatalogResult & { externalId?: string };
     const igdbGameId =

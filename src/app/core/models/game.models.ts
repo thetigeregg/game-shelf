@@ -91,6 +91,7 @@ export interface GameCatalogResult {
   themeIds?: number[];
   keywords?: string[];
   keywordIds?: number[];
+  steamAppId?: number | null;
   screenshots?: GameScreenshot[];
   videos?: GameVideo[];
   publishers?: string[];
@@ -270,6 +271,7 @@ export interface GameEntry {
   themeIds?: number[];
   keywords?: string[];
   keywordIds?: number[];
+  steamAppId?: number | null;
   screenshots?: GameScreenshot[];
   videos?: GameVideo[];
   publishers?: string[];

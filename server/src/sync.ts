@@ -212,12 +212,15 @@ async function applyGameOperation(
         'themeIds', COALESCE(EXCLUDED.payload -> 'themeIds', games.payload -> 'themeIds'),
         'keywords', COALESCE(EXCLUDED.payload -> 'keywords', games.payload -> 'keywords'),
         'keywordIds', COALESCE(EXCLUDED.payload -> 'keywordIds', games.payload -> 'keywordIds'),
+        'steamAppId', COALESCE(EXCLUDED.payload -> 'steamAppId', games.payload -> 'steamAppId'),
         'screenshots', COALESCE(EXCLUDED.payload -> 'screenshots', games.payload -> 'screenshots'),
         'videos', COALESCE(EXCLUDED.payload -> 'videos', games.payload -> 'videos'),
         'taxonomyEnrichedAt', COALESCE(EXCLUDED.payload -> 'taxonomyEnrichedAt', games.payload -> 'taxonomyEnrichedAt'),
         'taxonomyEnrichmentStatus', COALESCE(EXCLUDED.payload -> 'taxonomyEnrichmentStatus', games.payload -> 'taxonomyEnrichmentStatus'),
         'mediaEnrichedAt', COALESCE(EXCLUDED.payload -> 'mediaEnrichedAt', games.payload -> 'mediaEnrichedAt'),
         'mediaEnrichmentStatus', COALESCE(EXCLUDED.payload -> 'mediaEnrichmentStatus', games.payload -> 'mediaEnrichmentStatus'),
+        'steamEnrichedAt', COALESCE(EXCLUDED.payload -> 'steamEnrichedAt', games.payload -> 'steamEnrichedAt'),
+        'steamEnrichmentStatus', COALESCE(EXCLUDED.payload -> 'steamEnrichmentStatus', games.payload -> 'steamEnrichmentStatus'),
         'metadataSyncEnqueuedAt', COALESCE(EXCLUDED.payload -> 'metadataSyncEnqueuedAt', games.payload -> 'metadataSyncEnqueuedAt')
       )
     ), updated_at = NOW()
@@ -537,6 +540,7 @@ function normalizeGamePayload(
     typeof payload.customCoverUrl === 'string' ? payload.customCoverUrl.trim() : '';
   const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
   const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
+  const steamAppIdRaw = parseInteger(payload.steamAppId);
   const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId =
@@ -559,6 +563,7 @@ function normalizeGamePayload(
     normalizedNotesTrimmed.length > 0 && !isEmptyHtmlPlaceholder ? normalizedNotes : null;
   const mobygamesGameId =
     Number.isInteger(mobygamesGameIdRaw) && mobygamesGameIdRaw > 0 ? mobygamesGameIdRaw : null;
+  const steamAppId = Number.isInteger(steamAppIdRaw) && steamAppIdRaw > 0 ? steamAppIdRaw : null;
   const mobyScore =
     Number.isFinite(mobyScoreRaw) && mobyScoreRaw > 0 && mobyScoreRaw <= 10
       ? Math.round(mobyScoreRaw * 10) / 10
@@ -575,6 +580,7 @@ function normalizeGamePayload(
     notes,
     mobyScore,
     mobygamesGameId,
+    steamAppId,
     updatedAt
   };
 }

@@ -94,35 +94,6 @@
           <span>{{ formatRatingValue(rating) }}</span>
         </div>
       }
-      <div class="row-metadata-stack">
-        @if (listType === 'wishlist' && getRowPriceLabel(game); as rowPriceLabel) {
-          <div
-            class="price-main-indicator"
-            [class.price-main-indicator-discount]="isRowPriceOnDiscount(game)"
-          >
-            {{ rowPriceLabel }}
-          </div>
-        }
-        @if (getRowHltbHoursLabel(game); as mainHours) {
-          <div class="row-metadata-indicators">
-            <div class="hltb-main-indicator">
-              {{ mainHours }}
-            </div>
-            @if (hasValidRowReviewScore(game)) {
-              <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
-                {{ getRowReviewScore(game) }}
-              </div>
-            }
-          </div>
-        } @else if (hasValidRowReviewScore(game)) {
-          <div class="row-metadata-indicators">
-            <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
-              {{ getRowReviewScore(game) }}
-            </div>
-          </div>
-        }
-      </div>
-
       <div slot="start" class="game-art">
         <img
           [src]="getRowCoverUrl(game)"
@@ -133,27 +104,64 @@
         />
       </div>
 
-      <ion-label>
-        <h2>{{ getGameDisplayTitle(game) }}</h2>
-        @if (getGameTypeBadgeLabel(game); as gameTypeBadgeLabel) {
-          <ion-badge class="game-type-badge">
-            {{ gameTypeBadgeLabel }}
-          </ion-badge>
-        }
-        <p>{{ game.releaseYear || 'Unknown year' }}</p>
-        <p>{{ getGameDisplayPlatformLabel(game) }}</p>
-        @if (game.tags && game.tags.length > 0) {
-          <div class="game-tags">
-            @for (tag of game.tags; track tag) {
-              <ion-badge
-                [style.--background]="tag.color"
-                [style.color]="getTagTextColor(tag.color)"
-              >
-                {{ tag.name }}
-              </ion-badge>
-            }
+      <ion-label class="game-row-label">
+        <div class="game-row-content">
+          <h2 class="game-row-title">{{ getGameDisplayTitle(game) }}</h2>
+          <div class="game-row-main">
+            <div class="game-row-text">
+              @if (getGameTypeBadgeLabel(game); as gameTypeBadgeLabel) {
+                <ion-badge class="game-type-badge">
+                  {{ gameTypeBadgeLabel }}
+                </ion-badge>
+              }
+              <p>{{ game.releaseYear || 'Unknown year' }}</p>
+              <p>{{ getGameDisplayPlatformLabel(game) }}</p>
+              @if (game.tags && game.tags.length > 0) {
+                <div class="game-tags">
+                  @for (tag of game.tags; track tag) {
+                    <ion-badge
+                      [style.--background]="tag.color"
+                      [style.color]="getTagTextColor(tag.color)"
+                    >
+                      {{ tag.name }}
+                    </ion-badge>
+                  }
+                </div>
+              }
+            </div>
+            <div class="row-metadata-stack">
+              @if (listType === 'wishlist' && getRowPriceLabel(game); as rowPriceLabel) {
+                <div
+                  class="price-main-indicator"
+                  [class.price-main-indicator-discount]="isRowPriceOnDiscount(game)"
+                >
+                  {{ rowPriceLabel }}
+                </div>
+              }
+              @if (getRowHltbHoursLabel(game); as mainHours) {
+                <div class="row-metadata-indicators">
+                  <div class="hltb-main-indicator">
+                    {{ mainHours }}
+                  </div>
+                  @if (hasValidRowReviewScore(game)) {
+                    <div
+                      class="metacritic-score-indicator"
+                      [ngClass]="getRowReviewBadgeClass(game)"
+                    >
+                      {{ getRowReviewScore(game) }}
+                    </div>
+                  }
+                </div>
+              } @else if (hasValidRowReviewScore(game)) {
+                <div class="row-metadata-indicators">
+                  <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
+                    {{ getRowReviewScore(game) }}
+                  </div>
+                </div>
+              }
+            </div>
           </div>
-        }
+        </div>
       </ion-label>
     </ion-item>
 

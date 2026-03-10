@@ -2,8 +2,34 @@ ion-item {
   position: relative;
 }
 
-ion-item-sliding ion-item ion-label {
-  padding-right: 48px;
+ion-item-sliding ion-item {
+  --inner-padding-end: 8px;
+}
+
+.game-row-label {
+  display: block;
+  width: 100%;
+}
+
+.game-row-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.game-row-title {
+  margin: 0 0 12px 0 !important;
+}
+
+.game-row-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.game-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .status-icon {
@@ -32,10 +58,8 @@ ion-item-sliding ion-item ion-label {
 }
 
 .row-metadata-stack {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 2;
+  flex: 0 0 auto;
+  align-self: flex-end;
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
@@ -45,6 +69,7 @@ ion-item-sliding ion-item ion-label {
 .row-metadata-indicators {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 }
 

@@ -52,6 +52,7 @@ void test('repository selects rows missing enrichment markers', async () => {
     sql.includes("COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''"),
     true
   );
+  assert.equal(sql.includes("COALESCE(payload ->> 'listType', '') = 'wishlist'"), true);
   assert.equal(sql.includes("COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''"), true);
   assert.equal(/metadataSyncEnqueuedAt/.test(sql), true);
 });

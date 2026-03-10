@@ -121,5 +121,9 @@ WHERE (
       )
     )
   )
+  OR (
+    platform_igdb_id = 6
+    AND COALESCE(NULLIF(payload->>'steamEnrichedAt', ''), '') = ''
+  )
 ORDER BY updated_at ASC
 LIMIT $1

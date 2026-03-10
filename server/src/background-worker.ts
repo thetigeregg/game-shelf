@@ -98,19 +98,29 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
-  const discoveryEnrichmentService = new DiscoveryEnrichmentService(recommendationRepository, {
-    enabled: config.recommendationsDiscoveryEnrichEnabled,
-    startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
-    intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
-    maxGamesPerRun: config.recommendationsDiscoveryEnrichMaxGamesPerRun,
-    requestTimeoutMs: config.recommendationsDiscoveryEnrichRequestTimeoutMs,
-    apiBaseUrl: readDiscoveryEnrichmentApiBaseUrl(),
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-    backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
-    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
-    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
+  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
   });
+  const discoveryEnrichmentService = new DiscoveryEnrichmentService(
+    recommendationRepository,
+    {
+      enabled: config.recommendationsDiscoveryEnrichEnabled,
+      startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
+      intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
+      maxGamesPerRun: config.recommendationsDiscoveryEnrichMaxGamesPerRun,
+      requestTimeoutMs: config.recommendationsDiscoveryEnrichRequestTimeoutMs,
+      apiBaseUrl: readDiscoveryEnrichmentApiBaseUrl(),
+      maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+      backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
+      backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
+      rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+      rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
+    },
+    () => Date.now(),
+    metadataEnrichmentClient
+  );
   const recommendationService = new RecommendationService(
     recommendationRepository,
     {
@@ -157,11 +167,6 @@ async function main(): Promise<void> {
       discoveryEnrichmentService
     }
   );
-  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
-    twitchClientId: config.twitchClientId,
-    twitchClientSecret: config.twitchClientSecret,
-    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
-  });
   const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
   const metadataEnrichmentService = new MetadataEnrichmentService(
     metadataEnrichmentRepository,

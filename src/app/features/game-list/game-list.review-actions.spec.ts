@@ -112,7 +112,10 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     createdAt: partial.createdAt ?? now,
     updatedAt: partial.updatedAt ?? now,
     reviewScore: partial.reviewScore ?? null,
-    metacriticScore: partial.metacriticScore ?? null
+    metacriticScore: partial.metacriticScore ?? null,
+    priceAmount: partial.priceAmount ?? null,
+    priceCurrency: partial.priceCurrency ?? null,
+    priceIsFree: partial.priceIsFree ?? null
   };
 }
 
@@ -530,5 +533,26 @@ describe('game-list review actions', () => {
 
     expect(page.detailVideos).toHaveLength(1);
     expect(page.hasDetailVideosShortcut).toBe(false);
+  });
+
+  it('formats row price as CHF for wishlist rows', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      listType: 'collection' | 'wishlist';
+    };
+    Object.assign(page, { listType: 'wishlist' });
+
+    const label = page.getRowPriceLabel(createGame({ priceAmount: 19.99 }));
+
+    expect(label).toContain('CHF');
+    expect(label).toContain('19.99');
+  });
+
+  it('does not show row price for collection rows', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      listType: 'collection' | 'wishlist';
+    };
+    Object.assign(page, { listType: 'collection' });
+
+    expect(page.getRowPriceLabel(createGame({ priceAmount: 19.99 }))).toBeNull();
   });
 });

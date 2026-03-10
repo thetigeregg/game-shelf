@@ -297,6 +297,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly MAX_CUSTOM_COVER_QUALITY = 0.98;
   private static readonly CUSTOM_COVER_QUALITY_STEPS = 8;
   private static readonly CUSTOM_COVER_SCALE_FACTORS = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
+  private static readonly CHF_CURRENCY_FORMATTER = new Intl.NumberFormat('de-CH', {
+    style: 'currency',
+    currency: 'CHF',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
   private static readonly SIMILAR_LIBRARY_PAGE_SIZE = 5;
   private static readonly SIMILAR_LIBRARY_FETCH_LIMIT = 50;
   private static readonly SIMILAR_LIBRARY_LOAD_TIMEOUT_MS = 10000;
@@ -2754,6 +2760,20 @@ export class GameListComponent implements OnChanges, OnDestroy {
   getRowHltbHoursLabel(game: GameEntry): string | null {
     const preferred = this.selectRowHltbHours(game);
     return this.formatRowMainHours(preferred);
+  }
+
+  getRowPriceLabel(game: GameEntry): string | null {
+    if (this.listType !== 'wishlist') {
+      return null;
+    }
+
+    const amount = game.priceIsFree === true ? 0 : game.priceAmount;
+
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+      return null;
+    }
+
+    return GameListComponent.CHF_CURRENCY_FORMATTER.format(amount);
   }
 
   getRowReviewScore(game: GameEntry): number | null {

@@ -133,6 +133,10 @@ export interface AppConfig {
   pspricesPriceCacheEnableStaleWhileRevalidate: boolean;
   pspricesPriceCacheFreshTtlSeconds: number;
   pspricesPriceCacheStaleTtlSeconds: number;
+  pricingRefreshEnabled: boolean;
+  pricingRefreshIntervalMinutes: number;
+  pricingRefreshBatchSize: number;
+  pricingRefreshStaleHours: number;
   mobygamesCacheEnableStaleWhileRevalidate: boolean;
   mobygamesCacheFreshTtlSeconds: number;
   mobygamesCacheStaleTtlSeconds: number;
@@ -355,6 +359,10 @@ export const config: AppConfig = {
     'PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS',
     86400 * 90
   ),
+  pricingRefreshEnabled: readBooleanEnv('PRICING_REFRESH_ENABLED', true),
+  pricingRefreshIntervalMinutes: readIntegerEnv('PRICING_REFRESH_INTERVAL_MINUTES', 60),
+  pricingRefreshBatchSize: readIntegerEnv('PRICING_REFRESH_BATCH_SIZE', 200),
+  pricingRefreshStaleHours: readIntegerEnv('PRICING_REFRESH_STALE_HOURS', 24),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

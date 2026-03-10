@@ -102,6 +102,10 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS`
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS`
+- `PRICING_REFRESH_ENABLED` (defaults to `true`; consumed by `worker-general`)
+- `PRICING_REFRESH_INTERVAL_MINUTES` (defaults to `60`; consumed by `worker-general`)
+- `PRICING_REFRESH_BATCH_SIZE` (defaults to `200`; consumed by `worker-general`)
+- `PRICING_REFRESH_STALE_HOURS` (defaults to `24`; consumed by `worker-general`)
 - `MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `MOBYGAMES_CACHE_FRESH_TTL_SECONDS`
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`

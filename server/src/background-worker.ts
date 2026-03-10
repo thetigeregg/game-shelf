@@ -21,9 +21,18 @@ import { RecommendationService } from './recommendations/service.js';
 import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
 import { RecommendationTarget } from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
+import type { QueryResultRow } from 'pg';
 
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
 const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
+const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
+const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
+
+interface PricingRefreshCandidateRow extends QueryResultRow {
+  igdb_game_id: string;
+  platform_igdb_id: number;
+  payload: unknown;
+}
 export type BackgroundWorkerMode = 'all' | 'general' | 'recommendations';
 
 export function readDiscoveryEnrichmentApiBaseUrl(): string {
@@ -51,6 +60,61 @@ export function isRecommendationTarget(value: unknown): value is RecommendationT
 
 export function stringOrEmpty(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+function normalizePayloadObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      return null;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | null {
+  const candidates = [
+    payload['priceFetchedAt'],
+    payload['steamPriceFetchedAt'],
+    payload['psPricesFetchedAt']
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeNonEmptyString(candidate);
+    if (!normalized) {
+      continue;
+    }
+    const parsedMs = Date.parse(normalized);
+    if (Number.isFinite(parsedMs)) {
+      return parsedMs;
+    }
+  }
+
+  return null;
 }
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
@@ -239,6 +303,7 @@ async function main(): Promise<void> {
   let backgroundJobsCleanupTimer: ReturnType<typeof setInterval> | null = null;
   let queueStatsTimer: ReturnType<typeof setInterval> | null = null;
   let staleJobRecoveryTimer: ReturnType<typeof setInterval> | null = null;
+  let pricingRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   const stopTimers = (): void => {
     if (metadataStartupTimer) {
@@ -268,6 +333,10 @@ async function main(): Promise<void> {
     if (staleJobRecoveryTimer) {
       clearInterval(staleJobRecoveryTimer);
       staleJobRecoveryTimer = null;
+    }
+    if (pricingRefreshTimer) {
+      clearInterval(pricingRefreshTimer);
+      pricingRefreshTimer = null;
     }
   };
 
@@ -497,6 +566,132 @@ async function main(): Promise<void> {
       }
     } catch (error) {
       console.error('[background-worker] stale_recommendation_runs_failed_recovery', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  };
+
+  const scheduleWishlistPricingRefreshJobs = async (): Promise<void> => {
+    if (shuttingDown || !config.pricingRefreshEnabled) {
+      return;
+    }
+
+    const staleThresholdMs =
+      Date.now() - Math.max(1, config.pricingRefreshStaleHours) * 3600 * 1000;
+    const scanLimit = Math.max(1, Math.min(5000, config.pricingRefreshBatchSize * 5));
+    const queueLimit = Math.max(1, Math.min(1000, config.pricingRefreshBatchSize));
+    const steamCountry = config.steamDefaultCountry;
+    const pspricesRegion = config.pspricesRegionPath.toLowerCase();
+    const pspricesShow = config.pspricesShow.toLowerCase();
+
+    try {
+      const rows = await pool.query<PricingRefreshCandidateRow>(
+        `
+        SELECT igdb_game_id, platform_igdb_id, payload
+        FROM games
+        WHERE payload->>'listType' = 'wishlist'
+          AND (platform_igdb_id = $1 OR platform_igdb_id = ANY($2::int[]))
+        ORDER BY updated_at ASC
+        LIMIT $3
+        `,
+        [STEAM_WINDOWS_PLATFORM_IGDB_ID, [...PSPRICES_PLATFORM_IGDB_IDS], scanLimit]
+      );
+
+      let considered = 0;
+      let staleEligible = 0;
+      let enqueued = 0;
+      let deduped = 0;
+      let skippedMissingData = 0;
+
+      for (const row of rows.rows) {
+        if (enqueued >= queueLimit) {
+          break;
+        }
+
+        const payload = normalizePayloadObject(row.payload);
+        if (!payload) {
+          continue;
+        }
+        considered += 1;
+
+        const fetchedAtMs = resolvePriceFetchedAtMs(payload);
+        if (fetchedAtMs !== null && fetchedAtMs > staleThresholdMs) {
+          continue;
+        }
+        staleEligible += 1;
+
+        if (row.platform_igdb_id === STEAM_WINDOWS_PLATFORM_IGDB_ID) {
+          const steamAppId = normalizePositiveInteger(payload['steamAppId']);
+          if (steamAppId === null) {
+            skippedMissingData += 1;
+            continue;
+          }
+
+          const dedupeKey = `pricing-refresh:steam:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`;
+          const enqueueResult = await jobs.enqueue({
+            jobType: 'steam_price_revalidate',
+            dedupeKey,
+            payload: {
+              cacheKey: `pricing-refresh:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
+              igdbGameId: row.igdb_game_id,
+              platformIgdbId: row.platform_igdb_id,
+              cc: steamCountry,
+              steamAppId
+            },
+            priority: 120,
+            maxAttempts: 3
+          });
+
+          if (enqueueResult.deduped) {
+            deduped += 1;
+          } else {
+            enqueued += 1;
+          }
+          continue;
+        }
+
+        if (!PSPRICES_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
+          continue;
+        }
+
+        const title = normalizeNonEmptyString(payload['title']);
+        if (!title) {
+          skippedMissingData += 1;
+          continue;
+        }
+
+        const dedupeKey = `pricing-refresh:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`;
+        const enqueueResult = await jobs.enqueue({
+          jobType: 'psprices_price_revalidate',
+          dedupeKey,
+          payload: {
+            cacheKey: `pricing-refresh:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
+            igdbGameId: row.igdb_game_id,
+            platformIgdbId: row.platform_igdb_id,
+            title
+          },
+          priority: 120,
+          maxAttempts: 3
+        });
+
+        if (enqueueResult.deduped) {
+          deduped += 1;
+        } else {
+          enqueued += 1;
+        }
+      }
+
+      console.info('[background-worker] pricing_refresh_enqueue', {
+        considered,
+        staleEligible,
+        enqueued,
+        deduped,
+        skippedMissingData,
+        batchSize: queueLimit,
+        staleHours: config.pricingRefreshStaleHours
+      });
+    } catch (error) {
+      console.error('[background-worker] pricing_refresh_enqueue_failed', {
         error: error instanceof Error ? error.message : String(error)
       });
     }
@@ -758,6 +953,13 @@ async function main(): Promise<void> {
       Math.max(1, queueStatsIntervalMinutes) * 60 * 1000
     );
     void logQueuePressure();
+    pricingRefreshTimer = setInterval(
+      () => {
+        void scheduleWishlistPricingRefreshJobs();
+      },
+      Math.max(1, config.pricingRefreshIntervalMinutes) * 60 * 1000
+    );
+    void scheduleWishlistPricingRefreshJobs();
   }
 
   console.info('[background-worker] started', {
@@ -779,6 +981,10 @@ async function main(): Promise<void> {
     recommendationRunRecoveryMinutes,
     backgroundJobHeartbeatSeconds,
     discoveryIntervalMinutes,
+    pricingRefreshEnabled: config.pricingRefreshEnabled,
+    pricingRefreshIntervalMinutes: config.pricingRefreshIntervalMinutes,
+    pricingRefreshBatchSize: config.pricingRefreshBatchSize,
+    pricingRefreshStaleHours: config.pricingRefreshStaleHours,
     workerMode,
     runGeneralWork,
     runRecommendationRebuildWork,

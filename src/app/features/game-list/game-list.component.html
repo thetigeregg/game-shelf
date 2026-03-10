@@ -372,7 +372,9 @@
           <ion-select-option value="image">Image</ion-select-option>
           <ion-select-option value="hltb">HLTB</ion-select-option>
           <ion-select-option value="review">Review</ion-select-option>
-          <ion-select-option value="pricing">Pricing</ion-select-option>
+          @if (shouldShowExternalMetadataPricingOption()) {
+            <ion-select-option value="pricing">Pricing</ion-select-option>
+          }
         </ion-select>
       </ion-item>
     </ion-content>

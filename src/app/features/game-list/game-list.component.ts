@@ -4587,6 +4587,23 @@ export class GameListComponent implements OnChanges, OnDestroy {
     );
   }
 
+  shouldShowExternalMetadataPricingOption(): boolean {
+    return (
+      !!this.selectedGame &&
+      this.gameShelfService.isPricingSupportedPlatform(this.selectedGame.platformIgdbId)
+    );
+  }
+
+  areAllSelectedGamesPricingSupported(): boolean {
+    const selectedGames = this.getSelectedGames();
+    return (
+      selectedGames.length > 0 &&
+      selectedGames.every((game) =>
+        this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId)
+      )
+    );
+  }
+
   private async refreshPricingForBulkGame(game: GameEntry): Promise<GameEntry> {
     if (!this.isPsPricesPlatform(game)) {
       return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);

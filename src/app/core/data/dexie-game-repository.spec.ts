@@ -704,7 +704,9 @@ describe('DexieGameRepository', () => {
   });
 
   it('queues outbox operations when sync writer is configured', async () => {
-    const writer: SyncOutboxWriter = {
+    const syncNow = vi.fn().mockResolvedValue(undefined);
+    const writer: SyncOutboxWriter & { syncNow: () => Promise<void> } = {
+      syncNow,
       enqueueOperation: async () => Promise.resolve()
     };
 
@@ -732,6 +734,7 @@ describe('DexieGameRepository', () => {
     expect(outbox.some((entry) => entry.entityType === 'tag' && entry.operation === 'upsert')).toBe(
       true
     );
+    expect(syncNow).toHaveBeenCalledTimes(3);
 
     await queuedDb.delete();
 
@@ -744,7 +747,9 @@ describe('DexieGameRepository', () => {
   });
 
   it('rolls back game mutation when outbox enqueue fails', async () => {
-    const writer: SyncOutboxWriter = {
+    const syncNow = vi.fn().mockResolvedValue(undefined);
+    const writer: SyncOutboxWriter & { syncNow: () => Promise<void> } = {
+      syncNow,
       enqueueOperation: async () => Promise.resolve()
     };
 
@@ -762,6 +767,7 @@ describe('DexieGameRepository', () => {
     );
     const stored = await queuedRepository.exists('101', 18);
     expect(stored).toBeUndefined();
+    expect(syncNow).not.toHaveBeenCalled();
 
     outboxPutSpy.mockRestore();
     await queuedDb.delete();

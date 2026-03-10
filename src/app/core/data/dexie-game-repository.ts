@@ -26,7 +26,8 @@ import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
-import { type Table } from 'dexie';
+
+type RepositoryTransactionTable = AppDb['games'] | AppDb['tags'] | AppDb['views'] | AppDb['outbox'];
 
 @Injectable({ providedIn: 'root' })
 export class DexieGameRepository implements GameRepository {
@@ -218,7 +219,7 @@ export class DexieGameRepository implements GameRepository {
       updatedAt: now
     };
 
-    let stored: GameEntry | null = null;
+    let stored!: GameEntry;
     await this.withOutboxTransaction([this.db.games], () =>
       this.db.games.add(created).then((id) => {
         const createdGame: GameEntry = { ...created, id };
@@ -226,7 +227,7 @@ export class DexieGameRepository implements GameRepository {
         return this.queueGameUpsert(createdGame);
       })
     );
-    return stored as GameEntry;
+    return stored;
   }
 
   async moveToList(
@@ -240,9 +241,11 @@ export class DexieGameRepository implements GameRepository {
       return;
     }
 
+    const existingId = existing.id;
+
     await this.withOutboxTransaction([this.db.games], () =>
       this.db.games
-        .update(existing.id, {
+        .update(existingId, {
           listType: targetList,
           updatedAt: new Date().toISOString()
         })
@@ -258,10 +261,10 @@ export class DexieGameRepository implements GameRepository {
       return;
     }
 
+    const existingId = existing.id;
+
     await this.withOutboxTransaction([this.db.games], () =>
-      this.db.games
-        .delete(existing.id as number)
-        .then(() => this.queueGameDelete(igdbGameId, platformIgdbId))
+      this.db.games.delete(existingId).then(() => this.queueGameDelete(igdbGameId, platformIgdbId))
     );
   }
 
@@ -536,7 +539,7 @@ export class DexieGameRepository implements GameRepository {
       createdAt: now,
       updatedAt: now
     };
-    let stored: Tag | null = null;
+    let stored!: Tag;
     await this.withOutboxTransaction([this.db.tags], () =>
       this.db.tags.add(created).then((createdId) => {
         const createdTag: Tag = { ...created, id: createdId };
@@ -544,7 +547,7 @@ export class DexieGameRepository implements GameRepository {
         return this.queueTagUpsert(createdTag);
       })
     );
-    return stored as Tag;
+    return stored;
   }
 
   async deleteTag(tagId: number): Promise<void> {
@@ -649,14 +652,24 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private async withOutboxTransaction<T>(
-    tables: Array<Table<unknown, unknown>>,
+    tables: ReadonlyArray<RepositoryTransactionTable>,
     action: () => Promise<T>
   ): Promise<T> {
     if (!this.outboxWriter) {
       return action();
     }
 
-    return this.db.transaction('rw', ...tables, this.db.outbox, async () => action());
+    const transactionTables: ReadonlyArray<RepositoryTransactionTable> = [
+      ...tables,
+      this.db.outbox
+    ];
+
+    return this.db
+      .transaction('rw', transactionTables, () => action())
+      .then((result) => {
+        this.requestSyncNow();
+        return result;
+      });
   }
 
   private queueGameUpsert(game: GameEntry): Promise<void> {
@@ -749,6 +762,16 @@ export class DexieGameRepository implements GameRepository {
     };
 
     return this.db.outbox.put(entry).then(() => undefined);
+  }
+
+  private requestSyncNow(): void {
+    const maybeSyncNow = (this.outboxWriter as { syncNow?: () => Promise<void> } | null)?.syncNow;
+
+    if (typeof maybeSyncNow !== 'function') {
+      return;
+    }
+
+    void maybeSyncNow.call(this.outboxWriter).catch(() => undefined);
   }
 
   private generateOperationId(): string {

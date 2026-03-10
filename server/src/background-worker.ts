@@ -12,11 +12,13 @@ import { processQueuedHltbCacheRevalidation } from './hltb-cache.js';
 import { processQueuedManualsCatalogRefresh } from './manuals.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
+import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { RecommendationService } from './recommendations/service.js';
+import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
 import { RecommendationTarget } from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
 
@@ -553,6 +555,34 @@ async function main(): Promise<void> {
         });
         return { revalidated: true };
       }
+      case 'steam_price_revalidate': {
+        await processQueuedSteamPriceRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
+          platformIgdbId:
+            typeof job.payload['platformIgdbId'] === 'number'
+              ? job.payload['platformIgdbId']
+              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          cc: stringOrEmpty(job.payload['cc']),
+          steamAppId:
+            typeof job.payload['steamAppId'] === 'number'
+              ? job.payload['steamAppId']
+              : Number.parseInt(stringOrEmpty(job.payload['steamAppId']), 10)
+        });
+        return { revalidated: true };
+      }
+      case 'psprices_price_revalidate': {
+        await processQueuedPspricesPriceRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
+          platformIgdbId:
+            typeof job.payload['platformIgdbId'] === 'number'
+              ? job.payload['platformIgdbId']
+              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          title: stringOrEmpty(job.payload['title'])
+        });
+        return { revalidated: true };
+      }
       case 'manuals_catalog_refresh': {
         const summary = await processQueuedManualsCatalogRefresh(pool, config.manualsDir);
         return { summary };
@@ -579,7 +609,9 @@ async function main(): Promise<void> {
     } else if (
       job.jobType === 'hltb_cache_revalidate' ||
       job.jobType === 'metacritic_cache_revalidate' ||
-      job.jobType === 'mobygames_cache_revalidate'
+      job.jobType === 'mobygames_cache_revalidate' ||
+      job.jobType === 'steam_price_revalidate' ||
+      job.jobType === 'psprices_price_revalidate'
     ) {
       context.cacheKey = job.payload['cacheKey'];
     }
@@ -677,6 +709,8 @@ async function main(): Promise<void> {
     startConsumers('hltb_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('metacritic_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);
+    startConsumers('steam_price_revalidate', cacheRevalidationConcurrency);
+    startConsumers('psprices_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
 
     void runRecommendationSchedulerTick();

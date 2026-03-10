@@ -543,6 +543,10 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.keywordIds === undefined
           ? this.normalizePositiveIntegerList(existingByIdentity?.keywordIds)
           : this.normalizePositiveIntegerList(payload.keywordIds),
+      steamAppId:
+        payload.steamAppId === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.steamAppId)
+          : this.parsePositiveInteger(payload.steamAppId),
       screenshots:
         payload.screenshots === undefined
           ? normalizeGameScreenshots(existingByIdentity?.screenshots, { maxItems: 20 })

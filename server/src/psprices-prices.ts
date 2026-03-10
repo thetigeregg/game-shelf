@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool, QueryResultRow } from 'pg';
 import { incrementPspricesPriceMetric } from './cache-metrics.js';
@@ -7,6 +7,11 @@ import { config } from './config.js';
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
   nowProvider?: () => number;
+  scheduleBackgroundRefresh?: (task: () => Promise<void>) => void;
+  enqueueRevalidationJob?: (payload: PspricesPriceRevalidationPayload) => void;
+  enableStaleWhileRevalidate?: boolean;
+  freshTtlSeconds?: number;
+  staleTtlSeconds?: number;
 }
 
 interface GamePayloadRow extends QueryResultRow {
@@ -49,6 +54,13 @@ interface PsPricesRouteResponse {
   candidates?: PsPricesCandidate[];
 }
 
+export interface PspricesPriceRevalidationPayload {
+  cacheKey: string;
+  igdbGameId: string;
+  platformIgdbId: number;
+  title?: string | null;
+}
+
 const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
   [48, 'PS4'],
   [167, 'PS5'],
@@ -57,6 +69,9 @@ const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
 ]);
 const PSPRICES_TITLE_MATCH_MIN_SCORE = 70;
 const PSPRICES_TITLE_MATCH_MIN_GAP = 8;
+const DEFAULT_PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS = 86400;
+const DEFAULT_PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS = 86400 * 90;
+const revalidationInFlightByKey = new Map<string, Promise<void>>();
 
 export async function registerPsPricesRoute(
   app: FastifyInstance,
@@ -69,6 +84,28 @@ export async function registerPsPricesRoute(
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const nowProvider = options.nowProvider ?? (() => Date.now());
+  const scheduleBackgroundRefresh =
+    options.scheduleBackgroundRefresh ??
+    ((task) => {
+      queueMicrotask(() => {
+        void task();
+      });
+    });
+  const enableStaleWhileRevalidate =
+    options.enableStaleWhileRevalidate ?? config.pspricesPriceCacheEnableStaleWhileRevalidate;
+  const freshTtlSeconds = normalizeTtlSeconds(
+    options.freshTtlSeconds,
+    config.pspricesPriceCacheFreshTtlSeconds,
+    DEFAULT_PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS
+  );
+  const staleTtlSeconds = Math.max(
+    freshTtlSeconds,
+    normalizeTtlSeconds(
+      options.staleTtlSeconds,
+      config.pspricesPriceCacheStaleTtlSeconds,
+      DEFAULT_PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS
+    )
+  );
 
   app.route({
     method: 'GET',
@@ -153,33 +190,80 @@ export async function registerPsPricesRoute(
         return;
       }
 
-      const cachedSnapshot = readCachedPsPricesSnapshot(
+      const cachedSnapshot = readPsPricesSnapshotFromPayload(
         payload,
         config.pspricesRegionPath,
         config.pspricesShow,
-        pspricesPlatform,
-        nowProvider()
+        pspricesPlatform
       );
       if (cachedSnapshot) {
-        incrementPspricesPriceMetric('hits');
-        reply.header('X-GameShelf-PSPrices-Cache', 'HIT_FRESH');
-        const cachedStatus: PsPricesRouteStatus = isAvailableSnapshot(cachedSnapshot)
-          ? 'ok'
-          : 'unavailable';
-        const cachedPayload: PsPricesRouteResponse = {
-          status: cachedStatus,
-          igdbGameId,
-          platformIgdbId,
-          platform: pspricesPlatform,
-          region: config.pspricesRegionPath,
-          show: config.pspricesShow,
-          cached: true,
-          bestPrice: cachedSnapshot,
-          match: null,
-          ...(includeCandidates ? { candidates: [] } : {})
-        };
-        reply.code(200).send(cachedPayload);
-        return;
+        const ageSeconds = getAgeSeconds(cachedSnapshot.fetchedAt, nowProvider());
+
+        if (ageSeconds <= freshTtlSeconds) {
+          incrementPspricesPriceMetric('hits');
+          reply.header('X-GameShelf-PSPrices-Cache', 'HIT_FRESH');
+          const cachedStatus: PsPricesRouteStatus = isAvailableSnapshot(cachedSnapshot.snapshot)
+            ? 'ok'
+            : 'unavailable';
+          const cachedPayload: PsPricesRouteResponse = {
+            status: cachedStatus,
+            igdbGameId,
+            platformIgdbId,
+            platform: pspricesPlatform,
+            region: config.pspricesRegionPath,
+            show: config.pspricesShow,
+            cached: true,
+            bestPrice: cachedSnapshot.snapshot,
+            match: null,
+            ...(includeCandidates ? { candidates: [] } : {})
+          };
+          reply.code(200).send(cachedPayload);
+          return;
+        }
+
+        if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds) {
+          incrementPspricesPriceMetric('hits');
+          incrementPspricesPriceMetric('staleServed');
+          const scheduled = schedulePspricesPriceRevalidation({
+            cacheKey: buildPspricesPriceCacheKey({
+              igdbGameId,
+              platformIgdbId,
+              regionPath: config.pspricesRegionPath,
+              show: config.pspricesShow,
+              platform: pspricesPlatform
+            }),
+            request,
+            pool,
+            payload,
+            igdbGameId,
+            platformIgdbId,
+            title,
+            fetchImpl,
+            scheduleBackgroundRefresh,
+            enqueueRevalidationJob: options.enqueueRevalidationJob
+          });
+
+          reply.header('X-GameShelf-PSPrices-Cache', 'HIT_STALE');
+          reply.header('X-GameShelf-PSPrices-Revalidate', scheduled ? 'scheduled' : 'skipped');
+
+          const staleStatus: PsPricesRouteStatus = isAvailableSnapshot(cachedSnapshot.snapshot)
+            ? 'ok'
+            : 'unavailable';
+          const stalePayload: PsPricesRouteResponse = {
+            status: staleStatus,
+            igdbGameId,
+            platformIgdbId,
+            platform: pspricesPlatform,
+            region: config.pspricesRegionPath,
+            show: config.pspricesShow,
+            cached: true,
+            bestPrice: cachedSnapshot.snapshot,
+            match: null,
+            ...(includeCandidates ? { candidates: [] } : {})
+          };
+          reply.code(200).send(stalePayload);
+          return;
+        }
       }
 
       incrementPspricesPriceMetric('misses');
@@ -310,17 +394,55 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function readCachedPsPricesSnapshot(
+function normalizeTtlSeconds(
+  input: number | undefined,
+  configured: number,
+  fallback: number
+): number {
+  if (Number.isInteger(input) && (input as number) > 0) {
+    return input as number;
+  }
+  if (Number.isInteger(configured) && configured > 0) {
+    return configured;
+  }
+  return fallback;
+}
+
+function getAgeSeconds(updatedAt: string, nowMs: number): number {
+  const updatedMs = Date.parse(updatedAt);
+  if (!Number.isFinite(updatedMs)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.max(0, (nowMs - updatedMs) / 1000);
+}
+
+function buildPspricesPriceCacheKey(params: {
+  igdbGameId: string;
+  platformIgdbId: number;
+  regionPath: string;
+  show: string;
+  platform: string;
+}): string {
+  return [
+    params.igdbGameId,
+    String(params.platformIgdbId),
+    params.regionPath.toLowerCase(),
+    params.show.toLowerCase(),
+    params.platform.toLowerCase()
+  ].join(':');
+}
+
+function readPsPricesSnapshotFromPayload(
   payload: Record<string, unknown>,
   regionPath: string,
   show: string,
-  platform: string,
-  nowMs: number
-): PsPricesSnapshot | null {
+  platform: string
+): { fetchedAt: string; snapshot: PsPricesSnapshot } | null {
   const fetchedAt = normalizeNonEmptyString(payload['psPricesFetchedAt']);
   const cachedRegion = normalizeNonEmptyString(payload['psPricesRegionPath']);
   const cachedShow = normalizeNonEmptyString(payload['psPricesShow']);
   const cachedPlatform = normalizeNonEmptyString(payload['psPricesPlatform']);
+
   if (
     !fetchedAt ||
     cachedRegion !== regionPath ||
@@ -335,24 +457,103 @@ function readCachedPsPricesSnapshot(
     return null;
   }
 
-  const maxAgeMs = config.pspricesPriceCacheTtlHours * 60 * 60 * 1000;
-  if (nowMs - fetchedAtMs > maxAgeMs) {
-    return null;
-  }
-
   return {
-    title: normalizeNonEmptyString(payload['psPricesTitle']),
-    amount: normalizeNumberOrNull(payload['psPricesPriceAmount']),
-    currency: normalizeNonEmptyString(payload['psPricesPriceCurrency']),
-    regularAmount: normalizeNumberOrNull(payload['psPricesRegularPriceAmount']),
-    discountPercent: normalizeNumberOrNull(payload['psPricesDiscountPercent']),
-    isFree: normalizeBooleanOrNull(payload['psPricesIsFree']),
-    url: normalizeNonEmptyString(payload['psPricesUrl'])
+    fetchedAt,
+    snapshot: {
+      title: normalizeNonEmptyString(payload['psPricesTitle']),
+      amount: normalizeNumberOrNull(payload['psPricesPriceAmount']),
+      currency: normalizeNonEmptyString(payload['psPricesPriceCurrency']),
+      regularAmount: normalizeNumberOrNull(payload['psPricesRegularPriceAmount']),
+      discountPercent: normalizeNumberOrNull(payload['psPricesDiscountPercent']),
+      isFree: normalizeBooleanOrNull(payload['psPricesIsFree']),
+      url: normalizeNonEmptyString(payload['psPricesUrl'])
+    }
   };
 }
 
 function isAvailableSnapshot(snapshot: PsPricesSnapshot): boolean {
   return snapshot.amount !== null || snapshot.isFree === true;
+}
+
+function schedulePspricesPriceRevalidation(params: {
+  cacheKey: string;
+  request: FastifyRequest;
+  pool: Pool;
+  payload: Record<string, unknown>;
+  igdbGameId: string;
+  platformIgdbId: number;
+  title: string;
+  fetchImpl: typeof fetch;
+  scheduleBackgroundRefresh: (task: () => Promise<void>) => void;
+  enqueueRevalidationJob?: (payload: PspricesPriceRevalidationPayload) => void;
+}): boolean {
+  const revalidationPayload: PspricesPriceRevalidationPayload = {
+    cacheKey: params.cacheKey,
+    igdbGameId: params.igdbGameId,
+    platformIgdbId: params.platformIgdbId,
+    title: params.title
+  };
+
+  if (params.enqueueRevalidationJob) {
+    incrementPspricesPriceMetric('revalidateScheduled');
+    params.enqueueRevalidationJob(revalidationPayload);
+    return true;
+  }
+
+  if (revalidationInFlightByKey.has(params.cacheKey)) {
+    incrementPspricesPriceMetric('revalidateSkipped');
+    return false;
+  }
+
+  incrementPspricesPriceMetric('revalidateScheduled');
+
+  let resolveDone: (() => void) | null = null;
+  const inFlight = new Promise<void>((resolve) => {
+    resolveDone = resolve;
+  });
+  revalidationInFlightByKey.set(params.cacheKey, inFlight);
+
+  params.scheduleBackgroundRefresh(async () => {
+    try {
+      const pspricesPlatform = PSPRICES_PLATFORM_BY_IGDB_ID.get(params.platformIgdbId) ?? null;
+      if (!pspricesPlatform) {
+        throw new Error('Unsupported PSPrices platform for revalidation.');
+      }
+
+      const pspricesLookup = await fetchPsPricesSnapshot(params.fetchImpl, {
+        title: params.title,
+        platform: pspricesPlatform,
+        regionPath: config.pspricesRegionPath,
+        show: config.pspricesShow
+      });
+
+      await persistPsPricesSnapshot(params.pool, {
+        igdbGameId: params.igdbGameId,
+        platformIgdbId: params.platformIgdbId,
+        payload: params.payload,
+        regionPath: config.pspricesRegionPath,
+        show: config.pspricesShow,
+        platform: pspricesPlatform,
+        bestPrice: pspricesLookup.snapshot,
+        match: pspricesLookup.match
+      });
+      incrementPspricesPriceMetric('writes');
+      incrementPspricesPriceMetric('revalidateSucceeded');
+    } catch (error) {
+      incrementPspricesPriceMetric('revalidateFailed');
+      params.request.log.warn({
+        msg: 'psprices_revalidate_failed',
+        igdbGameId: params.igdbGameId,
+        platformIgdbId: params.platformIgdbId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      revalidationInFlightByKey.delete(params.cacheKey);
+      resolveDone?.();
+    }
+  });
+
+  return true;
 }
 
 async function fetchPsPricesSnapshot(
@@ -642,6 +843,57 @@ async function persistPsPricesSnapshot(
   );
 }
 
+export async function processQueuedPspricesPriceRevalidation(
+  pool: Pool,
+  payload: PspricesPriceRevalidationPayload
+): Promise<void> {
+  const igdbGameId = normalizeGameId(payload.igdbGameId);
+  const platformIgdbId = normalizePositiveInteger(payload.platformIgdbId);
+  if (!igdbGameId || platformIgdbId === null) {
+    throw new Error('Invalid psprices price revalidation payload.');
+  }
+
+  const row = await pool.query<GamePayloadRow>(
+    'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
+    [igdbGameId, platformIgdbId]
+  );
+  const gamePayload = normalizePayloadObject(row.rows[0]?.payload);
+  if (!gamePayload) {
+    throw new Error('PSPrices revalidation game row not found.');
+  }
+
+  const pspricesPlatform = PSPRICES_PLATFORM_BY_IGDB_ID.get(platformIgdbId) ?? null;
+  if (!pspricesPlatform) {
+    throw new Error('Unsupported PSPrices platform for revalidation.');
+  }
+
+  const title =
+    normalizeNonEmptyString(payload.title) ?? normalizeNonEmptyString(gamePayload['title']);
+  if (!title) {
+    throw new Error('PSPrices revalidation missing title.');
+  }
+
+  const pspricesLookup = await fetchPsPricesSnapshot(fetch, {
+    title,
+    platform: pspricesPlatform,
+    regionPath: config.pspricesRegionPath,
+    show: config.pspricesShow
+  });
+
+  await persistPsPricesSnapshot(pool, {
+    igdbGameId,
+    platformIgdbId,
+    payload: gamePayload,
+    regionPath: config.pspricesRegionPath,
+    show: config.pspricesShow,
+    platform: pspricesPlatform,
+    bestPrice: pspricesLookup.snapshot,
+    match: pspricesLookup.match
+  });
+}
+
 export const __pspricesTestables = {
-  readCachedPsPricesSnapshot
+  readPsPricesSnapshotFromPayload,
+  buildPspricesPriceCacheKey,
+  schedulePspricesPriceRevalidation
 };

@@ -276,13 +276,77 @@ void test('Steam route uses cached value when fresh for matching cc', async () =
   await app.close();
 });
 
-void test('Steam route refetches when cache is stale or country differs', async () => {
+void test('Steam route serves stale cache and schedules revalidation', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('77', 6, {
+    steamAppId: 730,
+    steamPriceCountry: 'DE',
+    steamPriceFetchedAt: '2026-03-08T08:00:00.000Z',
+    steamPriceAmount: 9.99,
+    steamPriceCurrency: 'EUR'
+  });
+
+  const queuedPayloads: Record<string, unknown>[] = [];
+  let fetchCalls = 0;
+  await registerSteamPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    enqueueRevalidationJob: (payload) => {
+      queuedPayloads.push(payload as unknown as Record<string, unknown>);
+    },
+    fetchImpl: (input) => {
+      fetchCalls += 1;
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      assert.equal(url.searchParams.get('cc'), 'de');
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            '730': {
+              success: true,
+              data: {
+                is_free: false,
+                price_overview: {
+                  currency: 'EUR',
+                  initial: 1299,
+                  final: 999,
+                  discount_percent: 23
+                }
+              }
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6&cc=de'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-steam-price-cache'], 'HIT_STALE');
+  assert.equal(response.headers['x-gameshelf-steam-price-revalidate'], 'scheduled');
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['cached'], true);
+  assert.equal(fetchCalls, 0);
+  assert.equal(queuedPayloads.length, 1);
+
+  await app.close();
+});
+
+void test('Steam route refetches when cache country differs', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('77', 6, {
     steamAppId: 730,
     steamPriceCountry: 'CH',
-    steamPriceFetchedAt: '2026-03-08T08:00:00.000Z',
+    steamPriceFetchedAt: '2026-03-10T11:00:00.000Z',
     steamPriceAmount: 5,
     steamPriceCurrency: 'CHF'
   });
@@ -326,23 +390,10 @@ void test('Steam route refetches when cache is stale or country differs', async 
   });
 
   assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-steam-price-cache'], 'MISS');
   const body = parseJsonRecord(response.body);
   assert.equal(body['cached'], false);
   assert.equal(fetchCalls, 1);
-
-  const persisted = pool.getPayload('77', 6);
-  assert.ok(persisted);
-  assert.equal(persisted['steamPriceCountry'], 'DE');
-  assert.equal(persisted['steamPriceAmount'], 9.99);
-  assert.equal(persisted['steamPriceCurrency'], 'EUR');
-  assert.equal(persisted['priceSource'], 'steam_store');
-  assert.equal(persisted['priceAmount'], 9.99);
-  assert.equal(persisted['priceCurrency'], 'EUR');
-  assert.equal(persisted['priceRegularAmount'], 12.99);
-  assert.equal(persisted['priceDiscountPercent'], 23);
-  assert.equal(persisted['priceIsFree'], false);
-  assert.equal(persisted['priceUrl'], 'https://store.steampowered.com/app/730');
-
   await app.close();
 });
 

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool, QueryResultRow } from 'pg';
 import { incrementSteamPriceMetric } from './cache-metrics.js';
@@ -7,6 +7,11 @@ import { config } from './config.js';
 interface SteamPricesRouteOptions {
   fetchImpl?: typeof fetch;
   nowProvider?: () => number;
+  scheduleBackgroundRefresh?: (task: () => Promise<void>) => void;
+  enqueueRevalidationJob?: (payload: SteamPriceRevalidationPayload) => void;
+  enableStaleWhileRevalidate?: boolean;
+  freshTtlSeconds?: number;
+  staleTtlSeconds?: number;
 }
 
 interface GamePayloadRow extends QueryResultRow {
@@ -34,7 +39,18 @@ interface SteamRouteResponse {
   bestPrice: SteamPriceSnapshot | null;
 }
 
+export interface SteamPriceRevalidationPayload {
+  cacheKey: string;
+  igdbGameId: string;
+  platformIgdbId: number;
+  cc: string;
+  steamAppId: number;
+}
+
 const WINDOWS_IGDB_PLATFORM_ID = 6;
+const DEFAULT_STEAM_PRICE_CACHE_FRESH_TTL_SECONDS = 86400;
+const DEFAULT_STEAM_PRICE_CACHE_STALE_TTL_SECONDS = 86400 * 90;
+const revalidationInFlightByKey = new Map<string, Promise<void>>();
 
 export async function registerSteamPricesRoute(
   app: FastifyInstance,
@@ -47,6 +63,28 @@ export async function registerSteamPricesRoute(
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const nowProvider = options.nowProvider ?? (() => Date.now());
+  const scheduleBackgroundRefresh =
+    options.scheduleBackgroundRefresh ??
+    ((task) => {
+      queueMicrotask(() => {
+        void task();
+      });
+    });
+  const enableStaleWhileRevalidate =
+    options.enableStaleWhileRevalidate ?? config.steamPriceCacheEnableStaleWhileRevalidate;
+  const freshTtlSeconds = normalizeTtlSeconds(
+    options.freshTtlSeconds,
+    config.steamPriceCacheFreshTtlSeconds,
+    DEFAULT_STEAM_PRICE_CACHE_FRESH_TTL_SECONDS
+  );
+  const staleTtlSeconds = Math.max(
+    freshTtlSeconds,
+    normalizeTtlSeconds(
+      options.staleTtlSeconds,
+      config.steamPriceCacheStaleTtlSeconds,
+      DEFAULT_STEAM_PRICE_CACHE_STALE_TTL_SECONDS
+    )
+  );
 
   app.route({
     method: 'GET',
@@ -135,24 +173,64 @@ export async function registerSteamPricesRoute(
         return;
       }
 
-      const cachedSnapshot = payload ? readCachedSteamSnapshot(payload, cc, nowProvider()) : null;
+      const cachedSnapshot = payload ? readSteamSnapshotFromPayload(payload, cc) : null;
       if (cachedSnapshot) {
-        incrementSteamPriceMetric('hits');
-        reply.header('X-GameShelf-Steam-Price-Cache', 'HIT_FRESH');
-        const cachedStatus: SteamRouteStatus = isAvailableSnapshot(cachedSnapshot)
-          ? 'ok'
-          : 'unavailable';
-        const cachedPayload: SteamRouteResponse = {
-          status: cachedStatus,
-          igdbGameId,
-          platformIgdbId,
-          cc,
-          steamAppId,
-          cached: true,
-          bestPrice: cachedSnapshot
-        };
-        reply.code(200).send(cachedPayload);
-        return;
+        const ageSeconds = getAgeSeconds(cachedSnapshot.fetchedAt, nowProvider());
+
+        if (ageSeconds <= freshTtlSeconds) {
+          incrementSteamPriceMetric('hits');
+          reply.header('X-GameShelf-Steam-Price-Cache', 'HIT_FRESH');
+          const cachedStatus: SteamRouteStatus = isAvailableSnapshot(cachedSnapshot.snapshot)
+            ? 'ok'
+            : 'unavailable';
+          const cachedPayload: SteamRouteResponse = {
+            status: cachedStatus,
+            igdbGameId,
+            platformIgdbId,
+            cc,
+            steamAppId,
+            cached: true,
+            bestPrice: cachedSnapshot.snapshot
+          };
+          reply.code(200).send(cachedPayload);
+          return;
+        }
+
+        if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds && payload) {
+          incrementSteamPriceMetric('hits');
+          incrementSteamPriceMetric('staleServed');
+          const scheduled = scheduleSteamPriceRevalidation({
+            cacheKey: buildSteamPriceCacheKey({ igdbGameId, platformIgdbId, cc, steamAppId }),
+            request,
+            pool,
+            payload,
+            igdbGameId,
+            platformIgdbId,
+            cc,
+            steamAppId,
+            fetchImpl,
+            scheduleBackgroundRefresh,
+            enqueueRevalidationJob: options.enqueueRevalidationJob
+          });
+
+          reply.header('X-GameShelf-Steam-Price-Cache', 'HIT_STALE');
+          reply.header('X-GameShelf-Steam-Price-Revalidate', scheduled ? 'scheduled' : 'skipped');
+
+          const staleStatus: SteamRouteStatus = isAvailableSnapshot(cachedSnapshot.snapshot)
+            ? 'ok'
+            : 'unavailable';
+          const stalePayload: SteamRouteResponse = {
+            status: staleStatus,
+            igdbGameId,
+            platformIgdbId,
+            cc,
+            steamAppId,
+            cached: true,
+            bestPrice: cachedSnapshot.snapshot
+          };
+          reply.code(200).send(stalePayload);
+          return;
+        }
       }
 
       incrementSteamPriceMetric('misses');
@@ -208,6 +286,20 @@ export async function registerSteamPricesRoute(
       }
     }
   });
+}
+
+function buildSteamPriceCacheKey(params: {
+  igdbGameId: string;
+  platformIgdbId: number;
+  cc: string;
+  steamAppId: number;
+}): string {
+  return [
+    params.igdbGameId,
+    String(params.platformIgdbId),
+    params.cc.toUpperCase(),
+    String(params.steamAppId)
+  ].join(':');
 }
 
 function normalizePayloadObject(value: unknown): Record<string, unknown> | null {
@@ -283,11 +375,32 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function readCachedSteamSnapshot(
+function normalizeTtlSeconds(
+  input: number | undefined,
+  configured: number,
+  fallback: number
+): number {
+  if (Number.isInteger(input) && (input as number) > 0) {
+    return input as number;
+  }
+  if (Number.isInteger(configured) && configured > 0) {
+    return configured;
+  }
+  return fallback;
+}
+
+function getAgeSeconds(updatedAt: string, nowMs: number): number {
+  const updatedMs = Date.parse(updatedAt);
+  if (!Number.isFinite(updatedMs)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.max(0, (nowMs - updatedMs) / 1000);
+}
+
+function readSteamSnapshotFromPayload(
   payload: Record<string, unknown>,
-  countryCode: string,
-  nowMs: number
-): SteamPriceSnapshot | null {
+  countryCode: string
+): { fetchedAt: string; snapshot: SteamPriceSnapshot } | null {
   const fetchedAt = normalizeNonEmptyString(payload['steamPriceFetchedAt']);
   const cachedCountry = normalizeCountryCode(payload['steamPriceCountry']);
   if (!fetchedAt || cachedCountry !== countryCode) {
@@ -296,11 +409,6 @@ function readCachedSteamSnapshot(
 
   const fetchedAtMs = Date.parse(fetchedAt);
   if (!Number.isFinite(fetchedAtMs)) {
-    return null;
-  }
-
-  const maxAgeMs = config.steamPriceCacheTtlHours * 60 * 60 * 1000;
-  if (nowMs - fetchedAtMs > maxAgeMs) {
     return null;
   }
 
@@ -314,17 +422,96 @@ function readCachedSteamSnapshot(
     buildSteamAppUrl(normalizePositiveInteger(payload['steamAppId']) ?? 0);
 
   return {
-    amount,
-    currency,
-    initialAmount,
-    discountPercent,
-    isFree,
-    url
+    fetchedAt,
+    snapshot: {
+      amount,
+      currency,
+      initialAmount,
+      discountPercent,
+      isFree,
+      url
+    }
   };
 }
 
 function isAvailableSnapshot(snapshot: SteamPriceSnapshot): boolean {
   return snapshot.amount !== null || snapshot.isFree === true;
+}
+
+function scheduleSteamPriceRevalidation(params: {
+  cacheKey: string;
+  request: FastifyRequest;
+  pool: Pool;
+  payload: Record<string, unknown>;
+  igdbGameId: string;
+  platformIgdbId: number;
+  cc: string;
+  steamAppId: number;
+  fetchImpl: typeof fetch;
+  scheduleBackgroundRefresh: (task: () => Promise<void>) => void;
+  enqueueRevalidationJob?: (payload: SteamPriceRevalidationPayload) => void;
+}): boolean {
+  const revalidationPayload: SteamPriceRevalidationPayload = {
+    cacheKey: params.cacheKey,
+    igdbGameId: params.igdbGameId,
+    platformIgdbId: params.platformIgdbId,
+    cc: params.cc,
+    steamAppId: params.steamAppId
+  };
+
+  if (params.enqueueRevalidationJob) {
+    incrementSteamPriceMetric('revalidateScheduled');
+    params.enqueueRevalidationJob(revalidationPayload);
+    return true;
+  }
+
+  if (revalidationInFlightByKey.has(params.cacheKey)) {
+    incrementSteamPriceMetric('revalidateSkipped');
+    return false;
+  }
+
+  incrementSteamPriceMetric('revalidateScheduled');
+
+  let resolveDone: (() => void) | null = null;
+  const inFlight = new Promise<void>((resolve) => {
+    resolveDone = resolve;
+  });
+  revalidationInFlightByKey.set(params.cacheKey, inFlight);
+
+  params.scheduleBackgroundRefresh(async () => {
+    try {
+      const steamSnapshot = await fetchSteamPriceSnapshot(
+        params.fetchImpl,
+        params.steamAppId,
+        params.cc
+      );
+      await persistSteamSnapshot(params.pool, {
+        igdbGameId: params.igdbGameId,
+        platformIgdbId: params.platformIgdbId,
+        payload: params.payload,
+        cc: params.cc,
+        steamAppId: params.steamAppId,
+        bestPrice: steamSnapshot
+      });
+      incrementSteamPriceMetric('writes');
+      incrementSteamPriceMetric('revalidateSucceeded');
+    } catch (error) {
+      incrementSteamPriceMetric('revalidateFailed');
+      params.request.log.warn({
+        msg: 'steam_prices_revalidate_failed',
+        igdbGameId: params.igdbGameId,
+        platformIgdbId: params.platformIgdbId,
+        steamAppId: params.steamAppId,
+        cc: params.cc,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      revalidationInFlightByKey.delete(params.cacheKey);
+      resolveDone?.();
+    }
+  });
+
+  return true;
 }
 
 async function fetchSteamPriceSnapshot(
@@ -505,10 +692,45 @@ async function persistSteamSnapshot(
   );
 }
 
+export async function processQueuedSteamPriceRevalidation(
+  pool: Pool,
+  payload: SteamPriceRevalidationPayload
+): Promise<void> {
+  const igdbGameId = normalizeGameId(payload.igdbGameId);
+  const platformIgdbId = normalizePositiveInteger(payload.platformIgdbId);
+  const steamAppId = normalizePositiveInteger(payload.steamAppId);
+  const cc = normalizeCountryCode(payload.cc);
+
+  if (!igdbGameId || platformIgdbId === null || steamAppId === null || cc === null) {
+    throw new Error('Invalid steam price revalidation payload.');
+  }
+
+  const row = await pool.query<GamePayloadRow>(
+    'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
+    [igdbGameId, platformIgdbId]
+  );
+  const gamePayload = normalizePayloadObject(row.rows[0]?.payload);
+  if (!gamePayload) {
+    throw new Error('Steam price revalidation game row not found.');
+  }
+
+  const steamSnapshot = await fetchSteamPriceSnapshot(fetch, steamAppId, cc);
+  await persistSteamSnapshot(pool, {
+    igdbGameId,
+    platformIgdbId,
+    payload: gamePayload,
+    cc,
+    steamAppId,
+    bestPrice: steamSnapshot
+  });
+}
+
 export const __steamPriceTestables = {
   normalizeCountryCode,
   normalizePositiveInteger,
-  readCachedSteamSnapshot,
+  readSteamSnapshotFromPayload,
   fetchSteamPriceSnapshot,
-  extractSteamAppRecord
+  extractSteamAppRecord,
+  scheduleSteamPriceRevalidation,
+  buildSteamPriceCacheKey
 };

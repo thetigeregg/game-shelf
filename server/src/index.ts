@@ -354,8 +354,34 @@ async function main(): Promise<void> {
         });
       }
     });
-    await registerSteamPricesRoute(app, pool);
-    await registerPsPricesRoute(app, pool);
+    await registerSteamPricesRoute(app, pool, {
+      enableStaleWhileRevalidate: config.steamPriceCacheEnableStaleWhileRevalidate,
+      freshTtlSeconds: config.steamPriceCacheFreshTtlSeconds,
+      staleTtlSeconds: config.steamPriceCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'steam_price_revalidate',
+          dedupeKey: `steam-price-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
+    await registerPsPricesRoute(app, pool, {
+      enableStaleWhileRevalidate: config.pspricesPriceCacheEnableStaleWhileRevalidate,
+      freshTtlSeconds: config.pspricesPriceCacheFreshTtlSeconds,
+      staleTtlSeconds: config.pspricesPriceCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'psprices_price_revalidate',
+          dedupeKey: `psprices-price-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
     await registerRecommendationRoutes(app, recommendationService);
 
     app.setNotFoundHandler((request, reply) => {

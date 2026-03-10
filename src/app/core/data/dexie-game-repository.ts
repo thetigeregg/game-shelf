@@ -26,6 +26,7 @@ import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
+import { buildOutboxEntry, generateOperationId } from './outbox-entry.util';
 
 type RepositoryTransactionTable = AppDb['games'] | AppDb['tags'] | AppDb['views'] | AppDb['outbox'];
 
@@ -749,37 +750,21 @@ export class DexieGameRepository implements GameRepository {
     operation: OutboxEntry['operation'];
     payload: OutboxEntry['payload'];
   }): Promise<void> {
-    const now = new Date().toISOString();
-    const entry: OutboxEntry = {
-      opId: this.generateOperationId(),
-      entityType: request.entityType,
-      operation: request.operation,
-      payload: request.payload,
-      clientTimestamp: now,
-      createdAt: now,
-      attemptCount: 0,
-      lastError: null
-    };
+    const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
     return this.db.outbox.put(entry).then(() => undefined);
   }
 
   private requestSyncNow(): void {
-    const maybeSyncNow = (this.outboxWriter as { syncNow?: () => Promise<void> } | null)?.syncNow;
-
-    if (typeof maybeSyncNow !== 'function') {
+    if (!this.outboxWriter?.syncNow) {
       return;
     }
 
-    void maybeSyncNow.call(this.outboxWriter).catch(() => undefined);
+    void this.outboxWriter.syncNow().catch(() => undefined);
   }
 
   private generateOperationId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-
-    return `${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
+    return generateOperationId();
   }
 
   private normalizeTagIds(tagIds: number[] | undefined): number[] {

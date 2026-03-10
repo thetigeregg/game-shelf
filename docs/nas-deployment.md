@@ -62,7 +62,6 @@ Common stack env vars:
 - `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults to `true`)
 - `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults to `86400`)
 - `STEAM_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults to `7776000`)
-- `STEAM_PRICE_CACHE_TTL_HOURS` (optional legacy fallback; defaults to `24`)
 - `PSPRICES_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `PSPRICES_SCRAPER_TOKEN_FILE` (optional, but recommended)
 - `PSPRICES_REGION_PATH` (optional; defaults `region-ch`)
@@ -70,7 +69,6 @@ Common stack env vars:
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults `true`)
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults `86400`)
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults `7776000`)
-- `PSPRICES_PRICE_CACHE_TTL_HOURS` (optional legacy fallback; defaults `24`)
 - `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
@@ -291,14 +289,12 @@ Key metadata env vars in `.env`:
 - `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
 - `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
 - `STEAM_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
-- `STEAM_PRICE_CACHE_TTL_HOURS=24`
 - `PSPRICES_SCRAPER_BASE_URL=http://psprices-scraper:8790`
 - `PSPRICES_REGION_PATH=region-ch`
 - `PSPRICES_SHOW=games`
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
-- `PSPRICES_PRICE_CACHE_TTL_HOURS=24`
 
 Key recommendation env vars in `.env`:
 

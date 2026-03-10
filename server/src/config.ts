@@ -337,10 +337,7 @@ export const config: AppConfig = {
     'STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true
   ),
-  steamPriceCacheFreshTtlSeconds: readIntegerEnv(
-    'STEAM_PRICE_CACHE_FRESH_TTL_SECONDS',
-    readIntegerEnv('STEAM_PRICE_CACHE_TTL_HOURS', 24) * 60 * 60
-  ),
+  steamPriceCacheFreshTtlSeconds: readIntegerEnv('STEAM_PRICE_CACHE_FRESH_TTL_SECONDS', 86400),
   steamPriceCacheStaleTtlSeconds: readIntegerEnv('STEAM_PRICE_CACHE_STALE_TTL_SECONDS', 86400 * 90),
   pspricesScraperBaseUrl: readEnv('PSPRICES_SCRAPER_BASE_URL', 'http://psprices-scraper:8790'),
   pspricesScraperToken: readSecretFile('PSPRICES_SCRAPER_TOKEN', 'psprices_scraper_token'),
@@ -352,7 +349,7 @@ export const config: AppConfig = {
   ),
   pspricesPriceCacheFreshTtlSeconds: readIntegerEnv(
     'PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS',
-    readIntegerEnv('PSPRICES_PRICE_CACHE_TTL_HOURS', 24) * 60 * 60
+    86400
   ),
   pspricesPriceCacheStaleTtlSeconds: readIntegerEnv(
     'PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS',

@@ -31,6 +31,10 @@ interface PsPricesMatchInfo {
   confidence: 'high' | 'low' | 'none';
 }
 
+interface PsPricesCandidate extends PsPricesSnapshot {
+  score: number;
+}
+
 interface PsPricesRouteResponse {
   status: PsPricesRouteStatus;
   igdbGameId: string;
@@ -41,6 +45,7 @@ interface PsPricesRouteResponse {
   cached: boolean;
   bestPrice: PsPricesSnapshot | null;
   match: PsPricesMatchInfo | null;
+  candidates?: PsPricesCandidate[];
 }
 
 const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
@@ -78,6 +83,7 @@ export async function registerPsPricesRoute(
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
       const titleOverride = normalizeNonEmptyString(query['title']);
+      const includeCandidates = normalizeBooleanQuery(query['includeCandidates']);
 
       if (!igdbGameId || platformIgdbId === null) {
         reply.code(400).send({ error: 'igdbGameId and platformIgdbId are required.' });
@@ -95,7 +101,8 @@ export async function registerPsPricesRoute(
           show: config.pspricesShow,
           cached: false,
           bestPrice: null,
-          match: null
+          match: null,
+          ...(includeCandidates ? { candidates: [] } : {})
         };
         reply.code(200).send(unsupportedPayload);
         return;
@@ -123,7 +130,8 @@ export async function registerPsPricesRoute(
           show: config.pspricesShow,
           cached: false,
           bestPrice: null,
-          match: null
+          match: null,
+          ...(includeCandidates ? { candidates: [] } : {})
         };
         reply.code(200).send(unavailablePayload);
         return;
@@ -149,7 +157,8 @@ export async function registerPsPricesRoute(
           show: config.pspricesShow,
           cached: true,
           bestPrice: cachedSnapshot,
-          match: null
+          match: null,
+          ...(includeCandidates ? { candidates: [] } : {})
         };
         reply.code(200).send(cachedPayload);
         return;
@@ -185,7 +194,8 @@ export async function registerPsPricesRoute(
           show: config.pspricesShow,
           cached: false,
           bestPrice: pspricesSnapshot,
-          match: pspricesLookup.match
+          match: pspricesLookup.match,
+          ...(includeCandidates ? { candidates: pspricesLookup.candidates } : {})
         };
         reply.code(200).send(responsePayload);
       } catch (error) {
@@ -251,6 +261,14 @@ function normalizeNumberOrNull(value: unknown): number | null {
   return null;
 }
 
+function normalizeBooleanQuery(value: unknown): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
 function normalizeBooleanOrNull(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
@@ -312,7 +330,11 @@ async function fetchPsPricesSnapshot(
     regionPath: string;
     show: string;
   }
-): Promise<{ snapshot: PsPricesSnapshot | null; match: PsPricesMatchInfo }> {
+): Promise<{
+  snapshot: PsPricesSnapshot | null;
+  match: PsPricesMatchInfo;
+  candidates: PsPricesCandidate[];
+}> {
   const endpoint = new URL('/v1/psprices/search', config.pspricesScraperBaseUrl);
   endpoint.searchParams.set('q', params.title);
   endpoint.searchParams.set('platform', params.platform);
@@ -342,7 +364,8 @@ async function fetchPsPricesSnapshot(
         matchedTitle: null,
         score: null,
         confidence: 'none'
-      }
+      },
+      candidates: []
     };
   }
 
@@ -356,8 +379,9 @@ async function fetchPsPricesSnapshot(
   const candidates = [...candidatesRaw, ...fallbackItem]
     .map((entry) => normalizePsPricesCandidate(entry))
     .filter((entry): entry is PsPricesSnapshot => entry !== null);
+  const dedupedCandidates = dedupePsPricesCandidates(candidates);
 
-  if (candidates.length === 0) {
+  if (dedupedCandidates.length === 0) {
     return {
       snapshot: null,
       match: {
@@ -365,11 +389,12 @@ async function fetchPsPricesSnapshot(
         matchedTitle: null,
         score: null,
         confidence: 'none'
-      }
+      },
+      candidates: []
     };
   }
 
-  const ranked = candidates
+  const ranked = dedupedCandidates
     .map((candidate) => ({
       candidate,
       score: scorePsPricesTitleMatch(params.title, candidate.title ?? '')
@@ -389,8 +414,23 @@ async function fetchPsPricesSnapshot(
       matchedTitle: best.candidate.title,
       score: round2(best.score),
       confidence: hasHighConfidenceMatch ? 'high' : 'low'
-    }
+    },
+    candidates: ranked.slice(0, 30).map((entry) => ({
+      ...entry.candidate,
+      score: round2(entry.score)
+    }))
   };
+}
+
+function dedupePsPricesCandidates(candidates: PsPricesSnapshot[]): PsPricesSnapshot[] {
+  const byKey = new Map<string, PsPricesSnapshot>();
+  for (const candidate of candidates) {
+    const key = `${candidate.title ?? ''}::${candidate.url ?? ''}::${String(candidate.amount ?? '')}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, candidate);
+    }
+  }
+  return [...byKey.values()];
 }
 
 function normalizePsPricesCandidate(item: unknown): PsPricesSnapshot | null {

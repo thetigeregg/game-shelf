@@ -350,6 +350,17 @@ export interface ReviewMatchCandidate extends ReviewScoreResult {
   imageUrl?: string | null;
 }
 
+export interface PriceMatchCandidate {
+  title: string;
+  amount: number | null;
+  currency: string | null;
+  regularAmount: number | null;
+  discountPercent: number | null;
+  isFree: boolean | null;
+  url: string | null;
+  score: number | null;
+}
+
 export interface ManualCandidate {
   platformIgdbId: number;
   fileName: string;

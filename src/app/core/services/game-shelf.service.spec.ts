@@ -65,6 +65,9 @@ describe('GameShelfService', () => {
       lookupMetacriticCandidates: vi.fn(),
       lookupReviewScore: vi.fn(),
       lookupReviewCandidates: vi.fn(),
+      lookupSteamPrice: vi.fn(),
+      lookupPsPrices: vi.fn(),
+      lookupPsPricesCandidates: vi.fn(),
       listPopularityTypes: vi.fn(),
       listPopularityGames: vi.fn()
     };

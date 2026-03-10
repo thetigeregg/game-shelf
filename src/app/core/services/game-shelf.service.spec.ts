@@ -1226,7 +1226,7 @@ describe('GameShelfService', () => {
     ).rejects.toThrowError('Game entry no longer exists.');
   });
 
-  it('refreshes unified pricing using Steam lookup for Windows games', async () => {
+  it('refreshes unified pricing using Steam lookup for Windows wishlist games', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '960',
       title: 'GTA IV',
@@ -1237,7 +1237,7 @@ describe('GameShelfService', () => {
       steamAppId: 204100,
       releaseDate: null,
       releaseYear: 2008,
-      listType: 'collection',
+      listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z'
     };
@@ -1285,12 +1285,12 @@ describe('GameShelfService', () => {
         priceDiscountPercent: 50,
         priceIsFree: false
       }),
-      'collection'
+      'wishlist'
     );
     expect(result).toEqual(updatedEntry);
   });
 
-  it('clears unified pricing for unsupported platforms when refreshed', async () => {
+  it('clears unified pricing for unsupported platforms when refreshed on wishlist', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '77',
       title: 'Unsupported Platform',
@@ -1303,7 +1303,7 @@ describe('GameShelfService', () => {
       priceCurrency: 'CHF',
       releaseDate: null,
       releaseYear: 1995,
-      listType: 'collection',
+      listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z'
     };
@@ -1327,11 +1327,11 @@ describe('GameShelfService', () => {
         priceAmount: null,
         priceCurrency: null
       }),
-      'collection'
+      'wishlist'
     );
   });
 
-  it('preserves existing unified pricing when supported lookup returns unavailable', async () => {
+  it('preserves existing unified pricing when supported lookup returns unavailable on wishlist', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '960',
       title: 'GTA IV',
@@ -1350,7 +1350,7 @@ describe('GameShelfService', () => {
       priceFetchedAt: '2026-03-10T11:00:00.000Z',
       releaseDate: null,
       releaseYear: 2008,
-      listType: 'collection',
+      listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z'
     };
@@ -1379,8 +1379,41 @@ describe('GameShelfService', () => {
         priceDiscountPercent: 50,
         priceIsFree: false
       }),
-      'collection'
+      'wishlist'
     );
+  });
+
+  it('skips pricing refresh for non-wishlist games', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '960',
+      title: 'GTA IV',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      steamAppId: 204100,
+      priceSource: 'steam_store',
+      priceAmount: 19.99,
+      priceCurrency: 'CHF',
+      releaseDate: null,
+      releaseYear: 2008,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    const lookupSteamPrice = vi.fn();
+    (
+      searchApi as unknown as {
+        lookupSteamPrice: ReturnType<typeof vi.fn>;
+      }
+    ).lookupSteamPrice = lookupSteamPrice;
+
+    const result = await service.refreshGamePricing('960', 6);
+
+    expect(result).toEqual(existingEntry);
+    expect(lookupSteamPrice).not.toHaveBeenCalled();
+    expect(repository.upsertFromCatalog).not.toHaveBeenCalled();
   });
 
   it('returns empty box art results for short queries', async () => {

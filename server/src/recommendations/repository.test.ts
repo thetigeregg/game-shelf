@@ -118,6 +118,38 @@ void test('recommendation repository includes capped rows eligible for rearm in 
   assert.deepEqual(query.params, [5, 6, '2026-03-10T00:00:00.000Z', 30, 2026]);
 });
 
+void test('upsertDiscoveryGames preserves PSPrices provider keys with current field names', async () => {
+  const pool = new PoolMock(() => ({ rows: [], rowCount: 1 }));
+  const repository = new RecommendationRepository(pool as never);
+
+  await repository.upsertDiscoveryGames({
+    client: pool as never,
+    rows: [
+      {
+        igdbGameId: '1',
+        platformIgdbId: 130,
+        payload: { title: 'Pokemon Violet', listType: 'discovery' }
+      }
+    ]
+  });
+
+  const query = pool.queries.find((entry) => entry.sql.includes('INSERT INTO games'));
+  assert.ok(query);
+  const sql = query.sql;
+  assert.equal(
+    sql.includes("'psPricesRegularPriceAmount', games.payload->'psPricesRegularPriceAmount'"),
+    true
+  );
+  assert.equal(
+    sql.includes("'psPricesDiscountPercent', games.payload->'psPricesDiscountPercent'"),
+    true
+  );
+  assert.equal(sql.includes("'psPricesIsFree', games.payload->'psPricesIsFree'"), true);
+  assert.equal(sql.includes("'psPricesPriceRegularAmount'"), false);
+  assert.equal(sql.includes("'psPricesPriceDiscountPercent'"), false);
+  assert.equal(sql.includes("'psPricesPriceIsFree'"), false);
+});
+
 void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-specific queries', async () => {
   const pool = new PoolMock((sql) => {
     if (sql.includes('FROM recommendation_runs')) {

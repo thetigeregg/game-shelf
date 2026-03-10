@@ -20,7 +20,7 @@
                 [class.with-pagination]="mediaSlides.length > 1"
                 [src]="slide.src"
                 [alt]="displayTitle"
-                [loading]="index === 0 ? 'eager' : 'lazy'"
+                loading="eager"
                 [showPreloader]="index > 0"
               ></app-detail-media-slide>
             </swiper-slide>

@@ -22,6 +22,7 @@ vi.mock('@ionic/angular/standalone', () => ({
 vi.mock('ionicons/icons', () => ({
   add: {},
   ban: {},
+  cash: {},
   build: {},
   business: {},
   calendar: {},
@@ -99,5 +100,57 @@ describe('GameDetailContentComponent rating display', () => {
 
     expect(component.formatRatingValue(4)).toBe('4');
     expect(component.formatRatingValue(4.5)).toBe('4.5');
+  });
+
+  it('shows current price row only for wishlist entries', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({ listType: 'wishlist' });
+    expect(component.showCurrentPriceLine).toBe(true);
+
+    component.game = makeLibraryGame({ listType: 'collection' });
+    expect(component.showCurrentPriceLine).toBe(false);
+  });
+
+  it('formats current price and discount metadata', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      listType: 'wishlist',
+      priceAmount: 19.99,
+      priceCurrency: 'CHF',
+      priceDiscountPercent: 50,
+      priceRegularAmount: 39.99
+    });
+
+    expect(component.currentPriceLabel).toContain('19.99');
+    expect(component.currentPriceMetaLabel).toContain('-50%');
+    expect(component.currentPriceMetaLabel).toContain('Normal price:');
+    expect(component.currentPriceMetaLabel).toContain('39.99');
+  });
+
+  it('hides normal price metadata when regular equals current', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      listType: 'wishlist',
+      priceAmount: 19.99,
+      priceCurrency: 'CHF',
+      priceRegularAmount: 19.99
+    });
+
+    expect(component.currentPriceMetaLabel).toBeNull();
+  });
+
+  it('shows free label for free games', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      listType: 'wishlist',
+      priceIsFree: true,
+      priceAmount: 0
+    });
+
+    expect(component.currentPriceLabel).toBe('Free');
   });
 });

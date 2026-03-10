@@ -294,7 +294,9 @@ export class GameShelfService {
     );
     this.listRefresh$.next();
     void this.enrichCatalogWithMetadataInBackground(normalizedCatalog, listType);
-    void this.refreshGamePricingInBackground(normalizedGameId, normalizedPlatformIgdbId);
+    if (listType === 'wishlist') {
+      void this.refreshGamePricingInBackground(normalizedGameId, normalizedPlatformIgdbId);
+    }
     return entry;
   }
 

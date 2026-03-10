@@ -372,7 +372,7 @@ describe('MetadataValidatorPage', () => {
 
     await page.refreshHltbForSelectedGames();
     expect(runBulkMock).toHaveBeenCalledOnce();
-    expect(presentToast).toHaveBeenCalledWith('Updated HLTB for 1 game.');
+    expect(presentToast).toHaveBeenCalledWith('Updated HLTB for 2 games.');
     expect(presentToast).toHaveBeenCalledWith(
       'Unable to update HLTB for 1 selected game.',
       'danger'
@@ -417,7 +417,7 @@ describe('MetadataValidatorPage', () => {
     expect(typeof firstBulkCall.delay).toBe('function');
     await firstBulkCall.action(supported);
     await firstBulkCall.delay(0);
-    expect(presentToast).toHaveBeenCalledWith('Updated review for 1 game.');
+    expect(presentToast).toHaveBeenCalledWith('Updated review for 2 games.');
     expect(presentToast).toHaveBeenCalledWith(
       'Unable to update review for 1 selected game.',
       'danger'

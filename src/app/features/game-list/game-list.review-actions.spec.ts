@@ -188,6 +188,36 @@ describe('game-list review actions', () => {
     expect(clearSelectionMode).toHaveBeenCalledOnce();
   });
 
+  it('bulk review update counts recovered retries as updated even when one result has no match data', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      displayedGames: GameEntry[];
+      selectedGameKeys: Set<string>;
+    };
+    const first = createGame({ igdbGameId: '10', platformIgdbId: 6, title: 'First' });
+    const second = createGame({ igdbGameId: '11', platformIgdbId: 6, title: 'Second' });
+    const runBulkAction = vi.fn().mockResolvedValue([
+      { game: first, ok: true, value: createGame({ igdbGameId: '10', reviewScore: 88 }) },
+      { game: second, ok: true, value: createGame({ igdbGameId: '11', reviewScore: null }) }
+    ]);
+    const clearSelectionMode = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+
+    Object.assign(page, {
+      displayedGames: [first, second],
+      selectedGameKeys: new Set(['10::6', '11::6']),
+      runBulkAction,
+      clearSelectionMode,
+      presentToast
+    });
+
+    await (
+      page as unknown as { updateReviewForSelectedGames: () => Promise<void> }
+    ).updateReviewForSelectedGames();
+
+    expect(presentToast).toHaveBeenCalledWith('Updated review data for 2 games.');
+    expect(clearSelectionMode).toHaveBeenCalledOnce();
+  });
+
   it('moves selected games using batched service call', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       displayedGames: GameEntry[];

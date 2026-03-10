@@ -426,23 +426,23 @@ export class MetadataValidatorPage {
         delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
-      const updatedCount = results.filter(
+      const succeededCount = results.length - failedCount;
+      const matchedCount = results.filter(
         (result) => result.ok && result.value && this.hasHltbMetadata(result.value)
       ).length;
-      const missingCount = results.length - failedCount - updatedCount;
       this.debugLogService.trace('metadata_validator.bulk_hltb.complete', {
         selectedCount: results.length,
-        updatedCount,
-        missingCount,
+        succeededCount,
+        matchedCount,
         failedCount
       });
 
-      if (updatedCount > 0) {
-        await this.presentToast(
-          `Updated HLTB for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
-        );
-      } else if (missingCount > 0 && failedCount === 0) {
+      if (matchedCount === 0 && failedCount === 0) {
         await this.presentToast('No HLTB matches found for selected games.', 'warning');
+      } else if (succeededCount > 0) {
+        await this.presentToast(
+          `Updated HLTB for ${String(succeededCount)} game${succeededCount === 1 ? '' : 's'}.`
+        );
       }
 
       if (failedCount > 0) {
@@ -484,17 +484,17 @@ export class MetadataValidatorPage {
         delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
-      const updatedCount = results.filter(
+      const succeededCount = results.length - failedCount;
+      const matchedCount = results.filter(
         (result) => result.ok && result.value && this.hasReviewMetadata(result.value)
       ).length;
-      const missingCount = results.length - failedCount - updatedCount;
 
-      if (updatedCount > 0) {
-        await this.presentToast(
-          `Updated review for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
-        );
-      } else if (missingCount > 0 && failedCount === 0) {
+      if (matchedCount === 0 && failedCount === 0) {
         await this.presentToast('No review matches found for selected games.', 'warning');
+      } else if (succeededCount > 0) {
+        await this.presentToast(
+          `Updated review for ${String(succeededCount)} game${succeededCount === 1 ? '' : 's'}.`
+        );
       }
 
       if (failedCount > 0) {

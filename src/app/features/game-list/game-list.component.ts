@@ -967,19 +967,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)
     );
     const failedCount = results.filter((result) => !result.ok).length;
-    const updatedCount = results.filter(
+    const succeededCount = results.length - failedCount;
+    const matchedCount = results.filter(
       (result) => result.ok && result.value && hasHltbData(result.value)
     ).length;
-    const missingCount = results.length - failedCount - updatedCount;
 
     this.clearSelectionMode();
 
-    if (updatedCount > 0) {
-      await this.presentToast(
-        `Updated HLTB data for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
-      );
-    } else if (missingCount > 0 && failedCount === 0) {
+    if (matchedCount === 0 && failedCount === 0) {
       await this.presentToast('No HLTB matches found for selected games.', 'warning');
+    } else if (succeededCount > 0) {
+      await this.presentToast(
+        `Updated HLTB data for ${String(succeededCount)} game${succeededCount === 1 ? '' : 's'}.`
+      );
     }
 
     if (failedCount > 0) {
@@ -1009,19 +1009,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.gameShelfService.refreshGameMetacriticScore(game.igdbGameId, game.platformIgdbId)
     );
     const failedCount = results.filter((result) => !result.ok).length;
-    const updatedCount = results.filter(
+    const succeededCount = results.length - failedCount;
+    const matchedCount = results.filter(
       (result) => result.ok && result.value && hasReviewData(result.value)
     ).length;
-    const missingCount = results.length - failedCount - updatedCount;
 
     this.clearSelectionMode();
 
-    if (updatedCount > 0) {
-      await this.presentToast(
-        `Updated review data for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
-      );
-    } else if (missingCount > 0 && failedCount === 0) {
+    if (matchedCount === 0 && failedCount === 0) {
       await this.presentToast('No review matches found for selected games.', 'warning');
+    } else if (succeededCount > 0) {
+      await this.presentToast(
+        `Updated review data for ${String(succeededCount)} game${succeededCount === 1 ? '' : 's'}.`
+      );
     }
 
     if (failedCount > 0) {

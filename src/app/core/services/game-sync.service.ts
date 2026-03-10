@@ -25,6 +25,7 @@ import { DebugLogService } from './debug-log.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
 import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
+import { buildOutboxEntry, generateOperationId } from '../data/outbox-entry.util';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -106,28 +107,23 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
-    const now = new Date().toISOString();
-    const entry: OutboxEntry = {
-      opId:
-        typeof request.opId === 'string' && request.opId.trim().length > 0
-          ? request.opId.trim()
-          : this.generateOperationId(),
-      entityType: request.entityType,
-      operation: request.operation,
-      payload: request.payload,
-      clientTimestamp: request.clientTimestamp ?? now,
-      createdAt: now,
-      attemptCount: 0,
-      lastError: null
-    };
+    const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
     await this.db.outbox.put(entry);
+    try {
+      this.onOutboxEntryEnqueued(entry);
+    } catch {
+      // Keep outbox enqueue resilient if optional observability logic throws.
+    }
+    void this.syncNow();
+  }
+
+  onOutboxEntryEnqueued(entry: OutboxEntry): void {
     this.debugLogService.debug('sync.outbox.enqueued', {
       opId: entry.opId,
       entityType: entry.entityType,
       operation: entry.operation
     });
-    void this.syncNow();
   }
 
   async syncNow(): Promise<void> {
@@ -1133,10 +1129,6 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private generateOperationId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-
-    return `${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
+    return generateOperationId();
   }
 }

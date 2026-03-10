@@ -148,6 +148,7 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
   });
 
   assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-psprices-cache'], 'MISS');
   const body = parseJsonRecord(response.body);
   assert.equal(body['status'], 'ok');
   assert.equal(body['cached'], false);
@@ -272,6 +273,7 @@ void test('PSPrices route returns fresh cached result without scraper fetch', as
   });
 
   assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-psprices-cache'], 'HIT_FRESH');
   const body = parseJsonRecord(response.body);
   assert.equal(body['status'], 'ok');
   assert.equal(body['cached'], true);

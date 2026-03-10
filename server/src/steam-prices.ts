@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool, QueryResultRow } from 'pg';
+import { incrementSteamPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
 
 interface SteamPricesRouteOptions {
@@ -65,15 +66,18 @@ export async function registerSteamPricesRoute(
       const cc = normalizeCountryCode(query['cc']) ?? config.steamDefaultCountry;
 
       if (!igdbGameId || platformIgdbId === null) {
+        incrementSteamPriceMetric('invalidRequests');
         reply.code(400).send({ error: 'igdbGameId and platformIgdbId are required.' });
         return;
       }
 
       if (query['cc'] !== undefined && normalizeCountryCode(query['cc']) === null) {
+        incrementSteamPriceMetric('invalidRequests');
         reply.code(400).send({ error: 'cc must be a two-letter ISO country code.' });
         return;
       }
       if (querySteamAppIdRaw !== undefined && querySteamAppId === null) {
+        incrementSteamPriceMetric('invalidRequests');
         reply.code(400).send({ error: 'steamAppId must be a positive integer.' });
         return;
       }
@@ -92,11 +96,24 @@ export async function registerSteamPricesRoute(
         return;
       }
 
-      const row = await pool.query<GamePayloadRow>(
-        'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
-        [igdbGameId, platformIgdbId]
-      );
-      const payload = normalizePayloadObject(row.rows[0]?.payload);
+      let payload: Record<string, unknown> | null = null;
+      try {
+        const row = await pool.query<GamePayloadRow>(
+          'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
+          [igdbGameId, platformIgdbId]
+        );
+        payload = normalizePayloadObject(row.rows[0]?.payload);
+      } catch (error) {
+        incrementSteamPriceMetric('readErrors');
+        request.log.warn({
+          msg: 'steam_prices_read_failed',
+          igdbGameId,
+          platformIgdbId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        reply.code(502).send({ error: 'Unable to read game pricing state.' });
+        return;
+      }
 
       if (!payload && querySteamAppId === null) {
         reply.code(404).send({ error: 'Game not found.' });
@@ -120,6 +137,8 @@ export async function registerSteamPricesRoute(
 
       const cachedSnapshot = payload ? readCachedSteamSnapshot(payload, cc, nowProvider()) : null;
       if (cachedSnapshot) {
+        incrementSteamPriceMetric('hits');
+        reply.header('X-GameShelf-Steam-Price-Cache', 'HIT_FRESH');
         const cachedStatus: SteamRouteStatus = isAvailableSnapshot(cachedSnapshot)
           ? 'ok'
           : 'unavailable';
@@ -136,17 +155,31 @@ export async function registerSteamPricesRoute(
         return;
       }
 
+      incrementSteamPriceMetric('misses');
       try {
         const steamSnapshot = await fetchSteamPriceSnapshot(fetchImpl, steamAppId, cc);
         if (payload) {
-          await persistSteamSnapshot(pool, {
-            igdbGameId,
-            platformIgdbId,
-            payload,
-            cc,
-            steamAppId,
-            bestPrice: steamSnapshot
-          });
+          try {
+            await persistSteamSnapshot(pool, {
+              igdbGameId,
+              platformIgdbId,
+              payload,
+              cc,
+              steamAppId,
+              bestPrice: steamSnapshot
+            });
+            incrementSteamPriceMetric('writes');
+          } catch (error) {
+            incrementSteamPriceMetric('writeErrors');
+            request.log.warn({
+              msg: 'steam_prices_write_failed',
+              igdbGameId,
+              platformIgdbId,
+              steamAppId,
+              cc,
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
         }
 
         const routeStatus: SteamRouteStatus = steamSnapshot ? 'ok' : 'unavailable';
@@ -159,8 +192,10 @@ export async function registerSteamPricesRoute(
           cached: false,
           bestPrice: steamSnapshot
         };
+        reply.header('X-GameShelf-Steam-Price-Cache', 'MISS');
         reply.code(200).send(responsePayload);
       } catch (error) {
+        incrementSteamPriceMetric('upstreamErrors');
         request.log.warn({
           msg: 'steam_prices_fetch_failed',
           igdbGameId,

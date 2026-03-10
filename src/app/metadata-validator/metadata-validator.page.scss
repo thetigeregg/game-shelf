@@ -12,7 +12,13 @@
 
 .row-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 110px;
+}
+
+.row-actions ion-button {
+  margin: 0;
 }
 
 .picker-search-row {

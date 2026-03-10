@@ -33,8 +33,10 @@ vi.mock('ionicons/icons', () => ({
   hardwareChip: {},
   book: {},
   library: {},
+  medal: {},
   pricetags: {},
   star: {},
+  time: {},
   trophy: {}
 }));
 

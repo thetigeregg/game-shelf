@@ -3,6 +3,13 @@
   padding: 0;
 }
 
+.validator-game-row {
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  --inner-padding-top: 8px;
+  --inner-padding-bottom: 8px;
+}
+
 .bulk-actions-row {
   display: flex;
   gap: 8px;

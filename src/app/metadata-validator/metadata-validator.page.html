@@ -118,7 +118,13 @@
 
     @if (filteredGames$ | async; as games) {
       @for (game of games; track trackByGameKey($index, game)) {
-        <ion-item button detail="false" (click)="toggleGameSelection(game)">
+        <ion-item
+          class="validator-game-row"
+          lines="full"
+          button
+          detail="false"
+          (click)="toggleGameSelection(game)"
+        >
           <ion-checkbox
             slot="start"
             [checked]="isGameSelected(game)"

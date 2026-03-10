@@ -289,6 +289,43 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('preserves normalized pricing fields from IGDB id payload', async () => {
+    const promise = firstValueFrom(service.getGameById('102'));
+    const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/102`);
+    req.flush({
+      item: {
+        igdbGameId: '102',
+        title: 'Pricing Test',
+        coverUrl: null,
+        coverSource: 'igdb',
+        platforms: ['PlayStation 5'],
+        platform: 'PlayStation 5',
+        platformIgdbId: 167,
+        priceSource: 'psprices',
+        priceFetchedAt: '2026-03-11T09:30:00.000Z',
+        priceAmount: '39.9',
+        priceCurrency: 'chf',
+        priceRegularAmount: '79.9',
+        priceDiscountPercent: '50',
+        priceIsFree: 'false',
+        priceUrl: 'https://psprices.com/region-ch/game/123/example'
+      }
+    });
+
+    await expect(promise).resolves.toMatchObject({
+      igdbGameId: '102',
+      title: 'Pricing Test',
+      priceSource: 'psprices',
+      priceFetchedAt: '2026-03-11T09:30:00.000Z',
+      priceAmount: 39.9,
+      priceCurrency: 'CHF',
+      priceRegularAmount: 79.9,
+      priceDiscountPercent: 50,
+      priceIsFree: false,
+      priceUrl: 'https://psprices.com/region-ch/game/123/example'
+    });
+  });
+
   it('maps refresh endpoint failure to user-safe error', async () => {
     const promise = firstValueFrom(service.getGameById('100'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);

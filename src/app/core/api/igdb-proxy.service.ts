@@ -1075,6 +1075,30 @@ export class IgdbProxyService implements GameSearchApi {
     const normalizedSteamAppId = this.normalizePositiveInteger(
       (result as GameCatalogResult & { steamAppId?: unknown }).steamAppId
     );
+    const normalizedPriceSource = this.normalizePriceSource(
+      (result as GameCatalogResult & { priceSource?: unknown }).priceSource
+    );
+    const normalizedPriceFetchedAt = this.normalizeReleaseDate(
+      (result as GameCatalogResult & { priceFetchedAt?: unknown }).priceFetchedAt
+    );
+    const normalizedPriceAmount = this.normalizeOptionalNumber(
+      (result as GameCatalogResult & { priceAmount?: unknown }).priceAmount
+    );
+    const normalizedPriceCurrency = this.normalizeCurrencyCode(
+      (result as GameCatalogResult & { priceCurrency?: unknown }).priceCurrency
+    );
+    const normalizedPriceRegularAmount = this.normalizeOptionalNumber(
+      (result as GameCatalogResult & { priceRegularAmount?: unknown }).priceRegularAmount
+    );
+    const normalizedPriceDiscountPercent = this.normalizeOptionalNumber(
+      (result as GameCatalogResult & { priceDiscountPercent?: unknown }).priceDiscountPercent
+    );
+    const normalizedPriceIsFree = this.normalizeOptionalBoolean(
+      (result as GameCatalogResult & { priceIsFree?: unknown }).priceIsFree
+    );
+    const normalizedPriceUrl = this.normalizeExternalUrl(
+      (result as GameCatalogResult & { priceUrl?: unknown }).priceUrl
+    );
     const explicitMetacriticScore = this.normalizeMetacriticScore(result.metacriticScore);
     const explicitMetacriticUrl = this.normalizeExternalUrl(result.metacriticUrl);
     const normalizedReviewSource =
@@ -1132,6 +1156,18 @@ export class IgdbProxyService implements GameSearchApi {
         ? { keywordIds: this.normalizePositiveIntegerList(result.keywordIds) }
         : {}),
       ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
+      ...(normalizedPriceSource !== null ? { priceSource: normalizedPriceSource } : {}),
+      ...(normalizedPriceFetchedAt !== null ? { priceFetchedAt: normalizedPriceFetchedAt } : {}),
+      ...(normalizedPriceAmount !== null ? { priceAmount: normalizedPriceAmount } : {}),
+      ...(normalizedPriceCurrency !== null ? { priceCurrency: normalizedPriceCurrency } : {}),
+      ...(normalizedPriceRegularAmount !== null
+        ? { priceRegularAmount: normalizedPriceRegularAmount }
+        : {}),
+      ...(normalizedPriceDiscountPercent !== null
+        ? { priceDiscountPercent: normalizedPriceDiscountPercent }
+        : {}),
+      ...(normalizedPriceIsFree !== null ? { priceIsFree: normalizedPriceIsFree } : {}),
+      ...(normalizedPriceUrl !== null ? { priceUrl: normalizedPriceUrl } : {}),
       ...(result.screenshots !== undefined
         ? { screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }) }
         : {}),
@@ -1185,6 +1221,58 @@ export class IgdbProxyService implements GameSearchApi {
 
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizePriceSource(value: unknown): 'steam_store' | 'psprices' | null {
+    if (value === 'steam_store' || value === 'psprices') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private normalizeCurrencyCode(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(normalized)) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeOptionalBoolean(value: unknown): boolean | null {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true') {
+        return true;
+      }
+      if (normalized === 'false') {
+        return false;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeOptionalNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = Number.parseFloat(value.trim());
+      return Number.isFinite(normalized) ? normalized : null;
+    }
+
+    return null;
   }
 
   private normalizeCoverUrl(coverUrl: string | null | undefined): string | null {

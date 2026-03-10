@@ -150,6 +150,42 @@ describe('GameShelfService', () => {
     expect(repository.remove).toHaveBeenCalledWith('123', 130);
   });
 
+  it('triggers Steam pricing refresh in background after add', async () => {
+    const mario: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Mario Kart',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Switch'],
+      platform: 'Switch',
+      platformIgdbId: 130,
+      releaseDate: '2017-04-28T00:00:00.000Z',
+      releaseYear: 2017
+    };
+
+    const lookupSteamPrice = vi.fn(() => of({ status: 'unsupported_platform' }));
+    (
+      searchApi as unknown as {
+        lookupSteamPrice: ReturnType<typeof vi.fn>;
+      }
+    ).lookupSteamPrice = lookupSteamPrice;
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...mario,
+      platform: 'Switch',
+      platformIgdbId: 130,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+
+    await service.addGame(mario, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(lookupSteamPrice).toHaveBeenCalledWith('123', 130);
+  });
+
   it('enriches games with HLTB completion times during add when available', async () => {
     const mario: GameCatalogResult = {
       igdbGameId: '123',

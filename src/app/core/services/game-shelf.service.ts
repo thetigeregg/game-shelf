@@ -41,6 +41,14 @@ import {
   normalizeTheGamesDbUrl
 } from './game-shelf-normalization';
 
+interface SteamPriceLookupApi {
+  lookupSteamPrice(
+    igdbGameId: string,
+    platformIgdbId: number,
+    countryCode?: string
+  ): Observable<unknown>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
   private static readonly IGDB_COVER_MIGRATION_DONE_STORAGE_KEY =
@@ -218,6 +226,7 @@ export class GameShelfService {
     );
     this.listRefresh$.next();
     void this.enrichCatalogWithMetadataInBackground(normalizedCatalog, listType);
+    void this.refreshSteamPriceInBackground(normalizedGameId, normalizedPlatformIgdbId);
     return entry;
   }
 
@@ -1272,6 +1281,23 @@ export class GameShelfService {
       listType
     );
     this.listRefresh$.next();
+  }
+
+  private async refreshSteamPriceInBackground(
+    igdbGameId: string,
+    platformIgdbId: number
+  ): Promise<void> {
+    const steamPricingApi = this.searchApi as Partial<SteamPriceLookupApi>;
+
+    if (typeof steamPricingApi.lookupSteamPrice !== 'function') {
+      return;
+    }
+
+    try {
+      await firstValueFrom(steamPricingApi.lookupSteamPrice(igdbGameId, platformIgdbId));
+    } catch {
+      // Keep add flow resilient when Steam pricing endpoint is unavailable.
+    }
   }
 
   private async lookupReviewScoreForCatalog(

@@ -416,6 +416,7 @@ export type GameSortField =
   | 'createdAt'
   | 'hltb'
   | 'tas'
+  | 'price'
   | 'review'
   | 'metacritic'
   | 'platform';

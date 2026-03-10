@@ -782,6 +782,7 @@ export class ListPageComponent {
       value === 'createdAt' ||
       value === 'hltb' ||
       (value === 'tas' && isTasFeatureEnabled()) ||
+      (value === 'price' && this.listType === 'wishlist') ||
       value === 'review' ||
       value === 'metacritic' ||
       value === 'platform'

@@ -96,7 +96,7 @@
         <ion-label>Date Set</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.set"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.set"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('set', $any($event).detail.checked)"
         ></ion-toggle>
@@ -105,7 +105,7 @@
         <ion-label>Date Changed</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.changed"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.changed"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('changed', $any($event).detail.checked)"
         ></ion-toggle>
@@ -114,7 +114,7 @@
         <ion-label>Date Removed</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.removed"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.removed"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('removed', $any($event).detail.checked)"
         ></ion-toggle>
@@ -123,7 +123,7 @@
         <ion-label>Release Day</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.day"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.day"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('day', $any($event).detail.checked)"
         ></ion-toggle>

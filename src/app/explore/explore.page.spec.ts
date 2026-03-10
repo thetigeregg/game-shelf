@@ -153,7 +153,8 @@ describe('ExplorePage recommendations UX', () => {
     setGameStatus: vi.fn(),
     setGameRating: vi.fn(),
     listTags: vi.fn().mockResolvedValue([]),
-    setGameTags: vi.fn()
+    setGameTags: vi.fn(),
+    isGameOnDiscount: vi.fn().mockReturnValue(false)
   };
 
   const recommendationIgnoreServiceMock = {
@@ -1550,6 +1551,88 @@ describe('ExplorePage recommendations UX', () => {
     expect(first?.title).toBe('Game #700');
     expect(first?.platformLabel).toBe('PC');
     expect(second?.platformLabel).toBe('PS4');
+  });
+
+  it('formats discovery row pricing from cached recommendation metadata', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      recommendationDisplayMetadata: Map<
+        string,
+        {
+          title: string;
+          coverUrl: string | null;
+          platformLabel: string;
+          releaseYear: number | null;
+          priceAmount?: number | null;
+          priceRegularAmount?: number | null;
+          priceDiscountPercent?: number | null;
+          priceIsFree?: boolean | null;
+        }
+      >;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      getRecommendationRowPriceLabel: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => string | null;
+      isRecommendationRowPriceOnDiscount: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => boolean;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.recommendationDisplayMetadata.set(page.buildIdentityKey('700', 167), {
+      title: 'Sample',
+      coverUrl: null,
+      platformLabel: 'PS5',
+      releaseYear: 2025,
+      priceAmount: 19.99,
+      priceRegularAmount: 39.99,
+      priceDiscountPercent: 50,
+      priceIsFree: false
+    });
+    gameShelfServiceMock.isGameOnDiscount.mockReturnValueOnce(true);
+
+    expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 167 })).toBe(
+      'CHF\xa019.99'
+    );
+    expect(
+      page.isRecommendationRowPriceOnDiscount({ igdbGameId: '700', platformIgdbId: 167 })
+    ).toBe(true);
+  });
+
+  it('hides recommendation row pricing outside discovery target', () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      recommendationDisplayMetadata: Map<
+        string,
+        {
+          title: string;
+          coverUrl: string | null;
+          platformLabel: string;
+          releaseYear: number | null;
+          priceAmount?: number | null;
+        }
+      >;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      getRecommendationRowPriceLabel: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => string | null;
+    };
+
+    page.selectedTarget = 'BACKLOG';
+    page.recommendationDisplayMetadata.set(page.buildIdentityKey('700', 6), {
+      title: 'Sample',
+      coverUrl: null,
+      platformLabel: 'PC',
+      releaseYear: 2025,
+      priceAmount: 9.99
+    });
+
+    expect(
+      page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 6 })
+    ).toBeNull();
   });
 
   it('covers list-type picker confirm/cancel branches', async () => {

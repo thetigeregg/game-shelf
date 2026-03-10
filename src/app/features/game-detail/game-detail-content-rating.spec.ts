@@ -104,7 +104,7 @@ describe('GameDetailContentComponent rating display', () => {
     expect(component.formatRatingValue(4.5)).toBe('4.5');
   });
 
-  it('shows current price row only for wishlist entries', () => {
+  it('shows current price row for wishlist and hides for collection', () => {
     const component = createComponent();
     component.context = 'library';
     component.game = makeLibraryGame({ listType: 'wishlist' });
@@ -112,6 +112,21 @@ describe('GameDetailContentComponent rating display', () => {
 
     component.game = makeLibraryGame({ listType: 'collection' });
     expect(component.showCurrentPriceLine).toBe(false);
+  });
+
+  it('shows current price row for discovery detail when explicitly enabled and data exists', () => {
+    const component = createComponent();
+    component.context = 'explore';
+    component.showPriceForNonWishlist = true;
+    component.game = {
+      ...makeLibraryGame({ listType: 'collection' }),
+      listType: undefined,
+      priceAmount: 49.9,
+      priceCurrency: 'CHF'
+    } as unknown as GameEntry;
+
+    expect(component.showCurrentPriceLine).toBe(true);
+    expect(component.currentPriceLabel).toContain('49.90');
   });
 
   it('formats current price and discount metadata', () => {

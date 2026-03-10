@@ -274,19 +274,17 @@
             </ion-label>
           </ion-item>
 
-          @if (showLibrarySections) {
-            @if (showCurrentPriceLine) {
-              <ion-item>
-                <ion-icon slot="start" name="cash" aria-hidden="true"></ion-icon>
-                <ion-label>
-                  <h2>Current Price</h2>
-                  <p>{{ currentPriceLabel }}</p>
-                  @if (currentPriceMetaLabel; as currentPriceMetaLabelValue) {
-                    <p>{{ currentPriceMetaLabelValue }}</p>
-                  }
-                </ion-label>
-              </ion-item>
-            }
+          @if (showCurrentPriceLine) {
+            <ion-item>
+              <ion-icon slot="start" name="cash" aria-hidden="true"></ion-icon>
+              <ion-label>
+                <h2>Current Price</h2>
+                <p>{{ currentPriceLabel }}</p>
+                @if (currentPriceMetaLabel; as currentPriceMetaLabelValue) {
+                  <p>{{ currentPriceMetaLabelValue }}</p>
+                }
+              </ion-label>
+            </ion-item>
           }
 
           @if (showLibrarySections) {

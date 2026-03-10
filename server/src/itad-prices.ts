@@ -47,7 +47,7 @@ interface BestSteamPrice {
 
 const WINDOWS_IGDB_PLATFORM_ID = 6;
 const WINDOWS_ITAD_PLATFORM_ID = 1;
-const REQUIRED_PRICE_CURRENCY = 'CHF';
+const REQUIRED_PRICE_CURRENCY = 'EUR';
 const ITAD_GAME_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STEAM_APP_URL_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
 

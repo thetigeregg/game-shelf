@@ -7,6 +7,7 @@ import type {
   GameStatus,
   ListType
 } from '../core/models/game.models';
+import { isTasFeatureEnabled } from '../core/config/runtime-config';
 
 const VALID_GAME_TYPES: Array<NonNullable<GameCatalogResult['gameType']>> = [
   'main_game',
@@ -327,7 +328,7 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
         parsed.sortField === 'releaseDate' ||
         parsed.sortField === 'createdAt' ||
         parsed.sortField === 'hltb' ||
-        parsed.sortField === 'tas' ||
+        (parsed.sortField === 'tas' && isTasFeatureEnabled()) ||
         parsed.sortField === 'review' ||
         parsed.sortField === 'metacritic' ||
         parsed.sortField === 'platform'

@@ -27,6 +27,7 @@ import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
 import { buildOutboxEntry, generateOperationId } from './outbox-entry.util';
+import { isTasFeatureEnabled } from '../config/runtime-config';
 
 type RepositoryTransactionTable = AppDb['games'] | AppDb['tags'] | AppDb['views'] | AppDb['outbox'];
 
@@ -1448,7 +1449,7 @@ export class DexieGameRepository implements GameRepository {
       value === 'releaseDate' ||
       value === 'createdAt' ||
       value === 'hltb' ||
-      value === 'tas' ||
+      (value === 'tas' && isTasFeatureEnabled()) ||
       value === 'metacritic' ||
       value === 'platform'
     ) {

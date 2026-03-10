@@ -4,6 +4,7 @@ interface RuntimeFeatureFlags {
   showMgcImport?: boolean;
   e2eFixtures?: boolean;
   recommendationsExploreEnabled?: boolean;
+  tasEnabled?: boolean;
 }
 
 interface RuntimeFirebaseConfig {
@@ -102,6 +103,20 @@ export function isRecommendationsExploreEnabled(): boolean {
   }
 
   return environment.featureFlags.recommendationsExploreEnabled;
+}
+
+export function isTasFeatureEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    const runtimeValue = parseBoolean(
+      window.__GAME_SHELF_RUNTIME_CONFIG__?.featureFlags?.tasEnabled
+    );
+
+    if (runtimeValue !== null) {
+      return runtimeValue;
+    }
+  }
+
+  return environment.featureFlags.tasEnabled;
 }
 
 export function getFirebaseWebConfig(): {

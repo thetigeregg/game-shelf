@@ -155,13 +155,16 @@ function mergeMetadataIntoPayload(params: {
           keywords: params.metadata.keywords,
           keywordIds: params.metadata.keywordIds,
           screenshots: params.metadata.screenshots,
-          videos: params.metadata.videos
+          videos: params.metadata.videos,
+          steamAppId: params.metadata.steamAppId
         }
       : {}),
     taxonomyEnrichmentStatus: status,
     taxonomyEnrichedAt: params.completedAt,
     mediaEnrichmentStatus: status,
     mediaEnrichedAt: params.completedAt,
+    steamEnrichmentStatus: status,
+    steamEnrichedAt: params.completedAt,
     metadataSyncEnqueuedAt: params.completedAt
   };
 }
@@ -169,7 +172,8 @@ function mergeMetadataIntoPayload(params: {
 function rowNeedsMetadataFetch(payload: Record<string, unknown>): boolean {
   return (
     isBlank(payloadValueAsString(payload['taxonomyEnrichedAt'])) ||
-    isBlank(payloadValueAsString(payload['mediaEnrichedAt']))
+    isBlank(payloadValueAsString(payload['mediaEnrichedAt'])) ||
+    isBlank(payloadValueAsString(payload['steamEnrichedAt']))
   );
 }
 

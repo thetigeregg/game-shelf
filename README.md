@@ -109,6 +109,9 @@ npm run build
 
 - Unified price fields are persisted on each game row (`priceSource`, `priceAmount`, `priceCurrency`, `priceRegularAmount`, `priceDiscountPercent`, `priceIsFree`, `priceUrl`, `priceFetchedAt`).
 - Pricing refresh is supported for IGDB platforms: `6` (Steam/Windows), `48` (PS4), `167` (PS5), `130` (Switch), and `508` (Switch 2).
+- `GET /v1/psprices/prices` supports optional `title` query override for matching (useful when catalog title differs from store title).
+- PSPrices matching uses ranked candidates and only persists a price on high-confidence title matches.
+- Transient `unavailable` responses keep previously persisted price fields instead of clearing them.
 - Collection/Wishlist multi-select includes **Update pricing** in bulk actions.
 - Metadata Validator includes **Missing Pricing (supported platforms)** and only evaluates the platforms above.
 

@@ -118,6 +118,7 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
       assert.equal(url.searchParams.get('platform'), 'PS5');
       assert.equal(url.searchParams.get('region'), 'region-ch');
       assert.equal(url.searchParams.get('show'), 'games');
+      assert.equal(url.searchParams.get('includeCandidates'), '1');
 
       return Promise.resolve(
         new Response(
@@ -174,6 +175,66 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
   assert.equal(persisted['priceIsFree'], false);
   assert.equal(persisted['priceUrl'], 'https://psprices.com/region-ch/game/1234/monster-train-2');
   assert.equal(requestUrls.length, 1);
+
+  await app.close();
+});
+
+void test('PSPrices route preserves existing unified price data when lookup is unavailable', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, {
+    title: 'Monster Train 2',
+    priceSource: 'psprices',
+    priceAmount: 49.9,
+    priceCurrency: 'CHF',
+    priceRegularAmount: 69.9,
+    priceDiscountPercent: 28,
+    priceIsFree: false,
+    priceUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+    psPricesPriceAmount: 49.9,
+    psPricesPriceCurrency: 'CHF',
+    psPricesRegularPriceAmount: 69.9,
+    psPricesDiscountPercent: 28,
+    psPricesIsFree: false,
+    psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Different Game Name',
+              priceAmount: 19.9,
+              currency: 'CHF'
+            },
+            candidates: []
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'unavailable');
+  assert.equal(body['bestPrice'], null);
+
+  const persisted = pool.getPayload('332273', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['priceSource'], 'psprices');
+  assert.equal(persisted['priceAmount'], 49.9);
+  assert.equal(persisted['priceCurrency'], 'CHF');
+  assert.equal(persisted['priceRegularAmount'], 69.9);
 
   await app.close();
 });

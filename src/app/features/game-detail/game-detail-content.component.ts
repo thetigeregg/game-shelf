@@ -23,6 +23,7 @@ import { addIcons } from 'ionicons';
 import {
   add,
   ban,
+  cash,
   build,
   business,
   calendar,
@@ -75,6 +76,8 @@ type DetailMediaSlide = { key: string; src: string };
   ]
 })
 export class GameDetailContentComponent {
+  private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
+
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
   @Input() statusOptions: { value: GameStatus; label: string }[] = [];
@@ -107,6 +110,7 @@ export class GameDetailContentComponent {
     addIcons({
       add,
       ban,
+      cash,
       build,
       business,
       calendar,
@@ -318,6 +322,68 @@ export class GameDetailContentComponent {
     return 'Review Score';
   }
 
+  get showCurrentPriceLine(): boolean {
+    if (!this.showLibrarySections) {
+      return false;
+    }
+
+    return (this.game as Partial<GameEntry>).listType === 'wishlist';
+  }
+
+  get currentPriceLabel(): string {
+    if ((this.game as Partial<GameEntry>).priceIsFree === true) {
+      return 'Free';
+    }
+
+    const amount =
+      typeof this.game.priceAmount === 'number' && Number.isFinite(this.game.priceAmount)
+        ? this.game.priceAmount
+        : null;
+    if (amount === null || amount < 0) {
+      return 'Unknown';
+    }
+
+    return this.formatPriceAmount(amount, this.resolvePriceCurrency(this.game.priceCurrency));
+  }
+
+  get currentPriceMetaLabel(): string | null {
+    const parts: string[] = [];
+    const currentAmount =
+      (this.game as Partial<GameEntry>).priceIsFree === true
+        ? 0
+        : typeof this.game.priceAmount === 'number' && Number.isFinite(this.game.priceAmount)
+          ? this.game.priceAmount
+          : null;
+    const discountPercent =
+      typeof this.game.priceDiscountPercent === 'number' &&
+      Number.isFinite(this.game.priceDiscountPercent)
+        ? this.game.priceDiscountPercent
+        : null;
+    if (discountPercent !== null && discountPercent > 0) {
+      parts.push(`-${String(Math.round(discountPercent))}%`);
+    }
+
+    const regularAmount =
+      typeof this.game.priceRegularAmount === 'number' &&
+      Number.isFinite(this.game.priceRegularAmount)
+        ? this.game.priceRegularAmount
+        : null;
+    const regularDiffersFromCurrent =
+      regularAmount !== null &&
+      regularAmount >= 0 &&
+      (currentAmount === null || Math.abs(regularAmount - currentAmount) >= 0.01);
+    if (regularDiffersFromCurrent) {
+      parts.push(
+        `Normal price: ${this.formatPriceAmount(
+          regularAmount,
+          this.resolvePriceCurrency(this.game.priceCurrency)
+        )}`
+      );
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : null;
+  }
+
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {
     return this.detailTextExpanded[field];
   }
@@ -372,6 +438,24 @@ export class GameDetailContentComponent {
     }
 
     return normalized;
+  }
+
+  private resolvePriceCurrency(value: string | null | undefined): string {
+    if (typeof value !== 'string') {
+      return GameDetailContentComponent.DEFAULT_PRICE_CURRENCY;
+    }
+
+    const normalized = value.trim().toUpperCase();
+    return /^[A-Z]{3}$/.test(normalized)
+      ? normalized
+      : GameDetailContentComponent.DEFAULT_PRICE_CURRENCY;
+  }
+
+  private formatPriceAmount(amount: number, currencyCode: string): string {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currencyCode
+    }).format(amount);
   }
 
   private resolveReviewSourceLabel(): 'metacritic' | 'mobygames' | null {

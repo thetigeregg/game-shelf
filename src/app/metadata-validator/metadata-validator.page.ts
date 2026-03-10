@@ -86,12 +86,14 @@ export class MetadataValidatorPage {
   private static readonly BULK_METACRITIC_MAX_ATTEMPTS = 3;
   private static readonly BULK_METACRITIC_RETRY_BASE_DELAY_MS = 1000;
   private static readonly BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS = 15000;
-
-  readonly missingFilterOptions: Array<{ value: MissingMetadataFilter; label: string }> = [
+  private static readonly BASE_MISSING_FILTER_OPTIONS: Array<{
+    value: MissingMetadataFilter;
+    label: string;
+  }> = [
     { value: 'hltb', label: 'Missing HLTB' },
     { value: 'metacritic', label: 'Missing Review' },
     { value: 'pricing', label: 'Missing Pricing (supported platforms)' },
-    { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image (non-PC)' }
+    { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image' }
   ];
 
   selectedListType: ListType | null = null;
@@ -198,23 +200,28 @@ export class MetadataValidatorPage {
     this.reviewPickerTargetGame = value;
   }
 
+  get missingFilterOptions(): Array<{ value: MissingMetadataFilter; label: string }> {
+    if (this.selectedListType !== 'wishlist') {
+      return MetadataValidatorPage.BASE_MISSING_FILTER_OPTIONS.filter(
+        (option) => option.value !== 'pricing'
+      );
+    }
+
+    return MetadataValidatorPage.BASE_MISSING_FILTER_OPTIONS;
+  }
+
   onListTypeChange(value: string | null | undefined): void {
     const next = value === 'collection' || value === 'wishlist' ? value : null;
     this.selectedListType = next;
     this.selectedListType$.next(next);
+    this.selectedMissingFilters = this.normalizeMissingFilters(this.selectedMissingFilters);
+    this.selectedMissingFilters$.next(this.selectedMissingFilters);
     this.selectedGameKeys.clear();
   }
 
   onMissingFiltersChange(value: string[] | string | null | undefined): void {
     const raw = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
-    const normalized = raw.filter(
-      (entry): entry is MissingMetadataFilter =>
-        entry === 'hltb' ||
-        entry === 'metacritic' ||
-        entry === 'pricing' ||
-        entry === 'nonPcTheGamesDbImage'
-    );
-    this.selectedMissingFilters = [...new Set(normalized)];
+    this.selectedMissingFilters = this.normalizeMissingFilters(raw);
     this.selectedMissingFilters$.next(this.selectedMissingFilters);
   }
 
@@ -976,6 +983,23 @@ export class MetadataValidatorPage {
         (filters.includes('nonPcTheGamesDbImage') && missingImage)
       );
     });
+  }
+
+  private normalizeMissingFilters(raw: string[]): MissingMetadataFilter[] {
+    const normalized = raw.filter(
+      (entry): entry is MissingMetadataFilter =>
+        entry === 'hltb' ||
+        entry === 'metacritic' ||
+        entry === 'pricing' ||
+        entry === 'nonPcTheGamesDbImage'
+    );
+    const deduped = [...new Set(normalized)];
+
+    if (this.selectedListType !== 'wishlist') {
+      return deduped.filter((entry) => entry !== 'pricing');
+    }
+
+    return deduped;
   }
 
   private isPcPlatform(game: GameEntry): boolean {

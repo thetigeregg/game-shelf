@@ -771,8 +771,8 @@ function normalizeTitleForMatch(value: string): string {
 }
 
 function scorePsPricesTitleMatch(expectedTitle: string, candidateTitle: string): number {
-  const expected = normalizeTitleForMatch(expectedTitle);
-  const candidate = normalizeTitleForMatch(candidateTitle);
+  const expected = normalizeTitleForMatchForScoring(expectedTitle);
+  const candidate = normalizeTitleForMatchForScoring(candidateTitle);
   if (!expected || !candidate) {
     return 0;
   }
@@ -793,6 +793,20 @@ function scorePsPricesTitleMatch(expectedTitle: string, candidateTitle: string):
     score += (overlap / union) * 80;
   }
   return score;
+}
+
+function normalizeTitleForMatchForScoring(value: string): string {
+  const normalized = normalizeTitleForMatch(value);
+  // Treat "standard edition" as neutral metadata, while preserving standalone
+  // "standard" or "edition" tokens for other title variants.
+  const withoutStandardEdition = normalized.replace(/\bstandard edition\b/g, ' ');
+  const filteredTokens = withoutStandardEdition.split(' ').filter((token) => token.length > 0);
+
+  if (filteredTokens.length === 0) {
+    return normalized;
+  }
+
+  return filteredTokens.join(' ');
 }
 
 async function fetchWithTimeout(

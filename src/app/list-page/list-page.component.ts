@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
+  AlertController,
   MenuController,
   PopoverController,
   ToastController,
@@ -83,6 +84,8 @@ type ListPageConfig = {
   preferenceStorageKey: string;
   searchPlaceholder: string;
 };
+
+type BulkExternalMetadataProvider = 'igdb' | 'hltb' | 'review' | 'pricing';
 
 function buildConfig(listType: ListType): ListPageConfig {
   if (listType === 'wishlist') {
@@ -185,6 +188,7 @@ export class ListPageComponent {
   @ViewChild('pageContent') private pageContent?: IonContent;
   @ViewChild('headerSearchbar') private headerSearchbar?: IonSearchbar;
   private readonly menuController = inject(MenuController);
+  private readonly alertController = inject(AlertController);
   private readonly popoverController = inject(PopoverController);
   private readonly toastController = inject(ToastController);
   private readonly router = inject(Router);
@@ -691,9 +695,109 @@ export class ListPageComponent {
     await this.gameListComponent?.updatePricingForSelectedGames();
   }
 
+  async openExternalMetadataForSelectedGamesFromPopover(): Promise<void> {
+    this.closeBulkActionsPopover();
+
+    const selectedCount = Math.max(0, this.selectedGamesCount);
+    if (selectedCount === 0) {
+      return;
+    }
+    const includePricing = this.gameListComponent?.areAllSelectedGamesPricingSupported() ?? false;
+    let selectedProvider: unknown = 'igdb';
+
+    const alert = await this.alertController.create({
+      header: 'External metadata',
+      message: `Choose provider to refresh for ${String(selectedCount)} selected game${selectedCount === 1 ? '' : 's'}.`,
+      inputs: [
+        {
+          type: 'radio' as const,
+          label: 'IGDB',
+          value: 'igdb',
+          checked: true
+        },
+        {
+          type: 'radio' as const,
+          label: 'HLTB',
+          value: 'hltb'
+        },
+        {
+          type: 'radio' as const,
+          label: 'Review',
+          value: 'review'
+        },
+        ...(includePricing
+          ? ([
+              {
+                type: 'radio' as const,
+                label: 'Pricing',
+                value: 'pricing'
+              }
+            ] as const)
+          : [])
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Refresh',
+          role: 'confirm',
+          handler: (value: string | null | undefined) => {
+            selectedProvider = value ?? 'igdb';
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+    const dismissed = await alert.onDidDismiss();
+    const provider = this.normalizeBulkExternalMetadataProvider(selectedProvider, includePricing);
+    if (dismissed.role !== 'confirm' || provider === null) {
+      return;
+    }
+
+    await this.refreshSelectedExternalMetadataProvider(provider);
+  }
+
   openBulkActionsPopover(event: Event): void {
     this.bulkActionsPopoverEvent = event;
     this.isBulkActionsPopoverOpen = true;
+  }
+
+  private async refreshSelectedExternalMetadataProvider(
+    provider: BulkExternalMetadataProvider
+  ): Promise<void> {
+    if (provider === 'igdb') {
+      await this.gameListComponent?.refreshMetadataForSelectedGames();
+      return;
+    }
+
+    if (provider === 'hltb') {
+      await this.gameListComponent?.updateHltbForSelectedGames();
+      return;
+    }
+
+    if (provider === 'review') {
+      await this.gameListComponent?.updateReviewForSelectedGames();
+      return;
+    }
+
+    await this.gameListComponent?.updatePricingForSelectedGames();
+  }
+
+  private normalizeBulkExternalMetadataProvider(
+    value: unknown,
+    includePricing: boolean
+  ): BulkExternalMetadataProvider | null {
+    if (value === 'igdb' || value === 'hltb' || value === 'review' || value === 'pricing') {
+      if (value === 'pricing' && !includePricing) {
+        return null;
+      }
+      return value;
+    }
+
+    return null;
   }
 
   openHeaderActionsPopover(event: Event): void {

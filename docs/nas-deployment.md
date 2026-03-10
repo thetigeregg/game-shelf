@@ -34,7 +34,6 @@ Required app secrets (one secret per file):
 - `twitch_client_id`
 - `twitch_client_secret`
 - `thegamesdb_api_key`
-- `itad_api_key`
 - `hltb_scraper_token` (optional)
 - `openai_api_key` (required for semantic recommendation embeddings)
 - `postgres_user`
@@ -54,12 +53,10 @@ Common stack env vars:
 - `TWITCH_CLIENT_ID_FILE`
 - `TWITCH_CLIENT_SECRET_FILE`
 - `THEGAMESDB_API_KEY_FILE`
-- `ITAD_API_KEY_FILE`
-- `ITAD_API_BASE_URL` (optional; defaults to `https://api.isthereanydeal.com`)
-- `ITAD_DEFAULT_COUNTRY` (optional; defaults to `CH`)
-- `ITAD_STEAM_SHOP_ID` (optional; defaults to `61`)
-- `EXCHANGE_RATE_API_BASE_URL` (optional; defaults to `https://open.er-api.com/v6`)
-- `EXCHANGE_RATE_API_TIMEOUT_MS` (optional; defaults to `10000`)
+- `STEAM_STORE_API_BASE_URL` (optional; defaults to `https://store.steampowered.com`)
+- `STEAM_STORE_API_TIMEOUT_MS` (optional; defaults to `10000`)
+- `STEAM_DEFAULT_COUNTRY` (optional; defaults to `CH`)
+- `STEAM_PRICE_CACHE_TTL_HOURS` (optional; defaults to `24`)
 - `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
@@ -202,7 +199,6 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/twitch_client_id`
 - `/volume1/docker/secrets/gameshelf/twitch_client_secret`
 - `/volume1/docker/secrets/gameshelf/thegamesdb_api_key`
-- `/volume1/docker/secrets/gameshelf/itad_api_key`
 - `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
 - `/volume1/docker/secrets/gameshelf/openai_api_key` (required for semantic recommendation embeddings)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
@@ -250,7 +246,6 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/twitch_client_id`
 `nas-secrets/twitch_client_secret`
 `nas-secrets/thegamesdb_api_key`
-`nas-secrets/itad_api_key`
 `nas-secrets/postgres_user`
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
@@ -270,11 +265,10 @@ Key metadata env vars in `.env`:
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=240`
 - `MOBYGAMES_API_BASE_URL=https://api.mobygames.com/v2`
 - `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=12` (0.2 requests/second)
-- `ITAD_API_BASE_URL=https://api.isthereanydeal.com`
-- `ITAD_DEFAULT_COUNTRY=CH`
-- `ITAD_STEAM_SHOP_ID=61`
-- `EXCHANGE_RATE_API_BASE_URL=https://open.er-api.com/v6`
-- `EXCHANGE_RATE_API_TIMEOUT_MS=10000`
+- `STEAM_STORE_API_BASE_URL=https://store.steampowered.com`
+- `STEAM_STORE_API_TIMEOUT_MS=10000`
+- `STEAM_DEFAULT_COUNTRY=CH`
+- `STEAM_PRICE_CACHE_TTL_HOURS=24`
 
 Key recommendation env vars in `.env`:
 

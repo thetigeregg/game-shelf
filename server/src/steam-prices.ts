@@ -174,7 +174,12 @@ export async function registerSteamPricesRoute(
         return;
       }
 
-      const cachedSnapshot = payload ? readSteamSnapshotFromPayload(payload, cc) : null;
+      const payloadSteamAppId = normalizePositiveInteger(payload?.['steamAppId']);
+      const canUsePayloadCache =
+        payload !== null &&
+        (querySteamAppId === null ||
+          (payloadSteamAppId !== null && payloadSteamAppId === steamAppId));
+      const cachedSnapshot = canUsePayloadCache ? readSteamSnapshotFromPayload(payload, cc) : null;
       if (cachedSnapshot) {
         const ageSeconds = getAgeSeconds(cachedSnapshot.fetchedAt, nowProvider());
 
@@ -635,74 +640,56 @@ async function persistSteamSnapshot(
 ): Promise<void> {
   const fetchedAt = new Date().toISOString();
   const preserveExisting = params.bestPrice === null;
-  const nextPayload: Record<string, unknown> = {
-    ...params.payload,
+  const patchPayload: Record<string, unknown> = {
     steamAppId: params.steamAppId,
-    priceSource: preserveExisting ? (params.payload['priceSource'] ?? null) : 'steam_store',
     priceFetchedAt: fetchedAt,
-    priceAmount: preserveExisting
-      ? (params.payload['priceAmount'] ?? null)
-      : params.bestPrice.amount,
-    priceCurrency: preserveExisting
-      ? (params.payload['priceCurrency'] ?? null)
-      : (params.bestPrice.currency ?? null),
-    priceRegularAmount: preserveExisting
-      ? (params.payload['priceRegularAmount'] ?? null)
-      : (params.bestPrice.initialAmount ?? null),
-    priceDiscountPercent: preserveExisting
-      ? (params.payload['priceDiscountPercent'] ?? null)
-      : (params.bestPrice.discountPercent ?? null),
-    priceIsFree: preserveExisting
-      ? (params.payload['priceIsFree'] ?? null)
-      : (params.bestPrice.isFree ?? null),
-    priceUrl: preserveExisting
-      ? (params.payload['priceUrl'] ?? buildSteamAppUrl(params.steamAppId))
-      : params.bestPrice.url,
     steamPriceCountry: params.cc,
     steamPriceFetchedAt: fetchedAt,
-    steamPriceSource: 'steam_store',
-    steamPriceUrl: preserveExisting
-      ? (params.payload['steamPriceUrl'] ?? buildSteamAppUrl(params.steamAppId))
-      : params.bestPrice.url,
-    steamPriceAmount: preserveExisting
-      ? (params.payload['steamPriceAmount'] ?? null)
-      : params.bestPrice.amount,
-    steamPriceCurrency: preserveExisting
-      ? (params.payload['steamPriceCurrency'] ?? null)
-      : (params.bestPrice.currency ?? null),
-    steamPriceInitialAmount: preserveExisting
-      ? (params.payload['steamPriceInitialAmount'] ?? null)
-      : (params.bestPrice.initialAmount ?? null),
-    steamPriceDiscountPercent: preserveExisting
-      ? (params.payload['steamPriceDiscountPercent'] ?? null)
-      : (params.bestPrice.discountPercent ?? null),
-    steamPriceIsFree: preserveExisting
-      ? (params.payload['steamPriceIsFree'] ?? null)
-      : (params.bestPrice.isFree ?? null)
+    steamPriceSource: 'steam_store'
   };
+  if (preserveExisting) {
+    patchPayload['steamPriceUrl'] =
+      params.payload['steamPriceUrl'] ?? buildSteamAppUrl(params.steamAppId);
+  } else {
+    patchPayload['priceSource'] = 'steam_store';
+    patchPayload['priceAmount'] = params.bestPrice.amount;
+    patchPayload['priceCurrency'] = params.bestPrice.currency ?? null;
+    patchPayload['priceRegularAmount'] = params.bestPrice.initialAmount ?? null;
+    patchPayload['priceDiscountPercent'] = params.bestPrice.discountPercent ?? null;
+    patchPayload['priceIsFree'] = params.bestPrice.isFree ?? null;
+    patchPayload['priceUrl'] = params.bestPrice.url;
+    patchPayload['steamPriceUrl'] = params.bestPrice.url;
+    patchPayload['steamPriceAmount'] = params.bestPrice.amount;
+    patchPayload['steamPriceCurrency'] = params.bestPrice.currency ?? null;
+    patchPayload['steamPriceInitialAmount'] = params.bestPrice.initialAmount ?? null;
+    patchPayload['steamPriceDiscountPercent'] = params.bestPrice.discountPercent ?? null;
+    patchPayload['steamPriceIsFree'] = params.bestPrice.isFree ?? null;
+  }
 
-  const updateResult = await pool.query(
+  const updateResult = await pool.query<{ payload: unknown }>(
     `
       UPDATE games
-      SET payload = $3::jsonb, updated_at = NOW()
+      SET payload = games.payload || $3::jsonb, updated_at = NOW()
       WHERE igdb_game_id = $1
         AND platform_igdb_id = $2
-        AND payload IS DISTINCT FROM $3::jsonb
+        AND games.payload IS DISTINCT FROM (games.payload || $3::jsonb)
       RETURNING payload
     `,
-    [params.igdbGameId, params.platformIgdbId, JSON.stringify(nextPayload)]
+    [params.igdbGameId, params.platformIgdbId, JSON.stringify(patchPayload)]
   );
 
+  const updatedPayloadCandidate = normalizePayloadObject(updateResult.rows[0]?.payload);
+  const updatedPayload = updatedPayloadCandidate ?? params.payload;
   if (
     (updateResult.rowCount ?? updateResult.rows.length) > 0 &&
-    !isDiscoveryListType(params.payload['listType'])
+    !isDiscoveryListType(updatedPayload['listType'])
   ) {
     await pool.query(
       `
       INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)
       VALUES ('game', $1, 'upsert', $2::jsonb, NOW())
       `,
-      [`${params.igdbGameId}::${String(params.platformIgdbId)}`, JSON.stringify(nextPayload)]
+      [`${params.igdbGameId}::${String(params.platformIgdbId)}`, JSON.stringify(updatedPayload)]
     );
   }
 }

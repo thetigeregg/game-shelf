@@ -560,6 +560,9 @@ export class GameShelfService {
     if (!existing) {
       throw new Error('Game entry no longer exists.');
     }
+    if (existing.listType !== 'wishlist') {
+      return existing;
+    }
 
     const lookupTitle =
       typeof query?.title === 'string' && query.title.trim().length > 0

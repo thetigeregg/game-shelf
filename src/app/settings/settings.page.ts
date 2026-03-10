@@ -518,15 +518,9 @@ export class SettingsPage {
     const alert = await this.alertController.create({
       header: 'Attributions',
       cssClass: 'attributions-alert',
-      message: [
-        'Game Shelf uses data from:',
-        '',
-        '- IGDB',
-        '- TheGamesDB',
-        '- HowLongToBeat (HLTB)',
-        '- Metacritic',
-        '- MobyGames'
-      ].join('\n'),
+      message: ['Game Shelf uses data from:', '', '- IGDB', '- TheGamesDB', '- MobyGames'].join(
+        '\n'
+      ),
       buttons: ['OK']
     });
 

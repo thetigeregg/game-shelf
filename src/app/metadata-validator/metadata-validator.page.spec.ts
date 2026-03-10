@@ -228,7 +228,6 @@ describe('MetadataValidatorPage', () => {
     expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
       'hltb',
       'metacritic',
-      'pricing',
       'nonPcTheGamesDbImage'
     ]);
     expect(page.isBulkRefreshingMetacritic).toBe(false);
@@ -255,16 +254,45 @@ describe('MetadataValidatorPage', () => {
       'collection'
     );
     expect(selectedListTypeNext).toHaveBeenCalledWith('collection');
+    expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
+      'hltb',
+      'metacritic',
+      'nonPcTheGamesDbImage'
+    ]);
 
-    page.onListTypeChange('invalid');
-    expect((page as unknown as { selectedListType: string | null }).selectedListType).toBeNull();
-    expect(selectedListTypeNext).toHaveBeenCalledWith(null);
+    page.onMissingFiltersChange(['hltb', 'metacritic', 'pricing', 'metacritic', 'x']);
+    expect(
+      (page as unknown as { selectedMissingFilters: string[] }).selectedMissingFilters
+    ).toEqual(['hltb', 'metacritic']);
+    expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic']);
+
+    page.onListTypeChange('wishlist');
+    expect((page as unknown as { selectedListType: string | null }).selectedListType).toBe(
+      'wishlist'
+    );
+    expect(selectedListTypeNext).toHaveBeenCalledWith('wishlist');
+    expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
+      'hltb',
+      'metacritic',
+      'pricing',
+      'nonPcTheGamesDbImage'
+    ]);
 
     page.onMissingFiltersChange(['hltb', 'metacritic', 'pricing', 'metacritic', 'x']);
     expect(
       (page as unknown as { selectedMissingFilters: string[] }).selectedMissingFilters
     ).toEqual(['hltb', 'metacritic', 'pricing']);
     expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic', 'pricing']);
+
+    page.onListTypeChange('collection');
+    expect(
+      (page as unknown as { selectedMissingFilters: string[] }).selectedMissingFilters
+    ).toEqual(['hltb', 'metacritic']);
+    expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic']);
+
+    page.onListTypeChange('invalid');
+    expect((page as unknown as { selectedListType: string | null }).selectedListType).toBeNull();
+    expect(selectedListTypeNext).toHaveBeenCalledWith(null);
 
     page.onMissingFiltersChange('nonPcTheGamesDbImage');
     expect(

@@ -19,14 +19,17 @@ import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js'
 import { RecommendationRepository } from './recommendations/repository.js';
 import { RecommendationService } from './recommendations/service.js';
 import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
-import { RecommendationRuntimeMode, RecommendationTarget } from './recommendations/types.js';
+import {
+  DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES,
+  RecommendationRuntimeMode,
+  RecommendationTarget
+} from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
 import type { QueryResultRow } from 'pg';
 
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
 const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
 const DISCOVERY_RUNTIME_MODES: RecommendationRuntimeMode[] = ['NEUTRAL', 'SHORT', 'LONG'];
-const DISCOVERY_ALLOWED_STATUSES = ['', 'wantToPlay'];
 const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
 const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
 
@@ -70,6 +73,23 @@ export function isRecommendationTarget(value: unknown): value is RecommendationT
 
 export function stringOrEmpty(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+export function shouldRunPricingRefreshPhase(params: {
+  enabled: boolean;
+  trigger: 'startup' | 'interval';
+  nowMs: number;
+  lastRunMs: number;
+  intervalMinutes: number;
+}): boolean {
+  if (!params.enabled) {
+    return false;
+  }
+  if (params.trigger === 'startup') {
+    return true;
+  }
+  const intervalMs = Math.max(1, params.intervalMinutes) * 60 * 1000;
+  return params.nowMs - params.lastRunMs >= intervalMs;
 }
 
 function normalizePayloadObject(value: unknown): Record<string, unknown> | null {
@@ -785,7 +805,12 @@ async function main(): Promise<void> {
         ORDER BY games.updated_at ASC
         LIMIT $4
         `,
-          [DISCOVERY_RUNTIME_MODES, DISCOVERY_ALLOWED_STATUSES, perModeTopLimit, scanLimit]
+          [
+            DISCOVERY_RUNTIME_MODES,
+            [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES],
+            perModeTopLimit,
+            scanLimit
+          ]
         );
 
         const stats = await enqueuePricingRefreshForRows({
@@ -821,27 +846,36 @@ async function main(): Promise<void> {
 
     const cycleStartedAt = Date.now();
     const nowMs = Date.now();
-    const wishlistIntervalMs = Math.max(1, config.pricingRefreshIntervalMinutes) * 60 * 1000;
-    const discoveryIntervalMs =
-      Math.max(1, config.discoveryPricingRefreshIntervalMinutes) * 60 * 1000;
-    const shouldRunWishlist =
-      config.pricingRefreshEnabled &&
-      (trigger === 'startup' || nowMs - lastWishlistPricingRefreshRunMs >= wishlistIntervalMs);
-    const shouldRunDiscovery =
-      config.discoveryPricingRefreshEnabled &&
-      (trigger === 'startup' || nowMs - lastDiscoveryPricingRefreshRunMs >= discoveryIntervalMs);
+    const shouldRunWishlist = shouldRunPricingRefreshPhase({
+      enabled: config.pricingRefreshEnabled,
+      trigger,
+      nowMs,
+      lastRunMs: lastWishlistPricingRefreshRunMs,
+      intervalMinutes: config.pricingRefreshIntervalMinutes
+    });
+    const shouldRunDiscovery = shouldRunPricingRefreshPhase({
+      enabled: config.discoveryPricingRefreshEnabled,
+      trigger,
+      nowMs,
+      lastRunMs: lastDiscoveryPricingRefreshRunMs,
+      intervalMinutes: config.discoveryPricingRefreshIntervalMinutes
+    });
 
     let wishlistStats: PricingRefreshEnqueueStats | null = null;
     let discoveryStats: PricingRefreshEnqueueStats | null = null;
 
     if (shouldRunWishlist) {
       wishlistStats = await scheduleWishlistPricingRefreshJobs();
-      lastWishlistPricingRefreshRunMs = Date.now();
+      if (wishlistStats !== null) {
+        lastWishlistPricingRefreshRunMs = Date.now();
+      }
     }
 
     if (shouldRunDiscovery) {
       discoveryStats = await scheduleDiscoveryPricingRefreshJobs();
-      lastDiscoveryPricingRefreshRunMs = Date.now();
+      if (discoveryStats !== null) {
+        lastDiscoveryPricingRefreshRunMs = Date.now();
+      }
     }
 
     if (!shouldRunWishlist && !shouldRunDiscovery) {

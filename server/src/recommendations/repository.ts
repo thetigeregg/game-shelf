@@ -16,6 +16,7 @@ import {
   chunkItems
 } from './batch-sql.js';
 import {
+  DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES,
   GameEmbeddingUpsertInput,
   GameStatus,
   NormalizedGameRecord,
@@ -922,7 +923,7 @@ function buildStatusFilterForTarget(target: RecommendationTarget): {
   if (target === 'DISCOVERY') {
     return {
       listType: 'discovery',
-      allowedStatuses: ['', 'wantToPlay']
+      allowedStatuses: [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES]
     };
   }
 

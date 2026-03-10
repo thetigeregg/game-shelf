@@ -3,6 +3,7 @@ import rateLimit from 'fastify-rate-limit';
 import type { Pool, QueryResultRow } from 'pg';
 import { incrementPspricesPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
+import { isDiscoveryListType } from './list-type.js';
 
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -369,10 +370,6 @@ function normalizeNonEmptyString(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function isDiscoveryListType(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().toLowerCase() === 'discovery';
 }
 
 function normalizeNumberOrNull(value: unknown): number | null {

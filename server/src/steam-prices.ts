@@ -3,6 +3,7 @@ import rateLimit from 'fastify-rate-limit';
 import type { Pool, QueryResultRow } from 'pg';
 import { incrementSteamPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
+import { isDiscoveryListType } from './list-type.js';
 
 interface SteamPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -357,10 +358,6 @@ function normalizeNumberOrNull(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
-}
-
-function isDiscoveryListType(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().toLowerCase() === 'discovery';
 }
 
 function normalizeBooleanOrNull(value: unknown): boolean | null {

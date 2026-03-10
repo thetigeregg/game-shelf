@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'node:fs';
 import { chromium } from 'playwright';
+import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -87,14 +88,6 @@ function buildSearchTitleVariants(title) {
   return [...new Set([base, titleCase].filter((value) => value.length > 0))];
 }
 
-function parseMoneyValue(value) {
-  const normalized = String(value ?? '')
-    .replace(/\s+/g, '')
-    .replace(',', '.');
-  const numeric = Number.parseFloat(normalized);
-  return Number.isFinite(numeric) ? Math.round(numeric * 100) / 100 : null;
-}
-
 function getTitleSimilarityScore(expectedTitle, candidateTitle) {
   const expected = normalizeTitle(expectedTitle);
   const candidate = normalizeTitle(candidateTitle);
@@ -146,13 +139,17 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
     return cards
       .map((card) => {
         const titleElement = card.querySelector('h3');
-        const anchor = card.querySelector('a[href*="/game/"]');
+        const anchor = card.querySelector('a[href*="/game/"], a[href*="/region-"][href*="/game/"]');
         const gameIdElement = card.querySelector('[data-game-id]');
-        const priceElement = card.querySelector('.text-xl.font-bold.text-text');
-        const oldPriceElement = card.querySelector('.old-price-strike');
+        const priceElement = card.querySelector(
+          '[data-test-id="price-current"], .text-xl.font-bold.text-text, .text-xl.font-bold'
+        );
+        const oldPriceElement = card.querySelector(
+          '[data-test-id="price-old"], .old-price-strike, .line-through'
+        );
         const discountElement = card.querySelector('.bg-red-700, .dark\\:bg-red-600');
 
-        const title = normalizeText(titleElement?.textContent ?? '');
+        const title = normalizeText(titleElement?.textContent ?? anchor?.textContent ?? '');
         if (!title) {
           return null;
         }
@@ -176,47 +173,6 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
   });
 
   return candidates;
-}
-
-function normalizeCandidate(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const title = String(raw.title ?? '').trim();
-  if (title.length === 0) {
-    return null;
-  }
-
-  const priceText = String(raw.priceText ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const oldPriceText = String(raw.oldPriceText ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const discountText = String(raw.discountText ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const url = String(raw.url ?? '').trim();
-  const gameId = String(raw.gameId ?? '').trim();
-  const isFree = priceText.toLowerCase() === 'free';
-
-  const currencyMatch = priceText.match(/\b([A-Z]{3})\b/);
-  const amountMatch = priceText.match(/(\d+(?:[.,]\d{1,2})?)/);
-  const regularAmountMatch = oldPriceText.match(/(\d+(?:[.,]\d{1,2})?)/);
-  const discountMatch = discountText.match(/-?\s*(\d{1,3})\s*%/);
-
-  return {
-    title,
-    priceText,
-    currency: currencyMatch ? currencyMatch[1] : null,
-    amount: isFree ? 0 : parseMoneyValue(amountMatch ? amountMatch[1] : null),
-    regularAmount: parseMoneyValue(regularAmountMatch ? regularAmountMatch[1] : null),
-    discountPercent: discountMatch ? Number.parseInt(discountMatch[1], 10) : null,
-    isFree,
-    url: url.length > 0 ? url : null,
-    gameId: gameId.length > 0 ? gameId : null
-  };
 }
 
 app.get('/health', (_req, res) => {
@@ -272,7 +228,7 @@ app.get('/v1/psprices/search', async (req, res) => {
 
       const ranked = merged
         .map((candidate) => ({
-          candidate: normalizeCandidate(candidate),
+          candidate: normalizePsPricesCandidate(candidate),
           score: getTitleSimilarityScore(query, candidate.title ?? '')
         }))
         .filter((entry) => entry.candidate !== null && entry.score >= 20)

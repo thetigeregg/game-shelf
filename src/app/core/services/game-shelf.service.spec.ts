@@ -1283,6 +1283,58 @@ describe('GameShelfService', () => {
     );
   });
 
+  it('preserves existing unified pricing when supported lookup returns unavailable', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '960',
+      title: 'GTA IV',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      steamAppId: 204100,
+      priceSource: 'steam_store',
+      priceAmount: 19.99,
+      priceCurrency: 'CHF',
+      priceRegularAmount: 39.99,
+      priceDiscountPercent: 50,
+      priceIsFree: false,
+      priceUrl: 'https://store.steampowered.com/app/204100',
+      priceFetchedAt: '2026-03-10T11:00:00.000Z',
+      releaseDate: null,
+      releaseYear: 2008,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+    const lookupSteamPrice = vi.fn(() =>
+      of({
+        status: 'unavailable',
+        bestPrice: null
+      })
+    );
+    (
+      searchApi as unknown as {
+        lookupSteamPrice: ReturnType<typeof vi.fn>;
+      }
+    ).lookupSteamPrice = lookupSteamPrice;
+
+    await service.refreshGamePricing('960', 6);
+
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceSource: 'steam_store',
+        priceAmount: 19.99,
+        priceCurrency: 'CHF',
+        priceRegularAmount: 39.99,
+        priceDiscountPercent: 50,
+        priceIsFree: false
+      }),
+      'collection'
+    );
+  });
+
   it('returns empty box art results for short queries', async () => {
     const results = await firstValueFrom(service.searchBoxArtByTitle('m'));
     expect(results).toEqual([]);

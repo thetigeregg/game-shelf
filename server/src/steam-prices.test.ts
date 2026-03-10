@@ -379,6 +379,58 @@ void test('Steam route returns cached unavailable snapshot without upstream fetc
   await app.close();
 });
 
+void test('Steam route preserves existing unified fields when upstream is unavailable', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('77', 6, {
+    steamAppId: 730,
+    priceSource: 'steam_store',
+    priceAmount: 9.99,
+    priceCurrency: 'EUR',
+    priceRegularAmount: 12.99,
+    priceDiscountPercent: 23,
+    priceIsFree: false,
+    priceUrl: 'https://store.steampowered.com/app/730',
+    steamPriceAmount: 9.99,
+    steamPriceCurrency: 'EUR'
+  });
+
+  await registerSteamPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            '730': {
+              success: false
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/steam/prices?igdbGameId=77&platformIgdbId=6'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'unavailable');
+
+  const persisted = pool.getPayload('77', 6);
+  assert.ok(persisted);
+  assert.equal(persisted['priceSource'], 'steam_store');
+  assert.equal(persisted['priceAmount'], 9.99);
+  assert.equal(persisted['priceCurrency'], 'EUR');
+  assert.equal(persisted['priceRegularAmount'], 12.99);
+
+  await app.close();
+});
+
 void test('Steam route returns 502 on Steam upstream failure', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

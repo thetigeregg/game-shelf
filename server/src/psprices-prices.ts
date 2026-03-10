@@ -24,6 +24,13 @@ interface PsPricesSnapshot {
   url: string | null;
 }
 
+interface PsPricesMatchInfo {
+  queryTitle: string;
+  matchedTitle: string | null;
+  score: number | null;
+  confidence: 'high' | 'low' | 'none';
+}
+
 interface PsPricesRouteResponse {
   status: PsPricesRouteStatus;
   igdbGameId: string;
@@ -33,6 +40,7 @@ interface PsPricesRouteResponse {
   show: string;
   cached: boolean;
   bestPrice: PsPricesSnapshot | null;
+  match: PsPricesMatchInfo | null;
 }
 
 const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
@@ -41,6 +49,8 @@ const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
   [130, 'Switch'],
   [508, 'Switch2']
 ]);
+const PSPRICES_TITLE_MATCH_MIN_SCORE = 70;
+const PSPRICES_TITLE_MATCH_MIN_GAP = 8;
 
 export async function registerPsPricesRoute(
   app: FastifyInstance,
@@ -67,6 +77,7 @@ export async function registerPsPricesRoute(
       const query = request.query as Record<string, unknown>;
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
+      const titleOverride = normalizeNonEmptyString(query['title']);
 
       if (!igdbGameId || platformIgdbId === null) {
         reply.code(400).send({ error: 'igdbGameId and platformIgdbId are required.' });
@@ -83,7 +94,8 @@ export async function registerPsPricesRoute(
           region: config.pspricesRegionPath,
           show: config.pspricesShow,
           cached: false,
-          bestPrice: null
+          bestPrice: null,
+          match: null
         };
         reply.code(200).send(unsupportedPayload);
         return;
@@ -100,7 +112,7 @@ export async function registerPsPricesRoute(
         return;
       }
 
-      const title = normalizeNonEmptyString(payload['title']);
+      const title = titleOverride ?? normalizeNonEmptyString(payload['title']);
       if (!title) {
         const unavailablePayload: PsPricesRouteResponse = {
           status: 'unavailable',
@@ -110,7 +122,8 @@ export async function registerPsPricesRoute(
           region: config.pspricesRegionPath,
           show: config.pspricesShow,
           cached: false,
-          bestPrice: null
+          bestPrice: null,
+          match: null
         };
         reply.code(200).send(unavailablePayload);
         return;
@@ -135,19 +148,21 @@ export async function registerPsPricesRoute(
           region: config.pspricesRegionPath,
           show: config.pspricesShow,
           cached: true,
-          bestPrice: cachedSnapshot
+          bestPrice: cachedSnapshot,
+          match: null
         };
         reply.code(200).send(cachedPayload);
         return;
       }
 
       try {
-        const pspricesSnapshot = await fetchPsPricesSnapshot(fetchImpl, {
+        const pspricesLookup = await fetchPsPricesSnapshot(fetchImpl, {
           title,
           platform: pspricesPlatform,
           regionPath: config.pspricesRegionPath,
           show: config.pspricesShow
         });
+        const pspricesSnapshot = pspricesLookup.snapshot;
 
         await persistPsPricesSnapshot(pool, {
           igdbGameId,
@@ -156,7 +171,8 @@ export async function registerPsPricesRoute(
           regionPath: config.pspricesRegionPath,
           show: config.pspricesShow,
           platform: pspricesPlatform,
-          bestPrice: pspricesSnapshot
+          bestPrice: pspricesSnapshot,
+          match: pspricesLookup.match
         });
 
         const routeStatus: PsPricesRouteStatus = pspricesSnapshot ? 'ok' : 'unavailable';
@@ -168,7 +184,8 @@ export async function registerPsPricesRoute(
           region: config.pspricesRegionPath,
           show: config.pspricesShow,
           cached: false,
-          bestPrice: pspricesSnapshot
+          bestPrice: pspricesSnapshot,
+          match: pspricesLookup.match
         };
         reply.code(200).send(responsePayload);
       } catch (error) {
@@ -295,12 +312,13 @@ async function fetchPsPricesSnapshot(
     regionPath: string;
     show: string;
   }
-): Promise<PsPricesSnapshot | null> {
+): Promise<{ snapshot: PsPricesSnapshot | null; match: PsPricesMatchInfo }> {
   const endpoint = new URL('/v1/psprices/search', config.pspricesScraperBaseUrl);
   endpoint.searchParams.set('q', params.title);
   endpoint.searchParams.set('platform', params.platform);
   endpoint.searchParams.set('region', params.regionPath);
   endpoint.searchParams.set('show', params.show);
+  endpoint.searchParams.set('includeCandidates', '1');
 
   const headers: Record<string, string> = {
     Accept: 'application/json'
@@ -317,16 +335,74 @@ async function fetchPsPricesSnapshot(
 
   const payload: unknown = await response.json();
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return null;
+    return {
+      snapshot: null,
+      match: {
+        queryTitle: params.title,
+        matchedTitle: null,
+        score: null,
+        confidence: 'none'
+      }
+    };
   }
 
-  const item = (payload as { item?: unknown }).item;
+  const payloadRecord = payload as Record<string, unknown>;
+  const candidatesRaw: unknown[] = Array.isArray(payloadRecord['candidates'])
+    ? (payloadRecord['candidates'] as unknown[])
+    : [];
+  const itemRaw = payloadRecord['item'];
+  const fallbackItem =
+    itemRaw && typeof itemRaw === 'object' && !Array.isArray(itemRaw) ? [itemRaw] : [];
+  const candidates = [...candidatesRaw, ...fallbackItem]
+    .map((entry) => normalizePsPricesCandidate(entry))
+    .filter((entry): entry is PsPricesSnapshot => entry !== null);
+
+  if (candidates.length === 0) {
+    return {
+      snapshot: null,
+      match: {
+        queryTitle: params.title,
+        matchedTitle: null,
+        score: null,
+        confidence: 'none'
+      }
+    };
+  }
+
+  const ranked = candidates
+    .map((candidate) => ({
+      candidate,
+      score: scorePsPricesTitleMatch(params.title, candidate.title ?? '')
+    }))
+    .sort((left, right) => right.score - left.score);
+  const best = ranked[0];
+  const second = ranked[1];
+
+  const hasHighConfidenceMatch =
+    best.score >= PSPRICES_TITLE_MATCH_MIN_SCORE &&
+    (ranked.length === 1 || best.score - second.score >= PSPRICES_TITLE_MATCH_MIN_GAP);
+
+  return {
+    snapshot: hasHighConfidenceMatch ? best.candidate : null,
+    match: {
+      queryTitle: params.title,
+      matchedTitle: best.candidate.title,
+      score: round2(best.score),
+      confidence: hasHighConfidenceMatch ? 'high' : 'low'
+    }
+  };
+}
+
+function normalizePsPricesCandidate(item: unknown): PsPricesSnapshot | null {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     return null;
   }
-
   const candidate = item as Record<string, unknown>;
   const title = normalizeNonEmptyString(candidate['title']);
+  if (!title) {
+    return null;
+  }
+
   const amount = normalizeNumberOrNull(candidate['priceAmount'] ?? candidate['amount']);
   const currency = normalizeNonEmptyString(candidate['currency']);
   const regularAmount = normalizeNumberOrNull(
@@ -353,6 +429,41 @@ async function fetchPsPricesSnapshot(
     isFree,
     url
   };
+}
+
+function normalizeTitleForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function scorePsPricesTitleMatch(expectedTitle: string, candidateTitle: string): number {
+  const expected = normalizeTitleForMatch(expectedTitle);
+  const candidate = normalizeTitleForMatch(candidateTitle);
+  if (!expected || !candidate) {
+    return 0;
+  }
+  if (expected === candidate) {
+    return 100;
+  }
+
+  let score = 0;
+  if (expected.includes(candidate) || candidate.includes(expected)) {
+    score += 20;
+  }
+
+  const expectedTokens = new Set(expected.split(' ').filter(Boolean));
+  const candidateTokens = new Set(candidate.split(' ').filter(Boolean));
+  const overlap = [...expectedTokens].filter((token) => candidateTokens.has(token)).length;
+  const union = new Set([...expectedTokens, ...candidateTokens]).size;
+  if (union > 0) {
+    score += (overlap / union) * 80;
+  }
+  return score;
 }
 
 async function fetchWithTimeout(
@@ -387,31 +498,63 @@ async function persistPsPricesSnapshot(
     show: string;
     platform: string;
     bestPrice: PsPricesSnapshot | null;
+    match: PsPricesMatchInfo;
   }
 ): Promise<void> {
   const fetchedAt = new Date().toISOString();
+  const preserveExisting = params.bestPrice === null;
   const nextPayload: Record<string, unknown> = {
     ...params.payload,
-    priceSource: 'psprices',
+    priceSource: preserveExisting ? (params.payload['priceSource'] ?? null) : 'psprices',
     priceFetchedAt: fetchedAt,
-    priceAmount: params.bestPrice?.amount ?? null,
-    priceCurrency: params.bestPrice?.currency ?? null,
-    priceRegularAmount: params.bestPrice?.regularAmount ?? null,
-    priceDiscountPercent: params.bestPrice?.discountPercent ?? null,
-    priceIsFree: params.bestPrice?.isFree ?? null,
-    priceUrl: params.bestPrice?.url ?? null,
+    priceAmount: preserveExisting
+      ? (params.payload['priceAmount'] ?? null)
+      : params.bestPrice.amount,
+    priceCurrency: preserveExisting
+      ? (params.payload['priceCurrency'] ?? null)
+      : (params.bestPrice.currency ?? null),
+    priceRegularAmount: preserveExisting
+      ? (params.payload['priceRegularAmount'] ?? null)
+      : (params.bestPrice.regularAmount ?? null),
+    priceDiscountPercent: preserveExisting
+      ? (params.payload['priceDiscountPercent'] ?? null)
+      : (params.bestPrice.discountPercent ?? null),
+    priceIsFree: preserveExisting
+      ? (params.payload['priceIsFree'] ?? null)
+      : (params.bestPrice.isFree ?? null),
+    priceUrl: preserveExisting
+      ? (params.payload['priceUrl'] ?? null)
+      : (params.bestPrice.url ?? null),
     psPricesFetchedAt: fetchedAt,
     psPricesSource: 'psprices',
     psPricesRegionPath: params.regionPath,
     psPricesShow: params.show,
     psPricesPlatform: params.platform,
-    psPricesTitle: params.bestPrice?.title ?? null,
-    psPricesPriceAmount: params.bestPrice?.amount ?? null,
-    psPricesPriceCurrency: params.bestPrice?.currency ?? null,
-    psPricesRegularPriceAmount: params.bestPrice?.regularAmount ?? null,
-    psPricesDiscountPercent: params.bestPrice?.discountPercent ?? null,
-    psPricesIsFree: params.bestPrice?.isFree ?? null,
-    psPricesUrl: params.bestPrice?.url ?? null
+    psPricesTitle: preserveExisting
+      ? (params.payload['psPricesTitle'] ?? null)
+      : (params.bestPrice.title ?? null),
+    psPricesPriceAmount: preserveExisting
+      ? (params.payload['psPricesPriceAmount'] ?? null)
+      : params.bestPrice.amount,
+    psPricesPriceCurrency: preserveExisting
+      ? (params.payload['psPricesPriceCurrency'] ?? null)
+      : (params.bestPrice.currency ?? null),
+    psPricesRegularPriceAmount: preserveExisting
+      ? (params.payload['psPricesRegularPriceAmount'] ?? null)
+      : (params.bestPrice.regularAmount ?? null),
+    psPricesDiscountPercent: preserveExisting
+      ? (params.payload['psPricesDiscountPercent'] ?? null)
+      : (params.bestPrice.discountPercent ?? null),
+    psPricesIsFree: preserveExisting
+      ? (params.payload['psPricesIsFree'] ?? null)
+      : (params.bestPrice.isFree ?? null),
+    psPricesUrl: preserveExisting
+      ? (params.payload['psPricesUrl'] ?? null)
+      : (params.bestPrice.url ?? null),
+    psPricesMatchQueryTitle: params.match.queryTitle,
+    psPricesMatchTitle: params.match.matchedTitle,
+    psPricesMatchScore: params.match.score,
+    psPricesMatchConfidence: params.match.confidence
   };
 
   await pool.query(

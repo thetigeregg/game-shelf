@@ -756,7 +756,11 @@ export class DexieGameRepository implements GameRepository {
       return;
     }
 
-    void this.outboxWriter.syncNow().catch(() => undefined);
+    try {
+      void this.outboxWriter.syncNow().catch(() => undefined);
+    } catch {
+      // Keep sync trigger best-effort and non-fatal.
+    }
   }
 
   private generateOperationId(): string {

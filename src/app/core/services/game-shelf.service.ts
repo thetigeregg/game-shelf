@@ -41,6 +41,11 @@ import {
   normalizeTheGamesDbUrl
 } from './game-shelf-normalization';
 
+interface GameIdentity {
+  igdbGameId: string;
+  platformIgdbId: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GameShelfService {
   private static readonly IGDB_COVER_MIGRATION_DONE_STORAGE_KEY =
@@ -235,9 +240,39 @@ export class GameShelfService {
     this.listRefresh$.next();
   }
 
+  async moveGamesToList(games: readonly GameIdentity[], targetList: ListType): Promise<void> {
+    let mutatedAny = false;
+
+    try {
+      for (const game of games) {
+        await this.repository.moveToList(game.igdbGameId, game.platformIgdbId, targetList);
+        mutatedAny = true;
+      }
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
+    }
+  }
+
   async removeGame(igdbGameId: string, platformIgdbId: number): Promise<void> {
     await this.repository.remove(igdbGameId, platformIgdbId);
     this.listRefresh$.next();
+  }
+
+  async removeGames(games: readonly GameIdentity[]): Promise<void> {
+    let mutatedAny = false;
+
+    try {
+      for (const game of games) {
+        await this.repository.remove(game.igdbGameId, game.platformIgdbId);
+        mutatedAny = true;
+      }
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
+    }
   }
 
   async rematchGame(
@@ -828,6 +863,32 @@ export class GameShelfService {
     return this.attachTags([updated], tags)[0];
   }
 
+  async setGameTagsForGames(games: readonly GameIdentity[], tagIds: number[]): Promise<void> {
+    let mutatedAny = false;
+
+    try {
+      for (const game of games) {
+        const updated = await this.repository.setGameTags(
+          game.igdbGameId,
+          game.platformIgdbId,
+          tagIds
+        );
+
+        if (!updated) {
+          throw new Error(
+            `Game entry no longer exists (${game.igdbGameId}:${String(game.platformIgdbId)}).`
+          );
+        }
+
+        mutatedAny = true;
+      }
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
+    }
+  }
+
   async setGameNotes(
     igdbGameId: string,
     platformIgdbId: number,
@@ -881,6 +942,35 @@ export class GameShelfService {
     const tags = await this.repository.listTags();
     this.listRefresh$.next();
     return this.attachTags([updated], tags)[0];
+  }
+
+  async setGameStatusForGames(
+    games: readonly GameIdentity[],
+    status: GameStatus | null
+  ): Promise<void> {
+    let mutatedAny = false;
+
+    try {
+      for (const game of games) {
+        const updated = await this.repository.setGameStatus(
+          game.igdbGameId,
+          game.platformIgdbId,
+          status
+        );
+
+        if (!updated) {
+          throw new Error(
+            `Game entry no longer exists (${game.igdbGameId}:${String(game.platformIgdbId)}).`
+          );
+        }
+
+        mutatedAny = true;
+      }
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
+    }
   }
 
   async setGameRating(

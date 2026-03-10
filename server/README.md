@@ -12,6 +12,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/hltb/search`
 - `GET /v1/metacritic/search`
 - `GET /v1/mobygames/search`
+- `GET /v1/itad/prices`
 - `GET /v1/images/proxy`
 - `GET /v1/background-jobs/stats` (admin/debug)
 - `GET /v1/background-jobs/failed` (admin/debug)
@@ -41,6 +42,9 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/mobygames/search`
   - Required: `q` (or `title`) (min length 2)
   - Optional: `platform` (MobyGames platform ID), `limit`, `offset`, `id`, `genre`, `group`, `format` (`id|brief|normal`), `include` (comma-separated field list)
+- `GET /v1/itad/prices`
+  - Required: `igdbGameId`, `platformIgdbId` (Windows-only: `6`)
+  - Optional: `country` (ISO alpha-2), `shops` (comma-separated ITAD shop IDs)
 - `GET /v1/recommendations/top`
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)
@@ -61,6 +65,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `TWITCH_CLIENT_ID_FILE` (defaults to `/run/secrets/twitch_client_id`)
 - `TWITCH_CLIENT_SECRET_FILE` (defaults to `/run/secrets/twitch_client_secret`)
 - `THEGAMESDB_API_KEY_FILE` (defaults to `/run/secrets/thegamesdb_api_key`)
+- `ITAD_API_KEY_FILE` (defaults to `/run/secrets/itad_api_key`)
 
 ### Optional file-based secrets
 
@@ -86,6 +91,12 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE`
 - `MOBYGAMES_API_BASE_URL`
   - default: `https://api.mobygames.com/v2`
+- `ITAD_API_BASE_URL`
+  - default: `https://api.isthereanydeal.com`
+- `ITAD_DEFAULT_COUNTRY`
+  - default: `CH`
+- `ITAD_STEAM_SHOP_ID`
+  - default: `61` (Steam shop ID in ITAD)
 - `MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `MOBYGAMES_CACHE_FRESH_TTL_SECONDS`
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`
@@ -230,6 +241,7 @@ npm run dev:worktree:stack:up
 This starts the API in Docker with Postgres + HLTB scraper dependencies.
 Provide file-based secrets in `./nas-secrets` (see `docs/nas-deployment.md` for the full list).
 For MobyGames lookups, provide `mobygames_api_key` in the same secrets directory.
+For ITAD price lookups, provide `itad_api_key` in the same secrets directory.
 
 ## Notes
 

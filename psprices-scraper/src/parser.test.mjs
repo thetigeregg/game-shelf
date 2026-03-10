@@ -37,6 +37,20 @@ test('normalizeCandidate treats free labels as zero amount', () => {
   assert.equal(candidate.isFree, true);
 });
 
+test('normalizeCandidate treats localized free labels as zero amount', () => {
+  const candidate = normalizeCandidate({
+    title: 'Fortnite',
+    priceText: 'Kostenlos',
+    oldPriceText: '',
+    discountText: '',
+    url: 'https://psprices.com/region-us/game/6764113/fortnite-battle-royale'
+  });
+
+  assert.ok(candidate);
+  assert.equal(candidate.amount, 0);
+  assert.equal(candidate.isFree, true);
+});
+
 test('normalizeCandidate handles PS+ text and keeps base amount', () => {
   const candidate = normalizeCandidate({
     title: 'Connect: Pictures of Dog',

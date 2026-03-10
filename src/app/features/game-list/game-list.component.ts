@@ -2012,8 +2012,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
         current.platformIgdbId,
         result
       );
-      this.applyUpdatedGame(updated, { refreshCover: true });
-      this.closeFixMatchModal();
+      this.ngZone.run(() => {
+        this.applyUpdatedGame(updated, { refreshCover: true });
+        this.closeFixMatchModal();
+      });
       await this.presentToast('Game match updated.');
     } catch {
       await this.presentToast('Unable to update game match.', 'danger');
@@ -2370,27 +2372,37 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.hasHltbPickerSearched = true;
 
     if (normalized.length < 2) {
-      this.hltbPickerResults = [];
-      this.hltbPickerError = 'Enter at least 2 characters.';
-      this.changeDetectorRef.markForCheck();
+      this.ngZone.run(() => {
+        this.hltbPickerResults = [];
+        this.hltbPickerError = 'Enter at least 2 characters.';
+        this.changeDetectorRef.markForCheck();
+      });
       return;
     }
 
-    this.isHltbPickerLoading = true;
-    this.hltbPickerError = null;
-    this.changeDetectorRef.markForCheck();
+    this.ngZone.run(() => {
+      this.isHltbPickerLoading = true;
+      this.hltbPickerError = null;
+      this.changeDetectorRef.markForCheck();
+    });
 
     try {
       const candidates = await firstValueFrom(
         this.gameShelfService.searchHltbCandidates(normalized, null, null)
       );
-      this.hltbPickerResults = dedupeHltbCandidates(candidates).slice(0, 30);
+      this.ngZone.run(() => {
+        this.hltbPickerResults = dedupeHltbCandidates(candidates).slice(0, 30);
+      });
     } catch (error: unknown) {
-      this.hltbPickerResults = [];
-      this.hltbPickerError = formatRateLimitedUiError(error, 'Unable to search HLTB right now.');
+      this.ngZone.run(() => {
+        this.hltbPickerResults = [];
+        this.hltbPickerError = formatRateLimitedUiError(error, 'Unable to search HLTB right now.');
+      });
     } finally {
-      this.isHltbPickerLoading = false;
-      this.changeDetectorRef.markForCheck();
+      this.ngZone.run(() => {
+        this.isHltbPickerLoading = false;
+        this.changeDetectorRef.markForCheck();
+      });
     }
   }
 
@@ -2463,15 +2475,19 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.hasReviewPickerSearched = true;
 
     if (normalized.length < 2) {
-      this.reviewPickerResults = [];
-      this.reviewPickerError = 'Enter at least 2 characters.';
-      this.changeDetectorRef.markForCheck();
+      this.ngZone.run(() => {
+        this.reviewPickerResults = [];
+        this.reviewPickerError = 'Enter at least 2 characters.';
+        this.changeDetectorRef.markForCheck();
+      });
       return;
     }
 
-    this.isReviewPickerLoading = true;
-    this.reviewPickerError = null;
-    this.changeDetectorRef.markForCheck();
+    this.ngZone.run(() => {
+      this.isReviewPickerLoading = true;
+      this.reviewPickerError = null;
+      this.changeDetectorRef.markForCheck();
+    });
 
     try {
       const candidates = await firstValueFrom(
@@ -2482,16 +2498,22 @@ export class GameListComponent implements OnChanges, OnDestroy {
           target?.platformIgdbId ?? null
         )
       );
-      this.reviewPickerResults = dedupeReviewCandidates(candidates).slice(0, 30);
+      this.ngZone.run(() => {
+        this.reviewPickerResults = dedupeReviewCandidates(candidates).slice(0, 30);
+      });
     } catch (error: unknown) {
-      this.reviewPickerResults = [];
-      this.reviewPickerError = formatRateLimitedUiError(
-        error,
-        'Unable to search reviews right now.'
-      );
+      this.ngZone.run(() => {
+        this.reviewPickerResults = [];
+        this.reviewPickerError = formatRateLimitedUiError(
+          error,
+          'Unable to search reviews right now.'
+        );
+      });
     } finally {
-      this.isReviewPickerLoading = false;
-      this.changeDetectorRef.markForCheck();
+      this.ngZone.run(() => {
+        this.isReviewPickerLoading = false;
+        this.changeDetectorRef.markForCheck();
+      });
     }
   }
 
@@ -2541,22 +2563,28 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.hasPricingPickerSearched = true;
 
     if (!target) {
-      this.pricingPickerResults = [];
-      this.pricingPickerError = 'Select a game first.';
-      this.changeDetectorRef.markForCheck();
+      this.ngZone.run(() => {
+        this.pricingPickerResults = [];
+        this.pricingPickerError = 'Select a game first.';
+        this.changeDetectorRef.markForCheck();
+      });
       return;
     }
 
     if (normalized.length < 2) {
-      this.pricingPickerResults = [];
-      this.pricingPickerError = 'Enter at least 2 characters.';
-      this.changeDetectorRef.markForCheck();
+      this.ngZone.run(() => {
+        this.pricingPickerResults = [];
+        this.pricingPickerError = 'Enter at least 2 characters.';
+        this.changeDetectorRef.markForCheck();
+      });
       return;
     }
 
-    this.isPricingPickerLoading = true;
-    this.pricingPickerError = null;
-    this.changeDetectorRef.markForCheck();
+    this.ngZone.run(() => {
+      this.isPricingPickerLoading = true;
+      this.pricingPickerError = null;
+      this.changeDetectorRef.markForCheck();
+    });
 
     try {
       const candidates = await firstValueFrom(
@@ -2566,16 +2594,22 @@ export class GameListComponent implements OnChanges, OnDestroy {
           normalized
         )
       );
-      this.pricingPickerResults = this.dedupePricingCandidates(candidates).slice(0, 30);
+      this.ngZone.run(() => {
+        this.pricingPickerResults = this.dedupePricingCandidates(candidates).slice(0, 30);
+      });
     } catch (error: unknown) {
-      this.pricingPickerResults = [];
-      this.pricingPickerError = formatRateLimitedUiError(
-        error,
-        'Unable to search pricing right now.'
-      );
+      this.ngZone.run(() => {
+        this.pricingPickerResults = [];
+        this.pricingPickerError = formatRateLimitedUiError(
+          error,
+          'Unable to search pricing right now.'
+        );
+      });
     } finally {
-      this.isPricingPickerLoading = false;
-      this.changeDetectorRef.markForCheck();
+      this.ngZone.run(() => {
+        this.isPricingPickerLoading = false;
+        this.changeDetectorRef.markForCheck();
+      });
     }
   }
 

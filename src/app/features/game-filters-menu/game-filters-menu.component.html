@@ -17,8 +17,10 @@
         <ion-select-option value="hltb:desc">HLTB ↓</ion-select-option>
         <ion-select-option value="review:asc">Review score ↑</ion-select-option>
         <ion-select-option value="review:desc">Review score ↓</ion-select-option>
-        <ion-select-option value="tas:asc">TAS ↑</ion-select-option>
-        <ion-select-option value="tas:desc">TAS ↓</ion-select-option>
+        @if (tasEnabled) {
+          <ion-select-option value="tas:asc">TAS ↑</ion-select-option>
+          <ion-select-option value="tas:desc">TAS ↓</ion-select-option>
+        }
         <ion-select-option value="platform:asc">Platform ↑</ion-select-option>
         <ion-select-option value="platform:desc">Platform ↓</ion-select-option>
       </ion-select>

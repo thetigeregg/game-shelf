@@ -35,6 +35,7 @@ import {
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { addIcons } from 'ionicons';
 import { ellipsisVertical, add } from 'ionicons/icons';
+import { isTasFeatureEnabled } from '../core/config/runtime-config';
 
 @Component({
   selector: 'app-views',
@@ -280,7 +281,7 @@ export class ViewsPage implements OnInit {
       return `HLTB ${direction}`;
     }
 
-    if (sortField === 'tas') {
+    if (sortField === 'tas' && isTasFeatureEnabled()) {
       return `TAS ${direction}`;
     }
 

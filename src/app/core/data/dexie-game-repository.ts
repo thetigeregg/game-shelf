@@ -220,15 +220,12 @@ export class DexieGameRepository implements GameRepository {
       updatedAt: now
     };
 
-    let stored!: GameEntry;
-    await this.withOutboxTransaction([this.db.games], () =>
+    return this.withOutboxTransaction([this.db.games], () =>
       this.db.games.add(created).then((id) => {
         const createdGame: GameEntry = { ...created, id };
-        stored = createdGame;
-        return this.queueGameUpsert(createdGame);
+        return this.queueGameUpsert(createdGame).then(() => createdGame);
       })
     );
-    return stored;
   }
 
   async moveToList(
@@ -540,15 +537,12 @@ export class DexieGameRepository implements GameRepository {
       createdAt: now,
       updatedAt: now
     };
-    let stored!: Tag;
-    await this.withOutboxTransaction([this.db.tags], () =>
+    return this.withOutboxTransaction([this.db.tags], () =>
       this.db.tags.add(created).then((createdId) => {
         const createdTag: Tag = { ...created, id: createdId };
-        stored = createdTag;
-        return this.queueTagUpsert(createdTag);
+        return this.queueTagUpsert(createdTag).then(() => createdTag);
       })
     );
-    return stored;
   }
 
   async deleteTag(tagId: number): Promise<void> {
@@ -604,16 +598,12 @@ export class DexieGameRepository implements GameRepository {
       createdAt: now,
       updatedAt: now
     };
-    let id = 0;
-    await this.withOutboxTransaction([this.db.views], () =>
+    return this.withOutboxTransaction([this.db.views], () =>
       this.db.views.add(created).then((createdId) => {
-        id = createdId;
         const stored = { ...created, id: createdId };
-        return this.queueViewUpsert(stored);
+        return this.queueViewUpsert(stored).then(() => stored);
       })
     );
-    const stored = { ...created, id };
-    return stored;
   }
 
   async updateView(

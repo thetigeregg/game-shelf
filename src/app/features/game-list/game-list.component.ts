@@ -186,6 +186,8 @@ interface SimilarLibraryGameRow {
 }
 
 type SimilarDetailMode = 'library' | 'discovery';
+type ExternalMetadataAction = 'fix' | 'refresh';
+type ExternalMetadataProvider = 'igdb' | 'image' | 'hltb' | 'review' | 'pricing';
 
 interface SimilarDiscoveryGameRow {
   igdbGameId: string;
@@ -348,6 +350,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   isPricingPickerModalOpen = false;
   isPricingPickerLoading = false;
   hasPricingPickerSearched = false;
+  isExternalMetadataModalOpen = false;
+  externalMetadataPendingAction: ExternalMetadataAction | null = null;
+  externalMetadataProvider: ExternalMetadataProvider | null = null;
   selectedGame: GameEntry | null = null;
   detailNavigationStack: GameEntry[] = [];
   similarDetailMode: SimilarDetailMode = 'library';
@@ -460,6 +465,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
   @ViewChild('detailContent') private detailContent?: IonContent;
   @ViewChild(CdkVirtualScrollViewport) private listViewport?: CdkVirtualScrollViewport;
   @ViewChild('customCoverFileInput') private customCoverFileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('externalMetadataProviderSelect')
+  private externalMetadataProviderSelect?: IonSelect;
   @ViewChild('gameDetailModal', { read: ElementRef })
   private gameDetailModalRef?: ElementRef<HTMLElement>;
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
@@ -1720,6 +1727,54 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   async refreshSelectedGameMetacriticFromPopover(): Promise<void> {
     await this.refreshSelectedGameReviewFromPopover();
+  }
+
+  async openExternalMetadataFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+    this.isExternalMetadataModalOpen = true;
+    this.externalMetadataPendingAction = null;
+    this.externalMetadataProvider = null;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  closeExternalMetadataModal(): void {
+    this.isExternalMetadataModalOpen = false;
+    this.externalMetadataPendingAction = null;
+    this.externalMetadataProvider = null;
+    this.changeDetectorRef.markForCheck();
+  }
+
+  startExternalMetadataAction(action: ExternalMetadataAction): void {
+    this.externalMetadataPendingAction = action;
+    this.externalMetadataProvider = null;
+    this.changeDetectorRef.markForCheck();
+    setTimeout(() => {
+      void this.externalMetadataProviderSelect?.open();
+    }, 0);
+  }
+
+  async onExternalMetadataProviderChange(event: Event): Promise<void> {
+    const customEvent = event as CustomEvent<{ value?: ExternalMetadataProvider | null }>;
+    const provider = customEvent.detail.value ?? null;
+    const action = this.externalMetadataPendingAction;
+    this.externalMetadataPendingAction = null;
+    this.externalMetadataProvider = null;
+
+    if (!action || !provider) {
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    await this.executeExternalMetadataAction(action, provider);
+  }
+
+  onExternalMetadataProviderDismiss(): void {
+    if (this.externalMetadataPendingAction === null) {
+      return;
+    }
+    this.externalMetadataPendingAction = null;
+    this.externalMetadataProvider = null;
+    this.changeDetectorRef.markForCheck();
   }
 
   async openFixHltbMatchFromPopover(): Promise<void> {
@@ -4220,6 +4275,62 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.popoverController
       .dismiss(undefined, undefined, this.getDetailActionsPopoverId())
       .catch(() => undefined);
+  }
+
+  private async executeExternalMetadataAction(
+    action: ExternalMetadataAction,
+    provider: ExternalMetadataProvider
+  ): Promise<void> {
+    if (!this.selectedGame) {
+      return;
+    }
+
+    if (action === 'refresh') {
+      if (provider === 'igdb') {
+        await this.refreshSelectedGameMetadata();
+        return;
+      }
+      if (provider === 'image') {
+        await this.openImagePickerModal();
+        return;
+      }
+      if (provider === 'hltb') {
+        await this.refreshSelectedGameCompletionTimes();
+        return;
+      }
+      if (provider === 'review') {
+        await this.refreshSelectedGameReviewScore();
+        return;
+      }
+      await this.refreshSelectedGamePricing();
+      return;
+    }
+
+    if (provider === 'igdb') {
+      this.openFixMatchModal();
+      return;
+    }
+    if (provider === 'image') {
+      await this.openImagePickerModal();
+      return;
+    }
+    if (provider === 'hltb') {
+      this.openHltbPickerModal(this.selectedGame);
+      return;
+    }
+    if (provider === 'review') {
+      this.openReviewPickerModal(this.selectedGame);
+      return;
+    }
+    if (!this.isPsPricesPlatform(this.selectedGame)) {
+      await this.presentToast(
+        'Fix pricing match is only available for PSPrices platforms.',
+        'warning'
+      );
+      return;
+    }
+    this.openPricingPickerModal(this.selectedGame);
+    await this.runPricingPickerSearch();
   }
 
   private async openTagsPicker(game: GameEntry): Promise<void> {

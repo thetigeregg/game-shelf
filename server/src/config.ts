@@ -124,6 +124,8 @@ export interface AppConfig {
   itadApiKey: string;
   itadDefaultCountry: string;
   itadSteamShopId: number;
+  exchangeRateApiBaseUrl: string;
+  exchangeRateApiTimeoutMs: number;
   mobygamesCacheEnableStaleWhileRevalidate: boolean;
   mobygamesCacheFreshTtlSeconds: number;
   mobygamesCacheStaleTtlSeconds: number;
@@ -325,6 +327,8 @@ export const config: AppConfig = {
   itadApiKey: readRequiredSecretFile('ITAD_API_KEY', 'itad_api_key'),
   itadDefaultCountry: normalizeCountryCode(readEnv('ITAD_DEFAULT_COUNTRY', 'CH')) ?? 'CH',
   itadSteamShopId: readIntegerEnv('ITAD_STEAM_SHOP_ID', 61),
+  exchangeRateApiBaseUrl: readEnv('EXCHANGE_RATE_API_BASE_URL', 'https://open.er-api.com/v6'),
+  exchangeRateApiTimeoutMs: readIntegerEnv('EXCHANGE_RATE_API_TIMEOUT_MS', 10_000),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

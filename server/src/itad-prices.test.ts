@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
-import { registerItadPricesRoute } from './itad-prices.js';
+import { __itadPriceTestables, registerItadPricesRoute } from './itad-prices.js';
 
 interface GameRow {
   payload: Record<string, unknown>;
@@ -82,9 +82,10 @@ void test('ITAD route returns unsupported_platform for non-Windows IGDB platform
   await app.close();
 });
 
-void test('ITAD route resolves by Steam app ID and filters deals to Windows only', async () => {
+void test('ITAD route resolves by Steam app ID and converts Steam EUR prices to CHF', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
+  __itadPriceTestables.clearExchangeRateDailyCache();
   pool.seed('1520', 6, {
     title: 'Example Game',
     steamAppId: 570
@@ -144,6 +145,22 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
         );
       }
 
+      if (url.pathname === '/v6/latest/EUR') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              conversion_rates: {
+                CHF: 0.95
+              }
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+        );
+      }
+
       return Promise.resolve(new Response('{}', { status: 404 }));
     }
   });
@@ -160,8 +177,9 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
   assert.equal(Array.isArray(body['deals']), true);
   assert.equal((body['deals'] as unknown[]).length, 1);
   assert.equal(typeof body['bestPrice'], 'object');
-  assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 8.49);
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 8.07);
   assert.equal((body['bestPrice'] as Record<string, unknown>)['regularAmount'], null);
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['currency'], 'CHF');
   assert.equal(
     calls.some((url) => url.includes('/lookup/id/title/v1')),
     false
@@ -173,9 +191,9 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
   const persisted = pool.getPayload('1520', 6);
   assert.ok(persisted);
   assert.equal(persisted['itadGameId'], '018d937e-e9ab-70f4-bd05-1db7a138eb39');
-  assert.equal(persisted['itadBestPriceAmount'], 8.49);
+  assert.equal(persisted['itadBestPriceAmount'], 8.07);
   assert.equal(persisted['itadBestPriceRegularAmount'], null);
-  assert.equal(persisted['itadBestPriceCurrency'], 'EUR');
+  assert.equal(persisted['itadBestPriceCurrency'], 'CHF');
   assert.equal(persisted['itadPriceShopId'], 61);
 
   await app.close();
@@ -184,6 +202,7 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
 void test('ITAD route falls back to title lookup when steam lookup misses', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
+  __itadPriceTestables.clearExchangeRateDailyCache();
   pool.seed('999', 6, {
     title: 'Doom',
     steamAppId: 999999
@@ -239,6 +258,22 @@ void test('ITAD route falls back to title lookup when steam lookup misses', asyn
         );
       }
 
+      if (url.pathname === '/v6/latest/EUR') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              conversion_rates: {
+                CHF: 0.95
+              }
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+        );
+      }
+
       return Promise.resolve(new Response('{}', { status: 404 }));
     }
   });
@@ -252,13 +287,101 @@ void test('ITAD route falls back to title lookup when steam lookup misses', asyn
   assert.equal(body['status'], 'ok');
   assert.equal(body['matchStrategy'], 'title');
   assert.equal(body['itadGameId'], '018d937e-e9ce-718b-9715-111f50820ed4');
-  assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 5.49);
-  assert.equal((body['bestPrice'] as Record<string, unknown>)['regularAmount'], 19.99);
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 5.22);
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['regularAmount'], 18.99);
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['currency'], 'CHF');
   const persisted = pool.getPayload('999', 6);
   assert.ok(persisted);
   assert.equal(persisted['itadGameId'], '018d937e-e9ce-718b-9715-111f50820ed4');
-  assert.equal(persisted['itadBestPriceAmount'], 5.49);
-  assert.equal(persisted['itadBestPriceRegularAmount'], 19.99);
+  assert.equal(persisted['itadBestPriceAmount'], 5.22);
+  assert.equal(persisted['itadBestPriceRegularAmount'], 18.99);
+  assert.equal(persisted['itadBestPriceCurrency'], 'CHF');
+
+  await app.close();
+});
+
+void test('ITAD route caches FX conversion rate once per UTC day', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  __itadPriceTestables.clearExchangeRateDailyCache();
+  pool.seed('120', 6, {
+    title: 'Cache Test',
+    steamAppId: 120
+  });
+
+  let fxCalls = 0;
+  await registerItadPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    fetchImpl: (input) => {
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+
+      if (url.pathname === '/lookup/id/shop/61/v1') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ 'app/120': '018d937e-e9ab-70f4-bd05-1db7a138eb39' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          })
+        );
+      }
+
+      if (url.pathname === '/games/prices/v3') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: '018d937e-e9ab-70f4-bd05-1db7a138eb39',
+                historyLow: null,
+                deals: [
+                  {
+                    shop: { id: 61, name: 'Steam' },
+                    platforms: [{ id: 1, name: 'Windows' }],
+                    price: { amount: 10, currency: 'EUR' }
+                  }
+                ]
+              }
+            ]),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+        );
+      }
+
+      if (url.pathname === '/v6/latest/EUR') {
+        fxCalls += 1;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              conversion_rates: {
+                CHF: 1
+              }
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    }
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/itad/prices?igdbGameId=120&platformIgdbId=6'
+  });
+  assert.equal(first.statusCode, 200);
+
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/itad/prices?igdbGameId=120&platformIgdbId=6'
+  });
+  assert.equal(second.statusCode, 200);
+  assert.equal(fxCalls, 1);
 
   await app.close();
 });

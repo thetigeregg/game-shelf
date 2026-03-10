@@ -80,6 +80,13 @@ const PSPRICES_TITLE_MATCH_MIN_GAP = 8;
 const DEFAULT_PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS = 86400;
 const DEFAULT_PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
+const PSPRICES_REGION_CURRENCY_BY_CODE = new Map<string, string>([
+  ['ch', 'CHF'],
+  ['us', 'USD'],
+  ['gb', 'GBP'],
+  ['jp', 'JPY'],
+  ['kr', 'KRW']
+]);
 
 export async function registerPsPricesRoute(
   app: FastifyInstance,
@@ -481,16 +488,17 @@ function readPsPricesSnapshotFromPayload(
     ? (payload['psPricesCandidates'] as unknown[])
     : [];
   const candidates = candidatesRaw
-    .map((entry) => normalizePsPricesCachedCandidate(entry))
+    .map((entry) => normalizePsPricesCachedCandidate(entry, regionPath))
     .filter((entry): entry is PsPricesCandidate => entry !== null)
     .slice(0, 30);
+  const fallbackCurrency = inferCurrencyFromRegionPath(regionPath);
 
   return {
     fetchedAt,
     snapshot: {
       title: normalizeNonEmptyString(payload['psPricesTitle']),
       amount: normalizeNumberOrNull(payload['psPricesPriceAmount']),
-      currency: normalizeNonEmptyString(payload['psPricesPriceCurrency']),
+      currency: normalizeNonEmptyString(payload['psPricesPriceCurrency']) ?? fallbackCurrency,
       regularAmount: normalizeNumberOrNull(payload['psPricesRegularPriceAmount']),
       discountPercent: normalizeNumberOrNull(payload['psPricesDiscountPercent']),
       isFree: normalizeBooleanOrNull(payload['psPricesIsFree']),
@@ -643,6 +651,7 @@ async function fetchPsPricesSnapshot(
   }
 
   const payloadRecord = payload as Record<string, unknown>;
+  const fallbackCurrency = inferCurrencyFromRegionPath(params.regionPath);
   const candidatesRaw: unknown[] = Array.isArray(payloadRecord['candidates'])
     ? (payloadRecord['candidates'] as unknown[])
     : [];
@@ -650,7 +659,7 @@ async function fetchPsPricesSnapshot(
   const fallbackItem =
     itemRaw && typeof itemRaw === 'object' && !Array.isArray(itemRaw) ? [itemRaw] : [];
   const candidates = [...candidatesRaw, ...fallbackItem]
-    .map((entry) => normalizePsPricesCandidate(entry))
+    .map((entry) => normalizePsPricesCandidate(entry, fallbackCurrency))
     .filter((entry): entry is PsPricesSnapshot => entry !== null);
   const dedupedCandidates = dedupePsPricesCandidates(candidates);
 
@@ -706,7 +715,10 @@ function dedupePsPricesCandidates(candidates: PsPricesSnapshot[]): PsPricesSnaps
   return [...byKey.values()];
 }
 
-function normalizePsPricesCandidate(item: unknown): PsPricesSnapshot | null {
+function normalizePsPricesCandidate(
+  item: unknown,
+  fallbackCurrency?: string | null
+): PsPricesSnapshot | null {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     return null;
   }
@@ -717,7 +729,7 @@ function normalizePsPricesCandidate(item: unknown): PsPricesSnapshot | null {
   }
 
   const amount = normalizeNumberOrNull(candidate['priceAmount'] ?? candidate['amount']);
-  const currency = normalizeNonEmptyString(candidate['currency']);
+  const currency = normalizeNonEmptyString(candidate['currency']) ?? fallbackCurrency ?? null;
   const regularAmount = normalizeNumberOrNull(
     candidate['regularPriceAmount'] ?? candidate['regularAmount']
   );
@@ -744,13 +756,16 @@ function normalizePsPricesCandidate(item: unknown): PsPricesSnapshot | null {
   };
 }
 
-function normalizePsPricesCachedCandidate(item: unknown): PsPricesCandidate | null {
+function normalizePsPricesCachedCandidate(
+  item: unknown,
+  regionPath: string
+): PsPricesCandidate | null {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     return null;
   }
 
   const record = item as Record<string, unknown>;
-  const normalized = normalizePsPricesCandidate(record);
+  const normalized = normalizePsPricesCandidate(record, inferCurrencyFromRegionPath(regionPath));
   if (!normalized) {
     return null;
   }
@@ -762,6 +777,17 @@ function normalizePsPricesCachedCandidate(item: unknown): PsPricesCandidate | nu
     ...normalized,
     score
   };
+}
+
+function inferCurrencyFromRegionPath(regionPath: string): string | null {
+  const normalized = regionPath.trim().toLowerCase();
+  const match = normalized.match(/^region-([a-z]{2})(?:$|[^a-z])/);
+  if (!match) {
+    return null;
+  }
+
+  const regionCode = match[1];
+  return PSPRICES_REGION_CURRENCY_BY_CODE.get(regionCode) ?? null;
 }
 
 function normalizeTitleForMatch(value: string): string {

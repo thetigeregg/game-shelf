@@ -202,6 +202,53 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
   await app.close();
 });
 
+void test('PSPrices route falls back currency from region when scraper omits it', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, {
+    title: 'Monster Train 2'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Monster Train 2',
+              priceAmount: 49.9,
+              regularPriceAmount: 69.9,
+              discountPercent: 28,
+              isFree: false,
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['currency'], 'CHF');
+
+  const persisted = pool.getPayload('332273', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['psPricesPriceCurrency'], 'CHF');
+  assert.equal(persisted['priceCurrency'], 'CHF');
+
+  await app.close();
+});
+
 void test('PSPrices route suppresses sync event writes for discovery rows', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
@@ -342,6 +389,42 @@ void test('PSPrices route returns fresh cached result without scraper fetch', as
   assert.equal(body['status'], 'ok');
   assert.equal(body['cached'], true);
   assert.equal(fetchCalls, 0);
+
+  await app.close();
+});
+
+void test('PSPrices fresh cache falls back currency from region when cached currency is missing', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('5263323', 130, {
+    title: 'Pokemon Violet',
+    psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
+    psPricesRegionPath: 'region-ch',
+    psPricesShow: 'games',
+    psPricesPlatform: 'Switch',
+    psPricesTitle: 'Pokemon Violet',
+    psPricesPriceAmount: 59.9,
+    psPricesPriceCurrency: null,
+    psPricesRegularPriceAmount: null,
+    psPricesDiscountPercent: null,
+    psPricesIsFree: false,
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z')
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-psprices-cache'], 'HIT_FRESH');
+  const body = parseJsonRecord(response.body);
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['currency'], 'CHF');
 
   await app.close();
 });

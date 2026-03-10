@@ -752,7 +752,13 @@ export class DexieGameRepository implements GameRepository {
   }): Promise<void> {
     const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
-    return this.db.outbox.put(entry).then(() => undefined);
+    return this.db.outbox.put(entry).then(() => {
+      try {
+        this.outboxWriter?.onOutboxEntryEnqueued?.(entry);
+      } catch {
+        // Keep outbox persistence resilient if optional observability hook fails.
+      }
+    });
   }
 
   private requestSyncNow(): void {

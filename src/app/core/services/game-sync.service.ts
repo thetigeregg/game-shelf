@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { AppDb, SyncMetaEntry } from '../data/app-db';
+import { AppDb, OutboxEntry, SyncMetaEntry } from '../data/app-db';
 import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-writer';
 import {
   ClientSyncOperation,
@@ -110,12 +110,16 @@ export class GameSyncService implements SyncOutboxWriter {
     const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
     await this.db.outbox.put(entry);
+    this.onOutboxEntryEnqueued(entry);
+    void this.syncNow();
+  }
+
+  onOutboxEntryEnqueued(entry: OutboxEntry): void {
     this.debugLogService.debug('sync.outbox.enqueued', {
       opId: entry.opId,
       entityType: entry.entityType,
       operation: entry.operation
     });
-    void this.syncNow();
   }
 
   async syncNow(): Promise<void> {

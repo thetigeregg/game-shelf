@@ -22,10 +22,9 @@ export function buildOutboxEntry(
   createdAt: string = new Date().toISOString()
 ): OutboxEntry {
   const opId = typeof request.opId === 'string' ? request.opId.trim() : '';
-  const clientTimestamp =
-    typeof request.clientTimestamp === 'string' && request.clientTimestamp.trim().length > 0
-      ? request.clientTimestamp
-      : createdAt;
+  const rawClientTimestamp =
+    typeof request.clientTimestamp === 'string' ? request.clientTimestamp.trim() : '';
+  const clientTimestamp = rawClientTimestamp.length > 0 ? rawClientTimestamp : createdAt;
 
   return {
     opId: opId.length > 0 ? opId : generateId(),

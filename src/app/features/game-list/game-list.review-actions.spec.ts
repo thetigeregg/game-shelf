@@ -251,6 +251,130 @@ describe('game-list review actions', () => {
     expect(presentToast).toHaveBeenCalledWith('2 games deleted.');
   });
 
+  it('sets status for selected games using batched service call', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      displayedGames: GameEntry[];
+      selectedGameKeys: Set<string>;
+      statusOptions: Array<{ value: 'playing' | 'completed'; label: string }>;
+    };
+    const first = createGame({ igdbGameId: '25', platformIgdbId: 6 });
+    const second = createGame({ igdbGameId: '26', platformIgdbId: 130 });
+    const setGameStatusForGames = vi.fn().mockResolvedValue(undefined);
+    const clearSelectionMode = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const alertController = {
+      create: vi.fn(
+        (options: {
+          buttons: Array<{ role?: string; handler?: (value: string | null | undefined) => void }>;
+        }) =>
+          Promise.resolve({
+            present: vi.fn(() => Promise.resolve()),
+            onDidDismiss: vi.fn(() => {
+              const confirmButton = options.buttons.find((button) => button.role === 'confirm');
+              confirmButton?.handler?.('completed');
+              return Promise.resolve({ role: 'confirm' });
+            })
+          })
+      )
+    };
+
+    Object.assign(page, {
+      displayedGames: [first, second],
+      selectedGameKeys: new Set(['25::6', '26::130']),
+      statusOptions: [
+        { value: 'playing', label: 'Playing' },
+        { value: 'completed', label: 'Completed' }
+      ],
+      gameShelfService: { setGameStatusForGames },
+      alertController,
+      clearSelectionMode,
+      presentToast
+    });
+
+    await (
+      page as unknown as { setStatusForSelectedGames: () => Promise<void> }
+    ).setStatusForSelectedGames();
+
+    expect(setGameStatusForGames).toHaveBeenCalledWith(
+      [
+        { igdbGameId: '25', platformIgdbId: 6 },
+        { igdbGameId: '26', platformIgdbId: 130 }
+      ],
+      'completed'
+    );
+    expect(clearSelectionMode).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('Status updated.');
+  });
+
+  it('sets tags for selected games using batched service call', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      displayedGames: GameEntry[];
+      selectedGameKeys: Set<string>;
+    };
+    const first = createGame({ igdbGameId: '30', platformIgdbId: 6 });
+    const second = createGame({ igdbGameId: '31', platformIgdbId: 130 });
+    const setGameTagsForGames = vi.fn().mockResolvedValue(undefined);
+    const listTags = vi.fn().mockResolvedValue([
+      {
+        id: 1,
+        name: 'Favorite',
+        color: '#ff0000',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      },
+      {
+        id: 2,
+        name: 'Backlog',
+        color: '#00ff00',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      }
+    ]);
+    const clearSelectionMode = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const alertController = {
+      create: vi.fn(
+        (options: {
+          buttons: Array<{
+            role?: string;
+            handler?: (value: string[] | string | null | undefined) => void;
+          }>;
+        }) =>
+          Promise.resolve({
+            present: vi.fn(() => Promise.resolve()),
+            onDidDismiss: vi.fn(() => {
+              const confirmButton = options.buttons.find((button) => button.role === 'confirm');
+              confirmButton?.handler?.(['1', '2']);
+              return Promise.resolve({ role: 'confirm' });
+            })
+          })
+      )
+    };
+
+    Object.assign(page, {
+      displayedGames: [first, second],
+      selectedGameKeys: new Set(['30::6', '31::130']),
+      gameShelfService: { listTags, setGameTagsForGames },
+      alertController,
+      clearSelectionMode,
+      presentToast
+    });
+
+    await (
+      page as unknown as { setTagsForSelectedGames: () => Promise<void> }
+    ).setTagsForSelectedGames();
+
+    expect(setGameTagsForGames).toHaveBeenCalledWith(
+      [
+        { igdbGameId: '30', platformIgdbId: 6 },
+        { igdbGameId: '31', platformIgdbId: 130 }
+      ],
+      [1, 2]
+    );
+    expect(clearSelectionMode).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('Tags updated.');
+  });
+
   it('single review refresh allows unsupported legacy platforms and uses review messages', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;

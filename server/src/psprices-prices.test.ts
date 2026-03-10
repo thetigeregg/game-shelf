@@ -40,14 +40,21 @@ class GamePoolMock {
       return Promise.resolve({ rows: row ? [row] : [] });
     }
 
-    if (normalized.startsWith('update games set payload = $3::jsonb, updated_at = now()')) {
+    if (normalized.startsWith('update games set payload =')) {
       const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
       const platformIgdbId =
         typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
       const payloadRaw = typeof params[2] === 'string' ? params[2] : '{}';
-      const parsed = JSON.parse(payloadRaw) as Record<string, unknown>;
-      this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload: parsed });
-      return Promise.resolve({ rows: [{ payload: parsed }], rowCount: 1 });
+      const patch = JSON.parse(payloadRaw) as Record<string, unknown>;
+      const key = `${igdbGameId}::${String(platformIgdbId)}`;
+      const existing = this.rowsByIdentity.get(key)?.payload ?? {};
+      const merged = { ...existing, ...patch };
+      const changed = JSON.stringify(existing) !== JSON.stringify(merged);
+      if (changed) {
+        this.rowsByIdentity.set(key, { payload: merged });
+        return Promise.resolve({ rows: [{ payload: merged }], rowCount: 1 });
+      }
+      return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     if (
@@ -335,6 +342,69 @@ void test('PSPrices route returns fresh cached result without scraper fetch', as
   assert.equal(body['status'], 'ok');
   assert.equal(body['cached'], true);
   assert.equal(fetchCalls, 0);
+
+  await app.close();
+});
+
+void test('PSPrices route bypasses fresh cache when title override is provided', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('5263323', 130, {
+    title: 'Pokemon Violet',
+    psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
+    psPricesRegionPath: 'region-ch',
+    psPricesShow: 'games',
+    psPricesPlatform: 'Switch',
+    psPricesTitle: 'Pokemon Violet',
+    psPricesPriceAmount: 59.9,
+    psPricesPriceCurrency: 'CHF',
+    psPricesRegularPriceAmount: null,
+    psPricesDiscountPercent: null,
+    psPricesIsFree: false,
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+  });
+  let fetchCalls = 0;
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    fetchImpl: (input) => {
+      fetchCalls += 1;
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      assert.equal(url.searchParams.get('q'), 'Monster Train 2');
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Monster Train 2',
+              priceAmount: 49.9,
+              currency: 'CHF',
+              regularPriceAmount: 69.9,
+              discountPercent: 28,
+              isFree: false,
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&title=Monster%20Train%202'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-psprices-cache'], 'MISS');
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.equal(body['cached'], false);
+  assert.equal(fetchCalls, 1);
 
   await app.close();
 });

@@ -501,8 +501,8 @@ describe('MetadataValidatorPage', () => {
 
   it('bulk pricing refresh only processes supported platforms', async () => {
     const { page, runBulkMock, presentToast } = createPageHarness();
-    const pc = createGame({ igdbGameId: '1', platformIgdbId: 6 });
-    const unsupported = createGame({ igdbGameId: '2', platformIgdbId: 11 });
+    const pc = createGame({ igdbGameId: '1', platformIgdbId: 6, listType: 'wishlist' });
+    const unsupported = createGame({ igdbGameId: '2', platformIgdbId: 11, listType: 'wishlist' });
     setField(page, 'displayedGames', [pc, unsupported]);
     setField(page, 'selectedGameKeys', new Set(['1::6', '2::11']));
 
@@ -510,7 +510,12 @@ describe('MetadataValidatorPage', () => {
       {
         game: pc,
         ok: true,
-        value: createGame({ igdbGameId: '1', platformIgdbId: 6, priceAmount: 29.9 })
+        value: createGame({
+          igdbGameId: '1',
+          platformIgdbId: 6,
+          listType: 'wishlist',
+          priceAmount: 29.9
+        })
       },
       { game: pc, ok: false, value: null }
     ]);
@@ -531,8 +536,18 @@ describe('MetadataValidatorPage', () => {
 
   it('refreshPricingForGame opens pricing picker for psprices platforms and direct refresh for steam', async () => {
     const { page, shelf } = createPageHarness();
-    const psGame = createGame({ igdbGameId: '2', platformIgdbId: 167, title: 'PS Game' });
-    const steamGame = createGame({ igdbGameId: '3', platformIgdbId: 6, title: 'Steam Game' });
+    const psGame = createGame({
+      igdbGameId: '2',
+      platformIgdbId: 167,
+      title: 'PS Game',
+      listType: 'wishlist'
+    });
+    const steamGame = createGame({
+      igdbGameId: '3',
+      platformIgdbId: 6,
+      title: 'Steam Game',
+      listType: 'wishlist'
+    });
 
     await page.refreshPricingForGame(psGame);
     expect(
@@ -829,9 +844,19 @@ describe('MetadataValidatorPage', () => {
       page,
       'applyMissingMetadataFilters',
       [
-        createGame({ igdbGameId: '9', platformIgdbId: 6, priceAmount: null }),
-        createGame({ igdbGameId: '10', platformIgdbId: 167, priceAmount: 39.9 }),
-        createGame({ igdbGameId: '11', platformIgdbId: 11, priceAmount: null })
+        createGame({ igdbGameId: '9', platformIgdbId: 6, listType: 'wishlist', priceAmount: null }),
+        createGame({
+          igdbGameId: '10',
+          platformIgdbId: 167,
+          listType: 'wishlist',
+          priceAmount: 39.9
+        }),
+        createGame({
+          igdbGameId: '11',
+          platformIgdbId: 6,
+          listType: 'collection',
+          priceAmount: null
+        })
       ],
       ['pricing']
     ) as GameEntry[];

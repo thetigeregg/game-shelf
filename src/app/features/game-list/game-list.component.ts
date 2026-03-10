@@ -745,10 +745,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    await Promise.all(
-      selectedGames.map((game) =>
-        this.gameShelfService.removeGame(game.igdbGameId, game.platformIgdbId)
-      )
+    await this.gameShelfService.removeGames(
+      selectedGames.map((game) => ({
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId
+      }))
     );
     this.clearSelectionMode();
     await this.presentToast(
@@ -764,10 +765,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    await Promise.all(
-      selectedGames.map((game) =>
-        this.gameShelfService.moveGame(game.igdbGameId, game.platformIgdbId, targetList)
-      )
+    await this.gameShelfService.moveGamesToList(
+      selectedGames.map((game) => ({
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId
+      })),
+      targetList
     );
     this.clearSelectionMode();
     await this.presentToast(
@@ -818,10 +821,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    await Promise.all(
-      selectedGames.map((game) =>
-        this.gameShelfService.setGameStatus(game.igdbGameId, game.platformIgdbId, nextStatus)
-      )
+    await this.gameShelfService.setGameStatusForGames(
+      selectedGames.map((game) => ({
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId
+      })),
+      nextStatus
     );
     this.clearSelectionMode();
     await this.presentToast('Status updated.');
@@ -865,10 +870,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    await Promise.all(
-      selectedGames.map((game) =>
-        this.gameShelfService.setGameTags(game.igdbGameId, game.platformIgdbId, nextTagIds)
-      )
+    await this.gameShelfService.setGameTagsForGames(
+      selectedGames.map((game) => ({
+        igdbGameId: game.igdbGameId,
+        platformIgdbId: game.platformIgdbId
+      })),
+      nextTagIds
     );
     this.clearSelectionMode();
     await this.presentToast('Tags updated.');

@@ -1806,6 +1806,85 @@ describe('GameShelfService', () => {
     );
   });
 
+  it('refreshes watchList on partial failure for bulk move/remove/status/tags updates', async () => {
+    const base: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Game',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Switch',
+      platformIgdbId: 130,
+      tagIds: [],
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: 'x',
+      updatedAt: 'x'
+    };
+
+    repository.listByType.mockResolvedValue([]);
+    repository.listTags.mockResolvedValue([]);
+
+    const subscription = service.watchList('collection').subscribe();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    repository.listByType.mockClear();
+
+    repository.setGameStatus.mockResolvedValueOnce(base).mockResolvedValueOnce(undefined);
+    await expect(
+      service.setGameStatusForGames(
+        [
+          { igdbGameId: '123', platformIgdbId: 130 },
+          { igdbGameId: '456', platformIgdbId: 6 }
+        ],
+        'playing'
+      )
+    ).rejects.toThrowError('Game entry no longer exists (456:6).');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(repository.listByType).toHaveBeenCalledTimes(1);
+
+    repository.listByType.mockClear();
+    repository.moveToList.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('boom'));
+    await expect(
+      service.moveGamesToList(
+        [
+          { igdbGameId: '123', platformIgdbId: 130 },
+          { igdbGameId: '456', platformIgdbId: 6 }
+        ],
+        'wishlist'
+      )
+    ).rejects.toThrowError('boom');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(repository.listByType).toHaveBeenCalledTimes(1);
+
+    repository.listByType.mockClear();
+    repository.remove.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('boom'));
+    await expect(
+      service.removeGames([
+        { igdbGameId: '123', platformIgdbId: 130 },
+        { igdbGameId: '456', platformIgdbId: 6 }
+      ])
+    ).rejects.toThrowError('boom');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(repository.listByType).toHaveBeenCalledTimes(1);
+
+    repository.listByType.mockClear();
+    repository.setGameTags.mockResolvedValueOnce(base).mockResolvedValueOnce(undefined);
+    await expect(
+      service.setGameTagsForGames(
+        [
+          { igdbGameId: '123', platformIgdbId: 130 },
+          { igdbGameId: '456', platformIgdbId: 6 }
+        ],
+        [1]
+      )
+    ).rejects.toThrowError('Game entry no longer exists (456:6).');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(repository.listByType).toHaveBeenCalledTimes(1);
+
+    subscription.unsubscribe();
+  });
+
   it('validates tag names and normalizes tag colors', async () => {
     repository.upsertTag.mockResolvedValue({
       id: 1,

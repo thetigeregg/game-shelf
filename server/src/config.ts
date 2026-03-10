@@ -120,6 +120,10 @@ export interface AppConfig {
   metacriticSearchRateLimitMaxPerMinute: number;
   mobygamesApiBaseUrl: string;
   mobygamesApiKey: string;
+  itadApiBaseUrl: string;
+  itadApiKey: string;
+  itadDefaultCountry: string;
+  itadSteamShopId: number;
   mobygamesCacheEnableStaleWhileRevalidate: boolean;
   mobygamesCacheFreshTtlSeconds: number;
   mobygamesCacheStaleTtlSeconds: number;
@@ -249,6 +253,11 @@ function readRuntimeModeDefaultEnv(
   return parsed ?? fallback;
 }
 
+function normalizeCountryCode(value: string): string | null {
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(normalized) ? normalized : null;
+}
+
 const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
 
 function readEmbeddingDimensionsEnv(name: string): number {
@@ -312,6 +321,10 @@ export const config: AppConfig = {
   ),
   mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
   mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
+  itadApiBaseUrl: readEnv('ITAD_API_BASE_URL', 'https://api.isthereanydeal.com'),
+  itadApiKey: readRequiredSecretFile('ITAD_API_KEY', 'itad_api_key'),
+  itadDefaultCountry: normalizeCountryCode(readEnv('ITAD_DEFAULT_COUNTRY', 'CH')) ?? 'CH',
+  itadSteamShopId: readIntegerEnv('ITAD_STEAM_SHOP_ID', 61),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

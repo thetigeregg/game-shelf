@@ -26,6 +26,7 @@ export interface IgdbMetadataRecord {
   keywordIds: number[];
   screenshots: IgdbGameScreenshot[];
   videos: IgdbGameVideo[];
+  steamAppId: number | null;
 }
 
 export interface MetadataEnrichmentSummary {

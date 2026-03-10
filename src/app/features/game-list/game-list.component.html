@@ -80,20 +80,6 @@
       [class.game-row-selected]="isGameSelected(getGameKey(game))"
       (click)="onGameRowClick(game, fromSimilarDetailSection === true)"
     >
-      @if (getStatusIconName(game); as statusIconName) {
-        <ion-icon
-          class="status-icon"
-          [name]="statusIconName"
-          [style.color]="getStatusIconColor(game)"
-          aria-hidden="true"
-        ></ion-icon>
-      }
-      @if (getRating(game); as rating) {
-        <div class="rating-indicator">
-          <ion-icon name="star" aria-hidden="true"></ion-icon>
-          <span>{{ formatRatingValue(rating) }}</span>
-        </div>
-      }
       <div slot="start" class="game-art">
         <img
           [src]="getRowCoverUrl(game)"
@@ -130,35 +116,64 @@
               }
             </div>
             <div class="row-metadata-stack">
-              @if (listType === 'wishlist' && getRowPriceLabel(game); as rowPriceLabel) {
-                <div
-                  class="price-main-indicator"
-                  [class.price-main-indicator-discount]="isRowPriceOnDiscount(game)"
-                >
-                  {{ rowPriceLabel }}
+              @if (getStatusIconName(game) || getRating(game)) {
+                <div class="row-metadata-group row-metadata-group-top">
+                  @if (getRating(game); as rating) {
+                    <div class="rating-indicator">
+                      <ion-icon name="star" aria-hidden="true"></ion-icon>
+                      <span>{{ formatRatingValue(rating) }}</span>
+                    </div>
+                  }
+
+                  @if (getStatusIconName(game); as statusIconName) {
+                    <div class="status-indicator">
+                      <ion-icon
+                        class="status-icon"
+                        [name]="statusIconName"
+                        [style.color]="getStatusIconColor(game)"
+                        aria-hidden="true"
+                      ></ion-icon>
+                    </div>
+                  }
                 </div>
+              } @else {
+                <div></div>
               }
-              @if (getRowHltbHoursLabel(game); as mainHours) {
-                <div class="row-metadata-indicators">
-                  <div class="hltb-main-indicator">
-                    {{ mainHours }}
+
+              <div class="row-metadata-group row-metadata-group-bottom">
+                @if (listType === 'wishlist' && getRowPriceLabel(game); as rowPriceLabel) {
+                  <div
+                    class="price-main-indicator"
+                    [class.price-main-indicator-discount]="isRowPriceOnDiscount(game)"
+                  >
+                    {{ rowPriceLabel }}
                   </div>
-                  @if (hasValidRowReviewScore(game)) {
+                }
+                @if (getRowHltbHoursLabel(game); as mainHours) {
+                  <div class="row-metadata-indicators">
+                    <div class="hltb-main-indicator">
+                      {{ mainHours }}
+                    </div>
+                    @if (hasValidRowReviewScore(game)) {
+                      <div
+                        class="metacritic-score-indicator"
+                        [ngClass]="getRowReviewBadgeClass(game)"
+                      >
+                        {{ getRowReviewScore(game) }}
+                      </div>
+                    }
+                  </div>
+                } @else if (hasValidRowReviewScore(game)) {
+                  <div class="row-metadata-indicators">
                     <div
                       class="metacritic-score-indicator"
                       [ngClass]="getRowReviewBadgeClass(game)"
                     >
                       {{ getRowReviewScore(game) }}
                     </div>
-                  }
-                </div>
-              } @else if (hasValidRowReviewScore(game)) {
-                <div class="row-metadata-indicators">
-                  <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
-                    {{ getRowReviewScore(game) }}
                   </div>
-                </div>
-              }
+                }
+              </div>
             </div>
           </div>
         </div>

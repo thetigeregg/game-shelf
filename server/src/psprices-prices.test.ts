@@ -507,7 +507,7 @@ void test('PSPrices scoring treats standard edition as neutral for title confide
 
   const match = body['match'] as Record<string, unknown>;
   assert.equal(match['matchedTitle'], 'Fire Emblem Engage Standard Edition');
-  assert.equal(match['score'], 100);
+  assert.equal(match['score'], 80);
   assert.equal(match['confidence'], 'high');
 
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
@@ -516,7 +516,64 @@ void test('PSPrices scoring treats standard edition as neutral for title confide
 
   const candidates = body['candidates'] as Array<Record<string, unknown>>;
   assert.equal(candidates[0]?.['title'], 'Fire Emblem Engage Standard Edition');
-  assert.equal(candidates[0]?.['score'], 100);
+  assert.equal(candidates[0]?.['score'], 80);
+
+  await app.close();
+});
+
+void test('PSPrices scoring treats complete edition as neutral for title confidence', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('777777', 167, {
+    title: 'Nioh 2'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Nioh 2 Complete Edition',
+                amount: 59.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7777777/nioh-2-complete-edition'
+              },
+              {
+                title: 'Nioh 2 Season Pass',
+                amount: 24.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7777778/nioh-2-season-pass'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=777777&platformIgdbId=167&title=Nioh%202&includeCandidates=1'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['matchedTitle'], 'Nioh 2 Complete Edition');
+  assert.equal(match['score'], 73.33);
+  assert.equal(match['confidence'], 'high');
+
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['title'], 'Nioh 2 Complete Edition');
+  assert.equal(bestPrice['amount'], 59.9);
 
   await app.close();
 });

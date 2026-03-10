@@ -797,10 +797,17 @@ function scorePsPricesTitleMatch(expectedTitle: string, candidateTitle: string):
 
 function normalizeTitleForMatchForScoring(value: string): string {
   const normalized = normalizeTitleForMatch(value);
-  // Treat "standard edition" as neutral metadata, while preserving standalone
-  // "standard" or "edition" tokens for other title variants.
-  const withoutStandardEdition = normalized.replace(/\bstandard edition\b/g, ' ');
-  const filteredTokens = withoutStandardEdition.split(' ').filter((token) => token.length > 0);
+  // Compress edition-label phrases into single qualifier tokens so they
+  // reduce score less than two separate extra tokens.
+  const withoutNeutralEditionLabels = normalized.replace(
+    /\bstandard edition\b/g,
+    ' standard_edition '
+  );
+  const withCollapsedEditionLabels = withoutNeutralEditionLabels.replace(
+    /\bcomplete edition\b/g,
+    ' complete_edition '
+  );
+  const filteredTokens = withCollapsedEditionLabels.split(' ').filter((token) => token.length > 0);
 
   if (filteredTokens.length === 0) {
     return normalized;

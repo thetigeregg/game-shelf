@@ -87,7 +87,9 @@
       </ion-button>
       <ion-button
         size="small"
-        [disabled]="selectedGamesCount === 0 || isBulkRefreshingPricing"
+        [disabled]="
+          selectedListType !== 'wishlist' || selectedGamesCount === 0 || isBulkRefreshingPricing
+        "
         (click)="refreshPricingForSelectedGames()"
       >
         @if (isBulkRefreshingPricing) {
@@ -116,10 +118,11 @@
 
     @if (filteredGames$ | async; as games) {
       @for (game of games; track trackByGameKey($index, game)) {
-        <ion-item>
+        <ion-item button detail="false" (click)="toggleGameSelection(game)">
           <ion-checkbox
             slot="start"
             [checked]="isGameSelected(game)"
+            (click)="$event.stopPropagation()"
             (ionChange)="toggleGameSelection(game)"
           ></ion-checkbox>
           <ion-label>
@@ -150,7 +153,7 @@
               }
             </div>
           </ion-label>
-          <div slot="end" class="row-actions">
+          <div slot="end" class="row-actions" (click)="$event.stopPropagation()">
             <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
             <ion-button fill="outline" (click)="refreshReviewForGame(game)"> Review </ion-button>
             <ion-button

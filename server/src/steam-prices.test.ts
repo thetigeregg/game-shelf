@@ -204,6 +204,7 @@ void test('Steam route fetches appdetails with cc and persists normalized price 
   });
 
   assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-steam-price-cache'], 'MISS');
   const body = parseJsonRecord(response.body);
   assert.equal(body['status'], 'ok');
   assert.equal(body['steamAppId'], 204100);
@@ -266,6 +267,7 @@ void test('Steam route uses cached value when fresh for matching cc', async () =
   });
 
   assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-steam-price-cache'], 'HIT_FRESH');
   const body = parseJsonRecord(response.body);
   assert.equal(body['status'], 'ok');
   assert.equal(body['cached'], true);

@@ -112,6 +112,8 @@ npm run build
 - `GET /v1/psprices/prices` supports optional `title` query override for matching (useful when catalog title differs from store title).
 - PSPrices matching uses ranked candidates and only persists a price on high-confidence title matches.
 - Transient `unavailable` responses keep previously persisted price fields instead of clearing them.
+- Pricing routes include cache diagnostics headers: `X-GameShelf-Steam-Price-Cache` and `X-GameShelf-PSPrices-Cache` (`HIT_FRESH`/`MISS`).
+- `GET /v1/cache/stats` now reports pricing cache metrics plus persisted pricing coverage counts (`steamPriceEntries`, `pspricesPriceEntries`).
 - Collection/Wishlist multi-select includes **Update pricing** in bulk actions.
 - Metadata Validator supports a **Pricing picker** for PSPrices platforms (PS4/PS5/Switch/Switch 2) with candidate search + manual selection.
 - Game detail actions in Collection/Wishlist also support the same **Pricing picker** flow for PSPrices platforms.

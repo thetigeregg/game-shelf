@@ -61,7 +61,7 @@ function extractGameId(rawGameId, rawUrl) {
 
 function isFreePriceLabel(priceText) {
   const normalized = normalizeWhitespace(priceText).toLowerCase();
-  return /\bfree\b/.test(normalized);
+  return /\b(free|gratis|kostenlos|gratuit)\b/.test(normalized);
 }
 
 export function normalizeCandidate(raw) {

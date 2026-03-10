@@ -15,6 +15,10 @@ class GamePoolMock {
     this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload });
   }
 
+  getPayload(igdbGameId: string, platformIgdbId: number): Record<string, unknown> | null {
+    return this.rowsByIdentity.get(`${igdbGameId}::${String(platformIgdbId)}`)?.payload ?? null;
+  }
+
   query(sql: string, params: unknown[]): Promise<{ rows: GameRow[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
     if (
@@ -28,6 +32,16 @@ class GamePoolMock {
       const key = `${igdbGameId}::${String(platformIgdbId)}`;
       const row = this.rowsByIdentity.get(key);
       return Promise.resolve({ rows: row ? [row] : [] });
+    }
+
+    if (normalized.startsWith('update games set payload = $3::jsonb, updated_at = now()')) {
+      const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
+      const platformIgdbId =
+        typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
+      const payloadRaw = typeof params[2] === 'string' ? params[2] : '{}';
+      const parsed = JSON.parse(payloadRaw) as Record<string, unknown>;
+      this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload: parsed });
+      return Promise.resolve({ rows: [] });
     }
 
     throw new Error(`Unsupported SQL in GamePoolMock: ${sql}`);
@@ -104,10 +118,12 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
                 historyLow: { all: null, y1: null, m3: null },
                 deals: [
                   {
+                    shop: { id: 61, name: 'Steam' },
                     platforms: [{ id: 1, name: 'Windows' }],
                     price: { amount: 9.99, currency: 'CHF' }
                   },
                   {
+                    shop: { id: 35, name: 'GOG' },
                     platforms: [{ id: 2, name: 'Mac' }],
                     price: { amount: 8.99, currency: 'CHF' }
                   }
@@ -137,10 +153,22 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
   assert.equal(body['steamAppId'], 570);
   assert.equal(Array.isArray(body['deals']), true);
   assert.equal((body['deals'] as unknown[]).length, 1);
+  assert.equal(typeof body['bestPrice'], 'object');
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 9.99);
   assert.equal(
     calls.some((url) => url.includes('/lookup/id/title/v1')),
     false
   );
+  assert.equal(
+    calls.some((url) => url.includes('/games/prices/v3') && url.includes('shops=61')),
+    true
+  );
+  const persisted = pool.getPayload('1520', 6);
+  assert.ok(persisted);
+  assert.equal(persisted['itadGameId'], '018d937e-e9ab-70f4-bd05-1db7a138eb39');
+  assert.equal(persisted['itadBestPriceAmount'], 9.99);
+  assert.equal(persisted['itadBestPriceCurrency'], 'CHF');
+  assert.equal(persisted['itadPriceShopId'], 61);
 
   await app.close();
 });
@@ -185,7 +213,13 @@ void test('ITAD route falls back to title lookup when steam lookup misses', asyn
               {
                 id: '018d937e-e9ce-718b-9715-111f50820ed4',
                 historyLow: { all: null, y1: null, m3: null },
-                deals: [{ platforms: [{ id: 1, name: 'Windows' }] }]
+                deals: [
+                  {
+                    shop: { id: 61, name: 'Steam' },
+                    platforms: [{ id: 1, name: 'Windows' }],
+                    price: { amount: 5.49, currency: 'CHF' }
+                  }
+                ]
               }
             ]),
             {
@@ -209,6 +243,11 @@ void test('ITAD route falls back to title lookup when steam lookup misses', asyn
   assert.equal(body['status'], 'ok');
   assert.equal(body['matchStrategy'], 'title');
   assert.equal(body['itadGameId'], '018d937e-e9ce-718b-9715-111f50820ed4');
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 5.49);
+  const persisted = pool.getPayload('999', 6);
+  assert.ok(persisted);
+  assert.equal(persisted['itadGameId'], '018d937e-e9ce-718b-9715-111f50820ed4');
+  assert.equal(persisted['itadBestPriceAmount'], 5.49);
 
   await app.close();
 });

@@ -22,6 +22,7 @@ interface ItadRouteResponse {
   steamAppId: number | null;
   itadGameId: string | null;
   matchStrategy: MatchStrategy;
+  bestPrice: Record<string, unknown> | null;
   historyLow: unknown;
   deals: unknown[];
 }
@@ -30,6 +31,18 @@ interface ItadPriceRow {
   id: string;
   historyLow: unknown;
   deals: unknown[];
+}
+
+interface BestSteamPrice {
+  amount: number;
+  currency: string | null;
+  regularAmount: number | null;
+  cut: number | null;
+  shopId: number | null;
+  shopName: string | null;
+  url: string | null;
+  expiry: string | null;
+  platforms: unknown[];
 }
 
 const WINDOWS_IGDB_PLATFORM_ID = 6;
@@ -62,7 +75,6 @@ export async function registerItadPricesRoute(
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
       const country = normalizeCountryCode(query['country']) ?? config.itadDefaultCountry;
-      const shops = normalizeShopIdList(query['shops']);
       const dealsOnly = normalizeBooleanQuery(query['dealsOnly']);
       const vouchers = normalizeBooleanQuery(query['vouchers']);
 
@@ -76,13 +88,6 @@ export async function registerItadPricesRoute(
         return;
       }
 
-      if (query['shops'] !== undefined && shops === null) {
-        reply
-          .code(400)
-          .send({ error: 'shops must be a comma-separated list of positive integers.' });
-        return;
-      }
-
       if (platformIgdbId !== WINDOWS_IGDB_PLATFORM_ID) {
         const payload: ItadRouteResponse = {
           status: 'unsupported_platform',
@@ -92,6 +97,7 @@ export async function registerItadPricesRoute(
           steamAppId: null,
           itadGameId: null,
           matchStrategy: 'none',
+          bestPrice: null,
           historyLow: null,
           deals: []
         };
@@ -141,21 +147,41 @@ export async function registerItadPricesRoute(
             steamAppId,
             itadGameId: null,
             matchStrategy: 'none',
+            bestPrice: null,
             historyLow: null,
             deals: []
           };
+          await persistItadSnapshot(pool, {
+            igdbGameId,
+            platformIgdbId,
+            payload,
+            country,
+            itadGameId: null,
+            bestPrice: null
+          });
           reply.code(200).send(unmatched);
           return;
         }
 
         const prices = await fetchItadPrices(fetchImpl, [itadGameId], {
           country,
-          shops,
           dealsOnly,
           vouchers
         });
         const priceRow = prices.find((item) => item.id === itadGameId) ?? null;
-        const deals = (priceRow?.deals ?? []).filter(isWindowsDeal);
+        const deals = (priceRow?.deals ?? []).filter(
+          (deal) => isSteamShopDeal(deal) && isWindowsDeal(deal)
+        );
+        const bestPrice = selectBestSteamPrice(deals);
+
+        await persistItadSnapshot(pool, {
+          igdbGameId,
+          platformIgdbId,
+          payload,
+          country,
+          itadGameId,
+          bestPrice
+        });
 
         const okPayload: ItadRouteResponse = {
           status: 'ok',
@@ -165,6 +191,7 @@ export async function registerItadPricesRoute(
           steamAppId,
           itadGameId,
           matchStrategy,
+          bestPrice: bestPrice ? serializeBestSteamPrice(bestPrice) : null,
           historyLow: priceRow?.historyLow ?? null,
           deals
         };
@@ -239,30 +266,6 @@ function normalizeBooleanQuery(value: unknown): boolean | null {
   return null;
 }
 
-function normalizeShopIdList(value: unknown): number[] | null {
-  if (value === undefined) {
-    return [];
-  }
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const normalized = value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-
-  if (normalized.length === 0) {
-    return [];
-  }
-
-  const parsed = normalized.map((item) => normalizePositiveInteger(item));
-  if (parsed.some((item) => item === null)) {
-    return null;
-  }
-
-  return [...new Set(parsed as number[])];
-}
-
 function isWindowsDeal(value: unknown): boolean {
   if (!value || typeof value !== 'object') {
     return false;
@@ -284,6 +287,25 @@ function isWindowsDeal(value: unknown): boolean {
       (typeof name === 'string' && name.toLowerCase() === 'windows')
     );
   });
+}
+
+function isSteamShopDeal(value: unknown): boolean {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const shop = (value as Record<string, unknown>)['shop'];
+  if (!shop || typeof shop !== 'object') {
+    return false;
+  }
+
+  const shopId = normalizePositiveInteger((shop as Record<string, unknown>)['id']);
+  if (shopId === config.itadSteamShopId) {
+    return true;
+  }
+
+  const shopName = normalizeNonEmptyString((shop as Record<string, unknown>)['name']);
+  return typeof shopName === 'string' && shopName.toLowerCase() === 'steam';
 }
 
 async function lookupItadGameIdBySteamAppId(
@@ -314,7 +336,6 @@ async function fetchItadPrices(
   gameIds: string[],
   options: {
     country: string;
-    shops: number[];
     dealsOnly: boolean | null;
     vouchers: boolean | null;
   }
@@ -331,9 +352,7 @@ async function fetchItadPrices(
     url.searchParams.set('vouchers', options.vouchers ? 'true' : 'false');
   }
 
-  if (options.shops.length > 0) {
-    url.searchParams.set('shops', options.shops.join(','));
-  }
+  url.searchParams.set('shops', String(config.itadSteamShopId));
 
   const payload = await postItadJson(fetchImpl, url, gameIds);
   if (!Array.isArray(payload)) {
@@ -358,6 +377,134 @@ async function fetchItadPrices(
       } satisfies ItadPriceRow;
     })
     .filter((entry): entry is ItadPriceRow => entry !== null);
+}
+
+function selectBestSteamPrice(deals: unknown[]): BestSteamPrice | null {
+  let best: BestSteamPrice | null = null;
+
+  for (const deal of deals) {
+    if (!deal || typeof deal !== 'object') {
+      continue;
+    }
+
+    const record = deal as Record<string, unknown>;
+    const price = normalizePriceRecord(record['price']);
+    if (!price) {
+      continue;
+    }
+
+    if (!best || price.amount < best.amount) {
+      const shop =
+        record['shop'] && typeof record['shop'] === 'object'
+          ? (record['shop'] as Record<string, unknown>)
+          : {};
+      best = {
+        amount: price.amount,
+        currency: price.currency,
+        regularAmount: price.regularAmount,
+        cut: normalizeNumberOrNull(price.cut),
+        shopId: normalizePositiveInteger(shop['id']),
+        shopName: normalizeNonEmptyString(shop['name']),
+        url: normalizeNonEmptyString(record['url']),
+        expiry: normalizeNonEmptyString(record['expiry']),
+        platforms: Array.isArray(record['platforms']) ? (record['platforms'] as unknown[]) : []
+      };
+    }
+  }
+
+  return best;
+}
+
+function normalizePriceRecord(value: unknown): {
+  amount: number;
+  currency: string | null;
+  regularAmount: number | null;
+  cut: number | null;
+} | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const amount = normalizeNumberOrNull(record['amount']);
+  if (amount === null || amount <= 0) {
+    return null;
+  }
+
+  return {
+    amount,
+    currency: normalizeNonEmptyString(record['currency']),
+    regularAmount: normalizeNumberOrNull(record['amountInt']),
+    cut: normalizeNumberOrNull(record['cut'])
+  };
+}
+
+function normalizeNumberOrNull(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+    const parsed = Number.parseFloat(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function serializeBestSteamPrice(value: BestSteamPrice): Record<string, unknown> {
+  return {
+    amount: value.amount,
+    currency: value.currency,
+    regularAmount: value.regularAmount,
+    cut: value.cut,
+    shopId: value.shopId,
+    shopName: value.shopName,
+    url: value.url,
+    expiry: value.expiry,
+    platforms: value.platforms
+  };
+}
+
+async function persistItadSnapshot(
+  pool: Pool,
+  params: {
+    igdbGameId: string;
+    platformIgdbId: number;
+    payload: Record<string, unknown>;
+    country: string;
+    itadGameId: string | null;
+    bestPrice: BestSteamPrice | null;
+  }
+): Promise<void> {
+  const fetchedAt = new Date().toISOString();
+  const nextPayload: Record<string, unknown> = {
+    ...params.payload,
+    itadGameId: params.itadGameId,
+    itadPriceCountry: params.country,
+    itadPriceFetchedAt: fetchedAt,
+    itadPriceShopId: config.itadSteamShopId,
+    itadPriceShopName: 'Steam',
+    itadBestPriceAmount: params.bestPrice?.amount ?? null,
+    itadBestPriceCurrency: params.bestPrice?.currency ?? null,
+    itadBestPriceRegularAmount: params.bestPrice?.regularAmount ?? null,
+    itadBestPriceCut: params.bestPrice?.cut ?? null,
+    itadBestPriceUrl: params.bestPrice?.url ?? null,
+    itadBestPriceExpiry: params.bestPrice?.expiry ?? null
+  };
+
+  await pool.query(
+    `
+      UPDATE games
+      SET payload = $3::jsonb, updated_at = NOW()
+      WHERE igdb_game_id = $1
+        AND platform_igdb_id = $2
+        AND payload IS DISTINCT FROM $3::jsonb
+    `,
+    [params.igdbGameId, params.platformIgdbId, JSON.stringify(nextPayload)]
+  );
 }
 
 async function postItadJson(fetchImpl: typeof fetch, url: URL, body: unknown): Promise<unknown> {
@@ -411,7 +558,7 @@ function extractFirstItadGameId(value: unknown): string | null {
 export const __itadPriceTestables = {
   extractFirstItadGameId,
   isWindowsDeal,
-  normalizeShopIdList,
+  isSteamShopDeal,
   normalizeCountryCode,
   normalizePositiveInteger,
   normalizeBooleanQuery,

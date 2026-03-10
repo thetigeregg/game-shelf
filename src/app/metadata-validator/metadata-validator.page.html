@@ -122,26 +122,26 @@
             <p>{{ getPlatformLabel(game) }} · {{ game.releaseYear || 'Unknown year' }}</p>
             <div class="validator-badges">
               <ion-badge [color]="hasHltbMetadata(game) ? 'success' : 'warning'">
-                HLTB {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
+                HLTB: {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
               </ion-badge>
               <ion-badge [color]="hasReviewMetadata(game) ? 'success' : 'warning'">
-                Review {{ hasReviewMetadata(game) ? 'OK' : 'Missing' }}
+                Review: {{ hasReviewMetadata(game) ? 'OK' : 'Missing' }}
               </ion-badge>
               @if (isPricingSupported(game)) {
                 <ion-badge [color]="hasPricingMetadata(game) ? 'success' : 'warning'">
-                  Pricing {{ hasPricingMetadata(game) ? 'OK' : 'Missing' }}
+                  Pricing: {{ hasPricingMetadata(game) ? 'OK' : 'Missing' }}
                 </ion-badge>
               }
               @if (!isPricingSupported(game)) {
-                <ion-badge color="medium"> Pricing N/A </ion-badge>
+                <ion-badge color="medium"> Pricing: N/A </ion-badge>
               }
               @if (!isNonPcImageNotApplicable(game)) {
                 <ion-badge [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
-                  Image {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
+                  Image: {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
                 </ion-badge>
               }
               @if (isNonPcImageNotApplicable(game)) {
-                <ion-badge color="medium"> Image N/A (PC) </ion-badge>
+                <ion-badge color="medium"> Image: N/A (PC) </ion-badge>
               }
             </div>
           </ion-label>

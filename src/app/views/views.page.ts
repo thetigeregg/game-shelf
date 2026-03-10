@@ -278,7 +278,7 @@ export class ViewsPage implements OnInit {
     }
 
     if (sortField === 'hltb') {
-      return `HLTB ${direction}`;
+      return `Completion time ${direction}`;
     }
 
     if (sortField === 'tas' && isTasFeatureEnabled()) {
@@ -289,11 +289,15 @@ export class ViewsPage implements OnInit {
       return `Review ${direction}`;
     }
 
+    if (sortField === 'price') {
+      return `Price ${direction}`;
+    }
+
     if (sortField === 'platform') {
       return `Platform ${direction}`;
     }
 
-    return `Title ${direction}`;
+    return `Game title ${direction}`;
   }
 
   private getGroupLabel(groupBy: GameGroupByField): string {

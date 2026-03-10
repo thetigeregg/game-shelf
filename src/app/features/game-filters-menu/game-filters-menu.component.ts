@@ -30,7 +30,8 @@ import {
   GameListFilters,
   GameRatingFilterOption,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  ListType
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -51,12 +52,12 @@ type SortOption =
   | 'hltb:desc'
   | 'tas:asc'
   | 'tas:desc'
+  | 'price:asc'
+  | 'price:desc'
   | 'review:asc'
   | 'review:desc'
   | 'metacritic:asc'
-  | 'metacritic:desc'
-  | 'platform:asc'
-  | 'platform:desc';
+  | 'metacritic:desc';
 
 type FiltersPresentation = 'menu' | 'split';
 
@@ -120,6 +121,7 @@ export class GameFiltersMenuComponent implements OnChanges {
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
   @Input() presentation: FiltersPresentation = 'menu';
+  @Input() listType: ListType = 'collection';
   @Input() platformOptions: string[] = [];
   @Input() collectionOptions: string[] = [];
   @Input() gameTypeOptions: GameType[] = [];
@@ -138,7 +140,11 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalizedSortField =
       this.filters.sortField === 'tas' && !this.tasEnabled
         ? DEFAULT_GAME_LIST_FILTERS.sortField
-        : this.filters.sortField;
+        : this.filters.sortField === 'platform'
+          ? DEFAULT_GAME_LIST_FILTERS.sortField
+          : this.filters.sortField === 'price' && !this.showPriceSort
+            ? DEFAULT_GAME_LIST_FILTERS.sortField
+            : this.filters.sortField;
     this.draftFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...this.filters,
@@ -168,6 +174,9 @@ export class GameFiltersMenuComponent implements OnChanges {
       GameListFilters['sortDirection']
     ];
     const sortField = rawSortField === 'metacritic' ? 'review' : rawSortField;
+    if (sortField === 'price' && !this.showPriceSort) {
+      return;
+    }
     this.sortOption = value;
     this.draftFilters = {
       ...this.draftFilters,
@@ -486,12 +495,15 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'hltb:asc' ||
       value === 'hltb:desc' ||
       (this.tasEnabled && (value === 'tas:asc' || value === 'tas:desc')) ||
+      (this.showPriceSort && (value === 'price:asc' || value === 'price:desc')) ||
       value === 'review:asc' ||
       value === 'review:desc' ||
       value === 'metacritic:asc' ||
-      value === 'metacritic:desc' ||
-      value === 'platform:asc' ||
-      value === 'platform:desc'
+      value === 'metacritic:desc'
     );
+  }
+
+  get showPriceSort(): boolean {
+    return this.listType === 'wishlist';
   }
 }

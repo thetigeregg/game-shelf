@@ -114,6 +114,7 @@ npm run build
 - Transient `unavailable` responses keep previously persisted price fields instead of clearing them.
 - Collection/Wishlist multi-select includes **Update pricing** in bulk actions.
 - Metadata Validator supports a **Pricing picker** for PSPrices platforms (PS4/PS5/Switch/Switch 2) with candidate search + manual selection.
+- Game detail actions in Collection/Wishlist also support the same **Pricing picker** flow for PSPrices platforms.
 - Metadata Validator includes **Missing Pricing (supported platforms)** and only evaluates the platforms above.
 
 ## Testing and Quality

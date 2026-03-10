@@ -224,6 +224,71 @@ describe('game-list review actions', () => {
     expect((page as { isMetacriticUpdateLoading: boolean }).isMetacriticUpdateLoading).toBe(false);
   });
 
+  it('single pricing refresh opens picker for PSPrices platforms', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isPricingPickerLoading: boolean;
+    };
+    const target = createGame({ igdbGameId: '88', platformIgdbId: 167, title: 'PS Game' });
+    const openPricingPickerModal = vi.fn();
+    const runPricingPickerSearch = vi.fn(() => Promise.resolve(undefined));
+
+    Object.assign(page, {
+      selectedGame: target,
+      isPricingPickerLoading: false,
+      gameShelfService: {
+        isPricingSupportedPlatform: vi.fn(() => true)
+      },
+      openPricingPickerModal,
+      runPricingPickerSearch,
+      presentToast: vi.fn(() => Promise.resolve(undefined))
+    });
+
+    await (
+      page as unknown as { refreshSelectedGamePricing: () => Promise<void> }
+    ).refreshSelectedGamePricing();
+
+    expect(openPricingPickerModal).toHaveBeenCalledWith(target);
+    expect(runPricingPickerSearch).toHaveBeenCalledOnce();
+  });
+
+  it('single pricing refresh uses direct lookup for Steam', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isPricingPickerLoading: boolean;
+    };
+    const target = createGame({ igdbGameId: '89', platformIgdbId: 6, title: 'Steam Game' });
+    const loading = {
+      present: vi.fn(() => Promise.resolve(undefined)),
+      dismiss: vi.fn(() => Promise.resolve(undefined))
+    };
+    const refreshGamePricing = vi.fn(() =>
+      Promise.resolve(createGame({ igdbGameId: '89', platformIgdbId: 6, priceAmount: 19.99 }))
+    );
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const applyUpdatedGame = vi.fn();
+
+    Object.assign(page, {
+      selectedGame: target,
+      isPricingPickerLoading: false,
+      loadingController: { create: vi.fn(() => Promise.resolve(loading)) },
+      gameShelfService: {
+        isPricingSupportedPlatform: vi.fn(() => true),
+        refreshGamePricing,
+        hasUnifiedPriceData: vi.fn(() => true)
+      },
+      applyUpdatedGame,
+      presentToast
+    });
+
+    await (
+      page as unknown as { refreshSelectedGamePricing: () => Promise<void> }
+    ).refreshSelectedGamePricing();
+
+    expect(refreshGamePricing).toHaveBeenCalledWith('89', 6);
+    expect(presentToast).toHaveBeenCalledWith('Pricing updated.');
+  });
+
   it('detailVideos uses actively viewed detail game in similar discovery mode', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;

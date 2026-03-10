@@ -272,12 +272,20 @@
               <ion-item button detail="false" (click)="refreshSelectedGameReviewFromPopover()">
                 Update review data
               </ion-item>
+              <ion-item button detail="false" (click)="refreshSelectedGamePricingFromPopover()">
+                Update pricing
+              </ion-item>
               <ion-item button detail="false" (click)="openFixHltbMatchFromPopover()">
                 Fix HLTB match
               </ion-item>
               <ion-item button detail="false" (click)="openFixReviewMatchFromPopover()">
                 Fix review match
               </ion-item>
+              @if (selectedGame && isPsPricesPlatform(selectedGame)) {
+                <ion-item button detail="false" (click)="openFixPricingMatchFromPopover()">
+                  Fix pricing match
+                </ion-item>
+              }
               <ion-item button detail="false" (click)="openImagePickerFromPopover()">
                 Update image
               </ion-item>
@@ -1090,6 +1098,95 @@
           fill="outline"
           [disabled]="isReviewPickerLoading"
           (click)="useOriginalReviewLookup()"
+        >
+          Use Original Match
+        </ion-button>
+      </ion-item>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isPricingPickerModalOpen" (didDismiss)="closePricingPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select Pricing Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closePricingPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding gs-safe-bottom">
+      <ion-item lines="none">
+        <ion-searchbar
+          [value]="pricingPickerQuery"
+          placeholder="Search Pricing"
+          show-clear-button="focus"
+          (ionInput)="onPricingPickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button
+          slot="end"
+          [disabled]="isPricingPickerLoading"
+          (click)="runPricingPickerSearch()"
+          >Search</ion-button
+        >
+      </ion-item>
+
+      @if (isPricingPickerLoading) {
+        <div class="picker-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerError) {
+        <p class="picker-state ion-text-center">
+          {{ pricingPickerError }}
+        </p>
+      }
+
+      @if (
+        hasPricingPickerSearched &&
+        !isPricingPickerLoading &&
+        !pricingPickerError &&
+        pricingPickerResults.length === 0
+      ) {
+        <p class="picker-state ion-text-center">No pricing candidates found.</p>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerResults.length > 0) {
+        <ion-list>
+          @for (candidate of pricingPickerResults; track candidate) {
+            <ion-item button detail="false" (click)="applySelectedPricingCandidate(candidate)">
+              <ion-label>
+                <h2>{{ candidate.title }}</h2>
+                <p>
+                  Price:
+                  <strong>
+                    {{
+                      candidate.isFree
+                        ? 'Free'
+                        : (candidate.amount ?? '?') + ' ' + (candidate.currency ?? '')
+                    }}
+                  </strong>
+                </p>
+                <p>
+                  Regular: {{ candidate.regularAmount ?? '?' }} {{ candidate.currency ?? '' }} ·
+                  Discount: {{ candidate.discountPercent ?? 0 }}% · Match:
+                  {{ candidate.score ?? '?' }}
+                </p>
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+
+      <ion-item lines="none">
+        <ion-button
+          expand="block"
+          fill="outline"
+          [disabled]="isPricingPickerLoading"
+          (click)="useOriginalPricingLookup()"
         >
           Use Original Match
         </ion-button>

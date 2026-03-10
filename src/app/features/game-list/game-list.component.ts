@@ -80,6 +80,7 @@ import {
   GameGroupByField,
   GameListFilters,
   HltbMatchCandidate,
+  PriceMatchCandidate,
   ReviewMatchCandidate,
   GameRating,
   RecommendationSimilarityReasons,
@@ -344,6 +345,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
   isReviewPickerModalOpen = false;
   isReviewPickerLoading = false;
   hasReviewPickerSearched = false;
+  isPricingPickerModalOpen = false;
+  isPricingPickerLoading = false;
+  hasPricingPickerSearched = false;
   selectedGame: GameEntry | null = null;
   detailNavigationStack: GameEntry[] = [];
   similarDetailMode: SimilarDetailMode = 'library';
@@ -369,6 +373,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
   reviewPickerResults: ReviewMatchCandidate[] = [];
   reviewPickerError: string | null = null;
   reviewPickerTargetGame: GameEntry | null = null;
+  pricingPickerQuery = '';
+  pricingPickerResults: PriceMatchCandidate[] = [];
+  pricingPickerError: string | null = null;
+  pricingPickerTargetGame: GameEntry | null = null;
   isEditMetadataModalOpen = false;
   isEditMetadataSaving = false;
   isNotesOpen = false;
@@ -1024,7 +1032,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         concurrency: GameListComponent.BULK_PRICING_CONCURRENCY,
         interItemDelayMs: 0
       },
-      (game) => this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId)
+      (game) => this.refreshPricingForBulkGame(game)
     );
     const failedCount = results.filter((result) => !result.ok).length;
     const updatedCount = results.filter((result) => result.ok).length;
@@ -1306,6 +1314,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isSimilarDiscoveryGamesLoading = false;
     this.resetImagePickerState();
     this.resetReviewPickerState();
+    this.resetPricingPickerState();
     this.resetManualPickerState();
     this.changeDetectorRef.markForCheck();
     void this.loadDetailCoverUrl(game);
@@ -1348,6 +1357,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isGameDetailModalOpen = false;
     this.isImagePickerModalOpen = false;
     this.isHltbPickerModalOpen = false;
+    this.isPricingPickerModalOpen = false;
     this.isEditMetadataModalOpen = false;
     this.isEditMetadataSaving = false;
     this.isManualPickerModalOpen = false;
@@ -1381,6 +1391,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.resetImagePickerState();
     this.resetHltbPickerState();
     this.resetReviewPickerState();
+    this.resetPricingPickerState();
     this.resetManualPickerState();
     this.resetNoteEditorState();
     this.editMetadataTitle = '';
@@ -1695,6 +1706,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.refreshSelectedGameReviewScore();
   }
 
+  async refreshSelectedGamePricingFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+    await this.refreshSelectedGamePricing();
+  }
+
   async refreshSelectedGameMetacriticFromPopover(): Promise<void> {
     await this.refreshSelectedGameReviewFromPopover();
   }
@@ -1717,6 +1733,17 @@ export class GameListComponent implements OnChanges, OnDestroy {
     }
 
     this.openReviewPickerModal(this.selectedGame);
+  }
+
+  async openFixPricingMatchFromPopover(): Promise<void> {
+    await this.dismissDetailActionsPopover();
+
+    if (!this.selectedGame || !this.isPsPricesPlatform(this.selectedGame)) {
+      return;
+    }
+
+    this.openPricingPickerModal(this.selectedGame);
+    await this.runPricingPickerSearch();
   }
 
   async openFixMetacriticMatchFromPopover(): Promise<void> {
@@ -2082,6 +2109,47 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.refreshSelectedGameReviewScore();
   }
 
+  async refreshSelectedGamePricing(): Promise<void> {
+    if (!this.selectedGame || this.isPricingPickerLoading) {
+      return;
+    }
+
+    if (!this.gameShelfService.isPricingSupportedPlatform(this.selectedGame.platformIgdbId)) {
+      await this.presentToast('Pricing is not supported for this platform.', 'warning');
+      return;
+    }
+
+    if (this.isPsPricesPlatform(this.selectedGame)) {
+      this.openPricingPickerModal(this.selectedGame);
+      await this.runPricingPickerSearch();
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Updating pricing...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const updated = await this.gameShelfService.refreshGamePricing(
+        this.selectedGame.igdbGameId,
+        this.selectedGame.platformIgdbId
+      );
+      this.applyUpdatedGame(updated);
+      await loading.dismiss().catch(() => undefined);
+
+      if (this.gameShelfService.hasUnifiedPriceData(updated)) {
+        await this.presentToast('Pricing updated.');
+      } else {
+        await this.presentToast('No pricing found for this game.', 'warning');
+      }
+    } catch {
+      await loading.dismiss().catch(() => undefined);
+      await this.presentToast('Unable to update pricing.', 'danger');
+    }
+  }
+
   closeImagePickerModal(): void {
     const nextState = createClosedImagePickerState(this.imagePickerSearchRequestId);
     this.imagePickerSearchRequestId = nextState.imagePickerSearchRequestId;
@@ -2100,6 +2168,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   closeReviewPickerModal(): void {
     this.resetReviewPickerState();
+    this.changeDetectorRef.markForCheck();
+  }
+
+  closePricingPickerModal(): void {
+    this.resetPricingPickerState();
     this.changeDetectorRef.markForCheck();
   }
 
@@ -2195,6 +2268,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   onMetacriticPickerQueryChange(event: Event): void {
     this.onReviewPickerQueryChange(event);
+  }
+
+  onPricingPickerQueryChange(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: string | null }>;
+    this.pricingPickerQuery = customEvent.detail.value ?? '';
   }
 
   async applySelectedImage(url: string): Promise<void> {
@@ -2395,6 +2473,80 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.applySelectedReviewCandidate(candidate);
   }
 
+  async runPricingPickerSearch(): Promise<void> {
+    const normalized = this.pricingPickerQuery.trim();
+    const target = this.pricingPickerTargetGame;
+    this.hasPricingPickerSearched = true;
+
+    if (!target) {
+      this.pricingPickerResults = [];
+      this.pricingPickerError = 'Select a game first.';
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    if (normalized.length < 2) {
+      this.pricingPickerResults = [];
+      this.pricingPickerError = 'Enter at least 2 characters.';
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    this.isPricingPickerLoading = true;
+    this.pricingPickerError = null;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const candidates = await firstValueFrom(
+        this.gameShelfService.searchPricingCandidates(
+          target.igdbGameId,
+          target.platformIgdbId,
+          normalized
+        )
+      );
+      this.pricingPickerResults = this.dedupePricingCandidates(candidates).slice(0, 30);
+    } catch (error: unknown) {
+      this.pricingPickerResults = [];
+      this.pricingPickerError = formatRateLimitedUiError(
+        error,
+        'Unable to search pricing right now.'
+      );
+    } finally {
+      this.isPricingPickerLoading = false;
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
+  async applySelectedPricingCandidate(candidate: PriceMatchCandidate): Promise<void> {
+    const target = this.pricingPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isPricingPickerLoading = true;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const updated = await this.gameShelfService.refreshGamePricingWithQuery(
+        target.igdbGameId,
+        target.platformIgdbId,
+        { title: candidate.title }
+      );
+      this.applyUpdatedGame(updated);
+      this.closePricingPickerModal();
+      if (this.gameShelfService.hasUnifiedPriceData(updated)) {
+        await this.presentToast('Pricing updated.');
+      } else {
+        await this.presentToast('No pricing match found for this game.', 'warning');
+      }
+    } catch {
+      this.isPricingPickerLoading = false;
+      this.changeDetectorRef.markForCheck();
+      await this.presentToast('Unable to update pricing.', 'danger');
+    }
+  }
+
   async useOriginalReviewLookup(): Promise<void> {
     const target = this.reviewPickerTargetGame;
 
@@ -2421,6 +2573,35 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.isReviewPickerLoading = false;
       this.changeDetectorRef.markForCheck();
       await this.presentToast('Unable to update review data.', 'danger');
+    }
+  }
+
+  async useOriginalPricingLookup(): Promise<void> {
+    const target = this.pricingPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isPricingPickerLoading = true;
+    this.changeDetectorRef.markForCheck();
+
+    try {
+      const updated = await this.gameShelfService.refreshGamePricing(
+        target.igdbGameId,
+        target.platformIgdbId
+      );
+      this.applyUpdatedGame(updated);
+      this.closePricingPickerModal();
+      if (this.gameShelfService.hasUnifiedPriceData(updated)) {
+        await this.presentToast('Pricing updated.');
+      } else {
+        await this.presentToast('No pricing found for this game.', 'warning');
+      }
+    } catch {
+      this.isPricingPickerLoading = false;
+      this.changeDetectorRef.markForCheck();
+      await this.presentToast('Unable to update pricing.', 'danger');
     }
   }
 
@@ -4165,6 +4346,17 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.changeDetectorRef.markForCheck();
   }
 
+  private openPricingPickerModal(game: GameEntry): void {
+    this.isPricingPickerModalOpen = true;
+    this.isPricingPickerLoading = false;
+    this.hasPricingPickerSearched = false;
+    this.pricingPickerQuery = game.title;
+    this.pricingPickerResults = [];
+    this.pricingPickerError = null;
+    this.pricingPickerTargetGame = game;
+    this.changeDetectorRef.markForCheck();
+  }
+
   private resetHltbPickerState(): void {
     const nextState = createClosedHltbPickerState();
     this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
@@ -4185,6 +4377,67 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.reviewPickerResults = nextState.reviewPickerResults;
     this.reviewPickerError = nextState.reviewPickerError;
     this.reviewPickerTargetGame = nextState.reviewPickerTargetGame;
+  }
+
+  private resetPricingPickerState(): void {
+    this.isPricingPickerModalOpen = false;
+    this.isPricingPickerLoading = false;
+    this.hasPricingPickerSearched = false;
+    this.pricingPickerQuery = '';
+    this.pricingPickerResults = [];
+    this.pricingPickerError = null;
+    this.pricingPickerTargetGame = null;
+  }
+
+  private dedupePricingCandidates(candidates: PriceMatchCandidate[]): PriceMatchCandidate[] {
+    const byKey = new Map<string, PriceMatchCandidate>();
+
+    candidates.forEach((candidate) => {
+      const key = `${candidate.title}::${candidate.url ?? ''}::${String(candidate.amount ?? '')}`;
+      if (!byKey.has(key)) {
+        byKey.set(key, candidate);
+      }
+    });
+
+    return [...byKey.values()];
+  }
+
+  isPsPricesPlatform(game: Pick<GameEntry, 'platformIgdbId'>): boolean {
+    return (
+      game.platformIgdbId === 48 ||
+      game.platformIgdbId === 167 ||
+      game.platformIgdbId === 130 ||
+      game.platformIgdbId === 508
+    );
+  }
+
+  private async refreshPricingForBulkGame(game: GameEntry): Promise<GameEntry> {
+    if (!this.isPsPricesPlatform(game)) {
+      return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
+    }
+
+    const title = typeof game.title === 'string' ? game.title.trim() : '';
+
+    if (title.length >= 2) {
+      try {
+        const candidates = await firstValueFrom(
+          this.gameShelfService.searchPricingCandidates(game.igdbGameId, game.platformIgdbId, title)
+        );
+        const candidate = candidates.length > 0 ? candidates[0] : null;
+
+        if (candidate !== null) {
+          return await this.gameShelfService.refreshGamePricingWithQuery(
+            game.igdbGameId,
+            game.platformIgdbId,
+            { title: candidate.title }
+          );
+        }
+      } catch {
+        // Fall back to original lookup when candidate search fails.
+      }
+    }
+
+    return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
   }
 
   private async resolveManualForGame(game: GameEntry): Promise<void> {

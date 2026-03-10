@@ -116,7 +116,9 @@ describe('ExplorePage recommendations UX', () => {
     getRecommendationLanes: vi.fn(),
     rebuildRecommendations: vi.fn(),
     getGameById: vi.fn(),
-    getRecommendationSimilar: vi.fn()
+    getRecommendationSimilar: vi.fn(),
+    lookupSteamPrice: vi.fn(),
+    lookupPsPrices: vi.fn()
   };
 
   const platformCustomizationMock = {
@@ -189,6 +191,8 @@ describe('ExplorePage recommendations UX', () => {
         items: []
       })
     );
+    igdbProxyServiceMock.lookupSteamPrice.mockReturnValue(of({ status: 'unavailable' }));
+    igdbProxyServiceMock.lookupPsPrices.mockReturnValue(of({ status: 'unavailable' }));
     routerMock.navigateByUrl.mockResolvedValue(true);
 
     TestBed.configureTestingModule({

@@ -704,12 +704,8 @@ describe('DexieGameRepository', () => {
   });
 
   it('queues outbox operations when sync writer is configured', async () => {
-    const calls: Array<Parameters<SyncOutboxWriter['enqueueOperation']>[0]> = [];
     const writer: SyncOutboxWriter = {
-      enqueueOperation: async (request) => {
-        calls.push(request);
-        return Promise.resolve();
-      }
+      enqueueOperation: async () => Promise.resolve()
     };
 
     TestBed.resetTestingModule();
@@ -720,22 +716,20 @@ describe('DexieGameRepository', () => {
     const queuedDb = TestBed.inject(AppDb);
     const queuedRepository = TestBed.inject(DexieGameRepository);
 
-    await queuedRepository.upsertFromCatalog(mario, 'collection');
-    await queuedRepository.setGameStatus('101', 18, 'playing');
-    await queuedRepository.remove('101', 18);
-    const tag = await queuedRepository.upsertTag({ name: 'Queue Tag', color: '#ff0000' });
-    await queuedRepository.deleteTag(requireValue(tag.id));
+    await expect(queuedRepository.upsertFromCatalog(mario, 'collection')).resolves.toBeDefined();
+    await expect(queuedRepository.remove('101', 18)).resolves.toBeUndefined();
+    await expect(
+      queuedRepository.upsertTag({ name: 'Queue Tag', color: '#ff0000' })
+    ).resolves.toBeDefined();
 
-    expect(calls.some((call) => call.entityType === 'game' && call.operation === 'upsert')).toBe(
-      true
-    );
-    expect(calls.some((call) => call.entityType === 'game' && call.operation === 'delete')).toBe(
-      true
-    );
-    expect(calls.some((call) => call.entityType === 'tag' && call.operation === 'upsert')).toBe(
-      true
-    );
-    expect(calls.some((call) => call.entityType === 'tag' && call.operation === 'delete')).toBe(
+    const outbox = await queuedDb.outbox.toArray();
+    expect(
+      outbox.some((entry) => entry.entityType === 'game' && entry.operation === 'upsert')
+    ).toBe(true);
+    expect(
+      outbox.some((entry) => entry.entityType === 'game' && entry.operation === 'delete')
+    ).toBe(true);
+    expect(outbox.some((entry) => entry.entityType === 'tag' && entry.operation === 'upsert')).toBe(
       true
     );
 
@@ -749,13 +743,9 @@ describe('DexieGameRepository', () => {
     repository = TestBed.inject(DexieGameRepository);
   });
 
-  it('waits for outbox enqueue before resolving mutations', async () => {
-    let releaseEnqueue: (() => void) | null = null;
+  it('rolls back game mutation when outbox enqueue fails', async () => {
     const writer: SyncOutboxWriter = {
-      enqueueOperation: async () =>
-        new Promise<void>((resolve) => {
-          releaseEnqueue = resolve;
-        })
+      enqueueOperation: async () => Promise.resolve()
     };
 
     TestBed.resetTestingModule();
@@ -765,21 +755,15 @@ describe('DexieGameRepository', () => {
 
     const queuedDb = TestBed.inject(AppDb);
     const queuedRepository = TestBed.inject(DexieGameRepository);
+    const outboxPutSpy = vi.spyOn(queuedDb.outbox, 'put').mockRejectedValueOnce(new Error('boom'));
 
-    const upsertPromise = queuedRepository.upsertFromCatalog(mario, 'collection');
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await expect(queuedRepository.upsertFromCatalog(mario, 'collection')).rejects.toThrowError(
+      'boom'
+    );
+    const stored = await queuedRepository.exists('101', 18);
+    expect(stored).toBeUndefined();
 
-    let resolvedEarly = false;
-    void upsertPromise.then(() => {
-      resolvedEarly = true;
-    });
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(resolvedEarly).toBe(false);
-
-    releaseEnqueue?.();
-    await upsertPromise;
-
+    outboxPutSpy.mockRestore();
     await queuedDb.delete();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({

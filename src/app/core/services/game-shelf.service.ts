@@ -862,22 +862,24 @@ export class GameShelfService {
   async setGameTagsForGames(games: readonly GameIdentity[], tagIds: number[]): Promise<void> {
     let mutatedAny = false;
 
-    for (const game of games) {
-      const updated = await this.repository.setGameTags(
-        game.igdbGameId,
-        game.platformIgdbId,
-        tagIds
-      );
+    try {
+      for (const game of games) {
+        const updated = await this.repository.setGameTags(
+          game.igdbGameId,
+          game.platformIgdbId,
+          tagIds
+        );
 
-      if (!updated) {
-        throw new Error('Game entry no longer exists.');
+        if (!updated) {
+          throw new Error('Game entry no longer exists.');
+        }
+
+        mutatedAny = true;
       }
-
-      mutatedAny = true;
-    }
-
-    if (mutatedAny) {
-      this.listRefresh$.next();
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
     }
   }
 
@@ -942,22 +944,24 @@ export class GameShelfService {
   ): Promise<void> {
     let mutatedAny = false;
 
-    for (const game of games) {
-      const updated = await this.repository.setGameStatus(
-        game.igdbGameId,
-        game.platformIgdbId,
-        status
-      );
+    try {
+      for (const game of games) {
+        const updated = await this.repository.setGameStatus(
+          game.igdbGameId,
+          game.platformIgdbId,
+          status
+        );
 
-      if (!updated) {
-        throw new Error('Game entry no longer exists.');
+        if (!updated) {
+          throw new Error('Game entry no longer exists.');
+        }
+
+        mutatedAny = true;
       }
-
-      mutatedAny = true;
-    }
-
-    if (mutatedAny) {
-      this.listRefresh$.next();
+    } finally {
+      if (mutatedAny) {
+        this.listRefresh$.next();
+      }
     }
   }
 

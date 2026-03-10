@@ -517,16 +517,16 @@ export class SettingsPage {
   async showAttributions(): Promise<void> {
     const alert = await this.alertController.create({
       header: 'Attributions',
+      cssClass: 'attributions-alert',
       message: [
-        '<p>Game Shelf uses data from:</p>',
-        '<p>',
-        '• IGDB<br>',
-        '• TheGamesDB<br>',
-        '• HowLongToBeat (HLTB)<br>',
-        '• Metacritic<br>',
-        '• MobyGames',
-        '</p>'
-      ].join(''),
+        'Game Shelf uses data from:',
+        '',
+        '- IGDB',
+        '- TheGamesDB',
+        '- HowLongToBeat (HLTB)',
+        '- Metacritic',
+        '- MobyGames'
+      ].join('\n'),
       buttons: ['OK']
     });
 

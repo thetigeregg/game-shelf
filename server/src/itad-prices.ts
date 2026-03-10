@@ -5,6 +5,7 @@ import { config } from './config.js';
 
 interface ItadPricesRouteOptions {
   fetchImpl?: typeof fetch;
+  nowProvider?: () => number;
 }
 
 interface GamePayloadRow extends QueryResultRow {
@@ -48,8 +49,10 @@ interface BestSteamPrice {
 const WINDOWS_IGDB_PLATFORM_ID = 6;
 const WINDOWS_ITAD_PLATFORM_ID = 1;
 const REQUIRED_PRICE_CURRENCY = 'EUR';
+const CHF_CURRENCY_CODE = 'CHF';
 const ITAD_GAME_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STEAM_APP_URL_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
+const exchangeRateDailyCache = new Map<string, { dayKey: string; rateToChf: number }>();
 
 export async function registerItadPricesRoute(
   app: FastifyInstance,
@@ -61,6 +64,7 @@ export async function registerItadPricesRoute(
   }
 
   const fetchImpl = options.fetchImpl ?? fetch;
+  const nowProvider = options.nowProvider ?? (() => Date.now());
 
   app.route({
     method: 'GET',
@@ -170,10 +174,19 @@ export async function registerItadPricesRoute(
           vouchers
         });
         const priceRow = prices.find((item) => item.id === itadGameId) ?? null;
-        const deals = (priceRow?.deals ?? []).filter(
+        const filteredDeals = (priceRow?.deals ?? []).filter(
           (deal) => isSteamShopDeal(deal) && isWindowsDeal(deal) && isRequiredCurrencyDeal(deal)
         );
-        const bestPrice = selectBestSteamPrice(deals);
+        const bestPrice = selectBestSteamPrice(filteredDeals);
+        const converted = await convertPricingSnapshotToChf(
+          fetchImpl,
+          {
+            historyLow: priceRow?.historyLow ?? null,
+            deals: filteredDeals,
+            bestPrice
+          },
+          nowProvider()
+        );
 
         await persistItadSnapshot(pool, {
           igdbGameId,
@@ -181,7 +194,7 @@ export async function registerItadPricesRoute(
           payload,
           country,
           itadGameId,
-          bestPrice
+          bestPrice: converted.bestPrice
         });
 
         const okPayload: ItadRouteResponse = {
@@ -192,9 +205,9 @@ export async function registerItadPricesRoute(
           steamAppId,
           itadGameId,
           matchStrategy,
-          bestPrice: bestPrice ? serializeBestSteamPrice(bestPrice) : null,
-          historyLow: priceRow?.historyLow ?? null,
-          deals
+          bestPrice: converted.bestPrice ? serializeBestSteamPrice(converted.bestPrice) : null,
+          historyLow: converted.historyLow,
+          deals: converted.deals
         };
         reply.code(200).send(okPayload);
       } catch (error) {
@@ -458,6 +471,230 @@ function normalizePriceRecord(
   };
 }
 
+async function convertPricingSnapshotToChf(
+  fetchImpl: typeof fetch,
+  params: {
+    historyLow: unknown;
+    deals: unknown[];
+    bestPrice: BestSteamPrice | null;
+  },
+  nowMs: number
+): Promise<{ historyLow: unknown; deals: unknown[]; bestPrice: BestSteamPrice | null }> {
+  const rateMemo = new Map<string, number>();
+  const historyLow = await convertHistoryLowToChf(fetchImpl, params.historyLow, nowMs, rateMemo);
+  const deals = await Promise.all(
+    params.deals.map((deal) => convertDealToChf(fetchImpl, deal, nowMs, rateMemo))
+  );
+  const bestPrice = await convertBestPriceToChf(fetchImpl, params.bestPrice, nowMs, rateMemo);
+  return { historyLow, deals, bestPrice };
+}
+
+async function convertHistoryLowToChf(
+  fetchImpl: typeof fetch,
+  value: unknown,
+  nowMs: number,
+  rateMemo: Map<string, number>
+): Promise<unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const source = value as Record<string, unknown>;
+  const output: Record<string, unknown> = {};
+  for (const [key, lowValue] of Object.entries(source)) {
+    output[key] = await convertMoneyRecordToChf(fetchImpl, lowValue, nowMs, rateMemo);
+  }
+  return output;
+}
+
+async function convertDealToChf(
+  fetchImpl: typeof fetch,
+  value: unknown,
+  nowMs: number,
+  rateMemo: Map<string, number>
+): Promise<unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const source = value as Record<string, unknown>;
+  return {
+    ...source,
+    price: await convertMoneyRecordToChf(fetchImpl, source['price'], nowMs, rateMemo),
+    regular: await convertMoneyRecordToChf(fetchImpl, source['regular'], nowMs, rateMemo),
+    storeLow: await convertMoneyRecordToChf(fetchImpl, source['storeLow'], nowMs, rateMemo)
+  };
+}
+
+async function convertBestPriceToChf(
+  fetchImpl: typeof fetch,
+  value: BestSteamPrice | null,
+  nowMs: number,
+  rateMemo: Map<string, number>
+): Promise<BestSteamPrice | null> {
+  if (!value) {
+    return null;
+  }
+
+  const amount = await convertAmountToChf(fetchImpl, value.amount, value.currency, nowMs, rateMemo);
+  const regularAmount =
+    value.regularAmount === null
+      ? null
+      : await convertAmountToChf(fetchImpl, value.regularAmount, value.currency, nowMs, rateMemo);
+
+  return {
+    ...value,
+    amount,
+    regularAmount,
+    currency: CHF_CURRENCY_CODE
+  };
+}
+
+async function convertMoneyRecordToChf(
+  fetchImpl: typeof fetch,
+  value: unknown,
+  nowMs: number,
+  rateMemo: Map<string, number>
+): Promise<unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+
+  const source = value as Record<string, unknown>;
+  const amount = normalizeNumberOrNull(source['amount']);
+  const currency = normalizeNonEmptyString(source['currency']);
+  if (amount === null || currency === null) {
+    return value;
+  }
+
+  const convertedAmount = await convertAmountToChf(fetchImpl, amount, currency, nowMs, rateMemo);
+  return {
+    ...source,
+    amount: convertedAmount,
+    amountInt: Math.round(convertedAmount * 100),
+    currency: CHF_CURRENCY_CODE
+  };
+}
+
+async function convertAmountToChf(
+  fetchImpl: typeof fetch,
+  amount: number,
+  sourceCurrency: string | null,
+  nowMs: number,
+  rateMemo: Map<string, number>
+): Promise<number> {
+  if (sourceCurrency === null) {
+    return round2(amount);
+  }
+
+  const normalizedSource = sourceCurrency.toUpperCase();
+  if (normalizedSource === CHF_CURRENCY_CODE) {
+    return round2(amount);
+  }
+
+  const cachedRate = rateMemo.get(normalizedSource);
+  const rate = cachedRate ?? (await getExchangeRateToChf(fetchImpl, normalizedSource, nowMs));
+  rateMemo.set(normalizedSource, rate);
+  return round2(amount * rate);
+}
+
+async function getExchangeRateToChf(
+  fetchImpl: typeof fetch,
+  sourceCurrency: string,
+  nowMs: number
+): Promise<number> {
+  const dayKey = toUtcDayKey(nowMs);
+  const cacheKey = `${sourceCurrency}->${CHF_CURRENCY_CODE}`;
+  const cached = exchangeRateDailyCache.get(cacheKey);
+  if (cached && cached.dayKey === dayKey) {
+    return cached.rateToChf;
+  }
+
+  const url = new URL(
+    `latest/${sourceCurrency}`,
+    ensureTrailingSlash(config.exchangeRateApiBaseUrl)
+  );
+  const response = await fetchWithTimeout(
+    fetchImpl,
+    url.toString(),
+    config.exchangeRateApiTimeoutMs
+  );
+  if (!response.ok) {
+    throw new Error(`Exchange rate request failed with status ${String(response.status)}`);
+  }
+
+  const payload: unknown = await response.json();
+  const rates = extractConversionRates(payload);
+  const rate = normalizeNumberOrNull(rates?.[CHF_CURRENCY_CODE]);
+  if (rate === null || rate <= 0) {
+    throw new Error(`Missing valid ${CHF_CURRENCY_CODE} conversion rate for ${sourceCurrency}`);
+  }
+
+  exchangeRateDailyCache.set(cacheKey, {
+    dayKey,
+    rateToChf: rate
+  });
+  return rate;
+}
+
+async function fetchWithTimeout(
+  fetchImpl: typeof fetch,
+  url: string,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetchImpl(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json'
+      },
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function ensureTrailingSlash(value: string): string {
+  return value.endsWith('/') ? value : `${value}/`;
+}
+
+function extractConversionRates(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+  const rates = payload['conversion_rates'];
+  if (rates && typeof rates === 'object' && !Array.isArray(rates)) {
+    return rates as Record<string, unknown>;
+  }
+
+  const fallbackRates = payload['rates'];
+  if (fallbackRates && typeof fallbackRates === 'object' && !Array.isArray(fallbackRates)) {
+    return fallbackRates as Record<string, unknown>;
+  }
+
+  return null;
+}
+
+function toUtcDayKey(nowMs: number): string {
+  const now = new Date(nowMs);
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  return `${String(year)}-${month}-${day}`;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function normalizeRegularAmount(value: unknown): number | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -600,5 +837,8 @@ export const __itadPriceTestables = {
   normalizeCountryCode,
   normalizePositiveInteger,
   normalizeBooleanQuery,
-  STEAM_APP_URL_PATTERN
+  STEAM_APP_URL_PATTERN,
+  clearExchangeRateDailyCache: () => {
+    exchangeRateDailyCache.clear();
+  }
 };

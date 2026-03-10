@@ -40,14 +40,21 @@ class GamePoolMock {
       return Promise.resolve({ rows: row ? [row] : [] });
     }
 
-    if (normalized.startsWith('update games set payload = $3::jsonb, updated_at = now()')) {
+    if (normalized.startsWith('update games set payload =')) {
       const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
       const platformIgdbId =
         typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
       const payloadRaw = typeof params[2] === 'string' ? params[2] : '{}';
-      const parsed = JSON.parse(payloadRaw) as Record<string, unknown>;
-      this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload: parsed });
-      return Promise.resolve({ rows: [{ payload: parsed }], rowCount: 1 });
+      const patch = JSON.parse(payloadRaw) as Record<string, unknown>;
+      const key = `${igdbGameId}::${String(platformIgdbId)}`;
+      const existing = this.rowsByIdentity.get(key)?.payload ?? {};
+      const merged = { ...existing, ...patch };
+      const changed = JSON.stringify(existing) !== JSON.stringify(merged);
+      if (changed) {
+        this.rowsByIdentity.set(key, { payload: merged });
+        return Promise.resolve({ rows: [{ payload: merged }], rowCount: 1 });
+      }
+      return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     if (
@@ -333,6 +340,70 @@ void test('Steam route uses cached value when fresh for matching cc', async () =
   assert.equal(body['status'], 'ok');
   assert.equal(body['cached'], true);
   assert.equal(fetchCalls, 0);
+
+  await app.close();
+});
+
+void test('Steam route bypasses cache when query steamAppId differs from persisted steamAppId', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('1520', 6, {
+    steamAppId: 570,
+    steamPriceCountry: 'CH',
+    steamPriceFetchedAt: '2026-03-10T08:00:00.000Z',
+    steamPriceAmount: 19.99,
+    steamPriceInitialAmount: 39.99,
+    steamPriceCurrency: 'CHF',
+    steamPriceDiscountPercent: 50,
+    steamPriceIsFree: false,
+    steamPriceUrl: 'https://store.steampowered.com/app/570'
+  });
+
+  let fetchCalls = 0;
+  await registerSteamPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    fetchImpl: (input) => {
+      fetchCalls += 1;
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      assert.equal(url.searchParams.get('appids'), '730');
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            '730': {
+              success: true,
+              data: {
+                is_free: false,
+                price_overview: {
+                  currency: 'CHF',
+                  initial: 1599,
+                  final: 999,
+                  discount_percent: 37
+                }
+              }
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/steam/prices?igdbGameId=1520&platformIgdbId=6&cc=CH&steamAppId=730'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-steam-price-cache'], 'MISS');
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.equal(body['cached'], false);
+  assert.equal(body['steamAppId'], 730);
+  assert.equal(fetchCalls, 1);
 
   await app.close();
 });

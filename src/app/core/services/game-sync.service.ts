@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { AppDb, OutboxEntry, SyncMetaEntry } from '../data/app-db';
+import { AppDb, SyncMetaEntry } from '../data/app-db';
 import { SyncOutboxWriteRequest, SyncOutboxWriter } from '../data/sync-outbox-writer';
 import {
   ClientSyncOperation,
@@ -25,6 +25,7 @@ import { DebugLogService } from './debug-log.service';
 import { normalizeHttpError } from '../utils/normalize-http-error';
 import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { normalizeGameScreenshots, normalizeGameVideos } from '../utils/game-media-normalization';
+import { buildOutboxEntry, generateOperationId } from '../data/outbox-entry.util';
 
 interface SyncPushResponse {
   results: SyncPushResult[];
@@ -106,20 +107,7 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   async enqueueOperation(request: SyncOutboxWriteRequest): Promise<void> {
-    const now = new Date().toISOString();
-    const entry: OutboxEntry = {
-      opId:
-        typeof request.opId === 'string' && request.opId.trim().length > 0
-          ? request.opId.trim()
-          : this.generateOperationId(),
-      entityType: request.entityType,
-      operation: request.operation,
-      payload: request.payload,
-      clientTimestamp: request.clientTimestamp ?? now,
-      createdAt: now,
-      attemptCount: 0,
-      lastError: null
-    };
+    const entry = buildOutboxEntry(request, () => this.generateOperationId());
 
     await this.db.outbox.put(entry);
     this.debugLogService.debug('sync.outbox.enqueued', {
@@ -1133,10 +1121,6 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private generateOperationId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-
-    return `${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`;
+    return generateOperationId();
   }
 }

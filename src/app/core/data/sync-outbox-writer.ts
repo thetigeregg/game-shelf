@@ -11,6 +11,7 @@ export interface SyncOutboxWriteRequest {
 
 export interface SyncOutboxWriter {
   enqueueOperation(request: SyncOutboxWriteRequest): Promise<void>;
+  syncNow?(): Promise<void>;
 }
 
 export const SYNC_OUTBOX_WRITER = new InjectionToken<SyncOutboxWriter>('SYNC_OUTBOX_WRITER');

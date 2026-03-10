@@ -1865,3 +1865,15 @@
 - dfa1bd8 Update .husky/post-checkout
 - 4777931 Verify new worktree hooks
 
+## v1.1.28 - 2026-03-10
+- a7b9731 Merge pull request #197 from thetigeregg/codex/investigate-bulk-move-freeze
+- b3bb10c Simplify view creation transaction
+- 22050d4 Return created tag from transaction
+- 295113f Use trimmed timestamp in outbox
+- c7e6d8a Fix requestSyncNow typing
+- f3a8b84 Restore immediate sync after outbox
+- 9e22920 Add batched game tag/status specs
+- 5c8ae46 Refresh list after partial updates
+- 4d69fae Investigate bulk wishlist sync
+- 46edc72 Investigate bulk wishlist freeze
+

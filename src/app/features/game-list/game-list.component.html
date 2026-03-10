@@ -96,7 +96,10 @@
       }
       <div class="row-metadata-stack">
         @if (listType === 'wishlist' && getRowPriceLabel(game); as rowPriceLabel) {
-          <div class="price-main-indicator">
+          <div
+            class="price-main-indicator"
+            [class.price-main-indicator-discount]="isRowPriceOnDiscount(game)"
+          >
             {{ rowPriceLabel }}
           </div>
         }

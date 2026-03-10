@@ -2776,6 +2776,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return GameListComponent.CHF_CURRENCY_FORMATTER.format(amount);
   }
 
+  isRowPriceOnDiscount(game: GameEntry): boolean {
+    return this.gameShelfService.isGameOnDiscount(game);
+  }
+
   getRowReviewScore(game: GameEntry): number | null {
     const score = game.reviewScore ?? game.metacriticScore;
 

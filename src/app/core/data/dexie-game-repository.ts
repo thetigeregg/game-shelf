@@ -161,7 +161,7 @@ export class DexieGameRepository implements GameRepository {
       };
 
       await this.db.games.put(updated);
-      this.queueGameUpsert(updated);
+      await this.queueGameUpsert(updated);
       return updated;
     }
 
@@ -218,7 +218,7 @@ export class DexieGameRepository implements GameRepository {
 
     const id = await this.db.games.add(created);
     const stored = { ...created, id };
-    this.queueGameUpsert(stored);
+    await this.queueGameUpsert(stored);
     return stored;
   }
 
@@ -241,7 +241,7 @@ export class DexieGameRepository implements GameRepository {
     const updated = await this.exists(igdbGameId, platformIgdbId);
 
     if (updated) {
-      this.queueGameUpsert(updated);
+      await this.queueGameUpsert(updated);
     }
   }
 
@@ -253,7 +253,7 @@ export class DexieGameRepository implements GameRepository {
     }
 
     await this.db.games.delete(existing.id);
-    this.queueGameDelete(igdbGameId, platformIgdbId);
+    await this.queueGameDelete(igdbGameId, platformIgdbId);
   }
 
   async exists(igdbGameId: string, platformIgdbId: number): Promise<GameEntry | undefined> {
@@ -297,7 +297,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
-    this.queueGameUpsert(updated);
+    await this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -319,7 +319,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
-    this.queueGameUpsert(updated);
+    await this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -341,7 +341,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
-    this.queueGameUpsert(updated);
+    await this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -363,7 +363,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
-    this.queueGameUpsert(updated);
+    await this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -385,7 +385,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
-    this.queueGameUpsert(updated);
+    await this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -407,7 +407,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
-    this.queueGameUpsert(updated);
+    await this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -467,7 +467,7 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.games.put(updated);
-    this.queueGameUpsert(updated);
+    await this.queueGameUpsert(updated);
     return updated;
   }
 
@@ -491,7 +491,7 @@ export class DexieGameRepository implements GameRepository {
       };
 
       await this.db.tags.put(updatedByName);
-      this.queueTagUpsert(updatedByName);
+      await this.queueTagUpsert(updatedByName);
       return updatedByName;
     }
 
@@ -507,7 +507,7 @@ export class DexieGameRepository implements GameRepository {
         };
 
         await this.db.tags.put(updatedById);
-        this.queueTagUpsert(updatedById);
+        await this.queueTagUpsert(updatedById);
         return updatedById;
       }
     }
@@ -520,13 +520,13 @@ export class DexieGameRepository implements GameRepository {
     };
     const createdId = await this.db.tags.add(created);
     const stored = { ...created, id: createdId };
-    this.queueTagUpsert(stored);
+    await this.queueTagUpsert(stored);
     return stored;
   }
 
   async deleteTag(tagId: number): Promise<void> {
     await this.db.tags.delete(tagId);
-    this.queueTagDelete(tagId);
+    await this.queueTagDelete(tagId);
 
     const games = await this.db.games.toArray();
     const now = new Date().toISOString();
@@ -544,7 +544,7 @@ export class DexieGameRepository implements GameRepository {
         updatedAt: now
       });
 
-      this.queueGameUpsert({
+      await this.queueGameUpsert({
         ...game,
         tagIds: nextTagIds,
         updatedAt: now
@@ -577,7 +577,7 @@ export class DexieGameRepository implements GameRepository {
     };
     const id = await this.db.views.add(created);
     const stored = { ...created, id };
-    this.queueViewUpsert(stored);
+    await this.queueViewUpsert(stored);
     return stored;
   }
 
@@ -606,81 +606,81 @@ export class DexieGameRepository implements GameRepository {
     };
 
     await this.db.views.put(updated);
-    this.queueViewUpsert(updated);
+    await this.queueViewUpsert(updated);
     return updated;
   }
 
   async deleteView(viewId: number): Promise<void> {
     await this.db.views.delete(viewId);
-    this.queueViewDelete(viewId);
+    await this.queueViewDelete(viewId);
   }
 
-  private queueGameUpsert(game: GameEntry): void {
+  private async queueGameUpsert(game: GameEntry): Promise<void> {
     if (!this.outboxWriter) {
       return;
     }
 
-    void this.outboxWriter.enqueueOperation({
+    await this.outboxWriter.enqueueOperation({
       entityType: 'game',
       operation: 'upsert',
       payload: game
     });
   }
 
-  private queueGameDelete(igdbGameId: string, platformIgdbId: number): void {
+  private async queueGameDelete(igdbGameId: string, platformIgdbId: number): Promise<void> {
     if (!this.outboxWriter) {
       return;
     }
 
-    void this.outboxWriter.enqueueOperation({
+    await this.outboxWriter.enqueueOperation({
       entityType: 'game',
       operation: 'delete',
       payload: { igdbGameId, platformIgdbId }
     });
   }
 
-  private queueTagUpsert(tag: Tag): void {
+  private async queueTagUpsert(tag: Tag): Promise<void> {
     if (!this.outboxWriter) {
       return;
     }
 
-    void this.outboxWriter.enqueueOperation({
+    await this.outboxWriter.enqueueOperation({
       entityType: 'tag',
       operation: 'upsert',
       payload: tag
     });
   }
 
-  private queueTagDelete(id: number): void {
+  private async queueTagDelete(id: number): Promise<void> {
     if (!this.outboxWriter) {
       return;
     }
 
-    void this.outboxWriter.enqueueOperation({
+    await this.outboxWriter.enqueueOperation({
       entityType: 'tag',
       operation: 'delete',
       payload: { id }
     });
   }
 
-  private queueViewUpsert(view: GameListView): void {
+  private async queueViewUpsert(view: GameListView): Promise<void> {
     if (!this.outboxWriter) {
       return;
     }
 
-    void this.outboxWriter.enqueueOperation({
+    await this.outboxWriter.enqueueOperation({
       entityType: 'view',
       operation: 'upsert',
       payload: view
     });
   }
 
-  private queueViewDelete(id: number): void {
+  private async queueViewDelete(id: number): Promise<void> {
     if (!this.outboxWriter) {
       return;
     }
 
-    void this.outboxWriter.enqueueOperation({
+    await this.outboxWriter.enqueueOperation({
       entityType: 'view',
       operation: 'delete',
       payload: { id }

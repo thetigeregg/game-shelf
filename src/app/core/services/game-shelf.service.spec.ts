@@ -153,7 +153,7 @@ describe('GameShelfService', () => {
     expect(repository.remove).toHaveBeenCalledWith('123', 130);
   });
 
-  it('triggers Steam pricing refresh in background after add', async () => {
+  it('does not trigger pricing refresh in background for collection add', async () => {
     const mario: GameCatalogResult = {
       igdbGameId: '123',
       title: 'Counter-Strike',
@@ -193,6 +193,51 @@ describe('GameShelfService', () => {
     searchApi.lookupCompletionTimes.mockReturnValue(of(null));
 
     await service.addGame(mario, 'collection');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(lookupSteamPrice).not.toHaveBeenCalled();
+  });
+
+  it('triggers Steam pricing refresh in background after wishlist add', async () => {
+    const mario: GameCatalogResult = {
+      igdbGameId: '123',
+      title: 'Counter-Strike',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['PC'],
+      platform: 'PC',
+      platformIgdbId: 6,
+      steamAppId: 12345,
+      releaseDate: '2012-08-21T00:00:00.000Z',
+      releaseYear: 2012
+    };
+
+    const lookupSteamPrice = vi.fn(() => of({ status: 'unsupported_platform' }));
+    (
+      searchApi as unknown as {
+        lookupSteamPrice: ReturnType<typeof vi.fn>;
+      }
+    ).lookupSteamPrice = lookupSteamPrice;
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...mario,
+      platform: 'PC',
+      platformIgdbId: 6,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+    repository.exists.mockResolvedValue({
+      ...mario,
+      platform: 'PC',
+      platformIgdbId: 6,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+
+    await service.addGame(mario, 'wishlist');
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(lookupSteamPrice).toHaveBeenCalledWith('123', 6);

@@ -930,10 +930,12 @@ export class IgdbProxyService implements GameSearchApi {
   lookupSteamPrice(
     igdbGameId: string,
     platformIgdbId: number,
-    countryCode?: string
+    countryCode?: string,
+    steamAppId?: number | null
   ): Observable<unknown> {
     const normalizedGameId = this.normalizeNumericId(igdbGameId);
     const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+    const normalizedSteamAppId = this.normalizePositiveInteger(steamAppId);
 
     if (!normalizedGameId || normalizedPlatformIgdbId === null) {
       return throwError(() => new Error('Invalid Steam price lookup request.'));
@@ -950,6 +952,9 @@ export class IgdbProxyService implements GameSearchApi {
 
     if (normalizedCountryCode !== null) {
       params = params.set('cc', normalizedCountryCode);
+    }
+    if (normalizedSteamAppId !== null) {
+      params = params.set('steamAppId', String(normalizedSteamAppId));
     }
 
     const cooldownError = this.createCooldownErrorIfActive();

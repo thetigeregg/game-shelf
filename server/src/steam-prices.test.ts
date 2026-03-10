@@ -102,6 +102,55 @@ void test('Steam route returns missing_steam_app_id when payload is not enriched
   await app.close();
 });
 
+void test('Steam route accepts query steamAppId when game row is not present', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  let fetchCalls = 0;
+
+  await registerSteamPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            '570': {
+              success: true,
+              data: {
+                is_free: false,
+                price_overview: {
+                  currency: 'CHF',
+                  initial: 2999,
+                  final: 1999,
+                  discount_percent: 33
+                }
+              }
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6&steamAppId=570&cc=CH'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.equal(body['steamAppId'], 570);
+  assert.equal(body['cached'], false);
+  assert.equal(fetchCalls, 1);
+  assert.equal(pool.getPayload('960', 6), null);
+
+  await app.close();
+});
+
 void test('Steam route fetches appdetails with cc and persists normalized price fields', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

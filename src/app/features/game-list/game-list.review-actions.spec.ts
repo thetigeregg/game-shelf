@@ -185,6 +185,72 @@ describe('game-list review actions', () => {
     expect(clearSelectionMode).toHaveBeenCalledOnce();
   });
 
+  it('moves selected games using batched service call', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      displayedGames: GameEntry[];
+      selectedGameKeys: Set<string>;
+      listType: 'collection' | 'wishlist';
+    };
+    const first = createGame({ igdbGameId: '10', platformIgdbId: 6 });
+    const second = createGame({ igdbGameId: '11', platformIgdbId: 130 });
+    const moveGamesToList = vi.fn().mockResolvedValue(undefined);
+    const clearSelectionMode = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+
+    Object.assign(page, {
+      displayedGames: [first, second],
+      selectedGameKeys: new Set(['10::6', '11::130']),
+      listType: 'collection',
+      gameShelfService: { moveGamesToList },
+      clearSelectionMode,
+      presentToast
+    });
+
+    await (
+      page as unknown as { moveSelectedGamesToOtherList: () => Promise<void> }
+    ).moveSelectedGamesToOtherList();
+
+    expect(moveGamesToList).toHaveBeenCalledWith(
+      [
+        { igdbGameId: '10', platformIgdbId: 6 },
+        { igdbGameId: '11', platformIgdbId: 130 }
+      ],
+      'wishlist'
+    );
+    expect(clearSelectionMode).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('Moved 2 games to Wishlist.');
+  });
+
+  it('deletes selected games using batched service call', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      displayedGames: GameEntry[];
+      selectedGameKeys: Set<string>;
+    };
+    const first = createGame({ igdbGameId: '20', platformIgdbId: 6 });
+    const second = createGame({ igdbGameId: '21', platformIgdbId: 130 });
+    const removeGames = vi.fn().mockResolvedValue(undefined);
+    const clearSelectionMode = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+
+    Object.assign(page, {
+      displayedGames: [first, second],
+      selectedGameKeys: new Set(['20::6', '21::130']),
+      gameShelfService: { removeGames },
+      confirmDelete: vi.fn().mockResolvedValue(true),
+      clearSelectionMode,
+      presentToast
+    });
+
+    await (page as unknown as { deleteSelectedGames: () => Promise<void> }).deleteSelectedGames();
+
+    expect(removeGames).toHaveBeenCalledWith([
+      { igdbGameId: '20', platformIgdbId: 6 },
+      { igdbGameId: '21', platformIgdbId: 130 }
+    ]);
+    expect(clearSelectionMode).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('2 games deleted.');
+  });
+
   it('single review refresh allows unsupported legacy platforms and uses review messages', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;

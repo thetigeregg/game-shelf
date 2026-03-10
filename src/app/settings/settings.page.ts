@@ -115,7 +115,11 @@ import {
   RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
   ReleaseNotificationEventsPreference
 } from '../core/services/notification.service';
-import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
+import {
+  getAppVersion,
+  isMgcImportFeatureEnabled,
+  isTasFeatureEnabled
+} from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import {
@@ -372,6 +376,7 @@ export class SettingsPage {
   ];
   readonly appVersion = getAppVersion();
   readonly isMgcImportFeatureEnabled = isMgcImportFeatureEnabled();
+  readonly isTasFeatureEnabled = isTasFeatureEnabled();
 
   selectedColorScheme: ColorSchemePreference = 'system';
   clientWriteTokenConfigured = false;

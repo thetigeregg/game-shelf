@@ -269,11 +269,11 @@
         <ng-template>
           <ion-content>
             <ion-list lines="none">
+              <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
+                Customize
+              </ion-item>
               <ion-item button detail="false" (click)="openExternalMetadataFromPopover()">
                 External metadata
-              </ion-item>
-              <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
-                Edit metadata
               </ion-item>
               @if (shouldShowFindManualButton) {
                 <ion-item button detail="false" (click)="openManualPickerFromPopover()">
@@ -701,7 +701,7 @@
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Edit Metadata</ion-title>
+        <ion-title>Customize</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" (click)="closeEditMetadataModal()"> Close </ion-button>
         </ion-buttons>

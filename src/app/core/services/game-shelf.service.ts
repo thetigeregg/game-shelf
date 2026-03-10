@@ -45,7 +45,8 @@ interface SteamPriceLookupApi {
   lookupSteamPrice(
     igdbGameId: string,
     platformIgdbId: number,
-    countryCode?: string
+    countryCode?: string,
+    steamAppId?: number | null
   ): Observable<unknown>;
 }
 
@@ -226,7 +227,11 @@ export class GameShelfService {
     );
     this.listRefresh$.next();
     void this.enrichCatalogWithMetadataInBackground(normalizedCatalog, listType);
-    void this.refreshSteamPriceInBackground(normalizedGameId, normalizedPlatformIgdbId);
+    void this.refreshSteamPriceInBackground(
+      normalizedGameId,
+      normalizedPlatformIgdbId,
+      normalizedCatalog.steamAppId ?? null
+    );
     return entry;
   }
 
@@ -1285,7 +1290,8 @@ export class GameShelfService {
 
   private async refreshSteamPriceInBackground(
     igdbGameId: string,
-    platformIgdbId: number
+    platformIgdbId: number,
+    steamAppId?: number | null
   ): Promise<void> {
     const steamPricingApi = this.searchApi as Partial<SteamPriceLookupApi>;
 
@@ -1294,7 +1300,9 @@ export class GameShelfService {
     }
 
     try {
-      await firstValueFrom(steamPricingApi.lookupSteamPrice(igdbGameId, platformIgdbId));
+      await firstValueFrom(
+        steamPricingApi.lookupSteamPrice(igdbGameId, platformIgdbId, undefined, steamAppId)
+      );
     } catch {
       // Keep add flow resilient when Steam pricing endpoint is unavailable.
     }

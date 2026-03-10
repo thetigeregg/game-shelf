@@ -60,6 +60,8 @@ export async function registerSteamPricesRoute(
       const query = request.query as Record<string, unknown>;
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
+      const querySteamAppIdRaw = query['steamAppId'];
+      const querySteamAppId = normalizePositiveInteger(querySteamAppIdRaw);
       const cc = normalizeCountryCode(query['cc']) ?? config.steamDefaultCountry;
 
       if (!igdbGameId || platformIgdbId === null) {
@@ -69,6 +71,10 @@ export async function registerSteamPricesRoute(
 
       if (query['cc'] !== undefined && normalizeCountryCode(query['cc']) === null) {
         reply.code(400).send({ error: 'cc must be a two-letter ISO country code.' });
+        return;
+      }
+      if (querySteamAppIdRaw !== undefined && querySteamAppId === null) {
+        reply.code(400).send({ error: 'steamAppId must be a positive integer.' });
         return;
       }
 
@@ -92,12 +98,12 @@ export async function registerSteamPricesRoute(
       );
       const payload = normalizePayloadObject(row.rows[0]?.payload);
 
-      if (!payload) {
+      if (!payload && querySteamAppId === null) {
         reply.code(404).send({ error: 'Game not found.' });
         return;
       }
 
-      const steamAppId = normalizePositiveInteger(payload['steamAppId']);
+      const steamAppId = querySteamAppId ?? normalizePositiveInteger(payload?.['steamAppId']);
       if (steamAppId === null) {
         const missingPayload: SteamRouteResponse = {
           status: 'missing_steam_app_id',
@@ -112,7 +118,7 @@ export async function registerSteamPricesRoute(
         return;
       }
 
-      const cachedSnapshot = readCachedSteamSnapshot(payload, cc, nowProvider());
+      const cachedSnapshot = payload ? readCachedSteamSnapshot(payload, cc, nowProvider()) : null;
       if (cachedSnapshot) {
         const cachedStatus: SteamRouteStatus = isAvailableSnapshot(cachedSnapshot)
           ? 'ok'
@@ -132,14 +138,16 @@ export async function registerSteamPricesRoute(
 
       try {
         const steamSnapshot = await fetchSteamPriceSnapshot(fetchImpl, steamAppId, cc);
-        await persistSteamSnapshot(pool, {
-          igdbGameId,
-          platformIgdbId,
-          payload,
-          cc,
-          steamAppId,
-          bestPrice: steamSnapshot
-        });
+        if (payload) {
+          await persistSteamSnapshot(pool, {
+            igdbGameId,
+            platformIgdbId,
+            payload,
+            cc,
+            steamAppId,
+            bestPrice: steamSnapshot
+          });
+        }
 
         const routeStatus: SteamRouteStatus = steamSnapshot ? 'ok' : 'unavailable';
         const responsePayload: SteamRouteResponse = {

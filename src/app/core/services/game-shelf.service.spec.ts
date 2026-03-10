@@ -159,6 +159,7 @@ describe('GameShelfService', () => {
       platforms: ['Switch'],
       platform: 'Switch',
       platformIgdbId: 130,
+      steamAppId: 12345,
       releaseDate: '2017-04-28T00:00:00.000Z',
       releaseYear: 2017
     };
@@ -183,7 +184,7 @@ describe('GameShelfService', () => {
     await service.addGame(mario, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(lookupSteamPrice).toHaveBeenCalledWith('123', 130);
+    expect(lookupSteamPrice).toHaveBeenCalledWith('123', 130, undefined, 12345);
   });
 
   it('enriches games with HLTB completion times during add when available', async () => {

@@ -96,6 +96,10 @@ interface RecommendationDisplayMetadata {
   coverUrl: string | null;
   platformLabel: string;
   releaseYear: number | null;
+  priceAmount?: number | null;
+  priceRegularAmount?: number | null;
+  priceDiscountPercent?: number | null;
+  priceIsFree?: boolean | null;
 }
 
 @Component({
@@ -143,6 +147,12 @@ export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_FETCH_LIMIT = 200;
   private static readonly SIMILAR_PAGE_SIZE = 5;
   private static readonly SIMILAR_FETCH_LIMIT = 50;
+  private static readonly CHF_CURRENCY_FORMATTER = new Intl.NumberFormat('de-CH', {
+    style: 'currency',
+    currency: 'CHF',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 
   readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
@@ -439,6 +449,36 @@ export class ExplorePage implements OnInit {
 
     const metadata = this.getRecommendationDisplayMetadata(item);
     return metadata?.coverUrl ?? 'assets/icon/placeholder.png';
+  }
+
+  getRecommendationRowPriceLabel(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): string | null {
+    if (this.selectedTarget !== 'DISCOVERY') {
+      return null;
+    }
+
+    const pricing = this.getRecommendationPricing(item);
+    const amount = pricing?.priceIsFree === true ? 0 : pricing?.priceAmount;
+
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+      return null;
+    }
+
+    return ExplorePage.CHF_CURRENCY_FORMATTER.format(amount);
+  }
+
+  isRecommendationRowPriceOnDiscount(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): boolean {
+    const pricing = this.getRecommendationPricing(item);
+    if (!pricing) {
+      return false;
+    }
+
+    return this.gameShelfService.isGameOnDiscount(pricing);
   }
 
   getScoreBadge(item: RecommendationItem): RecommendationBadge {
@@ -1594,12 +1634,41 @@ export class ExplorePage implements OnInit {
               title: catalog.title.trim().length > 0 ? catalog.title : `Game #${igdbGameId}`,
               coverUrl: catalog.coverUrl,
               platformLabel: this.resolveCatalogPlatformLabel(catalog, platformIgdbId),
-              releaseYear: catalog.releaseYear ?? null
+              releaseYear: catalog.releaseYear ?? null,
+              priceAmount: catalog.priceAmount ?? null,
+              priceRegularAmount: catalog.priceRegularAmount ?? null,
+              priceDiscountPercent: catalog.priceDiscountPercent ?? null,
+              priceIsFree: catalog.priceIsFree ?? null
             });
           }
         })
       );
     }
+  }
+
+  private getRecommendationPricing(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): Pick<
+    GameEntry,
+    'priceAmount' | 'priceRegularAmount' | 'priceDiscountPercent' | 'priceIsFree'
+  > | null {
+    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+    if (local) {
+      return local;
+    }
+
+    const metadata = this.getRecommendationDisplayMetadata(item);
+    if (!metadata) {
+      return null;
+    }
+
+    return {
+      priceAmount: metadata.priceAmount ?? null,
+      priceRegularAmount: metadata.priceRegularAmount ?? null,
+      priceDiscountPercent: metadata.priceDiscountPercent ?? null,
+      priceIsFree: metadata.priceIsFree ?? null
+    };
   }
 
   private async fetchRecommendationCatalogResult(

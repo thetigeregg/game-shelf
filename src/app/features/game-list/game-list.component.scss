@@ -23,31 +23,27 @@ ion-item-sliding ion-item {
 
 .game-row-main {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 8px;
 }
 
 .game-row-text {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: start;
 }
 
 .status-icon {
-  position: absolute;
-  top: 10px;
-  right: 12px;
   font-size: 1rem;
-  z-index: 2;
 }
 
 .rating-indicator {
-  position: absolute;
-  top: 30px;
-  right: 10px;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  z-index: 2;
   color: #d4af37;
   font-size: 0.78rem;
   font-weight: 600;
@@ -59,11 +55,37 @@ ion-item-sliding ion-item {
 
 .row-metadata-stack {
   flex: 0 0 auto;
-  align-self: flex-end;
+  align-self: stretch;
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  justify-content: space-between;
+  min-height: 100%;
+}
+
+.row-metadata-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.row-metadata-group-top {
+  margin-bottom: 4px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.row-metadata-group-bottom {
+  justify-content: flex-end;
+}
+
+.status-indicator {
+  min-height: 20px;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .row-metadata-indicators {
@@ -78,7 +100,7 @@ ion-item-sliding ion-item {
   font-size: 0.76rem;
   font-weight: 600;
   line-height: 1;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   padding: 3px 5px;
   border: 1px solid currentColor;
   border-radius: 5px;
@@ -275,8 +297,7 @@ ion-item p {
 .game-type-badge {
   --background: #4a4a4a;
   --color: #ffffff;
-  margin-top: 6px;
-  margin-right: 6px;
+  margin-bottom: 4px;
   font-size: 0.66rem;
   font-weight: 600;
   text-transform: none;

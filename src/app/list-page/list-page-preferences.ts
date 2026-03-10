@@ -127,6 +127,7 @@ function isValidSortField(value: unknown): value is GameListFilters['sortField']
     value === 'createdAt' ||
     value === 'hltb' ||
     (value === 'tas' && isTasFeatureEnabled()) ||
+    value === 'price' ||
     value === 'review' ||
     value === 'metacritic' ||
     value === 'platform'

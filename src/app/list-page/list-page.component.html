@@ -52,6 +52,7 @@
   <ion-split-pane class="list-page-split-pane" [contentId]="contentId" [when]="desktopMediaQuery">
     <app-game-filters-menu
       [presentation]="'split'"
+      [listType]="listType"
       [menuId]="menuId"
       [contentId]="contentId"
       [platformOptions]="platformOptions"
@@ -218,6 +219,7 @@
 @if (!isDesktop) {
   <app-game-filters-menu
     [presentation]="'menu'"
+    [listType]="listType"
     [menuId]="menuId"
     [contentId]="contentId"
     [platformOptions]="platformOptions"

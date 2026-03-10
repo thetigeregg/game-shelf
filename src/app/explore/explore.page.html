@@ -195,6 +195,7 @@
         <app-game-detail-content
           [game]="game"
           [context]="detailContext"
+          [showPriceForNonWishlist]="selectedTarget === 'DISCOVERY'"
           [statusOptions]="statusOptions"
           [showAddToLibraryAction]="detailContext === 'explore'"
           [showIgnoreAction]="detailContext === 'explore'"
@@ -302,6 +303,14 @@
       </div>
       <ion-label class="explore-row-label">
         <h2>{{ title }}</h2>
+        @if (getRecommendationRowPriceLabel(row); as rowPriceLabel) {
+          <div
+            class="price-main-indicator"
+            [class.price-main-indicator-discount]="isRecommendationRowPriceOnDiscount(row)"
+          >
+            {{ rowPriceLabel }}
+          </div>
+        }
         <p>
           {{ platformLabel }}
           @if (year) {

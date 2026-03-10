@@ -88,6 +88,7 @@ export class GameDetailContentComponent {
   @Input() isAddToLibraryLoading = false;
   @Input() showIgnoreAction = false;
   @Input() isIgnored = false;
+  @Input() showPriceForNonWishlist = false;
 
   @Output() statusChange = new EventEmitter<GameStatus | null | undefined>();
   @Output() clearStatus = new EventEmitter<void>();
@@ -327,11 +328,20 @@ export class GameDetailContentComponent {
   }
 
   get showCurrentPriceLine(): boolean {
-    if (!this.showLibrarySections) {
+    const listType = (this.game as Partial<GameEntry>).listType;
+    if (listType === 'collection') {
       return false;
     }
 
-    return (this.game as Partial<GameEntry>).listType === 'wishlist';
+    if (listType === 'wishlist') {
+      return true;
+    }
+
+    if (!this.showPriceForNonWishlist) {
+      return false;
+    }
+
+    return this.hasCurrentPriceValue();
   }
 
   get currentPriceLabel(): string {
@@ -386,6 +396,18 @@ export class GameDetailContentComponent {
     }
 
     return parts.length > 0 ? parts.join(' · ') : null;
+  }
+
+  private hasCurrentPriceValue(): boolean {
+    if ((this.game as Partial<GameEntry>).priceIsFree === true) {
+      return true;
+    }
+
+    const amount =
+      typeof this.game.priceAmount === 'number' && Number.isFinite(this.game.priceAmount)
+        ? this.game.priceAmount
+        : null;
+    return amount !== null && amount >= 0;
   }
 
   isDetailTextExpanded(field: 'summary' | 'storyline'): boolean {

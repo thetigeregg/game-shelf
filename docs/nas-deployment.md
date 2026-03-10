@@ -69,6 +69,10 @@ Common stack env vars:
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults `true`)
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults `86400`)
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults `7776000`)
+- `PRICING_REFRESH_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
+- `PRICING_REFRESH_INTERVAL_MINUTES` (optional; defaults `60`; consumed by `worker-general`)
+- `PRICING_REFRESH_BATCH_SIZE` (optional; defaults `200`; consumed by `worker-general`)
+- `PRICING_REFRESH_STALE_HOURS` (optional; defaults `24`; consumed by `worker-general`)
 - `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
@@ -295,6 +299,10 @@ Key metadata env vars in `.env`:
 - `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
 - `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
 - `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
+- `PRICING_REFRESH_ENABLED=true`
+- `PRICING_REFRESH_INTERVAL_MINUTES=60`
+- `PRICING_REFRESH_BATCH_SIZE=200`
+- `PRICING_REFRESH_STALE_HOURS=24`
 
 Key recommendation env vars in `.env`:
 

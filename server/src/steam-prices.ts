@@ -680,16 +680,27 @@ async function persistSteamSnapshot(
       : (params.bestPrice.isFree ?? null)
   };
 
-  await pool.query(
+  const updateResult = await pool.query(
     `
       UPDATE games
       SET payload = $3::jsonb, updated_at = NOW()
       WHERE igdb_game_id = $1
         AND platform_igdb_id = $2
         AND payload IS DISTINCT FROM $3::jsonb
+      RETURNING payload
     `,
     [params.igdbGameId, params.platformIgdbId, JSON.stringify(nextPayload)]
   );
+
+  if ((updateResult.rowCount ?? updateResult.rows.length) > 0) {
+    await pool.query(
+      `
+      INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)
+      VALUES ('game', $1, 'upsert', $2::jsonb, NOW())
+      `,
+      [`${params.igdbGameId}::${String(params.platformIgdbId)}`, JSON.stringify(nextPayload)]
+    );
+  }
 }
 
 export async function processQueuedSteamPriceRevalidation(

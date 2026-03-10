@@ -1,0 +1,244 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import Fastify from 'fastify';
+import type { Pool } from 'pg';
+import { registerItadPricesRoute } from './itad-prices.js';
+
+interface GameRow {
+  payload: Record<string, unknown>;
+}
+
+class GamePoolMock {
+  private readonly rowsByIdentity = new Map<string, GameRow>();
+
+  seed(igdbGameId: string, platformIgdbId: number, payload: Record<string, unknown>): void {
+    this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload });
+  }
+
+  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[] }> {
+    const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (
+      normalized.startsWith(
+        'select payload from games where igdb_game_id = $1 and platform_igdb_id = $2'
+      )
+    ) {
+      const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
+      const platformIgdbId =
+        typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
+      const key = `${igdbGameId}::${String(platformIgdbId)}`;
+      const row = this.rowsByIdentity.get(key);
+      return Promise.resolve({ rows: row ? [row] : [] });
+    }
+
+    throw new Error(`Unsupported SQL in GamePoolMock: ${sql}`);
+  }
+}
+
+function parseJsonRecord(responseBody: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(responseBody);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Expected JSON object response body');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+void test('ITAD route returns unsupported_platform for non-Windows IGDB platform', async () => {
+  const app = Fastify();
+  let fetchCalls = 0;
+  const pool = new GamePoolMock();
+
+  await registerItadPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/itad/prices?igdbGameId=1&platformIgdbId=48'
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'unsupported_platform');
+  assert.equal(Array.isArray(body['deals']), true);
+  assert.equal((body['deals'] as unknown[]).length, 0);
+  assert.equal(fetchCalls, 0);
+
+  await app.close();
+});
+
+void test('ITAD route resolves by Steam app ID and filters deals to Windows only', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('1520', 6, {
+    title: 'Example Game',
+    steamAppId: 570
+  });
+
+  const calls: string[] = [];
+  await registerItadPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: (input, init) => {
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      calls.push(url.href);
+
+      if (url.pathname === '/lookup/id/shop/61/v1') {
+        assert.equal(url.searchParams.has('key'), true);
+        assert.equal(typeof init?.body, 'string');
+        assert.equal((init?.body as string).includes('app/570'), true);
+        return Promise.resolve(
+          new Response(JSON.stringify({ 'app/570': '018d937e-e9ab-70f4-bd05-1db7a138eb39' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          })
+        );
+      }
+
+      if (url.pathname === '/games/prices/v3') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: '018d937e-e9ab-70f4-bd05-1db7a138eb39',
+                historyLow: { all: null, y1: null, m3: null },
+                deals: [
+                  {
+                    platforms: [{ id: 1, name: 'Windows' }],
+                    price: { amount: 9.99, currency: 'CHF' }
+                  },
+                  {
+                    platforms: [{ id: 2, name: 'Mac' }],
+                    price: { amount: 8.99, currency: 'CHF' }
+                  }
+                ]
+              }
+            ]),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/itad/prices?igdbGameId=1520&platformIgdbId=6'
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.equal(body['matchStrategy'], 'steam');
+  assert.equal(body['steamAppId'], 570);
+  assert.equal(Array.isArray(body['deals']), true);
+  assert.equal((body['deals'] as unknown[]).length, 1);
+  assert.equal(
+    calls.some((url) => url.includes('/lookup/id/title/v1')),
+    false
+  );
+
+  await app.close();
+});
+
+void test('ITAD route falls back to title lookup when steam lookup misses', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('999', 6, {
+    title: 'Doom',
+    steamAppId: 999999
+  });
+
+  await registerItadPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: (input, init) => {
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+
+      if (url.pathname === '/lookup/id/shop/61/v1') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ 'app/999999': null }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          })
+        );
+      }
+
+      if (url.pathname === '/lookup/id/title/v1') {
+        assert.equal(typeof init?.body, 'string');
+        assert.equal((init?.body as string).includes('Doom'), true);
+        return Promise.resolve(
+          new Response(JSON.stringify({ Doom: '018d937e-e9ce-718b-9715-111f50820ed4' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          })
+        );
+      }
+
+      if (url.pathname === '/games/prices/v3') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              {
+                id: '018d937e-e9ce-718b-9715-111f50820ed4',
+                historyLow: { all: null, y1: null, m3: null },
+                deals: [{ platforms: [{ id: 1, name: 'Windows' }] }]
+              }
+            ]),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }
+          )
+        );
+      }
+
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/itad/prices?igdbGameId=999&platformIgdbId=6'
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.equal(body['matchStrategy'], 'title');
+  assert.equal(body['itadGameId'], '018d937e-e9ce-718b-9715-111f50820ed4');
+
+  await app.close();
+});
+
+void test('ITAD route returns 502 on upstream failure', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('77', 6, {
+    title: 'Failure Test',
+    steamAppId: 570
+  });
+
+  await registerItadPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: (input) => {
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      if (url.pathname === '/lookup/id/shop/61/v1') {
+        return Promise.resolve(new Response('bad gateway', { status: 502 }));
+      }
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/itad/prices?igdbGameId=77&platformIgdbId=6'
+  });
+  assert.equal(response.statusCode, 502);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['error'], 'Unable to fetch ITAD prices.');
+
+  await app.close();
+});

@@ -8,6 +8,8 @@ Game Shelf is an Ionic + Angular app for tracking a personal game library with m
 - `server/`: Fastify API (sync, image proxy/cache, manuals, metadata proxy)
 - `worker/`: Shared metadata logic/tests used by server routes
 - `hltb-scraper/`: Playwright-backed HLTB lookup service
+- `metacritic-scraper/`: Playwright-backed Metacritic lookup service
+- `psprices-scraper/`: Playwright-backed PSPrices lookup service
 - `edge/`: Caddy image for serving frontend and proxying `/api`
 - `docs/`: Deployment and operational docs
 - `.github/workflows/`: CI, release/publish, and secret scanning pipelines
@@ -43,8 +45,9 @@ cp .env.example .env
 - `nas-secrets/postgres_user`
 - `nas-secrets/postgres_password`
 - `nas-secrets/hltb_scraper_token` (optional)
+- `nas-secrets/psprices_scraper_token` (optional)
 
-4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
+4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `psprices-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
 npm run dev:worktree:stack:up
@@ -101,6 +104,13 @@ For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-dep
 ```bash
 npm run build
 ```
+
+## Pricing Metadata
+
+- Unified price fields are persisted on each game row (`priceSource`, `priceAmount`, `priceCurrency`, `priceRegularAmount`, `priceDiscountPercent`, `priceIsFree`, `priceUrl`, `priceFetchedAt`).
+- Pricing refresh is supported for IGDB platforms: `6` (Steam/Windows), `48` (PS4), `167` (PS5), `130` (Switch), and `508` (Switch 2).
+- Collection/Wishlist multi-select includes **Update pricing** in bulk actions.
+- Metadata Validator includes **Missing Pricing (supported platforms)** and only evaluates the platforms above.
 
 ## Testing and Quality
 
@@ -219,3 +229,5 @@ npm run backup:restore:postgres -- --file nas-data/backups/latest/postgres.sql.g
 - `server/README.md`
 - `worker/README.md`
 - `hltb-scraper/README.md`
+- `metacritic-scraper/README.md`
+- `psprices-scraper/README.md`

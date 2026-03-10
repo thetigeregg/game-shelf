@@ -83,6 +83,15 @@
         Bulk Review
       </ion-button>
       <ion-button
+        [disabled]="selectedGamesCount === 0 || isBulkRefreshingPricing"
+        (click)="refreshPricingForSelectedGames()"
+      >
+        @if (isBulkRefreshingPricing) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
+        Bulk Pricing
+      </ion-button>
+      <ion-button
         color="secondary"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingImage"
         (click)="refreshImageForSelectedGames()"
@@ -118,6 +127,14 @@
               <ion-badge [color]="hasReviewMetadata(game) ? 'success' : 'warning'">
                 Review {{ hasReviewMetadata(game) ? 'OK' : 'Missing' }}
               </ion-badge>
+              @if (isPricingSupported(game)) {
+                <ion-badge [color]="hasPricingMetadata(game) ? 'success' : 'warning'">
+                  Pricing {{ hasPricingMetadata(game) ? 'OK' : 'Missing' }}
+                </ion-badge>
+              }
+              @if (!isPricingSupported(game)) {
+                <ion-badge color="medium"> Pricing N/A </ion-badge>
+              }
               @if (!isNonPcImageNotApplicable(game)) {
                 <ion-badge [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
                   Image {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
@@ -131,6 +148,13 @@
           <div slot="end" class="row-actions">
             <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
             <ion-button fill="outline" (click)="refreshReviewForGame(game)"> Review </ion-button>
+            <ion-button
+              fill="outline"
+              [disabled]="!isPricingSupported(game)"
+              (click)="refreshPricingForGame(game)"
+            >
+              Pricing
+            </ion-button>
             <ion-button
               fill="outline"
               color="secondary"

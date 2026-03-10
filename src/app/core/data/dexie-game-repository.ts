@@ -129,6 +129,20 @@ export class DexieGameRepository implements GameRepository {
             ? this.normalizePositiveIntegerList(existing.keywordIds)
             : this.normalizePositiveIntegerList(result.keywordIds),
         ...(resolvedSteamAppId !== null ? { steamAppId: resolvedSteamAppId } : {}),
+        priceSource: this.resolvePriceSource(result.priceSource, existing.priceSource),
+        priceFetchedAt: this.resolvePriceFetchedAt(result.priceFetchedAt, existing.priceFetchedAt),
+        priceAmount: this.resolvePriceAmount(result.priceAmount, existing.priceAmount),
+        priceCurrency: this.resolvePriceCurrency(result.priceCurrency, existing.priceCurrency),
+        priceRegularAmount: this.resolvePriceAmount(
+          result.priceRegularAmount,
+          existing.priceRegularAmount
+        ),
+        priceDiscountPercent: this.resolvePriceDiscountPercent(
+          result.priceDiscountPercent,
+          existing.priceDiscountPercent
+        ),
+        priceIsFree: this.resolvePriceIsFree(result.priceIsFree, existing.priceIsFree),
+        priceUrl: this.resolvePriceUrl(result.priceUrl, existing.priceUrl),
         screenshots:
           result.screenshots === undefined
             ? normalizeGameScreenshots(existing.screenshots, { maxItems: 20 })
@@ -202,6 +216,14 @@ export class DexieGameRepository implements GameRepository {
       keywords: this.normalizeTextList(result.keywords),
       keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
       ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
+      priceSource: this.normalizePriceSource(result.priceSource),
+      priceFetchedAt: this.normalizePriceFetchedAt(result.priceFetchedAt),
+      priceAmount: this.normalizePriceAmount(result.priceAmount),
+      priceCurrency: this.normalizePriceCurrency(result.priceCurrency),
+      priceRegularAmount: this.normalizePriceAmount(result.priceRegularAmount),
+      priceDiscountPercent: this.normalizePriceDiscountPercent(result.priceDiscountPercent),
+      priceIsFree: this.normalizePriceIsFree(result.priceIsFree),
+      priceUrl: this.normalizePriceUrl(result.priceUrl),
       screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }),
       videos: normalizeGameVideos(result.videos, { maxItems: 5 }),
       publishers: this.normalizeTextList(result.publishers),
@@ -829,6 +851,46 @@ export class DexieGameRepository implements GameRepository {
     return value;
   }
 
+  private normalizePriceSource(
+    value: GameCatalogResult['priceSource'] | undefined
+  ): GameEntry['priceSource'] {
+    return value === 'steam_store' || value === 'psprices' ? value : null;
+  }
+
+  private normalizePriceFetchedAt(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizePriceAmount(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      return null;
+    }
+
+    return Math.round(value * 100) / 100;
+  }
+
+  private normalizePriceCurrency(value: string | null | undefined): string | null {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+  }
+
+  private normalizePriceDiscountPercent(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
+      return null;
+    }
+
+    return Math.round(value * 100) / 100;
+  }
+
+  private normalizePriceIsFree(value: boolean | null | undefined): boolean | null {
+    return typeof value === 'boolean' ? value : null;
+  }
+
+  private normalizePriceUrl(value: string | null | undefined): string | null {
+    return this.normalizeMetacriticUrl(value);
+  }
+
   private normalizeGameType(value: unknown): GameEntry['gameType'] {
     if (
       value === 'main_game' ||
@@ -954,6 +1016,76 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeSteamAppId(incoming);
+  }
+
+  private resolvePriceSource(
+    incoming: GameCatalogResult['priceSource'] | undefined,
+    existing: GameEntry['priceSource'] | undefined
+  ): GameEntry['priceSource'] {
+    if (incoming === undefined) {
+      return this.normalizePriceSource(existing);
+    }
+    return this.normalizePriceSource(incoming);
+  }
+
+  private resolvePriceFetchedAt(
+    incoming: string | null | undefined,
+    existing: string | null | undefined
+  ): string | null {
+    if (incoming === undefined) {
+      return this.normalizePriceFetchedAt(existing);
+    }
+    return this.normalizePriceFetchedAt(incoming);
+  }
+
+  private resolvePriceAmount(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizePriceAmount(existing);
+    }
+    return this.normalizePriceAmount(incoming);
+  }
+
+  private resolvePriceCurrency(
+    incoming: string | null | undefined,
+    existing: string | null | undefined
+  ): string | null {
+    if (incoming === undefined) {
+      return this.normalizePriceCurrency(existing);
+    }
+    return this.normalizePriceCurrency(incoming);
+  }
+
+  private resolvePriceDiscountPercent(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizePriceDiscountPercent(existing);
+    }
+    return this.normalizePriceDiscountPercent(incoming);
+  }
+
+  private resolvePriceIsFree(
+    incoming: boolean | null | undefined,
+    existing: boolean | null | undefined
+  ): boolean | null {
+    if (incoming === undefined) {
+      return this.normalizePriceIsFree(existing);
+    }
+    return this.normalizePriceIsFree(incoming);
+  }
+
+  private resolvePriceUrl(
+    incoming: string | null | undefined,
+    existing: string | null | undefined
+  ): string | null {
+    if (incoming === undefined) {
+      return this.normalizePriceUrl(existing);
+    }
+    return this.normalizePriceUrl(incoming);
   }
 
   private resolveGameIdList(

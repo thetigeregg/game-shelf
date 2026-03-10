@@ -50,6 +50,8 @@ import { PlatformCustomizationService } from '../core/services/platform-customiz
 import { DebugLogService } from '../core/services/debug-log.service';
 
 interface ShelfServiceStub {
+  hasUnifiedPriceData: ReturnType<typeof vi.fn>;
+  isPricingSupportedPlatform: ReturnType<typeof vi.fn>;
   shouldUseIgdbCoverForPlatform: ReturnType<typeof vi.fn>;
   searchBoxArtByTitle: ReturnType<typeof vi.fn>;
   updateGameCover: ReturnType<typeof vi.fn>;
@@ -60,6 +62,7 @@ interface ShelfServiceStub {
   searchMetacriticCandidates: ReturnType<typeof vi.fn>;
   refreshGameMetacriticScoreWithQuery: ReturnType<typeof vi.fn>;
   refreshGameMetacriticScore: ReturnType<typeof vi.fn>;
+  refreshGamePricing: ReturnType<typeof vi.fn>;
 }
 
 function createGame(partial: Partial<GameEntry> = {}): GameEntry {
@@ -80,7 +83,15 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     hltbMainExtraHours: partial.hltbMainExtraHours ?? null,
     hltbCompletionistHours: partial.hltbCompletionistHours ?? null,
     metacriticScore: partial.metacriticScore ?? null,
-    metacriticUrl: partial.metacriticUrl ?? null
+    metacriticUrl: partial.metacriticUrl ?? null,
+    priceSource: partial.priceSource ?? null,
+    priceFetchedAt: partial.priceFetchedAt ?? null,
+    priceAmount: partial.priceAmount ?? null,
+    priceCurrency: partial.priceCurrency ?? null,
+    priceRegularAmount: partial.priceRegularAmount ?? null,
+    priceDiscountPercent: partial.priceDiscountPercent ?? null,
+    priceIsFree: partial.priceIsFree ?? null,
+    priceUrl: partial.priceUrl ?? null
   };
 }
 
@@ -103,6 +114,19 @@ function createPageHarness(): {
 } {
   const page = Object.create(MetadataValidatorPage.prototype) as MetadataValidatorPage;
   const shelf: ShelfServiceStub = {
+    hasUnifiedPriceData: vi.fn((game: GameEntry) => {
+      if (
+        typeof game.priceAmount === 'number' &&
+        Number.isFinite(game.priceAmount) &&
+        game.priceAmount >= 0
+      ) {
+        return true;
+      }
+      return game.priceIsFree === true;
+    }),
+    isPricingSupportedPlatform: vi.fn((platformIgdbId: number) =>
+      [6, 48, 167, 130, 508].includes(platformIgdbId)
+    ),
     shouldUseIgdbCoverForPlatform: vi.fn(() => false),
     searchBoxArtByTitle: vi.fn(() => of([])),
     updateGameCover: vi.fn(() => Promise.resolve(undefined)),
@@ -114,7 +138,8 @@ function createPageHarness(): {
     refreshGameCompletionTimes: vi.fn((_a, _b) => Promise.resolve(createGame())),
     searchMetacriticCandidates: vi.fn(() => of([])),
     refreshGameMetacriticScoreWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame())),
-    refreshGameMetacriticScore: vi.fn((_a, _b) => Promise.resolve(createGame()))
+    refreshGameMetacriticScore: vi.fn((_a, _b) => Promise.resolve(createGame())),
+    refreshGamePricing: vi.fn((_a, _b) => Promise.resolve(createGame()))
   };
   const presentToast = vi.fn(() => Promise.resolve(undefined));
   const loadingController = { create: vi.fn() };
@@ -139,6 +164,7 @@ function createPageHarness(): {
   setField(page, 'selectedMissingFilters', []);
   setField(page, 'isBulkRefreshingHltb', false);
   setField(page, 'isBulkRefreshingMetacritic', false);
+  setField(page, 'isBulkRefreshingPricing', false);
   setField(page, 'isBulkRefreshingImage', false);
   setField(page, 'isHltbPickerModalOpen', false);
   setField(page, 'isHltbPickerLoading', false);
@@ -191,6 +217,7 @@ describe('MetadataValidatorPage', () => {
     expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
       'hltb',
       'metacritic',
+      'pricing',
       'nonPcTheGamesDbImage'
     ]);
     expect(page.isBulkRefreshingMetacritic).toBe(false);
@@ -222,11 +249,11 @@ describe('MetadataValidatorPage', () => {
     expect((page as unknown as { selectedListType: string | null }).selectedListType).toBeNull();
     expect(selectedListTypeNext).toHaveBeenCalledWith(null);
 
-    page.onMissingFiltersChange(['hltb', 'metacritic', 'metacritic', 'x']);
+    page.onMissingFiltersChange(['hltb', 'metacritic', 'pricing', 'metacritic', 'x']);
     expect(
       (page as unknown as { selectedMissingFilters: string[] }).selectedMissingFilters
-    ).toEqual(['hltb', 'metacritic']);
-    expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic']);
+    ).toEqual(['hltb', 'metacritic', 'pricing']);
+    expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic', 'pricing']);
 
     page.onMissingFiltersChange('nonPcTheGamesDbImage');
     expect(
@@ -433,6 +460,36 @@ describe('MetadataValidatorPage', () => {
     );
   });
 
+  it('bulk pricing refresh only processes supported platforms', async () => {
+    const { page, runBulkMock, presentToast } = createPageHarness();
+    const pc = createGame({ igdbGameId: '1', platformIgdbId: 6 });
+    const unsupported = createGame({ igdbGameId: '2', platformIgdbId: 11 });
+    setField(page, 'displayedGames', [pc, unsupported]);
+    setField(page, 'selectedGameKeys', new Set(['1::6', '2::11']));
+
+    runBulkMock.mockResolvedValueOnce([
+      {
+        game: pc,
+        ok: true,
+        value: createGame({ igdbGameId: '1', platformIgdbId: 6, priceAmount: 29.9 })
+      },
+      { game: pc, ok: false, value: null }
+    ]);
+
+    await page.refreshPricingForSelectedGames();
+    expect(runBulkMock).toHaveBeenCalledOnce();
+    const call = runBulkMock.mock.calls[0]?.[0];
+    expect(call).toBeDefined();
+    expect(
+      (call as { games: GameEntry[] }).games.map((game: GameEntry) => game.igdbGameId)
+    ).toEqual(['1']);
+    expect(presentToast).toHaveBeenCalledWith('Updated pricing for 1 game.');
+    expect(presentToast).toHaveBeenCalledWith(
+      'Unable to update pricing for 1 selected game.',
+      'danger'
+    );
+  });
+
   it('runs picker searches with guard, success, and error paths', async () => {
     const { page, shelf } = createPageHarness();
     const hltbCandidate: HltbMatchCandidate = {
@@ -615,6 +672,18 @@ describe('MetadataValidatorPage', () => {
       ['metacritic']
     ) as GameEntry[];
     expect(filtered.length).toBe(1);
+
+    const pricingFiltered = callPrivate(
+      page,
+      'applyMissingMetadataFilters',
+      [
+        createGame({ igdbGameId: '9', platformIgdbId: 6, priceAmount: null }),
+        createGame({ igdbGameId: '10', platformIgdbId: 167, priceAmount: 39.9 }),
+        createGame({ igdbGameId: '11', platformIgdbId: 11, priceAmount: null })
+      ],
+      ['pricing']
+    ) as GameEntry[];
+    expect(pricingFiltered.map((entry) => entry.igdbGameId)).toEqual(['9']);
 
     expect(callPrivate(page, 'toPositiveNumber', 2)).toBe(2);
     expect(callPrivate(page, 'toPositiveNumber', 0)).toBeNull();

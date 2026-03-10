@@ -223,6 +223,13 @@ void test('Steam route fetches appdetails with cc and persists normalized price 
   assert.equal(persisted['steamPriceCurrency'], 'CHF');
   assert.equal(persisted['steamPriceDiscountPercent'], 29);
   assert.equal(persisted['steamPriceSource'], 'steam_store');
+  assert.equal(persisted['priceSource'], 'steam_store');
+  assert.equal(persisted['priceAmount'], 49.99);
+  assert.equal(persisted['priceRegularAmount'], 69.99);
+  assert.equal(persisted['priceCurrency'], 'CHF');
+  assert.equal(persisted['priceDiscountPercent'], 29);
+  assert.equal(persisted['priceIsFree'], false);
+  assert.equal(persisted['priceUrl'], 'https://store.steampowered.com/app/204100');
   assert.equal(Array.isArray(requests), true);
   assert.equal(requests.length, 1);
 
@@ -326,6 +333,13 @@ void test('Steam route refetches when cache is stale or country differs', async 
   assert.equal(persisted['steamPriceCountry'], 'DE');
   assert.equal(persisted['steamPriceAmount'], 9.99);
   assert.equal(persisted['steamPriceCurrency'], 'EUR');
+  assert.equal(persisted['priceSource'], 'steam_store');
+  assert.equal(persisted['priceAmount'], 9.99);
+  assert.equal(persisted['priceCurrency'], 'EUR');
+  assert.equal(persisted['priceRegularAmount'], 12.99);
+  assert.equal(persisted['priceDiscountPercent'], 23);
+  assert.equal(persisted['priceIsFree'], false);
+  assert.equal(persisted['priceUrl'], 'https://store.steampowered.com/app/730');
 
   await app.close();
 });

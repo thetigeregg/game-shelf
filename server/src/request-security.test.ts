@@ -111,6 +111,7 @@ void test('server route inventory remains audited and mutating routes require au
     './metacritic-cache.ts',
     './mobygames-cache.ts',
     './steam-prices.ts',
+    './psprices-prices.ts',
     './manuals.ts',
     './cache-observability.ts',
     './background-jobs-routes.ts'
@@ -161,6 +162,7 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'GET', path: '/v1/platforms' },
     { method: 'GET', path: '/v1/popularity/primitives' },
     { method: 'GET', path: '/v1/popularity/types' },
+    { method: 'GET', path: '/v1/psprices/prices' },
     { method: 'POST', path: '/v1/images/cache/purge' },
     { method: 'POST', path: '/v1/background-jobs/replay' },
     { method: 'POST', path: '/v1/manuals/refresh' },

@@ -944,6 +944,9 @@ export class IgdbProxyService implements GameSearchApi {
     const normalizedReviewUrl = this.normalizeExternalUrl(result.reviewUrl ?? result.metacriticUrl);
     const normalizedMobyScore = this.normalizeRawMobyScore(result.mobyScore);
     const normalizedMobygamesGameId = this.normalizeMobygamesGameId(result.mobygamesGameId);
+    const normalizedSteamAppId = this.normalizePositiveInteger(
+      (result as GameCatalogResult & { steamAppId?: unknown }).steamAppId
+    );
     const explicitMetacriticScore = this.normalizeMetacriticScore(result.metacriticScore);
     const explicitMetacriticUrl = this.normalizeExternalUrl(result.metacriticUrl);
     const normalizedReviewSource =
@@ -1000,6 +1003,7 @@ export class IgdbProxyService implements GameSearchApi {
       ...(result.keywordIds !== undefined
         ? { keywordIds: this.normalizePositiveIntegerList(result.keywordIds) }
         : {}),
+      ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
       ...(result.screenshots !== undefined
         ? { screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }) }
         : {}),

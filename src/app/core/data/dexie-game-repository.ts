@@ -57,6 +57,7 @@ export class DexieGameRepository implements GameRepository {
       result.reviewSource === 'metacritic' ? incomingReviewUrl : result.metacriticUrl;
 
     if (existing?.id !== undefined) {
+      const resolvedSteamAppId = this.resolveSteamAppId(result.steamAppId, existing.steamAppId);
       const updated: GameEntry = {
         ...existing,
         igdbGameId: normalizedGameId,
@@ -127,6 +128,7 @@ export class DexieGameRepository implements GameRepository {
           result.keywordIds === undefined
             ? this.normalizePositiveIntegerList(existing.keywordIds)
             : this.normalizePositiveIntegerList(result.keywordIds),
+        ...(resolvedSteamAppId !== null ? { steamAppId: resolvedSteamAppId } : {}),
         screenshots:
           result.screenshots === undefined
             ? normalizeGameScreenshots(existing.screenshots, { maxItems: 20 })
@@ -165,6 +167,7 @@ export class DexieGameRepository implements GameRepository {
       return updated;
     }
 
+    const normalizedSteamAppId = this.normalizeSteamAppId(result.steamAppId);
     const created: GameEntry = {
       igdbGameId: normalizedGameId,
       title: result.title,
@@ -198,6 +201,7 @@ export class DexieGameRepository implements GameRepository {
       themeIds: this.normalizePositiveIntegerList(result.themeIds),
       keywords: this.normalizeTextList(result.keywords),
       keywordIds: this.normalizePositiveIntegerList(result.keywordIds),
+      ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
       screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }),
       videos: normalizeGameVideos(result.videos, { maxItems: 5 }),
       publishers: this.normalizeTextList(result.publishers),
@@ -817,6 +821,14 @@ export class DexieGameRepository implements GameRepository {
     return value;
   }
 
+  private normalizeSteamAppId(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+      return null;
+    }
+
+    return value;
+  }
+
   private normalizeGameType(value: unknown): GameEntry['gameType'] {
     if (
       value === 'main_game' ||
@@ -931,6 +943,17 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeMobygamesGameId(incoming);
+  }
+
+  private resolveSteamAppId(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizeSteamAppId(existing);
+    }
+
+    return this.normalizeSteamAppId(incoming);
   }
 
   private resolveGameIdList(

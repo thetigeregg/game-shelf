@@ -4,9 +4,11 @@ import {
   DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
   DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
 } from './discovery-enrichment-defaults.js';
+import type { IgdbMetadataRecord } from '../metadata-enrichment/types.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;
+const WINDOWS_IGDB_PLATFORM_ID = 6;
 
 interface Queryable {
   query<T extends QueryResultRow = QueryResultRow>(
@@ -55,6 +57,10 @@ interface FetchJsonResult<T> {
   value: T | null;
 }
 
+interface SteamMetadataClient {
+  fetchGameMetadataByIds(gameIds: string[]): Promise<Map<string, IgdbMetadataRecord>>;
+}
+
 interface ProviderRetryState {
   attempts: number;
   lastTriedAt: string | null;
@@ -70,12 +76,16 @@ interface DiscoveryEnrichmentRetryState {
 export class DiscoveryEnrichmentService {
   private intervalHandle: NodeJS.Timeout | null = null;
   private startupTimeoutHandle: NodeJS.Timeout | null = null;
+  private readonly steamMetadataClient: SteamMetadataClient | null;
 
   constructor(
     private readonly repository: RecommendationRepository,
     private readonly options: DiscoveryEnrichmentServiceOptions,
-    private readonly now: () => number = () => Date.now()
-  ) {}
+    private readonly now: () => number = () => Date.now(),
+    steamMetadataClient: SteamMetadataClient | null = null
+  ) {
+    this.steamMetadataClient = steamMetadataClient;
+  }
 
   start(): void {
     if (!this.options.enabled || this.intervalHandle) {
@@ -171,7 +181,7 @@ export class DiscoveryEnrichmentService {
     let updated = 0;
     let skipped = 0;
     for (const row of rows) {
-      const next = await this.enrichPayload(row.payload, row.platformIgdbId);
+      const next = await this.enrichPayload(row.igdbGameId, row.payload, row.platformIgdbId);
       if (!next || JSON.stringify(next) === JSON.stringify(row.payload)) {
         skipped += 1;
         continue;
@@ -190,6 +200,7 @@ export class DiscoveryEnrichmentService {
   }
 
   private async enrichPayload(
+    igdbGameId: string,
     payload: Record<string, unknown>,
     platformIgdbId: number
   ): Promise<Record<string, unknown> | null> {
@@ -252,8 +263,12 @@ export class DiscoveryEnrichmentService {
         nowMs,
         maxAttempts: this.options.maxAttempts
       });
+    const shouldTrySteam =
+      platformIgdbId === WINDOWS_IGDB_PLATFORM_ID &&
+      isBlankValue(payload['steamEnrichedAt']) &&
+      Number.isInteger(Number.parseInt(igdbGameId, 10));
 
-    if (!shouldTryHltb && !shouldTryMetacritic) {
+    if (!shouldTryHltb && !shouldTryMetacritic && !shouldTrySteam) {
       const next = { ...payload };
       const nextRetryState = buildNextRetryState({
         current: nextRetryStateBase,
@@ -345,6 +360,14 @@ export class DiscoveryEnrichmentService {
       });
     }
 
+    if (shouldTrySteam) {
+      await this.applySteamEnrichment({
+        igdbGameId,
+        next,
+        nowIso
+      });
+    }
+
     applyRetryState(
       next,
       buildNextRetryState({
@@ -355,6 +378,28 @@ export class DiscoveryEnrichmentService {
     );
 
     return next;
+  }
+
+  private async applySteamEnrichment(params: {
+    igdbGameId: string;
+    next: Record<string, unknown>;
+    nowIso: string;
+  }): Promise<void> {
+    if (!this.steamMetadataClient) {
+      return;
+    }
+
+    try {
+      const metadata = await this.steamMetadataClient.fetchGameMetadataByIds([params.igdbGameId]);
+      const record = metadata.get(params.igdbGameId);
+      if (record?.steamAppId !== null) {
+        params.next.steamAppId = record.steamAppId;
+      }
+      params.next.steamEnrichmentStatus = record ? 'success' : 'no_data';
+      params.next.steamEnrichedAt = params.nowIso;
+    } catch {
+      // Keep steam marker unset so scheduled runs can retry.
+    }
   }
 
   private buildLocalUrl(path: string, query: Record<string, string>): string {
@@ -421,6 +466,10 @@ function round2(value: number): number {
 
 function hasPositiveNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isBlankValue(value: unknown): boolean {
+  return typeof value !== 'string' || value.trim().length === 0;
 }
 
 function parseReviewSource(value: unknown): 'metacritic' | 'mobygames' | null {

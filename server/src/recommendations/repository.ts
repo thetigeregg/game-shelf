@@ -219,6 +219,9 @@ export class RecommendationRepository {
                   'metacriticScore', games.payload->'metacriticScore',
                   'metacriticUrl', games.payload->'metacriticUrl',
                   'reviewUrl', games.payload->'reviewUrl',
+                  'steamAppId', games.payload->'steamAppId',
+                  'steamEnrichmentStatus', games.payload->'steamEnrichmentStatus',
+                  'steamEnrichedAt', games.payload->'steamEnrichedAt',
                   'enrichmentRetry', games.payload->'enrichmentRetry'
                 )
               ),

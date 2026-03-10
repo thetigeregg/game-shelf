@@ -21,6 +21,7 @@ import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js'
 import { RecommendationRepository } from './recommendations/repository.js';
 import { registerRecommendationRoutes } from './recommendations/routes.js';
 import { RecommendationService } from './recommendations/service.js';
+import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
@@ -73,6 +74,11 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
+  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
+  });
   const discoveryEnrichmentServiceOptions = {
     enabled: config.recommendationsDiscoveryEnrichEnabled,
     startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
@@ -88,7 +94,9 @@ async function main(): Promise<void> {
   };
   const discoveryEnrichmentService = new DiscoveryEnrichmentService(
     recommendationRepository,
-    discoveryEnrichmentServiceOptions
+    discoveryEnrichmentServiceOptions,
+    () => Date.now(),
+    metadataEnrichmentClient
   );
   const recommendationService = new RecommendationService(
     recommendationRepository,

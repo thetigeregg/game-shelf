@@ -58,6 +58,8 @@ Common stack env vars:
 - `ITAD_API_BASE_URL` (optional; defaults to `https://api.isthereanydeal.com`)
 - `ITAD_DEFAULT_COUNTRY` (optional; defaults to `CH`)
 - `ITAD_STEAM_SHOP_ID` (optional; defaults to `61`)
+- `EXCHANGE_RATE_API_BASE_URL` (optional; defaults to `https://open.er-api.com/v6`)
+- `EXCHANGE_RATE_API_TIMEOUT_MS` (optional; defaults to `10000`)
 - `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
@@ -271,6 +273,8 @@ Key metadata env vars in `.env`:
 - `ITAD_API_BASE_URL=https://api.isthereanydeal.com`
 - `ITAD_DEFAULT_COUNTRY=CH`
 - `ITAD_STEAM_SHOP_ID=61`
+- `EXCHANGE_RATE_API_BASE_URL=https://open.er-api.com/v6`
+- `EXCHANGE_RATE_API_TIMEOUT_MS=10000`
 
 Key recommendation env vars in `.env`:
 

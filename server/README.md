@@ -97,6 +97,10 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
   - default: `CH`
 - `ITAD_STEAM_SHOP_ID`
   - default: `61` (Steam shop ID in ITAD)
+- `EXCHANGE_RATE_API_BASE_URL`
+  - default: `https://open.er-api.com/v6`
+- `EXCHANGE_RATE_API_TIMEOUT_MS`
+  - default: `10000`
 - `MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `MOBYGAMES_CACHE_FRESH_TTL_SECONDS`
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`

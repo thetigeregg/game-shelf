@@ -47,6 +47,7 @@ interface BestSteamPrice {
 
 const WINDOWS_IGDB_PLATFORM_ID = 6;
 const WINDOWS_ITAD_PLATFORM_ID = 1;
+const REQUIRED_PRICE_CURRENCY = 'CHF';
 const ITAD_GAME_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STEAM_APP_URL_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
 
@@ -170,7 +171,7 @@ export async function registerItadPricesRoute(
         });
         const priceRow = prices.find((item) => item.id === itadGameId) ?? null;
         const deals = (priceRow?.deals ?? []).filter(
-          (deal) => isSteamShopDeal(deal) && isWindowsDeal(deal)
+          (deal) => isSteamShopDeal(deal) && isWindowsDeal(deal) && isRequiredCurrencyDeal(deal)
         );
         const bestPrice = selectBestSteamPrice(deals);
 
@@ -308,6 +309,21 @@ function isSteamShopDeal(value: unknown): boolean {
   return typeof shopName === 'string' && shopName.toLowerCase() === 'steam';
 }
 
+function isRequiredCurrencyDeal(value: unknown): boolean {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const price =
+    (value as Record<string, unknown>)['price'] &&
+    typeof (value as Record<string, unknown>)['price'] === 'object'
+      ? ((value as Record<string, unknown>)['price'] as Record<string, unknown>)
+      : null;
+
+  const currency = normalizeNonEmptyString(price?.['currency']);
+  return typeof currency === 'string' && currency.toUpperCase() === REQUIRED_PRICE_CURRENCY;
+}
+
 async function lookupItadGameIdBySteamAppId(
   fetchImpl: typeof fetch,
   steamAppId: number
@@ -388,7 +404,7 @@ function selectBestSteamPrice(deals: unknown[]): BestSteamPrice | null {
     }
 
     const record = deal as Record<string, unknown>;
-    const price = normalizePriceRecord(record['price']);
+    const price = normalizePriceRecord(record['price'], record['regular']);
     if (!price) {
       continue;
     }
@@ -415,7 +431,10 @@ function selectBestSteamPrice(deals: unknown[]): BestSteamPrice | null {
   return best;
 }
 
-function normalizePriceRecord(value: unknown): {
+function normalizePriceRecord(
+  value: unknown,
+  regularValue: unknown
+): {
   amount: number;
   currency: string | null;
   regularAmount: number | null;
@@ -434,9 +453,28 @@ function normalizePriceRecord(value: unknown): {
   return {
     amount,
     currency: normalizeNonEmptyString(record['currency']),
-    regularAmount: normalizeNumberOrNull(record['amountInt']),
+    regularAmount: normalizeRegularAmount(regularValue),
     cut: normalizeNumberOrNull(record['cut'])
   };
+}
+
+function normalizeRegularAmount(value: unknown): number | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const amount = normalizeNumberOrNull(record['amount']);
+  if (amount !== null) {
+    return amount;
+  }
+
+  const amountInt = normalizeNumberOrNull(record['amountInt']);
+  if (amountInt === null) {
+    return null;
+  }
+
+  return Math.round((amountInt / 100) * 100) / 100;
 }
 
 function normalizeNumberOrNull(value: unknown): number | null {

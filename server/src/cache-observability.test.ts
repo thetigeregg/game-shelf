@@ -8,6 +8,8 @@ import {
   incrementImageMetric,
   incrementMetacriticMetric,
   incrementMobygamesMetric,
+  incrementPspricesPriceMetric,
+  incrementSteamPriceMetric,
   resetCacheMetrics
 } from './cache-metrics.js';
 
@@ -17,6 +19,8 @@ type CacheStatsPayload = {
     hltbEntries: number | null;
     metacriticEntries: number | null;
     mobygamesEntries: number | null;
+    steamPriceEntries: number | null;
+    pspricesPriceEntries: number | null;
   };
   metrics: {
     image: {
@@ -32,6 +36,14 @@ type CacheStatsPayload = {
       writes: number;
     };
     mobygames: {
+      hits: number;
+      writes: number;
+    };
+    steamPrice: {
+      hits: number;
+      writes: number;
+    };
+    pspricesPrice: {
       hits: number;
       writes: number;
     };
@@ -62,6 +74,12 @@ class CacheStatsPoolMock {
     if (normalized.includes('from mobygames_search_cache')) {
       return Promise.resolve({ rows: [{ count: '19' }] });
     }
+    if (normalized.includes("payload->>'steampricefetchedat'")) {
+      return Promise.resolve({ rows: [{ count: '23' }] });
+    }
+    if (normalized.includes("payload->>'pspricesfetchedat'")) {
+      return Promise.resolve({ rows: [{ count: '29' }] });
+    }
 
     throw new Error(`Unsupported SQL in CacheStatsPoolMock: ${sql}`);
   }
@@ -89,6 +107,10 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   incrementMetacriticMetric('writes');
   incrementMobygamesMetric('hits');
   incrementMobygamesMetric('writes');
+  incrementSteamPriceMetric('hits');
+  incrementSteamPriceMetric('writes');
+  incrementPspricesPriceMetric('hits');
+  incrementPspricesPriceMetric('writes');
 
   const app = Fastify();
   await registerCacheObservabilityRoutes(app, new CacheStatsPoolMock() as unknown as Pool);
@@ -104,6 +126,8 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   assert.equal(payload.counts.hltbEntries, 13);
   assert.equal(payload.counts.metacriticEntries, 17);
   assert.equal(payload.counts.mobygamesEntries, 19);
+  assert.equal(payload.counts.steamPriceEntries, 23);
+  assert.equal(payload.counts.pspricesPriceEntries, 29);
   assert.equal(payload.metrics.image.hits, 1);
   assert.equal(payload.metrics.image.misses, 1);
   assert.equal(payload.metrics.metacritic.hits, 1);
@@ -112,6 +136,10 @@ void test('Cache stats endpoint returns counters and db counts', async () => {
   assert.equal(payload.metrics.hltb.writes, 1);
   assert.equal(payload.metrics.mobygames.hits, 1);
   assert.equal(payload.metrics.mobygames.writes, 1);
+  assert.equal(payload.metrics.steamPrice.hits, 1);
+  assert.equal(payload.metrics.steamPrice.writes, 1);
+  assert.equal(payload.metrics.pspricesPrice.hits, 1);
+  assert.equal(payload.metrics.pspricesPrice.writes, 1);
   assert.equal(payload.dbError, null);
 
   await app.close();
@@ -155,6 +183,8 @@ void test('Cache stats endpoint returns dbError when count queries fail', async 
   assert.equal(payload.counts.hltbEntries, null);
   assert.equal(payload.counts.metacriticEntries, null);
   assert.equal(payload.counts.mobygamesEntries, null);
+  assert.equal(payload.counts.steamPriceEntries, null);
+  assert.equal(payload.counts.pspricesPriceEntries, null);
   assert.equal(payload.dbError, 'db_unavailable');
 
   await app.close();
@@ -183,6 +213,8 @@ void test('Cache stats endpoint returns 0 count when db rows are empty', async (
   assert.equal(payload.counts.hltbEntries, 0);
   assert.equal(payload.counts.metacriticEntries, 0);
   assert.equal(payload.counts.mobygamesEntries, 0);
+  assert.equal(payload.counts.steamPriceEntries, 0);
+  assert.equal(payload.counts.pspricesPriceEntries, 0);
   assert.equal(payload.dbError, null);
 
   await app.close();

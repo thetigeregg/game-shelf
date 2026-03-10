@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from 'fastify-rate-limit';
 import type { Pool, QueryResultRow } from 'pg';
+import { incrementPspricesPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
 
 interface PsPricesRouteOptions {
@@ -86,6 +87,7 @@ export async function registerPsPricesRoute(
       const includeCandidates = normalizeBooleanQuery(query['includeCandidates']);
 
       if (!igdbGameId || platformIgdbId === null) {
+        incrementPspricesPriceMetric('invalidRequests');
         reply.code(400).send({ error: 'igdbGameId and platformIgdbId are required.' });
         return;
       }
@@ -108,11 +110,25 @@ export async function registerPsPricesRoute(
         return;
       }
 
-      const row = await pool.query<GamePayloadRow>(
-        'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
-        [igdbGameId, platformIgdbId]
-      );
-      const payload = normalizePayloadObject(row.rows[0]?.payload);
+      let payload: Record<string, unknown> | null = null;
+      try {
+        const row = await pool.query<GamePayloadRow>(
+          'SELECT payload FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2 LIMIT 1',
+          [igdbGameId, platformIgdbId]
+        );
+        payload = normalizePayloadObject(row.rows[0]?.payload);
+      } catch (error) {
+        incrementPspricesPriceMetric('readErrors');
+        request.log.warn({
+          msg: 'psprices_read_failed',
+          igdbGameId,
+          platformIgdbId,
+          platform: pspricesPlatform,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        reply.code(502).send({ error: 'Unable to read game pricing state.' });
+        return;
+      }
 
       if (!payload) {
         reply.code(404).send({ error: 'Game not found.' });
@@ -145,6 +161,8 @@ export async function registerPsPricesRoute(
         nowProvider()
       );
       if (cachedSnapshot) {
+        incrementPspricesPriceMetric('hits');
+        reply.header('X-GameShelf-PSPrices-Cache', 'HIT_FRESH');
         const cachedStatus: PsPricesRouteStatus = isAvailableSnapshot(cachedSnapshot)
           ? 'ok'
           : 'unavailable';
@@ -164,6 +182,7 @@ export async function registerPsPricesRoute(
         return;
       }
 
+      incrementPspricesPriceMetric('misses');
       try {
         const pspricesLookup = await fetchPsPricesSnapshot(fetchImpl, {
           title,
@@ -173,16 +192,28 @@ export async function registerPsPricesRoute(
         });
         const pspricesSnapshot = pspricesLookup.snapshot;
 
-        await persistPsPricesSnapshot(pool, {
-          igdbGameId,
-          platformIgdbId,
-          payload,
-          regionPath: config.pspricesRegionPath,
-          show: config.pspricesShow,
-          platform: pspricesPlatform,
-          bestPrice: pspricesSnapshot,
-          match: pspricesLookup.match
-        });
+        try {
+          await persistPsPricesSnapshot(pool, {
+            igdbGameId,
+            platformIgdbId,
+            payload,
+            regionPath: config.pspricesRegionPath,
+            show: config.pspricesShow,
+            platform: pspricesPlatform,
+            bestPrice: pspricesSnapshot,
+            match: pspricesLookup.match
+          });
+          incrementPspricesPriceMetric('writes');
+        } catch (error) {
+          incrementPspricesPriceMetric('writeErrors');
+          request.log.warn({
+            msg: 'psprices_write_failed',
+            igdbGameId,
+            platformIgdbId,
+            platform: pspricesPlatform,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
 
         const routeStatus: PsPricesRouteStatus = pspricesSnapshot ? 'ok' : 'unavailable';
         const responsePayload: PsPricesRouteResponse = {
@@ -197,8 +228,10 @@ export async function registerPsPricesRoute(
           match: pspricesLookup.match,
           ...(includeCandidates ? { candidates: pspricesLookup.candidates } : {})
         };
+        reply.header('X-GameShelf-PSPrices-Cache', 'MISS');
         reply.code(200).send(responsePayload);
       } catch (error) {
+        incrementPspricesPriceMetric('upstreamErrors');
         request.log.warn({
           msg: 'psprices_fetch_failed',
           igdbGameId,

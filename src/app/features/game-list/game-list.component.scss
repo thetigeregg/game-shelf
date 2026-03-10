@@ -49,10 +49,15 @@ ion-item-sliding ion-item ion-label {
 }
 
 .price-main-indicator {
-  color: #111111;
+  color: var(--ion-color-dark);
   font-size: 0.76rem;
   font-weight: 600;
   line-height: 1;
+  margin-bottom: 4px;
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
 }
 
 .hltb-main-indicator {

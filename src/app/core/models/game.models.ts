@@ -25,6 +25,7 @@ export type GameType =
   | 'pack'
   | 'update';
 export type ReviewSource = 'metacritic' | 'mobygames';
+export type PriceSource = 'steam_store' | 'psprices';
 
 export interface GameCatalogPlatformOption {
   id: number | null;
@@ -92,6 +93,14 @@ export interface GameCatalogResult {
   keywords?: string[];
   keywordIds?: number[];
   steamAppId?: number | null;
+  priceSource?: PriceSource | null;
+  priceFetchedAt?: string | null;
+  priceAmount?: number | null;
+  priceCurrency?: string | null;
+  priceRegularAmount?: number | null;
+  priceDiscountPercent?: number | null;
+  priceIsFree?: boolean | null;
+  priceUrl?: string | null;
   screenshots?: GameScreenshot[];
   videos?: GameVideo[];
   publishers?: string[];
@@ -272,6 +281,14 @@ export interface GameEntry {
   keywords?: string[];
   keywordIds?: number[];
   steamAppId?: number | null;
+  priceSource?: PriceSource | null;
+  priceFetchedAt?: string | null;
+  priceAmount?: number | null;
+  priceCurrency?: string | null;
+  priceRegularAmount?: number | null;
+  priceDiscountPercent?: number | null;
+  priceIsFree?: boolean | null;
+  priceUrl?: string | null;
   screenshots?: GameScreenshot[];
   videos?: GameVideo[];
   publishers?: string[];

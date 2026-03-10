@@ -153,15 +153,15 @@ describe('GameShelfService', () => {
   it('triggers Steam pricing refresh in background after add', async () => {
     const mario: GameCatalogResult = {
       igdbGameId: '123',
-      title: 'Mario Kart',
+      title: 'Counter-Strike',
       coverUrl: null,
       coverSource: 'none',
-      platforms: ['Switch'],
-      platform: 'Switch',
-      platformIgdbId: 130,
+      platforms: ['PC'],
+      platform: 'PC',
+      platformIgdbId: 6,
       steamAppId: 12345,
-      releaseDate: '2017-04-28T00:00:00.000Z',
-      releaseYear: 2017
+      releaseDate: '2012-08-21T00:00:00.000Z',
+      releaseYear: 2012
     };
 
     const lookupSteamPrice = vi.fn(() => of({ status: 'unsupported_platform' }));
@@ -173,8 +173,16 @@ describe('GameShelfService', () => {
 
     repository.upsertFromCatalog.mockResolvedValue({
       ...mario,
-      platform: 'Switch',
-      platformIgdbId: 130,
+      platform: 'PC',
+      platformIgdbId: 6,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+    repository.exists.mockResolvedValue({
+      ...mario,
+      platform: 'PC',
+      platformIgdbId: 6,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z'
@@ -184,7 +192,47 @@ describe('GameShelfService', () => {
     await service.addGame(mario, 'collection');
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(lookupSteamPrice).toHaveBeenCalledWith('123', 130, undefined, 12345);
+    expect(lookupSteamPrice).toHaveBeenCalledWith('123', 6);
+  });
+
+  it('triggers PSPrices refresh in background after add for supported platforms', async () => {
+    const game: GameCatalogResult = {
+      igdbGameId: '456',
+      title: 'Pokemon Violet',
+      coverUrl: null,
+      coverSource: 'none',
+      platforms: ['Nintendo Switch'],
+      platform: 'Nintendo Switch',
+      platformIgdbId: 130,
+      releaseDate: '2022-11-18T00:00:00.000Z',
+      releaseYear: 2022
+    };
+
+    const lookupPsPrices = vi.fn(() => of({ status: 'ok' }));
+    (
+      searchApi as unknown as {
+        lookupPsPrices: ReturnType<typeof vi.fn>;
+      }
+    ).lookupPsPrices = lookupPsPrices;
+
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...game,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+    repository.exists.mockResolvedValue({
+      ...game,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    } as GameEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+
+    await service.addGame(game, 'wishlist');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(lookupPsPrices).toHaveBeenCalledWith('456', 130);
   });
 
   it('enriches games with HLTB completion times during add when available', async () => {
@@ -1128,6 +1176,111 @@ describe('GameShelfService', () => {
     await expect(
       service.refreshGameMetacriticScoreWithQuery('123', 5, { title: 'Any' })
     ).rejects.toThrowError('Game entry no longer exists.');
+  });
+
+  it('refreshes unified pricing using Steam lookup for Windows games', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '960',
+      title: 'GTA IV',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PC',
+      platformIgdbId: 6,
+      steamAppId: 204100,
+      releaseDate: null,
+      releaseYear: 2008,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      priceSource: 'steam_store',
+      priceAmount: 19.99,
+      priceCurrency: 'CHF',
+      priceRegularAmount: 39.99,
+      priceDiscountPercent: 50,
+      priceIsFree: false,
+      priceUrl: 'https://store.steampowered.com/app/204100',
+      priceFetchedAt: '2026-03-10T11:00:00.000Z'
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+    const lookupSteamPrice = vi.fn(() =>
+      of({
+        status: 'ok',
+        bestPrice: {
+          amount: 19.99,
+          currency: 'CHF',
+          initialAmount: 39.99,
+          discountPercent: 50,
+          isFree: false,
+          url: 'https://store.steampowered.com/app/204100'
+        }
+      })
+    );
+    (
+      searchApi as unknown as {
+        lookupSteamPrice: ReturnType<typeof vi.fn>;
+      }
+    ).lookupSteamPrice = lookupSteamPrice;
+
+    const result = await service.refreshGamePricing('960', 6);
+
+    expect(lookupSteamPrice).toHaveBeenCalledWith('960', 6);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceSource: 'steam_store',
+        priceAmount: 19.99,
+        priceCurrency: 'CHF',
+        priceRegularAmount: 39.99,
+        priceDiscountPercent: 50,
+        priceIsFree: false
+      }),
+      'collection'
+    );
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('clears unified pricing for unsupported platforms when refreshed', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '77',
+      title: 'Unsupported Platform',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'Sega Saturn',
+      platformIgdbId: 32,
+      priceSource: 'steam_store',
+      priceAmount: 5,
+      priceCurrency: 'CHF',
+      releaseDate: null,
+      releaseYear: 1995,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...existingEntry,
+      priceSource: null,
+      priceAmount: null,
+      priceCurrency: null,
+      priceRegularAmount: null,
+      priceDiscountPercent: null,
+      priceIsFree: null,
+      priceUrl: null
+    } as GameEntry);
+
+    await service.refreshGamePricing('77', 32);
+
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceSource: null,
+        priceAmount: null,
+        priceCurrency: null
+      }),
+      'collection'
+    );
   });
 
   it('returns empty box art results for short queries', async () => {

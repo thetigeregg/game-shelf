@@ -171,6 +171,7 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly recommendationsRebuildUrl = `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`;
   private readonly recommendationsSimilarBaseUrl = `${environment.gameApiBaseUrl}/v1/recommendations/similar`;
   private readonly steamPricesUrl = `${environment.gameApiBaseUrl}/v1/steam/prices`;
+  private readonly pspricesPricesUrl = `${environment.gameApiBaseUrl}/v1/psprices/prices`;
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
@@ -971,6 +972,36 @@ export class IgdbProxyService implements GameSearchApi {
         }
 
         return throwError(() => new Error('Unable to load Steam prices.'));
+      })
+    );
+  }
+
+  lookupPsPrices(igdbGameId: string, platformIgdbId: number): Observable<unknown> {
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid PSPrices lookup request.'));
+    }
+
+    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId));
+
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to load PSPrices data.'));
       })
     );
   }

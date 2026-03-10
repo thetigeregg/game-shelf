@@ -685,6 +685,11 @@ export class ListPageComponent {
     await this.updateReviewForSelectedGamesFromPopover();
   }
 
+  async updatePricingForSelectedGamesFromPopover(): Promise<void> {
+    this.closeBulkActionsPopover();
+    await this.gameListComponent?.updatePricingForSelectedGames();
+  }
+
   openBulkActionsPopover(event: Event): void {
     this.bulkActionsPopoverEvent = event;
     this.isBulkActionsPopoverOpen = true;

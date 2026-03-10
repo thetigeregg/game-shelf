@@ -80,6 +80,11 @@ services:
       HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE: ${HLTB_SEARCH_RATE_LIMIT_MAX_PER_MINUTE:-240}
       METACRITIC_SCRAPER_BASE_URL: ${METACRITIC_SCRAPER_BASE_URL:-http://metacritic-scraper:8789}
       METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
+      PSPRICES_SCRAPER_BASE_URL: ${PSPRICES_SCRAPER_BASE_URL:-http://psprices-scraper:8790}
+      PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
+      PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
+      PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
+      PSPRICES_PRICE_CACHE_TTL_HOURS: ${PSPRICES_PRICE_CACHE_TTL_HOURS:-24}
       METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE: ${METACRITIC_CACHE_ENABLE_STALE_WHILE_REVALIDATE:-true}
       METACRITIC_CACHE_FRESH_TTL_SECONDS: ${METACRITIC_CACHE_FRESH_TTL_SECONDS:-604800}
       METACRITIC_CACHE_STALE_TTL_SECONDS: ${METACRITIC_CACHE_STALE_TTL_SECONDS:-7776000}
@@ -153,6 +158,7 @@ services:
       - postgres
       - hltb-scraper
       - metacritic-scraper
+      - psprices-scraper
     volumes:
       - ./nas-data/image-cache:/data/images
       - ./nas-data/manuals:/data/manuals:ro
@@ -175,6 +181,11 @@ services:
       HLTB_SCRAPER_TOKEN_FILE: ${HLTB_SCRAPER_TOKEN_FILE:-/run/secrets/hltb_scraper_token}
       METACRITIC_SCRAPER_BASE_URL: ${METACRITIC_SCRAPER_BASE_URL:-http://metacritic-scraper:8789}
       METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
+      PSPRICES_SCRAPER_BASE_URL: ${PSPRICES_SCRAPER_BASE_URL:-http://psprices-scraper:8790}
+      PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
+      PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
+      PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
+      PSPRICES_PRICE_CACHE_TTL_HOURS: ${PSPRICES_PRICE_CACHE_TTL_HOURS:-24}
       MOBYGAMES_API_BASE_URL: ${MOBYGAMES_API_BASE_URL:-https://api.mobygames.com/v2}
       MOBYGAMES_API_KEY_FILE: ${MOBYGAMES_API_KEY_FILE:-/run/secrets/mobygames_api_key}
       STEAM_STORE_API_BASE_URL: ${STEAM_STORE_API_BASE_URL:-https://store.steampowered.com}
@@ -253,6 +264,7 @@ services:
       - api
       - hltb-scraper
       - metacritic-scraper
+      - psprices-scraper
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
       - ./nas-data/manuals:/data/manuals:ro
@@ -272,6 +284,7 @@ services:
       - api
       - hltb-scraper
       - metacritic-scraper
+      - psprices-scraper
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
       - ./nas-data/manuals:/data/manuals:ro
@@ -324,6 +337,24 @@ services:
       METACRITIC_SCRAPER_BROWSER_IDLE_MS: ${METACRITIC_SCRAPER_BROWSER_IDLE_MS:-30000}
       METACRITIC_SCRAPER_TOKEN_FILE: ${METACRITIC_SCRAPER_TOKEN_FILE:-/run/secrets/metacritic_scraper_token}
       DEBUG_METACRITIC_SCRAPER_LOGS: ${DEBUG_METACRITIC_SCRAPER_LOGS:-false}
+    volumes:
+      - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
+    restart: unless-stopped
+
+  psprices-scraper:
+    build:
+      context: .
+      dockerfile: psprices-scraper/Dockerfile
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+      PORT: ${PSPRICES_SCRAPER_PORT:-8790}
+      PSPRICES_BASE_URL: ${PSPRICES_BASE_URL:-https://psprices.com}
+      PSPRICES_REGION_PATH: ${PSPRICES_REGION_PATH:-region-ch}
+      PSPRICES_SHOW: ${PSPRICES_SHOW:-games}
+      PSPRICES_SCRAPER_TIMEOUT_MS: ${PSPRICES_SCRAPER_TIMEOUT_MS:-25000}
+      PSPRICES_SCRAPER_BROWSER_IDLE_MS: ${PSPRICES_SCRAPER_BROWSER_IDLE_MS:-30000}
+      PSPRICES_SCRAPER_TOKEN_FILE: ${PSPRICES_SCRAPER_TOKEN_FILE:-/run/secrets/psprices_scraper_token}
+      DEBUG_PSPRICES_SCRAPER_LOGS: ${DEBUG_PSPRICES_SCRAPER_LOGS:-false}
     volumes:
       - ${SECRETS_HOST_DIR:-./nas-secrets}:/run/secrets:ro
     restart: unless-stopped

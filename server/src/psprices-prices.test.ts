@@ -1,0 +1,220 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import Fastify from 'fastify';
+import type { Pool } from 'pg';
+import { registerPsPricesRoute } from './psprices-prices.js';
+
+interface GameRow {
+  payload: Record<string, unknown>;
+}
+
+class GamePoolMock {
+  private readonly rowsByIdentity = new Map<string, GameRow>();
+
+  seed(igdbGameId: string, platformIgdbId: number, payload: Record<string, unknown>): void {
+    this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload });
+  }
+
+  getPayload(igdbGameId: string, platformIgdbId: number): Record<string, unknown> | null {
+    return this.rowsByIdentity.get(`${igdbGameId}::${String(platformIgdbId)}`)?.payload ?? null;
+  }
+
+  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[] }> {
+    const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (
+      normalized.startsWith(
+        'select payload from games where igdb_game_id = $1 and platform_igdb_id = $2'
+      )
+    ) {
+      const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
+      const platformIgdbId =
+        typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
+      const key = `${igdbGameId}::${String(platformIgdbId)}`;
+      const row = this.rowsByIdentity.get(key);
+      return Promise.resolve({ rows: row ? [row] : [] });
+    }
+
+    if (normalized.startsWith('update games set payload = $3::jsonb, updated_at = now()')) {
+      const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
+      const platformIgdbId =
+        typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
+      const payloadRaw = typeof params[2] === 'string' ? params[2] : '{}';
+      const parsed = JSON.parse(payloadRaw) as Record<string, unknown>;
+      this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload: parsed });
+      return Promise.resolve({ rows: [] });
+    }
+
+    throw new Error(`Unsupported SQL in GamePoolMock: ${sql}`);
+  }
+}
+
+function parseJsonRecord(responseBody: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(responseBody);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Expected JSON object response body');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+void test('PSPrices route returns unsupported_platform outside supported IGDB platforms', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  let fetchCalls = 0;
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=1&platformIgdbId=6'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'unsupported_platform');
+  assert.equal(fetchCalls, 0);
+
+  await app.close();
+});
+
+void test('PSPrices route returns 404 when game row does not exist', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+
+  await registerPsPricesRoute(app, pool as unknown as Pool);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=999&platformIgdbId=167'
+  });
+
+  assert.equal(response.statusCode, 404);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['error'], 'Game not found.');
+
+  await app.close();
+});
+
+void test('PSPrices route fetches scraper result and persists normalized fields', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, {
+    title: 'Monster Train 2'
+  });
+  const requestUrls: string[] = [];
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: (input) => {
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      requestUrls.push(url.href);
+      assert.equal(url.pathname, '/v1/psprices/search');
+      assert.equal(url.searchParams.get('q'), 'Monster Train 2');
+      assert.equal(url.searchParams.get('platform'), 'PS5');
+      assert.equal(url.searchParams.get('region'), 'region-ch');
+      assert.equal(url.searchParams.get('show'), 'games');
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Monster Train 2',
+              priceAmount: 49.9,
+              currency: 'CHF',
+              regularPriceAmount: 69.9,
+              discountPercent: 28,
+              isFree: false,
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.equal(body['cached'], false);
+  assert.equal(body['platform'], 'PS5');
+
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['amount'], 49.9);
+  assert.equal(bestPrice['currency'], 'CHF');
+  assert.equal(bestPrice['regularAmount'], 69.9);
+  assert.equal(bestPrice['discountPercent'], 28);
+  assert.equal(bestPrice['url'], 'https://psprices.com/region-ch/game/1234/monster-train-2');
+
+  const persisted = pool.getPayload('332273', 167);
+  assert.ok(persisted);
+  assert.equal(persisted['psPricesRegionPath'], 'region-ch');
+  assert.equal(persisted['psPricesShow'], 'games');
+  assert.equal(persisted['psPricesPlatform'], 'PS5');
+  assert.equal(persisted['psPricesPriceAmount'], 49.9);
+  assert.equal(persisted['psPricesPriceCurrency'], 'CHF');
+  assert.equal(persisted['priceSource'], 'psprices');
+  assert.equal(persisted['priceAmount'], 49.9);
+  assert.equal(persisted['priceCurrency'], 'CHF');
+  assert.equal(persisted['priceRegularAmount'], 69.9);
+  assert.equal(persisted['priceDiscountPercent'], 28);
+  assert.equal(persisted['priceIsFree'], false);
+  assert.equal(persisted['priceUrl'], 'https://psprices.com/region-ch/game/1234/monster-train-2');
+  assert.equal(requestUrls.length, 1);
+
+  await app.close();
+});
+
+void test('PSPrices route returns fresh cached result without scraper fetch', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('5263323', 130, {
+    title: 'Pokemon Violet',
+    psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
+    psPricesRegionPath: 'region-ch',
+    psPricesShow: 'games',
+    psPricesPlatform: 'Switch',
+    psPricesTitle: 'Pokemon Violet',
+    psPricesPriceAmount: 59.9,
+    psPricesPriceCurrency: 'CHF',
+    psPricesRegularPriceAmount: null,
+    psPricesDiscountPercent: null,
+    psPricesIsFree: false,
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+  });
+  let fetchCalls = 0;
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    fetchImpl: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  assert.equal(body['cached'], true);
+  assert.equal(fetchCalls, 0);
+
+  await app.close();
+});

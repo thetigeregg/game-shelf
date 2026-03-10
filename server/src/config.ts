@@ -120,12 +120,10 @@ export interface AppConfig {
   metacriticSearchRateLimitMaxPerMinute: number;
   mobygamesApiBaseUrl: string;
   mobygamesApiKey: string;
-  itadApiBaseUrl: string;
-  itadApiKey: string;
-  itadDefaultCountry: string;
-  itadSteamShopId: number;
-  exchangeRateApiBaseUrl: string;
-  exchangeRateApiTimeoutMs: number;
+  steamStoreApiBaseUrl: string;
+  steamStoreApiTimeoutMs: number;
+  steamDefaultCountry: string;
+  steamPriceCacheTtlHours: number;
   mobygamesCacheEnableStaleWhileRevalidate: boolean;
   mobygamesCacheFreshTtlSeconds: number;
   mobygamesCacheStaleTtlSeconds: number;
@@ -323,12 +321,10 @@ export const config: AppConfig = {
   ),
   mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
   mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
-  itadApiBaseUrl: readEnv('ITAD_API_BASE_URL', 'https://api.isthereanydeal.com'),
-  itadApiKey: readRequiredSecretFile('ITAD_API_KEY', 'itad_api_key'),
-  itadDefaultCountry: normalizeCountryCode(readEnv('ITAD_DEFAULT_COUNTRY', 'CH')) ?? 'CH',
-  itadSteamShopId: readIntegerEnv('ITAD_STEAM_SHOP_ID', 61),
-  exchangeRateApiBaseUrl: readEnv('EXCHANGE_RATE_API_BASE_URL', 'https://open.er-api.com/v6'),
-  exchangeRateApiTimeoutMs: readIntegerEnv('EXCHANGE_RATE_API_TIMEOUT_MS', 10_000),
+  steamStoreApiBaseUrl: readEnv('STEAM_STORE_API_BASE_URL', 'https://store.steampowered.com'),
+  steamStoreApiTimeoutMs: readIntegerEnv('STEAM_STORE_API_TIMEOUT_MS', 10_000),
+  steamDefaultCountry: normalizeCountryCode(readEnv('STEAM_DEFAULT_COUNTRY', 'CH')) ?? 'CH',
+  steamPriceCacheTtlHours: readIntegerEnv('STEAM_PRICE_CACHE_TTL_HOURS', 24),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

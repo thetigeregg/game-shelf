@@ -120,12 +120,18 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
                   {
                     shop: { id: 61, name: 'Steam' },
                     platforms: [{ id: 1, name: 'Windows' }],
-                    price: { amount: 9.99, currency: 'CHF' }
+                    price: { amount: 9.99, currency: 'CHF' },
+                    regular: { amount: 19.99, currency: 'CHF' }
                   },
                   {
                     shop: { id: 35, name: 'GOG' },
                     platforms: [{ id: 2, name: 'Mac' }],
                     price: { amount: 8.99, currency: 'CHF' }
+                  },
+                  {
+                    shop: { id: 61, name: 'Steam' },
+                    platforms: [{ id: 1, name: 'Windows' }],
+                    price: { amount: 8.49, currency: 'EUR' }
                   }
                 ]
               }
@@ -155,6 +161,7 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
   assert.equal((body['deals'] as unknown[]).length, 1);
   assert.equal(typeof body['bestPrice'], 'object');
   assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 9.99);
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['regularAmount'], 19.99);
   assert.equal(
     calls.some((url) => url.includes('/lookup/id/title/v1')),
     false
@@ -167,6 +174,7 @@ void test('ITAD route resolves by Steam app ID and filters deals to Windows only
   assert.ok(persisted);
   assert.equal(persisted['itadGameId'], '018d937e-e9ab-70f4-bd05-1db7a138eb39');
   assert.equal(persisted['itadBestPriceAmount'], 9.99);
+  assert.equal(persisted['itadBestPriceRegularAmount'], 19.99);
   assert.equal(persisted['itadBestPriceCurrency'], 'CHF');
   assert.equal(persisted['itadPriceShopId'], 61);
 
@@ -217,7 +225,8 @@ void test('ITAD route falls back to title lookup when steam lookup misses', asyn
                   {
                     shop: { id: 61, name: 'Steam' },
                     platforms: [{ id: 1, name: 'Windows' }],
-                    price: { amount: 5.49, currency: 'CHF' }
+                    price: { amount: 5.49, currency: 'CHF' },
+                    regular: { amountInt: 1999, currency: 'CHF' }
                   }
                 ]
               }
@@ -244,10 +253,12 @@ void test('ITAD route falls back to title lookup when steam lookup misses', asyn
   assert.equal(body['matchStrategy'], 'title');
   assert.equal(body['itadGameId'], '018d937e-e9ce-718b-9715-111f50820ed4');
   assert.equal((body['bestPrice'] as Record<string, unknown>)['amount'], 5.49);
+  assert.equal((body['bestPrice'] as Record<string, unknown>)['regularAmount'], 19.99);
   const persisted = pool.getPayload('999', 6);
   assert.ok(persisted);
   assert.equal(persisted['itadGameId'], '018d937e-e9ce-718b-9715-111f50820ed4');
   assert.equal(persisted['itadBestPriceAmount'], 5.49);
+  assert.equal(persisted['itadBestPriceRegularAmount'], 19.99);
 
   await app.close();
 });

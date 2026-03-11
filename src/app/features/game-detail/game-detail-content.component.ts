@@ -483,10 +483,21 @@ export class GameDetailContentComponent {
   }
 
   private formatPriceAmount(amount: number, currencyCode: string): string {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currencyCode
-    }).format(amount);
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currencyCode
+      }).format(amount);
+    } catch {
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency: GameDetailContentComponent.DEFAULT_PRICE_CURRENCY
+        }).format(amount);
+      } catch {
+        return `${amount.toFixed(2)} ${currencyCode}`;
+      }
+    }
   }
 
   private resolveReviewSourceLabel(): 'metacritic' | 'mobygames' | null {

@@ -266,7 +266,7 @@ export class DiscoveryEnrichmentService {
     const shouldTrySteam =
       platformIgdbId === WINDOWS_IGDB_PLATFORM_ID &&
       isBlankValue(payload['steamEnrichedAt']) &&
-      Number.isInteger(Number.parseInt(igdbGameId, 10));
+      isStrictPositiveIntegerString(igdbGameId);
 
     if (!shouldTryHltb && !shouldTryMetacritic && !shouldTrySteam) {
       const next = { ...payload };
@@ -477,6 +477,10 @@ function parseReviewSource(value: unknown): 'metacritic' | 'mobygames' | null {
     return value;
   }
   return null;
+}
+
+function isStrictPositiveIntegerString(value: string): boolean {
+  return /^[1-9]\d*$/.test(value.trim());
 }
 
 function hasProviderReviewScore(

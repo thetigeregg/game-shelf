@@ -209,6 +209,10 @@ Release notification preference defaults:
 - `METADATA_ENRICHMENT_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
 - `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (consumed by `worker-general`; default `60`)
 
+Scope note:
+- IGDB metadata enrichment is intentionally limited to `games.payload.listType = 'wishlist'`.
+- Discovery rows use the separate discovery enrichment pipeline (`RECOMMENDATIONS_DISCOVERY_ENRICH_*`).
+
 ### Non-secret env vars (queued maintenance jobs)
 
 - `BACKGROUND_JOBS_RETENTION_DAYS` (consumed by `worker-general`; default `30`)

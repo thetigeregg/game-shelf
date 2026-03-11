@@ -257,6 +257,57 @@ void test('discovery enrichment skips steam lookup for non-Windows discovery row
   assert.equal(steamLookupCalls, 0);
 });
 
+void test('discovery enrichment skips steam lookup when igdb id is not strictly numeric', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '730abc',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Counter-Strike 2',
+        platform: 'PC',
+        listType: 'discovery',
+        hltbMainHours: 1,
+        reviewSource: 'metacritic',
+        reviewScore: 80
+      }
+    }
+  ];
+
+  let steamLookupCalls = 0;
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () => {
+      steamLookupCalls += 1;
+      return Promise.resolve(new Map());
+    }
+  };
+
+  const service = new DiscoveryEnrichmentService(
+    repository as never,
+    {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    },
+    undefined,
+    steamMetadataClient
+  );
+
+  const result = await service.enrichNow({ limit: 10 });
+  assert.deepEqual(result, {
+    scanned: 1,
+    updated: 0,
+    skipped: 1
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(steamLookupCalls, 0);
+});
+
 void test('discovery enrichment ignores non-provider reviewScore when deciding metacritic fetch', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

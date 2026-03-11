@@ -45,13 +45,13 @@ cp .env.example .env
 Start the local Docker stack (worktree-safe project + ports):
 
 ```bash
-npm run dev:worktree:stack:up
+npm run dev:stack:up
 ```
 
 Run the frontend dev server:
 
 ```bash
-npm run dev:worktree:start
+npm run dev:start
 ```
 
 ## Build

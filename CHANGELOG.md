@@ -1958,3 +1958,17 @@
 - 5515652 Extract shared prod env writer
 - f2c700b Add edge Firebase env write step
 
+## v1.1.31 - 2026-03-11
+- 904f5f6 Merge pull request #201 from thetigeregg/codex/add-helper-to-sync-env
+- 5bc6fc7 Preserve env example comments
+- 5d7438f Handle commented env keys
+- 96891ba Allow empty env input value
+- 544ca9a Revise env script prompt
+- 5758803 Improve reconcile env handling
+- 9f63faf Merge branch 'main' into codex/add-helper-to-sync-env
+- 6d67a54 Rename dev:worktree scripts
+- f41d3fc Automate worktree env rewrite
+- 49a23dd Update reconcile worktree env script
+- 0948a4c Add env reconciliation helper
+- 32782a9 Add worktree env reconciliation
+

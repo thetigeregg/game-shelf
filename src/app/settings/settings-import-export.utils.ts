@@ -232,13 +232,18 @@ export function escapeCsvValue(value: string): string {
   return value;
 }
 
-export function parseFilters(raw: string, defaultFilters: GameListFilters): GameListFilters | null {
+export function parseFilters(
+  raw: string,
+  defaultFilters: GameListFilters,
+  options?: { listType?: ListType | null }
+): GameListFilters | null {
   if (raw.trim().length === 0) {
     return { ...defaultFilters };
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<GameListFilters>;
+    const allowPriceSort = options?.listType === 'wishlist';
     const parsedHltbMainHoursMin =
       typeof parsed.hltbMainHoursMin === 'number' &&
       Number.isFinite(parsed.hltbMainHoursMin) &&
@@ -329,7 +334,7 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
         parsed.sortField === 'createdAt' ||
         parsed.sortField === 'hltb' ||
         (parsed.sortField === 'tas' && isTasFeatureEnabled()) ||
-        parsed.sortField === 'price' ||
+        (parsed.sortField === 'price' && allowPriceSort) ||
         parsed.sortField === 'review' ||
         parsed.sortField === 'metacritic' ||
         parsed.sortField === 'platform'

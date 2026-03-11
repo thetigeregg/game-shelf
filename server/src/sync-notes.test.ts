@@ -142,6 +142,73 @@ void test('sync push normalizes unified pricing fields in game payload', async (
   assert.equal(normalizedPayload['priceDiscountPercent'], null);
   assert.equal(normalizedPayload['priceIsFree'], true);
   assert.equal(normalizedPayload['priceUrl'], 'https://store.example.com/game/124');
+  assert.equal(Object.prototype.hasOwnProperty.call(normalizedPayload, 'steamAppId'), false);
+
+  await app.close();
+});
+
+void test('sync push only includes steamAppId when provided in payload', async () => {
+  const app = await createSyncApp();
+
+  const omittedResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-steam-app-omitted-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '125',
+            platformIgdbId: 130,
+            title: 'Game',
+            platform: 'Switch',
+            listType: 'collection'
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(omittedResponse.statusCode, 200);
+  const omittedBody = JSON.parse(omittedResponse.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  const omittedPayload = omittedBody.results[0]?.normalizedPayload ?? {};
+  assert.equal(Object.prototype.hasOwnProperty.call(omittedPayload, 'steamAppId'), false);
+
+  const explicitNullResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-steam-app-null-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '126',
+            platformIgdbId: 130,
+            title: 'Game',
+            platform: 'Switch',
+            listType: 'collection',
+            steamAppId: null
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(explicitNullResponse.statusCode, 200);
+  const explicitNullBody = JSON.parse(explicitNullResponse.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  const explicitNullPayload = explicitNullBody.results[0]?.normalizedPayload ?? {};
+  assert.equal(Object.prototype.hasOwnProperty.call(explicitNullPayload, 'steamAppId'), true);
+  assert.equal(explicitNullPayload['steamAppId'], null);
 
   await app.close();
 });

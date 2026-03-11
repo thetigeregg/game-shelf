@@ -610,6 +610,7 @@ function normalizeGamePayload(
     typeof payload.customCoverUrl === 'string' ? payload.customCoverUrl.trim() : '';
   const notesRaw = typeof payload.notes === 'string' ? payload.notes : '';
   const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
+  const hasSteamAppId = Object.prototype.hasOwnProperty.call(payload, 'steamAppId');
   const steamAppIdRaw = parseInteger(payload.steamAppId);
   const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
   const hasPriceSource = Object.prototype.hasOwnProperty.call(payload, 'priceSource');
@@ -669,7 +670,7 @@ function normalizeGamePayload(
     notes,
     mobyScore,
     mobygamesGameId,
-    steamAppId,
+    ...(hasSteamAppId ? { steamAppId } : {}),
     updatedAt,
     ...(hasPriceSource ? { priceSource } : {}),
     ...(hasPriceFetchedAt ? { priceFetchedAt } : {}),

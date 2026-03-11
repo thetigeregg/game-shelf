@@ -16,6 +16,10 @@
         >
           @for (slide of mediaSlides; track slide.key; let index = $index) {
             <swiper-slide>
+              <!--
+                Intentional temporary workaround: force eager loading for all media slides.
+                This avoids intermittent partial/white screenshot renders seen with lazy loading.
+              -->
               <app-detail-media-slide
                 [class.with-pagination]="mediaSlides.length > 1"
                 [src]="slide.src"

@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -24,6 +31,16 @@ function expandUserPath(value) {
 
 function normalizeContent(content) {
   return content.replace(/\r\n/g, '\n');
+}
+
+function formatTimestampForFilename(date = new Date()) {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  return `${year}${month}${day}-${hour}${minute}${second}`;
 }
 
 function parseEnvEntries(content, options = {}) {
@@ -272,9 +289,7 @@ async function main() {
     console.log(`Shared file:  ${sharedPath}${existsSync(sharedPath) ? '' : ' (will be created)'}`);
 
     while (true) {
-      const sharedEntries = parseEnvEntries(sharedContent, {
-        includeCommentedAssignments: true
-      });
+      const sharedEntries = parseEnvEntries(sharedContent);
       const sharedMap = toLastEntryMap(sharedEntries);
       printSummary(exampleMap, allowedExampleMap, sharedMap);
 
@@ -295,11 +310,7 @@ async function main() {
       }
 
       if (choice === '2') {
-        const latestSharedMap = toLastEntryMap(
-          parseEnvEntries(sharedContent, {
-            includeCommentedAssignments: true
-          })
-        );
+        const latestSharedMap = toLastEntryMap(parseEnvEntries(sharedContent));
         const extraKeys = [...latestSharedMap.keys()].filter((key) => !allowedExampleMap.has(key));
         if (extraKeys.length > 0) {
           const shouldContinue = await askYesNo(
@@ -313,7 +324,14 @@ async function main() {
         }
         const normalizedContent = rewriteToExampleTemplate(exampleContent, latestSharedMap);
         mkdirSync(path.dirname(sharedPath), { recursive: true });
-        writeFileSync(sharedPath, normalizeContent(normalizedContent), 'utf8');
+        if (existsSync(sharedPath)) {
+          const backupPath = `${sharedPath}.bak.${formatTimestampForFilename()}`;
+          copyFileSync(sharedPath, backupPath);
+          console.log(`Backup created: ${backupPath}`);
+        }
+        const tempPath = `${sharedPath}.tmp`;
+        writeFileSync(tempPath, normalizeContent(normalizedContent), 'utf8');
+        renameSync(tempPath, sharedPath);
         console.log(`Saved updates to ${sharedPath}`);
         return;
       }

@@ -126,7 +126,9 @@ async function askChoice(rl) {
   console.log('');
   console.log('Choose an action:');
   console.log('  1) Add missing fields (from .env.example -> shared env)');
-  console.log('  2) Save (normalize to .env.example layout) and exit');
+  console.log(
+    '  2) Save (normalize to .env.example layout; optional commented keys in shared env become active) and exit'
+  );
   console.log('  3) Exit without saving');
   const answer = (await askLine(rl, 'Select [1-3]: ')).trim();
   return answer;
@@ -270,7 +272,9 @@ async function main() {
     console.log(`Shared file:  ${sharedPath}${existsSync(sharedPath) ? '' : ' (will be created)'}`);
 
     while (true) {
-      const sharedEntries = parseEnvEntries(sharedContent);
+      const sharedEntries = parseEnvEntries(sharedContent, {
+        includeCommentedAssignments: true
+      });
       const sharedMap = toLastEntryMap(sharedEntries);
       printSummary(exampleMap, allowedExampleMap, sharedMap);
 
@@ -291,12 +295,16 @@ async function main() {
       }
 
       if (choice === '2') {
-        const latestSharedMap = toLastEntryMap(parseEnvEntries(sharedContent));
+        const latestSharedMap = toLastEntryMap(
+          parseEnvEntries(sharedContent, {
+            includeCommentedAssignments: true
+          })
+        );
         const extraKeys = [...latestSharedMap.keys()].filter((key) => !allowedExampleMap.has(key));
         if (extraKeys.length > 0) {
           const shouldContinue = await askYesNo(
             rl,
-            `Save will remove ${String(extraKeys.length)} extra key(s) not in .env.example. Continue?`,
+            `Save will remove ${String(extraKeys.length)} extra key(s) not in .env.example and keep optional commented example keys active when already set. Continue?`,
             false
           );
           if (!shouldContinue) {

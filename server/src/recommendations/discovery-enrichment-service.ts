@@ -71,6 +71,7 @@ interface ProviderRetryState {
 interface DiscoveryEnrichmentRetryState {
   hltb: ProviderRetryState;
   metacritic: ProviderRetryState;
+  steam: ProviderRetryState;
 }
 
 export class DiscoveryEnrichmentService {
@@ -247,6 +248,14 @@ export class DiscoveryEnrichmentService {
         rearmAfterDays,
         rearmRecentReleaseYears,
         maxAttempts: this.options.maxAttempts
+      }),
+      steam: maybeRearmProviderRetryState({
+        state: retryState.steam,
+        nowMs,
+        releaseYear,
+        rearmAfterDays,
+        rearmRecentReleaseYears,
+        maxAttempts: this.options.maxAttempts
       })
     };
     const shouldTryHltb =
@@ -263,17 +272,26 @@ export class DiscoveryEnrichmentService {
         nowMs,
         maxAttempts: this.options.maxAttempts
       });
-    const shouldTrySteam =
+    const steamNeedsEnrichment =
       platformIgdbId === WINDOWS_IGDB_PLATFORM_ID &&
       isBlankValue(payload['steamEnrichedAt']) &&
       isStrictPositiveIntegerString(igdbGameId);
+    const shouldTrySteam =
+      this.steamMetadataClient !== null &&
+      steamNeedsEnrichment &&
+      shouldAttemptProvider({
+        state: nextRetryStateBase.steam,
+        nowMs,
+        maxAttempts: this.options.maxAttempts
+      });
 
     if (!shouldTryHltb && !shouldTryMetacritic && !shouldTrySteam) {
       const next = { ...payload };
       const nextRetryState = buildNextRetryState({
         current: nextRetryStateBase,
         needsHltb: !hasHltb,
-        needsMetacritic: !hasCritic
+        needsMetacritic: !hasCritic,
+        needsSteam: steamNeedsEnrichment
       });
       applyRetryState(next, nextRetryState);
       return next;
@@ -304,7 +322,8 @@ export class DiscoveryEnrichmentService {
     const next: Record<string, unknown> = { ...payload };
     const nextRetryState: DiscoveryEnrichmentRetryState = {
       hltb: nextRetryStateBase.hltb,
-      metacritic: nextRetryStateBase.metacritic
+      metacritic: nextRetryStateBase.metacritic,
+      steam: nextRetryStateBase.steam
     };
 
     const hltbItem = hltbResponse?.ok ? (hltbResponse.value?.item ?? null) : null;
@@ -361,10 +380,18 @@ export class DiscoveryEnrichmentService {
     }
 
     if (shouldTrySteam) {
-      await this.applySteamEnrichment({
+      const steamSucceeded = await this.applySteamEnrichment({
         igdbGameId,
         next,
         nowIso
+      });
+      nextRetryState.steam = nextProviderRetryState({
+        current: nextRetryStateBase.steam,
+        nowIso,
+        success: steamSucceeded,
+        maxAttempts: this.options.maxAttempts,
+        backoffBaseMinutes: this.options.backoffBaseMinutes,
+        backoffMaxHours: this.options.backoffMaxHours
       });
     }
 
@@ -373,7 +400,8 @@ export class DiscoveryEnrichmentService {
       buildNextRetryState({
         current: nextRetryState,
         needsHltb: !foundHltb,
-        needsMetacritic: !foundCritic
+        needsMetacritic: !foundCritic,
+        needsSteam: steamNeedsEnrichment
       })
     );
 
@@ -384,9 +412,9 @@ export class DiscoveryEnrichmentService {
     igdbGameId: string;
     next: Record<string, unknown>;
     nowIso: string;
-  }): Promise<void> {
+  }): Promise<boolean> {
     if (!this.steamMetadataClient) {
-      return;
+      return false;
     }
 
     try {
@@ -398,8 +426,10 @@ export class DiscoveryEnrichmentService {
       }
       params.next.steamEnrichmentStatus = hasSteamAppId ? 'success' : 'no_data';
       params.next.steamEnrichedAt = params.nowIso;
+      return true;
     } catch {
-      // Keep steam marker unset so scheduled runs can retry.
+      // Keep steam marker unset and rely on retry state for due-based retries.
+      return false;
     }
   }
 
@@ -499,7 +529,8 @@ function parseRetryState(value: unknown): DiscoveryEnrichmentRetryState {
 
   return {
     hltb: parseProviderRetryState(source.hltb),
-    metacritic: parseProviderRetryState(source.metacritic)
+    metacritic: parseProviderRetryState(source.metacritic),
+    steam: parseProviderRetryState(source.steam)
   };
 }
 
@@ -600,6 +631,7 @@ function buildNextRetryState(params: {
   current: DiscoveryEnrichmentRetryState;
   needsHltb: boolean;
   needsMetacritic: boolean;
+  needsSteam: boolean;
 }): DiscoveryEnrichmentRetryState {
   return {
     hltb: params.needsHltb
@@ -607,6 +639,9 @@ function buildNextRetryState(params: {
       : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
     metacritic: params.needsMetacritic
       ? params.current.metacritic
+      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
+    steam: params.needsSteam
+      ? params.current.steam
       : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false }
   };
 }
@@ -617,15 +652,17 @@ function applyRetryState(
 ): void {
   const shouldKeepHltb = hasMeaningfulRetryState(state.hltb);
   const shouldKeepMetacritic = hasMeaningfulRetryState(state.metacritic);
+  const shouldKeepSteam = hasMeaningfulRetryState(state.steam);
 
-  if (!shouldKeepHltb && !shouldKeepMetacritic) {
+  if (!shouldKeepHltb && !shouldKeepMetacritic && !shouldKeepSteam) {
     delete payload.enrichmentRetry;
     return;
   }
 
   payload.enrichmentRetry = {
     ...(shouldKeepHltb ? { hltb: state.hltb } : {}),
-    ...(shouldKeepMetacritic ? { metacritic: state.metacritic } : {})
+    ...(shouldKeepMetacritic ? { metacritic: state.metacritic } : {}),
+    ...(shouldKeepSteam ? { steam: state.steam } : {})
   };
 }
 

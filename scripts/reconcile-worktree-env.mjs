@@ -26,14 +26,30 @@ function normalizeContent(content) {
   return content.replace(/\r\n/g, '\n');
 }
 
-function parseEnvEntries(content) {
+function parseEnvEntries(content, options = {}) {
+  const includeCommentedAssignments = Boolean(options.includeCommentedAssignments);
   const lines = normalizeContent(content).split('\n');
   const assignmentRegex = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
   const entries = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
+    if (!trimmed) {
+      continue;
+    }
+    if (trimmed.startsWith('#')) {
+      if (!includeCommentedAssignments) {
+        continue;
+      }
+      const uncommented = trimmed.replace(/^#\s*/, '');
+      const commentedMatch = assignmentRegex.exec(uncommented);
+      if (!commentedMatch) {
+        continue;
+      }
+      entries.push({
+        key: commentedMatch[1],
+        value: commentedMatch[2]
+      });
       continue;
     }
     const match = assignmentRegex.exec(line);
@@ -98,9 +114,9 @@ function resolveArg(name, fallback) {
   return path.resolve(expandUserPath(fallback));
 }
 
-function printSummary(exampleMap, sharedMap) {
+function printSummary(exampleMap, allowedExampleMap, sharedMap) {
   const missing = [...exampleMap.keys()].filter((key) => !sharedMap.has(key));
-  const extra = [...sharedMap.keys()].filter((key) => !exampleMap.has(key));
+  const extra = [...sharedMap.keys()].filter((key) => !allowedExampleMap.has(key));
   console.log('');
   console.log(`Missing in shared env: ${String(missing.length)}`);
   console.log(`Extra in shared env: ${String(extra.length)}`);
@@ -135,9 +151,14 @@ async function askYesNo(rl, prompt, defaultYes) {
 }
 
 async function askValue(rl, key, defaultValue) {
-  const answer = await askLine(rl, `Value for ${key}: `, defaultValue);
-  if (answer.length === 0) {
+  const hasDefault = typeof defaultValue === 'string' && defaultValue.length > 0;
+  const promptSuffix = hasDefault ? ' (Enter for default, "-" for empty)' : '';
+  const answer = await askLine(rl, `Value for ${key}${promptSuffix}: `, defaultValue);
+  if (answer.length === 0 && hasDefault) {
     return defaultValue;
+  }
+  if (answer === '-' && hasDefault) {
+    return '';
   }
   return answer;
 }
@@ -176,20 +197,33 @@ async function runAddMissingFlow(rl, exampleOrderedKeys, exampleMap, sharedMap, 
 
 function rewriteToExampleTemplate(exampleContent, sharedMap) {
   const assignmentRegex = /^(\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*=\s*)(.*)$/;
+  const commentedAssignmentRegex = /^(\s*)#\s*([A-Za-z_][A-Za-z0-9_]*)(\s*=\s*)(.*)$/;
   const lines = normalizeContent(exampleContent).split('\n');
   const rewritten = lines.map((line) => {
     const match = assignmentRegex.exec(line);
-    if (!match) {
+    if (match) {
+      const indentation = match[1];
+      const key = match[2];
+      const separator = match[3];
+      const exampleValue = match[4];
+      const sharedEntry = sharedMap.get(key);
+      const value = sharedEntry ? sharedEntry.value : exampleValue;
+      return `${indentation}${key}${separator}${value}`;
+    }
+
+    const commentedMatch = commentedAssignmentRegex.exec(line);
+    if (!commentedMatch) {
       return line;
     }
 
-    const indentation = match[1];
-    const key = match[2];
-    const separator = match[3];
-    const exampleValue = match[4];
+    const indentation = commentedMatch[1];
+    const key = commentedMatch[2];
+    const separator = commentedMatch[3];
     const sharedEntry = sharedMap.get(key);
-    const value = sharedEntry ? sharedEntry.value : exampleValue;
-    return `${indentation}${key}${separator}${value}`;
+    if (!sharedEntry) {
+      return line;
+    }
+    return `${indentation}${key}${separator}${sharedEntry.value}`;
   });
 
   const body = rewritten.join('\n').replace(/\s*$/, '');
@@ -218,7 +252,11 @@ async function main() {
 
   const exampleContent = readFileSync(examplePath, 'utf8');
   const exampleEntries = parseEnvEntries(exampleContent);
+  const allowedExampleEntries = parseEnvEntries(exampleContent, {
+    includeCommentedAssignments: true
+  });
   const exampleMap = toLastEntryMap(exampleEntries);
+  const allowedExampleMap = toLastEntryMap(allowedExampleEntries);
   const exampleOrderedKeys = toFirstSeenOrderedKeys(exampleEntries);
 
   let sharedContent = existsSync(sharedPath) ? readFileSync(sharedPath, 'utf8') : '';
@@ -234,7 +272,7 @@ async function main() {
     while (true) {
       const sharedEntries = parseEnvEntries(sharedContent);
       const sharedMap = toLastEntryMap(sharedEntries);
-      printSummary(exampleMap, sharedMap);
+      printSummary(exampleMap, allowedExampleMap, sharedMap);
 
       const choice = await askChoice(rl);
       if (choice === '1') {
@@ -254,7 +292,7 @@ async function main() {
 
       if (choice === '2') {
         const latestSharedMap = toLastEntryMap(parseEnvEntries(sharedContent));
-        const extraKeys = [...latestSharedMap.keys()].filter((key) => !exampleMap.has(key));
+        const extraKeys = [...latestSharedMap.keys()].filter((key) => !allowedExampleMap.has(key));
         if (extraKeys.length > 0) {
           const shouldContinue = await askYesNo(
             rl,

@@ -82,14 +82,6 @@ function addAssignmentLine(sharedContent, key, value) {
   return `${trimmedEnd}\n${key}=${value}\n`;
 }
 
-function removeAssignmentLines(sharedContent, key) {
-  const assignmentRegex = new RegExp(`^\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`);
-  const lines = normalizeContent(sharedContent).split('\n');
-  const filtered = lines.filter((line) => !assignmentRegex.test(line));
-  const body = filtered.join('\n').replace(/\s*$/, '');
-  return body.length > 0 ? `${body}\n` : '';
-}
-
 function resolveArg(name, fallback) {
   const prefix = `${name}=`;
   const argWithValue = process.argv.slice(2).find((value) => value.startsWith(prefix));
@@ -120,10 +112,9 @@ async function askChoice(rl) {
   console.log('');
   console.log('Choose an action:');
   console.log('  1) Add missing fields (from .env.example -> shared env)');
-  console.log('  2) Delete extra fields (present in shared env but not in .env.example)');
-  console.log('  3) Save and exit');
-  console.log('  4) Exit without saving');
-  const answer = (await askLine(rl, 'Select [1-4]: ')).trim();
+  console.log('  2) Save and exit');
+  console.log('  3) Exit without saving');
+  const answer = (await askLine(rl, 'Select [1-3]: ')).trim();
   return answer;
 }
 
@@ -180,39 +171,6 @@ async function runAddMissingFlow(rl, exampleOrderedKeys, exampleMap, sharedMap, 
     sharedMap.set(key, { key, value: selectedValue, index: Number.MAX_SAFE_INTEGER });
     changed = true;
     console.log(`Added ${key}.`);
-  }
-
-  return { changed, sharedContent: nextContent };
-}
-
-async function runDeleteExtraFlow(rl, exampleMap, sharedMap, sharedContent) {
-  let nextContent = sharedContent;
-  let changed = false;
-  const extraKeys = [...sharedMap.keys()].filter((key) => !exampleMap.has(key));
-
-  if (extraKeys.length === 0) {
-    console.log('');
-    console.log('No extra fields found.');
-    return { changed, sharedContent: nextContent };
-  }
-
-  console.log('');
-  console.log(`Found ${String(extraKeys.length)} extra field(s).`);
-  for (const key of extraKeys) {
-    const sharedEntry = sharedMap.get(key);
-    const displayValue = sharedEntry ? sharedEntry.value : '';
-    const shouldDelete = await askYesNo(
-      rl,
-      `Delete ${key}${displayValue ? `=${displayValue}` : ''}?`,
-      false
-    );
-    if (!shouldDelete) {
-      continue;
-    }
-    nextContent = removeAssignmentLines(nextContent, key);
-    sharedMap.delete(key);
-    changed = true;
-    console.log(`Deleted ${key}.`);
   }
 
   return { changed, sharedContent: nextContent };
@@ -297,15 +255,6 @@ async function main() {
       }
 
       if (choice === '2') {
-        const result = await runDeleteExtraFlow(rl, exampleMap, sharedMap, sharedContent);
-        if (result.changed) {
-          sharedContent = result.sharedContent;
-          dirty = true;
-        }
-        continue;
-      }
-
-      if (choice === '3') {
         const latestSharedMap = toLastEntryMap(parseEnvEntries(sharedContent));
         const normalizedContent = rewriteToExampleTemplate(exampleContent, latestSharedMap);
         mkdirSync(path.dirname(sharedPath), { recursive: true });
@@ -314,7 +263,7 @@ async function main() {
         return;
       }
 
-      if (choice === '4') {
+      if (choice === '3') {
         if (!dirty || (await askYesNo(rl, 'Discard unsaved changes and exit?', false))) {
           console.log('Exited without saving.');
           return;
@@ -322,7 +271,7 @@ async function main() {
         continue;
       }
 
-      console.log('Invalid selection. Choose 1, 2, 3, or 4.');
+      console.log('Invalid selection. Choose 1, 2, or 3.');
     }
   } finally {
     rl.close();

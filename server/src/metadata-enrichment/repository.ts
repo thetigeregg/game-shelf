@@ -56,6 +56,8 @@ export class MetadataEnrichmentRepository {
       SELECT igdb_game_id, platform_igdb_id, payload
       FROM games
       WHERE
+        -- Intentionally wishlist-only: discovery rows are enriched by
+        -- recommendations/discovery-enrichment-service.ts.
         COALESCE(payload ->> 'listType', '') = 'wishlist'
         AND (
           COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''

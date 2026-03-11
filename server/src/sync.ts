@@ -213,6 +213,14 @@ async function applyGameOperation(
         'keywords', COALESCE(EXCLUDED.payload -> 'keywords', games.payload -> 'keywords'),
         'keywordIds', COALESCE(EXCLUDED.payload -> 'keywordIds', games.payload -> 'keywordIds'),
         'steamAppId', COALESCE(EXCLUDED.payload -> 'steamAppId', games.payload -> 'steamAppId'),
+        'priceSource', COALESCE(EXCLUDED.payload -> 'priceSource', games.payload -> 'priceSource'),
+        'priceFetchedAt', COALESCE(EXCLUDED.payload -> 'priceFetchedAt', games.payload -> 'priceFetchedAt'),
+        'priceAmount', COALESCE(EXCLUDED.payload -> 'priceAmount', games.payload -> 'priceAmount'),
+        'priceCurrency', COALESCE(EXCLUDED.payload -> 'priceCurrency', games.payload -> 'priceCurrency'),
+        'priceRegularAmount', COALESCE(EXCLUDED.payload -> 'priceRegularAmount', games.payload -> 'priceRegularAmount'),
+        'priceDiscountPercent', COALESCE(EXCLUDED.payload -> 'priceDiscountPercent', games.payload -> 'priceDiscountPercent'),
+        'priceIsFree', COALESCE(EXCLUDED.payload -> 'priceIsFree', games.payload -> 'priceIsFree'),
+        'priceUrl', COALESCE(EXCLUDED.payload -> 'priceUrl', games.payload -> 'priceUrl'),
         'screenshots', COALESCE(EXCLUDED.payload -> 'screenshots', games.payload -> 'screenshots'),
         'videos', COALESCE(EXCLUDED.payload -> 'videos', games.payload -> 'videos'),
         'taxonomyEnrichedAt', COALESCE(EXCLUDED.payload -> 'taxonomyEnrichedAt', games.payload -> 'taxonomyEnrichedAt'),
@@ -509,6 +517,68 @@ function parseFiniteNumber(value: unknown): number {
   return Number.NaN;
 }
 
+function normalizePriceSource(value: unknown): 'steam_store' | 'psprices' | null {
+  return value === 'steam_store' || value === 'psprices' ? value : null;
+}
+
+function normalizePriceFetchedAt(value: unknown): string | null {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizePriceAmount(value: unknown): number | null {
+  const parsed = parseFiniteNumber(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+  return Math.round(parsed * 100) / 100;
+}
+
+function normalizePriceCurrency(value: unknown): string | null {
+  const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+}
+
+function normalizePriceDiscountPercent(value: unknown): number | null {
+  const parsed = parseFiniteNumber(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return null;
+  }
+  return Math.round(parsed * 100) / 100;
+}
+
+function normalizePriceIsFree(value: unknown): boolean | null {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+
+  return null;
+}
+
+function normalizePriceUrl(value: unknown): string | null {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  if (normalized.length === 0) {
+    return null;
+  }
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    return normalized;
+  }
+  if (normalized.startsWith('//')) {
+    return `https:${normalized}`;
+  }
+  return null;
+}
+
 function normalizeGamePayload(
   value: unknown
 ): Record<string, unknown> & { igdbGameId: string; platformIgdbId: number } {
@@ -542,6 +612,25 @@ function normalizeGamePayload(
   const mobygamesGameIdRaw = parseInteger(payload.mobygamesGameId);
   const steamAppIdRaw = parseInteger(payload.steamAppId);
   const mobyScoreRaw = parseFiniteNumber(payload.mobyScore);
+  const hasPriceSource = Object.prototype.hasOwnProperty.call(payload, 'priceSource');
+  const hasPriceFetchedAt = Object.prototype.hasOwnProperty.call(payload, 'priceFetchedAt');
+  const hasPriceAmount = Object.prototype.hasOwnProperty.call(payload, 'priceAmount');
+  const hasPriceCurrency = Object.prototype.hasOwnProperty.call(payload, 'priceCurrency');
+  const hasPriceRegularAmount = Object.prototype.hasOwnProperty.call(payload, 'priceRegularAmount');
+  const hasPriceDiscountPercent = Object.prototype.hasOwnProperty.call(
+    payload,
+    'priceDiscountPercent'
+  );
+  const hasPriceIsFree = Object.prototype.hasOwnProperty.call(payload, 'priceIsFree');
+  const hasPriceUrl = Object.prototype.hasOwnProperty.call(payload, 'priceUrl');
+  const priceSource = normalizePriceSource(payload.priceSource);
+  const priceFetchedAt = normalizePriceFetchedAt(payload.priceFetchedAt);
+  const priceAmount = normalizePriceAmount(payload.priceAmount);
+  const priceCurrency = normalizePriceCurrency(payload.priceCurrency);
+  const priceRegularAmount = normalizePriceAmount(payload.priceRegularAmount);
+  const priceDiscountPercent = normalizePriceDiscountPercent(payload.priceDiscountPercent);
+  const priceIsFree = normalizePriceIsFree(payload.priceIsFree);
+  const priceUrl = normalizePriceUrl(payload.priceUrl);
   const customTitle = customTitleRaw.length > 0 && customTitleRaw !== title ? customTitleRaw : null;
   const customPlatformIgdbId =
     Number.isInteger(customPlatformIgdbIdRaw) && customPlatformIgdbIdRaw > 0
@@ -581,7 +670,15 @@ function normalizeGamePayload(
     mobyScore,
     mobygamesGameId,
     steamAppId,
-    updatedAt
+    updatedAt,
+    ...(hasPriceSource ? { priceSource } : {}),
+    ...(hasPriceFetchedAt ? { priceFetchedAt } : {}),
+    ...(hasPriceAmount ? { priceAmount } : {}),
+    ...(hasPriceCurrency ? { priceCurrency } : {}),
+    ...(hasPriceRegularAmount ? { priceRegularAmount } : {}),
+    ...(hasPriceDiscountPercent ? { priceDiscountPercent } : {}),
+    ...(hasPriceIsFree ? { priceIsFree } : {}),
+    ...(hasPriceUrl ? { priceUrl } : {})
   };
 }
 

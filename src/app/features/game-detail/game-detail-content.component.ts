@@ -79,6 +79,7 @@ type DetailMediaSlide = { key: string; src: string };
 })
 export class GameDetailContentComponent {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
+  private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
 
   @Input({ required: true }) game!: DetailGame;
   @Input() context: DetailContext = 'library';
@@ -230,6 +231,10 @@ export class GameDetailContentComponent {
       .filter((part) => part.length > 0)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
+  }
+
+  shouldEagerLoadMediaSlide(index: number): boolean {
+    return index < GameDetailContentComponent.EAGER_MEDIA_SLIDE_COUNT;
   }
 
   get statusValue(): GameStatus | undefined {

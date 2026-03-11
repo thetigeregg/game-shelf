@@ -716,6 +716,116 @@ describe('MetadataValidatorPage', () => {
     expect(shelf.refreshGamePricing).toHaveBeenCalledWith('42', 167);
   });
 
+  it('covers additional pricing guard branches for single and bulk refresh flows', async () => {
+    const { page, shelf, presentToast, runBulkMock } = createPageHarness();
+    const unsupported = createGame({
+      igdbGameId: '50',
+      platformIgdbId: 3,
+      title: 'Unsupported',
+      listType: 'wishlist'
+    });
+    const steam = createGame({
+      igdbGameId: '51',
+      platformIgdbId: 6,
+      title: 'Steam',
+      listType: 'wishlist'
+    });
+
+    await page.refreshPricingForGame(unsupported);
+    expect(presentToast).toHaveBeenCalledWith(
+      'Pricing is not supported for this platform.',
+      'warning'
+    );
+
+    shelf.refreshGamePricing.mockRejectedValueOnce(new Error('down'));
+    await page.refreshPricingForGame(steam);
+    expect(presentToast).toHaveBeenCalledWith('Unable to update pricing for Steam.', 'danger');
+
+    setField(page, 'displayedGames', [unsupported]);
+    setField(page, 'selectedGameKeys', new Set(['50::3']));
+    await page.refreshPricingForSelectedGames();
+    expect(runBulkMock).not.toHaveBeenCalled();
+
+    setField(page, 'displayedGames', [steam]);
+    setField(page, 'selectedGameKeys', new Set(['51::6']));
+    setField(page, 'isBulkRefreshingPricing', true);
+    await page.refreshPricingForSelectedGames();
+    expect(runBulkMock).not.toHaveBeenCalled();
+    setField(page, 'isBulkRefreshingPricing', false);
+  });
+
+  it('covers pricing picker search and apply/use-original early return and error branches', async () => {
+    const { page, shelf, presentToast } = createPageHarness();
+    const target = createGame({
+      igdbGameId: '61',
+      platformIgdbId: 167,
+      title: 'Target',
+      platform: 'PS5'
+    });
+
+    page.onPricingPickerQueryChange({ detail: { value: '  ff7  ' } } as unknown as Event);
+    expect((page as unknown as { pricingPickerQuery: string }).pricingPickerQuery).toBe('  ff7  ');
+
+    setField(page, 'pricingPickerTargetGame', null);
+    setField(page, 'pricingPickerQuery', 'ff7');
+    await page.runPricingPickerSearch();
+    expect((page as unknown as { pricingPickerError: string | null }).pricingPickerError).toBe(
+      'Select a game first.'
+    );
+
+    setField(page, 'pricingPickerTargetGame', target);
+    setField(page, 'pricingPickerQuery', 'x');
+    await page.runPricingPickerSearch();
+    expect((page as unknown as { pricingPickerError: string | null }).pricingPickerError).toBe(
+      'Enter at least 2 characters.'
+    );
+
+    setField(page, 'pricingPickerTargetGame', null);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(shelf.refreshGamePricingWithQuery).not.toHaveBeenCalled();
+
+    setField(page, 'pricingPickerTargetGame', target);
+    shelf.refreshGamePricingWithQuery.mockResolvedValueOnce(
+      createGame({ igdbGameId: '61', platformIgdbId: 167, priceAmount: 29.9, priceCurrency: 'CHF' })
+    );
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(presentToast).toHaveBeenCalledWith('Updated pricing for Target.');
+
+    setField(page, 'pricingPickerTargetGame', null);
+    await page.useOriginalPricingLookup();
+    expect(shelf.refreshGamePricing).not.toHaveBeenCalled();
+
+    setField(page, 'pricingPickerTargetGame', target);
+    shelf.refreshGamePricing.mockResolvedValueOnce(
+      createGame({ igdbGameId: '61', platformIgdbId: 167, priceAmount: null, priceIsFree: null })
+    );
+    await page.useOriginalPricingLookup();
+    expect(presentToast).toHaveBeenCalledWith('No pricing match found for Target.', 'warning');
+
+    setField(page, 'pricingPickerTargetGame', target);
+    shelf.refreshGamePricing.mockRejectedValueOnce(new Error('429'));
+    await page.useOriginalPricingLookup();
+    expect(presentToast).toHaveBeenCalledWith('Rate limited. Please retry shortly.', 'warning');
+  });
+
   it('applies selected/original HLTB and Metacritic candidates across success/no-match/error', async () => {
     const { page, shelf, presentToast } = createPageHarness();
     const target = createGame({ igdbGameId: '42', platformIgdbId: 6, title: 'Target' });

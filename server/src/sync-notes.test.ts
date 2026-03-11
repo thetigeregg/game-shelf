@@ -96,6 +96,56 @@ void test('sync push normalizes game notes line endings', async () => {
   await app.close();
 });
 
+void test('sync push normalizes unified pricing fields in game payload', async () => {
+  const app = await createSyncApp();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-pricing-normalize-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '124',
+            platformIgdbId: 130,
+            title: 'Game',
+            platform: 'Switch',
+            listType: 'wishlist',
+            priceSource: 'invalid-source',
+            priceFetchedAt: '   ',
+            priceAmount: '19.995',
+            priceCurrency: ' chf ',
+            priceRegularAmount: -1,
+            priceDiscountPercent: '120',
+            priceIsFree: 'true',
+            priceUrl: '//store.example.com/game/124'
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    results: Array<{ normalizedPayload?: Record<string, unknown> }>;
+  };
+  const normalizedPayload = body.results[0]?.normalizedPayload ?? {};
+  assert.equal(normalizedPayload['priceSource'], null);
+  assert.equal(normalizedPayload['priceFetchedAt'], null);
+  assert.equal(normalizedPayload['priceAmount'], 20);
+  assert.equal(normalizedPayload['priceCurrency'], 'CHF');
+  assert.equal(normalizedPayload['priceRegularAmount'], null);
+  assert.equal(normalizedPayload['priceDiscountPercent'], null);
+  assert.equal(normalizedPayload['priceIsFree'], true);
+  assert.equal(normalizedPayload['priceUrl'], 'https://store.example.com/game/124');
+
+  await app.close();
+});
+
 void test('sync push returns merged game payload from upsert result', async () => {
   class MergeAwareSyncClient extends FakeSyncClient {
     override query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
@@ -157,6 +207,63 @@ void test('sync push returns merged game payload from upsert result', async () =
   };
   assert.deepEqual(body.results[0]?.normalizedPayload?.['themes'], ['Action']);
   assert.deepEqual(body.results[0]?.normalizedPayload?.['keywords'], ['aliens']);
+
+  await app.close();
+});
+
+void test('sync game upsert SQL preserves unified pricing fields on conflict', async () => {
+  let capturedInsertSql = '';
+
+  class SqlCaptureSyncClient extends FakeSyncClient {
+    override query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
+      const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (normalized.startsWith('insert into games')) {
+        capturedInsertSql = sql;
+      }
+      return super.query(sql, params);
+    }
+  }
+
+  class SqlCapturePool extends FakePool {
+    override connect(): Promise<SqlCaptureSyncClient> {
+      return Promise.resolve(new SqlCaptureSyncClient());
+    }
+  }
+
+  const app = fastifyFactory({ logger: false });
+  await registerSyncRoutes(app, new SqlCapturePool() as never);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/push',
+    payload: {
+      operations: [
+        {
+          opId: 'op-sql-pricing-1',
+          entityType: 'game',
+          operation: 'upsert',
+          payload: {
+            igdbGameId: '321',
+            platformIgdbId: 6,
+            title: 'Pricing SQL Check',
+            platform: 'PC',
+            listType: 'wishlist'
+          },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(capturedInsertSql.includes("'priceSource'"), true);
+  assert.equal(capturedInsertSql.includes("'priceFetchedAt'"), true);
+  assert.equal(capturedInsertSql.includes("'priceAmount'"), true);
+  assert.equal(capturedInsertSql.includes("'priceCurrency'"), true);
+  assert.equal(capturedInsertSql.includes("'priceRegularAmount'"), true);
+  assert.equal(capturedInsertSql.includes("'priceDiscountPercent'"), true);
+  assert.equal(capturedInsertSql.includes("'priceIsFree'"), true);
+  assert.equal(capturedInsertSql.includes("'priceUrl'"), true);
 
   await app.close();
 });

@@ -1953,3 +1953,8 @@
 - c90cd48 Implement Steam ITAD pricing
 - ebcdacf Add Windows ITAD pricing enrichment
 
+## v1.1.30 - 2026-03-11
+- 21d519f Merge pull request #200 from thetigeregg/codex/fix-edge-docker-build-failure
+- 5515652 Extract shared prod env writer
+- f2c700b Add edge Firebase env write step
+

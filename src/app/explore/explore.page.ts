@@ -226,6 +226,8 @@ export class ExplorePage implements OnInit {
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
   private readonly discoveryPricingHydrationInFlight = new Set<string>();
   private readonly discoveryPricingHydrationAttempted = new Set<string>();
+  private discoveryPricingHydrationRunPromise: Promise<void> | null = null;
+  private discoveryPricingHydrationRerunRequested = false;
   private ignoredRecommendationGameIds = new Set<string>();
   private recommendationVisibilityRevision = 0;
   private similarVisibilityRevision = 0;
@@ -1592,42 +1594,72 @@ export class ExplorePage implements OnInit {
   }
 
   private async ensureVisibleDiscoveryPricingHydrated(): Promise<void> {
-    if (this.selectedTarget !== 'DISCOVERY') {
+    if (this.discoveryPricingHydrationRunPromise) {
+      this.discoveryPricingHydrationRerunRequested = true;
+      await this.discoveryPricingHydrationRunPromise;
       return;
     }
 
-    const items = this.getActiveLaneItems();
-    if (items.length === 0) {
-      return;
+    this.discoveryPricingHydrationRunPromise = this.runVisibleDiscoveryPricingHydration();
+    try {
+      await this.discoveryPricingHydrationRunPromise;
+    } finally {
+      this.discoveryPricingHydrationRunPromise = null;
     }
+  }
 
-    const visibleItems = items.slice(0, this.visibleRecommendationCount);
-    const candidates = visibleItems.filter((item) => {
-      if (!this.isDiscoveryPricingSupportedPlatform(item.platformIgdbId)) {
-        return false;
+  private async runVisibleDiscoveryPricingHydration(): Promise<void> {
+    for (;;) {
+      this.discoveryPricingHydrationRerunRequested = false;
+
+      if (this.selectedTarget !== 'DISCOVERY') {
+        return;
       }
 
-      const key = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
-      if (
-        this.discoveryPricingHydrationInFlight.has(key) ||
-        this.discoveryPricingHydrationAttempted.has(key)
-      ) {
-        return false;
+      const items = this.getActiveLaneItems();
+      if (items.length === 0) {
+        return;
       }
 
-      const pricing = this.getRecommendationPricing(item);
-      const hasPricing =
-        pricing?.priceIsFree === true ||
-        (typeof pricing?.priceAmount === 'number' && Number.isFinite(pricing.priceAmount));
+      const visibleItems = items.slice(0, this.visibleRecommendationCount);
+      const candidates = visibleItems.filter((item) => {
+        if (!this.isDiscoveryPricingSupportedPlatform(item.platformIgdbId)) {
+          return false;
+        }
 
-      return !hasPricing;
-    });
+        const key = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
+        if (
+          this.discoveryPricingHydrationInFlight.has(key) ||
+          this.discoveryPricingHydrationAttempted.has(key)
+        ) {
+          return false;
+        }
 
-    if (candidates.length === 0) {
-      return;
+        const pricing = this.getRecommendationPricing(item);
+        const hasPricing =
+          pricing?.priceIsFree === true ||
+          (typeof pricing?.priceAmount === 'number' && Number.isFinite(pricing.priceAmount));
+
+        return !hasPricing;
+      });
+
+      if (candidates.length === 0) {
+        if (!this.isDiscoveryPricingHydrationRerunRequested()) {
+          break;
+        }
+        continue;
+      }
+
+      await this.hydrateDiscoveryPricingInBatches(candidates);
+
+      if (!this.isDiscoveryPricingHydrationRerunRequested()) {
+        break;
+      }
     }
+  }
 
-    await this.hydrateDiscoveryPricingInBatches(candidates);
+  private isDiscoveryPricingHydrationRerunRequested(): boolean {
+    return this.discoveryPricingHydrationRerunRequested;
   }
 
   private async ensureSimilarDisplayMetadata(items: RecommendationSimilarItem[]): Promise<void> {

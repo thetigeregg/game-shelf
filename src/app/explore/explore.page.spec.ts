@@ -2019,4 +2019,43 @@ describe('ExplorePage recommendations UX', () => {
     });
     await expect(page.pickListTypeForAdd()).resolves.toBeNull();
   });
+
+  it('single-flights visible discovery pricing hydration across overlapping calls', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall';
+      visibleRecommendationCount: number;
+      activeLanesResponse: typeof mockLanesResponse | null;
+      ensureVisibleDiscoveryPricingHydrated: () => Promise<void>;
+      hydrateDiscoveryPricingInBatches: (
+        items: Array<{ igdbGameId: string; platformIgdbId: number }>
+      ) => Promise<void>;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'overall';
+    page.visibleRecommendationCount = 10;
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '1200', platformIgdbId: 6 }]
+      }
+    };
+
+    let resolveHydration: (() => void) | null = null;
+    const hydrationPromise = new Promise<void>((resolve) => {
+      resolveHydration = resolve;
+    });
+    const hydrateSpy = vi.fn(() => hydrationPromise);
+    page.hydrateDiscoveryPricingInBatches = hydrateSpy;
+
+    const firstRun = page.ensureVisibleDiscoveryPricingHydrated();
+    const secondRun = page.ensureVisibleDiscoveryPricingHydrated();
+
+    expect(hydrateSpy).toHaveBeenCalledTimes(1);
+    resolveHydration?.();
+    await Promise.all([firstRun, secondRun]);
+  });
 });

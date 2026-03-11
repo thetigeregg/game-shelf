@@ -47,7 +47,18 @@ function normalizePlatform(req) {
 function normalizeRegion(req) {
   const value = String(req.query.region ?? '').trim();
   const normalized = value.length > 0 ? value : defaultRegionPath;
-  return normalized.replace(/^\/+/, '').replace(/\/+$/, '');
+  let start = 0;
+  let end = normalized.length;
+
+  while (start < end && normalized.charCodeAt(start) === 47) {
+    start += 1;
+  }
+
+  while (end > start && normalized.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+
+  return normalized.slice(start, end);
 }
 
 function normalizeShow(req) {

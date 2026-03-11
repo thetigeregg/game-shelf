@@ -2438,6 +2438,76 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('lookupSteamPrice validates input, forwards normalized params, and maps generic errors', async () => {
+    await expect(firstValueFrom(service.lookupSteamPrice('bad-id', 6))).rejects.toThrowError(
+      'Invalid Steam price lookup request.'
+    );
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/steam/prices`);
+
+    const successPromise = firstValueFrom(service.lookupSteamPrice('960', 6, 'ch', 204100));
+    const successReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/steam/prices` &&
+        request.params.get('igdbGameId') === '960' &&
+        request.params.get('platformIgdbId') === '6' &&
+        request.params.get('cc') === 'CH' &&
+        request.params.get('steamAppId') === '204100'
+      );
+    });
+    successReq.flush({ status: 'ok' });
+    await expect(successPromise).resolves.toEqual({ status: 'ok' });
+
+    const failurePromise = firstValueFrom(service.lookupSteamPrice('960', 6));
+    const failureReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/steam/prices` &&
+        request.params.get('igdbGameId') === '960' &&
+        request.params.get('platformIgdbId') === '6'
+      );
+    });
+    failureReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
+    await expect(failurePromise).rejects.toThrowError('Unable to load Steam prices.');
+  });
+
+  it('lookupPsPrices and lookupPsPricesCandidates cover title/candidate guards and error mapping', async () => {
+    await expect(firstValueFrom(service.lookupPsPrices('x', 130, 'test'))).rejects.toThrowError(
+      'Invalid PSPrices lookup request.'
+    );
+    httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/psprices/prices`);
+
+    const lookupPromise = firstValueFrom(service.lookupPsPrices('960', 130, '  Nioh 2  '));
+    const lookupReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
+        request.params.get('igdbGameId') === '960' &&
+        request.params.get('platformIgdbId') === '130' &&
+        request.params.get('title') === 'Nioh 2'
+      );
+    });
+    lookupReq.flush({ status: 'ok' });
+    await expect(lookupPromise).resolves.toEqual({ status: 'ok' });
+
+    await expect(
+      firstValueFrom(service.lookupPsPricesCandidates('960', 130, 'x'))
+    ).resolves.toEqual({
+      status: 'unavailable',
+      candidates: []
+    });
+    httpMock.expectNone(
+      (request) => request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices`
+    );
+
+    const failurePromise = firstValueFrom(service.lookupPsPricesCandidates('960', 130, 'Nioh'));
+    const failureReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
+        request.params.get('includeCandidates') === '1'
+      );
+    });
+    failureReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
+    await expect(failurePromise).rejects.toThrowError('Unable to load PSPrices data.');
+  });
+
   it('prefers retry-after based recommendation cooldown error mapping', async () => {
     const promise = firstValueFrom(service.getRecommendationsTop({ target: 'BACKLOG' }));
     const req = httpMock.expectOne((request) => {
@@ -2461,6 +2531,8 @@ describe('IgdbProxyService', () => {
       normalizeIsoDate: (value: unknown) => string;
       normalizePositiveInteger: (value: unknown) => number | null;
       normalizeNumericId: (value: unknown) => string;
+      normalizePriceSource: (value: unknown) => 'steam_store' | 'psprices' | null;
+      normalizeOptionalBoolean: (value: unknown) => boolean | null;
       toRecommendationError: (error: unknown) => Error & { code?: string };
       createRecommendationApiError: (code: string, message: string) => Error & { code?: string };
     };
@@ -2485,6 +2557,13 @@ describe('IgdbProxyService', () => {
     expect(privateService.normalizeNumericId('abc')).toBe('');
     expect(privateService.normalizeNumericId(42)).toBe('42');
     expect(privateService.normalizeNumericId(0)).toBe('');
+    expect(privateService.normalizePriceSource('steam_store')).toBe('steam_store');
+    expect(privateService.normalizePriceSource('psprices')).toBe('psprices');
+    expect(privateService.normalizePriceSource('other')).toBeNull();
+    expect(privateService.normalizeOptionalBoolean(true)).toBe(true);
+    expect(privateService.normalizeOptionalBoolean('true')).toBe(true);
+    expect(privateService.normalizeOptionalBoolean('false')).toBe(false);
+    expect(privateService.normalizeOptionalBoolean('invalid')).toBeNull();
 
     expect(privateService.toRecommendationError(new Error('boom'))).toMatchObject({
       message: 'Unable to load recommendations right now.',

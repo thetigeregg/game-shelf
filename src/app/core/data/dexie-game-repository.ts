@@ -132,7 +132,11 @@ export class DexieGameRepository implements GameRepository {
           result.keywordIds === undefined
             ? this.normalizePositiveIntegerList(existing.keywordIds)
             : this.normalizePositiveIntegerList(result.keywordIds),
-        ...(resolvedSteamAppId !== null ? { steamAppId: resolvedSteamAppId } : {}),
+        ...(result.steamAppId !== undefined
+          ? { steamAppId: resolvedSteamAppId }
+          : resolvedSteamAppId !== null
+            ? { steamAppId: resolvedSteamAppId }
+            : {}),
         priceSource: this.resolvePriceSource(result.priceSource, existing.priceSource),
         priceFetchedAt: this.resolvePriceFetchedAt(result.priceFetchedAt, existing.priceFetchedAt),
         priceAmount: this.resolvePriceAmount(result.priceAmount, existing.priceAmount),

@@ -1416,6 +1416,122 @@ describe('GameShelfService', () => {
     expect(repository.upsertFromCatalog).not.toHaveBeenCalled();
   });
 
+  it('covers pricing candidate search guards and candidate normalization branches', async () => {
+    await expect(firstValueFrom(service.searchPricingCandidates('100', 167, 'x'))).resolves.toEqual(
+      []
+    );
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 29, 'Valid Title'))
+    ).resolves.toEqual([]);
+
+    const originalLookup = searchApi.lookupPsPricesCandidates;
+    (
+      searchApi as unknown as {
+        lookupPsPricesCandidates?: unknown;
+      }
+    ).lookupPsPricesCandidates = undefined;
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+    ).resolves.toEqual([]);
+    searchApi.lookupPsPricesCandidates = originalLookup;
+
+    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+      of({
+        candidates: [
+          {
+            title: '  Candidate A  ',
+            amount: 39.9,
+            currency: 'chf',
+            regularAmount: 79.9,
+            discountPercent: 50.127,
+            isFree: false,
+            url: '//psprices.com/region-ch/game/123',
+            score: 88.888
+          },
+          {
+            title: '   ',
+            amount: 10
+          },
+          {
+            title: 'Candidate B',
+            amount: 'invalid',
+            currency: 'bad',
+            regularAmount: -1,
+            discountPercent: 999,
+            isFree: 'true',
+            url: 'notaurl',
+            score: Number.NaN
+          }
+        ]
+      })
+    );
+
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 167, '  Valid Title  '))
+    ).resolves.toEqual([
+      {
+        title: 'Candidate A',
+        amount: 39.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 50.13,
+        isFree: false,
+        url: 'https://psprices.com/region-ch/game/123',
+        score: 88.89
+      },
+      {
+        title: 'Candidate B',
+        amount: null,
+        currency: 'BAD',
+        regularAmount: null,
+        discountPercent: null,
+        isFree: null,
+        url: null,
+        score: null
+      }
+    ]);
+    expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 167, 'Valid Title');
+  });
+
+  it('covers unified pricing helper branches for availability and discount detection', () => {
+    expect(service.hasUnifiedPriceData({ priceAmount: 0, priceIsFree: null })).toBe(true);
+    expect(service.hasUnifiedPriceData({ priceAmount: null, priceIsFree: true })).toBe(true);
+    expect(service.hasUnifiedPriceData({ priceAmount: null, priceIsFree: false })).toBe(false);
+
+    expect(
+      service.isGameOnDiscount({
+        priceAmount: 10,
+        priceRegularAmount: 20,
+        priceDiscountPercent: null,
+        priceIsFree: false
+      })
+    ).toBe(true);
+    expect(
+      service.isGameOnDiscount({
+        priceAmount: 10,
+        priceRegularAmount: 10,
+        priceDiscountPercent: 5,
+        priceIsFree: false
+      })
+    ).toBe(true);
+    expect(
+      service.isGameOnDiscount({
+        priceAmount: 10,
+        priceRegularAmount: 20,
+        priceDiscountPercent: 50,
+        priceIsFree: true
+      })
+    ).toBe(false);
+    expect(
+      service.isGameOnDiscount({
+        priceAmount: null,
+        priceRegularAmount: null,
+        priceDiscountPercent: 0,
+        priceIsFree: false
+      })
+    ).toBe(false);
+  });
+
   it('returns empty box art results for short queries', async () => {
     const results = await firstValueFrom(service.searchBoxArtByTitle('m'));
     expect(results).toEqual([]);

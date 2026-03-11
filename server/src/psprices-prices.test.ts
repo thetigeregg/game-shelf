@@ -347,6 +347,8 @@ void test('PSPrices route preserves existing unified price data when lookup is u
   assert.equal(persisted['priceAmount'], 49.9);
   assert.equal(persisted['priceCurrency'], 'CHF');
   assert.equal(persisted['priceRegularAmount'], 69.9);
+  assert.equal(persisted['priceFetchedAt'], undefined);
+  assert.equal(typeof persisted['psPricesFetchedAt'], 'string');
 
   await app.close();
 });

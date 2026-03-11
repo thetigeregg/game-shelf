@@ -28,7 +28,7 @@ function normalizeContent(content) {
 
 function parseEnvEntries(content) {
   const lines = normalizeContent(content).split('\n');
-  const assignmentRegex = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/;
+  const assignmentRegex = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
   const entries = [];
 
   for (const line of lines) {
@@ -110,7 +110,7 @@ async function askChoice(rl) {
   console.log('');
   console.log('Choose an action:');
   console.log('  1) Add missing fields (from .env.example -> shared env)');
-  console.log('  2) Save and exit');
+  console.log('  2) Save (normalize to .env.example layout) and exit');
   console.log('  3) Exit without saving');
   const answer = (await askLine(rl, 'Select [1-3]: ')).trim();
   return answer;
@@ -254,6 +254,17 @@ async function main() {
 
       if (choice === '2') {
         const latestSharedMap = toLastEntryMap(parseEnvEntries(sharedContent));
+        const extraKeys = [...latestSharedMap.keys()].filter((key) => !exampleMap.has(key));
+        if (extraKeys.length > 0) {
+          const shouldContinue = await askYesNo(
+            rl,
+            `Save will remove ${String(extraKeys.length)} extra key(s) not in .env.example. Continue?`,
+            false
+          );
+          if (!shouldContinue) {
+            continue;
+          }
+        }
         const normalizedContent = rewriteToExampleTemplate(exampleContent, latestSharedMap);
         mkdirSync(path.dirname(sharedPath), { recursive: true });
         writeFileSync(sharedPath, normalizeContent(normalizedContent), 'utf8');

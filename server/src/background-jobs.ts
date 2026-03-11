@@ -8,6 +8,8 @@ export type BackgroundJobType =
   | 'hltb_cache_revalidate'
   | 'metacritic_cache_revalidate'
   | 'mobygames_cache_revalidate'
+  | 'steam_price_revalidate'
+  | 'psprices_price_revalidate'
   | 'manuals_catalog_refresh';
 
 interface BackgroundJobInsertRow extends QueryResultRow {

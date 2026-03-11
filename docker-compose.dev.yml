@@ -18,3 +18,7 @@ services:
   metacritic-scraper:
     ports:
       - '127.0.0.1:${METACRITIC_HOST_PORT:-8789}:8789'
+
+  psprices-scraper:
+    ports:
+      - '127.0.0.1:${PSPRICES_HOST_PORT:-8790}:8790'

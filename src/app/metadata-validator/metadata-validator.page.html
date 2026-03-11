@@ -50,12 +50,13 @@
     </ion-item>
 
     <div class="bulk-actions-row">
-      <ion-button fill="outline" (click)="toggleSelectAllDisplayed()">
+      <ion-button fill="outline" size="small" (click)="toggleSelectAllDisplayed()">
         {{ isAllDisplayedSelected() ? 'Unselect all' : 'Select all' }}
       </ion-button>
       <ion-button
         fill="outline"
         color="medium"
+        size="small"
         [disabled]="selectedGamesCount === 0"
         (click)="clearSelection()"
       >
@@ -65,6 +66,7 @@
 
     <div class="bulk-actions-row">
       <ion-button
+        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingHltb"
         (click)="refreshHltbForSelectedGames()"
       >
@@ -74,6 +76,7 @@
         Bulk HLTB
       </ion-button>
       <ion-button
+        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingReview"
         (click)="refreshReviewForSelectedGames()"
       >
@@ -83,7 +86,20 @@
         Bulk Review
       </ion-button>
       <ion-button
+        size="small"
+        [disabled]="
+          selectedListType !== 'wishlist' || selectedGamesCount === 0 || isBulkRefreshingPricing
+        "
+        (click)="refreshPricingForSelectedGames()"
+      >
+        @if (isBulkRefreshingPricing) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
+        Bulk Pricing
+      </ion-button>
+      <ion-button
         color="secondary"
+        size="small"
         [disabled]="selectedGamesCount === 0 || isBulkRefreshingImage"
         (click)="refreshImageForSelectedGames()"
       >
@@ -102,10 +118,17 @@
 
     @if (filteredGames$ | async; as games) {
       @for (game of games; track trackByGameKey($index, game)) {
-        <ion-item>
+        <ion-item
+          class="validator-game-row"
+          lines="full"
+          button
+          detail="false"
+          (click)="toggleGameSelection(game)"
+        >
           <ion-checkbox
             slot="start"
             [checked]="isGameSelected(game)"
+            (click)="$event.stopPropagation()"
             (ionChange)="toggleGameSelection(game)"
           ></ion-checkbox>
           <ion-label>
@@ -113,24 +136,39 @@
             <p>{{ getPlatformLabel(game) }} · {{ game.releaseYear || 'Unknown year' }}</p>
             <div class="validator-badges">
               <ion-badge [color]="hasHltbMetadata(game) ? 'success' : 'warning'">
-                HLTB {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
+                HLTB: {{ hasHltbMetadata(game) ? 'OK' : 'Missing' }}
               </ion-badge>
               <ion-badge [color]="hasReviewMetadata(game) ? 'success' : 'warning'">
-                Review {{ hasReviewMetadata(game) ? 'OK' : 'Missing' }}
+                Review: {{ hasReviewMetadata(game) ? 'OK' : 'Missing' }}
               </ion-badge>
+              @if (isPricingSupported(game)) {
+                <ion-badge [color]="hasPricingMetadata(game) ? 'success' : 'warning'">
+                  Pricing: {{ hasPricingMetadata(game) ? 'OK' : 'Missing' }}
+                </ion-badge>
+              }
+              @if (!isPricingSupported(game)) {
+                <ion-badge color="medium"> Pricing: N/A </ion-badge>
+              }
               @if (!isNonPcImageNotApplicable(game)) {
                 <ion-badge [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
-                  Image {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
+                  Image: {{ isNonPcTheGamesDbImagePresent(game) ? 'TheGamesDB' : 'Missing' }}
                 </ion-badge>
               }
               @if (isNonPcImageNotApplicable(game)) {
-                <ion-badge color="medium"> Image N/A (PC) </ion-badge>
+                <ion-badge color="medium"> Image: N/A (PC) </ion-badge>
               }
             </div>
           </ion-label>
-          <div slot="end" class="row-actions">
+          <div slot="end" class="row-actions" (click)="$event.stopPropagation()">
             <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
             <ion-button fill="outline" (click)="refreshReviewForGame(game)"> Review </ion-button>
+            <ion-button
+              fill="outline"
+              [disabled]="!isPricingSupported(game)"
+              (click)="refreshPricingForGame(game)"
+            >
+              Pricing
+            </ion-button>
             <ion-button
               fill="outline"
               color="secondary"
@@ -314,6 +352,87 @@
           fill="outline"
           [disabled]="isReviewPickerLoading"
           (click)="useOriginalReviewLookup()"
+        >
+          Use Original Match
+        </ion-button>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isPricingPickerModalOpen" (didDismiss)="closePricingPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select Pricing Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closePricingPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <div class="picker-search-row">
+        <ion-searchbar
+          [value]="pricingPickerQuery"
+          placeholder="Search Pricing"
+          show-clear-button="focus"
+          (ionInput)="onPricingPickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button [disabled]="isPricingPickerLoading" (click)="runPricingPickerSearch()"
+          >Search</ion-button
+        >
+      </div>
+
+      @if (isPricingPickerLoading) {
+        <div class="picker-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerError) {
+        <p class="picker-state ion-text-center">
+          {{ pricingPickerError }}
+        </p>
+      }
+
+      @if (!isPricingPickerLoading && !pricingPickerError && pricingPickerResults.length === 0) {
+        <p class="picker-state ion-text-center">No pricing candidates found.</p>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerResults.length > 0) {
+        <ion-list>
+          @for (candidate of pricingPickerResults; track candidate) {
+            <ion-item button detail="false" (click)="applySelectedPricingCandidate(candidate)">
+              <ion-label>
+                <h2>{{ candidate.title }}</h2>
+                <p>
+                  Price:
+                  <strong>
+                    {{
+                      candidate.isFree
+                        ? 'Free'
+                        : (candidate.amount ?? '?') + ' ' + (candidate.currency ?? '')
+                    }}
+                  </strong>
+                </p>
+                <p>
+                  Regular: {{ candidate.regularAmount ?? '?' }} {{ candidate.currency ?? '' }} ·
+                  Discount: {{ candidate.discountPercent ?? 0 }}% · Match:
+                  {{ candidate.score ?? '?' }}
+                </p>
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+
+      <div class="picker-action-row">
+        <ion-button
+          expand="block"
+          fill="outline"
+          [disabled]="isPricingPickerLoading"
+          (click)="useOriginalPricingLookup()"
         >
           Use Original Match
         </ion-button>

@@ -146,6 +146,8 @@ jobs:
             dockerfile: hltb-scraper/Dockerfile
           - image: metacritic-scraper
             dockerfile: metacritic-scraper/Dockerfile
+          - image: psprices-scraper
+            dockerfile: psprices-scraper/Dockerfile
           - image: backup
             dockerfile: backup/Dockerfile
 

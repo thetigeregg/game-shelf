@@ -1,7 +1,9 @@
 import {
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
   OnInit,
@@ -92,6 +94,8 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly alertController = inject(AlertController);
   private readonly addToLibraryWorkflow = inject(AddToLibraryWorkflowService);
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  private readonly ngZone = inject(NgZone);
 
   ngOnInit(): void {
     this.loadSearchPlatforms();
@@ -100,13 +104,15 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       .pipe(
         tap((state) => {
           const normalized = state.query.trim();
-          this.errorMessage = '';
-          this.hasSearched = normalized.length >= 2;
+          this.runInZone(() => {
+            this.errorMessage = '';
+            this.hasSearched = normalized.length >= 2;
 
-          if (normalized.length < 2) {
-            this.results = [];
-            this.isLoading = false;
-          }
+            if (normalized.length < 2) {
+              this.results = [];
+              this.isLoading = false;
+            }
+          });
         }),
         debounceTime(300),
         distinctUntilChanged((left, right) => {
@@ -121,25 +127,33 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
             return of([] as GameCatalogResult[]);
           }
 
-          this.isLoading = true;
+          this.runInZone(() => {
+            this.isLoading = true;
+          });
 
           return this.gameShelfService.searchGames(normalized, state.platformIgdbId).pipe(
             catchError((error: unknown) => {
-              this.errorMessage = formatRateLimitedUiError(
-                error,
-                'Search failed. Please try again.'
-              );
+              this.runInZone(() => {
+                this.errorMessage = formatRateLimitedUiError(
+                  error,
+                  'Search failed. Please try again.'
+                );
+              });
               return of([] as GameCatalogResult[]);
             }),
             finalize(() => {
-              this.isLoading = false;
+              this.runInZone(() => {
+                this.isLoading = false;
+              });
             })
           );
         }),
         takeUntil(this.destroy$)
       )
       .subscribe((results) => {
-        this.results = results;
+        this.runInZone(() => {
+          this.results = results;
+        });
       });
 
     this.searchReady = true;
@@ -471,17 +485,28 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (platforms) => {
-          this.searchPlatforms =
-            this.actionMode === 'add'
-              ? this.platformOrderService.sortPlatformOptionsByCustomOrder(platforms)
-              : this.platformOrderService.sortPlatformOptions(platforms);
-          this.platformErrorMessage = '';
+          this.runInZone(() => {
+            this.searchPlatforms =
+              this.actionMode === 'add'
+                ? this.platformOrderService.sortPlatformOptionsByCustomOrder(platforms)
+                : this.platformOrderService.sortPlatformOptions(platforms);
+            this.platformErrorMessage = '';
+          });
         },
         error: () => {
-          this.searchPlatforms = [];
-          this.platformErrorMessage = 'Unable to load platform filters.';
+          this.runInZone(() => {
+            this.searchPlatforms = [];
+            this.platformErrorMessage = 'Unable to load platform filters.';
+          });
         }
       });
+  }
+
+  private runInZone(callback: () => void): void {
+    this.ngZone.run(() => {
+      callback();
+      this.changeDetectorRef.markForCheck();
+    });
   }
 
   private emitSearchState(): void {

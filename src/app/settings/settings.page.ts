@@ -2904,7 +2904,7 @@ export class SettingsPage {
         return this.errorRow(type, rowNumber, 'Invalid groupBy value.');
       }
 
-      const filters = parseFilters(record.filters, DEFAULT_GAME_LIST_FILTERS);
+      const filters = parseFilters(record.filters, DEFAULT_GAME_LIST_FILTERS, { listType });
 
       if (!filters) {
         return this.errorRow(type, rowNumber, 'Invalid filters payload for view.');

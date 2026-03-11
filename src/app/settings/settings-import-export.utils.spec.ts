@@ -143,4 +143,32 @@ describe('settings-import-export.utils', () => {
     expect(parsed?.sortField).toBe('tas');
     expect(parsed?.sortDirection).toBe('asc');
   });
+
+  it('falls back from price sort field for collection views during import parsing', () => {
+    const parsed = parseFilters(
+      JSON.stringify({
+        sortField: 'price',
+        sortDirection: 'desc'
+      }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'collection' }
+    );
+
+    expect(parsed?.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+    expect(parsed?.sortDirection).toBe('desc');
+  });
+
+  it('accepts price sort field for wishlist views during import parsing', () => {
+    const parsed = parseFilters(
+      JSON.stringify({
+        sortField: 'price',
+        sortDirection: 'desc'
+      }),
+      DEFAULT_GAME_LIST_FILTERS,
+      { listType: 'wishlist' }
+    );
+
+    expect(parsed?.sortField).toBe('price');
+    expect(parsed?.sortDirection).toBe('desc');
+  });
 });

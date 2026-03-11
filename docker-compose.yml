@@ -17,7 +17,7 @@ services:
       config_path=/srv/assets/runtime-config.js;
       tmp_path=/tmp/runtime-config.js;
       if [ -f \"$$config_path\" ]; then
-      grep -Fv \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__?.featureFlags ?? {}, { showMgcImport:\" \"$$config_path\" > \"$$tmp_path\" || true;
+      grep -Fv \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(\" \"$$config_path\" > \"$$tmp_path\" || true;
       mv \"$$tmp_path\" \"$$config_path\";
       fi;
       printf '%s' \"window.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__, { featureFlags: Object.assign({}, window.__GAME_SHELF_RUNTIME_CONFIG__?.featureFlags ?? {}, { showMgcImport: $$feature_mgc_bool, tasEnabled: $$feature_tas_bool }) });\" >> \"$$config_path\";

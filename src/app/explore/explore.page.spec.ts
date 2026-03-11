@@ -1639,6 +1639,351 @@ describe('ExplorePage recommendations UX', () => {
     ).toBeNull();
   });
 
+  it('hydrates discovery row pricing via PSPrices when metadata lacks price fields', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      getRecommendationRowPriceLabel: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => string | null;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    igdbProxyServiceMock.getRecommendationLanes.mockReturnValueOnce(
+      of({
+        target: 'DISCOVERY',
+        runtimeMode: 'NEUTRAL',
+        runId: 99,
+        generatedAt: '2026-03-11T00:00:00.000Z',
+        lanes: {
+          overall: [],
+          hiddenGems: [],
+          exploration: [],
+          blended: [
+            {
+              rank: 1,
+              igdbGameId: '700',
+              platformIgdbId: 167,
+              scoreTotal: 1.2,
+              scoreComponents: {
+                taste: 0.1,
+                novelty: 0.1,
+                runtimeFit: 0.1,
+                criticBoost: 0.1,
+                recencyBoost: 0.1,
+                semantic: 0.1,
+                exploration: 0.1,
+                diversityPenalty: 0,
+                repeatPenalty: 0
+              },
+              explanations: {
+                headline: '',
+                bullets: [],
+                matchedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: []
+                }
+              }
+            }
+          ],
+          popular: [],
+          recent: []
+        }
+      })
+    );
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(of(null));
+    igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(
+      of({
+        status: 'ok',
+        bestPrice: {
+          amount: 39.9,
+          regularAmount: 79.9,
+          discountPercent: 50,
+          isFree: false
+        }
+      })
+    );
+
+    await page.loadRecommendationLanes(true);
+
+    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 167, null);
+    expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 167 })).toBe(
+      'CHF\xa039.90'
+    );
+  });
+
+  it('hydrates discovery row pricing via Steam and skips unsupported platforms', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      loadRecommendationLanes: (forceRefresh: boolean) => Promise<void>;
+      getRecommendationRowPriceLabel: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => string | null;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'blended';
+    igdbProxyServiceMock.getRecommendationLanes.mockReturnValueOnce(
+      of({
+        target: 'DISCOVERY',
+        runtimeMode: 'NEUTRAL',
+        runId: 100,
+        generatedAt: '2026-03-11T00:00:00.000Z',
+        lanes: {
+          overall: [],
+          hiddenGems: [],
+          exploration: [],
+          blended: [
+            {
+              rank: 1,
+              igdbGameId: '800',
+              platformIgdbId: 6,
+              scoreTotal: 1.2,
+              scoreComponents: {
+                taste: 0.1,
+                novelty: 0.1,
+                runtimeFit: 0.1,
+                criticBoost: 0.1,
+                recencyBoost: 0.1,
+                semantic: 0.1,
+                exploration: 0.1,
+                diversityPenalty: 0,
+                repeatPenalty: 0
+              },
+              explanations: {
+                headline: '',
+                bullets: [],
+                matchedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: []
+                }
+              }
+            },
+            {
+              rank: 2,
+              igdbGameId: '801',
+              platformIgdbId: 3,
+              scoreTotal: 1.1,
+              scoreComponents: {
+                taste: 0.1,
+                novelty: 0.1,
+                runtimeFit: 0.1,
+                criticBoost: 0.1,
+                recencyBoost: 0.1,
+                semantic: 0.1,
+                exploration: 0.1,
+                diversityPenalty: 0,
+                repeatPenalty: 0
+              },
+              explanations: {
+                headline: '',
+                bullets: [],
+                matchedTokens: {
+                  genres: [],
+                  developers: [],
+                  publishers: [],
+                  franchises: [],
+                  collections: [],
+                  themes: [],
+                  keywords: []
+                }
+              }
+            }
+          ],
+          popular: [],
+          recent: []
+        }
+      })
+    );
+    igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
+    igdbProxyServiceMock.lookupSteamPrice.mockReturnValueOnce(
+      of({
+        status: 'ok',
+        bestPrice: {
+          amount: 27.99,
+          initialAmount: 39.99,
+          cut: 30,
+          isFree: false
+        }
+      })
+    );
+
+    await page.loadRecommendationLanes(true);
+
+    expect(igdbProxyServiceMock.lookupSteamPrice).toHaveBeenCalledWith('800', 6);
+    expect(igdbProxyServiceMock.lookupPsPrices).not.toHaveBeenCalled();
+    expect(page.getRecommendationRowPriceLabel({ igdbGameId: '800', platformIgdbId: 6 })).toBe(
+      'CHF\xa027.99'
+    );
+    expect(
+      page.getRecommendationRowPriceLabel({ igdbGameId: '801', platformIgdbId: 3 })
+    ).toBeNull();
+  });
+
+  it('covers discovery pricing parser guard branches', () => {
+    const page = createPage() as unknown as {
+      parseSteamPriceLookupResponse: (value: unknown) => unknown;
+      parsePsPricesLookupResponse: (value: unknown) => unknown;
+      normalizePriceBoolean: (value: unknown) => boolean | null;
+      normalizePriceNumber: (value: unknown) => number | null;
+    };
+
+    expect(page.parseSteamPriceLookupResponse(null)).toBeNull();
+    expect(page.parseSteamPriceLookupResponse({ status: 'unavailable' })).toBeNull();
+    expect(
+      page.parseSteamPriceLookupResponse({
+        status: 'ok',
+        bestPrice: { amount: null, isFree: false }
+      })
+    ).toBeNull();
+    expect(
+      page.parsePsPricesLookupResponse({ status: 'ok', bestPrice: { amount: 0, isFree: true } })
+    ).toEqual({
+      amount: 0,
+      regularAmount: null,
+      discountPercent: null,
+      isFree: true
+    });
+    expect(page.normalizePriceBoolean('true')).toBe(true);
+    expect(page.normalizePriceBoolean('false')).toBe(false);
+    expect(page.normalizePriceBoolean('x')).toBeNull();
+    expect(page.normalizePriceNumber('19.995')).toBe(20);
+    expect(page.normalizePriceNumber(-1)).toBeNull();
+  });
+
+  it('covers remaining PSPrices parser guard and catalog fetch failure branches', async () => {
+    const page = createPage() as unknown as {
+      parsePsPricesLookupResponse: (value: unknown) => unknown;
+      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+    };
+
+    expect(page.parsePsPricesLookupResponse({ status: 'not_ok', bestPrice: {} })).toBeNull();
+    expect(
+      page.parsePsPricesLookupResponse({ status: 'ok', bestPrice: { amount: null, isFree: false } })
+    ).toBeNull();
+
+    igdbProxyServiceMock.getGameById.mockReturnValueOnce(throwError(() => new Error('boom')));
+    await expect(page.fetchRecommendationCatalogResult('999')).resolves.toBeNull();
+  });
+
+  it('covers title hint and local pricing helper branches', () => {
+    const page = createPage() as unknown as {
+      localGameCacheByIdentity: Map<
+        string,
+        {
+          title: string;
+          priceAmount: number | null;
+          priceRegularAmount: number | null;
+          priceDiscountPercent: number | null;
+          priceIsFree: boolean | null;
+        }
+      >;
+      recommendationDisplayMetadata: Map<
+        string,
+        {
+          title: string;
+          coverUrl: string | null;
+          platformLabel: string;
+          releaseYear: number | null;
+        }
+      >;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      getRecommendationTitleHint: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => string | null;
+      getRecommendationPricing: (item: { igdbGameId: string; platformIgdbId: number }) => {
+        priceAmount: number | null;
+        priceRegularAmount: number | null;
+        priceDiscountPercent: number | null;
+        priceIsFree: boolean | null;
+      } | null;
+      parsePsPricesLookupResponse: (value: unknown) => unknown;
+    };
+
+    const key = page.buildIdentityKey('900', 6);
+    page.recommendationDisplayMetadata.set(key, {
+      title: 'Metadata Title',
+      coverUrl: null,
+      platformLabel: 'PC',
+      releaseYear: null
+    });
+    expect(page.getRecommendationTitleHint({ igdbGameId: '900', platformIgdbId: 6 })).toBe(
+      'Metadata Title'
+    );
+
+    page.localGameCacheByIdentity.set(key, {
+      title: 'Local Title',
+      priceAmount: 12.5,
+      priceRegularAmount: 20,
+      priceDiscountPercent: 37.5,
+      priceIsFree: false
+    });
+    const localPricing = page.getRecommendationPricing({ igdbGameId: '900', platformIgdbId: 6 });
+    expect(localPricing?.priceAmount).toBe(12.5);
+    expect(page.getRecommendationTitleHint({ igdbGameId: '900', platformIgdbId: 6 })).toBe(
+      'Local Title'
+    );
+
+    expect(page.parsePsPricesLookupResponse('bad-payload')).toBeNull();
+  });
+
+  it('covers similar metadata dedupe and null-pricing hydration branches', async () => {
+    const page = createPage() as unknown as {
+      recommendationDisplayMetadata: Map<string, { title: string }>;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      ensureSimilarDisplayMetadata: (
+        items: Array<{ igdbGameId: string; platformIgdbId: number }>
+      ) => Promise<void>;
+      populateRecommendationDisplayMetadata: (grouped: Map<string, Set<number>>) => Promise<void>;
+      hydrateDiscoveryPricingForItem: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => Promise<void>;
+      getRecommendationRowPriceLabel: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => string | null;
+    };
+
+    const existingKey = page.buildIdentityKey('910', 6);
+    page.recommendationDisplayMetadata.set(existingKey, { title: 'Existing' });
+    const populateSpy = vi.fn(() => Promise.resolve(undefined));
+    (
+      page as unknown as { populateRecommendationDisplayMetadata: typeof populateSpy }
+    ).populateRecommendationDisplayMetadata = populateSpy;
+
+    await page.ensureSimilarDisplayMetadata([
+      { igdbGameId: '910', platformIgdbId: 6 },
+      { igdbGameId: '910', platformIgdbId: 48 },
+      { igdbGameId: '910', platformIgdbId: 167 }
+    ]);
+    expect(populateSpy).toHaveBeenCalledTimes(1);
+    const grouped = populateSpy.mock.calls[0]?.[0] as Map<string, Set<number>>;
+    expect(grouped.get('910')).toEqual(new Set([48, 167]));
+
+    igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
+    await page.hydrateDiscoveryPricingForItem({ igdbGameId: '911', platformIgdbId: 167 });
+    expect(
+      page.getRecommendationRowPriceLabel({ igdbGameId: '911', platformIgdbId: 167 })
+    ).toBeNull();
+  });
+
   it('covers list-type picker confirm/cancel branches', async () => {
     const page = createPage() as unknown as {
       pickListTypeForAdd: () => Promise<'collection' | 'wishlist' | null>;

@@ -45,6 +45,19 @@ describe('GameFiltersMenuComponent', () => {
     );
   });
 
+  it('normalizes legacy metacritic sort to review and emits corrected filters', () => {
+    const component = createComponent();
+    const emitSpy = vi.spyOn(component.filtersChange, 'emit');
+
+    component.filters = createFilters('metacritic');
+    component.listType = 'wishlist';
+    component.ngOnChanges();
+
+    expect(component.draftFilters.sortField).toBe('review');
+    expect(component.sortOption).toBe(`review:${component.draftFilters.sortDirection}`);
+    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({ sortField: 'review' }));
+  });
+
   it('does not emit when incoming sort field is already valid', () => {
     const component = createComponent();
     const emitSpy = vi.spyOn(component.filtersChange, 'emit');

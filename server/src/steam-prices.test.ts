@@ -612,6 +612,8 @@ void test('Steam route preserves existing unified fields when upstream is unavai
   assert.equal(persisted['priceAmount'], 9.99);
   assert.equal(persisted['priceCurrency'], 'EUR');
   assert.equal(persisted['priceRegularAmount'], 12.99);
+  assert.equal(persisted['priceFetchedAt'], undefined);
+  assert.equal(typeof persisted['steamPriceFetchedAt'], 'string');
 
   await app.close();
 });

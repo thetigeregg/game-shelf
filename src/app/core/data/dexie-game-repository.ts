@@ -870,7 +870,7 @@ export class DexieGameRepository implements GameRepository {
     return Math.round(value * 10) / 10;
   }
 
-  private normalizeMetacriticUrl(value: string | null | undefined): string | null {
+  private normalizeExternalUrl(value: string | null | undefined): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
 
     if (normalized.length === 0) {
@@ -886,6 +886,10 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return null;
+  }
+
+  private normalizeMetacriticUrl(value: string | null | undefined): string | null {
+    return this.normalizeExternalUrl(value);
   }
 
   private normalizeReviewSource(
@@ -969,7 +973,7 @@ export class DexieGameRepository implements GameRepository {
   }
 
   private normalizePriceUrl(value: string | null | undefined): string | null {
-    return this.normalizeMetacriticUrl(value);
+    return this.normalizeExternalUrl(value);
   }
 
   private normalizeGameType(value: unknown): GameEntry['gameType'] {

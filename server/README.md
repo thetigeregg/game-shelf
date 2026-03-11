@@ -256,7 +256,7 @@ These require API bearer authorization when `REQUIRE_AUTH=true` (client write to
 
 ```bash
 cd ..
-npm run dev:worktree:stack:up
+npm run dev:stack:up
 ```
 
 This starts the API in Docker with Postgres + HLTB scraper dependencies.

@@ -392,10 +392,11 @@ export class DiscoveryEnrichmentService {
     try {
       const metadata = await this.steamMetadataClient.fetchGameMetadataByIds([params.igdbGameId]);
       const record = metadata.get(params.igdbGameId);
-      if (record?.steamAppId !== null) {
+      const hasSteamAppId = typeof record?.steamAppId === 'number' && record.steamAppId > 0;
+      if (hasSteamAppId) {
         params.next.steamAppId = record.steamAppId;
       }
-      params.next.steamEnrichmentStatus = record ? 'success' : 'no_data';
+      params.next.steamEnrichmentStatus = hasSteamAppId ? 'success' : 'no_data';
       params.next.steamEnrichedAt = params.nowIso;
     } catch {
       // Keep steam marker unset so scheduled runs can retry.

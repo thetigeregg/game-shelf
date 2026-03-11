@@ -206,6 +206,75 @@ void test('discovery enrichment adds steam app id for Windows discovery rows', a
   }
 });
 
+void test('discovery enrichment marks steam no_data when metadata has no steam app id', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1234',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Windows Game Without Steam Mapping',
+        platform: 'PC',
+        listType: 'discovery',
+        hltbMainHours: 1,
+        reviewSource: 'metacritic',
+        reviewScore: 80
+      }
+    }
+  ];
+
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () =>
+      Promise.resolve(
+        new Map([
+          [
+            '1234',
+            {
+              themes: [],
+              themeIds: [],
+              keywords: [],
+              keywordIds: [],
+              screenshots: [],
+              videos: [],
+              steamAppId: null
+            }
+          ]
+        ])
+      )
+  };
+
+  const service = new DiscoveryEnrichmentService(
+    repository as never,
+    {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    },
+    () => Date.parse('2026-03-10T00:00:00.000Z'),
+    steamMetadataClient
+  );
+
+  const result = await service.enrichNow({ limit: 10 });
+  assert.deepEqual(result, {
+    scanned: 1,
+    updated: 1,
+    skipped: 0
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(repository.updates.length, 1);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(repository.updates[0]?.payload ?? {}, 'steamAppId'),
+    false
+  );
+  assert.equal(repository.updates[0]?.payload.steamEnrichmentStatus, 'no_data');
+  assert.equal(repository.updates[0]?.payload.steamEnrichedAt, '2026-03-10T00:00:00.000Z');
+});
+
 void test('discovery enrichment skips steam lookup for non-Windows discovery rows', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

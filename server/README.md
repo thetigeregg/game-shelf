@@ -12,6 +12,8 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/hltb/search`
 - `GET /v1/metacritic/search`
 - `GET /v1/mobygames/search`
+- `GET /v1/steam/prices`
+- `GET /v1/psprices/prices`
 - `GET /v1/images/proxy`
 - `GET /v1/background-jobs/stats` (admin/debug)
 - `GET /v1/background-jobs/failed` (admin/debug)
@@ -41,6 +43,12 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/mobygames/search`
   - Required: `q` (or `title`) (min length 2)
   - Optional: `platform` (MobyGames platform ID), `limit`, `offset`, `id`, `genre`, `group`, `format` (`id|brief|normal`), `include` (comma-separated field list)
+- `GET /v1/steam/prices`
+  - Required: `igdbGameId`, `platformIgdbId` (Windows-only: `6`)
+  - Optional: `cc` (ISO alpha-2 country code, defaults to `CH`)
+- `GET /v1/psprices/prices`
+  - Required: `igdbGameId`, `platformIgdbId` (supported: `48|167|130|508`)
+  - Optional: `title`, `includeCandidates` (`1|true|yes`)
 - `GET /v1/recommendations/top`
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)
@@ -86,6 +94,26 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE`
 - `MOBYGAMES_API_BASE_URL`
   - default: `https://api.mobygames.com/v2`
+- `STEAM_STORE_API_BASE_URL`
+  - default: `https://store.steampowered.com`
+- `STEAM_STORE_API_TIMEOUT_MS`
+  - default: `10000`
+- `STEAM_DEFAULT_COUNTRY`
+  - default: `CH`
+- `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
+- `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS`
+- `STEAM_PRICE_CACHE_STALE_TTL_SECONDS`
+- `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
+- `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS`
+- `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS`
+- `PRICING_REFRESH_ENABLED` (defaults to `true`; consumed by `worker-general`)
+- `PRICING_REFRESH_INTERVAL_MINUTES` (defaults to `60`; consumed by `worker-general`)
+- `PRICING_REFRESH_BATCH_SIZE` (defaults to `200`; consumed by `worker-general`)
+- `PRICING_REFRESH_STALE_HOURS` (defaults to `24`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_ENABLED` (defaults to `true`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_INTERVAL_MINUTES` (defaults to `60`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_BATCH_SIZE` (defaults to `200`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_STALE_HOURS` (defaults to `24`; consumed by `worker-general`)
 - `MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE`
 - `MOBYGAMES_CACHE_FRESH_TTL_SECONDS`
 - `MOBYGAMES_CACHE_STALE_TTL_SECONDS`
@@ -180,6 +208,10 @@ Release notification preference defaults:
 - `IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS` (default `15000`)
 - `METADATA_ENRICHMENT_JOB_CONCURRENCY` (consumed by `worker-general`; default `1`)
 - `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (consumed by `worker-general`; default `60`)
+
+Scope note:
+- IGDB metadata enrichment is intentionally limited to `games.payload.listType = 'wishlist'`.
+- Discovery rows use the separate discovery enrichment pipeline (`RECOMMENDATIONS_DISCOVERY_ENRICH_*`).
 
 ### Non-secret env vars (queued maintenance jobs)
 

@@ -4,7 +4,8 @@ import {
   getFirebaseVapidKey,
   getFirebaseWebConfig,
   isE2eFixturesEnabled,
-  isMgcImportFeatureEnabled
+  isMgcImportFeatureEnabled,
+  isTasFeatureEnabled
 } from './runtime-config';
 
 describe('runtime-config', () => {
@@ -91,6 +92,22 @@ describe('runtime-config', () => {
         featureFlags: { e2eFixtures: 42 as unknown as boolean }
       };
       expect(isE2eFixturesEnabled()).toBe(false);
+    });
+  });
+
+  describe('isTasFeatureEnabled()', () => {
+    it('returns the environment default (false) when no runtime config is set', () => {
+      expect(isTasFeatureEnabled()).toBe(false);
+    });
+
+    it('returns true when runtime config sets tasEnabled to boolean true', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+      expect(isTasFeatureEnabled()).toBe(true);
+    });
+
+    it('returns false when runtime config sets tasEnabled to boolean false', () => {
+      window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: false } };
+      expect(isTasFeatureEnabled()).toBe(false);
     });
   });
 

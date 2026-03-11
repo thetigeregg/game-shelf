@@ -81,7 +81,8 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
           keywords: ['Plumber'],
           keywordIds: [100],
           screenshots: [],
-          videos: []
+          videos: [],
+          steamAppId: 12345
         }
       ]
     ])
@@ -105,6 +106,9 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
   assert.equal(repository.updates[0]?.payload['taxonomyEnrichmentStatus'], 'success');
   assert.equal(typeof repository.updates[0]?.payload['mediaEnrichedAt'], 'string');
   assert.equal(repository.updates[0]?.payload['mediaEnrichmentStatus'], 'success');
+  assert.equal(typeof repository.updates[0]?.payload['steamEnrichedAt'], 'string');
+  assert.equal(repository.updates[0]?.payload['steamEnrichmentStatus'], 'success');
+  assert.equal(repository.updates[0]?.payload['steamAppId'], 12345);
 });
 
 void test('metadata enrichment skips when advisory lock is not acquired', async () => {
@@ -142,7 +146,8 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywords: ['K1'],
           keywordIds: [11],
           screenshots: [],
-          videos: []
+          videos: [],
+          steamAppId: 101
         }
       ],
       [
@@ -153,7 +158,8 @@ void test('metadata enrichment tolerates failed batches and still updates succes
           keywords: ['K2'],
           keywordIds: [22],
           screenshots: [],
-          videos: []
+          videos: [],
+          steamAppId: 202
         }
       ]
     ])
@@ -193,7 +199,8 @@ void test('metadata enrichment is idempotent on rerun', async () => {
           keywords: ['Retro'],
           keywordIds: [4],
           screenshots: [],
-          videos: []
+          videos: [],
+          steamAppId: 999
         }
       ]
     ])
@@ -233,8 +240,10 @@ void test('metadata enrichment marks no_data when IGDB returns no row for a fetc
   assert.equal(repository.updates.length, 1);
   assert.equal(repository.updates[0]?.payload['taxonomyEnrichmentStatus'], 'no_data');
   assert.equal(repository.updates[0]?.payload['mediaEnrichmentStatus'], 'no_data');
+  assert.equal(repository.updates[0]?.payload['steamEnrichmentStatus'], 'no_data');
   assert.equal(typeof repository.updates[0]?.payload['taxonomyEnrichedAt'], 'string');
   assert.equal(typeof repository.updates[0]?.payload['mediaEnrichedAt'], 'string');
+  assert.equal(typeof repository.updates[0]?.payload['steamEnrichedAt'], 'string');
 });
 
 void test('metadata enrichment backfills sync marker without IGDB fetch when metadata already exists', async () => {
@@ -247,6 +256,7 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
         title: 'Synced Later',
         taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
         mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        steamEnrichedAt: '2026-03-01T00:00:00.000Z',
         themes: ['Action'],
         keywords: ['Shooter'],
         screenshots: [],
@@ -287,6 +297,7 @@ void test('metadata enrichment skips row when enrichment and sync markers are al
         videos: [],
         taxonomyEnrichedAt: '2026-03-01T00:00:00.000Z',
         mediaEnrichedAt: '2026-03-01T00:00:00.000Z',
+        steamEnrichedAt: '2026-03-01T00:00:00.000Z',
         metadataSyncEnqueuedAt: '2026-03-01T00:00:00.000Z'
       }
     }

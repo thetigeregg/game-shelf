@@ -80,39 +80,6 @@
       [class.game-row-selected]="isGameSelected(getGameKey(game))"
       (click)="onGameRowClick(game, fromSimilarDetailSection === true)"
     >
-      @if (getStatusIconName(game); as statusIconName) {
-        <ion-icon
-          class="status-icon"
-          [name]="statusIconName"
-          [style.color]="getStatusIconColor(game)"
-          aria-hidden="true"
-        ></ion-icon>
-      }
-      @if (getRating(game); as rating) {
-        <div class="rating-indicator">
-          <ion-icon name="star" aria-hidden="true"></ion-icon>
-          <span>{{ formatRatingValue(rating) }}</span>
-        </div>
-      }
-      @if (getRowHltbHoursLabel(game); as mainHours) {
-        <div class="row-metadata-indicators">
-          <div class="hltb-main-indicator">
-            {{ mainHours }}
-          </div>
-          @if (hasValidRowReviewScore(game)) {
-            <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
-              {{ getRowReviewScore(game) }}
-            </div>
-          }
-        </div>
-      } @else if (hasValidRowReviewScore(game)) {
-        <div class="row-metadata-indicators">
-          <div class="metacritic-score-indicator" [ngClass]="getRowReviewBadgeClass(game)">
-            {{ getRowReviewScore(game) }}
-          </div>
-        </div>
-      }
-
       <div slot="start" class="game-art">
         <img
           [src]="getRowCoverUrl(game)"
@@ -123,27 +90,93 @@
         />
       </div>
 
-      <ion-label>
-        <h2>{{ getGameDisplayTitle(game) }}</h2>
-        @if (getGameTypeBadgeLabel(game); as gameTypeBadgeLabel) {
-          <ion-badge class="game-type-badge">
-            {{ gameTypeBadgeLabel }}
-          </ion-badge>
-        }
-        <p>{{ game.releaseYear || 'Unknown year' }}</p>
-        <p>{{ getGameDisplayPlatformLabel(game) }}</p>
-        @if (game.tags && game.tags.length > 0) {
-          <div class="game-tags">
-            @for (tag of game.tags; track tag) {
-              <ion-badge
-                [style.--background]="tag.color"
-                [style.color]="getTagTextColor(tag.color)"
-              >
-                {{ tag.name }}
-              </ion-badge>
-            }
+      <ion-label class="game-row-label">
+        <div class="game-row-content">
+          <h2 class="game-row-title">{{ getGameDisplayTitle(game) }}</h2>
+          <div class="game-row-main">
+            <div class="game-row-text">
+              @if (getGameTypeBadgeLabel(game); as gameTypeBadgeLabel) {
+                <ion-badge class="game-type-badge">
+                  {{ gameTypeBadgeLabel }}
+                </ion-badge>
+              }
+              <p>{{ game.releaseYear || 'Unknown year' }}</p>
+              <p>{{ getGameDisplayPlatformLabel(game) }}</p>
+              @if (game.tags && game.tags.length > 0) {
+                <div class="game-tags">
+                  @for (tag of game.tags; track tag) {
+                    <ion-badge
+                      [style.--background]="tag.color"
+                      [style.color]="getTagTextColor(tag.color)"
+                    >
+                      {{ tag.name }}
+                    </ion-badge>
+                  }
+                </div>
+              }
+            </div>
+            <div class="row-metadata-stack">
+              @if (getStatusIconName(game) || getRating(game)) {
+                <div class="row-metadata-group row-metadata-group-top">
+                  @if (getRating(game); as rating) {
+                    <div class="rating-indicator">
+                      <ion-icon name="star" aria-hidden="true"></ion-icon>
+                      <span>{{ formatRatingValue(rating) }}</span>
+                    </div>
+                  }
+
+                  @if (getStatusIconName(game); as statusIconName) {
+                    <div class="status-indicator">
+                      <ion-icon
+                        class="status-icon"
+                        [name]="statusIconName"
+                        [style.color]="getStatusIconColor(game)"
+                        aria-hidden="true"
+                      ></ion-icon>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div></div>
+              }
+
+              <div class="row-metadata-group row-metadata-group-bottom">
+                @if (listType === 'wishlist' && getRowPriceLabel(game); as rowPriceLabel) {
+                  <div
+                    class="price-main-indicator"
+                    [class.price-main-indicator-discount]="isRowPriceOnDiscount(game)"
+                  >
+                    {{ rowPriceLabel }}
+                  </div>
+                }
+                @if (getRowHltbHoursLabel(game); as mainHours) {
+                  <div class="row-metadata-indicators">
+                    <div class="hltb-main-indicator">
+                      {{ mainHours }}
+                    </div>
+                    @if (hasValidRowReviewScore(game)) {
+                      <div
+                        class="metacritic-score-indicator"
+                        [ngClass]="getRowReviewBadgeClass(game)"
+                      >
+                        {{ getRowReviewScore(game) }}
+                      </div>
+                    }
+                  </div>
+                } @else if (hasValidRowReviewScore(game)) {
+                  <div class="row-metadata-indicators">
+                    <div
+                      class="metacritic-score-indicator"
+                      [ngClass]="getRowReviewBadgeClass(game)"
+                    >
+                      {{ getRowReviewScore(game) }}
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
           </div>
-        }
+        </div>
       </ion-label>
     </ion-item>
 
@@ -259,33 +292,11 @@
         <ng-template>
           <ion-content>
             <ion-list lines="none">
-              <ion-item button detail="false" (click)="refreshSelectedGameMetadataFromPopover()">
-                Refresh metadata
-              </ion-item>
-              <ion-item
-                button
-                detail="false"
-                (click)="refreshSelectedGameCompletionTimesFromPopover()"
-              >
-                Update HLTB data
-              </ion-item>
-              <ion-item button detail="false" (click)="refreshSelectedGameReviewFromPopover()">
-                Update review data
-              </ion-item>
-              <ion-item button detail="false" (click)="openFixHltbMatchFromPopover()">
-                Fix HLTB match
-              </ion-item>
-              <ion-item button detail="false" (click)="openFixReviewMatchFromPopover()">
-                Fix review match
-              </ion-item>
-              <ion-item button detail="false" (click)="openImagePickerFromPopover()">
-                Update image
-              </ion-item>
-              <ion-item button detail="false" (click)="openFixMatchFromPopover()">
-                Fix IGDB match
-              </ion-item>
               <ion-item button detail="false" (click)="openEditMetadataFromPopover()">
-                Edit metadata
+                Customize
+              </ion-item>
+              <ion-item button detail="false" (click)="openExternalMetadataFromPopover()">
+                External metadata
               </ion-item>
               @if (shouldShowFindManualButton) {
                 <ion-item button detail="false" (click)="openManualPickerFromPopover()">
@@ -330,6 +341,66 @@
         ></ng-container>
       }
     }
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isExternalMetadataModalOpen" (didDismiss)="closeExternalMetadataModal()">
+  <ng-template>
+    <ion-header [translucent]="true">
+      <ion-toolbar>
+        <ion-title>External Metadata</ion-title>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="clear"
+            aria-label="Close external metadata"
+            (click)="closeExternalMetadataModal()"
+          >
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <ion-list>
+        @if (selectedGame; as game) {
+          <ion-list-header>
+            <ion-label>{{ game.title }}</ion-label>
+          </ion-list-header>
+        }
+
+        <ion-item button detail="true" lines="full" (click)="startExternalMetadataAction('fix')">
+          Fix match
+        </ion-item>
+        <ion-item
+          button
+          detail="true"
+          lines="full"
+          (click)="startExternalMetadataAction('refresh')"
+        >
+          Refresh data
+        </ion-item>
+      </ion-list>
+      <ion-item style="display: none">
+        <ion-select
+          #externalMetadataProviderSelect
+          [(ngModel)]="externalMetadataProvider"
+          interface="alert"
+          [interfaceOptions]="{
+            header: externalMetadataPendingAction === 'fix' ? 'Fix match' : 'Refresh data'
+          }"
+          (ionChange)="onExternalMetadataProviderChange($event)"
+          (ionDismiss)="onExternalMetadataProviderDismiss()"
+        >
+          <ion-select-option value="igdb">IGDB</ion-select-option>
+          <ion-select-option value="image">Image</ion-select-option>
+          <ion-select-option value="hltb">HLTB</ion-select-option>
+          <ion-select-option value="review">Review</ion-select-option>
+          @if (shouldShowExternalMetadataPricingOption()) {
+            <ion-select-option value="pricing">Pricing</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+    </ion-content>
   </ng-template>
 </ion-modal>
 
@@ -647,15 +718,11 @@
   (change)="onCustomCoverFileSelected($event)"
 />
 
-<ion-modal
-  [isOpen]="isEditMetadataModalOpen"
-  [presentingElement]="gameDetailModalElement"
-  (didDismiss)="closeEditMetadataModal()"
->
+<ion-modal [isOpen]="isEditMetadataModalOpen" (didDismiss)="closeEditMetadataModal()">
   <ng-template>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Edit Metadata</ion-title>
+        <ion-title>Customize</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" (click)="closeEditMetadataModal()"> Close </ion-button>
         </ion-buttons>
@@ -1090,6 +1157,95 @@
           fill="outline"
           [disabled]="isReviewPickerLoading"
           (click)="useOriginalReviewLookup()"
+        >
+          Use Original Match
+        </ion-button>
+      </ion-item>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-modal [isOpen]="isPricingPickerModalOpen" (didDismiss)="closePricingPickerModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Select Pricing Match</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="closePricingPickerModal()">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding gs-safe-bottom">
+      <ion-item lines="none">
+        <ion-searchbar
+          [value]="pricingPickerQuery"
+          placeholder="Search Pricing"
+          show-clear-button="focus"
+          (ionInput)="onPricingPickerQueryChange($event)"
+        ></ion-searchbar>
+        <ion-button
+          slot="end"
+          [disabled]="isPricingPickerLoading"
+          (click)="runPricingPickerSearch()"
+          >Search</ion-button
+        >
+      </ion-item>
+
+      @if (isPricingPickerLoading) {
+        <div class="picker-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerError) {
+        <p class="picker-state ion-text-center">
+          {{ pricingPickerError }}
+        </p>
+      }
+
+      @if (
+        hasPricingPickerSearched &&
+        !isPricingPickerLoading &&
+        !pricingPickerError &&
+        pricingPickerResults.length === 0
+      ) {
+        <p class="picker-state ion-text-center">No pricing candidates found.</p>
+      }
+
+      @if (!isPricingPickerLoading && pricingPickerResults.length > 0) {
+        <ion-list>
+          @for (candidate of pricingPickerResults; track candidate) {
+            <ion-item button detail="false" (click)="applySelectedPricingCandidate(candidate)">
+              <ion-label>
+                <h2>{{ candidate.title }}</h2>
+                <p>
+                  Price:
+                  <strong>
+                    {{
+                      candidate.isFree
+                        ? 'Free'
+                        : (candidate.amount ?? '?') + ' ' + (candidate.currency ?? '')
+                    }}
+                  </strong>
+                </p>
+                <p>
+                  Regular: {{ candidate.regularAmount ?? '?' }} {{ candidate.currency ?? '' }} ·
+                  Discount: {{ candidate.discountPercent ?? 0 }}% · Match:
+                  {{ candidate.score ?? '?' }}
+                </p>
+              </ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+
+      <ion-item lines="none">
+        <ion-button
+          expand="block"
+          fill="outline"
+          [disabled]="isPricingPickerLoading"
+          (click)="useOriginalPricingLookup()"
         >
           Use Original Match
         </ion-button>

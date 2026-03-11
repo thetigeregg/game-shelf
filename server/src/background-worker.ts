@@ -12,16 +12,40 @@ import { processQueuedHltbCacheRevalidation } from './hltb-cache.js';
 import { processQueuedManualsCatalogRefresh } from './manuals.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
+import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { RecommendationService } from './recommendations/service.js';
-import { RecommendationTarget } from './recommendations/types.js';
+import { processQueuedSteamPriceRevalidation } from './steam-prices.js';
+import {
+  DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES,
+  RecommendationRuntimeMode,
+  RecommendationTarget
+} from './recommendations/types.js';
 import { releaseMonitorInternals } from './release-monitor.js';
+import type { QueryResultRow } from 'pg';
 
 const RECOMMENDATION_SCHEDULER_INTERVAL_MS = 15 * 60 * 1000;
 const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', 'DISCOVERY'];
+const DISCOVERY_RUNTIME_MODES: RecommendationRuntimeMode[] = ['NEUTRAL', 'SHORT', 'LONG'];
+const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
+const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
+
+interface PricingRefreshCandidateRow extends QueryResultRow {
+  igdb_game_id: string;
+  platform_igdb_id: number;
+  payload: unknown;
+}
+
+interface PricingRefreshEnqueueStats {
+  considered: number;
+  staleEligible: number;
+  enqueued: number;
+  deduped: number;
+  skippedMissingData: number;
+}
 export type BackgroundWorkerMode = 'all' | 'general' | 'recommendations';
 
 export function readDiscoveryEnrichmentApiBaseUrl(): string {
@@ -49,6 +73,78 @@ export function isRecommendationTarget(value: unknown): value is RecommendationT
 
 export function stringOrEmpty(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+export function shouldRunPricingRefreshPhase(params: {
+  enabled: boolean;
+  trigger: 'startup' | 'interval';
+  nowMs: number;
+  lastRunMs: number;
+  intervalMinutes: number;
+}): boolean {
+  if (!params.enabled) {
+    return false;
+  }
+  if (params.trigger === 'startup') {
+    return true;
+  }
+  const intervalMs = Math.max(1, params.intervalMinutes) * 60 * 1000;
+  return params.nowMs - params.lastRunMs >= intervalMs;
+}
+
+function normalizePayloadObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      return null;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | null {
+  const candidates = [
+    payload['priceFetchedAt'],
+    payload['steamPriceFetchedAt'],
+    payload['psPricesFetchedAt']
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeNonEmptyString(candidate);
+    if (!normalized) {
+      continue;
+    }
+    const parsedMs = Date.parse(normalized);
+    if (Number.isFinite(parsedMs)) {
+      return parsedMs;
+    }
+  }
+
+  return null;
 }
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
@@ -98,19 +194,29 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
-  const discoveryEnrichmentService = new DiscoveryEnrichmentService(recommendationRepository, {
-    enabled: config.recommendationsDiscoveryEnrichEnabled,
-    startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
-    intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
-    maxGamesPerRun: config.recommendationsDiscoveryEnrichMaxGamesPerRun,
-    requestTimeoutMs: config.recommendationsDiscoveryEnrichRequestTimeoutMs,
-    apiBaseUrl: readDiscoveryEnrichmentApiBaseUrl(),
-    maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
-    backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
-    backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
-    rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
-    rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
+  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
   });
+  const discoveryEnrichmentService = new DiscoveryEnrichmentService(
+    recommendationRepository,
+    {
+      enabled: config.recommendationsDiscoveryEnrichEnabled,
+      startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
+      intervalMinutes: config.recommendationsDiscoveryEnrichIntervalMinutes,
+      maxGamesPerRun: config.recommendationsDiscoveryEnrichMaxGamesPerRun,
+      requestTimeoutMs: config.recommendationsDiscoveryEnrichRequestTimeoutMs,
+      apiBaseUrl: readDiscoveryEnrichmentApiBaseUrl(),
+      maxAttempts: config.recommendationsDiscoveryEnrichMaxAttempts,
+      backoffBaseMinutes: config.recommendationsDiscoveryEnrichBackoffBaseMinutes,
+      backoffMaxHours: config.recommendationsDiscoveryEnrichBackoffMaxHours,
+      rearmAfterDays: config.recommendationsDiscoveryEnrichRearmAfterDays,
+      rearmRecentReleaseYears: config.recommendationsDiscoveryEnrichRearmRecentReleaseYears
+    },
+    () => Date.now(),
+    metadataEnrichmentClient
+  );
   const recommendationService = new RecommendationService(
     recommendationRepository,
     {
@@ -157,11 +263,6 @@ async function main(): Promise<void> {
       discoveryEnrichmentService
     }
   );
-  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
-    twitchClientId: config.twitchClientId,
-    twitchClientSecret: config.twitchClientSecret,
-    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
-  });
   const metadataEnrichmentRepository = new MetadataEnrichmentRepository(pool);
   const metadataEnrichmentService = new MetadataEnrichmentService(
     metadataEnrichmentRepository,
@@ -232,6 +333,9 @@ async function main(): Promise<void> {
   let backgroundJobsCleanupTimer: ReturnType<typeof setInterval> | null = null;
   let queueStatsTimer: ReturnType<typeof setInterval> | null = null;
   let staleJobRecoveryTimer: ReturnType<typeof setInterval> | null = null;
+  let pricingRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  let lastWishlistPricingRefreshRunMs = 0;
+  let lastDiscoveryPricingRefreshRunMs = 0;
 
   const stopTimers = (): void => {
     if (metadataStartupTimer) {
@@ -261,6 +365,10 @@ async function main(): Promise<void> {
     if (staleJobRecoveryTimer) {
       clearInterval(staleJobRecoveryTimer);
       staleJobRecoveryTimer = null;
+    }
+    if (pricingRefreshTimer) {
+      clearInterval(pricingRefreshTimer);
+      pricingRefreshTimer = null;
     }
   };
 
@@ -495,6 +603,295 @@ async function main(): Promise<void> {
     }
   };
 
+  const enqueuePricingRefreshForRows = async (params: {
+    rows: PricingRefreshCandidateRow[];
+    queueLimit: number;
+    staleThresholdMs: number;
+    dedupePrefix: string;
+  }): Promise<PricingRefreshEnqueueStats> => {
+    const stats: PricingRefreshEnqueueStats = {
+      considered: 0,
+      staleEligible: 0,
+      enqueued: 0,
+      deduped: 0,
+      skippedMissingData: 0
+    };
+    const steamCountry = config.steamDefaultCountry;
+    const pspricesRegion = config.pspricesRegionPath.toLowerCase();
+    const pspricesShow = config.pspricesShow.toLowerCase();
+
+    for (const row of params.rows) {
+      if (stats.enqueued >= params.queueLimit) {
+        break;
+      }
+
+      const payload = normalizePayloadObject(row.payload);
+      if (!payload) {
+        continue;
+      }
+      stats.considered += 1;
+
+      const fetchedAtMs = resolvePriceFetchedAtMs(payload);
+      if (fetchedAtMs !== null && fetchedAtMs > params.staleThresholdMs) {
+        continue;
+      }
+      stats.staleEligible += 1;
+
+      if (row.platform_igdb_id === STEAM_WINDOWS_PLATFORM_IGDB_ID) {
+        const steamAppId = normalizePositiveInteger(payload['steamAppId']);
+        if (steamAppId === null) {
+          stats.skippedMissingData += 1;
+          continue;
+        }
+
+        const dedupeKey = `${params.dedupePrefix}:steam:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`;
+        const enqueueResult = await jobs.enqueue({
+          jobType: 'steam_price_revalidate',
+          dedupeKey,
+          payload: {
+            cacheKey: `${params.dedupePrefix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${steamCountry}:${String(steamAppId)}`,
+            igdbGameId: row.igdb_game_id,
+            platformIgdbId: row.platform_igdb_id,
+            cc: steamCountry,
+            steamAppId
+          },
+          priority: 120,
+          maxAttempts: 3
+        });
+
+        if (enqueueResult.deduped) {
+          stats.deduped += 1;
+        } else {
+          stats.enqueued += 1;
+        }
+        continue;
+      }
+
+      if (!PSPRICES_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
+        continue;
+      }
+
+      const title = normalizeNonEmptyString(payload['title']);
+      if (!title) {
+        stats.skippedMissingData += 1;
+        continue;
+      }
+
+      const dedupeKey = `${params.dedupePrefix}:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`;
+      const enqueueResult = await jobs.enqueue({
+        jobType: 'psprices_price_revalidate',
+        dedupeKey,
+        payload: {
+          cacheKey: `${params.dedupePrefix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
+          igdbGameId: row.igdb_game_id,
+          platformIgdbId: row.platform_igdb_id,
+          title
+        },
+        priority: 120,
+        maxAttempts: 3
+      });
+
+      if (enqueueResult.deduped) {
+        stats.deduped += 1;
+      } else {
+        stats.enqueued += 1;
+      }
+    }
+
+    return stats;
+  };
+
+  const scheduleWishlistPricingRefreshJobs =
+    async (): Promise<PricingRefreshEnqueueStats | null> => {
+      if (shuttingDown) {
+        return null;
+      }
+
+      const startedAt = Date.now();
+      const staleThresholdMs =
+        Date.now() - Math.max(1, config.pricingRefreshStaleHours) * 3600 * 1000;
+      const scanLimit = Math.max(1, Math.min(5000, config.pricingRefreshBatchSize * 5));
+      const queueLimit = Math.max(1, Math.min(1000, config.pricingRefreshBatchSize));
+
+      try {
+        const rows = await pool.query<PricingRefreshCandidateRow>(
+          `
+        SELECT igdb_game_id, platform_igdb_id, payload
+        FROM games
+        WHERE payload->>'listType' = 'wishlist'
+          AND (platform_igdb_id = $1 OR platform_igdb_id = ANY($2::int[]))
+        ORDER BY updated_at ASC
+        LIMIT $3
+        `,
+          [STEAM_WINDOWS_PLATFORM_IGDB_ID, [...PSPRICES_PLATFORM_IGDB_IDS], scanLimit]
+        );
+
+        const stats = await enqueuePricingRefreshForRows({
+          rows: rows.rows,
+          queueLimit,
+          staleThresholdMs,
+          dedupePrefix: 'pricing-refresh:wishlist'
+        });
+
+        console.info('[background-worker] pricing_refresh_wishlist_phase_done', {
+          ...stats,
+          batchSize: queueLimit,
+          staleHours: config.pricingRefreshStaleHours,
+          durationMs: Date.now() - startedAt,
+          marker: 'wishlist_phase_done'
+        });
+
+        return stats;
+      } catch (error) {
+        console.error('[background-worker] pricing_refresh_wishlist_phase_failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return null;
+      }
+    };
+
+  const scheduleDiscoveryPricingRefreshJobs =
+    async (): Promise<PricingRefreshEnqueueStats | null> => {
+      if (shuttingDown) {
+        return null;
+      }
+
+      const startedAt = Date.now();
+      const staleThresholdMs =
+        Date.now() - Math.max(1, config.discoveryPricingRefreshStaleHours) * 3600 * 1000;
+      const queueLimit = Math.max(1, Math.min(1000, config.discoveryPricingRefreshBatchSize));
+      const scanLimit = Math.max(1, Math.min(5000, config.discoveryPricingRefreshBatchSize * 5));
+      const perModeTopLimit = Math.max(1, config.recommendationsTopLimit);
+
+      try {
+        const rows = await pool.query<PricingRefreshCandidateRow>(
+          `
+        WITH latest_run AS (
+          SELECT id
+          FROM recommendation_runs
+          WHERE target = 'DISCOVERY' AND status = 'SUCCESS'
+          ORDER BY started_at DESC
+          LIMIT 1
+        ),
+        ranked AS (
+          SELECT
+            recommendations.runtime_mode,
+            recommendations.igdb_game_id,
+            recommendations.platform_igdb_id,
+            ROW_NUMBER() OVER (
+              PARTITION BY recommendations.runtime_mode
+              ORDER BY recommendations.rank ASC
+            ) AS runtime_rank
+          FROM recommendations
+          INNER JOIN latest_run ON latest_run.id = recommendations.run_id
+          INNER JOIN games
+            ON games.igdb_game_id = recommendations.igdb_game_id
+           AND games.platform_igdb_id = recommendations.platform_igdb_id
+          WHERE recommendations.runtime_mode = ANY($1::text[])
+            AND COALESCE(games.payload->>'listType', '') = 'discovery'
+            AND COALESCE(games.payload->>'status', '') = ANY($2::text[])
+        ),
+        deduped AS (
+          SELECT DISTINCT igdb_game_id, platform_igdb_id
+          FROM ranked
+          WHERE runtime_rank <= $3
+        )
+        SELECT games.igdb_game_id, games.platform_igdb_id, games.payload
+        FROM deduped
+        INNER JOIN games
+          ON games.igdb_game_id = deduped.igdb_game_id
+         AND games.platform_igdb_id = deduped.platform_igdb_id
+        WHERE COALESCE(games.payload->>'listType', '') = 'discovery'
+        ORDER BY games.updated_at ASC
+        LIMIT $4
+        `,
+          [
+            DISCOVERY_RUNTIME_MODES,
+            [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES],
+            perModeTopLimit,
+            scanLimit
+          ]
+        );
+
+        const stats = await enqueuePricingRefreshForRows({
+          rows: rows.rows,
+          queueLimit,
+          staleThresholdMs,
+          dedupePrefix: 'pricing-refresh:discovery'
+        });
+
+        console.info('[background-worker] pricing_refresh_discovery_phase_done', {
+          ...stats,
+          batchSize: queueLimit,
+          staleHours: config.discoveryPricingRefreshStaleHours,
+          discoveryRuntimeModes: DISCOVERY_RUNTIME_MODES,
+          perModeTopLimit,
+          durationMs: Date.now() - startedAt,
+          marker: 'discovery_phase_done'
+        });
+
+        return stats;
+      } catch (error) {
+        console.error('[background-worker] pricing_refresh_discovery_phase_failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return null;
+      }
+    };
+
+  const runPricingRefreshCycle = async (trigger: 'startup' | 'interval'): Promise<void> => {
+    if (shuttingDown) {
+      return;
+    }
+
+    const cycleStartedAt = Date.now();
+    const nowMs = Date.now();
+    const shouldRunWishlist = shouldRunPricingRefreshPhase({
+      enabled: config.pricingRefreshEnabled,
+      trigger,
+      nowMs,
+      lastRunMs: lastWishlistPricingRefreshRunMs,
+      intervalMinutes: config.pricingRefreshIntervalMinutes
+    });
+    const shouldRunDiscovery = shouldRunPricingRefreshPhase({
+      enabled: config.discoveryPricingRefreshEnabled,
+      trigger,
+      nowMs,
+      lastRunMs: lastDiscoveryPricingRefreshRunMs,
+      intervalMinutes: config.discoveryPricingRefreshIntervalMinutes
+    });
+
+    let wishlistStats: PricingRefreshEnqueueStats | null = null;
+    let discoveryStats: PricingRefreshEnqueueStats | null = null;
+
+    if (shouldRunWishlist) {
+      wishlistStats = await scheduleWishlistPricingRefreshJobs();
+      if (wishlistStats !== null) {
+        lastWishlistPricingRefreshRunMs = Date.now();
+      }
+    }
+
+    if (shouldRunDiscovery) {
+      discoveryStats = await scheduleDiscoveryPricingRefreshJobs();
+      if (discoveryStats !== null) {
+        lastDiscoveryPricingRefreshRunMs = Date.now();
+      }
+    }
+
+    if (!shouldRunWishlist && !shouldRunDiscovery) {
+      return;
+    }
+
+    console.info('[background-worker] pricing_refresh_cycle_done', {
+      trigger,
+      shouldRunWishlist,
+      shouldRunDiscovery,
+      wishlistEnqueued: wishlistStats?.enqueued ?? 0,
+      discoveryEnqueued: discoveryStats?.enqueued ?? 0,
+      durationMs: Date.now() - cycleStartedAt
+    });
+  };
+
   const dispatchJob = async (job: ClaimedBackgroundJob): Promise<Record<string, unknown>> => {
     switch (job.jobType) {
       case 'recommendations_rebuild': {
@@ -548,6 +945,34 @@ async function main(): Promise<void> {
         });
         return { revalidated: true };
       }
+      case 'steam_price_revalidate': {
+        await processQueuedSteamPriceRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
+          platformIgdbId:
+            typeof job.payload['platformIgdbId'] === 'number'
+              ? job.payload['platformIgdbId']
+              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          cc: stringOrEmpty(job.payload['cc']),
+          steamAppId:
+            typeof job.payload['steamAppId'] === 'number'
+              ? job.payload['steamAppId']
+              : Number.parseInt(stringOrEmpty(job.payload['steamAppId']), 10)
+        });
+        return { revalidated: true };
+      }
+      case 'psprices_price_revalidate': {
+        await processQueuedPspricesPriceRevalidation(pool, {
+          cacheKey: stringOrEmpty(job.payload['cacheKey']),
+          igdbGameId: stringOrEmpty(job.payload['igdbGameId']),
+          platformIgdbId:
+            typeof job.payload['platformIgdbId'] === 'number'
+              ? job.payload['platformIgdbId']
+              : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
+          title: stringOrEmpty(job.payload['title'])
+        });
+        return { revalidated: true };
+      }
       case 'manuals_catalog_refresh': {
         const summary = await processQueuedManualsCatalogRefresh(pool, config.manualsDir);
         return { summary };
@@ -574,7 +999,9 @@ async function main(): Promise<void> {
     } else if (
       job.jobType === 'hltb_cache_revalidate' ||
       job.jobType === 'metacritic_cache_revalidate' ||
-      job.jobType === 'mobygames_cache_revalidate'
+      job.jobType === 'mobygames_cache_revalidate' ||
+      job.jobType === 'steam_price_revalidate' ||
+      job.jobType === 'psprices_price_revalidate'
     ) {
       context.cacheKey = job.payload['cacheKey'];
     }
@@ -672,6 +1099,8 @@ async function main(): Promise<void> {
     startConsumers('hltb_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('metacritic_cache_revalidate', cacheRevalidationConcurrency);
     startConsumers('mobygames_cache_revalidate', cacheRevalidationConcurrency);
+    startConsumers('steam_price_revalidate', cacheRevalidationConcurrency);
+    startConsumers('psprices_price_revalidate', cacheRevalidationConcurrency);
     startConsumers('manuals_catalog_refresh', manualsCatalogConcurrency);
 
     void runRecommendationSchedulerTick();
@@ -719,6 +1148,23 @@ async function main(): Promise<void> {
       Math.max(1, queueStatsIntervalMinutes) * 60 * 1000
     );
     void logQueuePressure();
+    const pricingRefreshCycleIntervalMinutes = (() => {
+      const intervals: number[] = [];
+      if (config.pricingRefreshEnabled) {
+        intervals.push(Math.max(1, config.pricingRefreshIntervalMinutes));
+      }
+      if (config.discoveryPricingRefreshEnabled) {
+        intervals.push(Math.max(1, config.discoveryPricingRefreshIntervalMinutes));
+      }
+      return intervals.length > 0 ? Math.min(...intervals) : 60;
+    })();
+    pricingRefreshTimer = setInterval(
+      () => {
+        void runPricingRefreshCycle('interval');
+      },
+      pricingRefreshCycleIntervalMinutes * 60 * 1000
+    );
+    void runPricingRefreshCycle('startup');
   }
 
   console.info('[background-worker] started', {
@@ -740,6 +1186,16 @@ async function main(): Promise<void> {
     recommendationRunRecoveryMinutes,
     backgroundJobHeartbeatSeconds,
     discoveryIntervalMinutes,
+    pricingRefreshCycleEnabled:
+      config.pricingRefreshEnabled || config.discoveryPricingRefreshEnabled,
+    pricingRefreshEnabled: config.pricingRefreshEnabled,
+    pricingRefreshIntervalMinutes: config.pricingRefreshIntervalMinutes,
+    pricingRefreshBatchSize: config.pricingRefreshBatchSize,
+    pricingRefreshStaleHours: config.pricingRefreshStaleHours,
+    discoveryPricingRefreshEnabled: config.discoveryPricingRefreshEnabled,
+    discoveryPricingRefreshIntervalMinutes: config.discoveryPricingRefreshIntervalMinutes,
+    discoveryPricingRefreshBatchSize: config.discoveryPricingRefreshBatchSize,
+    discoveryPricingRefreshStaleHours: config.discoveryPricingRefreshStaleHours,
     workerMode,
     runGeneralWork,
     runRecommendationRebuildWork,

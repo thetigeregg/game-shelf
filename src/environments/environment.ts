@@ -18,7 +18,8 @@ export const environment = {
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,
-    recommendationsExploreEnabled: true
+    recommendationsExploreEnabled: true,
+    tasEnabled: false
   }
 };
 

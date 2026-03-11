@@ -1,3 +1,4 @@
+import { afterEach } from 'vitest';
 import { DEFAULT_GAME_LIST_FILTERS } from '../core/models/game.models';
 import {
   normalizeListPageGroupBy,
@@ -7,6 +8,10 @@ import {
 } from './list-page-preferences';
 
 describe('list-page-preferences', () => {
+  afterEach(() => {
+    delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+  });
+
   it('returns null when no stored preferences exist', () => {
     expect(parseListPagePreferences(null, '__none__')).toBeNull();
     expect(parseListPagePreferences('', '__none__')).toBeNull();
@@ -122,7 +127,21 @@ describe('list-page-preferences', () => {
     expect(normalized.sortDirection).toBe('asc');
   });
 
-  it('accepts tas as a valid sort field from stored preferences', () => {
+  it('falls back from tas sort field when tas feature is disabled', () => {
+    const normalized = normalizeListPageStoredFilters(
+      {
+        sortField: 'tas',
+        sortDirection: 'desc'
+      },
+      '__none__'
+    );
+
+    expect(normalized.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
+    expect(normalized.sortDirection).toBe('desc');
+  });
+
+  it('accepts tas as a valid sort field from stored preferences when tas feature is enabled', () => {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
     const normalized = normalizeListPageStoredFilters(
       {
         sortField: 'tas',

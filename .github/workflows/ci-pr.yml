@@ -157,29 +157,7 @@ jobs:
 
       - name: Write production Firebase environment (edge parity check)
         if: matrix.image == 'edge'
-        run: |
-          cat > src/environments/environment.prod.ts <<-EOF
-          	export const environment = {
-          	  production: true,
-          	  gameApiBaseUrl: '/api',
-          	  manualsBaseUrl: '/manuals',
-          	  firebase: {
-          	    apiKey: 'ci-placeholder',
-          	    authDomain: 'ci-placeholder',
-          	    projectId: 'ci-placeholder',
-          	    storageBucket: 'ci-placeholder',
-          	    messagingSenderId: 'ci-placeholder',
-          	    appId: 'ci-placeholder',
-          	  },
-          	  firebaseVapidKey: 'ci-placeholder',
-          	  featureFlags: {
-          	    showMgcImport: false,
-          	    e2eFixtures: false,
-          	    recommendationsExploreEnabled: true,
-          	    tasEnabled: false,
-          	  },
-          	};
-          	EOF
+        run: bash scripts/write-environment-prod.sh ci
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

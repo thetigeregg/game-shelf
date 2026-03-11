@@ -47,7 +47,7 @@ function normalizePlatform(req) {
 function normalizeRegion(req) {
   const value = String(req.query.region ?? '').trim();
   const normalized = value.length > 0 ? value : defaultRegionPath;
-  return normalized.replace(/^\/+|\/+$/g, '');
+  return normalized.replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
 function normalizeShow(req) {

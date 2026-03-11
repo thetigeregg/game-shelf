@@ -13,6 +13,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/metacritic/search`
 - `GET /v1/mobygames/search`
 - `GET /v1/steam/prices`
+- `GET /v1/psprices/prices`
 - `GET /v1/images/proxy`
 - `GET /v1/background-jobs/stats` (admin/debug)
 - `GET /v1/background-jobs/failed` (admin/debug)
@@ -45,6 +46,9 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 - `GET /v1/steam/prices`
   - Required: `igdbGameId`, `platformIgdbId` (Windows-only: `6`)
   - Optional: `cc` (ISO alpha-2 country code, defaults to `CH`)
+- `GET /v1/psprices/prices`
+  - Required: `igdbGameId`, `platformIgdbId` (supported: `48|167|130|508`)
+  - Optional: `title`, `includeCandidates` (`1|true|yes`)
 - `GET /v1/recommendations/top`
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)

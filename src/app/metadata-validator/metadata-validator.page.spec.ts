@@ -995,6 +995,64 @@ describe('MetadataValidatorPage', () => {
     expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalled();
   });
 
+  it('covers bulk pricing helper branches for supported/unsupported and fallback paths', async () => {
+    const { page, shelf } = createPageHarness();
+    const unsupported = createGame({ igdbGameId: '20', platformIgdbId: 3, title: 'Console' });
+    const supported = createGame({ igdbGameId: '21', platformIgdbId: 167, title: 'PS Test' });
+
+    await (callPrivate(page, 'refreshPricingForBulkGame', unsupported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('20', 3);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(of([]));
+    await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('21', 167);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(
+      of([{ title: 'PS Test Candidate', amount: 19.9 } as PriceMatchCandidate])
+    );
+    await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('21', 167, {
+      title: 'PS Test Candidate'
+    });
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(
+      throwError(() => new Error('temporary down'))
+    );
+    await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('21', 167);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(
+      throwError(() => new Error('Rate limit exceeded. Retry after 10s.'))
+    );
+    await expect(
+      callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>
+    ).rejects.toThrow();
+  });
+
+  it('covers selection sync, review modal wrapper, and hltb non-rate-limit fallback trace', async () => {
+    const { page, shelf, debugTrace } = createPageHarness();
+    const visible = createGame({ igdbGameId: '32', platformIgdbId: 6, title: 'Visible' });
+
+    setField(page, 'displayedGames', [visible]);
+    setField(page, 'selectedGameKeys', new Set(['31::6', '32::6']));
+    callPrivate(page, 'syncSelectionToDisplayedGames');
+    expect((page as unknown as { selectedGameKeys: Set<string> }).selectedGameKeys).toEqual(
+      new Set(['32::6'])
+    );
+
+    const openMetacriticPickerModal = vi.fn(() => Promise.resolve(undefined));
+    setField(page, 'openMetacriticPickerModal', openMetacriticPickerModal);
+    await (callPrivate(page, 'openReviewPickerModal', visible) as Promise<void>);
+    expect(openMetacriticPickerModal).toHaveBeenCalledWith(visible);
+
+    shelf.searchHltbCandidates.mockReturnValueOnce(throwError(() => new Error('temporary down')));
+    await (callPrivate(page, 'refreshHltbForBulkGame', visible) as Promise<GameEntry>);
+    expect(debugTrace).toHaveBeenCalledWith(
+      'metadata_validator.bulk_hltb.candidate_search_failed',
+      expect.objectContaining({ gameKey: '32::6' })
+    );
+  });
+
   it('handles metacritic picker short query, no-match, success, and error paths', async () => {
     const { page, shelf, presentToast } = createPageHarness();
     const target = createGame({ igdbGameId: '11', platformIgdbId: 6, title: 'Target' });

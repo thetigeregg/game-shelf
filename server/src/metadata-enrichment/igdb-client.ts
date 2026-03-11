@@ -52,7 +52,8 @@ export class MetadataEnrichmentIgdbClient {
         'themes.id,themes.name',
         'keywords.id,keywords.name',
         'screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height',
-        'videos.id,videos.name,videos.video_id;'
+        'videos.id,videos.name,videos.video_id',
+        'external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform;'
       ].join(','),
       `limit ${String(normalizedIds.length)};`
     ].join(' ');
@@ -94,7 +95,8 @@ export class MetadataEnrichmentIgdbClient {
         }),
         videos: normalizeIgdbVideoList((row as { videos?: unknown }).videos, {
           limit: 5
-        })
+        }),
+        steamAppId: normalizeSteamAppId((row as { external_games?: unknown }).external_games)
       });
     }
 
@@ -213,4 +215,46 @@ function normalizeIdList(value: unknown): number[] {
         .filter((entry) => Number.isInteger(entry) && entry > 0)
     )
   ];
+}
+
+const STEAM_EXTERNAL_GAME_SOURCE_ID = 1;
+const STEAM_EXTERNAL_GAME_CATEGORY_ID = 1;
+const STEAM_URL_APP_ID_PATTERN = /store\.steampowered\.com\/app\/(\d+)/i;
+
+function normalizeSteamAppId(value: unknown): number | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+
+    const record = entry as Record<string, unknown>;
+    const externalGameSourceId = parsePositiveInteger(record['external_game_source']);
+    const categoryId = parsePositiveInteger(record['category']);
+    const isSteamBySource = externalGameSourceId === STEAM_EXTERNAL_GAME_SOURCE_ID;
+    const isSteamByDeprecatedCategory = categoryId === STEAM_EXTERNAL_GAME_CATEGORY_ID;
+
+    if (!isSteamBySource && !isSteamByDeprecatedCategory) {
+      continue;
+    }
+
+    const uidAppId = parsePositiveInteger(record['uid']);
+    if (uidAppId !== null) {
+      return uidAppId;
+    }
+
+    const urlValue = typeof record['url'] === 'string' ? record['url'].trim() : '';
+    const match = STEAM_URL_APP_ID_PATTERN.exec(urlValue);
+    if (match) {
+      const parsedFromUrl = parsePositiveInteger(match[1]);
+      if (parsedFromUrl !== null) {
+        return parsedFromUrl;
+      }
+    }
+  }
+
+  return null;
 }

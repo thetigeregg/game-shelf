@@ -42,7 +42,15 @@ function makeGame(
     reviewScore: partial.reviewScore,
     reviewSource: partial.reviewSource,
     reviewUrl: partial.reviewUrl,
-    mobyScore: partial.mobyScore
+    mobyScore: partial.mobyScore,
+    priceAmount: partial.priceAmount ?? null,
+    priceRegularAmount: partial.priceRegularAmount ?? null,
+    priceDiscountPercent: partial.priceDiscountPercent ?? null,
+    priceIsFree: partial.priceIsFree ?? null,
+    priceCurrency: partial.priceCurrency ?? null,
+    priceSource: partial.priceSource ?? null,
+    priceFetchedAt: partial.priceFetchedAt ?? null,
+    priceUrl: partial.priceUrl ?? null
   };
 }
 
@@ -50,9 +58,17 @@ describe('GameListFilteringEngine UI behavior', () => {
   const noneTagFilterValue = '__none__';
   let engine: GameListFilteringEngine;
 
+  afterEach(() => {
+    delete window.__GAME_SHELF_RUNTIME_CONFIG__;
+  });
+
   beforeEach(() => {
     engine = new GameListFilteringEngine(noneTagFilterValue);
   });
+
+  function enableTasFeature(): void {
+    window.__GAME_SHELF_RUNTIME_CONFIG__ = { featureFlags: { tasEnabled: true } };
+  }
 
   it('normalizes filters and swaps invalid hltb range', () => {
     const normalized = engine.normalizeFilters({
@@ -831,6 +847,47 @@ describe('GameListFilteringEngine UI behavior', () => {
     ]);
   });
 
+  it('sorts by price and always keeps missing price last', () => {
+    const games: GameEntry[] = [
+      makeGame({ igdbGameId: '1', platformIgdbId: 6, title: 'No Price' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 6, title: 'Priced High', priceAmount: 59.9 }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 6, title: 'Priced Low', priceAmount: 19.9 }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 6, title: 'Free', priceIsFree: true })
+    ];
+
+    const asc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'price',
+        sortDirection: 'asc'
+      },
+      ''
+    );
+    expect(asc.map((game) => game.title)).toEqual([
+      'Free',
+      'Priced Low',
+      'Priced High',
+      'No Price'
+    ]);
+
+    const desc = engine.applyFiltersAndSort(
+      games,
+      {
+        ...DEFAULT_GAME_LIST_FILTERS,
+        sortField: 'price',
+        sortDirection: 'desc'
+      },
+      ''
+    );
+    expect(desc.map((game) => game.title)).toEqual([
+      'Priced High',
+      'Priced Low',
+      'Free',
+      'No Price'
+    ]);
+  });
+
   it('uses title fallback when effective hltb values are equal or both missing', () => {
     const equalNumeric: GameEntry[] = [
       makeGame({
@@ -1061,6 +1118,7 @@ describe('GameListFilteringEngine UI behavior', () => {
   });
 
   it('sorts by TAS using HLTB fallback hierarchy and keeps missing TAS values last', () => {
+    enableTasFeature();
     const games: GameEntry[] = [
       makeGame({
         igdbGameId: '1',
@@ -1157,6 +1215,7 @@ describe('GameListFilteringEngine UI behavior', () => {
   });
 
   it('uses title fallback when TAS values are equal', () => {
+    enableTasFeature();
     const result = engine.applyFiltersAndSort(
       [
         makeGame({

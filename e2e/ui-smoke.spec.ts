@@ -332,7 +332,7 @@ async function expectPersistedFilterControls(page: Page): Promise<void> {
     .poll(async () =>
       sortSelect.evaluate((element) => String((element as { value: unknown }).value))
     )
-    .toBe('platform:desc');
+    .toBe('title:desc');
   await expect
     .poll(async () =>
       groupBySelect.evaluate((element) => String((element as { value: unknown }).value))
@@ -348,6 +348,21 @@ async function expectPersistedFilterControls(page: Page): Promise<void> {
       releaseDateFrom.evaluate((element) => String((element as { value: unknown }).value))
     )
     .toBe('2020-01-01');
+}
+
+async function triggerReviewRefreshFromExternalMetadata(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Game detail actions' }).click();
+  await page.locator('ion-popover ion-item', { hasText: 'External metadata' }).click();
+
+  const externalModal = page.locator('ion-modal').filter({ hasText: 'External Metadata' }).first();
+  await expect(externalModal).toBeVisible();
+  await externalModal.locator('ion-item', { hasText: 'Refresh data' }).click();
+
+  const alert = page.locator('ion-alert').last();
+  await expect(alert).toBeVisible();
+  await alert.getByRole('radio', { name: 'Review' }).click();
+  await alert.getByRole('button', { name: 'OK' }).click();
+  await expect(alert).toBeHidden();
 }
 
 async function expectUiUpdatedFilterControls(page: Page): Promise<void> {
@@ -696,10 +711,7 @@ test('routes review refresh to Metacritic for supported platforms', async ({ pag
     );
   });
 
-  await page.getByRole('button', { name: 'Game detail actions' }).click();
-  const updateReviewItem = page.locator('ion-popover ion-item', { hasText: 'Update review data' });
-  await expect(updateReviewItem).toBeVisible();
-  await updateReviewItem.click();
+  await triggerReviewRefreshFromExternalMetadata(page);
 
   await metacriticRequestPromise;
   expect(mobygamesRequestCount).toBe(0);
@@ -758,10 +770,7 @@ test('routes review refresh to MobyGames for unsupported platforms', async ({ pa
     return typeof platformParam === 'string' && /^\d+$/.test(platformParam);
   });
 
-  await page.getByRole('button', { name: 'Game detail actions' }).click();
-  const updateReviewItem = page.locator('ion-popover ion-item', { hasText: 'Update review data' });
-  await expect(updateReviewItem).toBeVisible();
-  await updateReviewItem.click();
+  await triggerReviewRefreshFromExternalMetadata(page);
 
   await mobygamesRequestPromise;
   expect(metacriticRequestCount).toBe(0);

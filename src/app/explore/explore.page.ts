@@ -96,6 +96,7 @@ interface RecommendationDisplayMetadata {
   coverUrl: string | null;
   platformLabel: string;
   releaseYear: number | null;
+  priceCurrency?: string | null;
   priceAmount?: number | null;
   priceRegularAmount?: number | null;
   priceDiscountPercent?: number | null;
@@ -147,12 +148,9 @@ export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_FETCH_LIMIT = 200;
   private static readonly SIMILAR_PAGE_SIZE = 5;
   private static readonly SIMILAR_FETCH_LIMIT = 50;
-  private static readonly CHF_CURRENCY_FORMATTER = new Intl.NumberFormat('de-CH', {
-    style: 'currency',
-    currency: 'CHF',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+  private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
+  private static readonly PRICE_FORMATTER_LOCALE = 'de-CH';
+  private static readonly PRICE_FORMATTERS = new Map<string, Intl.NumberFormat>();
 
   readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
@@ -470,7 +468,7 @@ export class ExplorePage implements OnInit {
       return null;
     }
 
-    return ExplorePage.CHF_CURRENCY_FORMATTER.format(amount);
+    return this.getPriceCurrencyFormatter(this.getRecommendationPriceCurrency(item)).format(amount);
   }
 
   isRecommendationRowPriceOnDiscount(item: {
@@ -1683,6 +1681,7 @@ export class ExplorePage implements OnInit {
               coverUrl: catalog.coverUrl,
               platformLabel: this.resolveCatalogPlatformLabel(catalog, platformIgdbId),
               releaseYear: catalog.releaseYear ?? null,
+              priceCurrency: this.normalizePriceCurrency(catalog.priceCurrency),
               priceAmount: catalog.priceAmount ?? null,
               priceRegularAmount: catalog.priceRegularAmount ?? null,
               priceDiscountPercent: catalog.priceDiscountPercent ?? null,
@@ -1731,6 +1730,7 @@ export class ExplorePage implements OnInit {
         coverUrl: existing?.coverUrl ?? null,
         platformLabel: existing?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
         releaseYear: existing?.releaseYear ?? null,
+        priceCurrency: result.currency ?? existing?.priceCurrency ?? null,
         priceAmount: result.amount,
         priceRegularAmount: result.regularAmount,
         priceDiscountPercent: result.discountPercent,
@@ -1768,7 +1768,7 @@ export class ExplorePage implements OnInit {
     platformIgdbId: number;
   }): Pick<
     GameEntry,
-    'priceAmount' | 'priceRegularAmount' | 'priceDiscountPercent' | 'priceIsFree'
+    'priceAmount' | 'priceRegularAmount' | 'priceDiscountPercent' | 'priceIsFree' | 'priceCurrency'
   > | null {
     const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
     if (local) {
@@ -1781,6 +1781,7 @@ export class ExplorePage implements OnInit {
     }
 
     return {
+      priceCurrency: metadata.priceCurrency ?? null,
       priceAmount: metadata.priceAmount ?? null,
       priceRegularAmount: metadata.priceRegularAmount ?? null,
       priceDiscountPercent: metadata.priceDiscountPercent ?? null,
@@ -1799,6 +1800,7 @@ export class ExplorePage implements OnInit {
   }
 
   private parseSteamPriceLookupResponse(value: unknown): {
+    currency: string | null;
     amount: number | null;
     regularAmount: number | null;
     discountPercent: number | null;
@@ -1820,6 +1822,7 @@ export class ExplorePage implements OnInit {
     }
 
     return {
+      currency: this.normalizePriceCurrency(payload.bestPrice['currency']),
       amount,
       regularAmount: this.normalizePriceNumber(
         payload.bestPrice['regularAmount'] ?? payload.bestPrice['initialAmount']
@@ -1832,6 +1835,7 @@ export class ExplorePage implements OnInit {
   }
 
   private parsePsPricesLookupResponse(value: unknown): {
+    currency: string | null;
     amount: number | null;
     regularAmount: number | null;
     discountPercent: number | null;
@@ -1853,6 +1857,7 @@ export class ExplorePage implements OnInit {
     }
 
     return {
+      currency: this.normalizePriceCurrency(payload.bestPrice['currency']),
       amount,
       regularAmount: this.normalizePriceNumber(payload.bestPrice['regularAmount']),
       discountPercent: this.normalizePriceNumber(payload.bestPrice['discountPercent']),
@@ -1891,6 +1896,39 @@ export class ExplorePage implements OnInit {
     }
 
     return null;
+  }
+
+  private normalizePriceCurrency(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+  }
+
+  private getRecommendationPriceCurrency(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): string {
+    const pricing = this.getRecommendationPricing(item);
+    return (
+      this.normalizePriceCurrency(pricing?.priceCurrency) ?? ExplorePage.DEFAULT_PRICE_CURRENCY
+    );
+  }
+
+  private getPriceCurrencyFormatter(currency: string): Intl.NumberFormat {
+    const normalizedCurrency =
+      this.normalizePriceCurrency(currency) ?? ExplorePage.DEFAULT_PRICE_CURRENCY;
+    const existing = ExplorePage.PRICE_FORMATTERS.get(normalizedCurrency);
+    if (existing) {
+      return existing;
+    }
+
+    const formatter = new Intl.NumberFormat(ExplorePage.PRICE_FORMATTER_LOCALE, {
+      style: 'currency',
+      currency: normalizedCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    ExplorePage.PRICE_FORMATTERS.set(normalizedCurrency, formatter);
+    return formatter;
   }
 
   private async fetchRecommendationCatalogResult(

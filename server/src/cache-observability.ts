@@ -12,6 +12,8 @@ interface CacheCountSnapshot {
   hltbEntryCount: number | null;
   metacriticEntryCount: number | null;
   mobygamesEntryCount: number | null;
+  steamPriceEntryCount: number | null;
+  pspricesPriceEntryCount: number | null;
   dbError: string | null;
 }
 
@@ -40,6 +42,8 @@ export async function registerCacheObservabilityRoutes(
     hltbEntryCount: null,
     metacriticEntryCount: null,
     mobygamesEntryCount: null,
+    steamPriceEntryCount: null,
+    pspricesPriceEntryCount: null,
     dbError: null
   };
 
@@ -57,12 +61,23 @@ export async function registerCacheObservabilityRoutes(
       const mobygamesCountResult = await pool.query<CacheCountRow>(
         'SELECT COUNT(*)::text AS count FROM mobygames_search_cache'
       );
+      const steamPriceCountResult = await pool.query<CacheCountRow>(
+        "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'steamPriceFetchedAt', '') <> ''"
+      );
+      const pspricesPriceCountResult = await pool.query<CacheCountRow>(
+        "SELECT COUNT(*)::text AS count FROM games WHERE COALESCE(payload->>'psPricesFetchedAt', '') <> ''"
+      );
 
       snapshot = {
         imageAssetCount: Number.parseInt(imageCountResult.rows[0]?.count ?? '0', 10),
         hltbEntryCount: Number.parseInt(hltbCountResult.rows[0]?.count ?? '0', 10),
         metacriticEntryCount: Number.parseInt(metacriticCountResult.rows[0]?.count ?? '0', 10),
         mobygamesEntryCount: Number.parseInt(mobygamesCountResult.rows[0]?.count ?? '0', 10),
+        steamPriceEntryCount: Number.parseInt(steamPriceCountResult.rows[0]?.count ?? '0', 10),
+        pspricesPriceEntryCount: Number.parseInt(
+          pspricesPriceCountResult.rows[0]?.count ?? '0',
+          10
+        ),
         dbError: null
       };
     } catch (error) {
@@ -71,6 +86,8 @@ export async function registerCacheObservabilityRoutes(
         hltbEntryCount: null,
         metacriticEntryCount: null,
         mobygamesEntryCount: null,
+        steamPriceEntryCount: null,
+        pspricesPriceEntryCount: null,
         dbError: error instanceof Error ? error.message : String(error)
       };
     }
@@ -106,7 +123,9 @@ export async function registerCacheObservabilityRoutes(
           imageAssets: snapshot.imageAssetCount,
           hltbEntries: snapshot.hltbEntryCount,
           metacriticEntries: snapshot.metacriticEntryCount,
-          mobygamesEntries: snapshot.mobygamesEntryCount
+          mobygamesEntries: snapshot.mobygamesEntryCount,
+          steamPriceEntries: snapshot.steamPriceEntryCount,
+          pspricesPriceEntries: snapshot.pspricesPriceEntryCount
         },
         dbError: snapshot.dbError
       });

@@ -14,12 +14,15 @@ import { registerImageProxyRoute } from './image-cache.js';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { registerMetacriticCachedRoute } from './metacritic-cache.js';
 import { registerMobyGamesCachedRoute } from './mobygames-cache.js';
+import { registerSteamPricesRoute } from './steam-prices.js';
+import { registerPsPricesRoute } from './psprices-prices.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
 import { RecommendationRepository } from './recommendations/repository.js';
 import { registerRecommendationRoutes } from './recommendations/routes.js';
 import { RecommendationService } from './recommendations/service.js';
+import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
@@ -72,6 +75,11 @@ async function main(): Promise<void> {
     requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
     maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
+  const metadataEnrichmentClient = new MetadataEnrichmentIgdbClient({
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.igdbMetadataEnrichRequestTimeoutMs
+  });
   const discoveryEnrichmentServiceOptions = {
     enabled: config.recommendationsDiscoveryEnrichEnabled,
     startupDelayMs: config.recommendationsDiscoveryEnrichStartupDelayMs,
@@ -87,7 +95,9 @@ async function main(): Promise<void> {
   };
   const discoveryEnrichmentService = new DiscoveryEnrichmentService(
     recommendationRepository,
-    discoveryEnrichmentServiceOptions
+    discoveryEnrichmentServiceOptions,
+    () => Date.now(),
+    metadataEnrichmentClient
   );
   const recommendationService = new RecommendationService(
     recommendationRepository,
@@ -338,6 +348,34 @@ async function main(): Promise<void> {
         void backgroundJobs.enqueue({
           jobType: 'mobygames_cache_revalidate',
           dedupeKey: `mobygames-cache-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
+    await registerSteamPricesRoute(app, pool, {
+      enableStaleWhileRevalidate: config.steamPriceCacheEnableStaleWhileRevalidate,
+      freshTtlSeconds: config.steamPriceCacheFreshTtlSeconds,
+      staleTtlSeconds: config.steamPriceCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'steam_price_revalidate',
+          dedupeKey: `steam-price-revalidate:${payload.cacheKey}`,
+          payload,
+          priority: 120,
+          maxAttempts: 3
+        });
+      }
+    });
+    await registerPsPricesRoute(app, pool, {
+      enableStaleWhileRevalidate: config.pspricesPriceCacheEnableStaleWhileRevalidate,
+      freshTtlSeconds: config.pspricesPriceCacheFreshTtlSeconds,
+      staleTtlSeconds: config.pspricesPriceCacheStaleTtlSeconds,
+      enqueueRevalidationJob: (payload) => {
+        void backgroundJobs.enqueue({
+          jobType: 'psprices_price_revalidate',
+          dedupeKey: `psprices-price-revalidate:${payload.cacheKey}`,
           payload,
           priority: 120,
           maxAttempts: 3

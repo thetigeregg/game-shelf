@@ -60,6 +60,18 @@ WITH candidate_rows AS (
       ELSE NULL
     END AS metacritic_last_tried_at_ts,
     CASE
+      WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'steam'->>'nextTryAt', '')) ~
+        '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+      THEN (BTRIM(payload->'enrichmentRetry'->'steam'->>'nextTryAt'))::timestamptz
+      ELSE NULL
+    END AS steam_next_try_at_ts,
+    CASE
+      WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'steam'->>'lastTriedAt', '')) ~
+        '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+      THEN (BTRIM(payload->'enrichmentRetry'->'steam'->>'lastTriedAt'))::timestamptz
+      ELSE NULL
+    END AS steam_last_tried_at_ts,
+    CASE
       WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'hltb'->>'attempts', '')) ~ '^[0-9]+$'
       THEN (BTRIM(payload->'enrichmentRetry'->'hltb'->>'attempts'))::int
       ELSE 0
@@ -69,6 +81,11 @@ WITH candidate_rows AS (
       THEN (BTRIM(payload->'enrichmentRetry'->'metacritic'->>'attempts'))::int
       ELSE 0
     END AS metacritic_attempts,
+    CASE
+      WHEN BTRIM(COALESCE(payload->'enrichmentRetry'->'steam'->>'attempts', '')) ~ '^[0-9]+$'
+      THEN (BTRIM(payload->'enrichmentRetry'->'steam'->>'attempts'))::int
+      ELSE 0
+    END AS steam_attempts,
     COALESCE(
       payload->'enrichmentRetry'->'hltb'->>'permanentMiss' = 'true',
       false
@@ -76,7 +93,11 @@ WITH candidate_rows AS (
     COALESCE(
       payload->'enrichmentRetry'->'metacritic'->>'permanentMiss' = 'true',
       false
-    ) AS metacritic_permanent_miss
+    ) AS metacritic_permanent_miss,
+    COALESCE(
+      payload->'enrichmentRetry'->'steam'->>'permanentMiss' = 'true',
+      false
+    ) AS steam_permanent_miss
   FROM games
   WHERE COALESCE(payload->>'listType', '') = 'discovery'
 )
@@ -117,6 +138,25 @@ WHERE (
         AND (
           metacritic_last_tried_at_ts IS NULL
           OR metacritic_last_tried_at_ts <= ($3::timestamptz - make_interval(days => $4))
+        )
+      )
+    )
+  )
+  OR (
+    platform_igdb_id = 6
+    AND COALESCE(NULLIF(payload->>'steamEnrichedAt', ''), '') = ''
+    AND (
+      (
+        NOT steam_permanent_miss
+        AND steam_attempts < $2
+        AND (steam_next_try_at_ts IS NULL OR steam_next_try_at_ts <= $3::timestamptz)
+      )
+      OR (
+        (steam_permanent_miss OR steam_attempts >= $2)
+        AND (release_year IS NULL OR release_year >= $5)
+        AND (
+          steam_last_tried_at_ts IS NULL
+          OR steam_last_tried_at_ts <= ($3::timestamptz - make_interval(days => $4))
         )
       )
     )

@@ -44,6 +44,23 @@ ion-label p:not(.recommendation-headline) {
   margin: 0;
 }
 
+.price-main-indicator {
+  color: var(--ion-color-dark);
+  width: fit-content;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 6px;
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+}
+
+.price-main-indicator.price-main-indicator-discount {
+  color: var(--ion-color-forest);
+}
+
 .recommendation-headline {
   margin-block: 6px;
   color: var(--ion-color-medium);

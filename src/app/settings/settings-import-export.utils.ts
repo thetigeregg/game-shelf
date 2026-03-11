@@ -7,6 +7,7 @@ import type {
   GameStatus,
   ListType
 } from '../core/models/game.models';
+import { isTasFeatureEnabled } from '../core/config/runtime-config';
 
 const VALID_GAME_TYPES: Array<NonNullable<GameCatalogResult['gameType']>> = [
   'main_game',
@@ -231,13 +232,18 @@ export function escapeCsvValue(value: string): string {
   return value;
 }
 
-export function parseFilters(raw: string, defaultFilters: GameListFilters): GameListFilters | null {
+export function parseFilters(
+  raw: string,
+  defaultFilters: GameListFilters,
+  options?: { listType?: ListType | null }
+): GameListFilters | null {
   if (raw.trim().length === 0) {
     return { ...defaultFilters };
   }
 
   try {
     const parsed = JSON.parse(raw) as Partial<GameListFilters>;
+    const allowPriceSort = options?.listType === 'wishlist';
     const parsedHltbMainHoursMin =
       typeof parsed.hltbMainHoursMin === 'number' &&
       Number.isFinite(parsed.hltbMainHoursMin) &&
@@ -327,7 +333,8 @@ export function parseFilters(raw: string, defaultFilters: GameListFilters): Game
         parsed.sortField === 'releaseDate' ||
         parsed.sortField === 'createdAt' ||
         parsed.sortField === 'hltb' ||
-        parsed.sortField === 'tas' ||
+        (parsed.sortField === 'tas' && isTasFeatureEnabled()) ||
+        (parsed.sortField === 'price' && allowPriceSort) ||
         parsed.sortField === 'review' ||
         parsed.sortField === 'metacritic' ||
         parsed.sortField === 'platform'

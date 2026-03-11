@@ -2,26 +2,48 @@ ion-item {
   position: relative;
 }
 
-ion-item-sliding ion-item ion-label {
-  padding-right: 48px;
+ion-item-sliding ion-item {
+  --inner-padding-end: 8px;
+}
+
+.game-row-label {
+  display: block;
+  width: 100%;
+}
+
+.game-row-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.game-row-title {
+  margin: 0 0 12px 0 !important;
+}
+
+.game-row-main {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.game-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: start;
 }
 
 .status-icon {
-  position: absolute;
-  top: 10px;
-  right: 12px;
   font-size: 1rem;
-  z-index: 2;
 }
 
 .rating-indicator {
-  position: absolute;
-  top: 30px;
-  right: 10px;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  z-index: 2;
   color: #d4af37;
   font-size: 0.78rem;
   font-weight: 600;
@@ -31,14 +53,62 @@ ion-item-sliding ion-item ion-label {
   font-size: 0.85rem;
 }
 
-.row-metadata-indicators {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 2;
+.row-metadata-stack {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-height: 100%;
+}
+
+.row-metadata-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.row-metadata-group-top {
+  margin-bottom: 4px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.row-metadata-group-bottom {
+  justify-content: flex-end;
+}
+
+.status-indicator {
+  min-height: 20px;
+  margin-left: 8px;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
+}
+
+.row-metadata-indicators {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+}
+
+.price-main-indicator {
+  color: var(--ion-color-dark);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 6px;
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+}
+
+.price-main-indicator.price-main-indicator-discount {
+  color: var(--ion-color-forest);
 }
 
 .hltb-main-indicator {
@@ -87,10 +157,6 @@ ion-item-sliding ion-item ion-label {
   white-space: pre-line;
   overflow-wrap: anywhere;
   margin-bottom: 6px;
-}
-
-.detail-text-item {
-  --inner-padding-end: 0;
 }
 
 .detail-text-label {
@@ -227,8 +293,7 @@ ion-item p {
 .game-type-badge {
   --background: #4a4a4a;
   --color: #ffffff;
-  margin-top: 6px;
-  margin-right: 6px;
+  margin-bottom: 4px;
   font-size: 0.66rem;
   font-weight: 600;
   text-transform: none;

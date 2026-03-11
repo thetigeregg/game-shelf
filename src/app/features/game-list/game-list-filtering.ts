@@ -22,6 +22,7 @@ import {
   resolveNormalizedCriticScoreForGame,
   resolveTimeAdjustedScoreForGame
 } from '../../core/utils/time-adjusted-score.util';
+import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
 export interface GameGroupSection {
   key: string;
@@ -791,14 +792,16 @@ export class GameListFilteringEngine {
         ? [...games].sort((left, right) =>
             this.compareGamesByMetacritic(left, right, sortDirection)
           )
-        : sortField === 'tas'
-          ? [...games].sort((left, right) =>
-              this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
-            )
-          : this.applySortDirection(
-              [...games].sort((left, right) => this.compareGames(left, right, sortField)),
-              sortDirection
-            );
+        : sortField === 'price'
+          ? [...games].sort((left, right) => this.compareGamesByPrice(left, right, sortDirection))
+          : sortField === 'tas' && isTasFeatureEnabled()
+            ? [...games].sort((left, right) =>
+                this.compareGamesByTimeAdjustedScore(left, right, sortDirection, timePreference)
+              )
+            : this.applySortDirection(
+                [...games].sort((left, right) => this.compareGames(left, right, sortField)),
+                sortDirection
+              );
     this.sortedGamesCache = {
       sourceGames: games,
       sortField,
@@ -1095,6 +1098,30 @@ export class GameListFilteringEngine {
       left,
       right
     );
+  }
+
+  private compareGamesByPrice(
+    left: GameEntry,
+    right: GameEntry,
+    sortDirection: GameListFilters['sortDirection']
+  ): number {
+    const leftValue = this.resolveSortPriceAmount(left);
+    const rightValue = this.resolveSortPriceAmount(right);
+
+    return this.compareNumericSortValues(leftValue, rightValue, sortDirection, left, right);
+  }
+
+  private resolveSortPriceAmount(game: GameEntry): number | null {
+    if (game.priceIsFree === true) {
+      return 0;
+    }
+
+    const amount = game.priceAmount;
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+      return null;
+    }
+
+    return amount;
   }
 
   private compareNumericSortValues(

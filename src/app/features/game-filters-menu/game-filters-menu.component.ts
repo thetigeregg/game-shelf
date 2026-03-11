@@ -30,7 +30,8 @@ import {
   GameListFilters,
   GameRatingFilterOption,
   GameStatusFilterOption,
-  GameType
+  GameType,
+  ListType
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
@@ -38,6 +39,7 @@ import {
   normalizeGameTypeList,
   normalizeStringList
 } from '../../core/utils/game-filter-utils';
+import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
 type SortOption =
   | 'title:asc'
@@ -50,12 +52,12 @@ type SortOption =
   | 'hltb:desc'
   | 'tas:asc'
   | 'tas:desc'
+  | 'price:asc'
+  | 'price:desc'
   | 'review:asc'
   | 'review:desc'
   | 'metacritic:asc'
-  | 'metacritic:desc'
-  | 'platform:asc'
-  | 'platform:desc';
+  | 'metacritic:desc';
 
 type FiltersPresentation = 'menu' | 'split';
 
@@ -114,10 +116,12 @@ export class GameFiltersMenuComponent implements OnChanges {
     { value: 'publisher', label: 'Publisher' },
     { value: 'releaseYear', label: 'Release Year' }
   ];
+  readonly tasEnabled = isTasFeatureEnabled();
 
   @Input({ required: true }) menuId!: string;
   @Input({ required: true }) contentId!: string;
   @Input() presentation: FiltersPresentation = 'menu';
+  @Input() listType: ListType = 'collection';
   @Input() platformOptions: string[] = [];
   @Input() collectionOptions: string[] = [];
   @Input() gameTypeOptions: GameType[] = [];
@@ -133,12 +137,28 @@ export class GameFiltersMenuComponent implements OnChanges {
   sortOption: SortOption = 'title:asc';
 
   ngOnChanges(): void {
-    this.draftFilters = {
+    const normalizedSortField =
+      this.filters.sortField === 'tas' && !this.tasEnabled
+        ? DEFAULT_GAME_LIST_FILTERS.sortField
+        : this.filters.sortField === 'platform'
+          ? DEFAULT_GAME_LIST_FILTERS.sortField
+          : this.filters.sortField === 'metacritic'
+            ? 'review'
+            : this.filters.sortField === 'price' && !this.showPriceSort
+              ? DEFAULT_GAME_LIST_FILTERS.sortField
+              : this.filters.sortField;
+    const normalizedFilters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
-      ...this.filters
+      ...this.filters,
+      sortField: normalizedSortField
     };
+    this.draftFilters = normalizedFilters;
     this.sortOption =
-      `${this.draftFilters.sortField === 'metacritic' ? 'review' : this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
+      `${this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
+
+    if (this.filters.sortField !== normalizedSortField) {
+      this.filtersChange.emit({ ...normalizedFilters });
+    }
   }
 
   updateFilters(): void {
@@ -161,6 +181,9 @@ export class GameFiltersMenuComponent implements OnChanges {
       GameListFilters['sortDirection']
     ];
     const sortField = rawSortField === 'metacritic' ? 'review' : rawSortField;
+    if (sortField === 'price' && !this.showPriceSort) {
+      return;
+    }
     this.sortOption = value;
     this.draftFilters = {
       ...this.draftFilters,
@@ -478,14 +501,16 @@ export class GameFiltersMenuComponent implements OnChanges {
       value === 'createdAt:desc' ||
       value === 'hltb:asc' ||
       value === 'hltb:desc' ||
-      value === 'tas:asc' ||
-      value === 'tas:desc' ||
+      (this.tasEnabled && (value === 'tas:asc' || value === 'tas:desc')) ||
+      (this.showPriceSort && (value === 'price:asc' || value === 'price:desc')) ||
       value === 'review:asc' ||
       value === 'review:desc' ||
       value === 'metacritic:asc' ||
-      value === 'metacritic:desc' ||
-      value === 'platform:asc' ||
-      value === 'platform:desc'
+      value === 'metacritic:desc'
     );
+  }
+
+  get showPriceSort(): boolean {
+    return this.listType === 'wishlist';
   }
 }

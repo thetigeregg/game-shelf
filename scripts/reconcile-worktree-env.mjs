@@ -31,8 +31,7 @@ function parseEnvEntries(content) {
   const assignmentRegex = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/;
   const entries = [];
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
+  for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) {
       continue;
@@ -43,8 +42,7 @@ function parseEnvEntries(content) {
     }
     entries.push({
       key: match[1],
-      value: match[2],
-      index
+      value: match[2]
     });
   }
 
@@ -168,7 +166,7 @@ async function runAddMissingFlow(rl, exampleOrderedKeys, exampleMap, sharedMap, 
     }
     const selectedValue = await askValue(rl, key, exampleEntry.value);
     nextContent = addAssignmentLine(nextContent, key, selectedValue);
-    sharedMap.set(key, { key, value: selectedValue, index: Number.MAX_SAFE_INTEGER });
+    sharedMap.set(key, { key, value: selectedValue });
     changed = true;
     console.log(`Added ${key}.`);
   }

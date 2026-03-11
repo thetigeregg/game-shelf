@@ -218,6 +218,28 @@ async function runDeleteExtraFlow(rl, exampleMap, sharedMap, sharedContent) {
   return { changed, sharedContent: nextContent };
 }
 
+function rewriteToExampleTemplate(exampleContent, sharedMap) {
+  const assignmentRegex = /^(\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*=\s*)(.*)$/;
+  const lines = normalizeContent(exampleContent).split('\n');
+  const rewritten = lines.map((line) => {
+    const match = assignmentRegex.exec(line);
+    if (!match) {
+      return line;
+    }
+
+    const indentation = match[1];
+    const key = match[2];
+    const separator = match[3];
+    const exampleValue = match[4];
+    const sharedEntry = sharedMap.get(key);
+    const value = sharedEntry ? sharedEntry.value : exampleValue;
+    return `${indentation}${key}${separator}${value}`;
+  });
+
+  const body = rewritten.join('\n').replace(/\s*$/, '');
+  return body.length > 0 ? `${body}\n` : '';
+}
+
 async function main() {
   if (!input.isTTY || !output.isTTY) {
     console.error('This script is interactive and must be run in a TTY.');
@@ -284,13 +306,11 @@ async function main() {
       }
 
       if (choice === '3') {
-        if (dirty) {
-          mkdirSync(path.dirname(sharedPath), { recursive: true });
-          writeFileSync(sharedPath, normalizeContent(sharedContent), 'utf8');
-          console.log(`Saved updates to ${sharedPath}`);
-        } else {
-          console.log('No changes to save.');
-        }
+        const latestSharedMap = toLastEntryMap(parseEnvEntries(sharedContent));
+        const normalizedContent = rewriteToExampleTemplate(exampleContent, latestSharedMap);
+        mkdirSync(path.dirname(sharedPath), { recursive: true });
+        writeFileSync(sharedPath, normalizeContent(normalizedContent), 'utf8');
+        console.log(`Saved updates to ${sharedPath}`);
         return;
       }
 

@@ -47,33 +47,33 @@ cp .env.example .env
 4. Start local stack (`postgres` + `hltb-scraper` + `metacritic-scraper` + `api` + `worker-general` + `worker-recommendations` + `edge`) in worktree-safe mode (isolated project name + ports):
 
 ```bash
-npm run dev:worktree:stack:up
+npm run dev:stack:up
 ```
 
 To start stack and auto-seed the DB only when empty:
 
 ```bash
-npm run dev:worktree:stack:up:seed
+npm run dev:stack:up:seed
 ```
 
 5. (Optional) Follow stack logs:
 
 ```bash
-npm run dev:worktree:stack:logs
+npm run dev:stack:logs
 ```
 
 6. Run frontend:
 
 ```bash
-npm run dev:worktree:start
+npm run dev:start
 ```
 
-Frontend dev server port is derived from worktree context (shown by `npm run dev:worktree:info`).
+Frontend dev server port is derived from worktree context (shown by `npm run dev:info`).
 Manual URLs resolve through the worktree-local `edge` service during dev.
-When using `dev:worktree:*` commands, ports are derived from the current worktree path and shown by:
+When using `dev:*` commands, ports are derived from the current worktree path and shown by:
 
 ```bash
-npm run dev:worktree:info
+npm run dev:info
 ```
 
 This allows multiple worktrees to run concurrently without Docker/container/port clashes.
@@ -82,17 +82,17 @@ For faster realistic testing without cross-worktree DB pollution:
 1. Refresh a shared seed dump from a known-good local DB:
 
 ```bash
-npm run dev:worktree:db:seed:refresh
+npm run dev:db:seed:refresh
 ```
 
 2. Apply that seed into a worktree-local DB:
 
 ```bash
-npm run dev:worktree:db:seed:apply
+npm run dev:db:seed:apply
 ```
 
 The default seed file path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` (override with `DEV_DB_SEED_PATH`).
-`seed:apply` restores only when the current worktree DB is empty; use `npm run dev:worktree:db:seed:apply:force` to overwrite.
+`seed:apply` restores only when the current worktree DB is empty; use `npm run dev:db:seed:apply:force` to overwrite.
 When `REQUIRE_AUTH=true`, set `Settings -> Debug -> Device Write Token` on each device using a token from `nas-secrets/client_write_tokens`.
 For full local Docker setup details, see [`docs/nas-deployment.md`](docs/nas-deployment.md) (`Local Docker-based API development`).
 

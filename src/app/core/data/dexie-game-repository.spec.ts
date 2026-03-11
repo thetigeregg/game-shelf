@@ -795,6 +795,30 @@ describe('DexieGameRepository', () => {
     expect(updated?.similarGameIgdbIds).toEqual(['400', '500']);
   });
 
+  it('clears steamAppId when catalog update explicitly sets it to null', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        steamAppId: 12345
+      },
+      'collection'
+    );
+
+    const created = await repository.exists('101', 18);
+    expect(created?.steamAppId).toBe(12345);
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        steamAppId: null
+      },
+      'collection'
+    );
+
+    const updated = await repository.exists('101', 18);
+    expect(updated?.steamAppId).toBeNull();
+  });
+
   it('returns null for custom platform igdb id when it matches the default platform', async () => {
     await repository.upsertFromCatalog(mario, 'collection');
 

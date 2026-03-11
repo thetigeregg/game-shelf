@@ -16,6 +16,7 @@ import {
   chunkItems
 } from './batch-sql.js';
 import {
+  DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES,
   GameEmbeddingUpsertInput,
   GameStatus,
   NormalizedGameRecord,
@@ -219,6 +220,42 @@ export class RecommendationRepository {
                   'metacriticScore', games.payload->'metacriticScore',
                   'metacriticUrl', games.payload->'metacriticUrl',
                   'reviewUrl', games.payload->'reviewUrl',
+                  'steamAppId', games.payload->'steamAppId',
+                  'steamEnrichmentStatus', games.payload->'steamEnrichmentStatus',
+                  'steamEnrichedAt', games.payload->'steamEnrichedAt',
+                  'priceSource', games.payload->'priceSource',
+                  'priceFetchedAt', games.payload->'priceFetchedAt',
+                  'priceAmount', games.payload->'priceAmount',
+                  'priceCurrency', games.payload->'priceCurrency',
+                  'priceRegularAmount', games.payload->'priceRegularAmount',
+                  'priceDiscountPercent', games.payload->'priceDiscountPercent',
+                  'priceIsFree', games.payload->'priceIsFree',
+                  'priceUrl', games.payload->'priceUrl',
+                  'steamPriceCountry', games.payload->'steamPriceCountry',
+                  'steamPriceFetchedAt', games.payload->'steamPriceFetchedAt',
+                  'steamPriceSource', games.payload->'steamPriceSource',
+                  'steamPriceUrl', games.payload->'steamPriceUrl',
+                  'steamPriceAmount', games.payload->'steamPriceAmount',
+                  'steamPriceCurrency', games.payload->'steamPriceCurrency',
+                  'steamPriceInitialAmount', games.payload->'steamPriceInitialAmount',
+                  'steamPriceDiscountPercent', games.payload->'steamPriceDiscountPercent',
+                  'steamPriceIsFree', games.payload->'steamPriceIsFree',
+                  'psPricesSource', games.payload->'psPricesSource',
+                  'psPricesFetchedAt', games.payload->'psPricesFetchedAt',
+                  'psPricesRegionPath', games.payload->'psPricesRegionPath',
+                  'psPricesShow', games.payload->'psPricesShow',
+                  'psPricesPlatform', games.payload->'psPricesPlatform',
+                  'psPricesUrl', games.payload->'psPricesUrl',
+                  'psPricesTitle', games.payload->'psPricesTitle',
+                  'psPricesPriceAmount', games.payload->'psPricesPriceAmount',
+                  'psPricesPriceCurrency', games.payload->'psPricesPriceCurrency',
+                  'psPricesRegularPriceAmount', games.payload->'psPricesRegularPriceAmount',
+                  'psPricesDiscountPercent', games.payload->'psPricesDiscountPercent',
+                  'psPricesIsFree', games.payload->'psPricesIsFree',
+                  'psPricesMatchQueryTitle', games.payload->'psPricesMatchQueryTitle',
+                  'psPricesMatchTitle', games.payload->'psPricesMatchTitle',
+                  'psPricesMatchConfidence', games.payload->'psPricesMatchConfidence',
+                  'psPricesCandidates', games.payload->'psPricesCandidates',
                   'enrichmentRetry', games.payload->'enrichmentRetry'
                 )
               ),
@@ -886,7 +923,7 @@ function buildStatusFilterForTarget(target: RecommendationTarget): {
   if (target === 'DISCOVERY') {
     return {
       listType: 'discovery',
-      allowedStatuses: ['', 'wantToPlay']
+      allowedStatuses: [...DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES]
     };
   }
 

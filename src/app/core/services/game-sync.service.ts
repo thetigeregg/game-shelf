@@ -539,6 +539,42 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.keywordIds === undefined
           ? this.normalizePositiveIntegerList(existingByIdentity?.keywordIds)
           : this.normalizePositiveIntegerList(payload.keywordIds),
+      steamAppId:
+        payload.steamAppId === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.steamAppId)
+          : this.parsePositiveInteger(payload.steamAppId),
+      priceSource:
+        payload.priceSource === undefined
+          ? this.normalizePriceSource(existingByIdentity?.priceSource)
+          : this.normalizePriceSource(payload.priceSource),
+      priceFetchedAt:
+        payload.priceFetchedAt === undefined
+          ? this.normalizePriceFetchedAt(existingByIdentity?.priceFetchedAt)
+          : this.normalizePriceFetchedAt(payload.priceFetchedAt),
+      priceAmount:
+        payload.priceAmount === undefined
+          ? this.normalizePriceAmount(existingByIdentity?.priceAmount)
+          : this.normalizePriceAmount(payload.priceAmount),
+      priceCurrency:
+        payload.priceCurrency === undefined
+          ? this.normalizePriceCurrency(existingByIdentity?.priceCurrency)
+          : this.normalizePriceCurrency(payload.priceCurrency),
+      priceRegularAmount:
+        payload.priceRegularAmount === undefined
+          ? this.normalizePriceAmount(existingByIdentity?.priceRegularAmount)
+          : this.normalizePriceAmount(payload.priceRegularAmount),
+      priceDiscountPercent:
+        payload.priceDiscountPercent === undefined
+          ? this.normalizePriceDiscountPercent(existingByIdentity?.priceDiscountPercent)
+          : this.normalizePriceDiscountPercent(payload.priceDiscountPercent),
+      priceIsFree:
+        payload.priceIsFree === undefined
+          ? this.normalizePriceIsFree(existingByIdentity?.priceIsFree)
+          : this.normalizePriceIsFree(payload.priceIsFree),
+      priceUrl:
+        payload.priceUrl === undefined
+          ? this.normalizePriceUrl(existingByIdentity?.priceUrl)
+          : this.normalizePriceUrl(payload.priceUrl),
       screenshots:
         payload.screenshots === undefined
           ? normalizeGameScreenshots(existingByIdentity?.screenshots, { maxItems: 20 })
@@ -739,6 +775,42 @@ export class GameSyncService implements SyncOutboxWriter {
     }
 
     return null;
+  }
+
+  private normalizePriceSource(value: unknown): GameEntry['priceSource'] {
+    return value === 'steam_store' || value === 'psprices' ? value : null;
+  }
+
+  private normalizePriceFetchedAt(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizePriceAmount(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      return null;
+    }
+    return Math.round(value * 100) / 100;
+  }
+
+  private normalizePriceCurrency(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+  }
+
+  private normalizePriceDiscountPercent(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
+      return null;
+    }
+    return Math.round(value * 100) / 100;
+  }
+
+  private normalizePriceIsFree(value: unknown): boolean | null {
+    return typeof value === 'boolean' ? value : null;
+  }
+
+  private normalizePriceUrl(value: unknown): string | null {
+    return this.normalizeExternalUrl(value);
   }
 
   private normalizeGameType(value: unknown): GameEntry['gameType'] {

@@ -52,6 +52,7 @@
   <ion-split-pane class="list-page-split-pane" [contentId]="contentId" [when]="desktopMediaQuery">
     <app-game-filters-menu
       [presentation]="'split'"
+      [listType]="listType"
       [menuId]="menuId"
       [contentId]="contentId"
       [platformOptions]="platformOptions"
@@ -104,14 +105,12 @@
           <ion-item button detail="false" (click)="setStatusForSelectedGamesFromPopover()">
             Set status
           </ion-item>
-          <ion-item button detail="false" (click)="refreshMetadataForSelectedGamesFromPopover()">
-            Refresh metadata
-          </ion-item>
-          <ion-item button detail="false" (click)="updateHltbForSelectedGamesFromPopover()">
-            Update HLTB data
-          </ion-item>
-          <ion-item button detail="false" (click)="updateReviewForSelectedGamesFromPopover()">
-            Update review data
+          <ion-item
+            button
+            detail="false"
+            (click)="openExternalMetadataForSelectedGamesFromPopover()"
+          >
+            External metadata
           </ion-item>
           <ion-item button detail="false" color="danger" (click)="deleteSelectedGames()">
             Delete
@@ -215,6 +214,7 @@
 @if (!isDesktop) {
   <app-game-filters-menu
     [presentation]="'menu'"
+    [listType]="listType"
     [menuId]="menuId"
     [contentId]="contentId"
     [platformOptions]="platformOptions"

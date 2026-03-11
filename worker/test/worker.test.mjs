@@ -144,6 +144,7 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     themeIds: [],
     keywords: [],
     keywordIds: [],
+    steamAppId: null,
     screenshots: [],
     videos: [],
     platforms: ['Nintendo Switch'],
@@ -216,10 +217,29 @@ test('returns IGDB metadata without TheGamesDB lookup during game search', async
   assert.equal(calls.igdbBodies[0].includes('sort total_rating_count desc;'), false);
   assert.equal(
     calls.igdbBodies[0].includes(
-      'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;'
+      'external_games.external_game_source,external_games.category,external_games.uid,external_games.url'
     ),
     true
   );
+});
+
+test('normalizeIgdbGame extracts steam app id from external_games', () => {
+  const normalized = normalizeIgdbGame({
+    id: 123,
+    name: 'Steam Test',
+    external_games: [
+      {
+        external_game_source: 2,
+        uid: '100'
+      },
+      {
+        external_game_source: 1,
+        uid: '3764200'
+      }
+    ]
+  });
+
+  assert.equal(normalized.steamAppId, 3764200);
 });
 
 test('normalizeIgdbGame maps and deduplicates themes and keywords', () => {

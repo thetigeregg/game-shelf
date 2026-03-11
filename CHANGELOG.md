@@ -1877,3 +1877,84 @@
 - 4d69fae Investigate bulk wishlist sync
 - 46edc72 Investigate bulk wishlist freeze
 
+## v1.1.29 - 2026-03-11
+- 1fcf2bc Merge pull request #198 from thetigeregg/codex/itad
+- 05eec8c Restore storage spy after test
+- d015d40 Restore Notification global
+- b120a10 Avoid resetting priceFetchedAt
+- e9f59ff Update runtime-config feature flags
+- 03388e4 Track incoming steamAppId flag
+- 5506983 Handle currency formatter errors
+- 7e5da9c Handle currency errors in formatting
+- 303789c Serialize discovery pricing hydrate
+- 71eccde Improve detail media lazy loading
+- db81d3d Preserve pricing fields in sync
+- 822a316 Fix discovery price currency
+- 388b1b9 Fix discovery currency formatting
+- 1115e6f Resolve browserslist and budget warn
+- aa69b21 Resolve browserlist warning
+- 168fe77 Fix browserslist warning
+- ad64502 Review discovery recommendation SQL
+- 66b7705 Inspect discovery metrics
+- c73c0c3 Rethink wishlist row layout
+- e325814 Refactor wishlist row layout
+- 21a5bfa Add pricing display to discovery and
+- 8c85070 Display discovery pricing info
+- 3e58cf2 Add PSPrices cache override test
+- 8f977f1 Audit PS prices route handling
+- 289bd83 Plan discovery pricing refresh
+- 63c317e Implement discovery wishlist plan
+- b471bf6 Add pricing info to wishlist
+- f0d8db7 Add wishlist pricing display
+- 70f9807 Update pricing refresh configuration
+- d7eb30b Adjust edition scoring weights
+- 901c786 Treat standard edition neutrally
+- ee66cd2 Update metadata validator UI
+- 46837d1 Update metadata validator UI
+- 884453b Update validator layout and labels
+- 20fa2a3 Update metadata validator UI
+- b6d9828 Fix validator filters and toggles
+- e75f8e7 Fix settings notification toggles
+- d7f8a02 Fix settings layout and bulk toast
+- 06ac49e Fix bulk refresh feedback
+- 1687a38 Fix pricing visibility and alerts
+- b7e6160 Update multi-select metadata alert
+- d5d73ff Restore metadata refresh alerts
+- c8ad7de Fix Customize modal ordering
+- 589846f Update wishlist sort and labels
+- 29efabb Add wishlist pricing sorting
+- b4a342a Add detailed pricing display
+- 3c98e8e Update game row price styling
+- 8f16b8a Investigate psprices cache hit issue
+- b1b01dc Investigate psprices cache bug
+- 3909871 Gate TAS pricing feature flag
+- 47d5bde Add external metadata modal
+- df9cad6 Refactor game metadata overflow
+- 3577833 Move external metadata controls
+- d2261da Limit pricing refresh to wishlist
+- c067986 Merge branch 'main' into codex/itad
+- 1724cba Remove price cache TTL vars
+- d1dbfa3 Document parity gaps after update
+- e8aec23 Document pricing cache telemetry
+- f46a661 Validate new container builds
+- 95a711b Align CI docs with new container
+- fda3656 Update pricing parity workflow
+- 0a585dc Add psprices scraper integration
+- f5ab982 Stop lazy loading game images
+- 588e338 Fix pricing fetch when adding game
+- 9bc7f26 Add Steam price data fetch
+- f45e8bf Pull steam ids when adding games
+- 10d2802 Switch to steam pricing only flow
+- 70ef440 Switch price query to EUR
+- 6eda59a Normalize bestPrice regularAmount
+- 6b56b76 Analyze ITAD price response
+- 35e31ac Persist Steam wishlist enrichment
+- d0974a8 Fix metadata enrichment query
+- c90cd48 Implement Steam ITAD pricing
+- ebcdacf Add Windows ITAD pricing enrichment
+
+## v1.1.30 - 2026-03-11
+- 21d519f Merge pull request #200 from thetigeregg/codex/fix-edge-docker-build-failure
+- 5515652 Extract shared prod env writer
+- f2c700b Add edge Firebase env write step
+

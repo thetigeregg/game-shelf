@@ -170,6 +170,8 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly recommendationsLanesUrl = `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
   private readonly recommendationsRebuildUrl = `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`;
   private readonly recommendationsSimilarBaseUrl = `${environment.gameApiBaseUrl}/v1/recommendations/similar`;
+  private readonly steamPricesUrl = `${environment.gameApiBaseUrl}/v1/steam/prices`;
+  private readonly pspricesPricesUrl = `${environment.gameApiBaseUrl}/v1/psprices/prices`;
   private readonly httpClient = inject(HttpClient);
   private readonly debugLogService = inject(DebugLogService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
@@ -926,6 +928,132 @@ export class IgdbProxyService implements GameSearchApi {
     );
   }
 
+  lookupSteamPrice(
+    igdbGameId: string,
+    platformIgdbId: number,
+    countryCode?: string,
+    steamAppId?: number | null
+  ): Observable<unknown> {
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+    const normalizedSteamAppId = this.normalizePositiveInteger(steamAppId);
+
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid Steam price lookup request.'));
+    }
+
+    let params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId));
+
+    const normalizedCountryCode =
+      typeof countryCode === 'string' && /^[A-Za-z]{2}$/.test(countryCode.trim())
+        ? countryCode.trim().toUpperCase()
+        : null;
+
+    if (normalizedCountryCode !== null) {
+      params = params.set('cc', normalizedCountryCode);
+    }
+    if (normalizedSteamAppId !== null) {
+      params = params.set('steamAppId', String(normalizedSteamAppId));
+    }
+
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.steamPricesUrl, { params }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to load Steam prices.'));
+      })
+    );
+  }
+
+  lookupPsPrices(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title?: string | null
+  ): Observable<unknown> {
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid PSPrices lookup request.'));
+    }
+
+    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId));
+    const normalizedTitle = typeof title === 'string' ? title.trim() : '';
+    const enrichedParams =
+      normalizedTitle.length > 0 ? params.set('title', normalizedTitle) : params;
+
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params: enrichedParams }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to load PSPrices data.'));
+      })
+    );
+  }
+
+  lookupPsPricesCandidates(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown> {
+    const normalizedTitle = title.trim();
+    if (normalizedTitle.length < 2) {
+      return of({ status: 'unavailable', candidates: [] });
+    }
+
+    const normalizedGameId = this.normalizeNumericId(igdbGameId);
+    const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
+
+    if (!normalizedGameId || normalizedPlatformIgdbId === null) {
+      return throwError(() => new Error('Invalid PSPrices lookup request.'));
+    }
+
+    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
+      .set('igdbGameId', normalizedGameId)
+      .set('platformIgdbId', String(normalizedPlatformIgdbId))
+      .set('title', normalizedTitle)
+      .set('includeCandidates', '1');
+
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    return this.httpClient.get<unknown>(this.pspricesPricesUrl, { params }).pipe(
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to load PSPrices data.'));
+      })
+    );
+  }
+
   private normalizeResult(result: GameCatalogResult): GameCatalogResult {
     const payload = result as GameCatalogResult & { externalId?: string };
     const igdbGameId =
@@ -944,6 +1072,33 @@ export class IgdbProxyService implements GameSearchApi {
     const normalizedReviewUrl = this.normalizeExternalUrl(result.reviewUrl ?? result.metacriticUrl);
     const normalizedMobyScore = this.normalizeRawMobyScore(result.mobyScore);
     const normalizedMobygamesGameId = this.normalizeMobygamesGameId(result.mobygamesGameId);
+    const normalizedSteamAppId = this.normalizePositiveInteger(
+      (result as GameCatalogResult & { steamAppId?: unknown }).steamAppId
+    );
+    const normalizedPriceSource = this.normalizePriceSource(
+      (result as GameCatalogResult & { priceSource?: unknown }).priceSource
+    );
+    const normalizedPriceFetchedAt = this.normalizeReleaseDate(
+      (result as GameCatalogResult & { priceFetchedAt?: unknown }).priceFetchedAt
+    );
+    const normalizedPriceAmount = this.normalizeOptionalNumber(
+      (result as GameCatalogResult & { priceAmount?: unknown }).priceAmount
+    );
+    const normalizedPriceCurrency = this.normalizeCurrencyCode(
+      (result as GameCatalogResult & { priceCurrency?: unknown }).priceCurrency
+    );
+    const normalizedPriceRegularAmount = this.normalizeOptionalNumber(
+      (result as GameCatalogResult & { priceRegularAmount?: unknown }).priceRegularAmount
+    );
+    const normalizedPriceDiscountPercent = this.normalizeOptionalNumber(
+      (result as GameCatalogResult & { priceDiscountPercent?: unknown }).priceDiscountPercent
+    );
+    const normalizedPriceIsFree = this.normalizeOptionalBoolean(
+      (result as GameCatalogResult & { priceIsFree?: unknown }).priceIsFree
+    );
+    const normalizedPriceUrl = this.normalizeExternalUrl(
+      (result as GameCatalogResult & { priceUrl?: unknown }).priceUrl
+    );
     const explicitMetacriticScore = this.normalizeMetacriticScore(result.metacriticScore);
     const explicitMetacriticUrl = this.normalizeExternalUrl(result.metacriticUrl);
     const normalizedReviewSource =
@@ -1000,6 +1155,19 @@ export class IgdbProxyService implements GameSearchApi {
       ...(result.keywordIds !== undefined
         ? { keywordIds: this.normalizePositiveIntegerList(result.keywordIds) }
         : {}),
+      ...(normalizedSteamAppId !== null ? { steamAppId: normalizedSteamAppId } : {}),
+      ...(normalizedPriceSource !== null ? { priceSource: normalizedPriceSource } : {}),
+      ...(normalizedPriceFetchedAt !== null ? { priceFetchedAt: normalizedPriceFetchedAt } : {}),
+      ...(normalizedPriceAmount !== null ? { priceAmount: normalizedPriceAmount } : {}),
+      ...(normalizedPriceCurrency !== null ? { priceCurrency: normalizedPriceCurrency } : {}),
+      ...(normalizedPriceRegularAmount !== null
+        ? { priceRegularAmount: normalizedPriceRegularAmount }
+        : {}),
+      ...(normalizedPriceDiscountPercent !== null
+        ? { priceDiscountPercent: normalizedPriceDiscountPercent }
+        : {}),
+      ...(normalizedPriceIsFree !== null ? { priceIsFree: normalizedPriceIsFree } : {}),
+      ...(normalizedPriceUrl !== null ? { priceUrl: normalizedPriceUrl } : {}),
       ...(result.screenshots !== undefined
         ? { screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }) }
         : {}),
@@ -1053,6 +1221,58 @@ export class IgdbProxyService implements GameSearchApi {
 
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizePriceSource(value: unknown): 'steam_store' | 'psprices' | null {
+    if (value === 'steam_store' || value === 'psprices') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private normalizeCurrencyCode(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(normalized)) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private normalizeOptionalBoolean(value: unknown): boolean | null {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true') {
+        return true;
+      }
+      if (normalized === 'false') {
+        return false;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeOptionalNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = Number.parseFloat(value.trim());
+      return Number.isFinite(normalized) ? normalized : null;
+    }
+
+    return null;
   }
 
   private normalizeCoverUrl(coverUrl: string | null | undefined): string | null {

@@ -112,7 +112,10 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     createdAt: partial.createdAt ?? now,
     updatedAt: partial.updatedAt ?? now,
     reviewScore: partial.reviewScore ?? null,
-    metacriticScore: partial.metacriticScore ?? null
+    metacriticScore: partial.metacriticScore ?? null,
+    priceAmount: partial.priceAmount ?? null,
+    priceCurrency: partial.priceCurrency ?? null,
+    priceIsFree: partial.priceIsFree ?? null
   };
 }
 
@@ -182,6 +185,36 @@ describe('game-list review actions', () => {
       'Unable to update review data for 1 selected game.',
       'danger'
     );
+    expect(clearSelectionMode).toHaveBeenCalledOnce();
+  });
+
+  it('bulk review update counts recovered retries as updated even when one result has no match data', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      displayedGames: GameEntry[];
+      selectedGameKeys: Set<string>;
+    };
+    const first = createGame({ igdbGameId: '10', platformIgdbId: 6, title: 'First' });
+    const second = createGame({ igdbGameId: '11', platformIgdbId: 6, title: 'Second' });
+    const runBulkAction = vi.fn().mockResolvedValue([
+      { game: first, ok: true, value: createGame({ igdbGameId: '10', reviewScore: 88 }) },
+      { game: second, ok: true, value: createGame({ igdbGameId: '11', reviewScore: null }) }
+    ]);
+    const clearSelectionMode = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+
+    Object.assign(page, {
+      displayedGames: [first, second],
+      selectedGameKeys: new Set(['10::6', '11::6']),
+      runBulkAction,
+      clearSelectionMode,
+      presentToast
+    });
+
+    await (
+      page as unknown as { updateReviewForSelectedGames: () => Promise<void> }
+    ).updateReviewForSelectedGames();
+
+    expect(presentToast).toHaveBeenCalledWith('Updated review data for 2 games.');
     expect(clearSelectionMode).toHaveBeenCalledOnce();
   });
 
@@ -414,6 +447,141 @@ describe('game-list review actions', () => {
     expect((page as { isMetacriticUpdateLoading: boolean }).isMetacriticUpdateLoading).toBe(false);
   });
 
+  it('single pricing refresh opens picker for PSPrices platforms', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isPricingPickerLoading: boolean;
+    };
+    const target = createGame({
+      igdbGameId: '88',
+      platformIgdbId: 167,
+      title: 'PS Game',
+      listType: 'wishlist'
+    });
+    const openPricingPickerModal = vi.fn();
+    const runPricingPickerSearch = vi.fn(() => Promise.resolve(undefined));
+
+    Object.assign(page, {
+      selectedGame: target,
+      isPricingPickerLoading: false,
+      gameShelfService: {
+        isPricingSupportedPlatform: vi.fn(() => true)
+      },
+      openPricingPickerModal,
+      runPricingPickerSearch,
+      presentToast: vi.fn(() => Promise.resolve(undefined))
+    });
+
+    await (
+      page as unknown as { refreshSelectedGamePricing: () => Promise<void> }
+    ).refreshSelectedGamePricing();
+
+    expect(openPricingPickerModal).toHaveBeenCalledWith(target);
+    expect(runPricingPickerSearch).toHaveBeenCalledOnce();
+  });
+
+  it('single pricing refresh uses direct lookup for Steam', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isPricingPickerLoading: boolean;
+    };
+    const target = createGame({
+      igdbGameId: '89',
+      platformIgdbId: 6,
+      title: 'Steam Game',
+      listType: 'wishlist'
+    });
+    const loading = {
+      present: vi.fn(() => Promise.resolve(undefined)),
+      dismiss: vi.fn(() => Promise.resolve(undefined))
+    };
+    const refreshGamePricing = vi.fn(() =>
+      Promise.resolve(createGame({ igdbGameId: '89', platformIgdbId: 6, priceAmount: 19.99 }))
+    );
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const applyUpdatedGame = vi.fn();
+
+    Object.assign(page, {
+      selectedGame: target,
+      isPricingPickerLoading: false,
+      loadingController: { create: vi.fn(() => Promise.resolve(loading)) },
+      gameShelfService: {
+        isPricingSupportedPlatform: vi.fn(() => true),
+        refreshGamePricing,
+        hasUnifiedPriceData: vi.fn(() => true)
+      },
+      applyUpdatedGame,
+      presentToast
+    });
+
+    await (
+      page as unknown as { refreshSelectedGamePricing: () => Promise<void> }
+    ).refreshSelectedGamePricing();
+
+    expect(refreshGamePricing).toHaveBeenCalledWith('89', 6);
+    expect(presentToast).toHaveBeenCalledWith('Pricing updated.');
+  });
+
+  it('single pricing refresh is blocked for non-wishlist games', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      selectedGame: GameEntry | null;
+      isPricingPickerLoading: boolean;
+    };
+    const target = createGame({
+      igdbGameId: '90',
+      platformIgdbId: 6,
+      title: 'Collection Steam Game',
+      listType: 'collection'
+    });
+    const refreshGamePricing = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+
+    Object.assign(page, {
+      selectedGame: target,
+      isPricingPickerLoading: false,
+      gameShelfService: {
+        isPricingSupportedPlatform: vi.fn(() => true),
+        refreshGamePricing
+      },
+      presentToast
+    });
+
+    await (
+      page as unknown as { refreshSelectedGamePricing: () => Promise<void> }
+    ).refreshSelectedGamePricing();
+
+    expect(presentToast).toHaveBeenCalledWith(
+      'Pricing is only available for wishlist games.',
+      'warning'
+    );
+    expect(refreshGamePricing).not.toHaveBeenCalled();
+  });
+
+  it('bulk pricing refresh is skipped for collection list type', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      displayedGames: GameEntry[];
+      selectedGameKeys: Set<string>;
+      listType: 'collection' | 'wishlist';
+    };
+    const runBulkAction = vi.fn();
+
+    Object.assign(page, {
+      displayedGames: [createGame({ igdbGameId: '91', platformIgdbId: 6, listType: 'collection' })],
+      selectedGameKeys: new Set(['91::6']),
+      listType: 'collection',
+      runBulkAction,
+      gameShelfService: {
+        isPricingSupportedPlatform: vi.fn(() => true)
+      }
+    });
+
+    await (
+      page as unknown as { updatePricingForSelectedGames: () => Promise<void> }
+    ).updatePricingForSelectedGames();
+
+    expect(runBulkAction).not.toHaveBeenCalled();
+  });
+
   it('detailVideos uses actively viewed detail game in similar discovery mode', () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;
@@ -465,5 +633,26 @@ describe('game-list review actions', () => {
 
     expect(page.detailVideos).toHaveLength(1);
     expect(page.hasDetailVideosShortcut).toBe(false);
+  });
+
+  it('formats row price as CHF for wishlist rows', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      listType: 'collection' | 'wishlist';
+    };
+    Object.assign(page, { listType: 'wishlist' });
+
+    const label = page.getRowPriceLabel(createGame({ priceAmount: 19.99 }));
+
+    expect(label).toContain('CHF');
+    expect(label).toContain('19.99');
+  });
+
+  it('does not show row price for collection rows', () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      listType: 'collection' | 'wishlist';
+    };
+    Object.assign(page, { listType: 'collection' });
+
+    expect(page.getRowPriceLabel(createGame({ priceAmount: 19.99 }))).toBeNull();
   });
 });

@@ -61,6 +61,10 @@ ion-fab-list {
   -webkit-backdrop-filter: saturate(160%) blur(14px);
 }
 
+.attributions-alert .alert-message {
+  white-space: pre-line;
+}
+
 @media (min-width: 1024px) {
   ion-modal:not(.sheet-modal) {
     --backdrop-opacity: 0.4;

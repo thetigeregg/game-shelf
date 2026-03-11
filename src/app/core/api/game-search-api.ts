@@ -57,6 +57,22 @@ export interface GameSearchApi {
     platform?: string | null,
     platformIgdbId?: number | null
   ): Observable<ReviewMatchCandidate[]>;
+  lookupSteamPrice?(
+    igdbGameId: string,
+    platformIgdbId: number,
+    countryCode?: string,
+    steamAppId?: number | null
+  ): Observable<unknown>;
+  lookupPsPrices?(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title?: string | null
+  ): Observable<unknown>;
+  lookupPsPricesCandidates?(
+    igdbGameId: string,
+    platformIgdbId: number,
+    title: string
+  ): Observable<unknown>;
   listPopularityTypes(): Observable<PopularityTypeOption[]>;
   listPopularityGames(
     popularityTypeId: number,

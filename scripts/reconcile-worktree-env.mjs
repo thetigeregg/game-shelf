@@ -127,7 +127,7 @@ async function askChoice(rl) {
   console.log('Choose an action:');
   console.log('  1) Add missing fields (from .env.example -> shared env)');
   console.log(
-    '  2) Save (normalize to .env.example layout; optional commented keys in shared env become active) and exit'
+    '  2) Save (normalize to .env.example layout, add missing keys using example values, and activate commented keys) and exit'
   );
   console.log('  3) Exit without saving');
   const answer = (await askLine(rl, 'Select [1-3]: ')).trim();

@@ -885,7 +885,6 @@ async function persistPsPricesSnapshot(
   const fetchedAt = new Date().toISOString();
   const preserveExisting = params.bestPrice === null;
   const patchPayload: Record<string, unknown> = {
-    priceFetchedAt: fetchedAt,
     psPricesFetchedAt: fetchedAt,
     psPricesSource: 'psprices',
     psPricesRegionPath: params.regionPath,
@@ -908,6 +907,7 @@ async function persistPsPricesSnapshot(
   };
   if (!preserveExisting) {
     patchPayload['priceSource'] = 'psprices';
+    patchPayload['priceFetchedAt'] = fetchedAt;
     patchPayload['priceAmount'] = params.bestPrice.amount;
     patchPayload['priceCurrency'] = params.bestPrice.currency ?? null;
     patchPayload['priceRegularAmount'] = params.bestPrice.regularAmount ?? null;

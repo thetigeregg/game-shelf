@@ -142,9 +142,11 @@ export class GameFiltersMenuComponent implements OnChanges {
         ? DEFAULT_GAME_LIST_FILTERS.sortField
         : this.filters.sortField === 'platform'
           ? DEFAULT_GAME_LIST_FILTERS.sortField
-          : this.filters.sortField === 'price' && !this.showPriceSort
-            ? DEFAULT_GAME_LIST_FILTERS.sortField
-            : this.filters.sortField;
+          : this.filters.sortField === 'metacritic'
+            ? 'review'
+            : this.filters.sortField === 'price' && !this.showPriceSort
+              ? DEFAULT_GAME_LIST_FILTERS.sortField
+              : this.filters.sortField;
     const normalizedFilters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...this.filters,
@@ -152,7 +154,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     };
     this.draftFilters = normalizedFilters;
     this.sortOption =
-      `${this.draftFilters.sortField === 'metacritic' ? 'review' : this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
+      `${this.draftFilters.sortField}:${this.draftFilters.sortDirection}` as SortOption;
 
     if (this.filters.sortField !== normalizedSortField) {
       this.filtersChange.emit({ ...normalizedFilters });

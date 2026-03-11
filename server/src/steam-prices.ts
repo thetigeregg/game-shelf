@@ -642,7 +642,6 @@ async function persistSteamSnapshot(
   const preserveExisting = params.bestPrice === null;
   const patchPayload: Record<string, unknown> = {
     steamAppId: params.steamAppId,
-    priceFetchedAt: fetchedAt,
     steamPriceCountry: params.cc,
     steamPriceFetchedAt: fetchedAt,
     steamPriceSource: 'steam_store'
@@ -652,6 +651,7 @@ async function persistSteamSnapshot(
       params.payload['steamPriceUrl'] ?? buildSteamAppUrl(params.steamAppId);
   } else {
     patchPayload['priceSource'] = 'steam_store';
+    patchPayload['priceFetchedAt'] = fetchedAt;
     patchPayload['priceAmount'] = params.bestPrice.amount;
     patchPayload['priceCurrency'] = params.bestPrice.currency ?? null;
     patchPayload['priceRegularAmount'] = params.bestPrice.initialAmount ?? null;

@@ -19,6 +19,8 @@ Before first deploy, publish images from GitHub Actions:
    - `ghcr.io/thetigeregg/game-shelf-edge:main`
    - `ghcr.io/thetigeregg/game-shelf-api:main`
    - `ghcr.io/thetigeregg/game-shelf-hltb-scraper:main`
+   - `ghcr.io/thetigeregg/game-shelf-metacritic-scraper:main`
+   - `ghcr.io/thetigeregg/game-shelf-psprices-scraper:main`
    - `ghcr.io/thetigeregg/game-shelf-backup:main`
    - Postgres image defaults to immutable digest-pinned `pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff`.
      Set `POSTGRES_IMAGE` only when you explicitly want to override this pin.
@@ -35,6 +37,7 @@ Required app secrets (one secret per file):
 - `twitch_client_secret`
 - `thegamesdb_api_key`
 - `hltb_scraper_token` (optional)
+- `psprices_scraper_token` (optional)
 - `openai_api_key` (required for semantic recommendation embeddings)
 - `postgres_user`
 - `postgres_password`
@@ -53,6 +56,27 @@ Common stack env vars:
 - `TWITCH_CLIENT_ID_FILE`
 - `TWITCH_CLIENT_SECRET_FILE`
 - `THEGAMESDB_API_KEY_FILE`
+- `STEAM_STORE_API_BASE_URL` (optional; defaults to `https://store.steampowered.com`)
+- `STEAM_STORE_API_TIMEOUT_MS` (optional; defaults to `10000`)
+- `STEAM_DEFAULT_COUNTRY` (optional; defaults to `CH`)
+- `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults to `true`)
+- `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults to `86400`)
+- `STEAM_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults to `7776000`)
+- `PSPRICES_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+- `PSPRICES_SCRAPER_TOKEN_FILE` (optional, but recommended)
+- `PSPRICES_REGION_PATH` (optional; defaults `region-ch`)
+- `PSPRICES_SHOW` (optional; defaults `games`)
+- `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE` (optional; defaults `true`)
+- `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS` (optional; defaults `86400`)
+- `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS` (optional; defaults `7776000`)
+- `PRICING_REFRESH_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
+- `PRICING_REFRESH_INTERVAL_MINUTES` (optional; defaults `60`; consumed by `worker-general`)
+- `PRICING_REFRESH_BATCH_SIZE` (optional; defaults `200`; consumed by `worker-general`)
+- `PRICING_REFRESH_STALE_HOURS` (optional; defaults `24`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_ENABLED` (optional; defaults `true`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_INTERVAL_MINUTES` (optional; defaults `60`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_BATCH_SIZE` (optional; defaults `200`; consumed by `worker-general`)
+- `DISCOVERY_PRICING_REFRESH_STALE_HOURS` (optional; defaults `24`; consumed by `worker-general`)
 - `OPENAI_API_KEY_FILE`
 - `POSTGRES_USER_FILE`
 - `POSTGRES_PASSWORD_FILE`
@@ -61,6 +85,7 @@ Common stack env vars:
 - `PGPASSWORD_FILE` (backup service DB password)
 - `DEBUG_HLTB_SCRAPER_LOGS` (optional)
 - `HLTB_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
+- `METACRITIC_SCRAPER_BASE_URL` (optional; defaults to internal service URL)
 - `FIREBASE_SERVICE_ACCOUNT_JSON_FILE` (required for FCM notifications; defaults to `/run/secrets/firebase_service_account_json`)
 - `RELEASE_MONITOR_ENABLED` (optional; defaults `true`)
 - `RELEASE_MONITOR_INTERVAL_SECONDS` (optional; defaults `900`)
@@ -196,6 +221,7 @@ Create one file per secret under `SECRETS_HOST_DIR`:
 - `/volume1/docker/secrets/gameshelf/twitch_client_secret`
 - `/volume1/docker/secrets/gameshelf/thegamesdb_api_key`
 - `/volume1/docker/secrets/gameshelf/hltb_scraper_token` (optional)
+- `/volume1/docker/secrets/gameshelf/psprices_scraper_token` (optional)
 - `/volume1/docker/secrets/gameshelf/openai_api_key` (required for semantic recommendation embeddings)
 - `/volume1/docker/secrets/gameshelf/postgres_user`
 - `/volume1/docker/secrets/gameshelf/postgres_password`
@@ -222,6 +248,8 @@ Services:
 - `api` hosts metadata + sync endpoints.
 - `postgres` stores authoritative app data.
 - `hltb-scraper` provides browser-backed HLTB lookups.
+- `metacritic-scraper` provides browser-backed Metacritic lookups.
+- `psprices-scraper` provides browser-backed PSPrices lookups.
 - `backup` creates nightly Postgres dump artifacts under `nas-data/backups`.
 
 Manual PDFs:
@@ -245,6 +273,7 @@ Local development runs `api` in Docker (no host-run API process).
 `nas-secrets/postgres_user`
 `nas-secrets/postgres_password`
 `nas-secrets/hltb_scraper_token` (optional)
+`nas-secrets/psprices_scraper_token` (optional)
 `nas-secrets/firebase_service_account_json` (required for FCM notifications)
 `nas-secrets/metacritic_scraper_token` (optional)
 `nas-secrets/mobygames_api_key` (required for MobyGames review lookups)
@@ -258,9 +287,30 @@ cp .env.example .env
 
 Key metadata env vars in `.env`:
 
+- `METACRITIC_SCRAPER_BASE_URL=http://metacritic-scraper:8789`
 - `METACRITIC_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=240`
 - `MOBYGAMES_API_BASE_URL=https://api.mobygames.com/v2`
 - `MOBYGAMES_SEARCH_RATE_LIMIT_MAX_PER_MINUTE=12` (0.2 requests/second)
+- `STEAM_STORE_API_BASE_URL=https://store.steampowered.com`
+- `STEAM_STORE_API_TIMEOUT_MS=10000`
+- `STEAM_DEFAULT_COUNTRY=CH`
+- `STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
+- `STEAM_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
+- `STEAM_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
+- `PSPRICES_SCRAPER_BASE_URL=http://psprices-scraper:8790`
+- `PSPRICES_REGION_PATH=region-ch`
+- `PSPRICES_SHOW=games`
+- `PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE=true`
+- `PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS=86400`
+- `PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS=7776000`
+- `PRICING_REFRESH_ENABLED=true`
+- `PRICING_REFRESH_INTERVAL_MINUTES=60`
+- `PRICING_REFRESH_BATCH_SIZE=200`
+- `PRICING_REFRESH_STALE_HOURS=24`
+- `DISCOVERY_PRICING_REFRESH_ENABLED=true`
+- `DISCOVERY_PRICING_REFRESH_INTERVAL_MINUTES=60`
+- `DISCOVERY_PRICING_REFRESH_BATCH_SIZE=200`
+- `DISCOVERY_PRICING_REFRESH_STALE_HOURS=24`
 
 Key recommendation env vars in `.env`:
 

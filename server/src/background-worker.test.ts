@@ -5,6 +5,7 @@ import {
   readBackgroundWorkerMode,
   readDiscoveryEnrichmentApiBaseUrl,
   readPositiveIntegerEnv,
+  shouldRunPricingRefreshPhase,
   stringOrEmpty
 } from './background-worker.js';
 
@@ -97,4 +98,53 @@ void test('background worker mode parser supports general/recommendations/all wi
       process.env.BACKGROUND_WORKER_MODE = previous;
     }
   }
+});
+
+void test('pricing refresh phase helper handles startup, interval, and disabled states', () => {
+  const nowMs = Date.parse('2026-03-10T10:00:00.000Z');
+  const lastRunMs = nowMs - 30 * 60 * 1000;
+
+  assert.equal(
+    shouldRunPricingRefreshPhase({
+      enabled: false,
+      trigger: 'startup',
+      nowMs,
+      lastRunMs,
+      intervalMinutes: 60
+    }),
+    false
+  );
+
+  assert.equal(
+    shouldRunPricingRefreshPhase({
+      enabled: true,
+      trigger: 'startup',
+      nowMs,
+      lastRunMs,
+      intervalMinutes: 60
+    }),
+    true
+  );
+
+  assert.equal(
+    shouldRunPricingRefreshPhase({
+      enabled: true,
+      trigger: 'interval',
+      nowMs,
+      lastRunMs,
+      intervalMinutes: 60
+    }),
+    false
+  );
+
+  assert.equal(
+    shouldRunPricingRefreshPhase({
+      enabled: true,
+      trigger: 'interval',
+      nowMs,
+      lastRunMs: nowMs - 60 * 60 * 1000,
+      intervalMinutes: 60
+    }),
+    true
+  );
 });

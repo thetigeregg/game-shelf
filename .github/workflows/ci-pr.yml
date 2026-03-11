@@ -146,12 +146,18 @@ jobs:
             dockerfile: hltb-scraper/Dockerfile
           - image: metacritic-scraper
             dockerfile: metacritic-scraper/Dockerfile
+          - image: psprices-scraper
+            dockerfile: psprices-scraper/Dockerfile
           - image: backup
             dockerfile: backup/Dockerfile
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Write production Firebase environment (edge parity check)
+        if: matrix.image == 'edge'
+        run: bash scripts/write-environment-prod.sh ci
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

@@ -120,6 +120,27 @@ export interface AppConfig {
   metacriticSearchRateLimitMaxPerMinute: number;
   mobygamesApiBaseUrl: string;
   mobygamesApiKey: string;
+  steamStoreApiBaseUrl: string;
+  steamStoreApiTimeoutMs: number;
+  steamDefaultCountry: string;
+  steamPriceCacheEnableStaleWhileRevalidate: boolean;
+  steamPriceCacheFreshTtlSeconds: number;
+  steamPriceCacheStaleTtlSeconds: number;
+  pspricesScraperBaseUrl: string;
+  pspricesScraperToken: string;
+  pspricesRegionPath: string;
+  pspricesShow: string;
+  pspricesPriceCacheEnableStaleWhileRevalidate: boolean;
+  pspricesPriceCacheFreshTtlSeconds: number;
+  pspricesPriceCacheStaleTtlSeconds: number;
+  pricingRefreshEnabled: boolean;
+  pricingRefreshIntervalMinutes: number;
+  pricingRefreshBatchSize: number;
+  pricingRefreshStaleHours: number;
+  discoveryPricingRefreshEnabled: boolean;
+  discoveryPricingRefreshIntervalMinutes: number;
+  discoveryPricingRefreshBatchSize: number;
+  discoveryPricingRefreshStaleHours: number;
   mobygamesCacheEnableStaleWhileRevalidate: boolean;
   mobygamesCacheFreshTtlSeconds: number;
   mobygamesCacheStaleTtlSeconds: number;
@@ -249,6 +270,11 @@ function readRuntimeModeDefaultEnv(
   return parsed ?? fallback;
 }
 
+function normalizeCountryCode(value: string): string | null {
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(normalized) ? normalized : null;
+}
+
 const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
 
 function readEmbeddingDimensionsEnv(name: string): number {
@@ -312,6 +338,42 @@ export const config: AppConfig = {
   ),
   mobygamesApiBaseUrl: readEnv('MOBYGAMES_API_BASE_URL', 'https://api.mobygames.com/v2'),
   mobygamesApiKey: readSecretFile('MOBYGAMES_API_KEY', 'mobygames_api_key'),
+  steamStoreApiBaseUrl: readEnv('STEAM_STORE_API_BASE_URL', 'https://store.steampowered.com'),
+  steamStoreApiTimeoutMs: readIntegerEnv('STEAM_STORE_API_TIMEOUT_MS', 10_000),
+  steamDefaultCountry: normalizeCountryCode(readEnv('STEAM_DEFAULT_COUNTRY', 'CH')) ?? 'CH',
+  steamPriceCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'STEAM_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  steamPriceCacheFreshTtlSeconds: readIntegerEnv('STEAM_PRICE_CACHE_FRESH_TTL_SECONDS', 86400),
+  steamPriceCacheStaleTtlSeconds: readIntegerEnv('STEAM_PRICE_CACHE_STALE_TTL_SECONDS', 86400 * 90),
+  pspricesScraperBaseUrl: readEnv('PSPRICES_SCRAPER_BASE_URL', 'http://psprices-scraper:8790'),
+  pspricesScraperToken: readSecretFile('PSPRICES_SCRAPER_TOKEN', 'psprices_scraper_token'),
+  pspricesRegionPath: readEnv('PSPRICES_REGION_PATH', 'region-ch'),
+  pspricesShow: readEnv('PSPRICES_SHOW', 'games'),
+  pspricesPriceCacheEnableStaleWhileRevalidate: readBooleanEnv(
+    'PSPRICES_PRICE_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
+    true
+  ),
+  pspricesPriceCacheFreshTtlSeconds: readIntegerEnv(
+    'PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS',
+    86400
+  ),
+  pspricesPriceCacheStaleTtlSeconds: readIntegerEnv(
+    'PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS',
+    86400 * 90
+  ),
+  pricingRefreshEnabled: readBooleanEnv('PRICING_REFRESH_ENABLED', true),
+  pricingRefreshIntervalMinutes: readIntegerEnv('PRICING_REFRESH_INTERVAL_MINUTES', 60),
+  pricingRefreshBatchSize: readIntegerEnv('PRICING_REFRESH_BATCH_SIZE', 200),
+  pricingRefreshStaleHours: readIntegerEnv('PRICING_REFRESH_STALE_HOURS', 24),
+  discoveryPricingRefreshEnabled: readBooleanEnv('DISCOVERY_PRICING_REFRESH_ENABLED', true),
+  discoveryPricingRefreshIntervalMinutes: readIntegerEnv(
+    'DISCOVERY_PRICING_REFRESH_INTERVAL_MINUTES',
+    60
+  ),
+  discoveryPricingRefreshBatchSize: readIntegerEnv('DISCOVERY_PRICING_REFRESH_BATCH_SIZE', 200),
+  discoveryPricingRefreshStaleHours: readIntegerEnv('DISCOVERY_PRICING_REFRESH_STALE_HOURS', 24),
   mobygamesCacheEnableStaleWhileRevalidate: readBooleanEnv(
     'MOBYGAMES_CACHE_ENABLE_STALE_WHILE_REVALIDATE',
     true

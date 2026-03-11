@@ -96,7 +96,7 @@
         <ion-label>Date Set</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.set"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.set"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('set', $any($event).detail.checked)"
         ></ion-toggle>
@@ -105,7 +105,7 @@
         <ion-label>Date Changed</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.changed"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.changed"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('changed', $any($event).detail.checked)"
         ></ion-toggle>
@@ -114,7 +114,7 @@
         <ion-label>Date Removed</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.removed"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.removed"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('removed', $any($event).detail.checked)"
         ></ion-toggle>
@@ -123,7 +123,7 @@
         <ion-label>Release Day</ion-label>
         <ion-toggle
           slot="end"
-          [checked]="releaseNotificationEvents.day"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.day"
           [disabled]="!releaseNotificationsEnabled"
           (ionChange)="onReleaseEventToggleChange('day', $any($event).detail.checked)"
         ></ion-toggle>
@@ -150,24 +150,26 @@
         <ion-label>Advanced</ion-label>
       </ion-list-header>
 
-      <ion-item>
-        <ion-input
-          label="Time Preference (T)"
-          class="ion-text-end"
-          type="number"
-          min="5"
-          max="100"
-          step="1"
-          [ngModel]="timePreference"
-          (ngModelChange)="onTimePreferenceChange($event)"
-          inputmode="numeric"
-        ></ion-input>
-      </ion-item>
-      <ion-item lines="full" class="time-preference-help-item">
-        <ion-label color="medium" class="time-preference-help-text">
-          Lower T favors shorter games. Higher T is more tolerant of longer games.
-        </ion-label>
-      </ion-item>
+      @if (isTasFeatureEnabled) {
+        <ion-item>
+          <ion-input
+            label="Time Preference (T)"
+            class="ion-text-end"
+            type="number"
+            min="5"
+            max="100"
+            step="1"
+            [ngModel]="timePreference"
+            (ngModelChange)="onTimePreferenceChange($event)"
+            inputmode="numeric"
+          ></ion-input>
+        </ion-item>
+        <ion-item lines="full" class="time-preference-help-item">
+          <ion-label color="medium" class="time-preference-help-text">
+            Lower T favors shorter games. Higher T is more tolerant of longer games.
+          </ion-label>
+        </ion-item>
+      }
 
       <ion-item>
         <ion-icon slot="start" color="medium" name="key"></ion-icon>
@@ -228,6 +230,9 @@
     </ion-list>
 
     <ion-list lines="full">
+      <ion-list-header>
+        <ion-label>Other</ion-label>
+      </ion-list-header>
       <ion-item button detail="true" (click)="showAttributions()">
         <ion-label>Attributions</ion-label>
       </ion-item>

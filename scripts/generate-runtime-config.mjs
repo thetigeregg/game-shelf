@@ -110,6 +110,7 @@ const envValues = {
 
 const showMgcImport = parseBoolean(envValues.FEATURE_MGC_IMPORT, false);
 const e2eFixtures = parseBoolean(envValues.FEATURE_E2E_FIXTURES, false);
+const tasEnabled = parseBoolean(envValues.FEATURE_TAS, false);
 const firebaseWebConfig = {
   apiKey: String(envValues.FIREBASE_WEB_API_KEY ?? ''),
   authDomain: String(envValues.FIREBASE_WEB_AUTH_DOMAIN ?? ''),
@@ -131,6 +132,7 @@ const output = `globalThis.__GAME_SHELF_RUNTIME_CONFIG__ = Object.assign(
     featureFlags: {
       showMgcImport: ${showMgcImport},
       e2eFixtures: ${e2eFixtures},
+      tasEnabled: ${tasEnabled},
     },
   },
 );

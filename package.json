@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.1.28",
+  "version": "1.1.30",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -38,10 +38,10 @@
     "prepare": "husky",
     "generate:metacritic-platform-artifacts": "node scripts/generate-metacritic-platform-artifacts.mjs",
     "generate:mobygames-platform-artifacts": "node scripts/generate-mobygames-platform-artifacts.mjs",
-    "i:all": "npm i && npm --prefix server i && npm --prefix worker i && npm --prefix hltb-scraper i && npm --prefix metacritic-scraper i",
-    "ci:all": "npm ci && npm --prefix server ci && npm --prefix worker ci && npm --prefix hltb-scraper ci && npm --prefix metacritic-scraper ci",
-    "audit:all": "npm audit && npm --prefix server audit && npm --prefix worker audit && npm --prefix hltb-scraper audit && npm --prefix metacritic-scraper audit",
-    "audit:fix:all": "npm audit fix && npm --prefix server audit fix && npm --prefix worker audit fix && npm --prefix hltb-scraper audit fix && npm --prefix metacritic-scraper audit fix",
+    "i:all": "npm i && npm --prefix server i && npm --prefix worker i && npm --prefix hltb-scraper i && npm --prefix metacritic-scraper i && npm --prefix psprices-scraper i",
+    "ci:all": "npm ci && npm --prefix server ci && npm --prefix worker ci && npm --prefix hltb-scraper ci && npm --prefix metacritic-scraper ci && npm --prefix psprices-scraper ci",
+    "audit:all": "npm audit && npm --prefix server audit && npm --prefix worker audit && npm --prefix hltb-scraper audit && npm --prefix metacritic-scraper audit && npm --prefix psprices-scraper audit",
+    "audit:fix:all": "npm audit fix && npm --prefix server audit fix && npm --prefix worker audit fix && npm --prefix hltb-scraper audit fix && npm --prefix metacritic-scraper audit fix && npm --prefix psprices-scraper audit fix",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh"
   },

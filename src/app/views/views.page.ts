@@ -35,6 +35,7 @@ import {
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { addIcons } from 'ionicons';
 import { ellipsisVertical, add } from 'ionicons/icons';
+import { isTasFeatureEnabled } from '../core/config/runtime-config';
 
 @Component({
   selector: 'app-views',
@@ -277,10 +278,10 @@ export class ViewsPage implements OnInit {
     }
 
     if (sortField === 'hltb') {
-      return `HLTB ${direction}`;
+      return `Completion time ${direction}`;
     }
 
-    if (sortField === 'tas') {
+    if (sortField === 'tas' && isTasFeatureEnabled()) {
       return `TAS ${direction}`;
     }
 
@@ -288,11 +289,15 @@ export class ViewsPage implements OnInit {
       return `Review ${direction}`;
     }
 
+    if (sortField === 'price') {
+      return `Price ${direction}`;
+    }
+
     if (sortField === 'platform') {
       return `Platform ${direction}`;
     }
 
-    return `Title ${direction}`;
+    return `Game title ${direction}`;
   }
 
   private getGroupLabel(groupBy: GameGroupByField): string {

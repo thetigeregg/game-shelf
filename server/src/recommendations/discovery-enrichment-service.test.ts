@@ -128,6 +128,399 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
   }
 });
 
+void test('discovery enrichment adds steam app id for Windows discovery rows', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '730',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Counter-Strike 2',
+        platform: 'PC',
+        listType: 'discovery',
+        hltbMainHours: 1,
+        reviewSource: 'metacritic',
+        reviewScore: 80
+      }
+    }
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response(null, { status: 500 }));
+  }) as typeof fetch;
+
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () =>
+      Promise.resolve(
+        new Map([
+          [
+            '730',
+            {
+              themes: [],
+              themeIds: [],
+              keywords: [],
+              keywordIds: [],
+              screenshots: [],
+              videos: [],
+              steamAppId: 730
+            }
+          ]
+        ])
+      )
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(
+      repository as never,
+      {
+        enabled: true,
+        startupDelayMs: 0,
+        intervalMinutes: 30,
+        maxGamesPerRun: 50,
+        requestTimeoutMs: 1000,
+        apiBaseUrl: 'http://127.0.0.1:3000',
+        maxAttempts: 6,
+        backoffBaseMinutes: 60,
+        backoffMaxHours: 168
+      },
+      () => Date.parse('2026-03-10T00:00:00.000Z'),
+      steamMetadataClient
+    );
+    const result = await service.enrichNow({ limit: 10 });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(fetchCalls, 0);
+    assert.equal(repository.updates.length, 1);
+    assert.equal(repository.updates[0]?.payload.steamAppId, 730);
+    assert.equal(repository.updates[0]?.payload.steamEnrichmentStatus, 'success');
+    assert.equal(repository.updates[0]?.payload.steamEnrichedAt, '2026-03-10T00:00:00.000Z');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment marks steam no_data when metadata has no steam app id', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1234',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Windows Game Without Steam Mapping',
+        platform: 'PC',
+        listType: 'discovery',
+        hltbMainHours: 1,
+        reviewSource: 'metacritic',
+        reviewScore: 80
+      }
+    }
+  ];
+
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () =>
+      Promise.resolve(
+        new Map([
+          [
+            '1234',
+            {
+              themes: [],
+              themeIds: [],
+              keywords: [],
+              keywordIds: [],
+              screenshots: [],
+              videos: [],
+              steamAppId: null
+            }
+          ]
+        ])
+      )
+  };
+
+  const service = new DiscoveryEnrichmentService(
+    repository as never,
+    {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    },
+    () => Date.parse('2026-03-10T00:00:00.000Z'),
+    steamMetadataClient
+  );
+
+  const result = await service.enrichNow({ limit: 10 });
+  assert.deepEqual(result, {
+    scanned: 1,
+    updated: 1,
+    skipped: 0
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(repository.updates.length, 1);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(repository.updates[0]?.payload ?? {}, 'steamAppId'),
+    false
+  );
+  assert.equal(repository.updates[0]?.payload.steamEnrichmentStatus, 'no_data');
+  assert.equal(repository.updates[0]?.payload.steamEnrichedAt, '2026-03-10T00:00:00.000Z');
+});
+
+void test('discovery enrichment skips steam lookup for non-Windows discovery rows', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '999',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Console Only Game',
+        platform: 'PlayStation 4',
+        listType: 'discovery',
+        hltbMainHours: 10,
+        reviewSource: 'metacritic',
+        reviewScore: 82
+      }
+    }
+  ];
+
+  let steamLookupCalls = 0;
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () => {
+      steamLookupCalls += 1;
+      return Promise.resolve(new Map());
+    }
+  };
+
+  const service = new DiscoveryEnrichmentService(
+    repository as never,
+    {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    },
+    undefined,
+    steamMetadataClient
+  );
+
+  const result = await service.enrichNow({ limit: 10 });
+  assert.deepEqual(result, {
+    scanned: 1,
+    updated: 0,
+    skipped: 1
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(steamLookupCalls, 0);
+});
+
+void test('discovery enrichment skips steam lookup when igdb id is not strictly numeric', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '730abc',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Counter-Strike 2',
+        platform: 'PC',
+        listType: 'discovery',
+        hltbMainHours: 1,
+        reviewSource: 'metacritic',
+        reviewScore: 80
+      }
+    }
+  ];
+
+  let steamLookupCalls = 0;
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () => {
+      steamLookupCalls += 1;
+      return Promise.resolve(new Map());
+    }
+  };
+
+  const service = new DiscoveryEnrichmentService(
+    repository as never,
+    {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    },
+    undefined,
+    steamMetadataClient
+  );
+
+  const result = await service.enrichNow({ limit: 10 });
+  assert.deepEqual(result, {
+    scanned: 1,
+    updated: 0,
+    skipped: 1
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(steamLookupCalls, 0);
+});
+
+void test('discovery enrichment records steam retry state on transient steam lookup failure', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '730',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Counter-Strike 2',
+        platform: 'PC',
+        listType: 'discovery',
+        hltbMainHours: 1,
+        reviewSource: 'metacritic',
+        reviewScore: 80
+      }
+    }
+  ];
+
+  let steamLookupCalls = 0;
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () => {
+      steamLookupCalls += 1;
+      return Promise.reject(new Error('igdb temporary failure'));
+    }
+  };
+
+  const nowIso = '2026-03-10T00:00:00.000Z';
+  const service = new DiscoveryEnrichmentService(
+    repository as never,
+    {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    },
+    () => Date.parse(nowIso),
+    steamMetadataClient
+  );
+
+  const result = await service.enrichNow({ limit: 10 });
+  assert.deepEqual(result, {
+    scanned: 1,
+    updated: 1,
+    skipped: 0
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(steamLookupCalls, 1);
+  const retry = repository.updates[0]?.payload.enrichmentRetry as
+    | {
+        steam?: {
+          attempts: number;
+          permanentMiss: boolean;
+          lastTriedAt: string;
+          nextTryAt: string;
+        };
+      }
+    | undefined;
+  assert.ok(retry && retry.steam);
+  const steamRetry = retry.steam;
+  assert.equal(steamRetry.attempts, 1);
+  assert.equal(steamRetry.permanentMiss, false);
+  assert.equal(steamRetry.lastTriedAt, nowIso);
+  assert.equal(steamRetry.nextTryAt, '2026-03-10T01:00:00.000Z');
+  assert.equal(repository.updates[0]?.payload.steamEnrichedAt, undefined);
+});
+
+void test('discovery enrichment skips steam retry when nextTryAt is still in the future', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '730',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Counter-Strike 2',
+        platform: 'PC',
+        listType: 'discovery',
+        hltbMainHours: 1,
+        reviewSource: 'metacritic',
+        reviewScore: 80,
+        enrichmentRetry: {
+          steam: {
+            attempts: 1,
+            permanentMiss: false,
+            lastTriedAt: '2026-03-10T00:00:00.000Z',
+            nextTryAt: '2026-03-10T02:00:00.000Z'
+          }
+        }
+      }
+    }
+  ];
+
+  let steamLookupCalls = 0;
+  const steamMetadataClient = {
+    fetchGameMetadataByIds: () => {
+      steamLookupCalls += 1;
+      return Promise.resolve(new Map());
+    }
+  };
+
+  const service = new DiscoveryEnrichmentService(
+    repository as never,
+    {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168
+    },
+    () => Date.parse('2026-03-10T01:00:00.000Z'),
+    steamMetadataClient
+  );
+
+  const result = await service.enrichNow({ limit: 10 });
+  assert.deepEqual(result, {
+    scanned: 1,
+    updated: 1,
+    skipped: 0
+  } satisfies DiscoveryEnrichmentSummary);
+  assert.equal(steamLookupCalls, 0);
+  const retry = repository.updates[0]?.payload.enrichmentRetry as
+    | {
+        steam?: {
+          attempts: number;
+          permanentMiss: boolean;
+          lastTriedAt: string;
+          nextTryAt: string;
+        };
+      }
+    | undefined;
+  assert.ok(retry && retry.steam);
+  const steamRetry = retry.steam;
+  assert.equal(steamRetry.attempts, 1);
+  assert.equal(steamRetry.permanentMiss, false);
+  assert.equal(steamRetry.lastTriedAt, '2026-03-10T00:00:00.000Z');
+  assert.equal(steamRetry.nextTryAt, '2026-03-10T02:00:00.000Z');
+});
+
 void test('discovery enrichment ignores non-provider reviewScore when deciding metacritic fetch', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

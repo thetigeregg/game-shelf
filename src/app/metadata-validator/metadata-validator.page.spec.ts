@@ -7,6 +7,7 @@ import type {
   GameEntry,
   HltbMatchCandidate,
   MetacriticMatchCandidate,
+  PriceMatchCandidate,
   ReviewMatchCandidate
 } from '../core/models/game.models';
 
@@ -50,16 +51,21 @@ import { PlatformCustomizationService } from '../core/services/platform-customiz
 import { DebugLogService } from '../core/services/debug-log.service';
 
 interface ShelfServiceStub {
+  hasUnifiedPriceData: ReturnType<typeof vi.fn>;
+  isPricingSupportedPlatform: ReturnType<typeof vi.fn>;
   shouldUseIgdbCoverForPlatform: ReturnType<typeof vi.fn>;
   searchBoxArtByTitle: ReturnType<typeof vi.fn>;
   updateGameCover: ReturnType<typeof vi.fn>;
   searchHltbCandidates: ReturnType<typeof vi.fn>;
   searchReviewCandidates: ReturnType<typeof vi.fn>;
+  searchPricingCandidates: ReturnType<typeof vi.fn>;
   refreshGameCompletionTimesWithQuery: ReturnType<typeof vi.fn>;
   refreshGameCompletionTimes: ReturnType<typeof vi.fn>;
   searchMetacriticCandidates: ReturnType<typeof vi.fn>;
   refreshGameMetacriticScoreWithQuery: ReturnType<typeof vi.fn>;
   refreshGameMetacriticScore: ReturnType<typeof vi.fn>;
+  refreshGamePricing: ReturnType<typeof vi.fn>;
+  refreshGamePricingWithQuery: ReturnType<typeof vi.fn>;
 }
 
 function createGame(partial: Partial<GameEntry> = {}): GameEntry {
@@ -80,7 +86,15 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     hltbMainExtraHours: partial.hltbMainExtraHours ?? null,
     hltbCompletionistHours: partial.hltbCompletionistHours ?? null,
     metacriticScore: partial.metacriticScore ?? null,
-    metacriticUrl: partial.metacriticUrl ?? null
+    metacriticUrl: partial.metacriticUrl ?? null,
+    priceSource: partial.priceSource ?? null,
+    priceFetchedAt: partial.priceFetchedAt ?? null,
+    priceAmount: partial.priceAmount ?? null,
+    priceCurrency: partial.priceCurrency ?? null,
+    priceRegularAmount: partial.priceRegularAmount ?? null,
+    priceDiscountPercent: partial.priceDiscountPercent ?? null,
+    priceIsFree: partial.priceIsFree ?? null,
+    priceUrl: partial.priceUrl ?? null
   };
 }
 
@@ -103,18 +117,34 @@ function createPageHarness(): {
 } {
   const page = Object.create(MetadataValidatorPage.prototype) as MetadataValidatorPage;
   const shelf: ShelfServiceStub = {
+    hasUnifiedPriceData: vi.fn((game: GameEntry) => {
+      if (
+        typeof game.priceAmount === 'number' &&
+        Number.isFinite(game.priceAmount) &&
+        game.priceAmount >= 0
+      ) {
+        return true;
+      }
+      return game.priceIsFree === true;
+    }),
+    isPricingSupportedPlatform: vi.fn((platformIgdbId: number) =>
+      [6, 48, 167, 130, 508].includes(platformIgdbId)
+    ),
     shouldUseIgdbCoverForPlatform: vi.fn(() => false),
     searchBoxArtByTitle: vi.fn(() => of([])),
     updateGameCover: vi.fn(() => Promise.resolve(undefined)),
     searchHltbCandidates: vi.fn(() => of([])),
     searchReviewCandidates: vi.fn(() => of([])),
+    searchPricingCandidates: vi.fn(() => of([])),
     refreshGameCompletionTimesWithQuery: vi.fn((_a, _b, _c) =>
       Promise.resolve(createGame({ hltbMainHours: 3 }))
     ),
     refreshGameCompletionTimes: vi.fn((_a, _b) => Promise.resolve(createGame())),
     searchMetacriticCandidates: vi.fn(() => of([])),
     refreshGameMetacriticScoreWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame())),
-    refreshGameMetacriticScore: vi.fn((_a, _b) => Promise.resolve(createGame()))
+    refreshGameMetacriticScore: vi.fn((_a, _b) => Promise.resolve(createGame())),
+    refreshGamePricing: vi.fn((_a, _b) => Promise.resolve(createGame())),
+    refreshGamePricingWithQuery: vi.fn((_a, _b, _c) => Promise.resolve(createGame()))
   };
   const presentToast = vi.fn(() => Promise.resolve(undefined));
   const loadingController = { create: vi.fn() };
@@ -139,6 +169,7 @@ function createPageHarness(): {
   setField(page, 'selectedMissingFilters', []);
   setField(page, 'isBulkRefreshingHltb', false);
   setField(page, 'isBulkRefreshingMetacritic', false);
+  setField(page, 'isBulkRefreshingPricing', false);
   setField(page, 'isBulkRefreshingImage', false);
   setField(page, 'isHltbPickerModalOpen', false);
   setField(page, 'isHltbPickerLoading', false);
@@ -152,6 +183,12 @@ function createPageHarness(): {
   setField(page, 'metacriticPickerResults', []);
   setField(page, 'metacriticPickerError', null);
   setField(page, 'metacriticPickerTargetGame', null);
+  setField(page, 'isPricingPickerModalOpen', false);
+  setField(page, 'isPricingPickerLoading', false);
+  setField(page, 'pricingPickerQuery', '');
+  setField(page, 'pricingPickerResults', []);
+  setField(page, 'pricingPickerError', null);
+  setField(page, 'pricingPickerTargetGame', null);
   setField(page, 'presentToast', presentToast);
   setField(
     page,
@@ -217,16 +254,45 @@ describe('MetadataValidatorPage', () => {
       'collection'
     );
     expect(selectedListTypeNext).toHaveBeenCalledWith('collection');
+    expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
+      'hltb',
+      'metacritic',
+      'nonPcTheGamesDbImage'
+    ]);
 
-    page.onListTypeChange('invalid');
-    expect((page as unknown as { selectedListType: string | null }).selectedListType).toBeNull();
-    expect(selectedListTypeNext).toHaveBeenCalledWith(null);
-
-    page.onMissingFiltersChange(['hltb', 'metacritic', 'metacritic', 'x']);
+    page.onMissingFiltersChange(['hltb', 'metacritic', 'pricing', 'metacritic', 'x']);
     expect(
       (page as unknown as { selectedMissingFilters: string[] }).selectedMissingFilters
     ).toEqual(['hltb', 'metacritic']);
     expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic']);
+
+    page.onListTypeChange('wishlist');
+    expect((page as unknown as { selectedListType: string | null }).selectedListType).toBe(
+      'wishlist'
+    );
+    expect(selectedListTypeNext).toHaveBeenCalledWith('wishlist');
+    expect(page.missingFilterOptions.map((option) => option.value)).toEqual([
+      'hltb',
+      'metacritic',
+      'pricing',
+      'nonPcTheGamesDbImage'
+    ]);
+
+    page.onMissingFiltersChange(['hltb', 'metacritic', 'pricing', 'metacritic', 'x']);
+    expect(
+      (page as unknown as { selectedMissingFilters: string[] }).selectedMissingFilters
+    ).toEqual(['hltb', 'metacritic', 'pricing']);
+    expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic', 'pricing']);
+
+    page.onListTypeChange('collection');
+    expect(
+      (page as unknown as { selectedMissingFilters: string[] }).selectedMissingFilters
+    ).toEqual(['hltb', 'metacritic']);
+    expect(selectedMissingFiltersNext).toHaveBeenCalledWith(['hltb', 'metacritic']);
+
+    page.onListTypeChange('invalid');
+    expect((page as unknown as { selectedListType: string | null }).selectedListType).toBeNull();
+    expect(selectedListTypeNext).toHaveBeenCalledWith(null);
 
     page.onMissingFiltersChange('nonPcTheGamesDbImage');
     expect(
@@ -334,7 +400,7 @@ describe('MetadataValidatorPage', () => {
 
     await page.refreshHltbForSelectedGames();
     expect(runBulkMock).toHaveBeenCalledOnce();
-    expect(presentToast).toHaveBeenCalledWith('Updated HLTB for 1 game.');
+    expect(presentToast).toHaveBeenCalledWith('Updated HLTB for 2 games.');
     expect(presentToast).toHaveBeenCalledWith(
       'Unable to update HLTB for 1 selected game.',
       'danger'
@@ -379,7 +445,7 @@ describe('MetadataValidatorPage', () => {
     expect(typeof firstBulkCall.delay).toBe('function');
     await firstBulkCall.action(supported);
     await firstBulkCall.delay(0);
-    expect(presentToast).toHaveBeenCalledWith('Updated review for 1 game.');
+    expect(presentToast).toHaveBeenCalledWith('Updated review for 2 games.');
     expect(presentToast).toHaveBeenCalledWith(
       'Unable to update review for 1 selected game.',
       'danger'
@@ -433,6 +499,66 @@ describe('MetadataValidatorPage', () => {
     );
   });
 
+  it('bulk pricing refresh only processes supported platforms', async () => {
+    const { page, runBulkMock, presentToast } = createPageHarness();
+    const pc = createGame({ igdbGameId: '1', platformIgdbId: 6, listType: 'wishlist' });
+    const unsupported = createGame({ igdbGameId: '2', platformIgdbId: 11, listType: 'wishlist' });
+    setField(page, 'displayedGames', [pc, unsupported]);
+    setField(page, 'selectedGameKeys', new Set(['1::6', '2::11']));
+
+    runBulkMock.mockResolvedValueOnce([
+      {
+        game: pc,
+        ok: true,
+        value: createGame({
+          igdbGameId: '1',
+          platformIgdbId: 6,
+          listType: 'wishlist',
+          priceAmount: 29.9
+        })
+      },
+      { game: pc, ok: false, value: null }
+    ]);
+
+    await page.refreshPricingForSelectedGames();
+    expect(runBulkMock).toHaveBeenCalledOnce();
+    const call = runBulkMock.mock.calls[0]?.[0];
+    expect(call).toBeDefined();
+    expect(
+      (call as { games: GameEntry[] }).games.map((game: GameEntry) => game.igdbGameId)
+    ).toEqual(['1']);
+    expect(presentToast).toHaveBeenCalledWith('Updated pricing for 1 game.');
+    expect(presentToast).toHaveBeenCalledWith(
+      'Unable to update pricing for 1 selected game.',
+      'danger'
+    );
+  });
+
+  it('refreshPricingForGame opens pricing picker for psprices platforms and direct refresh for steam', async () => {
+    const { page, shelf } = createPageHarness();
+    const psGame = createGame({
+      igdbGameId: '2',
+      platformIgdbId: 167,
+      title: 'PS Game',
+      listType: 'wishlist'
+    });
+    const steamGame = createGame({
+      igdbGameId: '3',
+      platformIgdbId: 6,
+      title: 'Steam Game',
+      listType: 'wishlist'
+    });
+
+    await page.refreshPricingForGame(psGame);
+    expect(
+      (page as unknown as { isPricingPickerModalOpen: boolean }).isPricingPickerModalOpen
+    ).toBe(true);
+    expect(shelf.refreshGamePricing).not.toHaveBeenCalled();
+
+    await page.refreshPricingForGame(steamGame);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('3', 6);
+  });
+
   it('runs picker searches with guard, success, and error paths', async () => {
     const { page, shelf } = createPageHarness();
     const hltbCandidate: HltbMatchCandidate = {
@@ -452,6 +578,16 @@ describe('MetadataValidatorPage', () => {
       reviewSource: 'metacritic',
       metacriticScore: 87,
       metacriticUrl: 'https://www.metacritic.com/game/doom/'
+    };
+    const pricingCandidate: PriceMatchCandidate = {
+      title: 'Doom',
+      amount: 29.9,
+      currency: 'CHF',
+      regularAmount: 39.9,
+      discountPercent: 25,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/123/doom',
+      score: 96
     };
 
     setField(page, 'hltbPickerQuery', 'a');
@@ -490,6 +626,204 @@ describe('MetadataValidatorPage', () => {
       (page as unknown as { metacriticPickerResults: MetacriticMatchCandidate[] })
         .metacriticPickerResults
     ).toEqual([]);
+
+    setField(page, 'pricingPickerTargetGame', target);
+    setField(page, 'pricingPickerQuery', 'doom');
+    shelf.searchPricingCandidates.mockReturnValueOnce(of([pricingCandidate, pricingCandidate]));
+    await page.runPricingPickerSearch();
+    expect(shelf.searchPricingCandidates).toHaveBeenCalledWith('1', 6, 'doom');
+    expect(
+      (page as unknown as { pricingPickerResults: PriceMatchCandidate[] }).pricingPickerResults
+        .length
+    ).toBe(1);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(throwError(() => new Error('429')));
+    await page.runPricingPickerSearch();
+    expect(
+      (page as unknown as { pricingPickerResults: PriceMatchCandidate[] }).pricingPickerResults
+    ).toEqual([]);
+  });
+
+  it('applies selected/original pricing candidates across success/no-match/error', async () => {
+    const { page, shelf, presentToast } = createPageHarness();
+    const target = createGame({
+      igdbGameId: '42',
+      platformIgdbId: 167,
+      title: 'Target',
+      platform: 'PS5'
+    });
+    setField(page, 'pricingPickerTargetGame', target);
+
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('42', 167, {
+      title: 'Target'
+    });
+
+    shelf.refreshGamePricingWithQuery.mockResolvedValueOnce(
+      createGame({
+        igdbGameId: '42',
+        platformIgdbId: 167,
+        priceAmount: null,
+        priceIsFree: null
+      })
+    );
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(presentToast).toHaveBeenCalledWith('No pricing match found for Target.', 'warning');
+
+    shelf.refreshGamePricingWithQuery.mockRejectedValueOnce(new Error('fail'));
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(presentToast).toHaveBeenCalledWith('Unable to update pricing for Target.', 'danger');
+
+    shelf.refreshGamePricing.mockResolvedValueOnce(
+      createGame({
+        igdbGameId: '42',
+        platformIgdbId: 167,
+        priceAmount: 39.9,
+        priceCurrency: 'CHF'
+      })
+    );
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.useOriginalPricingLookup();
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('42', 167);
+  });
+
+  it('covers additional pricing guard branches for single and bulk refresh flows', async () => {
+    const { page, shelf, presentToast, runBulkMock } = createPageHarness();
+    const unsupported = createGame({
+      igdbGameId: '50',
+      platformIgdbId: 3,
+      title: 'Unsupported',
+      listType: 'wishlist'
+    });
+    const steam = createGame({
+      igdbGameId: '51',
+      platformIgdbId: 6,
+      title: 'Steam',
+      listType: 'wishlist'
+    });
+
+    await page.refreshPricingForGame(unsupported);
+    expect(presentToast).toHaveBeenCalledWith(
+      'Pricing is not supported for this platform.',
+      'warning'
+    );
+
+    shelf.refreshGamePricing.mockRejectedValueOnce(new Error('down'));
+    await page.refreshPricingForGame(steam);
+    expect(presentToast).toHaveBeenCalledWith('Unable to update pricing for Steam.', 'danger');
+
+    setField(page, 'displayedGames', [unsupported]);
+    setField(page, 'selectedGameKeys', new Set(['50::3']));
+    await page.refreshPricingForSelectedGames();
+    expect(runBulkMock).not.toHaveBeenCalled();
+
+    setField(page, 'displayedGames', [steam]);
+    setField(page, 'selectedGameKeys', new Set(['51::6']));
+    setField(page, 'isBulkRefreshingPricing', true);
+    await page.refreshPricingForSelectedGames();
+    expect(runBulkMock).not.toHaveBeenCalled();
+    setField(page, 'isBulkRefreshingPricing', false);
+  });
+
+  it('covers pricing picker search and apply/use-original early return and error branches', async () => {
+    const { page, shelf, presentToast } = createPageHarness();
+    const target = createGame({
+      igdbGameId: '61',
+      platformIgdbId: 167,
+      title: 'Target',
+      platform: 'PS5'
+    });
+
+    page.onPricingPickerQueryChange({ detail: { value: '  ff7  ' } } as unknown as Event);
+    expect((page as unknown as { pricingPickerQuery: string }).pricingPickerQuery).toBe('  ff7  ');
+
+    setField(page, 'pricingPickerTargetGame', null);
+    setField(page, 'pricingPickerQuery', 'ff7');
+    await page.runPricingPickerSearch();
+    expect((page as unknown as { pricingPickerError: string | null }).pricingPickerError).toBe(
+      'Select a game first.'
+    );
+
+    setField(page, 'pricingPickerTargetGame', target);
+    setField(page, 'pricingPickerQuery', 'x');
+    await page.runPricingPickerSearch();
+    expect((page as unknown as { pricingPickerError: string | null }).pricingPickerError).toBe(
+      'Enter at least 2 characters.'
+    );
+
+    setField(page, 'pricingPickerTargetGame', null);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(shelf.refreshGamePricingWithQuery).not.toHaveBeenCalled();
+
+    setField(page, 'pricingPickerTargetGame', target);
+    shelf.refreshGamePricingWithQuery.mockResolvedValueOnce(
+      createGame({ igdbGameId: '61', platformIgdbId: 167, priceAmount: 29.9, priceCurrency: 'CHF' })
+    );
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 49.9,
+      currency: 'CHF',
+      regularAmount: 69.9,
+      discountPercent: 28,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target',
+      score: 97
+    });
+    expect(presentToast).toHaveBeenCalledWith('Updated pricing for Target.');
+
+    setField(page, 'pricingPickerTargetGame', null);
+    await page.useOriginalPricingLookup();
+    expect(shelf.refreshGamePricing).not.toHaveBeenCalled();
+
+    setField(page, 'pricingPickerTargetGame', target);
+    shelf.refreshGamePricing.mockResolvedValueOnce(
+      createGame({ igdbGameId: '61', platformIgdbId: 167, priceAmount: null, priceIsFree: null })
+    );
+    await page.useOriginalPricingLookup();
+    expect(presentToast).toHaveBeenCalledWith('No pricing match found for Target.', 'warning');
+
+    setField(page, 'pricingPickerTargetGame', target);
+    shelf.refreshGamePricing.mockRejectedValueOnce(new Error('429'));
+    await page.useOriginalPricingLookup();
+    expect(presentToast).toHaveBeenCalledWith('Rate limited. Please retry shortly.', 'warning');
   });
 
   it('applies selected/original HLTB and Metacritic candidates across success/no-match/error', async () => {
@@ -615,6 +949,28 @@ describe('MetadataValidatorPage', () => {
       ['metacritic']
     ) as GameEntry[];
     expect(filtered.length).toBe(1);
+
+    const pricingFiltered = callPrivate(
+      page,
+      'applyMissingMetadataFilters',
+      [
+        createGame({ igdbGameId: '9', platformIgdbId: 6, listType: 'wishlist', priceAmount: null }),
+        createGame({
+          igdbGameId: '10',
+          platformIgdbId: 167,
+          listType: 'wishlist',
+          priceAmount: 39.9
+        }),
+        createGame({
+          igdbGameId: '11',
+          platformIgdbId: 6,
+          listType: 'collection',
+          priceAmount: null
+        })
+      ],
+      ['pricing']
+    ) as GameEntry[];
+    expect(pricingFiltered.map((entry) => entry.igdbGameId)).toEqual(['9']);
 
     expect(callPrivate(page, 'toPositiveNumber', 2)).toBe(2);
     expect(callPrivate(page, 'toPositiveNumber', 0)).toBeNull();
@@ -747,6 +1103,64 @@ describe('MetadataValidatorPage', () => {
     );
     await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
     expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalled();
+  });
+
+  it('covers bulk pricing helper branches for supported/unsupported and fallback paths', async () => {
+    const { page, shelf } = createPageHarness();
+    const unsupported = createGame({ igdbGameId: '20', platformIgdbId: 3, title: 'Console' });
+    const supported = createGame({ igdbGameId: '21', platformIgdbId: 167, title: 'PS Test' });
+
+    await (callPrivate(page, 'refreshPricingForBulkGame', unsupported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('20', 3);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(of([]));
+    await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('21', 167);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(
+      of([{ title: 'PS Test Candidate', amount: 19.9 } as PriceMatchCandidate])
+    );
+    await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('21', 167, {
+      title: 'PS Test Candidate'
+    });
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(
+      throwError(() => new Error('temporary down'))
+    );
+    await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
+    expect(shelf.refreshGamePricing).toHaveBeenCalledWith('21', 167);
+
+    shelf.searchPricingCandidates.mockReturnValueOnce(
+      throwError(() => new Error('Rate limit exceeded. Retry after 10s.'))
+    );
+    await expect(
+      callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>
+    ).rejects.toThrow();
+  });
+
+  it('covers selection sync, review modal wrapper, and hltb non-rate-limit fallback trace', async () => {
+    const { page, shelf, debugTrace } = createPageHarness();
+    const visible = createGame({ igdbGameId: '32', platformIgdbId: 6, title: 'Visible' });
+
+    setField(page, 'displayedGames', [visible]);
+    setField(page, 'selectedGameKeys', new Set(['31::6', '32::6']));
+    callPrivate(page, 'syncSelectionToDisplayedGames');
+    expect((page as unknown as { selectedGameKeys: Set<string> }).selectedGameKeys).toEqual(
+      new Set(['32::6'])
+    );
+
+    const openMetacriticPickerModal = vi.fn(() => Promise.resolve(undefined));
+    setField(page, 'openMetacriticPickerModal', openMetacriticPickerModal);
+    await (callPrivate(page, 'openReviewPickerModal', visible) as Promise<void>);
+    expect(openMetacriticPickerModal).toHaveBeenCalledWith(visible);
+
+    shelf.searchHltbCandidates.mockReturnValueOnce(throwError(() => new Error('temporary down')));
+    await (callPrivate(page, 'refreshHltbForBulkGame', visible) as Promise<GameEntry>);
+    expect(debugTrace).toHaveBeenCalledWith(
+      'metadata_validator.bulk_hltb.candidate_search_failed',
+      expect.objectContaining({ gameKey: '32::6' })
+    );
   });
 
   it('handles metacritic picker short query, no-match, success, and error paths', async () => {

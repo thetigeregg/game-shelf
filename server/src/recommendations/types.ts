@@ -12,6 +12,10 @@ export type RecommendationLaneKey =
   | 'recent';
 
 export type GameStatus = 'completed' | 'dropped' | 'playing' | 'paused' | 'replay' | 'wantToPlay';
+export const DISCOVERY_RECOMMENDATION_ALLOWED_STATUSES: ReadonlyArray<GameStatus | ''> = [
+  '',
+  'wantToPlay'
+];
 
 export type TokenFamily =
   | 'genres'

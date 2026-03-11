@@ -115,7 +115,11 @@ import {
   RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
   ReleaseNotificationEventsPreference
 } from '../core/services/notification.service';
-import { getAppVersion, isMgcImportFeatureEnabled } from '../core/config/runtime-config';
+import {
+  getAppVersion,
+  isMgcImportFeatureEnabled,
+  isTasFeatureEnabled
+} from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import {
@@ -372,6 +376,7 @@ export class SettingsPage {
   ];
   readonly appVersion = getAppVersion();
   readonly isMgcImportFeatureEnabled = isMgcImportFeatureEnabled();
+  readonly isTasFeatureEnabled = isTasFeatureEnabled();
 
   selectedColorScheme: ColorSchemePreference = 'system';
   clientWriteTokenConfigured = false;
@@ -517,16 +522,18 @@ export class SettingsPage {
   async showAttributions(): Promise<void> {
     const alert = await this.alertController.create({
       header: 'Attributions',
+      cssClass: 'attributions-alert',
       message: [
-        '<p>Game Shelf uses data from:</p>',
-        '<p>',
-        '• IGDB<br>',
-        '• TheGamesDB<br>',
-        '• HowLongToBeat (HLTB)<br>',
-        '• Metacritic<br>',
-        '• MobyGames',
-        '</p>'
-      ].join(''),
+        'Game Shelf uses data from:',
+        '',
+        '- IGDB',
+        '- TheGamesDB',
+        '- HowLongToBeat (HLTB)',
+        '- Metacritic',
+        '- MobyGames',
+        '- Steam Store',
+        '- PSPrices'
+      ].join('\n'),
       buttons: ['OK']
     });
 
@@ -2897,7 +2904,7 @@ export class SettingsPage {
         return this.errorRow(type, rowNumber, 'Invalid groupBy value.');
       }
 
-      const filters = parseFilters(record.filters, DEFAULT_GAME_LIST_FILTERS);
+      const filters = parseFilters(record.filters, DEFAULT_GAME_LIST_FILTERS, { listType });
 
       if (!filters) {
         return this.errorRow(type, rowNumber, 'Invalid filters payload for view.');

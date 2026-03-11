@@ -32,6 +32,7 @@ import {
   GameEntry,
   HltbMatchCandidate,
   ListType,
+  PriceMatchCandidate,
   ReviewMatchCandidate
 } from '../core/models/game.models';
 import { GameShelfService } from '../core/services/game-shelf.service';
@@ -40,7 +41,7 @@ import { formatRateLimitedUiError, isRateLimitedMessage } from '../core/utils/ra
 import { DebugLogService } from '../core/services/debug-log.service';
 import { runBulkActionWithRetry } from '../features/game-list/game-list-bulk-actions';
 
-type MissingMetadataFilter = 'hltb' | 'metacritic' | 'nonPcTheGamesDbImage';
+type MissingMetadataFilter = 'hltb' | 'metacritic' | 'pricing' | 'nonPcTheGamesDbImage';
 
 @Component({
   selector: 'app-metadata-validator',
@@ -85,11 +86,14 @@ export class MetadataValidatorPage {
   private static readonly BULK_METACRITIC_MAX_ATTEMPTS = 3;
   private static readonly BULK_METACRITIC_RETRY_BASE_DELAY_MS = 1000;
   private static readonly BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS = 15000;
-
-  readonly missingFilterOptions: Array<{ value: MissingMetadataFilter; label: string }> = [
+  private static readonly BASE_MISSING_FILTER_OPTIONS: Array<{
+    value: MissingMetadataFilter;
+    label: string;
+  }> = [
     { value: 'hltb', label: 'Missing HLTB' },
     { value: 'metacritic', label: 'Missing Review' },
-    { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image (non-PC)' }
+    { value: 'pricing', label: 'Missing Pricing (supported platforms)' },
+    { value: 'nonPcTheGamesDbImage', label: 'Missing TheGamesDB image' }
   ];
 
   selectedListType: ListType | null = null;
@@ -97,6 +101,7 @@ export class MetadataValidatorPage {
   selectedGameKeys = new Set<string>();
   isBulkRefreshingHltb = false;
   isBulkRefreshingReview = false;
+  isBulkRefreshingPricing = false;
   isBulkRefreshingImage = false;
   isHltbPickerModalOpen = false;
   isHltbPickerLoading = false;
@@ -110,6 +115,12 @@ export class MetadataValidatorPage {
   reviewPickerResults: ReviewMatchCandidate[] = [];
   reviewPickerError: string | null = null;
   reviewPickerTargetGame: GameEntry | null = null;
+  isPricingPickerModalOpen = false;
+  isPricingPickerLoading = false;
+  pricingPickerQuery = '';
+  pricingPickerResults: PriceMatchCandidate[] = [];
+  pricingPickerError: string | null = null;
+  pricingPickerTargetGame: GameEntry | null = null;
   private displayedGames: GameEntry[] = [];
   private readonly selectedListType$ = new BehaviorSubject<ListType | null>(null);
   private readonly selectedMissingFilters$ = new BehaviorSubject<MissingMetadataFilter[]>([]);
@@ -189,20 +200,28 @@ export class MetadataValidatorPage {
     this.reviewPickerTargetGame = value;
   }
 
+  get missingFilterOptions(): Array<{ value: MissingMetadataFilter; label: string }> {
+    if (this.selectedListType !== 'wishlist') {
+      return MetadataValidatorPage.BASE_MISSING_FILTER_OPTIONS.filter(
+        (option) => option.value !== 'pricing'
+      );
+    }
+
+    return MetadataValidatorPage.BASE_MISSING_FILTER_OPTIONS;
+  }
+
   onListTypeChange(value: string | null | undefined): void {
     const next = value === 'collection' || value === 'wishlist' ? value : null;
     this.selectedListType = next;
     this.selectedListType$.next(next);
+    this.selectedMissingFilters = this.normalizeMissingFilters(this.selectedMissingFilters);
+    this.selectedMissingFilters$.next(this.selectedMissingFilters);
     this.selectedGameKeys.clear();
   }
 
   onMissingFiltersChange(value: string[] | string | null | undefined): void {
     const raw = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
-    const normalized = raw.filter(
-      (entry): entry is MissingMetadataFilter =>
-        entry === 'hltb' || entry === 'metacritic' || entry === 'nonPcTheGamesDbImage'
-    );
-    this.selectedMissingFilters = [...new Set(normalized)];
+    this.selectedMissingFilters = this.normalizeMissingFilters(raw);
     this.selectedMissingFilters$.next(this.selectedMissingFilters);
   }
 
@@ -281,6 +300,17 @@ export class MetadataValidatorPage {
     return this.hasReviewMetadata(game);
   }
 
+  hasPricingMetadata(game: GameEntry): boolean {
+    return this.gameShelfService.hasUnifiedPriceData(game);
+  }
+
+  isPricingSupported(game: GameEntry): boolean {
+    return (
+      game.listType === 'wishlist' &&
+      this.gameShelfService.isPricingSupportedPlatform(game.platformIgdbId)
+    );
+  }
+
   isNonPcTheGamesDbImagePresent(game: GameEntry): boolean {
     if (this.isPcPlatform(game)) {
       return false;
@@ -351,6 +381,25 @@ export class MetadataValidatorPage {
     }
   }
 
+  async refreshPricingForGame(game: GameEntry): Promise<void> {
+    if (!this.isPricingSupported(game)) {
+      await this.presentToast('Pricing is not supported for this platform.', 'warning');
+      return;
+    }
+
+    if (this.isPsPricesPlatform(game)) {
+      await this.openPricingPickerModal(game);
+      return;
+    }
+
+    try {
+      await this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
+      await this.presentToast(`Updated pricing for ${game.title}.`);
+    } catch {
+      await this.presentToast(`Unable to update pricing for ${game.title}.`, 'danger');
+    }
+  }
+
   async refreshHltbForSelectedGames(): Promise<void> {
     const games = this.getSelectedGames();
     this.debugLogService.trace('metadata_validator.bulk_hltb.start', {
@@ -387,23 +436,23 @@ export class MetadataValidatorPage {
         delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
-      const updatedCount = results.filter(
+      const succeededCount = results.length - failedCount;
+      const matchedCount = results.filter(
         (result) => result.ok && result.value && this.hasHltbMetadata(result.value)
       ).length;
-      const missingCount = results.length - failedCount - updatedCount;
       this.debugLogService.trace('metadata_validator.bulk_hltb.complete', {
         selectedCount: results.length,
-        updatedCount,
-        missingCount,
+        succeededCount,
+        matchedCount,
         failedCount
       });
 
-      if (updatedCount > 0) {
-        await this.presentToast(
-          `Updated HLTB for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
-        );
-      } else if (missingCount > 0 && failedCount === 0) {
+      if (matchedCount === 0 && failedCount === 0) {
         await this.presentToast('No HLTB matches found for selected games.', 'warning');
+      } else if (succeededCount > 0) {
+        await this.presentToast(
+          `Updated HLTB for ${String(succeededCount)} game${succeededCount === 1 ? '' : 's'}.`
+        );
       }
 
       if (failedCount > 0) {
@@ -445,17 +494,17 @@ export class MetadataValidatorPage {
         delay: (ms: number) => this.delay(ms)
       });
       const failedCount = results.filter((result) => !result.ok).length;
-      const updatedCount = results.filter(
+      const succeededCount = results.length - failedCount;
+      const matchedCount = results.filter(
         (result) => result.ok && result.value && this.hasReviewMetadata(result.value)
       ).length;
-      const missingCount = results.length - failedCount - updatedCount;
 
-      if (updatedCount > 0) {
-        await this.presentToast(
-          `Updated review for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
-        );
-      } else if (missingCount > 0 && failedCount === 0) {
+      if (matchedCount === 0 && failedCount === 0) {
         await this.presentToast('No review matches found for selected games.', 'warning');
+      } else if (succeededCount > 0) {
+        await this.presentToast(
+          `Updated review for ${String(succeededCount)} game${succeededCount === 1 ? '' : 's'}.`
+        );
       }
 
       if (failedCount > 0) {
@@ -471,6 +520,53 @@ export class MetadataValidatorPage {
 
   async refreshMetacriticForSelectedGames(): Promise<void> {
     await this.refreshReviewForSelectedGames();
+  }
+
+  async refreshPricingForSelectedGames(): Promise<void> {
+    const games = this.getSelectedGames().filter((game) => this.isPricingSupported(game));
+
+    if (games.length === 0 || this.isBulkRefreshingPricing) {
+      return;
+    }
+
+    this.isBulkRefreshingPricing = true;
+
+    try {
+      const results = await runBulkActionWithRetry({
+        loadingController: this.loadingController,
+        games,
+        options: {
+          loadingPrefix: 'Updating pricing',
+          concurrency: MetadataValidatorPage.BULK_METACRITIC_CONCURRENCY,
+          interItemDelayMs: 0,
+          itemTimeoutMs: MetadataValidatorPage.BULK_METACRITIC_ITEM_TIMEOUT_MS
+        },
+        retryConfig: {
+          maxAttempts: MetadataValidatorPage.BULK_METACRITIC_MAX_ATTEMPTS,
+          retryBaseDelayMs: MetadataValidatorPage.BULK_METACRITIC_RETRY_BASE_DELAY_MS,
+          rateLimitFallbackCooldownMs: MetadataValidatorPage.BULK_METACRITIC_RATE_LIMIT_COOLDOWN_MS
+        },
+        action: (game) => this.refreshPricingForBulkGame(game),
+        delay: (ms: number) => this.delay(ms)
+      });
+      const failedCount = results.filter((result) => !result.ok).length;
+      const updatedCount = results.filter((result) => result.ok).length;
+
+      if (updatedCount > 0) {
+        await this.presentToast(
+          `Updated pricing for ${String(updatedCount)} game${updatedCount === 1 ? '' : 's'}.`
+        );
+      }
+
+      if (failedCount > 0) {
+        await this.presentToast(
+          `Unable to update pricing for ${String(failedCount)} selected game${failedCount === 1 ? '' : 's'}.`,
+          'danger'
+        );
+      }
+    } finally {
+      this.isBulkRefreshingPricing = false;
+    }
   }
 
   async refreshImageForSelectedGames(): Promise<void> {
@@ -550,6 +646,15 @@ export class MetadataValidatorPage {
     this.closeReviewPickerModal();
   }
 
+  closePricingPickerModal(): void {
+    this.isPricingPickerModalOpen = false;
+    this.isPricingPickerLoading = false;
+    this.pricingPickerQuery = '';
+    this.pricingPickerResults = [];
+    this.pricingPickerError = null;
+    this.pricingPickerTargetGame = null;
+  }
+
   onHltbPickerQueryChange(event: Event): void {
     const customEvent = event as CustomEvent<{ value?: string | null }>;
     this.hltbPickerQuery = customEvent.detail.value ?? '';
@@ -562,6 +667,11 @@ export class MetadataValidatorPage {
 
   onMetacriticPickerQueryChange(event: Event): void {
     this.onReviewPickerQueryChange(event);
+  }
+
+  onPricingPickerQueryChange(event: Event): void {
+    const customEvent = event as CustomEvent<{ value?: string | null }>;
+    this.pricingPickerQuery = customEvent.detail.value ?? '';
   }
 
   async runHltbPickerSearch(): Promise<void> {
@@ -684,6 +794,45 @@ export class MetadataValidatorPage {
     await this.runReviewPickerSearch();
   }
 
+  async runPricingPickerSearch(): Promise<void> {
+    const normalized = this.pricingPickerQuery.trim();
+    const target = this.pricingPickerTargetGame;
+
+    if (!target) {
+      this.pricingPickerResults = [];
+      this.pricingPickerError = 'Select a game first.';
+      return;
+    }
+
+    if (normalized.length < 2) {
+      this.pricingPickerResults = [];
+      this.pricingPickerError = 'Enter at least 2 characters.';
+      return;
+    }
+
+    this.isPricingPickerLoading = true;
+    this.pricingPickerError = null;
+
+    try {
+      const candidates = await firstValueFrom(
+        this.gameShelfService.searchPricingCandidates(
+          target.igdbGameId,
+          target.platformIgdbId,
+          normalized
+        )
+      );
+      this.pricingPickerResults = this.dedupePricingCandidates(candidates).slice(0, 30);
+    } catch (error: unknown) {
+      this.pricingPickerResults = [];
+      this.pricingPickerError = formatRateLimitedUiError(
+        error,
+        'Unable to search pricing right now.'
+      );
+    } finally {
+      this.isPricingPickerLoading = false;
+    }
+  }
+
   async applySelectedReviewCandidate(candidate: ReviewMatchCandidate): Promise<void> {
     const target = this.reviewPickerTargetGame;
 
@@ -757,6 +906,65 @@ export class MetadataValidatorPage {
     await this.useOriginalReviewLookup();
   }
 
+  async applySelectedPricingCandidate(candidate: PriceMatchCandidate): Promise<void> {
+    const target = this.pricingPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isPricingPickerLoading = true;
+
+    try {
+      const updated = await this.gameShelfService.refreshGamePricingWithQuery(
+        target.igdbGameId,
+        target.platformIgdbId,
+        { title: candidate.title }
+      );
+      this.closePricingPickerModal();
+      if (this.hasPricingMetadata(updated)) {
+        await this.presentToast(`Updated pricing for ${target.title}.`);
+      } else {
+        await this.presentToast(`No pricing match found for ${target.title}.`, 'warning');
+      }
+    } catch (error: unknown) {
+      this.isPricingPickerLoading = false;
+      const fallbackMessage = `Unable to update pricing for ${target.title}.`;
+      const message = formatRateLimitedUiError(error, fallbackMessage);
+      const isRateLimited = message !== fallbackMessage;
+      await this.presentToast(message, isRateLimited ? 'warning' : 'danger');
+    }
+  }
+
+  async useOriginalPricingLookup(): Promise<void> {
+    const target = this.pricingPickerTargetGame;
+
+    if (!target) {
+      return;
+    }
+
+    this.isPricingPickerLoading = true;
+
+    try {
+      const updated = await this.gameShelfService.refreshGamePricing(
+        target.igdbGameId,
+        target.platformIgdbId
+      );
+      this.closePricingPickerModal();
+      if (this.hasPricingMetadata(updated)) {
+        await this.presentToast(`Updated pricing for ${target.title}.`);
+      } else {
+        await this.presentToast(`No pricing match found for ${target.title}.`, 'warning');
+      }
+    } catch (error: unknown) {
+      this.isPricingPickerLoading = false;
+      const fallbackMessage = `Unable to update pricing for ${target.title}.`;
+      const message = formatRateLimitedUiError(error, fallbackMessage);
+      const isRateLimited = message !== fallbackMessage;
+      await this.presentToast(message, isRateLimited ? 'warning' : 'danger');
+    }
+  }
+
   private applyMissingMetadataFilters(
     games: GameEntry[],
     filters: MissingMetadataFilter[]
@@ -768,14 +976,33 @@ export class MetadataValidatorPage {
     return games.filter((game) => {
       const missingHltb = !this.hasHltbMetadata(game);
       const missingMetacritic = !this.hasReviewMetadata(game);
+      const missingPricing = this.isPricingSupported(game) && !this.hasPricingMetadata(game);
       const missingImage = this.isMissingNonPcTheGamesDbImage(game);
 
       return (
         (filters.includes('hltb') && missingHltb) ||
         (filters.includes('metacritic') && missingMetacritic) ||
+        (filters.includes('pricing') && missingPricing) ||
         (filters.includes('nonPcTheGamesDbImage') && missingImage)
       );
     });
+  }
+
+  private normalizeMissingFilters(raw: string[]): MissingMetadataFilter[] {
+    const normalized = raw.filter(
+      (entry): entry is MissingMetadataFilter =>
+        entry === 'hltb' ||
+        entry === 'metacritic' ||
+        entry === 'pricing' ||
+        entry === 'nonPcTheGamesDbImage'
+    );
+    const deduped = [...new Set(normalized)];
+
+    if (this.selectedListType !== 'wishlist') {
+      return deduped.filter((entry) => entry !== 'pricing');
+    }
+
+    return deduped;
   }
 
   private isPcPlatform(game: GameEntry): boolean {
@@ -855,6 +1082,16 @@ export class MetadataValidatorPage {
     await this.runMetacriticPickerSearch();
   }
 
+  private async openPricingPickerModal(game: GameEntry): Promise<void> {
+    this.pricingPickerTargetGame = game;
+    this.pricingPickerQuery = game.title;
+    this.pricingPickerResults = [];
+    this.pricingPickerError = null;
+    this.isPricingPickerLoading = false;
+    this.isPricingPickerModalOpen = true;
+    await this.runPricingPickerSearch();
+  }
+
   private dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatchCandidate[] {
     const byKey = new Map<string, HltbMatchCandidate>();
 
@@ -897,6 +1134,19 @@ export class MetadataValidatorPage {
 
   private dedupeMetacriticCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
     return this.dedupeReviewCandidates(candidates);
+  }
+
+  private dedupePricingCandidates(candidates: PriceMatchCandidate[]): PriceMatchCandidate[] {
+    const byKey = new Map<string, PriceMatchCandidate>();
+
+    candidates.forEach((candidate) => {
+      const key = `${candidate.title}::${candidate.url ?? ''}::${String(candidate.amount ?? '')}`;
+      if (!byKey.has(key)) {
+        byKey.set(key, candidate);
+      }
+    });
+
+    return [...byKey.values()];
   }
 
   private async refreshHltbForBulkGame(game: GameEntry): Promise<GameEntry> {
@@ -1011,6 +1261,48 @@ export class MetadataValidatorPage {
 
   private async refreshMetacriticForBulkGame(game: GameEntry): Promise<GameEntry> {
     return this.refreshReviewForBulkGame(game);
+  }
+
+  private async refreshPricingForBulkGame(game: GameEntry): Promise<GameEntry> {
+    if (!this.isPsPricesPlatform(game)) {
+      return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
+    }
+
+    const title = typeof game.title === 'string' ? game.title.trim() : '';
+
+    if (title.length >= 2) {
+      try {
+        const candidates = await firstValueFrom(
+          this.gameShelfService.searchPricingCandidates(game.igdbGameId, game.platformIgdbId, title)
+        );
+        const candidate = candidates.length > 0 ? candidates[0] : null;
+
+        if (candidate !== null) {
+          return await this.gameShelfService.refreshGamePricingWithQuery(
+            game.igdbGameId,
+            game.platformIgdbId,
+            { title: candidate.title }
+          );
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '';
+        if (isRateLimitedMessage(message)) {
+          throw error;
+        }
+        // Fall back to default lookup when candidate search fails.
+      }
+    }
+
+    return this.gameShelfService.refreshGamePricing(game.igdbGameId, game.platformIgdbId);
+  }
+
+  private isPsPricesPlatform(game: GameEntry): boolean {
+    return (
+      game.platformIgdbId === 48 ||
+      game.platformIgdbId === 167 ||
+      game.platformIgdbId === 130 ||
+      game.platformIgdbId === 508
+    );
   }
 
   private async delay(ms: number): Promise<void> {

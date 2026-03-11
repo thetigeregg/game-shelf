@@ -96,6 +96,11 @@ interface RecommendationDisplayMetadata {
   coverUrl: string | null;
   platformLabel: string;
   releaseYear: number | null;
+  priceCurrency?: string | null;
+  priceAmount?: number | null;
+  priceRegularAmount?: number | null;
+  priceDiscountPercent?: number | null;
+  priceIsFree?: boolean | null;
 }
 
 @Component({
@@ -143,6 +148,10 @@ export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_FETCH_LIMIT = 200;
   private static readonly SIMILAR_PAGE_SIZE = 5;
   private static readonly SIMILAR_FETCH_LIMIT = 50;
+  private static readonly DISCOVERY_PRICING_HYDRATION_CONCURRENCY = 4;
+  private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
+  private static readonly PRICE_FORMATTER_LOCALE = 'de-CH';
+  private static readonly PRICE_FORMATTERS = new Map<string, Intl.NumberFormat>();
 
   readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
@@ -215,6 +224,10 @@ export class ExplorePage implements OnInit {
   private readonly libraryOwnedGameIds = new Set<string>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
+  private readonly discoveryPricingHydrationInFlight = new Set<string>();
+  private readonly discoveryPricingHydrationAttempted = new Set<string>();
+  private discoveryPricingHydrationRunPromise: Promise<void> | null = null;
+  private discoveryPricingHydrationRerunRequested = false;
   private ignoredRecommendationGameIds = new Set<string>();
   private recommendationVisibilityRevision = 0;
   private similarVisibilityRevision = 0;
@@ -307,6 +320,7 @@ export class ExplorePage implements OnInit {
     this.selectedLaneKey = parsed;
     this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
     this.invalidateRecommendationVisibility();
+    void this.ensureVisibleDiscoveryPricingHydrated();
   }
 
   async refreshRecommendations(event: Event): Promise<void> {
@@ -342,6 +356,7 @@ export class ExplorePage implements OnInit {
 
   async loadMoreRecommendations(event: Event): Promise<void> {
     this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
+    await this.ensureVisibleDiscoveryPricingHydrated();
     await completeIonInfiniteScroll(event);
   }
 
@@ -439,6 +454,36 @@ export class ExplorePage implements OnInit {
 
     const metadata = this.getRecommendationDisplayMetadata(item);
     return metadata?.coverUrl ?? 'assets/icon/placeholder.png';
+  }
+
+  getRecommendationRowPriceLabel(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): string | null {
+    if (this.selectedTarget !== 'DISCOVERY') {
+      return null;
+    }
+
+    const pricing = this.getRecommendationPricing(item);
+    const amount = pricing?.priceIsFree === true ? 0 : pricing?.priceAmount;
+
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+      return null;
+    }
+
+    return this.getPriceCurrencyFormatter(this.getRecommendationPriceCurrency(item)).format(amount);
+  }
+
+  isRecommendationRowPriceOnDiscount(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): boolean {
+    const pricing = this.getRecommendationPricing(item);
+    if (!pricing) {
+      return false;
+    }
+
+    return this.gameShelfService.isGameOnDiscount(pricing);
   }
 
   getScoreBadge(item: RecommendationItem): RecommendationBadge {
@@ -989,6 +1034,7 @@ export class ExplorePage implements OnInit {
       this.invalidateRecommendationVisibility();
       this.recommendationError = '';
       this.recommendationErrorCode = 'NONE';
+      void this.ensureVisibleDiscoveryPricingHydrated();
       return;
     }
 
@@ -1012,7 +1058,11 @@ export class ExplorePage implements OnInit {
       this.invalidateRecommendationVisibility();
       this.lanesCache.set(cacheKey, response);
       this.replaceLocalGameCache(localGames);
+      if (forceRefresh) {
+        this.discoveryPricingHydrationAttempted.clear();
+      }
       await this.ensureRecommendationDisplayMetadata(response);
+      await this.ensureVisibleDiscoveryPricingHydrated();
     } catch (error) {
       const normalized = this.normalizeRecommendationError(error);
       this.recommendationError = normalized.message;
@@ -1543,6 +1593,75 @@ export class ExplorePage implements OnInit {
     await this.populateRecommendationDisplayMetadata(groupedPlatformIds);
   }
 
+  private async ensureVisibleDiscoveryPricingHydrated(): Promise<void> {
+    if (this.discoveryPricingHydrationRunPromise) {
+      this.discoveryPricingHydrationRerunRequested = true;
+      await this.discoveryPricingHydrationRunPromise;
+      return;
+    }
+
+    this.discoveryPricingHydrationRunPromise = this.runVisibleDiscoveryPricingHydration();
+    try {
+      await this.discoveryPricingHydrationRunPromise;
+    } finally {
+      this.discoveryPricingHydrationRunPromise = null;
+    }
+  }
+
+  private async runVisibleDiscoveryPricingHydration(): Promise<void> {
+    for (;;) {
+      this.discoveryPricingHydrationRerunRequested = false;
+
+      if (this.selectedTarget !== 'DISCOVERY') {
+        return;
+      }
+
+      const items = this.getActiveLaneItems();
+      if (items.length === 0) {
+        return;
+      }
+
+      const visibleItems = items.slice(0, this.visibleRecommendationCount);
+      const candidates = visibleItems.filter((item) => {
+        if (!this.isDiscoveryPricingSupportedPlatform(item.platformIgdbId)) {
+          return false;
+        }
+
+        const key = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
+        if (
+          this.discoveryPricingHydrationInFlight.has(key) ||
+          this.discoveryPricingHydrationAttempted.has(key)
+        ) {
+          return false;
+        }
+
+        const pricing = this.getRecommendationPricing(item);
+        const hasPricing =
+          pricing?.priceIsFree === true ||
+          (typeof pricing?.priceAmount === 'number' && Number.isFinite(pricing.priceAmount));
+
+        return !hasPricing;
+      });
+
+      if (candidates.length === 0) {
+        if (!this.isDiscoveryPricingHydrationRerunRequested()) {
+          break;
+        }
+        continue;
+      }
+
+      await this.hydrateDiscoveryPricingInBatches(candidates);
+
+      if (!this.isDiscoveryPricingHydrationRerunRequested()) {
+        break;
+      }
+    }
+  }
+
+  private isDiscoveryPricingHydrationRerunRequested(): boolean {
+    return this.discoveryPricingHydrationRerunRequested;
+  }
+
   private async ensureSimilarDisplayMetadata(items: RecommendationSimilarItem[]): Promise<void> {
     const groupedPlatformIds = new Map<string, Set<number>>();
     for (const item of items) {
@@ -1594,12 +1713,265 @@ export class ExplorePage implements OnInit {
               title: catalog.title.trim().length > 0 ? catalog.title : `Game #${igdbGameId}`,
               coverUrl: catalog.coverUrl,
               platformLabel: this.resolveCatalogPlatformLabel(catalog, platformIgdbId),
-              releaseYear: catalog.releaseYear ?? null
+              releaseYear: catalog.releaseYear ?? null,
+              priceCurrency: this.normalizePriceCurrency(catalog.priceCurrency),
+              priceAmount: catalog.priceAmount ?? null,
+              priceRegularAmount: catalog.priceRegularAmount ?? null,
+              priceDiscountPercent: catalog.priceDiscountPercent ?? null,
+              priceIsFree: catalog.priceIsFree ?? null
             });
           }
         })
       );
     }
+  }
+
+  private async hydrateDiscoveryPricingForItem(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): Promise<void> {
+    const key = this.buildIdentityKey(item.igdbGameId, item.platformIgdbId);
+    this.discoveryPricingHydrationInFlight.add(key);
+
+    try {
+      const titleHint = this.getRecommendationTitleHint(item);
+
+      const result =
+        item.platformIgdbId === 6
+          ? this.parseSteamPriceLookupResponse(
+              await firstValueFrom(
+                this.igdbProxyService.lookupSteamPrice(item.igdbGameId, item.platformIgdbId)
+              )
+            )
+          : this.parsePsPricesLookupResponse(
+              await firstValueFrom(
+                this.igdbProxyService.lookupPsPrices(
+                  item.igdbGameId,
+                  item.platformIgdbId,
+                  titleHint
+                )
+              )
+            );
+
+      if (!result) {
+        return;
+      }
+
+      const existing = this.recommendationDisplayMetadata.get(key);
+      this.recommendationDisplayMetadata.set(key, {
+        title: existing?.title ?? titleHint ?? `Game #${item.igdbGameId}`,
+        coverUrl: existing?.coverUrl ?? null,
+        platformLabel: existing?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
+        releaseYear: existing?.releaseYear ?? null,
+        priceCurrency: result.currency ?? existing?.priceCurrency ?? null,
+        priceAmount: result.amount,
+        priceRegularAmount: result.regularAmount,
+        priceDiscountPercent: result.discountPercent,
+        priceIsFree: result.isFree
+      });
+
+      this.invalidateRecommendationVisibility();
+    } catch {
+      // Keep discovery rows responsive even when live price lookups fail.
+    } finally {
+      this.discoveryPricingHydrationInFlight.delete(key);
+      this.discoveryPricingHydrationAttempted.add(key);
+    }
+  }
+
+  private async hydrateDiscoveryPricingInBatches(
+    items: Array<{ igdbGameId: string; platformIgdbId: number }>
+  ): Promise<void> {
+    const batchSize = ExplorePage.DISCOVERY_PRICING_HYDRATION_CONCURRENCY;
+    for (let index = 0; index < items.length; index += batchSize) {
+      const batch = items.slice(index, index + batchSize);
+      await Promise.all(batch.map((item) => this.hydrateDiscoveryPricingForItem(item)));
+    }
+  }
+
+  private getRecommendationTitleHint(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): string | null {
+    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+    if (local && local.title.trim().length > 0) {
+      return local.title.trim();
+    }
+
+    const metadata = this.getRecommendationDisplayMetadata(item);
+    if (metadata && metadata.title.trim().length > 0) {
+      return metadata.title.trim();
+    }
+
+    return null;
+  }
+
+  private getRecommendationPricing(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): Pick<
+    GameEntry,
+    'priceAmount' | 'priceRegularAmount' | 'priceDiscountPercent' | 'priceIsFree' | 'priceCurrency'
+  > | null {
+    const local = this.getLocalGameByIdentity(item.igdbGameId, item.platformIgdbId);
+    if (local) {
+      return local;
+    }
+
+    const metadata = this.getRecommendationDisplayMetadata(item);
+    if (!metadata) {
+      return null;
+    }
+
+    return {
+      priceCurrency: metadata.priceCurrency ?? null,
+      priceAmount: metadata.priceAmount ?? null,
+      priceRegularAmount: metadata.priceRegularAmount ?? null,
+      priceDiscountPercent: metadata.priceDiscountPercent ?? null,
+      priceIsFree: metadata.priceIsFree ?? null
+    };
+  }
+
+  private isDiscoveryPricingSupportedPlatform(platformIgdbId: number): boolean {
+    return (
+      platformIgdbId === 6 ||
+      platformIgdbId === 48 ||
+      platformIgdbId === 130 ||
+      platformIgdbId === 167 ||
+      platformIgdbId === 508
+    );
+  }
+
+  private parseSteamPriceLookupResponse(value: unknown): {
+    currency: string | null;
+    amount: number | null;
+    regularAmount: number | null;
+    discountPercent: number | null;
+    isFree: boolean | null;
+  } | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const payload = value as { status?: unknown; bestPrice?: Record<string, unknown> | null };
+    if (payload.status !== 'ok' || !payload.bestPrice || typeof payload.bestPrice !== 'object') {
+      return null;
+    }
+
+    const amount = this.normalizePriceNumber(payload.bestPrice['amount']);
+    const isFree = this.normalizePriceBoolean(payload.bestPrice['isFree']);
+    if (amount === null && isFree !== true) {
+      return null;
+    }
+
+    return {
+      currency: this.normalizePriceCurrency(payload.bestPrice['currency']),
+      amount,
+      regularAmount: this.normalizePriceNumber(
+        payload.bestPrice['regularAmount'] ?? payload.bestPrice['initialAmount']
+      ),
+      discountPercent: this.normalizePriceNumber(
+        payload.bestPrice['discountPercent'] ?? payload.bestPrice['cut']
+      ),
+      isFree
+    };
+  }
+
+  private parsePsPricesLookupResponse(value: unknown): {
+    currency: string | null;
+    amount: number | null;
+    regularAmount: number | null;
+    discountPercent: number | null;
+    isFree: boolean | null;
+  } | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const payload = value as { status?: unknown; bestPrice?: Record<string, unknown> | null };
+    if (payload.status !== 'ok' || !payload.bestPrice || typeof payload.bestPrice !== 'object') {
+      return null;
+    }
+
+    const amount = this.normalizePriceNumber(payload.bestPrice['amount']);
+    const isFree = this.normalizePriceBoolean(payload.bestPrice['isFree']);
+    if (amount === null && isFree !== true) {
+      return null;
+    }
+
+    return {
+      currency: this.normalizePriceCurrency(payload.bestPrice['currency']),
+      amount,
+      regularAmount: this.normalizePriceNumber(payload.bestPrice['regularAmount']),
+      discountPercent: this.normalizePriceNumber(payload.bestPrice['discountPercent']),
+      isFree
+    };
+  }
+
+  private normalizePriceNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+      return Math.round(value * 100) / 100;
+    }
+
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value.trim());
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        return Math.round(parsed * 100) / 100;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizePriceBoolean(value: unknown): boolean | null {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true') {
+        return true;
+      }
+      if (normalized === 'false') {
+        return false;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizePriceCurrency(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+  }
+
+  private getRecommendationPriceCurrency(item: {
+    igdbGameId: string;
+    platformIgdbId: number;
+  }): string {
+    const pricing = this.getRecommendationPricing(item);
+    return (
+      this.normalizePriceCurrency(pricing?.priceCurrency) ?? ExplorePage.DEFAULT_PRICE_CURRENCY
+    );
+  }
+
+  private getPriceCurrencyFormatter(currency: string): Intl.NumberFormat {
+    const normalizedCurrency =
+      this.normalizePriceCurrency(currency) ?? ExplorePage.DEFAULT_PRICE_CURRENCY;
+    const existing = ExplorePage.PRICE_FORMATTERS.get(normalizedCurrency);
+    if (existing) {
+      return existing;
+    }
+
+    const formatter = new Intl.NumberFormat(ExplorePage.PRICE_FORMATTER_LOCALE, {
+      style: 'currency',
+      currency: normalizedCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    ExplorePage.PRICE_FORMATTERS.set(normalizedCurrency, formatter);
+    return formatter;
   }
 
   private async fetchRecommendationCatalogResult(

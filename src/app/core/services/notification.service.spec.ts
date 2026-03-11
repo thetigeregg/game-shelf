@@ -622,6 +622,117 @@ describe('NotificationService', () => {
     });
   });
 
+  it('returns early for foreground notifications when permission is not granted or API missing', () => {
+    const originalNotification = globalThis.Notification;
+    const notificationSpy = vi.fn();
+    const constructorWithDeniedPermission = notificationSpy as unknown as typeof Notification;
+    Object.defineProperty(constructorWithDeniedPermission, 'permission', {
+      configurable: true,
+      get: () => 'default'
+    });
+    Object.defineProperty(constructorWithDeniedPermission, 'requestPermission', {
+      configurable: true,
+      value: () => Promise.resolve('default')
+    });
+    try {
+      globalThis.Notification = constructorWithDeniedPermission;
+
+      (
+        service as unknown as {
+          showForegroundNotification: (payload: {
+            notification?: { title?: string; body?: string };
+            data?: Record<string, string>;
+          }) => void;
+        }
+      ).showForegroundNotification({ notification: { title: 'Title', body: 'Body' }, data: {} });
+      expect(notificationSpy).not.toHaveBeenCalled();
+
+      delete (globalThis as { Notification?: unknown }).Notification;
+      (
+        service as unknown as {
+          showForegroundNotification: (payload: {
+            notification?: { title?: string; body?: string };
+            data?: Record<string, string>;
+          }) => void;
+        }
+      ).showForegroundNotification({ notification: { title: 'Title', body: 'Body' }, data: {} });
+      expect(notificationSpy).not.toHaveBeenCalled();
+    } finally {
+      if (typeof originalNotification === 'undefined') {
+        delete (globalThis as { Notification?: unknown }).Notification;
+      } else {
+        globalThis.Notification = originalNotification;
+      }
+    }
+  });
+
+  it('uses service worker showNotification for foreground message when available', async () => {
+    const originalServiceWorker = navigator.serviceWorker;
+    const originalNotification = globalThis.Notification;
+    const showNotification = vi.fn().mockResolvedValue(undefined);
+    try {
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: {
+          getRegistration: vi.fn().mockResolvedValue({ showNotification })
+        }
+      });
+      const fallbackConstructorSpy = vi.fn();
+      const notificationConstructor = fallbackConstructorSpy as unknown as typeof Notification;
+      Object.defineProperty(notificationConstructor, 'permission', {
+        configurable: true,
+        get: () => 'granted'
+      });
+      Object.defineProperty(notificationConstructor, 'requestPermission', {
+        configurable: true,
+        value: () => Promise.resolve('granted')
+      });
+      globalThis.Notification = notificationConstructor;
+
+      (
+        service as unknown as {
+          showForegroundNotification: (payload: {
+            notification?: { title?: string; body?: string };
+            data?: Record<string, string>;
+          }) => void;
+        }
+      ).showForegroundNotification({
+        notification: { title: 'Title', body: 'Body' },
+        data: { route: '/tabs/discover' }
+      });
+      await Promise.resolve();
+
+      expect(showNotification).toHaveBeenCalledOnce();
+      expect(fallbackConstructorSpy).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: originalServiceWorker
+      });
+      if (typeof originalNotification === 'undefined') {
+        delete (globalThis as { Notification?: unknown }).Notification;
+      } else {
+        globalThis.Notification = originalNotification;
+      }
+    }
+  });
+
+  it('handles localStorage read failures in stored-token lookup', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage denied');
+    });
+    try {
+      const readStoredToken = (
+        service as unknown as { readStoredToken: () => string | null }
+      ).readStoredToken.bind(service);
+
+      expect(readStoredToken()).toBeNull();
+      expect(getItemSpy).toHaveBeenCalled();
+    } finally {
+      getItemSpy.mockRestore();
+    }
+  });
+
   it('enqueues settings upserts when outbox writer is configured', () => {
     const enqueueOperation = vi.fn();
     const serviceWithOutbox = createService({

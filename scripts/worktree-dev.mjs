@@ -89,7 +89,8 @@ const ports = {
   API_HOST_PORT: 3000 + portOffset,
   POSTGRES_HOST_PORT: 5432 + portOffset,
   HLTB_HOST_PORT: 8788 + portOffset,
-  METACRITIC_HOST_PORT: 8789 + portOffset
+  METACRITIC_HOST_PORT: 8789 + portOffset,
+  PSPRICES_HOST_PORT: 8790 + portOffset
 };
 
 const localEnvPath = path.resolve(cwd, '.env');
@@ -207,6 +208,7 @@ function printInfo() {
   console.log(`  postgres:   127.0.0.1:${ports.POSTGRES_HOST_PORT}`);
   console.log(`  hltb:       http://127.0.0.1:${ports.HLTB_HOST_PORT}`);
   console.log(`  metacritic: http://127.0.0.1:${ports.METACRITIC_HOST_PORT}`);
+  console.log(`  psprices:   http://127.0.0.1:${ports.PSPRICES_HOST_PORT}`);
   if (secretsHostDir) {
     console.log(`Secrets dir: ${configState(secretsHostDir)}`);
   } else {
@@ -242,7 +244,8 @@ function listMissingDependencyDirs() {
     { packageDir: path.resolve(cwd, 'server') },
     { packageDir: path.resolve(cwd, 'worker') },
     { packageDir: path.resolve(cwd, 'hltb-scraper') },
-    { packageDir: path.resolve(cwd, 'metacritic-scraper') }
+    { packageDir: path.resolve(cwd, 'metacritic-scraper') },
+    { packageDir: path.resolve(cwd, 'psprices-scraper') }
   ];
 
   return dependencyPackages
@@ -315,6 +318,7 @@ function runStack(action) {
       'postgres',
       'hltb-scraper',
       'metacritic-scraper',
+      'psprices-scraper',
       'api',
       'worker-general',
       'worker-recommendations',
@@ -344,7 +348,8 @@ function runStack(action) {
       'api',
       'postgres',
       'hltb-scraper',
-      'metacritic-scraper'
+      'metacritic-scraper',
+      'psprices-scraper'
     ]);
     return;
   }
@@ -360,7 +365,8 @@ function runStack(action) {
       'api',
       'postgres',
       'hltb-scraper',
-      'metacritic-scraper'
+      'metacritic-scraper',
+      'psprices-scraper'
     ]);
     return;
   }

@@ -35,6 +35,7 @@ const debugLogsEnabled =
 let sharedBrowser = null;
 let sharedBrowserPromise = null;
 let browserIdleTimer = null;
+let activeBrowserLeases = 0;
 
 function normalizeSearchQuery(req) {
   return String(req.query.q ?? '').trim();
@@ -214,12 +215,13 @@ app.get('/v1/psprices/search', async (req, res) => {
 
   try {
     const titleVariants = buildSearchTitleVariants(query);
-    const browser = await getSharedBrowser();
-    const context = await browser.newContext({
-      userAgent:
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-    });
+    const browser = await acquireSharedBrowser();
+    let context = null;
     try {
+      context = await browser.newContext({
+        userAgent:
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+      });
       const page = await context.newPage();
       const merged = [];
       const seen = new Set();
@@ -265,8 +267,10 @@ app.get('/v1/psprices/search', async (req, res) => {
           : { item, context: { regionPath, show, platform: platform || null } }
       );
     } finally {
-      await context.close().catch(() => undefined);
-      scheduleBrowserIdleClose();
+      if (context) {
+        await context.close().catch(() => undefined);
+      }
+      releaseSharedBrowserLease();
     }
   } catch (error) {
     console.error('[psprices-scraper] request_failed', {
@@ -308,7 +312,24 @@ async function getSharedBrowser() {
   return sharedBrowserPromise;
 }
 
+async function acquireSharedBrowser() {
+  const browser = await getSharedBrowser();
+  activeBrowserLeases += 1;
+  return browser;
+}
+
+function releaseSharedBrowserLease() {
+  if (activeBrowserLeases > 0) {
+    activeBrowserLeases -= 1;
+  }
+  scheduleBrowserIdleClose();
+}
+
 function scheduleBrowserIdleClose() {
+  if (activeBrowserLeases > 0) {
+    return;
+  }
+
   if (browserIdleTimer !== null) {
     clearTimeout(browserIdleTimer);
   }
@@ -321,6 +342,10 @@ function scheduleBrowserIdleClose() {
 }
 
 async function closeSharedBrowser() {
+  if (activeBrowserLeases > 0) {
+    return;
+  }
+
   if (browserIdleTimer !== null) {
     clearTimeout(browserIdleTimer);
     browserIdleTimer = null;
@@ -337,6 +362,7 @@ async function closeSharedBrowser() {
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
+    activeBrowserLeases = 0;
     closeSharedBrowser()
       .catch(() => {
         // Ignore shutdown cleanup errors.

@@ -170,4 +170,32 @@ describe('GameDetailContentComponent rating display', () => {
 
     expect(component.currentPriceLabel).toBe('Free');
   });
+
+  it('falls back to default currency formatting when Intl throws for a currency code', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      listType: 'wishlist',
+      priceAmount: 19.99,
+      priceCurrency: 'CHF'
+    });
+
+    const RealNumberFormat = Intl.NumberFormat;
+    const formatterSpy = vi
+      .spyOn(Intl, 'NumberFormat')
+      .mockImplementation((...args: ConstructorParameters<typeof Intl.NumberFormat>) => {
+        const currency = args[1]?.currency;
+        if (currency === 'CHF') {
+          throw new RangeError('invalid currency');
+        }
+
+        return new RealNumberFormat(...args);
+      });
+
+    try {
+      expect(component.currentPriceLabel).toContain('19.99');
+    } finally {
+      formatterSpy.mockRestore();
+    }
+  });
 });

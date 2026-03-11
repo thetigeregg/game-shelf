@@ -1590,6 +1590,7 @@ describe('ExplorePage recommendations UX', () => {
       coverUrl: null,
       platformLabel: 'PS5',
       releaseYear: 2025,
+      priceCurrency: 'EUR',
       priceAmount: 19.99,
       priceRegularAmount: 39.99,
       priceDiscountPercent: 50,
@@ -1598,7 +1599,7 @@ describe('ExplorePage recommendations UX', () => {
     gameShelfServiceMock.isGameOnDiscount.mockReturnValueOnce(true);
 
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 167 })).toBe(
-      'CHF\xa019.99'
+      'EUR\xa019.99'
     );
     expect(
       page.isRecommendationRowPriceOnDiscount({ igdbGameId: '700', platformIgdbId: 167 })
@@ -1704,6 +1705,7 @@ describe('ExplorePage recommendations UX', () => {
       of({
         status: 'ok',
         bestPrice: {
+          currency: 'EUR',
           amount: 39.9,
           regularAmount: 79.9,
           discountPercent: 50,
@@ -1716,7 +1718,7 @@ describe('ExplorePage recommendations UX', () => {
 
     expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 167, null);
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 167 })).toBe(
-      'CHF\xa039.90'
+      'EUR\xa039.90'
     );
   });
 
@@ -1815,6 +1817,7 @@ describe('ExplorePage recommendations UX', () => {
       of({
         status: 'ok',
         bestPrice: {
+          currency: 'USD',
           amount: 27.99,
           initialAmount: 39.99,
           cut: 30,
@@ -1828,7 +1831,7 @@ describe('ExplorePage recommendations UX', () => {
     expect(igdbProxyServiceMock.lookupSteamPrice).toHaveBeenCalledWith('800', 6);
     expect(igdbProxyServiceMock.lookupPsPrices).not.toHaveBeenCalled();
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '800', platformIgdbId: 6 })).toBe(
-      'CHF\xa027.99'
+      '$\xa027.99'
     );
     expect(
       page.getRecommendationRowPriceLabel({ igdbGameId: '801', platformIgdbId: 3 })
@@ -1854,6 +1857,7 @@ describe('ExplorePage recommendations UX', () => {
     expect(
       page.parsePsPricesLookupResponse({ status: 'ok', bestPrice: { amount: 0, isFree: true } })
     ).toEqual({
+      currency: null,
       amount: 0,
       regularAmount: null,
       discountPercent: null,

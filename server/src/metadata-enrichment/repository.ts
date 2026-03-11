@@ -60,6 +60,7 @@ export class MetadataEnrichmentRepository {
         AND (
           COALESCE(NULLIF(payload ->> 'taxonomyEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'mediaEnrichedAt', ''), '') = ''
+          OR COALESCE(NULLIF(payload ->> 'steamEnrichedAt', ''), '') = ''
           OR COALESCE(NULLIF(payload ->> 'metadataSyncEnqueuedAt', ''), '') = ''
         )
       ORDER BY igdb_game_id ASC, platform_igdb_id ASC

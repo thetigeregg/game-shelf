@@ -21,6 +21,7 @@
     "dev:worktree:db:seed:refresh": "node scripts/worktree-dev.mjs db seed-refresh",
     "dev:worktree:db:seed:apply": "node scripts/worktree-dev.mjs db seed-apply",
     "dev:worktree:db:seed:apply:force": "node scripts/worktree-dev.mjs db seed-apply --force",
+    "dev:worktree:env:reconcile": "node scripts/reconcile-worktree-env.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "vitest run --coverage",

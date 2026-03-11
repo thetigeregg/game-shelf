@@ -148,6 +148,7 @@ export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_FETCH_LIMIT = 200;
   private static readonly SIMILAR_PAGE_SIZE = 5;
   private static readonly SIMILAR_FETCH_LIMIT = 50;
+  private static readonly DISCOVERY_PRICING_HYDRATION_CONCURRENCY = 4;
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly PRICE_FORMATTER_LOCALE = 'de-CH';
   private static readonly PRICE_FORMATTERS = new Map<string, Intl.NumberFormat>();
@@ -1626,7 +1627,7 @@ export class ExplorePage implements OnInit {
       return;
     }
 
-    await Promise.all(candidates.map((item) => this.hydrateDiscoveryPricingForItem(item)));
+    await this.hydrateDiscoveryPricingInBatches(candidates);
   }
 
   private async ensureSimilarDisplayMetadata(items: RecommendationSimilarItem[]): Promise<void> {
@@ -1743,6 +1744,16 @@ export class ExplorePage implements OnInit {
     } finally {
       this.discoveryPricingHydrationInFlight.delete(key);
       this.discoveryPricingHydrationAttempted.add(key);
+    }
+  }
+
+  private async hydrateDiscoveryPricingInBatches(
+    items: Array<{ igdbGameId: string; platformIgdbId: number }>
+  ): Promise<void> {
+    const batchSize = ExplorePage.DISCOVERY_PRICING_HYDRATION_CONCURRENCY;
+    for (let index = 0; index < items.length; index += batchSize) {
+      const batch = items.slice(index, index + batchSize);
+      await Promise.all(batch.map((item) => this.hydrateDiscoveryPricingForItem(item)));
     }
   }
 

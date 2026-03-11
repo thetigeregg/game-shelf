@@ -274,20 +274,20 @@ Key recommendation env vars in `.env`:
 3. Start the dev stack with worktree-safe commands:
 
 ```bash
-npm run dev:worktree:stack:up
-npm run dev:worktree:start
+npm run dev:stack:up
+npm run dev:start
 ```
 
 To start with seed restore when DB is empty:
 
 ```bash
-npm run dev:worktree:stack:up:seed
+npm run dev:stack:up:seed
 ```
 
 Inspect the derived project/ports with:
 
 ```bash
-npm run dev:worktree:info
+npm run dev:info
 ```
 
 Shared-seed workflow (recommended for realistic local test data without cross-worktree DB pollution):
@@ -295,19 +295,19 @@ Shared-seed workflow (recommended for realistic local test data without cross-wo
 1. Refresh a shared DB seed dump from a known-good local DB:
 
 ```bash
-npm run dev:worktree:db:seed:refresh
+npm run dev:db:seed:refresh
 ```
 
 2. Apply seed into current worktree-local DB:
 
 ```bash
-npm run dev:worktree:db:seed:apply
+npm run dev:db:seed:apply
 ```
 
 `seed:apply` only restores when the target DB is empty; force overwrite with:
 
 ```bash
-npm run dev:worktree:db:seed:apply:force
+npm run dev:db:seed:apply:force
 ```
 
 Default seed path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` and can be overridden with `DEV_DB_SEED_PATH`.
@@ -315,7 +315,7 @@ Default seed path is `~/.cache/game-shelf/dev-db-seed/latest.sql.gz` and can be 
 4. Ports are derived per worktree. Check current URLs with:
 
 ```bash
-npm run dev:worktree:info
+npm run dev:info
 ```
 
 In local dev, Angular proxies `/manuals/...` requests to the worktree-local `edge` service so manual PDF links resolve without a separate host script.

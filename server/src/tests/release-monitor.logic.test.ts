@@ -539,6 +539,30 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
   assert.equal(refreshSoonest, now.getTime());
 });
 
+void test('computeNextCheckAt ignores refresh cadence when provider refresh is ineligible', () => {
+  const now = new Date('2026-03-06T10:00:00.000Z');
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  const nextCheckWithoutRefresh = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'day',
+        marker: '2026-12-01',
+        date: '2026-12-01',
+        year: 2026,
+        display: '2026-12-01'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+
+  assert.equal(Math.round((nextCheckWithoutRefresh - now.getTime()) / oneDayMs), 365);
+});
+
 void test('normalizers handle invalid marker and precision inputs', () => {
   assert.deepEqual(releaseMonitorInternals.normalizeReleaseInfoFromPrecision('month', '2026-13'), {
     precision: 'unknown',

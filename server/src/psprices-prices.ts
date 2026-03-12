@@ -5,6 +5,7 @@ import { incrementPspricesPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
 import { isDiscoveryListType } from './list-type.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -1052,19 +1053,6 @@ export async function processQueuedPspricesPriceRevalidation(
     match: pspricesLookup.match,
     candidates: pspricesLookup.candidates
   });
-}
-
-function resolvePreferredPsPricesUrl(payload: Record<string, unknown>): string | null {
-  const explicitPsPricesUrl = normalizeNonEmptyString(payload['psPricesUrl']);
-  if (explicitPsPricesUrl) {
-    return explicitPsPricesUrl;
-  }
-
-  if (normalizeNonEmptyString(payload['priceSource']) !== 'psprices') {
-    return null;
-  }
-
-  return normalizeNonEmptyString(payload['priceUrl']);
 }
 
 export const __pspricesTestables = {

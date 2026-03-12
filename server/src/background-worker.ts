@@ -14,6 +14,7 @@ import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js'
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
+import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -173,18 +174,7 @@ function resolvePspricesRevalidationTitle(payload: Record<string, unknown>): str
   );
 }
 
-function resolvePspricesRevalidationUrl(payload: Record<string, unknown>): string | null {
-  const explicitPsPricesUrl = normalizeNonEmptyString(payload['psPricesUrl']);
-  if (explicitPsPricesUrl) {
-    return explicitPsPricesUrl;
-  }
-
-  if (normalizeNonEmptyString(payload['priceSource']) !== 'psprices') {
-    return null;
-  }
-
-  return normalizeNonEmptyString(payload['priceUrl']);
-}
+const resolvePspricesRevalidationUrl = resolvePreferredPsPricesUrl;
 
 export const __backgroundWorkerTestables = {
   hasUnifiedPriceValue,

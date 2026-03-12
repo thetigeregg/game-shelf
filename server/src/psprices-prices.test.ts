@@ -1168,6 +1168,61 @@ void test('PSPrices scoring treats roman and arabic numerals equivalently for se
   await app.close();
 });
 
+void test('PSPrices scoring treats ampersand and and as equivalent', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('999991', 167, {
+    title: 'Ratchet & Clank: Rift Apart'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Ratchet and Clank Rift Apart',
+                amount: 49.9,
+                currency: 'CHF',
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/9999911/ratchet-and-clank-rift-apart'
+              },
+              {
+                title: 'Ratchet and Clank Collection',
+                amount: 19.9,
+                currency: 'CHF',
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/9999912/ratchet-and-clank-collection'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=999991&platformIgdbId=167&title=Ratchet%20%26%20Clank%3A%20Rift%20Apart&includeCandidates=1'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['matchedTitle'], 'Ratchet and Clank Rift Apart');
+  assert.equal(match['score'], 100);
+  assert.equal(match['confidence'], 'high');
+
+  await app.close();
+});
+
 void test('PSPrices scoring resolves duplicate title ties using metadata quality signals', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

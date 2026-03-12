@@ -971,13 +971,17 @@ function normalizeTitleForMatchForScoring(value: string): string {
     /\bcomplete edition\b/g,
     ' complete_edition '
   );
-  const filteredTokens = withCollapsedEditionLabels.split(' ').filter((token) => token.length > 0);
+  const filteredTokens = withCollapsedEditionLabels
+    .split(' ')
+    .filter((token) => token.length > 0)
+    .map((token) => normalizeSequelNumberToken(token))
+    .filter((token) => !isLowSignalTitleToken(token));
 
   if (filteredTokens.length === 0) {
-    return normalized;
+    return withCollapsedEditionLabels;
   }
 
-  return filteredTokens.map((token) => normalizeSequelNumberToken(token)).join(' ');
+  return filteredTokens.join(' ');
 }
 
 function normalizeSequelNumberToken(token: string): string {
@@ -1064,6 +1068,10 @@ function toRoman(value: number): string {
     }
   }
   return result;
+}
+
+function isLowSignalTitleToken(token: string): boolean {
+  return token === 'the' || token === 'a' || token === 'an' || token === 'and' || token === 'of';
 }
 
 async function fetchWithTimeout(

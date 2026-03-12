@@ -30,10 +30,16 @@ interface PushBody {
 }
 
 interface PullBody {
-  cursor?: string | null;
+  cursor?: unknown;
+}
+
+interface LatestCursorRow {
+  event_id: unknown;
 }
 
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
+  let latestKnownSyncEventId = 0;
+
   if (!app.hasDecorator('rateLimit')) {
     await app.register(rateLimit, { global: false });
   }
@@ -101,6 +107,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
 
         await client.query('COMMIT');
         const cursor = await readLatestCursor(client);
+        latestKnownSyncEventId = Math.max(latestKnownSyncEventId, normalizeCursor(cursor));
         reply.send({ results, cursor });
       } catch (error) {
         await client.query('ROLLBACK');
@@ -124,7 +131,6 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as PullBody;
       const cursor = normalizeCursor(body.cursor);
-
       const result = await pool.query<SyncEventRow>(
         `
       SELECT event_id, entity_type, operation, payload, server_timestamp
@@ -143,11 +149,36 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         payload: row.payload,
         serverTimestamp: row.server_timestamp
       }));
-      const nextCursor = changes.length > 0 ? changes[changes.length - 1].eventId : String(cursor);
+
+      if (changes.length > 0) {
+        const nextCursor = changes[changes.length - 1].eventId;
+        latestKnownSyncEventId = Math.max(latestKnownSyncEventId, normalizeCursor(nextCursor));
+        reply.send({
+          cursor: nextCursor,
+          changes
+        });
+        return;
+      }
+
+      if (cursor === 0 || cursor <= latestKnownSyncEventId) {
+        reply.send({
+          cursor: String(cursor),
+          changes
+        });
+        return;
+      }
+
+      const latestCursorResult = await pool.query<LatestCursorRow>(
+        'SELECT COALESCE(MAX(event_id), 0) AS event_id FROM sync_events'
+      );
+      const normalizedLatestCursor =
+        parseNonNegativeInteger(latestCursorResult.rows[0]?.event_id) ?? 0;
+      latestKnownSyncEventId = Math.max(latestKnownSyncEventId, normalizedLatestCursor);
+      const effectiveCursor = Math.min(cursor, normalizedLatestCursor);
 
       reply.send({
-        cursor: nextCursor,
-        changes
+        cursor: String(effectiveCursor),
+        changes: []
       });
     }
   });
@@ -458,9 +489,75 @@ function normalizeOperations(value: unknown): ClientSyncOperation[] | null {
   return parsed;
 }
 
-function normalizeCursor(value: string | null | undefined): number {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+function normalizeCursor(value: unknown): number {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) {
+      return 0;
+    }
+    if (value > Number.MAX_SAFE_INTEGER) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    return Number.isSafeInteger(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      return 0;
+    }
+    try {
+      const parsed = BigInt(trimmed);
+      if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+        return Number.MAX_SAFE_INTEGER;
+      }
+      return Number(parsed);
+    } catch {
+      return 0;
+    }
+  }
+
+  if (typeof value === 'bigint') {
+    if (value < 0n) {
+      return 0;
+    }
+    if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    return Number(value);
+  }
+
+  return 0;
+}
+
+function parseNonNegativeInteger(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      return null;
+    }
+    try {
+      const parsed = BigInt(trimmed);
+      if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+        return null;
+      }
+      return Number(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof value === 'bigint') {
+    if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return null;
+    }
+    return Number(value);
+  }
+
+  return null;
 }
 
 function normalizeEntityType(value: unknown): SyncEntityType | null {

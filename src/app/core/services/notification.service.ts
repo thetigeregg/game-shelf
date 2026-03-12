@@ -7,11 +7,11 @@ import { deleteToken, getToken, isSupported, onMessage } from 'firebase/messagin
 import { environment } from '../../../environments/environment';
 import { getAppVersion, getFirebaseVapidKey } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
+import { coercePreferenceBoolean, isDisabledPreferenceValue } from '../utils/preference-bool';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
 const FCM_DEVICE_TOKEN_STORAGE_KEY = 'game-shelf:notifications:fcm-token';
-const DISABLED_PREFERENCE_VALUES = new Set(['false', '0', 'no']);
 
 export interface ReleaseNotificationEventsPreference {
   set: boolean;
@@ -19,23 +19,6 @@ export interface ReleaseNotificationEventsPreference {
   removed: boolean;
   day: boolean;
   sale: boolean;
-}
-
-function isDisabledPreferenceValue(value: string): boolean {
-  return DISABLED_PREFERENCE_VALUES.has(value.trim().toLowerCase());
-}
-
-function coercePreferenceBoolean(value: unknown, defaultValue: boolean): boolean {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  if (typeof value === 'string') {
-    return !isDisabledPreferenceValue(value);
-  }
-  return defaultValue;
 }
 
 @Injectable({ providedIn: 'root' })

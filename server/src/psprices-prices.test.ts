@@ -1810,6 +1810,52 @@ void test('PSPrices keeps high confidence for strong base vs standard ties', asy
   await app.close();
 });
 
+void test('PSPrices does not auto-promote high confidence for non-base equivalent strong-core ties', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991021', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Diablo IV Deluxe Edition',
+                amount: 79.9,
+                isFree: false,
+                url: 'deluxe-a'
+              },
+              {
+                title: 'Diablo IV Digital Deluxe',
+                amount: 78.9,
+                isFree: false,
+                url: 'deluxe-b'
+              }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991021&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'unavailable');
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['confidence'], 'low');
+  assert.equal(body['bestPrice'], null);
+
+  await app.close();
+});
+
 void test('PSPrices keeps platform markers neutral relative to edition ranking', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

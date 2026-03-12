@@ -63,6 +63,7 @@ import {
   isRateLimitedMessage,
   isTransientNetworkMessage
 } from '../core/utils/rate-limit-ui-error';
+import { coercePreferenceBoolean } from '../core/utils/preference-bool';
 import { normalizeNotesValueOrNull } from '../core/utils/notes-normalization.utils';
 import {
   escapeCsvValue,
@@ -147,21 +148,6 @@ import {
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
-const DISABLED_PREFERENCE_VALUES = new Set(['false', '0', 'no']);
-
-function coercePreferenceBoolean(value: unknown, defaultValue: boolean): boolean {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  if (typeof value === 'string') {
-    return !DISABLED_PREFERENCE_VALUES.has(value.trim().toLowerCase());
-  }
-  return defaultValue;
-}
-
 type ExportRowType = 'game' | 'tag' | 'view' | 'setting';
 
 interface ExportCsvRow {

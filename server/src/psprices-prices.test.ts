@@ -1655,19 +1655,16 @@ void test('PSPrices keeps metadata tie-break behavior within same suffix class',
                 title: 'Diablo IV',
                 amount: 59.9,
                 isFree: false,
-                gameId: '7002',
-                openCriticScore: 80,
+                gameId: '7001',
+                metadataQualityScore: 2,
                 url: 'b2'
               },
               {
                 title: 'Diablo IV',
                 amount: 59.9,
                 isFree: false,
-                gameId: '7001',
-                metacriticScore: 90,
-                openCriticScore: 86,
-                collectionTagCount: 2,
-                hasMostEngagingTag: true,
+                gameId: '7002',
+                metadataQualityScore: 13,
                 url: 'b1'
               },
               { title: 'Diablo IV Standard Edition', amount: 59.9, isFree: false, url: 's' }

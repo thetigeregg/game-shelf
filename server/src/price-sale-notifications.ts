@@ -69,11 +69,6 @@ export async function maybeSendWishlistSaleNotification(
     return;
   }
 
-  const activeTokenSet = await loadActiveTokenSet(pool);
-  if (activeTokenSet.size === 0) {
-    return;
-  }
-
   const titleValue = normalizeNonEmptyString(params.nextPayload['title']) ?? 'Unknown title';
   const event = buildSaleNotificationEvent({
     igdbGameId: params.igdbGameId,
@@ -90,6 +85,12 @@ export async function maybeSendWishlistSaleNotification(
     params.platformIgdbId
   );
   if (!reserved) {
+    return;
+  }
+
+  const activeTokenSet = await loadActiveTokenSet(pool);
+  if (activeTokenSet.size === 0) {
+    await releaseNotificationLogReservation(pool, event.eventKey);
     return;
   }
 
@@ -302,6 +303,15 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
       set.add(token);
     }
   });
+
+  const loadedRowCount = typeof result.rowCount === 'number' ? result.rowCount : result.rows.length;
+  if (loadedRowCount >= MAX_ACTIVE_TOKENS_PER_RUN) {
+    console.warn('[price-sale-notifications] active_tokens_capped', {
+      maxActiveTokensPerRun: MAX_ACTIVE_TOKENS_PER_RUN,
+      loadedActiveTokens: set.size
+    });
+  }
+
   return set;
 }
 

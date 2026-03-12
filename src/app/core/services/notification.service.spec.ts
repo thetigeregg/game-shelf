@@ -222,18 +222,20 @@ describe('NotificationService', () => {
       set: true,
       changed: true,
       removed: true,
-      day: true
+      day: true,
+      sale: true
     });
 
     localStorage.setItem(
       'game-shelf:notifications:release:events',
-      JSON.stringify({ set: false, changed: true, removed: false, day: true })
+      JSON.stringify({ set: false, changed: true, removed: false, day: true, sale: false })
     );
     expect(service.readReleaseEventPreferences()).toEqual({
       set: false,
       changed: true,
       removed: false,
-      day: true
+      day: true,
+      sale: false
     });
 
     localStorage.setItem('game-shelf:notifications:release:events', '{bad-json');
@@ -241,7 +243,29 @@ describe('NotificationService', () => {
       set: true,
       changed: true,
       removed: true,
-      day: true
+      day: true,
+      sale: true
+    });
+  });
+
+  it('coerces string and numeric falsey release event preferences to disabled', () => {
+    localStorage.setItem(
+      'game-shelf:notifications:release:events',
+      JSON.stringify({
+        set: 'false',
+        changed: '0',
+        removed: 'no',
+        day: 0,
+        sale: 'false'
+      })
+    );
+
+    expect(service.readReleaseEventPreferences()).toEqual({
+      set: false,
+      changed: false,
+      removed: false,
+      day: false,
+      sale: false
     });
   });
 

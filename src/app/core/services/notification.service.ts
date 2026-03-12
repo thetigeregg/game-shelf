@@ -7,6 +7,7 @@ import { deleteToken, getToken, isSupported, onMessage } from 'firebase/messagin
 import { environment } from '../../../environments/environment';
 import { getAppVersion, getFirebaseVapidKey } from '../config/runtime-config';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer';
+import { coercePreferenceBoolean, isDisabledPreferenceValue } from '../utils/preference-bool';
 
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
@@ -17,6 +18,7 @@ export interface ReleaseNotificationEventsPreference {
   changed: boolean;
   removed: boolean;
   day: boolean;
+  sale: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -86,7 +88,7 @@ export class NotificationService {
       }
 
       const normalized = raw.trim().toLowerCase();
-      return normalized !== 'false' && normalized !== '0' && normalized !== 'no';
+      return !isDisabledPreferenceValue(normalized);
     } catch {
       return false;
     }
@@ -105,29 +107,19 @@ export class NotificationService {
       const raw = localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY);
 
       if (!raw) {
-        return {
-          set: true,
-          changed: true,
-          removed: true,
-          day: true
-        };
+        return { set: true, changed: true, removed: true, day: true, sale: true };
       }
 
       const parsed = JSON.parse(raw) as Record<string, unknown>;
-      // Default to enabled unless a toggle is explicitly persisted as false.
       return {
-        set: parsed['set'] !== false,
-        changed: parsed['changed'] !== false,
-        removed: parsed['removed'] !== false,
-        day: parsed['day'] !== false
+        set: coercePreferenceBoolean(parsed['set'], true),
+        changed: coercePreferenceBoolean(parsed['changed'], true),
+        removed: coercePreferenceBoolean(parsed['removed'], true),
+        day: coercePreferenceBoolean(parsed['day'], true),
+        sale: coercePreferenceBoolean(parsed['sale'], true)
       };
     } catch {
-      return {
-        set: true,
-        changed: true,
-        removed: true,
-        day: true
-      };
+      return { set: true, changed: true, removed: true, day: true, sale: true };
     }
   }
 

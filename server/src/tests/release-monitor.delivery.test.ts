@@ -185,7 +185,13 @@ class ReleaseMonitorFlowPoolMock {
           { setting_key: 'game-shelf:notifications:release:enabled', setting_value: 'false' },
           {
             setting_key: 'game-shelf:notifications:release:events',
-            setting_value: JSON.stringify({ set: true, changed: true, removed: true, day: true })
+            setting_value: JSON.stringify({
+              set: true,
+              changed: true,
+              removed: true,
+              day: true,
+              sale: true
+            })
           }
         ],
         rowCount: 2

@@ -1010,6 +1010,12 @@ function isResolvedEquivalentStrongCoreTie(
   if (best.suffixRank !== second.suffixRank) {
     return false;
   }
+  if (
+    !isBaseOrStandardSuffixClass(best.suffixClass) ||
+    !isBaseOrStandardSuffixClass(second.suffixClass)
+  ) {
+    return false;
+  }
 
   const bestTitle = normalizeTitleForMatch(best.candidate.title ?? '');
   const secondTitle = normalizeTitleForMatch(second.candidate.title ?? '');
@@ -1018,6 +1024,10 @@ function isResolvedEquivalentStrongCoreTie(
   }
 
   return true;
+}
+
+function isBaseOrStandardSuffixClass(suffixClass: PsPricesSuffixClass): boolean {
+  return suffixClass === 'base' || suffixClass === 'standard';
 }
 
 function isResolvedDuplicateTie(

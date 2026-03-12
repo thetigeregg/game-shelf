@@ -422,16 +422,21 @@ async function processGameRow(
       lastMetacriticRefreshAt = nowIso;
     }
 
+    const hltbMatchLocked = isProviderMatchLocked(mergedPayload, 'hltbMatchLocked');
+    const reviewMatchLocked = isProviderMatchLocked(mergedPayload, 'reviewMatchLocked');
+    const hltbRefreshEligible = hltbEligible && !hltbMatchLocked;
+    const metacriticRefreshEligible = metacriticEligible && !reviewMatchLocked;
+
     const hltbDue =
       !isBootstrap &&
-      !isProviderMatchLocked(mergedPayload, 'hltbMatchLocked') &&
+      hltbRefreshEligible &&
       isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
     const metacriticDue =
       !isBootstrap &&
-      !isProviderMatchLocked(mergedPayload, 'reviewMatchLocked') &&
+      metacriticRefreshEligible &&
       isMetacriticRefreshDue(lastMetacriticRefreshAt, mergedPayload, now);
 
-    if (hltbEligible && hltbDue) {
+    if (hltbDue) {
       stats.hltbRefreshAttempts += 1;
       const hltbRefreshQuery = resolveHltbRefreshQuery(mergedPayload, title, platformName);
       const refreshedHltb = await fetchHltbPayload({
@@ -454,7 +459,7 @@ async function processGameRow(
       lastHltbRefreshAt = nowIso;
     }
 
-    if (metacriticEligible && metacriticDue) {
+    if (metacriticDue) {
       stats.metacriticRefreshAttempts += 1;
       const reviewRefreshQuery = resolveReviewRefreshQuery(
         mergedPayload,
@@ -567,9 +572,9 @@ async function processGameRow(
     const nextCheckAt = computeNextCheckAt(
       releaseAfter,
       now,
-      hltbEligible,
+      hltbRefreshEligible,
       lastHltbRefreshAt,
-      metacriticEligible,
+      metacriticRefreshEligible,
       lastMetacriticRefreshAt
     );
     await upsertWatchState(pool, {

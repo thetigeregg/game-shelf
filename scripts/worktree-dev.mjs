@@ -224,8 +224,8 @@ function printInfo() {
   console.log(`DB seed file: ${configState(defaultSeedPath())}`);
 }
 
-function ensureLocalEnvFromSharedTemplate() {
-  if (existsSync(localEnvPath)) {
+function ensureLocalEnvFromSharedTemplate(force = false) {
+  if (!force && existsSync(localEnvPath)) {
     return;
   }
 
@@ -235,7 +235,9 @@ function ensureLocalEnvFromSharedTemplate() {
 
   mkdirSync(path.dirname(localEnvPath), { recursive: true });
   copyFileSync(sharedEnvFilePath, localEnvPath);
-  console.log('Bootstrapped .env from shared template');
+  console.log(
+    force ? 'Replaced .env from shared template' : 'Bootstrapped .env from shared template'
+  );
 }
 
 function listMissingDependencyDirs() {
@@ -582,7 +584,7 @@ if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
   console.log('');
   console.log('Commands:');
   console.log('  info                      Show derived project name, ports, and seed path');
-  console.log('  bootstrap                 Bootstrap .env and install deps if missing');
+  console.log('  bootstrap [--force]       Bootstrap .env and install deps if missing');
   console.log('  frontend                  Run Angular dev server for this worktree');
   console.log('  stack up                  Start worktree-isolated docker stack');
   console.log('  stack up-seed             Start stack and seed DB only when empty');
@@ -611,7 +613,8 @@ if (args[0] === 'info') {
 }
 
 if (args[0] === 'bootstrap') {
-  ensureLocalEnvFromSharedTemplate();
+  const options = parseOptions(args.slice(1));
+  ensureLocalEnvFromSharedTemplate(options.force);
   printInfo();
   ensureDependenciesInstalled(false);
   process.exit(0);

@@ -33,6 +33,10 @@ interface PullBody {
   cursor?: string | null;
 }
 
+interface LatestCursorRow {
+  event_id: unknown;
+}
+
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
   if (!app.hasDecorator('rateLimit')) {
     await app.register(rateLimit, { global: false });
@@ -124,17 +128,6 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as PullBody;
       const cursor = normalizeCursor(body.cursor);
-      const latestCursorResult = await pool.query<{ event_id: number }>(
-        'SELECT COALESCE(MAX(event_id), 0) AS event_id FROM sync_events'
-      );
-      const latestCursor =
-        latestCursorResult.rows[0] && Number.isFinite(latestCursorResult.rows[0].event_id)
-          ? latestCursorResult.rows[0].event_id
-          : 0;
-      const normalizedLatestCursor =
-        Number.isInteger(latestCursor) && latestCursor >= 0 ? latestCursor : 0;
-      const effectiveCursor = Math.min(cursor, normalizedLatestCursor);
-
       const result = await pool.query<SyncEventRow>(
         `
       SELECT event_id, entity_type, operation, payload, server_timestamp
@@ -143,7 +136,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       ORDER BY event_id ASC
       LIMIT 1000
       `,
-        [effectiveCursor]
+        [cursor]
       );
 
       const changes = result.rows.map((row) => ({
@@ -153,12 +146,27 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         payload: row.payload,
         serverTimestamp: row.server_timestamp
       }));
-      const nextCursor =
-        changes.length > 0 ? changes[changes.length - 1].eventId : String(effectiveCursor);
+
+      if (changes.length > 0 || cursor === 0) {
+        const nextCursor =
+          changes.length > 0 ? changes[changes.length - 1].eventId : String(cursor);
+        reply.send({
+          cursor: nextCursor,
+          changes
+        });
+        return;
+      }
+
+      const latestCursorResult = await pool.query<LatestCursorRow>(
+        'SELECT COALESCE(MAX(event_id), 0) AS event_id FROM sync_events'
+      );
+      const normalizedLatestCursor =
+        parseNonNegativeInteger(latestCursorResult.rows[0]?.event_id) ?? 0;
+      const effectiveCursor = Math.min(cursor, normalizedLatestCursor);
 
       reply.send({
-        cursor: nextCursor,
-        changes
+        cursor: String(effectiveCursor),
+        changes: []
       });
     }
   });
@@ -470,8 +478,27 @@ function normalizeOperations(value: unknown): ClientSyncOperation[] | null {
 }
 
 function normalizeCursor(value: string | null | undefined): number {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+  return parseNonNegativeInteger(value) ?? 0;
+}
+
+function parseNonNegativeInteger(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value >= 0 ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+  }
+
+  if (typeof value === 'bigint') {
+    if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return null;
+    }
+    return Number(value);
+  }
+
+  return null;
 }
 
 function normalizeEntityType(value: unknown): SyncEntityType | null {

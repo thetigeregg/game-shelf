@@ -37,6 +37,10 @@ class SaleNotificationPoolMock {
     return this.logs.size;
   }
 
+  hasPendingZeroSentLog(): boolean {
+    return [...this.logs.values()].some((entry) => entry.sentCount === 0);
+  }
+
   getSentCountForEvent(eventKey: string): number | null {
     return this.logs.get(eventKey)?.sentCount ?? null;
   }
@@ -391,4 +395,45 @@ void test('detects sale via regular/current delta when discount percent is missi
   assert.equal(bodies.length, 1);
   assert.equal(bodies[0]?.includes('(-29%)'), true);
   assert.equal(pool.getLogCount(), 1);
+});
+
+void test('releases reservation when sendMulticast throws', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+
+  await assert.rejects(
+    maybeSendWishlistSaleNotification(
+      pool as unknown as Pool,
+      {
+        igdbGameId: '500',
+        platformIgdbId: 48,
+        previousPayload: {
+          listType: 'wishlist',
+          title: 'Wolfenstein II',
+          priceAmount: 69.99,
+          priceRegularAmount: 69.99,
+          priceDiscountPercent: 0,
+          priceIsFree: false
+        },
+        nextPayload: {
+          listType: 'wishlist',
+          title: 'Wolfenstein II',
+          priceAmount: 39.99,
+          priceRegularAmount: 69.99,
+          priceDiscountPercent: 43,
+          priceIsFree: false,
+          priceCurrency: 'CHF',
+          priceFetchedAt: '2026-03-12T12:30:00.000Z'
+        }
+      },
+      {
+        sendMulticast: () => Promise.reject(new Error('send_failed'))
+      }
+    ),
+    /send_failed/
+  );
+
+  assert.equal(pool.getLogCount(), 0);
+  assert.equal(pool.hasPendingZeroSentLog(), false);
 });

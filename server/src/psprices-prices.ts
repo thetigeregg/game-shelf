@@ -1043,12 +1043,20 @@ async function persistPsPricesSnapshot(
   }
 
   if (hasChanges) {
-    await maybeSendWishlistSaleNotification(pool, {
-      igdbGameId: params.igdbGameId,
-      platformIgdbId: params.platformIgdbId,
-      previousPayload: params.payload,
-      nextPayload: updatedPayload
-    });
+    try {
+      await maybeSendWishlistSaleNotification(pool, {
+        igdbGameId: params.igdbGameId,
+        platformIgdbId: params.platformIgdbId,
+        previousPayload: params.payload,
+        nextPayload: updatedPayload
+      });
+    } catch (error) {
+      console.error('[psprices] wishlist_sale_notification_failed', {
+        igdbGameId: params.igdbGameId,
+        platformIgdbId: params.platformIgdbId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 }
 

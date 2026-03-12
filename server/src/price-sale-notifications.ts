@@ -94,42 +94,47 @@ export async function maybeSendWishlistSaleNotification(
   }
 
   const sendMulticast = options.sendMulticast ?? sendFcmMulticast;
-  const sendResult = await sendMulticast([...activeTokenSet], {
-    title: event.title,
-    body: event.body,
-    data: {
-      eventType: event.type,
-      eventKey: event.eventKey,
-      route: '/tabs/wishlist',
-      igdbGameId: params.igdbGameId,
-      platformIgdbId: String(params.platformIgdbId),
-      priceAmount: event.payload.priceAmount !== null ? String(event.payload.priceAmount) : '',
-      priceRegularAmount:
-        event.payload.priceRegularAmount !== null ? String(event.payload.priceRegularAmount) : '',
-      priceDiscountPercent:
-        event.payload.priceDiscountPercent !== null
-          ? String(event.payload.priceDiscountPercent)
-          : '',
-      priceCurrency: event.payload.priceCurrency ?? ''
+  try {
+    const sendResult = await sendMulticast([...activeTokenSet], {
+      title: event.title,
+      body: event.body,
+      data: {
+        eventType: event.type,
+        eventKey: event.eventKey,
+        route: '/tabs/wishlist',
+        igdbGameId: params.igdbGameId,
+        platformIgdbId: String(params.platformIgdbId),
+        priceAmount: event.payload.priceAmount !== null ? String(event.payload.priceAmount) : '',
+        priceRegularAmount:
+          event.payload.priceRegularAmount !== null ? String(event.payload.priceRegularAmount) : '',
+        priceDiscountPercent:
+          event.payload.priceDiscountPercent !== null
+            ? String(event.payload.priceDiscountPercent)
+            : '',
+        priceCurrency: event.payload.priceCurrency ?? ''
+      }
+    });
+
+    if (sendResult.successCount <= 0) {
+      await releaseNotificationLogReservation(pool, event.eventKey);
+      return;
     }
-  });
 
-  if (sendResult.successCount <= 0) {
-    await releaseNotificationLogReservation(pool, event.eventKey);
-    return;
-  }
+    await finalizeNotificationLog(pool, event, sendResult.successCount);
 
-  await finalizeNotificationLog(pool, event, sendResult.successCount);
-
-  if (sendResult.invalidTokens.length > 0) {
-    await pool.query(
-      `
+    if (sendResult.invalidTokens.length > 0) {
+      await pool.query(
+        `
       UPDATE fcm_tokens
       SET is_active = FALSE, updated_at = NOW()
       WHERE token = ANY($1::text[])
       `,
-      [sendResult.invalidTokens]
-    );
+        [sendResult.invalidTokens]
+      );
+    }
+  } catch (error) {
+    await releaseNotificationLogReservation(pool, event.eventKey);
+    throw error;
   }
 }
 
@@ -173,12 +178,14 @@ function buildSaleNotificationEvent(args: {
       ? Math.round(args.snapshot.discountPercent)
       : inferDiscountPercent(args.snapshot.amount, args.snapshot.regularAmount);
   const discountSuffix = discountPercent > 0 ? ` (-${String(discountPercent)}%)` : '';
+  const saleDay = resolveSaleDayBucket(args.fetchedAt);
 
   const eventKey = [
     'price_on_sale',
     args.igdbGameId,
     String(args.platformIgdbId),
-    args.fetchedAt ?? 'na',
+    saleDay,
+    args.snapshot.currency ?? 'na',
     args.snapshot.amount !== null ? String(args.snapshot.amount) : 'na',
     args.snapshot.regularAmount !== null ? String(args.snapshot.regularAmount) : 'na',
     args.snapshot.discountPercent !== null ? String(args.snapshot.discountPercent) : 'na'
@@ -367,6 +374,17 @@ function normalizeNonEmptyString(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveSaleDayBucket(fetchedAt: string | null): string {
+  const normalized = normalizeNonEmptyString(fetchedAt);
+  if (normalized) {
+    const parsed = Date.parse(normalized);
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toISOString().slice(0, 10);
+    }
+  }
+  return new Date().toISOString().slice(0, 10);
 }
 
 function normalizeCurrency(value: unknown): string | null {

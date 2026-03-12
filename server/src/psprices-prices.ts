@@ -158,6 +158,30 @@ const PSPRICES_SWITCH_SUFFIX_PATTERNS = [
 const PSPRICES_XBOX_SUFFIX_PATTERNS = [
   /\b(?:xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox)(?: edition)?$/g
 ];
+const ROMAN_NUMERAL_VALUES: Record<string, number> = {
+  I: 1,
+  V: 5,
+  X: 10,
+  L: 50,
+  C: 100,
+  D: 500,
+  M: 1000
+};
+const ROMAN_NUMERAL_SYMBOLS: ReadonlyArray<readonly [number, string]> = [
+  [1000, 'M'],
+  [900, 'CM'],
+  [500, 'D'],
+  [400, 'CD'],
+  [100, 'C'],
+  [90, 'XC'],
+  [50, 'L'],
+  [40, 'XL'],
+  [10, 'X'],
+  [9, 'IX'],
+  [5, 'V'],
+  [4, 'IV'],
+  [1, 'I']
+];
 
 export async function registerPsPricesRoute(
   app: FastifyInstance,
@@ -1231,20 +1255,10 @@ function parseRomanSequelNumberToken(token: string): number | null {
     return null;
   }
 
-  const values = new Map<string, number>([
-    ['I', 1],
-    ['V', 5],
-    ['X', 10],
-    ['L', 50],
-    ['C', 100],
-    ['D', 500],
-    ['M', 1000]
-  ]);
-
   let total = 0;
   for (let index = 0; index < roman.length; index += 1) {
-    const current = values.get(roman[index]) ?? 0;
-    const next = values.get(roman[index + 1] ?? '') ?? 0;
+    const current = ROMAN_NUMERAL_VALUES[roman[index]] ?? 0;
+    const next = ROMAN_NUMERAL_VALUES[roman[index + 1] ?? ''] ?? 0;
     total += current < next ? -current : current;
   }
 
@@ -1257,25 +1271,9 @@ function parseRomanSequelNumberToken(token: string): number | null {
 }
 
 function toRoman(value: number): string {
-  const symbols: Array<[number, string]> = [
-    [1000, 'M'],
-    [900, 'CM'],
-    [500, 'D'],
-    [400, 'CD'],
-    [100, 'C'],
-    [90, 'XC'],
-    [50, 'L'],
-    [40, 'XL'],
-    [10, 'X'],
-    [9, 'IX'],
-    [5, 'V'],
-    [4, 'IV'],
-    [1, 'I']
-  ];
-
   let remaining = value;
   let result = '';
-  for (const [numeric, symbol] of symbols) {
+  for (const [numeric, symbol] of ROMAN_NUMERAL_SYMBOLS) {
     while (remaining >= numeric) {
       result += symbol;
       remaining -= numeric;

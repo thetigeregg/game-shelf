@@ -696,6 +696,19 @@ void test('review refresh query resolver carries persisted mobygames override id
   assert.equal(reviewResolved.reviewMatchMobygamesGameId, 12345);
 });
 
+void test('review refresh query resolver falls back to platform id when persisted override is non-positive', () => {
+  const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
+    {
+      title: 'Fallback Title',
+      reviewMatchPlatformIgdbId: 0
+    },
+    'Default Title',
+    'Default Platform',
+    6
+  );
+  assert.equal(reviewResolved.platformIgdbId, 6);
+});
+
 void test('unified review merge applies mobygames payload and respects existing non-mobygames source', () => {
   const merged = releaseMonitorInternals.mergeReviewRefreshPayload(
     {

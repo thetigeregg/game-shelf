@@ -694,8 +694,11 @@ function resolveReviewRefreshQuery(
     stringOrNull(payload['reviewMatchQueryPlatform']) ??
     stringOrNull(payload['platform']) ??
     fallbackPlatform;
+  const rawPlatformIgdbId = integerOrNull(payload['reviewMatchPlatformIgdbId']);
   const platformIgdbId =
-    integerOrNull(payload['reviewMatchPlatformIgdbId']) ?? fallbackPlatformIgdbId;
+    typeof rawPlatformIgdbId === 'number' && rawPlatformIgdbId > 0
+      ? rawPlatformIgdbId
+      : fallbackPlatformIgdbId;
   const reviewMatchMobygamesGameId = integerOrNull(payload['reviewMatchMobygamesGameId']);
 
   return {

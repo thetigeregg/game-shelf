@@ -796,6 +796,87 @@ export const MIGRATIONS: string[] = [
       OR BTRIM(COALESCE(payload->>'reviewMatchPlatformIgdbId', '')) !~ '^[0-9]+$'
       OR NOT (payload ? 'reviewMatchMobygamesGameId')
       OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) !~ '^[0-9]+$'
+    )
+    AND payload IS DISTINCT FROM (
+      payload || jsonb_strip_nulls(
+        jsonb_build_object(
+          'hltbMatchQueryTitle',
+          CASE
+            WHEN (
+              NOT (payload ? 'hltbMatchQueryTitle')
+              OR BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'title', '')), '')
+            ELSE NULL
+          END,
+          'hltbMatchQueryReleaseYear',
+          CASE
+            WHEN (
+              NOT (payload ? 'hltbMatchQueryReleaseYear')
+              OR BTRIM(COALESCE(payload->>'hltbMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+            )
+            AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->>'releaseYear'))::int
+            ELSE NULL
+          END,
+          'hltbMatchQueryPlatform',
+          CASE
+            WHEN (
+              NOT (payload ? 'hltbMatchQueryPlatform')
+              OR BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'platform', '')), '')
+            ELSE NULL
+          END,
+          'reviewMatchQueryTitle',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchQueryTitle')
+              OR BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'title', '')), '')
+            ELSE NULL
+          END,
+          'reviewMatchQueryReleaseYear',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchQueryReleaseYear')
+              OR BTRIM(COALESCE(payload->>'reviewMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+            )
+            AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->>'releaseYear'))::int
+            ELSE NULL
+          END,
+          'reviewMatchQueryPlatform',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchQueryPlatform')
+              OR BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'platform', '')), '')
+            ELSE NULL
+          END,
+          'reviewMatchPlatformIgdbId',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchPlatformIgdbId')
+              OR BTRIM(COALESCE(payload->>'reviewMatchPlatformIgdbId', '')) !~ '^[0-9]+$'
+            )
+            THEN platform_igdb_id
+            ELSE NULL
+          END,
+          'reviewMatchMobygamesGameId',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchMobygamesGameId')
+              OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) !~ '^[0-9]+$'
+            )
+            AND BTRIM(COALESCE(payload->>'mobygamesGameId', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->>'mobygamesGameId'))::int
+            ELSE NULL
+          END
+        )
+      )
     );
   `,
   // Backfill provider lock flags for likely legacy manual match overrides so

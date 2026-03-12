@@ -1296,7 +1296,7 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
 
   const match = body['match'] as Record<string, unknown>;
   assert.equal(match['matchedTitle'], 'Wolfenstein II: The New Colossus');
-  assert.equal(match['score'], 88);
+  assert.equal(match['score'], 100);
   assert.equal(match['confidence'], 'high');
 
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
@@ -1729,6 +1729,168 @@ void test('PSPrices strong-core guardrail keeps stronger core match above weak s
   const body = parseJsonRecord(response.body);
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
   assert.equal(bestPrice['url'], 'iv-expansion');
+
+  await app.close();
+});
+
+void test('PSPrices keeps platform markers neutral relative to edition ranking', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991001', 167, { title: 'Hogwarts Legacy' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { title: 'Hogwarts Legacy Deluxe Edition', amount: 79.9, isFree: false, url: 'd' },
+              {
+                title: 'Hogwarts Legacy Nintendo Switch 2 Edition',
+                amount: 59.9,
+                isFree: false,
+                url: 's2'
+              },
+              { title: 'Hogwarts Legacy PS5', amount: 59.9, isFree: false, url: 'ps5' },
+              { title: 'Hogwarts Legacy', amount: 49.9, isFree: false, url: 'base' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991001&platformIgdbId=167&title=Hogwarts%20Legacy&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles[0], 'Hogwarts Legacy');
+  assert.equal(titles[1], 'Hogwarts Legacy PS5');
+  assert.equal(titles[2], 'Hogwarts Legacy Nintendo Switch 2 Edition');
+  assert.equal(titles[3], 'Hogwarts Legacy Deluxe Edition');
+
+  await app.close();
+});
+
+void test('PSPrices applies platform neutrality alongside edition ordering', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991002', 167, { title: 'Cyberpunk 2077' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Cyberpunk 2077 PS5 Deluxe Edition',
+                amount: 74.9,
+                isFree: false,
+                url: 'ps5-deluxe'
+              },
+              {
+                title: 'Cyberpunk 2077 Deluxe Edition',
+                amount: 69.9,
+                isFree: false,
+                url: 'deluxe'
+              },
+              { title: 'Cyberpunk 2077 PS5', amount: 59.9, isFree: false, url: 'ps5' },
+              { title: 'Cyberpunk 2077', amount: 49.9, isFree: false, url: 'base' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991002&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles[0], 'Cyberpunk 2077');
+  assert.equal(titles[1], 'Cyberpunk 2077 PS5');
+  assert.equal(titles[2], 'Cyberpunk 2077 Deluxe Edition');
+  assert.equal(titles[3], 'Cyberpunk 2077 PS5 Deluxe Edition');
+
+  await app.close();
+});
+
+void test('PSPrices classifies platform upgrade variants as expansion-style content', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991003', 167, { title: "No Man's Sky" });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { title: "No Man's Sky PS5 Upgrade", amount: 9.9, isFree: false, url: 'upgrade' },
+              { title: "No Man's Sky PS5", amount: 39.9, isFree: false, url: 'ps5' },
+              { title: "No Man's Sky", amount: 29.9, isFree: false, url: 'base' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991003&platformIgdbId=167&title=No%20Man%27s%20Sky&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles[0], "No Man's Sky");
+  assert.equal(titles[1], "No Man's Sky PS5");
+  assert.equal(titles[2], "No Man's Sky PS5 Upgrade");
+
+  await app.close();
+});
+
+void test('PSPrices does not strip platform words when they are part of canonical title', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991004', 130, { title: 'Nintendo Switch Sports' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Nintendo Switch Sports Deluxe Edition',
+                amount: 59.9,
+                isFree: false,
+                url: 'deluxe'
+              },
+              { title: 'Nintendo Switch Sports', amount: 49.9, isFree: false, url: 'base' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991004&platformIgdbId=130&title=Nintendo%20Switch%20Sports&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles[0], 'Nintendo Switch Sports');
+  assert.equal(titles[1], 'Nintendo Switch Sports Deluxe Edition');
 
   await app.close();
 });

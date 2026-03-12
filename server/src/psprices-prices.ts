@@ -63,7 +63,11 @@ interface RankedPsPricesCandidate {
   coreScore: number;
   suffixClass: PsPricesSuffixClass;
   suffixRank: number;
+  hasPlatformSuffix: boolean;
+  hasContextPlatformSuffix: boolean;
 }
+
+type PlatformMarkerContext = 'playstation' | 'switch' | 'xbox' | null;
 
 interface CachedPsPricesSnapshot {
   fetchedAt: string;
@@ -134,12 +138,25 @@ const PSPRICES_SUFFIX_EXPANSION_PATTERNS = [
   /\bdlc\b/,
   /\badd ?on\b/,
   /\baddon\b/,
+  /\bupgrade\b/,
+  /\bnext gen upgrade\b/,
+  /\bps5 upgrade\b/,
+  /\bseries x upgrade\b/,
   /\bseason pass\b/,
   /\bpass\b/,
   /\bstory pack\b/,
   /\bpack\b/,
   /\bepisode\b/,
   /\bchapter\b/
+];
+const PSPRICES_PLAYSTATION_SUFFIX_PATTERNS = [
+  /\b(?:ps5|ps4|playstation 5|playstation 4)(?: edition)?$/g
+];
+const PSPRICES_SWITCH_SUFFIX_PATTERNS = [
+  /\b(?:nintendo switch 2|switch 2|nintendo switch|switch)(?: edition)?$/g
+];
+const PSPRICES_XBOX_SUFFIX_PATTERNS = [
+  /\b(?:xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox)(?: edition)?$/g
 ];
 
 export async function registerPsPricesRoute(
@@ -746,11 +763,14 @@ async function fetchPsPricesSnapshot(
     };
   }
 
+  const platformContext = derivePlatformMarkerContext(params.platform);
+  const expectedCore = buildCoreTitleForScoring(params.title, platformContext).coreTitle;
   const ranked = dedupedCandidates
     .map((candidate) => {
       const titleValue = candidate.title ?? '';
-      const coreScore = scorePsPricesCoreTitleMatch(params.title, titleValue);
-      const suffixClass = classifyPsPricesSuffixClass(titleValue);
+      const candidateCore = buildCoreTitleForScoring(titleValue, platformContext);
+      const coreScore = scorePsPricesCoreTitleMatch(expectedCore, candidateCore.coreTitle);
+      const suffixClass = classifyPsPricesSuffixClass(candidateCore.suffixInspectionTitle);
       const score = round2(
         applyPsPricesSuffixShaping({
           coreScore,
@@ -763,7 +783,9 @@ async function fetchPsPricesSnapshot(
         score,
         coreScore,
         suffixClass,
-        suffixRank: resolvePsPricesSuffixRank(suffixClass)
+        suffixRank: resolvePsPricesSuffixRank(suffixClass),
+        hasPlatformSuffix: candidateCore.hasPlatformSuffix,
+        hasContextPlatformSuffix: candidateCore.hasContextPlatformSuffix
       } satisfies RankedPsPricesCandidate;
     })
     .sort((left, right) => compareRankedPsPricesCandidates(left, right));
@@ -995,8 +1017,8 @@ function normalizeTitleForMatch(value: string): string {
 }
 
 function scorePsPricesCoreTitleMatch(expectedTitle: string, candidateTitle: string): number {
-  const expected = normalizeTitleForMatchForScoring(expectedTitle);
-  const candidate = normalizeTitleForMatchForScoring(candidateTitle);
+  const expected = expectedTitle;
+  const candidate = candidateTitle;
   if (!expected || !candidate) {
     return 0;
   }
@@ -1037,6 +1059,12 @@ function compareRankedPsPricesCandidates(
     const baseStandardOrder = compareEquivalentSuffixClass(left.suffixClass, right.suffixClass);
     if (baseStandardOrder !== 0) {
       return baseStandardOrder;
+    }
+    if (left.hasPlatformSuffix !== right.hasPlatformSuffix) {
+      return left.hasPlatformSuffix ? 1 : -1;
+    }
+    if (left.hasContextPlatformSuffix !== right.hasContextPlatformSuffix) {
+      return left.hasContextPlatformSuffix ? -1 : 1;
     }
   } else if (right.coreScore !== left.coreScore) {
     return right.coreScore - left.coreScore;
@@ -1080,22 +1108,6 @@ function compareEquivalentSuffixClass(
   return 0;
 }
 
-function normalizeTitleForMatchForScoring(value: string): string {
-  const normalized = normalizeTitleForMatch(value);
-  const filteredTokens = normalized
-    .split(' ')
-    .filter((token) => token.length > 0)
-    .map((token) => normalizeSequelNumberToken(token))
-    .filter((token) => !isEditionClassifierToken(token))
-    .filter((token) => !isLowSignalTitleToken(token));
-
-  if (filteredTokens.length === 0) {
-    return normalized;
-  }
-
-  return filteredTokens.join(' ');
-}
-
 function applyPsPricesSuffixShaping(args: {
   coreScore: number;
   suffixClass: PsPricesSuffixClass;
@@ -1133,12 +1145,12 @@ function resolvePsPricesSuffixRank(suffixClass: PsPricesSuffixClass): number {
 }
 
 function classifyPsPricesSuffixClass(value: string): PsPricesSuffixClass {
-  const normalized = normalizeTitleForMatch(value);
+  const normalized = value.trim();
   if (!normalized) {
     return 'base';
   }
 
-  const suffixInput = normalizeSuffixInspectionInput(value);
+  const suffixInput = normalizeSuffixInspectionInput(normalized);
   const suffixSegment = suffixInput[suffixInput.length - 1] ?? normalized;
   const tail = normalized.split(' ').slice(-8).join(' ');
   const classifierInput = `${suffixSegment} ${tail}`.trim();
@@ -1170,24 +1182,16 @@ function classifyPsPricesSuffixClass(value: string): PsPricesSuffixClass {
 }
 
 function normalizeSuffixInspectionInput(value: string): string[] {
-  const normalized = value
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[—–]/g, '-')
-    .replace(/[:()]/g, '-')
-    .replace(/[^a-z0-9\-\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const normalized = value.replace(/[—–]/g, '-').replace(/[:()]/g, '-').replace(/\s+/g, ' ').trim();
 
   const segments = normalized
     .split(/\s*-\s*/)
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
   if (segments.length === 0) {
-    return [normalizeTitleForMatch(value)];
+    return [value];
   }
-  return segments.map((segment) => normalizeTitleForMatch(segment));
+  return segments.map((segment) => segment.trim()).filter((segment) => segment.length > 0);
 }
 
 function hasPsPricesSuffixPattern(value: string, patterns: RegExp[]): boolean {
@@ -1313,6 +1317,137 @@ function isEditionClassifierToken(token: string): boolean {
     token === 'remastered' ||
     token === 'remake'
   );
+}
+
+function derivePlatformMarkerContext(platform: string | null | undefined): PlatformMarkerContext {
+  const normalized = normalizeTitleForMatch(platform ?? '');
+  if (normalized === 'ps4' || normalized === 'ps5' || normalized.includes('playstation')) {
+    return 'playstation';
+  }
+  if (normalized === 'switch' || normalized === 'switch2' || normalized.includes('switch')) {
+    return 'switch';
+  }
+  if (normalized.includes('xbox')) {
+    return 'xbox';
+  }
+  return null;
+}
+
+function buildCoreTitleForScoring(
+  value: string,
+  platformContext: PlatformMarkerContext
+): {
+  coreTitle: string;
+  suffixInspectionTitle: string;
+  hasPlatformSuffix: boolean;
+  hasContextPlatformSuffix: boolean;
+} {
+  const normalized = normalizeTitleForMatch(value);
+  const platformStripped = stripPlatformSuffixFromNormalizedTitle(normalized, platformContext);
+  const filteredTokens = platformStripped.coreTitle
+    .split(' ')
+    .filter((token) => token.length > 0)
+    .map((token) => normalizeSequelNumberToken(token))
+    .filter((token) => !isEditionClassifierToken(token))
+    .filter((token) => !isLowSignalTitleToken(token));
+
+  if (filteredTokens.length === 0) {
+    return {
+      coreTitle: platformStripped.coreTitle,
+      suffixInspectionTitle: platformStripped.coreTitle,
+      hasPlatformSuffix: platformStripped.hasPlatformSuffix,
+      hasContextPlatformSuffix: platformStripped.hasContextPlatformSuffix
+    };
+  }
+
+  return {
+    coreTitle: filteredTokens.join(' '),
+    suffixInspectionTitle: platformStripped.coreTitle,
+    hasPlatformSuffix: platformStripped.hasPlatformSuffix,
+    hasContextPlatformSuffix: platformStripped.hasContextPlatformSuffix
+  };
+}
+
+function stripPlatformSuffixFromNormalizedTitle(
+  normalizedTitle: string,
+  platformContext: PlatformMarkerContext
+): { coreTitle: string; hasPlatformSuffix: boolean; hasContextPlatformSuffix: boolean } {
+  if (!normalizedTitle || platformContext === null) {
+    return {
+      coreTitle: normalizedTitle,
+      hasPlatformSuffix: false,
+      hasContextPlatformSuffix: false
+    };
+  }
+
+  const contextPatterns = resolveContextPlatformSuffixPatterns(platformContext);
+  const patterns = resolvePlatformSuffixPatterns(platformContext);
+  let candidate = normalizedTitle;
+  let removedAny = false;
+  let removedContext = false;
+  for (let i = 0; i < 2; i += 1) {
+    const before = candidate;
+    for (const pattern of patterns) {
+      const updated = candidate.replace(pattern, '').replace(/\s+/g, ' ').trim();
+      if (updated !== candidate && contextPatterns.includes(pattern)) {
+        removedContext = true;
+      }
+      candidate = updated;
+    }
+    if (candidate === before) {
+      break;
+    }
+    removedAny = true;
+  }
+  return {
+    coreTitle: candidate,
+    hasPlatformSuffix: removedAny,
+    hasContextPlatformSuffix: removedContext
+  };
+}
+
+function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): RegExp[] {
+  const allPatterns = [
+    ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
+    ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
+    ...PSPRICES_XBOX_SUFFIX_PATTERNS
+  ];
+
+  if (platformContext === 'playstation') {
+    return [
+      ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
+      ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
+      ...PSPRICES_XBOX_SUFFIX_PATTERNS
+    ];
+  }
+  if (platformContext === 'switch') {
+    return [
+      ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
+      ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
+      ...PSPRICES_XBOX_SUFFIX_PATTERNS
+    ];
+  }
+  if (platformContext === 'xbox') {
+    return [
+      ...PSPRICES_XBOX_SUFFIX_PATTERNS,
+      ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
+      ...PSPRICES_SWITCH_SUFFIX_PATTERNS
+    ];
+  }
+  return allPatterns;
+}
+
+function resolveContextPlatformSuffixPatterns(platformContext: PlatformMarkerContext): RegExp[] {
+  if (platformContext === 'playstation') {
+    return PSPRICES_PLAYSTATION_SUFFIX_PATTERNS;
+  }
+  if (platformContext === 'switch') {
+    return PSPRICES_SWITCH_SUFFIX_PATTERNS;
+  }
+  if (platformContext === 'xbox') {
+    return PSPRICES_XBOX_SUFFIX_PATTERNS;
+  }
+  return [];
 }
 
 async function fetchWithTimeout(

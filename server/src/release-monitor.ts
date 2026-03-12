@@ -4,13 +4,16 @@ import { config } from './config.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
+import {
+  MAX_ACTIVE_TOKENS_PER_RUN,
+  RELEASE_NOTIFICATION_EVENTS_KEY,
+  RELEASE_NOTIFICATIONS_ENABLED_KEY
+} from './notification-constants.js';
+import { coercePreferenceBoolean } from './preference-bool.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 
-const RELEASE_NOTIFICATIONS_ENABLED_KEY = 'game-shelf:notifications:release:enabled';
-const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events';
+const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-// Safety bound to prevent unbounded memory growth if token volume spikes.
-const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
 
@@ -44,6 +47,7 @@ interface NotificationPreferences {
     changed: boolean;
     removed: boolean;
     day: boolean;
+    sale: boolean;
   };
 }
 
@@ -1075,11 +1079,8 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
   );
 
   const valueByKey = new Map(result.rows.map((row) => [row.setting_key, row.setting_value]));
-  const enabledRaw = (valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY) ?? 'false')
-    .trim()
-    .toLowerCase();
-  const enabled = enabledRaw !== 'false' && enabledRaw !== '0' && enabledRaw !== 'no';
-  const eventDefaults = { set: true, changed: true, removed: true, day: true };
+  const enabled = coercePreferenceBoolean(valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY), false);
+  const eventDefaults = { set: true, changed: true, removed: true, day: true, sale: true };
   const eventsRaw = valueByKey.get(RELEASE_NOTIFICATION_EVENTS_KEY);
 
   if (!eventsRaw) {
@@ -1088,14 +1089,16 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
 
   try {
     const parsed = JSON.parse(eventsRaw) as Record<string, unknown>;
+    const events = {
+      set: coercePreferenceBoolean(parsed['set'], true),
+      changed: coercePreferenceBoolean(parsed['changed'], true),
+      removed: coercePreferenceBoolean(parsed['removed'], true),
+      day: coercePreferenceBoolean(parsed['day'], true),
+      sale: coercePreferenceBoolean(parsed[RELEASE_NOTIFICATION_EVENT_SALE_KEY], true)
+    };
     return {
       enabled,
-      events: {
-        set: parsed['set'] === false ? false : true,
-        changed: parsed['changed'] === false ? false : true,
-        removed: parsed['removed'] === false ? false : true,
-        day: parsed['day'] === false ? false : true
-      }
+      events
     };
   } catch {
     return { enabled, events: eventDefaults };

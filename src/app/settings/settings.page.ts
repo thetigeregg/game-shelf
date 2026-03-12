@@ -63,6 +63,7 @@ import {
   isRateLimitedMessage,
   isTransientNetworkMessage
 } from '../core/utils/rate-limit-ui-error';
+import { coercePreferenceBoolean } from '../core/utils/preference-bool';
 import { normalizeNotesValueOrNull } from '../core/utils/notes-normalization.utils';
 import {
   escapeCsvValue,
@@ -147,7 +148,6 @@ import {
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
-
 type ExportRowType = 'game' | 'tag' | 'view' | 'setting';
 
 interface ExportCsvRow {
@@ -386,7 +386,8 @@ export class SettingsPage {
     set: true,
     changed: true,
     removed: true,
-    day: true
+    day: true,
+    sale: true
   };
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
@@ -3391,11 +3392,7 @@ export class SettingsPage {
       }
 
       if (row.key === RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
-        const normalizedEnabledRaw = row.value.trim().toLowerCase();
-        const normalizedEnabled =
-          normalizedEnabledRaw !== 'false' &&
-          normalizedEnabledRaw !== '0' &&
-          normalizedEnabledRaw !== 'no';
+        const normalizedEnabled = coercePreferenceBoolean(row.value, true);
         const previousEnabledState = this.notificationService.isReleaseNotificationsEnabled();
 
         if (normalizedEnabled) {
@@ -3418,17 +3415,19 @@ export class SettingsPage {
         try {
           const parsed = JSON.parse(row.value) as Record<string, unknown>;
           normalizedValue = JSON.stringify({
-            set: parsed['set'] !== false,
-            changed: parsed['changed'] !== false,
-            removed: parsed['removed'] !== false,
-            day: parsed['day'] !== false
+            set: coercePreferenceBoolean(parsed['set'], true),
+            changed: coercePreferenceBoolean(parsed['changed'], true),
+            removed: coercePreferenceBoolean(parsed['removed'], true),
+            day: coercePreferenceBoolean(parsed['day'], true),
+            sale: coercePreferenceBoolean(parsed['sale'], true)
           });
         } catch {
           normalizedValue = JSON.stringify({
             set: true,
             changed: true,
             removed: true,
-            day: true
+            day: true,
+            sale: true
           });
         }
 

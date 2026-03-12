@@ -171,7 +171,40 @@ void test('notification preferences default to disabled when setting is missing'
     set: true,
     changed: true,
     removed: true,
-    day: true
+    day: true,
+    sale: true
+  });
+});
+
+void test('notification preferences parse string and numeric falsey values', async () => {
+  const pool = new NotificationSettingsPoolMock([
+    {
+      setting_key: 'game-shelf:notifications:release:enabled',
+      setting_value: '1'
+    },
+    {
+      setting_key: 'game-shelf:notifications:release:events',
+      setting_value: JSON.stringify({
+        set: 'false',
+        changed: '0',
+        removed: 'no',
+        day: 0,
+        sale: 'false'
+      })
+    }
+  ]);
+
+  const preferences = await releaseMonitorInternals.readNotificationPreferences(
+    pool as unknown as Pool
+  );
+
+  assert.equal(preferences.enabled, true);
+  assert.deepEqual(preferences.events, {
+    set: false,
+    changed: false,
+    removed: false,
+    day: false,
+    sale: false
   });
 });
 

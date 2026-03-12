@@ -9,7 +9,11 @@ test('normalizeCandidate parses CHF amount and discount fields', () => {
     oldPriceText: 'CHF 79.90',
     discountText: '-25%',
     url: 'https://psprices.com/region-ch/game/6511946/final-fantasy-vii-rebirth',
-    gameId: '6511946'
+    gameId: '6511946',
+    collectionTagCount: 2,
+    hasMostEngagingTag: 'true',
+    metacriticScore: '92',
+    openCriticScore: '91'
   });
 
   assert.ok(candidate);
@@ -20,6 +24,10 @@ test('normalizeCandidate parses CHF amount and discount fields', () => {
   assert.equal(candidate.discountPercent, 25);
   assert.equal(candidate.isFree, false);
   assert.equal(candidate.gameId, '6511946');
+  assert.equal(candidate.collectionTagCount, 2);
+  assert.equal(candidate.hasMostEngagingTag, true);
+  assert.equal(candidate.metacriticScore, 92);
+  assert.equal(candidate.openCriticScore, 91);
 });
 
 test('normalizeCandidate treats free labels as zero amount', () => {

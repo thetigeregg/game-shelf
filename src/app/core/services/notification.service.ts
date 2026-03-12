@@ -17,6 +17,7 @@ export interface ReleaseNotificationEventsPreference {
   changed: boolean;
   removed: boolean;
   day: boolean;
+  sale: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -109,7 +110,8 @@ export class NotificationService {
           set: true,
           changed: true,
           removed: true,
-          day: true
+          day: true,
+          sale: true
         };
       }
 
@@ -119,14 +121,16 @@ export class NotificationService {
         set: parsed['set'] !== false,
         changed: parsed['changed'] !== false,
         removed: parsed['removed'] !== false,
-        day: parsed['day'] !== false
+        day: parsed['day'] !== false,
+        sale: parsed['sale'] !== false
       };
     } catch {
       return {
         set: true,
         changed: true,
         removed: true,
-        day: true
+        day: true,
+        sale: true
       };
     }
   }

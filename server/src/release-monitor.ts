@@ -879,8 +879,8 @@ async function fetchMobygamesPayload(params: {
     return null;
   }
 
-  const criticScore = normalizeReviewScore(finiteNumberOrStringOrNull(matched.critic_score));
-  const mobyScore = normalizeRawMobyScore(finiteNumberOrStringOrNull(matched.moby_score));
+  const criticScore = normalizeReviewScore(finiteNumberFromNumberOrString(matched.critic_score));
+  const mobyScore = normalizeRawMobyScore(finiteNumberFromNumberOrString(matched.moby_score));
   const reviewScore =
     criticScore ??
     normalizeReviewScore(
@@ -1879,7 +1879,7 @@ function finiteNumberOrNull(value: unknown): number | null {
   return value;
 }
 
-function finiteNumberOrStringOrNull(value: unknown): number | null {
+function finiteNumberFromNumberOrString(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }

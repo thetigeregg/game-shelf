@@ -577,6 +577,117 @@ describe('GameSyncService', () => {
     expect(stored?.videos).toHaveLength(1);
   });
 
+  it('preserves existing provider override query fields and lock flags when pulled upsert omits them', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      hltbMatchQueryTitle: 'Stored HLTB',
+      hltbMatchQueryReleaseYear: 2007,
+      hltbMatchQueryPlatform: 'Wii',
+      hltbMatchLocked: true,
+      reviewMatchQueryTitle: 'Stored Review',
+      reviewMatchQueryReleaseYear: 2008,
+      reviewMatchQueryPlatform: 'Wii',
+      reviewMatchPlatformIgdbId: 5,
+      reviewMatchMobygamesGameId: 777,
+      reviewMatchLocked: true,
+      psPricesMatchLocked: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4c-preserve-provider-overrides',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        title: 'Updated Title'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Updated Title');
+    expect(stored?.hltbMatchQueryTitle).toBe('Stored HLTB');
+    expect(stored?.hltbMatchQueryReleaseYear).toBe(2007);
+    expect(stored?.hltbMatchQueryPlatform).toBe('Wii');
+    expect(stored?.hltbMatchLocked).toBe(true);
+    expect(stored?.reviewMatchQueryTitle).toBe('Stored Review');
+    expect(stored?.reviewMatchQueryReleaseYear).toBe(2008);
+    expect(stored?.reviewMatchQueryPlatform).toBe('Wii');
+    expect(stored?.reviewMatchPlatformIgdbId).toBe(5);
+    expect(stored?.reviewMatchMobygamesGameId).toBe(777);
+    expect(stored?.reviewMatchLocked).toBe(true);
+    expect(stored?.psPricesMatchLocked).toBe(true);
+  });
+
+  it('overwrites provider override query fields and lock flags when pulled upsert explicitly provides values', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      hltbMatchQueryTitle: 'Stored HLTB',
+      hltbMatchQueryReleaseYear: 2007,
+      hltbMatchQueryPlatform: 'Wii',
+      hltbMatchLocked: true,
+      reviewMatchQueryTitle: 'Stored Review',
+      reviewMatchQueryReleaseYear: 2008,
+      reviewMatchQueryPlatform: 'Wii',
+      reviewMatchPlatformIgdbId: 5,
+      reviewMatchMobygamesGameId: 777,
+      reviewMatchLocked: true,
+      psPricesMatchLocked: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4d-overwrite-provider-overrides',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        hltbMatchQueryTitle: '  New HLTB Query  ',
+        hltbMatchQueryReleaseYear: null,
+        hltbMatchQueryPlatform: '   ',
+        hltbMatchLocked: false,
+        reviewMatchQueryTitle: null,
+        reviewMatchQueryReleaseYear: '2009',
+        reviewMatchQueryPlatform: '  PS5  ',
+        reviewMatchPlatformIgdbId: 167,
+        reviewMatchMobygamesGameId: null,
+        reviewMatchLocked: false,
+        psPricesMatchLocked: false
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.hltbMatchQueryTitle).toBe('New HLTB Query');
+    expect(stored?.hltbMatchQueryReleaseYear).toBeNull();
+    expect(stored?.hltbMatchQueryPlatform).toBeNull();
+    expect(stored?.hltbMatchLocked).toBe(false);
+    expect(stored?.reviewMatchQueryTitle).toBeNull();
+    expect(stored?.reviewMatchQueryReleaseYear).toBe(2009);
+    expect(stored?.reviewMatchQueryPlatform).toBe('PS5');
+    expect(stored?.reviewMatchPlatformIgdbId).toBe(167);
+    expect(stored?.reviewMatchMobygamesGameId).toBeNull();
+    expect(stored?.reviewMatchLocked).toBe(false);
+    expect(stored?.psPricesMatchLocked).toBe(false);
+  });
+
   it('normalizes and replaces media arrays when pulled upsert includes media fields', async () => {
     await db.games.put({
       igdbGameId: '123',

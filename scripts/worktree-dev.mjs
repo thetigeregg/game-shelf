@@ -225,18 +225,23 @@ function printInfo() {
 }
 
 function ensureLocalEnvFromSharedTemplate(force = false) {
-  if (!force && existsSync(localEnvPath)) {
+  const hadLocalEnv = existsSync(localEnvPath);
+  if (!force && hadLocalEnv) {
     return;
   }
 
   if (!existsSync(sharedEnvFilePath)) {
+    if (force) {
+      console.error(`Shared env template not found: ${sharedEnvFilePath}`);
+      process.exit(1);
+    }
     return;
   }
 
   mkdirSync(path.dirname(localEnvPath), { recursive: true });
   copyFileSync(sharedEnvFilePath, localEnvPath);
   console.log(
-    force ? 'Replaced .env from shared template' : 'Bootstrapped .env from shared template'
+    hadLocalEnv ? 'Replaced .env from shared template' : 'Bootstrapped .env from shared template'
   );
 }
 

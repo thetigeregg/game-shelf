@@ -335,6 +335,14 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
+    const pendingOutboxCount = await this.db.outbox.count();
+    if (pendingOutboxCount > 0) {
+      this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
+        pendingOutboxCount
+      });
+      return;
+    }
+
     const lastReplayAt = this.getIsoDateMs(
       await this.getMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY)
     );
@@ -344,51 +352,54 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
+    const attemptAt = new Date().toISOString();
     let replayCursor = String(Math.max(0, cursor - GameSyncService.RECENT_REPLAY_WINDOW_EVENTS));
     let pagesPulled = 0;
     let totalAppliedChanges = 0;
 
-    while (pagesPulled < GameSyncService.RECENT_REPLAY_MAX_PAGES) {
-      this.debugLogService.debug('sync.pull.recent_replay.request', {
-        replayCursor,
-        pagesPulled
-      });
+    try {
+      while (pagesPulled < GameSyncService.RECENT_REPLAY_MAX_PAGES) {
+        this.debugLogService.debug('sync.pull.recent_replay.request', {
+          replayCursor,
+          pagesPulled
+        });
 
-      const response = await firstValueFrom(
-        this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
-          cursor: replayCursor
-        })
-      );
-      const changes = Array.isArray(response.changes) ? response.changes : [];
-      const responseCursor =
-        typeof response.cursor === 'string' && response.cursor.trim().length > 0
-          ? response.cursor.trim()
-          : null;
+        const response = await firstValueFrom(
+          this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
+            cursor: replayCursor
+          })
+        );
+        const changes = Array.isArray(response.changes) ? response.changes : [];
+        const responseCursor =
+          typeof response.cursor === 'string' && response.cursor.trim().length > 0
+            ? response.cursor.trim()
+            : null;
 
-      if (changes.length === 0) {
-        break;
+        if (changes.length === 0) {
+          break;
+        }
+
+        await this.applyPulledChanges(changes);
+        totalAppliedChanges += changes.length;
+        pagesPulled += 1;
+
+        const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;
+        if (nextCursor === replayCursor || changes.length < GameSyncService.SYNC_PULL_PAGE_SIZE) {
+          break;
+        }
+
+        replayCursor = nextCursor;
       }
 
-      await this.applyPulledChanges(changes);
-      totalAppliedChanges += changes.length;
-      pagesPulled += 1;
-
-      const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;
-      if (nextCursor === replayCursor || changes.length < GameSyncService.SYNC_PULL_PAGE_SIZE) {
-        break;
+      if (totalAppliedChanges > 0) {
+        this.syncEvents.emitChanged();
+        this.debugLogService.debug('sync.pull.recent_replay.applied', {
+          changes: totalAppliedChanges,
+          pagesPulled
+        });
       }
-
-      replayCursor = nextCursor;
-    }
-
-    await this.setMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY, new Date().toISOString());
-
-    if (totalAppliedChanges > 0) {
-      this.syncEvents.emitChanged();
-      this.debugLogService.debug('sync.pull.recent_replay.applied', {
-        changes: totalAppliedChanges,
-        pagesPulled
-      });
+    } finally {
+      await this.setMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY, attemptAt);
     }
   }
 

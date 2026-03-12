@@ -161,10 +161,8 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       }
 
       if (cursor === 0 || cursor <= latestKnownSyncEventId) {
-        const nextCursor =
-          changes.length > 0 ? changes[changes.length - 1].eventId : String(cursor);
         reply.send({
-          cursor: nextCursor,
+          cursor: String(cursor),
           changes
         });
         return;
@@ -492,7 +490,43 @@ function normalizeOperations(value: unknown): ClientSyncOperation[] | null {
 }
 
 function normalizeCursor(value: unknown): number {
-  return parseNonNegativeInteger(value) ?? 0;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) {
+      return 0;
+    }
+    if (value > Number.MAX_SAFE_INTEGER) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    return Number.isSafeInteger(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      return 0;
+    }
+    try {
+      const parsed = BigInt(trimmed);
+      if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+        return Number.MAX_SAFE_INTEGER;
+      }
+      return Number(parsed);
+    } catch {
+      return 0;
+    }
+  }
+
+  if (typeof value === 'bigint') {
+    if (value < 0n) {
+      return 0;
+    }
+    if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    return Number(value);
+  }
+
+  return 0;
 }
 
 function parseNonNegativeInteger(value: unknown): number | null {

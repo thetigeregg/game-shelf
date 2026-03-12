@@ -133,11 +133,11 @@ function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean {
 
   const amountCandidate = payload['priceAmount'];
   if (typeof amountCandidate === 'number') {
-    return Number.isFinite(amountCandidate);
+    return Number.isFinite(amountCandidate) && amountCandidate >= 0;
   }
   if (typeof amountCandidate === 'string') {
     const parsed = Number.parseFloat(amountCandidate.trim());
-    return Number.isFinite(parsed);
+    return Number.isFinite(parsed) && parsed >= 0;
   }
 
   return false;
@@ -164,6 +164,11 @@ function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | nul
 
   return null;
 }
+
+export const __backgroundWorkerTestables = {
+  hasUnifiedPriceValue,
+  resolvePriceFetchedAtMs
+};
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
   const rawValue =

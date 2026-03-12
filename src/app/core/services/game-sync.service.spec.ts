@@ -1248,6 +1248,29 @@ describe('GameSyncService', () => {
     expect(postSpy).not.toHaveBeenCalled();
   });
 
+  it('replayRecentChangesIfDue skips when outbox has pending operations', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+    await db.outbox.put({
+      opId: 'pending-op-1',
+      entityType: 'setting',
+      operation: 'upsert',
+      payload: { key: 'local-setting', value: 'local' },
+      clientTimestamp: '2026-01-01T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      attemptCount: 0
+    });
+
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).not.toHaveBeenCalled();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+  });
+
   it('replayRecentChangesIfDue replays recent window, applies changes, and stores replay timestamp', async () => {
     await db.syncMeta.put({
       key: 'cursor',
@@ -1313,6 +1336,22 @@ describe('GameSyncService', () => {
     expect(postSpy).toHaveBeenCalledTimes(5);
     expect(localStorage.getItem('replay-max-4001')).toBe('v');
     expect(localStorage.getItem('replay-max-9000')).toBe('v');
+  });
+
+  it('replayRecentChangesIfDue records replay timestamp even when replay fails', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation(() => {
+      throw new Error('replay fetch failed');
+    });
+
+    await expect(servicePrivate.replayRecentChangesIfDue()).rejects.toThrow('replay fetch failed');
+    const replayMeta = await db.syncMeta.get('recentReplayLastAt');
+    expect(replayMeta?.value).toBeTruthy();
   });
 
   it('applyPulledChanges dispatches by entity type', async () => {

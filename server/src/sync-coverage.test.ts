@@ -79,7 +79,11 @@ class CoverageSyncClient {
     }
 
     if (normalized.startsWith('select coalesce(max(event_id), 0) as event_id from sync_events')) {
-      return Promise.resolve({ rows: [{ event_id: this.store.syncEvents.length }] });
+      const maxEventId = this.store.syncEvents.reduce(
+        (max, row) => (row.event_id > max ? row.event_id : max),
+        0
+      );
+      return Promise.resolve({ rows: [{ event_id: String(maxEventId) }] });
     }
 
     if (normalized.startsWith('insert into tags (id, payload')) {
@@ -128,6 +132,8 @@ class CoverageSyncClient {
 class CoverageSyncPool {
   readonly store = new InMemorySyncStore();
   readonly client = new CoverageSyncClient(this.store);
+  maxEventIdOverride: unknown = undefined;
+  maxEventIdQueryCount = 0;
 
   connect(): Promise<CoverageSyncClient> {
     return Promise.resolve(this.client);
@@ -135,6 +141,18 @@ class CoverageSyncPool {
 
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (normalized.startsWith('select coalesce(max(event_id), 0) as event_id from sync_events')) {
+      this.maxEventIdQueryCount += 1;
+      if (this.maxEventIdOverride !== undefined) {
+        return Promise.resolve({ rows: [{ event_id: this.maxEventIdOverride }] });
+      }
+      const maxEventId = this.store.syncEvents.reduce(
+        (max, row) => (row.event_id > max ? row.event_id : max),
+        0
+      );
+      return Promise.resolve({ rows: [{ event_id: String(maxEventId) }] });
+    }
 
     if (
       normalized.startsWith(
@@ -344,6 +362,16 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
   assert.equal(invalidBody.cursor, '2');
   assert.equal(invalidBody.changes.length, 2);
 
+  const unsafeLargeCursor = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '9007199254740993' }
+  });
+  assert.equal(unsafeLargeCursor.statusCode, 200);
+  const unsafeLargeBody = parseJson(unsafeLargeCursor.body) as SyncPullResponseBody;
+  assert.equal(unsafeLargeBody.cursor, '2');
+  assert.equal(unsafeLargeBody.changes.length, 0);
+
   const withCursor = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
@@ -352,6 +380,126 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
   const withCursorBody = parseJson(withCursor.body) as SyncPullResponseBody;
   assert.equal(withCursorBody.cursor, '2');
   assert.equal(withCursorBody.changes.length, 0);
+
+  await app.close();
+});
+
+void test('sync pull clamps cursor above latest event id', async () => {
+  const pool = new CoverageSyncPool();
+  pool.store.syncEvents.push({
+    event_id: 1,
+    entity_type: 'setting',
+    operation: 'upsert',
+    payload: { key: 'k', value: 'v' },
+    server_timestamp: '2026-01-01T00:00:00.000Z'
+  });
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '999999' }
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPullResponseBody;
+  assert.equal(body.cursor, '1');
+  assert.equal(body.changes.length, 0);
+  assert.equal(pool.maxEventIdQueryCount, 1);
+
+  await app.close();
+});
+
+void test('sync pull does not query max(event_id) on steady-state caught-up cursor', async () => {
+  const pool = new CoverageSyncPool();
+  pool.store.syncEvents.push({
+    event_id: 1,
+    entity_type: 'setting',
+    operation: 'upsert',
+    payload: { key: 'k-1', value: 'v1' },
+    server_timestamp: '2026-01-01T00:00:00.000Z'
+  });
+  const app = await createSyncApp(pool);
+
+  const first = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '0' }
+  });
+  assert.equal(first.statusCode, 200);
+  const firstBody = parseJson(first.body) as SyncPullResponseBody;
+  assert.equal(firstBody.cursor, '1');
+  assert.equal(firstBody.changes.length, 1);
+
+  const second = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '1' }
+  });
+  assert.equal(second.statusCode, 200);
+  const secondBody = parseJson(second.body) as SyncPullResponseBody;
+  assert.equal(secondBody.cursor, '1');
+  assert.equal(secondBody.changes.length, 0);
+  assert.equal(pool.maxEventIdQueryCount, 0);
+
+  await app.close();
+});
+
+void test('sync pull supports numeric cursor payloads', async () => {
+  const pool = new CoverageSyncPool();
+  pool.store.syncEvents.push({
+    event_id: 1,
+    entity_type: 'tag',
+    operation: 'upsert',
+    payload: { id: 1 },
+    server_timestamp: '2026-01-01T00:00:00.000Z'
+  });
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: 0 }
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPullResponseBody;
+  assert.equal(body.cursor, '1');
+  assert.equal(body.changes.length, 1);
+
+  await app.close();
+});
+
+void test('sync pull clamps with valid bigint latest cursor', async () => {
+  const pool = new CoverageSyncPool();
+  pool.maxEventIdOverride = 5n;
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '999999' }
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPullResponseBody;
+  assert.equal(body.cursor, '5');
+  assert.equal(body.changes.length, 0);
+
+  await app.close();
+});
+
+void test('sync pull treats out-of-range bigint latest cursor as zero', async () => {
+  const pool = new CoverageSyncPool();
+  pool.maxEventIdOverride = BigInt(Number.MAX_SAFE_INTEGER) + 1n;
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '999999' }
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPullResponseBody;
+  assert.equal(body.cursor, '0');
+  assert.equal(body.changes.length, 0);
 
   await app.close();
 });

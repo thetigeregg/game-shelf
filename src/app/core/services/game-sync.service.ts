@@ -50,6 +50,11 @@ export class GameSyncService implements SyncOutboxWriter {
   private static readonly META_CURSOR_KEY = 'cursor';
   private static readonly META_LAST_SYNC_KEY = 'lastSyncAt';
   private static readonly META_CONNECTIVITY_KEY = 'connectivity';
+  private static readonly META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY = 'recentReplayLastAttemptAt';
+  private static readonly META_RECENT_REPLAY_LAST_AT_KEY = 'recentReplayLastAt';
+  private static readonly RECENT_REPLAY_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  private static readonly RECENT_REPLAY_WINDOW_EVENTS = 5000;
+  private static readonly RECENT_REPLAY_MAX_PAGES = 5;
 
   private readonly db = inject(AppDb);
   private readonly httpClient = inject(HttpClient);
@@ -143,6 +148,11 @@ export class GameSyncService implements SyncOutboxWriter {
     try {
       await this.pushOutbox();
       await this.pullChanges();
+      await this.replayRecentChangesIfDue().catch((error: unknown) => {
+        this.debugLogService.error('sync.pull.recent_replay_failed', {
+          error: normalizeHttpError(error)
+        });
+      });
       await this.setMeta(GameSyncService.META_LAST_SYNC_KEY, new Date().toISOString());
       await this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'online');
       this.debugLogService.debug('sync.sync_now.success');
@@ -318,6 +328,114 @@ export class GameSyncService implements SyncOutboxWriter {
     }
   }
 
+  private async replayRecentChangesIfDue(): Promise<void> {
+    const cursorValue = await this.getMeta(GameSyncService.META_CURSOR_KEY);
+    const cursor = this.parseNonNegativeInteger(cursorValue);
+
+    if (cursor === null || cursor <= GameSyncService.RECENT_REPLAY_WINDOW_EVENTS) {
+      return;
+    }
+
+    const pendingOutboxCount = await this.db.outbox.count();
+    if (pendingOutboxCount > 0) {
+      this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
+        pendingOutboxCount
+      });
+      return;
+    }
+
+    const lastReplayAttemptAt = this.getIsoDateMs(
+      (await this.getMeta(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY)) ??
+        (await this.getMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY))
+    );
+    const now = Date.now();
+
+    if (
+      lastReplayAttemptAt !== null &&
+      now - lastReplayAttemptAt < GameSyncService.RECENT_REPLAY_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    const attemptAt = new Date().toISOString();
+    let replayCursor = String(Math.max(0, cursor - GameSyncService.RECENT_REPLAY_WINDOW_EVENTS));
+    let pagesPulled = 0;
+    let totalAppliedChanges = 0;
+    const replayPages: SyncChangeEvent[][] = [];
+    let abortedDueToPendingOutbox = false;
+
+    try {
+      while (pagesPulled < GameSyncService.RECENT_REPLAY_MAX_PAGES) {
+        const pendingOutboxCountBeforeRequest = await this.db.outbox.count();
+        if (pendingOutboxCountBeforeRequest > 0) {
+          this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
+            pendingOutboxCount: pendingOutboxCountBeforeRequest
+          });
+          abortedDueToPendingOutbox = true;
+          break;
+        }
+
+        this.debugLogService.debug('sync.pull.recent_replay.request', {
+          replayCursor,
+          pagesPulled
+        });
+
+        const response = await firstValueFrom(
+          this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
+            cursor: replayCursor
+          })
+        );
+        const changes = Array.isArray(response.changes) ? response.changes : [];
+        const responseCursor =
+          typeof response.cursor === 'string' && response.cursor.trim().length > 0
+            ? response.cursor.trim()
+            : null;
+
+        if (changes.length === 0) {
+          break;
+        }
+
+        replayPages.push(changes);
+        pagesPulled += 1;
+
+        const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;
+        if (nextCursor === replayCursor || changes.length < GameSyncService.SYNC_PULL_PAGE_SIZE) {
+          break;
+        }
+
+        replayCursor = nextCursor;
+      }
+
+      if (abortedDueToPendingOutbox || replayPages.length === 0) {
+        return;
+      }
+
+      const pendingOutboxCountBeforeApply = await this.db.outbox.count();
+      if (pendingOutboxCountBeforeApply > 0) {
+        this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
+          pendingOutboxCount: pendingOutboxCountBeforeApply
+        });
+        return;
+      }
+
+      for (const replayPage of replayPages) {
+        await this.applyPulledChanges(replayPage);
+        totalAppliedChanges += replayPage.length;
+      }
+
+      if (totalAppliedChanges > 0) {
+        await this.setMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY, attemptAt);
+        this.syncEvents.emitChanged();
+        this.debugLogService.debug('sync.pull.recent_replay.applied', {
+          changes: totalAppliedChanges,
+          pagesPulled
+        });
+      }
+    } finally {
+      await this.setMeta(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY, attemptAt);
+    }
+  }
+
   private async applyPulledChanges(changes: SyncChangeEvent[]): Promise<void> {
     let failedChanges = 0;
 
@@ -374,6 +492,38 @@ export class GameSyncService implements SyncOutboxWriter {
           : Number.NaN;
 
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  private parseNonNegativeInteger(value: unknown): number | null {
+    if (typeof value === 'number') {
+      return Number.isSafeInteger(value) && value >= 0 ? value : null;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!/^\d+$/.test(trimmed)) {
+        return null;
+      }
+      try {
+        const parsed = BigInt(trimmed);
+        if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+          return null;
+        }
+        return Number(parsed);
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  private getIsoDateMs(value: string | null): number | null {
+    if (!value) {
+      return null;
+    }
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   private async applyGameChange(

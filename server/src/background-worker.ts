@@ -126,12 +126,30 @@ function normalizeNonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function hasUnifiedPriceValue(payload: Record<string, unknown>): boolean {
+  if (payload['priceIsFree'] === true) {
+    return true;
+  }
+
+  const amountCandidate = payload['priceAmount'];
+  if (typeof amountCandidate === 'number') {
+    return Number.isFinite(amountCandidate);
+  }
+  if (typeof amountCandidate === 'string') {
+    const parsed = Number.parseFloat(amountCandidate.trim());
+    return Number.isFinite(parsed);
+  }
+
+  return false;
+}
+
 function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | null {
-  const candidates = [
-    payload['priceFetchedAt'],
-    payload['steamPriceFetchedAt'],
-    payload['psPricesFetchedAt']
-  ];
+  // Freshness should track successful unified pricing snapshots, not fetch attempts.
+  if (!hasUnifiedPriceValue(payload)) {
+    return null;
+  }
+
+  const candidates = [payload['priceFetchedAt']];
 
   for (const candidate of candidates) {
     const normalized = normalizeNonEmptyString(candidate);

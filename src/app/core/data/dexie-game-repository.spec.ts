@@ -568,6 +568,39 @@ describe('DexieGameRepository', () => {
     expect(updated?.metacriticUrl).toBeNull();
   });
 
+  it('persists explicit lookup query overrides and lock flags on existing entries', async () => {
+    await repository.upsertFromCatalog(mario, 'collection');
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        hltbMatchQueryTitle: 'Mario Legacy',
+        hltbMatchQueryReleaseYear: 1987,
+        hltbMatchQueryPlatform: 'Famicom',
+        hltbMatchLocked: true,
+        reviewMatchQueryTitle: 'Mario Legacy Review',
+        reviewMatchQueryReleaseYear: 1988,
+        reviewMatchQueryPlatform: 'NES',
+        reviewMatchPlatformIgdbId: 18,
+        reviewMatchMobygamesGameId: 1234,
+        reviewMatchLocked: false
+      },
+      'collection'
+    );
+
+    const stored = await repository.exists('101', 18);
+    expect(stored?.hltbMatchQueryTitle).toBe('Mario Legacy');
+    expect(stored?.hltbMatchQueryReleaseYear).toBe(1987);
+    expect(stored?.hltbMatchQueryPlatform).toBe('Famicom');
+    expect(stored?.hltbMatchLocked).toBe(true);
+    expect(stored?.reviewMatchQueryTitle).toBe('Mario Legacy Review');
+    expect(stored?.reviewMatchQueryReleaseYear).toBe(1988);
+    expect(stored?.reviewMatchQueryPlatform).toBe('NES');
+    expect(stored?.reviewMatchPlatformIgdbId).toBe(18);
+    expect(stored?.reviewMatchMobygamesGameId).toBe(1234);
+    expect(stored?.reviewMatchLocked).toBe(false);
+  });
+
   it('upserts tags by name and by id', async () => {
     const created = await repository.upsertTag({ name: 'Backlog', color: '#111111' });
     const byName = await repository.upsertTag({ name: 'backlog', color: '#222222' });

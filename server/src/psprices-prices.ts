@@ -247,27 +247,30 @@ export async function registerPsPricesRoute(
         if (enableStaleWhileRevalidate && ageSeconds <= staleTtlSeconds) {
           incrementPspricesPriceMetric('hits');
           incrementPspricesPriceMetric('staleServed');
-          const scheduled = psPricesMatchLocked
-            ? false
-            : schedulePspricesPriceRevalidation({
-                cacheKey: buildPspricesPriceCacheKey({
-                  igdbGameId,
-                  platformIgdbId,
-                  regionPath: config.pspricesRegionPath,
-                  show: config.pspricesShow,
-                  platform: pspricesPlatform
-                }),
-                request,
-                pool,
-                payload,
+          let scheduled = false;
+          if (psPricesMatchLocked) {
+            incrementPspricesPriceMetric('revalidateSkipped');
+          } else {
+            scheduled = schedulePspricesPriceRevalidation({
+              cacheKey: buildPspricesPriceCacheKey({
                 igdbGameId,
                 platformIgdbId,
-                title,
-                preferredPsPricesUrl,
-                fetchImpl,
-                scheduleBackgroundRefresh,
-                enqueueRevalidationJob: options.enqueueRevalidationJob
-              });
+                regionPath: config.pspricesRegionPath,
+                show: config.pspricesShow,
+                platform: pspricesPlatform
+              }),
+              request,
+              pool,
+              payload,
+              igdbGameId,
+              platformIgdbId,
+              title,
+              preferredPsPricesUrl,
+              fetchImpl,
+              scheduleBackgroundRefresh,
+              enqueueRevalidationJob: options.enqueueRevalidationJob
+            });
+          }
 
           reply.header('X-GameShelf-PSPrices-Cache', 'HIT_STALE');
           reply.header('X-GameShelf-PSPrices-Revalidate', scheduled ? 'scheduled' : 'skipped');

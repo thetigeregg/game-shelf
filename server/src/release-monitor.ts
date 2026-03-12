@@ -76,8 +76,8 @@ interface MonitorRunStats {
   igdbRefreshSuccesses: number;
   hltbRefreshAttempts: number;
   hltbRefreshSuccesses: number;
-  metacriticRefreshAttempts: number;
-  metacriticRefreshSuccesses: number;
+  reviewRefreshAttempts: number;
+  reviewRefreshSuccesses: number;
   eventsConsidered: number;
   eventsDisabled: number;
   eventsReleaseDayAlreadyNotified: number;
@@ -425,15 +425,15 @@ async function processGameRow(
     const hltbMatchLocked = isProviderMatchLocked(mergedPayload, 'hltbMatchLocked');
     const reviewMatchLocked = isProviderMatchLocked(mergedPayload, 'reviewMatchLocked');
     const hltbRefreshEligible = hltbEligible && !hltbMatchLocked;
-    const metacriticRefreshEligible = metacriticEligible && !reviewMatchLocked;
+    const reviewRefreshEligible = metacriticEligible && !reviewMatchLocked;
 
     const hltbDue =
       !isBootstrap &&
       hltbRefreshEligible &&
       isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
-    const metacriticDue =
+    const reviewDue =
       !isBootstrap &&
-      metacriticRefreshEligible &&
+      reviewRefreshEligible &&
       isMetacriticRefreshDue(lastMetacriticRefreshAt, mergedPayload, now);
 
     if (hltbDue) {
@@ -459,8 +459,8 @@ async function processGameRow(
       lastHltbRefreshAt = nowIso;
     }
 
-    if (metacriticDue) {
-      stats.metacriticRefreshAttempts += 1;
+    if (reviewDue) {
+      stats.reviewRefreshAttempts += 1;
       const reviewRefreshQuery = resolveReviewRefreshQuery(
         mergedPayload,
         title,
@@ -470,7 +470,7 @@ async function processGameRow(
       const refreshedReview = await fetchReviewPayload(reviewRefreshQuery);
 
       if (refreshedReview) {
-        stats.metacriticRefreshSuccesses += 1;
+        stats.reviewRefreshSuccesses += 1;
         mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview);
       }
       // Advance cadence on attempt (not just success) to avoid repeatedly
@@ -480,7 +480,7 @@ async function processGameRow(
 
     const payloadPatch = buildPayloadPatch(originalPayload, mergedPayload);
     if (Object.keys(payloadPatch).length > 0) {
-      await upsertGamePayload(pool, row.igdb_game_id, platformIgdbId, payloadPatch);
+      await applyGamePayloadPatch(pool, row.igdb_game_id, platformIgdbId, payloadPatch);
     }
 
     const releaseEvents = isBootstrap
@@ -574,7 +574,7 @@ async function processGameRow(
       now,
       hltbRefreshEligible,
       lastHltbRefreshAt,
-      metacriticRefreshEligible,
+      reviewRefreshEligible,
       lastMetacriticRefreshAt
     );
     await upsertWatchState(pool, {
@@ -990,7 +990,7 @@ function mergeReviewRefreshPayload(
   });
 }
 
-async function upsertGamePayload(
+async function applyGamePayloadPatch(
   pool: Pool,
   igdbGameId: string,
   platformIgdbId: number,
@@ -1945,8 +1945,8 @@ function createMonitorRunStats(): MonitorRunStats {
     igdbRefreshSuccesses: 0,
     hltbRefreshAttempts: 0,
     hltbRefreshSuccesses: 0,
-    metacriticRefreshAttempts: 0,
-    metacriticRefreshSuccesses: 0,
+    reviewRefreshAttempts: 0,
+    reviewRefreshSuccesses: 0,
     eventsConsidered: 0,
     eventsDisabled: 0,
     eventsReleaseDayAlreadyNotified: 0,

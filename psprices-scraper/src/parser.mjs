@@ -79,6 +79,22 @@ export function normalizeCandidate(raw) {
   const discountText = normalizeWhitespace(raw.discountText);
   const url = normalizeWhitespace(raw.url);
   const isFree = isFreePriceLabel(priceText);
+  const collectionTagCountRaw = Number.parseInt(String(raw.collectionTagCount ?? '0'), 10);
+  const collectionTagCount =
+    Number.isInteger(collectionTagCountRaw) && collectionTagCountRaw > 0
+      ? collectionTagCountRaw
+      : 0;
+  const metacriticScoreRaw = Number.parseInt(String(raw.metacriticScore ?? ''), 10);
+  const metacriticScore =
+    Number.isInteger(metacriticScoreRaw) && metacriticScoreRaw >= 0 && metacriticScoreRaw <= 100
+      ? metacriticScoreRaw
+      : null;
+  const openCriticScoreRaw = Number.parseInt(String(raw.openCriticScore ?? ''), 10);
+  const openCriticScore =
+    Number.isInteger(openCriticScoreRaw) && openCriticScoreRaw >= 0 && openCriticScoreRaw <= 100
+      ? openCriticScoreRaw
+      : null;
+  const hasMostEngagingTag = normalizeWhitespace(raw.hasMostEngagingTag).toLowerCase() === 'true';
 
   const amountMatch = priceText.match(/(\d+(?:[.,]\d{1,2})?)/);
   const regularAmountMatch = oldPriceText.match(/(\d+(?:[.,]\d{1,2})?)/);
@@ -94,6 +110,10 @@ export function normalizeCandidate(raw) {
     discountPercent: discountMatch ? Number.parseInt(discountMatch[1], 10) : null,
     isFree,
     url: url || null,
-    gameId: extractGameId(raw.gameId, url)
+    gameId: extractGameId(raw.gameId, url),
+    collectionTagCount,
+    hasMostEngagingTag,
+    metacriticScore,
+    openCriticScore
   };
 }

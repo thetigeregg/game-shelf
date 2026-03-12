@@ -128,6 +128,15 @@
           (ionChange)="onReleaseEventToggleChange('day', $any($event).detail.checked)"
         ></ion-toggle>
       </ion-item>
+      <ion-item>
+        <ion-label>Sale Alerts</ion-label>
+        <ion-toggle
+          slot="end"
+          [checked]="releaseNotificationsEnabled && releaseNotificationEvents.sale"
+          [disabled]="!releaseNotificationsEnabled"
+          (ionChange)="onReleaseEventToggleChange('sale', $any($event).detail.checked)"
+        ></ion-toggle>
+      </ion-item>
     </ion-list>
 
     <ion-list lines="full">

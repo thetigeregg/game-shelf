@@ -11,6 +11,8 @@ interface GameRow {
 class GamePoolMock {
   private readonly rowsByIdentity = new Map<string, GameRow>();
   private syncEventInsertCount = 0;
+  private notificationSettingsReadCount = 0;
+  private notificationTokenReadCount = 0;
 
   seed(igdbGameId: string, platformIgdbId: number, payload: Record<string, unknown>): void {
     this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload });
@@ -24,7 +26,18 @@ class GamePoolMock {
     return this.syncEventInsertCount;
   }
 
-  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[]; rowCount?: number }> {
+  getNotificationSettingsReadCount(): number {
+    return this.notificationSettingsReadCount;
+  }
+
+  getNotificationTokenReadCount(): number {
+    return this.notificationTokenReadCount;
+  }
+
+  query(
+    sql: string,
+    params: unknown[]
+  ): Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (
@@ -40,7 +53,11 @@ class GamePoolMock {
       return Promise.resolve({ rows: row ? [row] : [] });
     }
 
-    if (normalized.startsWith('update games set payload =')) {
+    if (
+      normalized.startsWith(
+        'with current_row as ( select payload from games where igdb_game_id = $1'
+      )
+    ) {
       const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
       const platformIgdbId =
         typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
@@ -52,7 +69,10 @@ class GamePoolMock {
       const changed = JSON.stringify(existing) !== JSON.stringify(merged);
       if (changed) {
         this.rowsByIdentity.set(key, { payload: merged });
-        return Promise.resolve({ rows: [{ payload: merged }], rowCount: 1 });
+        return Promise.resolve({
+          rows: [{ previous_payload: existing, next_payload: merged }],
+          rowCount: 1
+        });
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
     }
@@ -64,6 +84,57 @@ class GamePoolMock {
     ) {
       this.syncEventInsertCount += 1;
       return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('select setting_key, setting_value from settings')) {
+      this.notificationSettingsReadCount += 1;
+      return Promise.resolve({
+        rows: [
+          {
+            setting_key: 'game-shelf:notifications:release:enabled',
+            setting_value: 'true'
+          },
+          {
+            setting_key: 'game-shelf:notifications:release:events',
+            setting_value: JSON.stringify({ sale: true })
+          }
+        ],
+        rowCount: 2
+      });
+    }
+
+    if (
+      normalized.startsWith(
+        'select token from fcm_tokens where is_active = true order by token asc limit $1'
+      )
+    ) {
+      this.notificationTokenReadCount += 1;
+      void params;
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
+
+    if (normalized.startsWith('insert into release_notification_log')) {
+      void params;
+      return Promise.resolve({ rows: [{ inserted: 1 }], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('update release_notification_log set payload = $1::jsonb')) {
+      void params;
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (
+      normalized.startsWith(
+        'delete from release_notification_log where event_key = $1 and sent_count = 0'
+      )
+    ) {
+      void params;
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
+      void params;
+      return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     throw new Error(`Unsupported SQL in GamePoolMock: ${sql}`);
@@ -614,6 +685,57 @@ void test('Steam route preserves existing unified fields when upstream is unavai
   assert.equal(persisted['priceRegularAmount'], 12.99);
   assert.equal(persisted['priceFetchedAt'], undefined);
   assert.equal(typeof persisted['steamPriceFetchedAt'], 'string');
+
+  await app.close();
+});
+
+void test('Steam route reaches wishlist sale notification checks during discount transition', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('960', 6, {
+    title: 'Grand Theft Auto IV',
+    listType: 'wishlist',
+    steamAppId: 204100,
+    priceAmount: 69.99,
+    priceRegularAmount: 69.99,
+    priceDiscountPercent: 0,
+    priceIsFree: false
+  });
+
+  await registerSteamPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            '204100': {
+              success: true,
+              data: {
+                is_free: false,
+                price_overview: {
+                  currency: 'USD',
+                  initial: 6999,
+                  final: 3999,
+                  discount_percent: 43
+                }
+              }
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/steam/prices?igdbGameId=960&platformIgdbId=6'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(pool.getNotificationSettingsReadCount(), 1);
+  assert.equal(pool.getNotificationTokenReadCount(), 1);
 
   await app.close();
 });

@@ -248,6 +248,7 @@ void test('override lock backfill heuristics avoid over-locking legacy provider 
 
   assert.equal(sql.includes("'psPricesMatchLocked'"), true);
   assert.equal(sql.includes("'reviewMatchLocked'"), true);
+  assert.equal(sql.includes("OR NOT (payload ? 'reviewMatchLocked')"), true);
   assert.equal(sql.includes("payload->>'psPricesUrl'"), false);
   assert.equal(
     sql.includes("OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) ~ '^[0-9]+$'"),

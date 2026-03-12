@@ -862,13 +862,17 @@ async function fetchMobygamesPayload(params: {
 
   const payload = (await response.json()) as MobyGamesApiResponse;
   const games = Array.isArray(payload.games) ? payload.games : [];
-  const firstGame = games.at(0);
-  if (!firstGame) {
+  if (games.length === 0) {
     return null;
   }
-  const matched =
-    games.find((entry) => integerOrNull(entry.game_id) === params.reviewMatchMobygamesGameId) ??
-    firstGame;
+  const matched = games.find(
+    (entry) => integerOrNull(entry.game_id) === params.reviewMatchMobygamesGameId
+  );
+  if (!matched) {
+    // Explicit override id was not returned by provider; treat this as no match
+    // to avoid persisting data from an unrelated fallback result.
+    return null;
+  }
 
   const criticScore = normalizeReviewScore(finiteNumberOrStringOrNull(matched.critic_score));
   const mobyScore = normalizeRawMobyScore(finiteNumberOrStringOrNull(matched.moby_score));

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
+import { getCacheMetrics } from './cache-metrics.js';
 import { registerPsPricesRoute } from './psprices-prices.js';
 
 interface GameRow {
@@ -611,6 +612,7 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
 void test('PSPrices route skips stale revalidation when psPrices match is locked', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
+  const skippedBefore = getCacheMetrics().pspricesPrice.revalidateSkipped;
   pool.seed('5263323', 130, {
     title: 'Pokemon Violet',
     psPricesMatchLocked: true,
@@ -644,6 +646,8 @@ void test('PSPrices route skips stale revalidation when psPrices match is locked
   assert.equal(response.headers['x-gameshelf-psprices-cache'], 'HIT_STALE');
   assert.equal(response.headers['x-gameshelf-psprices-revalidate'], 'skipped');
   assert.equal(queuedPayloads.length, 0);
+  const skippedAfter = getCacheMetrics().pspricesPrice.revalidateSkipped;
+  assert.equal(skippedAfter, skippedBefore + 1);
 
   await app.close();
 });

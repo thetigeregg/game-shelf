@@ -1978,3 +1978,11 @@
 - 79a568b Fix package misalignment
 - a7e1e1b Update staleness logic for pricing
 
+## v1.1.33 - 2026-03-12
+- 5983d67 Merge pull request #204 from thetigeregg/codex/recommend-env-vars-for-pricing
+- f30aaf1 Clarify bootstrap env handling
+- da1c818 Add bootstrap env warnings
+- 3b1ecb6 Handle missing shared env template
+- c6ac8c6 Merge branch 'main' into codex/recommend-env-vars-for-pricing
+- cac2b66 Add tests for pricing freshness and enhance price validation logic
+

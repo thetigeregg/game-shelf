@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  __backgroundWorkerTestables,
   isRecommendationTarget,
   readBackgroundWorkerMode,
   readDiscoveryEnrichmentApiBaseUrl,
@@ -147,4 +148,47 @@ void test('pricing refresh phase helper handles startup, interval, and disabled 
     }),
     true
   );
+});
+
+void test('pricing freshness ignores provider attempt timestamps without unified price value', () => {
+  const payload = {
+    steamPriceFetchedAt: '2026-03-12T07:00:00.000Z',
+    psPricesFetchedAt: '2026-03-12T07:00:00.000Z'
+  } satisfies Record<string, unknown>;
+
+  assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(payload), null);
+});
+
+void test('pricing freshness uses unified priceFetchedAt for paid/free snapshots', () => {
+  const paidPayload = {
+    priceAmount: 19.99,
+    priceFetchedAt: '2026-03-12T07:00:00.000Z'
+  } satisfies Record<string, unknown>;
+  const freePayload = {
+    priceIsFree: true,
+    priceFetchedAt: '2026-03-12T08:00:00.000Z'
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(paidPayload),
+    Date.parse('2026-03-12T07:00:00.000Z')
+  );
+  assert.equal(
+    __backgroundWorkerTestables.resolvePriceFetchedAtMs(freePayload),
+    Date.parse('2026-03-12T08:00:00.000Z')
+  );
+});
+
+void test('pricing freshness returns null for invalid/blank unified priceFetchedAt', () => {
+  const blankPayload = {
+    priceAmount: 9.99,
+    priceFetchedAt: '   '
+  } satisfies Record<string, unknown>;
+  const invalidPayload = {
+    priceIsFree: true,
+    priceFetchedAt: 'not-a-date'
+  } satisfies Record<string, unknown>;
+
+  assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(blankPayload), null);
+  assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(invalidPayload), null);
 });

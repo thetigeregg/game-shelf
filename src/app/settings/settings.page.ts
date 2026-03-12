@@ -147,6 +147,20 @@ import {
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
+const DISABLED_PREFERENCE_VALUES = new Set(['false', '0', 'no']);
+
+function coercePreferenceBoolean(value: unknown, defaultValue: boolean): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    return !DISABLED_PREFERENCE_VALUES.has(value.trim().toLowerCase());
+  }
+  return defaultValue;
+}
 
 type ExportRowType = 'game' | 'tag' | 'view' | 'setting';
 
@@ -3392,11 +3406,7 @@ export class SettingsPage {
       }
 
       if (row.key === RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY) {
-        const normalizedEnabledRaw = row.value.trim().toLowerCase();
-        const normalizedEnabled =
-          normalizedEnabledRaw !== 'false' &&
-          normalizedEnabledRaw !== '0' &&
-          normalizedEnabledRaw !== 'no';
+        const normalizedEnabled = coercePreferenceBoolean(row.value, true);
         const previousEnabledState = this.notificationService.isReleaseNotificationsEnabled();
 
         if (normalizedEnabled) {
@@ -3419,11 +3429,11 @@ export class SettingsPage {
         try {
           const parsed = JSON.parse(row.value) as Record<string, unknown>;
           normalizedValue = JSON.stringify({
-            set: parsed['set'] !== false,
-            changed: parsed['changed'] !== false,
-            removed: parsed['removed'] !== false,
-            day: parsed['day'] !== false,
-            sale: parsed['sale'] !== false
+            set: coercePreferenceBoolean(parsed['set'], true),
+            changed: coercePreferenceBoolean(parsed['changed'], true),
+            removed: coercePreferenceBoolean(parsed['removed'], true),
+            day: coercePreferenceBoolean(parsed['day'], true),
+            sale: coercePreferenceBoolean(parsed['sale'], true)
           });
         } catch {
           normalizedValue = JSON.stringify({

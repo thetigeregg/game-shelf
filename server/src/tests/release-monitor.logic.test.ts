@@ -584,6 +584,47 @@ void test('metacritic merge does not overwrite non-metacritic review source fiel
   assert.equal(merged['reviewUrl'], 'https://opencritic.example/game');
 });
 
+void test('refresh query resolvers prefer persisted override fields', () => {
+  const hltbResolved = releaseMonitorInternals.resolveHltbRefreshQuery(
+    {
+      title: 'Fallback Title',
+      releaseYear: 2001,
+      platform: 'Fallback Platform',
+      hltbMatchQueryTitle: 'Custom HLTB Title',
+      hltbMatchQueryReleaseYear: 2007,
+      hltbMatchQueryPlatform: 'Wii'
+    },
+    'Default Title',
+    'Default Platform'
+  );
+  assert.deepEqual(hltbResolved, {
+    title: 'Custom HLTB Title',
+    releaseYear: 2007,
+    platform: 'Wii'
+  });
+
+  const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
+    {
+      title: 'Fallback Title',
+      releaseYear: 2001,
+      platform: 'Fallback Platform',
+      reviewMatchQueryTitle: 'Custom Review Title',
+      reviewMatchQueryReleaseYear: 2010,
+      reviewMatchQueryPlatform: 'PlayStation 5',
+      reviewMatchPlatformIgdbId: 167
+    },
+    'Default Title',
+    'Default Platform',
+    6
+  );
+  assert.deepEqual(reviewResolved, {
+    title: 'Custom Review Title',
+    releaseYear: 2010,
+    platform: 'PlayStation 5',
+    platformIgdbId: 167
+  });
+});
+
 void test('metacritic merge preserves zero score when review source is metacritic', () => {
   const merged = releaseMonitorInternals.mergeMetacriticRefreshPayload(
     {

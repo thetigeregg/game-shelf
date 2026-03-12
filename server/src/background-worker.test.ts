@@ -192,3 +192,27 @@ void test('pricing freshness returns null for invalid/blank unified priceFetched
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(blankPayload), null);
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(invalidPayload), null);
 });
+
+void test('PSPrices revalidation title prefers saved match query title over game title', () => {
+  const withOverride = {
+    title: 'Pokemon Violet',
+    psPricesMatchQueryTitle: 'Pokemon Scarlet'
+  } satisfies Record<string, unknown>;
+  const withoutOverride = {
+    title: 'Pokemon Violet'
+  } satisfies Record<string, unknown>;
+  const blankValues = {
+    title: '   ',
+    psPricesMatchQueryTitle: ''
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.resolvePspricesRevalidationTitle(withOverride),
+    'Pokemon Scarlet'
+  );
+  assert.equal(
+    __backgroundWorkerTestables.resolvePspricesRevalidationTitle(withoutOverride),
+    'Pokemon Violet'
+  );
+  assert.equal(__backgroundWorkerTestables.resolvePspricesRevalidationTitle(blankValues), null);
+});

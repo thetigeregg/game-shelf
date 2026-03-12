@@ -165,9 +165,17 @@ function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | nul
   return null;
 }
 
+function resolvePspricesRevalidationTitle(payload: Record<string, unknown>): string | null {
+  return (
+    normalizeNonEmptyString(payload['psPricesMatchQueryTitle']) ??
+    normalizeNonEmptyString(payload['title'])
+  );
+}
+
 export const __backgroundWorkerTestables = {
   hasUnifiedPriceValue,
-  resolvePriceFetchedAtMs
+  resolvePriceFetchedAtMs,
+  resolvePspricesRevalidationTitle
 };
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
@@ -694,7 +702,7 @@ async function main(): Promise<void> {
         continue;
       }
 
-      const title = normalizeNonEmptyString(payload['title']);
+      const title = resolvePspricesRevalidationTitle(payload);
       if (!title) {
         stats.skippedMissingData += 1;
         continue;

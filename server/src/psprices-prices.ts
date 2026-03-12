@@ -188,7 +188,9 @@ export async function registerPsPricesRoute(
         return;
       }
 
-      const title = titleOverride ?? normalizeNonEmptyString(payload['title']);
+      const persistedMatchQueryTitle = normalizeNonEmptyString(payload['psPricesMatchQueryTitle']);
+      const title =
+        titleOverride ?? persistedMatchQueryTitle ?? normalizeNonEmptyString(payload['title']);
       if (!title) {
         const unavailablePayload: PsPricesRouteResponse = {
           status: 'unavailable',
@@ -976,7 +978,9 @@ export async function processQueuedPspricesPriceRevalidation(
   }
 
   const title =
-    normalizeNonEmptyString(payload.title) ?? normalizeNonEmptyString(gamePayload['title']);
+    normalizeNonEmptyString(payload.title) ??
+    normalizeNonEmptyString(gamePayload['psPricesMatchQueryTitle']) ??
+    normalizeNonEmptyString(gamePayload['title']);
   if (!title) {
     throw new Error('PSPrices revalidation missing title.');
   }

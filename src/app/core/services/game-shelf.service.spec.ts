@@ -1074,6 +1074,14 @@ describe('GameShelfService', () => {
     });
 
     expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hltbMatchQueryTitle: 'Zack & Wiki',
+        hltbMatchQueryReleaseYear: 2007,
+        hltbMatchQueryPlatform: 'Wii'
+      }),
+      'collection'
+    );
     expect(result).toEqual(updatedEntry);
   });
 
@@ -1203,6 +1211,16 @@ describe('GameShelfService', () => {
     });
 
     expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, null);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewMatchQueryTitle: 'Zack & Wiki',
+        reviewMatchQueryReleaseYear: 2007,
+        reviewMatchQueryPlatform: 'Wii',
+        reviewMatchPlatformIgdbId: 5,
+        reviewMatchMobygamesGameId: null
+      }),
+      'collection'
+    );
     expect(result).toEqual(updatedEntry);
   });
 

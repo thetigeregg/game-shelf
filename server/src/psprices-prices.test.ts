@@ -559,6 +559,7 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
   const pool = new GamePoolMock();
   pool.seed('5263323', 130, {
     title: 'Pokemon Violet',
+    psPricesMatchQueryTitle: 'Pokemon Scarlet',
     psPricesFetchedAt: '2026-03-08T10:00:00.000Z',
     psPricesRegionPath: 'region-ch',
     psPricesShow: 'games',
@@ -598,6 +599,7 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
   assert.equal(body['cached'], true);
   assert.equal(fetchCalls, 0);
   assert.equal(queuedPayloads.length, 1);
+  assert.equal(queuedPayloads[0]?.['title'], 'Pokemon Scarlet');
 
   await app.close();
 });

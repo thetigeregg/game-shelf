@@ -794,6 +794,9 @@ export class GameShelfService {
         hltbMainHours: completionTimes?.hltbMainHours ?? null,
         hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,
         hltbCompletionistHours: completionTimes?.hltbCompletionistHours ?? null,
+        hltbMatchQueryTitle: title,
+        hltbMatchQueryReleaseYear: releaseYear,
+        hltbMatchQueryPlatform: platform,
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
@@ -901,6 +904,11 @@ export class GameShelfService {
           scoreResult?.reviewSource === 'mobygames' ? (scoreResult.mobyScore ?? null) : null,
         mobygamesGameId:
           scoreResult?.reviewSource === 'mobygames' ? (scoreResult.mobygamesGameId ?? null) : null,
+        reviewMatchQueryTitle: title,
+        reviewMatchQueryReleaseYear: releaseYear,
+        reviewMatchQueryPlatform: platform,
+        reviewMatchPlatformIgdbId: platformIgdbId,
+        reviewMatchMobygamesGameId: mobygamesGameId,
         metacriticScore:
           scoreResult?.reviewSource === 'metacritic'
             ? (scoreResult.reviewScore ?? scoreResult.metacriticScore ?? null)

@@ -4,6 +4,7 @@ import type { Pool, QueryResultRow } from 'pg';
 import { incrementPspricesPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
 import { isDiscoveryListType } from './list-type.js';
+import { isProviderMatchLocked } from './provider-match-lock.js';
 
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -1064,10 +1065,6 @@ function resolvePreferredPsPricesUrl(payload: Record<string, unknown>): string |
   }
 
   return normalizeNonEmptyString(payload['priceUrl']);
-}
-
-function isProviderMatchLocked(payload: Record<string, unknown>, key: string): boolean {
-  return payload[key] === true;
 }
 
 export const __pspricesTestables = {

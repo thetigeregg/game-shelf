@@ -13,6 +13,7 @@ import { processQueuedManualsCatalogRefresh } from './manuals.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
+import { isProviderMatchLocked } from './provider-match-lock.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -183,10 +184,6 @@ function resolvePspricesRevalidationUrl(payload: Record<string, unknown>): strin
   }
 
   return normalizeNonEmptyString(payload['priceUrl']);
-}
-
-function isProviderMatchLocked(payload: Record<string, unknown>, key: string): boolean {
-  return payload[key] === true;
 }
 
 export const __backgroundWorkerTestables = {

@@ -47,6 +47,24 @@ interface PsPricesCandidate extends PsPricesSnapshot {
   score: number;
 }
 
+type PsPricesSuffixClass =
+  | 'base'
+  | 'standard'
+  | 'complete'
+  | 'ultimate'
+  | 'deluxe'
+  | 'bundle'
+  | 'expansion'
+  | 'other';
+
+interface RankedPsPricesCandidate {
+  candidate: PsPricesSnapshot;
+  score: number;
+  coreScore: number;
+  suffixClass: PsPricesSuffixClass;
+  suffixRank: number;
+}
+
 interface CachedPsPricesSnapshot {
   fetchedAt: string;
   snapshot: PsPricesSnapshot;
@@ -84,6 +102,7 @@ const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
 const PSPRICES_TITLE_MATCH_MIN_SCORE = 70;
 const PSPRICES_TITLE_MATCH_MIN_GAP = 8;
 const MAX_SEQUEL_NUMBER_TOKEN = 20;
+const PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD = PSPRICES_TITLE_MATCH_MIN_SCORE;
 const DEFAULT_PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS = 86400;
 const DEFAULT_PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
@@ -94,6 +113,34 @@ const PSPRICES_REGION_CURRENCY_BY_CODE = new Map<string, string>([
   ['jp', 'JPY'],
   ['kr', 'KRW']
 ]);
+const PSPRICES_SUFFIX_STANDARD_PATTERNS = [/\bstandard(?: edition)?\b/];
+const PSPRICES_SUFFIX_COMPLETE_PATTERNS = [/\bcomplete(?: edition)?\b/];
+const PSPRICES_SUFFIX_ULTIMATE_PATTERNS = [
+  /\bultimate(?: edition)?\b/,
+  /\bgold(?: edition)?\b/,
+  /\bgoty\b/,
+  /\bgame of the year(?: edition)?\b/,
+  /\blegendary(?: edition)?\b/
+];
+const PSPRICES_SUFFIX_DELUXE_PATTERNS = [
+  /\bdigital deluxe\b/,
+  /\bsuper deluxe\b/,
+  /\bdeluxe(?: edition)?\b/
+];
+const PSPRICES_SUFFIX_BUNDLE_PATTERNS = [/\bcollection\b/, /\bbundle\b/];
+const PSPRICES_SUFFIX_EXPANSION_PATTERNS = [
+  /\berweiterungspaket\b/,
+  /\bexpansion(?: pack)?\b/,
+  /\bdlc\b/,
+  /\badd ?on\b/,
+  /\baddon\b/,
+  /\bseason pass\b/,
+  /\bpass\b/,
+  /\bstory pack\b/,
+  /\bpack\b/,
+  /\bepisode\b/,
+  /\bchapter\b/
+];
 
 export async function registerPsPricesRoute(
   app: FastifyInstance,
@@ -700,31 +747,26 @@ async function fetchPsPricesSnapshot(
   }
 
   const ranked = dedupedCandidates
-    .map((candidate) => ({
-      candidate,
-      score: scorePsPricesTitleMatch(params.title, candidate.title ?? '')
-    }))
-    .sort((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score;
-      }
-      const rightQuality = resolveCandidateQualityScore(right.candidate);
-      const leftQuality = resolveCandidateQualityScore(left.candidate);
-      if (rightQuality !== leftQuality) {
-        return rightQuality - leftQuality;
-      }
-      const rightHasPrice = right.candidate.amount !== null ? 1 : 0;
-      const leftHasPrice = left.candidate.amount !== null ? 1 : 0;
-      if (rightHasPrice !== leftHasPrice) {
-        return rightHasPrice - leftHasPrice;
-      }
-      const rightId = parseCandidateGameId(right.candidate.gameId);
-      const leftId = parseCandidateGameId(left.candidate.gameId);
-      if (rightId !== null && leftId !== null && rightId !== leftId) {
-        return leftId - rightId;
-      }
-      return 0;
-    });
+    .map((candidate) => {
+      const titleValue = candidate.title ?? '';
+      const coreScore = scorePsPricesCoreTitleMatch(params.title, titleValue);
+      const suffixClass = classifyPsPricesSuffixClass(titleValue);
+      const score = round2(
+        applyPsPricesSuffixShaping({
+          coreScore,
+          suffixClass,
+          strongCoreThreshold: PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD
+        })
+      );
+      return {
+        candidate,
+        score,
+        coreScore,
+        suffixClass,
+        suffixRank: resolvePsPricesSuffixRank(suffixClass)
+      } satisfies RankedPsPricesCandidate;
+    })
+    .sort((left, right) => compareRankedPsPricesCandidates(left, right));
   const preferredUrl = normalizeNonEmptyString(params.preferredUrl);
   const preferredMatch =
     preferredUrl === null
@@ -751,10 +793,11 @@ async function fetchPsPricesSnapshot(
   const second = ranked[1];
 
   const hasHighConfidenceMatch =
-    best.score >= PSPRICES_TITLE_MATCH_MIN_SCORE &&
+    best.coreScore >= PSPRICES_TITLE_MATCH_MIN_SCORE &&
     (ranked.length === 1 ||
-      best.score - second.score >= PSPRICES_TITLE_MATCH_MIN_GAP ||
-      isResolvedDuplicateTie(best.candidate, second.candidate, best.score, second.score));
+      best.coreScore - second.coreScore >= PSPRICES_TITLE_MATCH_MIN_GAP ||
+      isResolvedStrongCoreSuffixTie(best, second) ||
+      isResolvedDuplicateTie(best, second));
 
   return {
     snapshot: hasHighConfidenceMatch ? best.candidate : null,
@@ -869,24 +912,41 @@ function parseCandidateGameId(value: string | null | undefined): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function isResolvedDuplicateTie(
-  best: PsPricesSnapshot,
-  second: PsPricesSnapshot | null,
-  bestScore: number,
-  secondScore: number
+function isResolvedStrongCoreSuffixTie(
+  best: RankedPsPricesCandidate,
+  second: RankedPsPricesCandidate | undefined
 ): boolean {
-  if (!second || bestScore !== secondScore) {
+  if (!second) {
+    return false;
+  }
+  if (
+    best.coreScore < PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD ||
+    second.coreScore < PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD
+  ) {
+    return false;
+  }
+  if (Math.abs(best.coreScore - second.coreScore) > PSPRICES_TITLE_MATCH_MIN_GAP) {
+    return false;
+  }
+  return best.suffixRank < second.suffixRank;
+}
+
+function isResolvedDuplicateTie(
+  best: RankedPsPricesCandidate,
+  second: RankedPsPricesCandidate | undefined
+): boolean {
+  if (!second || best.coreScore !== second.coreScore || best.suffixRank !== second.suffixRank) {
     return false;
   }
 
-  const bestTitle = normalizeTitleForMatch(best.title ?? '');
-  const secondTitle = normalizeTitleForMatch(second.title ?? '');
+  const bestTitle = normalizeTitleForMatch(best.candidate.title ?? '');
+  const secondTitle = normalizeTitleForMatch(second.candidate.title ?? '');
   if (!bestTitle || bestTitle !== secondTitle) {
     return false;
   }
 
-  const bestQuality = resolveCandidateQualityScore(best);
-  const secondQuality = resolveCandidateQualityScore(second);
+  const bestQuality = resolveCandidateQualityScore(best.candidate);
+  const secondQuality = resolveCandidateQualityScore(second.candidate);
   return bestQuality > secondQuality;
 }
 
@@ -934,7 +994,7 @@ function normalizeTitleForMatch(value: string): string {
     .trim();
 }
 
-function scorePsPricesTitleMatch(expectedTitle: string, candidateTitle: string): number {
+function scorePsPricesCoreTitleMatch(expectedTitle: string, candidateTitle: string): number {
   const expected = normalizeTitleForMatchForScoring(expectedTitle);
   const candidate = normalizeTitleForMatchForScoring(candidateTitle);
   if (!expected || !candidate) {
@@ -959,29 +1019,179 @@ function scorePsPricesTitleMatch(expectedTitle: string, candidateTitle: string):
   return score;
 }
 
+function compareRankedPsPricesCandidates(
+  left: RankedPsPricesCandidate,
+  right: RankedPsPricesCandidate
+): number {
+  if (
+    left.coreScore >= PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD &&
+    right.coreScore >= PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD
+  ) {
+    const coreGap = Math.abs(left.coreScore - right.coreScore);
+    if (coreGap > PSPRICES_TITLE_MATCH_MIN_GAP) {
+      return right.coreScore - left.coreScore;
+    }
+    if (left.suffixRank !== right.suffixRank) {
+      return left.suffixRank - right.suffixRank;
+    }
+    const baseStandardOrder = compareEquivalentSuffixClass(left.suffixClass, right.suffixClass);
+    if (baseStandardOrder !== 0) {
+      return baseStandardOrder;
+    }
+  } else if (right.coreScore !== left.coreScore) {
+    return right.coreScore - left.coreScore;
+  }
+
+  if (right.score !== left.score) {
+    return right.score - left.score;
+  }
+
+  const rightQuality = resolveCandidateQualityScore(right.candidate);
+  const leftQuality = resolveCandidateQualityScore(left.candidate);
+  if (rightQuality !== leftQuality) {
+    return rightQuality - leftQuality;
+  }
+  const rightHasPrice = right.candidate.amount !== null ? 1 : 0;
+  const leftHasPrice = left.candidate.amount !== null ? 1 : 0;
+  if (rightHasPrice !== leftHasPrice) {
+    return rightHasPrice - leftHasPrice;
+  }
+  const rightId = parseCandidateGameId(right.candidate.gameId);
+  const leftId = parseCandidateGameId(left.candidate.gameId);
+  if (rightId !== null && leftId !== null && rightId !== leftId) {
+    return leftId - rightId;
+  }
+  return 0;
+}
+
+function compareEquivalentSuffixClass(
+  left: PsPricesSuffixClass,
+  right: PsPricesSuffixClass
+): number {
+  if (left === right) {
+    return 0;
+  }
+  if (left === 'base' && right === 'standard') {
+    return -1;
+  }
+  if (left === 'standard' && right === 'base') {
+    return 1;
+  }
+  return 0;
+}
+
 function normalizeTitleForMatchForScoring(value: string): string {
   const normalized = normalizeTitleForMatch(value);
-  // Compress edition-label phrases into single qualifier tokens so they
-  // reduce score less than two separate extra tokens.
-  const withoutNeutralEditionLabels = normalized.replace(
-    /\bstandard edition\b/g,
-    ' standard_edition '
-  );
-  const withCollapsedEditionLabels = withoutNeutralEditionLabels.replace(
-    /\bcomplete edition\b/g,
-    ' complete_edition '
-  );
-  const filteredTokens = withCollapsedEditionLabels
+  const filteredTokens = normalized
     .split(' ')
     .filter((token) => token.length > 0)
     .map((token) => normalizeSequelNumberToken(token))
+    .filter((token) => !isEditionClassifierToken(token))
     .filter((token) => !isLowSignalTitleToken(token));
 
   if (filteredTokens.length === 0) {
-    return withCollapsedEditionLabels;
+    return normalized;
   }
 
   return filteredTokens.join(' ');
+}
+
+function applyPsPricesSuffixShaping(args: {
+  coreScore: number;
+  suffixClass: PsPricesSuffixClass;
+  strongCoreThreshold: number;
+}): number {
+  if (args.coreScore < args.strongCoreThreshold) {
+    return args.coreScore;
+  }
+
+  const penaltyByClass: Record<PsPricesSuffixClass, number> = {
+    base: 0,
+    standard: 0,
+    complete: 2,
+    ultimate: 4,
+    deluxe: 7,
+    bundle: 10,
+    expansion: 18,
+    other: 12
+  };
+  return Math.max(0, args.coreScore - penaltyByClass[args.suffixClass]);
+}
+
+function resolvePsPricesSuffixRank(suffixClass: PsPricesSuffixClass): number {
+  const rankByClass: Record<PsPricesSuffixClass, number> = {
+    base: 0,
+    standard: 0,
+    complete: 1,
+    ultimate: 2,
+    deluxe: 3,
+    bundle: 4,
+    expansion: 5,
+    other: 6
+  };
+  return rankByClass[suffixClass];
+}
+
+function classifyPsPricesSuffixClass(value: string): PsPricesSuffixClass {
+  const normalized = normalizeTitleForMatch(value);
+  if (!normalized) {
+    return 'base';
+  }
+
+  const suffixInput = normalizeSuffixInspectionInput(value);
+  const suffixSegment = suffixInput[suffixInput.length - 1] ?? normalized;
+  const tail = normalized.split(' ').slice(-8).join(' ');
+  const classifierInput = `${suffixSegment} ${tail}`.trim();
+
+  if (hasPsPricesSuffixPattern(classifierInput, PSPRICES_SUFFIX_EXPANSION_PATTERNS)) {
+    return 'expansion';
+  }
+  if (hasPsPricesSuffixPattern(classifierInput, PSPRICES_SUFFIX_BUNDLE_PATTERNS)) {
+    return 'bundle';
+  }
+  if (hasPsPricesSuffixPattern(classifierInput, PSPRICES_SUFFIX_DELUXE_PATTERNS)) {
+    return 'deluxe';
+  }
+  if (hasPsPricesSuffixPattern(classifierInput, PSPRICES_SUFFIX_ULTIMATE_PATTERNS)) {
+    return 'ultimate';
+  }
+  if (hasPsPricesSuffixPattern(classifierInput, PSPRICES_SUFFIX_COMPLETE_PATTERNS)) {
+    return 'complete';
+  }
+  if (hasPsPricesSuffixPattern(classifierInput, PSPRICES_SUFFIX_STANDARD_PATTERNS)) {
+    return 'standard';
+  }
+
+  if (suffixInput.length <= 1) {
+    return 'base';
+  }
+
+  return 'other';
+}
+
+function normalizeSuffixInspectionInput(value: string): string[] {
+  const normalized = value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[—–]/g, '-')
+    .replace(/[:()]/g, '-')
+    .replace(/[^a-z0-9\-\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const segments = normalized
+    .split(/\s*-\s*/)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (segments.length === 0) {
+    return [normalizeTitleForMatch(value)];
+  }
+  return segments.map((segment) => normalizeTitleForMatch(segment));
+}
+
+function hasPsPricesSuffixPattern(value: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(value));
 }
 
 function normalizeSequelNumberToken(token: string): string {
@@ -1072,6 +1282,37 @@ function toRoman(value: number): string {
 
 function isLowSignalTitleToken(token: string): boolean {
   return token === 'the' || token === 'a' || token === 'an' || token === 'and' || token === 'of';
+}
+
+function isEditionClassifierToken(token: string): boolean {
+  return (
+    token === 'standard' ||
+    token === 'edition' ||
+    token === 'complete' ||
+    token === 'ultimate' ||
+    token === 'gold' ||
+    token === 'goty' ||
+    token === 'legendary' ||
+    token === 'deluxe' ||
+    token === 'digital' ||
+    token === 'super' ||
+    token === 'collection' ||
+    token === 'bundle' ||
+    token === 'expansion' ||
+    token === 'dlc' ||
+    token === 'add' ||
+    token === 'on' ||
+    token === 'addon' ||
+    token === 'season' ||
+    token === 'pass' ||
+    token === 'story' ||
+    token === 'pack' ||
+    token === 'episode' ||
+    token === 'chapter' ||
+    token === 'erweiterungspaket' ||
+    token === 'remastered' ||
+    token === 'remake'
+  );
 }
 
 async function fetchWithTimeout(

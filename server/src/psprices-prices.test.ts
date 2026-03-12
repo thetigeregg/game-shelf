@@ -150,6 +150,21 @@ function parseJsonRecord(responseBody: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
+function readCandidateTitles(body: Record<string, unknown>): string[] {
+  const candidates = Array.isArray(body['candidates']) ? body['candidates'] : [];
+  const titles: string[] = [];
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      continue;
+    }
+    const record = candidate as Record<string, unknown>;
+    if (typeof record['title'] === 'string') {
+      titles.push(record['title']);
+    }
+  }
+  return titles;
+}
+
 void test('PSPrices route returns unsupported_platform outside supported IGDB platforms', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
@@ -984,7 +999,7 @@ void test('PSPrices scoring treats standard edition as neutral for title confide
 
   const match = body['match'] as Record<string, unknown>;
   assert.equal(match['matchedTitle'], 'Fire Emblem Engage Standard Edition');
-  assert.equal(match['score'], 80);
+  assert.equal(match['score'], 100);
   assert.equal(match['confidence'], 'high');
 
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
@@ -993,7 +1008,7 @@ void test('PSPrices scoring treats standard edition as neutral for title confide
 
   const candidates = body['candidates'] as Array<Record<string, unknown>>;
   assert.equal(candidates[0]?.['title'], 'Fire Emblem Engage Standard Edition');
-  assert.equal(candidates[0]?.['score'], 80);
+  assert.equal(candidates[0]?.['score'], 100);
 
   await app.close();
 });
@@ -1045,7 +1060,7 @@ void test('PSPrices scoring treats complete edition as neutral for title confide
 
   const match = body['match'] as Record<string, unknown>;
   assert.equal(match['matchedTitle'], 'Nioh 2 Complete Edition');
-  assert.equal(match['score'], 73.33);
+  assert.equal(match['score'], 98);
   assert.equal(match['confidence'], 'high');
 
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
@@ -1281,7 +1296,7 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
 
   const match = body['match'] as Record<string, unknown>;
   assert.equal(match['matchedTitle'], 'Wolfenstein II: The New Colossus');
-  assert.equal(match['score'], 100);
+  assert.equal(match['score'], 88);
   assert.equal(match['confidence'], 'high');
 
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
@@ -1289,6 +1304,431 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
     bestPrice['url'],
     'https://psprices.com/region-ch/game/2632691/wolfenstein-ii-the-new-colossus'
   );
+
+  await app.close();
+});
+
+void test('PSPrices suffix taxonomy enforces baseline variant ordering for Diablo IV', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('125165', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Diablo IV — Erweiterungspaket',
+                amount: 79.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193028/diablo-iv-erweiterungspaket'
+              },
+              {
+                title: 'Diablo IV - Deluxe Edition',
+                amount: 69.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193021/diablo-iv-deluxe-edition'
+              },
+              {
+                title: 'Diablo IV - Deluxe',
+                amount: 69.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193022/diablo-iv-deluxe'
+              },
+              {
+                title: 'Diablo IV - Ultimate Edition',
+                amount: 74.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193023/diablo-iv-ultimate-edition'
+              },
+              {
+                title: 'Diablo IV - Complete Edition',
+                amount: 64.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193024/diablo-iv-complete-edition'
+              },
+              {
+                title: 'Diablo IV - Complete',
+                amount: 64.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193025/diablo-iv-complete'
+              },
+              {
+                title: 'Diablo IV - Standard Edition',
+                amount: 59.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193020/diablo-iv-standard-edition'
+              },
+              {
+                title: 'Diablo IV - Standard',
+                amount: 59.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193026/diablo-iv-standard'
+              },
+              {
+                title: 'Diablo IV',
+                amount: 59.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193027/diablo-iv'
+              },
+              {
+                title: 'Diablo IV Collection',
+                amount: 89.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7193029/diablo-iv-collection'
+              }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  const titles = readCandidateTitles(body);
+  assert.equal(titles[0], 'Diablo IV');
+  assert.equal(titles[1], 'Diablo IV - Standard Edition');
+  assert.equal(titles[2], 'Diablo IV - Standard');
+  assert.equal(titles[3], 'Diablo IV - Complete Edition');
+  assert.equal(titles[4], 'Diablo IV - Complete');
+  assert.equal(titles[5], 'Diablo IV - Ultimate Edition');
+  assert.equal(titles[6], 'Diablo IV - Deluxe Edition');
+  assert.equal(titles[7], 'Diablo IV - Deluxe');
+  assert.equal(titles[8], 'Diablo IV Collection');
+  assert.equal(titles[9], 'Diablo IV — Erweiterungspaket');
+
+  await app.close();
+});
+
+void test('PSPrices treats missing Edition labels as same suffix class behavior', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('125165', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { title: 'Diablo IV - Ultimate Edition', amount: 74.9, isFree: false, url: 'u-1' },
+              { title: 'Diablo IV - Ultimate', amount: 74.9, isFree: false, url: 'u-2' },
+              { title: 'Diablo IV - Complete Edition', amount: 64.9, isFree: false, url: 'c-1' },
+              { title: 'Diablo IV - Complete', amount: 64.9, isFree: false, url: 'c-2' },
+              { title: 'Diablo IV - Standard Edition', amount: 59.9, isFree: false, url: 's-1' },
+              { title: 'Diablo IV - Standard', amount: 59.9, isFree: false, url: 's-2' },
+              { title: 'Diablo IV - Deluxe Edition', amount: 69.9, isFree: false, url: 'd-1' },
+              { title: 'Diablo IV - Deluxe', amount: 69.9, isFree: false, url: 'd-2' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+
+  assert.equal(
+    titles.indexOf('Diablo IV - Standard Edition') < titles.indexOf('Diablo IV - Complete Edition'),
+    true
+  );
+  assert.equal(
+    titles.indexOf('Diablo IV - Standard') < titles.indexOf('Diablo IV - Complete'),
+    true
+  );
+  assert.equal(
+    titles.indexOf('Diablo IV - Complete Edition') < titles.indexOf('Diablo IV - Deluxe Edition'),
+    true
+  );
+  assert.equal(titles.indexOf('Diablo IV - Complete') < titles.indexOf('Diablo IV - Deluxe'), true);
+  assert.equal(
+    titles.indexOf('Diablo IV - Ultimate Edition') < titles.indexOf('Diablo IV - Deluxe Edition'),
+    true
+  );
+  assert.equal(titles.indexOf('Diablo IV - Ultimate') < titles.indexOf('Diablo IV - Deluxe'), true);
+
+  await app.close();
+});
+
+void test('PSPrices ranks ultimate or gold above deluxe for strong core title matches', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('217550', 130, { title: "Assassin's Creed Odyssey" });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: "Assassin's Creed Odyssey Deluxe Edition",
+                amount: 69.9,
+                isFree: false,
+                url: 'd'
+              },
+              {
+                title: "Assassin's Creed Odyssey Ultimate Edition",
+                amount: 79.9,
+                isFree: false,
+                url: 'u'
+              },
+              {
+                title: "Assassin's Creed Odyssey Gold Edition",
+                amount: 74.9,
+                isFree: false,
+                url: 'g'
+              },
+              { title: "Assassin's Creed Odyssey", amount: 59.9, isFree: false, url: 'b' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130&title=Assassin%27s%20Creed%20Odyssey&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles[0], "Assassin's Creed Odyssey");
+  assert.equal(
+    titles.indexOf("Assassin's Creed Odyssey Gold Edition") <
+      titles.indexOf("Assassin's Creed Odyssey Deluxe Edition"),
+    true
+  );
+  assert.equal(
+    titles.indexOf("Assassin's Creed Odyssey Ultimate Edition") <
+      titles.indexOf("Assassin's Creed Odyssey Deluxe Edition"),
+    true
+  );
+
+  await app.close();
+});
+
+void test('PSPrices suppresses expansion style variants below deluxe for same core title', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('1930', 167, { title: 'Cyberpunk 2077' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { title: 'Cyberpunk 2077 Expansion Pack', amount: 29.9, isFree: false, url: 'e' },
+              { title: 'Cyberpunk 2077 Phantom Liberty', amount: 29.9, isFree: false, url: 'p' },
+              { title: 'Cyberpunk 2077 Deluxe Edition', amount: 69.9, isFree: false, url: 'd' },
+              { title: 'Cyberpunk 2077', amount: 59.9, isFree: false, url: 'b' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=1930&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles[0], 'Cyberpunk 2077');
+  assert.equal(
+    titles.indexOf('Cyberpunk 2077 Deluxe Edition') <
+      titles.indexOf('Cyberpunk 2077 Expansion Pack'),
+    true
+  );
+  assert.equal(
+    titles.indexOf('Cyberpunk 2077 Deluxe Edition') <
+      titles.indexOf('Cyberpunk 2077 Phantom Liberty'),
+    true
+  );
+
+  await app.close();
+});
+
+void test('PSPrices keeps collection variants below closest single-game title', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('91011', 167, { title: 'BioShock' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { title: 'BioShock Collection', amount: 19.9, isFree: false, url: 'c' },
+              { title: 'BioShock Remastered', amount: 14.9, isFree: false, url: 'r' },
+              { title: 'BioShock', amount: 9.9, isFree: false, url: 'b' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=91011&platformIgdbId=167&title=BioShock&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles.indexOf('BioShock Collection') > titles.indexOf('BioShock'), true);
+  assert.equal(titles.indexOf('BioShock Collection') > titles.indexOf('BioShock Remastered'), true);
+
+  await app.close();
+});
+
+void test('PSPrices classifier treats deluxe separators and parentheses consistently', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('1200', 167, { title: 'Resident Evil 4' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { title: 'Resident Evil 4: Deluxe Edition', amount: 59.9, isFree: false, url: 'd1' },
+              { title: 'Resident Evil 4 - Deluxe Edition', amount: 59.9, isFree: false, url: 'd2' },
+              { title: 'Resident Evil 4 (Deluxe Edition)', amount: 59.9, isFree: false, url: 'd3' },
+              { title: 'Resident Evil 4', amount: 49.9, isFree: false, url: 'b' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=1200&platformIgdbId=167&title=Resident%20Evil%204&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const titles = readCandidateTitles(parseJsonRecord(response.body));
+  assert.equal(titles[0], 'Resident Evil 4');
+  assert.equal(titles.indexOf('Resident Evil 4: Deluxe Edition') > 0, true);
+  assert.equal(titles.indexOf('Resident Evil 4 - Deluxe Edition') > 0, true);
+  assert.equal(titles.indexOf('Resident Evil 4 (Deluxe Edition)') > 0, true);
+
+  await app.close();
+});
+
+void test('PSPrices keeps metadata tie-break behavior within same suffix class', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('125165', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Diablo IV',
+                amount: 59.9,
+                isFree: false,
+                gameId: '7002',
+                openCriticScore: 80,
+                url: 'b2'
+              },
+              {
+                title: 'Diablo IV',
+                amount: 59.9,
+                isFree: false,
+                gameId: '7001',
+                metacriticScore: 90,
+                openCriticScore: 86,
+                collectionTagCount: 2,
+                hasMostEngagingTag: true,
+                url: 'b1'
+              },
+              { title: 'Diablo IV Standard Edition', amount: 59.9, isFree: false, url: 's' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['url'], 'b1');
+
+  await app.close();
+});
+
+void test('PSPrices strong-core guardrail keeps stronger core match above weak standard variant', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('125165', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Diablo III Standard Edition',
+                amount: 39.9,
+                isFree: false,
+                url: 'iii-standard'
+              },
+              {
+                title: 'Diablo IV Expansion Pack',
+                amount: 29.9,
+                isFree: false,
+                url: 'iv-expansion'
+              }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['url'], 'iv-expansion');
 
   await app.close();
 });

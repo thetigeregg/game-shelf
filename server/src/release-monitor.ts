@@ -1,8 +1,10 @@
 import type { Pool, PoolClient } from 'pg';
+import { isDeepStrictEqual } from 'node:util';
 import { config } from './config.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
+import { isProviderMatchLocked } from './provider-match-lock.js';
 
 const RELEASE_NOTIFICATIONS_ENABLED_KEY = 'game-shelf:notifications:release:enabled';
 const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events';
@@ -76,8 +78,8 @@ interface MonitorRunStats {
   igdbRefreshSuccesses: number;
   hltbRefreshAttempts: number;
   hltbRefreshSuccesses: number;
-  metacriticRefreshAttempts: number;
-  metacriticRefreshSuccesses: number;
+  reviewRefreshAttempts: number;
+  reviewRefreshSuccesses: number;
   eventsConsidered: number;
   eventsDisabled: number;
   eventsReleaseDayAlreadyNotified: number;
@@ -422,16 +424,25 @@ async function processGameRow(
       lastMetacriticRefreshAt = nowIso;
     }
 
-    const hltbDue = !isBootstrap && isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
-    const metacriticDue =
-      !isBootstrap && isMetacriticRefreshDue(lastMetacriticRefreshAt, mergedPayload, now);
+    const hltbMatchLocked = isProviderMatchLocked(mergedPayload, 'hltbMatchLocked');
+    const reviewMatchLocked = isProviderMatchLocked(mergedPayload, 'reviewMatchLocked');
+    const hltbRefreshEligible = hltbEligible && !hltbMatchLocked;
+    const reviewRefreshEligible = metacriticEligible && !reviewMatchLocked;
 
-    if (hltbEligible && hltbDue) {
+    const hltbDue =
+      !isBootstrap &&
+      hltbRefreshEligible &&
+      isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
+    const reviewDue =
+      !isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now);
+
+    if (hltbDue) {
       stats.hltbRefreshAttempts += 1;
+      const hltbRefreshQuery = resolveHltbRefreshQuery(mergedPayload, title, platformName);
       const refreshedHltb = await fetchHltbPayload({
-        title: stringOrFallback(mergedPayload['title'], title),
-        releaseYear: integerOrNull(mergedPayload['releaseYear']),
-        platform: stringOrNull(mergedPayload['platform']) ?? platformName
+        title: hltbRefreshQuery.title,
+        releaseYear: hltbRefreshQuery.releaseYear,
+        platform: hltbRefreshQuery.platform
       });
 
       if (refreshedHltb) {
@@ -448,29 +459,28 @@ async function processGameRow(
       lastHltbRefreshAt = nowIso;
     }
 
-    if (metacriticEligible && metacriticDue) {
-      stats.metacriticRefreshAttempts += 1;
-      const refreshedMetacritic = await fetchMetacriticPayload({
-        title: stringOrFallback(mergedPayload['title'], title),
-        releaseYear: integerOrNull(mergedPayload['releaseYear']),
-        platform: stringOrNull(mergedPayload['platform']) ?? platformName,
+    if (reviewDue) {
+      stats.reviewRefreshAttempts += 1;
+      const reviewRefreshQuery = resolveReviewRefreshQuery(
+        mergedPayload,
+        title,
+        platformName,
         platformIgdbId
-      });
+      );
+      const refreshedReview = await fetchReviewPayload(reviewRefreshQuery);
 
-      if (refreshedMetacritic) {
-        stats.metacriticRefreshSuccesses += 1;
-        mergedPayload = mergeMetacriticRefreshPayload(mergedPayload, {
-          metacriticScore: refreshedMetacritic.metacriticScore,
-          metacriticUrl: refreshedMetacritic.metacriticUrl
-        });
+      if (refreshedReview) {
+        stats.reviewRefreshSuccesses += 1;
+        mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview);
       }
       // Advance cadence on attempt (not just success) to avoid repeatedly
       // hammering the scraper for titles that currently return no match.
       lastMetacriticRefreshAt = nowIso;
     }
 
-    if (!isJsonEqual(originalPayload, mergedPayload)) {
-      await upsertGamePayload(pool, row.igdb_game_id, platformIgdbId, mergedPayload);
+    const payloadPatch = buildPayloadPatch(originalPayload, mergedPayload);
+    if (Object.keys(payloadPatch).length > 0) {
+      await applyGamePayloadPatch(pool, row.igdb_game_id, platformIgdbId, payloadPatch);
     }
 
     const releaseEvents = isBootstrap
@@ -562,9 +572,9 @@ async function processGameRow(
     const nextCheckAt = computeNextCheckAt(
       releaseAfter,
       now,
-      hltbEligible,
+      hltbRefreshEligible,
       lastHltbRefreshAt,
-      metacriticEligible,
+      reviewRefreshEligible,
       lastMetacriticRefreshAt
     );
     await upsertWatchState(pool, {
@@ -645,6 +655,64 @@ async function fetchGameById(igdbGameId: string): Promise<Record<string, unknown
   return isRecord(payload.item) ? payload.item : null;
 }
 
+function resolveHltbRefreshQuery(
+  payload: Record<string, unknown>,
+  fallbackTitle: string,
+  fallbackPlatform: string | null
+): { title: string; releaseYear: number | null; platform: string | null } {
+  const title =
+    stringOrNull(payload['hltbMatchQueryTitle']) ??
+    stringOrFallback(payload['title'], fallbackTitle);
+  const releaseYear =
+    integerOrNull(payload['hltbMatchQueryReleaseYear']) ?? integerOrNull(payload['releaseYear']);
+  const platform =
+    stringOrNull(payload['hltbMatchQueryPlatform']) ??
+    stringOrNull(payload['platform']) ??
+    fallbackPlatform;
+
+  return { title, releaseYear, platform };
+}
+
+function resolveReviewRefreshQuery(
+  payload: Record<string, unknown>,
+  fallbackTitle: string,
+  fallbackPlatform: string | null,
+  fallbackPlatformIgdbId: number
+): {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  platformIgdbId: number;
+  reviewMatchMobygamesGameId: number | null;
+} {
+  const title =
+    stringOrNull(payload['reviewMatchQueryTitle']) ??
+    stringOrFallback(payload['title'], fallbackTitle);
+  const releaseYear =
+    integerOrNull(payload['reviewMatchQueryReleaseYear']) ?? integerOrNull(payload['releaseYear']);
+  const platform =
+    stringOrNull(payload['reviewMatchQueryPlatform']) ??
+    stringOrNull(payload['platform']) ??
+    fallbackPlatform;
+  const rawPlatformIgdbId = integerOrNull(payload['reviewMatchPlatformIgdbId']);
+  const platformIgdbId =
+    typeof rawPlatformIgdbId === 'number' && rawPlatformIgdbId > 0
+      ? rawPlatformIgdbId
+      : fallbackPlatformIgdbId;
+  const reviewMatchMobygamesGameId = integerOrNull(payload['reviewMatchMobygamesGameId']);
+
+  return {
+    title,
+    releaseYear,
+    platform,
+    platformIgdbId,
+    reviewMatchMobygamesGameId:
+      typeof reviewMatchMobygamesGameId === 'number' && reviewMatchMobygamesGameId > 0
+        ? reviewMatchMobygamesGameId
+        : null
+  };
+}
+
 interface HltbApiResponse {
   item?: {
     hltbMainHours?: unknown;
@@ -659,6 +727,29 @@ interface MetacriticApiResponse {
     metacriticUrl?: unknown;
   } | null;
 }
+
+interface MobyGamesApiResponse {
+  games?: Array<{
+    game_id?: unknown;
+    moby_url?: unknown;
+    critic_score?: unknown;
+    moby_score?: unknown;
+  }> | null;
+}
+
+type RefreshedReviewPayload =
+  | {
+      source: 'metacritic';
+      metacriticScore: number | null;
+      metacriticUrl: string | null;
+    }
+  | {
+      source: 'mobygames';
+      mobygamesGameId: number | null;
+      mobyScore: number | null;
+      reviewScore: number | null;
+      reviewUrl: string | null;
+    };
 
 async function fetchHltbPayload(params: {
   title: string;
@@ -704,6 +795,102 @@ async function fetchMetacriticPayload(params: {
 
   const payload = (await response.json()) as MetacriticApiResponse;
   return payload.item ?? null;
+}
+
+async function fetchReviewPayload(params: {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  platformIgdbId: number;
+  reviewMatchMobygamesGameId: number | null;
+}): Promise<RefreshedReviewPayload | null> {
+  if (params.reviewMatchMobygamesGameId !== null) {
+    const mobygames = await fetchMobygamesPayload({
+      title: params.title,
+      reviewMatchMobygamesGameId: params.reviewMatchMobygamesGameId
+    });
+    if (!mobygames) {
+      return null;
+    }
+
+    return {
+      source: 'mobygames',
+      mobygamesGameId: mobygames.mobygamesGameId,
+      mobyScore: mobygames.mobyScore,
+      reviewScore: mobygames.reviewScore,
+      reviewUrl: mobygames.reviewUrl
+    };
+  }
+
+  const metacritic = await fetchMetacriticPayload({
+    title: params.title,
+    releaseYear: params.releaseYear,
+    platform: params.platform,
+    platformIgdbId: params.platformIgdbId
+  });
+  if (!metacritic) {
+    return null;
+  }
+
+  return {
+    source: 'metacritic',
+    metacriticScore: finiteNumberOrNull(metacritic.metacriticScore),
+    metacriticUrl: stringOrNull(metacritic.metacriticUrl)
+  };
+}
+
+async function fetchMobygamesPayload(params: {
+  title: string;
+  reviewMatchMobygamesGameId: number;
+}): Promise<{
+  mobygamesGameId: number | null;
+  mobyScore: number | null;
+  reviewScore: number | null;
+  reviewUrl: string | null;
+} | null> {
+  if (params.title.trim().length < 2) {
+    return null;
+  }
+
+  const response = await fetchMetadataPathFromWorker('/v1/mobygames/search', {
+    q: params.title,
+    id: params.reviewMatchMobygamesGameId,
+    limit: 5,
+    format: 'normal',
+    include: 'game_id,moby_url,moby_score,critic_score'
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as MobyGamesApiResponse;
+  const games = Array.isArray(payload.games) ? payload.games : [];
+  if (games.length === 0) {
+    return null;
+  }
+  const matched = games.find(
+    (entry) => integerOrNull(entry.game_id) === params.reviewMatchMobygamesGameId
+  );
+  if (!matched) {
+    // Explicit override id was not returned by provider; treat this as no match
+    // to avoid persisting data from an unrelated fallback result.
+    return null;
+  }
+
+  const criticScore = normalizeReviewScore(finiteNumberFromNumberOrString(matched.critic_score));
+  const mobyScore = normalizeRawMobyScore(finiteNumberFromNumberOrString(matched.moby_score));
+  const reviewScore =
+    criticScore ??
+    normalizeReviewScore(
+      mobyScore !== null && mobyScore > 0 && mobyScore <= 10 ? mobyScore * 10 : mobyScore
+    );
+
+  return {
+    mobygamesGameId: integerOrNull(matched.game_id),
+    mobyScore,
+    reviewScore,
+    reviewUrl: stringOrNull(matched.moby_url)
+  };
 }
 
 function mergePayloadForRefresh(
@@ -763,11 +950,58 @@ function mergeMetacriticRefreshPayload(
   return nextPayload;
 }
 
-async function upsertGamePayload(
+function mergeMobygamesRefreshPayload(
+  existing: Record<string, unknown>,
+  refreshed: {
+    mobygamesGameId: number | null;
+    mobyScore: number | null;
+    reviewScore: number | null;
+    reviewUrl: string | null;
+  }
+): Record<string, unknown> {
+  const nextPayload: Record<string, unknown> = {
+    ...existing,
+    mobygamesGameId: refreshed.mobygamesGameId,
+    mobyScore: refreshed.mobyScore
+  };
+
+  const existingReviewSource = stringOrNull(existing['reviewSource']);
+  const shouldOverwriteReview =
+    existingReviewSource === null || existingReviewSource === 'mobygames';
+
+  if (shouldOverwriteReview) {
+    nextPayload['reviewScore'] = refreshed.reviewScore;
+    nextPayload['reviewUrl'] = refreshed.reviewUrl;
+    nextPayload['reviewSource'] = 'mobygames';
+  }
+
+  return nextPayload;
+}
+
+function mergeReviewRefreshPayload(
+  existing: Record<string, unknown>,
+  refreshed: RefreshedReviewPayload
+): Record<string, unknown> {
+  if (refreshed.source === 'mobygames') {
+    return mergeMobygamesRefreshPayload(existing, {
+      mobygamesGameId: refreshed.mobygamesGameId,
+      mobyScore: refreshed.mobyScore,
+      reviewScore: refreshed.reviewScore,
+      reviewUrl: refreshed.reviewUrl
+    });
+  }
+
+  return mergeMetacriticRefreshPayload(existing, {
+    metacriticScore: refreshed.metacriticScore,
+    metacriticUrl: refreshed.metacriticUrl
+  });
+}
+
+async function applyGamePayloadPatch(
   pool: Pool,
   igdbGameId: string,
   platformIgdbId: number,
-  payload: Record<string, unknown>
+  payloadPatch: Record<string, unknown>
 ): Promise<void> {
   // Intentionally use a dedicated transaction so game payload and sync event
   // are committed atomically. Concurrency is still serialized by withGameLock:
@@ -776,21 +1010,31 @@ async function upsertGamePayload(
 
   try {
     await client.query('BEGIN');
-    await client.query(
+    const updateResult = await client.query<{ payload: unknown }>(
       `
-      INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
-      VALUES ($1, $2, $3::jsonb, NOW())
-      ON CONFLICT (igdb_game_id, platform_igdb_id)
-      DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+      UPDATE games
+      SET payload = games.payload || $3::jsonb, updated_at = NOW()
+      WHERE igdb_game_id = $1
+        AND platform_igdb_id = $2
+        AND games.payload IS DISTINCT FROM (games.payload || $3::jsonb)
+      RETURNING payload
       `,
-      [igdbGameId, platformIgdbId, JSON.stringify(payload)]
+      [igdbGameId, platformIgdbId, JSON.stringify(payloadPatch)]
     );
+    const updatedPayload =
+      updateResult.rows[0]?.payload && typeof updateResult.rows[0].payload === 'object'
+        ? (updateResult.rows[0].payload as Record<string, unknown>)
+        : null;
+    if (!updatedPayload) {
+      await client.query('COMMIT');
+      return;
+    }
     await appendSyncEvent(
       client,
       'game',
       `${igdbGameId}::${String(platformIgdbId)}`,
       'upsert',
-      payload
+      updatedPayload
     );
     await client.query('COMMIT');
   } catch (error) {
@@ -1276,21 +1520,12 @@ function hasHltbValues(payload: Record<string, unknown>): boolean {
   return hasMainHours || hasMainExtraHours || hasCompletionistHours;
 }
 
-function isMetacriticRefreshDue(
-  lastMetacriticRefreshAt: string | null,
-  payload: Record<string, unknown>,
-  now: Date
-): boolean {
-  const hasMetacritic = hasMetacriticValues(payload);
-  if (!hasMetacritic) {
+function isReviewRefreshDue(lastReviewRefreshAt: string | null, now: Date): boolean {
+  if (!lastReviewRefreshAt) {
     return true;
   }
 
-  if (!lastMetacriticRefreshAt) {
-    return true;
-  }
-
-  const refreshedAtMs = Date.parse(lastMetacriticRefreshAt);
+  const refreshedAtMs = Date.parse(lastReviewRefreshAt);
   if (!Number.isFinite(refreshedAtMs)) {
     return true;
   }
@@ -1633,6 +1868,33 @@ function finiteNumberOrNull(value: unknown): number | null {
   return value;
 }
 
+function finiteNumberFromNumberOrString(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeReviewScore(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value) || value < 0 || value > 100) {
+    return null;
+  }
+  return Math.round(value * 10) / 10;
+}
+
+function normalizeRawMobyScore(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value) || value <= 0 || value > 10) {
+    return null;
+  }
+  return Math.round(value * 10) / 10;
+}
+
 function arrayOfStringsOrEmpty(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -1647,8 +1909,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isJsonEqual(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+function buildPayloadPatch(
+  current: Record<string, unknown>,
+  next: Record<string, unknown>
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const [key, nextValue] of Object.entries(next)) {
+    const currentValue = current[key];
+    if (!isDeepStrictEqual(currentValue, nextValue)) {
+      patch[key] = nextValue;
+    }
+  }
+  return patch;
 }
 
 function createMonitorRunStats(): MonitorRunStats {
@@ -1663,8 +1935,8 @@ function createMonitorRunStats(): MonitorRunStats {
     igdbRefreshSuccesses: 0,
     hltbRefreshAttempts: 0,
     hltbRefreshSuccesses: 0,
-    metacriticRefreshAttempts: 0,
-    metacriticRefreshSuccesses: 0,
+    reviewRefreshAttempts: 0,
+    reviewRefreshSuccesses: 0,
     eventsConsidered: 0,
     eventsDisabled: 0,
     eventsReleaseDayAlreadyNotified: 0,
@@ -1876,12 +2148,17 @@ export const releaseMonitorInternals = {
   isWithinPastYears,
   isHltbRefreshDue,
   hasHltbValues,
-  isMetacriticRefreshDue,
+  isReviewRefreshDue,
   hasMetacriticValues,
+  isProviderMatchLocked,
   finiteNumberOrNull,
   numberOrNull,
   normalizeDateString,
+  resolveHltbRefreshQuery,
+  resolveReviewRefreshQuery,
+  mergeReviewRefreshPayload,
   mergeMetacriticRefreshPayload,
+  mergeMobygamesRefreshPayload,
   readNotificationPreferences,
   reserveNotificationLog,
   finalizeNotificationLog,

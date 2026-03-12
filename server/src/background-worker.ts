@@ -13,6 +13,8 @@ import { processQueuedManualsCatalogRefresh } from './manuals.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
 import { processQueuedMobyGamesCacheRevalidation } from './mobygames-cache.js';
 import { processQueuedPspricesPriceRevalidation } from './psprices-prices.js';
+import { isProviderMatchLocked } from './provider-match-lock.js';
+import { resolvePreferredPsPricesUrl } from './psprices-url.js';
 import { OpenAiEmbeddingClient } from './recommendations/embedding-client.js';
 import { DiscoveryEnrichmentService } from './recommendations/discovery-enrichment-service.js';
 import { DiscoveryIgdbClient } from './recommendations/discovery-igdb-client.js';
@@ -165,9 +167,21 @@ function resolvePriceFetchedAtMs(payload: Record<string, unknown>): number | nul
   return null;
 }
 
+function resolvePspricesRevalidationTitle(payload: Record<string, unknown>): string | null {
+  return (
+    normalizeNonEmptyString(payload['psPricesMatchQueryTitle']) ??
+    normalizeNonEmptyString(payload['title'])
+  );
+}
+
+const resolvePspricesRevalidationUrl = resolvePreferredPsPricesUrl;
+
 export const __backgroundWorkerTestables = {
   hasUnifiedPriceValue,
-  resolvePriceFetchedAtMs
+  resolvePriceFetchedAtMs,
+  resolvePspricesRevalidationTitle,
+  resolvePspricesRevalidationUrl,
+  isProviderMatchLocked
 };
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
@@ -693,12 +707,16 @@ async function main(): Promise<void> {
       if (!PSPRICES_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
         continue;
       }
+      if (isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
+        continue;
+      }
 
-      const title = normalizeNonEmptyString(payload['title']);
+      const title = resolvePspricesRevalidationTitle(payload);
       if (!title) {
         stats.skippedMissingData += 1;
         continue;
       }
+      const psPricesUrl = resolvePspricesRevalidationUrl(payload);
 
       const dedupeKey = `${params.dedupePrefix}:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`;
       const enqueueResult = await jobs.enqueue({
@@ -708,7 +726,8 @@ async function main(): Promise<void> {
           cacheKey: `${params.dedupePrefix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
           igdbGameId: row.igdb_game_id,
           platformIgdbId: row.platform_igdb_id,
-          title
+          title,
+          psPricesUrl
         },
         priority: 120,
         maxAttempts: 3
@@ -992,7 +1011,8 @@ async function main(): Promise<void> {
             typeof job.payload['platformIgdbId'] === 'number'
               ? job.payload['platformIgdbId']
               : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
-          title: stringOrEmpty(job.payload['title'])
+          title: stringOrEmpty(job.payload['title']),
+          psPricesUrl: stringOrEmpty(job.payload['psPricesUrl'])
         });
         return { revalidated: true };
       }

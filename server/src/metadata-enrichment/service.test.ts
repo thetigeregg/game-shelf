@@ -8,7 +8,7 @@ class RepositoryMock {
   public updates: Array<{
     igdbGameId: string;
     platformIgdbId: number;
-    payload: Record<string, unknown>;
+    payloadPatch: Record<string, unknown>;
   }> = [];
   public lockAcquired = true;
 
@@ -30,7 +30,7 @@ class RepositoryMock {
   updateGamePayload(params: {
     igdbGameId: string;
     platformIgdbId: number;
-    payload: Record<string, unknown>;
+    payloadPatch: Record<string, unknown>;
   }): Promise<void> {
     this.updates.push(params);
     const row = this.rows.find(
@@ -38,7 +38,7 @@ class RepositoryMock {
         entry.igdbGameId === params.igdbGameId && entry.platformIgdbId === params.platformIgdbId
     );
     if (row) {
-      row.payload = params.payload;
+      row.payload = { ...row.payload, ...params.payloadPatch };
     }
     return Promise.resolve();
   }
@@ -100,15 +100,15 @@ void test('metadata enrichment updates all platform rows for same game id', asyn
   assert.equal(summary.updatedRows, 2);
   assert.equal(summary.uniqueGamesRequested, 1);
   assert.equal(repository.updates.length, 2);
-  assert.deepEqual(repository.updates[0]?.payload['themes'], ['Fantasy']);
-  assert.deepEqual(repository.updates[1]?.payload['keywords'], ['Plumber']);
-  assert.equal(typeof repository.updates[0]?.payload['taxonomyEnrichedAt'], 'string');
-  assert.equal(repository.updates[0]?.payload['taxonomyEnrichmentStatus'], 'success');
-  assert.equal(typeof repository.updates[0]?.payload['mediaEnrichedAt'], 'string');
-  assert.equal(repository.updates[0]?.payload['mediaEnrichmentStatus'], 'success');
-  assert.equal(typeof repository.updates[0]?.payload['steamEnrichedAt'], 'string');
-  assert.equal(repository.updates[0]?.payload['steamEnrichmentStatus'], 'success');
-  assert.equal(repository.updates[0]?.payload['steamAppId'], 12345);
+  assert.deepEqual(repository.updates[0]?.payloadPatch['themes'], ['Fantasy']);
+  assert.deepEqual(repository.updates[1]?.payloadPatch['keywords'], ['Plumber']);
+  assert.equal(typeof repository.updates[0]?.payloadPatch['taxonomyEnrichedAt'], 'string');
+  assert.equal(repository.updates[0]?.payloadPatch['taxonomyEnrichmentStatus'], 'success');
+  assert.equal(typeof repository.updates[0]?.payloadPatch['mediaEnrichedAt'], 'string');
+  assert.equal(repository.updates[0]?.payloadPatch['mediaEnrichmentStatus'], 'success');
+  assert.equal(typeof repository.updates[0]?.payloadPatch['steamEnrichedAt'], 'string');
+  assert.equal(repository.updates[0]?.payloadPatch['steamEnrichmentStatus'], 'success');
+  assert.equal(repository.updates[0]?.payloadPatch['steamAppId'], 12345);
 });
 
 void test('metadata enrichment skips when advisory lock is not acquired', async () => {
@@ -181,8 +181,8 @@ void test('metadata enrichment tolerates failed batches and still updates succes
   const gameOne = repository.updates.find((entry) => entry.igdbGameId === '1');
   const gameTwo = repository.updates.find((entry) => entry.igdbGameId === '2');
   assert.ok(gameOne);
-  assert.deepEqual(gameOne.payload['themes'], ['T1']);
-  assert.equal(gameOne.payload['taxonomyEnrichmentStatus'], 'success');
+  assert.deepEqual(gameOne.payloadPatch['themes'], ['T1']);
+  assert.equal(gameOne.payloadPatch['taxonomyEnrichmentStatus'], 'success');
   assert.equal(gameTwo, undefined);
 });
 
@@ -238,12 +238,12 @@ void test('metadata enrichment marks no_data when IGDB returns no row for a fetc
   assert.ok(summary);
   assert.equal(summary.updatedRows, 1);
   assert.equal(repository.updates.length, 1);
-  assert.equal(repository.updates[0]?.payload['taxonomyEnrichmentStatus'], 'no_data');
-  assert.equal(repository.updates[0]?.payload['mediaEnrichmentStatus'], 'no_data');
-  assert.equal(repository.updates[0]?.payload['steamEnrichmentStatus'], 'no_data');
-  assert.equal(typeof repository.updates[0]?.payload['taxonomyEnrichedAt'], 'string');
-  assert.equal(typeof repository.updates[0]?.payload['mediaEnrichedAt'], 'string');
-  assert.equal(typeof repository.updates[0]?.payload['steamEnrichedAt'], 'string');
+  assert.equal(repository.updates[0]?.payloadPatch['taxonomyEnrichmentStatus'], 'no_data');
+  assert.equal(repository.updates[0]?.payloadPatch['mediaEnrichmentStatus'], 'no_data');
+  assert.equal(repository.updates[0]?.payloadPatch['steamEnrichmentStatus'], 'no_data');
+  assert.equal(typeof repository.updates[0]?.payloadPatch['taxonomyEnrichedAt'], 'string');
+  assert.equal(typeof repository.updates[0]?.payloadPatch['mediaEnrichedAt'], 'string');
+  assert.equal(typeof repository.updates[0]?.payloadPatch['steamEnrichedAt'], 'string');
 });
 
 void test('metadata enrichment backfills sync marker without IGDB fetch when metadata already exists', async () => {
@@ -279,8 +279,55 @@ void test('metadata enrichment backfills sync marker without IGDB fetch when met
   assert.equal(repository.updates.length, 1);
   const updated = repository.updates[0];
   assert.ok(updated);
-  assert.equal(typeof updated.payload['metadataSyncEnqueuedAt'], 'string');
-  assert.deepEqual(updated.payload['themes'], ['Action']);
+  assert.equal(typeof updated.payloadPatch['metadataSyncEnqueuedAt'], 'string');
+  assert.deepEqual(repository.rows[0]?.payload['themes'], ['Action']);
+});
+
+void test('metadata enrichment patch updates preserve manual override lock fields', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '40',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Locked Row',
+        listType: 'wishlist',
+        hltbMatchLocked: true,
+        reviewMatchLocked: true,
+        psPricesMatchLocked: true
+      }
+    }
+  ];
+  const igdbClient = new IgdbClientMock(
+    new Map([
+      [
+        '40',
+        {
+          themes: ['Arcade'],
+          themeIds: [7],
+          keywords: ['Retro'],
+          keywordIds: [8],
+          screenshots: [],
+          videos: [],
+          steamAppId: 4242
+        }
+      ]
+    ])
+  );
+
+  const service = new MetadataEnrichmentService(repository as never, igdbClient as never, {
+    enabled: true,
+    batchSize: 200,
+    maxGamesPerRun: 5000,
+    startupDelayMs: 0
+  });
+
+  const summary = await service.runOnce();
+  assert.ok(summary);
+  assert.equal(summary.updatedRows, 1);
+  assert.equal(repository.rows[0]?.payload['hltbMatchLocked'], true);
+  assert.equal(repository.rows[0]?.payload['reviewMatchLocked'], true);
+  assert.equal(repository.rows[0]?.payload['psPricesMatchLocked'], true);
 });
 
 void test('metadata enrichment skips row when enrichment and sync markers are already present', async () => {

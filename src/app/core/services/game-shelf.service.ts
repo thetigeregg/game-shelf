@@ -500,11 +500,28 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
+    const lookupTitle =
+      typeof existing.hltbMatchQueryTitle === 'string' &&
+      existing.hltbMatchQueryTitle.trim().length > 0
+        ? existing.hltbMatchQueryTitle.trim()
+        : existing.title;
+    const lookupReleaseYear =
+      Number.isInteger(existing.hltbMatchQueryReleaseYear) &&
+      (existing.hltbMatchQueryReleaseYear as number) > 0
+        ? (existing.hltbMatchQueryReleaseYear as number)
+        : existing.releaseYear;
+    const lookupPlatform =
+      typeof existing.hltbMatchQueryPlatform === 'string' &&
+      existing.hltbMatchQueryPlatform.trim().length > 0
+        ? existing.hltbMatchQueryPlatform.trim()
+        : existing.platform;
+
     return this.refreshGameCompletionTimesWithLookup(
       existing,
-      existing.title,
-      existing.releaseYear,
-      existing.platform
+      lookupTitle,
+      lookupReleaseYear,
+      lookupPlatform,
+      existing.hltbMatchLocked ?? null
     );
   }
 
@@ -539,7 +556,7 @@ export class GameShelfService {
         ? query.platform.trim()
         : existing.platform;
 
-    return this.refreshGameCompletionTimesWithLookup(existing, title, releaseYear, platform);
+    return this.refreshGameCompletionTimesWithLookup(existing, title, releaseYear, platform, true);
   }
 
   async refreshGameMetacriticScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -615,6 +632,8 @@ export class GameShelfService {
         priceDiscountPercent: effectivePricing?.discountPercent ?? null,
         priceIsFree: effectivePricing?.isFree ?? null,
         priceUrl: effectivePricing?.url ?? null,
+        psPricesMatchLocked:
+          lookupTitle !== undefined ? true : (existing.psPricesMatchLocked ?? null),
         screenshots: existing.screenshots ?? [],
         videos: existing.videos ?? [],
         publishers: existing.publishers ?? [],
@@ -678,13 +697,37 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
+    const lookupTitle =
+      typeof existing.reviewMatchQueryTitle === 'string' &&
+      existing.reviewMatchQueryTitle.trim().length > 0
+        ? existing.reviewMatchQueryTitle.trim()
+        : existing.title;
+    const lookupReleaseYear =
+      Number.isInteger(existing.reviewMatchQueryReleaseYear) &&
+      (existing.reviewMatchQueryReleaseYear as number) > 0
+        ? (existing.reviewMatchQueryReleaseYear as number)
+        : existing.releaseYear;
+    const lookupPlatform =
+      typeof existing.reviewMatchQueryPlatform === 'string' &&
+      existing.reviewMatchQueryPlatform.trim().length > 0
+        ? existing.reviewMatchQueryPlatform.trim()
+        : existing.platform;
+    const lookupPlatformIgdbId =
+      Number.isInteger(existing.reviewMatchPlatformIgdbId) &&
+      (existing.reviewMatchPlatformIgdbId as number) > 0
+        ? (existing.reviewMatchPlatformIgdbId as number)
+        : existing.platformIgdbId;
+    const lookupMobyGameId =
+      existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null;
+
     return this.refreshGameReviewWithLookup(
       existing,
-      existing.title,
-      existing.releaseYear,
-      existing.platform,
-      existing.platformIgdbId,
-      existing.mobygamesGameId ?? null
+      lookupTitle,
+      lookupReleaseYear,
+      lookupPlatform,
+      lookupPlatformIgdbId,
+      lookupMobyGameId,
+      existing.reviewMatchLocked ?? null
     );
   }
 
@@ -749,7 +792,7 @@ export class GameShelfService {
       Number.isInteger(query.mobygamesGameId) &&
       query.mobygamesGameId > 0
         ? query.mobygamesGameId
-        : (existing.mobygamesGameId ?? null);
+        : (existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null);
 
     return this.refreshGameReviewWithLookup(
       existing,
@@ -757,7 +800,8 @@ export class GameShelfService {
       releaseYear,
       platform,
       lookupPlatformIgdbId,
-      lookupMobyGameId
+      lookupMobyGameId,
+      true
     );
   }
 
@@ -765,7 +809,8 @@ export class GameShelfService {
     existing: GameEntry,
     title: string,
     releaseYear: number | null,
-    platform: string
+    platform: string,
+    matchLocked: boolean | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.hltb.lookup_start', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
@@ -794,6 +839,10 @@ export class GameShelfService {
         hltbMainHours: completionTimes?.hltbMainHours ?? null,
         hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,
         hltbCompletionistHours: completionTimes?.hltbCompletionistHours ?? null,
+        hltbMatchQueryTitle: title,
+        hltbMatchQueryReleaseYear: releaseYear,
+        hltbMatchQueryPlatform: platform,
+        hltbMatchLocked: matchLocked,
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
@@ -837,7 +886,8 @@ export class GameShelfService {
     releaseYear: number | null,
     platform: string,
     platformIgdbId: number | null,
-    mobygamesGameId: number | null
+    mobygamesGameId: number | null,
+    matchLocked: boolean | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.lookup_start', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
@@ -901,6 +951,12 @@ export class GameShelfService {
           scoreResult?.reviewSource === 'mobygames' ? (scoreResult.mobyScore ?? null) : null,
         mobygamesGameId:
           scoreResult?.reviewSource === 'mobygames' ? (scoreResult.mobygamesGameId ?? null) : null,
+        reviewMatchQueryTitle: title,
+        reviewMatchQueryReleaseYear: releaseYear,
+        reviewMatchQueryPlatform: platform,
+        reviewMatchPlatformIgdbId: platformIgdbId,
+        reviewMatchMobygamesGameId: mobygamesGameId,
+        reviewMatchLocked: matchLocked,
         metacriticScore:
           scoreResult?.reviewSource === 'metacritic'
             ? (scoreResult.reviewScore ?? scoreResult.metacriticScore ?? null)

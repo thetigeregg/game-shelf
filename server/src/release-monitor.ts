@@ -42,6 +42,7 @@ interface NotificationPreferences {
     changed: boolean;
     removed: boolean;
     day: boolean;
+    sale: boolean;
   };
 }
 
@@ -835,7 +836,7 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
     .trim()
     .toLowerCase();
   const enabled = enabledRaw !== 'false' && enabledRaw !== '0' && enabledRaw !== 'no';
-  const eventDefaults = { set: true, changed: true, removed: true, day: true };
+  const eventDefaults = { set: true, changed: true, removed: true, day: true, sale: true };
   const eventsRaw = valueByKey.get(RELEASE_NOTIFICATION_EVENTS_KEY);
 
   if (!eventsRaw) {
@@ -850,7 +851,8 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
         set: parsed['set'] === false ? false : true,
         changed: parsed['changed'] === false ? false : true,
         removed: parsed['removed'] === false ? false : true,
-        day: parsed['day'] === false ? false : true
+        day: parsed['day'] === false ? false : true,
+        sale: parsed['sale'] === false ? false : true
       }
     };
   } catch {

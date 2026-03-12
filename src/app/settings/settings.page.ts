@@ -386,7 +386,8 @@ export class SettingsPage {
     set: true,
     changed: true,
     removed: true,
-    day: true
+    day: true,
+    sale: true
   };
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
@@ -3421,14 +3422,16 @@ export class SettingsPage {
             set: parsed['set'] !== false,
             changed: parsed['changed'] !== false,
             removed: parsed['removed'] !== false,
-            day: parsed['day'] !== false
+            day: parsed['day'] !== false,
+            sale: parsed['sale'] !== false
           });
         } catch {
           normalizedValue = JSON.stringify({
             set: true,
             changed: true,
             removed: true,
-            day: true
+            day: true,
+            sale: true
           });
         }
 

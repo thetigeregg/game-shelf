@@ -136,6 +136,10 @@ class CoverageSyncPool {
   query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
+    if (normalized.startsWith('select coalesce(max(event_id), 0) as event_id from sync_events')) {
+      return Promise.resolve({ rows: [{ event_id: this.store.syncEvents.length }] });
+    }
+
     if (
       normalized.startsWith(
         'select event_id, entity_type, operation, payload, server_timestamp from sync_events'
@@ -352,6 +356,30 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
   const withCursorBody = parseJson(withCursor.body) as SyncPullResponseBody;
   assert.equal(withCursorBody.cursor, '2');
   assert.equal(withCursorBody.changes.length, 0);
+
+  await app.close();
+});
+
+void test('sync pull clamps cursor above latest event id', async () => {
+  const pool = new CoverageSyncPool();
+  pool.store.syncEvents.push({
+    event_id: 1,
+    entity_type: 'setting',
+    operation: 'upsert',
+    payload: { key: 'k', value: 'v' },
+    server_timestamp: '2026-01-01T00:00:00.000Z'
+  });
+  const app = await createSyncApp(pool);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '999999' }
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJson(response.body) as SyncPullResponseBody;
+  assert.equal(body.cursor, '1');
+  assert.equal(body.changes.length, 0);
 
   await app.close();
 });

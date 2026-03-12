@@ -1,8 +1,10 @@
 import type { Pool, PoolClient } from 'pg';
+import { isDeepStrictEqual } from 'node:util';
 import { config } from './config.js';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { sendFcmMulticast } from './fcm.js';
 import { fetchMetadataPathFromWorker } from './metadata.js';
+import { isProviderMatchLocked } from './provider-match-lock.js';
 
 const RELEASE_NOTIFICATIONS_ENABLED_KEY = 'game-shelf:notifications:release:enabled';
 const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events';
@@ -1877,10 +1879,6 @@ function finiteNumberOrNull(value: unknown): number | null {
   return value;
 }
 
-function isProviderMatchLocked(payload: Record<string, unknown>, key: string): boolean {
-  return payload[key] === true;
-}
-
 function finiteNumberOrStringOrNull(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -1922,10 +1920,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isJsonEqual(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
 function buildPayloadPatch(
   current: Record<string, unknown>,
   next: Record<string, unknown>
@@ -1933,7 +1927,7 @@ function buildPayloadPatch(
   const patch: Record<string, unknown> = {};
   for (const [key, nextValue] of Object.entries(next)) {
     const currentValue = current[key];
-    if (!isJsonEqual({ v: currentValue }, { v: nextValue })) {
+    if (!isDeepStrictEqual(currentValue, nextValue)) {
       patch[key] = nextValue;
     }
   }

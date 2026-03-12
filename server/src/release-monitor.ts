@@ -428,10 +428,11 @@ async function processGameRow(
 
     if (hltbEligible && hltbDue) {
       stats.hltbRefreshAttempts += 1;
+      const hltbRefreshQuery = resolveHltbRefreshQuery(mergedPayload, title, platformName);
       const refreshedHltb = await fetchHltbPayload({
-        title: stringOrFallback(mergedPayload['title'], title),
-        releaseYear: integerOrNull(mergedPayload['releaseYear']),
-        platform: stringOrNull(mergedPayload['platform']) ?? platformName
+        title: hltbRefreshQuery.title,
+        releaseYear: hltbRefreshQuery.releaseYear,
+        platform: hltbRefreshQuery.platform
       });
 
       if (refreshedHltb) {
@@ -450,11 +451,17 @@ async function processGameRow(
 
     if (metacriticEligible && metacriticDue) {
       stats.metacriticRefreshAttempts += 1;
-      const refreshedMetacritic = await fetchMetacriticPayload({
-        title: stringOrFallback(mergedPayload['title'], title),
-        releaseYear: integerOrNull(mergedPayload['releaseYear']),
-        platform: stringOrNull(mergedPayload['platform']) ?? platformName,
+      const reviewRefreshQuery = resolveReviewRefreshQuery(
+        mergedPayload,
+        title,
+        platformName,
         platformIgdbId
+      );
+      const refreshedMetacritic = await fetchMetacriticPayload({
+        title: reviewRefreshQuery.title,
+        releaseYear: reviewRefreshQuery.releaseYear,
+        platform: reviewRefreshQuery.platform,
+        platformIgdbId: reviewRefreshQuery.platformIgdbId
       });
 
       if (refreshedMetacritic) {
@@ -643,6 +650,45 @@ async function fetchGameById(igdbGameId: string): Promise<Record<string, unknown
 
   const payload = (await response.json()) as { item?: unknown };
   return isRecord(payload.item) ? payload.item : null;
+}
+
+function resolveHltbRefreshQuery(
+  payload: Record<string, unknown>,
+  fallbackTitle: string,
+  fallbackPlatform: string | null
+): { title: string; releaseYear: number | null; platform: string | null } {
+  const title =
+    stringOrNull(payload['hltbMatchQueryTitle']) ??
+    stringOrFallback(payload['title'], fallbackTitle);
+  const releaseYear =
+    integerOrNull(payload['hltbMatchQueryReleaseYear']) ?? integerOrNull(payload['releaseYear']);
+  const platform =
+    stringOrNull(payload['hltbMatchQueryPlatform']) ??
+    stringOrNull(payload['platform']) ??
+    fallbackPlatform;
+
+  return { title, releaseYear, platform };
+}
+
+function resolveReviewRefreshQuery(
+  payload: Record<string, unknown>,
+  fallbackTitle: string,
+  fallbackPlatform: string | null,
+  fallbackPlatformIgdbId: number
+): { title: string; releaseYear: number | null; platform: string | null; platformIgdbId: number } {
+  const title =
+    stringOrNull(payload['reviewMatchQueryTitle']) ??
+    stringOrFallback(payload['title'], fallbackTitle);
+  const releaseYear =
+    integerOrNull(payload['reviewMatchQueryReleaseYear']) ?? integerOrNull(payload['releaseYear']);
+  const platform =
+    stringOrNull(payload['reviewMatchQueryPlatform']) ??
+    stringOrNull(payload['platform']) ??
+    fallbackPlatform;
+  const platformIgdbId =
+    integerOrNull(payload['reviewMatchPlatformIgdbId']) ?? fallbackPlatformIgdbId;
+
+  return { title, releaseYear, platform, platformIgdbId };
 }
 
 interface HltbApiResponse {
@@ -1881,6 +1927,8 @@ export const releaseMonitorInternals = {
   finiteNumberOrNull,
   numberOrNull,
   normalizeDateString,
+  resolveHltbRefreshQuery,
+  resolveReviewRefreshQuery,
   mergeMetacriticRefreshPayload,
   readNotificationPreferences,
   reserveNotificationLog,

@@ -95,8 +95,9 @@ export async function maybeSendWishlistSaleNotification(
   }
 
   const sendMulticast = options.sendMulticast ?? sendFcmMulticast;
+  let sendResult: FcmSendResult | null = null;
   try {
-    const sendResult = await sendMulticast([...activeTokenSet], {
+    sendResult = await sendMulticast([...activeTokenSet], {
       title: event.title,
       body: event.body,
       data: {
@@ -134,7 +135,16 @@ export async function maybeSendWishlistSaleNotification(
 
     await finalizeNotificationLog(pool, event, sendResult.successCount);
   } catch (error) {
-    await releaseNotificationLogReservation(pool, event.eventKey);
+    const sentCount = sendResult?.successCount ?? 0;
+    if (sentCount <= 0) {
+      await releaseNotificationLogReservation(pool, event.eventKey);
+    } else {
+      console.error('[price-sale-notifications] post_send_persistence_failed', {
+        eventKey: event.eventKey,
+        successCount: sentCount,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
     throw error;
   }
 }

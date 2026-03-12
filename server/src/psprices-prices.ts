@@ -1069,6 +1069,7 @@ async function persistPsPricesSnapshot(
         FROM games
         WHERE igdb_game_id = $1
           AND platform_igdb_id = $2
+          AND payload IS DISTINCT FROM (payload || $3::jsonb)
         FOR UPDATE
       )
       UPDATE games AS g
@@ -1076,7 +1077,6 @@ async function persistPsPricesSnapshot(
       FROM current_row
       WHERE g.igdb_game_id = $1
         AND g.platform_igdb_id = $2
-        AND g.payload IS DISTINCT FROM (g.payload || $3::jsonb)
       RETURNING current_row.payload AS previous_payload, g.payload AS next_payload
     `,
     [params.igdbGameId, params.platformIgdbId, JSON.stringify(patchPayload)]

@@ -14,6 +14,8 @@ class SaleNotificationPoolMock {
   private readonly logs = new Map<string, NotificationLogRow>();
   invalidationBatches: string[][] = [];
   tokenSelectCount = 0;
+  throwOnFinalizeUpdate = false;
+  throwOnTokenInvalidation = false;
 
   setPreferences(enabled: boolean, saleEnabled: boolean): void {
     this.settingRows.length = 0;
@@ -72,6 +74,9 @@ class SaleNotificationPoolMock {
     }
 
     if (normalizedSql.startsWith('update release_notification_log set payload = $1::jsonb')) {
+      if (this.throwOnFinalizeUpdate) {
+        throw new Error('finalize_failed');
+      }
       const eventKey = typeof params[2] === 'string' ? params[2] : '';
       const sentCount = typeof params[1] === 'number' ? params[1] : 0;
       const existing = this.logs.get(eventKey);
@@ -97,6 +102,9 @@ class SaleNotificationPoolMock {
     }
 
     if (normalizedSql.startsWith('update fcm_tokens set is_active = false, updated_at = now()')) {
+      if (this.throwOnTokenInvalidation) {
+        throw new Error('token_invalidation_failed');
+      }
       const tokens = Array.isArray(params[0])
         ? params[0].filter((token): token is string => typeof token === 'string')
         : [];
@@ -581,4 +589,47 @@ void test('warns when active token load reaches cap', async () => {
     ),
     true
   );
+});
+
+void test('keeps reservation when persistence fails after successful send', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+  pool.throwOnFinalizeUpdate = true;
+
+  await assert.rejects(
+    maybeSendWishlistSaleNotification(
+      pool as unknown as Pool,
+      {
+        igdbGameId: '602',
+        platformIgdbId: 167,
+        previousPayload: {
+          listType: 'wishlist',
+          title: 'Finalize Failure Test',
+          priceAmount: 59.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 0,
+          priceIsFree: false
+        },
+        nextPayload: {
+          listType: 'wishlist',
+          title: 'Finalize Failure Test',
+          priceAmount: 39.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 33,
+          priceIsFree: false,
+          priceCurrency: 'USD',
+          priceFetchedAt: '2026-03-12T13:20:00.000Z'
+        }
+      },
+      {
+        sendMulticast: () =>
+          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] })
+      }
+    ),
+    /finalize_failed/
+  );
+
+  assert.equal(pool.getLogCount(), 1);
+  assert.equal(pool.hasPendingZeroSentLog(), true);
 });

@@ -192,3 +192,77 @@ void test('pricing freshness returns null for invalid/blank unified priceFetched
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(blankPayload), null);
   assert.equal(__backgroundWorkerTestables.resolvePriceFetchedAtMs(invalidPayload), null);
 });
+
+void test('PSPrices revalidation title prefers saved match query title over game title', () => {
+  const withOverride = {
+    title: 'Pokemon Violet',
+    psPricesMatchQueryTitle: 'Pokemon Scarlet'
+  } satisfies Record<string, unknown>;
+  const withoutOverride = {
+    title: 'Pokemon Violet'
+  } satisfies Record<string, unknown>;
+  const blankValues = {
+    title: '   ',
+    psPricesMatchQueryTitle: ''
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.resolvePspricesRevalidationTitle(withOverride),
+    'Pokemon Scarlet'
+  );
+  assert.equal(
+    __backgroundWorkerTestables.resolvePspricesRevalidationTitle(withoutOverride),
+    'Pokemon Violet'
+  );
+  assert.equal(__backgroundWorkerTestables.resolvePspricesRevalidationTitle(blankValues), null);
+});
+
+void test('PSPrices revalidation URL prefers psPricesUrl and falls back to psprices priceUrl', () => {
+  const explicitUrl = {
+    psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+    priceSource: 'psprices',
+    priceUrl: 'https://psprices.com/region-ch/game/9999/ignored'
+  } satisfies Record<string, unknown>;
+  const sourceFallback = {
+    priceSource: 'psprices',
+    priceUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+  } satisfies Record<string, unknown>;
+  const nonPsprices = {
+    priceSource: 'steam_store',
+    priceUrl: 'https://store.steampowered.com/app/730'
+  } satisfies Record<string, unknown>;
+
+  assert.equal(
+    __backgroundWorkerTestables.resolvePspricesRevalidationUrl(explicitUrl),
+    'https://psprices.com/region-ch/game/1234/monster-train-2'
+  );
+  assert.equal(
+    __backgroundWorkerTestables.resolvePspricesRevalidationUrl(sourceFallback),
+    'https://psprices.com/region-ch/game/1234/monster-train-2'
+  );
+  assert.equal(__backgroundWorkerTestables.resolvePspricesRevalidationUrl(nonPsprices), null);
+});
+
+void test('provider match lock helper only treats explicit true as locked', () => {
+  assert.equal(
+    __backgroundWorkerTestables.isProviderMatchLocked(
+      { psPricesMatchLocked: true } satisfies Record<string, unknown>,
+      'psPricesMatchLocked'
+    ),
+    true
+  );
+  assert.equal(
+    __backgroundWorkerTestables.isProviderMatchLocked(
+      { psPricesMatchLocked: false } satisfies Record<string, unknown>,
+      'psPricesMatchLocked'
+    ),
+    false
+  );
+  assert.equal(
+    __backgroundWorkerTestables.isProviderMatchLocked(
+      {} satisfies Record<string, unknown>,
+      'psPricesMatchLocked'
+    ),
+    false
+  );
+});

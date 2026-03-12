@@ -272,7 +272,7 @@ void test('release timestamp resolution handles day/month/quarter/year', () => {
   );
 });
 
-void test('hltb and metacritic refresh due checks respect existing values and refresh age', () => {
+void test('hltb and review refresh due checks respect refresh age', () => {
   const now = new Date('2026-03-06T10:00:00.000Z');
   const payloadWithHltb = { hltbMainHours: 12 };
   const payloadWithMetacritic = { metacriticScore: 85 };
@@ -293,19 +293,17 @@ void test('hltb and metacritic refresh due checks respect existing values and re
     releaseMonitorInternals.isHltbRefreshDue('2026-03-06T09:59:00.000Z', { hltbMainHours: 0 }, now),
     false
   );
+  assert.equal(releaseMonitorInternals.isReviewRefreshDue(null, now), true);
+  assert.equal(releaseMonitorInternals.isReviewRefreshDue('invalid-date', now), true);
+  assert.equal(releaseMonitorInternals.isReviewRefreshDue('2026-03-06T09:59:00.000Z', now), false);
   assert.equal(
-    releaseMonitorInternals.isMetacriticRefreshDue(null, payloadWithMetacritic, now),
+    releaseMonitorInternals.isProviderMatchLocked({ hltbMatchLocked: true }, 'hltbMatchLocked'),
     true
   );
   assert.equal(
-    releaseMonitorInternals.isMetacriticRefreshDue('invalid-date', payloadWithMetacritic, now),
-    true
-  );
-  assert.equal(
-    releaseMonitorInternals.isMetacriticRefreshDue(
-      '2026-03-06T09:59:00.000Z',
-      { metacriticScore: 0 },
-      now
+    releaseMonitorInternals.isProviderMatchLocked(
+      { reviewMatchLocked: false },
+      'reviewMatchLocked'
     ),
     false
   );
@@ -528,6 +526,30 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
   assert.equal(refreshSoonest, now.getTime());
 });
 
+void test('computeNextCheckAt ignores refresh cadence when provider refresh is ineligible', () => {
+  const now = new Date('2026-03-06T10:00:00.000Z');
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  const nextCheckWithoutRefresh = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'day',
+        marker: '2026-12-01',
+        date: '2026-12-01',
+        year: 2026,
+        display: '2026-12-01'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+
+  assert.equal(Math.round((nextCheckWithoutRefresh - now.getTime()) / oneDayMs), 365);
+});
+
 void test('normalizers handle invalid marker and precision inputs', () => {
   assert.deepEqual(releaseMonitorInternals.normalizeReleaseInfoFromPrecision('month', '2026-13'), {
     precision: 'unknown',
@@ -584,6 +606,48 @@ void test('metacritic merge does not overwrite non-metacritic review source fiel
   assert.equal(merged['reviewUrl'], 'https://opencritic.example/game');
 });
 
+void test('refresh query resolvers prefer persisted override fields', () => {
+  const hltbResolved = releaseMonitorInternals.resolveHltbRefreshQuery(
+    {
+      title: 'Fallback Title',
+      releaseYear: 2001,
+      platform: 'Fallback Platform',
+      hltbMatchQueryTitle: 'Custom HLTB Title',
+      hltbMatchQueryReleaseYear: 2007,
+      hltbMatchQueryPlatform: 'Wii'
+    },
+    'Default Title',
+    'Default Platform'
+  );
+  assert.deepEqual(hltbResolved, {
+    title: 'Custom HLTB Title',
+    releaseYear: 2007,
+    platform: 'Wii'
+  });
+
+  const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
+    {
+      title: 'Fallback Title',
+      releaseYear: 2001,
+      platform: 'Fallback Platform',
+      reviewMatchQueryTitle: 'Custom Review Title',
+      reviewMatchQueryReleaseYear: 2010,
+      reviewMatchQueryPlatform: 'PlayStation 5',
+      reviewMatchPlatformIgdbId: 167
+    },
+    'Default Title',
+    'Default Platform',
+    6
+  );
+  assert.deepEqual(reviewResolved, {
+    title: 'Custom Review Title',
+    releaseYear: 2010,
+    platform: 'PlayStation 5',
+    platformIgdbId: 167,
+    reviewMatchMobygamesGameId: null
+  });
+});
+
 void test('metacritic merge preserves zero score when review source is metacritic', () => {
   const merged = releaseMonitorInternals.mergeMetacriticRefreshPayload(
     {
@@ -604,6 +668,78 @@ void test('metacritic merge preserves zero score when review source is metacriti
   assert.equal(merged['reviewSource'], 'metacritic');
   assert.equal(merged['reviewScore'], 0);
   assert.equal(merged['reviewUrl'], 'https://metacritic.example/new');
+});
+
+void test('review refresh query resolver carries persisted mobygames override id', () => {
+  const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
+    {
+      title: 'Fallback Title',
+      reviewMatchMobygamesGameId: 12345
+    },
+    'Default Title',
+    'Default Platform',
+    6
+  );
+  assert.equal(reviewResolved.reviewMatchMobygamesGameId, 12345);
+});
+
+void test('review refresh query resolver falls back to platform id when persisted override is non-positive', () => {
+  const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
+    {
+      title: 'Fallback Title',
+      reviewMatchPlatformIgdbId: 0
+    },
+    'Default Title',
+    'Default Platform',
+    6
+  );
+  assert.equal(reviewResolved.platformIgdbId, 6);
+});
+
+void test('unified review merge applies mobygames payload and respects existing non-mobygames source', () => {
+  const merged = releaseMonitorInternals.mergeReviewRefreshPayload(
+    {
+      reviewSource: 'opencritic',
+      reviewScore: 91,
+      reviewUrl: 'https://opencritic.example/game'
+    },
+    {
+      source: 'mobygames',
+      mobygamesGameId: 9876,
+      mobyScore: 8.4,
+      reviewScore: 84,
+      reviewUrl: 'https://www.mobygames.com/game/9876'
+    }
+  );
+
+  assert.equal(merged['mobygamesGameId'], 9876);
+  assert.equal(merged['mobyScore'], 8.4);
+  assert.equal(merged['reviewSource'], 'opencritic');
+  assert.equal(merged['reviewScore'], 91);
+  assert.equal(merged['reviewUrl'], 'https://opencritic.example/game');
+});
+
+void test('unified review merge sets review fields for mobygames source when allowed', () => {
+  const merged = releaseMonitorInternals.mergeReviewRefreshPayload(
+    {
+      reviewSource: 'mobygames',
+      reviewScore: 70,
+      reviewUrl: 'https://www.mobygames.com/game/old'
+    },
+    {
+      source: 'mobygames',
+      mobygamesGameId: 9876,
+      mobyScore: 8.4,
+      reviewScore: 84,
+      reviewUrl: 'https://www.mobygames.com/game/9876'
+    }
+  );
+
+  assert.equal(merged['mobygamesGameId'], 9876);
+  assert.equal(merged['mobyScore'], 8.4);
+  assert.equal(merged['reviewSource'], 'mobygames');
+  assert.equal(merged['reviewScore'], 84);
+  assert.equal(merged['reviewUrl'], 'https://www.mobygames.com/game/9876');
 });
 
 void test('number normalizers treat zero correctly for HLTB vs positive-only fields', () => {

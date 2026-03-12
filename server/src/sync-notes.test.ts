@@ -331,6 +331,22 @@ void test('sync game upsert SQL preserves unified pricing fields on conflict', a
   assert.equal(capturedInsertSql.includes("'priceDiscountPercent'"), true);
   assert.equal(capturedInsertSql.includes("'priceIsFree'"), true);
   assert.equal(capturedInsertSql.includes("'priceUrl'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesMatchQueryTitle'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesMatchTitle'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesCandidates'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesUrl'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesPriceAmount'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesDiscountPercent'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesTitle'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesSource'"), true);
+  assert.equal(capturedInsertSql.includes("'hltbMatchQueryTitle'"), true);
+  assert.equal(capturedInsertSql.includes("'hltbMatchQueryReleaseYear'"), true);
+  assert.equal(capturedInsertSql.includes("'hltbMatchQueryPlatform'"), true);
+  assert.equal(capturedInsertSql.includes("'reviewMatchQueryTitle'"), true);
+  assert.equal(capturedInsertSql.includes("'reviewMatchQueryReleaseYear'"), true);
+  assert.equal(capturedInsertSql.includes("'reviewMatchQueryPlatform'"), true);
+  assert.equal(capturedInsertSql.includes("'reviewMatchPlatformIgdbId'"), true);
+  assert.equal(capturedInsertSql.includes("'reviewMatchMobygamesGameId'"), true);
 
   await app.close();
 });

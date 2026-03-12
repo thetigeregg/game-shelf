@@ -2018,3 +2018,32 @@
 - 6bed28c Persist PSPrices provider identifier
 - 8079f6e Persist custom override settings
 
+## v1.1.37 - 2026-03-12
+- 92f5596 Merge pull request #206 from thetigeregg/codex/add-wishlist-sale-notification
+- b12607e Refine tie logic for high confidence
+- d730efc Coerce sale preference strings
+- 723f282 Coerce release event prefs
+- 9132f35 Fix notification reservation leak
+- ebd3768 Clarify active token cap warning
+- a8d5862 Align sale discount percent payload
+- ac63d60 Adjust PR summary and sale flags
+- 25b5e42 Hoist roman symbol constant
+- 978dd5d Make token cleanup best effort
+- 887a18d Update PSPrices matcher plan
+- a05026c Update PSPrices suffix ranking
+- c61ad02 Clarify Diablo IV scoring rules
+- 4acb2ab Prevent reservation release after DB
+- f14b65c Prevent releasing log reservation
+- 77acc49 Adjust reservation retention logic
+- cb3699a Add notification stubs to tests
+- 9523dfa Fix notification invalid token deact
+- ba8e71f Log active token cap hits
+- 7281741 Add warning when token load is full
+- 8e41ecd Resolve merge conflict and test
+- 13d0e06 Merge branch 'main' into codex/add-wishlist-sale-notification
+- 1372050 Merge branch 'main' into codex/add-wishlist-sale-notification
+- ea07e47 Wrap wishlist notification send
+- 3d1a01c Add validation for parser scores
+- 3cb52b1 Merge branch 'main' into codex/add-wishlist-sale-notification
+- 7cc27bc Add wishlist sale notification
+

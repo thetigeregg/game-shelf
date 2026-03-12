@@ -687,7 +687,7 @@ export class GameShelfService {
       existing.releaseYear,
       existing.platform,
       existing.platformIgdbId,
-      existing.mobygamesGameId ?? null,
+      existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null,
       existing.reviewMatchLocked ?? null
     );
   }

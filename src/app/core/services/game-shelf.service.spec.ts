@@ -1137,6 +1137,7 @@ describe('GameShelfService', () => {
       coverSource: 'thegamesdb',
       platform: 'Wii',
       platformIgdbId: 5,
+      reviewMatchMobygamesGameId: 777,
       releaseDate: '2007-10-16T00:00:00.000Z',
       releaseYear: 2007,
       listType: 'collection',
@@ -1162,7 +1163,7 @@ describe('GameShelfService', () => {
 
     const result = await service.refreshGameMetacriticScore('123', 5);
 
-    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, null);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, 777);
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         metacriticScore: 87,

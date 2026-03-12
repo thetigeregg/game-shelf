@@ -812,12 +812,12 @@ export const MIGRATIONS: string[] = [
             OR payload->>'psPricesMatchLocked' NOT IN ('true', 'false')
           )
           AND (
-            (
-              BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <> ''
-              AND BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <>
+            BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <> ''
+            AND (
+              BTRIM(COALESCE(payload->>'title', '')) = ''
+              OR BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <>
                 BTRIM(COALESCE(payload->>'title', ''))
             )
-            OR BTRIM(COALESCE(payload->>'psPricesUrl', '')) <> ''
           )
           THEN TRUE
           ELSE NULL
@@ -872,7 +872,6 @@ export const MIGRATIONS: string[] = [
               AND BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) <>
                 BTRIM(COALESCE(payload->>'platform', ''))
             )
-            OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) ~ '^[0-9]+$'
           )
           THEN TRUE
           ELSE NULL

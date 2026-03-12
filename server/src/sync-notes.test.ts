@@ -331,6 +331,12 @@ void test('sync game upsert SQL preserves unified pricing fields on conflict', a
   assert.equal(capturedInsertSql.includes("'priceDiscountPercent'"), true);
   assert.equal(capturedInsertSql.includes("'priceIsFree'"), true);
   assert.equal(capturedInsertSql.includes("'priceUrl'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesMatchQueryTitle'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesMatchTitle'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesCandidates'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesUrl'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesPriceAmount'"), true);
+  assert.equal(capturedInsertSql.includes("'psPricesDiscountPercent'"), true);
 
   await app.close();
 });

@@ -278,6 +278,8 @@ async function applyGameOperation(
         'psPricesDiscountPercent', COALESCE(EXCLUDED.payload -> 'psPricesDiscountPercent', games.payload -> 'psPricesDiscountPercent'),
         'psPricesIsFree', COALESCE(EXCLUDED.payload -> 'psPricesIsFree', games.payload -> 'psPricesIsFree'),
         'psPricesUrl', COALESCE(EXCLUDED.payload -> 'psPricesUrl', games.payload -> 'psPricesUrl'),
+        'psPricesTitle', COALESCE(EXCLUDED.payload -> 'psPricesTitle', games.payload -> 'psPricesTitle'),
+        'psPricesSource', COALESCE(EXCLUDED.payload -> 'psPricesSource', games.payload -> 'psPricesSource'),
         'screenshots', COALESCE(EXCLUDED.payload -> 'screenshots', games.payload -> 'screenshots'),
         'videos', COALESCE(EXCLUDED.payload -> 'videos', games.payload -> 'videos'),
         'taxonomyEnrichedAt', COALESCE(EXCLUDED.payload -> 'taxonomyEnrichedAt', games.payload -> 'taxonomyEnrichedAt'),

@@ -1034,6 +1034,58 @@ describe('GameShelfService', () => {
     expect(result).toEqual(updatedEntry);
   });
 
+  it('refreshGameCompletionTimes prefers persisted HLTB match query fields when present', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: null,
+      hltbMatchQueryTitle: 'Zack & Wiki',
+      hltbMatchQueryReleaseYear: 2007,
+      hltbMatchQueryPlatform: 'Wii',
+      hltbMatchLocked: true,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      hltbMainHours: 14,
+      hltbMainExtraHours: 18,
+      hltbCompletionistHours: 24
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({
+        hltbMainHours: 14,
+        hltbMainExtraHours: 18,
+        hltbCompletionistHours: 24
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameCompletionTimes('123', 167);
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hltbMatchQueryTitle: 'Zack & Wiki',
+        hltbMatchQueryReleaseYear: 2007,
+        hltbMatchQueryPlatform: 'Wii',
+        hltbMatchLocked: true
+      }),
+      'collection'
+    );
+    expect(result).toEqual(updatedEntry);
+  });
+
   it('refreshes game completion times using override query values', async () => {
     const existingEntry: GameEntry = {
       id: 10,
@@ -1168,6 +1220,61 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         metacriticScore: 87,
         metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+      }),
+      'collection'
+    );
+    expect(result).toEqual(updatedEntry);
+  });
+
+  it('refreshGameReviewScore prefers persisted review match query fields when present', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      reviewMatchQueryTitle: 'Zack & Wiki',
+      reviewMatchQueryReleaseYear: 2007,
+      reviewMatchQueryPlatform: 'Wii',
+      reviewMatchPlatformIgdbId: 5,
+      reviewMatchMobygamesGameId: 777,
+      reviewMatchLocked: true,
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupReviewScore.mockReturnValue(
+      of({
+        reviewScore: 87,
+        reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+        reviewSource: 'metacritic'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameReviewScore('123', 167);
+
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, 777);
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewMatchQueryTitle: 'Zack & Wiki',
+        reviewMatchQueryReleaseYear: 2007,
+        reviewMatchQueryPlatform: 'Wii',
+        reviewMatchPlatformIgdbId: 5,
+        reviewMatchMobygamesGameId: 777,
+        reviewMatchLocked: true
       }),
       'collection'
     );

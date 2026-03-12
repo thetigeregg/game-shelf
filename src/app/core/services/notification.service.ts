@@ -11,6 +11,7 @@ import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../data/sync-outbox-writer
 export const RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY = 'game-shelf:notifications:release:enabled';
 export const RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY = 'game-shelf:notifications:release:events';
 const FCM_DEVICE_TOKEN_STORAGE_KEY = 'game-shelf:notifications:fcm-token';
+const DISABLED_PREFERENCE_VALUES = new Set(['false', '0', 'no']);
 
 export interface ReleaseNotificationEventsPreference {
   set: boolean;
@@ -18,6 +19,10 @@ export interface ReleaseNotificationEventsPreference {
   removed: boolean;
   day: boolean;
   sale: boolean;
+}
+
+function isDisabledPreferenceValue(value: string): boolean {
+  return DISABLED_PREFERENCE_VALUES.has(value.trim().toLowerCase());
 }
 
 @Injectable({ providedIn: 'root' })
@@ -87,7 +92,7 @@ export class NotificationService {
       }
 
       const normalized = raw.trim().toLowerCase();
-      return normalized !== 'false' && normalized !== '0' && normalized !== 'no';
+      return !isDisabledPreferenceValue(normalized);
     } catch {
       return false;
     }
@@ -106,7 +111,7 @@ export class NotificationService {
       const raw = localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY);
 
       if (!raw) {
-        return { set: true, changed: true, removed: true, day: true, sale: true };
+        return { set: true, changed: true, removed: true, sale: true, day: true };
       }
 
       const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -115,11 +120,11 @@ export class NotificationService {
         set: parsed['set'] !== false,
         changed: parsed['changed'] !== false,
         removed: parsed['removed'] !== false,
-        day: parsed['day'] !== false,
-        sale: parsed['sale'] !== false
+        sale: parsed['sale'] !== false,
+        day: parsed['day'] !== false
       };
     } catch {
-      return { set: true, changed: true, removed: true, day: true, sale: true };
+      return { set: true, changed: true, removed: true, sale: true, day: true };
     }
   }
 

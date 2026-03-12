@@ -8,6 +8,7 @@ import { isProviderMatchLocked } from './provider-match-lock.js';
 
 const RELEASE_NOTIFICATIONS_ENABLED_KEY = 'game-shelf:notifications:release:enabled';
 const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events';
+const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // Safety bound to prevent unbounded memory growth if token volume spikes.
 const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
@@ -44,7 +45,6 @@ interface NotificationPreferences {
     changed: boolean;
     removed: boolean;
     day: boolean;
-    sale: boolean;
   };
 }
 
@@ -1089,15 +1089,16 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
 
   try {
     const parsed = JSON.parse(eventsRaw) as Record<string, unknown>;
+    const events = {
+      set: parsed['set'] === false ? false : true,
+      changed: parsed['changed'] === false ? false : true,
+      removed: parsed['removed'] === false ? false : true,
+      day: parsed['day'] === false ? false : true,
+      sale: parsed[RELEASE_NOTIFICATION_EVENT_SALE_KEY] === false ? false : true
+    };
     return {
       enabled,
-      events: {
-        set: parsed['set'] === false ? false : true,
-        changed: parsed['changed'] === false ? false : true,
-        removed: parsed['removed'] === false ? false : true,
-        day: parsed['day'] === false ? false : true,
-        sale: parsed['sale'] === false ? false : true
-      }
+      events
     };
   } catch {
     return { enabled, events: eventDefaults };

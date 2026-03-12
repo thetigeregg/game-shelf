@@ -500,11 +500,27 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
+    const lookupTitle =
+      typeof existing.hltbMatchQueryTitle === 'string' &&
+      existing.hltbMatchQueryTitle.trim().length > 0
+        ? existing.hltbMatchQueryTitle.trim()
+        : existing.title;
+    const lookupReleaseYear =
+      Number.isInteger(existing.hltbMatchQueryReleaseYear) &&
+      (existing.hltbMatchQueryReleaseYear as number) > 0
+        ? (existing.hltbMatchQueryReleaseYear as number)
+        : existing.releaseYear;
+    const lookupPlatform =
+      typeof existing.hltbMatchQueryPlatform === 'string' &&
+      existing.hltbMatchQueryPlatform.trim().length > 0
+        ? existing.hltbMatchQueryPlatform.trim()
+        : existing.platform;
+
     return this.refreshGameCompletionTimesWithLookup(
       existing,
-      existing.title,
-      existing.releaseYear,
-      existing.platform,
+      lookupTitle,
+      lookupReleaseYear,
+      lookupPlatform,
       existing.hltbMatchLocked ?? null
     );
   }
@@ -681,13 +697,36 @@ export class GameShelfService {
       throw new Error('Game entry no longer exists.');
     }
 
+    const lookupTitle =
+      typeof existing.reviewMatchQueryTitle === 'string' &&
+      existing.reviewMatchQueryTitle.trim().length > 0
+        ? existing.reviewMatchQueryTitle.trim()
+        : existing.title;
+    const lookupReleaseYear =
+      Number.isInteger(existing.reviewMatchQueryReleaseYear) &&
+      (existing.reviewMatchQueryReleaseYear as number) > 0
+        ? (existing.reviewMatchQueryReleaseYear as number)
+        : existing.releaseYear;
+    const lookupPlatform =
+      typeof existing.reviewMatchQueryPlatform === 'string' &&
+      existing.reviewMatchQueryPlatform.trim().length > 0
+        ? existing.reviewMatchQueryPlatform.trim()
+        : existing.platform;
+    const lookupPlatformIgdbId =
+      Number.isInteger(existing.reviewMatchPlatformIgdbId) &&
+      (existing.reviewMatchPlatformIgdbId as number) > 0
+        ? (existing.reviewMatchPlatformIgdbId as number)
+        : existing.platformIgdbId;
+    const lookupMobyGameId =
+      existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null;
+
     return this.refreshGameReviewWithLookup(
       existing,
-      existing.title,
-      existing.releaseYear,
-      existing.platform,
-      existing.platformIgdbId,
-      existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null,
+      lookupTitle,
+      lookupReleaseYear,
+      lookupPlatform,
+      lookupPlatformIgdbId,
+      lookupMobyGameId,
       existing.reviewMatchLocked ?? null
     );
   }

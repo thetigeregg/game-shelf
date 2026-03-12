@@ -86,7 +86,7 @@ export class MetadataEnrichmentService {
 
       for (const row of rows) {
         const needsMetadata = rowNeedsMetadataFetch(row.payload);
-        const mergedPayload = mergeMetadataIntoPayload({
+        const payloadPatch = buildMetadataPatch({
           row,
           metadata: metadataByGameId.get(row.igdbGameId),
           metadataFetched: needsMetadata && successfullyFetchedGameIds.has(row.igdbGameId),
@@ -94,7 +94,7 @@ export class MetadataEnrichmentService {
             !needsMetadata && isBlank(payloadValueAsString(row.payload['metadataSyncEnqueuedAt'])),
           completedAt
         });
-        const changed = !isDeepStrictEqual(mergedPayload, row.payload);
+        const changed = Object.keys(payloadPatch).length > 0;
 
         if (!changed) {
           summary.skippedRows += 1;
@@ -105,7 +105,7 @@ export class MetadataEnrichmentService {
           client,
           igdbGameId: row.igdbGameId,
           platformIgdbId: row.platformIgdbId,
-          payload: mergedPayload
+          payloadPatch
         });
         summary.updatedRows += 1;
       }
@@ -126,7 +126,7 @@ export class MetadataEnrichmentService {
   }
 }
 
-function mergeMetadataIntoPayload(params: {
+function buildMetadataPatch(params: {
   row: MetadataEnrichmentGameRow;
   metadata: IgdbMetadataRecord | undefined;
   metadataFetched: boolean;
@@ -134,39 +134,46 @@ function mergeMetadataIntoPayload(params: {
   completedAt: string;
 }): Record<string, unknown> {
   if (!params.metadataFetched && !params.needsSyncBackfill) {
-    return params.row.payload;
+    return {};
   }
 
+  const nextValues: Record<string, unknown> = {};
   if (!params.metadataFetched) {
-    return {
-      ...params.row.payload,
-      metadataSyncEnqueuedAt: params.completedAt
-    };
+    nextValues['metadataSyncEnqueuedAt'] = params.completedAt;
+    return pickChangedTopLevelFields(params.row.payload, nextValues);
   }
 
   const status: EnrichmentStatus = params.metadata ? 'success' : 'no_data';
+  if (params.metadata) {
+    nextValues['themes'] = params.metadata.themes;
+    nextValues['themeIds'] = params.metadata.themeIds;
+    nextValues['keywords'] = params.metadata.keywords;
+    nextValues['keywordIds'] = params.metadata.keywordIds;
+    nextValues['screenshots'] = params.metadata.screenshots;
+    nextValues['videos'] = params.metadata.videos;
+    nextValues['steamAppId'] = params.metadata.steamAppId;
+  }
+  nextValues['taxonomyEnrichmentStatus'] = status;
+  nextValues['taxonomyEnrichedAt'] = params.completedAt;
+  nextValues['mediaEnrichmentStatus'] = status;
+  nextValues['mediaEnrichedAt'] = params.completedAt;
+  nextValues['steamEnrichmentStatus'] = status;
+  nextValues['steamEnrichedAt'] = params.completedAt;
+  nextValues['metadataSyncEnqueuedAt'] = params.completedAt;
+  return pickChangedTopLevelFields(params.row.payload, nextValues);
+}
 
-  return {
-    ...params.row.payload,
-    ...(params.metadata
-      ? {
-          themes: params.metadata.themes,
-          themeIds: params.metadata.themeIds,
-          keywords: params.metadata.keywords,
-          keywordIds: params.metadata.keywordIds,
-          screenshots: params.metadata.screenshots,
-          videos: params.metadata.videos,
-          steamAppId: params.metadata.steamAppId
-        }
-      : {}),
-    taxonomyEnrichmentStatus: status,
-    taxonomyEnrichedAt: params.completedAt,
-    mediaEnrichmentStatus: status,
-    mediaEnrichedAt: params.completedAt,
-    steamEnrichmentStatus: status,
-    steamEnrichedAt: params.completedAt,
-    metadataSyncEnqueuedAt: params.completedAt
-  };
+function pickChangedTopLevelFields(
+  current: Record<string, unknown>,
+  nextValues: Record<string, unknown>
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const [key, nextValue] of Object.entries(nextValues)) {
+    if (!isDeepStrictEqual(current[key], nextValue)) {
+      patch[key] = nextValue;
+    }
+  }
+  return patch;
 }
 
 function rowNeedsMetadataFetch(payload: Record<string, unknown>): boolean {

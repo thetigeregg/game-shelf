@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
+import { getCacheMetrics } from './cache-metrics.js';
 import { registerPsPricesRoute } from './psprices-prices.js';
 
 interface GameRow {
@@ -646,6 +647,7 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
   const pool = new GamePoolMock();
   pool.seed('5263323', 130, {
     title: 'Pokemon Violet',
+    psPricesMatchQueryTitle: 'Pokemon Scarlet',
     psPricesFetchedAt: '2026-03-08T10:00:00.000Z',
     psPricesRegionPath: 'region-ch',
     psPricesShow: 'games',
@@ -685,6 +687,151 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
   assert.equal(body['cached'], true);
   assert.equal(fetchCalls, 0);
   assert.equal(queuedPayloads.length, 1);
+  assert.equal(queuedPayloads[0]?.['title'], 'Pokemon Scarlet');
+  assert.equal(
+    queuedPayloads[0]?.['psPricesUrl'],
+    'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+  );
+
+  await app.close();
+});
+
+void test('PSPrices route skips stale revalidation when psPrices match is locked', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  const skippedBefore = getCacheMetrics().pspricesPrice.revalidateSkipped;
+  pool.seed('5263323', 130, {
+    title: 'Pokemon Violet',
+    psPricesMatchLocked: true,
+    psPricesFetchedAt: '2026-03-08T10:00:00.000Z',
+    psPricesRegionPath: 'region-ch',
+    psPricesShow: 'games',
+    psPricesPlatform: 'Switch',
+    psPricesTitle: 'Pokemon Violet',
+    psPricesPriceAmount: 59.9,
+    psPricesPriceCurrency: 'CHF',
+    psPricesRegularPriceAmount: null,
+    psPricesDiscountPercent: null,
+    psPricesIsFree: false,
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+  });
+  const queuedPayloads: Record<string, unknown>[] = [];
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    enqueueRevalidationJob: (payload) => {
+      queuedPayloads.push(payload as unknown as Record<string, unknown>);
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-psprices-cache'], 'HIT_STALE');
+  assert.equal(response.headers['x-gameshelf-psprices-revalidate'], 'skipped');
+  assert.equal(queuedPayloads.length, 0);
+  const skippedAfter = getCacheMetrics().pspricesPrice.revalidateSkipped;
+  assert.equal(skippedAfter, skippedBefore + 1);
+
+  await app.close();
+});
+
+void test('PSPrices route sets psPricesMatchLocked when title override is used', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, {
+    title: 'Monster Train 2'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Monster Train 2',
+              amount: 49.9,
+              currency: 'CHF',
+              regularAmount: 69.9,
+              discountPercent: 28,
+              isFree: false,
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+            },
+            candidates: []
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&title=Monster%20Train%202'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const persisted = pool.getPayload('332273', 167);
+  assert.equal(persisted?.['psPricesMatchLocked'], true);
+
+  await app.close();
+});
+
+void test('PSPrices route prefers persisted psPricesUrl candidate over fuzzy title ranking', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('217550', 130, {
+    title: 'Fire Emblem Engage',
+    psPricesUrl: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Fire Emblem Engage Standard Edition',
+                amount: 59.9,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/5581873/fire-emblem-engage-standard-edition'
+              },
+              {
+                title: 'Fire Emblem Engage Expansion Pass',
+                amount: 30,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(
+    bestPrice['url'],
+    'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass'
+  );
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['matchedTitle'], 'Fire Emblem Engage Expansion Pass');
+  assert.equal(match['confidence'], 'high');
 
   await app.close();
 });

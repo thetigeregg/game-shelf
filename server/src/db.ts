@@ -692,6 +692,360 @@ export const MIGRATIONS: string[] = [
         AND payload ? 'enrichmentRetry'
       )
     );
+  `,
+  // Backfill persisted manual override query fields for legacy rows so automatic
+  // refreshes can keep using user-intended lookup context.
+  `
+  UPDATE games
+  SET
+    payload = payload || jsonb_strip_nulls(
+      jsonb_build_object(
+        'hltbMatchQueryTitle',
+        CASE
+          WHEN (
+            NOT (payload ? 'hltbMatchQueryTitle')
+            OR BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) = ''
+          )
+          THEN NULLIF(BTRIM(COALESCE(payload->>'title', '')), '')
+          ELSE NULL
+        END,
+        'hltbMatchQueryReleaseYear',
+        CASE
+          WHEN (
+            NOT (payload ? 'hltbMatchQueryReleaseYear')
+            OR BTRIM(COALESCE(payload->>'hltbMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+          )
+          AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+          THEN (BTRIM(payload->>'releaseYear'))::int
+          ELSE NULL
+        END,
+        'hltbMatchQueryPlatform',
+        CASE
+          WHEN (
+            NOT (payload ? 'hltbMatchQueryPlatform')
+            OR BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) = ''
+          )
+          THEN NULLIF(BTRIM(COALESCE(payload->>'platform', '')), '')
+          ELSE NULL
+        END,
+        'reviewMatchQueryTitle',
+        CASE
+          WHEN (
+            NOT (payload ? 'reviewMatchQueryTitle')
+            OR BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) = ''
+          )
+          THEN NULLIF(BTRIM(COALESCE(payload->>'title', '')), '')
+          ELSE NULL
+        END,
+        'reviewMatchQueryReleaseYear',
+        CASE
+          WHEN (
+            NOT (payload ? 'reviewMatchQueryReleaseYear')
+            OR BTRIM(COALESCE(payload->>'reviewMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+          )
+          AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+          THEN (BTRIM(payload->>'releaseYear'))::int
+          ELSE NULL
+        END,
+        'reviewMatchQueryPlatform',
+        CASE
+          WHEN (
+            NOT (payload ? 'reviewMatchQueryPlatform')
+            OR BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) = ''
+          )
+          THEN NULLIF(BTRIM(COALESCE(payload->>'platform', '')), '')
+          ELSE NULL
+        END,
+        'reviewMatchPlatformIgdbId',
+        CASE
+          WHEN (
+            NOT (payload ? 'reviewMatchPlatformIgdbId')
+            OR BTRIM(COALESCE(payload->>'reviewMatchPlatformIgdbId', '')) !~ '^[0-9]+$'
+          )
+          THEN platform_igdb_id
+          ELSE NULL
+        END,
+        'reviewMatchMobygamesGameId',
+        CASE
+          WHEN (
+            NOT (payload ? 'reviewMatchMobygamesGameId')
+            OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) !~ '^[0-9]+$'
+          )
+          AND BTRIM(COALESCE(payload->>'mobygamesGameId', '')) ~ '^[0-9]+$'
+          THEN (BTRIM(payload->>'mobygamesGameId'))::int
+          ELSE NULL
+        END
+      )
+    ),
+    updated_at = NOW()
+  WHERE
+    (
+      NOT (payload ? 'hltbMatchQueryTitle')
+      OR BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) = ''
+      OR NOT (payload ? 'hltbMatchQueryReleaseYear')
+      OR BTRIM(COALESCE(payload->>'hltbMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+      OR NOT (payload ? 'hltbMatchQueryPlatform')
+      OR BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) = ''
+      OR NOT (payload ? 'reviewMatchQueryTitle')
+      OR BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) = ''
+      OR NOT (payload ? 'reviewMatchQueryReleaseYear')
+      OR BTRIM(COALESCE(payload->>'reviewMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+      OR NOT (payload ? 'reviewMatchQueryPlatform')
+      OR BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) = ''
+      OR NOT (payload ? 'reviewMatchPlatformIgdbId')
+      OR BTRIM(COALESCE(payload->>'reviewMatchPlatformIgdbId', '')) !~ '^[0-9]+$'
+      OR NOT (payload ? 'reviewMatchMobygamesGameId')
+      OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) !~ '^[0-9]+$'
+    )
+    AND payload IS DISTINCT FROM (
+      payload || jsonb_strip_nulls(
+        jsonb_build_object(
+          'hltbMatchQueryTitle',
+          CASE
+            WHEN (
+              NOT (payload ? 'hltbMatchQueryTitle')
+              OR BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'title', '')), '')
+            ELSE NULL
+          END,
+          'hltbMatchQueryReleaseYear',
+          CASE
+            WHEN (
+              NOT (payload ? 'hltbMatchQueryReleaseYear')
+              OR BTRIM(COALESCE(payload->>'hltbMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+            )
+            AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->>'releaseYear'))::int
+            ELSE NULL
+          END,
+          'hltbMatchQueryPlatform',
+          CASE
+            WHEN (
+              NOT (payload ? 'hltbMatchQueryPlatform')
+              OR BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'platform', '')), '')
+            ELSE NULL
+          END,
+          'reviewMatchQueryTitle',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchQueryTitle')
+              OR BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'title', '')), '')
+            ELSE NULL
+          END,
+          'reviewMatchQueryReleaseYear',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchQueryReleaseYear')
+              OR BTRIM(COALESCE(payload->>'reviewMatchQueryReleaseYear', '')) !~ '^[0-9]+$'
+            )
+            AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->>'releaseYear'))::int
+            ELSE NULL
+          END,
+          'reviewMatchQueryPlatform',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchQueryPlatform')
+              OR BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) = ''
+            )
+            THEN NULLIF(BTRIM(COALESCE(payload->>'platform', '')), '')
+            ELSE NULL
+          END,
+          'reviewMatchPlatformIgdbId',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchPlatformIgdbId')
+              OR BTRIM(COALESCE(payload->>'reviewMatchPlatformIgdbId', '')) !~ '^[0-9]+$'
+            )
+            THEN platform_igdb_id
+            ELSE NULL
+          END,
+          'reviewMatchMobygamesGameId',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchMobygamesGameId')
+              OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) !~ '^[0-9]+$'
+            )
+            AND BTRIM(COALESCE(payload->>'mobygamesGameId', '')) ~ '^[0-9]+$'
+            THEN (BTRIM(payload->>'mobygamesGameId'))::int
+            ELSE NULL
+          END
+        )
+      )
+    );
+  `,
+  // Backfill provider lock flags for likely legacy manual match overrides so
+  // automatic refreshes do not overwrite user-fixed lookup intent.
+  `
+  UPDATE games
+  SET
+    payload = payload || jsonb_strip_nulls(
+      jsonb_build_object(
+        'psPricesMatchLocked',
+        CASE
+          WHEN (
+            NOT (payload ? 'psPricesMatchLocked')
+            OR payload->>'psPricesMatchLocked' NOT IN ('true', 'false')
+          )
+          AND (
+            BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <> ''
+            AND (
+              BTRIM(COALESCE(payload->>'title', '')) = ''
+              OR BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <>
+                BTRIM(COALESCE(payload->>'title', ''))
+            )
+          )
+          THEN TRUE
+          ELSE NULL
+        END,
+        'hltbMatchLocked',
+        CASE
+          WHEN (
+            NOT (payload ? 'hltbMatchLocked')
+            OR payload->>'hltbMatchLocked' NOT IN ('true', 'false')
+          )
+          AND (
+            (
+              BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) <> ''
+              AND BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) <>
+                BTRIM(COALESCE(payload->>'title', ''))
+            )
+            OR (
+              BTRIM(COALESCE(payload->>'hltbMatchQueryReleaseYear', '')) ~ '^[0-9]+$'
+              AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+              AND (BTRIM(payload->>'hltbMatchQueryReleaseYear'))::int <>
+                (BTRIM(payload->>'releaseYear'))::int
+            )
+            OR (
+              BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) <> ''
+              AND BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) <>
+                BTRIM(COALESCE(payload->>'platform', ''))
+            )
+          )
+          THEN TRUE
+          ELSE NULL
+        END,
+        'reviewMatchLocked',
+        CASE
+          WHEN (
+            NOT (payload ? 'reviewMatchLocked')
+            OR payload->>'reviewMatchLocked' NOT IN ('true', 'false')
+          )
+          AND (
+            (
+              BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) <> ''
+              AND BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) <>
+                BTRIM(COALESCE(payload->>'title', ''))
+            )
+            OR (
+              BTRIM(COALESCE(payload->>'reviewMatchQueryReleaseYear', '')) ~ '^[0-9]+$'
+              AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+              AND (BTRIM(payload->>'reviewMatchQueryReleaseYear'))::int <>
+                (BTRIM(payload->>'releaseYear'))::int
+            )
+            OR (
+              BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) <> ''
+              AND BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) <>
+                BTRIM(COALESCE(payload->>'platform', ''))
+            )
+          )
+          THEN TRUE
+          ELSE NULL
+        END
+      )
+    ),
+    updated_at = NOW()
+  WHERE
+    (
+      NOT (payload ? 'psPricesMatchLocked')
+      OR payload->>'psPricesMatchLocked' NOT IN ('true', 'false')
+      OR NOT (payload ? 'hltbMatchLocked')
+      OR payload->>'hltbMatchLocked' NOT IN ('true', 'false')
+      OR NOT (payload ? 'reviewMatchLocked')
+      OR payload->>'reviewMatchLocked' NOT IN ('true', 'false')
+    )
+    AND payload IS DISTINCT FROM (
+      payload || jsonb_strip_nulls(
+        jsonb_build_object(
+          'psPricesMatchLocked',
+          CASE
+            WHEN (
+              NOT (payload ? 'psPricesMatchLocked')
+              OR payload->>'psPricesMatchLocked' NOT IN ('true', 'false')
+            )
+            AND (
+              BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <> ''
+              AND (
+                BTRIM(COALESCE(payload->>'title', '')) = ''
+                OR BTRIM(COALESCE(payload->>'psPricesMatchQueryTitle', '')) <>
+                  BTRIM(COALESCE(payload->>'title', ''))
+              )
+            )
+            THEN TRUE
+            ELSE NULL
+          END,
+          'hltbMatchLocked',
+          CASE
+            WHEN (
+              NOT (payload ? 'hltbMatchLocked')
+              OR payload->>'hltbMatchLocked' NOT IN ('true', 'false')
+            )
+            AND (
+              (
+                BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) <> ''
+                AND BTRIM(COALESCE(payload->>'hltbMatchQueryTitle', '')) <>
+                  BTRIM(COALESCE(payload->>'title', ''))
+              )
+              OR (
+                BTRIM(COALESCE(payload->>'hltbMatchQueryReleaseYear', '')) ~ '^[0-9]+$'
+                AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+                AND (BTRIM(payload->>'hltbMatchQueryReleaseYear'))::int <>
+                  (BTRIM(payload->>'releaseYear'))::int
+              )
+              OR (
+                BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) <> ''
+                AND BTRIM(COALESCE(payload->>'hltbMatchQueryPlatform', '')) <>
+                  BTRIM(COALESCE(payload->>'platform', ''))
+              )
+            )
+            THEN TRUE
+            ELSE NULL
+          END,
+          'reviewMatchLocked',
+          CASE
+            WHEN (
+              NOT (payload ? 'reviewMatchLocked')
+              OR payload->>'reviewMatchLocked' NOT IN ('true', 'false')
+            )
+            AND (
+              (
+                BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) <> ''
+                AND BTRIM(COALESCE(payload->>'reviewMatchQueryTitle', '')) <>
+                  BTRIM(COALESCE(payload->>'title', ''))
+              )
+              OR (
+                BTRIM(COALESCE(payload->>'reviewMatchQueryReleaseYear', '')) ~ '^[0-9]+$'
+                AND BTRIM(COALESCE(payload->>'releaseYear', '')) ~ '^[0-9]+$'
+                AND (BTRIM(payload->>'reviewMatchQueryReleaseYear'))::int <>
+                  (BTRIM(payload->>'releaseYear'))::int
+              )
+              OR (
+                BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) <> ''
+                AND BTRIM(COALESCE(payload->>'reviewMatchQueryPlatform', '')) <>
+                  BTRIM(COALESCE(payload->>'platform', ''))
+              )
+            )
+            THEN TRUE
+            ELSE NULL
+          END
+        )
+      )
+    );
   `
 ];
 

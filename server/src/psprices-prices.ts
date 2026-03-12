@@ -4,6 +4,7 @@ import type { Pool, QueryResultRow } from 'pg';
 import { incrementPspricesPriceMetric } from './cache-metrics.js';
 import { config } from './config.js';
 import { isDiscoveryListType } from './list-type.js';
+import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -937,10 +938,8 @@ async function persistPsPricesSnapshot(
 
   const updatedPayloadCandidate = normalizePayloadObject(updateResult.rows[0]?.payload);
   const updatedPayload = updatedPayloadCandidate ?? params.payload;
-  if (
-    (updateResult.rowCount ?? updateResult.rows.length) > 0 &&
-    !isDiscoveryListType(updatedPayload['listType'])
-  ) {
+  const hasChanges = (updateResult.rowCount ?? updateResult.rows.length) > 0;
+  if (hasChanges && !isDiscoveryListType(updatedPayload['listType'])) {
     await pool.query(
       `
       INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)
@@ -948,6 +947,15 @@ async function persistPsPricesSnapshot(
       `,
       [`${params.igdbGameId}::${String(params.platformIgdbId)}`, JSON.stringify(updatedPayload)]
     );
+  }
+
+  if (hasChanges) {
+    await maybeSendWishlistSaleNotification(pool, {
+      igdbGameId: params.igdbGameId,
+      platformIgdbId: params.platformIgdbId,
+      previousPayload: params.payload,
+      nextPayload: updatedPayload
+    });
   }
 }
 

@@ -11,6 +11,8 @@ interface GameRow {
 class GamePoolMock {
   private readonly rowsByIdentity = new Map<string, GameRow>();
   private syncEventInsertCount = 0;
+  private notificationSettingsReadCount = 0;
+  private notificationTokenReadCount = 0;
 
   seed(igdbGameId: string, platformIgdbId: number, payload: Record<string, unknown>): void {
     this.rowsByIdentity.set(`${igdbGameId}::${String(platformIgdbId)}`, { payload });
@@ -24,7 +26,18 @@ class GamePoolMock {
     return this.syncEventInsertCount;
   }
 
-  query(sql: string, params: unknown[]): Promise<{ rows: GameRow[]; rowCount?: number }> {
+  getNotificationSettingsReadCount(): number {
+    return this.notificationSettingsReadCount;
+  }
+
+  getNotificationTokenReadCount(): number {
+    return this.notificationTokenReadCount;
+  }
+
+  query(
+    sql: string,
+    params: unknown[]
+  ): Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number }> {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (
@@ -64,6 +77,33 @@ class GamePoolMock {
     ) {
       this.syncEventInsertCount += 1;
       return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    if (normalized.startsWith('select setting_key, setting_value from settings')) {
+      this.notificationSettingsReadCount += 1;
+      return Promise.resolve({
+        rows: [
+          {
+            setting_key: 'game-shelf:notifications:release:enabled',
+            setting_value: 'true'
+          },
+          {
+            setting_key: 'game-shelf:notifications:release:events',
+            setting_value: JSON.stringify({ sale: true })
+          }
+        ],
+        rowCount: 2
+      });
+    }
+
+    if (
+      normalized.startsWith(
+        'select token from fcm_tokens where is_active = true order by token asc limit $1'
+      )
+    ) {
+      this.notificationTokenReadCount += 1;
+      void params;
+      return Promise.resolve({ rows: [], rowCount: 0 });
     }
 
     throw new Error(`Unsupported SQL in GamePoolMock: ${sql}`);
@@ -349,6 +389,53 @@ void test('PSPrices route preserves existing unified price data when lookup is u
   assert.equal(persisted['priceRegularAmount'], 69.9);
   assert.equal(persisted['priceFetchedAt'], undefined);
   assert.equal(typeof persisted['psPricesFetchedAt'], 'string');
+
+  await app.close();
+});
+
+void test('PSPrices route reaches wishlist sale notification checks during discount transition', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('332273', 167, {
+    title: 'Monster Train 2',
+    listType: 'wishlist',
+    priceAmount: 69.9,
+    priceRegularAmount: 69.9,
+    priceDiscountPercent: 0,
+    priceIsFree: false
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              title: 'Monster Train 2',
+              priceAmount: 49.9,
+              currency: 'CHF',
+              regularPriceAmount: 69.9,
+              discountPercent: 28,
+              isFree: false,
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(pool.getNotificationSettingsReadCount(), 1);
+  assert.equal(pool.getNotificationTokenReadCount(), 1);
 
   await app.close();
 });

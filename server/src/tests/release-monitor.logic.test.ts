@@ -171,7 +171,8 @@ void test('notification preferences default to disabled when setting is missing'
     set: true,
     changed: true,
     removed: true,
-    day: true
+    day: true,
+    sale: true
   });
 });
 

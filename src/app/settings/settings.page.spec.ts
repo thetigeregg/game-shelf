@@ -769,7 +769,8 @@ describe('SettingsPage CSV review fields', () => {
           set: false,
           changed: 'yes',
           removed: null,
-          day: 1
+          day: 1,
+          sale: 0
         })
       }
     ]);
@@ -778,17 +779,18 @@ describe('SettingsPage CSV review fields', () => {
       set: false,
       changed: true,
       removed: true,
-      day: true
+      day: true,
+      sale: true
     });
     expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
-      '{"set":false,"changed":true,"removed":true,"day":true}'
+      '{"set":false,"changed":true,"removed":true,"day":true,"sale":true}'
     );
     expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
       entityType: 'setting',
       operation: 'upsert',
       payload: {
         key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
-        value: '{"set":false,"changed":true,"removed":true,"day":true}'
+        value: '{"set":false,"changed":true,"removed":true,"day":true,"sale":true}'
       }
     });
   });

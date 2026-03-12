@@ -620,7 +620,8 @@ if (args[0] === 'info') {
 }
 
 if (args[0] === 'bootstrap') {
-  if (args[1] === '--help' || args[1] === 'help') {
+  const bootstrapArgs = args.slice(1);
+  if (bootstrapArgs.includes('--help') || bootstrapArgs.includes('help')) {
     console.log('Usage: node scripts/worktree-dev.mjs bootstrap [--force]');
     console.log('');
     console.log('Options:');
@@ -628,7 +629,7 @@ if (args[0] === 'bootstrap') {
     process.exit(0);
   }
 
-  const options = parseOptions(args.slice(1));
+  const options = parseOptions(bootstrapArgs);
   ensureLocalEnvFromSharedTemplate(options.force);
   printInfo();
   ensureDependenciesInstalled(false);

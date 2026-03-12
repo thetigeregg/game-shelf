@@ -242,3 +242,18 @@ void test('migration SQL handles primary key drift by definition for recommendat
     true
   );
 });
+
+void test('override lock backfill heuristics avoid over-locking legacy provider rows', () => {
+  const sql = MIGRATIONS.join('\n');
+  const distinctGuardCount = sql.split('payload IS DISTINCT FROM (').length - 1;
+
+  assert.equal(sql.includes("'psPricesMatchLocked'"), true);
+  assert.equal(sql.includes("'reviewMatchLocked'"), true);
+  assert.equal(sql.includes("OR NOT (payload ? 'reviewMatchLocked')"), true);
+  assert.equal(distinctGuardCount >= 2, true);
+  assert.equal(sql.includes("payload->>'psPricesUrl'"), false);
+  assert.equal(
+    sql.includes("OR BTRIM(COALESCE(payload->>'reviewMatchMobygamesGameId', '')) ~ '^[0-9]+$'"),
+    false
+  );
+});

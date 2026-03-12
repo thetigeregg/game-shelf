@@ -95,12 +95,12 @@ void test('repository update writes sync event for changed game payload', async 
   await repository.updateGamePayload({
     igdbGameId: '1520',
     platformIgdbId: 6,
-    payload: { title: 'Mario', themes: ['Action'] }
+    payloadPatch: { title: 'Mario', themes: ['Action'] }
   });
 
   const sql = pool.queries[0]?.sql ?? '';
   assert.equal(sql.includes('WITH updated AS'), true);
-  assert.equal(sql.includes('payload IS DISTINCT FROM $3::jsonb'), true);
+  assert.equal(sql.includes('payload IS DISTINCT FROM (games.payload || $3::jsonb)'), true);
   assert.equal(sql.includes('INSERT INTO sync_events'), true);
   assert.equal(sql.includes("'game'"), true);
   assert.equal(sql.includes("'upsert'"), true);

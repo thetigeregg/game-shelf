@@ -2000,3 +2000,21 @@
 - fb436b4 Merge pull request #207 from thetigeregg/codex/enable-dependabot-for-github-actions
 - f982e8b Add Node24 force env to workflows
 
+## v1.1.36 - 2026-03-12
+- 544351b Merge pull request #208 from thetigeregg/codex/confirm-pricing-choice-persistence
+- 32dd5b0 Adjust PsPrices URL override
+- 4c2110b Rename finiteNumber helper
+- 10ed56f Centralize helper and cover sync n/a
+- a72dba2 Address Copilot PR review notes
+- 8131070 Preserve PSPrices title source
+- d622fad Keep Mobygames override fallback
+- 35da2bc Increase codecov patch coverage
+- 66152c2 Rename review refresh counters
+- 508c188 Track skipped psprices revalidation
+- c385a55 Limit refresh when provider locked
+- 0c0cddb Audit release monitor refresh locks
+- e2e676c Merge branch 'main' into codex/confirm-pricing-choice-persistence
+- a5d6e4d Add manual override lock checks
+- 6bed28c Persist PSPrices provider identifier
+- 8079f6e Persist custom override settings
+

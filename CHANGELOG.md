@@ -1996,3 +1996,7 @@
 - 3966e3a Add tests for replayRecentChangesIf
 - b969cb7 Explain sync pull cursor issues
 
+## v1.1.35 - 2026-03-12
+- fb436b4 Merge pull request #207 from thetigeregg/codex/enable-dependabot-for-github-actions
+- f982e8b Add Node24 force env to workflows
+

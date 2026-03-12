@@ -440,6 +440,45 @@ void test('releases reservation when sendMulticast throws', async () => {
   assert.equal(pool.hasPendingZeroSentLog(), false);
 });
 
+void test('deactivates invalid tokens when send has zero successes', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+
+  await maybeSendWishlistSaleNotification(
+    pool as unknown as Pool,
+    {
+      igdbGameId: '550',
+      platformIgdbId: 48,
+      previousPayload: {
+        listType: 'wishlist',
+        title: 'Invalid Token Test',
+        priceAmount: 69.99,
+        priceRegularAmount: 69.99,
+        priceDiscountPercent: 0,
+        priceIsFree: false
+      },
+      nextPayload: {
+        listType: 'wishlist',
+        title: 'Invalid Token Test',
+        priceAmount: 39.99,
+        priceRegularAmount: 69.99,
+        priceDiscountPercent: 43,
+        priceIsFree: false,
+        priceCurrency: 'CHF',
+        priceFetchedAt: '2026-03-12T12:40:00.000Z'
+      }
+    },
+    {
+      sendMulticast: () =>
+        Promise.resolve({ successCount: 0, failureCount: 1, invalidTokens: ['token-a'] })
+    }
+  );
+
+  assert.deepEqual(pool.invalidationBatches, [['token-a']]);
+  assert.equal(pool.getLogCount(), 0);
+});
+
 void test('loads active tokens only for dedupe reservation winner', async () => {
   const pool = new SaleNotificationPoolMock();
   pool.setPreferences(true, true);

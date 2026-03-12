@@ -116,13 +116,6 @@ export async function maybeSendWishlistSaleNotification(
       }
     });
 
-    if (sendResult.successCount <= 0) {
-      await releaseNotificationLogReservation(pool, event.eventKey);
-      return;
-    }
-
-    await finalizeNotificationLog(pool, event, sendResult.successCount);
-
     if (sendResult.invalidTokens.length > 0) {
       await pool.query(
         `
@@ -133,6 +126,13 @@ export async function maybeSendWishlistSaleNotification(
         [sendResult.invalidTokens]
       );
     }
+
+    if (sendResult.successCount <= 0) {
+      await releaseNotificationLogReservation(pool, event.eventKey);
+      return;
+    }
+
+    await finalizeNotificationLog(pool, event, sendResult.successCount);
   } catch (error) {
     await releaseNotificationLogReservation(pool, event.eventKey);
     throw error;

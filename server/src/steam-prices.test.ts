@@ -53,7 +53,11 @@ class GamePoolMock {
       return Promise.resolve({ rows: row ? [row] : [] });
     }
 
-    if (normalized.startsWith('update games set payload =')) {
+    if (
+      normalized.startsWith(
+        'with current_row as ( select payload from games where igdb_game_id = $1'
+      )
+    ) {
       const igdbGameId = typeof params[0] === 'string' ? params[0] : '';
       const platformIgdbId =
         typeof params[1] === 'number' && Number.isInteger(params[1]) ? params[1] : 0;
@@ -65,7 +69,10 @@ class GamePoolMock {
       const changed = JSON.stringify(existing) !== JSON.stringify(merged);
       if (changed) {
         this.rowsByIdentity.set(key, { payload: merged });
-        return Promise.resolve({ rows: [{ payload: merged }], rowCount: 1 });
+        return Promise.resolve({
+          rows: [{ previous_payload: existing, next_payload: merged }],
+          rowCount: 1
+        });
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
     }

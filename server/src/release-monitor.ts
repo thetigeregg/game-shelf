@@ -45,6 +45,7 @@ interface NotificationPreferences {
     changed: boolean;
     removed: boolean;
     day: boolean;
+    sale: boolean;
   };
 }
 

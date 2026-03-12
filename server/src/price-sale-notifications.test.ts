@@ -16,6 +16,7 @@ class SaleNotificationPoolMock {
   tokenSelectCount = 0;
   throwOnFinalizeUpdate = false;
   throwOnTokenInvalidation = false;
+  throwOnTokenSelect = false;
 
   setPreferences(enabled: boolean | string | number, saleEnabled: boolean | string | number): void {
     this.settingRows.length = 0;
@@ -60,6 +61,9 @@ class SaleNotificationPoolMock {
         'select token from fcm_tokens where is_active = true order by token asc limit $1'
       )
     ) {
+      if (this.throwOnTokenSelect) {
+        throw new Error('token_select_failed');
+      }
       this.tokenSelectCount += 1;
       return Promise.resolve({ rows: [...this.tokenRows], rowCount: this.tokenRows.length });
     }
@@ -773,4 +777,40 @@ void test('keeps reservation when persistence fails after successful send', asyn
 
   assert.equal(pool.getLogCount(), 1);
   assert.equal(pool.hasPendingZeroSentLog(), true);
+});
+
+void test('releases reservation when active token load fails after reservation', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+  pool.throwOnTokenSelect = true;
+
+  await assert.rejects(
+    maybeSendWishlistSaleNotification(pool as unknown as Pool, {
+      igdbGameId: '603',
+      platformIgdbId: 167,
+      previousPayload: {
+        listType: 'wishlist',
+        title: 'Token Select Failure Test',
+        priceAmount: 59.99,
+        priceRegularAmount: 59.99,
+        priceDiscountPercent: 0,
+        priceIsFree: false
+      },
+      nextPayload: {
+        listType: 'wishlist',
+        title: 'Token Select Failure Test',
+        priceAmount: 39.99,
+        priceRegularAmount: 59.99,
+        priceDiscountPercent: 33,
+        priceIsFree: false,
+        priceCurrency: 'USD',
+        priceFetchedAt: '2026-03-12T13:25:00.000Z'
+      }
+    }),
+    /token_select_failed/
+  );
+
+  assert.equal(pool.getLogCount(), 0);
+  assert.equal(pool.hasPendingZeroSentLog(), false);
 });

@@ -149,6 +149,19 @@ const PSPRICES_SUFFIX_EXPANSION_PATTERNS = [
   /\bepisode\b/,
   /\bchapter\b/
 ];
+const PSPRICES_PLATFORM_TRAILING_QUALIFIER_FRAGMENT =
+  '(?:standard|complete|ultimate|gold|goty|game|of|the|year|legendary|digital|super|deluxe|collection|bundle|erweiterungspaket|expansion|dlc|add|on|addon|upgrade|next|gen|season|pass|story|pack|episode|chapter|edition|remastered|remake)';
+const PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS = [
+  buildPlatformSuffixBeforeQualifierPattern('ps5|ps4|playstation 5|playstation 4')
+];
+const PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS = [
+  buildPlatformSuffixBeforeQualifierPattern('nintendo switch 2|switch 2|nintendo switch|switch')
+];
+const PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS = [
+  buildPlatformSuffixBeforeQualifierPattern(
+    'xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox'
+  )
+];
 const PSPRICES_PLAYSTATION_SUFFIX_PATTERNS = [
   /\b(?:ps5|ps4|playstation 5|playstation 4)(?: edition)?$/
 ];
@@ -1493,8 +1506,17 @@ function stripPlatformSuffixFromNormalizedTitle(
   };
 }
 
+function buildPlatformSuffixBeforeQualifierPattern(platformFragment: string): RegExp {
+  return new RegExp(
+    `\\b(?:${platformFragment})(?: edition)?(?=\\s+${PSPRICES_PLATFORM_TRAILING_QUALIFIER_FRAGMENT}(?:\\s+${PSPRICES_PLATFORM_TRAILING_QUALIFIER_FRAGMENT})*$)`
+  );
+}
+
 function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): RegExp[] {
   const allPatterns = [
+    ...PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+    ...PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+    ...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
     ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
     ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
     ...PSPRICES_XBOX_SUFFIX_PATTERNS
@@ -1502,6 +1524,9 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
 
   if (platformContext === 'playstation') {
     return [
+      ...PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
       ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
       ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
       ...PSPRICES_XBOX_SUFFIX_PATTERNS
@@ -1509,6 +1534,9 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
   }
   if (platformContext === 'switch') {
     return [
+      ...PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
       ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
       ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
       ...PSPRICES_XBOX_SUFFIX_PATTERNS
@@ -1516,6 +1544,9 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
   }
   if (platformContext === 'xbox') {
     return [
+      ...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
       ...PSPRICES_XBOX_SUFFIX_PATTERNS,
       ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
       ...PSPRICES_SWITCH_SUFFIX_PATTERNS
@@ -1526,13 +1557,19 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
 
 function resolveContextPlatformSuffixPatterns(platformContext: PlatformMarkerContext): RegExp[] {
   if (platformContext === 'playstation') {
-    return PSPRICES_PLAYSTATION_SUFFIX_PATTERNS;
+    return [
+      ...PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS
+    ];
   }
   if (platformContext === 'switch') {
-    return PSPRICES_SWITCH_SUFFIX_PATTERNS;
+    return [
+      ...PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
+      ...PSPRICES_SWITCH_SUFFIX_PATTERNS
+    ];
   }
   if (platformContext === 'xbox') {
-    return PSPRICES_XBOX_SUFFIX_PATTERNS;
+    return [...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS, ...PSPRICES_XBOX_SUFFIX_PATTERNS];
   }
   return [];
 }

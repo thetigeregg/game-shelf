@@ -91,22 +91,22 @@ export async function maybeSendWishlistSaleNotification(
     return;
   }
 
-  const activeTokenSet =
-    options.activeTokens !== undefined
-      ? new Set(
-          [...options.activeTokens]
-            .map((token) => normalizeNonEmptyString(token))
-            .filter((token): token is string => token !== null)
-        )
-      : await loadActiveTokenSet(pool);
-  if (activeTokenSet.size === 0) {
-    await releaseNotificationLogReservation(pool, event.eventKey);
-    return;
-  }
-
   const sendMulticast = options.sendMulticast ?? sendFcmMulticast;
   let sendResult: FcmSendResult | null = null;
   try {
+    const activeTokenSet =
+      options.activeTokens !== undefined
+        ? new Set(
+            [...options.activeTokens]
+              .map((token) => normalizeNonEmptyString(token))
+              .filter((token): token is string => token !== null)
+          )
+        : await loadActiveTokenSet(pool);
+    if (activeTokenSet.size === 0) {
+      await releaseNotificationLogReservation(pool, event.eventKey);
+      return;
+    }
+
     sendResult = await sendMulticast([...activeTokenSet], {
       title: event.title,
       body: event.body,

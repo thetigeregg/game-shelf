@@ -1899,6 +1899,48 @@ void test('PSPrices applies platform neutrality alongside edition ordering', asy
   await app.close();
 });
 
+void test('PSPrices keeps strong confidence when platform marker precedes edition suffix', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991020', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Diablo IV PS5 Deluxe Edition',
+                amount: 69.9,
+                isFree: false,
+                url: 'ps5-deluxe'
+              }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991020&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['confidence'], 'high');
+  const bestPrice = body['bestPrice'] as Record<string, unknown> | null;
+  assert.notEqual(bestPrice, null);
+  assert.equal(bestPrice?.['title'], 'Diablo IV PS5 Deluxe Edition');
+
+  await app.close();
+});
+
 void test('PSPrices classifies platform upgrade variants as expansion-style content', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

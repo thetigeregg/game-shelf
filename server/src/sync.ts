@@ -38,6 +38,8 @@ interface LatestCursorRow {
 }
 
 export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Promise<void> {
+  let latestKnownSyncEventId = 0;
+
   if (!app.hasDecorator('rateLimit')) {
     await app.register(rateLimit, { global: false });
   }
@@ -105,6 +107,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
 
         await client.query('COMMIT');
         const cursor = await readLatestCursor(client);
+        latestKnownSyncEventId = Math.max(latestKnownSyncEventId, normalizeCursor(cursor));
         reply.send({ results, cursor });
       } catch (error) {
         await client.query('ROLLBACK');
@@ -147,7 +150,17 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         serverTimestamp: row.server_timestamp
       }));
 
-      if (changes.length > 0 || cursor === 0) {
+      if (changes.length > 0) {
+        const nextCursor = changes[changes.length - 1].eventId;
+        latestKnownSyncEventId = Math.max(latestKnownSyncEventId, normalizeCursor(nextCursor));
+        reply.send({
+          cursor: nextCursor,
+          changes
+        });
+        return;
+      }
+
+      if (cursor === 0 || cursor <= latestKnownSyncEventId) {
         const nextCursor =
           changes.length > 0 ? changes[changes.length - 1].eventId : String(cursor);
         reply.send({
@@ -162,6 +175,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       );
       const normalizedLatestCursor =
         parseNonNegativeInteger(latestCursorResult.rows[0]?.event_id) ?? 0;
+      latestKnownSyncEventId = Math.max(latestKnownSyncEventId, normalizedLatestCursor);
       const effectiveCursor = Math.min(cursor, normalizedLatestCursor);
 
       reply.send({

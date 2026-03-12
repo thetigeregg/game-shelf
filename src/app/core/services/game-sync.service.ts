@@ -673,6 +673,10 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.hltbMatchQueryPlatform === undefined
           ? this.normalizeOptionalText(existingByIdentity?.hltbMatchQueryPlatform)
           : this.normalizeOptionalText(payload.hltbMatchQueryPlatform),
+      hltbMatchLocked:
+        payload.hltbMatchLocked === undefined
+          ? this.normalizeOptionalBoolean(existingByIdentity?.hltbMatchLocked)
+          : this.normalizeOptionalBoolean(payload.hltbMatchLocked),
       reviewScore: effectiveReviewScore,
       reviewUrl: normalizedReviewUrl,
       reviewSource: normalizedReviewSource,
@@ -698,6 +702,10 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.reviewMatchMobygamesGameId === undefined
           ? this.parsePositiveInteger(existingByIdentity?.reviewMatchMobygamesGameId)
           : this.parsePositiveInteger(payload.reviewMatchMobygamesGameId),
+      reviewMatchLocked:
+        payload.reviewMatchLocked === undefined
+          ? this.normalizeOptionalBoolean(existingByIdentity?.reviewMatchLocked)
+          : this.normalizeOptionalBoolean(payload.reviewMatchLocked),
       metacriticScore: normalizedMetacriticScore,
       metacriticUrl: normalizedMetacriticUrl,
       similarGameIgdbIds: this.normalizeGameIdList(payload.similarGameIgdbIds),
@@ -757,6 +765,10 @@ export class GameSyncService implements SyncOutboxWriter {
         payload.priceUrl === undefined
           ? this.normalizePriceUrl(existingByIdentity?.priceUrl)
           : this.normalizePriceUrl(payload.priceUrl),
+      psPricesMatchLocked:
+        payload.psPricesMatchLocked === undefined
+          ? this.normalizeOptionalBoolean(existingByIdentity?.psPricesMatchLocked)
+          : this.normalizeOptionalBoolean(payload.psPricesMatchLocked),
       screenshots:
         payload.screenshots === undefined
           ? normalizeGameScreenshots(existingByIdentity?.screenshots, { maxItems: 20 })
@@ -886,6 +898,10 @@ export class GameSyncService implements SyncOutboxWriter {
   private normalizeOptionalText(value: unknown): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeOptionalBoolean(value: unknown): boolean | null {
+    return typeof value === 'boolean' ? value : null;
   }
 
   private normalizeExternalUrl(value: unknown): string | null {

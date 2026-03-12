@@ -172,10 +172,29 @@ function resolvePspricesRevalidationTitle(payload: Record<string, unknown>): str
   );
 }
 
+function resolvePspricesRevalidationUrl(payload: Record<string, unknown>): string | null {
+  const explicitPsPricesUrl = normalizeNonEmptyString(payload['psPricesUrl']);
+  if (explicitPsPricesUrl) {
+    return explicitPsPricesUrl;
+  }
+
+  if (normalizeNonEmptyString(payload['priceSource']) !== 'psprices') {
+    return null;
+  }
+
+  return normalizeNonEmptyString(payload['priceUrl']);
+}
+
+function isProviderMatchLocked(payload: Record<string, unknown>, key: string): boolean {
+  return payload[key] === true;
+}
+
 export const __backgroundWorkerTestables = {
   hasUnifiedPriceValue,
   resolvePriceFetchedAtMs,
-  resolvePspricesRevalidationTitle
+  resolvePspricesRevalidationTitle,
+  resolvePspricesRevalidationUrl,
+  isProviderMatchLocked
 };
 
 export function readBackgroundWorkerMode(): BackgroundWorkerMode {
@@ -701,12 +720,16 @@ async function main(): Promise<void> {
       if (!PSPRICES_PLATFORM_IGDB_IDS.has(row.platform_igdb_id)) {
         continue;
       }
+      if (isProviderMatchLocked(payload, 'psPricesMatchLocked')) {
+        continue;
+      }
 
       const title = resolvePspricesRevalidationTitle(payload);
       if (!title) {
         stats.skippedMissingData += 1;
         continue;
       }
+      const psPricesUrl = resolvePspricesRevalidationUrl(payload);
 
       const dedupeKey = `${params.dedupePrefix}:psprices:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`;
       const enqueueResult = await jobs.enqueue({
@@ -716,7 +739,8 @@ async function main(): Promise<void> {
           cacheKey: `${params.dedupePrefix}:${row.igdb_game_id}:${String(row.platform_igdb_id)}:${pspricesRegion}:${pspricesShow}`,
           igdbGameId: row.igdb_game_id,
           platformIgdbId: row.platform_igdb_id,
-          title
+          title,
+          psPricesUrl
         },
         priority: 120,
         maxAttempts: 3
@@ -1000,7 +1024,8 @@ async function main(): Promise<void> {
             typeof job.payload['platformIgdbId'] === 'number'
               ? job.payload['platformIgdbId']
               : Number.parseInt(stringOrEmpty(job.payload['platformIgdbId']), 10),
-          title: stringOrEmpty(job.payload['title'])
+          title: stringOrEmpty(job.payload['title']),
+          psPricesUrl: stringOrEmpty(job.payload['psPricesUrl'])
         });
         return { revalidated: true };
       }

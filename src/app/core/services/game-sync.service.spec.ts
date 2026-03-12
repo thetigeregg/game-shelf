@@ -1228,6 +1228,7 @@ describe('GameSyncService', () => {
 
     expect(postSpy).not.toHaveBeenCalled();
     expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    expect(await db.syncMeta.get('recentReplayLastAttemptAt')).toBeUndefined();
   });
 
   it('replayRecentChangesIfDue skips when cursor is within replay window', async () => {
@@ -1242,6 +1243,7 @@ describe('GameSyncService', () => {
 
     expect(postSpy).not.toHaveBeenCalled();
     expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    expect(await db.syncMeta.get('recentReplayLastAttemptAt')).toBeUndefined();
   });
 
   it('replayRecentChangesIfDue skips when replay ran recently', async () => {
@@ -1318,9 +1320,11 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalledTimes(1);
     const replayMeta = await db.syncMeta.get('recentReplayLastAt');
     expect(replayMeta?.value).toBeTruthy();
+    const replayAttemptMeta = await db.syncMeta.get('recentReplayLastAttemptAt');
+    expect(replayAttemptMeta?.value).toBeTruthy();
   });
 
-  it('replayRecentChangesIfDue stops before applying next page when outbox gains pending ops', async () => {
+  it('replayRecentChangesIfDue aborts without applying replay pages when outbox gains pending ops', async () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
@@ -1349,30 +1353,22 @@ describe('GameSyncService', () => {
       .mockReturnValueOnce(of({ cursor: '5000', changes: firstPage }))
       .mockReturnValueOnce(of({ cursor: '5001', changes: secondPage }));
 
-    const originalApplyPulledChanges = servicePrivate.applyPulledChanges.bind(servicePrivate);
-    let applyCalls = 0;
-    vi.spyOn(servicePrivate, 'applyPulledChanges').mockImplementation(async (changes) => {
-      await originalApplyPulledChanges(changes);
-      applyCalls += 1;
-      if (applyCalls === 1) {
-        await db.outbox.put({
-          opId: 'pending-mid-replay',
-          entityType: 'setting',
-          operation: 'upsert',
-          payload: { key: 'local-setting-mid-replay', value: 'local' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          attemptCount: 0
-        });
-      }
-    });
+    const applySpy = vi.spyOn(servicePrivate, 'applyPulledChanges');
+    const outboxCountSpy = vi
+      .spyOn(db.outbox, 'count')
+      .mockResolvedValueOnce(0) // initial replay gate
+      .mockResolvedValueOnce(0) // before request page 1
+      .mockResolvedValueOnce(1); // before request page 2 -> abort before apply
 
     await servicePrivate.replayRecentChangesIfDue();
 
-    expect(postSpy).toHaveBeenCalledTimes(2);
-    expect(applyCalls).toBe(1);
-    expect(localStorage.getItem('replay-race-a-0')).toBe('a');
+    expect(postSpy).toHaveBeenCalledTimes(1);
+    expect(applySpy).not.toHaveBeenCalled();
+    expect(outboxCountSpy).toHaveBeenCalledTimes(3);
+    expect(localStorage.getItem('replay-race-a-0')).toBeNull();
     expect(localStorage.getItem('replay-race-b')).toBeNull();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    expect((await db.syncMeta.get('recentReplayLastAttemptAt'))?.value).toBeTruthy();
   });
 
   it('replayRecentChangesIfDue stops paging at max pages', async () => {
@@ -1407,7 +1403,7 @@ describe('GameSyncService', () => {
     expect(localStorage.getItem('replay-max-9000')).toBe('v');
   });
 
-  it('replayRecentChangesIfDue records replay timestamp even when replay fails', async () => {
+  it('replayRecentChangesIfDue records replay attempt timestamp when replay fails', async () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
@@ -1419,8 +1415,9 @@ describe('GameSyncService', () => {
     });
 
     await expect(servicePrivate.replayRecentChangesIfDue()).rejects.toThrow('replay fetch failed');
-    const replayMeta = await db.syncMeta.get('recentReplayLastAt');
-    expect(replayMeta?.value).toBeTruthy();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+    const replayAttemptMeta = await db.syncMeta.get('recentReplayLastAttemptAt');
+    expect(replayAttemptMeta?.value).toBeTruthy();
   });
 
   it('applyPulledChanges dispatches by entity type', async () => {

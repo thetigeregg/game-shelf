@@ -83,6 +83,7 @@ const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
 ]);
 const PSPRICES_TITLE_MATCH_MIN_SCORE = 70;
 const PSPRICES_TITLE_MATCH_MIN_GAP = 8;
+const MAX_SEQUEL_NUMBER_TOKEN = 20;
 const DEFAULT_PSPRICES_PRICE_CACHE_FRESH_TTL_SECONDS = 86400;
 const DEFAULT_PSPRICES_PRICE_CACHE_STALE_TTL_SECONDS = 86400 * 90;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
@@ -976,7 +977,93 @@ function normalizeTitleForMatchForScoring(value: string): string {
     return normalized;
   }
 
-  return filteredTokens.join(' ');
+  return filteredTokens.map((token) => normalizeSequelNumberToken(token)).join(' ');
+}
+
+function normalizeSequelNumberToken(token: string): string {
+  const arabic = parseArabicSequelNumberToken(token);
+  if (arabic !== null) {
+    return `seq_${String(arabic)}`;
+  }
+
+  const roman = parseRomanSequelNumberToken(token);
+  if (roman !== null) {
+    return `seq_${String(roman)}`;
+  }
+
+  return token;
+}
+
+function parseArabicSequelNumberToken(token: string): number | null {
+  if (!/^\d+$/.test(token)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(token, 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_SEQUEL_NUMBER_TOKEN) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function parseRomanSequelNumberToken(token: string): number | null {
+  const roman = token.toUpperCase();
+  if (!/^[IVXLCDM]+$/.test(roman)) {
+    return null;
+  }
+
+  const values = new Map<string, number>([
+    ['I', 1],
+    ['V', 5],
+    ['X', 10],
+    ['L', 50],
+    ['C', 100],
+    ['D', 500],
+    ['M', 1000]
+  ]);
+
+  let total = 0;
+  for (let index = 0; index < roman.length; index += 1) {
+    const current = values.get(roman[index]) ?? 0;
+    const next = values.get(roman[index + 1] ?? '') ?? 0;
+    total += current < next ? -current : current;
+  }
+
+  if (total < 1 || total > MAX_SEQUEL_NUMBER_TOKEN) {
+    return null;
+  }
+
+  const canonical = toRoman(total);
+  return canonical === roman ? total : null;
+}
+
+function toRoman(value: number): string {
+  const symbols: Array<[number, string]> = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I']
+  ];
+
+  let remaining = value;
+  let result = '';
+  for (const [numeric, symbol] of symbols) {
+    while (remaining >= numeric) {
+      result += symbol;
+      remaining -= numeric;
+    }
+  }
+  return result;
 }
 
 async function fetchWithTimeout(

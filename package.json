@@ -10,6 +10,7 @@
     "prebuild": "node scripts/generate-runtime-config.mjs && node scripts/generate-metacritic-platform-artifacts.mjs && node scripts/generate-mobygames-platform-artifacts.mjs",
     "dev:info": "node scripts/worktree-dev.mjs info",
     "dev:bootstrap": "node scripts/worktree-dev.mjs bootstrap",
+    "dev:bootstrap:force": "node scripts/worktree-dev.mjs bootstrap --force",
     "dev:start": "node scripts/worktree-dev.mjs frontend",
     "dev:stack:up": "node scripts/worktree-dev.mjs stack up",
     "dev:stack:up:seed": "node scripts/worktree-dev.mjs stack up-seed",

@@ -124,6 +124,16 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as PullBody;
       const cursor = normalizeCursor(body.cursor);
+      const latestCursorResult = await pool.query<{ event_id: number }>(
+        'SELECT COALESCE(MAX(event_id), 0) AS event_id FROM sync_events'
+      );
+      const latestCursor =
+        latestCursorResult.rows[0] && Number.isFinite(latestCursorResult.rows[0].event_id)
+          ? latestCursorResult.rows[0].event_id
+          : 0;
+      const normalizedLatestCursor =
+        Number.isInteger(latestCursor) && latestCursor >= 0 ? latestCursor : 0;
+      const effectiveCursor = Math.min(cursor, normalizedLatestCursor);
 
       const result = await pool.query<SyncEventRow>(
         `
@@ -133,7 +143,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       ORDER BY event_id ASC
       LIMIT 1000
       `,
-        [cursor]
+        [effectiveCursor]
       );
 
       const changes = result.rows.map((row) => ({
@@ -143,7 +153,8 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         payload: row.payload,
         serverTimestamp: row.server_timestamp
       }));
-      const nextCursor = changes.length > 0 ? changes[changes.length - 1].eventId : String(cursor);
+      const nextCursor =
+        changes.length > 0 ? changes[changes.length - 1].eventId : String(effectiveCursor);
 
       reply.send({
         cursor: nextCursor,

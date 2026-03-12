@@ -753,7 +753,7 @@ export class GameShelfService {
       Number.isInteger(query.mobygamesGameId) &&
       query.mobygamesGameId > 0
         ? query.mobygamesGameId
-        : (existing.mobygamesGameId ?? null);
+        : (existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null);
 
     return this.refreshGameReviewWithLookup(
       existing,

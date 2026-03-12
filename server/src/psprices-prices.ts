@@ -194,7 +194,7 @@ export async function registerPsPricesRoute(
       const persistedMatchQueryTitle = normalizeNonEmptyString(payload['psPricesMatchQueryTitle']);
       const title =
         titleOverride ?? persistedMatchQueryTitle ?? normalizeNonEmptyString(payload['title']);
-      const preferredPsPricesUrl = resolvePreferredPsPricesUrl(payload);
+      const preferredPsPricesUrl = hasTitleOverride ? null : resolvePreferredPsPricesUrl(payload);
       const psPricesMatchLocked = isProviderMatchLocked(payload, 'psPricesMatchLocked');
       if (!title) {
         const unavailablePayload: PsPricesRouteResponse = {

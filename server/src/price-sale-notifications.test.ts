@@ -534,6 +534,50 @@ void test('loads active tokens only for dedupe reservation winner', async () => 
   assert.equal(pool.tokenSelectCount, 1);
 });
 
+void test('uses preloaded active tokens when provided', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-from-db']);
+
+  let sendCount = 0;
+  await maybeSendWishlistSaleNotification(
+    pool as unknown as Pool,
+    {
+      igdbGameId: '6001',
+      platformIgdbId: 48,
+      previousPayload: {
+        listType: 'wishlist',
+        title: 'Preloaded Token Test',
+        priceAmount: 49.99,
+        priceRegularAmount: 49.99,
+        priceDiscountPercent: 0,
+        priceIsFree: false
+      },
+      nextPayload: {
+        listType: 'wishlist',
+        title: 'Preloaded Token Test',
+        priceAmount: 29.99,
+        priceRegularAmount: 49.99,
+        priceDiscountPercent: 40,
+        priceIsFree: false,
+        priceCurrency: 'USD',
+        priceFetchedAt: '2026-03-12T13:05:00.000Z'
+      }
+    },
+    {
+      activeTokens: ['token-preloaded'],
+      sendMulticast: (tokens) => {
+        sendCount += 1;
+        assert.deepEqual(tokens, ['token-preloaded']);
+        return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
+      }
+    }
+  );
+
+  assert.equal(sendCount, 1);
+  assert.equal(pool.tokenSelectCount, 0);
+});
+
 void test('warns when active token load reaches cap', async () => {
   const pool = new SaleNotificationPoolMock();
   pool.setPreferences(true, true);

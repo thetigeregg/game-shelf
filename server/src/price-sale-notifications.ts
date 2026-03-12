@@ -1,9 +1,10 @@
 import type { Pool } from 'pg';
 import { sendFcmMulticast, type FcmSendResult } from './fcm.js';
-
-const RELEASE_NOTIFICATIONS_ENABLED_KEY = 'game-shelf:notifications:release:enabled';
-const RELEASE_NOTIFICATION_EVENTS_KEY = 'game-shelf:notifications:release:events';
-const MAX_ACTIVE_TOKENS_PER_RUN = 20_000;
+import {
+  MAX_ACTIVE_TOKENS_PER_RUN,
+  RELEASE_NOTIFICATION_EVENTS_KEY,
+  RELEASE_NOTIFICATIONS_ENABLED_KEY
+} from './notification-constants.js';
 
 interface NotificationPreferences {
   enabled: boolean;
@@ -42,6 +43,7 @@ interface MaybeSendSaleNotificationParams {
 }
 
 interface MaybeSendSaleNotificationOptions {
+  activeTokens?: Iterable<string>;
   sendMulticast?: (
     tokens: string[],
     payload: { title: string; body: string; data: Record<string, string> }
@@ -88,7 +90,14 @@ export async function maybeSendWishlistSaleNotification(
     return;
   }
 
-  const activeTokenSet = await loadActiveTokenSet(pool);
+  const activeTokenSet =
+    options.activeTokens !== undefined
+      ? new Set(
+          [...options.activeTokens]
+            .map((token) => normalizeNonEmptyString(token))
+            .filter((token): token is string => token !== null)
+        )
+      : await loadActiveTokenSet(pool);
   if (activeTokenSet.size === 0) {
     await releaseNotificationLogReservation(pool, event.eventKey);
     return;

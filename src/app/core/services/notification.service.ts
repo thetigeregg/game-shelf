@@ -111,7 +111,7 @@ export class NotificationService {
       const raw = localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY);
 
       if (!raw) {
-        return { set: true, changed: true, removed: true, sale: true, day: true };
+        return { set: true, changed: true, removed: true, day: true, sale: true };
       }
 
       const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -120,11 +120,11 @@ export class NotificationService {
         set: parsed['set'] !== false,
         changed: parsed['changed'] !== false,
         removed: parsed['removed'] !== false,
-        sale: parsed['sale'] !== false,
-        day: parsed['day'] !== false
+        day: parsed['day'] !== false,
+        sale: parsed['sale'] !== false
       };
     } catch {
-      return { set: true, changed: true, removed: true, sale: true, day: true };
+      return { set: true, changed: true, removed: true, day: true, sale: true };
     }
   }
 

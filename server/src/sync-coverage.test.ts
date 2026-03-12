@@ -362,6 +362,16 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
   assert.equal(invalidBody.cursor, '2');
   assert.equal(invalidBody.changes.length, 2);
 
+  const unsafeLargeCursor = await app.inject({
+    method: 'POST',
+    url: '/v1/sync/pull',
+    payload: { cursor: '9007199254740993' }
+  });
+  assert.equal(unsafeLargeCursor.statusCode, 200);
+  const unsafeLargeBody = parseJson(unsafeLargeCursor.body) as SyncPullResponseBody;
+  assert.equal(unsafeLargeBody.cursor, '2');
+  assert.equal(unsafeLargeBody.changes.length, 2);
+
   const withCursor = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',

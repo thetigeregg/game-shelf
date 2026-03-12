@@ -30,7 +30,7 @@ interface PushBody {
 }
 
 interface PullBody {
-  cursor?: string | null;
+  cursor?: unknown;
 }
 
 interface LatestCursorRow {
@@ -491,18 +491,29 @@ function normalizeOperations(value: unknown): ClientSyncOperation[] | null {
   return parsed;
 }
 
-function normalizeCursor(value: string | null | undefined): number {
+function normalizeCursor(value: unknown): number {
   return parseNonNegativeInteger(value) ?? 0;
 }
 
 function parseNonNegativeInteger(value: unknown): number | null {
   if (typeof value === 'number') {
-    return Number.isInteger(value) && value >= 0 ? value : null;
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
   }
 
   if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      return null;
+    }
+    try {
+      const parsed = BigInt(trimmed);
+      if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+        return null;
+      }
+      return Number(parsed);
+    } catch {
+      return null;
+    }
   }
 
   if (typeof value === 'bigint') {

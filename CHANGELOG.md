@@ -1986,3 +1986,13 @@
 - c6ac8c6 Merge branch 'main' into codex/recommend-env-vars-for-pricing
 - cac2b66 Add tests for pricing freshness and enhance price validation logic
 
+## v1.1.34 - 2026-03-12
+- 98d3fa2 Merge pull request #205 from thetigeregg/codex/verify-wishlist-pricing-via-docker
+- 63ad8f7 Adjust sync cursor typing
+- 4412e10 Add outbox recheck before replay
+- 2b1ffff Record recent replay retry time
+- 8df3849 Avoid extra sync cursor query
+- 3dc2855 Fix sync cursor parsing and query
+- 3966e3a Add tests for replayRecentChangesIf
+- b969cb7 Explain sync pull cursor issues
+

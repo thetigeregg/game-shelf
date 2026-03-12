@@ -24,12 +24,14 @@ type PsPricesRouteStatus = 'ok' | 'unsupported_platform' | 'unavailable';
 
 interface PsPricesSnapshot {
   title: string | null;
+  gameId?: string | null;
   amount: number | null;
   currency: string | null;
   regularAmount: number | null;
   discountPercent: number | null;
   isFree: boolean | null;
   url: string | null;
+  metadataQualityScore?: number | null;
 }
 
 interface PsPricesMatchInfo {
@@ -682,13 +684,35 @@ async function fetchPsPricesSnapshot(
       candidate,
       score: scorePsPricesTitleMatch(params.title, candidate.title ?? '')
     }))
-    .sort((left, right) => right.score - left.score);
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+      const rightQuality = resolveCandidateQualityScore(right.candidate);
+      const leftQuality = resolveCandidateQualityScore(left.candidate);
+      if (rightQuality !== leftQuality) {
+        return rightQuality - leftQuality;
+      }
+      const rightHasPrice = right.candidate.amount !== null ? 1 : 0;
+      const leftHasPrice = left.candidate.amount !== null ? 1 : 0;
+      if (rightHasPrice !== leftHasPrice) {
+        return rightHasPrice - leftHasPrice;
+      }
+      const rightId = parseCandidateGameId(right.candidate.gameId);
+      const leftId = parseCandidateGameId(left.candidate.gameId);
+      if (rightId !== null && leftId !== null && rightId !== leftId) {
+        return leftId - rightId;
+      }
+      return 0;
+    });
   const best = ranked[0];
   const second = ranked[1];
 
   const hasHighConfidenceMatch =
     best.score >= PSPRICES_TITLE_MATCH_MIN_SCORE &&
-    (ranked.length === 1 || best.score - second.score >= PSPRICES_TITLE_MATCH_MIN_GAP);
+    (ranked.length === 1 ||
+      best.score - second.score >= PSPRICES_TITLE_MATCH_MIN_GAP ||
+      isResolvedDuplicateTie(best.candidate, second.candidate, best.score, second.score));
 
   return {
     snapshot: hasHighConfidenceMatch ? best.candidate : null,
@@ -735,6 +759,7 @@ function normalizePsPricesCandidate(
     candidate['regularPriceAmount'] ?? candidate['regularAmount']
   );
   const discountPercent = normalizeNumberOrNull(candidate['discountPercent']);
+  const gameId = normalizeNonEmptyString(candidate['gameId']);
   const isFreeRaw = candidate['isFree'];
   const isFree =
     typeof isFreeRaw === 'boolean'
@@ -748,13 +773,79 @@ function normalizePsPricesCandidate(
 
   return {
     title,
+    gameId,
     amount: amount === null && isFree ? 0 : amount !== null ? round2(amount) : null,
     currency,
     regularAmount: regularAmount !== null ? round2(regularAmount) : null,
     discountPercent: discountPercent !== null ? round2(discountPercent) : null,
     isFree,
-    url
+    url,
+    metadataQualityScore: resolveRawCandidateQualityScore(candidate)
   };
+}
+
+function resolveRawCandidateQualityScore(candidate: Record<string, unknown>): number {
+  let score = 0;
+
+  const metacriticScore = normalizeNumberOrNull(candidate['metacriticScore']);
+  if (metacriticScore !== null && metacriticScore >= 0 && metacriticScore <= 100) {
+    score += 6;
+  }
+
+  const openCriticScore = normalizeNumberOrNull(candidate['openCriticScore']);
+  if (openCriticScore !== null && openCriticScore >= 0 && openCriticScore <= 100) {
+    score += 2;
+  }
+
+  const collectionTagCount = normalizeNumberOrNull(candidate['collectionTagCount']);
+  if (collectionTagCount !== null && collectionTagCount > 0) {
+    score += Math.min(3, Math.round(collectionTagCount));
+  }
+
+  if (candidate['hasMostEngagingTag'] === true || candidate['hasMostEngagingTag'] === 'true') {
+    score += 2;
+  }
+
+  return score;
+}
+
+function resolveCandidateQualityScore(candidate: PsPricesSnapshot): number {
+  return typeof candidate.metadataQualityScore === 'number' &&
+    Number.isFinite(candidate.metadataQualityScore)
+    ? candidate.metadataQualityScore
+    : 0;
+}
+
+function parseCandidateGameId(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  if (!/^\d+$/.test(value)) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function isResolvedDuplicateTie(
+  best: PsPricesSnapshot,
+  second: PsPricesSnapshot | null,
+  bestScore: number,
+  secondScore: number
+): boolean {
+  if (!second || bestScore !== secondScore) {
+    return false;
+  }
+
+  const bestTitle = normalizeTitleForMatch(best.title ?? '');
+  const secondTitle = normalizeTitleForMatch(second.title ?? '');
+  if (!bestTitle || bestTitle !== secondTitle) {
+    return false;
+  }
+
+  const bestQuality = resolveCandidateQualityScore(best);
+  const secondQuality = resolveCandidateQualityScore(second);
+  return bestQuality > secondQuality;
 }
 
 function normalizePsPricesCachedCandidate(
@@ -897,12 +988,14 @@ async function persistPsPricesSnapshot(
     psPricesMatchConfidence: params.match.confidence,
     psPricesCandidates: params.candidates.slice(0, 30).map((candidate) => ({
       title: candidate.title,
+      gameId: candidate.gameId ?? null,
       amount: candidate.amount,
       currency: candidate.currency,
       regularAmount: candidate.regularAmount,
       discountPercent: candidate.discountPercent,
       isFree: candidate.isFree,
       url: candidate.url,
+      metadataQualityScore: candidate.metadataQualityScore ?? 0,
       score: candidate.score
     }))
   };

@@ -876,3 +876,73 @@ void test('PSPrices scoring treats complete edition as neutral for title confide
 
   await app.close();
 });
+
+void test('PSPrices scoring resolves duplicate title ties using metadata quality signals', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('36952', 48, {
+    title: 'Wolfenstein II: The New Colossus'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Wolfenstein II: The New Colossus',
+                amount: 50.18,
+                currency: 'CHF',
+                isFree: false,
+                gameId: '2632691',
+                collectionTagCount: 2,
+                hasMostEngagingTag: true,
+                metacriticScore: 87,
+                openCriticScore: 86,
+                url: 'https://psprices.com/region-ch/game/2632691/wolfenstein-ii-the-new-colossus'
+              },
+              {
+                title: 'Wolfenstein II: The New Colossus',
+                amount: 50.18,
+                currency: 'CHF',
+                isFree: false,
+                gameId: '2634364',
+                collectionTagCount: 1,
+                hasMostEngagingTag: false,
+                openCriticScore: 86,
+                url: 'https://psprices.com/region-ch/game/2634364/wolfenstein-ii-the-new-colossus'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=36952&platformIgdbId=48&title=Wolfenstein%20II%3A%20The%20New%20Colossus&includeCandidates=1'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['matchedTitle'], 'Wolfenstein II: The New Colossus');
+  assert.equal(match['score'], 100);
+  assert.equal(match['confidence'], 'high');
+
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(
+    bestPrice['url'],
+    'https://psprices.com/region-ch/game/2632691/wolfenstein-ii-the-new-colossus'
+  );
+
+  await app.close();
+});

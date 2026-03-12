@@ -42,6 +42,7 @@ type GameSyncServicePrivate = {
   generateOperationId(): string;
   pushOutbox(): Promise<void>;
   pullChanges(): Promise<void>;
+  replayRecentChangesIfDue(): Promise<void>;
   runDiscoveryPollutionRemediationIfNeeded(): Promise<void>;
   syncInFlight: boolean;
   initialized: boolean;
@@ -1200,6 +1201,74 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('replayRecentChangesIfDue skips when cursor is missing or invalid', async () => {
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+
+    await servicePrivate.replayRecentChangesIfDue();
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: 'invalid-cursor',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).not.toHaveBeenCalled();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+  });
+
+  it('replayRecentChangesIfDue skips when replay ran recently', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+    await db.syncMeta.put({
+      key: 'recentReplayLastAt',
+      value: new Date().toISOString(),
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).not.toHaveBeenCalled();
+  });
+
+  it('replayRecentChangesIfDue replays recent window, applies changes, and stores replay timestamp', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
+      of({
+        cursor: '4101',
+        changes: [
+          {
+            eventId: '4101',
+            entityType: 'setting',
+            operation: 'upsert',
+            payload: { key: 'replay-setting', value: 'on' },
+            serverTimestamp: '2026-01-01T00:00:00.000Z'
+          }
+        ]
+      })
+    );
+
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).toHaveBeenCalledWith(
+      `${servicePrivate.baseUrl}/v1/sync/pull`,
+      expect.objectContaining({ cursor: '4000' })
+    );
+    expect(localStorage.getItem('replay-setting')).toBe('on');
+    expect(emitChangedSpy).toHaveBeenCalledTimes(1);
+    const replayMeta = await db.syncMeta.get('recentReplayLastAt');
+    expect(replayMeta?.value).toBeTruthy();
+  });
+
   it('applyPulledChanges dispatches by entity type', async () => {
     const gameSpy = vi.spyOn(servicePrivate, 'applyGameChange').mockResolvedValue(undefined);
     const tagSpy = vi.spyOn(servicePrivate, 'applyTagChange').mockResolvedValue(undefined);
@@ -1338,6 +1407,20 @@ describe('GameSyncService', () => {
 
     const connectivity = await db.syncMeta.get('connectivity');
     expect(connectivity?.value).toBe('degraded');
+  });
+
+  it('syncNow keeps success path when replayRecentChangesIfDue fails', async () => {
+    vi.spyOn(servicePrivate, 'pushOutbox').mockResolvedValue(undefined);
+    vi.spyOn(servicePrivate, 'pullChanges').mockResolvedValue(undefined);
+    vi.spyOn(servicePrivate, 'replayRecentChangesIfDue').mockRejectedValue(
+      new Error('replay failed')
+    );
+
+    await service.syncNow();
+
+    const connectivity = await db.syncMeta.get('connectivity');
+    expect(connectivity?.value).toBe('online');
+    expect(await db.syncMeta.get('lastSyncAt')).toBeDefined();
   });
 
   it('syncNow skips when in flight or offline', async () => {

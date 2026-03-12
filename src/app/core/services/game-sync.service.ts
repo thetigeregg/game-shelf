@@ -50,6 +50,7 @@ export class GameSyncService implements SyncOutboxWriter {
   private static readonly META_CURSOR_KEY = 'cursor';
   private static readonly META_LAST_SYNC_KEY = 'lastSyncAt';
   private static readonly META_CONNECTIVITY_KEY = 'connectivity';
+  private static readonly META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY = 'recentReplayLastAttemptAt';
   private static readonly META_RECENT_REPLAY_LAST_AT_KEY = 'recentReplayLastAt';
   private static readonly RECENT_REPLAY_INTERVAL_MS = 24 * 60 * 60 * 1000;
   private static readonly RECENT_REPLAY_WINDOW_EVENTS = 5000;
@@ -343,12 +344,16 @@ export class GameSyncService implements SyncOutboxWriter {
       return;
     }
 
-    const lastReplayAt = this.getIsoDateMs(
-      await this.getMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY)
+    const lastReplayAttemptAt = this.getIsoDateMs(
+      (await this.getMeta(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY)) ??
+        (await this.getMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY))
     );
     const now = Date.now();
 
-    if (lastReplayAt !== null && now - lastReplayAt < GameSyncService.RECENT_REPLAY_INTERVAL_MS) {
+    if (
+      lastReplayAttemptAt !== null &&
+      now - lastReplayAttemptAt < GameSyncService.RECENT_REPLAY_INTERVAL_MS
+    ) {
       return;
     }
 
@@ -356,9 +361,20 @@ export class GameSyncService implements SyncOutboxWriter {
     let replayCursor = String(Math.max(0, cursor - GameSyncService.RECENT_REPLAY_WINDOW_EVENTS));
     let pagesPulled = 0;
     let totalAppliedChanges = 0;
+    const replayPages: SyncChangeEvent[][] = [];
+    let abortedDueToPendingOutbox = false;
 
     try {
       while (pagesPulled < GameSyncService.RECENT_REPLAY_MAX_PAGES) {
+        const pendingOutboxCountBeforeRequest = await this.db.outbox.count();
+        if (pendingOutboxCountBeforeRequest > 0) {
+          this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
+            pendingOutboxCount: pendingOutboxCountBeforeRequest
+          });
+          abortedDueToPendingOutbox = true;
+          break;
+        }
+
         this.debugLogService.debug('sync.pull.recent_replay.request', {
           replayCursor,
           pagesPulled
@@ -379,16 +395,7 @@ export class GameSyncService implements SyncOutboxWriter {
           break;
         }
 
-        const pendingOutboxCountBeforeApply = await this.db.outbox.count();
-        if (pendingOutboxCountBeforeApply > 0) {
-          this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
-            pendingOutboxCount: pendingOutboxCountBeforeApply
-          });
-          break;
-        }
-
-        await this.applyPulledChanges(changes);
-        totalAppliedChanges += changes.length;
+        replayPages.push(changes);
         pagesPulled += 1;
 
         const nextCursor = responseCursor ?? changes[changes.length - 1].eventId;
@@ -399,7 +406,25 @@ export class GameSyncService implements SyncOutboxWriter {
         replayCursor = nextCursor;
       }
 
+      if (abortedDueToPendingOutbox || replayPages.length === 0) {
+        return;
+      }
+
+      const pendingOutboxCountBeforeApply = await this.db.outbox.count();
+      if (pendingOutboxCountBeforeApply > 0) {
+        this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
+          pendingOutboxCount: pendingOutboxCountBeforeApply
+        });
+        return;
+      }
+
+      for (const replayPage of replayPages) {
+        await this.applyPulledChanges(replayPage);
+        totalAppliedChanges += replayPage.length;
+      }
+
       if (totalAppliedChanges > 0) {
+        await this.setMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY, attemptAt);
         this.syncEvents.emitChanged();
         this.debugLogService.debug('sync.pull.recent_replay.applied', {
           changes: totalAppliedChanges,
@@ -407,7 +432,7 @@ export class GameSyncService implements SyncOutboxWriter {
         });
       }
     } finally {
-      await this.setMeta(GameSyncService.META_RECENT_REPLAY_LAST_AT_KEY, attemptAt);
+      await this.setMeta(GameSyncService.META_RECENT_REPLAY_LAST_ATTEMPT_AT_KEY, attemptAt);
     }
   }
 

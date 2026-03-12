@@ -9,6 +9,7 @@ import {
   RELEASE_NOTIFICATION_EVENTS_KEY,
   RELEASE_NOTIFICATIONS_ENABLED_KEY
 } from './notification-constants.js';
+import { coercePreferenceBoolean } from './preference-bool.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
 
 const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
@@ -1078,10 +1079,7 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
   );
 
   const valueByKey = new Map(result.rows.map((row) => [row.setting_key, row.setting_value]));
-  const enabledRaw = (valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY) ?? 'false')
-    .trim()
-    .toLowerCase();
-  const enabled = enabledRaw !== 'false' && enabledRaw !== '0' && enabledRaw !== 'no';
+  const enabled = coercePreferenceBoolean(valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY), false);
   const eventDefaults = { set: true, changed: true, removed: true, day: true, sale: true };
   const eventsRaw = valueByKey.get(RELEASE_NOTIFICATION_EVENTS_KEY);
 
@@ -1092,11 +1090,11 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
   try {
     const parsed = JSON.parse(eventsRaw) as Record<string, unknown>;
     const events = {
-      set: parsed['set'] === false ? false : true,
-      changed: parsed['changed'] === false ? false : true,
-      removed: parsed['removed'] === false ? false : true,
-      day: parsed['day'] === false ? false : true,
-      sale: parsed[RELEASE_NOTIFICATION_EVENT_SALE_KEY] === false ? false : true
+      set: coercePreferenceBoolean(parsed['set'], true),
+      changed: coercePreferenceBoolean(parsed['changed'], true),
+      removed: coercePreferenceBoolean(parsed['removed'], true),
+      day: coercePreferenceBoolean(parsed['day'], true),
+      sale: coercePreferenceBoolean(parsed[RELEASE_NOTIFICATION_EVENT_SALE_KEY], true)
     };
     return {
       enabled,

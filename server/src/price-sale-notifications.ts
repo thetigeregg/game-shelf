@@ -5,6 +5,7 @@ import {
   RELEASE_NOTIFICATION_EVENTS_KEY,
   RELEASE_NOTIFICATIONS_ENABLED_KEY
 } from './notification-constants.js';
+import { coercePreferenceBoolean } from './preference-bool.js';
 
 interface NotificationPreferences {
   enabled: boolean;
@@ -211,11 +212,8 @@ function buildSaleNotificationEvent(args: {
   fetchedAt: string | null;
 }): SaleNotificationReservationEvent {
   const displayPrice = formatDisplayPrice(args.snapshot.amount, args.snapshot.currency);
-  const discountPercent =
-    args.snapshot.discountPercent !== null && args.snapshot.discountPercent > 0
-      ? Math.round(args.snapshot.discountPercent)
-      : inferDiscountPercent(args.snapshot.amount, args.snapshot.regularAmount);
-  const discountSuffix = discountPercent > 0 ? ` (-${String(discountPercent)}%)` : '';
+  const discountPercent = resolveDiscountPercentForNotification(args.snapshot);
+  const discountSuffix = discountPercent !== null ? ` (-${String(discountPercent)}%)` : '';
   const saleDay = resolveSaleDayBucket(args.fetchedAt);
 
   const eventKey = [
@@ -226,7 +224,7 @@ function buildSaleNotificationEvent(args: {
     args.snapshot.currency ?? 'na',
     args.snapshot.amount !== null ? String(args.snapshot.amount) : 'na',
     args.snapshot.regularAmount !== null ? String(args.snapshot.regularAmount) : 'na',
-    args.snapshot.discountPercent !== null ? String(args.snapshot.discountPercent) : 'na'
+    discountPercent !== null ? String(discountPercent) : 'na'
   ].join(':');
 
   return {
@@ -237,10 +235,19 @@ function buildSaleNotificationEvent(args: {
     payload: {
       priceAmount: args.snapshot.amount,
       priceRegularAmount: args.snapshot.regularAmount,
-      priceDiscountPercent: args.snapshot.discountPercent,
+      priceDiscountPercent: discountPercent,
       priceCurrency: args.snapshot.currency
     }
   };
+}
+
+function resolveDiscountPercentForNotification(snapshot: SaleSnapshot): number | null {
+  if (snapshot.discountPercent !== null && snapshot.discountPercent > 0) {
+    return Math.round(snapshot.discountPercent);
+  }
+
+  const inferred = inferDiscountPercent(snapshot.amount, snapshot.regularAmount);
+  return inferred > 0 ? inferred : null;
 }
 
 function inferDiscountPercent(amount: number | null, regularAmount: number | null): number {
@@ -289,10 +296,7 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
   );
 
   const valueByKey = new Map(result.rows.map((row) => [row.setting_key, row.setting_value]));
-  const enabledRaw = (valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY) ?? 'false')
-    .trim()
-    .toLowerCase();
-  const enabled = enabledRaw !== 'false' && enabledRaw !== '0' && enabledRaw !== 'no';
+  const enabled = coercePreferenceBoolean(valueByKey.get(RELEASE_NOTIFICATIONS_ENABLED_KEY), false);
   const eventsRaw = valueByKey.get(RELEASE_NOTIFICATION_EVENTS_KEY);
 
   if (!eventsRaw) {
@@ -309,7 +313,7 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
     return {
       enabled,
       events: {
-        sale: parsed['sale'] === false ? false : true
+        sale: coercePreferenceBoolean(parsed['sale'], true)
       }
     };
   } catch {
@@ -323,6 +327,7 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
 }
 
 async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
+  const queryLimit = MAX_ACTIVE_TOKENS_PER_RUN + 1;
   const result = await pool.query<{ token: string }>(
     `
     SELECT token
@@ -331,10 +336,10 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
     ORDER BY token ASC
     LIMIT $1
     `,
-    [MAX_ACTIVE_TOKENS_PER_RUN]
+    [queryLimit]
   );
   const set = new Set<string>();
-  result.rows.forEach((row) => {
+  result.rows.slice(0, MAX_ACTIVE_TOKENS_PER_RUN).forEach((row) => {
     const token = normalizeNonEmptyString(row.token);
     if (token) {
       set.add(token);
@@ -342,7 +347,7 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
   });
 
   const loadedRowCount = typeof result.rowCount === 'number' ? result.rowCount : result.rows.length;
-  if (loadedRowCount >= MAX_ACTIVE_TOKENS_PER_RUN) {
+  if (loadedRowCount > MAX_ACTIVE_TOKENS_PER_RUN) {
     console.warn('[price-sale-notifications] active_tokens_capped', {
       maxActiveTokensPerRun: MAX_ACTIVE_TOKENS_PER_RUN,
       loadedActiveTokens: set.size

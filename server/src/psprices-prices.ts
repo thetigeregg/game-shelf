@@ -150,13 +150,13 @@ const PSPRICES_SUFFIX_EXPANSION_PATTERNS = [
   /\bchapter\b/
 ];
 const PSPRICES_PLAYSTATION_SUFFIX_PATTERNS = [
-  /\b(?:ps5|ps4|playstation 5|playstation 4)(?: edition)?$/g
+  /\b(?:ps5|ps4|playstation 5|playstation 4)(?: edition)?$/
 ];
 const PSPRICES_SWITCH_SUFFIX_PATTERNS = [
-  /\b(?:nintendo switch 2|switch 2|nintendo switch|switch)(?: edition)?$/g
+  /\b(?:nintendo switch 2|switch 2|nintendo switch|switch)(?: edition)?$/
 ];
 const PSPRICES_XBOX_SUFFIX_PATTERNS = [
-  /\b(?:xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox)(?: edition)?$/g
+  /\b(?:xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox)(?: edition)?$/
 ];
 const ROMAN_NUMERAL_VALUES: Record<string, number> = {
   I: 1,

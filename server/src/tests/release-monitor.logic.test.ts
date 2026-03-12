@@ -272,7 +272,7 @@ void test('release timestamp resolution handles day/month/quarter/year', () => {
   );
 });
 
-void test('hltb and metacritic refresh due checks respect existing values and refresh age', () => {
+void test('hltb and review refresh due checks respect refresh age', () => {
   const now = new Date('2026-03-06T10:00:00.000Z');
   const payloadWithHltb = { hltbMainHours: 12 };
   const payloadWithMetacritic = { metacriticScore: 85 };
@@ -293,22 +293,9 @@ void test('hltb and metacritic refresh due checks respect existing values and re
     releaseMonitorInternals.isHltbRefreshDue('2026-03-06T09:59:00.000Z', { hltbMainHours: 0 }, now),
     false
   );
-  assert.equal(
-    releaseMonitorInternals.isMetacriticRefreshDue(null, payloadWithMetacritic, now),
-    true
-  );
-  assert.equal(
-    releaseMonitorInternals.isMetacriticRefreshDue('invalid-date', payloadWithMetacritic, now),
-    true
-  );
-  assert.equal(
-    releaseMonitorInternals.isMetacriticRefreshDue(
-      '2026-03-06T09:59:00.000Z',
-      { metacriticScore: 0 },
-      now
-    ),
-    false
-  );
+  assert.equal(releaseMonitorInternals.isReviewRefreshDue(null, now), true);
+  assert.equal(releaseMonitorInternals.isReviewRefreshDue('invalid-date', now), true);
+  assert.equal(releaseMonitorInternals.isReviewRefreshDue('2026-03-06T09:59:00.000Z', now), false);
   assert.equal(
     releaseMonitorInternals.isProviderMatchLocked({ hltbMatchLocked: true }, 'hltbMatchLocked'),
     true

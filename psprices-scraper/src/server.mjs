@@ -160,6 +160,17 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           '[data-test-id="price-old"], .old-price-strike, .line-through'
         );
         const discountElement = card.querySelector('.bg-red-700, .dark\\:bg-red-600');
+        const metacriticScoreElement = card.querySelector(
+          'a[href*="metacritic.com"] span[class*="bg-success"], a[href*="metacritic.com"] span[class*="font-medium"]'
+        );
+        const openCriticScoreElement = card.querySelector(
+          'a[href*="opencritic.com"] span[class*="font-medium"]'
+        );
+        const collectionLinks = card.querySelectorAll('a[href*="/collection/"]');
+        const hasMostEngagingTag = Array.from(collectionLinks).some((link) => {
+          const href = link.getAttribute('href') ?? '';
+          return href.includes('/collection/most-engaging');
+        });
 
         const title = normalizeText(titleElement?.textContent ?? anchor?.textContent ?? '');
         if (!title) {
@@ -178,7 +189,11 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           oldPriceText,
           discountText,
           url,
-          gameId: gameId.length > 0 ? gameId : null
+          gameId: gameId.length > 0 ? gameId : null,
+          collectionTagCount: collectionLinks.length,
+          hasMostEngagingTag: hasMostEngagingTag ? 'true' : 'false',
+          metacriticScore: normalizeText(metacriticScoreElement?.textContent ?? ''),
+          openCriticScore: normalizeText(openCriticScoreElement?.textContent ?? '')
         };
       })
       .filter((item) => item !== null);

@@ -1216,6 +1216,20 @@ describe('GameSyncService', () => {
     expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
   });
 
+  it('replayRecentChangesIfDue skips when cursor is within replay window', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '5000',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).not.toHaveBeenCalled();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+  });
+
   it('replayRecentChangesIfDue skips when replay ran recently', async () => {
     await db.syncMeta.put({
       key: 'cursor',
@@ -1267,6 +1281,38 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalledTimes(1);
     const replayMeta = await db.syncMeta.get('recentReplayLastAt');
     expect(replayMeta?.value).toBeTruthy();
+  });
+
+  it('replayRecentChangesIfDue stops paging at max pages', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const fullPage = (startEventId: number): SyncChangeEvent[] =>
+      Array.from({ length: 1000 }, (_, index) => ({
+        eventId: String(startEventId + index),
+        entityType: 'setting',
+        operation: 'upsert',
+        payload: { key: `replay-max-${String(startEventId + index)}`, value: 'v' },
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      }));
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValueOnce(of({ cursor: '5000', changes: fullPage(4001) }))
+      .mockReturnValueOnce(of({ cursor: '6000', changes: fullPage(5001) }))
+      .mockReturnValueOnce(of({ cursor: '7000', changes: fullPage(6001) }))
+      .mockReturnValueOnce(of({ cursor: '8000', changes: fullPage(7001) }))
+      .mockReturnValueOnce(of({ cursor: '9000', changes: fullPage(8001) }))
+      .mockReturnValueOnce(of({ cursor: '10000', changes: fullPage(9001) }));
+
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).toHaveBeenCalledTimes(5);
+    expect(localStorage.getItem('replay-max-4001')).toBe('v');
+    expect(localStorage.getItem('replay-max-9000')).toBe('v');
   });
 
   it('applyPulledChanges dispatches by entity type', async () => {

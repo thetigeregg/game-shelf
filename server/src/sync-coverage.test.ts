@@ -79,7 +79,11 @@ class CoverageSyncClient {
     }
 
     if (normalized.startsWith('select coalesce(max(event_id), 0) as event_id from sync_events')) {
-      return Promise.resolve({ rows: [{ event_id: this.store.syncEvents.length }] });
+      const maxEventId = this.store.syncEvents.reduce(
+        (max, row) => (row.event_id > max ? row.event_id : max),
+        0
+      );
+      return Promise.resolve({ rows: [{ event_id: String(maxEventId) }] });
     }
 
     if (normalized.startsWith('insert into tags (id, payload')) {

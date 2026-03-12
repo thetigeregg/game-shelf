@@ -1216,6 +1216,20 @@ describe('GameSyncService', () => {
     expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
   });
 
+  it('replayRecentChangesIfDue skips when cursor exceeds MAX_SAFE_INTEGER', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9007199254740993',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).not.toHaveBeenCalled();
+    expect(await db.syncMeta.get('recentReplayLastAt')).toBeUndefined();
+  });
+
   it('replayRecentChangesIfDue skips when cursor is within replay window', async () => {
     await db.syncMeta.put({
       key: 'cursor',
@@ -1304,6 +1318,61 @@ describe('GameSyncService', () => {
     expect(emitChangedSpy).toHaveBeenCalledTimes(1);
     const replayMeta = await db.syncMeta.get('recentReplayLastAt');
     expect(replayMeta?.value).toBeTruthy();
+  });
+
+  it('replayRecentChangesIfDue stops before applying next page when outbox gains pending ops', async () => {
+    await db.syncMeta.put({
+      key: 'cursor',
+      value: '9000',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    const firstPage = Array.from({ length: 1000 }, (_, index) => ({
+      eventId: String(4001 + index),
+      entityType: 'setting' as const,
+      operation: 'upsert' as const,
+      payload: { key: `replay-race-a-${String(index)}`, value: 'a' },
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    }));
+    const secondPage = [
+      {
+        eventId: '5001',
+        entityType: 'setting' as const,
+        operation: 'upsert' as const,
+        payload: { key: 'replay-race-b', value: 'b' },
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      }
+    ];
+
+    const postSpy = vi
+      .spyOn(servicePrivate.httpClient, 'post')
+      .mockReturnValueOnce(of({ cursor: '5000', changes: firstPage }))
+      .mockReturnValueOnce(of({ cursor: '5001', changes: secondPage }));
+
+    const originalApplyPulledChanges = servicePrivate.applyPulledChanges.bind(servicePrivate);
+    let applyCalls = 0;
+    vi.spyOn(servicePrivate, 'applyPulledChanges').mockImplementation(async (changes) => {
+      await originalApplyPulledChanges(changes);
+      applyCalls += 1;
+      if (applyCalls === 1) {
+        await db.outbox.put({
+          opId: 'pending-mid-replay',
+          entityType: 'setting',
+          operation: 'upsert',
+          payload: { key: 'local-setting-mid-replay', value: 'local' },
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          attemptCount: 0
+        });
+      }
+    });
+
+    await servicePrivate.replayRecentChangesIfDue();
+
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(applyCalls).toBe(1);
+    expect(localStorage.getItem('replay-race-a-0')).toBe('a');
+    expect(localStorage.getItem('replay-race-b')).toBeNull();
   });
 
   it('replayRecentChangesIfDue stops paging at max pages', async () => {

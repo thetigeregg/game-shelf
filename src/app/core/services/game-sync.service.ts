@@ -379,6 +379,14 @@ export class GameSyncService implements SyncOutboxWriter {
           break;
         }
 
+        const pendingOutboxCountBeforeApply = await this.db.outbox.count();
+        if (pendingOutboxCountBeforeApply > 0) {
+          this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
+            pendingOutboxCount: pendingOutboxCountBeforeApply
+          });
+          break;
+        }
+
         await this.applyPulledChanges(changes);
         totalAppliedChanges += changes.length;
         pagesPulled += 1;
@@ -462,14 +470,27 @@ export class GameSyncService implements SyncOutboxWriter {
   }
 
   private parseNonNegativeInteger(value: unknown): number | null {
-    const parsed =
-      typeof value === 'number'
-        ? value
-        : typeof value === 'string'
-          ? Number.parseInt(value, 10)
-          : Number.NaN;
+    if (typeof value === 'number') {
+      return Number.isSafeInteger(value) && value >= 0 ? value : null;
+    }
 
-    return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!/^\d+$/.test(trimmed)) {
+        return null;
+      }
+      try {
+        const parsed = BigInt(trimmed);
+        if (parsed > BigInt(Number.MAX_SAFE_INTEGER)) {
+          return null;
+        }
+        return Number(parsed);
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
   }
 
   private getIsoDateMs(value: string | null): number | null {

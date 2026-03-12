@@ -1062,19 +1062,29 @@ async function persistPsPricesSnapshot(
     patchPayload['psPricesUrl'] = params.bestPrice.url ?? null;
   }
 
-  const updateResult = await pool.query<{ payload: unknown }>(
+  const updateResult = await pool.query<{ previous_payload: unknown; next_payload: unknown }>(
     `
-      UPDATE games
-      SET payload = games.payload || $3::jsonb, updated_at = NOW()
-      WHERE igdb_game_id = $1
-        AND platform_igdb_id = $2
-        AND games.payload IS DISTINCT FROM (games.payload || $3::jsonb)
-      RETURNING payload
+      WITH current_row AS (
+        SELECT payload
+        FROM games
+        WHERE igdb_game_id = $1
+          AND platform_igdb_id = $2
+        FOR UPDATE
+      )
+      UPDATE games AS g
+      SET payload = g.payload || $3::jsonb, updated_at = NOW()
+      FROM current_row
+      WHERE g.igdb_game_id = $1
+        AND g.platform_igdb_id = $2
+        AND g.payload IS DISTINCT FROM (g.payload || $3::jsonb)
+      RETURNING current_row.payload AS previous_payload, g.payload AS next_payload
     `,
     [params.igdbGameId, params.platformIgdbId, JSON.stringify(patchPayload)]
   );
 
-  const updatedPayloadCandidate = normalizePayloadObject(updateResult.rows[0]?.payload);
+  const previousPayloadCandidate = normalizePayloadObject(updateResult.rows[0]?.previous_payload);
+  const updatedPayloadCandidate = normalizePayloadObject(updateResult.rows[0]?.next_payload);
+  const previousPayload = previousPayloadCandidate ?? params.payload;
   const updatedPayload = updatedPayloadCandidate ?? params.payload;
   const hasChanges = (updateResult.rowCount ?? updateResult.rows.length) > 0;
   if (hasChanges && !isDiscoveryListType(updatedPayload['listType'])) {
@@ -1092,7 +1102,7 @@ async function persistPsPricesSnapshot(
       await maybeSendWishlistSaleNotification(pool, {
         igdbGameId: params.igdbGameId,
         platformIgdbId: params.platformIgdbId,
-        previousPayload: params.payload,
+        previousPayload,
         nextPayload: updatedPayload
       });
     } catch (error) {

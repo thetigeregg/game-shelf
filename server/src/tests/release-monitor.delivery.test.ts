@@ -615,6 +615,70 @@ class QueuedGamePoolMock {
   }
 }
 
+class ProcessGameRowClientMock {
+  payloadPatch: Record<string, unknown> | null = null;
+  syncEventPayload: Record<string, unknown> | null = null;
+
+  query(
+    sql: string,
+    params: unknown[] = []
+  ): Promise<{ rows: Array<{ payload: unknown }>; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    if (
+      normalizedSql.startsWith(
+        'update games set payload = games.payload || $3::jsonb, updated_at = now()'
+      )
+    ) {
+      const parsedPatch = parseJsonObject(params[2]);
+      this.payloadPatch = parsedPatch;
+      return Promise.resolve({
+        rows: [{ payload: parsedPatch }],
+        rowCount: 1
+      });
+    }
+
+    if (normalizedSql.startsWith('insert into sync_events')) {
+      this.syncEventPayload = parseJsonObject(params[3]);
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  }
+
+  release(): void {}
+}
+
+class ProcessGameRowPoolMock {
+  readonly client = new ProcessGameRowClientMock();
+  watchStateWrites = 0;
+
+  connect(): Promise<ProcessGameRowClientMock> {
+    return Promise.resolve(this.client);
+  }
+
+  query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (normalizedSql.startsWith('insert into release_watch_state')) {
+      this.watchStateWrites += 1;
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  }
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'string') {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 void test('processQueuedReleaseMonitorGame validates payload and tolerates lock miss', async () => {
   releaseMonitorInternals.clearQueuedGameContextCache();
   const pool = new QueuedGamePoolMock();
@@ -659,4 +723,243 @@ void test('processQueuedReleaseMonitorGame reuses short-lived cached settings an
 
   assert.equal(pool.settingsReads, 1);
   assert.equal(pool.tokenReads, 1);
+});
+
+void test('processGameRow refreshes unlocked HLTB/review metadata and persists a payload patch', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((input: URL | RequestInfo) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+
+    if (url.includes('id.twitch.tv/oauth2/token')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            access_token: 'test-token',
+            expires_in: 3600,
+            token_type: 'bearer'
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    if (url.includes('api.igdb.com/v4/games')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 52189,
+              name: 'A Better Title',
+              first_release_date: 1_767_225_600,
+              platforms: [{ id: 167, name: 'PlayStation 5' }]
+            }
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              hltbMainHours: 10,
+              hltbMainExtraHours: 15,
+              hltbCompletionistHours: 24
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    if (url.includes('/v1/metacritic/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              metacriticScore: 88,
+              metacriticUrl: 'https://metacritic.example/game'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  }) as typeof fetch;
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Original Title',
+          platform: 'PlayStation 5',
+          releaseYear: 2026,
+          releaseMarker: '2026',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+          hltbMainHours: 6,
+          metacriticScore: 70,
+          reviewSource: 'metacritic',
+          reviewScore: 70,
+          reviewUrl: 'https://metacritic.example/old'
+        },
+        watch_exists: true,
+        last_known_release_marker: '2026',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2026,
+        last_seen_state: 'released',
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.igdbRefreshAttempts, 1);
+    assert.equal(stats.igdbRefreshSuccesses, 1);
+    assert.equal(stats.hltbRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshAttempts, 1);
+
+    assert.equal(pool.watchStateWrites, 1);
+    assert.equal(pool.client.payloadPatch?.['title'], 'A Better Title');
+    assert.equal(pool.client.syncEventPayload?.['title'], 'A Better Title');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('processGameRow treats explicit mobygames override id mismatch as review miss', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((input: URL | RequestInfo) => {
+    const url =
+      input instanceof URL ? input.toString() : input instanceof Request ? input.url : input;
+
+    if (url.includes('id.twitch.tv/oauth2/token')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            access_token: 'test-token',
+            expires_in: 3600,
+            token_type: 'bearer'
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    if (url.includes('api.igdb.com/v4/games')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 52189,
+              name: 'Original Title',
+              first_release_date: 1_767_225_600,
+              platforms: [{ id: 167, name: 'PlayStation 5' }]
+            }
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    if (url.includes('/v1/mobygames/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            games: [
+              {
+                game_id: 9999,
+                moby_url: 'https://www.mobygames.com/game/9999',
+                moby_score: 8.1,
+                critic_score: 81
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response(null, { status: 404 }));
+  }) as typeof fetch;
+
+  try {
+    const pool = new ProcessGameRowPoolMock();
+    const stats = createRunStats();
+    await releaseMonitorInternals.processGameRow(
+      pool as unknown as Pool,
+      {
+        igdb_game_id: '52189',
+        platform_igdb_id: 167,
+        payload: {
+          title: 'Original Title',
+          platform: 'PlayStation 5',
+          releaseYear: 2026,
+          releaseMarker: '2026',
+          releasePrecision: 'year',
+          listType: 'wishlist',
+          reviewSource: 'opencritic',
+          reviewScore: 92,
+          reviewUrl: 'https://opencritic.example/game',
+          reviewMatchMobygamesGameId: 777
+        },
+        watch_exists: true,
+        last_known_release_marker: '2026',
+        last_known_release_precision: 'year',
+        last_known_release_date: null,
+        last_known_release_year: 2026,
+        last_seen_state: 'released',
+        last_hltb_refresh_at: null,
+        last_metacritic_refresh_at: null,
+        last_notified_release_day: null
+      },
+      { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
+      new Set<string>(),
+      stats
+    );
+
+    assert.equal(stats.reviewRefreshAttempts, 1);
+    assert.equal(stats.reviewRefreshSuccesses, 0);
+    assert.equal(pool.client.payloadPatch?.['mobygamesGameId'], undefined);
+    assert.equal(pool.client.payloadPatch?.['reviewSource'], undefined);
+    assert.equal(pool.client.syncEventPayload?.['mobygamesGameId'], undefined);
+    assert.equal(pool.client.syncEventPayload?.['reviewSource'], undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

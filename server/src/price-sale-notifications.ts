@@ -99,11 +99,16 @@ export async function maybeSendWishlistSaleNotification(
   try {
     const activeTokenSet =
       options.activeTokens !== undefined
-        ? new Set(
-            [...options.activeTokens]
-              .map((token) => normalizeNonEmptyString(token))
-              .filter((token): token is string => token !== null)
-          )
+        ? (() => {
+            const set = new Set<string>();
+            for (const rawToken of options.activeTokens) {
+              const token = normalizeNonEmptyString(rawToken);
+              if (token !== null) {
+                set.add(token);
+              }
+            }
+            return set;
+          })()
         : await loadActiveTokenSet(pool);
     if (activeTokenSet.size === 0) {
       await releaseNotificationLogReservation(pool, event.eventKey);

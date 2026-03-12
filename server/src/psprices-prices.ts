@@ -925,8 +925,16 @@ function normalizePsPricesCandidate(
     discountPercent: discountPercent !== null ? round2(discountPercent) : null,
     isFree,
     url,
-    metadataQualityScore: resolveRawCandidateQualityScore(candidate)
+    metadataQualityScore: resolveCandidateMetadataQualityScore(candidate)
   };
+}
+
+function resolveCandidateMetadataQualityScore(candidate: Record<string, unknown>): number {
+  const persistedScore = normalizeNumberOrNull(candidate['metadataQualityScore']);
+  if (persistedScore !== null && Number.isFinite(persistedScore)) {
+    return persistedScore;
+  }
+  return resolveRawCandidateQualityScore(candidate);
 }
 
 function resolveRawCandidateQualityScore(candidate: Record<string, unknown>): number {

@@ -13,6 +13,7 @@ class SaleNotificationPoolMock {
   private readonly tokenRows: Array<{ token: string }> = [];
   private readonly logs = new Map<string, NotificationLogRow>();
   invalidationBatches: string[][] = [];
+  tokenSelectCount = 0;
 
   setPreferences(enabled: boolean, saleEnabled: boolean): void {
     this.settingRows.length = 0;
@@ -57,6 +58,7 @@ class SaleNotificationPoolMock {
         'select token from fcm_tokens where is_active = true order by token asc limit $1'
       )
     ) {
+      this.tokenSelectCount += 1;
       return Promise.resolve({ rows: [...this.tokenRows], rowCount: this.tokenRows.length });
     }
 
@@ -436,4 +438,108 @@ void test('releases reservation when sendMulticast throws', async () => {
 
   assert.equal(pool.getLogCount(), 0);
   assert.equal(pool.hasPendingZeroSentLog(), false);
+});
+
+void test('loads active tokens only for dedupe reservation winner', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+
+  let sendCount = 0;
+  const params = {
+    igdbGameId: '600',
+    platformIgdbId: 48,
+    previousPayload: {
+      listType: 'wishlist',
+      title: 'Duplicate Test Game',
+      priceAmount: 49.99,
+      priceRegularAmount: 49.99,
+      priceDiscountPercent: 0,
+      priceIsFree: false
+    },
+    nextPayload: {
+      listType: 'wishlist',
+      title: 'Duplicate Test Game',
+      priceAmount: 29.99,
+      priceRegularAmount: 49.99,
+      priceDiscountPercent: 40,
+      priceIsFree: false,
+      priceCurrency: 'USD',
+      priceFetchedAt: '2026-03-12T13:00:00.000Z'
+    }
+  };
+
+  await maybeSendWishlistSaleNotification(pool as unknown as Pool, params, {
+    sendMulticast: () => {
+      sendCount += 1;
+      return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
+    }
+  });
+
+  await maybeSendWishlistSaleNotification(pool as unknown as Pool, params, {
+    sendMulticast: () => {
+      sendCount += 1;
+      return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
+    }
+  });
+
+  assert.equal(sendCount, 1);
+  assert.equal(pool.tokenSelectCount, 1);
+});
+
+void test('warns when active token load reaches cap', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(
+    Array.from({ length: 20_000 }, (_value, index) => `token-${String(index).padStart(5, '0')}`)
+  );
+
+  const warnCalls: unknown[][] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnCalls.push(args);
+  };
+
+  try {
+    await maybeSendWishlistSaleNotification(
+      pool as unknown as Pool,
+      {
+        igdbGameId: '601',
+        platformIgdbId: 167,
+        previousPayload: {
+          listType: 'wishlist',
+          title: 'Cap Warning Test',
+          priceAmount: 59.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 0,
+          priceIsFree: false
+        },
+        nextPayload: {
+          listType: 'wishlist',
+          title: 'Cap Warning Test',
+          priceAmount: 39.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 33,
+          priceIsFree: false,
+          priceCurrency: 'USD',
+          priceFetchedAt: '2026-03-12T13:10:00.000Z'
+        }
+      },
+      {
+        sendMulticast: () =>
+          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] })
+      }
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(
+    warnCalls.some(
+      (args) =>
+        typeof args[0] === 'string' &&
+        args[0].includes('[price-sale-notifications] active_tokens_capped')
+    ),
+    true
+  );
 });

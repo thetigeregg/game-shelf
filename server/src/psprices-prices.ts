@@ -843,6 +843,7 @@ async function fetchPsPricesSnapshot(
     (ranked.length === 1 ||
       best.coreScore - second.coreScore >= PSPRICES_TITLE_MATCH_MIN_GAP ||
       isResolvedStrongCoreSuffixTie(best, second) ||
+      isResolvedEquivalentStrongCoreTie(best, second) ||
       isResolvedDuplicateTie(best, second));
 
   return {
@@ -975,6 +976,35 @@ function isResolvedStrongCoreSuffixTie(
     return false;
   }
   return best.suffixRank < second.suffixRank;
+}
+
+function isResolvedEquivalentStrongCoreTie(
+  best: RankedPsPricesCandidate,
+  second: RankedPsPricesCandidate | undefined
+): boolean {
+  if (!second) {
+    return false;
+  }
+  if (
+    best.coreScore < PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD ||
+    second.coreScore < PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD
+  ) {
+    return false;
+  }
+  if (Math.abs(best.coreScore - second.coreScore) > PSPRICES_TITLE_MATCH_MIN_GAP) {
+    return false;
+  }
+  if (best.suffixRank !== second.suffixRank) {
+    return false;
+  }
+
+  const bestTitle = normalizeTitleForMatch(best.candidate.title ?? '');
+  const secondTitle = normalizeTitleForMatch(second.candidate.title ?? '');
+  if (!bestTitle || bestTitle === secondTitle) {
+    return false;
+  }
+
+  return true;
 }
 
 function isResolvedDuplicateTie(
@@ -1110,10 +1140,69 @@ function compareRankedPsPricesCandidates(
   }
   const rightId = parseCandidateGameId(right.candidate.gameId);
   const leftId = parseCandidateGameId(left.candidate.gameId);
-  if (rightId !== null && leftId !== null && rightId !== leftId) {
+  if (leftId !== rightId) {
+    if (leftId === null) {
+      return 1;
+    }
+    if (rightId === null) {
+      return -1;
+    }
     return leftId - rightId;
   }
+
+  const urlOrder = compareNullableTieBreakStrings(left.candidate.url, right.candidate.url);
+  if (urlOrder !== 0) {
+    return urlOrder;
+  }
+
+  const titleOrder = compareNullableTieBreakStrings(left.candidate.title, right.candidate.title);
+  if (titleOrder !== 0) {
+    return titleOrder;
+  }
+
+  const rawGameIdOrder = compareNullableTieBreakStrings(
+    left.candidate.gameId,
+    right.candidate.gameId
+  );
+  if (rawGameIdOrder !== 0) {
+    return rawGameIdOrder;
+  }
+
   return 0;
+}
+
+function compareNullableTieBreakStrings(
+  left: string | null | undefined,
+  right: string | null | undefined
+): number {
+  if (left === right) {
+    return 0;
+  }
+
+  const leftNormalized = normalizeTieBreakString(left);
+  const rightNormalized = normalizeTieBreakString(right);
+  const leftEmpty = leftNormalized.length === 0;
+  const rightEmpty = rightNormalized.length === 0;
+  if (leftEmpty && !rightEmpty) {
+    return 1;
+  }
+  if (!leftEmpty && rightEmpty) {
+    return -1;
+  }
+  if (leftNormalized < rightNormalized) {
+    return -1;
+  }
+  if (leftNormalized > rightNormalized) {
+    return 1;
+  }
+  return 0;
+}
+
+function normalizeTieBreakString(value: string | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return value.trim().toLowerCase();
 }
 
 function compareEquivalentSuffixClass(

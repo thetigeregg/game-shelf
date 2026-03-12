@@ -1690,6 +1690,39 @@ void test('PSPrices keeps metadata tie-break behavior within same suffix class',
   await app.close();
 });
 
+void test('PSPrices prefers parseable gameId when other tie-break signals are equal', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991007', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              { title: 'Diablo IV', amount: 59.9, isFree: false, gameId: 'abc', url: null },
+              { title: 'Diablo IV', amount: 58.9, isFree: false, gameId: '7001', url: null }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991007&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  const candidates = body['candidates'] as Array<Record<string, unknown>>;
+  assert.equal(candidates[0]?.['gameId'], '7001');
+
+  await app.close();
+});
+
 void test('PSPrices strong-core guardrail keeps stronger core match above weak standard variant', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();
@@ -1729,6 +1762,50 @@ void test('PSPrices strong-core guardrail keeps stronger core match above weak s
   const body = parseJsonRecord(response.body);
   const bestPrice = body['bestPrice'] as Record<string, unknown>;
   assert.equal(bestPrice['url'], 'iv-expansion');
+
+  await app.close();
+});
+
+void test('PSPrices keeps high confidence for strong base vs standard ties', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('991006', 167, { title: 'Diablo IV' });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Diablo IV - Standard Edition',
+                amount: 69.9,
+                isFree: false,
+                url: 'standard'
+              },
+              { title: 'Diablo IV', amount: 59.9, isFree: false, url: 'base' }
+            ]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=991006&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+  });
+  assert.equal(response.statusCode, 200);
+
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+  const bestPrice = body['bestPrice'] as Record<string, unknown> | null;
+  assert.notEqual(bestPrice, null);
+  assert.equal(bestPrice?.['title'], 'Diablo IV');
+
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['confidence'], 'high');
 
   await app.close();
 });

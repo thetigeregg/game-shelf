@@ -271,6 +271,46 @@ void test('skips notification for non-wishlist or free games', async () => {
   assert.equal(pool.getLogCount(), 0);
 });
 
+void test('skips notification when transitioning into wishlist while already on sale', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(['token-a']);
+  let sendCount = 0;
+
+  await maybeSendWishlistSaleNotification(
+    pool as unknown as Pool,
+    {
+      igdbGameId: '202',
+      platformIgdbId: 167,
+      previousPayload: {
+        listType: 'collection',
+        title: 'Transition Test',
+        priceAmount: 59.99,
+        priceRegularAmount: 59.99,
+        priceDiscountPercent: 0,
+        priceIsFree: false
+      },
+      nextPayload: {
+        listType: 'wishlist',
+        title: 'Transition Test',
+        priceAmount: 39.99,
+        priceRegularAmount: 59.99,
+        priceDiscountPercent: 33,
+        priceIsFree: false
+      }
+    },
+    {
+      sendMulticast: () => {
+        sendCount += 1;
+        return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
+      }
+    }
+  );
+
+  assert.equal(sendCount, 0);
+  assert.equal(pool.getLogCount(), 0);
+});
+
 void test('skips notification when disabled or no active tokens', async () => {
   const pool = new SaleNotificationPoolMock();
   let sendCount = 0;

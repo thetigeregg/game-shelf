@@ -25,6 +25,19 @@ function isDisabledPreferenceValue(value: string): boolean {
   return DISABLED_PREFERENCE_VALUES.has(value.trim().toLowerCase());
 }
 
+function coercePreferenceBoolean(value: unknown, defaultValue: boolean): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    return !isDisabledPreferenceValue(value);
+  }
+  return defaultValue;
+}
+
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly httpClient = inject(HttpClient);
@@ -115,13 +128,12 @@ export class NotificationService {
       }
 
       const parsed = JSON.parse(raw) as Record<string, unknown>;
-      // Default to enabled unless a toggle is explicitly persisted as false.
       return {
-        set: parsed['set'] !== false,
-        changed: parsed['changed'] !== false,
-        removed: parsed['removed'] !== false,
-        day: parsed['day'] !== false,
-        sale: parsed['sale'] !== false
+        set: coercePreferenceBoolean(parsed['set'], true),
+        changed: coercePreferenceBoolean(parsed['changed'], true),
+        removed: coercePreferenceBoolean(parsed['removed'], true),
+        day: coercePreferenceBoolean(parsed['day'], true),
+        sale: coercePreferenceBoolean(parsed['sale'], true)
       };
     } catch {
       return { set: true, changed: true, removed: true, day: true, sale: true };

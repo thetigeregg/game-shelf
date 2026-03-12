@@ -56,8 +56,11 @@ export async function maybeSendWishlistSaleNotification(
   params: MaybeSendSaleNotificationParams,
   options: MaybeSendSaleNotificationOptions = {}
 ): Promise<void> {
-  const listType = normalizeNonEmptyString(params.nextPayload['listType'])?.toLowerCase();
-  if (listType !== 'wishlist') {
+  const previousListType = normalizeNonEmptyString(
+    params.previousPayload['listType']
+  )?.toLowerCase();
+  const nextListType = normalizeNonEmptyString(params.nextPayload['listType'])?.toLowerCase();
+  if (previousListType !== 'wishlist' || nextListType !== 'wishlist') {
     return;
   }
 

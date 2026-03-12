@@ -248,6 +248,27 @@ describe('NotificationService', () => {
     });
   });
 
+  it('coerces string and numeric falsey release event preferences to disabled', () => {
+    localStorage.setItem(
+      'game-shelf:notifications:release:events',
+      JSON.stringify({
+        set: 'false',
+        changed: '0',
+        removed: 'no',
+        day: 0,
+        sale: 'false'
+      })
+    );
+
+    expect(service.readReleaseEventPreferences()).toEqual({
+      set: false,
+      changed: false,
+      removed: false,
+      day: false,
+      sale: false
+    });
+  });
+
   it('persists disabled state when enable flow fails', async () => {
     vi.spyOn(service, 'requestPermissionAndRegister').mockResolvedValue({
       ok: false,

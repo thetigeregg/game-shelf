@@ -780,19 +780,48 @@ describe('SettingsPage CSV review fields', () => {
       changed: true,
       removed: true,
       day: true,
-      sale: true
+      sale: false
     });
     expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
-      '{"set":false,"changed":true,"removed":true,"day":true,"sale":true}'
+      '{"set":false,"changed":true,"removed":true,"day":true,"sale":false}'
     );
     expect(outboxWriterMock.enqueueOperation).toHaveBeenCalledWith({
       entityType: 'setting',
       operation: 'upsert',
       payload: {
         key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
-        value: '{"set":false,"changed":true,"removed":true,"day":true,"sale":true}'
+        value: '{"set":false,"changed":true,"removed":true,"day":true,"sale":false}'
       }
     });
+  });
+
+  it('treats string falsey imported release event values as disabled', async () => {
+    const page = createPage();
+
+    await page['applyImportedSettings']([
+      {
+        kind: 'setting',
+        key: RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
+        value: JSON.stringify({
+          set: 'false',
+          changed: '0',
+          removed: 'no',
+          day: 'false',
+          sale: '0'
+        })
+      }
+    ]);
+
+    expect(page.releaseNotificationEvents).toEqual({
+      set: false,
+      changed: false,
+      removed: false,
+      day: false,
+      sale: false
+    });
+    expect(localStorage.getItem(RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY)).toBe(
+      '{"set":false,"changed":false,"removed":false,"day":false,"sale":false}'
+    );
   });
 
   it('keeps release notifications disabled when disable succeeds', async () => {

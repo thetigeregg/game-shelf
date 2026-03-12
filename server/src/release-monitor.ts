@@ -434,9 +434,7 @@ async function processGameRow(
       hltbRefreshEligible &&
       isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
     const reviewDue =
-      !isBootstrap &&
-      reviewRefreshEligible &&
-      isMetacriticRefreshDue(lastMetacriticRefreshAt, mergedPayload, now);
+      !isBootstrap && reviewRefreshEligible && isReviewRefreshDue(lastMetacriticRefreshAt, now);
 
     if (hltbDue) {
       stats.hltbRefreshAttempts += 1;
@@ -1522,21 +1520,12 @@ function hasHltbValues(payload: Record<string, unknown>): boolean {
   return hasMainHours || hasMainExtraHours || hasCompletionistHours;
 }
 
-function isMetacriticRefreshDue(
-  lastMetacriticRefreshAt: string | null,
-  payload: Record<string, unknown>,
-  now: Date
-): boolean {
-  const hasMetacritic = hasMetacriticValues(payload);
-  if (!hasMetacritic) {
+function isReviewRefreshDue(lastReviewRefreshAt: string | null, now: Date): boolean {
+  if (!lastReviewRefreshAt) {
     return true;
   }
 
-  if (!lastMetacriticRefreshAt) {
-    return true;
-  }
-
-  const refreshedAtMs = Date.parse(lastMetacriticRefreshAt);
+  const refreshedAtMs = Date.parse(lastReviewRefreshAt);
   if (!Number.isFinite(refreshedAtMs)) {
     return true;
   }
@@ -2159,7 +2148,7 @@ export const releaseMonitorInternals = {
   isWithinPastYears,
   isHltbRefreshDue,
   hasHltbValues,
-  isMetacriticRefreshDue,
+  isReviewRefreshDue,
   hasMetacriticValues,
   isProviderMatchLocked,
   finiteNumberOrNull,

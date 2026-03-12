@@ -94,6 +94,7 @@ export class DexieGameRepository implements GameRepository {
           result.hltbMatchQueryPlatform,
           existing.hltbMatchQueryPlatform
         ),
+        hltbMatchLocked: this.resolveMatchLock(result.hltbMatchLocked, existing.hltbMatchLocked),
         reviewScore: this.resolveReviewScore(
           incomingReviewScore,
           existing.reviewScore ?? existing.metacriticScore
@@ -134,6 +135,10 @@ export class DexieGameRepository implements GameRepository {
         reviewMatchMobygamesGameId: this.resolveMobygamesGameId(
           result.reviewMatchMobygamesGameId,
           existing.reviewMatchMobygamesGameId
+        ),
+        reviewMatchLocked: this.resolveMatchLock(
+          result.reviewMatchLocked,
+          existing.reviewMatchLocked
         ),
         metacriticScore: this.resolveMetacriticScore(
           incomingMetacriticScore,
@@ -183,6 +188,10 @@ export class DexieGameRepository implements GameRepository {
         ),
         priceIsFree: this.resolvePriceIsFree(result.priceIsFree, existing.priceIsFree),
         priceUrl: this.resolvePriceUrl(result.priceUrl, existing.priceUrl),
+        psPricesMatchLocked: this.resolveMatchLock(
+          result.psPricesMatchLocked,
+          existing.psPricesMatchLocked
+        ),
         screenshots:
           result.screenshots === undefined
             ? normalizeGameScreenshots(existing.screenshots, { maxItems: 20 })
@@ -241,6 +250,7 @@ export class DexieGameRepository implements GameRepository {
         result.hltbMatchQueryReleaseYear
       ),
       hltbMatchQueryPlatform: this.normalizeLookupQueryPlatform(result.hltbMatchQueryPlatform),
+      hltbMatchLocked: this.normalizeMatchLock(result.hltbMatchLocked),
       reviewScore: this.normalizeReviewScore(result.reviewScore ?? result.metacriticScore),
       reviewUrl: this.normalizeMetacriticUrl(incomingReviewUrl),
       reviewSource: this.normalizeReviewSource(
@@ -259,6 +269,7 @@ export class DexieGameRepository implements GameRepository {
         result.reviewMatchPlatformIgdbId
       ),
       reviewMatchMobygamesGameId: this.normalizeMobygamesGameId(result.reviewMatchMobygamesGameId),
+      reviewMatchLocked: this.normalizeMatchLock(result.reviewMatchLocked),
       metacriticScore: this.normalizeMetacriticScore(incomingMetacriticScore),
       metacriticUrl: this.normalizeMetacriticUrl(incomingMetacriticUrl),
       similarGameIgdbIds: this.normalizeGameIdList(result.similarGameIgdbIds),
@@ -279,6 +290,7 @@ export class DexieGameRepository implements GameRepository {
       priceDiscountPercent: this.normalizePriceDiscountPercent(result.priceDiscountPercent),
       priceIsFree: this.normalizePriceIsFree(result.priceIsFree),
       priceUrl: this.normalizePriceUrl(result.priceUrl),
+      psPricesMatchLocked: this.normalizeMatchLock(result.psPricesMatchLocked),
       screenshots: normalizeGameScreenshots(result.screenshots, { maxItems: 20 }),
       videos: normalizeGameVideos(result.videos, { maxItems: 5 }),
       publishers: this.normalizeTextList(result.publishers),
@@ -1002,6 +1014,10 @@ export class DexieGameRepository implements GameRepository {
     return value;
   }
 
+  private normalizeMatchLock(value: boolean | null | undefined): boolean | null {
+    return typeof value === 'boolean' ? value : null;
+  }
+
   private normalizeSteamAppId(value: number | null | undefined): number | null {
     if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
       return null;
@@ -1204,6 +1220,16 @@ export class DexieGameRepository implements GameRepository {
       return this.normalizeLookupQueryPlatformIgdbId(existing);
     }
     return this.normalizeLookupQueryPlatformIgdbId(incoming);
+  }
+
+  private resolveMatchLock(
+    incoming: boolean | null | undefined,
+    existing: boolean | null | undefined
+  ): boolean | null {
+    if (incoming === undefined) {
+      return this.normalizeMatchLock(existing);
+    }
+    return this.normalizeMatchLock(incoming);
   }
 
   private resolveSteamAppId(

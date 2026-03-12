@@ -504,7 +504,8 @@ export class GameShelfService {
       existing,
       existing.title,
       existing.releaseYear,
-      existing.platform
+      existing.platform,
+      existing.hltbMatchLocked ?? null
     );
   }
 
@@ -539,7 +540,7 @@ export class GameShelfService {
         ? query.platform.trim()
         : existing.platform;
 
-    return this.refreshGameCompletionTimesWithLookup(existing, title, releaseYear, platform);
+    return this.refreshGameCompletionTimesWithLookup(existing, title, releaseYear, platform, true);
   }
 
   async refreshGameMetacriticScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -615,6 +616,8 @@ export class GameShelfService {
         priceDiscountPercent: effectivePricing?.discountPercent ?? null,
         priceIsFree: effectivePricing?.isFree ?? null,
         priceUrl: effectivePricing?.url ?? null,
+        psPricesMatchLocked:
+          lookupTitle !== undefined ? true : (existing.psPricesMatchLocked ?? null),
         screenshots: existing.screenshots ?? [],
         videos: existing.videos ?? [],
         publishers: existing.publishers ?? [],
@@ -684,7 +687,8 @@ export class GameShelfService {
       existing.releaseYear,
       existing.platform,
       existing.platformIgdbId,
-      existing.mobygamesGameId ?? null
+      existing.mobygamesGameId ?? null,
+      existing.reviewMatchLocked ?? null
     );
   }
 
@@ -757,7 +761,8 @@ export class GameShelfService {
       releaseYear,
       platform,
       lookupPlatformIgdbId,
-      lookupMobyGameId
+      lookupMobyGameId,
+      true
     );
   }
 
@@ -765,7 +770,8 @@ export class GameShelfService {
     existing: GameEntry,
     title: string,
     releaseYear: number | null,
-    platform: string
+    platform: string,
+    matchLocked: boolean | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.hltb.lookup_start', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
@@ -797,6 +803,7 @@ export class GameShelfService {
         hltbMatchQueryTitle: title,
         hltbMatchQueryReleaseYear: releaseYear,
         hltbMatchQueryPlatform: platform,
+        hltbMatchLocked: matchLocked,
         reviewScore: existing.reviewScore ?? existing.metacriticScore ?? null,
         reviewUrl: existing.reviewUrl ?? existing.metacriticUrl ?? null,
         reviewSource: existing.reviewSource ?? null,
@@ -840,7 +847,8 @@ export class GameShelfService {
     releaseYear: number | null,
     platform: string,
     platformIgdbId: number | null,
-    mobygamesGameId: number | null
+    mobygamesGameId: number | null,
+    matchLocked: boolean | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.lookup_start', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
@@ -909,6 +917,7 @@ export class GameShelfService {
         reviewMatchQueryPlatform: platform,
         reviewMatchPlatformIgdbId: platformIgdbId,
         reviewMatchMobygamesGameId: mobygamesGameId,
+        reviewMatchLocked: matchLocked,
         metacriticScore:
           scoreResult?.reviewSource === 'metacritic'
             ? (scoreResult.reviewScore ?? scoreResult.metacriticScore ?? null)

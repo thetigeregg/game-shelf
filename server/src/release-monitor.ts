@@ -422,9 +422,14 @@ async function processGameRow(
       lastMetacriticRefreshAt = nowIso;
     }
 
-    const hltbDue = !isBootstrap && isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
+    const hltbDue =
+      !isBootstrap &&
+      !isProviderMatchLocked(mergedPayload, 'hltbMatchLocked') &&
+      isHltbRefreshDue(lastHltbRefreshAt, mergedPayload, now);
     const metacriticDue =
-      !isBootstrap && isMetacriticRefreshDue(lastMetacriticRefreshAt, mergedPayload, now);
+      !isBootstrap &&
+      !isProviderMatchLocked(mergedPayload, 'reviewMatchLocked') &&
+      isMetacriticRefreshDue(lastMetacriticRefreshAt, mergedPayload, now);
 
     if (hltbEligible && hltbDue) {
       stats.hltbRefreshAttempts += 1;
@@ -457,27 +462,20 @@ async function processGameRow(
         platformName,
         platformIgdbId
       );
-      const refreshedMetacritic = await fetchMetacriticPayload({
-        title: reviewRefreshQuery.title,
-        releaseYear: reviewRefreshQuery.releaseYear,
-        platform: reviewRefreshQuery.platform,
-        platformIgdbId: reviewRefreshQuery.platformIgdbId
-      });
+      const refreshedReview = await fetchReviewPayload(reviewRefreshQuery);
 
-      if (refreshedMetacritic) {
+      if (refreshedReview) {
         stats.metacriticRefreshSuccesses += 1;
-        mergedPayload = mergeMetacriticRefreshPayload(mergedPayload, {
-          metacriticScore: refreshedMetacritic.metacriticScore,
-          metacriticUrl: refreshedMetacritic.metacriticUrl
-        });
+        mergedPayload = mergeReviewRefreshPayload(mergedPayload, refreshedReview);
       }
       // Advance cadence on attempt (not just success) to avoid repeatedly
       // hammering the scraper for titles that currently return no match.
       lastMetacriticRefreshAt = nowIso;
     }
 
-    if (!isJsonEqual(originalPayload, mergedPayload)) {
-      await upsertGamePayload(pool, row.igdb_game_id, platformIgdbId, mergedPayload);
+    const payloadPatch = buildPayloadPatch(originalPayload, mergedPayload);
+    if (Object.keys(payloadPatch).length > 0) {
+      await upsertGamePayload(pool, row.igdb_game_id, platformIgdbId, payloadPatch);
     }
 
     const releaseEvents = isBootstrap
@@ -675,7 +673,13 @@ function resolveReviewRefreshQuery(
   fallbackTitle: string,
   fallbackPlatform: string | null,
   fallbackPlatformIgdbId: number
-): { title: string; releaseYear: number | null; platform: string | null; platformIgdbId: number } {
+): {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  platformIgdbId: number;
+  reviewMatchMobygamesGameId: number | null;
+} {
   const title =
     stringOrNull(payload['reviewMatchQueryTitle']) ??
     stringOrFallback(payload['title'], fallbackTitle);
@@ -687,8 +691,18 @@ function resolveReviewRefreshQuery(
     fallbackPlatform;
   const platformIgdbId =
     integerOrNull(payload['reviewMatchPlatformIgdbId']) ?? fallbackPlatformIgdbId;
+  const reviewMatchMobygamesGameId = integerOrNull(payload['reviewMatchMobygamesGameId']);
 
-  return { title, releaseYear, platform, platformIgdbId };
+  return {
+    title,
+    releaseYear,
+    platform,
+    platformIgdbId,
+    reviewMatchMobygamesGameId:
+      typeof reviewMatchMobygamesGameId === 'number' && reviewMatchMobygamesGameId > 0
+        ? reviewMatchMobygamesGameId
+        : null
+  };
 }
 
 interface HltbApiResponse {
@@ -705,6 +719,29 @@ interface MetacriticApiResponse {
     metacriticUrl?: unknown;
   } | null;
 }
+
+interface MobyGamesApiResponse {
+  games?: Array<{
+    game_id?: unknown;
+    moby_url?: unknown;
+    critic_score?: unknown;
+    moby_score?: unknown;
+  }> | null;
+}
+
+type RefreshedReviewPayload =
+  | {
+      source: 'metacritic';
+      metacriticScore: number | null;
+      metacriticUrl: string | null;
+    }
+  | {
+      source: 'mobygames';
+      mobygamesGameId: number | null;
+      mobyScore: number | null;
+      reviewScore: number | null;
+      reviewUrl: string | null;
+    };
 
 async function fetchHltbPayload(params: {
   title: string;
@@ -750,6 +787,98 @@ async function fetchMetacriticPayload(params: {
 
   const payload = (await response.json()) as MetacriticApiResponse;
   return payload.item ?? null;
+}
+
+async function fetchReviewPayload(params: {
+  title: string;
+  releaseYear: number | null;
+  platform: string | null;
+  platformIgdbId: number;
+  reviewMatchMobygamesGameId: number | null;
+}): Promise<RefreshedReviewPayload | null> {
+  if (params.reviewMatchMobygamesGameId !== null) {
+    const mobygames = await fetchMobygamesPayload({
+      title: params.title,
+      reviewMatchMobygamesGameId: params.reviewMatchMobygamesGameId
+    });
+    if (!mobygames) {
+      return null;
+    }
+
+    return {
+      source: 'mobygames',
+      mobygamesGameId: mobygames.mobygamesGameId,
+      mobyScore: mobygames.mobyScore,
+      reviewScore: mobygames.reviewScore,
+      reviewUrl: mobygames.reviewUrl
+    };
+  }
+
+  const metacritic = await fetchMetacriticPayload({
+    title: params.title,
+    releaseYear: params.releaseYear,
+    platform: params.platform,
+    platformIgdbId: params.platformIgdbId
+  });
+  if (!metacritic) {
+    return null;
+  }
+
+  return {
+    source: 'metacritic',
+    metacriticScore: finiteNumberOrNull(metacritic.metacriticScore),
+    metacriticUrl: stringOrNull(metacritic.metacriticUrl)
+  };
+}
+
+async function fetchMobygamesPayload(params: {
+  title: string;
+  reviewMatchMobygamesGameId: number;
+}): Promise<{
+  mobygamesGameId: number | null;
+  mobyScore: number | null;
+  reviewScore: number | null;
+  reviewUrl: string | null;
+} | null> {
+  if (params.title.trim().length < 2) {
+    return null;
+  }
+
+  const response = await fetchMetadataPathFromWorker('/v1/mobygames/search', {
+    q: params.title,
+    id: params.reviewMatchMobygamesGameId,
+    limit: 5,
+    format: 'normal',
+    include: 'game_id,moby_url,moby_score,critic_score'
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as MobyGamesApiResponse;
+  const games = Array.isArray(payload.games) ? payload.games : [];
+  const firstGame = games.at(0);
+  if (!firstGame) {
+    return null;
+  }
+  const matched =
+    games.find((entry) => integerOrNull(entry.game_id) === params.reviewMatchMobygamesGameId) ??
+    firstGame;
+
+  const criticScore = normalizeReviewScore(finiteNumberOrStringOrNull(matched.critic_score));
+  const mobyScore = normalizeRawMobyScore(finiteNumberOrStringOrNull(matched.moby_score));
+  const reviewScore =
+    criticScore ??
+    normalizeReviewScore(
+      mobyScore !== null && mobyScore > 0 && mobyScore <= 10 ? mobyScore * 10 : mobyScore
+    );
+
+  return {
+    mobygamesGameId: integerOrNull(matched.game_id),
+    mobyScore,
+    reviewScore,
+    reviewUrl: stringOrNull(matched.moby_url)
+  };
 }
 
 function mergePayloadForRefresh(
@@ -809,11 +938,58 @@ function mergeMetacriticRefreshPayload(
   return nextPayload;
 }
 
+function mergeMobygamesRefreshPayload(
+  existing: Record<string, unknown>,
+  refreshed: {
+    mobygamesGameId: number | null;
+    mobyScore: number | null;
+    reviewScore: number | null;
+    reviewUrl: string | null;
+  }
+): Record<string, unknown> {
+  const nextPayload: Record<string, unknown> = {
+    ...existing,
+    mobygamesGameId: refreshed.mobygamesGameId,
+    mobyScore: refreshed.mobyScore
+  };
+
+  const existingReviewSource = stringOrNull(existing['reviewSource']);
+  const shouldOverwriteReview =
+    existingReviewSource === null || existingReviewSource === 'mobygames';
+
+  if (shouldOverwriteReview) {
+    nextPayload['reviewScore'] = refreshed.reviewScore;
+    nextPayload['reviewUrl'] = refreshed.reviewUrl;
+    nextPayload['reviewSource'] = 'mobygames';
+  }
+
+  return nextPayload;
+}
+
+function mergeReviewRefreshPayload(
+  existing: Record<string, unknown>,
+  refreshed: RefreshedReviewPayload
+): Record<string, unknown> {
+  if (refreshed.source === 'mobygames') {
+    return mergeMobygamesRefreshPayload(existing, {
+      mobygamesGameId: refreshed.mobygamesGameId,
+      mobyScore: refreshed.mobyScore,
+      reviewScore: refreshed.reviewScore,
+      reviewUrl: refreshed.reviewUrl
+    });
+  }
+
+  return mergeMetacriticRefreshPayload(existing, {
+    metacriticScore: refreshed.metacriticScore,
+    metacriticUrl: refreshed.metacriticUrl
+  });
+}
+
 async function upsertGamePayload(
   pool: Pool,
   igdbGameId: string,
   platformIgdbId: number,
-  payload: Record<string, unknown>
+  payloadPatch: Record<string, unknown>
 ): Promise<void> {
   // Intentionally use a dedicated transaction so game payload and sync event
   // are committed atomically. Concurrency is still serialized by withGameLock:
@@ -822,21 +998,31 @@ async function upsertGamePayload(
 
   try {
     await client.query('BEGIN');
-    await client.query(
+    const updateResult = await client.query<{ payload: unknown }>(
       `
-      INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
-      VALUES ($1, $2, $3::jsonb, NOW())
-      ON CONFLICT (igdb_game_id, platform_igdb_id)
-      DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+      UPDATE games
+      SET payload = games.payload || $3::jsonb, updated_at = NOW()
+      WHERE igdb_game_id = $1
+        AND platform_igdb_id = $2
+        AND games.payload IS DISTINCT FROM (games.payload || $3::jsonb)
+      RETURNING payload
       `,
-      [igdbGameId, platformIgdbId, JSON.stringify(payload)]
+      [igdbGameId, platformIgdbId, JSON.stringify(payloadPatch)]
     );
+    const updatedPayload =
+      updateResult.rows[0]?.payload && typeof updateResult.rows[0].payload === 'object'
+        ? (updateResult.rows[0].payload as Record<string, unknown>)
+        : null;
+    if (!updatedPayload) {
+      await client.query('COMMIT');
+      return;
+    }
     await appendSyncEvent(
       client,
       'game',
       `${igdbGameId}::${String(platformIgdbId)}`,
       'upsert',
-      payload
+      updatedPayload
     );
     await client.query('COMMIT');
   } catch (error) {
@@ -1679,6 +1865,37 @@ function finiteNumberOrNull(value: unknown): number | null {
   return value;
 }
 
+function isProviderMatchLocked(payload: Record<string, unknown>, key: string): boolean {
+  return payload[key] === true;
+}
+
+function finiteNumberOrStringOrNull(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeReviewScore(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value) || value < 0 || value > 100) {
+    return null;
+  }
+  return Math.round(value * 10) / 10;
+}
+
+function normalizeRawMobyScore(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value) || value <= 0 || value > 10) {
+    return null;
+  }
+  return Math.round(value * 10) / 10;
+}
+
 function arrayOfStringsOrEmpty(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -1695,6 +1912,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isJsonEqual(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function buildPayloadPatch(
+  current: Record<string, unknown>,
+  next: Record<string, unknown>
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const [key, nextValue] of Object.entries(next)) {
+    const currentValue = current[key];
+    if (!isJsonEqual({ v: currentValue }, { v: nextValue })) {
+      patch[key] = nextValue;
+    }
+  }
+  return patch;
 }
 
 function createMonitorRunStats(): MonitorRunStats {
@@ -1924,12 +2155,15 @@ export const releaseMonitorInternals = {
   hasHltbValues,
   isMetacriticRefreshDue,
   hasMetacriticValues,
+  isProviderMatchLocked,
   finiteNumberOrNull,
   numberOrNull,
   normalizeDateString,
   resolveHltbRefreshQuery,
   resolveReviewRefreshQuery,
+  mergeReviewRefreshPayload,
   mergeMetacriticRefreshPayload,
+  mergeMobygamesRefreshPayload,
   readNotificationPreferences,
   reserveNotificationLog,
   finalizeNotificationLog,

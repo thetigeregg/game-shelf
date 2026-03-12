@@ -84,17 +84,17 @@ export class MetadataEnrichmentRepository {
   async updateGamePayload(params: {
     igdbGameId: string;
     platformIgdbId: number;
-    payload: Record<string, unknown>;
+    payloadPatch: Record<string, unknown>;
     client?: Queryable;
   }): Promise<void> {
     await (params.client ?? this.pool).query(
       `
       WITH updated AS (
         UPDATE games
-        SET payload = $3::jsonb, updated_at = NOW()
+        SET payload = games.payload || $3::jsonb, updated_at = NOW()
         WHERE igdb_game_id = $1
           AND platform_igdb_id = $2
-          AND payload IS DISTINCT FROM $3::jsonb
+          AND payload IS DISTINCT FROM (games.payload || $3::jsonb)
         RETURNING igdb_game_id, platform_igdb_id, payload
       )
       INSERT INTO sync_events (entity_type, entity_key, operation, payload, server_timestamp)
@@ -106,7 +106,7 @@ export class MetadataEnrichmentRepository {
         NOW()
       FROM updated
       `,
-      [params.igdbGameId, params.platformIgdbId, JSON.stringify(params.payload)]
+      [params.igdbGameId, params.platformIgdbId, JSON.stringify(params.payloadPatch)]
     );
   }
 }

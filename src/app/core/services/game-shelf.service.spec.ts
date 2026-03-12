@@ -1078,7 +1078,8 @@ describe('GameShelfService', () => {
       expect.objectContaining({
         hltbMatchQueryTitle: 'Zack & Wiki',
         hltbMatchQueryReleaseYear: 2007,
-        hltbMatchQueryPlatform: 'Wii'
+        hltbMatchQueryPlatform: 'Wii',
+        hltbMatchLocked: true
       }),
       'collection'
     );
@@ -1217,7 +1218,8 @@ describe('GameShelfService', () => {
         reviewMatchQueryReleaseYear: 2007,
         reviewMatchQueryPlatform: 'Wii',
         reviewMatchPlatformIgdbId: 5,
-        reviewMatchMobygamesGameId: null
+        reviewMatchMobygamesGameId: null,
+        reviewMatchLocked: true
       }),
       'collection'
     );

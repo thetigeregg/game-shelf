@@ -79,6 +79,7 @@ export interface GameCatalogResult {
   hltbMatchQueryTitle?: string | null;
   hltbMatchQueryReleaseYear?: number | null;
   hltbMatchQueryPlatform?: string | null;
+  hltbMatchLocked?: boolean | null;
   reviewScore?: number | null;
   reviewUrl?: string | null;
   reviewSource?: ReviewSource | null;
@@ -89,6 +90,7 @@ export interface GameCatalogResult {
   reviewMatchQueryPlatform?: string | null;
   reviewMatchPlatformIgdbId?: number | null;
   reviewMatchMobygamesGameId?: number | null;
+  reviewMatchLocked?: boolean | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
@@ -109,6 +111,7 @@ export interface GameCatalogResult {
   priceDiscountPercent?: number | null;
   priceIsFree?: boolean | null;
   priceUrl?: string | null;
+  psPricesMatchLocked?: boolean | null;
   screenshots?: GameScreenshot[];
   videos?: GameVideo[];
   publishers?: string[];
@@ -275,6 +278,7 @@ export interface GameEntry {
   hltbMatchQueryTitle?: string | null;
   hltbMatchQueryReleaseYear?: number | null;
   hltbMatchQueryPlatform?: string | null;
+  hltbMatchLocked?: boolean | null;
   reviewScore?: number | null;
   reviewUrl?: string | null;
   reviewSource?: ReviewSource | null;
@@ -285,6 +289,7 @@ export interface GameEntry {
   reviewMatchQueryPlatform?: string | null;
   reviewMatchPlatformIgdbId?: number | null;
   reviewMatchMobygamesGameId?: number | null;
+  reviewMatchLocked?: boolean | null;
   metacriticScore?: number | null;
   metacriticUrl?: string | null;
   similarGameIgdbIds?: string[];
@@ -305,6 +310,7 @@ export interface GameEntry {
   priceDiscountPercent?: number | null;
   priceIsFree?: boolean | null;
   priceUrl?: string | null;
+  psPricesMatchLocked?: boolean | null;
   screenshots?: GameScreenshot[];
   videos?: GameVideo[];
   publishers?: string[];

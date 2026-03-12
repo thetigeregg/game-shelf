@@ -117,23 +117,14 @@ export async function maybeSendWishlistSaleNotification(
       }
     });
 
-    if (sendResult.invalidTokens.length > 0) {
-      await pool.query(
-        `
-      UPDATE fcm_tokens
-      SET is_active = FALSE, updated_at = NOW()
-      WHERE token = ANY($1::text[])
-      `,
-        [sendResult.invalidTokens]
-      );
-    }
-
     if (sendResult.successCount <= 0) {
+      await deactivateInvalidTokensBestEffort(pool, sendResult.invalidTokens, event.eventKey);
       await releaseNotificationLogReservation(pool, event.eventKey);
       return;
     }
 
     await finalizeNotificationLog(pool, event, sendResult.successCount);
+    await deactivateInvalidTokensBestEffort(pool, sendResult.invalidTokens, event.eventKey);
   } catch (error) {
     const sentCount = sendResult?.successCount ?? 0;
     if (sentCount <= 0) {
@@ -146,6 +137,33 @@ export async function maybeSendWishlistSaleNotification(
       });
     }
     throw error;
+  }
+}
+
+async function deactivateInvalidTokensBestEffort(
+  pool: Pool,
+  invalidTokens: string[],
+  eventKey: string
+): Promise<void> {
+  if (invalidTokens.length === 0) {
+    return;
+  }
+
+  try {
+    await pool.query(
+      `
+      UPDATE fcm_tokens
+      SET is_active = FALSE, updated_at = NOW()
+      WHERE token = ANY($1::text[])
+      `,
+      [invalidTokens]
+    );
+  } catch (error) {
+    console.error('[price-sale-notifications] invalid_token_deactivation_failed', {
+      eventKey,
+      invalidTokenCount: invalidTokens.length,
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 }
 

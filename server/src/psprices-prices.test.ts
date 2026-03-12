@@ -1055,6 +1055,119 @@ void test('PSPrices scoring treats complete edition as neutral for title confide
   await app.close();
 });
 
+void test('PSPrices scoring treats roman and arabic sequel numerals as equivalent', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('119171', 167, {
+    title: "Baldur's Gate III"
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: "Baldur's Gate 3",
+                amount: 69.9,
+                currency: 'CHF',
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/9999999/baldurs-gate-3'
+              },
+              {
+                title: "Baldur's Gate II",
+                amount: 39.9,
+                currency: 'CHF',
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/9999998/baldurs-gate-2'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=119171&platformIgdbId=167&title=Baldur%27s%20Gate%20III&includeCandidates=1'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['matchedTitle'], "Baldur's Gate 3");
+  assert.equal(match['score'], 100);
+  assert.equal(match['confidence'], 'high');
+
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['title'], "Baldur's Gate 3");
+
+  await app.close();
+});
+
+void test('PSPrices scoring treats roman and arabic numerals equivalently for sequel tokens', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('111111', 167, {
+    title: 'Resident Evil VII'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    fetchImpl: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Resident Evil 7',
+                amount: 19.9,
+                currency: 'CHF',
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7777001/resident-evil-7'
+              },
+              {
+                title: 'Resident Evil 6',
+                amount: 15.9,
+                currency: 'CHF',
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/7777002/resident-evil-6'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/psprices/prices?igdbGameId=111111&platformIgdbId=167&title=Resident%20Evil%20VII&includeCandidates=1'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  assert.equal(body['status'], 'ok');
+
+  const match = body['match'] as Record<string, unknown>;
+  assert.equal(match['matchedTitle'], 'Resident Evil 7');
+  assert.equal(match['score'], 100);
+  assert.equal(match['confidence'], 'high');
+
+  await app.close();
+});
+
 void test('PSPrices scoring resolves duplicate title ties using metadata quality signals', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

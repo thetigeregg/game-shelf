@@ -309,6 +309,17 @@ void test('hltb and metacritic refresh due checks respect existing values and re
     ),
     false
   );
+  assert.equal(
+    releaseMonitorInternals.isProviderMatchLocked({ hltbMatchLocked: true }, 'hltbMatchLocked'),
+    true
+  );
+  assert.equal(
+    releaseMonitorInternals.isProviderMatchLocked(
+      { reviewMatchLocked: false },
+      'reviewMatchLocked'
+    ),
+    false
+  );
 });
 
 void test('derive release state and past-years checks handle precision edge cases', () => {
@@ -621,7 +632,8 @@ void test('refresh query resolvers prefer persisted override fields', () => {
     title: 'Custom Review Title',
     releaseYear: 2010,
     platform: 'PlayStation 5',
-    platformIgdbId: 167
+    platformIgdbId: 167,
+    reviewMatchMobygamesGameId: null
   });
 });
 
@@ -645,6 +657,65 @@ void test('metacritic merge preserves zero score when review source is metacriti
   assert.equal(merged['reviewSource'], 'metacritic');
   assert.equal(merged['reviewScore'], 0);
   assert.equal(merged['reviewUrl'], 'https://metacritic.example/new');
+});
+
+void test('review refresh query resolver carries persisted mobygames override id', () => {
+  const reviewResolved = releaseMonitorInternals.resolveReviewRefreshQuery(
+    {
+      title: 'Fallback Title',
+      reviewMatchMobygamesGameId: 12345
+    },
+    'Default Title',
+    'Default Platform',
+    6
+  );
+  assert.equal(reviewResolved.reviewMatchMobygamesGameId, 12345);
+});
+
+void test('unified review merge applies mobygames payload and respects existing non-mobygames source', () => {
+  const merged = releaseMonitorInternals.mergeReviewRefreshPayload(
+    {
+      reviewSource: 'opencritic',
+      reviewScore: 91,
+      reviewUrl: 'https://opencritic.example/game'
+    },
+    {
+      source: 'mobygames',
+      mobygamesGameId: 9876,
+      mobyScore: 8.4,
+      reviewScore: 84,
+      reviewUrl: 'https://www.mobygames.com/game/9876'
+    }
+  );
+
+  assert.equal(merged['mobygamesGameId'], 9876);
+  assert.equal(merged['mobyScore'], 8.4);
+  assert.equal(merged['reviewSource'], 'opencritic');
+  assert.equal(merged['reviewScore'], 91);
+  assert.equal(merged['reviewUrl'], 'https://opencritic.example/game');
+});
+
+void test('unified review merge sets review fields for mobygames source when allowed', () => {
+  const merged = releaseMonitorInternals.mergeReviewRefreshPayload(
+    {
+      reviewSource: 'mobygames',
+      reviewScore: 70,
+      reviewUrl: 'https://www.mobygames.com/game/old'
+    },
+    {
+      source: 'mobygames',
+      mobygamesGameId: 9876,
+      mobyScore: 8.4,
+      reviewScore: 84,
+      reviewUrl: 'https://www.mobygames.com/game/9876'
+    }
+  );
+
+  assert.equal(merged['mobygamesGameId'], 9876);
+  assert.equal(merged['mobyScore'], 8.4);
+  assert.equal(merged['reviewSource'], 'mobygames');
+  assert.equal(merged['reviewScore'], 84);
+  assert.equal(merged['reviewUrl'], 'https://www.mobygames.com/game/9876');
 });
 
 void test('number normalizers treat zero correctly for HLTB vs positive-only fields', () => {

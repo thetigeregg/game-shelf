@@ -1972,3 +1972,9 @@
 - 0948a4c Add env reconciliation helper
 - 32782a9 Add worktree env reconciliation
 
+## v1.1.32 - 2026-03-12
+- ec72fd4 Merge pull request #203 from thetigeregg/codex/pricing
+- 72d63b0 Fix
+- 79a568b Fix package misalignment
+- a7e1e1b Update staleness logic for pricing
+

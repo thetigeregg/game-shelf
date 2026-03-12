@@ -17,11 +17,11 @@ class SaleNotificationPoolMock {
   throwOnFinalizeUpdate = false;
   throwOnTokenInvalidation = false;
 
-  setPreferences(enabled: boolean, saleEnabled: boolean): void {
+  setPreferences(enabled: boolean | string | number, saleEnabled: boolean | string | number): void {
     this.settingRows.length = 0;
     this.settingRows.push({
       setting_key: 'game-shelf:notifications:release:enabled',
-      setting_value: enabled ? 'true' : 'false'
+      setting_value: String(enabled)
     });
     this.settingRows.push({
       setting_key: 'game-shelf:notifications:release:events',
@@ -364,11 +364,50 @@ void test('skips notification when disabled or no active tokens', async () => {
   assert.equal(pool.getLogCount(), 0);
 });
 
+void test('treats string and numeric falsey sale preferences as disabled', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setTokens(['token-a']);
+  let sendCount = 0;
+
+  for (const saleValue of ['false', '0', 'no', 0] as const) {
+    pool.setPreferences('true', saleValue);
+    await maybeSendWishlistSaleNotification(
+      pool as unknown as Pool,
+      {
+        igdbGameId: `pref-${String(saleValue)}`,
+        platformIgdbId: 130,
+        previousPayload: {
+          listType: 'wishlist',
+          priceAmount: 59.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 0,
+          priceIsFree: false
+        },
+        nextPayload: {
+          listType: 'wishlist',
+          priceAmount: 39.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 33,
+          priceIsFree: false
+        }
+      },
+      {
+        sendMulticast: () => {
+          sendCount += 1;
+          return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
+        }
+      }
+    );
+  }
+
+  assert.equal(sendCount, 0);
+});
+
 void test('detects sale via regular/current delta when discount percent is missing', async () => {
   const pool = new SaleNotificationPoolMock();
   pool.setPreferences(true, true);
   pool.setTokens(['token-a']);
-  const bodies: string[] = [];
+  const sends: Array<{ body: string; data: Record<string, string> }> = [];
 
   await maybeSendWishlistSaleNotification(
     pool as unknown as Pool,
@@ -396,14 +435,15 @@ void test('detects sale via regular/current delta when discount percent is missi
     },
     {
       sendMulticast: (_tokens, payload) => {
-        bodies.push(payload.body);
+        sends.push(payload);
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
       }
     }
   );
 
-  assert.equal(bodies.length, 1);
-  assert.equal(bodies[0]?.includes('(-29%)'), true);
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0]?.body.includes('(-29%)'), true);
+  assert.equal(sends[0]?.data['priceDiscountPercent'], '29');
   assert.equal(pool.getLogCount(), 1);
 });
 
@@ -578,11 +618,11 @@ void test('uses preloaded active tokens when provided', async () => {
   assert.equal(pool.tokenSelectCount, 0);
 });
 
-void test('warns when active token load reaches cap', async () => {
+void test('warns when active token load exceeds cap', async () => {
   const pool = new SaleNotificationPoolMock();
   pool.setPreferences(true, true);
   pool.setTokens(
-    Array.from({ length: 20_000 }, (_value, index) => `token-${String(index).padStart(5, '0')}`)
+    Array.from({ length: 20_001 }, (_value, index) => `token-${String(index).padStart(5, '0')}`)
   );
 
   const warnCalls: unknown[][] = [];
@@ -632,6 +672,63 @@ void test('warns when active token load reaches cap', async () => {
         args[0].includes('[price-sale-notifications] active_tokens_capped')
     ),
     true
+  );
+});
+
+void test('does not warn when active token load equals cap exactly', async () => {
+  const pool = new SaleNotificationPoolMock();
+  pool.setPreferences(true, true);
+  pool.setTokens(
+    Array.from({ length: 20_000 }, (_value, index) => `token-${String(index).padStart(5, '0')}`)
+  );
+
+  const warnCalls: unknown[][] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnCalls.push(args);
+  };
+
+  try {
+    await maybeSendWishlistSaleNotification(
+      pool as unknown as Pool,
+      {
+        igdbGameId: '6011',
+        platformIgdbId: 167,
+        previousPayload: {
+          listType: 'wishlist',
+          title: 'Exact Cap Warning Test',
+          priceAmount: 59.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 0,
+          priceIsFree: false
+        },
+        nextPayload: {
+          listType: 'wishlist',
+          title: 'Exact Cap Warning Test',
+          priceAmount: 39.99,
+          priceRegularAmount: 59.99,
+          priceDiscountPercent: 33,
+          priceIsFree: false,
+          priceCurrency: 'USD',
+          priceFetchedAt: '2026-03-12T13:15:00.000Z'
+        }
+      },
+      {
+        sendMulticast: () =>
+          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] })
+      }
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(
+    warnCalls.some(
+      (args) =>
+        typeof args[0] === 'string' &&
+        args[0].includes('[price-sale-notifications] active_tokens_capped')
+    ),
+    false
   );
 });
 

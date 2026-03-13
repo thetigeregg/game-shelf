@@ -247,7 +247,7 @@
                 </ion-thumbnail>
               }
               <ion-label>
-                <h2>
+                <h2 class="picker-candidate-title">
                   {{ candidate.title }}
                   @if (candidate.isRecommended) {
                     <ion-badge color="success">Recommended</ion-badge>
@@ -334,7 +334,7 @@
                 </div>
               }
               <ion-label>
-                <h2>
+                <h2 class="picker-candidate-title">
                   {{ candidate.title }}
                   @if (candidate.isRecommended) {
                     <ion-badge color="success">Recommended</ion-badge>
@@ -415,7 +415,7 @@
           @for (candidate of pricingPickerResults; track candidate) {
             <ion-item button detail="false" (click)="applySelectedPricingCandidate(candidate)">
               <ion-label>
-                <h2>
+                <h2 class="picker-candidate-title">
                   {{ candidate.title }}
                   @if (candidate.isRecommended) {
                     <ion-badge color="success">Recommended</ion-badge>

@@ -1985,9 +1985,32 @@ describe('ExplorePage recommendations UX', () => {
 
     igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
     await page.hydrateDiscoveryPricingForItem({ igdbGameId: '911', platformIgdbId: 167 });
+    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('911', 167, { title: null });
     expect(
       page.getRecommendationRowPriceLabel({ igdbGameId: '911', platformIgdbId: 167 })
     ).toBeNull();
+  });
+
+  it('passes recommendation title hints through PSPrices discovery hydration lookups', async () => {
+    const page = createPage() as unknown as {
+      recommendationDisplayMetadata: Map<string, { title: string }>;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      hydrateDiscoveryPricingForItem: (item: {
+        igdbGameId: string;
+        platformIgdbId: number;
+      }) => Promise<void>;
+    };
+
+    page.recommendationDisplayMetadata.set(page.buildIdentityKey('912', 167), {
+      title: 'Night In The Woods'
+    });
+    igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
+
+    await page.hydrateDiscoveryPricingForItem({ igdbGameId: '912', platformIgdbId: 167 });
+
+    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('912', 167, {
+      title: 'Night In The Woods'
+    });
   });
 
   it('covers list-type picker confirm/cancel branches', async () => {

@@ -27,8 +27,11 @@ try {
   execSync(`git worktree add worktrees/${branch} -b ${branch} origin/main`, {
     stdio: 'inherit'
   });
-
-  execSync(`open -a Cursor worktrees/${branch}`, { stdio: 'inherit' });
+  if (process.platform === 'darwin') {
+    execSync(`open -a Cursor worktrees/${branch}`, { stdio: 'inherit' });
+  } else {
+    console.log(`Worktree created at worktrees/${branch}. Open it in your editor of choice.`);
+  }
 } catch (error) {
   console.error('Failed to set up worktree for task:', branch);
   const code = typeof error.status === 'number' ? error.status : 1;

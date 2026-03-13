@@ -385,6 +385,7 @@ export interface PriceMatchCandidate {
   url: string | null;
   score: number | null;
   isRecommended?: boolean;
+  imageUrl?: string | null;
 }
 
 export interface ManualCandidate {

@@ -907,21 +907,27 @@
           <ion-button (click)="closeImagePickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding gs-safe-bottom">
-      <ion-item lines="none">
+      <ion-toolbar>
         <ion-searchbar
           [value]="imagePickerQuery"
           placeholder="Search box art"
           show-clear-button="focus"
           (ionInput)="onImagePickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button slot="end" [disabled]="isImagePickerLoading" (click)="runImagePickerSearch()"
-          >Search</ion-button
-        >
-      </ion-item>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="solid"
+            [disabled]="isImagePickerLoading"
+            (click)="runImagePickerSearch()"
+          >
+            Search
+            <ion-icon slot="end" name="search"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="gs-safe-bottom">
       @if (isImagePickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>
@@ -1001,21 +1007,23 @@
           <ion-button (click)="closeHltbPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding gs-safe-bottom">
-      <ion-item lines="none">
+      <ion-toolbar>
         <ion-searchbar
           [value]="hltbPickerQuery"
           placeholder="Search HLTB"
           show-clear-button="focus"
           (ionInput)="onHltbPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button slot="end" [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()"
-          >Search</ion-button
-        >
-      </ion-item>
+        <ion-buttons slot="end">
+          <ion-button fill="solid" [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">
+            Search
+            <ion-icon slot="end" name="search"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="gs-safe-bottom">
       @if (isHltbPickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>
@@ -1041,16 +1049,18 @@
         <ion-list>
           @for (candidate of hltbPickerResults; track candidate) {
             <ion-item
+              class="picker-result-row"
               button
               lines="full"
               detail="false"
               (click)="applySelectedHltbCandidate(candidate)"
             >
-              @if (candidate.imageUrl) {
-                <ion-thumbnail slot="start">
-                  <img [src]="candidate.imageUrl" alt="HLTB result cover" />
-                </ion-thumbnail>
-              }
+              <div slot="start" class="candidate-thumbnail">
+                <img
+                  [src]="candidate.imageUrl || 'assets/icon/placeholder.png'"
+                  alt="HLTB result cover"
+                />
+              </div>
               <ion-label>
                 <h2 class="picker-candidate-title">
                   {{ candidate.title }}
@@ -1074,18 +1084,20 @@
           }
         </ion-list>
       }
-
-      <ion-item lines="none">
-        <ion-button
-          expand="block"
-          fill="outline"
-          [disabled]="isHltbPickerLoading"
-          (click)="useOriginalHltbLookup()"
-        >
-          Use Original Match
-        </ion-button>
-      </ion-item>
     </ion-content>
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            [disabled]="isHltbPickerLoading"
+            (click)="useOriginalHltbLookup()"
+          >
+            Use Original Match
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 
@@ -1098,21 +1110,27 @@
           <ion-button (click)="closeReviewPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding gs-safe-bottom">
-      <ion-item lines="none">
+      <ion-toolbar>
         <ion-searchbar
           [value]="reviewPickerQuery"
           placeholder="Search Review"
           show-clear-button="focus"
           (ionInput)="onReviewPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button slot="end" [disabled]="isReviewPickerLoading" (click)="runReviewPickerSearch()"
-          >Search</ion-button
-        >
-      </ion-item>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="solid"
+            [disabled]="isReviewPickerLoading"
+            (click)="runReviewPickerSearch()"
+          >
+            Search
+            <ion-icon slot="end" name="search"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="gs-safe-bottom">
       @if (isReviewPickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>
@@ -1138,16 +1156,18 @@
         <ion-list>
           @for (candidate of reviewPickerResults; track candidate) {
             <ion-item
+              class="picker-result-row"
               button
               lines="full"
               detail="false"
               (click)="applySelectedReviewCandidate(candidate)"
             >
-              @if (candidate.imageUrl) {
-                <div slot="start" class="candidate-thumbnail">
-                  <img [src]="candidate.imageUrl" alt="Review result cover" />
-                </div>
-              }
+              <div slot="start" class="candidate-thumbnail">
+                <img
+                  [src]="candidate.imageUrl || 'assets/icon/placeholder.png'"
+                  alt="Review result cover"
+                />
+              </div>
               <ion-label>
                 <h2 class="picker-candidate-title">
                   {{ candidate.title }}
@@ -1170,18 +1190,20 @@
           }
         </ion-list>
       }
-
-      <ion-item lines="none">
-        <ion-button
-          expand="block"
-          fill="outline"
-          [disabled]="isReviewPickerLoading"
-          (click)="useOriginalReviewLookup()"
-        >
-          Use Original Match
-        </ion-button>
-      </ion-item>
     </ion-content>
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            [disabled]="isReviewPickerLoading"
+            (click)="useOriginalReviewLookup()"
+          >
+            Use Original Match
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 
@@ -1194,24 +1216,27 @@
           <ion-button (click)="closePricingPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding gs-safe-bottom">
-      <ion-item lines="none">
+      <ion-toolbar>
         <ion-searchbar
           [value]="pricingPickerQuery"
           placeholder="Search Pricing"
           show-clear-button="focus"
           (ionInput)="onPricingPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button
-          slot="end"
-          [disabled]="isPricingPickerLoading"
-          (click)="runPricingPickerSearch()"
-          >Search</ion-button
-        >
-      </ion-item>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="solid"
+            [disabled]="isPricingPickerLoading"
+            (click)="runPricingPickerSearch()"
+          >
+            Search
+            <ion-icon slot="end" name="search"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="gs-safe-bottom">
       @if (isPricingPickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>
@@ -1237,11 +1262,18 @@
         <ion-list>
           @for (candidate of pricingPickerResults; track candidate) {
             <ion-item
+              class="picker-result-row"
               button
               lines="full"
               detail="false"
               (click)="applySelectedPricingCandidate(candidate)"
             >
+              <div slot="start" class="candidate-thumbnail">
+                <img
+                  [src]="candidate.imageUrl || 'assets/icon/placeholder.png'"
+                  alt="Pricing result cover"
+                />
+              </div>
               <ion-label>
                 <h2 class="picker-candidate-title">
                   {{ candidate.title }}
@@ -1269,18 +1301,20 @@
           }
         </ion-list>
       }
-
-      <ion-item lines="none">
-        <ion-button
-          expand="block"
-          fill="outline"
-          [disabled]="isPricingPickerLoading"
-          (click)="useOriginalPricingLookup()"
-        >
-          Use Original Match
-        </ion-button>
-      </ion-item>
     </ion-content>
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            [disabled]="isPricingPickerLoading"
+            (click)="useOriginalPricingLookup()"
+          >
+            Use Original Match
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 

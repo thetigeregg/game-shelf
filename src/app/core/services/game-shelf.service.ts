@@ -91,6 +91,7 @@ interface PsPricesLookupResult {
     isFree?: boolean | null;
     url?: string | null;
     score?: number | null;
+    imageUrl?: string | null;
   }> | null;
 }
 
@@ -1762,6 +1763,7 @@ export class GameShelfService {
       .map((candidate) => {
         const normalizedTitle = typeof candidate.title === 'string' ? candidate.title.trim() : '';
         const normalizedUrl = this.normalizePriceUrl(candidate.url);
+        const imageUrl = this.normalizePriceUrl(candidate.imageUrl);
 
         return {
           title: normalizedTitle,
@@ -1779,7 +1781,8 @@ export class GameShelfService {
             normalizedUrl === recommendedUrl ||
             (recommendedUrl === null &&
               recommendedTitle.length > 0 &&
-              normalizedTitle === recommendedTitle)
+              normalizedTitle === recommendedTitle),
+          ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0);

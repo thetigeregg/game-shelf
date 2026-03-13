@@ -143,7 +143,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
   });
   await page.waitForTimeout(1000);
 
-  const candidates = await page.evaluate(() => {
+  const candidates = await page.evaluate((coverImageSelector) => {
     function normalizeText(value) {
       return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
     }
@@ -168,7 +168,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           'a[href*="opencritic.com"] span[class*="font-medium"]'
         );
         const collectionLinks = card.querySelectorAll('a[href*="/collection/"]');
-        const imageElement = card.querySelector(RESULT_CARD_COVER_IMAGE_SELECTOR);
+        const imageElement = card.querySelector(coverImageSelector);
         const imageUrl =
           imageElement instanceof HTMLImageElement
             ? normalizeText(
@@ -210,7 +210,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
         };
       })
       .filter((item) => item !== null);
-  });
+  }, RESULT_CARD_COVER_IMAGE_SELECTOR);
 
   return candidates;
 }

@@ -1759,7 +1759,7 @@ export class GameShelfService {
     const recommendedTitle =
       typeof result.bestPrice?.title === 'string' ? result.bestPrice.title.trim() : '';
 
-    return candidates
+    const normalizedCandidates = candidates
       .map((candidate) => {
         const normalizedTitle = typeof candidate.title === 'string' ? candidate.title.trim() : '';
         const normalizedUrl = this.normalizePriceUrl(candidate.url);
@@ -1777,15 +1777,47 @@ export class GameShelfService {
             typeof candidate.score === 'number' && Number.isFinite(candidate.score)
               ? Math.round(candidate.score * 100) / 100
               : null,
-          isRecommended:
-            normalizedUrl === recommendedUrl ||
-            (recommendedUrl === null &&
-              recommendedTitle.length > 0 &&
-              normalizedTitle === recommendedTitle),
           ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0);
+
+    const recommendedIndex = this.resolveRecommendedPsPricesCandidateIndex(
+      normalizedCandidates,
+      recommendedUrl,
+      recommendedTitle
+    );
+
+    return normalizedCandidates.map((candidate, index) => ({
+      ...candidate,
+      isRecommended: index === recommendedIndex
+    }));
+  }
+
+  private resolveRecommendedPsPricesCandidateIndex(
+    candidates: PriceMatchCandidate[],
+    recommendedUrl: string | null,
+    recommendedTitle: string
+  ): number {
+    if (candidates.length === 0) {
+      return -1;
+    }
+
+    if (recommendedUrl !== null) {
+      const byUrl = candidates.findIndex((candidate) => candidate.url === recommendedUrl);
+      if (byUrl >= 0) {
+        return byUrl;
+      }
+    }
+
+    if (recommendedTitle.length > 0) {
+      const byTitle = candidates.findIndex((candidate) => candidate.title === recommendedTitle);
+      if (byTitle >= 0) {
+        return byTitle;
+      }
+    }
+
+    return 0;
   }
 
   private normalizePriceAmount(value: unknown): number | null {

@@ -158,16 +158,6 @@ Copilot MUST NOT generate:
 
 ---
 
-## Pre-push validation
-
-Copilot MUST ensure:
-
-npm run build
-npm run lint
-npm test
-
-all succeed before suggesting commits.
-
 # Pull Requests
 
 Copilot MUST use the template defined in:

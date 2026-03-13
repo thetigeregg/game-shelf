@@ -5,6 +5,12 @@ import type { Pool } from 'pg';
 import { registerHltbCachedRoute } from './hltb-cache.js';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 
+interface HltbCandidateResponseBody {
+  candidates?: Array<{
+    imageUrl?: string | null;
+  }>;
+}
+
 function toPrimitiveString(value: unknown): string {
   if (typeof value === 'string') {
     return value;
@@ -122,7 +128,7 @@ void test('HLTB cache supports candidates when includeCandidates is enabled', as
       return new Response(
         JSON.stringify({
           item: null,
-          candidates: [{ hltbMainHours: 18 }]
+          candidates: [{ hltbMainHours: 18, imageUrl: 'https://howlongtobeat.com/games/okami.jpg' }]
         }),
         {
           status: 200,
@@ -293,6 +299,131 @@ void test('HLTB cache deletes stale invalid payload and fetches fresh response',
   assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
   assert.equal(fetchCalls, 1);
   assert.equal(pool.getEntryCount(), 1);
+
+  await app.close();
+});
+
+void test('HLTB cache deletes candidate-only payloads when candidate images are missing and fetches fresh response', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  pool.seed(
+    '7846b4119644378815dd60e35a204f474e3b0f86fb2f78dbb133c7180c08299b',
+    {
+      item: null,
+      candidates: [{ hltbMainHours: 18, imageUrl: null }]
+    },
+    new Date(Date.UTC(2026, 1, 1, 0, 0, 0)).toISOString()
+  );
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: null,
+          candidates: [
+            {
+              hltbMainHours: 18,
+              imageUrl: 'https://howlongtobeat.com/games/okami.jpg'
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=okami&includeCandidates=true'
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+  assert.equal(pool.getEntryCount(), 1);
+  const body = JSON.parse(response.body) as HltbCandidateResponseBody;
+  assert.equal(body.candidates?.[0]?.imageUrl, 'https://howlongtobeat.com/games/okami.jpg');
+
+  await app.close();
+});
+
+void test('HLTB includeCandidates cache rejects fresh entries when summary item exists but candidate images are missing', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  pool.seed(
+    '2ec68e6fb0af4900b2f0e6c0b54540c96f06a0e10c32e3f9704fef17b6fc8fe8',
+    {
+      item: {
+        hltbMainHours: 8.5,
+        hltbMainExtraHours: 11.2,
+        hltbCompletionistHours: 39.7
+      },
+      candidates: [
+        {
+          title: 'Call of Duty: Black Ops 6',
+          imageUrl: null,
+          platform: 'PC, PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S',
+          releaseYear: 2024,
+          hltbMainHours: 8.5,
+          hltbMainExtraHours: 11.2,
+          hltbCompletionistHours: 39.7
+        }
+      ]
+    },
+    new Date(Date.UTC(2026, 1, 1, 0, 0, 0)).toISOString()
+  );
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: {
+            hltbMainHours: 8.5,
+            hltbMainExtraHours: 11.2,
+            hltbCompletionistHours: 39.7
+          },
+          candidates: [
+            {
+              title: 'Call of Duty: Black Ops 6',
+              imageUrl: 'https://howlongtobeat.com/games/Call_of_Duty_Black_Ops_6.jpg',
+              platform: 'PC, PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S',
+              releaseYear: 2024,
+              hltbMainHours: 8.5,
+              hltbMainExtraHours: 11.2,
+              hltbCompletionistHours: 39.7
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Call%20of%20Duty%3A%20Black%20Ops%206&includeCandidates=true'
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+  const body = JSON.parse(response.body) as HltbCandidateResponseBody;
+  assert.equal(
+    body.candidates?.[0]?.imageUrl,
+    'https://howlongtobeat.com/games/Call_of_Duty_Black_Ops_6.jpg'
+  );
 
   await app.close();
 });

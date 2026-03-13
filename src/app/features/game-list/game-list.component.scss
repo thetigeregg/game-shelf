@@ -333,12 +333,22 @@ ion-item p {
   justify-content: center;
   overflow: hidden;
   border-radius: 6px;
+  flex: 0 0 72px;
 }
 
 .candidate-thumbnail img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+ion-item.picker-result-row {
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+
+  ion-label {
+    margin: 0;
+  }
 }
 
 .group-header-title {

@@ -2640,7 +2640,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
       const updated = await this.gameShelfService.refreshGamePricingWithQuery(
         target.igdbGameId,
         target.platformIgdbId,
-        { title: candidate.title }
+        {
+          title: candidate.title,
+          preferredUrl: candidate.url
+        }
       );
       this.applyUpdatedGame(updated);
       this.closePricingPickerModal();
@@ -4634,7 +4637,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
           return await this.gameShelfService.refreshGamePricingWithQuery(
             game.igdbGameId,
             game.platformIgdbId,
-            { title: candidate.title }
+            {
+              title: candidate.title,
+              preferredUrl: candidate.url
+            }
           );
         }
       } catch {

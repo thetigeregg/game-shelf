@@ -2691,18 +2691,24 @@ describe('IgdbProxyService', () => {
   });
 
   it('lookupPsPrices and lookupPsPricesCandidates cover title/candidate guards and error mapping', async () => {
-    await expect(firstValueFrom(service.lookupPsPrices('x', 130, 'test'))).rejects.toThrowError(
-      'Invalid PSPrices lookup request.'
-    );
+    await expect(
+      firstValueFrom(service.lookupPsPrices('x', 130, { title: 'test' }))
+    ).rejects.toThrowError('Invalid PSPrices lookup request.');
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/psprices/prices`);
 
-    const lookupPromise = firstValueFrom(service.lookupPsPrices('960', 130, '  Nioh 2  '));
+    const lookupPromise = firstValueFrom(
+      service.lookupPsPrices('960', 130, {
+        title: '  Nioh 2  ',
+        preferredUrl: '  https://psprices.com/region-ch/game/123  '
+      })
+    );
     const lookupReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
         request.params.get('igdbGameId') === '960' &&
         request.params.get('platformIgdbId') === '130' &&
-        request.params.get('title') === 'Nioh 2'
+        request.params.get('title') === 'Nioh 2' &&
+        request.params.get('preferredPsPricesUrl') === 'https://psprices.com/region-ch/game/123'
       );
     });
     lookupReq.flush({ status: 'ok' });

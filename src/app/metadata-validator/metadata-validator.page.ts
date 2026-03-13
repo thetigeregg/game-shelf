@@ -927,7 +927,10 @@ export class MetadataValidatorPage {
       const updated = await this.gameShelfService.refreshGamePricingWithQuery(
         target.igdbGameId,
         target.platformIgdbId,
-        { title: candidate.title }
+        {
+          title: candidate.title,
+          preferredUrl: candidate.url
+        }
       );
       this.closePricingPickerModal();
       if (this.hasPricingMetadata(updated)) {
@@ -1289,7 +1292,10 @@ export class MetadataValidatorPage {
           return await this.gameShelfService.refreshGamePricingWithQuery(
             game.igdbGameId,
             game.platformIgdbId,
-            { title: candidate.title }
+            {
+              title: candidate.title,
+              preferredUrl: candidate.url
+            }
           );
         }
       } catch (error: unknown) {

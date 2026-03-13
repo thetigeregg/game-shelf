@@ -55,7 +55,10 @@ interface PsPricesLookupApi {
   lookupPsPrices(
     igdbGameId: string,
     platformIgdbId: number,
-    title?: string | null
+    query?: {
+      title?: string | null;
+      preferredUrl?: string | null;
+    }
   ): Observable<unknown>;
 }
 
@@ -572,7 +575,7 @@ export class GameShelfService {
   async refreshGamePricingWithQuery(
     igdbGameId: string,
     platformIgdbId: number,
-    query?: { title?: string | null }
+    query?: { title?: string | null; preferredUrl?: string | null }
   ): Promise<GameEntry> {
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
@@ -587,10 +590,15 @@ export class GameShelfService {
       typeof query?.title === 'string' && query.title.trim().length > 0
         ? query.title.trim()
         : undefined;
+    const preferredUrl =
+      typeof query?.preferredUrl === 'string' && query.preferredUrl.trim().length > 0
+        ? query.preferredUrl.trim()
+        : undefined;
     const pricing = await this.lookupUnifiedPrice(
       existing.igdbGameId,
       existing.platformIgdbId,
-      lookupTitle
+      lookupTitle,
+      preferredUrl
     );
     const shouldRetainExistingPricing =
       this.isPricingSupportedPlatform(existing.platformIgdbId) && pricing === null;
@@ -1678,7 +1686,8 @@ export class GameShelfService {
   private async lookupUnifiedPrice(
     igdbGameId: string,
     platformIgdbId: number,
-    titleOverride?: string | null
+    titleOverride?: string | null,
+    preferredUrl?: string | null
   ): Promise<UnifiedPriceSnapshot | null> {
     if (!this.isPricingSupportedPlatform(platformIgdbId)) {
       return null;
@@ -1705,7 +1714,10 @@ export class GameShelfService {
       const result = (await firstValueFrom(
         titleOverride === undefined
           ? pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
-          : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, titleOverride ?? null)
+          : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, {
+              title: titleOverride ?? null,
+              preferredUrl: preferredUrl ?? null
+            })
       )) as PsPricesLookupResult;
       return this.normalizePsPricesLookupResult(result);
     }

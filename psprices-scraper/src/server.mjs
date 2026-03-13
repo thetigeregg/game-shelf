@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import { chromium } from 'playwright';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
+import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -167,7 +168,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           'a[href*="opencritic.com"] span[class*="font-medium"]'
         );
         const collectionLinks = card.querySelectorAll('a[href*="/collection/"]');
-        const imageElement = card.querySelector('img');
+        const imageElement = card.querySelector(RESULT_CARD_COVER_IMAGE_SELECTOR);
         const imageUrl =
           imageElement instanceof HTMLImageElement
             ? normalizeText(

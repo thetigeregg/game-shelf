@@ -1567,6 +1567,10 @@ describe('GameShelfService', () => {
 
     searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
       of({
+        bestPrice: {
+          title: 'Candidate A',
+          url: '//psprices.com/region-ch/game/123'
+        },
         candidates: [
           {
             title: '  Candidate A  ',
@@ -1609,6 +1613,7 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88.89,
+        isRecommended: true,
         imageUrl: 'https://cdn.psprices.com/candidate-a.jpg'
       },
       {
@@ -1619,10 +1624,228 @@ describe('GameShelfService', () => {
         discountPercent: null,
         isFree: null,
         url: null,
-        score: null
+        score: null,
+        isRecommended: false
       }
     ]);
     expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 167, 'Valid Title');
+  });
+
+  it('marks recommended pricing candidate by title fallback when bestPrice url is unavailable', async () => {
+    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+      of({
+        bestPrice: {
+          title: 'Candidate B',
+          url: null
+        },
+        candidates: [
+          {
+            title: 'Candidate A',
+            amount: 39.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 50,
+            isFree: false,
+            url: 'https://psprices.com/region-ch/game/123',
+            score: 88
+          },
+          {
+            title: '  Candidate B  ',
+            amount: 49.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 37.5,
+            isFree: false,
+            url: null,
+            score: 95
+          }
+        ]
+      })
+    );
+
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+    ).resolves.toEqual([
+      {
+        title: 'Candidate A',
+        amount: 39.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 50,
+        isFree: false,
+        url: 'https://psprices.com/region-ch/game/123',
+        score: 88,
+        isRecommended: false
+      },
+      {
+        title: 'Candidate B',
+        amount: 49.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 37.5,
+        isFree: false,
+        url: null,
+        score: 95,
+        isRecommended: true
+      }
+    ]);
+  });
+
+  it('marks only one pricing candidate recommended when bestPrice url is missing and multiple candidate urls normalize to null', async () => {
+    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+      of({
+        bestPrice: {
+          title: 'Candidate B',
+          url: null
+        },
+        candidates: [
+          {
+            title: 'Candidate A',
+            amount: 39.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 50,
+            isFree: false,
+            url: null,
+            score: 88
+          },
+          {
+            title: 'Candidate B',
+            amount: 49.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 37.5,
+            isFree: false,
+            url: null,
+            score: 95
+          },
+          {
+            title: 'Candidate C',
+            amount: 59.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 25,
+            isFree: false,
+            url: null,
+            score: 90
+          }
+        ]
+      })
+    );
+
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+    ).resolves.toEqual([
+      {
+        title: 'Candidate A',
+        amount: 39.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 50,
+        isFree: false,
+        url: null,
+        score: 88,
+        isRecommended: false
+      },
+      {
+        title: 'Candidate B',
+        amount: 49.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 37.5,
+        isFree: false,
+        url: null,
+        score: 95,
+        isRecommended: true
+      },
+      {
+        title: 'Candidate C',
+        amount: 59.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 25,
+        isFree: false,
+        url: null,
+        score: 90,
+        isRecommended: false
+      }
+    ]);
+  });
+
+  it('returns no pricing candidates when psprices returns an empty candidate list', async () => {
+    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+      of({
+        bestPrice: {
+          title: 'Candidate A',
+          url: 'https://psprices.com/region-ch/game/123'
+        },
+        candidates: []
+      })
+    );
+
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+    ).resolves.toEqual([]);
+  });
+
+  it('falls back to the first pricing candidate when bestPrice does not match any normalized candidate', async () => {
+    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+      of({
+        bestPrice: {
+          title: 'Missing Candidate',
+          url: 'https://psprices.com/region-ch/game/999'
+        },
+        candidates: [
+          {
+            title: 'Candidate A',
+            amount: 39.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 50,
+            isFree: false,
+            url: 'https://psprices.com/region-ch/game/123',
+            score: 88
+          },
+          {
+            title: 'Candidate B',
+            amount: 49.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 37.5,
+            isFree: false,
+            url: 'https://psprices.com/region-ch/game/456',
+            score: 95
+          }
+        ]
+      })
+    );
+
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+    ).resolves.toEqual([
+      {
+        title: 'Candidate A',
+        amount: 39.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 50,
+        isFree: false,
+        url: 'https://psprices.com/region-ch/game/123',
+        score: 88,
+        isRecommended: true
+      },
+      {
+        title: 'Candidate B',
+        amount: 49.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 37.5,
+        isFree: false,
+        url: 'https://psprices.com/region-ch/game/456',
+        score: 95,
+        isRecommended: false
+      }
+    ]);
   });
 
   it('covers unified pricing helper branches for availability and discount detection', () => {

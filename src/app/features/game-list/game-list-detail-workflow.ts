@@ -62,7 +62,7 @@ export function dedupeHltbCandidates(candidates: HltbMatchCandidate[]): HltbMatc
   const byKey = new Map<string, HltbMatchCandidate>();
 
   candidates.forEach((candidate) => {
-    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
+    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.hltbGameId ?? '')}::${candidate.hltbUrl ?? ''}`;
 
     if (!byKey.has(key)) {
       byKey.set(key, candidate);

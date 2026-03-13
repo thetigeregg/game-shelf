@@ -76,6 +76,8 @@ export interface GameCatalogResult {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  hltbMatchGameId?: number | null;
+  hltbMatchUrl?: string | null;
   hltbMatchQueryTitle?: string | null;
   hltbMatchQueryReleaseYear?: number | null;
   hltbMatchQueryPlatform?: string | null;
@@ -275,6 +277,8 @@ export interface GameEntry {
   hltbMainHours?: number | null;
   hltbMainExtraHours?: number | null;
   hltbCompletionistHours?: number | null;
+  hltbMatchGameId?: number | null;
+  hltbMatchUrl?: string | null;
   hltbMatchQueryTitle?: string | null;
   hltbMatchQueryReleaseYear?: number | null;
   hltbMatchQueryPlatform?: string | null;
@@ -333,6 +337,8 @@ export interface HltbCompletionTimes {
   hltbMainHours: number | null;
   hltbMainExtraHours: number | null;
   hltbCompletionistHours: number | null;
+  hltbGameId?: number | null;
+  hltbUrl?: string | null;
 }
 
 export interface HltbMatchCandidate extends HltbCompletionTimes {

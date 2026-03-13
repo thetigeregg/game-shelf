@@ -574,6 +574,8 @@ describe('DexieGameRepository', () => {
     await repository.upsertFromCatalog(
       {
         ...mario,
+        hltbMatchGameId: 7002,
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
         hltbMatchQueryTitle: 'Mario Legacy',
         hltbMatchQueryReleaseYear: 1987,
         hltbMatchQueryPlatform: 'Famicom',
@@ -589,6 +591,8 @@ describe('DexieGameRepository', () => {
     );
 
     const stored = await repository.exists('101', 18);
+    expect(stored?.hltbMatchGameId).toBe(7002);
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7002');
     expect(stored?.hltbMatchQueryTitle).toBe('Mario Legacy');
     expect(stored?.hltbMatchQueryReleaseYear).toBe(1987);
     expect(stored?.hltbMatchQueryPlatform).toBe('Famicom');

@@ -684,14 +684,18 @@ describe('IgdbProxyService', () => {
       item: {
         hltbMainHours: 7.53,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13.04
+        hltbCompletionistHours: 13.04,
+        hltbGameId: 9001,
+        hltbUrl: 'https://howlongtobeat.com/game/9001'
       }
     });
 
     await expect(promise).resolves.toEqual({
       hltbMainHours: 7.5,
       hltbMainExtraHours: 10,
-      hltbCompletionistHours: 13
+      hltbCompletionistHours: 13,
+      hltbGameId: 9001,
+      hltbUrl: 'https://howlongtobeat.com/game/9001'
     });
   });
 
@@ -749,6 +753,8 @@ describe('IgdbProxyService', () => {
           title: ' Super Metroid ',
           releaseYear: 1994,
           platform: ' SNES ',
+          hltbGameId: 9001,
+          hltbUrl: 'https://howlongtobeat.com/game/9001',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
           hltbCompletionistHours: 13.04
@@ -757,6 +763,8 @@ describe('IgdbProxyService', () => {
           title: 'Super Metroid',
           releaseYear: 1994,
           platform: 'SNES',
+          hltbGameId: 9001,
+          hltbUrl: 'https://howlongtobeat.com/game/9001',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
           hltbCompletionistHours: 13.04
@@ -777,12 +785,68 @@ describe('IgdbProxyService', () => {
         title: 'Super Metroid',
         releaseYear: 1994,
         platform: 'SNES',
+        hltbGameId: 9001,
+        hltbUrl: 'https://howlongtobeat.com/game/9001',
         hltbMainHours: 7.5,
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 13,
         isRecommended: true
       }
     ]);
+  });
+
+  it('prefers the selected HLTB candidate identity when a preferred HLTB id is provided', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', { preferredGameId: 7002 })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbGameId') === '7002'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7001,
+          hltbUrl: 'https://howlongtobeat.com/game/7001',
+          hltbMainHours: 8,
+          hltbMainExtraHours: 10,
+          hltbCompletionistHours: 12
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 9,
+      hltbMainExtraHours: 11,
+      hltbCompletionistHours: 13,
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
+    });
   });
 
   it('returns empty HLTB candidate list for short query or lookup failure', async () => {
@@ -1863,8 +1927,21 @@ describe('IgdbProxyService', () => {
           title: 'Okami',
           releaseYear: 2006,
           platform: 'Wii',
+          hltbGameId: 9001,
+          hltbUrl: 'https://howlongtobeat.com/game/9001',
           coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
           hltbMainHours: 15,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null
+        },
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          hltbGameId: 9002,
+          hltbUrl: 'https://howlongtobeat.com/game/9002',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash-2.jpg',
+          hltbMainHours: 16,
           hltbMainExtraHours: null,
           hltbCompletionistHours: null
         }
@@ -1874,7 +1951,13 @@ describe('IgdbProxyService', () => {
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
         title: 'Okami',
+        hltbGameId: 9001,
         imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+      }),
+      expect.objectContaining({
+        title: 'Okami',
+        hltbGameId: 9002,
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash-2.jpg'
       })
     ]);
   });

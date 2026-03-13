@@ -2436,7 +2436,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
         {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
-          platform: candidate.platform
+          platform: candidate.platform,
+          preferredGameId: candidate.hltbGameId ?? null,
+          preferredUrl: candidate.hltbUrl ?? null
         }
       );
       this.applyUpdatedGame(updated);

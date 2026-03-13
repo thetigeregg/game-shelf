@@ -1340,6 +1340,108 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('prefers the selected HLTB candidate identity when a preferred HLTB url is provided', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredUrl: '  https://howlongtobeat.com/game/7002  '
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbUrl') === 'https://howlongtobeat.com/game/7002'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7001,
+          hltbUrl: 'https://howlongtobeat.com/game/7001',
+          hltbMainHours: 8,
+          hltbMainExtraHours: 10,
+          hltbCompletionistHours: 12
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 9,
+      hltbMainExtraHours: 11,
+      hltbCompletionistHours: 13,
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
+    });
+  });
+
+  it('falls back to the normal HLTB item when the preferred candidate has no completion time data', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredGameId: 7002
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbGameId') === '7002'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: null,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 8,
+      hltbMainExtraHours: 10,
+      hltbCompletionistHours: 12,
+      hltbGameId: 7001,
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
+    });
+  });
+
   it('uses matched platform entry instead of first platform entry for Moby candidates', async () => {
     const candidatesPromise = firstValueFrom(
       service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)

@@ -10,8 +10,6 @@ if (!name) {
 }
 
 // Restrict branch/task names to a safe subset for shell and git
-// - letters, numbers, ".", "_", "-", and "/"
-// - must not start with "-" (avoids being parsed as a git option)
 const SAFE_BRANCH_PATTERN = /^[A-Za-z0-9._/-]+$/;
 
 if (!SAFE_BRANCH_PATTERN.test(name) || name.startsWith('-')) {
@@ -27,7 +25,18 @@ if (pathSegments.some((segment) => !segment || segment === '.' || segment === '.
   process.exit(1);
 }
 
-const branch = name;
+/*
+Auto-prefix branches with feat/ unless a type is already supplied.
+
+Examples:
+
+task:start search        -> feat/search
+task:start fix/login     -> fix/login
+task:start chore/update  -> chore/update
+*/
+
+const branch = name.includes('/') ? name : `feat/${name}`;
+
 const worktreePath = path.posix.normalize(path.posix.join('worktrees', branch));
 
 if (!worktreePath.startsWith('worktrees/')) {
@@ -35,23 +44,71 @@ if (!worktreePath.startsWith('worktrees/')) {
   process.exit(1);
 }
 
-// Ensure parent directories for the worktree path exist, even when branch contains "/"
+// Ensure parent directories exist
 const worktreeParentDir = worktreePath.split('/').slice(0, -1).join('/');
 if (worktreeParentDir) {
   mkdirSync(worktreeParentDir, { recursive: true });
 }
 
-try {
-  execSync('git fetch origin main', { stdio: 'inherit' });
+function run(cmd, opts = {}) {
+  execSync(cmd, { stdio: 'inherit', ...opts });
+}
 
-  execSync(`git worktree add ${worktreePath} -b ${branch} origin/main`, {
-    stdio: 'inherit'
-  });
-  if (process.platform === 'darwin') {
-    execSync(`open -a Cursor ${worktreePath}`, { stdio: 'inherit' });
-  } else {
-    console.log(`Worktree created at ${worktreePath}. Open it in your editor of choice.`);
+try {
+  /*
+  Prevent starting a task with a dirty repo
+  */
+  try {
+    execSync('git diff --quiet');
+  } catch {
+    console.error('\nWorking directory has uncommitted changes.');
+    console.error('Commit or stash before starting a new task.\n');
+    process.exit(1);
   }
+
+  console.log('\nFetching latest main...\n');
+  run('git fetch origin main --prune');
+
+  console.log(`\nCreating worktree for branch: ${branch}\n`);
+
+  run(`git worktree add ${worktreePath} -b ${branch} origin/main`);
+
+  /*
+  Bootstrap dependencies for the new worktree
+  */
+  console.log('\nBootstrapping worktree environment...\n');
+
+  try {
+    run(`node scripts/worktree-dev.mjs bootstrap`, {
+      cwd: worktreePath
+    });
+  } catch {
+    console.warn('\nBootstrap script failed (continuing anyway).\n');
+  }
+
+  /*
+  Open VS Code automatically
+  */
+  console.log('\nOpening VS Code...\n');
+  run(`code ${worktreePath}`);
+
+  console.log(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Task started successfully
+
+Branch:
+  ${branch}
+
+Worktree:
+  ${worktreePath}
+
+Next steps:
+
+  cd ${worktreePath}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`);
 } catch (error) {
   console.error('Failed to set up worktree for task:', branch);
   const code = typeof error.status === 'number' ? error.status : 1;

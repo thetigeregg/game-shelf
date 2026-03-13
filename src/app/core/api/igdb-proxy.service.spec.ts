@@ -1453,6 +1453,161 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('marks recommended Metacritic candidates for score and index fallbacks', async () => {
+    const scoreFallbackPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const scoreFallbackReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    scoreFallbackReq.flush({
+      item: {
+        metacriticScore: 88,
+        metacriticUrl: null
+      },
+      candidates: [
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 88,
+          metacriticUrl: null
+        },
+        {
+          title: 'Okamiden',
+          releaseYear: 2011,
+          platform: 'Nintendo DS',
+          metacriticScore: 80,
+          metacriticUrl: null
+        }
+      ]
+    });
+    await expect(scoreFallbackPromise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticScore: 88,
+        metacriticUrl: null,
+        isRecommended: true
+      },
+      {
+        title: 'Okamiden',
+        releaseYear: 2011,
+        platform: 'Nintendo DS',
+        metacriticScore: 80,
+        metacriticUrl: null,
+        isRecommended: false
+      }
+    ]);
+
+    const tiedScoreFallbackPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const tiedScoreFallbackReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    tiedScoreFallbackReq.flush({
+      item: {
+        metacriticScore: 88,
+        metacriticUrl: null
+      },
+      candidates: [
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 88,
+          metacriticUrl: null
+        },
+        {
+          title: 'Okami HD',
+          releaseYear: 2012,
+          platform: 'PlayStation 3',
+          metacriticScore: 88,
+          metacriticUrl: null
+        }
+      ]
+    });
+    await expect(tiedScoreFallbackPromise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticScore: 88,
+        metacriticUrl: null,
+        isRecommended: true
+      },
+      {
+        title: 'Okami HD',
+        releaseYear: 2012,
+        platform: 'PlayStation 3',
+        metacriticScore: 88,
+        metacriticUrl: null,
+        isRecommended: false
+      }
+    ]);
+
+    const indexFallbackPromise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const indexFallbackReq = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+    indexFallbackReq.flush({
+      item: {
+        metacriticScore: null,
+        metacriticUrl: null
+      },
+      candidates: [
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 91,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        },
+        {
+          title: 'Okamiden',
+          releaseYear: 2011,
+          platform: 'Nintendo DS',
+          metacriticScore: 80,
+          metacriticUrl: 'https://www.metacritic.com/game/okamiden/'
+        }
+      ]
+    });
+    await expect(indexFallbackPromise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        isRecommended: true
+      },
+      {
+        title: 'Okamiden',
+        releaseYear: 2011,
+        platform: 'Nintendo DS',
+        metacriticScore: 80,
+        metacriticUrl: 'https://www.metacritic.com/game/okamiden/',
+        isRecommended: false
+      }
+    ]);
+  });
+
   it('drops empty metacritic payloads and invalid metacritic candidates', async () => {
     const nullItemPromise = firstValueFrom(
       service.lookupMetacriticScore('Okami', undefined, undefined, 21)

@@ -1429,28 +1429,18 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     const valueRecord = value as unknown as Record<string, unknown>;
+    const normalizedHltbGameId = this.normalizeHltbGameId(
+      value.hltbGameId ?? valueRecord['gameId'] ?? valueRecord['id'] ?? null
+    );
+    const normalizedHltbUrl = this.normalizeHltbUrl(
+      value.hltbUrl ?? valueRecord['gameUrl'] ?? valueRecord['url'] ?? null
+    );
     const normalized: HltbCompletionTimes = {
       hltbMainHours: this.normalizeCompletionHours(value.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(value.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(value.hltbCompletionistHours),
-      ...(this.normalizeHltbGameId(
-        value.hltbGameId ?? valueRecord['gameId'] ?? valueRecord['id'] ?? null
-      ) !== null
-        ? {
-            hltbGameId: this.normalizeHltbGameId(
-              value.hltbGameId ?? valueRecord['gameId'] ?? valueRecord['id'] ?? null
-            )
-          }
-        : {}),
-      ...(this.normalizeHltbUrl(
-        value.hltbUrl ?? valueRecord['gameUrl'] ?? valueRecord['url'] ?? null
-      ) !== null
-        ? {
-            hltbUrl: this.normalizeHltbUrl(
-              value.hltbUrl ?? valueRecord['gameUrl'] ?? valueRecord['url'] ?? null
-            )
-          }
-        : {})
+      ...(normalizedHltbGameId !== null ? { hltbGameId: normalizedHltbGameId } : {}),
+      ...(normalizedHltbUrl !== null ? { hltbUrl: normalizedHltbUrl } : {})
     };
 
     if (

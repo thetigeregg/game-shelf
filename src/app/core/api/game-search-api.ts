@@ -66,7 +66,10 @@ export interface GameSearchApi {
   lookupPsPrices?(
     igdbGameId: string,
     platformIgdbId: number,
-    title?: string | null
+    query?: {
+      title?: string | null;
+      preferredUrl?: string | null;
+    }
   ): Observable<unknown>;
   lookupPsPricesCandidates?(
     igdbGameId: string,

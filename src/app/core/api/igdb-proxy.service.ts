@@ -983,7 +983,10 @@ export class IgdbProxyService implements GameSearchApi {
   lookupPsPrices(
     igdbGameId: string,
     platformIgdbId: number,
-    title?: string | null
+    query?: {
+      title?: string | null;
+      preferredUrl?: string | null;
+    }
   ): Observable<unknown> {
     const normalizedGameId = this.normalizeNumericId(igdbGameId);
     const normalizedPlatformIgdbId = this.normalizePositiveInteger(platformIgdbId);
@@ -995,9 +998,16 @@ export class IgdbProxyService implements GameSearchApi {
     const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
       .set('igdbGameId', normalizedGameId)
       .set('platformIgdbId', String(normalizedPlatformIgdbId));
-    const normalizedTitle = typeof title === 'string' ? title.trim() : '';
-    const enrichedParams =
-      normalizedTitle.length > 0 ? params.set('title', normalizedTitle) : params;
+    const normalizedTitle = typeof query?.title === 'string' ? query.title.trim() : '';
+    const normalizedPreferredUrl =
+      typeof query?.preferredUrl === 'string' ? query.preferredUrl.trim() : '';
+    let enrichedParams = params;
+    if (normalizedTitle.length > 0) {
+      enrichedParams = enrichedParams.set('title', normalizedTitle);
+    }
+    if (normalizedPreferredUrl.length > 0) {
+      enrichedParams = enrichedParams.set('preferredPsPricesUrl', normalizedPreferredUrl);
+    }
 
     const cooldownError = this.createCooldownErrorIfActive();
 

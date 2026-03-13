@@ -89,3 +89,15 @@ test('normalizeCandidate can infer currency from symbols', () => {
   assert.equal(candidate.currency, 'EUR');
   assert.equal(candidate.amount, 19.99);
 });
+
+test('normalizeCandidate keeps normalized cover image URLs when present', () => {
+  const candidate = normalizeCandidate({
+    title: 'Example Game',
+    priceText: 'CHF 19.99',
+    imageUrl: '//image.api.playstation.com/example.jpg',
+    url: 'https://psprices.com/region-ch/game/123/example-game'
+  });
+
+  assert.ok(candidate);
+  assert.equal(candidate.imageUrl, 'https://image.api.playstation.com/example.jpg');
+});

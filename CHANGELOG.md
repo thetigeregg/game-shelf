@@ -2104,3 +2104,18 @@
 - 915107b chore: simplify pre-commit hook by removing redundant lint and test commands
 - d65921e chore: update commitlint configuration and add pre-push validation requirements
 
+## v1.2.1 - 2026-03-13
+- 689c8ec1 Merge pull request #215 from thetigeregg/feat/chore
+- b7a1a3aa chore(scripts): use force delete for auto-cleanup branch removal
+- 5ed78c83 chore(scripts): harden current worktree detection in dev-cleanup
+- f16221f4 chore(scripts): harden dev-cleanup worktree parsing and auto-skip safety
+- 6d15954c chore(scripts): harden dev-cleanup branch discovery and git output handling
+- 6234b58a chore: force push
+- efee63c3 chore(scripts): harden dev-cleanup git command execution
+- c9307ad9 chore(scripts): harden dev-cleanup git parsing and auto mode execution
+- adac073e chore: add auto mode to dev cleanup script for enhanced functionality
+- e1e2bddf chore: enhance dev cleanup script with auto mode and improved logging
+- 1b566b84 chore: refactor dev cleanup script for improved clarity and functionality
+- e5bc5e4b chore: add dev cleanup script to package.json
+- 5e4e9d88 chore: add dev cleanup script for repository maintenance
+

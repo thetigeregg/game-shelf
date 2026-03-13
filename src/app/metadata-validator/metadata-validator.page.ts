@@ -10,6 +10,7 @@ import {
   IonCheckbox,
   IonContent,
   IonHeader,
+  IonIcon,
   IonItem,
   IonLabel,
   IonList,
@@ -20,7 +21,6 @@ import {
   IonSelect,
   IonSelectOption,
   IonSpinner,
-  IonThumbnail,
   IonTitle,
   IonToolbar,
   LoadingController,
@@ -28,6 +28,8 @@ import {
 } from '@ionic/angular/standalone';
 import { BehaviorSubject, combineLatest, firstValueFrom, of } from 'rxjs';
 import { map, switchMap, tap } from 'rxjs/operators';
+import { addIcons } from 'ionicons';
+import { search } from 'ionicons/icons';
 import {
   GameEntry,
   HltbMatchCandidate,
@@ -58,6 +60,7 @@ type MissingMetadataFilter = 'hltb' | 'metacritic' | 'pricing' | 'nonPcTheGamesD
     IonCheckbox,
     IonContent,
     IonHeader,
+    IonIcon,
     IonItem,
     IonLabel,
     IonList,
@@ -68,7 +71,6 @@ type MissingMetadataFilter = 'hltb' | 'metacritic' | 'pricing' | 'nonPcTheGamesD
     IonSelect,
     IonSelectOption,
     IonSpinner,
-    IonThumbnail,
     IonTitle,
     IonToolbar
   ]
@@ -130,6 +132,10 @@ export class MetadataValidatorPage {
   private readonly loadingController = inject(LoadingController);
   private readonly router = inject(Router);
   private readonly debugLogService = inject(DebugLogService);
+
+  constructor() {
+    addIcons({ search });
+  }
 
   readonly filteredGames$ = combineLatest([
     this.selectedListType$.pipe(

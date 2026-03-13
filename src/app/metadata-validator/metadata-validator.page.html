@@ -206,21 +206,23 @@
           <ion-button (click)="closeHltbPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding">
-      <div class="picker-search-row">
+      <ion-toolbar>
         <ion-searchbar
           [value]="hltbPickerQuery"
           placeholder="Search HLTB"
           show-clear-button="focus"
           (ionInput)="onHltbPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()"
-          >Search</ion-button
-        >
-      </div>
+        <ion-buttons slot="end">
+          <ion-button fill="solid" [disabled]="isHltbPickerLoading" (click)="runHltbPickerSearch()">
+            Search
+            <ion-icon slot="end" name="search"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="ion-padding">
       @if (isHltbPickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>
@@ -295,21 +297,27 @@
           <ion-button (click)="closeReviewPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding">
-      <div class="picker-search-row">
+      <ion-toolbar>
         <ion-searchbar
           [value]="reviewPickerQuery"
           placeholder="Search Review"
           show-clear-button="focus"
           (ionInput)="onReviewPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button [disabled]="isReviewPickerLoading" (click)="runReviewPickerSearch()"
-          >Search</ion-button
-        >
-      </div>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="solid"
+            [disabled]="isReviewPickerLoading"
+            (click)="runReviewPickerSearch()"
+          >
+            Search
+            <ion-icon slot="end" name="search"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="ion-padding">
       @if (isReviewPickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>
@@ -383,21 +391,27 @@
           <ion-button (click)="closePricingPickerModal()">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding">
-      <div class="picker-search-row">
+      <ion-toolbar>
         <ion-searchbar
           [value]="pricingPickerQuery"
           placeholder="Search Pricing"
           show-clear-button="focus"
           (ionInput)="onPricingPickerQueryChange($event)"
         ></ion-searchbar>
-        <ion-button [disabled]="isPricingPickerLoading" (click)="runPricingPickerSearch()"
-          >Search</ion-button
-        >
-      </div>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="solid"
+            [disabled]="isPricingPickerLoading"
+            (click)="runPricingPickerSearch()"
+          >
+            Search
+            <ion-icon slot="end" name="search"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="ion-padding">
       @if (isPricingPickerLoading) {
         <div class="picker-state">
           <ion-spinner name="crescent"></ion-spinner>

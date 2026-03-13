@@ -36,7 +36,8 @@ export interface GameSearchApi {
     title: string,
     releaseYear?: number | null,
     platform?: string | null,
-    platformIgdbId?: number | null
+    platformIgdbId?: number | null,
+    preferredReviewUrl?: string | null
   ): Observable<MetacriticScoreResult | null>;
   lookupMetacriticCandidates(
     title: string,
@@ -49,7 +50,8 @@ export interface GameSearchApi {
     releaseYear?: number | null,
     platform?: string | null,
     platformIgdbId?: number | null,
-    mobygamesGameId?: number | null
+    mobygamesGameId?: number | null,
+    preferredReviewUrl?: string | null
   ): Observable<ReviewScoreResult | null>;
   lookupReviewCandidates(
     title: string,

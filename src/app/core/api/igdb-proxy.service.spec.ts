@@ -1458,6 +1458,54 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('prefers the selected Metacritic candidate url when a preferred review url is provided', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('platformIgdbId') === '167'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          metacriticScore: 87,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          metacriticScore: 88,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+  });
+
   it('marks recommended Metacritic candidates for score and index fallbacks', async () => {
     const scoreFallbackPromise = firstValueFrom(
       service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)

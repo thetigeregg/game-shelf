@@ -873,6 +873,14 @@ describe('MetadataValidatorPage', () => {
       metacriticScore: 90,
       metacriticUrl: 'https://www.metacritic.com/game/target/'
     });
+    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalledWith('42', 6, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PC',
+      platformIgdbId: 6,
+      mobygamesGameId: null,
+      preferredUrl: 'https://www.metacritic.com/game/target/'
+    });
     expect(presentToast).toHaveBeenCalledWith('Updated review for Target.');
 
     shelf.refreshGameMetacriticScore.mockResolvedValueOnce(createGame());

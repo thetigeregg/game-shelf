@@ -725,6 +725,10 @@ export class GameShelfService {
         : existing.platformIgdbId;
     const lookupMobyGameId =
       existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null;
+    const preferredReviewUrl =
+      existing.reviewMatchLocked === true
+        ? (existing.reviewUrl ?? existing.metacriticUrl ?? null)
+        : null;
 
     return this.refreshGameReviewWithLookup(
       existing,
@@ -733,6 +737,7 @@ export class GameShelfService {
       lookupPlatform,
       lookupPlatformIgdbId,
       lookupMobyGameId,
+      preferredReviewUrl,
       existing.reviewMatchLocked ?? null
     );
   }
@@ -746,6 +751,7 @@ export class GameShelfService {
       platform?: string | null;
       platformIgdbId?: number | null;
       mobygamesGameId?: number | null;
+      preferredUrl?: string | null;
     }
   ): Promise<GameEntry> {
     return this.refreshGameReviewScoreWithQuery(igdbGameId, platformIgdbId, query);
@@ -760,6 +766,7 @@ export class GameShelfService {
       platform?: string | null;
       platformIgdbId?: number | null;
       mobygamesGameId?: number | null;
+      preferredUrl?: string | null;
     }
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
@@ -799,6 +806,10 @@ export class GameShelfService {
       query.mobygamesGameId > 0
         ? query.mobygamesGameId
         : (existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null);
+    const preferredReviewUrl =
+      typeof query.preferredUrl === 'string' && query.preferredUrl.trim().length > 0
+        ? query.preferredUrl.trim()
+        : null;
 
     return this.refreshGameReviewWithLookup(
       existing,
@@ -807,6 +818,7 @@ export class GameShelfService {
       platform,
       lookupPlatformIgdbId,
       lookupMobyGameId,
+      preferredReviewUrl,
       true
     );
   }
@@ -893,6 +905,7 @@ export class GameShelfService {
     platform: string,
     platformIgdbId: number | null,
     mobygamesGameId: number | null,
+    preferredReviewUrl: string | null,
     matchLocked: boolean | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.lookup_start', {
@@ -901,7 +914,8 @@ export class GameShelfService {
       lookupReleaseYear: releaseYear,
       lookupPlatform: platform,
       lookupPlatformIgdbId: platformIgdbId,
-      lookupMobyGameId: mobygamesGameId
+      lookupMobyGameId: mobygamesGameId,
+      preferredReviewUrl
     });
     const reviewLookup = (this.searchApi as Partial<GameSearchApi>).lookupReviewScore;
     const scoreResult: ReviewScoreResult | null =
@@ -913,24 +927,33 @@ export class GameShelfService {
               releaseYear,
               platform,
               platformIgdbId,
-              mobygamesGameId
+              mobygamesGameId,
+              preferredReviewUrl
             )
           )
         : await firstValueFrom(
-            this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId).pipe(
-              map((result) =>
-                result
-                  ? {
-                      ...result,
-                      reviewScore: result.metacriticScore,
-                      reviewUrl: result.metacriticUrl,
-                      reviewSource: 'metacritic',
-                      mobyScore: null,
-                      mobygamesGameId: null
-                    }
-                  : null
+            this.searchApi
+              .lookupMetacriticScore(
+                title,
+                releaseYear,
+                platform,
+                platformIgdbId,
+                preferredReviewUrl
               )
-            )
+              .pipe(
+                map((result) =>
+                  result
+                    ? {
+                        ...result,
+                        reviewScore: result.metacriticScore,
+                        reviewUrl: result.metacriticUrl,
+                        reviewSource: 'metacritic',
+                        mobyScore: null,
+                        mobygamesGameId: null
+                      }
+                    : null
+                )
+              )
           );
     this.debugLogService.trace('game_shelf.metacritic.lookup_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,

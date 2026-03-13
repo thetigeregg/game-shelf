@@ -423,11 +423,17 @@ export class IgdbProxyService implements GameSearchApi {
     title: string,
     releaseYear?: number | null,
     platform?: string | null,
-    platformIgdbId?: number | null
+    platformIgdbId?: number | null,
+    preferredReviewUrl?: string | null
   ): Observable<MetacriticScoreResult | null> {
-    return this.lookupReviewScore(title, releaseYear, platform, platformIgdbId).pipe(
-      map((result) => this.toLegacyMetacriticScoreResult(result))
-    );
+    return this.lookupReviewScore(
+      title,
+      releaseYear,
+      platform,
+      platformIgdbId,
+      undefined,
+      preferredReviewUrl
+    ).pipe(map((result) => this.toLegacyMetacriticScoreResult(result)));
   }
 
   lookupReviewScore(
@@ -435,7 +441,8 @@ export class IgdbProxyService implements GameSearchApi {
     releaseYear?: number | null,
     platform?: string | null,
     platformIgdbId?: number | null,
-    mobygamesGameId?: number | null
+    mobygamesGameId?: number | null,
+    preferredReviewUrl?: string | null
   ): Observable<ReviewScoreResult | null> {
     const normalizedTitle = title.trim();
 
@@ -470,6 +477,10 @@ export class IgdbProxyService implements GameSearchApi {
       mobygamesGameId > 0
         ? mobygamesGameId
         : null;
+    const normalizedPreferredReviewUrl =
+      typeof preferredReviewUrl === 'string' && preferredReviewUrl.trim().length > 0
+        ? this.normalizeExternalUrl(preferredReviewUrl)
+        : null;
 
     if (normalizedYear !== null) {
       params = params.set('releaseYear', String(normalizedYear));
@@ -480,6 +491,9 @@ export class IgdbProxyService implements GameSearchApi {
     }
     if (normalizedPlatformIgdbId !== null) {
       params = params.set('platformIgdbId', String(normalizedPlatformIgdbId));
+    }
+    if (normalizedPreferredReviewUrl !== null) {
+      params = params.set('includeCandidates', 'true');
     }
 
     if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {
@@ -566,6 +580,21 @@ export class IgdbProxyService implements GameSearchApi {
 
     return this.httpClient.get<MetacriticSearchResponse>(this.metacriticSearchUrl, { params }).pipe(
       map((response) => {
+        if (normalizedPreferredReviewUrl !== null) {
+          const normalizedCandidates = this.normalizeReviewCandidates(
+            response.candidates ?? [],
+            'metacritic',
+            response.item ?? null
+          );
+          const preferredCandidate =
+            normalizedCandidates.find((candidate) => {
+              const candidateUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? null;
+              return candidateUrl === normalizedPreferredReviewUrl;
+            }) ?? null;
+          if (preferredCandidate) {
+            return this.toReviewScoreResult(preferredCandidate);
+          }
+        }
         const normalized = this.normalizeReviewScoreResult(response.item ?? null, 'metacritic');
         this.debugLogService.trace('igdb_proxy.metacritic.lookup_response', {
           hasItem: response.item !== null,
@@ -1512,7 +1541,8 @@ export class IgdbProxyService implements GameSearchApi {
             (entry) =>
               entry.title === candidate.title &&
               entry.releaseYear === candidate.releaseYear &&
-              entry.platform === candidate.platform
+              entry.platform === candidate.platform &&
+              entry.reviewUrl === candidate.reviewUrl
           ) === index
         );
       });
@@ -1705,6 +1735,18 @@ export class IgdbProxyService implements GameSearchApi {
     return {
       metacriticScore: this.normalizeMetacriticScore(result.reviewScore),
       metacriticUrl: this.normalizeExternalUrl(result.reviewUrl)
+    };
+  }
+
+  private toReviewScoreResult(candidate: ReviewMatchCandidate): ReviewScoreResult {
+    return {
+      reviewScore: candidate.reviewScore ?? candidate.metacriticScore ?? null,
+      reviewUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null,
+      reviewSource: candidate.reviewSource ?? null,
+      mobyScore: candidate.mobyScore ?? null,
+      mobygamesGameId: candidate.mobygamesGameId ?? null,
+      metacriticScore: candidate.metacriticScore ?? null,
+      metacriticUrl: candidate.metacriticUrl ?? null
     };
   }
 

@@ -240,7 +240,12 @@
       @if (!isHltbPickerLoading && hltbPickerResults.length > 0) {
         <ion-list>
           @for (candidate of hltbPickerResults; track candidate) {
-            <ion-item button detail="false" (click)="applySelectedHltbCandidate(candidate)">
+            <ion-item
+              button
+              lines="full"
+              detail="false"
+              (click)="applySelectedHltbCandidate(candidate)"
+            >
               @if (candidate.imageUrl) {
                 <ion-thumbnail slot="start">
                   <img [src]="candidate.imageUrl" alt="HLTB result cover" />
@@ -322,7 +327,12 @@
       @if (!isReviewPickerLoading && reviewPickerResults.length > 0) {
         <ion-list>
           @for (candidate of reviewPickerResults; track candidate) {
-            <ion-item button detail="false" (click)="applySelectedReviewCandidate(candidate)">
+            <ion-item
+              button
+              lines="full"
+              detail="false"
+              (click)="applySelectedReviewCandidate(candidate)"
+            >
               @if (candidate.imageUrl) {
                 <div slot="start" class="candidate-thumbnail">
                   <img [src]="candidate.imageUrl" alt="Review result cover" />
@@ -403,7 +413,12 @@
       @if (!isPricingPickerLoading && pricingPickerResults.length > 0) {
         <ion-list>
           @for (candidate of pricingPickerResults; track candidate) {
-            <ion-item button detail="false" (click)="applySelectedPricingCandidate(candidate)">
+            <ion-item
+              button
+              lines="full"
+              detail="false"
+              (click)="applySelectedPricingCandidate(candidate)"
+            >
               @if (candidate.imageUrl) {
                 <div slot="start" class="candidate-thumbnail">
                   <img [src]="candidate.imageUrl" alt="Pricing result cover" />

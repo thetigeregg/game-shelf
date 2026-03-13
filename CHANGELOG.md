@@ -2047,3 +2047,10 @@
 - 3cb52b1 Merge branch 'main' into codex/add-wishlist-sale-notification
 - 7cc27bc Add wishlist sale notification
 
+## v1.1.38 - 2026-03-13
+- e732142 Merge pull request #209 from thetigeregg/codex/adjust-dark-pricing-color-contrast
+- e573acd Add contrast tokens to dark palette
+- 133a202 Restore button state and remove logs
+- 402321d Investigate game shelf issues
+- 92b1797 Fix dark ionic pricing contrast
+

@@ -1,5 +1,5 @@
 export const RESULT_CARD_COVER_IMAGE_SELECTOR =
-  'a[href*="/game/"] .card-wrapper .aspect-square img.object-contain, a[href*="/game/"] .card-wrapper img.object-contain, a[href*="/game/"] img[alt]';
+  'a[href*="/game/"] .card-wrapper .aspect-square img.object-contain';
 
 export function extractResultCardImageUrl(root) {
   if (!root || typeof root.querySelector !== 'function') {

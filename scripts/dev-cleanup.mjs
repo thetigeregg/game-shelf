@@ -1,13 +1,40 @@
 import { execFileSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import path from 'node:path';
 
 const AUTO = process.argv.includes('--auto');
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
 
 function normalizePathForCompare(pathValue) {
-  return pathValue.replace(/\/+$/, '');
+  let resolved = path.resolve(pathValue);
+
+  try {
+    resolved = realpathSync(resolved);
+  } catch {
+    // Keep resolved path when realpath lookup fails.
+  }
+
+  return resolved.replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
-const CURRENT_WORKTREE_PATH = normalizePathForCompare(process.cwd());
+function getCurrentWorktreePath() {
+  try {
+    const toplevel = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      maxBuffer: DEFAULT_MAX_BUFFER
+    }).trim();
+
+    if (toplevel) {
+      return normalizePathForCompare(toplevel);
+    }
+  } catch {
+    // Fallback to process.cwd() if git detection fails.
+  }
+
+  return normalizePathForCompare(process.cwd());
+}
+
+const CURRENT_WORKTREE_PATH = getCurrentWorktreePath();
 
 function runGit(args, options = {}) {
   const { exitOnError = true, ...execOptions } = options;

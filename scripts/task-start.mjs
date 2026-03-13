@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 
 const name = process.argv[2];
 
@@ -20,8 +21,19 @@ if (!SAFE_BRANCH_PATTERN.test(name) || name.startsWith('-')) {
   process.exit(1);
 }
 
+const pathSegments = name.split('/');
+if (pathSegments.some((segment) => !segment || segment === '.' || segment === '..')) {
+  console.error('Invalid task name. Dot segments and empty path segments are not allowed.');
+  process.exit(1);
+}
+
 const branch = name;
-const worktreePath = `worktrees/${branch}`;
+const worktreePath = path.posix.normalize(path.posix.join('worktrees', branch));
+
+if (!worktreePath.startsWith('worktrees/')) {
+  console.error('Invalid task name. Worktree path must stay within the worktrees directory.');
+  process.exit(1);
+}
 
 // Ensure parent directories for the worktree path exist, even when branch contains "/"
 const worktreeParentDir = worktreePath.split('/').slice(0, -1).join('/');

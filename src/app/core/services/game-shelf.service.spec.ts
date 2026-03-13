@@ -1215,7 +1215,14 @@ describe('GameShelfService', () => {
 
     const result = await service.refreshGameMetacriticScore('123', 5);
 
-    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, 777);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith(
+      'Zack & Wiki',
+      2007,
+      'Wii',
+      5,
+      777,
+      null
+    );
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         metacriticScore: 87,
@@ -1241,6 +1248,8 @@ describe('GameShelfService', () => {
       reviewMatchPlatformIgdbId: 5,
       reviewMatchMobygamesGameId: 777,
       reviewMatchLocked: true,
+      reviewUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
+      metacriticUrl: 'https://www.metacritic.com/game/zack-and-wiki/',
       releaseDate: null,
       releaseYear: null,
       listType: 'collection',
@@ -1266,7 +1275,14 @@ describe('GameShelfService', () => {
 
     const result = await service.refreshGameReviewScore('123', 167);
 
-    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, 777);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith(
+      'Zack & Wiki',
+      2007,
+      'Wii',
+      5,
+      777,
+      'https://www.metacritic.com/game/zack-and-wiki/'
+    );
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         reviewMatchQueryTitle: 'Zack & Wiki',
@@ -1321,7 +1337,14 @@ describe('GameShelfService', () => {
       platform: 'Wii'
     });
 
-    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', 5, 777);
+    expect(searchApi.lookupReviewScore).toHaveBeenCalledWith(
+      'Zack & Wiki',
+      2007,
+      'Wii',
+      5,
+      777,
+      null
+    );
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         reviewMatchQueryTitle: 'Zack & Wiki',

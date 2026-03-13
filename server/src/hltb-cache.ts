@@ -400,8 +400,9 @@ function isCacheableHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: u
 
   const payloadRecord = payload as Record<string, unknown>;
   const item = payloadRecord['item'];
+  const itemIsValid = hasValidHltbItem(item);
 
-  if (hasValidHltbItem(item)) {
+  if (!normalizedQuery.includeCandidates && itemIsValid) {
     return true;
   }
 
@@ -410,7 +411,7 @@ function isCacheableHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: u
   }
 
   const candidates = payloadRecord['candidates'];
-  return Array.isArray(candidates) && candidates.length > 0;
+  return hasCacheableHltbCandidates(candidates);
 }
 
 function hasValidHltbItem(item: unknown): boolean {
@@ -424,6 +425,29 @@ function hasValidHltbItem(item: unknown): boolean {
     isPositiveNumber(entry['hltbMainExtraHours']) ||
     isPositiveNumber(entry['hltbCompletionistHours'])
   );
+}
+
+function hasCacheableHltbCandidates(candidates: unknown): boolean {
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return false;
+  }
+
+  return candidates.some((candidate) => {
+    if (!candidate || typeof candidate !== 'object') {
+      return false;
+    }
+
+    const entry = candidate as Record<string, unknown>;
+    const imageUrl = entry['imageUrl'];
+
+    return (
+      (isPositiveNumber(entry['hltbMainHours']) ||
+        isPositiveNumber(entry['hltbMainExtraHours']) ||
+        isPositiveNumber(entry['hltbCompletionistHours'])) &&
+      typeof imageUrl === 'string' &&
+      imageUrl.trim().length > 0
+    );
+  });
 }
 
 function isPositiveNumber(value: unknown): boolean {

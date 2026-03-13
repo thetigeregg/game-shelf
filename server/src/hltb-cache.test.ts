@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import test from 'node:test';
 import Fastify from 'fastify';
 import type { Pool } from 'pg';
-import { registerHltbCachedRoute } from './hltb-cache.js';
+import { processQueuedHltbCacheRevalidation, registerHltbCachedRoute } from './hltb-cache.js';
 import { getCacheMetrics, resetCacheMetrics } from './cache-metrics.js';
 
 interface HltbCandidateResponseBody {
@@ -73,6 +74,10 @@ class HltbPoolMock {
       response_json: payload,
       updated_at: updatedAt
     });
+  }
+
+  getEntry(cacheKey: string): { response_json: unknown; updated_at: string } | null {
+    return this.rowsByKey.get(cacheKey) ?? null;
   }
 }
 
@@ -317,6 +322,77 @@ void test('HLTB cache resolves preferred candidate by normalized preferred URL',
   await app.close();
 });
 
+void test('HLTB cache keys differentiate preferred identities and normalize preferred URLs', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: {
+            hltbGameId: 7001,
+            hltbUrl: 'https://howlongtobeat.com/game/7001',
+            hltbMainHours: 8
+          },
+          candidates: [
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7001,
+              hltbUrl: 'https://howlongtobeat.com/game/7001',
+              imageUrl: 'https://howlongtobeat.com/games/7001.jpg',
+              hltbMainHours: 8
+            },
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7002,
+              hltbUrl: 'https://howlongtobeat.com/game/7002',
+              imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+              hltbMainHours: 9
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+    }
+  });
+
+  const normalizedUrlResponse = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbUrl=' +
+      encodeURIComponent('//howlongtobeat.com/game/7002')
+  });
+  assert.equal(normalizedUrlResponse.statusCode, 200);
+  assert.equal(normalizedUrlResponse.headers['x-gameshelf-hltb-cache'], 'MISS');
+
+  const canonicalUrlResponse = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/hltb/search?q=night%20in%20the%20woods&preferredHltbUrl=' +
+      encodeURIComponent('https://howlongtobeat.com/game/7002')
+  });
+  assert.equal(canonicalUrlResponse.statusCode, 200);
+  assert.equal(canonicalUrlResponse.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+
+  const differentIdentityResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbGameId=7001'
+  });
+  assert.equal(differentIdentityResponse.statusCode, 200);
+  assert.equal(differentIdentityResponse.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 2);
+  assert.equal(pool.getEntryCount(), 2);
+
+  await app.close();
+});
+
 void test('HLTB cache keeps original item when preferred candidate has no completion time data', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
@@ -452,6 +528,71 @@ void test('HLTB cache promotes preferred candidate when only legacy raw completi
   await app.close();
 });
 
+void test('HLTB stale cache uses queued revalidation payload for preferred identities', async () => {
+  resetCacheMetrics();
+  const nowMs = Date.UTC(2026, 1, 11, 18, 0, 0);
+  const pool = new HltbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  const queuedPayloads: Array<{ cacheKey: string; requestUrl: string }> = [];
+
+  const preferredUrl = 'https://howlongtobeat.com/game/7002';
+  const cacheKey = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(['night in the woods', null, null, true, null, preferredUrl]))
+    .digest('hex');
+  pool.seed(
+    cacheKey,
+    {
+      item: {
+        title: 'Night In The Woods',
+        hltbGameId: 7002,
+        hltbUrl: preferredUrl,
+        hltbMainHours: 9
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          hltbGameId: 7002,
+          hltbUrl: preferredUrl,
+          imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+          hltbMainHours: 9
+        }
+      ]
+    },
+    new Date(nowMs - 2_000).toISOString()
+  );
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    now: () => nowMs,
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 60,
+    enqueueRevalidationJob: (payload) => {
+      queuedPayloads.push(payload);
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbUrl=' +
+      encodeURIComponent('//howlongtobeat.com/game/7002')
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
+  assert.equal(response.headers['x-gameshelf-hltb-revalidate'], 'scheduled');
+  assert.deepEqual(queuedPayloads, [
+    {
+      cacheKey,
+      requestUrl:
+        '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbUrl=' +
+        encodeURIComponent('//howlongtobeat.com/game/7002')
+    }
+  ]);
+
+  await app.close();
+});
+
 void test('HLTB cache stale revalidation handles failures and skip when already in-flight', async () => {
   resetCacheMetrics();
   let nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);
@@ -526,6 +667,164 @@ void test('HLTB cache stale revalidation handles failures and skip when already 
   assert.ok(metrics.hltb.revalidateFailed >= 1);
 
   await app.close();
+});
+
+void test('queued HLTB revalidation forwards preferred identity and persists finalized payload', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const originalBaseUrl = process.env['HLTB_SCRAPER_BASE_URL'];
+  const originalFetch = globalThis.fetch;
+  const seenRequests: Array<{ url: string; authorization: string | null }> = [];
+
+  process.env['HLTB_SCRAPER_BASE_URL'] = 'https://hltb.example';
+  globalThis.fetch = (input, init) => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    const headers = new Headers(init?.headers);
+    seenRequests.push({
+      url,
+      authorization: headers.get('authorization')
+    });
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: {
+            hltbGameId: 7001,
+            hltbUrl: 'https://howlongtobeat.com/game/7001',
+            hltbMainHours: 8
+          },
+          candidates: [
+            {
+              title: 'Night In The Woods',
+              gameUrl: '//howlongtobeat.com/game/7002',
+              imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+              hltbMainHours: 9
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      )
+    );
+  };
+
+  try {
+    await processQueuedHltbCacheRevalidation(pool as unknown as Pool, {
+      cacheKey: 'preferred-url-cache-key',
+      requestUrl:
+        '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbUrl=' +
+        encodeURIComponent('//howlongtobeat.com/game/7002')
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) {
+      delete process.env['HLTB_SCRAPER_BASE_URL'];
+    } else {
+      process.env['HLTB_SCRAPER_BASE_URL'] = originalBaseUrl;
+    }
+  }
+
+  assert.equal(seenRequests.length, 1);
+  const firstSeenRequest = seenRequests.at(0);
+  assert.ok(firstSeenRequest);
+  const requestUrl = new URL(firstSeenRequest.url);
+  assert.equal(requestUrl.searchParams.get('q'), 'Night In The Woods');
+  assert.equal(requestUrl.searchParams.get('includeCandidates'), '1');
+  assert.equal(
+    requestUrl.searchParams.get('preferredHltbUrl'),
+    'https://howlongtobeat.com/game/7002'
+  );
+  assert.equal(firstSeenRequest.authorization, null);
+
+  assert.deepEqual(pool.getEntry('preferred-url-cache-key'), {
+    response_json: {
+      item: {
+        title: 'Night In The Woods',
+        gameUrl: '//howlongtobeat.com/game/7002',
+        imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+        hltbMainHours: 9
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          gameUrl: '//howlongtobeat.com/game/7002',
+          imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+          hltbMainHours: 9
+        }
+      ]
+    },
+    updated_at: pool.getEntry('preferred-url-cache-key')?.updated_at
+  });
+});
+
+void test('queued HLTB revalidation keeps candidate payload unchanged when no preferred identity is provided', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const originalBaseUrl = process.env['HLTB_SCRAPER_BASE_URL'];
+  const originalFetch = globalThis.fetch;
+  const seenUrls: string[] = [];
+
+  process.env['HLTB_SCRAPER_BASE_URL'] = 'https://hltb.example';
+  globalThis.fetch = (input) => {
+    seenUrls.push(
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    );
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: null,
+          candidates: [
+            {
+              title: 'Okami',
+              imageUrl: 'https://howlongtobeat.com/games/okami.jpg',
+              hltbMainHours: 18
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      )
+    );
+  };
+
+  try {
+    await processQueuedHltbCacheRevalidation(pool as unknown as Pool, {
+      cacheKey: 'include-candidates-cache-key',
+      requestUrl: '/v1/hltb/search?q=Okami&includeCandidates=1'
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) {
+      delete process.env['HLTB_SCRAPER_BASE_URL'];
+    } else {
+      process.env['HLTB_SCRAPER_BASE_URL'] = originalBaseUrl;
+    }
+  }
+
+  assert.equal(seenUrls.length, 1);
+  const firstSeenUrl = seenUrls.at(0);
+  assert.ok(firstSeenUrl);
+  const requestUrl = new URL(firstSeenUrl);
+  assert.equal(requestUrl.searchParams.get('includeCandidates'), '1');
+  assert.equal(requestUrl.searchParams.get('preferredHltbGameId'), null);
+  assert.equal(requestUrl.searchParams.get('preferredHltbUrl'), null);
+  assert.deepEqual(pool.getEntry('include-candidates-cache-key'), {
+    response_json: {
+      item: null,
+      candidates: [
+        {
+          title: 'Okami',
+          imageUrl: 'https://howlongtobeat.com/games/okami.jpg',
+          hltbMainHours: 18
+        }
+      ]
+    },
+    updated_at: pool.getEntry('include-candidates-cache-key')?.updated_at
+  });
 });
 
 void test('HLTB cache bypasses cache when query is too short', async () => {

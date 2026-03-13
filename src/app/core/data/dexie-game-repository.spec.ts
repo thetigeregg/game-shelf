@@ -74,6 +74,45 @@ describe('DexieGameRepository', () => {
     expect(stored?.hltbCompletionistHours).toBe(30.2);
   });
 
+  it('persists normalized HLTB exact-match identity fields from catalog payloads', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        hltbMatchGameId: 7002,
+        hltbMatchUrl: '  //howlongtobeat.com/game/7002  '
+      },
+      'collection'
+    );
+
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
+    expect(stored?.hltbMatchGameId).toBe(7002);
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7002');
+  });
+
+  it('preserves existing HLTB exact-match identity fields when catalog updates omit them', async () => {
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        hltbMatchGameId: 7002,
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002'
+      },
+      'collection'
+    );
+
+    await repository.upsertFromCatalog(
+      {
+        ...mario,
+        title: 'Super Mario Bros. Updated'
+      },
+      'wishlist'
+    );
+
+    const stored = await repository.exists(mario.igdbGameId, mario.platformIgdbId);
+    expect(stored?.title).toBe('Super Mario Bros. Updated');
+    expect(stored?.hltbMatchGameId).toBe(7002);
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7002');
+  });
+
   it('persists themes and keywords metadata fields from catalog payload', async () => {
     const created = await repository.upsertFromCatalog(
       {

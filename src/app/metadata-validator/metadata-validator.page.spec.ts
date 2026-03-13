@@ -719,6 +719,73 @@ describe('MetadataValidatorPage', () => {
     expect(shelf.refreshGamePricing).toHaveBeenCalledWith('42', 167);
   });
 
+  it('forwards exact-match identities through single-item picker apply flows', async () => {
+    const { page, shelf } = createPageHarness();
+    const target = createGame({
+      igdbGameId: '42',
+      platformIgdbId: 167,
+      title: 'Target',
+      platform: 'PlayStation 5'
+    });
+
+    setField(page, 'hltbPickerTargetGame', target);
+    await page.applySelectedHltbCandidate({
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002',
+      hltbMainHours: 3,
+      hltbMainExtraHours: 4,
+      hltbCompletionistHours: 6
+    });
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenLastCalledWith('42', 167, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
+
+    setField(page, 'metacriticPickerTargetGame', target);
+    await page.applySelectedMetacriticCandidate({
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      reviewScore: 90,
+      reviewUrl: 'https://www.metacritic.com/game/target-alt/',
+      reviewSource: 'metacritic',
+      mobyScore: null,
+      mobygamesGameId: 1234,
+      metacriticScore: 90,
+      metacriticUrl: 'https://www.metacritic.com/game/target-alt/'
+    });
+    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenLastCalledWith('42', 167, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      mobygamesGameId: 1234,
+      preferredUrl: 'https://www.metacritic.com/game/target-alt/'
+    });
+
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 19.9,
+      currency: 'CHF',
+      regularAmount: null,
+      discountPercent: null,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target-alt',
+      score: 95
+    });
+    expect(shelf.refreshGamePricingWithQuery).toHaveBeenLastCalledWith('42', 167, {
+      title: 'Target',
+      preferredUrl: 'https://psprices.com/region-ch/game/target-alt'
+    });
+  });
+
   it('covers additional pricing guard branches for single and bulk refresh flows', async () => {
     const { page, shelf, presentToast, runBulkMock } = createPageHarness();
     const unsupported = createGame({
@@ -1134,7 +1201,13 @@ describe('MetadataValidatorPage', () => {
       ])
     );
     await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
-    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalled();
+    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalledWith('9', 6, {
+      title: 'Test',
+      releaseYear: 1993,
+      platform: 'PC',
+      platformIgdbId: 6,
+      mobygamesGameId: null
+    });
   });
 
   it('covers bulk pricing helper branches for supported/unsupported and fallback paths', async () => {

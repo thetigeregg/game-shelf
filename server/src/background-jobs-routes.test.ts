@@ -58,47 +58,49 @@ void test('background jobs routes expose stats, failed list, and replay', async 
   const originalApiToken = config.apiToken;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
-  registerBackgroundJobRoutes(app, new PoolMock() as never);
+  try {
+    registerBackgroundJobRoutes(app, new PoolMock() as never);
 
-  const statsResponse = await app.inject({
-    method: 'GET',
-    url: '/v1/background-jobs/stats'
-  });
-  assert.equal(statsResponse.statusCode, 200);
-  const statsBody = JSON.parse(statsResponse.body) as {
-    totals: { pending: number };
-    byType: Array<{ jobType: string }>;
-  };
-  assert.equal(statsBody.totals.pending, 2);
-  assert.equal(statsBody.byType[0]?.jobType, 'recommendations_rebuild');
+    const statsResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/background-jobs/stats'
+    });
+    assert.equal(statsResponse.statusCode, 200);
+    const statsBody = JSON.parse(statsResponse.body) as {
+      totals: { pending: number };
+      byType: Array<{ jobType: string }>;
+    };
+    assert.equal(statsBody.totals.pending, 2);
+    assert.equal(statsBody.byType[0]?.jobType, 'recommendations_rebuild');
 
-  const failedResponse = await app.inject({
-    method: 'GET',
-    url: '/v1/background-jobs/failed?jobType=release_monitor_game&limit=10',
-    headers: {
-      authorization: 'Bearer test-admin-token'
-    }
-  });
-  assert.equal(failedResponse.statusCode, 200);
-  const failedBody = JSON.parse(failedResponse.body) as { count: number };
-  assert.equal(failedBody.count, 1);
+    const failedResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/background-jobs/failed?jobType=release_monitor_game&limit=10',
+      headers: {
+        authorization: 'Bearer test-admin-token'
+      }
+    });
+    assert.equal(failedResponse.statusCode, 200);
+    const failedBody = JSON.parse(failedResponse.body) as { count: number };
+    assert.equal(failedBody.count, 1);
 
-  const replayResponse = await app.inject({
-    method: 'POST',
-    url: '/v1/background-jobs/replay',
-    headers: {
-      authorization: 'Bearer test-admin-token'
-    },
-    payload: { jobType: 'release_monitor_game', limit: 10 }
-  });
-  assert.equal(replayResponse.statusCode, 200);
-  const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };
-  assert.equal(replayBody.ok, true);
-  assert.equal(typeof replayBody.requeuedCount, 'number');
-
-  await app.close();
-  config.requireAuth = originalRequireAuth;
-  config.apiToken = originalApiToken;
+    const replayResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/background-jobs/replay',
+      headers: {
+        authorization: 'Bearer test-admin-token'
+      },
+      payload: { jobType: 'release_monitor_game', limit: 10 }
+    });
+    assert.equal(replayResponse.statusCode, 200);
+    const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };
+    assert.equal(replayBody.ok, true);
+    assert.equal(typeof replayBody.requeuedCount, 'number');
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    await app.close();
+  }
 });
 
 void test('background jobs failed and replay routes reject unauthorized requests', async () => {
@@ -107,24 +109,26 @@ void test('background jobs failed and replay routes reject unauthorized requests
   const originalApiToken = config.apiToken;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
-  registerBackgroundJobRoutes(app, new PoolMock() as never);
+  try {
+    registerBackgroundJobRoutes(app, new PoolMock() as never);
 
-  const failedResponse = await app.inject({
-    method: 'GET',
-    url: '/v1/background-jobs/failed'
-  });
-  assert.equal(failedResponse.statusCode, 401);
+    const failedResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/background-jobs/failed'
+    });
+    assert.equal(failedResponse.statusCode, 401);
 
-  const replayResponse = await app.inject({
-    method: 'POST',
-    url: '/v1/background-jobs/replay',
-    payload: {}
-  });
-  assert.equal(replayResponse.statusCode, 401);
-
-  await app.close();
-  config.requireAuth = originalRequireAuth;
-  config.apiToken = originalApiToken;
+    const replayResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/background-jobs/replay',
+      payload: {}
+    });
+    assert.equal(replayResponse.statusCode, 401);
+  } finally {
+    await app.close();
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+  }
 });
 
 void test('background jobs routes normalize invalid filters to safe defaults', async () => {
@@ -133,37 +137,39 @@ void test('background jobs routes normalize invalid filters to safe defaults', a
   const originalApiToken = config.apiToken;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
-  registerBackgroundJobRoutes(app, new PoolMock() as never);
+  try {
+    registerBackgroundJobRoutes(app, new PoolMock() as never);
 
-  const failedResponse = await app.inject({
-    method: 'GET',
-    url: '/v1/background-jobs/failed?jobType=%20%20&failedBefore=not-a-date&limit=0',
-    headers: {
-      authorization: 'Bearer test-admin-token'
-    }
-  });
-  assert.equal(failedResponse.statusCode, 200);
-  const failedBody = JSON.parse(failedResponse.body) as { count: number };
-  assert.equal(failedBody.count, 1);
+    const failedResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/background-jobs/failed?jobType=%20%20&failedBefore=not-a-date&limit=0',
+      headers: {
+        authorization: 'Bearer test-admin-token'
+      }
+    });
+    assert.equal(failedResponse.statusCode, 200);
+    const failedBody = JSON.parse(failedResponse.body) as { count: number };
+    assert.equal(failedBody.count, 1);
 
-  const replayResponse = await app.inject({
-    method: 'POST',
-    url: '/v1/background-jobs/replay',
-    headers: {
-      authorization: 'Bearer test-admin-token'
-    },
-    payload: {
-      jobType: 'unknown_job_type',
-      failedBefore: '   ',
-      limit: -5
-    }
-  });
-  assert.equal(replayResponse.statusCode, 200);
-  const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };
-  assert.equal(replayBody.ok, true);
-  assert.equal(typeof replayBody.requeuedCount, 'number');
-
-  await app.close();
-  config.requireAuth = originalRequireAuth;
-  config.apiToken = originalApiToken;
+    const replayResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/background-jobs/replay',
+      headers: {
+        authorization: 'Bearer test-admin-token'
+      },
+      payload: {
+        jobType: 'unknown_job_type',
+        failedBefore: '   ',
+        limit: -5
+      }
+    });
+    assert.equal(replayResponse.statusCode, 200);
+    const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };
+    assert.equal(replayBody.ok, true);
+    assert.equal(typeof replayBody.requeuedCount, 'number');
+  } finally {
+    await app.close();
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+  }
 });

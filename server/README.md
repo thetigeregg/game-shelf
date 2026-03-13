@@ -48,7 +48,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
   - Optional: `cc` (ISO alpha-2 country code, defaults to `CH`)
 - `GET /v1/psprices/prices`
   - Required: `igdbGameId`, `platformIgdbId` (supported: `48|167|130|508`)
-  - Optional: `title`, `includeCandidates` (`1|true|yes`)
+  - Optional: `title`, `includeCandidates` (`1|true|yes`), `preferredPsPricesUrl`
 - `GET /v1/recommendations/top`
   - Required: `target` (`BACKLOG|WISHLIST|DISCOVERY`)
   - Optional: `runtimeMode` (`NEUTRAL|SHORT|LONG`), `limit` (`1..200`, default `20`)

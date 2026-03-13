@@ -81,7 +81,7 @@ try {
 
   console.log(`\nCreating worktree for branch: ${branch}\n`);
 
-  run(`git worktree add ${worktreePath} -b ${branch} origin/main`);
+  run(`git worktree add ${worktreePath} -b ${branch} main`);
 
   /*
   Bootstrap dependencies for the new worktree

@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.1.40",
+  "version": "1.2.0",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -44,7 +44,9 @@
     "audit:all": "npm audit && npm --prefix server audit && npm --prefix worker audit && npm --prefix hltb-scraper audit && npm --prefix metacritic-scraper audit && npm --prefix psprices-scraper audit",
     "audit:fix:all": "npm audit fix && npm --prefix server audit fix && npm --prefix worker audit fix && npm --prefix hltb-scraper audit fix && npm --prefix metacritic-scraper audit fix && npm --prefix psprices-scraper audit fix",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
-    "test:backup:ops": "./scripts/backup/test-backup-flow.sh"
+    "test:backup:ops": "./scripts/backup/test-backup-flow.sh",
+    "pr:summary:open": "node scripts/pr-summary.mjs && (command -v code >/dev/null 2>&1 && code .pr-summary-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-summary-prompt.md\")",
+    "task:start": "node scripts/task-start.mjs"
   },
   "private": true,
   "dependencies": {
@@ -94,8 +96,8 @@
     "@angular/compiler-cli": "^21.2.1",
     "@angular/language-service": "^21.2.1",
     "@capacitor/cli": "8.2.0",
-    "@commitlint/cli": "^20.4.3",
-    "@commitlint/config-conventional": "^20.4.3",
+    "@commitlint/cli": "^20.4.4",
+    "@commitlint/config-conventional": "^20.4.4",
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.39.4",
     "@ionic/angular-toolkit": "^12.3.0",

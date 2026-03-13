@@ -74,6 +74,7 @@ interface SteamPriceLookupResult {
 interface PsPricesLookupResult {
   status?: string;
   bestPrice?: {
+    title?: string | null;
     amount?: number | null;
     currency?: string | null;
     regularAmount?: number | null;
@@ -675,11 +676,7 @@ export class GameShelfService {
 
     return pspricesApi
       .lookupPsPricesCandidates(igdbGameId, platformIgdbId, normalizedTitle)
-      .pipe(
-        map((response) =>
-          this.normalizePsPricesCandidates((response as PsPricesLookupResult).candidates ?? null)
-        )
-      );
+      .pipe(map((response) => this.normalizePsPricesCandidates(response as PsPricesLookupResult)));
   }
 
   async refreshGameReviewScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -1752,25 +1749,30 @@ export class GameShelfService {
     };
   }
 
-  private normalizePsPricesCandidates(
-    candidates: PsPricesLookupResult['candidates']
-  ): PriceMatchCandidate[] {
+  private normalizePsPricesCandidates(result: PsPricesLookupResult): PriceMatchCandidate[] {
+    const candidates = result.candidates;
     if (!Array.isArray(candidates)) {
       return [];
     }
 
-    return candidates
+    const recommendedUrl = this.normalizePriceUrl(result.bestPrice?.url);
+    const recommendedTitle =
+      typeof result.bestPrice?.title === 'string' ? result.bestPrice.title.trim() : '';
+
+    const normalizedCandidates = candidates
       .map((candidate) => {
+        const normalizedTitle = typeof candidate.title === 'string' ? candidate.title.trim() : '';
+        const normalizedUrl = this.normalizePriceUrl(candidate.url);
         const imageUrl = this.normalizePriceUrl(candidate.imageUrl);
 
         return {
-          title: typeof candidate.title === 'string' ? candidate.title.trim() : '',
+          title: normalizedTitle,
           amount: this.normalizePriceAmount(candidate.amount),
           currency: this.normalizePriceCurrency(candidate.currency),
           regularAmount: this.normalizePriceAmount(candidate.regularAmount),
           discountPercent: this.normalizePriceDiscountPercent(candidate.discountPercent),
           isFree: this.normalizePriceIsFree(candidate.isFree),
-          url: this.normalizePriceUrl(candidate.url),
+          url: normalizedUrl,
           score:
             typeof candidate.score === 'number' && Number.isFinite(candidate.score)
               ? Math.round(candidate.score * 100) / 100
@@ -1779,6 +1781,43 @@ export class GameShelfService {
         };
       })
       .filter((candidate) => candidate.title.length > 0);
+
+    const recommendedIndex = this.resolveRecommendedPsPricesCandidateIndex(
+      normalizedCandidates,
+      recommendedUrl,
+      recommendedTitle
+    );
+
+    return normalizedCandidates.map((candidate, index) => ({
+      ...candidate,
+      isRecommended: index === recommendedIndex
+    }));
+  }
+
+  private resolveRecommendedPsPricesCandidateIndex(
+    candidates: PriceMatchCandidate[],
+    recommendedUrl: string | null,
+    recommendedTitle: string
+  ): number {
+    if (candidates.length === 0) {
+      return -1;
+    }
+
+    if (recommendedUrl !== null) {
+      const byUrl = candidates.findIndex((candidate) => candidate.url === recommendedUrl);
+      if (byUrl >= 0) {
+        return byUrl;
+      }
+    }
+
+    if (recommendedTitle.length > 0) {
+      const byTitle = candidates.findIndex((candidate) => candidate.title === recommendedTitle);
+      if (byTitle >= 0) {
+        return byTitle;
+      }
+    }
+
+    return 0;
   }
 
   private normalizePriceAmount(value: unknown): number | null {

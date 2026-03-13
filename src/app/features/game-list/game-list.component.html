@@ -1062,7 +1062,12 @@
                 />
               </div>
               <ion-label>
-                <h2>{{ candidate.title }}</h2>
+                <h2 class="picker-candidate-title">
+                  {{ candidate.title }}
+                  @if (candidate.isRecommended) {
+                    <ion-badge color="success">Recommended</ion-badge>
+                  }
+                </h2>
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
@@ -1164,7 +1169,12 @@
                 />
               </div>
               <ion-label>
-                <h2>{{ candidate.title }}</h2>
+                <h2 class="picker-candidate-title">
+                  {{ candidate.title }}
+                  @if (candidate.isRecommended) {
+                    <ion-badge color="success">Recommended</ion-badge>
+                  }
+                </h2>
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
@@ -1265,7 +1275,12 @@
                 />
               </div>
               <ion-label>
-                <h2>{{ candidate.title }}</h2>
+                <h2 class="picker-candidate-title">
+                  {{ candidate.title }}
+                  @if (candidate.isRecommended) {
+                    <ion-badge color="success">Recommended</ion-badge>
+                  }
+                </h2>
                 <p>
                   Price:
                   <strong>

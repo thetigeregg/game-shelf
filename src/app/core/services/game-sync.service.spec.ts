@@ -698,6 +698,23 @@ describe('GameSyncService', () => {
     expect(stored?.psPricesMatchLocked).toBe(false);
   });
 
+  it('normalizes scheme-less HLTB match urls from pulled upserts', async () => {
+    await servicePrivate.applyGameChange({
+      eventId: '4e-normalize-hltb-url',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        hltbMatchGameId: 7003,
+        hltbMatchUrl: '  //howlongtobeat.com/game/7003  '
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.hltbMatchGameId).toBe(7003);
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7003');
+  });
+
   it('normalizes and replaces media arrays when pulled upsert includes media fields', async () => {
     await db.games.put({
       igdbGameId: '123',

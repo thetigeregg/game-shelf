@@ -411,7 +411,7 @@ function isCacheableHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: u
   }
 
   const candidates = payloadRecord['candidates'];
-  return itemIsValid && hasCacheableHltbCandidates(candidates);
+  return hasCacheableHltbCandidates(candidates);
 }
 
 function hasValidHltbItem(item: unknown): boolean {

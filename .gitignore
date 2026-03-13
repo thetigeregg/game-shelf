@@ -81,3 +81,5 @@ server/.env.dev
 .env
 nas-data/
 nas-secrets/
+/worktrees/
+.pr-summary-prompt.md

@@ -1,5 +1,7 @@
 # AI Agent Instructions
 
+Agents MUST verify build, lint, and tests before suggesting commits.
+
 This repository uses Conventional Commits.
 
 ## Commit format

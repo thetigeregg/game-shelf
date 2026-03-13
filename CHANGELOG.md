@@ -2081,3 +2081,26 @@
 - a898cc3 Highlight recommended search matches
 - 3d95fd6 Highlight backend recommended match
 
+## v1.2.0 - 2026-03-13
+- af9cc8d Merge pull request #213 from thetigeregg/cursor
+- 506095e chore(copilot): remove pre-push validation requirements from instructions
+- 7a58d60 Potential fix for pull request finding
+- 47d72a7 chore(workflow): remove husky pre-push validation hook
+- 6288535 fix(workflow): harden monorepo excludes and make editor launch non-fatal
+- 0f5f876 fix(worktree): require clean repo and fail when bootstrap fails
+- 768b4fe chore(workflow): update pre-push reminder script name
+- cc19523 feat(worktree): automate task-start branch setup and bootstrap flow
+- a800a94 chore(workflow): remove redundant pr:summary npm script
+- d088dae fix(workflow): harden hooks and git diff command handling
+- ea73eae chore(workflow): remove Cursor-specific setup and align editor launch wording
+- d332410 fix(workflow): fail fast pre-push checks and harden worktree task validation
+- 55c1f04 chore(gitignore): exclude generated pr summary prompt
+- e53d5be chore(scripts): support nested task worktree paths
+- a71bead chore(scripts): make task worktree opener cross-platform
+- edacd8f chore(scripts): harden task worktree helper
+- 4a19f91 fix: enhance error handling in command execution for pr-summary script
+- afa2456 chore: add worktrees directory to .gitignore
+- 92e01d2 chore: update task start script and enhance post-checkout hook for worktree management
+- 915107b chore: simplify pre-commit hook by removing redundant lint and test commands
+- d65921e chore: update commitlint configuration and add pre-push validation requirements
+

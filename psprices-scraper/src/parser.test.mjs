@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { JSDOM } from 'jsdom';
 import { normalizeCandidate } from './parser.mjs';
+import { extractResultCardImageUrl } from './search-dom.mjs';
 
 test('normalizeCandidate parses CHF amount and discount fields', () => {
   const candidate = normalizeCandidate({
@@ -100,4 +102,36 @@ test('normalizeCandidate keeps normalized cover image URLs when present', () => 
 
   assert.ok(candidate);
   assert.equal(candidate.imageUrl, 'https://image.api.playstation.com/example.jpg');
+});
+
+test('extractResultCardImageUrl prefers the game card cover image node', () => {
+  const dom = new JSDOM(`
+    <main>
+      <div class="game-fragment group flex flex-col text-sm mb-12">
+        <div class="relative">
+          <img src="https://cdn.psprices.com/unrelated-badge.png" alt="Badge" />
+          <a class="flex flex-col gap-1 relative z-10 rounded text-text" href="/region-ch/game/1234/sonic-frontiers">
+            <div class="card-wrapper relative border border-border rounded overflow-clip">
+              <div class="relative">
+                <div class="relative overflow-hidden aspect-square">
+                  <img
+                    class="relative z-10 w-full h-full object-contain rounded-b-sm"
+                    src="https://image.api.playstation.com/vulcan/ap/rnd/202208/0519/G9fDIHISfuLRt7CQ0AfNxlJX.png"
+                    alt="Sonic Frontiers"
+                  />
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </main>
+  `);
+
+  const card = dom.window.document.querySelector('.game-fragment');
+  assert.ok(card);
+  assert.equal(
+    extractResultCardImageUrl(card),
+    'https://image.api.playstation.com/vulcan/ap/rnd/202208/0519/G9fDIHISfuLRt7CQ0AfNxlJX.png'
+  );
 });

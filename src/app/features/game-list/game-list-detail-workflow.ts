@@ -132,22 +132,39 @@ export function dedupeReviewCandidates<
     title: string;
     releaseYear: number | null;
     platform: string | null;
+    reviewUrl?: string | null;
+    metacriticUrl?: string | null;
     imageUrl?: string | null;
     reviewScore?: number | null;
     metacriticScore?: number | null;
   }
 >(candidates: T[]): T[] {
-  const byKey = new Map<string, T>();
+  const deduped: T[] = [];
 
   candidates.forEach((candidate) => {
-    const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
+    const candidateIdentityUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? '';
+    const existingIndex = deduped.findIndex((entry) => {
+      if (
+        entry.title !== candidate.title ||
+        entry.releaseYear !== candidate.releaseYear ||
+        entry.platform !== candidate.platform
+      ) {
+        return false;
+      }
 
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, candidate);
+      const entryIdentityUrl = entry.reviewUrl ?? entry.metacriticUrl ?? '';
+      return (
+        entryIdentityUrl === candidateIdentityUrl ||
+        entryIdentityUrl.length === 0 ||
+        candidateIdentityUrl.length === 0
+      );
+    });
+    if (existingIndex === -1) {
+      deduped.push(candidate);
       return;
     }
 
+    const existing = deduped[existingIndex];
     const existingScore = existing.reviewScore ?? existing.metacriticScore ?? null;
     const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
     const shouldReplace =
@@ -155,11 +172,11 @@ export function dedupeReviewCandidates<
       (existingScore == null && candidateScore != null);
 
     if (shouldReplace) {
-      byKey.set(key, candidate);
+      deduped[existingIndex] = candidate;
     }
   });
 
-  return [...byKey.values()];
+  return deduped;
 }
 
 export function createOpenedMetacriticPickerState(game: GameEntry): MetacriticPickerState {

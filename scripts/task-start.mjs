@@ -48,7 +48,7 @@ try {
     stdio: 'inherit'
   });
   if (process.platform === 'darwin') {
-    execSync(`open -a Cursor ${worktreePath}`, { stdio: 'inherit' });
+    execSync(`code -n ${worktreePath}`, { stdio: 'inherit' });
   } else {
     console.log(`Worktree created at ${worktreePath}. Open it in your editor of choice.`);
   }

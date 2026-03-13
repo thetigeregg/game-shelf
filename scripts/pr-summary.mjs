@@ -77,7 +77,7 @@ PR summary prompt generated:
 
 ${OUTPUT_FILE}
 
-Open it in Cursor and ask the agent to generate the PR description.
+Open it in Agent and ask the agent to generate the PR description.
 `);
 }
 

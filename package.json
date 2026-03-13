@@ -47,7 +47,7 @@
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh",
     "pr:summary": "node scripts/pr-summary.mjs",
     "pr:summary:open": "node scripts/pr-summary.mjs && code .pr-summary-prompt.md",
-    "task:start": "node scripts/task-start.mjs <task-name>"
+    "task:start": "node scripts/task-start.mjs"
   },
   "private": true,
   "dependencies": {

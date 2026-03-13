@@ -13,4 +13,4 @@ execSync('git fetch origin main', { stdio: 'inherit' });
 
 execSync(`git worktree add worktrees/${branch} -b ${branch} origin/main`, { stdio: 'inherit' });
 
-execSync(`cursor worktrees/${branch}`, { stdio: 'inherit' });
+execSync(`open -a Cursor worktrees/${branch}`, { stdio: 'inherit' });

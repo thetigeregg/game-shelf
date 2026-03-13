@@ -58,9 +58,10 @@ try {
   /*
   Prevent starting a task with a dirty repo
   */
-  try {
-    execSync('git diff --quiet');
-  } catch {
+  const statusOutput = execSync('git status --porcelain', {
+    encoding: 'utf8'
+  }).trim();
+  if (statusOutput) {
     console.error('\nWorking directory has uncommitted changes.');
     console.error('Commit or stash before starting a new task.\n');
     process.exit(1);
@@ -82,8 +83,13 @@ try {
     run(`node scripts/worktree-dev.mjs bootstrap`, {
       cwd: worktreePath
     });
-  } catch {
-    console.warn('\nBootstrap script failed (continuing anyway).\n');
+  } catch (error) {
+    console.error('\nBootstrap script failed.');
+    console.error(
+      `Run "node scripts/worktree-dev.mjs bootstrap" inside ${worktreePath} and retry.\n`
+    );
+    const code = typeof error.status === 'number' ? error.status : 1;
+    process.exit(code);
   }
 
   /*

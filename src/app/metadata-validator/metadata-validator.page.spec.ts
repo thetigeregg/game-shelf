@@ -667,7 +667,8 @@ describe('MetadataValidatorPage', () => {
       score: 97
     });
     expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('42', 167, {
-      title: 'Target'
+      title: 'Target',
+      preferredUrl: 'https://psprices.com/region-ch/game/target'
     });
 
     shelf.refreshGamePricingWithQuery.mockResolvedValueOnce(
@@ -1120,11 +1121,18 @@ describe('MetadataValidatorPage', () => {
     expect(shelf.refreshGamePricing).toHaveBeenCalledWith('21', 167);
 
     shelf.searchPricingCandidates.mockReturnValueOnce(
-      of([{ title: 'PS Test Candidate', amount: 19.9 } as PriceMatchCandidate])
+      of([
+        {
+          title: 'PS Test Candidate',
+          amount: 19.9,
+          url: 'https://psprices.com/region-ch/game/ps-test-candidate'
+        } as PriceMatchCandidate
+      ])
     );
     await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
     expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('21', 167, {
-      title: 'PS Test Candidate'
+      title: 'PS Test Candidate',
+      preferredUrl: 'https://psprices.com/region-ch/game/ps-test-candidate'
     });
 
     shelf.searchPricingCandidates.mockReturnValueOnce(

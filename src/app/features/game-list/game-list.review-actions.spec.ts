@@ -523,6 +523,63 @@ describe('game-list review actions', () => {
     expect(presentToast).toHaveBeenCalledWith('Pricing updated.');
   });
 
+  it('applies selected pricing candidate using preferred psprices url', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      pricingPickerTargetGame: GameEntry | null;
+      isPricingPickerLoading: boolean;
+    };
+    const target = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      listType: 'wishlist'
+    });
+    const updated = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      listType: 'wishlist',
+      priceAmount: 19.9,
+      priceCurrency: 'CHF'
+    });
+    const refreshGamePricingWithQuery = vi.fn(() => Promise.resolve(updated));
+    const applyUpdatedGame = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const closePricingPickerModal = vi.fn();
+
+    Object.assign(page, {
+      pricingPickerTargetGame: target,
+      isPricingPickerLoading: false,
+      gameShelfService: {
+        refreshGamePricingWithQuery,
+        hasUnifiedPriceData: vi.fn(() => true)
+      },
+      applyUpdatedGame,
+      presentToast,
+      closePricingPickerModal,
+      changeDetectorRef: { markForCheck: vi.fn() }
+    });
+
+    await page.applySelectedPricingCandidate({
+      title: 'Night In The Woods',
+      amount: 19.9,
+      currency: 'CHF',
+      regularAmount: null,
+      discountPercent: null,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      score: 100
+    });
+
+    expect(refreshGamePricingWithQuery).toHaveBeenCalledWith('10148', 167, {
+      title: 'Night In The Woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+    });
+    expect(applyUpdatedGame).toHaveBeenCalledWith(updated);
+    expect(closePricingPickerModal).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('Pricing updated.');
+  });
+
   it('single pricing refresh is blocked for non-wishlist games', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;

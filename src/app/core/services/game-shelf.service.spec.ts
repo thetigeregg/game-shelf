@@ -1461,6 +1461,57 @@ describe('GameShelfService', () => {
     );
   });
 
+  it('passes preferred psprices url through manual pricing refresh queries', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '10148',
+      title: 'Night In The Woods',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: 2017,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      priceSource: 'psprices',
+      priceAmount: 19.9,
+      priceCurrency: 'CHF',
+      priceRegularAmount: null,
+      priceDiscountPercent: null,
+      priceIsFree: false,
+      priceUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+    searchApi.lookupPsPrices.mockReturnValue(
+      of({
+        status: 'ok',
+        bestPrice: {
+          amount: 19.9,
+          currency: 'CHF',
+          isFree: false,
+          url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+        }
+      })
+    );
+
+    const result = await service.refreshGamePricingWithQuery('10148', 167, {
+      title: 'Night In The Woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+    });
+
+    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
+      title: 'Night In The Woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+    });
+    expect(result).toEqual(updatedEntry);
+  });
+
   it('preserves existing unified pricing when supported lookup returns unavailable on wishlist', async () => {
     const existingEntry: GameEntry = {
       igdbGameId: '960',

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { merge, Observable, Subject, firstValueFrom, from, of } from 'rxjs';
-import { catchError, map, switchMap, startWith } from 'rxjs/operators';
+import { catchError, map, switchMap, startWith, tap } from 'rxjs/operators';
 import { GAME_REPOSITORY, GameRepository } from '../data/game-repository';
 import { GAME_SEARCH_API, GameSearchApi } from '../api/game-search-api';
 import {
@@ -151,7 +151,34 @@ export class GameShelfService {
   watchList(listType: ListType): Observable<GameEntry[]> {
     return merge(this.listRefresh$, this.syncEvents.changed$).pipe(
       startWith(undefined),
-      switchMap(() => from(this.loadGamesWithTags(listType)))
+      tap(() => {
+        this.debugLogService.debug('game_shelf.watch_list_refresh_requested', {
+          listType
+        });
+      }),
+      switchMap(() =>
+        from(this.loadGamesWithTags(listType)).pipe(
+          tap({
+            subscribe: () => {
+              this.debugLogService.debug('game_shelf.watch_list_load_start', {
+                listType
+              });
+            },
+            next: (games) => {
+              this.debugLogService.debug('game_shelf.watch_list_load_complete', {
+                listType,
+                count: games.length
+              });
+            },
+            error: (error: unknown) => {
+              this.debugLogService.error('game_shelf.watch_list_load_failed', {
+                listType,
+                error
+              });
+            }
+          })
+        )
+      )
     );
   }
 

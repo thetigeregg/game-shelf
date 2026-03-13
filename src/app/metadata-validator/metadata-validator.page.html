@@ -273,18 +273,20 @@
           }
         </ion-list>
       }
-
-      <div class="picker-action-row">
-        <ion-button
-          expand="block"
-          fill="outline"
-          [disabled]="isHltbPickerLoading"
-          (click)="useOriginalHltbLookup()"
-        >
-          Use Original Match
-        </ion-button>
-      </div>
     </ion-content>
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            [disabled]="isHltbPickerLoading"
+            (click)="useOriginalHltbLookup()"
+          >
+            Use Original Match
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 
@@ -367,18 +369,20 @@
           }
         </ion-list>
       }
-
-      <div class="picker-action-row">
-        <ion-button
-          expand="block"
-          fill="outline"
-          [disabled]="isReviewPickerLoading"
-          (click)="useOriginalReviewLookup()"
-        >
-          Use Original Match
-        </ion-button>
-      </div>
     </ion-content>
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            [disabled]="isReviewPickerLoading"
+            (click)="useOriginalReviewLookup()"
+          >
+            Use Original Match
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>
 
@@ -466,17 +470,19 @@
           }
         </ion-list>
       }
-
-      <div class="picker-action-row">
-        <ion-button
-          expand="block"
-          fill="outline"
-          [disabled]="isPricingPickerLoading"
-          (click)="useOriginalPricingLookup()"
-        >
-          Use Original Match
-        </ion-button>
-      </div>
     </ion-content>
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            [disabled]="isPricingPickerLoading"
+            (click)="useOriginalPricingLookup()"
+          >
+            Use Original Match
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>

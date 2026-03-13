@@ -2070,3 +2070,14 @@
 - 13c3743 Add psprices image scraping
 - cb31554 Add psprices image handling
 
+## v1.1.40 - 2026-03-13
+- 59faa97 Merge pull request #211 from thetigeregg/codex/verify-die-breaker-logic-on
+- 661b7ab Address coverage and review note
+- ce1b2a4 Fix recommended candidate logic
+- d9d88ce Fix browserslist warning after merge
+- 7d34127 Merge branch 'main' into codex/verify-die-breaker-logic-on
+- dff8fa9 Align PR title with manual match候选
+- c6866c0 Merge branch 'main' into codex/verify-die-breaker-logic-on
+- a898cc3 Highlight recommended search matches
+- 3d95fd6 Highlight backend recommended match
+

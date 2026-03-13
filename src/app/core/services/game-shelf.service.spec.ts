@@ -2080,6 +2080,39 @@ describe('GameShelfService', () => {
     ).toBe(false);
   });
 
+  it('covers unified pricing helper fallback branches for unsupported platforms and missing PSPrices api', async () => {
+    await expect(
+      (
+        service as unknown as {
+          lookupUnifiedPrice: (
+            igdbGameId: string,
+            platformIgdbId: number | null,
+            titleOverride?: string | null,
+            preferredUrl?: string | null
+          ) => Promise<unknown>;
+        }
+      ).lookupUnifiedPrice('100', 999999, null, 'https://psprices.com/region-ch/game/123')
+    ).resolves.toBeNull();
+
+    const originalLookupPsPrices = searchApi.lookupPsPrices;
+    (searchApi as Partial<GameSearchApi>).lookupPsPrices = undefined as never;
+
+    await expect(
+      (
+        service as unknown as {
+          lookupUnifiedPrice: (
+            igdbGameId: string,
+            platformIgdbId: number | null,
+            titleOverride?: string | null,
+            preferredUrl?: string | null
+          ) => Promise<unknown>;
+        }
+      ).lookupUnifiedPrice('100', 167, null, 'https://psprices.com/region-ch/game/123')
+    ).resolves.toBeNull();
+
+    (searchApi as Partial<GameSearchApi>).lookupPsPrices = originalLookupPsPrices;
+  });
+
   it('returns empty box art results for short queries', async () => {
     const results = await firstValueFrom(service.searchBoxArtByTitle('m'));
     expect(results).toEqual([]);

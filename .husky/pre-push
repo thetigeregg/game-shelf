@@ -1,0 +1,7 @@
+npm run build
+npm run lint
+npm test
+
+echo ""
+echo "Reminder: run 'npm run pr:summary' before opening a PR."
+echo ""

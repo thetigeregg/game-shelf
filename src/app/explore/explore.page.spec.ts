@@ -1716,7 +1716,9 @@ describe('ExplorePage recommendations UX', () => {
 
     await page.loadRecommendationLanes(true);
 
-    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 167, null);
+    expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 167, {
+      title: null
+    });
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 167 })).toBe(
       'EUR\xa039.90'
     );

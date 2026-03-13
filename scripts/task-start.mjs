@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
 
 const name = process.argv[2];
 
@@ -20,17 +21,24 @@ if (!SAFE_BRANCH_PATTERN.test(name) || name.startsWith('-')) {
 }
 
 const branch = name;
+const worktreePath = `worktrees/${branch}`;
+
+// Ensure parent directories for the worktree path exist, even when branch contains "/"
+const worktreeParentDir = worktreePath.split('/').slice(0, -1).join('/');
+if (worktreeParentDir) {
+  mkdirSync(worktreeParentDir, { recursive: true });
+}
 
 try {
   execSync('git fetch origin main', { stdio: 'inherit' });
 
-  execSync(`git worktree add worktrees/${branch} -b ${branch} origin/main`, {
+  execSync(`git worktree add ${worktreePath} -b ${branch} origin/main`, {
     stdio: 'inherit'
   });
   if (process.platform === 'darwin') {
-    execSync(`open -a Cursor worktrees/${branch}`, { stdio: 'inherit' });
+    execSync(`open -a Cursor ${worktreePath}`, { stdio: 'inherit' });
   } else {
-    console.log(`Worktree created at worktrees/${branch}. Open it in your editor of choice.`);
+    console.log(`Worktree created at ${worktreePath}. Open it in your editor of choice.`);
   }
 } catch (error) {
   console.error('Failed to set up worktree for task:', branch);

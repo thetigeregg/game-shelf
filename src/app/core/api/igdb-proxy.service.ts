@@ -1063,8 +1063,10 @@ export class IgdbProxyService implements GameSearchApi {
       .set('igdbGameId', normalizedGameId)
       .set('platformIgdbId', String(normalizedPlatformIgdbId));
     const normalizedTitle = typeof query?.title === 'string' ? query.title.trim() : '';
-    const normalizedPreferredUrl =
+    const rawPreferredUrl =
       typeof query?.preferredUrl === 'string' ? query.preferredUrl.trim() : '';
+    const normalizedPreferredUrl =
+      rawPreferredUrl.length > 0 ? (this.normalizeExternalUrl(rawPreferredUrl) ?? '') : '';
     let enrichedParams = params;
     if (normalizedTitle.length > 0) {
       enrichedParams = enrichedParams.set('title', normalizedTitle);

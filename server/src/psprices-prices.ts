@@ -245,7 +245,10 @@ export async function registerPsPricesRoute(
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
       const titleOverride = normalizeNonEmptyString(query['title']);
+      const preferredPsPricesUrlOverride = normalizeNonEmptyString(query['preferredPsPricesUrl']);
       const hasTitleOverride = titleOverride !== null;
+      const hasPreferredPsPricesUrlOverride = preferredPsPricesUrlOverride !== null;
+      const hasLookupOverride = hasTitleOverride || hasPreferredPsPricesUrlOverride;
       const includeCandidates = normalizeBooleanQuery(query['includeCandidates']);
 
       if (!igdbGameId || platformIgdbId === null) {
@@ -300,7 +303,9 @@ export async function registerPsPricesRoute(
       const persistedMatchQueryTitle = normalizeNonEmptyString(payload['psPricesMatchQueryTitle']);
       const title =
         titleOverride ?? persistedMatchQueryTitle ?? normalizeNonEmptyString(payload['title']);
-      const preferredPsPricesUrl = hasTitleOverride ? null : resolvePreferredPsPricesUrl(payload);
+      const preferredPsPricesUrl =
+        preferredPsPricesUrlOverride ??
+        (hasTitleOverride ? null : resolvePreferredPsPricesUrl(payload));
       const psPricesMatchLocked = isProviderMatchLocked(payload, 'psPricesMatchLocked');
       if (!title) {
         const unavailablePayload: PsPricesRouteResponse = {
@@ -319,7 +324,7 @@ export async function registerPsPricesRoute(
         return;
       }
 
-      const cachedSnapshot = hasTitleOverride
+      const cachedSnapshot = hasLookupOverride
         ? null
         : readPsPricesSnapshotFromPayload(
             payload,
@@ -425,7 +430,7 @@ export async function registerPsPricesRoute(
             bestPrice: pspricesSnapshot,
             match: pspricesLookup.match,
             candidates: pspricesLookup.candidates,
-            matchLocked: hasTitleOverride ? true : undefined
+            matchLocked: hasLookupOverride ? true : undefined
           });
           incrementPspricesPriceMetric('writes');
         } catch (error) {

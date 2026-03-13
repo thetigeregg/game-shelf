@@ -1,5 +1,7 @@
 import { execSync } from 'node:child_process';
 
+const AUTO = process.argv.includes('--auto');
+
 function run(cmd) {
   return execSync(cmd, { encoding: 'utf8' });
 }
@@ -27,13 +29,13 @@ runPrint('git worktree prune');
 console.log('\n→ Active worktrees');
 runPrint('git worktree list');
 
+const branchInfo = run('git branch -vv');
+
 /*
-Branches with missing remote
+Branches whose remote is gone
 */
 
 console.log('\n→ Local branches with missing remote\n');
-
-const branchInfo = run('git branch -vv');
 
 const goneBranches = branchInfo
   .split('\n')
@@ -65,10 +67,8 @@ if (mergedBranches.length === 0) {
 }
 
 /*
-Worktrees whose branches are already merged
+Find worktrees
 */
-
-console.log('\n→ Worktrees whose branch is merged\n');
 
 const worktrees = run('git worktree list --porcelain')
   .split('\n\n')
@@ -83,6 +83,12 @@ const worktrees = run('git worktree list --porcelain')
   })
   .filter(Boolean);
 
+/*
+Worktrees whose branch is merged
+*/
+
+console.log('\n→ Worktrees whose branch is merged\n');
+
 const mergedWorktrees = worktrees.filter((w) => mergedBranches.includes(w.branch));
 
 if (mergedWorktrees.length === 0) {
@@ -90,6 +96,30 @@ if (mergedWorktrees.length === 0) {
 } else {
   mergedWorktrees.forEach((w) => {
     console.log(`${w.branch} → ${w.path}`);
+  });
+}
+
+/*
+AUTO MODE
+*/
+
+if (AUTO && mergedWorktrees.length > 0) {
+  console.log('\n→ Removing merged worktrees and branches\n');
+
+  mergedWorktrees.forEach((w) => {
+    try {
+      console.log(`Removing worktree ${w.path}`);
+      runPrint(`git worktree remove ${w.path}`);
+    } catch {
+      console.log(`Skipping worktree ${w.path}`);
+    }
+
+    try {
+      console.log(`Deleting branch ${w.branch}`);
+      runPrint(`git branch -d ${w.branch}`);
+    } catch {
+      console.log(`Skipping branch ${w.branch}`);
+    }
   });
 }
 

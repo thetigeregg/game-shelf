@@ -1793,7 +1793,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    this.openHltbPickerModal(this.selectedGame);
+    await this.openHltbPickerModal(this.selectedGame);
   }
 
   async openFixReviewMatchFromPopover(): Promise<void> {
@@ -1803,7 +1803,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    this.openReviewPickerModal(this.selectedGame);
+    await this.openReviewPickerModal(this.selectedGame);
   }
 
   async openFixPricingMatchFromPopover(): Promise<void> {
@@ -2135,7 +2135,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       if (hasHltbData(updated)) {
         await this.presentToast('HLTB data updated.');
       } else {
-        this.openHltbPickerModal(updated);
+        await this.openHltbPickerModal(updated);
       }
     } catch {
       await loading.dismiss().catch(() => undefined);
@@ -2168,7 +2168,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       if (hasReviewData(updated)) {
         await this.presentToast('Review data updated.');
       } else {
-        this.openReviewPickerModal(updated);
+        await this.openReviewPickerModal(updated);
       }
     } catch {
       await loading.dismiss().catch(() => undefined);
@@ -4380,11 +4380,11 @@ export class GameListComponent implements OnChanges, OnDestroy {
       return;
     }
     if (provider === 'hltb') {
-      this.openHltbPickerModal(this.selectedGame);
+      await this.openHltbPickerModal(this.selectedGame);
       return;
     }
     if (provider === 'review') {
-      this.openReviewPickerModal(this.selectedGame);
+      await this.openReviewPickerModal(this.selectedGame);
       return;
     }
     if (!this.isPsPricesPlatform(this.selectedGame)) {
@@ -4505,7 +4505,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return /^https:\/\/images\.igdb\.com\/igdb\/image\/upload\//i.test(url.trim());
   }
 
-  private openHltbPickerModal(game: GameEntry): void {
+  private async openHltbPickerModal(game: GameEntry): Promise<void> {
     const nextState = createOpenedHltbPickerState(game);
     this.isHltbPickerModalOpen = nextState.isHltbPickerModalOpen;
     this.isHltbPickerLoading = nextState.isHltbPickerLoading;
@@ -4515,9 +4515,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.hltbPickerError = nextState.hltbPickerError;
     this.hltbPickerTargetGame = nextState.hltbPickerTargetGame;
     this.changeDetectorRef.markForCheck();
+    await this.runHltbPickerSearch();
   }
 
-  private openReviewPickerModal(game: GameEntry): void {
+  private async openReviewPickerModal(game: GameEntry): Promise<void> {
     const nextState = createOpenedReviewPickerState(game);
     this.isReviewPickerModalOpen = nextState.isReviewPickerModalOpen;
     this.isReviewPickerLoading = nextState.isReviewPickerLoading;
@@ -4527,6 +4528,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.reviewPickerError = nextState.reviewPickerError;
     this.reviewPickerTargetGame = nextState.reviewPickerTargetGame;
     this.changeDetectorRef.markForCheck();
+    await this.runReviewPickerSearch();
   }
 
   private openPricingPickerModal(game: GameEntry): void {

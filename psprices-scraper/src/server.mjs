@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import { chromium } from 'playwright';
 import { normalizeCandidate as normalizePsPricesCandidate } from './parser.mjs';
+import { RESULT_CARD_COVER_IMAGE_SELECTOR } from './search-dom.mjs';
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -142,7 +143,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
   });
   await page.waitForTimeout(1000);
 
-  const candidates = await page.evaluate(() => {
+  const candidates = await page.evaluate((coverImageSelector) => {
     function normalizeText(value) {
       return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
     }
@@ -167,6 +168,17 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           'a[href*="opencritic.com"] span[class*="font-medium"]'
         );
         const collectionLinks = card.querySelectorAll('a[href*="/collection/"]');
+        const imageElement = card.querySelector(coverImageSelector);
+        const imageUrl =
+          imageElement instanceof HTMLImageElement
+            ? normalizeText(
+                imageElement.currentSrc ||
+                  imageElement.src ||
+                  imageElement.getAttribute('src') ||
+                  imageElement.getAttribute('data-src') ||
+                  ''
+              )
+            : '';
         const hasMostEngagingTag = Array.from(collectionLinks).some((link) => {
           const href = link.getAttribute('href') ?? '';
           return href.includes('/collection/most-engaging');
@@ -189,6 +201,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           oldPriceText,
           discountText,
           url,
+          imageUrl,
           gameId: gameId.length > 0 ? gameId : null,
           collectionTagCount: collectionLinks.length,
           hasMostEngagingTag: hasMostEngagingTag ? 'true' : 'false',
@@ -197,7 +210,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
         };
       })
       .filter((item) => item !== null);
-  });
+  }, RESULT_CARD_COVER_IMAGE_SELECTOR);
 
   return candidates;
 }

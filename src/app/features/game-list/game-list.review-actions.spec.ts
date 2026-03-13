@@ -23,6 +23,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonContent: Stub,
     IonLoading: Stub,
     IonModal: Stub,
+    IonFooter: Stub,
     IonHeader: Stub,
     IonToolbar: Stub,
     IonTitle: Stub,

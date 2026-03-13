@@ -1580,7 +1580,8 @@ describe('GameShelfService', () => {
             discountPercent: 50.127,
             isFree: false,
             url: '//psprices.com/region-ch/game/123',
-            score: 88.888
+            score: 88.888,
+            imageUrl: '//cdn.psprices.com/candidate-a.jpg'
           },
           {
             title: '   ',
@@ -1612,7 +1613,8 @@ describe('GameShelfService', () => {
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
         score: 88.89,
-        isRecommended: true
+        isRecommended: true,
+        imageUrl: 'https://cdn.psprices.com/candidate-a.jpg'
       },
       {
         title: 'Candidate B',

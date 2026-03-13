@@ -59,6 +59,23 @@ function extractGameId(rawGameId, rawUrl) {
   return match ? match[1] : null;
 }
 
+function normalizeImageUrl(value) {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    return normalized;
+  }
+
+  if (normalized.startsWith('//')) {
+    return `https:${normalized}`;
+  }
+
+  return null;
+}
+
 function isFreePriceLabel(priceText) {
   const normalized = normalizeWhitespace(priceText).toLowerCase();
   return /\b(free|gratis|kostenlos|gratuit)\b/.test(normalized);
@@ -110,6 +127,7 @@ export function normalizeCandidate(raw) {
     discountPercent: discountMatch ? Number.parseInt(discountMatch[1], 10) : null,
     isFree,
     url: url || null,
+    imageUrl: normalizeImageUrl(raw.imageUrl),
     gameId: extractGameId(raw.gameId, url),
     collectionTagCount,
     hasMostEngagingTag,

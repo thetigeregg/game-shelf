@@ -1559,6 +1559,54 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('falls back to the normal HLTB item when preferred identity does not match any candidate', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredGameId: 9999,
+        preferredUrl: 'https://howlongtobeat.com/game/9999'
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbGameId') === '9999' &&
+        request.params.get('preferredHltbUrl') === 'https://howlongtobeat.com/game/9999'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 8,
+      hltbMainExtraHours: 10,
+      hltbCompletionistHours: 12,
+      hltbGameId: 7001,
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
+    });
+  });
+
   it('uses matched platform entry instead of first platform entry for Moby candidates', async () => {
     const candidatesPromise = firstValueFrom(
       service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
@@ -1848,6 +1896,47 @@ describe('IgdbProxyService', () => {
     await expect(promise).resolves.toEqual({
       metacriticScore: 88,
       metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+  });
+
+  it('falls back to the normal Metacritic item when preferred review url does not match a candidate', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-missing/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('platformIgdbId') === '167'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          metacriticScore: 88,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
     });
   });
 

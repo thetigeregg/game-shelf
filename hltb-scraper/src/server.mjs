@@ -220,6 +220,34 @@ function normalizeImageUrl(value) {
   return null;
 }
 
+function normalizeGameId(value) {
+  const numeric =
+    typeof value === 'number' ? value : Number.parseInt(String(value ?? '').trim(), 10);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function normalizeGameUrl(value, fallbackGameId = null) {
+  const normalized = String(value ?? '').trim();
+
+  if (normalized.length > 0) {
+    if (normalized.startsWith('//')) {
+      return `https:${normalized}`;
+    }
+
+    if (normalized.startsWith('/')) {
+      return `https://howlongtobeat.com${normalized}`;
+    }
+
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+  }
+
+  return fallbackGameId !== null
+    ? `https://howlongtobeat.com/game/${String(fallbackGameId)}`
+    : null;
+}
+
 function normalizeEntry(entry) {
   if (!entry || typeof entry !== 'object') {
     return null;
@@ -236,6 +264,7 @@ function normalizeEntry(entry) {
     return null;
   }
 
+  const hltbGameId = normalizeGameId(entry.game_id ?? entry.gameId ?? entry.id ?? null);
   const normalized = {
     title,
     releaseYear: normalizeReleaseYear(
@@ -244,6 +273,8 @@ function normalizeEntry(entry) {
     platformText: normalizePlatformText(
       entry.profile_platform ?? entry.platform ?? entry.profile_platforms ?? entry.platforms
     ),
+    hltbGameId,
+    hltbUrl: normalizeGameUrl(entry.game_url ?? entry.gameUrl ?? entry.url ?? null, hltbGameId),
     imageUrl: normalizeImageUrl(
       entry.game_image ?? entry.image_url ?? entry.image ?? entry.cover_url ?? entry.cover
     ),
@@ -355,7 +386,9 @@ function findBestMatch(entries, expectedTitle, expectedReleaseYear, expectedPlat
   return {
     hltbMainHours: best.hltbMainHours,
     hltbMainExtraHours: best.hltbMainExtraHours,
-    hltbCompletionistHours: best.hltbCompletionistHours
+    hltbCompletionistHours: best.hltbCompletionistHours,
+    ...(best.hltbGameId !== null ? { hltbGameId: best.hltbGameId } : {}),
+    ...(best.hltbUrl !== null ? { hltbUrl: best.hltbUrl } : {})
   };
 }
 
@@ -411,6 +444,8 @@ function rankCandidateEntries(
       title: normalized.title,
       releaseYear: normalized.releaseYear,
       platform: normalized.platformText.trim() || null,
+      ...(normalized.hltbGameId !== null ? { hltbGameId: normalized.hltbGameId } : {}),
+      ...(normalized.hltbUrl !== null ? { hltbUrl: normalized.hltbUrl } : {}),
       imageUrl: normalized.imageUrl,
       hltbMainHours: normalized.hltbMainHours,
       hltbMainExtraHours: normalized.hltbMainExtraHours,
@@ -426,7 +461,9 @@ function rankCandidateEntries(
           (entry) =>
             entry.title === candidate.title &&
             entry.releaseYear === candidate.releaseYear &&
-            entry.platform === candidate.platform
+            entry.platform === candidate.platform &&
+            entry.hltbGameId === candidate.hltbGameId &&
+            entry.hltbUrl === candidate.hltbUrl
         ) === index
       );
     })

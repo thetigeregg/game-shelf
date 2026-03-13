@@ -715,6 +715,39 @@ describe('GameSyncService', () => {
     expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7003');
   });
 
+  it('preserves existing HLTB match identity when pulled upsert omits the new exact-match fields', async () => {
+    await db.games.put({
+      igdbGameId: '123',
+      platformIgdbId: 130,
+      title: 'Stored',
+      coverUrl: null,
+      coverSource: 'igdb',
+      platform: 'Switch',
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      hltbMatchGameId: 7002,
+      hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+
+    await servicePrivate.applyGameChange({
+      eventId: '4f-preserve-hltb-identity',
+      entityType: 'game',
+      operation: 'upsert',
+      payload: createBaseGame({
+        title: 'Updated Title'
+      }),
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
+    } as SyncChangeEvent);
+
+    const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.title).toBe('Updated Title');
+    expect(stored?.hltbMatchGameId).toBe(7002);
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7002');
+  });
+
   it('normalizes and replaces media arrays when pulled upsert includes media fields', async () => {
     await db.games.put({
       igdbGameId: '123',

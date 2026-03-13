@@ -3,6 +3,12 @@ import { execFileSync } from 'node:child_process';
 const AUTO = process.argv.includes('--auto');
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
 
+function normalizePathForCompare(pathValue) {
+  return pathValue.replace(/\/+$/, '');
+}
+
+const CURRENT_WORKTREE_PATH = normalizePathForCompare(process.cwd());
+
 function runGit(args, options = {}) {
   const { exitOnError = true, ...execOptions } = options;
 
@@ -53,6 +59,8 @@ if (status) {
   process.exit(1);
 }
 
+const CURRENT_BRANCH = runGit(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+
 console.log('→ Fetching latest refs from origin');
 runGit(['fetch', '--prune', 'origin'], { stdio: 'inherit' });
 
@@ -97,7 +105,7 @@ console.log('\n→ Branches already merged into origin/main\n');
 const mergedBranches = runGit(['branch', '--merged', 'origin/main', '--no-color'])
   .split('\n')
   .map((b) => b.replace(/^[*+]\s*/, '').trim())
-  .filter((b) => b && b !== 'main');
+  .filter((b) => b && b !== 'main' && !b.startsWith('('));
 
 if (mergedBranches.length === 0) {
   console.log('None');
@@ -109,15 +117,18 @@ if (mergedBranches.length === 0) {
 Find worktrees
 */
 
-const worktrees = runGit(['worktree', 'list', '--porcelain'])
-  .split('\n\n')
+const worktreesOutput = runGit(['worktree', 'list', '--porcelain']);
+
+const worktrees = worktreesOutput
+  .replace(/\r\n/g, '\n')
+  .split(/\n{2,}/)
   .map((entry) => {
-    const pathMatch = entry.match(/worktree (.+)/);
-    const branchMatch = entry.match(/branch refs\/heads\/(.+)/);
+    const pathMatch = entry.match(/^worktree\s+(.+)$/m);
+    const branchMatch = entry.match(/^branch\s+refs\/heads\/(.+)$/m);
 
     return {
-      path: pathMatch?.[1],
-      branch: branchMatch?.[1]
+      path: pathMatch?.[1]?.trim(),
+      branch: branchMatch?.[1]?.trim()
     };
   })
   .filter((w) => w.path && w.branch);
@@ -146,6 +157,14 @@ if (AUTO && mergedWorktrees.length > 0) {
   console.log('\n→ Removing merged worktrees and branches\n');
 
   mergedWorktrees.forEach((w) => {
+    const isCurrentWorktree = normalizePathForCompare(w.path) === CURRENT_WORKTREE_PATH;
+    const isCurrentBranch = w.branch === CURRENT_BRANCH;
+
+    if (isCurrentWorktree || isCurrentBranch) {
+      console.log(`Skipping current worktree/branch: ${w.branch} → ${w.path}`);
+      return;
+    }
+
     try {
       console.log(`Removing worktree ${w.path}`);
       runGit(['worktree', 'remove', '--', w.path], { stdio: 'inherit', exitOnError: false });

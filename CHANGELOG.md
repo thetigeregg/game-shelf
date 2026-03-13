@@ -2054,3 +2054,19 @@
 - 402321d Investigate game shelf issues
 - 92b1797 Fix dark ionic pricing contrast
 
+## v1.1.39 - 2026-03-13
+- b027e75 Merge pull request #210 from thetigeregg/codex/add-psprices-result-images
+- be18bfa Add PR diff summary
+- c5d0e7e Allow caching candidate-only hits
+- 913ceaa Normalize HLTB image URLs
+- c3f0891 Restore picker image behavior
+- 35507de Fix ion header search toolbar
+- 9467d5f Fix picker header buttons
+- af42434 Fix picker toolbar search layout
+- 5ce7fc6 Add placeholder and row padding
+- d7f42f7 Fix missing placeholder images
+- 712cfb1 Merge branch 'main' into codex/add-psprices-result-images
+- 7e221d1 Fix psprices image selector
+- 13c3743 Add psprices image scraping
+- cb31554 Add psprices image handling
+

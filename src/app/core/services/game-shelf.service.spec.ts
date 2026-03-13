@@ -1257,6 +1257,47 @@ describe('GameShelfService', () => {
     );
   });
 
+  it('reuses only the locked HLTB url when the stored game id is invalid', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: null,
+      hltbMatchGameId: 0,
+      hltbMatchUrl: '  https://howlongtobeat.com/game/7002  ',
+      hltbMatchQueryTitle: 'Zack & Wiki',
+      hltbMatchQueryReleaseYear: 2007,
+      hltbMatchQueryPlatform: 'Wii',
+      hltbMatchLocked: true,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(of(null));
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+
+    await service.refreshGameCompletionTimes('123', 167);
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
+      preferredGameId: null,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hltbMatchGameId: null,
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002'
+      }),
+      'collection'
+    );
+  });
+
   it('clears HLTB fields when completion times lookup returns no result', async () => {
     const existingEntry: GameEntry = {
       id: 10,
@@ -1478,6 +1519,67 @@ describe('GameShelfService', () => {
     expect(result).toEqual(updatedEntry);
   });
 
+  it('falls back to lookupMetacriticScore and forwards preferred review urls when lookupReviewScore is unavailable', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Night In The Woods',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: 2017,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      reviewScore: 87,
+      reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      reviewSource: 'metacritic',
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    (searchApi as Partial<GameSearchApi>).lookupReviewScore = undefined as never;
+    searchApi.lookupMetacriticScore.mockReturnValue(
+      of({
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
+
+    const result = await service.refreshGameReviewScoreWithQuery('123', 167, {
+      title: 'Night In The Woods',
+      releaseYear: 2017,
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      preferredUrl: '  https://www.metacritic.com/game/night-in-the-woods-alt/  '
+    });
+
+    expect(searchApi.lookupMetacriticScore).toHaveBeenCalledWith(
+      'Night In The Woods',
+      2017,
+      'PlayStation 5',
+      167,
+      'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    );
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewScore: 87,
+        reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+        reviewSource: 'metacritic',
+        reviewMatchLocked: true
+      }),
+      'collection'
+    );
+    expect(result).toEqual(updatedEntry);
+  });
+
   it('returns empty metacritic candidates for short queries and trims valid queries', async () => {
     await expect(firstValueFrom(service.searchMetacriticCandidates('x'))).resolves.toEqual([]);
     expect(searchApi.lookupReviewCandidates).not.toHaveBeenCalled();
@@ -1652,6 +1754,40 @@ describe('GameShelfService', () => {
       preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     });
     expect(result).toEqual(updatedEntry);
+  });
+
+  it('passes preferred psprices url through manual pricing refresh queries without a title override', async () => {
+    const existingEntry: GameEntry = {
+      igdbGameId: '10148',
+      title: 'Night In The Woods',
+      coverUrl: null,
+      coverSource: 'none',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: 2017,
+      listType: 'wishlist',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+    searchApi.lookupPsPrices.mockReturnValue(
+      of({
+        status: 'unavailable',
+        bestPrice: null
+      })
+    );
+
+    await service.refreshGamePricingWithQuery('10148', 167, {
+      preferredUrl: '  https://psprices.com/region-ch/game/5825037/night-in-the-woods  '
+    });
+
+    expect(searchApi.lookupPsPrices).toHaveBeenCalledWith('10148', 167, {
+      title: null,
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+    });
   });
 
   it('preserves existing unified pricing when supported lookup returns unavailable on wishlist', async () => {

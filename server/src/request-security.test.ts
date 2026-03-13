@@ -145,16 +145,15 @@ void test('server route inventory remains audited and mutating routes require au
   );
 
   const expectedRoutes: Array<{ method: string; path: string }> = [
-    { method: 'GET', path: '/v1/cache/stats' },
     { method: 'GET', path: '/v1/background-jobs/failed' },
     { method: 'GET', path: '/v1/background-jobs/stats' },
+    { method: 'GET', path: '/v1/cache/stats' },
     { method: 'GET', path: '/v1/games/:id' },
     { method: 'GET', path: '/v1/games/search' },
     { method: 'GET', path: '/v1/health' },
     { method: 'GET', path: '/v1/hltb/search' },
     { method: 'GET', path: '/v1/images/boxart/search' },
     { method: 'GET', path: '/v1/images/proxy' },
-    { method: 'GET', path: '/v1/steam/prices' },
     { method: 'GET', path: '/v1/manuals/resolve' },
     { method: 'GET', path: '/v1/manuals/search' },
     { method: 'GET', path: '/v1/metacritic/search' },
@@ -163,8 +162,9 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'GET', path: '/v1/popularity/primitives' },
     { method: 'GET', path: '/v1/popularity/types' },
     { method: 'GET', path: '/v1/psprices/prices' },
-    { method: 'POST', path: '/v1/images/cache/purge' },
+    { method: 'GET', path: '/v1/steam/prices' },
     { method: 'POST', path: '/v1/background-jobs/replay' },
+    { method: 'POST', path: '/v1/images/cache/purge' },
     { method: 'POST', path: '/v1/manuals/refresh' },
     { method: 'POST', path: '/v1/sync/pull' },
     { method: 'POST', path: '/v1/sync/push' }

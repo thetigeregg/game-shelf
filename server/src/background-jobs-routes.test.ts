@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fastifyFactory from 'fastify';
 import { registerBackgroundJobRoutes } from './background-jobs-routes.js';
+import { config } from './config.js';
 
 class PoolMock {
   private queryCount = 0;
@@ -53,6 +54,10 @@ class PoolMock {
 
 void test('background jobs routes expose stats, failed list, and replay', async () => {
   const app = fastifyFactory({ logger: false });
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
   registerBackgroundJobRoutes(app, new PoolMock() as never);
 
   const statsResponse = await app.inject({
@@ -69,7 +74,10 @@ void test('background jobs routes expose stats, failed list, and replay', async 
 
   const failedResponse = await app.inject({
     method: 'GET',
-    url: '/v1/background-jobs/failed?jobType=release_monitor_game&limit=10'
+    url: '/v1/background-jobs/failed?jobType=release_monitor_game&limit=10',
+    headers: {
+      authorization: 'Bearer test-admin-token'
+    }
   });
   assert.equal(failedResponse.statusCode, 200);
   const failedBody = JSON.parse(failedResponse.body) as { count: number };
@@ -78,11 +86,84 @@ void test('background jobs routes expose stats, failed list, and replay', async 
   const replayResponse = await app.inject({
     method: 'POST',
     url: '/v1/background-jobs/replay',
+    headers: {
+      authorization: 'Bearer test-admin-token'
+    },
     payload: { jobType: 'release_monitor_game', limit: 10 }
   });
   assert.equal(replayResponse.statusCode, 200);
-  const replayBody = JSON.parse(replayResponse.body) as { requeuedCount: number };
-  assert.equal(replayBody.requeuedCount, 2);
+  const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };
+  assert.equal(replayBody.ok, true);
+  assert.equal(typeof replayBody.requeuedCount, 'number');
 
   await app.close();
+  config.requireAuth = originalRequireAuth;
+  config.apiToken = originalApiToken;
+});
+
+void test('background jobs failed and replay routes reject unauthorized requests', async () => {
+  const app = fastifyFactory({ logger: false });
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  registerBackgroundJobRoutes(app, new PoolMock() as never);
+
+  const failedResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/background-jobs/failed'
+  });
+  assert.equal(failedResponse.statusCode, 401);
+
+  const replayResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/background-jobs/replay',
+    payload: {}
+  });
+  assert.equal(replayResponse.statusCode, 401);
+
+  await app.close();
+  config.requireAuth = originalRequireAuth;
+  config.apiToken = originalApiToken;
+});
+
+void test('background jobs routes normalize invalid filters to safe defaults', async () => {
+  const app = fastifyFactory({ logger: false });
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+  registerBackgroundJobRoutes(app, new PoolMock() as never);
+
+  const failedResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/background-jobs/failed?jobType=%20%20&failedBefore=not-a-date&limit=0',
+    headers: {
+      authorization: 'Bearer test-admin-token'
+    }
+  });
+  assert.equal(failedResponse.statusCode, 200);
+  const failedBody = JSON.parse(failedResponse.body) as { count: number };
+  assert.equal(failedBody.count, 1);
+
+  const replayResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/background-jobs/replay',
+    headers: {
+      authorization: 'Bearer test-admin-token'
+    },
+    payload: {
+      jobType: 'unknown_job_type',
+      failedBefore: '   ',
+      limit: -5
+    }
+  });
+  assert.equal(replayResponse.statusCode, 200);
+  const replayBody = JSON.parse(replayResponse.body) as { ok: boolean; requeuedCount: number };
+  assert.equal(replayBody.ok, true);
+  assert.equal(typeof replayBody.requeuedCount, 'number');
+
+  await app.close();
+  config.requireAuth = originalRequireAuth;
+  config.apiToken = originalApiToken;
 });

@@ -487,6 +487,21 @@ function isPositiveNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
 
+function hasPositiveCompletionTime(candidateRecord: Record<string, unknown>): boolean {
+  return (
+    isPositiveNumber(candidateRecord['hltbMainHours']) ||
+    isPositiveNumber(candidateRecord['hltbMainExtraHours']) ||
+    isPositiveNumber(candidateRecord['hltbCompletionistHours']) ||
+    isPositiveNumber(candidateRecord['main']) ||
+    isPositiveNumber(candidateRecord['mainPlus']) ||
+    isPositiveNumber(candidateRecord['mainExtra']) ||
+    isPositiveNumber(candidateRecord['completionist']) ||
+    isPositiveNumber(candidateRecord['solo']) ||
+    isPositiveNumber(candidateRecord['coOp']) ||
+    isPositiveNumber(candidateRecord['vs'])
+  );
+}
+
 function finalizeHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: unknown): unknown {
   if (!payload || typeof payload !== 'object') {
     return payload;
@@ -507,9 +522,14 @@ function finalizeHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: unkn
     return payload;
   }
 
+  const preferredRecord = preferredCandidate as Record<string, unknown>;
+  if (!hasPositiveCompletionTime(preferredRecord)) {
+    return payload;
+  }
+
   return {
     ...payloadRecord,
-    item: preferredCandidate
+    item: preferredRecord
   };
 }
 

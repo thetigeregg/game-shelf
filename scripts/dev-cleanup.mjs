@@ -201,7 +201,7 @@ if (AUTO && mergedWorktrees.length > 0) {
 
     try {
       console.log(`Deleting branch ${w.branch}`);
-      runGit(['branch', '-d', '--', w.branch], { stdio: 'inherit', exitOnError: false });
+      runGit(['branch', '-D', '--', w.branch], { stdio: 'inherit', exitOnError: false });
     } catch {
       console.log(`Skipping branch ${w.branch}`);
     }

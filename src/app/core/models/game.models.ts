@@ -381,6 +381,7 @@ export interface PriceMatchCandidate {
   isFree: boolean | null;
   url: string | null;
   score: number | null;
+  imageUrl?: string | null;
 }
 
 export interface ManualCandidate {

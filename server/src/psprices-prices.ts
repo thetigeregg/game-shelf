@@ -33,6 +33,7 @@ interface PsPricesSnapshot {
   discountPercent: number | null;
   isFree: boolean | null;
   url: string | null;
+  imageUrl?: string | null;
   metadataQualityScore?: number | null;
 }
 
@@ -911,6 +912,7 @@ function normalizePsPricesCandidate(
       ? isFreeRaw
       : normalizeNonEmptyString(candidate['priceText'])?.toLowerCase() === 'free';
   const url = normalizeNonEmptyString(candidate['url'] ?? candidate['pspricesUrl']);
+  const imageUrl = normalizeNonEmptyString(candidate['imageUrl']);
 
   if (amount === null && !isFree) {
     return null;
@@ -925,6 +927,7 @@ function normalizePsPricesCandidate(
     discountPercent: discountPercent !== null ? round2(discountPercent) : null,
     isFree,
     url,
+    ...(imageUrl ? { imageUrl } : {}),
     metadataQualityScore: resolveCandidateMetadataQualityScore(candidate)
   };
 }

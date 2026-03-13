@@ -213,6 +213,10 @@ function normalizeImageUrl(value) {
     return normalized;
   }
 
+  if (/^[^/?#]+\.(?:png|jpe?g|webp|gif)$/i.test(normalized)) {
+    return `https://howlongtobeat.com/games/${normalized}`;
+  }
+
   return null;
 }
 

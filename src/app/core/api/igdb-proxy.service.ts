@@ -1679,7 +1679,10 @@ export class IgdbProxyService implements GameSearchApi {
       }
     }
 
-    return [...byKey.values()];
+    return [...byKey.values()].map((candidate, index) => ({
+      ...candidate,
+      isRecommended: index === 0
+    }));
   }
 
   private toLegacyMetacriticScoreResult(

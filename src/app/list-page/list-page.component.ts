@@ -46,7 +46,6 @@ import {
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
 import { GameShelfService } from '../core/services/game-shelf.service';
-import { DebugLogService } from '../core/services/debug-log.service';
 import { LayoutModeService } from '../core/services/layout-mode.service';
 import {
   normalizeGameRatingFilterList,
@@ -195,7 +194,6 @@ export class ListPageComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly gameShelfService = inject(GameShelfService);
-  private readonly debugLogService = inject(DebugLogService);
   private readonly layoutModeService = inject(LayoutModeService);
   private receivedInitialListSnapshot = false;
   private searchbarFocusRetryHandle: ReturnType<typeof setTimeout> | null = null;
@@ -211,12 +209,6 @@ export class ListPageComponent {
     this.pageTitle = config.pageTitle;
     this.searchPlaceholder = config.searchPlaceholder;
 
-    this.debugLogService.debug('list_page.init', {
-      listType: this.listType,
-      pageTitle: this.pageTitle,
-      contentId: this.contentId
-    });
-
     this.restorePreferences();
     this.layoutModeService.mode$.pipe(takeUntilDestroyed()).subscribe((mode) => {
       this.isDesktop = mode === 'desktop';
@@ -224,38 +216,14 @@ export class ListPageComponent {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyViewFromQueryParam(params.get('applyView'));
     });
-    this.debugLogService.debug('list_page.initial_list_watch_subscribe', {
-      listType: this.listType,
-      isInitialListLoading: this.isInitialListLoading
-    });
     this.gameShelfService
       .watchList(this.listType)
       .pipe(takeUntilDestroyed())
-      .subscribe({
-        next: (games) => {
-          this.debugLogService.debug('list_page.initial_list_watch_next', {
-            listType: this.listType,
-            count: games.length,
-            receivedInitialListSnapshot: this.receivedInitialListSnapshot,
-            isInitialListLoading: this.isInitialListLoading
-          });
-          this.totalGamesCount = games.length;
-          if (!this.receivedInitialListSnapshot) {
-            this.receivedInitialListSnapshot = true;
-            this.isInitialListLoading = false;
-            this.debugLogService.info('list_page.initial_list_loading_cleared', {
-              listType: this.listType,
-              count: games.length
-            });
-          }
-        },
-        error: (error: unknown) => {
-          this.debugLogService.error('list_page.initial_list_watch_failed', {
-            listType: this.listType,
-            receivedInitialListSnapshot: this.receivedInitialListSnapshot,
-            isInitialListLoading: this.isInitialListLoading,
-            error
-          });
+      .subscribe((games) => {
+        this.totalGamesCount = games.length;
+        if (!this.receivedInitialListSnapshot) {
+          this.receivedInitialListSnapshot = true;
+          this.isInitialListLoading = false;
         }
       });
     addIcons({

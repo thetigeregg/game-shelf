@@ -911,7 +911,8 @@ void test('PSPrices route can return ranked candidates for manual picker workflo
                 regularPriceAmount: 69.9,
                 discountPercent: 28,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+                url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+                imageUrl: 'https://cdn.psprices.com/monster-train-2.jpg'
               },
               {
                 title: 'Monster Train',
@@ -942,6 +943,10 @@ void test('PSPrices route can return ranked candidates for manual picker workflo
   assert.equal(body['status'], 'ok');
   assert.ok(Array.isArray(body['candidates']));
   assert.equal((body['candidates'] as unknown[]).length >= 1, true);
+  assert.equal(
+    (body['candidates'] as Array<Record<string, unknown>>)[0]?.['imageUrl'],
+    'https://cdn.psprices.com/monster-train-2.jpg'
+  );
 
   await app.close();
 });

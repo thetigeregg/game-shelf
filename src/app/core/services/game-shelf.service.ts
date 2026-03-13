@@ -90,6 +90,7 @@ interface PsPricesLookupResult {
     isFree?: boolean | null;
     url?: string | null;
     score?: number | null;
+    imageUrl?: string | null;
   }> | null;
 }
 
@@ -1759,19 +1760,24 @@ export class GameShelfService {
     }
 
     return candidates
-      .map((candidate) => ({
-        title: typeof candidate.title === 'string' ? candidate.title.trim() : '',
-        amount: this.normalizePriceAmount(candidate.amount),
-        currency: this.normalizePriceCurrency(candidate.currency),
-        regularAmount: this.normalizePriceAmount(candidate.regularAmount),
-        discountPercent: this.normalizePriceDiscountPercent(candidate.discountPercent),
-        isFree: this.normalizePriceIsFree(candidate.isFree),
-        url: this.normalizePriceUrl(candidate.url),
-        score:
-          typeof candidate.score === 'number' && Number.isFinite(candidate.score)
-            ? Math.round(candidate.score * 100) / 100
-            : null
-      }))
+      .map((candidate) => {
+        const imageUrl = this.normalizePriceUrl(candidate.imageUrl);
+
+        return {
+          title: typeof candidate.title === 'string' ? candidate.title.trim() : '',
+          amount: this.normalizePriceAmount(candidate.amount),
+          currency: this.normalizePriceCurrency(candidate.currency),
+          regularAmount: this.normalizePriceAmount(candidate.regularAmount),
+          discountPercent: this.normalizePriceDiscountPercent(candidate.discountPercent),
+          isFree: this.normalizePriceIsFree(candidate.isFree),
+          url: this.normalizePriceUrl(candidate.url),
+          score:
+            typeof candidate.score === 'number' && Number.isFinite(candidate.score)
+              ? Math.round(candidate.score * 100) / 100
+              : null,
+          ...(imageUrl ? { imageUrl } : {})
+        };
+      })
       .filter((candidate) => candidate.title.length > 0);
   }
 

@@ -1629,6 +1629,66 @@ describe('GameShelfService', () => {
     expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 167, 'Valid Title');
   });
 
+  it('marks recommended pricing candidate by title fallback when bestPrice url is unavailable', async () => {
+    searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
+      of({
+        bestPrice: {
+          title: 'Candidate B',
+          url: null
+        },
+        candidates: [
+          {
+            title: 'Candidate A',
+            amount: 39.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 50,
+            isFree: false,
+            url: 'https://psprices.com/region-ch/game/123',
+            score: 88
+          },
+          {
+            title: '  Candidate B  ',
+            amount: 49.9,
+            currency: 'CHF',
+            regularAmount: 79.9,
+            discountPercent: 37.5,
+            isFree: false,
+            url: null,
+            score: 95
+          }
+        ]
+      })
+    );
+
+    await expect(
+      firstValueFrom(service.searchPricingCandidates('100', 167, 'Valid Title'))
+    ).resolves.toEqual([
+      {
+        title: 'Candidate A',
+        amount: 39.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 50,
+        isFree: false,
+        url: 'https://psprices.com/region-ch/game/123',
+        score: 88,
+        isRecommended: false
+      },
+      {
+        title: 'Candidate B',
+        amount: 49.9,
+        currency: 'CHF',
+        regularAmount: 79.9,
+        discountPercent: 37.5,
+        isFree: false,
+        url: null,
+        score: 95,
+        isRecommended: true
+      }
+    ]);
+  });
+
   it('covers unified pricing helper branches for availability and discount detection', () => {
     expect(service.hasUnifiedPriceData({ priceAmount: 0, priceIsFree: null })).toBe(true);
     expect(service.hasUnifiedPriceData({ priceAmount: null, priceIsFree: true })).toBe(true);

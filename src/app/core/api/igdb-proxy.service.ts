@@ -1462,7 +1462,7 @@ export class IgdbProxyService implements GameSearchApi {
 
     const normalizedPreferred = this.normalizeReviewScoreResult(preferredResult ?? null, source);
 
-    return candidates
+    const normalizedCandidates = candidates
       .map((candidate) => {
         const title = typeof candidate.title === 'string' ? candidate.title.trim() : '';
         const releaseYear = Number.isInteger(candidate.releaseYear) ? candidate.releaseYear : null;
@@ -1505,33 +1505,52 @@ export class IgdbProxyService implements GameSearchApi {
               entry.platform === candidate.platform
           ) === index
         );
-      })
-      .map((candidate, index) => ({
-        ...candidate,
-        isRecommended: this.isRecommendedReviewCandidate(candidate, normalizedPreferred, index)
-      }));
+      });
+
+    const recommendedIndex = this.resolveRecommendedReviewCandidateIndex(
+      normalizedCandidates,
+      normalizedPreferred
+    );
+
+    return normalizedCandidates.map((candidate, index) => ({
+      ...candidate,
+      isRecommended: index === recommendedIndex
+    }));
   }
 
-  private isRecommendedReviewCandidate(
-    candidate: ReviewMatchCandidate,
-    preferredResult: ReviewScoreResult | null,
-    index: number
-  ): boolean {
+  private resolveRecommendedReviewCandidateIndex(
+    candidates: ReviewMatchCandidate[],
+    preferredResult: ReviewScoreResult | null
+  ): number {
+    if (candidates.length === 0) {
+      return -1;
+    }
+
     if (preferredResult) {
-      const candidateUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? null;
       const preferredUrl = preferredResult.reviewUrl ?? preferredResult.metacriticUrl ?? null;
-      if (candidateUrl && preferredUrl && candidateUrl === preferredUrl) {
-        return true;
+      if (preferredUrl) {
+        const byUrl = candidates.findIndex((candidate) => {
+          const candidateUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? null;
+          return candidateUrl === preferredUrl;
+        });
+        if (byUrl >= 0) {
+          return byUrl;
+        }
       }
 
-      const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
       const preferredScore = preferredResult.reviewScore ?? preferredResult.metacriticScore ?? null;
-      if (candidateScore !== null && preferredScore !== null && candidateScore === preferredScore) {
-        return true;
+      if (preferredScore !== null) {
+        const byScore = candidates.findIndex((candidate) => {
+          const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
+          return candidateScore === preferredScore;
+        });
+        if (byScore >= 0) {
+          return byScore;
+        }
       }
     }
 
-    return index === 0;
+    return 0;
   }
 
   private buildMobyGamesParams(options: {

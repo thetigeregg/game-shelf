@@ -1759,25 +1759,29 @@ export class GameShelfService {
       typeof result.bestPrice?.title === 'string' ? result.bestPrice.title.trim() : '';
 
     return candidates
-      .map((candidate) => ({
-        title: typeof candidate.title === 'string' ? candidate.title.trim() : '',
-        amount: this.normalizePriceAmount(candidate.amount),
-        currency: this.normalizePriceCurrency(candidate.currency),
-        regularAmount: this.normalizePriceAmount(candidate.regularAmount),
-        discountPercent: this.normalizePriceDiscountPercent(candidate.discountPercent),
-        isFree: this.normalizePriceIsFree(candidate.isFree),
-        url: this.normalizePriceUrl(candidate.url),
-        score:
-          typeof candidate.score === 'number' && Number.isFinite(candidate.score)
-            ? Math.round(candidate.score * 100) / 100
-            : null,
-        isRecommended:
-          this.normalizePriceUrl(candidate.url) === recommendedUrl ||
-          (recommendedUrl === null &&
-            recommendedTitle.length > 0 &&
-            typeof candidate.title === 'string' &&
-            candidate.title.trim() === recommendedTitle)
-      }))
+      .map((candidate) => {
+        const normalizedTitle = typeof candidate.title === 'string' ? candidate.title.trim() : '';
+        const normalizedUrl = this.normalizePriceUrl(candidate.url);
+
+        return {
+          title: normalizedTitle,
+          amount: this.normalizePriceAmount(candidate.amount),
+          currency: this.normalizePriceCurrency(candidate.currency),
+          regularAmount: this.normalizePriceAmount(candidate.regularAmount),
+          discountPercent: this.normalizePriceDiscountPercent(candidate.discountPercent),
+          isFree: this.normalizePriceIsFree(candidate.isFree),
+          url: normalizedUrl,
+          score:
+            typeof candidate.score === 'number' && Number.isFinite(candidate.score)
+              ? Math.round(candidate.score * 100) / 100
+              : null,
+          isRecommended:
+            normalizedUrl === recommendedUrl ||
+            (recommendedUrl === null &&
+              recommendedTitle.length > 0 &&
+              normalizedTitle === recommendedTitle)
+        };
+      })
       .filter((candidate) => candidate.title.length > 0);
   }
 

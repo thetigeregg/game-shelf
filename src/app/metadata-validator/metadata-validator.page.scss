@@ -76,17 +76,6 @@
   object-fit: contain;
 }
 
-.picker-candidate-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.picker-candidate-title ion-badge {
-  align-self: center;
-}
-
 ion-item.picker-result-row {
   --padding-top: 10px;
   --padding-bottom: 10px;

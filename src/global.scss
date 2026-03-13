@@ -38,6 +38,17 @@
 @import '@ionic/angular/css/palettes/dark.class.css';
 /* @import "@ionic/angular/css/palettes/dark.system.css"; */
 
+.picker-candidate-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.picker-candidate-title ion-badge {
+  align-self: center;
+}
+
 :root {
   --game-shelf-tab-bar-height: 56px;
 }

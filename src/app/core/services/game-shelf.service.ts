@@ -1782,7 +1782,7 @@ export class GameShelfService {
       }
 
       const result = (await firstValueFrom(
-        titleOverride === undefined
+        titleOverride === undefined && preferredUrl === undefined
           ? pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
           : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, {
               title: titleOverride ?? null,

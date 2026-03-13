@@ -25,7 +25,11 @@ export interface GameSearchApi {
   lookupCompletionTimes(
     title: string,
     releaseYear?: number | null,
-    platform?: string | null
+    platform?: string | null,
+    query?: {
+      preferredGameId?: number | null;
+      preferredUrl?: string | null;
+    }
   ): Observable<HltbCompletionTimes | null>;
   lookupCompletionTimeCandidates(
     title: string,

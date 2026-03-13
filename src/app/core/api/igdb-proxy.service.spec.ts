@@ -1061,14 +1061,16 @@ describe('IgdbProxyService', () => {
           releaseYear: 1992,
           platform: 'Genesis',
           metacriticScore: 88,
-          metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
+          metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+          isRecommended: true
         },
         {
           title: 'Shining Force CD',
           releaseYear: null,
           platform: 'Sega CD',
           metacriticScore: 80,
-          metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/'
+          metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/',
+          isRecommended: false
         }
       ]);
     } finally {
@@ -1268,6 +1270,7 @@ describe('IgdbProxyService', () => {
         platform: 'Genesis',
         metacriticScore: 88,
         metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+        isRecommended: true,
         imageUrl: 'https://cdn.mobygames.com/covers/genesis.webp'
       }
     ]);
@@ -1317,6 +1320,7 @@ describe('IgdbProxyService', () => {
         platform: 'SNES',
         metacriticScore: 95,
         metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+        isRecommended: true,
         imageUrl: 'https://cdn.mobygames.com/covers/chrono-snes.webp'
       }
     ]);
@@ -1368,7 +1372,8 @@ describe('IgdbProxyService', () => {
         releaseYear: 1995,
         platform: 'SNES',
         metacriticScore: 95,
-        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+        isRecommended: true
       }
     ]);
   });

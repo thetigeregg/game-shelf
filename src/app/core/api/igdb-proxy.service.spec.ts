@@ -1608,6 +1608,61 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('falls back to the first Metacritic candidate when the preferred result does not match by url or score', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticCandidates('Okami', undefined, undefined, 21)
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Okami' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 99,
+        metacriticUrl: 'https://www.metacritic.com/game/missing/'
+      },
+      candidates: [
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          metacriticScore: 91,
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        },
+        {
+          title: 'Okamiden',
+          releaseYear: 2011,
+          platform: 'Nintendo DS',
+          metacriticScore: 80,
+          metacriticUrl: 'https://www.metacritic.com/game/okamiden/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual([
+      {
+        title: 'Okami',
+        releaseYear: 2006,
+        platform: 'Wii',
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        isRecommended: true
+      },
+      {
+        title: 'Okamiden',
+        releaseYear: 2011,
+        platform: 'Nintendo DS',
+        metacriticScore: 80,
+        metacriticUrl: 'https://www.metacritic.com/game/okamiden/',
+        isRecommended: false
+      }
+    ]);
+  });
+
   it('drops empty metacritic payloads and invalid metacritic candidates', async () => {
     const nullItemPromise = firstValueFrom(
       service.lookupMetacriticScore('Okami', undefined, undefined, 21)

@@ -47,7 +47,7 @@
       </ion-item>
     }
     @for (result of results; track trackByExternalId($index, result)) {
-      <ion-item>
+      <ion-item lines="full">
         <div slot="start" class="game-art">
           <img
             [src]="result.coverUrl || 'assets/icon/placeholder.png'"

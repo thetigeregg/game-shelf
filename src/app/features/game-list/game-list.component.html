@@ -1047,7 +1047,12 @@
                 </ion-thumbnail>
               }
               <ion-label>
-                <h2>{{ candidate.title }}</h2>
+                <h2>
+                  {{ candidate.title }}
+                  @if (candidate.isRecommended) {
+                    <ion-badge color="success">Recommended</ion-badge>
+                  }
+                </h2>
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
@@ -1134,7 +1139,12 @@
                 </div>
               }
               <ion-label>
-                <h2>{{ candidate.title }}</h2>
+                <h2>
+                  {{ candidate.title }}
+                  @if (candidate.isRecommended) {
+                    <ion-badge color="success">Recommended</ion-badge>
+                  }
+                </h2>
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
@@ -1218,7 +1228,12 @@
           @for (candidate of pricingPickerResults; track candidate) {
             <ion-item button detail="false" (click)="applySelectedPricingCandidate(candidate)">
               <ion-label>
-                <h2>{{ candidate.title }}</h2>
+                <h2>
+                  {{ candidate.title }}
+                  @if (candidate.isRecommended) {
+                    <ion-badge color="success">Recommended</ion-badge>
+                  }
+                </h2>
                 <p>
                   Price:
                   <strong>

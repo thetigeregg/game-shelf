@@ -779,7 +779,8 @@ describe('IgdbProxyService', () => {
         platform: 'SNES',
         hltbMainHours: 7.5,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13
+        hltbCompletionistHours: 13,
+        isRecommended: true
       }
     ]);
   });
@@ -1416,6 +1417,10 @@ describe('IgdbProxyService', () => {
     });
 
     req.flush({
+      item: {
+        metacriticScore: 93,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      },
       candidates: [
         {
           title: ' Okami ',
@@ -1442,6 +1447,7 @@ describe('IgdbProxyService', () => {
         platform: 'Wii',
         metacriticScore: 93,
         metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        isRecommended: true,
         imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
       }
     ]);

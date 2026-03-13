@@ -340,6 +340,7 @@ export interface HltbMatchCandidate extends HltbCompletionTimes {
   releaseYear: number | null;
   platform: string | null;
   imageUrl?: string | null;
+  isRecommended?: boolean;
 }
 
 export interface MetacriticScoreResult {
@@ -352,6 +353,7 @@ export interface MetacriticMatchCandidate extends MetacriticScoreResult {
   releaseYear: number | null;
   platform: string | null;
   imageUrl?: string | null;
+  isRecommended?: boolean;
 }
 
 export interface ReviewScoreResult {
@@ -370,6 +372,7 @@ export interface ReviewMatchCandidate extends ReviewScoreResult {
   releaseYear: number | null;
   platform: string | null;
   imageUrl?: string | null;
+  isRecommended?: boolean;
 }
 
 export interface PriceMatchCandidate {
@@ -381,6 +384,7 @@ export interface PriceMatchCandidate {
   isFree: boolean | null;
   url: string | null;
   score: number | null;
+  isRecommended?: boolean;
 }
 
 export interface ManualCandidate {

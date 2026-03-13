@@ -1567,6 +1567,10 @@ describe('GameShelfService', () => {
 
     searchApi.lookupPsPricesCandidates.mockReturnValueOnce(
       of({
+        bestPrice: {
+          title: 'Candidate A',
+          url: '//psprices.com/region-ch/game/123'
+        },
         candidates: [
           {
             title: '  Candidate A  ',
@@ -1607,7 +1611,8 @@ describe('GameShelfService', () => {
         discountPercent: 50.13,
         isFree: false,
         url: 'https://psprices.com/region-ch/game/123',
-        score: 88.89
+        score: 88.89,
+        isRecommended: true
       },
       {
         title: 'Candidate B',
@@ -1617,7 +1622,8 @@ describe('GameShelfService', () => {
         discountPercent: null,
         isFree: null,
         url: null,
-        score: null
+        score: null,
+        isRecommended: false
       }
     ]);
     expect(searchApi.lookupPsPricesCandidates).toHaveBeenCalledWith('100', 167, 'Valid Title');

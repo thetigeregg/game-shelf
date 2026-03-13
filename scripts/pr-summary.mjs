@@ -1,17 +1,19 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 
 const OUTPUT_FILE = '.pr-summary-prompt.md';
+const DIFF_RANGE = 'origin/main...HEAD';
+const EXCLUDED_PATHS = [':(exclude)package-lock.json', ':(exclude)dist'];
 
-function run(cmd) {
+function runGit(args) {
   try {
-    return execSync(cmd, {
+    return execFileSync('git', args, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       maxBuffer: 1024 * 1024 * 10
     });
   } catch (error) {
-    console.error(`Failed to run command: ${cmd}`);
+    console.error(`Failed to run command: git ${args.join(' ')}`);
 
     if (error.stdout) {
       process.stdout.write(error.stdout);
@@ -26,11 +28,11 @@ function run(cmd) {
 }
 
 function getDiff() {
-  return run("git diff origin/main...HEAD -- . ':(exclude)package-lock.json' ':(exclude)dist'");
+  return runGit(['diff', DIFF_RANGE, '--', '.', ...EXCLUDED_PATHS]);
 }
 
 function getChangedFiles() {
-  return run('git diff --name-only origin/main...HEAD');
+  return runGit(['diff', '--name-only', DIFF_RANGE, '--', '.', ...EXCLUDED_PATHS]);
 }
 
 function buildPrompt(diff, files) {

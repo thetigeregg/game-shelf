@@ -5,11 +5,25 @@ import path from 'node:path';
 const OUTPUT_FILE = '.pr-summary-prompt.md';
 
 function run(cmd) {
-  return execSync(cmd, {
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'ignore'],
-    maxBuffer: 1024 * 1024 * 10
-  });
+  try {
+    return execSync(cmd, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 1024 * 1024 * 10
+    });
+  } catch (error) {
+    console.error(`Failed to run command: ${cmd}`);
+
+    if (error.stdout) {
+      process.stdout.write(error.stdout);
+    }
+    if (error.stderr) {
+      process.stderr.write(error.stderr);
+    }
+
+    const code = typeof error.status === 'number' ? error.status : 1;
+    process.exit(code);
+  }
 }
 
 function getDiff() {

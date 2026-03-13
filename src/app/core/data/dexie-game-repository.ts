@@ -82,6 +82,8 @@ export class DexieGameRepository implements GameRepository {
           result.hltbCompletionistHours,
           existing.hltbCompletionistHours
         ),
+        hltbMatchGameId: this.resolveHltbGameId(result.hltbMatchGameId, existing.hltbMatchGameId),
+        hltbMatchUrl: this.resolveHltbUrl(result.hltbMatchUrl, existing.hltbMatchUrl),
         hltbMatchQueryTitle: this.resolveLookupQueryTitle(
           result.hltbMatchQueryTitle,
           existing.hltbMatchQueryTitle
@@ -245,6 +247,8 @@ export class DexieGameRepository implements GameRepository {
       hltbMainHours: this.normalizeCompletionHours(result.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(result.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(result.hltbCompletionistHours),
+      hltbMatchGameId: this.normalizeHltbGameId(result.hltbMatchGameId),
+      hltbMatchUrl: this.normalizeHltbUrl(result.hltbMatchUrl),
       hltbMatchQueryTitle: this.normalizeLookupQueryTitle(result.hltbMatchQueryTitle),
       hltbMatchQueryReleaseYear: this.normalizeLookupQueryReleaseYear(
         result.hltbMatchQueryReleaseYear
@@ -990,6 +994,18 @@ export class DexieGameRepository implements GameRepository {
     return value;
   }
 
+  private normalizeHltbGameId(value: number | null | undefined): number | null {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+      return null;
+    }
+
+    return value;
+  }
+
+  private normalizeHltbUrl(value: string | null | undefined): string | null {
+    return this.normalizeExternalUrl(value);
+  }
+
   private normalizeLookupQueryTitle(value: string | null | undefined): string | null {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized.length > 0 ? normalized : null;
@@ -1180,6 +1196,28 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return this.normalizeMobygamesGameId(incoming);
+  }
+
+  private resolveHltbGameId(
+    incoming: number | null | undefined,
+    existing: number | null | undefined
+  ): number | null {
+    if (incoming === undefined) {
+      return this.normalizeHltbGameId(existing);
+    }
+
+    return this.normalizeHltbGameId(incoming);
+  }
+
+  private resolveHltbUrl(
+    incoming: string | null | undefined,
+    existing: string | null | undefined
+  ): string | null {
+    if (incoming === undefined) {
+      return this.normalizeHltbUrl(existing);
+    }
+
+    return this.normalizeHltbUrl(incoming);
   }
 
   private resolveLookupQueryTitle(

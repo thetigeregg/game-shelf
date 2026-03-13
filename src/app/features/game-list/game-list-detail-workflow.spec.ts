@@ -47,17 +47,19 @@ describe('game-list-detail-workflow', () => {
     ]);
   });
 
-  it('dedupes hltb candidates by title/year/platform key', () => {
+  it('dedupes hltb candidates by title/year/platform/identity key', () => {
     const first: HltbMatchCandidate = {
       title: 'Chrono Trigger',
       releaseYear: 1995,
       platform: 'SNES',
+      hltbGameId: 1,
+      hltbUrl: 'https://howlongtobeat.com/game/1',
       hltbMainHours: 25,
       hltbMainExtraHours: 30,
       hltbCompletionistHours: 40
     };
     const duplicate = { ...first, hltbMainHours: 26 };
-    const other = { ...first, platform: 'DS' };
+    const other = { ...first, hltbGameId: 2, hltbUrl: 'https://howlongtobeat.com/game/2' };
 
     const result = dedupeHltbCandidates([first, duplicate, other]);
     expect(result).toEqual([first, other]);

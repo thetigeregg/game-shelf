@@ -1016,7 +1016,10 @@ describe('GameShelfService', () => {
 
     const result = await service.refreshGameCompletionTimes('123', 5);
 
-    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
+      preferredGameId: null,
+      preferredUrl: null
+    });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         igdbGameId: '123',
@@ -1073,7 +1076,10 @@ describe('GameShelfService', () => {
 
     const result = await service.refreshGameCompletionTimes('123', 167);
 
-    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
+      preferredGameId: null,
+      preferredUrl: null
+    });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         hltbMatchQueryTitle: 'Zack & Wiki',
@@ -1084,6 +1090,61 @@ describe('GameShelfService', () => {
       'collection'
     );
     expect(result).toEqual(updatedEntry);
+  });
+
+  it('refreshGameCompletionTimes reuses persisted HLTB identity when the match is locked', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      releaseDate: null,
+      releaseYear: null,
+      hltbMatchGameId: 7002,
+      hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+      hltbMatchQueryTitle: 'Zack & Wiki',
+      hltbMatchQueryReleaseYear: 2007,
+      hltbMatchQueryPlatform: 'Wii',
+      hltbMatchLocked: true,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({
+        hltbMainHours: 14,
+        hltbMainExtraHours: 18,
+        hltbCompletionistHours: 24,
+        hltbGameId: 7002,
+        hltbUrl: 'https://howlongtobeat.com/game/7002'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...existingEntry,
+      hltbMainHours: 14,
+      hltbMainExtraHours: 18,
+      hltbCompletionistHours: 24
+    });
+
+    await service.refreshGameCompletionTimes('123', 167);
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hltbMatchGameId: 7002,
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMatchLocked: true
+      }),
+      'collection'
+    );
   });
 
   it('refreshes game completion times using override query values', async () => {
@@ -1125,7 +1186,10 @@ describe('GameShelfService', () => {
       platform: 'Wii'
     });
 
-    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii');
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
+      preferredGameId: null,
+      preferredUrl: null
+    });
     expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         hltbMatchQueryTitle: 'Zack & Wiki',
@@ -1136,6 +1200,61 @@ describe('GameShelfService', () => {
       'collection'
     );
     expect(result).toEqual(updatedEntry);
+  });
+
+  it('passes preferred HLTB identity through manual completion time refresh queries', async () => {
+    const existingEntry: GameEntry = {
+      id: 10,
+      igdbGameId: '123',
+      title: 'Wrong Name',
+      coverUrl: 'https://example.com/current-cover.jpg',
+      coverSource: 'thegamesdb',
+      platform: 'Wii',
+      platformIgdbId: 5,
+      releaseDate: null,
+      releaseYear: null,
+      listType: 'collection',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    };
+
+    repository.exists.mockResolvedValue(existingEntry);
+    searchApi.lookupCompletionTimes.mockReturnValue(
+      of({
+        hltbMainHours: 21,
+        hltbMainExtraHours: 35,
+        hltbCompletionistHours: 48,
+        hltbGameId: 7002,
+        hltbUrl: 'https://howlongtobeat.com/game/7002'
+      })
+    );
+    repository.upsertFromCatalog.mockResolvedValue({
+      ...existingEntry,
+      hltbMainHours: 21,
+      hltbMainExtraHours: 35,
+      hltbCompletionistHours: 48
+    });
+
+    await service.refreshGameCompletionTimesWithQuery('123', 5, {
+      title: 'Zack & Wiki',
+      releaseYear: 2007,
+      platform: 'Wii',
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
+
+    expect(searchApi.lookupCompletionTimes).toHaveBeenCalledWith('Zack & Wiki', 2007, 'Wii', {
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hltbMatchGameId: 7002,
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMatchLocked: true
+      }),
+      'collection'
+    );
   });
 
   it('clears HLTB fields when completion times lookup returns no result', async () => {

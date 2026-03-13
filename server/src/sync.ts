@@ -245,6 +245,8 @@ async function applyGameOperation(
         'keywordIds', COALESCE(EXCLUDED.payload -> 'keywordIds', games.payload -> 'keywordIds'),
         'psPricesMatchLocked', COALESCE(EXCLUDED.payload -> 'psPricesMatchLocked', games.payload -> 'psPricesMatchLocked'),
         'hltbMatchLocked', COALESCE(EXCLUDED.payload -> 'hltbMatchLocked', games.payload -> 'hltbMatchLocked'),
+        'hltbMatchGameId', COALESCE(EXCLUDED.payload -> 'hltbMatchGameId', games.payload -> 'hltbMatchGameId'),
+        'hltbMatchUrl', COALESCE(EXCLUDED.payload -> 'hltbMatchUrl', games.payload -> 'hltbMatchUrl'),
         'hltbMatchQueryTitle', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryTitle', games.payload -> 'hltbMatchQueryTitle'),
         'hltbMatchQueryReleaseYear', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryReleaseYear', games.payload -> 'hltbMatchQueryReleaseYear'),
         'hltbMatchQueryPlatform', COALESCE(EXCLUDED.payload -> 'hltbMatchQueryPlatform', games.payload -> 'hltbMatchQueryPlatform'),

@@ -36,7 +36,7 @@ This service replaces the Cloudflare Worker runtime for NAS deployment.
 
 - `GET /v1/hltb/search`
   - Required: `q` (min length 2)
-  - Optional: `releaseYear` (YYYY), `platform`, `includeCandidates` (`1|true|yes`)
+  - Optional: `releaseYear` (YYYY), `platform`, `includeCandidates` (`1|true|yes`), `preferredHltbGameId`, `preferredHltbUrl`
 - `GET /v1/metacritic/search`
   - Required: `q` (min length 2)
   - Optional: `releaseYear` (YYYY), `platform`, `platformIgdbId`, `includeCandidates` (`1|true|yes`)

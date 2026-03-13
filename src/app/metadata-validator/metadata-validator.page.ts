@@ -723,7 +723,9 @@ export class MetadataValidatorPage {
         {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
-          platform: candidate.platform
+          platform: candidate.platform,
+          preferredGameId: candidate.hltbGameId ?? null,
+          preferredUrl: candidate.hltbUrl ?? null
         }
       );
       this.closeHltbPickerModal();
@@ -1108,7 +1110,7 @@ export class MetadataValidatorPage {
     const byKey = new Map<string, HltbMatchCandidate>();
 
     candidates.forEach((candidate) => {
-      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
+      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.hltbGameId ?? '')}::${candidate.hltbUrl ?? ''}`;
 
       if (!byKey.has(key)) {
         byKey.set(key, candidate);
@@ -1209,7 +1211,9 @@ export class MetadataValidatorPage {
             {
               title: candidate.title,
               releaseYear: candidate.releaseYear,
-              platform: candidate.platform
+              platform: candidate.platform,
+              preferredGameId: candidate.hltbGameId ?? null,
+              preferredUrl: candidate.hltbUrl ?? null
             }
           );
         }

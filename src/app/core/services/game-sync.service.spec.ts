@@ -588,6 +588,8 @@ describe('GameSyncService', () => {
       releaseDate: null,
       releaseYear: null,
       listType: 'collection',
+      hltbMatchGameId: 7002,
+      hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
       hltbMatchQueryTitle: 'Stored HLTB',
       hltbMatchQueryReleaseYear: 2007,
       hltbMatchQueryPlatform: 'Wii',
@@ -615,6 +617,8 @@ describe('GameSyncService', () => {
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
     expect(stored?.title).toBe('Updated Title');
+    expect(stored?.hltbMatchGameId).toBe(7002);
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7002');
     expect(stored?.hltbMatchQueryTitle).toBe('Stored HLTB');
     expect(stored?.hltbMatchQueryReleaseYear).toBe(2007);
     expect(stored?.hltbMatchQueryPlatform).toBe('Wii');
@@ -639,6 +643,8 @@ describe('GameSyncService', () => {
       releaseDate: null,
       releaseYear: null,
       listType: 'collection',
+      hltbMatchGameId: 7002,
+      hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
       hltbMatchQueryTitle: 'Stored HLTB',
       hltbMatchQueryReleaseYear: 2007,
       hltbMatchQueryPlatform: 'Wii',
@@ -659,6 +665,8 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({
+        hltbMatchGameId: 7003,
+        hltbMatchUrl: '  https://howlongtobeat.com/game/7003  ',
         hltbMatchQueryTitle: '  New HLTB Query  ',
         hltbMatchQueryReleaseYear: null,
         hltbMatchQueryPlatform: '   ',
@@ -675,6 +683,8 @@ describe('GameSyncService', () => {
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
+    expect(stored?.hltbMatchGameId).toBe(7003);
+    expect(stored?.hltbMatchUrl).toBe('https://howlongtobeat.com/game/7003');
     expect(stored?.hltbMatchQueryTitle).toBe('New HLTB Query');
     expect(stored?.hltbMatchQueryReleaseYear).toBeNull();
     expect(stored?.hltbMatchQueryPlatform).toBeNull();

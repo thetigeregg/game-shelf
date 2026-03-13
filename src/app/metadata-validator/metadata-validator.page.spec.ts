@@ -839,9 +839,18 @@ describe('MetadataValidatorPage', () => {
       title: 'Target',
       releaseYear: 1993,
       platform: 'PC',
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002',
       hltbMainHours: 3,
       hltbMainExtraHours: 4,
       hltbCompletionistHours: 6
+    });
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalledWith('42', 6, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PC',
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
     });
     expect(presentToast).toHaveBeenCalledWith('Updated HLTB for Target.');
 
@@ -851,6 +860,8 @@ describe('MetadataValidatorPage', () => {
       title: 'Target',
       releaseYear: 1993,
       platform: 'PC',
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002',
       hltbMainHours: null,
       hltbMainExtraHours: null,
       hltbCompletionistHours: null
@@ -993,6 +1004,7 @@ describe('MetadataValidatorPage', () => {
         title: 'X',
         releaseYear: 2000,
         platform: 'PC',
+        hltbGameId: 1,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null
@@ -1001,12 +1013,13 @@ describe('MetadataValidatorPage', () => {
         title: 'X',
         releaseYear: 2000,
         platform: 'PC',
+        hltbGameId: 2,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null
       }
     ]) as HltbMatchCandidate[];
-    expect(hltbDeduped.length).toBe(1);
+    expect(hltbDeduped.length).toBe(2);
 
     const mcDeduped = callPrivate(page, 'dedupeMetacriticCandidates', [
       { title: 'X', releaseYear: 2000, platform: 'PC', metacriticScore: 50, metacriticUrl: null },
@@ -1090,6 +1103,8 @@ describe('MetadataValidatorPage', () => {
           title: 'Test',
           releaseYear: 1993,
           platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: 1,
           hltbMainExtraHours: null,
           hltbCompletionistHours: null
@@ -1097,7 +1112,13 @@ describe('MetadataValidatorPage', () => {
       ])
     );
     await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
-    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalled();
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalledWith('9', 6, {
+      title: 'Test',
+      releaseYear: 1993,
+      platform: 'PC',
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
 
     shelf.searchReviewCandidates.mockReturnValueOnce(
       of([

@@ -371,7 +371,10 @@ export class IgdbProxyService implements GameSearchApi {
               );
             }) ?? null;
           if (preferredCandidate) {
-            return this.toHltbCompletionTimes(preferredCandidate);
+            const normalizedPreferred = this.normalizeCompletionTimes(preferredCandidate);
+            if (normalizedPreferred !== null) {
+              return normalizedPreferred;
+            }
           }
         }
         const normalized = this.normalizeCompletionTimes(response.item ?? null);

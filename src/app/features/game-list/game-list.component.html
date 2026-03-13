@@ -1046,11 +1046,12 @@
               detail="false"
               (click)="applySelectedHltbCandidate(candidate)"
             >
-              @if (candidate.imageUrl) {
-                <ion-thumbnail slot="start">
-                  <img [src]="candidate.imageUrl" alt="HLTB result cover" />
-                </ion-thumbnail>
-              }
+              <div slot="start" class="candidate-thumbnail">
+                <img
+                  [src]="candidate.imageUrl || 'assets/icon/placeholder.png'"
+                  alt="HLTB result cover"
+                />
+              </div>
               <ion-label>
                 <h2>{{ candidate.title }}</h2>
                 <p>
@@ -1138,11 +1139,12 @@
               detail="false"
               (click)="applySelectedReviewCandidate(candidate)"
             >
-              @if (candidate.imageUrl) {
-                <div slot="start" class="candidate-thumbnail">
-                  <img [src]="candidate.imageUrl" alt="Review result cover" />
-                </div>
-              }
+              <div slot="start" class="candidate-thumbnail">
+                <img
+                  [src]="candidate.imageUrl || 'assets/icon/placeholder.png'"
+                  alt="Review result cover"
+                />
+              </div>
               <ion-label>
                 <h2>{{ candidate.title }}</h2>
                 <p>
@@ -1232,11 +1234,12 @@
               detail="false"
               (click)="applySelectedPricingCandidate(candidate)"
             >
-              @if (candidate.imageUrl) {
-                <div slot="start" class="candidate-thumbnail">
-                  <img [src]="candidate.imageUrl" alt="Pricing result cover" />
-                </div>
-              }
+              <div slot="start" class="candidate-thumbnail">
+                <img
+                  [src]="candidate.imageUrl || 'assets/icon/placeholder.png'"
+                  alt="Pricing result cover"
+                />
+              </div>
               <ion-label>
                 <h2>{{ candidate.title }}</h2>
                 <p>

@@ -24,6 +24,10 @@
   min-width: 110px;
 }
 
+ion-item {
+  --inner-padding-end: 0px;
+}
+
 .row-actions ion-button {
   margin: 0;
 }
@@ -67,6 +71,7 @@
   justify-content: center;
   overflow: hidden;
   border-radius: 6px;
+  flex: 0 0 72px;
 }
 
 .candidate-thumbnail img {

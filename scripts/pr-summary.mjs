@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const OUTPUT_FILE = '.pr-summary-prompt.md';
 const DIFF_RANGE = 'origin/main...HEAD';
-const EXCLUDED_PATHS = [':(exclude)package-lock.json', ':(exclude)dist'];
+const EXCLUDED_PATHS = [':(glob,exclude)**/package-lock.json', ':(glob,exclude)**/dist/**'];
 
 function runGit(args) {
   try {

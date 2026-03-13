@@ -54,6 +54,15 @@ function run(cmd, opts = {}) {
   execSync(cmd, { stdio: 'inherit', ...opts });
 }
 
+function commandExists(command) {
+  try {
+    execSync(`command -v ${command}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 try {
   /*
   Prevent starting a task with a dirty repo
@@ -95,8 +104,17 @@ try {
   /*
   Open VS Code automatically
   */
-  console.log('\nOpening VS Code...\n');
-  run(`code ${worktreePath}`);
+  if (process.platform === 'darwin' && commandExists('code')) {
+    console.log('\nOpening VS Code...\n');
+    try {
+      run(`code "${worktreePath}"`);
+    } catch {
+      console.warn('\nCould not open VS Code automatically.\n');
+      console.warn(`Open the worktree manually: ${worktreePath}\n`);
+    }
+  } else {
+    console.log(`\nOpen the worktree in your editor: ${worktreePath}\n`);
+  }
 
   console.log(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

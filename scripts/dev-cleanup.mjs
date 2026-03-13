@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 
 const AUTO = process.argv.includes('--auto');
 
@@ -13,6 +13,14 @@ function runPrint(cmd) {
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log('Repository cleanup');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+const status = run('git status --porcelain').trim();
+if (status) {
+  console.error(
+    'Working tree is dirty. Please commit, stash, or discard your changes before running dev-cleanup.'
+  );
+  process.exit(1);
+}
 
 console.log('→ Checking out main');
 runPrint('git checkout main');
@@ -40,7 +48,7 @@ console.log('\n→ Local branches with missing remote\n');
 const goneBranches = branchInfo
   .split('\n')
   .filter((line) => line.includes(': gone]'))
-  .map((line) => line.trim().split(/\s+/)[0])
+  .map((line) => line.replace(/^\*/, '').trim().split(/\s+/)[0])
   .filter(Boolean);
 
 if (goneBranches.length === 0) {
@@ -57,7 +65,7 @@ console.log('\n→ Branches already merged into main\n');
 
 const mergedBranches = run('git branch --merged main')
   .split('\n')
-  .map((b) => b.replace('*', '').trim())
+  .map((b) => b.replace(/^\*\s*/, '').trim())
   .filter((b) => b && b !== 'main');
 
 if (mergedBranches.length === 0) {
@@ -81,7 +89,7 @@ const worktrees = run('git worktree list --porcelain')
       branch: branchMatch?.[1]
     };
   })
-  .filter(Boolean);
+  .filter((w) => w.path && w.branch);
 
 /*
 Worktrees whose branch is merged
@@ -109,14 +117,14 @@ if (AUTO && mergedWorktrees.length > 0) {
   mergedWorktrees.forEach((w) => {
     try {
       console.log(`Removing worktree ${w.path}`);
-      runPrint(`git worktree remove ${w.path}`);
+      execFileSync('git', ['worktree', 'remove', '--', w.path], { stdio: 'inherit' });
     } catch {
       console.log(`Skipping worktree ${w.path}`);
     }
 
     try {
       console.log(`Deleting branch ${w.branch}`);
-      runPrint(`git branch -d ${w.branch}`);
+      execFileSync('git', ['branch', '-d', '--', w.branch], { stdio: 'inherit' });
     } catch {
       console.log(`Skipping branch ${w.branch}`);
     }

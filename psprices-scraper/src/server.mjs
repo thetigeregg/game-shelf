@@ -167,6 +167,17 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           'a[href*="opencritic.com"] span[class*="font-medium"]'
         );
         const collectionLinks = card.querySelectorAll('a[href*="/collection/"]');
+        const imageElement = card.querySelector('img');
+        const imageUrl =
+          imageElement instanceof HTMLImageElement
+            ? normalizeText(
+                imageElement.currentSrc ||
+                  imageElement.src ||
+                  imageElement.getAttribute('src') ||
+                  imageElement.getAttribute('data-src') ||
+                  ''
+              )
+            : '';
         const hasMostEngagingTag = Array.from(collectionLinks).some((link) => {
           const href = link.getAttribute('href') ?? '';
           return href.includes('/collection/most-engaging');
@@ -189,6 +200,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           oldPriceText,
           discountText,
           url,
+          imageUrl,
           gameId: gameId.length > 0 ? gameId : null,
           collectionTagCount: collectionLinks.length,
           hasMostEngagingTag: hasMostEngagingTag ? 'true' : 'false',

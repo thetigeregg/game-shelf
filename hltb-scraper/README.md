@@ -5,7 +5,8 @@ Browser-backed service for HowLongToBeat lookup.
 ## Endpoints
 
 - `GET /health` -> `{ "ok": true }`
-- `GET /v1/hltb/search?q=<term>&releaseYear=<year>&platform=<name>` -> `{ "item": { hltbMainHours, hltbMainExtraHours, hltbCompletionistHours } | null }`
+- `GET /v1/hltb/search?q=<term>&releaseYear=<year>&platform=<name>` -> `{ "item": { hltbMainHours, hltbMainExtraHours, hltbCompletionistHours, hltbGameId?, hltbUrl? } | null }`
+- `GET /v1/hltb/search?...&includeCandidates=1` -> `{ "item": ..., "candidates": [{ title, releaseYear, platform, imageUrl, hltbMainHours, hltbMainExtraHours, hltbCompletionistHours, hltbGameId?, hltbUrl? }] }`
 
 ## Why this exists
 

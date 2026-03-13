@@ -342,6 +342,13 @@ ion-item p {
   object-fit: contain;
 }
 
+ion-item.picker-result-row {
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+  --inner-padding-top: 10px;
+  --inner-padding-bottom: 10px;
+}
+
 .group-header-title {
   font-weight: 600;
   line-height: 1.2;

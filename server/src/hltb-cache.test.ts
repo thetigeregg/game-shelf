@@ -242,6 +242,142 @@ void test('HLTB cache resolves preferred candidate identity into item payload', 
   await app.close();
 });
 
+void test('HLTB cache resolves preferred candidate by normalized preferred URL', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: {
+            hltbGameId: 7001,
+            hltbUrl: 'https://howlongtobeat.com/game/7001',
+            hltbMainHours: 8
+          },
+          candidates: [
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7001,
+              hltbUrl: 'https://howlongtobeat.com/game/7001',
+              hltbMainHours: 8
+            },
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7002,
+              hltbUrl: 'https://howlongtobeat.com/game/7002',
+              hltbMainHours: 9
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbUrl=' +
+      encodeURIComponent('//howlongtobeat.com/game/7002')
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+  assert.deepEqual(JSON.parse(response.body), {
+    item: {
+      title: 'Night In The Woods',
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002',
+      hltbMainHours: 9
+    },
+    candidates: [
+      {
+        title: 'Night In The Woods',
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001',
+        hltbMainHours: 8
+      },
+      {
+        title: 'Night In The Woods',
+        hltbGameId: 7002,
+        hltbUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMainHours: 9
+      }
+    ]
+  });
+
+  await app.close();
+});
+
+void test('HLTB cache keeps original item when preferred candidate has no completion time data', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      new Response(
+        JSON.stringify({
+          item: {
+            hltbGameId: 7001,
+            hltbUrl: 'https://howlongtobeat.com/game/7001',
+            hltbMainHours: 8
+          },
+          candidates: [
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7002,
+              hltbUrl: 'https://howlongtobeat.com/game/7002',
+              imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+              hltbMainHours: null,
+              hltbMainExtraHours: null,
+              hltbCompletionistHours: null
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbGameId=7002'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), {
+    item: {
+      hltbGameId: 7001,
+      hltbUrl: 'https://howlongtobeat.com/game/7001',
+      hltbMainHours: 8
+    },
+    candidates: [
+      {
+        title: 'Night In The Woods',
+        hltbGameId: 7002,
+        hltbUrl: 'https://howlongtobeat.com/game/7002',
+        imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }
+    ]
+  });
+
+  await app.close();
+});
+
 void test('HLTB cache stale revalidation handles failures and skip when already in-flight', async () => {
   resetCacheMetrics();
   let nowMs = Date.UTC(2026, 1, 11, 20, 0, 0);

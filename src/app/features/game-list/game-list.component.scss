@@ -341,6 +341,17 @@ ion-item p {
   object-fit: contain;
 }
 
+.picker-candidate-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.picker-candidate-title ion-badge {
+  align-self: center;
+}
+
 .group-header-title {
   font-weight: 600;
   line-height: 1.2;

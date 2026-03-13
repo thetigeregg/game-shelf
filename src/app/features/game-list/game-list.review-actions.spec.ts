@@ -580,6 +580,63 @@ describe('game-list review actions', () => {
     expect(presentToast).toHaveBeenCalledWith('Pricing updated.');
   });
 
+  it('applies selected review candidate using preferred review url', async () => {
+    const page = Object.create(GameListComponent.prototype) as GameListComponent & {
+      reviewPickerTargetGame: GameEntry | null;
+      isReviewPickerLoading: boolean;
+    };
+    const target = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      listType: 'wishlist'
+    });
+    const updated = createGame({
+      igdbGameId: '10148',
+      platformIgdbId: 167,
+      title: 'Night In The Woods',
+      reviewScore: 88,
+      metacriticScore: 88
+    });
+    const refreshGameMetacriticScoreWithQuery = vi.fn(() => Promise.resolve(updated));
+    const applyUpdatedGame = vi.fn();
+    const presentToast = vi.fn(() => Promise.resolve(undefined));
+    const closeReviewPickerModal = vi.fn();
+
+    Object.assign(page, {
+      reviewPickerTargetGame: target,
+      isReviewPickerLoading: false,
+      gameShelfService: { refreshGameMetacriticScoreWithQuery },
+      applyUpdatedGame,
+      presentToast,
+      closeReviewPickerModal,
+      changeDetectorRef: { markForCheck: vi.fn() }
+    });
+
+    await page.applySelectedReviewCandidate({
+      title: 'Night In The Woods',
+      releaseYear: 2017,
+      platform: 'PlayStation 5',
+      reviewScore: 88,
+      reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      reviewSource: 'metacritic',
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+
+    expect(refreshGameMetacriticScoreWithQuery).toHaveBeenCalledWith('10148', 167, {
+      title: 'Night In The Woods',
+      releaseYear: 2017,
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      mobygamesGameId: null,
+      preferredUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+    expect(applyUpdatedGame).toHaveBeenCalledWith(updated);
+    expect(closeReviewPickerModal).toHaveBeenCalledOnce();
+    expect(presentToast).toHaveBeenCalledWith('Review data updated.');
+  });
+
   it('single pricing refresh is blocked for non-wishlist games', async () => {
     const page = Object.create(GameListComponent.prototype) as GameListComponent & {
       selectedGame: GameEntry | null;

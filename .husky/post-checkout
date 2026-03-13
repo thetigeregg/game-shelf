@@ -7,8 +7,10 @@ case "$git_dir" in
   *) exit 0 ;;
 esac
 
+# Skip if checkout did not switch branches
 [ "$3" = "0" ] && exit 0
 
+# Skip if dependencies already installed
 if [ -d node_modules ] \
   && [ -d server/node_modules ] \
   && [ -d worker/node_modules ] \
@@ -18,6 +20,7 @@ if [ -d node_modules ] \
 fi
 
 echo "[worktree] Running worktree bootstrap..."
+
 node scripts/worktree-dev.mjs bootstrap || {
   echo "[worktree] worktree bootstrap failed"
   exit 1

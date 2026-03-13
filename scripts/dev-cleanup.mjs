@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
 const AUTO = process.argv.includes('--auto');
+const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
 
 function runGit(args, options = {}) {
   const { exitOnError = true, ...execOptions } = options;
@@ -8,6 +9,7 @@ function runGit(args, options = {}) {
   try {
     return execFileSync('git', args, {
       encoding: 'utf8',
+      maxBuffer: DEFAULT_MAX_BUFFER,
       ...execOptions
     });
   } catch (error) {
@@ -51,14 +53,8 @@ if (status) {
   process.exit(1);
 }
 
-console.log('→ Checking out main');
-runGit(['checkout', 'main'], { stdio: 'inherit' });
-
-console.log('\n→ Updating main');
-runGit(['pull', '--ff-only', 'origin', 'main'], { stdio: 'inherit' });
-
-console.log('\n→ Pruning deleted remote branches');
-runGit(['fetch', '--prune'], { stdio: 'inherit' });
+console.log('→ Fetching latest refs from origin');
+runGit(['fetch', '--prune', 'origin'], { stdio: 'inherit' });
 
 console.log('\n→ Pruning stale worktrees');
 runGit(['worktree', 'prune'], { stdio: 'inherit' });
@@ -66,7 +62,7 @@ runGit(['worktree', 'prune'], { stdio: 'inherit' });
 console.log('\n→ Active worktrees');
 runGit(['worktree', 'list'], { stdio: 'inherit' });
 
-const branchInfo = runGit(['branch', '-vv']);
+const branchInfo = runGit(['branch', '-vv', '--no-color']);
 
 /*
 Branches whose remote is gone
@@ -93,12 +89,12 @@ if (goneBranches.length === 0) {
 }
 
 /*
-Branches merged into main
+Branches merged into origin/main
 */
 
-console.log('\n→ Branches already merged into main\n');
+console.log('\n→ Branches already merged into origin/main\n');
 
-const mergedBranches = runGit(['branch', '--merged', 'main'])
+const mergedBranches = runGit(['branch', '--merged', 'origin/main', '--no-color'])
   .split('\n')
   .map((b) => b.replace(/^[*+]\s*/, '').trim())
   .filter((b) => b && b !== 'main');

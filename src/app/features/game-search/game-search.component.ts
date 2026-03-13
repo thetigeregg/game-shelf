@@ -201,7 +201,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
 
-    this.addingExternalIds.add(result.igdbGameId);
+    this.setAddingState(result.igdbGameId, true);
 
     try {
       if (this.actionMode === 'add') {
@@ -243,7 +243,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
 
       this.matchSelected.emit(resolvedCatalog);
     } finally {
-      this.addingExternalIds.delete(result.igdbGameId);
+      this.setAddingState(result.igdbGameId, false);
     }
   }
 
@@ -506,6 +506,17 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     this.ngZone.run(() => {
       callback();
       this.changeDetectorRef.markForCheck();
+    });
+  }
+
+  private setAddingState(externalId: string, isAdding: boolean): void {
+    this.runInZone(() => {
+      if (isAdding) {
+        this.addingExternalIds.add(externalId);
+        return;
+      }
+
+      this.addingExternalIds.delete(externalId);
     });
   }
 

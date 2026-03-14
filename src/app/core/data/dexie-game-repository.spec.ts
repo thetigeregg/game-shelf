@@ -707,13 +707,13 @@ describe('DexieGameRepository', () => {
   it('throws for invalid game and view inputs', async () => {
     await expect(
       repository.upsertFromCatalog({ ...mario, igdbGameId: ' ' }, 'collection')
-    ).rejects.toThrowError('IGDB game id is required.');
+    ).rejects.toThrow('IGDB game id is required.');
     await expect(
       repository.upsertFromCatalog({ ...mario, platformIgdbId: null }, 'collection')
-    ).rejects.toThrowError('IGDB platform id is required.');
+    ).rejects.toThrow('IGDB platform id is required.');
     await expect(
       repository.upsertFromCatalog({ ...mario, platform: ' ' }, 'collection')
-    ).rejects.toThrowError('Platform is required.');
+    ).rejects.toThrow('Platform is required.');
     await expect(
       repository.createView({
         name: ' ',
@@ -733,7 +733,7 @@ describe('DexieGameRepository', () => {
         },
         groupBy: 'none'
       })
-    ).rejects.toThrowError('View name is required.');
+    ).rejects.toThrow('View name is required.');
   });
 
   it('queues outbox operations when sync writer is configured', async () => {
@@ -795,9 +795,7 @@ describe('DexieGameRepository', () => {
     const queuedRepository = TestBed.inject(DexieGameRepository);
     const outboxPutSpy = vi.spyOn(queuedDb.outbox, 'put').mockRejectedValueOnce(new Error('boom'));
 
-    await expect(queuedRepository.upsertFromCatalog(mario, 'collection')).rejects.toThrowError(
-      'boom'
-    );
+    await expect(queuedRepository.upsertFromCatalog(mario, 'collection')).rejects.toThrow('boom');
     const stored = await queuedRepository.exists('101', 18);
     expect(stored).toBeUndefined();
     expect(syncNow).not.toHaveBeenCalled();

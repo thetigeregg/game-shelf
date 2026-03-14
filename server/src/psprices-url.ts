@@ -7,8 +7,25 @@ function normalizeNonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+export function normalizePreferredPsPricesUrl(value: unknown): string | null {
+  const normalized = normalizeNonEmptyString(value);
+  if (normalized === null) {
+    return null;
+  }
+
+  if (normalized.startsWith('//')) {
+    return `https:${normalized}`;
+  }
+
+  if (normalized.startsWith('http://')) {
+    return `https://${normalized.slice('http://'.length)}`;
+  }
+
+  return normalized;
+}
+
 export function resolvePreferredPsPricesUrl(payload: Record<string, unknown>): string | null {
-  const explicitPsPricesUrl = normalizeNonEmptyString(payload['psPricesUrl']);
+  const explicitPsPricesUrl = normalizePreferredPsPricesUrl(payload['psPricesUrl']);
   if (explicitPsPricesUrl) {
     return explicitPsPricesUrl;
   }
@@ -17,5 +34,5 @@ export function resolvePreferredPsPricesUrl(payload: Record<string, unknown>): s
     return null;
   }
 
-  return normalizeNonEmptyString(payload['priceUrl']);
+  return normalizePreferredPsPricesUrl(payload['priceUrl']);
 }

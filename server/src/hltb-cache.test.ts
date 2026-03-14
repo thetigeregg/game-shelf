@@ -393,6 +393,59 @@ void test('HLTB cache keys differentiate preferred identities and normalize pref
   await app.close();
 });
 
+void test('HLTB cache does not persist successful but uncacheable preferred-candidate payloads', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      new Response(
+        JSON.stringify({
+          item: null,
+          candidates: [
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7002,
+              hltbUrl: 'https://howlongtobeat.com/game/7002',
+              hltbMainHours: null,
+              hltbMainExtraHours: null,
+              hltbCompletionistHours: null
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      )
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbGameId=7002'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(pool.getEntryCount(), 0);
+  assert.deepEqual(JSON.parse(response.body), {
+    item: null,
+    candidates: [
+      {
+        title: 'Night In The Woods',
+        hltbGameId: 7002,
+        hltbUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }
+    ]
+  });
+
+  await app.close();
+});
+
 void test('HLTB cache keeps original item when preferred candidate has no completion time data', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
@@ -827,6 +880,46 @@ void test('queued HLTB revalidation keeps candidate payload unchanged when no pr
   });
 });
 
+void test('queued HLTB revalidation rejects invalid short-query payloads', async () => {
+  const pool = new HltbPoolMock();
+
+  await assert.rejects(
+    () =>
+      processQueuedHltbCacheRevalidation(pool as unknown as Pool, {
+        cacheKey: 'invalid-short-query',
+        requestUrl: '/v1/hltb/search?q=a'
+      }),
+    /Invalid HLTB revalidation payload query/
+  );
+});
+
+void test('queued HLTB revalidation surfaces non-ok scraper responses', async () => {
+  const pool = new HltbPoolMock();
+  const originalBaseUrl = process.env['HLTB_SCRAPER_BASE_URL'];
+  const originalFetch = globalThis.fetch;
+
+  process.env['HLTB_SCRAPER_BASE_URL'] = 'https://hltb.example';
+  globalThis.fetch = () => Promise.resolve(new Response('upstream error', { status: 502 }));
+
+  try {
+    await assert.rejects(
+      () =>
+        processQueuedHltbCacheRevalidation(pool as unknown as Pool, {
+          cacheKey: 'non-ok-revalidation',
+          requestUrl: '/v1/hltb/search?q=Okami&preferredHltbGameId=7002'
+        }),
+      /HLTB revalidation request failed with status 502/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) {
+      delete process.env['HLTB_SCRAPER_BASE_URL'];
+    } else {
+      process.env['HLTB_SCRAPER_BASE_URL'] = originalBaseUrl;
+    }
+  }
+});
+
 void test('HLTB cache bypasses cache when query is too short', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
@@ -858,6 +951,53 @@ void test('HLTB cache bypasses cache when query is too short', async () => {
   assert.equal(second.headers['x-gameshelf-hltb-cache'], 'MISS');
   assert.equal(fetchCalls, 2);
   assert.equal(pool.getEntryCount(), 0);
+
+  await app.close();
+});
+
+void test('HLTB includeCandidates=yes is treated as cacheable candidate mode', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: null,
+          candidates: [
+            {
+              title: 'Okami',
+              imageUrl: 'https://howlongtobeat.com/games/okami.jpg',
+              hltbMainHours: 18
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+    }
+  });
+
+  const first = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=okami&includeCandidates=yes'
+  });
+  const second = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=okami&includeCandidates=yes'
+  });
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+  assert.equal(fetchCalls, 1);
+  assert.equal(pool.getEntryCount(), 1);
 
   await app.close();
 });
@@ -1090,6 +1230,86 @@ void test('HLTB cache serves stale and revalidates in background', async () => {
   assert.equal(metrics.hltb.staleServed, 1);
   assert.equal(metrics.hltb.revalidateScheduled, 1);
   assert.equal(metrics.hltb.revalidateSucceeded, 1);
+
+  await app.close();
+});
+
+void test('HLTB stale revalidation treats uncacheable finalized payloads as failed refreshes', async () => {
+  resetCacheMetrics();
+  const nowMs = Date.UTC(2026, 1, 11, 18, 0, 0);
+  const pool = new HltbPoolMock({ now: () => nowMs });
+  const app = Fastify();
+  let pendingRefreshTask: (() => Promise<void>) | null = null;
+  const cacheKey = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(['silent hill', null, null, true, 7002, null]))
+    .digest('hex');
+
+  pool.seed(
+    cacheKey,
+    {
+      item: {
+        title: 'Silent Hill',
+        hltbGameId: 7002,
+        hltbUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMainHours: 10
+      },
+      candidates: [
+        {
+          title: 'Silent Hill',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+          hltbMainHours: 10
+        }
+      ]
+    },
+    new Date(nowMs - 2_000).toISOString()
+  );
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: null,
+            candidates: [
+              {
+                title: 'Silent Hill',
+                hltbGameId: 7002,
+                hltbUrl: 'https://howlongtobeat.com/game/7002',
+                hltbMainHours: null,
+                hltbMainExtraHours: null,
+                hltbCompletionistHours: null
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      ),
+    now: () => nowMs,
+    freshTtlSeconds: 1,
+    staleTtlSeconds: 100,
+    scheduleBackgroundRefresh: (task) => {
+      pendingRefreshTask = task;
+    }
+  });
+
+  const stale = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=Silent%20Hill&preferredHltbGameId=7002'
+  });
+  assert.equal(stale.headers['x-gameshelf-hltb-cache'], 'HIT_STALE');
+
+  const task = pendingRefreshTask;
+  assert.ok(task);
+  await task();
+
+  const metrics = getCacheMetrics();
+  assert.ok(metrics.hltb.revalidateFailed >= 1);
 
   await app.close();
 });

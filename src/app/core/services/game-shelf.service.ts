@@ -632,6 +632,7 @@ export class GameShelfService {
       typeof query?.preferredUrl === 'string' && query.preferredUrl.trim().length > 0
         ? query.preferredUrl.trim()
         : undefined;
+    const hasLookupOverride = lookupTitle !== undefined || preferredUrl !== undefined;
     const pricing = await this.lookupUnifiedPrice(
       existing.igdbGameId,
       existing.platformIgdbId,
@@ -680,8 +681,7 @@ export class GameShelfService {
         priceDiscountPercent: effectivePricing?.discountPercent ?? null,
         priceIsFree: effectivePricing?.isFree ?? null,
         priceUrl: effectivePricing?.url ?? null,
-        psPricesMatchLocked:
-          lookupTitle !== undefined ? true : (existing.psPricesMatchLocked ?? null),
+        psPricesMatchLocked: hasLookupOverride ? true : (existing.psPricesMatchLocked ?? null),
         screenshots: existing.screenshots ?? [],
         videos: existing.videos ?? [],
         publishers: existing.publishers ?? [],

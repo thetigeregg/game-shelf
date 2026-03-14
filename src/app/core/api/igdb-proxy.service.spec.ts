@@ -176,7 +176,7 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(service.searchGames('mario'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/search?q=mario`);
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
-    await expect(promise).rejects.toThrowError('Unable to load game search results.');
+    await expect(promise).rejects.toThrow('Unable to load game search results.');
   });
 
   it('maps rate-limited search responses and enforces cooldown from retry-after', async () => {
@@ -190,11 +190,11 @@ describe('IgdbProxyService', () => {
         headers: new HttpHeaders({ 'Retry-After': '9' })
       }
     );
-    await expect(withRetryAfter).rejects.toThrowError('Rate limit exceeded. Retry after 9s.');
+    await expect(withRetryAfter).rejects.toThrow('Rate limit exceeded. Retry after 9s.');
 
     const duringCooldown = firstValueFrom(service.searchGames('mario'));
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/games/search?q=mario`);
-    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+    await expect(duringCooldown).rejects.toThrow(/Rate limit exceeded\. Retry after \d+s\./);
   });
 
   it('loads a game by IGDB id and normalizes the payload', async () => {
@@ -330,11 +330,11 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(service.getGameById('100'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/games/100`);
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
-    await expect(promise).rejects.toThrowError('Unable to refresh game metadata.');
+    await expect(promise).rejects.toThrow('Unable to refresh game metadata.');
   });
 
   it('rejects invalid IGDB game ids before HTTP call', async () => {
-    await expect(firstValueFrom(service.getGameById('abc'))).rejects.toThrowError(
+    await expect(firstValueFrom(service.getGameById('abc'))).rejects.toThrow(
       'Unable to refresh game metadata.'
     );
     httpMock.expectNone((request) =>
@@ -455,7 +455,7 @@ describe('IgdbProxyService', () => {
     });
 
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
-    await expect(promise).rejects.toThrowError('Unable to load popular games.');
+    await expect(promise).rejects.toThrow('Unable to load popular games.');
   });
 
   it('normalizes popularity payload with invalid and string values', async () => {
@@ -587,7 +587,7 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(service.searchBoxArtByTitle('mario'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/images/boxart/search?q=mario`);
     req.flush({ message: 'upstream down' }, { status: 500, statusText: 'Server Error' });
-    await expect(promise).rejects.toThrowError('Unable to load box art results.');
+    await expect(promise).rejects.toThrow('Unable to load box art results.');
   });
 
   it('maps box art rate limit responses with retry timing', async () => {
@@ -601,14 +601,14 @@ describe('IgdbProxyService', () => {
         headers: new HttpHeaders({ 'Retry-After': '15' })
       }
     );
-    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 15s.');
+    await expect(promise).rejects.toThrow('Rate limit exceeded. Retry after 15s.');
   });
 
   it('maps box art rate limits without retry-after header', async () => {
     const promise = firstValueFrom(service.searchBoxArtByTitle('mario'));
     const req = httpMock.expectOne(`${environment.gameApiBaseUrl}/v1/images/boxart/search?q=mario`);
     req.flush({ message: 'rate limited' }, { status: 429, statusText: 'Too Many Requests' });
-    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
+    await expect(promise).rejects.toThrow('Rate limit exceeded. Retry after 20s.');
   });
 
   it('normalizes platform options and cover source from rich payloads', async () => {
@@ -882,7 +882,7 @@ describe('IgdbProxyService', () => {
         headers: new HttpHeaders({ 'Retry-After': '3' })
       }
     );
-    await expect(lookupPromise).rejects.toThrowError('Rate limit exceeded. Retry after 3s.');
+    await expect(lookupPromise).rejects.toThrow('Rate limit exceeded. Retry after 3s.');
 
     const candidatePromise = firstValueFrom(
       service.lookupCompletionTimeCandidates('Super Metroid')
@@ -902,7 +902,7 @@ describe('IgdbProxyService', () => {
         headers: new HttpHeaders({ 'Retry-After': '3' })
       }
     );
-    await expect(candidatePromise).rejects.toThrowError('Rate limit exceeded. Retry after 3s.');
+    await expect(candidatePromise).rejects.toThrow('Rate limit exceeded. Retry after 3s.');
   });
 
   it('looks up Metacritic score and normalizes payload', async () => {
@@ -1026,13 +1026,13 @@ describe('IgdbProxyService', () => {
         headers: new HttpHeaders({ 'Retry-After': '4' })
       }
     );
-    await expect(scorePromise).rejects.toThrowError('Rate limit exceeded. Retry after 4s.');
+    await expect(scorePromise).rejects.toThrow('Rate limit exceeded. Retry after 4s.');
 
     const candidatePromise = firstValueFrom(
       service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21)
     );
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/metacritic/search`);
-    await expect(candidatePromise).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+    await expect(candidatePromise).rejects.toThrow(/Rate limit exceeded\. Retry after \d+s\./);
   });
 
   it('uses MobyGames for unsupported Metacritic platform ids and normalizes payload', async () => {
@@ -2755,7 +2755,7 @@ describe('IgdbProxyService', () => {
         }
       );
 
-      await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+      await expect(promise).rejects.toThrow('Rate limit exceeded. Retry after 10s.');
     } finally {
       vi.useRealTimers();
     }
@@ -2786,7 +2786,7 @@ describe('IgdbProxyService', () => {
         }
       );
 
-      await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
+      await expect(promise).rejects.toThrow('Rate limit exceeded. Retry after 20s.');
     } finally {
       vi.useRealTimers();
     }
@@ -2950,13 +2950,13 @@ describe('IgdbProxyService', () => {
         headers: new HttpHeaders({ 'Retry-After': '10' })
       }
     );
-    await expect(firstRequest).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+    await expect(firstRequest).rejects.toThrow('Rate limit exceeded. Retry after 10s.');
 
     const duringCooldown = firstValueFrom(
       service.lookupReviewScore('Chrono Trigger', 1995, 'SNES', 19)
     );
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
-    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+    await expect(duringCooldown).rejects.toThrow(/Rate limit exceeded\. Retry after \d+s\./);
   });
 
   it('enforces active cooldown in lookupReviewCandidates for MobyGames path', async () => {
@@ -2974,13 +2974,13 @@ describe('IgdbProxyService', () => {
         headers: new HttpHeaders({ 'Retry-After': '8' })
       }
     );
-    await expect(firstRequest).rejects.toThrowError('Rate limit exceeded. Retry after 8s.');
+    await expect(firstRequest).rejects.toThrow('Rate limit exceeded. Retry after 8s.');
 
     const duringCooldown = firstValueFrom(
       service.lookupReviewCandidates('Golden Axe', 1989, 'Genesis', 29)
     );
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
-    await expect(duringCooldown).rejects.toThrowError(/Rate limit exceeded\. Retry after \d+s\./);
+    await expect(duringCooldown).rejects.toThrow(/Rate limit exceeded\. Retry after \d+s\./);
   });
 
   it('proactively throttles rapid sequential lookupReviewScore MobyGames calls', async () => {
@@ -3123,14 +3123,14 @@ describe('IgdbProxyService', () => {
           headers: new HttpHeaders({ 'Retry-After': '10' })
         }
       );
-      await expect(firstPromise).rejects.toThrowError('Rate limit exceeded. Retry after 10s.');
+      await expect(firstPromise).rejects.toThrow('Rate limit exceeded. Retry after 10s.');
 
       // Advance timers 5 s → second request's switchMap fires and re-checks the now-active cooldown
       await vi.advanceTimersByTimeAsync(5000);
 
       // No HTTP request should have been dispatched for the second call
       httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/mobygames/search`);
-      await expect(secondPromise).rejects.toThrowError('Rate limit exceeded. Retry after 5s.');
+      await expect(secondPromise).rejects.toThrow('Rate limit exceeded. Retry after 5s.');
     } finally {
       vi.useRealTimers();
     }
@@ -3316,10 +3316,10 @@ describe('IgdbProxyService', () => {
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/rebuild`);
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/recommendations/similar/1`);
 
-    await expect(topPromise).rejects.toThrowError(/Rate limit exceeded/);
-    await expect(lanesPromise).rejects.toThrowError(/Rate limit exceeded/);
-    await expect(rebuildPromise).rejects.toThrowError(/Rate limit exceeded/);
-    await expect(similarPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(topPromise).rejects.toThrow(/Rate limit exceeded/);
+    await expect(lanesPromise).rejects.toThrow(/Rate limit exceeded/);
+    await expect(rebuildPromise).rejects.toThrow(/Rate limit exceeded/);
+    await expect(similarPromise).rejects.toThrow(/Rate limit exceeded/);
   });
 
   it('maps recommendation endpoint failures to recommendation API errors', async () => {
@@ -3341,7 +3341,7 @@ describe('IgdbProxyService', () => {
       `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`
     );
     rebuildReq.flush({ error: 'cooldown' }, { status: 429, statusText: 'Too Many Requests' });
-    await expect(rebuildPromise).rejects.toThrowError(/Rate limit exceeded/);
+    await expect(rebuildPromise).rejects.toThrow(/Rate limit exceeded/);
     (service as unknown as { rateLimitCooldownUntilMs: number }).rateLimitCooldownUntilMs = 0;
 
     const similarPromise = firstValueFrom(
@@ -3463,7 +3463,7 @@ describe('IgdbProxyService', () => {
       { status: 404, statusText: 'Not Found' }
     );
 
-    await expect(promise).rejects.toThrowError(
+    await expect(promise).rejects.toThrow(
       'No recommendations available yet. Build recommendations to get started.'
     );
   });
@@ -3517,7 +3517,7 @@ describe('IgdbProxyService', () => {
     });
     req.flush({ error: 'cooldown' }, { status: 429, statusText: 'Too Many Requests' });
 
-    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 20s.');
+    await expect(promise).rejects.toThrow('Rate limit exceeded. Retry after 20s.');
   });
 
   it('maps recommendation 400 responses to invalid request error code', async () => {
@@ -3547,7 +3547,7 @@ describe('IgdbProxyService', () => {
   });
 
   it('lookupSteamPrice validates input, forwards normalized params, and maps generic errors', async () => {
-    await expect(firstValueFrom(service.lookupSteamPrice('bad-id', 6))).rejects.toThrowError(
+    await expect(firstValueFrom(service.lookupSteamPrice('bad-id', 6))).rejects.toThrow(
       'Invalid Steam price lookup request.'
     );
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/steam/prices`);
@@ -3574,13 +3574,13 @@ describe('IgdbProxyService', () => {
       );
     });
     failureReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
-    await expect(failurePromise).rejects.toThrowError('Unable to load Steam prices.');
+    await expect(failurePromise).rejects.toThrow('Unable to load Steam prices.');
   });
 
   it('lookupPsPrices and lookupPsPricesCandidates cover title/candidate guards and error mapping', async () => {
     await expect(
       firstValueFrom(service.lookupPsPrices('x', 130, { title: 'test' }))
-    ).rejects.toThrowError('Invalid PSPrices lookup request.');
+    ).rejects.toThrow('Invalid PSPrices lookup request.');
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/psprices/prices`);
 
     const lookupPromise = firstValueFrom(
@@ -3619,7 +3619,7 @@ describe('IgdbProxyService', () => {
       );
     });
     failureReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
-    await expect(failurePromise).rejects.toThrowError('Unable to load PSPrices data.');
+    await expect(failurePromise).rejects.toThrow('Unable to load PSPrices data.');
   });
 
   it('lookupPsPrices omits preferredPsPricesUrl when the preferred url is blank or invalid', async () => {
@@ -3712,7 +3712,7 @@ describe('IgdbProxyService', () => {
       }
     );
 
-    await expect(promise).rejects.toThrowError('Rate limit exceeded. Retry after 9s.');
+    await expect(promise).rejects.toThrow('Rate limit exceeded. Retry after 9s.');
   });
 
   it('covers recommendation normalization helper branches', () => {

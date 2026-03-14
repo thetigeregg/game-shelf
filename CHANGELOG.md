@@ -2158,3 +2158,7 @@
 - 82b76a35 test(core): replace deprecated toThrowError matcher in specs
 - 173adf41 chore(deps): bump Angular and tooling dependency versions
 
+## v1.2.5 - 2026-03-14
+- 3a8244d0 Merge pull request #220 from thetigeregg/feat/fix
+- c653a47f fix(api): split jsonb_build_object to respect PostgreSQL 100-argument limit
+

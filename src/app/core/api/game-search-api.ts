@@ -25,7 +25,11 @@ export interface GameSearchApi {
   lookupCompletionTimes(
     title: string,
     releaseYear?: number | null,
-    platform?: string | null
+    platform?: string | null,
+    query?: {
+      preferredGameId?: number | null;
+      preferredUrl?: string | null;
+    }
   ): Observable<HltbCompletionTimes | null>;
   lookupCompletionTimeCandidates(
     title: string,
@@ -36,7 +40,8 @@ export interface GameSearchApi {
     title: string,
     releaseYear?: number | null,
     platform?: string | null,
-    platformIgdbId?: number | null
+    platformIgdbId?: number | null,
+    preferredReviewUrl?: string | null
   ): Observable<MetacriticScoreResult | null>;
   lookupMetacriticCandidates(
     title: string,
@@ -49,7 +54,8 @@ export interface GameSearchApi {
     releaseYear?: number | null,
     platform?: string | null,
     platformIgdbId?: number | null,
-    mobygamesGameId?: number | null
+    mobygamesGameId?: number | null,
+    preferredReviewUrl?: string | null
   ): Observable<ReviewScoreResult | null>;
   lookupReviewCandidates(
     title: string,
@@ -66,7 +72,10 @@ export interface GameSearchApi {
   lookupPsPrices?(
     igdbGameId: string,
     platformIgdbId: number,
-    title?: string | null
+    query?: {
+      title?: string | null;
+      preferredUrl?: string | null;
+    }
   ): Observable<unknown>;
   lookupPsPricesCandidates?(
     igdbGameId: string,

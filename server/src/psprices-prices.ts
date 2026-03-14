@@ -6,7 +6,7 @@ import { config } from './config.js';
 import { isDiscoveryListType } from './list-type.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
-import { resolvePreferredPsPricesUrl } from './psprices-url.js';
+import { normalizePreferredPsPricesUrl, resolvePreferredPsPricesUrl } from './psprices-url.js';
 
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -245,7 +245,12 @@ export async function registerPsPricesRoute(
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
       const titleOverride = normalizeNonEmptyString(query['title']);
+      const preferredPsPricesUrlOverride = normalizePreferredPsPricesUrl(
+        query['preferredPsPricesUrl']
+      );
       const hasTitleOverride = titleOverride !== null;
+      const hasPreferredPsPricesUrlOverride = preferredPsPricesUrlOverride !== null;
+      const hasLookupOverride = hasTitleOverride || hasPreferredPsPricesUrlOverride;
       const includeCandidates = normalizeBooleanQuery(query['includeCandidates']);
 
       if (!igdbGameId || platformIgdbId === null) {
@@ -300,7 +305,9 @@ export async function registerPsPricesRoute(
       const persistedMatchQueryTitle = normalizeNonEmptyString(payload['psPricesMatchQueryTitle']);
       const title =
         titleOverride ?? persistedMatchQueryTitle ?? normalizeNonEmptyString(payload['title']);
-      const preferredPsPricesUrl = hasTitleOverride ? null : resolvePreferredPsPricesUrl(payload);
+      const preferredPsPricesUrl =
+        preferredPsPricesUrlOverride ??
+        (hasTitleOverride ? null : resolvePreferredPsPricesUrl(payload));
       const psPricesMatchLocked = isProviderMatchLocked(payload, 'psPricesMatchLocked');
       if (!title) {
         const unavailablePayload: PsPricesRouteResponse = {
@@ -319,7 +326,7 @@ export async function registerPsPricesRoute(
         return;
       }
 
-      const cachedSnapshot = hasTitleOverride
+      const cachedSnapshot = hasLookupOverride
         ? null
         : readPsPricesSnapshotFromPayload(
             payload,
@@ -425,7 +432,7 @@ export async function registerPsPricesRoute(
             bestPrice: pspricesSnapshot,
             match: pspricesLookup.match,
             candidates: pspricesLookup.candidates,
-            matchLocked: hasTitleOverride ? true : undefined
+            matchLocked: hasLookupOverride ? true : undefined
           });
           incrementPspricesPriceMetric('writes');
         } catch (error) {
@@ -827,12 +834,13 @@ async function fetchPsPricesSnapshot(
       } satisfies RankedPsPricesCandidate;
     })
     .sort((left, right) => compareRankedPsPricesCandidates(left, right));
-  const preferredUrl = normalizeNonEmptyString(params.preferredUrl);
+  const preferredUrl = normalizePreferredPsPricesUrl(params.preferredUrl);
   const preferredMatch =
     preferredUrl === null
       ? null
-      : (ranked.find((entry) => normalizeNonEmptyString(entry.candidate.url) === preferredUrl) ??
-        null);
+      : (ranked.find(
+          (entry) => normalizePreferredPsPricesUrl(entry.candidate.url) === preferredUrl
+        ) ?? null);
 
   if (preferredMatch) {
     return {
@@ -1763,7 +1771,7 @@ export async function processQueuedPspricesPriceRevalidation(
     normalizeNonEmptyString(gamePayload['psPricesMatchQueryTitle']) ??
     normalizeNonEmptyString(gamePayload['title']);
   const preferredPsPricesUrl =
-    normalizeNonEmptyString(payload.psPricesUrl) ?? resolvePreferredPsPricesUrl(gamePayload);
+    normalizePreferredPsPricesUrl(payload.psPricesUrl) ?? resolvePreferredPsPricesUrl(gamePayload);
   if (!title) {
     throw new Error('PSPrices revalidation missing title.');
   }

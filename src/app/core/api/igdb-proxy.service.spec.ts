@@ -1,7 +1,7 @@
 import { HttpHeaders, HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { IgdbProxyService } from './igdb-proxy.service';
 
@@ -684,14 +684,18 @@ describe('IgdbProxyService', () => {
       item: {
         hltbMainHours: 7.53,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 13.04
+        hltbCompletionistHours: 13.04,
+        hltbGameId: 9001,
+        hltbUrl: 'https://howlongtobeat.com/game/9001'
       }
     });
 
     await expect(promise).resolves.toEqual({
       hltbMainHours: 7.5,
       hltbMainExtraHours: 10,
-      hltbCompletionistHours: 13
+      hltbCompletionistHours: 13,
+      hltbGameId: 9001,
+      hltbUrl: 'https://howlongtobeat.com/game/9001'
     });
   });
 
@@ -749,6 +753,8 @@ describe('IgdbProxyService', () => {
           title: ' Super Metroid ',
           releaseYear: 1994,
           platform: ' SNES ',
+          hltbGameId: 9001,
+          hltbUrl: 'https://howlongtobeat.com/game/9001',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
           hltbCompletionistHours: 13.04
@@ -757,6 +763,8 @@ describe('IgdbProxyService', () => {
           title: 'Super Metroid',
           releaseYear: 1994,
           platform: 'SNES',
+          hltbGameId: 9001,
+          hltbUrl: 'https://howlongtobeat.com/game/9001',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
           hltbCompletionistHours: 13.04
@@ -777,12 +785,68 @@ describe('IgdbProxyService', () => {
         title: 'Super Metroid',
         releaseYear: 1994,
         platform: 'SNES',
+        hltbGameId: 9001,
+        hltbUrl: 'https://howlongtobeat.com/game/9001',
         hltbMainHours: 7.5,
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 13,
         isRecommended: true
       }
     ]);
+  });
+
+  it('prefers the selected HLTB candidate identity when a preferred HLTB id is provided', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', { preferredGameId: 7002 })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbGameId') === '7002'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7001,
+          hltbUrl: 'https://howlongtobeat.com/game/7001',
+          hltbMainHours: 8,
+          hltbMainExtraHours: 10,
+          hltbCompletionistHours: 12
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 9,
+      hltbMainExtraHours: 11,
+      hltbCompletionistHours: 13,
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
+    });
   });
 
   it('returns empty HLTB candidate list for short query or lookup failure', async () => {
@@ -1276,6 +1340,436 @@ describe('IgdbProxyService', () => {
     ]);
   });
 
+  it('prefers the selected HLTB candidate identity when a preferred HLTB url is provided', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredUrl: '  https://howlongtobeat.com/game/7002  '
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbUrl') === 'https://howlongtobeat.com/game/7002'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7001,
+          hltbUrl: 'https://howlongtobeat.com/game/7001',
+          hltbMainHours: 8,
+          hltbMainExtraHours: 10,
+          hltbCompletionistHours: 12
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 9,
+      hltbMainExtraHours: 11,
+      hltbCompletionistHours: 13,
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
+    });
+  });
+
+  it('falls back to the normal HLTB item when preferred candidates are omitted from the response', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredUrl: 'https://howlongtobeat.com/game/7002'
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('preferredHltbUrl') === 'https://howlongtobeat.com/game/7002' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 8,
+      hltbMainExtraHours: 10,
+      hltbCompletionistHours: 12,
+      hltbGameId: 7001,
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
+    });
+  });
+
+  it('matches preferred HLTB candidates when only one identity field is present', async () => {
+    const byIdPromise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredGameId: 7002
+      })
+    );
+    const byIdRequest = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('preferredHltbGameId') === '7002'
+      );
+    });
+    byIdRequest.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbUrl: 'https://howlongtobeat.com/game/7001',
+          hltbMainHours: 8,
+          hltbMainExtraHours: 10,
+          hltbCompletionistHours: 12
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        }
+      ]
+    });
+
+    await expect(byIdPromise).resolves.toEqual({
+      hltbMainHours: 9,
+      hltbMainExtraHours: 11,
+      hltbCompletionistHours: 13,
+      hltbGameId: 7002
+    });
+
+    const byUrlPromise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredUrl: 'https://howlongtobeat.com/game/7003'
+      })
+    );
+    const byUrlRequest = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('preferredHltbUrl') === 'https://howlongtobeat.com/game/7003'
+      );
+    });
+    byUrlRequest.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7003,
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbUrl: 'https://howlongtobeat.com/game/7003',
+          hltbMainHours: 10,
+          hltbMainExtraHours: 12,
+          hltbCompletionistHours: 14
+        }
+      ]
+    });
+
+    await expect(byUrlPromise).resolves.toEqual({
+      hltbMainHours: 10,
+      hltbMainExtraHours: 12,
+      hltbCompletionistHours: 14,
+      hltbUrl: 'https://howlongtobeat.com/game/7003'
+    });
+  });
+
+  it('normalizes HLTB identity helpers and preserves distinct duplicate-looking candidates', () => {
+    const privateService = service as unknown as {
+      normalizeCompletionTimes: (value: unknown) => unknown;
+      normalizeHltbCandidates: (value: unknown) => unknown;
+      toHltbCompletionTimes: (value: unknown) => unknown;
+      normalizeHltbGameId: (value: unknown) => unknown;
+      normalizeHltbUrl: (value: unknown) => unknown;
+    };
+
+    expect(
+      privateService.normalizeCompletionTimes({
+        hltbMainHours: 9,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+        gameId: '7002',
+        gameUrl: '//howlongtobeat.com/game/7002'
+      })
+    ).toEqual({
+      hltbMainHours: 9,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
+    });
+
+    expect(
+      privateService.normalizeCompletionTimes({
+        hltbMainHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+        gameId: '7002',
+        gameUrl: '//howlongtobeat.com/game/7002'
+      })
+    ).toBeNull();
+
+    expect(
+      privateService.normalizeHltbCandidates([
+        {
+          title: ' Night In The Woods ',
+          releaseYear: 2017,
+          platform: ' PC ',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13,
+          gameId: '7002',
+          gameUrl: '//howlongtobeat.com/game/7002',
+          coverUrl: '//howlongtobeat.com/games/7002.jpg'
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13,
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002'
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbMainHours: 10,
+          hltbMainExtraHours: 12,
+          hltbCompletionistHours: 14,
+          id: '7003',
+          url: 'https://howlongtobeat.com/game/7003'
+        }
+      ])
+    ).toEqual([
+      {
+        title: 'Night In The Woods',
+        releaseYear: 2017,
+        platform: 'PC',
+        hltbMainHours: 9,
+        hltbMainExtraHours: 11,
+        hltbCompletionistHours: 13,
+        hltbGameId: 7002,
+        hltbUrl: 'https://howlongtobeat.com/game/7002',
+        imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
+        isRecommended: true
+      },
+      {
+        title: 'Night In The Woods',
+        releaseYear: 2017,
+        platform: 'PC',
+        hltbMainHours: 10,
+        hltbMainExtraHours: 12,
+        hltbCompletionistHours: 14,
+        hltbGameId: 7003,
+        hltbUrl: 'https://howlongtobeat.com/game/7003',
+        isRecommended: false
+      }
+    ]);
+
+    expect(
+      privateService.toHltbCompletionTimes({
+        hltbMainHours: 10,
+        hltbMainExtraHours: 12,
+        hltbCompletionistHours: 14,
+        hltbGameId: 7003,
+        hltbUrl: 'https://howlongtobeat.com/game/7003'
+      })
+    ).toEqual({
+      hltbMainHours: 10,
+      hltbMainExtraHours: 12,
+      hltbCompletionistHours: 14,
+      hltbGameId: 7003,
+      hltbUrl: 'https://howlongtobeat.com/game/7003'
+    });
+
+    expect(privateService.normalizeHltbGameId('abc')).toBeNull();
+    expect(privateService.normalizeHltbUrl('//howlongtobeat.com/game/7004')).toBe(
+      'https://howlongtobeat.com/game/7004'
+    );
+  });
+
+  it('falls back to the normal HLTB item when the preferred candidate has no completion time data', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredGameId: 7002
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbGameId') === '7002'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: null,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 8,
+      hltbMainExtraHours: 10,
+      hltbCompletionistHours: 12,
+      hltbGameId: 7001,
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
+    });
+  });
+
+  it('returns null when a preferred HLTB candidate exists but neither it nor the item has usable times', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredGameId: 7002
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('releaseYear') === '2017' &&
+        request.params.get('platform') === 'PC' &&
+        request.params.get('preferredHltbGameId') === '7002' &&
+        request.params.get('includeCandidates') === 'true'
+      );
+    });
+
+    req.flush({
+      item: null,
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: null,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toBeNull();
+  });
+
+  it('falls back to the normal HLTB item when preferred identity does not match any candidate', async () => {
+    const promise = firstValueFrom(
+      service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
+        preferredGameId: 9999,
+        preferredUrl: 'https://howlongtobeat.com/game/9999'
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/hltb/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('preferredHltbGameId') === '9999' &&
+        request.params.get('preferredHltbUrl') === 'https://howlongtobeat.com/game/9999'
+      );
+    });
+
+    req.flush({
+      item: {
+        hltbMainHours: 8,
+        hltbMainExtraHours: 10,
+        hltbCompletionistHours: 12,
+        hltbGameId: 7001,
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbMainHours: 9,
+          hltbMainExtraHours: 11,
+          hltbCompletionistHours: 13
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      hltbMainHours: 8,
+      hltbMainExtraHours: 10,
+      hltbCompletionistHours: 12,
+      hltbGameId: 7001,
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
+    });
+  });
+
   it('uses matched platform entry instead of first platform entry for Moby candidates', async () => {
     const candidatesPromise = firstValueFrom(
       service.lookupMetacriticCandidates('Chrono Trigger', 1995, 'SNES', 19)
@@ -1409,6 +1903,140 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('forwards preferred review urls through the Metacritic score wrapper', async () => {
+    const reviewResult = {
+      reviewScore: 87,
+      reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      reviewSource: 'metacritic' as const,
+      mobyScore: null,
+      mobygamesGameId: null,
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    };
+    const reviewSpy = vi.spyOn(service, 'lookupReviewScore').mockReturnValue(of(reviewResult));
+
+    const result = await firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+
+    expect(reviewSpy).toHaveBeenCalledWith(
+      'Night In The Woods',
+      2017,
+      'PlayStation 5',
+      167,
+      undefined,
+      'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    );
+    expect(result).toEqual({
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+  });
+
+  it('converts normalized review candidates into review score results', () => {
+    const privateService = service as unknown as {
+      toReviewScoreResult: (candidate: unknown) => unknown;
+    };
+
+    expect(
+      privateService.toReviewScoreResult({
+        reviewScore: null,
+        reviewUrl: null,
+        reviewSource: null,
+        mobyScore: 88,
+        mobygamesGameId: 1234,
+        metacriticScore: 91,
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      })
+    ).toEqual({
+      reviewScore: 91,
+      reviewUrl: 'https://www.metacritic.com/game/okami/',
+      reviewSource: null,
+      mobyScore: 88,
+      mobygamesGameId: 1234,
+      metacriticScore: 91,
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
+    });
+  });
+
+  it('prefers direct review fields when converting review candidates into review score results', () => {
+    const privateService = service as unknown as {
+      toReviewScoreResult: (candidate: unknown) => unknown;
+    };
+
+    expect(
+      privateService.toReviewScoreResult({
+        reviewScore: 83,
+        reviewUrl: 'https://www.mobygames.com/game/123',
+        reviewSource: 'mobygames',
+        mobyScore: 83,
+        mobygamesGameId: 123,
+        metacriticScore: null,
+        metacriticUrl: null
+      })
+    ).toEqual({
+      reviewScore: 83,
+      reviewUrl: 'https://www.mobygames.com/game/123',
+      reviewSource: 'mobygames',
+      mobyScore: 83,
+      mobygamesGameId: 123,
+      metacriticScore: null,
+      metacriticUrl: null
+    });
+  });
+
+  it('returns explicit null review fields when converting candidates with no review urls or scores', () => {
+    const privateService = service as unknown as {
+      toReviewScoreResult: (candidate: unknown) => unknown;
+    };
+
+    expect(
+      privateService.toReviewScoreResult({
+        reviewScore: null,
+        reviewUrl: null,
+        reviewSource: 'metacritic',
+        mobyScore: null,
+        mobygamesGameId: null,
+        metacriticScore: null,
+        metacriticUrl: null
+      })
+    ).toEqual({
+      reviewScore: null,
+      reviewUrl: null,
+      reviewSource: 'metacritic',
+      mobyScore: null,
+      mobygamesGameId: null,
+      metacriticScore: null,
+      metacriticUrl: null
+    });
+  });
+
+  it('omits HLTB identity fields when converting candidates without stable identity', () => {
+    const privateService = service as unknown as {
+      toHltbCompletionTimes: (value: unknown) => unknown;
+    };
+
+    expect(
+      privateService.toHltbCompletionTimes({
+        hltbMainHours: 10,
+        hltbMainExtraHours: 12,
+        hltbCompletionistHours: 14,
+        hltbGameId: null,
+        hltbUrl: null
+      })
+    ).toEqual({
+      hltbMainHours: 10,
+      hltbMainExtraHours: 12,
+      hltbCompletionistHours: 14
+    });
+  });
+
   it('looks up Metacritic candidates and normalizes candidate payload', async () => {
     const promise = firstValueFrom(service.lookupMetacriticCandidates('Okami', 2006, 'Wii', 21));
     const req = httpMock.expectOne((request) => {
@@ -1456,6 +2084,246 @@ describe('IgdbProxyService', () => {
         imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
       }
     ]);
+  });
+
+  it('falls back to the main Metacritic item when a preferred review url does not match any candidate', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('preferredReviewUrl') ===
+          'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          reviewScore: 86,
+          reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-candidate/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+    });
+  });
+
+  it('falls back to the main Metacritic item when preferred review candidates are omitted', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('preferredReviewUrl') ===
+          'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      }
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+    });
+  });
+
+  it('matches a preferred review candidate when only metacriticUrl is present and item is omitted', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('preferredReviewUrl') ===
+          'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      );
+    });
+
+    req.flush({
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          reviewScore: 86,
+          reviewUrl: null,
+          metacriticScore: 86,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 86,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+  });
+
+  it('matches a preferred review url against metacriticUrl when reviewUrl is missing', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('preferredReviewUrl') ===
+          'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          reviewScore: 86,
+          reviewUrl: null,
+          metacriticScore: 86,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 86,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+  });
+
+  it('prefers the selected Metacritic candidate url when a preferred review url is provided', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('platformIgdbId') === '167'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          metacriticScore: 87,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+        },
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          metacriticScore: 88,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 88,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+  });
+
+  it('falls back to the normal Metacritic item when preferred review url does not match a candidate', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-missing/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('q') === 'Night In The Woods' &&
+        request.params.get('includeCandidates') === 'true' &&
+        request.params.get('platformIgdbId') === '167'
+      );
+    });
+
+    req.flush({
+      item: {
+        metacriticScore: 87,
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      },
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          metacriticScore: 88,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 87,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+    });
   });
 
   it('marks recommended Metacritic candidates for score and index fallbacks', async () => {
@@ -1815,8 +2683,21 @@ describe('IgdbProxyService', () => {
           title: 'Okami',
           releaseYear: 2006,
           platform: 'Wii',
+          hltbGameId: 9001,
+          hltbUrl: 'https://howlongtobeat.com/game/9001',
           coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
           hltbMainHours: 15,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null
+        },
+        {
+          title: 'Okami',
+          releaseYear: 2006,
+          platform: 'Wii',
+          hltbGameId: 9002,
+          hltbUrl: 'https://howlongtobeat.com/game/9002',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash-2.jpg',
+          hltbMainHours: 16,
           hltbMainExtraHours: null,
           hltbCompletionistHours: null
         }
@@ -1826,7 +2707,13 @@ describe('IgdbProxyService', () => {
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
         title: 'Okami',
+        hltbGameId: 9001,
         imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+      }),
+      expect.objectContaining({
+        title: 'Okami',
+        hltbGameId: 9002,
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash-2.jpg'
       })
     ]);
   });
@@ -2691,18 +3578,24 @@ describe('IgdbProxyService', () => {
   });
 
   it('lookupPsPrices and lookupPsPricesCandidates cover title/candidate guards and error mapping', async () => {
-    await expect(firstValueFrom(service.lookupPsPrices('x', 130, 'test'))).rejects.toThrow(
-      'Invalid PSPrices lookup request.'
-    );
+    await expect(
+      firstValueFrom(service.lookupPsPrices('x', 130, { title: 'test' }))
+    ).rejects.toThrow('Invalid PSPrices lookup request.');
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/psprices/prices`);
 
-    const lookupPromise = firstValueFrom(service.lookupPsPrices('960', 130, '  Nioh 2  '));
+    const lookupPromise = firstValueFrom(
+      service.lookupPsPrices('960', 130, {
+        title: '  Nioh 2  ',
+        preferredUrl: '  https://psprices.com/region-ch/game/123  '
+      })
+    );
     const lookupReq = httpMock.expectOne((request) => {
       return (
         request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
         request.params.get('igdbGameId') === '960' &&
         request.params.get('platformIgdbId') === '130' &&
-        request.params.get('title') === 'Nioh 2'
+        request.params.get('title') === 'Nioh 2' &&
+        request.params.get('preferredPsPricesUrl') === 'https://psprices.com/region-ch/game/123'
       );
     });
     lookupReq.flush({ status: 'ok' });
@@ -2727,6 +3620,82 @@ describe('IgdbProxyService', () => {
     });
     failureReq.flush({ error: 'nope' }, { status: 500, statusText: 'Server Error' });
     await expect(failurePromise).rejects.toThrow('Unable to load PSPrices data.');
+  });
+
+  it('lookupPsPrices omits preferredPsPricesUrl when the preferred url is blank or invalid', async () => {
+    const promise = firstValueFrom(
+      service.lookupPsPrices('960', 130, {
+        title: '  Nioh 2  ',
+        preferredUrl: '   '
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
+        request.params.get('title') === 'Nioh 2' &&
+        !request.params.has('preferredPsPricesUrl')
+      );
+    });
+    req.flush({ status: 'ok' });
+
+    await expect(promise).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('lookupPsPrices omits preferredPsPricesUrl when the preferred url is non-empty but cannot be normalized', async () => {
+    const promise = firstValueFrom(
+      service.lookupPsPrices('960', 130, {
+        title: 'Nioh 2',
+        preferredUrl: 'not a valid url'
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
+        request.params.get('title') === 'Nioh 2' &&
+        !request.params.has('preferredPsPricesUrl')
+      );
+    });
+    req.flush({ status: 'ok' });
+
+    await expect(promise).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('lookupPsPrices omits preferredPsPricesUrl when preferredUrl is not a string', async () => {
+    const promise = firstValueFrom(
+      service.lookupPsPrices('960', 130, {
+        title: 'Nioh 2',
+        preferredUrl: 42 as unknown as string
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
+        request.params.get('title') === 'Nioh 2' &&
+        !request.params.has('preferredPsPricesUrl')
+      );
+    });
+    req.flush({ status: 'ok' });
+
+    await expect(promise).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('normalizes scheme-less preferred PSPrices urls before dispatching lookup requests', async () => {
+    const promise = firstValueFrom(
+      service.lookupPsPrices('10148', 167, {
+        preferredUrl: '  //psprices.com/region-ch/game/123  '
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
+        request.params.get('igdbGameId') === '10148' &&
+        request.params.get('platformIgdbId') === '167' &&
+        request.params.get('preferredPsPricesUrl') === 'https://psprices.com/region-ch/game/123'
+      );
+    });
+    req.flush({ status: 'unavailable', bestPrice: null });
+
+    await expect(promise).resolves.toEqual({ status: 'unavailable', bestPrice: null });
   });
 
   it('prefers retry-after based recommendation cooldown error mapping', async () => {

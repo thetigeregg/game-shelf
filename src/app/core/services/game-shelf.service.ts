@@ -55,7 +55,10 @@ interface PsPricesLookupApi {
   lookupPsPrices(
     igdbGameId: string,
     platformIgdbId: number,
-    title?: string | null
+    query?: {
+      title?: string | null;
+      preferredUrl?: string | null;
+    }
   ): Observable<unknown>;
 }
 
@@ -517,12 +520,26 @@ export class GameShelfService {
       existing.hltbMatchQueryPlatform.trim().length > 0
         ? existing.hltbMatchQueryPlatform.trim()
         : existing.platform;
+    const preferredHltbGameId =
+      existing.hltbMatchLocked === true &&
+      Number.isInteger(existing.hltbMatchGameId) &&
+      (existing.hltbMatchGameId as number) > 0
+        ? (existing.hltbMatchGameId as number)
+        : null;
+    const preferredHltbUrl =
+      existing.hltbMatchLocked === true &&
+      typeof existing.hltbMatchUrl === 'string' &&
+      existing.hltbMatchUrl.trim().length > 0
+        ? existing.hltbMatchUrl.trim()
+        : null;
 
     return this.refreshGameCompletionTimesWithLookup(
       existing,
       lookupTitle,
       lookupReleaseYear,
       lookupPlatform,
+      preferredHltbGameId,
+      preferredHltbUrl,
       existing.hltbMatchLocked ?? null
     );
   }
@@ -530,7 +547,13 @@ export class GameShelfService {
   async refreshGameCompletionTimesWithQuery(
     igdbGameId: string,
     platformIgdbId: number,
-    query: { title: string; releaseYear?: number | null; platform?: string | null }
+    query: {
+      title: string;
+      releaseYear?: number | null;
+      platform?: string | null;
+      preferredGameId?: number | null;
+      preferredUrl?: string | null;
+    }
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.hltb.refresh_start', {
       igdbGameId,
@@ -557,8 +580,26 @@ export class GameShelfService {
       typeof query.platform === 'string' && query.platform.trim().length > 0
         ? query.platform.trim()
         : existing.platform;
+    const preferredHltbGameId =
+      typeof query.preferredGameId === 'number' &&
+      Number.isInteger(query.preferredGameId) &&
+      query.preferredGameId > 0
+        ? query.preferredGameId
+        : null;
+    const preferredHltbUrl =
+      typeof query.preferredUrl === 'string' && query.preferredUrl.trim().length > 0
+        ? query.preferredUrl.trim()
+        : null;
 
-    return this.refreshGameCompletionTimesWithLookup(existing, title, releaseYear, platform, true);
+    return this.refreshGameCompletionTimesWithLookup(
+      existing,
+      title,
+      releaseYear,
+      platform,
+      preferredHltbGameId,
+      preferredHltbUrl,
+      true
+    );
   }
 
   async refreshGameMetacriticScore(igdbGameId: string, platformIgdbId: number): Promise<GameEntry> {
@@ -572,7 +613,7 @@ export class GameShelfService {
   async refreshGamePricingWithQuery(
     igdbGameId: string,
     platformIgdbId: number,
-    query?: { title?: string | null }
+    query?: { title?: string | null; preferredUrl?: string | null }
   ): Promise<GameEntry> {
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
@@ -587,10 +628,16 @@ export class GameShelfService {
       typeof query?.title === 'string' && query.title.trim().length > 0
         ? query.title.trim()
         : undefined;
+    const preferredUrl =
+      typeof query?.preferredUrl === 'string' && query.preferredUrl.trim().length > 0
+        ? query.preferredUrl.trim()
+        : undefined;
+    const hasLookupOverride = lookupTitle !== undefined || preferredUrl !== undefined;
     const pricing = await this.lookupUnifiedPrice(
       existing.igdbGameId,
       existing.platformIgdbId,
-      lookupTitle
+      lookupTitle,
+      preferredUrl
     );
     const shouldRetainExistingPricing =
       this.isPricingSupportedPlatform(existing.platformIgdbId) && pricing === null;
@@ -634,8 +681,7 @@ export class GameShelfService {
         priceDiscountPercent: effectivePricing?.discountPercent ?? null,
         priceIsFree: effectivePricing?.isFree ?? null,
         priceUrl: effectivePricing?.url ?? null,
-        psPricesMatchLocked:
-          lookupTitle !== undefined ? true : (existing.psPricesMatchLocked ?? null),
+        psPricesMatchLocked: hasLookupOverride ? true : (existing.psPricesMatchLocked ?? null),
         screenshots: existing.screenshots ?? [],
         videos: existing.videos ?? [],
         publishers: existing.publishers ?? [],
@@ -717,6 +763,10 @@ export class GameShelfService {
         : existing.platformIgdbId;
     const lookupMobyGameId =
       existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null;
+    const preferredReviewUrl =
+      existing.reviewMatchLocked === true
+        ? (existing.reviewUrl ?? existing.metacriticUrl ?? null)
+        : null;
 
     return this.refreshGameReviewWithLookup(
       existing,
@@ -725,6 +775,7 @@ export class GameShelfService {
       lookupPlatform,
       lookupPlatformIgdbId,
       lookupMobyGameId,
+      preferredReviewUrl,
       existing.reviewMatchLocked ?? null
     );
   }
@@ -738,6 +789,7 @@ export class GameShelfService {
       platform?: string | null;
       platformIgdbId?: number | null;
       mobygamesGameId?: number | null;
+      preferredUrl?: string | null;
     }
   ): Promise<GameEntry> {
     return this.refreshGameReviewScoreWithQuery(igdbGameId, platformIgdbId, query);
@@ -752,6 +804,7 @@ export class GameShelfService {
       platform?: string | null;
       platformIgdbId?: number | null;
       mobygamesGameId?: number | null;
+      preferredUrl?: string | null;
     }
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
@@ -791,6 +844,10 @@ export class GameShelfService {
       query.mobygamesGameId > 0
         ? query.mobygamesGameId
         : (existing.reviewMatchMobygamesGameId ?? existing.mobygamesGameId ?? null);
+    const preferredReviewUrl =
+      typeof query.preferredUrl === 'string' && query.preferredUrl.trim().length > 0
+        ? query.preferredUrl.trim()
+        : null;
 
     return this.refreshGameReviewWithLookup(
       existing,
@@ -799,6 +856,7 @@ export class GameShelfService {
       platform,
       lookupPlatformIgdbId,
       lookupMobyGameId,
+      preferredReviewUrl,
       true
     );
   }
@@ -808,16 +866,23 @@ export class GameShelfService {
     title: string,
     releaseYear: number | null,
     platform: string,
+    preferredHltbGameId: number | null,
+    preferredHltbUrl: string | null,
     matchLocked: boolean | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.hltb.lookup_start', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       lookupTitle: title,
       lookupReleaseYear: releaseYear,
-      lookupPlatform: platform
+      lookupPlatform: platform,
+      preferredHltbGameId,
+      preferredHltbUrl
     });
     const completionTimes = await firstValueFrom(
-      this.searchApi.lookupCompletionTimes(title, releaseYear, platform)
+      this.searchApi.lookupCompletionTimes(title, releaseYear, platform, {
+        preferredGameId: preferredHltbGameId,
+        preferredUrl: preferredHltbUrl
+      })
     );
     this.debugLogService.trace('game_shelf.hltb.lookup_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
@@ -837,6 +902,8 @@ export class GameShelfService {
         hltbMainHours: completionTimes?.hltbMainHours ?? null,
         hltbMainExtraHours: completionTimes?.hltbMainExtraHours ?? null,
         hltbCompletionistHours: completionTimes?.hltbCompletionistHours ?? null,
+        hltbMatchGameId: completionTimes?.hltbGameId ?? preferredHltbGameId,
+        hltbMatchUrl: completionTimes?.hltbUrl ?? preferredHltbUrl,
         hltbMatchQueryTitle: title,
         hltbMatchQueryReleaseYear: releaseYear,
         hltbMatchQueryPlatform: platform,
@@ -885,6 +952,7 @@ export class GameShelfService {
     platform: string,
     platformIgdbId: number | null,
     mobygamesGameId: number | null,
+    preferredReviewUrl: string | null,
     matchLocked: boolean | null
   ): Promise<GameEntry> {
     this.debugLogService.trace('game_shelf.metacritic.lookup_start', {
@@ -893,7 +961,8 @@ export class GameShelfService {
       lookupReleaseYear: releaseYear,
       lookupPlatform: platform,
       lookupPlatformIgdbId: platformIgdbId,
-      lookupMobyGameId: mobygamesGameId
+      lookupMobyGameId: mobygamesGameId,
+      preferredReviewUrl
     });
     const reviewLookup = (this.searchApi as Partial<GameSearchApi>).lookupReviewScore;
     const scoreResult: ReviewScoreResult | null =
@@ -905,24 +974,33 @@ export class GameShelfService {
               releaseYear,
               platform,
               platformIgdbId,
-              mobygamesGameId
+              mobygamesGameId,
+              preferredReviewUrl
             )
           )
         : await firstValueFrom(
-            this.searchApi.lookupMetacriticScore(title, releaseYear, platform, platformIgdbId).pipe(
-              map((result) =>
-                result
-                  ? {
-                      ...result,
-                      reviewScore: result.metacriticScore,
-                      reviewUrl: result.metacriticUrl,
-                      reviewSource: 'metacritic',
-                      mobyScore: null,
-                      mobygamesGameId: null
-                    }
-                  : null
+            this.searchApi
+              .lookupMetacriticScore(
+                title,
+                releaseYear,
+                platform,
+                platformIgdbId,
+                preferredReviewUrl
               )
-            )
+              .pipe(
+                map((result) =>
+                  result
+                    ? {
+                        ...result,
+                        reviewScore: result.metacriticScore,
+                        reviewUrl: result.metacriticUrl,
+                        reviewSource: 'metacritic',
+                        mobyScore: null,
+                        mobygamesGameId: null
+                      }
+                    : null
+                )
+              )
           );
     this.debugLogService.trace('game_shelf.metacritic.lookup_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
@@ -1678,7 +1756,8 @@ export class GameShelfService {
   private async lookupUnifiedPrice(
     igdbGameId: string,
     platformIgdbId: number,
-    titleOverride?: string | null
+    titleOverride?: string | null,
+    preferredUrl?: string | null
   ): Promise<UnifiedPriceSnapshot | null> {
     if (!this.isPricingSupportedPlatform(platformIgdbId)) {
       return null;
@@ -1703,9 +1782,12 @@ export class GameShelfService {
       }
 
       const result = (await firstValueFrom(
-        titleOverride === undefined
+        titleOverride === undefined && preferredUrl === undefined
           ? pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
-          : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, titleOverride ?? null)
+          : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, {
+              title: titleOverride ?? null,
+              preferredUrl: preferredUrl ?? null
+            })
       )) as PsPricesLookupResult;
       return this.normalizePsPricesLookupResult(result);
     }

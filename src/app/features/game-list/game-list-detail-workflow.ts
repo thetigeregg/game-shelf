@@ -173,9 +173,11 @@ export function dedupeReviewCandidates<
     // Never replace a concrete review identity with a URL-less variant.
     const wouldDropIdentityUrl =
       existingIdentityUrl.length > 0 && candidateIdentityUrl.length === 0;
+    const gainsIdentityUrl = existingIdentityUrl.length === 0 && candidateIdentityUrl.length > 0;
     const shouldReplace =
       !wouldDropIdentityUrl &&
-      ((existing.imageUrl == null && candidate.imageUrl != null) ||
+      (gainsIdentityUrl ||
+        (existing.imageUrl == null && candidate.imageUrl != null) ||
         (existingScore == null && candidateScore != null));
 
     if (shouldReplace) {

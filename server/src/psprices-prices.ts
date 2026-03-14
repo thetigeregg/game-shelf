@@ -1771,7 +1771,7 @@ export async function processQueuedPspricesPriceRevalidation(
     normalizeNonEmptyString(gamePayload['psPricesMatchQueryTitle']) ??
     normalizeNonEmptyString(gamePayload['title']);
   const preferredPsPricesUrl =
-    normalizeNonEmptyString(payload.psPricesUrl) ?? resolvePreferredPsPricesUrl(gamePayload);
+    normalizePreferredPsPricesUrl(payload.psPricesUrl) ?? resolvePreferredPsPricesUrl(gamePayload);
   if (!title) {
     throw new Error('PSPrices revalidation missing title.');
   }

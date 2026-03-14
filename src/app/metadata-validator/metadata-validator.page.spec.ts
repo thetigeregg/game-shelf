@@ -1231,6 +1231,31 @@ describe('MetadataValidatorPage', () => {
     expect(reviewKeepsIdentity.length).toBe(1);
     expect(reviewKeepsIdentity[0].reviewUrl).toBe('https://www.metacritic.com/game/y/identity');
 
+    const reviewGainsIdentity = callPrivate(page, 'dedupeReviewCandidates', [
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: null,
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      },
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/y/identity-upgrade',
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      }
+    ]) as ReviewMatchCandidate[];
+    expect(reviewGainsIdentity.length).toBe(1);
+    expect(reviewGainsIdentity[0].reviewUrl).toBe(
+      'https://www.metacritic.com/game/y/identity-upgrade'
+    );
+
     const reviewDistinctPlatform = callPrivate(page, 'dedupeReviewCandidates', [
       {
         title: 'Y',

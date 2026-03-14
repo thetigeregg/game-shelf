@@ -42,6 +42,7 @@ export interface HltbCacheRevalidationPayload {
 
 const DEFAULT_HLTB_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS = 86400 * 90;
+const MAX_NORMALIZED_HLTB_URL_LENGTH = 2048;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
 
 export async function registerHltbCachedRoute(
@@ -635,9 +636,32 @@ function normalizeHltbUrl(value: unknown): string | null {
     normalized = `https://${normalized.slice('http://'.length)}`;
   } else if (normalized.startsWith('/')) {
     normalized = `https://howlongtobeat.com${normalized}`;
+  } else if (!normalized.startsWith('https://')) {
+    return null;
   }
 
-  return normalized;
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return null;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname !== 'howlongtobeat.com' && hostname !== 'www.howlongtobeat.com') {
+    return null;
+  }
+
+  parsed.protocol = 'https:';
+  parsed.hostname = 'howlongtobeat.com';
+  parsed.port = '';
+
+  const href = parsed.href;
+  return href.length <= MAX_NORMALIZED_HLTB_URL_LENGTH ? href : null;
 }
 
 async function deleteHltbCacheEntry(

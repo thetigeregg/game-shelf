@@ -8,20 +8,35 @@ function normalizeNonEmptyString(value: unknown): string | null {
 }
 
 export function normalizePreferredPsPricesUrl(value: unknown): string | null {
-  const normalized = normalizeNonEmptyString(value);
+  let normalized = normalizeNonEmptyString(value);
   if (normalized === null) {
     return null;
   }
 
   if (normalized.startsWith('//')) {
-    return `https:${normalized}`;
+    normalized = `https:${normalized}`;
+  } else if (normalized.startsWith('http://')) {
+    normalized = `https://${normalized.slice('http://'.length)}`;
+  } else if (!normalized.startsWith('https://')) {
+    return null;
   }
 
-  if (normalized.startsWith('http://')) {
-    return `https://${normalized.slice('http://'.length)}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return null;
   }
 
-  return normalized;
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname !== 'psprices.com' && !hostname.endsWith('.psprices.com')) {
+    return null;
+  }
+
+  parsed.protocol = 'https:';
+  parsed.hostname = hostname;
+  parsed.port = '';
+  return parsed.toString();
 }
 
 export function resolvePreferredPsPricesUrl(payload: Record<string, unknown>): string | null {

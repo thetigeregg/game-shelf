@@ -468,6 +468,63 @@ void test('HLTB cache keys differentiate preferred identities and normalize pref
   await app.close();
 });
 
+void test('HLTB cache ignores invalid external preferred URLs for cache keying and candidate mode', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: {
+              hltbGameId: 7001,
+              hltbUrl: 'https://howlongtobeat.com/game/7001',
+              hltbMainHours: 8
+            },
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                hltbGameId: 7001,
+                hltbUrl: 'https://howlongtobeat.com/game/7001',
+                imageUrl: 'https://howlongtobeat.com/games/7001.jpg',
+                hltbMainHours: 8
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const invalidPreferredUrlResponse = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbUrl=' +
+      encodeURIComponent('https://example.com/game/7002')
+  });
+  assert.equal(invalidPreferredUrlResponse.statusCode, 200);
+  assert.equal(invalidPreferredUrlResponse.headers['x-gameshelf-hltb-cache'], 'MISS');
+
+  const plainResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/hltb/search?q=night%20in%20the%20woods'
+  });
+  assert.equal(plainResponse.statusCode, 200);
+  assert.equal(plainResponse.headers['x-gameshelf-hltb-cache'], 'HIT_FRESH');
+  assert.equal(fetchCalls, 1);
+  assert.equal(pool.getEntryCount(), 1);
+
+  await app.close();
+});
+
 void test('HLTB cache does not persist successful but uncacheable preferred-candidate payloads', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();

@@ -667,7 +667,8 @@ describe('MetadataValidatorPage', () => {
       score: 97
     });
     expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('42', 167, {
-      title: 'Target'
+      title: 'Target',
+      preferredUrl: 'https://psprices.com/region-ch/game/target'
     });
 
     shelf.refreshGamePricingWithQuery.mockResolvedValueOnce(
@@ -716,6 +717,92 @@ describe('MetadataValidatorPage', () => {
     setField(page, 'pricingPickerTargetGame', target);
     await page.useOriginalPricingLookup();
     expect(shelf.refreshGamePricing).toHaveBeenCalledWith('42', 167);
+  });
+
+  it('forwards exact-match identities through single-item picker apply flows', async () => {
+    const { page, shelf } = createPageHarness();
+    const target = createGame({
+      igdbGameId: '42',
+      platformIgdbId: 167,
+      title: 'Target',
+      platform: 'PlayStation 5'
+    });
+
+    setField(page, 'hltbPickerTargetGame', target);
+    await page.applySelectedHltbCandidate({
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002',
+      hltbMainHours: 3,
+      hltbMainExtraHours: 4,
+      hltbCompletionistHours: 6
+    });
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenLastCalledWith('42', 167, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
+
+    setField(page, 'hltbPickerTargetGame', target);
+    await page.applySelectedHltbCandidate({
+      title: 'Target',
+      releaseYear: 1994,
+      platform: 'PlayStation 5',
+      hltbGameId: null,
+      hltbUrl: null,
+      hltbMainHours: 5,
+      hltbMainExtraHours: 6,
+      hltbCompletionistHours: 7
+    });
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenLastCalledWith('42', 167, {
+      title: 'Target',
+      releaseYear: 1994,
+      platform: 'PlayStation 5',
+      preferredGameId: null,
+      preferredUrl: null
+    });
+
+    setField(page, 'metacriticPickerTargetGame', target);
+    await page.applySelectedMetacriticCandidate({
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      reviewScore: 90,
+      reviewUrl: 'https://www.metacritic.com/game/target-alt/',
+      reviewSource: 'metacritic',
+      mobyScore: null,
+      mobygamesGameId: 1234,
+      metacriticScore: 90,
+      metacriticUrl: 'https://www.metacritic.com/game/target-alt/'
+    });
+    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenLastCalledWith('42', 167, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PlayStation 5',
+      platformIgdbId: 167,
+      mobygamesGameId: 1234,
+      preferredUrl: 'https://www.metacritic.com/game/target-alt/'
+    });
+
+    setField(page, 'pricingPickerTargetGame', target);
+    await page.applySelectedPricingCandidate({
+      title: 'Target',
+      amount: 19.9,
+      currency: 'CHF',
+      regularAmount: null,
+      discountPercent: null,
+      isFree: false,
+      url: 'https://psprices.com/region-ch/game/target-alt',
+      score: 95
+    });
+    expect(shelf.refreshGamePricingWithQuery).toHaveBeenLastCalledWith('42', 167, {
+      title: 'Target',
+      preferredUrl: 'https://psprices.com/region-ch/game/target-alt'
+    });
   });
 
   it('covers additional pricing guard branches for single and bulk refresh flows', async () => {
@@ -838,9 +925,18 @@ describe('MetadataValidatorPage', () => {
       title: 'Target',
       releaseYear: 1993,
       platform: 'PC',
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002',
       hltbMainHours: 3,
       hltbMainExtraHours: 4,
       hltbCompletionistHours: 6
+    });
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalledWith('42', 6, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PC',
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
     });
     expect(presentToast).toHaveBeenCalledWith('Updated HLTB for Target.');
 
@@ -850,6 +946,8 @@ describe('MetadataValidatorPage', () => {
       title: 'Target',
       releaseYear: 1993,
       platform: 'PC',
+      hltbGameId: 7002,
+      hltbUrl: 'https://howlongtobeat.com/game/7002',
       hltbMainHours: null,
       hltbMainExtraHours: null,
       hltbCompletionistHours: null
@@ -871,6 +969,14 @@ describe('MetadataValidatorPage', () => {
       platform: 'PC',
       metacriticScore: 90,
       metacriticUrl: 'https://www.metacritic.com/game/target/'
+    });
+    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalledWith('42', 6, {
+      title: 'Target',
+      releaseYear: 1993,
+      platform: 'PC',
+      platformIgdbId: 6,
+      mobygamesGameId: null,
+      preferredUrl: 'https://www.metacritic.com/game/target/'
     });
     expect(presentToast).toHaveBeenCalledWith('Updated review for Target.');
 
@@ -984,6 +1090,7 @@ describe('MetadataValidatorPage', () => {
         title: 'X',
         releaseYear: 2000,
         platform: 'PC',
+        hltbGameId: 1,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null
@@ -992,12 +1099,85 @@ describe('MetadataValidatorPage', () => {
         title: 'X',
         releaseYear: 2000,
         platform: 'PC',
+        hltbGameId: 2,
         hltbMainHours: 1,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null
       }
     ]) as HltbMatchCandidate[];
-    expect(hltbDeduped.length).toBe(1);
+    expect(hltbDeduped.length).toBe(2);
+
+    const hltbDedupedWithoutIdentity = callPrivate(page, 'dedupeHltbCandidates', [
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: null,
+        hltbUrl: null,
+        hltbMainHours: 1,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      },
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: null,
+        hltbUrl: null,
+        hltbMainHours: 2,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }
+    ]) as HltbMatchCandidate[];
+    expect(hltbDedupedWithoutIdentity.length).toBe(1);
+
+    const hltbDedupedWithPartialIdentity = callPrivate(page, 'dedupeHltbCandidates', [
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: 2,
+        hltbUrl: null,
+        hltbMainHours: 1,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      },
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: 2,
+        hltbUrl: null,
+        hltbMainHours: 2,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }
+    ]) as HltbMatchCandidate[];
+    expect(hltbDedupedWithPartialIdentity.length).toBe(1);
+
+    const hltbDedupedWithUrlOnlyIdentity = callPrivate(page, 'dedupeHltbCandidates', [
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: null,
+        hltbUrl: 'https://howlongtobeat.com/game/2',
+        hltbMainHours: 1,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      },
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: null,
+        hltbUrl: 'https://howlongtobeat.com/game/2',
+        hltbMainHours: 2,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }
+    ]) as HltbMatchCandidate[];
+    expect(hltbDedupedWithUrlOnlyIdentity.length).toBe(1);
 
     const mcDeduped = callPrivate(page, 'dedupeMetacriticCandidates', [
       { title: 'X', releaseYear: 2000, platform: 'PC', metacriticScore: 50, metacriticUrl: null },
@@ -1029,6 +1209,98 @@ describe('MetadataValidatorPage', () => {
     ]) as ReviewMatchCandidate[];
     expect(reviewDeduped.length).toBe(1);
     expect(reviewDeduped[0].reviewScore).toBe(85);
+
+    const reviewDistinctUrls = callPrivate(page, 'dedupeReviewCandidates', [
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/y/a',
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      },
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/y/b',
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      }
+    ]) as ReviewMatchCandidate[];
+    expect(reviewDistinctUrls.length).toBe(2);
+
+    const reviewKeepsIdentity = callPrivate(page, 'dedupeReviewCandidates', [
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: null,
+        reviewUrl: 'https://www.metacritic.com/game/y/identity',
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      },
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: null,
+        reviewSource: 'metacritic' as const,
+        imageUrl: 'https://images.example/y.jpg'
+      }
+    ]) as ReviewMatchCandidate[];
+    expect(reviewKeepsIdentity.length).toBe(1);
+    expect(reviewKeepsIdentity[0].reviewUrl).toBe('https://www.metacritic.com/game/y/identity');
+
+    const reviewGainsIdentity = callPrivate(page, 'dedupeReviewCandidates', [
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: null,
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      },
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: 'https://www.metacritic.com/game/y/identity-upgrade',
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      }
+    ]) as ReviewMatchCandidate[];
+    expect(reviewGainsIdentity.length).toBe(1);
+    expect(reviewGainsIdentity[0].reviewUrl).toBe(
+      'https://www.metacritic.com/game/y/identity-upgrade'
+    );
+
+    const reviewDistinctPlatform = callPrivate(page, 'dedupeReviewCandidates', [
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: null,
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      },
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PC',
+        reviewScore: 85,
+        reviewUrl: null,
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      }
+    ]) as ReviewMatchCandidate[];
+    expect(reviewDistinctPlatform.length).toBe(2);
 
     shelf.searchHltbCandidates.mockReturnValueOnce(of([]));
     await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
@@ -1081,6 +1353,8 @@ describe('MetadataValidatorPage', () => {
           title: 'Test',
           releaseYear: 1993,
           platform: 'PC',
+          hltbGameId: 7002,
+          hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: 1,
           hltbMainExtraHours: null,
           hltbCompletionistHours: null
@@ -1088,7 +1362,36 @@ describe('MetadataValidatorPage', () => {
       ])
     );
     await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
-    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalled();
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenCalledWith('9', 6, {
+      title: 'Test',
+      releaseYear: 1993,
+      platform: 'PC',
+      preferredGameId: 7002,
+      preferredUrl: 'https://howlongtobeat.com/game/7002'
+    });
+
+    shelf.searchHltbCandidates.mockReturnValueOnce(
+      of([
+        {
+          title: 'Test',
+          releaseYear: 1994,
+          platform: 'PC',
+          hltbGameId: null,
+          hltbUrl: null,
+          hltbMainHours: 2,
+          hltbMainExtraHours: null,
+          hltbCompletionistHours: null
+        }
+      ])
+    );
+    await (callPrivate(page, 'refreshHltbForBulkGame', game) as Promise<GameEntry>);
+    expect(shelf.refreshGameCompletionTimesWithQuery).toHaveBeenLastCalledWith('9', 6, {
+      title: 'Test',
+      releaseYear: 1994,
+      platform: 'PC',
+      preferredGameId: null,
+      preferredUrl: null
+    });
 
     shelf.searchReviewCandidates.mockReturnValueOnce(
       of([
@@ -1104,7 +1407,39 @@ describe('MetadataValidatorPage', () => {
       ])
     );
     await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
-    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalled();
+    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenCalledWith('9', 6, {
+      title: 'Test',
+      releaseYear: 1993,
+      platform: 'PC',
+      platformIgdbId: 6,
+      mobygamesGameId: null,
+      preferredUrl: 'https://www.metacritic.com/game/test/'
+    });
+
+    shelf.searchReviewCandidates.mockReturnValueOnce(
+      of([
+        {
+          title: 'Test',
+          releaseYear: 1994,
+          platform: 'PC',
+          reviewScore: 71,
+          reviewUrl: null,
+          reviewSource: 'metacritic' as const,
+          mobygamesGameId: null,
+          metacriticScore: 71,
+          metacriticUrl: 'https://www.metacritic.com/game/test-fallback/'
+        }
+      ])
+    );
+    await (callPrivate(page, 'refreshMetacriticForBulkGame', game) as Promise<GameEntry>);
+    expect(shelf.refreshGameMetacriticScoreWithQuery).toHaveBeenLastCalledWith('9', 6, {
+      title: 'Test',
+      releaseYear: 1994,
+      platform: 'PC',
+      platformIgdbId: 6,
+      mobygamesGameId: null,
+      preferredUrl: 'https://www.metacritic.com/game/test-fallback/'
+    });
   });
 
   it('covers bulk pricing helper branches for supported/unsupported and fallback paths', async () => {
@@ -1120,11 +1455,18 @@ describe('MetadataValidatorPage', () => {
     expect(shelf.refreshGamePricing).toHaveBeenCalledWith('21', 167);
 
     shelf.searchPricingCandidates.mockReturnValueOnce(
-      of([{ title: 'PS Test Candidate', amount: 19.9 } as PriceMatchCandidate])
+      of([
+        {
+          title: 'PS Test Candidate',
+          amount: 19.9,
+          url: 'https://psprices.com/region-ch/game/ps-test-candidate'
+        } as PriceMatchCandidate
+      ])
     );
     await (callPrivate(page, 'refreshPricingForBulkGame', supported) as Promise<GameEntry>);
     expect(shelf.refreshGamePricingWithQuery).toHaveBeenCalledWith('21', 167, {
-      title: 'PS Test Candidate'
+      title: 'PS Test Candidate',
+      preferredUrl: 'https://psprices.com/region-ch/game/ps-test-candidate'
     });
 
     shelf.searchPricingCandidates.mockReturnValueOnce(

@@ -7,8 +7,41 @@ function normalizeNonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+export function normalizePreferredPsPricesUrl(value: unknown): string | null {
+  let normalized = normalizeNonEmptyString(value);
+  if (normalized === null) {
+    return null;
+  }
+
+  if (normalized.startsWith('//')) {
+    normalized = `https:${normalized}`;
+  } else if (normalized.startsWith('http://')) {
+    normalized = `https://${normalized.slice('http://'.length)}`;
+  } else if (!normalized.startsWith('https://')) {
+    return null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return null;
+  }
+
+  const rawHostname = parsed.hostname.toLowerCase();
+  const hostname = rawHostname.startsWith('www.') ? rawHostname.slice(4) : rawHostname;
+  if (hostname !== 'psprices.com' && !hostname.endsWith('.psprices.com')) {
+    return null;
+  }
+
+  parsed.protocol = 'https:';
+  parsed.hostname = hostname;
+  parsed.port = '';
+  return parsed.toString();
+}
+
 export function resolvePreferredPsPricesUrl(payload: Record<string, unknown>): string | null {
-  const explicitPsPricesUrl = normalizeNonEmptyString(payload['psPricesUrl']);
+  const explicitPsPricesUrl = normalizePreferredPsPricesUrl(payload['psPricesUrl']);
   if (explicitPsPricesUrl) {
     return explicitPsPricesUrl;
   }
@@ -17,5 +50,5 @@ export function resolvePreferredPsPricesUrl(payload: Record<string, unknown>): s
     return null;
   }
 
-  return normalizeNonEmptyString(payload['priceUrl']);
+  return normalizePreferredPsPricesUrl(payload['priceUrl']);
 }

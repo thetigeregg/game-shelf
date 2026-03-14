@@ -6,7 +6,7 @@ import { config } from './config.js';
 import { isDiscoveryListType } from './list-type.js';
 import { maybeSendWishlistSaleNotification } from './price-sale-notifications.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
-import { resolvePreferredPsPricesUrl } from './psprices-url.js';
+import { normalizePreferredPsPricesUrl, resolvePreferredPsPricesUrl } from './psprices-url.js';
 
 interface PsPricesRouteOptions {
   fetchImpl?: typeof fetch;
@@ -245,7 +245,9 @@ export async function registerPsPricesRoute(
       const igdbGameId = normalizeGameId(query['igdbGameId']);
       const platformIgdbId = normalizePositiveInteger(query['platformIgdbId']);
       const titleOverride = normalizeNonEmptyString(query['title']);
-      const preferredPsPricesUrlOverride = normalizeNonEmptyString(query['preferredPsPricesUrl']);
+      const preferredPsPricesUrlOverride = normalizePreferredPsPricesUrl(
+        query['preferredPsPricesUrl']
+      );
       const hasTitleOverride = titleOverride !== null;
       const hasPreferredPsPricesUrlOverride = preferredPsPricesUrlOverride !== null;
       const hasLookupOverride = hasTitleOverride || hasPreferredPsPricesUrlOverride;
@@ -832,12 +834,13 @@ async function fetchPsPricesSnapshot(
       } satisfies RankedPsPricesCandidate;
     })
     .sort((left, right) => compareRankedPsPricesCandidates(left, right));
-  const preferredUrl = normalizeNonEmptyString(params.preferredUrl);
+  const preferredUrl = normalizePreferredPsPricesUrl(params.preferredUrl);
   const preferredMatch =
     preferredUrl === null
       ? null
-      : (ranked.find((entry) => normalizeNonEmptyString(entry.candidate.url) === preferredUrl) ??
-        null);
+      : (ranked.find(
+          (entry) => normalizePreferredPsPricesUrl(entry.candidate.url) === preferredUrl
+        ) ?? null);
 
   if (preferredMatch) {
     return {

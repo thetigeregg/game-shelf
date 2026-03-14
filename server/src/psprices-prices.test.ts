@@ -709,6 +709,150 @@ void test('PSPrices route honors preferredPsPricesUrl query override and bypasse
   await app.close();
 });
 
+void test('PSPrices route canonicalizes scheme-less preferredPsPricesUrl query overrides', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('5263323', 167, {
+    title: 'Night In The Woods',
+    psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
+    psPricesRegionPath: 'region-ch',
+    psPricesShow: 'games',
+    psPricesPlatform: 'PS5',
+    psPricesTitle: 'Night In The Woods',
+    psPricesPriceAmount: 25.5,
+    psPricesPriceCurrency: 'CHF',
+    psPricesRegularPriceAmount: null,
+    psPricesDiscountPercent: null,
+    psPricesIsFree: false,
+    psPricesUrl: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
+    psPricesMatchQueryTitle: 'Night In The Woods'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    fetchImpl: (input) => {
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      assert.equal(url.pathname, '/v1/psprices/search');
+      assert.equal(url.searchParams.get('q'), 'Night In The Woods');
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                title: 'Night In The Woods',
+                priceAmount: 25.5,
+                currency: 'CHF',
+                regularPriceAmount: null,
+                discountPercent: null,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods'
+              },
+              {
+                title: 'Night In The Woods',
+                priceAmount: 19.9,
+                currency: 'CHF',
+                regularPriceAmount: null,
+                discountPercent: null,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
+      encodeURIComponent('//psprices.com/region-ch/game/5825037/night-in-the-woods')
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(bestPrice['amount'], 19.9);
+  assert.equal(bestPrice['url'], 'https://psprices.com/region-ch/game/5825037/night-in-the-woods');
+
+  await app.close();
+});
+
+void test('PSPrices route clears persisted preferred url when a title override is provided', async () => {
+  const app = Fastify();
+  const pool = new GamePoolMock();
+  pool.seed('5263323', 167, {
+    title: 'Night In The Woods',
+    psPricesFetchedAt: '2026-03-10T10:00:00.000Z',
+    psPricesRegionPath: 'region-ch',
+    psPricesShow: 'games',
+    psPricesPlatform: 'PS5',
+    psPricesTitle: 'Night In The Woods',
+    psPricesPriceAmount: 25.5,
+    psPricesPriceCurrency: 'CHF',
+    psPricesRegularPriceAmount: null,
+    psPricesDiscountPercent: null,
+    psPricesIsFree: false,
+    psPricesUrl: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
+    psPricesMatchQueryTitle: 'Night In The Woods'
+  });
+
+  await registerPsPricesRoute(app, pool as unknown as Pool, {
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
+    fetchImpl: (input) => {
+      const url =
+        input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url);
+      assert.equal(url.pathname, '/v1/psprices/search');
+      assert.equal(url.searchParams.get('q'), 'Night In The Woods Deluxe');
+      assert.equal(url.searchParams.get('preferredPsPricesUrl'), null);
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                title: 'Night In The Woods Deluxe',
+                priceAmount: 29.9,
+                currency: 'CHF',
+                regularPriceAmount: null,
+                discountPercent: null,
+                isFree: false,
+                url: 'https://psprices.com/region-ch/game/9999999/night-in-the-woods-deluxe'
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&title=' +
+      encodeURIComponent('Night In The Woods Deluxe')
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = parseJsonRecord(response.body);
+  const bestPrice = body['bestPrice'] as Record<string, unknown>;
+  assert.equal(
+    bestPrice['url'],
+    'https://psprices.com/region-ch/game/9999999/night-in-the-woods-deluxe'
+  );
+
+  await app.close();
+});
+
 void test('PSPrices fresh cache keeps match and candidates for includeCandidates requests', async () => {
   const app = Fastify();
   const pool = new GamePoolMock();

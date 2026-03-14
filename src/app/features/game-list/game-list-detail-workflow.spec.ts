@@ -65,6 +65,38 @@ describe('game-list-detail-workflow', () => {
     expect(result).toEqual([first, other]);
   });
 
+  it('dedupes hltb candidates when identity fields are absent', () => {
+    const first: HltbMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      hltbGameId: null,
+      hltbUrl: null,
+      hltbMainHours: 25,
+      hltbMainExtraHours: 30,
+      hltbCompletionistHours: 40
+    };
+    const duplicate = { ...first, hltbMainHours: 26 };
+
+    expect(dedupeHltbCandidates([first, duplicate])).toEqual([first]);
+  });
+
+  it('dedupes hltb candidates when only one identity field is available', () => {
+    const first: HltbMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      hltbGameId: 1,
+      hltbUrl: null,
+      hltbMainHours: 25,
+      hltbMainExtraHours: 30,
+      hltbCompletionistHours: 40
+    };
+    const duplicate = { ...first, hltbMainHours: 26 };
+
+    expect(dedupeHltbCandidates([first, duplicate])).toEqual([first]);
+  });
+
   it('opens and closes image picker state', () => {
     expect(createOpenedImagePickerState(7, 'Query')).toEqual({
       imagePickerSearchRequestId: 7,
@@ -152,6 +184,24 @@ describe('game-list-detail-workflow', () => {
     const second: ReviewMatchCandidate = {
       ...first,
       reviewUrl: 'https://example.com/review-b'
+    };
+
+    expect(dedupeReviewCandidates([first, second])).toEqual([first, second]);
+  });
+
+  it('keeps review candidates with different title keys as separate choices even when urls are missing', () => {
+    const first: ReviewMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      reviewScore: 85,
+      reviewUrl: null,
+      reviewSource: 'metacritic',
+      imageUrl: null
+    };
+    const second: ReviewMatchCandidate = {
+      ...first,
+      platform: 'DS'
     };
 
     expect(dedupeReviewCandidates([first, second])).toEqual([first, second]);

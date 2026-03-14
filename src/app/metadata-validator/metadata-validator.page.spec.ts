@@ -1155,6 +1155,30 @@ describe('MetadataValidatorPage', () => {
     ]) as HltbMatchCandidate[];
     expect(hltbDedupedWithPartialIdentity.length).toBe(1);
 
+    const hltbDedupedWithUrlOnlyIdentity = callPrivate(page, 'dedupeHltbCandidates', [
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: null,
+        hltbUrl: 'https://howlongtobeat.com/game/2',
+        hltbMainHours: 1,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      },
+      {
+        title: 'X',
+        releaseYear: 2000,
+        platform: 'PC',
+        hltbGameId: null,
+        hltbUrl: 'https://howlongtobeat.com/game/2',
+        hltbMainHours: 2,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null
+      }
+    ]) as HltbMatchCandidate[];
+    expect(hltbDedupedWithUrlOnlyIdentity.length).toBe(1);
+
     const mcDeduped = callPrivate(page, 'dedupeMetacriticCandidates', [
       { title: 'X', releaseYear: 2000, platform: 'PC', metacriticScore: 50, metacriticUrl: null },
       { title: 'X', releaseYear: 2000, platform: 'PC', metacriticScore: 50, metacriticUrl: null }

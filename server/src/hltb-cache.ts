@@ -21,6 +21,8 @@ interface NormalizedHltbQuery {
   releaseYear: number | null;
   platform: string | null;
   includeCandidates: boolean;
+  preferredHltbGameId: number | null;
+  preferredHltbUrl: string | null;
 }
 
 interface HltbCacheRouteOptions {
@@ -40,6 +42,7 @@ export interface HltbCacheRevalidationPayload {
 
 const DEFAULT_HLTB_CACHE_FRESH_TTL_SECONDS = 86400 * 7;
 const DEFAULT_HLTB_CACHE_STALE_TTL_SECONDS = 86400 * 90;
+const MAX_NORMALIZED_HLTB_URL_LENGTH = 2048;
 const revalidationInFlightByKey = new Map<string, Promise<void>>();
 
 export async function registerHltbCachedRoute(
@@ -137,11 +140,25 @@ export async function registerHltbCachedRoute(
       incrementHltbMetric('misses');
       const response = await fetchMetadata(request);
 
-      if (cacheKey && normalized && response.ok) {
+      if (normalized && response.ok) {
         const payload = await safeReadJson(response);
 
-        if (payload !== null && isCacheableHltbPayload(normalized, payload)) {
-          await persistHltbCacheEntry(pool, cacheKey, normalized, payload, request);
+        if (payload !== null) {
+          const finalizedPayload = finalizeHltbPayload(normalized, payload);
+
+          if (
+            cacheKey &&
+            finalizedPayload !== null &&
+            isCacheableHltbPayload(normalized, finalizedPayload)
+          ) {
+            await persistHltbCacheEntry(pool, cacheKey, normalized, finalizedPayload, request);
+          }
+
+          reply.header('X-GameShelf-HLTB-Cache', cacheOutcome);
+          reply.code(response.status);
+          reply.type('application/json');
+          reply.send(finalizedPayload);
+          return;
         }
       }
 
@@ -166,16 +183,22 @@ function normalizeHltbQuery(rawUrl: string): NormalizedHltbQuery | null {
   const rawIncludeCandidates = (url.searchParams.get('includeCandidates') ?? '')
     .trim()
     .toLowerCase();
+  const preferredHltbGameId = normalizePositiveInteger(url.searchParams.get('preferredHltbGameId'));
+  const preferredHltbUrl = normalizeHltbUrl(url.searchParams.get('preferredHltbUrl'));
   const includeCandidates =
     rawIncludeCandidates === '1' ||
     rawIncludeCandidates === 'true' ||
-    rawIncludeCandidates === 'yes';
+    rawIncludeCandidates === 'yes' ||
+    preferredHltbGameId !== null ||
+    preferredHltbUrl !== null;
 
   return {
     query,
     releaseYear: Number.isInteger(releaseYear) ? releaseYear : null,
     platform,
-    includeCandidates
+    includeCandidates,
+    preferredHltbGameId,
+    preferredHltbUrl
   };
 }
 
@@ -184,7 +207,9 @@ function buildCacheKey(query: NormalizedHltbQuery): string {
     query.query.toLowerCase(),
     query.releaseYear,
     query.platform?.toLowerCase() ?? null,
-    query.includeCandidates
+    query.includeCandidates,
+    query.preferredHltbGameId,
+    query.preferredHltbUrl
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -259,12 +284,14 @@ function scheduleHltbRevalidation(
         return;
       }
 
-      if (!isCacheableHltbPayload(normalizedQuery, payload)) {
+      const finalizedPayload = finalizeHltbPayload(normalizedQuery, payload);
+
+      if (!isCacheableHltbPayload(normalizedQuery, finalizedPayload)) {
         incrementHltbMetric('revalidateFailed');
         return;
       }
 
-      await persistHltbCacheEntry(pool, cacheKey, normalizedQuery, payload, request);
+      await persistHltbCacheEntry(pool, cacheKey, normalizedQuery, finalizedPayload, request);
       incrementHltbMetric('revalidateSucceeded');
     } catch (error) {
       incrementHltbMetric('revalidateFailed');
@@ -296,7 +323,8 @@ export async function processQueuedHltbCacheRevalidation(
   }
 
   const parsed = await safeReadJson(response);
-  if (parsed === null || !isCacheableHltbPayload(normalizedQuery, parsed)) {
+  const finalizedPayload = parsed === null ? null : finalizeHltbPayload(normalizedQuery, parsed);
+  if (finalizedPayload === null || !isCacheableHltbPayload(normalizedQuery, finalizedPayload)) {
     throw new Error('HLTB revalidation returned uncacheable payload.');
   }
 
@@ -315,7 +343,7 @@ export async function processQueuedHltbCacheRevalidation(
       normalizedQuery.releaseYear,
       normalizedQuery.platform,
       normalizedQuery.includeCandidates,
-      JSON.stringify(parsed)
+      JSON.stringify(finalizedPayload)
     ]
   );
 }
@@ -339,6 +367,12 @@ async function fetchHltbFromScraper(query: NormalizedHltbQuery): Promise<Respons
   }
   if (query.includeCandidates) {
     targetUrl.searchParams.set('includeCandidates', '1');
+  }
+  if (query.preferredHltbGameId !== null) {
+    targetUrl.searchParams.set('preferredHltbGameId', String(query.preferredHltbGameId));
+  }
+  if (query.preferredHltbUrl !== null) {
+    targetUrl.searchParams.set('preferredHltbUrl', query.preferredHltbUrl);
   }
 
   const headers = new Headers();
@@ -454,6 +488,182 @@ function isPositiveNumber(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
 }
 
+function hasPositiveCompletionTime(candidateRecord: Record<string, unknown>): boolean {
+  return (
+    isPositiveNumber(candidateRecord['hltbMainHours']) ||
+    isPositiveNumber(candidateRecord['hltbMainExtraHours']) ||
+    isPositiveNumber(candidateRecord['hltbCompletionistHours']) ||
+    isPositiveNumber(candidateRecord['main']) ||
+    isPositiveNumber(candidateRecord['mainPlus']) ||
+    isPositiveNumber(candidateRecord['mainExtra']) ||
+    isPositiveNumber(candidateRecord['completionist']) ||
+    isPositiveNumber(candidateRecord['solo']) ||
+    isPositiveNumber(candidateRecord['coOp']) ||
+    isPositiveNumber(candidateRecord['vs'])
+  );
+}
+
+function firstPositiveNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    if (isPositiveNumber(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function normalizePromotedHltbItem(
+  candidateRecord: Record<string, unknown>
+): Record<string, unknown> | null {
+  const hltbMainHours = firstPositiveNumber(
+    candidateRecord['hltbMainHours'],
+    candidateRecord['main'],
+    candidateRecord['solo'],
+    candidateRecord['coOp'],
+    candidateRecord['vs']
+  );
+  const hltbMainExtraHours = firstPositiveNumber(
+    candidateRecord['hltbMainExtraHours'],
+    candidateRecord['mainPlus'],
+    candidateRecord['mainExtra']
+  );
+  const hltbCompletionistHours = firstPositiveNumber(
+    candidateRecord['hltbCompletionistHours'],
+    candidateRecord['completionist']
+  );
+
+  if (hltbMainHours === null && hltbMainExtraHours === null && hltbCompletionistHours === null) {
+    return null;
+  }
+
+  return {
+    ...candidateRecord,
+    ...(hltbMainHours !== null ? { hltbMainHours } : {}),
+    ...(hltbMainExtraHours !== null ? { hltbMainExtraHours } : {}),
+    ...(hltbCompletionistHours !== null ? { hltbCompletionistHours } : {})
+  };
+}
+
+function finalizeHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  if (normalizedQuery.preferredHltbGameId === null && normalizedQuery.preferredHltbUrl === null) {
+    return payload;
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  const candidateEntries = payloadRecord['candidates'];
+  const candidates: unknown[] = Array.isArray(candidateEntries) ? candidateEntries : [];
+  const preferredCandidate =
+    candidates.find((candidate) => matchesPreferredHltbCandidate(candidate, normalizedQuery)) ??
+    null;
+
+  if (!preferredCandidate) {
+    return payload;
+  }
+
+  const preferredRecord = preferredCandidate as Record<string, unknown>;
+  if (!hasPositiveCompletionTime(preferredRecord)) {
+    return payload;
+  }
+
+  const normalizedPreferredItem = normalizePromotedHltbItem(preferredRecord);
+  if (!normalizedPreferredItem) {
+    return payload;
+  }
+
+  return {
+    ...payloadRecord,
+    item: normalizedPreferredItem
+  };
+}
+
+function matchesPreferredHltbCandidate(
+  candidate: unknown,
+  normalizedQuery: NormalizedHltbQuery
+): boolean {
+  if (!candidate || typeof candidate !== 'object') {
+    return false;
+  }
+
+  const candidateRecord = candidate as Record<string, unknown>;
+  const candidateGameId = normalizePositiveInteger(
+    candidateRecord['hltbGameId'] ?? candidateRecord['gameId'] ?? candidateRecord['id'] ?? null
+  );
+  const candidateUrl = normalizeHltbUrl(
+    candidateRecord['hltbUrl'] ?? candidateRecord['gameUrl'] ?? candidateRecord['url'] ?? null
+  );
+
+  return (
+    (normalizedQuery.preferredHltbGameId !== null &&
+      candidateGameId === normalizedQuery.preferredHltbGameId) ||
+    (normalizedQuery.preferredHltbUrl !== null && candidateUrl === normalizedQuery.preferredHltbUrl)
+  );
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      return null;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeHltbUrl(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  let normalized = value.trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+  if (normalized.startsWith('//')) {
+    normalized = `https:${normalized}`;
+  } else if (normalized.startsWith('http://')) {
+    normalized = `https://${normalized.slice('http://'.length)}`;
+  } else if (normalized.startsWith('/')) {
+    normalized = `https://howlongtobeat.com${normalized}`;
+  } else if (!normalized.startsWith('https://')) {
+    return null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return null;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname !== 'howlongtobeat.com' && hostname !== 'www.howlongtobeat.com') {
+    return null;
+  }
+
+  parsed.protocol = 'https:';
+  parsed.hostname = 'howlongtobeat.com';
+  parsed.port = '';
+
+  const href = parsed.href;
+  return href.length <= MAX_NORMALIZED_HLTB_URL_LENGTH ? href : null;
+}
+
 async function deleteHltbCacheEntry(
   pool: Pool,
   cacheKey: string,
@@ -485,6 +695,13 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
   const requestUrl = new URL(request.url, 'http://game-shelf.local');
   const targetUrl = new URL('/v1/hltb/search', baseUrl);
   targetUrl.search = requestUrl.search;
+  if (
+    targetUrl.searchParams.get('includeCandidates') == null &&
+    (normalizePositiveInteger(targetUrl.searchParams.get('preferredHltbGameId')) !== null ||
+      normalizeHltbUrl(targetUrl.searchParams.get('preferredHltbUrl')) !== null)
+  ) {
+    targetUrl.searchParams.set('includeCandidates', '1');
+  }
 
   const headers = new Headers();
   const scraperToken = readSecretFile('HLTB_SCRAPER_TOKEN', 'hltb_scraper_token').trim();

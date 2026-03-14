@@ -502,6 +502,48 @@ function hasPositiveCompletionTime(candidateRecord: Record<string, unknown>): bo
   );
 }
 
+function firstPositiveNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    if (isPositiveNumber(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function normalizePromotedHltbItem(
+  candidateRecord: Record<string, unknown>
+): Record<string, unknown> | null {
+  const hltbMainHours = firstPositiveNumber(
+    candidateRecord['hltbMainHours'],
+    candidateRecord['main'],
+    candidateRecord['solo'],
+    candidateRecord['coOp'],
+    candidateRecord['vs']
+  );
+  const hltbMainExtraHours = firstPositiveNumber(
+    candidateRecord['hltbMainExtraHours'],
+    candidateRecord['mainPlus'],
+    candidateRecord['mainExtra']
+  );
+  const hltbCompletionistHours = firstPositiveNumber(
+    candidateRecord['hltbCompletionistHours'],
+    candidateRecord['completionist']
+  );
+
+  if (hltbMainHours === null && hltbMainExtraHours === null && hltbCompletionistHours === null) {
+    return null;
+  }
+
+  return {
+    ...candidateRecord,
+    ...(hltbMainHours !== null ? { hltbMainHours } : {}),
+    ...(hltbMainExtraHours !== null ? { hltbMainExtraHours } : {}),
+    ...(hltbCompletionistHours !== null ? { hltbCompletionistHours } : {})
+  };
+}
+
 function finalizeHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: unknown): unknown {
   if (!payload || typeof payload !== 'object') {
     return payload;
@@ -527,9 +569,14 @@ function finalizeHltbPayload(normalizedQuery: NormalizedHltbQuery, payload: unkn
     return payload;
   }
 
+  const normalizedPreferredItem = normalizePromotedHltbItem(preferredRecord);
+  if (!normalizedPreferredItem) {
+    return payload;
+  }
+
   return {
     ...payloadRecord,
-    item: preferredRecord
+    item: normalizedPreferredItem
   };
 }
 
@@ -578,12 +625,16 @@ function normalizeHltbUrl(value: unknown): string | null {
     return null;
   }
 
-  const normalized = value.trim();
+  let normalized = value.trim();
   if (normalized.length === 0) {
     return null;
   }
   if (normalized.startsWith('//')) {
-    return `https:${normalized}`;
+    normalized = `https:${normalized}`;
+  } else if (normalized.startsWith('http://')) {
+    normalized = `https://${normalized.slice('http://'.length)}`;
+  } else if (normalized.startsWith('/')) {
+    normalized = `https://howlongtobeat.com${normalized}`;
   }
 
   return normalized;

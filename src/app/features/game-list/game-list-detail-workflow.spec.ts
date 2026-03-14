@@ -47,20 +47,70 @@ describe('game-list-detail-workflow', () => {
     ]);
   });
 
-  it('dedupes hltb candidates by title/year/platform key', () => {
+  it('dedupes hltb candidates by title/year/platform/identity key', () => {
     const first: HltbMatchCandidate = {
       title: 'Chrono Trigger',
       releaseYear: 1995,
       platform: 'SNES',
+      hltbGameId: 1,
+      hltbUrl: 'https://howlongtobeat.com/game/1',
       hltbMainHours: 25,
       hltbMainExtraHours: 30,
       hltbCompletionistHours: 40
     };
     const duplicate = { ...first, hltbMainHours: 26 };
-    const other = { ...first, platform: 'DS' };
+    const other = { ...first, hltbGameId: 2, hltbUrl: 'https://howlongtobeat.com/game/2' };
 
     const result = dedupeHltbCandidates([first, duplicate, other]);
     expect(result).toEqual([first, other]);
+  });
+
+  it('dedupes hltb candidates when identity fields are absent', () => {
+    const first: HltbMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      hltbGameId: null,
+      hltbUrl: null,
+      hltbMainHours: 25,
+      hltbMainExtraHours: 30,
+      hltbCompletionistHours: 40
+    };
+    const duplicate = { ...first, hltbMainHours: 26 };
+
+    expect(dedupeHltbCandidates([first, duplicate])).toEqual([first]);
+  });
+
+  it('dedupes hltb candidates when only one identity field is available', () => {
+    const first: HltbMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      hltbGameId: 1,
+      hltbUrl: null,
+      hltbMainHours: 25,
+      hltbMainExtraHours: 30,
+      hltbCompletionistHours: 40
+    };
+    const duplicate = { ...first, hltbMainHours: 26 };
+
+    expect(dedupeHltbCandidates([first, duplicate])).toEqual([first]);
+  });
+
+  it('dedupes hltb candidates when only the url identity is available', () => {
+    const first: HltbMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      hltbGameId: null,
+      hltbUrl: 'https://howlongtobeat.com/game/1',
+      hltbMainHours: 25,
+      hltbMainExtraHours: 30,
+      hltbCompletionistHours: 40
+    };
+    const duplicate = { ...first, hltbMainHours: 26 };
+
+    expect(dedupeHltbCandidates([first, duplicate])).toEqual([first]);
   });
 
   it('opens and closes image picker state', () => {
@@ -135,6 +185,79 @@ describe('game-list-detail-workflow', () => {
 
     expect(dedupeReviewCandidates([noScore, withScore])).toEqual([withScore]);
     expect(dedupeReviewCandidates([withScore, noScore])).toEqual([withScore]);
+  });
+
+  it('keeps review candidates with different URLs as separate choices', () => {
+    const first: ReviewMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      reviewScore: 85,
+      reviewUrl: 'https://example.com/review-a',
+      reviewSource: 'metacritic',
+      imageUrl: null
+    };
+    const second: ReviewMatchCandidate = {
+      ...first,
+      reviewUrl: 'https://example.com/review-b'
+    };
+
+    expect(dedupeReviewCandidates([first, second])).toEqual([first, second]);
+  });
+
+  it('does not let a URL-less review candidate replace one that already has an identity URL', () => {
+    const identified: ReviewMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      reviewScore: null,
+      reviewUrl: 'https://example.com/review-a',
+      reviewSource: 'metacritic',
+      imageUrl: null
+    };
+    const urlLessUpgrade: ReviewMatchCandidate = {
+      ...identified,
+      reviewUrl: null,
+      imageUrl: 'https://example.com/front.jpg'
+    };
+
+    expect(dedupeReviewCandidates([identified, urlLessUpgrade])).toEqual([identified]);
+  });
+
+  it('prefers a later review candidate that adds an identity URL', () => {
+    const withoutIdentity: ReviewMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      reviewScore: 85,
+      reviewUrl: null,
+      reviewSource: 'metacritic',
+      imageUrl: null
+    };
+    const withIdentity: ReviewMatchCandidate = {
+      ...withoutIdentity,
+      reviewUrl: 'https://example.com/review-a'
+    };
+
+    expect(dedupeReviewCandidates([withoutIdentity, withIdentity])).toEqual([withIdentity]);
+  });
+
+  it('keeps review candidates with different title keys as separate choices even when urls are missing', () => {
+    const first: ReviewMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      reviewScore: 85,
+      reviewUrl: null,
+      reviewSource: 'metacritic',
+      imageUrl: null
+    };
+    const second: ReviewMatchCandidate = {
+      ...first,
+      platform: 'DS'
+    };
+
+    expect(dedupeReviewCandidates([first, second])).toEqual([first, second]);
   });
 
   it('dedupes metacritic candidates through generic review dedupe', () => {

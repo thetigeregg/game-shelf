@@ -661,6 +661,14 @@ export class GameSyncService implements SyncOutboxWriter {
       hltbMainHours: this.normalizeCompletionHours(payload.hltbMainHours),
       hltbMainExtraHours: this.normalizeCompletionHours(payload.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(payload.hltbCompletionistHours),
+      hltbMatchGameId:
+        payload.hltbMatchGameId === undefined
+          ? this.parsePositiveInteger(existingByIdentity?.hltbMatchGameId)
+          : this.parsePositiveInteger(payload.hltbMatchGameId),
+      hltbMatchUrl:
+        payload.hltbMatchUrl === undefined
+          ? this.normalizeExternalUrl(existingByIdentity?.hltbMatchUrl)
+          : this.normalizeExternalUrl(payload.hltbMatchUrl),
       hltbMatchQueryTitle:
         payload.hltbMatchQueryTitle === undefined
           ? this.normalizeOptionalText(existingByIdentity?.hltbMatchQueryTitle)

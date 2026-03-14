@@ -1979,13 +1979,19 @@ describe('GameShelfService', () => {
       platformIgdbId: 167,
       releaseDate: null,
       releaseYear: 2017,
+      psPricesMatchLocked: null,
       listType: 'wishlist',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z'
     };
 
+    const updatedEntry: GameEntry = {
+      ...existingEntry,
+      psPricesMatchLocked: true
+    };
+
     repository.exists.mockResolvedValue(existingEntry);
-    repository.upsertFromCatalog.mockResolvedValue(existingEntry);
+    repository.upsertFromCatalog.mockResolvedValue(updatedEntry);
     searchApi.lookupPsPrices.mockReturnValue(
       of({
         status: 'unavailable',
@@ -2001,6 +2007,12 @@ describe('GameShelfService', () => {
       title: null,
       preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     });
+    expect(repository.upsertFromCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        psPricesMatchLocked: true
+      }),
+      'wishlist'
+    );
   });
 
   it('passes a null preferred psprices url through title-only manual pricing refresh queries', async () => {

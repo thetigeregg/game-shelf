@@ -2152,3 +2152,9 @@
 - b34efc55 Extract picker candidate title mixin
 - 82bf97eb Mark fallback review recommended
 
+## v1.2.4 - 2026-03-14
+- 2ec6f3ec Merge pull request #219 from thetigeregg/feat/bumpz
+- 7338b51f Merge branch 'main' into feat/bumpz
+- 82b76a35 test(core): replace deprecated toThrowError matcher in specs
+- 173adf41 chore(deps): bump Angular and tooling dependency versions
+

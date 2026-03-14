@@ -1208,6 +1208,29 @@ describe('MetadataValidatorPage', () => {
     ]) as ReviewMatchCandidate[];
     expect(reviewDistinctUrls.length).toBe(2);
 
+    const reviewKeepsIdentity = callPrivate(page, 'dedupeReviewCandidates', [
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: null,
+        reviewUrl: 'https://www.metacritic.com/game/y/identity',
+        reviewSource: 'metacritic' as const,
+        imageUrl: null
+      },
+      {
+        title: 'Y',
+        releaseYear: 2020,
+        platform: 'PS5',
+        reviewScore: 85,
+        reviewUrl: null,
+        reviewSource: 'metacritic' as const,
+        imageUrl: 'https://images.example/y.jpg'
+      }
+    ]) as ReviewMatchCandidate[];
+    expect(reviewKeepsIdentity.length).toBe(1);
+    expect(reviewKeepsIdentity[0].reviewUrl).toBe('https://www.metacritic.com/game/y/identity');
+
     const reviewDistinctPlatform = callPrivate(page, 'dedupeReviewCandidates', [
       {
         title: 'Y',

@@ -322,6 +322,81 @@ void test('HLTB cache resolves preferred candidate by normalized preferred URL',
   await app.close();
 });
 
+void test('HLTB cache canonicalizes preferred and candidate HLTB URLs across equivalent forms', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const app = Fastify();
+  let fetchCalls = 0;
+
+  await registerHltbCachedRoute(app, pool as unknown as Pool, {
+    fetchMetadata: () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          item: {
+            hltbGameId: 7001,
+            hltbUrl: 'http://howlongtobeat.com/game/7001',
+            hltbMainHours: 8
+          },
+          candidates: [
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7001,
+              hltbUrl: 'http://howlongtobeat.com/game/7001',
+              hltbMainHours: 8
+            },
+            {
+              title: 'Night In The Woods',
+              hltbGameId: 7002,
+              gameUrl: '/game/7002',
+              hltbMainHours: 9
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
+    }
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url:
+      '/v1/hltb/search?q=Night%20In%20The%20Woods&preferredHltbUrl=' +
+      encodeURIComponent('http://howlongtobeat.com/game/7002')
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['x-gameshelf-hltb-cache'], 'MISS');
+  assert.equal(fetchCalls, 1);
+  assert.deepEqual(JSON.parse(response.body), {
+    item: {
+      title: 'Night In The Woods',
+      hltbGameId: 7002,
+      gameUrl: '/game/7002',
+      hltbMainHours: 9
+    },
+    candidates: [
+      {
+        title: 'Night In The Woods',
+        hltbGameId: 7001,
+        hltbUrl: 'http://howlongtobeat.com/game/7001',
+        hltbMainHours: 8
+      },
+      {
+        title: 'Night In The Woods',
+        hltbGameId: 7002,
+        gameUrl: '/game/7002',
+        hltbMainHours: 9
+      }
+    ]
+  });
+
+  await app.close();
+});
+
 void test('HLTB cache keys differentiate preferred identities and normalize preferred URLs', async () => {
   resetCacheMetrics();
   const pool = new HltbPoolMock();
@@ -554,6 +629,7 @@ void test('HLTB cache promotes preferred candidate when only legacy raw completi
       title: 'Night In The Woods',
       hltbGameId: 7002,
       hltbUrl: 'https://howlongtobeat.com/game/7002',
+      hltbMainHours: 9,
       main: null,
       mainPlus: null,
       mainExtra: null,

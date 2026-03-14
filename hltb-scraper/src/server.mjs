@@ -238,7 +238,11 @@ function normalizeGameUrl(value, fallbackGameId = null) {
       return `https://howlongtobeat.com${normalized}`;
     }
 
-    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    if (normalized.startsWith('http://')) {
+      return `https://${normalized.slice('http://'.length)}`;
+    }
+
+    if (normalized.startsWith('https://')) {
       return normalized;
     }
   }

@@ -189,6 +189,25 @@ describe('game-list-detail-workflow', () => {
     expect(dedupeReviewCandidates([first, second])).toEqual([first, second]);
   });
 
+  it('does not let a URL-less review candidate replace one that already has an identity URL', () => {
+    const identified: ReviewMatchCandidate = {
+      title: 'Chrono Trigger',
+      releaseYear: 1995,
+      platform: 'SNES',
+      reviewScore: null,
+      reviewUrl: 'https://example.com/review-a',
+      reviewSource: 'metacritic',
+      imageUrl: null
+    };
+    const urlLessUpgrade: ReviewMatchCandidate = {
+      ...identified,
+      reviewUrl: null,
+      imageUrl: 'https://example.com/front.jpg'
+    };
+
+    expect(dedupeReviewCandidates([identified, urlLessUpgrade])).toEqual([identified]);
+  });
+
   it('keeps review candidates with different title keys as separate choices even when urls are missing', () => {
     const first: ReviewMatchCandidate = {
       title: 'Chrono Trigger',

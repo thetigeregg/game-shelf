@@ -1135,6 +1135,8 @@ export class MetadataValidatorPage {
         }
 
         const entryIdentityUrl = entry.reviewUrl ?? entry.metacriticUrl ?? '';
+        // Allow URL-less variants to merge into the same logical row so richer copies
+        // can fill in missing score/image data without duplicating the picker UI.
         return (
           entryIdentityUrl === candidateIdentityUrl ||
           entryIdentityUrl.length === 0 ||
@@ -1147,11 +1149,16 @@ export class MetadataValidatorPage {
       }
 
       const existing = deduped[existingIndex];
+      const existingIdentityUrl = existing.reviewUrl ?? existing.metacriticUrl ?? '';
       const existingScore = existing.reviewScore ?? existing.metacriticScore ?? null;
       const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
+      // Never replace a concrete review identity with a URL-less variant.
+      const wouldDropIdentityUrl =
+        existingIdentityUrl.length > 0 && candidateIdentityUrl.length === 0;
       const shouldReplace =
-        (existing.imageUrl == null && candidate.imageUrl != null) ||
-        (existingScore == null && candidateScore != null);
+        !wouldDropIdentityUrl &&
+        ((existing.imageUrl == null && candidate.imageUrl != null) ||
+          (existingScore == null && candidateScore != null));
 
       if (shouldReplace) {
         deduped[existingIndex] = candidate;

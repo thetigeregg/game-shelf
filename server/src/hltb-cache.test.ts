@@ -1013,6 +1013,57 @@ void test('queued HLTB revalidation keeps candidate payload unchanged when no pr
   });
 });
 
+void test('queued HLTB revalidation does not force candidate mode for invalid preferred URLs', async () => {
+  resetCacheMetrics();
+  const pool = new HltbPoolMock();
+  const originalBaseUrl = process.env['HLTB_SCRAPER_BASE_URL'];
+  const originalFetch = globalThis.fetch;
+  const seenUrls: string[] = [];
+
+  process.env['HLTB_SCRAPER_BASE_URL'] = 'https://hltb.example';
+  globalThis.fetch = (input) => {
+    seenUrls.push(
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    );
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: {
+            hltbMainHours: 18
+          }
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }
+      )
+    );
+  };
+
+  try {
+    await processQueuedHltbCacheRevalidation(pool as unknown as Pool, {
+      cacheKey: 'invalid-preferred-url-cache-key',
+      requestUrl:
+        '/v1/hltb/search?q=Okami&preferredHltbUrl=' +
+        encodeURIComponent('https://example.com/not-hltb')
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) {
+      delete process.env['HLTB_SCRAPER_BASE_URL'];
+    } else {
+      process.env['HLTB_SCRAPER_BASE_URL'] = originalBaseUrl;
+    }
+  }
+
+  assert.equal(seenUrls.length, 1);
+  const firstSeenUrl = seenUrls.at(0);
+  assert.ok(firstSeenUrl);
+  const requestUrl = new URL(firstSeenUrl);
+  assert.equal(requestUrl.searchParams.get('preferredHltbUrl'), null);
+  assert.equal(requestUrl.searchParams.get('includeCandidates'), null);
+});
+
 void test('queued HLTB revalidation rejects invalid short-query payloads', async () => {
   const pool = new HltbPoolMock();
 

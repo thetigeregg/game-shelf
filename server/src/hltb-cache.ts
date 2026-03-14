@@ -697,8 +697,8 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
   targetUrl.search = requestUrl.search;
   if (
     targetUrl.searchParams.get('includeCandidates') == null &&
-    (targetUrl.searchParams.get('preferredHltbGameId') != null ||
-      targetUrl.searchParams.get('preferredHltbUrl') != null)
+    (normalizePositiveInteger(targetUrl.searchParams.get('preferredHltbGameId')) !== null ||
+      normalizeHltbUrl(targetUrl.searchParams.get('preferredHltbUrl')) !== null)
   ) {
     targetUrl.searchParams.set('includeCandidates', '1');
   }

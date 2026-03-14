@@ -113,9 +113,7 @@ describe('GameShelfService', () => {
   it('propagates API errors for valid search queries', async () => {
     searchApi.searchGames.mockReturnValue(throwError(() => new Error('API unavailable')));
 
-    await expect(firstValueFrom(service.searchGames('mario'))).rejects.toThrowError(
-      'API unavailable'
-    );
+    await expect(firstValueFrom(service.searchGames('mario'))).rejects.toThrow('API unavailable');
   });
 
   it('delegates add/move/remove actions to repository', async () => {
@@ -1348,12 +1346,12 @@ describe('GameShelfService', () => {
   it('throws for metacritic refresh when target game no longer exists', async () => {
     repository.exists.mockResolvedValue(undefined);
 
-    await expect(service.refreshGameMetacriticScore('123', 5)).rejects.toThrowError(
+    await expect(service.refreshGameMetacriticScore('123', 5)).rejects.toThrow(
       'Game entry no longer exists.'
     );
     await expect(
       service.refreshGameMetacriticScoreWithQuery('123', 5, { title: 'Any' })
-    ).rejects.toThrowError('Game entry no longer exists.');
+    ).rejects.toThrow('Game entry no longer exists.');
   });
 
   it('refreshes unified pricing using Steam lookup for Windows wishlist games', async () => {
@@ -2096,30 +2094,28 @@ describe('GameShelfService', () => {
       releaseYear: null
     };
 
-    await expect(service.addGame(base, 'collection')).rejects.toThrowError(
-      'IGDB game id is required.'
-    );
+    await expect(service.addGame(base, 'collection')).rejects.toThrow('IGDB game id is required.');
     await expect(
       service.addGame({ ...base, igdbGameId: '123', platformIgdbId: null }, 'collection')
-    ).rejects.toThrowError('IGDB platform id is required.');
+    ).rejects.toThrow('IGDB platform id is required.');
     await expect(
       service.addGame({ ...base, igdbGameId: '123', platform: ' ' }, 'collection')
-    ).rejects.toThrowError('Platform is required.');
+    ).rejects.toThrow('Platform is required.');
   });
 
   it('throws when refreshing or updating a missing game', async () => {
     repository.exists.mockResolvedValue(undefined);
     repository.updateCover.mockResolvedValue(undefined);
 
-    await expect(service.refreshGameMetadata('123', 130)).rejects.toThrowError(
+    await expect(service.refreshGameMetadata('123', 130)).rejects.toThrow(
       'Game entry no longer exists.'
     );
-    await expect(service.refreshGameCompletionTimes('123', 130)).rejects.toThrowError(
+    await expect(service.refreshGameCompletionTimes('123', 130)).rejects.toThrow(
       'Game entry no longer exists.'
     );
     await expect(
       service.updateGameCover('123', 130, 'https://example.com/new-cover.jpg')
-    ).rejects.toThrowError('Game entry no longer exists.');
+    ).rejects.toThrow('Game entry no longer exists.');
   });
 
   it('rematches game identity and preserves user fields', async () => {
@@ -2268,7 +2264,7 @@ describe('GameShelfService', () => {
         releaseDate: null,
         releaseYear: null
       })
-    ).rejects.toThrowError('Game entry no longer exists.');
+    ).rejects.toThrow('Game entry no longer exists.');
   });
 
   it('normalizes identity in findGameByIdentity', async () => {
@@ -2341,16 +2337,16 @@ describe('GameShelfService', () => {
     repository.setGameNotes.mockResolvedValue(undefined);
     repository.setGameStatus.mockResolvedValue(undefined);
     repository.setGameRating.mockResolvedValue(undefined);
-    await expect(service.setGameTags('123', 130, [1])).rejects.toThrowError(
+    await expect(service.setGameTags('123', 130, [1])).rejects.toThrow(
       'Game entry no longer exists.'
     );
-    await expect(service.setGameStatus('123', 130, 'playing')).rejects.toThrowError(
+    await expect(service.setGameStatus('123', 130, 'playing')).rejects.toThrow(
       'Game entry no longer exists.'
     );
-    await expect(service.setGameRating('123', 130, 4)).rejects.toThrowError(
+    await expect(service.setGameRating('123', 130, 4)).rejects.toThrow(
       'Game entry no longer exists.'
     );
-    await expect(service.setGameNotes('123', 130, 'a note')).rejects.toThrowError(
+    await expect(service.setGameNotes('123', 130, 'a note')).rejects.toThrow(
       'Game entry no longer exists.'
     );
   });
@@ -2388,7 +2384,7 @@ describe('GameShelfService', () => {
         ],
         'playing'
       )
-    ).rejects.toThrowError('Game entry no longer exists (456:6).');
+    ).rejects.toThrow('Game entry no longer exists (456:6).');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repository.listByType).toHaveBeenCalledTimes(1);
 
@@ -2402,7 +2398,7 @@ describe('GameShelfService', () => {
         ],
         'wishlist'
       )
-    ).rejects.toThrowError('boom');
+    ).rejects.toThrow('boom');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repository.listByType).toHaveBeenCalledTimes(1);
 
@@ -2413,7 +2409,7 @@ describe('GameShelfService', () => {
         { igdbGameId: '123', platformIgdbId: 130 },
         { igdbGameId: '456', platformIgdbId: 6 }
       ])
-    ).rejects.toThrowError('boom');
+    ).rejects.toThrow('boom');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repository.listByType).toHaveBeenCalledTimes(1);
 
@@ -2427,7 +2423,7 @@ describe('GameShelfService', () => {
         ],
         [1]
       )
-    ).rejects.toThrowError('Game entry no longer exists (456:6).');
+    ).rejects.toThrow('Game entry no longer exists (456:6).');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repository.listByType).toHaveBeenCalledTimes(1);
 
@@ -2443,10 +2439,8 @@ describe('GameShelfService', () => {
       updatedAt: 'x'
     });
 
-    await expect(service.createTag(' ', '#ffffff')).rejects.toThrowError('Tag name is required.');
-    await expect(service.updateTag(1, ' ', '#ffffff')).rejects.toThrowError(
-      'Tag name is required.'
-    );
+    await expect(service.createTag(' ', '#ffffff')).rejects.toThrow('Tag name is required.');
+    await expect(service.updateTag(1, ' ', '#ffffff')).rejects.toThrow('Tag name is required.');
 
     const created = await service.createTag(' Backlog ', 'oops');
     const updated = await service.updateTag(1, ' Backlog ', '#00ff00');
@@ -2684,9 +2678,9 @@ describe('GameShelfService', () => {
     expect(repository.deleteView).toHaveBeenCalledWith(11);
 
     repository.updateView.mockResolvedValue(undefined);
-    await expect(service.renameView(11, 'x')).rejects.toThrowError('View no longer exists.');
+    await expect(service.renameView(11, 'x')).rejects.toThrow('View no longer exists.');
     await expect(
       service.updateViewConfiguration(11, DEFAULT_GAME_LIST_FILTERS, 'none')
-    ).rejects.toThrowError('View no longer exists.');
+    ).rejects.toThrow('View no longer exists.');
   });
 });

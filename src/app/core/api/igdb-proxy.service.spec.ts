@@ -2157,6 +2157,44 @@ describe('IgdbProxyService', () => {
     });
   });
 
+  it('matches a preferred review candidate when only metacriticUrl is present and item is omitted', async () => {
+    const promise = firstValueFrom(
+      service.lookupMetacriticScore(
+        'Night In The Woods',
+        2017,
+        'PlayStation 5',
+        167,
+        'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      )
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/metacritic/search` &&
+        request.params.get('preferredReviewUrl') ===
+          'https://www.metacritic.com/game/night-in-the-woods-alt/'
+      );
+    });
+
+    req.flush({
+      candidates: [
+        {
+          title: 'Night In The Woods',
+          releaseYear: 2017,
+          platform: 'PlayStation 5',
+          reviewScore: 86,
+          reviewUrl: null,
+          metacriticScore: 86,
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
+    });
+
+    await expect(promise).resolves.toEqual({
+      metacriticScore: 86,
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+    });
+  });
+
   it('matches a preferred review url against metacriticUrl when reviewUrl is missing', async () => {
     const promise = firstValueFrom(
       service.lookupMetacriticScore(
@@ -3608,6 +3646,25 @@ describe('IgdbProxyService', () => {
       service.lookupPsPrices('960', 130, {
         title: 'Nioh 2',
         preferredUrl: 'not a valid url'
+      })
+    );
+    const req = httpMock.expectOne((request) => {
+      return (
+        request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices` &&
+        request.params.get('title') === 'Nioh 2' &&
+        !request.params.has('preferredPsPricesUrl')
+      );
+    });
+    req.flush({ status: 'ok' });
+
+    await expect(promise).resolves.toEqual({ status: 'ok' });
+  });
+
+  it('lookupPsPrices omits preferredPsPricesUrl when preferredUrl is not a string', async () => {
+    const promise = firstValueFrom(
+      service.lookupPsPrices('960', 130, {
+        title: 'Nioh 2',
+        preferredUrl: 42 as unknown as string
       })
     );
     const req = httpMock.expectOne((request) => {

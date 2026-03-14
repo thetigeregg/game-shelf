@@ -1745,11 +1745,9 @@ export class ExplorePage implements OnInit {
             )
           : this.parsePsPricesLookupResponse(
               await firstValueFrom(
-                this.igdbProxyService.lookupPsPrices(
-                  item.igdbGameId,
-                  item.platformIgdbId,
-                  titleHint
-                )
+                this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
+                  title: titleHint
+                })
               )
             );
 

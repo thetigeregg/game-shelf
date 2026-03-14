@@ -2436,7 +2436,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
         {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
-          platform: candidate.platform
+          platform: candidate.platform,
+          preferredGameId: candidate.hltbGameId ?? null,
+          preferredUrl: candidate.hltbUrl ?? null
         }
       );
       this.applyUpdatedGame(updated);
@@ -2549,7 +2551,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
           releaseYear: candidate.releaseYear,
           platform: candidate.platform,
           platformIgdbId: target.platformIgdbId,
-          mobygamesGameId: candidate.mobygamesGameId ?? null
+          mobygamesGameId: candidate.mobygamesGameId ?? null,
+          preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null
         }
       );
       this.applyUpdatedGame(updated);
@@ -2640,7 +2643,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
       const updated = await this.gameShelfService.refreshGamePricingWithQuery(
         target.igdbGameId,
         target.platformIgdbId,
-        { title: candidate.title }
+        {
+          title: candidate.title,
+          preferredUrl: candidate.url
+        }
       );
       this.applyUpdatedGame(updated);
       this.closePricingPickerModal();
@@ -4634,7 +4640,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
           return await this.gameShelfService.refreshGamePricingWithQuery(
             game.igdbGameId,
             game.platformIgdbId,
-            { title: candidate.title }
+            {
+              title: candidate.title,
+              preferredUrl: candidate.url
+            }
           );
         }
       } catch {

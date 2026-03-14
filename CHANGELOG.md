@@ -2128,3 +2128,27 @@
 - 6e079754 fix(scripts): create new worktree branch from local main
 - 9791ac75 build(deps): bump frontend and server package dependencies
 
+## v1.2.3 - 2026-03-14
+- eb1a6c96 Merge pull request #212 from thetigeregg/codex/fixer
+- 21514ecc fix: test
+- 29de797f fix: test
+- 110443df fix: test
+- 80b14e10 Merge branch 'main' into codex/fixer
+- 34b96f34 fix: tests
+- ceda17a1 fix: update dedupe to respect URLs
+- 5e28b019 fix: update review dedupe keys
+- 9d1444e5 chore: fix
+- 4402189a chore: test
+- 17380a95 chore: updates
+- 70c09367 Merge branch 'main' into codex/fixer
+- 77b65d45 fix: prevent invalid HLTB item overwrite
+- f054514b fix: test coverage
+- e601fde8 chore: ensure preferredUrl passed to lookup
+- 58ed6e1f Merge branch 'main' into codex/fixer
+- 1f26da98 Capture HLTB values once
+- 75bec13d Avoid redundant HLTB normalization
+- 05c17a60 Merge branch 'main' into codex/fixer
+- a7974249 Add HLTB exact match tracking
+- b34efc55 Extract picker candidate title mixin
+- 82bf97eb Mark fallback review recommended
+

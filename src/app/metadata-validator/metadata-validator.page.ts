@@ -723,7 +723,9 @@ export class MetadataValidatorPage {
         {
           title: candidate.title,
           releaseYear: candidate.releaseYear,
-          platform: candidate.platform
+          platform: candidate.platform,
+          preferredGameId: candidate.hltbGameId ?? null,
+          preferredUrl: candidate.hltbUrl ?? null
         }
       );
       this.closeHltbPickerModal();
@@ -859,7 +861,8 @@ export class MetadataValidatorPage {
           releaseYear: candidate.releaseYear,
           platform: candidate.platform,
           platformIgdbId: target.platformIgdbId,
-          mobygamesGameId: candidate.mobygamesGameId ?? null
+          mobygamesGameId: candidate.mobygamesGameId ?? null,
+          preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null
         }
       );
       this.closeReviewPickerModal();
@@ -927,7 +930,10 @@ export class MetadataValidatorPage {
       const updated = await this.gameShelfService.refreshGamePricingWithQuery(
         target.igdbGameId,
         target.platformIgdbId,
-        { title: candidate.title }
+        {
+          title: candidate.title,
+          preferredUrl: candidate.url
+        }
       );
       this.closePricingPickerModal();
       if (this.hasPricingMetadata(updated)) {
@@ -1104,7 +1110,7 @@ export class MetadataValidatorPage {
     const byKey = new Map<string, HltbMatchCandidate>();
 
     candidates.forEach((candidate) => {
-      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
+      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}::${String(candidate.hltbGameId ?? '')}::${candidate.hltbUrl ?? ''}`;
 
       if (!byKey.has(key)) {
         byKey.set(key, candidate);
@@ -1115,29 +1121,53 @@ export class MetadataValidatorPage {
   }
 
   private dedupeReviewCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
-    const byKey = new Map<string, ReviewMatchCandidate>();
+    const deduped: ReviewMatchCandidate[] = [];
 
     candidates.forEach((candidate) => {
-      const key = `${candidate.title}::${String(candidate.releaseYear ?? '')}::${candidate.platform ?? ''}`;
+      const candidateIdentityUrl = candidate.reviewUrl ?? candidate.metacriticUrl ?? '';
+      const existingIndex = deduped.findIndex((entry) => {
+        if (
+          entry.title !== candidate.title ||
+          entry.releaseYear !== candidate.releaseYear ||
+          entry.platform !== candidate.platform
+        ) {
+          return false;
+        }
 
-      const existing = byKey.get(key);
-      if (!existing) {
-        byKey.set(key, candidate);
+        const entryIdentityUrl = entry.reviewUrl ?? entry.metacriticUrl ?? '';
+        // Allow URL-less variants to merge into the same logical row so richer copies
+        // can fill in missing score/image data without duplicating the picker UI.
+        return (
+          entryIdentityUrl === candidateIdentityUrl ||
+          entryIdentityUrl.length === 0 ||
+          candidateIdentityUrl.length === 0
+        );
+      });
+      if (existingIndex === -1) {
+        deduped.push(candidate);
         return;
       }
 
+      const existing = deduped[existingIndex];
+      const existingIdentityUrl = existing.reviewUrl ?? existing.metacriticUrl ?? '';
       const existingScore = existing.reviewScore ?? existing.metacriticScore ?? null;
       const candidateScore = candidate.reviewScore ?? candidate.metacriticScore ?? null;
+      // Never replace a concrete review identity with a URL-less variant.
+      const wouldDropIdentityUrl =
+        existingIdentityUrl.length > 0 && candidateIdentityUrl.length === 0;
+      const gainsIdentityUrl = existingIdentityUrl.length === 0 && candidateIdentityUrl.length > 0;
       const shouldReplace =
-        (existing.imageUrl == null && candidate.imageUrl != null) ||
-        (existingScore == null && candidateScore != null);
+        !wouldDropIdentityUrl &&
+        (gainsIdentityUrl ||
+          (existing.imageUrl == null && candidate.imageUrl != null) ||
+          (existingScore == null && candidateScore != null));
 
       if (shouldReplace) {
-        byKey.set(key, candidate);
+        deduped[existingIndex] = candidate;
       }
     });
 
-    return [...byKey.values()];
+    return deduped;
   }
 
   private dedupeMetacriticCandidates(candidates: ReviewMatchCandidate[]): ReviewMatchCandidate[] {
@@ -1205,7 +1235,9 @@ export class MetadataValidatorPage {
             {
               title: candidate.title,
               releaseYear: candidate.releaseYear,
-              platform: candidate.platform
+              platform: candidate.platform,
+              preferredGameId: candidate.hltbGameId ?? null,
+              preferredUrl: candidate.hltbUrl ?? null
             }
           );
         }
@@ -1251,7 +1283,8 @@ export class MetadataValidatorPage {
               releaseYear: candidate.releaseYear,
               platform: candidate.platform,
               platformIgdbId: game.platformIgdbId,
-              mobygamesGameId: candidate.mobygamesGameId ?? null
+              mobygamesGameId: candidate.mobygamesGameId ?? null,
+              preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null
             }
           );
         }
@@ -1289,7 +1322,10 @@ export class MetadataValidatorPage {
           return await this.gameShelfService.refreshGamePricingWithQuery(
             game.igdbGameId,
             game.platformIgdbId,
-            { title: candidate.title }
+            {
+              title: candidate.title,
+              preferredUrl: candidate.url
+            }
           );
         }
       } catch (error: unknown) {

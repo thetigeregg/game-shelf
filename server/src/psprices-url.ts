@@ -28,7 +28,8 @@ export function normalizePreferredPsPricesUrl(value: unknown): string | null {
     return null;
   }
 
-  const hostname = parsed.hostname.toLowerCase();
+  const rawHostname = parsed.hostname.toLowerCase();
+  const hostname = rawHostname.startsWith('www.') ? rawHostname.slice(4) : rawHostname;
   if (hostname !== 'psprices.com' && !hostname.endsWith('.psprices.com')) {
     return null;
   }

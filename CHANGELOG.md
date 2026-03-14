@@ -2119,3 +2119,12 @@
 - e5bc5e4b chore: add dev cleanup script to package.json
 - 5e4e9d88 chore: add dev cleanup script for repository maintenance
 
+## v1.2.2 - 2026-03-14
+- 666bb4d3 Merge pull request #218 from thetigeregg/feat/bump
+- 2e7b4999 fix(scripts): harden main worktree sync checks for task start
+- 21010634 fix(scripts): handle checked-out main when fast-forwarding from origin/main
+- bc771181 fix(scripts): fast-forward local main from origin/main before task worktree creation
+- f9c21796 Revert "build(deps): bump frontend and server package dependencies"
+- 6e079754 fix(scripts): create new worktree branch from local main
+- 9791ac75 build(deps): bump frontend and server package dependencies
+

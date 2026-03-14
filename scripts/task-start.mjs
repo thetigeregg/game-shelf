@@ -63,6 +63,33 @@ function commandExists(command) {
   }
 }
 
+function getWorktreePathForBranch(branchName) {
+  const output = execSync('git worktree list --porcelain', {
+    encoding: 'utf8'
+  });
+  const normalizedOutput = output.replace(/\r\n/g, '\n');
+  const targetRef = `refs/heads/${branchName}`;
+  const blocks = normalizedOutput
+    .trim()
+    .split('\n\n')
+    .map((block) => block.split('\n'));
+
+  for (const block of blocks) {
+    const worktreeLine = block.find((line) => line.startsWith('worktree '));
+    const branchLine = block.find((line) => line.startsWith('branch '));
+    if (!worktreeLine || !branchLine) {
+      continue;
+    }
+    const worktreeDir = worktreeLine.slice('worktree '.length);
+    const branchRef = branchLine.slice('branch '.length).trim();
+    if (branchRef === targetRef) {
+      return worktreeDir;
+    }
+  }
+
+  return null;
+}
+
 try {
   /*
   Prevent starting a task with a dirty repo
@@ -76,12 +103,72 @@ try {
     process.exit(1);
   }
 
-  console.log('\nFetching latest main...\n');
+  console.log('\nFetching latest origin/main...\n');
   run('git fetch origin main --prune');
+
+  const hasLocalMain = (() => {
+    try {
+      execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!hasLocalMain) {
+    console.log('\nCreating local main from origin/main...\n');
+    run('git branch main origin/main');
+  } else {
+    console.log('\nFast-forwarding local main to origin/main...\n');
+    try {
+      run('git merge-base --is-ancestor main origin/main');
+    } catch {
+      console.error('\nLocal main has diverged from origin/main.');
+      console.error(
+        'Reconcile your local main with origin/main (e.g. rebase, reset, or merge) before starting a new task.'
+      );
+      console.error(
+        'For example, to discard local divergence you can run: git branch -f main origin/main\n'
+      );
+      process.exit(1);
+    }
+
+    const mainWorktreePath = getWorktreePathForBranch('main');
+    if (mainWorktreePath) {
+      try {
+        const mainWorktreeStatus = execSync('git status --porcelain', {
+          cwd: mainWorktreePath,
+          encoding: 'utf8'
+        }).trim();
+
+        if (mainWorktreeStatus) {
+          console.error(
+            '\nCannot fast-forward local main because its worktree has uncommitted changes.'
+          );
+          console.error('Clean or stash changes in the main worktree before starting a new task.');
+          console.error(`Main worktree path: ${mainWorktreePath}\n`);
+          process.exit(1);
+        }
+      } catch (statusError) {
+        console.error('\nFailed to check status of local main worktree.');
+        console.error(
+          `Verify that the worktree at ${mainWorktreePath} is accessible and try again.\n`
+        );
+        const code = typeof statusError.status === 'number' ? statusError.status : 1;
+        process.exit(code);
+      }
+
+      run('git merge --ff-only origin/main', {
+        cwd: mainWorktreePath
+      });
+    } else {
+      run('git branch -f main origin/main');
+    }
+  }
 
   console.log(`\nCreating worktree for branch: ${branch}\n`);
 
-  run(`git worktree add ${worktreePath} -b ${branch} origin/main`);
+  run(`git worktree add ${worktreePath} -b ${branch} main`);
 
   /*
   Bootstrap dependencies for the new worktree

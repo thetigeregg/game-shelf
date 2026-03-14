@@ -264,7 +264,8 @@ async function applyGameOperation(
         'priceRegularAmount', COALESCE(EXCLUDED.payload -> 'priceRegularAmount', games.payload -> 'priceRegularAmount'),
         'priceDiscountPercent', COALESCE(EXCLUDED.payload -> 'priceDiscountPercent', games.payload -> 'priceDiscountPercent'),
         'priceIsFree', COALESCE(EXCLUDED.payload -> 'priceIsFree', games.payload -> 'priceIsFree'),
-        'priceUrl', COALESCE(EXCLUDED.payload -> 'priceUrl', games.payload -> 'priceUrl'),
+        'priceUrl', COALESCE(EXCLUDED.payload -> 'priceUrl', games.payload -> 'priceUrl')
+      ) || jsonb_build_object(
         'psPricesFetchedAt', COALESCE(EXCLUDED.payload -> 'psPricesFetchedAt', games.payload -> 'psPricesFetchedAt'),
         'psPricesRegionPath', COALESCE(EXCLUDED.payload -> 'psPricesRegionPath', games.payload -> 'psPricesRegionPath'),
         'psPricesShow', COALESCE(EXCLUDED.payload -> 'psPricesShow', games.payload -> 'psPricesShow'),

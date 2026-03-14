@@ -76,8 +76,26 @@ try {
     process.exit(1);
   }
 
-  console.log('\nFetching latest main...\n');
+  console.log('\nFetching latest origin/main...\n');
   run('git fetch origin main --prune');
+
+  const hasLocalMain = (() => {
+    try {
+      execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!hasLocalMain) {
+    console.log('\nCreating local main from origin/main...\n');
+    run('git branch main origin/main');
+  } else {
+    console.log('\nFast-forwarding local main to origin/main...\n');
+    run('git merge-base --is-ancestor main origin/main');
+    run('git branch -f main origin/main');
+  }
 
   console.log(`\nCreating worktree for branch: ${branch}\n`);
 

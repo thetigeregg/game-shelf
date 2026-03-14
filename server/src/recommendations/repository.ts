@@ -230,7 +230,8 @@ export class RecommendationRepository {
                   'priceRegularAmount', games.payload->'priceRegularAmount',
                   'priceDiscountPercent', games.payload->'priceDiscountPercent',
                   'priceIsFree', games.payload->'priceIsFree',
-                  'priceUrl', games.payload->'priceUrl',
+                  'priceUrl', games.payload->'priceUrl'
+                ) || jsonb_build_object(
                   'steamPriceCountry', games.payload->'steamPriceCountry',
                   'steamPriceFetchedAt', games.payload->'steamPriceFetchedAt',
                   'steamPriceSource', games.payload->'steamPriceSource',

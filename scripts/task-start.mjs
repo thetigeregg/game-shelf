@@ -63,6 +63,32 @@ function commandExists(command) {
   }
 }
 
+function getWorktreePathForBranch(branchName) {
+  const output = execSync('git worktree list --porcelain', {
+    encoding: 'utf8'
+  });
+  const targetRef = `refs/heads/${branchName}`;
+  const blocks = output
+    .trim()
+    .split('\n\n')
+    .map((block) => block.split('\n'));
+
+  for (const block of blocks) {
+    const worktreeLine = block.find((line) => line.startsWith('worktree '));
+    const branchLine = block.find((line) => line.startsWith('branch '));
+    if (!worktreeLine || !branchLine) {
+      continue;
+    }
+    const worktreeDir = worktreeLine.slice('worktree '.length);
+    const branchRef = branchLine.slice('branch '.length);
+    if (branchRef === targetRef) {
+      return worktreeDir;
+    }
+  }
+
+  return null;
+}
+
 try {
   /*
   Prevent starting a task with a dirty repo
@@ -93,8 +119,27 @@ try {
     run('git branch main origin/main');
   } else {
     console.log('\nFast-forwarding local main to origin/main...\n');
-    run('git merge-base --is-ancestor main origin/main');
-    run('git branch -f main origin/main');
+    try {
+      run('git merge-base --is-ancestor main origin/main');
+    } catch {
+      console.error('\nLocal main has diverged from origin/main.');
+      console.error(
+        'Reconcile your local main with origin/main (e.g. rebase, reset, or merge) before starting a new task.'
+      );
+      console.error(
+        'For example, to discard local divergence you can run: git branch -f main origin/main\n'
+      );
+      process.exit(1);
+    }
+
+    const mainWorktreePath = getWorktreePathForBranch('main');
+    if (mainWorktreePath) {
+      run('git merge --ff-only origin/main', {
+        cwd: mainWorktreePath
+      });
+    } else {
+      run('git branch -f main origin/main');
+    }
   }
 
   console.log(`\nCreating worktree for branch: ${branch}\n`);

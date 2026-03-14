@@ -529,6 +529,7 @@ export class IgdbProxyService implements GameSearchApi {
     }
     if (normalizedPreferredReviewUrl !== null) {
       params = params.set('includeCandidates', 'true');
+      params = params.set('preferredReviewUrl', normalizedPreferredReviewUrl);
     }
 
     if (!isMetacriticPlatformSupported(normalizedPlatformIgdbId)) {

@@ -67,8 +67,9 @@ function getWorktreePathForBranch(branchName) {
   const output = execSync('git worktree list --porcelain', {
     encoding: 'utf8'
   });
+  const normalizedOutput = output.replace(/\r\n/g, '\n');
   const targetRef = `refs/heads/${branchName}`;
-  const blocks = output
+  const blocks = normalizedOutput
     .trim()
     .split('\n\n')
     .map((block) => block.split('\n'));
@@ -80,7 +81,7 @@ function getWorktreePathForBranch(branchName) {
       continue;
     }
     const worktreeDir = worktreeLine.slice('worktree '.length);
-    const branchRef = branchLine.slice('branch '.length);
+    const branchRef = branchLine.slice('branch '.length).trim();
     if (branchRef === targetRef) {
       return worktreeDir;
     }
@@ -134,6 +135,29 @@ try {
 
     const mainWorktreePath = getWorktreePathForBranch('main');
     if (mainWorktreePath) {
+      try {
+        const mainWorktreeStatus = execSync('git status --porcelain', {
+          cwd: mainWorktreePath,
+          encoding: 'utf8'
+        }).trim();
+
+        if (mainWorktreeStatus) {
+          console.error(
+            '\nCannot fast-forward local main because its worktree has uncommitted changes.'
+          );
+          console.error('Clean or stash changes in the main worktree before starting a new task.');
+          console.error(`Main worktree path: ${mainWorktreePath}\n`);
+          process.exit(1);
+        }
+      } catch (statusError) {
+        console.error('\nFailed to check status of local main worktree.');
+        console.error(
+          `Verify that the worktree at ${mainWorktreePath} is accessible and try again.\n`
+        );
+        const code = typeof statusError.status === 'number' ? statusError.status : 1;
+        process.exit(code);
+      }
+
       run('git merge --ff-only origin/main', {
         cwd: mainWorktreePath
       });

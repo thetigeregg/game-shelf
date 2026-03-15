@@ -1,8 +1,22 @@
-import type { Pool, QueryResultRow } from 'pg';
+import type { Pool, QueryResult, QueryResultRow } from 'pg';
 
 const IGDB_GAME_BATCH_SIZE = 100;
 const SIGNAL_UPSERT_BATCH_SIZE = 500;
 const GAME_INSERT_BATCH_SIZE = 250;
+const POPULARITY_INGEST_LOCK_NAMESPACE = 77411;
+const POPULARITY_INGEST_LOCK_KEY = 1;
+
+interface Queryable {
+  query<T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    values?: unknown[]
+  ): Promise<QueryResult<T>>;
+}
+
+interface IngestRunState {
+  tokenCache: { accessToken: string; expiresAtMs: number } | null;
+  nextRequestAtMs: number;
+}
 
 interface PopularityTypeItem {
   id: number;
@@ -93,9 +107,6 @@ export interface PopularityIngestServiceOptions {
 }
 
 export class PopularityIngestService {
-  private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
-  private nextRequestAtMs = 0;
-
   constructor(
     private readonly pool: Pool,
     private readonly options: PopularityIngestServiceOptions,
@@ -115,60 +126,98 @@ export class PopularityIngestService {
       };
     }
 
-    const typeIds = await this.resolvePopularityTypeIds();
-    if (typeIds.length === 0) {
-      return {
-        enabled: true,
-        fetchedTypes: 0,
-        fetchedSignals: 0,
-        upsertedSignals: 0,
-        missingGamesDiscovered: 0,
-        gamesInserted: 0,
-        scoresUpdated: 0
-      };
-    }
+    const state: IngestRunState = {
+      tokenCache: null,
+      nextRequestAtMs: 0
+    };
+    const client = await this.pool.connect();
+    let lockAcquired = false;
 
-    const signalRows: PopularityPrimitiveItem[] = [];
+    try {
+      const lockResult = await client.query<{ acquired: boolean }>(
+        'SELECT pg_try_advisory_lock($1, $2) AS acquired',
+        [POPULARITY_INGEST_LOCK_NAMESPACE, POPULARITY_INGEST_LOCK_KEY]
+      );
 
-    for (const typeId of typeIds) {
-      const items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit);
-      signalRows.push(...items);
-    }
+      lockAcquired = lockResult.rows[0]?.acquired ?? false;
+      if (!lockAcquired) {
+        return {
+          enabled: true,
+          fetchedTypes: 0,
+          fetchedSignals: 0,
+          upsertedSignals: 0,
+          missingGamesDiscovered: 0,
+          gamesInserted: 0,
+          scoresUpdated: 0
+        };
+      }
 
-    if (signalRows.length === 0) {
+      const typeIds = await this.resolvePopularityTypeIds(state);
+      if (typeIds.length === 0) {
+        return {
+          enabled: true,
+          fetchedTypes: 0,
+          fetchedSignals: 0,
+          upsertedSignals: 0,
+          missingGamesDiscovered: 0,
+          gamesInserted: 0,
+          scoresUpdated: 0
+        };
+      }
+
+      const signalRows: PopularityPrimitiveItem[] = [];
+
+      for (const typeId of typeIds) {
+        const items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit, state);
+        signalRows.push(...items);
+      }
+
+      if (signalRows.length === 0) {
+        return {
+          enabled: true,
+          fetchedTypes: typeIds.length,
+          fetchedSignals: 0,
+          upsertedSignals: 0,
+          missingGamesDiscovered: 0,
+          gamesInserted: 0,
+          scoresUpdated: 0
+        };
+      }
+
+      const dedupedSignals = dedupeSignals(signalRows);
+      await this.upsertSignals(dedupedSignals, client);
+
+      const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
+      const gameMap = await this.fetchGamesByIds(uniqueGameIds, state);
+
+      const missingGameIds = await this.findMissingGameIds(gameMap, client);
+      const gamesInserted = await this.insertMissingGames(missingGameIds, gameMap, client);
+      const scoresUpdated = await this.recomputeScores(uniqueGameIds, client);
+
       return {
         enabled: true,
         fetchedTypes: typeIds.length,
-        fetchedSignals: 0,
-        upsertedSignals: 0,
-        missingGamesDiscovered: 0,
-        gamesInserted: 0,
-        scoresUpdated: 0
+        fetchedSignals: signalRows.length,
+        upsertedSignals: dedupedSignals.length,
+        missingGamesDiscovered: missingGameIds.length,
+        gamesInserted,
+        scoresUpdated
       };
+    } finally {
+      try {
+        if (lockAcquired) {
+          await client.query('SELECT pg_advisory_unlock($1, $2)', [
+            POPULARITY_INGEST_LOCK_NAMESPACE,
+            POPULARITY_INGEST_LOCK_KEY
+          ]);
+        }
+      } finally {
+        client.release();
+      }
     }
-
-    const dedupedSignals = dedupeSignals(signalRows);
-    await this.upsertSignals(dedupedSignals);
-
-    const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
-    const gameMap = await this.fetchGamesByIds(uniqueGameIds);
-
-    const missingGameIds = await this.findMissingGameIds(gameMap);
-    const gamesInserted = await this.insertMissingGames(missingGameIds, gameMap);
-    const scoresUpdated = await this.recomputeScores(uniqueGameIds);
-
-    return {
-      enabled: true,
-      fetchedTypes: typeIds.length,
-      fetchedSignals: signalRows.length,
-      upsertedSignals: dedupedSignals.length,
-      missingGamesDiscovered: missingGameIds.length,
-      gamesInserted,
-      scoresUpdated
-    };
   }
 
-  private async resolvePopularityTypeIds(): Promise<number[]> {
+  private async resolvePopularityTypeIds(state: IngestRunState): Promise<number[]> {
     if (Array.isArray(this.options.sourceTypeIds) && this.options.sourceTypeIds.length > 0) {
       return [
         ...new Set(
@@ -177,8 +226,8 @@ export class PopularityIngestService {
       ];
     }
 
-    const token = await this.getAccessToken();
-    await this.throttle();
+    const token = await this.getAccessToken(state);
+    await this.throttle(state);
 
     const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_types', {
       method: 'POST',
@@ -207,10 +256,11 @@ export class PopularityIngestService {
 
   private async fetchPopularityPrimitives(
     popularityTypeId: number,
-    limit: number
+    limit: number,
+    state: IngestRunState
   ): Promise<PopularityPrimitiveItem[]> {
-    const token = await this.getAccessToken();
-    await this.throttle();
+    const token = await this.getAccessToken(state);
+    await this.throttle(state);
 
     const normalizedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 500) : 500;
 
@@ -262,17 +312,20 @@ export class PopularityIngestService {
       .filter((item): item is PopularityPrimitiveItem => item !== null);
   }
 
-  private async fetchGamesByIds(gameIds: string[]): Promise<Map<string, WorkerGameItem>> {
+  private async fetchGamesByIds(
+    gameIds: string[],
+    state: IngestRunState
+  ): Promise<Map<string, WorkerGameItem>> {
     const map = new Map<string, WorkerGameItem>();
     if (gameIds.length === 0) {
       return map;
     }
 
-    const token = await this.getAccessToken();
+    const token = await this.getAccessToken(state);
 
     for (let index = 0; index < gameIds.length; index += IGDB_GAME_BATCH_SIZE) {
       const batch = gameIds.slice(index, index + IGDB_GAME_BATCH_SIZE);
-      await this.throttle();
+      await this.throttle(state);
 
       const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
         method: 'POST',
@@ -307,7 +360,10 @@ export class PopularityIngestService {
     return map;
   }
 
-  private async upsertSignals(rows: PopularityPrimitiveItem[]): Promise<void> {
+  private async upsertSignals(
+    rows: PopularityPrimitiveItem[],
+    queryable: Queryable
+  ): Promise<void> {
     if (rows.length === 0) {
       return;
     }
@@ -329,7 +385,7 @@ export class PopularityIngestService {
         values.push(row.gameId, row.popularityType, row.value);
       }
 
-      await this.pool.query(
+      await queryable.query(
         `
         INSERT INTO game_popularity (game_id, popularity_type, value, fetched_at)
         VALUES ${valueClauses.join(', ')}
@@ -343,13 +399,16 @@ export class PopularityIngestService {
     }
   }
 
-  private async findMissingGameIds(gameMap: Map<string, WorkerGameItem>): Promise<string[]> {
+  private async findMissingGameIds(
+    gameMap: Map<string, WorkerGameItem>,
+    queryable: Queryable
+  ): Promise<string[]> {
     if (gameMap.size === 0) {
       return [];
     }
 
     const gameIds = [...gameMap.keys()];
-    const result = await this.pool.query<ExistingGamePlatformRow>(
+    const result = await queryable.query<ExistingGamePlatformRow>(
       `
       SELECT igdb_game_id, platform_igdb_id
       FROM games
@@ -378,7 +437,8 @@ export class PopularityIngestService {
 
   private async insertMissingGames(
     gameIds: string[],
-    gameMap: Map<string, WorkerGameItem>
+    gameMap: Map<string, WorkerGameItem>,
+    queryable: Queryable
   ): Promise<number> {
     const pendingRows: Array<{ igdbGameId: string; platformId: number; payload: string }> = [];
 
@@ -420,7 +480,7 @@ export class PopularityIngestService {
         values.push(row.igdbGameId, row.platformId, row.payload);
       }
 
-      const result = await this.pool.query(
+      const result = await queryable.query(
         `
         INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
         VALUES ${valueClauses.join(', ')}
@@ -436,12 +496,12 @@ export class PopularityIngestService {
     return inserted;
   }
 
-  private async recomputeScores(gameIds: string[]): Promise<number> {
+  private async recomputeScores(gameIds: string[], queryable: Queryable): Promise<number> {
     if (gameIds.length === 0) {
       return 0;
     }
 
-    const result = await this.pool.query<PopularityScoreRow>(
+    const result = await queryable.query<PopularityScoreRow>(
       `
       WITH target_game_ids AS (
         SELECT DISTINCT UNNEST($1::text[]) AS game_id
@@ -470,11 +530,11 @@ export class PopularityIngestService {
     return result.rowCount ?? 0;
   }
 
-  private async getAccessToken(): Promise<string> {
+  private async getAccessToken(state: IngestRunState): Promise<string> {
     const now = Date.now();
 
-    if (this.tokenCache && this.tokenCache.expiresAtMs > now + 30_000) {
-      return this.tokenCache.accessToken;
+    if (state.tokenCache && state.tokenCache.expiresAtMs > now + 30_000) {
+      return state.tokenCache.accessToken;
     }
 
     const tokenUrl = new URL('https://id.twitch.tv/oauth2/token');
@@ -498,7 +558,7 @@ export class PopularityIngestService {
       throw new Error('Twitch token response did not include access_token');
     }
 
-    this.tokenCache = {
+    state.tokenCache = {
       accessToken,
       expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000))
     };
@@ -506,11 +566,11 @@ export class PopularityIngestService {
     return accessToken;
   }
 
-  private async throttle(): Promise<void> {
+  private async throttle(state: IngestRunState): Promise<void> {
     const requestsPerSecond = Math.max(1, Math.floor(this.options.maxRequestsPerSecond));
     const minIntervalMs = Math.ceil(1000 / requestsPerSecond);
     const now = Date.now();
-    const waitMs = Math.max(0, this.nextRequestAtMs - now);
+    const waitMs = Math.max(0, state.nextRequestAtMs - now);
 
     if (waitMs > 0) {
       await new Promise<void>((resolve) => {
@@ -518,7 +578,7 @@ export class PopularityIngestService {
       });
     }
 
-    this.nextRequestAtMs = Math.max(now, this.nextRequestAtMs) + minIntervalMs;
+    state.nextRequestAtMs = Math.max(now, state.nextRequestAtMs) + minIntervalMs;
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {

@@ -59,7 +59,7 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
 }
 `;
 
-    const result = runGh([
+    const args = [
       'api',
       'graphql',
       '-f',
@@ -69,10 +69,14 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
       '-F',
       `repo=${repo}`,
       '-F',
-      `pr=${prNumber}`,
-      '-F',
-      `cursor=${cursor}`
-    ]);
+      `pr=${prNumber}`
+    ];
+
+    if (cursor) {
+      args.push('-F', `cursor=${cursor}`);
+    }
+
+    const result = runGh(args);
 
     const data = JSON.parse(result);
 

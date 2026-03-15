@@ -1,6 +1,7 @@
 import type { Pool, QueryResultRow } from 'pg';
 
 const IGDB_GAME_BATCH_SIZE = 100;
+const SIGNAL_UPSERT_BATCH_SIZE = 500;
 
 interface PopularityTypeItem {
   id: number;
@@ -305,17 +306,37 @@ export class PopularityIngestService {
   }
 
   private async upsertSignals(rows: PopularityPrimitiveItem[]): Promise<void> {
-    for (const row of rows) {
+    if (rows.length === 0) {
+      return;
+    }
+
+    for (let offset = 0; offset < rows.length; offset += SIGNAL_UPSERT_BATCH_SIZE) {
+      const batch = rows.slice(offset, offset + SIGNAL_UPSERT_BATCH_SIZE);
+      const values: Array<string | number> = [];
+      const valueClauses: string[] = [];
+
+      for (let index = 0; index < batch.length; index += 1) {
+        const row = batch[index];
+        const base = index * 3;
+        const gameIdPlaceholder = String(base + 1);
+        const popularityTypePlaceholder = String(base + 2);
+        const valuePlaceholder = String(base + 3);
+        valueClauses.push(
+          `($${gameIdPlaceholder}, $${popularityTypePlaceholder}, $${valuePlaceholder}, NOW())`
+        );
+        values.push(row.gameId, row.popularityType, row.value);
+      }
+
       await this.pool.query(
         `
         INSERT INTO game_popularity (game_id, popularity_type, value, fetched_at)
-        VALUES ($1, $2, $3, NOW())
+        VALUES ${valueClauses.join(', ')}
         ON CONFLICT (game_id, popularity_type)
         DO UPDATE
           SET value = EXCLUDED.value,
               fetched_at = NOW()
         `,
-        [row.gameId, row.popularityType, row.value]
+        values
       );
     }
   }

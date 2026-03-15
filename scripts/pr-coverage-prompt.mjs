@@ -27,14 +27,31 @@ function getPRFiles(prNumber) {
   return parsed.files.map((f) => f.path);
 }
 
-function getWorkflowRunId() {
-  const result = runGh(['run', 'list', '--json', 'databaseId,event', '--limit', '20']);
+function getPRHeadRef(prNumber) {
+  const result = runGh(['pr', 'view', prNumber, '--json', 'headRefName']);
+  const parsed = JSON.parse(result);
+  return parsed.headRefName;
+}
+
+function getWorkflowRunId(prNumber) {
+  const headRef = getPRHeadRef(prNumber);
+
+  const result = runGh([
+    'run',
+    'list',
+    '--branch',
+    headRef,
+    '--json',
+    'databaseId,event,headBranch',
+    '--limit',
+    '50'
+  ]);
 
   const runs = JSON.parse(result);
-  const prRun = runs.find((r) => r.event === 'pull_request');
+  const prRun = runs.find((r) => r.event === 'pull_request' && r.headBranch === headRef);
 
   if (!prRun) {
-    throw new Error('Could not find workflow run');
+    throw new Error(`Could not find pull_request workflow run for PR #${prNumber} (${headRef})`);
   }
 
   return prRun.databaseId;
@@ -200,7 +217,7 @@ function main() {
 
   const prFiles = getPRFiles(prNumber);
 
-  const runId = getWorkflowRunId();
+  const runId = getWorkflowRunId(prNumber);
 
   downloadCoverageArtifacts(runId);
 

@@ -121,7 +121,7 @@ async function fetchFeedRows(
     ORDER BY popularity_score DESC
     LIMIT $3
     `,
-    [0, params.scoreThreshold, scanLimit]
+    [params.scoreThreshold, params.scoreThreshold, scanLimit]
   );
 
   const items = result.rows

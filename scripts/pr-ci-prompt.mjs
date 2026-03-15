@@ -3,7 +3,8 @@ import fs from 'node:fs';
 
 const OUTPUT_FILE = '.pr-ci-prompt.md';
 const WORKFLOW_NAME = 'CI PR Checks';
-const DEBUG = true;
+
+const DEBUG = process.env.DEBUG_PR_CI === '1' || process.argv.includes('--debug');
 
 function log(...args) {
   if (DEBUG) console.log('[debug]', ...args);
@@ -69,16 +70,6 @@ function getJobs(runId) {
 
   log(`Jobs found: ${parsed.jobs.length}`);
 
-  for (const job of parsed.jobs) {
-    log('Job:', job.name, job.status, job.conclusion);
-
-    if (job.steps) {
-      for (const step of job.steps) {
-        log('  Step:', step.name, 'status:', step.status, 'conclusion:', step.conclusion);
-      }
-    }
-  }
-
   return parsed.jobs;
 }
 
@@ -131,11 +122,12 @@ function extractRelevantLogs(logs) {
       line.includes('does not meet') ||
       line.includes('Coverage for') ||
       line.includes('FAIL') ||
-      line.includes('Error:')
+      line.includes('Error:') ||
+      line.includes('Test Suites:')
   );
 
   if (errorIndex === -1) {
-    return lines.slice(-80);
+    return lines.slice(-40);
   }
 
   const start = Math.max(0, errorIndex - 20);
@@ -157,7 +149,7 @@ Resolve the CI failures described below.
 
 Guidelines:
 
-• Fix root causes
+• Fix the root cause of the failures
 • Do not suppress errors
 • Preserve project conventions
 

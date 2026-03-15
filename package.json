@@ -45,7 +45,7 @@
     "audit:fix:all": "npm audit fix && npm --prefix server audit fix && npm --prefix worker audit fix && npm --prefix hltb-scraper audit fix && npm --prefix metacritic-scraper audit fix && npm --prefix psprices-scraper audit fix",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh",
-    "pr:summary": "sh -c 'node scripts/pr-summary.mjs \"$1\" && (command -v code >/dev/null 2>&1 && code .pr-summary-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --",
+    "pr:summary": "node scripts/pr-summary.mjs && (command -v code >/dev/null 2>&1 && code .pr-summary-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")",
     "task:start": "node scripts/task-start.mjs",
     "dev:cleanup": "node scripts/dev-cleanup.mjs",
     "dev:cleanup:auto": "node scripts/dev-cleanup.mjs --auto",

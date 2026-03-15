@@ -85,3 +85,4 @@ nas-secrets/
 .pr-summary-prompt.md
 .pr-review-prompt.md
 .pr-ci-prompt.md
+.pr-fix-prompt.md

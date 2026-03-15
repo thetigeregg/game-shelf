@@ -49,7 +49,8 @@
     "task:start": "node scripts/task-start.mjs",
     "dev:cleanup": "node scripts/dev-cleanup.mjs",
     "dev:cleanup:auto": "node scripts/dev-cleanup.mjs --auto",
-    "pr:review": "node scripts/pr-review-prompt.mjs && (command -v code >/dev/null 2>&1 && code .pr-review-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-review-prompt.md\")"
+    "pr:review": "node scripts/pr-review-prompt.mjs && (command -v code >/dev/null 2>&1 && code .pr-review-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-review-prompt.md\")",
+    "pr:coverage": "node scripts/pr-coverage-prompt.mjs && (command -v code >/dev/null 2>&1 && code .pr-coverage-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-coverage-prompt.md\")"
   },
   "private": true,
   "dependencies": {

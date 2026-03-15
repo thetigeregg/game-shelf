@@ -171,6 +171,7 @@ export class PopularityIngestService {
 
       const signalRows: PopularityPrimitiveItem[] = [];
       let throttledByRateLimit = false;
+      let fetchedTypeCount = 0;
 
       for (const typeId of typeIds) {
         let items: PopularityPrimitiveItem[];
@@ -183,13 +184,14 @@ export class PopularityIngestService {
           }
           throw error;
         }
+        fetchedTypeCount += 1;
         signalRows.push(...items);
       }
 
       if (signalRows.length === 0) {
         return {
           enabled: true,
-          fetchedTypes: throttledByRateLimit ? 0 : typeIds.length,
+          fetchedTypes: throttledByRateLimit ? fetchedTypeCount : typeIds.length,
           fetchedSignals: 0,
           upsertedSignals: 0,
           missingGamesDiscovered: 0,
@@ -218,7 +220,7 @@ export class PopularityIngestService {
 
       return {
         enabled: true,
-        fetchedTypes: typeIds.length,
+        fetchedTypes: fetchedTypeCount,
         fetchedSignals: signalRows.length,
         upsertedSignals: dedupedSignals.length,
         missingGamesDiscovered: missingGameIds.length,

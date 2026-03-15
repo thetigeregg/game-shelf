@@ -736,7 +736,7 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
   const summary = await service.runOnce();
 
   assert.equal(summary.enabled, true);
-  assert.equal(summary.fetchedTypes, 2);
+  assert.equal(summary.fetchedTypes, 1);
   assert.equal(summary.fetchedSignals, 1);
   assert.equal(summary.upsertedSignals, 1);
   assert.equal(summary.scoresUpdated, 1);

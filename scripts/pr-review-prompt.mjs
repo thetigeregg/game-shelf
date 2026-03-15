@@ -19,8 +19,8 @@ function runGh(args) {
 }
 
 function getRepoInfo() {
-  const url = runGh(['repo', 'view', '--json', 'nameWithOwner']);
-  const parsed = JSON.parse(url);
+  const result = runGh(['repo', 'view', '--json', 'nameWithOwner']);
+  const parsed = JSON.parse(result);
   const [owner, repo] = parsed.nameWithOwner.split('/');
   return { owner, repo };
 }
@@ -45,7 +45,7 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
           isResolved
           path
           line
-          comments(first:10) {
+          comments(first:20) {
             nodes {
               author { login }
               body
@@ -132,34 +132,38 @@ function buildPrompt(prNumber, grouped) {
     return `No unresolved PR review comments for PR #${prNumber}.`;
   }
 
-  let md = `
-You are addressing GitHub Pull Request review comments.
-
-Fix the issues described below.
-
-Guidelines:
-
-• Modify only the relevant code
-• Preserve project style and patterns
-• Avoid unrelated refactors
-• Inspect the referenced file if context is unclear
+  let md = `# GitHub PR Review Fix Tasks
 
 Pull Request: #${prNumber}
+
+Your job is to resolve the following review comments.
+
+Rules:
+
+• Fix each task completely
+• Modify only relevant code
+• Preserve existing style and patterns
+• Do not introduce unrelated refactors
+• Mark tasks mentally as complete before moving on
 
 ---
 
 `;
 
+  let taskNumber = 1;
+
   for (const [file, comments] of grouped.entries()) {
-    md += `\n# FILE: ${file}\n`;
+    md += `\n## File: ${file}\n`;
 
     for (const c of comments) {
       md += `
-LINE: ${c.line}
+### Task ${taskNumber}
+
+Location: ${file}:${c.line}
 
 Reviewer: ${c.reviewer}
 
-Comment:
+Issue:
 ${c.comment}
 
 Diff Context:
@@ -167,10 +171,27 @@ Diff Context:
 ${c.diff}
 \`\`\`
 
+Required Action:
+Fix the issue described above in the referenced file.
+
 ---
+
 `;
+
+      taskNumber++;
     }
   }
+
+  md += `
+
+# Final Step
+
+After completing all fixes:
+
+Generate the Conventional Commit message for the changes.
+
+Use standard Conventional Commit format.
+`;
 
   return md;
 }

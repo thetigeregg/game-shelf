@@ -293,6 +293,10 @@ function sqlUnixPayload(field: string): string {
   return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^\\d+$' THEN (BTRIM(payload->>'${field}'))::bigint ELSE NULL END`;
 }
 
+function sqlIsoDatePayload(field: string): string {
+  return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$' THEN EXTRACT(EPOCH FROM (BTRIM(payload->>'${field}'))::timestamptz)::bigint ELSE NULL END`;
+}
+
 function sqlFirstReleaseDatePayload(): string {
-  return `COALESCE(${sqlUnixPayload('first_release_date')}, ${sqlUnixPayload('firstReleaseDate')})`;
+  return `COALESCE(${sqlUnixPayload('first_release_date')}, ${sqlUnixPayload('firstReleaseDate')}, ${sqlIsoDatePayload('releaseDate')})`;
 }

@@ -5,9 +5,15 @@ import type { Pool, QueryResult, QueryResultRow } from 'pg';
 import { registerPopularityRoutes } from './routes.js';
 
 class PoolMock {
+  readonly queries: Array<{ text: string; params: unknown[] }> = [];
+
   constructor(private readonly rows: Array<Record<string, unknown>>) {}
 
-  query<T extends QueryResultRow = QueryResultRow>(): Promise<QueryResult<T>> {
+  query<T extends QueryResultRow = QueryResultRow>(
+    text = '',
+    params: unknown[] = []
+  ): Promise<QueryResult<T>> {
+    this.queries.push({ text, params });
     return Promise.resolve({
       rows: this.rows as T[],
       rowCount: this.rows.length
@@ -17,24 +23,21 @@ class PoolMock {
 
 void test('GET /v1/games/trending returns mapped popularity feed items', async () => {
   const app = fastifyFactory({ logger: false });
-  await registerPopularityRoutes(
-    app,
-    new PoolMock([
-      {
-        igdb_game_id: '100',
-        platform_igdb_id: 6,
-        popularity_score: '121.2',
-        payload: {
-          title: 'Test Game',
-          coverUrl: 'https://example.com/cover.jpg',
-          rating: 85,
-          first_release_date: 1_700_000_000,
-          platformOptions: [{ id: 6, name: 'PC' }]
-        }
+  const pool = new PoolMock([
+    {
+      igdb_game_id: '100',
+      platform_igdb_id: 6,
+      popularity_score: '121.2',
+      payload: {
+        title: 'Test Game',
+        coverUrl: 'https://example.com/cover.jpg',
+        rating: 85,
+        first_release_date: 1_700_000_000,
+        platformOptions: [{ id: 6, name: 'PC' }]
       }
-    ]) as unknown as Pool,
-    { threshold: 50 }
-  );
+    }
+  ]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
@@ -57,6 +60,13 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.equal(body.items[0]?.popularityScore, 121.2);
   assert.equal(body.items[0]?.platforms[0]?.id, 6);
   assert.equal(body.items[0]?.firstReleaseDate, 1_700_000_000);
+  assert.equal(pool.queries.length, 1);
+  const query = pool.queries[0];
+  assert.ok(query.text.includes('AND TRUE'));
+  assert.equal(query.params[0], 50);
+  assert.equal(query.params[3], 50);
+  assert.equal(typeof query.params[1], 'number');
+  assert.equal(typeof query.params[2], 'number');
 
   await app.close();
 });
@@ -64,32 +74,29 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
 void test('GET /v1/games/upcoming filters out already released games', async () => {
   const nowSec = Math.trunc(Date.now() / 1000);
   const app = fastifyFactory({ logger: false });
-  await registerPopularityRoutes(
-    app,
-    new PoolMock([
-      {
-        igdb_game_id: '200',
-        platform_igdb_id: 6,
-        popularity_score: '88.4',
-        payload: {
-          title: 'Future Game',
-          first_release_date: nowSec + 10_000,
-          platformOptions: [{ id: 6, name: 'PC' }]
-        }
-      },
-      {
-        igdb_game_id: '201',
-        platform_igdb_id: 6,
-        popularity_score: '77.1',
-        payload: {
-          title: 'Past Game',
-          first_release_date: nowSec - 10_000,
-          platformOptions: [{ id: 6, name: 'PC' }]
-        }
+  const pool = new PoolMock([
+    {
+      igdb_game_id: '200',
+      platform_igdb_id: 6,
+      popularity_score: '88.4',
+      payload: {
+        title: 'Future Game',
+        first_release_date: nowSec + 10_000,
+        platformOptions: [{ id: 6, name: 'PC' }]
       }
-    ]) as unknown as Pool,
-    { threshold: 50 }
-  );
+    },
+    {
+      igdb_game_id: '201',
+      platform_igdb_id: 6,
+      popularity_score: '77.1',
+      payload: {
+        title: 'Past Game',
+        first_release_date: nowSec - 10_000,
+        platformOptions: [{ id: 6, name: 'PC' }]
+      }
+    }
+  ]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
@@ -102,6 +109,14 @@ void test('GET /v1/games/upcoming filters out already released games', async () 
     body.items.map((item) => item.id),
     ['200']
   );
+  assert.equal(pool.queries.length, 1);
+  const query = pool.queries[0];
+  assert.ok(query.text.includes('IS NOT NULL AND'));
+  assert.ok(query.text.includes('> $2'));
+  assert.equal(query.params[0], 50);
+  assert.equal(query.params[3], 50);
+  assert.equal(typeof query.params[1], 'number');
+  assert.equal(typeof query.params[2], 'number');
 
   await app.close();
 });
@@ -147,32 +162,29 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   const nowSec = Math.trunc(Date.now() / 1000);
   const ninetyDaysSec = 90 * 24 * 60 * 60;
   const app = fastifyFactory({ logger: false });
-  await registerPopularityRoutes(
-    app,
-    new PoolMock([
-      {
-        igdb_game_id: '300',
-        platform_igdb_id: 6,
-        popularity_score: 99,
-        payload: {
-          title: 'Recent Game',
-          releaseDate: new Date((nowSec - 10_000) * 1000).toISOString(),
-          platformOptions: [{ id: 6, name: 'PC' }]
-        }
-      },
-      {
-        igdb_game_id: '301',
-        platform_igdb_id: 6,
-        popularity_score: 99,
-        payload: {
-          title: 'Old Game',
-          first_release_date: nowSec - ninetyDaysSec - 10,
-          platformOptions: [{ id: 6, name: 'PC' }]
-        }
+  const pool = new PoolMock([
+    {
+      igdb_game_id: '300',
+      platform_igdb_id: 6,
+      popularity_score: 99,
+      payload: {
+        title: 'Recent Game',
+        releaseDate: new Date((nowSec - 10_000) * 1000).toISOString(),
+        platformOptions: [{ id: 6, name: 'PC' }]
       }
-    ]) as unknown as Pool,
-    { threshold: 50 }
-  );
+    },
+    {
+      igdb_game_id: '301',
+      platform_igdb_id: 6,
+      popularity_score: 99,
+      payload: {
+        title: 'Old Game',
+        first_release_date: nowSec - ninetyDaysSec - 10,
+        platformOptions: [{ id: 6, name: 'PC' }]
+      }
+    }
+  ]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
@@ -185,6 +197,15 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
     body.items.map((item) => item.id),
     ['300']
   );
+  assert.equal(pool.queries.length, 1);
+  const query = pool.queries[0];
+  assert.ok(query.text.includes('> $3'));
+  assert.ok(query.text.includes('<= $2'));
+  assert.equal(query.params[0], 50);
+  assert.equal(query.params[3], 50);
+  assert.equal(typeof query.params[1], 'number');
+  assert.equal(typeof query.params[2], 'number');
+  assert.equal(Number(query.params[1]) - Number(query.params[2]), ninetyDaysSec);
 
   await app.close();
 });

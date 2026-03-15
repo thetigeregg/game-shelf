@@ -97,7 +97,16 @@ async function fetchFeedRows(
     feedType: 'trending' | 'upcoming' | 'recent';
   }
 ): Promise<PopularityFeedItem[]> {
-  const scanLimit = params.feedType === 'trending' ? 50 : 400;
+  const nowSec = params.nowSec;
+  const cutoffRecentSec = nowSec - 90 * 24 * 60 * 60;
+  const firstReleaseDateSql = sqlFirstReleaseDatePayload();
+
+  let feedWindowPredicate = 'TRUE';
+  if (params.feedType === 'upcoming') {
+    feedWindowPredicate = `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $2`;
+  } else if (params.feedType === 'recent') {
+    feedWindowPredicate = `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $3 AND ${firstReleaseDateSql} <= $2`;
+  }
 
   const result = await pool.query<PopularityGameRow>(
     `
@@ -117,10 +126,11 @@ async function fetchFeedRows(
       AND COALESCE(NULLIF(BTRIM(payload->>'parent_game'), ''), NULLIF(BTRIM(payload->>'parentGame'), '')) IS NULL
       AND COALESCE(NULLIF(BTRIM(payload->>'version_parent'), ''), NULLIF(BTRIM(payload->>'versionParent'), '')) IS NULL
       AND COALESCE(NULLIF(BTRIM(payload->>'gameType'), ''), 'main_game') = 'main_game'
+      AND ${feedWindowPredicate}
     ORDER BY popularity_score DESC
-    LIMIT $2
+    LIMIT $4
     `,
-    [params.scoreThreshold, scanLimit]
+    [params.scoreThreshold, nowSec, cutoffRecentSec, 50]
   );
 
   const items = result.rows
@@ -130,9 +140,6 @@ async function fetchFeedRows(
   if (params.feedType === 'trending') {
     return items.slice(0, 50);
   }
-
-  const nowSec = params.nowSec;
-  const cutoffRecentSec = nowSec - 90 * 24 * 60 * 60;
 
   const filtered = items.filter((item) => {
     if (item.firstReleaseDate === null) {
@@ -280,4 +287,12 @@ function normalizeFirstReleaseDate(payload: Record<string, unknown>): number | n
 
 function sqlNumericPayload(field: string): string {
   return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(payload->>'${field}'))::double precision ELSE 0 END`;
+}
+
+function sqlUnixPayload(field: string): string {
+  return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^\\d+$' THEN (BTRIM(payload->>'${field}'))::bigint ELSE NULL END`;
+}
+
+function sqlFirstReleaseDatePayload(): string {
+  return `COALESCE(${sqlUnixPayload('first_release_date')}, ${sqlUnixPayload('firstReleaseDate')})`;
 }

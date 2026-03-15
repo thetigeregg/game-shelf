@@ -80,6 +80,36 @@ function baseOptions(
   };
 }
 
+void test('runOnce returns disabled summary when ingest is disabled', async () => {
+  let connectCalled = false;
+  const pool = {
+    connect: () => {
+      connectCalled = true;
+      return Promise.reject(new Error('connect should not be called when ingest is disabled'));
+    }
+  } as unknown as Pool;
+
+  let fetchCalls = 0;
+  const fetchMock: typeof fetch = () => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response('{}', { status: 200 }));
+  };
+
+  const service = new PopularityIngestService(pool, baseOptions({ enabled: false }), fetchMock);
+
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, false);
+  assert.equal(summary.fetchedTypes, 0);
+  assert.equal(summary.fetchedSignals, 0);
+  assert.equal(summary.upsertedSignals, 0);
+  assert.equal(summary.missingGamesDiscovered, 0);
+  assert.equal(summary.gamesInserted, 0);
+  assert.equal(summary.scoresUpdated, 0);
+  assert.equal(connectCalled, false);
+  assert.equal(fetchCalls, 0);
+});
+
 void test('runOnce resolves type ids, dedupes primitives, and recomputes scores for unique game ids', async () => {
   const recomputeParams: unknown[][] = [];
   const pool = new PoolMock((sql, params) => {
@@ -358,4 +388,198 @@ void test('runOnce exits early when advisory lock is unavailable', async () => {
   assert.equal(summary.gamesInserted, 0);
   assert.equal(summary.scoresUpdated, 0);
   assert.equal(fetchCalls, 0);
+});
+
+void test('runOnce handles invalid sourceTypeIds by returning empty type summary', async () => {
+  const pool = new PoolMock((sql) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    throw new Error(`Unexpected SQL for invalid sourceTypeIds test: ${sql}`);
+  });
+
+  let fetchCalls = 0;
+  const fetchMock: typeof fetch = () => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response('{}', { status: 200 }));
+  };
+
+  const service = new PopularityIngestService(
+    pool as unknown as Pool,
+    baseOptions({ sourceTypeIds: [0, -1, 2.5] }),
+    fetchMock
+  );
+
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, true);
+  assert.equal(summary.fetchedTypes, 0);
+  assert.equal(summary.fetchedSignals, 0);
+  assert.equal(summary.upsertedSignals, 0);
+  assert.equal(summary.missingGamesDiscovered, 0);
+  assert.equal(summary.gamesInserted, 0);
+  assert.equal(summary.scoresUpdated, 0);
+  assert.equal(fetchCalls, 0);
+});
+
+void test('runOnce returns zero-signal summary when primitive rows normalize to empty', async () => {
+  const pool = new PoolMock((sql) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    throw new Error(`Unexpected SQL for empty primitives test: ${sql}`);
+  });
+
+  const fetchMock: typeof fetch = (input) => {
+    const url = toRequestUrl(input);
+
+    if (url.includes('/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_primitives')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ game_id: 0, popularity_type: 7, value: 'bad' }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch URL for empty primitives test: ${url}`));
+  };
+
+  const service = new PopularityIngestService(
+    pool as unknown as Pool,
+    baseOptions({ sourceTypeIds: [7] }),
+    fetchMock
+  );
+
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, true);
+  assert.equal(summary.fetchedTypes, 1);
+  assert.equal(summary.fetchedSignals, 0);
+  assert.equal(summary.upsertedSignals, 0);
+  assert.equal(summary.missingGamesDiscovered, 0);
+  assert.equal(summary.gamesInserted, 0);
+  assert.equal(summary.scoresUpdated, 0);
+});
+
+void test('runOnce inserts missing game platforms and updates scores', async () => {
+  const pool = new PoolMock((sql, params) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    if (normalized.includes('insert into game_popularity')) {
+      return queryResult([], 1);
+    }
+
+    if (
+      normalized.startsWith(
+        'select igdb_game_id, platform_igdb_id from games where igdb_game_id = any'
+      )
+    ) {
+      return queryResult([]);
+    }
+
+    if (
+      normalized.includes('insert into games (igdb_game_id, platform_igdb_id, payload, updated_at)')
+    ) {
+      const payload = typeof params?.[2] === 'string' ? params[2] : '';
+      assert.ok(payload.includes('"gameType":"main_game"'));
+      return queryResult([], 1);
+    }
+
+    if (normalized.includes('with target_game_ids as')) {
+      return queryResult([{ popularity_score: 111 } as QueryResultRow], 1);
+    }
+
+    throw new Error(`Unexpected SQL for missing game insert test: ${sql}`);
+  });
+
+  const fetchMock: typeof fetch = (input) => {
+    const url = toRequestUrl(input);
+
+    if (url.includes('/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_primitives')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ game_id: 10, popularity_type: 7, value: 90 }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/games')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 10,
+              name: 'New Game',
+              first_release_date: 1_700_000_000,
+              platforms: [{ id: 6, name: 'PC' }]
+            }
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch URL for missing game insert test: ${url}`));
+  };
+
+  const service = new PopularityIngestService(
+    pool as unknown as Pool,
+    baseOptions({ sourceTypeIds: [7], signalLimit: 1 }),
+    fetchMock
+  );
+
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, true);
+  assert.equal(summary.fetchedTypes, 1);
+  assert.equal(summary.fetchedSignals, 1);
+  assert.equal(summary.upsertedSignals, 1);
+  assert.equal(summary.missingGamesDiscovered, 1);
+  assert.equal(summary.gamesInserted, 1);
+  assert.equal(summary.scoresUpdated, 1);
 });

@@ -57,8 +57,9 @@ interface WorkerGameItem {
   platforms: string[];
 }
 
-interface ExistingGameIdRow extends QueryResultRow {
+interface ExistingGamePlatformRow extends QueryResultRow {
   igdb_game_id: string;
+  platform_igdb_id: number;
 }
 
 interface PopularityScoreRow extends QueryResultRow {
@@ -151,7 +152,7 @@ export class PopularityIngestService {
     const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
     const gameMap = await this.fetchGamesByIds(uniqueGameIds);
 
-    const missingGameIds = await this.findMissingGameIds(uniqueGameIds);
+    const missingGameIds = await this.findMissingGameIds(gameMap);
     const gamesInserted = await this.insertMissingGames(missingGameIds, gameMap);
     const scoresUpdated = await this.recomputeScores(uniqueGameIds);
 
@@ -341,22 +342,37 @@ export class PopularityIngestService {
     }
   }
 
-  private async findMissingGameIds(gameIds: string[]): Promise<string[]> {
-    if (gameIds.length === 0) {
+  private async findMissingGameIds(gameMap: Map<string, WorkerGameItem>): Promise<string[]> {
+    if (gameMap.size === 0) {
       return [];
     }
 
-    const result = await this.pool.query<ExistingGameIdRow>(
+    const gameIds = [...gameMap.keys()];
+    const result = await this.pool.query<ExistingGamePlatformRow>(
       `
-      SELECT DISTINCT igdb_game_id
+      SELECT igdb_game_id, platform_igdb_id
       FROM games
       WHERE igdb_game_id = ANY($1::text[])
       `,
       [gameIds]
     );
 
-    const existing = new Set(result.rows.map((row) => row.igdb_game_id));
-    return gameIds.filter((gameId) => !existing.has(gameId));
+    const existingPairs = new Set(
+      result.rows.map((row) => `${row.igdb_game_id}:${String(row.platform_igdb_id)}`)
+    );
+
+    const missingGameIds: string[] = [];
+    for (const [gameId, game] of gameMap) {
+      const hasMissingPlatform = game.platformOptions.some(
+        (platform) => !existingPairs.has(`${gameId}:${String(platform.id)}`)
+      );
+
+      if (hasMissingPlatform) {
+        missingGameIds.push(gameId);
+      }
+    }
+
+    return missingGameIds;
   }
 
   private async insertMissingGames(
@@ -372,18 +388,16 @@ export class PopularityIngestService {
       }
 
       for (const platform of item.platformOptions) {
-        await this.pool.query(
+        const result = await this.pool.query(
           `
           INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
           VALUES ($1, $2, $3::jsonb, NOW())
           ON CONFLICT (igdb_game_id, platform_igdb_id)
-          DO UPDATE
-            SET payload = EXCLUDED.payload,
-                updated_at = NOW()
+          DO NOTHING
           `,
           [item.igdbGameId, platform.id, JSON.stringify(buildGamePayload(item, platform))]
         );
-        inserted += 1;
+        inserted += result.rowCount ?? 0;
       }
     }
 

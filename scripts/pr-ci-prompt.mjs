@@ -26,30 +26,33 @@ function runGh(args) {
 }
 
 function getPRInfo(prNumber) {
-  const result = runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid']);
+  const result = runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid,headRefName']);
 
   const parsed = JSON.parse(result);
   log('PR info:', parsed);
   return parsed;
 }
 
-function getLatestCIRun(commitSha) {
+function getLatestCIRun(headRefName) {
   const result = runGh([
     'run',
     'list',
-    '--commit',
-    commitSha,
+    '--branch',
+    headRefName,
     '--json',
-    'databaseId,workflowName,status,conclusion',
+    'databaseId,workflowName,event,headBranch,status,conclusion',
     '--limit',
-    '20'
+    '50'
   ]);
 
   const runs = JSON.parse(result);
 
   log('Workflow runs:', runs);
 
-  const ciRun = runs.find((r) => r.workflowName === WORKFLOW_NAME);
+  const ciRun = runs.find(
+    (r) =>
+      r.workflowName === WORKFLOW_NAME && r.event === 'pull_request' && r.headBranch === headRefName
+  );
 
   if (!ciRun) {
     throw new Error(`Could not find workflow run named "${WORKFLOW_NAME}"`);
@@ -223,7 +226,7 @@ function main() {
 
   const pr = getPRInfo(prNumber);
 
-  const run = getLatestCIRun(pr.headRefOid);
+  const run = getLatestCIRun(pr.headRefName);
 
   console.log(`Using workflow run: ${run.databaseId}`);
 

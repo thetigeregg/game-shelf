@@ -46,7 +46,7 @@ export function registerPopularityRoutes(
     },
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
-        scoreThreshold: 0,
+        scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
         feedType: 'trending'
       });

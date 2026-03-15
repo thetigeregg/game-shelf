@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fastifyFactory from 'fastify';
+import type { Pool, QueryResult, QueryResultRow } from 'pg';
 import { registerPopularityRoutes } from './routes.js';
 
 class PoolMock {
   constructor(private readonly rows: Array<Record<string, unknown>>) {}
 
-  query(): Promise<{ rows: Array<Record<string, unknown>>; rowCount: number }> {
+  query<T extends QueryResultRow = QueryResultRow>(): Promise<QueryResult<T>> {
     return Promise.resolve({
-      rows: this.rows,
+      rows: this.rows as T[],
       rowCount: this.rows.length
-    });
+    } as QueryResult<T>);
   }
 }
 
@@ -31,7 +32,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
           platformOptions: [{ id: 6, name: 'PC' }]
         }
       }
-    ]) as never,
+    ]) as unknown as Pool,
     { threshold: 50 }
   );
 
@@ -86,7 +87,7 @@ void test('GET /v1/games/upcoming filters out already released games', async () 
           platformOptions: [{ id: 6, name: 'PC' }]
         }
       }
-    ]) as never,
+    ]) as unknown as Pool,
     { threshold: 50 }
   );
 
@@ -118,7 +119,7 @@ void test('GET /v1/games/trending falls back to row platform id when payload pla
           title: 'Legacy Platform Game'
         }
       }
-    ]) as never,
+    ]) as unknown as Pool,
     { threshold: 50 }
   );
 
@@ -169,7 +170,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
           platformOptions: [{ id: 6, name: 'PC' }]
         }
       }
-    ]) as never,
+    ]) as unknown as Pool,
     { threshold: 50 }
   );
 
@@ -213,7 +214,7 @@ void test('GET /v1/games/trending includes platformIgdbId when igdb id appears o
           platformOptions: [{ id: 167, name: 'PlayStation 5' }]
         }
       }
-    ]) as never,
+    ]) as unknown as Pool,
     { threshold: 50 }
   );
 

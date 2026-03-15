@@ -35,12 +35,6 @@ export const MIGRATIONS: string[] = [
           WHEN BTRIM(COALESCE(payload->>'firstReleaseDate', '')) ~ '^[0-9]+$'
           THEN (BTRIM(payload->>'firstReleaseDate'))::bigint
           ELSE NULL
-        END,
-        CASE
-          WHEN BTRIM(COALESCE(payload->>'releaseDate', '')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$'
-           AND pg_input_is_valid(BTRIM(payload->>'releaseDate'), 'timestamptz')
-          THEN EXTRACT(EPOCH FROM (BTRIM(payload->>'releaseDate'))::timestamptz)::bigint
-          ELSE NULL
         END
       )
     )

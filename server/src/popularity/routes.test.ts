@@ -63,10 +63,9 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.equal(pool.queries.length, 1);
   const query = pool.queries[0];
   assert.ok(query.text.includes('AND TRUE'));
+  assert.ok(query.text.includes('LIMIT $2'));
   assert.equal(query.params[0], 50);
-  assert.equal(query.params[3], 50);
-  assert.equal(typeof query.params[1], 'number');
-  assert.equal(typeof query.params[2], 'number');
+  assert.equal(query.params[1], 50);
 
   await app.close();
 });
@@ -103,10 +102,10 @@ void test('GET /v1/games/upcoming applies release window in SQL predicate', asyn
   const query = pool.queries[0];
   assert.ok(query.text.includes('IS NOT NULL AND'));
   assert.ok(query.text.includes('> $2'));
+  assert.ok(query.text.includes('LIMIT $3'));
   assert.equal(query.params[0], 50);
-  assert.equal(query.params[3], 50);
+  assert.equal(query.params[2], 50);
   assert.equal(typeof query.params[1], 'number');
-  assert.equal(typeof query.params[2], 'number');
 
   await app.close();
 });
@@ -181,6 +180,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   const query = pool.queries[0];
   assert.ok(query.text.includes('> $3'));
   assert.ok(query.text.includes('<= $2'));
+  assert.ok(query.text.includes('LIMIT $4'));
   assert.equal(query.params[0], 50);
   assert.equal(query.params[3], 50);
   assert.equal(typeof query.params[1], 'number');

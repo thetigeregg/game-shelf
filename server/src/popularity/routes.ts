@@ -137,23 +137,7 @@ async function fetchFeedRows(
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
 
-  if (params.feedType === 'trending') {
-    return items.slice(0, 50);
-  }
-
-  const filtered = items.filter((item) => {
-    if (item.firstReleaseDate === null) {
-      return false;
-    }
-
-    if (params.feedType === 'upcoming') {
-      return item.firstReleaseDate > nowSec;
-    }
-
-    return item.firstReleaseDate > cutoffRecentSec && item.firstReleaseDate <= nowSec;
-  });
-
-  return filtered.slice(0, 50);
+  return items.slice(0, 50);
 }
 
 function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {

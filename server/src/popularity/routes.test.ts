@@ -71,7 +71,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   await app.close();
 });
 
-void test('GET /v1/games/upcoming filters out already released games', async () => {
+void test('GET /v1/games/upcoming applies release window in SQL predicate', async () => {
   const nowSec = Math.trunc(Date.now() / 1000);
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock([
@@ -82,16 +82,6 @@ void test('GET /v1/games/upcoming filters out already released games', async () 
       payload: {
         title: 'Future Game',
         first_release_date: nowSec + 10_000,
-        platformOptions: [{ id: 6, name: 'PC' }]
-      }
-    },
-    {
-      igdb_game_id: '201',
-      platform_igdb_id: 6,
-      popularity_score: '77.1',
-      payload: {
-        title: 'Past Game',
-        first_release_date: nowSec - 10_000,
         platformOptions: [{ id: 6, name: 'PC' }]
       }
     }
@@ -170,16 +160,6 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
       payload: {
         title: 'Recent Game',
         releaseDate: new Date((nowSec - 10_000) * 1000).toISOString(),
-        platformOptions: [{ id: 6, name: 'PC' }]
-      }
-    },
-    {
-      igdb_game_id: '301',
-      platform_igdb_id: 6,
-      popularity_score: 99,
-      payload: {
-        title: 'Old Game',
-        first_release_date: nowSec - ninetyDaysSec - 10,
         platformOptions: [{ id: 6, name: 'PC' }]
       }
     }

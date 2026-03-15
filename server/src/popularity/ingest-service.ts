@@ -2,6 +2,7 @@ import type { Pool, QueryResultRow } from 'pg';
 
 const IGDB_GAME_BATCH_SIZE = 100;
 const SIGNAL_UPSERT_BATCH_SIZE = 500;
+const GAME_INSERT_BATCH_SIZE = 250;
 
 interface PopularityTypeItem {
   id: number;
@@ -379,7 +380,7 @@ export class PopularityIngestService {
     gameIds: string[],
     gameMap: Map<string, WorkerGameItem>
   ): Promise<number> {
-    let inserted = 0;
+    const pendingRows: Array<{ igdbGameId: string; platformId: number; payload: string }> = [];
 
     for (const gameId of gameIds) {
       const item = gameMap.get(gameId);
@@ -388,17 +389,48 @@ export class PopularityIngestService {
       }
 
       for (const platform of item.platformOptions) {
-        const result = await this.pool.query(
-          `
-          INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
-          VALUES ($1, $2, $3::jsonb, NOW())
-          ON CONFLICT (igdb_game_id, platform_igdb_id)
-          DO NOTHING
-          `,
-          [item.igdbGameId, platform.id, JSON.stringify(buildGamePayload(item, platform))]
-        );
-        inserted += result.rowCount ?? 0;
+        pendingRows.push({
+          igdbGameId: item.igdbGameId,
+          platformId: platform.id,
+          payload: JSON.stringify(buildGamePayload(item, platform))
+        });
       }
+    }
+
+    if (pendingRows.length === 0) {
+      return 0;
+    }
+
+    let inserted = 0;
+
+    for (let offset = 0; offset < pendingRows.length; offset += GAME_INSERT_BATCH_SIZE) {
+      const batch = pendingRows.slice(offset, offset + GAME_INSERT_BATCH_SIZE);
+      const values: Array<string | number> = [];
+      const valueClauses: string[] = [];
+
+      for (let index = 0; index < batch.length; index += 1) {
+        const row = batch[index];
+        const base = index * 3;
+        const gameIdPlaceholder = String(base + 1);
+        const platformIdPlaceholder = String(base + 2);
+        const payloadPlaceholder = String(base + 3);
+        valueClauses.push(
+          `($${gameIdPlaceholder}, $${platformIdPlaceholder}, $${payloadPlaceholder}::jsonb, NOW())`
+        );
+        values.push(row.igdbGameId, row.platformId, row.payload);
+      }
+
+      const result = await this.pool.query(
+        `
+        INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
+        VALUES ${valueClauses.join(', ')}
+        ON CONFLICT (igdb_game_id, platform_igdb_id)
+        DO NOTHING
+        `,
+        values
+      );
+
+      inserted += result.rowCount ?? 0;
     }
 
     return inserted;

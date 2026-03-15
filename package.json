@@ -48,7 +48,8 @@
     "pr:summary:open": "node scripts/pr-summary.mjs && (command -v code >/dev/null 2>&1 && code .pr-summary-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-summary-prompt.md\")",
     "task:start": "node scripts/task-start.mjs",
     "dev:cleanup": "node scripts/dev-cleanup.mjs",
-    "dev:cleanup:auto": "node scripts/dev-cleanup.mjs --auto"
+    "dev:cleanup:auto": "node scripts/dev-cleanup.mjs --auto",
+    "pr:review": "node scripts/pr-review-prompt.mjs"
   },
   "private": true,
   "dependencies": {

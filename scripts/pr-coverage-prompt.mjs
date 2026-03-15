@@ -62,7 +62,14 @@ function downloadCoverageArtifacts(runId) {
     fs.mkdirSync(ARTIFACT_DIR);
   }
 
-  runGh(['run', 'download', runId, '-n', 'coverage-reports', '-D', ARTIFACT_DIR]);
+  const runArtifactDir = path.join(ARTIFACT_DIR, String(runId));
+
+  fs.rmSync(runArtifactDir, { recursive: true, force: true });
+  fs.mkdirSync(runArtifactDir, { recursive: true });
+
+  runGh(['run', 'download', runId, '-n', 'coverage-reports', '-D', runArtifactDir]);
+
+  return runArtifactDir;
 }
 
 function parseLcov(file) {
@@ -92,15 +99,33 @@ function parseLcov(file) {
   return uncovered;
 }
 
-function collectCoverage() {
+function collectLcovFiles(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...collectLcovFiles(fullPath));
+      continue;
+    }
+
+    if (entry.isFile() && entry.name.endsWith('.info')) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+function collectCoverage(artifactDir) {
   const uncovered = {};
 
-  const files = fs.readdirSync(ARTIFACT_DIR);
+  const files = collectLcovFiles(artifactDir);
 
   for (const file of files) {
-    if (!file.endsWith('.info')) continue;
-
-    const parsed = parseLcov(path.join(ARTIFACT_DIR, file));
+    const parsed = parseLcov(file);
 
     for (const f in parsed) {
       if (!uncovered[f]) uncovered[f] = [];
@@ -219,9 +244,9 @@ function main() {
 
   const runId = getWorkflowRunId(prNumber);
 
-  downloadCoverageArtifacts(runId);
+  const artifactDir = downloadCoverageArtifacts(runId);
 
-  const uncovered = collectCoverage();
+  const uncovered = collectCoverage(artifactDir);
 
   const tasks = intersectWithPRFiles(uncovered, prFiles);
 

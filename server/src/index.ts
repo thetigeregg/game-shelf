@@ -263,30 +263,6 @@ async function main(): Promise<void> {
 
     app.route({
       method: 'GET',
-      url: '/v1/popularity/types',
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute'
-        }
-      },
-      handler: proxyMetadataToWorker
-    });
-
-    app.route({
-      method: 'GET',
-      url: '/v1/popularity/primitives',
-      config: {
-        rateLimit: {
-          max: 50,
-          timeWindow: '1 minute'
-        }
-      },
-      handler: proxyMetadataToWorker
-    });
-
-    app.route({
-      method: 'GET',
       url: '/v1/images/boxart/search',
       config: {
         rateLimit: {

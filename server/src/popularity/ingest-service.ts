@@ -1,8 +1,37 @@
 import type { Pool, QueryResultRow } from 'pg';
-import { fetchMetadataPathFromWorker } from '../metadata.js';
+
+const IGDB_GAME_BATCH_SIZE = 100;
 
 interface PopularityTypeItem {
   id: number;
+}
+
+interface PopularityPrimitiveItem {
+  gameId: string;
+  popularityType: number;
+  value: number;
+}
+
+interface RawIgdbGame {
+  id?: unknown;
+  name?: unknown;
+  rating?: unknown;
+  total_rating_count?: unknown;
+  hypes?: unknown;
+  follows?: unknown;
+  first_release_date?: unknown;
+  parent_game?: unknown;
+  version_parent?: unknown;
+  game_type?: {
+    type?: unknown;
+  } | null;
+  cover?: {
+    image_id?: unknown;
+  } | null;
+  platforms?: Array<{
+    id?: unknown;
+    name?: unknown;
+  }> | null;
 }
 
 interface WorkerGamePlatformOption {
@@ -13,17 +42,18 @@ interface WorkerGamePlatformOption {
 interface WorkerGameItem {
   igdbGameId: string;
   title: string;
-  coverUrl?: string | null;
-  releaseDate?: string | null;
-  releaseYear?: number | null;
+  coverUrl: string | null;
+  releaseDate: string | null;
+  releaseYear: number | null;
+  rating: number | null;
+  totalRatingCount: number | null;
+  hypes: number | null;
+  follows: number | null;
+  parentGame: string | null;
+  versionParent: string | null;
+  gameType: string | null;
   platformOptions: WorkerGamePlatformOption[];
   platforms: string[];
-}
-
-interface PopularityPrimitiveItem {
-  popularityType: number;
-  value: number;
-  game: WorkerGameItem;
 }
 
 interface ExistingGameIdRow extends QueryResultRow {
@@ -32,6 +62,11 @@ interface ExistingGameIdRow extends QueryResultRow {
 
 interface PopularityScoreRow extends QueryResultRow {
   popularity_score: string | number | null;
+}
+
+interface TwitchTokenResponse {
+  access_token?: unknown;
+  expires_in?: unknown;
 }
 
 export interface PopularityIngestSummary {
@@ -48,12 +83,20 @@ export interface PopularityIngestServiceOptions {
   enabled: boolean;
   signalLimit: number;
   sourceTypeIds?: number[];
+  twitchClientId: string;
+  twitchClientSecret: string;
+  requestTimeoutMs: number;
+  maxRequestsPerSecond: number;
 }
 
 export class PopularityIngestService {
+  private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
+  private nextRequestAtMs = 0;
+
   constructor(
     private readonly pool: Pool,
-    private readonly options: PopularityIngestServiceOptions
+    private readonly options: PopularityIngestServiceOptions,
+    private readonly fetchImpl: typeof fetch = fetch
   ) {}
 
   async runOnce(): Promise<PopularityIngestSummary> {
@@ -82,21 +125,11 @@ export class PopularityIngestService {
       };
     }
 
-    const signalRows: Array<{ gameId: string; popularityType: number; value: number }> = [];
+    const signalRows: PopularityPrimitiveItem[] = [];
 
     for (const typeId of typeIds) {
       const items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit);
-      for (const item of items) {
-        const gameId = item.game.igdbGameId.trim();
-        if (!/^\d+$/.test(gameId)) {
-          continue;
-        }
-        signalRows.push({
-          gameId,
-          popularityType: item.popularityType,
-          value: item.value
-        });
-      }
+      signalRows.push(...items);
     }
 
     if (signalRows.length === 0) {
@@ -115,8 +148,10 @@ export class PopularityIngestService {
     await this.upsertSignals(dedupedSignals);
 
     const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
+    const gameMap = await this.fetchGamesByIds(uniqueGameIds);
+
     const missingGameIds = await this.findMissingGameIds(uniqueGameIds);
-    const gamesInserted = await this.insertMissingGames(missingGameIds);
+    const gamesInserted = await this.insertMissingGames(missingGameIds, gameMap);
     const scoresUpdated = await this.recomputeScores(uniqueGameIds);
 
     return {
@@ -139,13 +174,25 @@ export class PopularityIngestService {
       ];
     }
 
-    const response = await fetchMetadataPathFromWorker('/v1/popularity/types');
+    const token = await this.getAccessToken();
+    await this.throttle();
+
+    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_types', {
+      method: 'POST',
+      headers: {
+        'Client-ID': this.options.twitchClientId,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body: 'fields id; sort id asc; limit 500;'
+    });
+
     if (!response.ok) {
       throw new Error(`Unable to fetch popularity types (${String(response.status)}).`);
     }
 
-    const payload = (await response.json()) as { items?: unknown };
-    const items = Array.isArray(payload.items) ? payload.items : [];
+    const payload = (await response.json()) as unknown;
+    const items = Array.isArray(payload) ? payload : [];
 
     return items
       .map((item) => {
@@ -159,10 +206,24 @@ export class PopularityIngestService {
     popularityTypeId: number,
     limit: number
   ): Promise<PopularityPrimitiveItem[]> {
-    const response = await fetchMetadataPathFromWorker('/v1/popularity/primitives', {
-      popularityTypeId,
-      limit,
-      offset: 0
+    const token = await this.getAccessToken();
+    await this.throttle();
+
+    const normalizedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 500) : 500;
+
+    const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_primitives', {
+      method: 'POST',
+      headers: {
+        'Client-ID': this.options.twitchClientId,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'text/plain'
+      },
+      body: [
+        `where popularity_type = ${String(popularityTypeId)} & game_id != null;`,
+        'fields game_id,popularity_type,value;',
+        'sort value desc;',
+        `limit ${String(normalizedLimit)};`
+      ].join(' ')
     });
 
     if (!response.ok) {
@@ -171,17 +232,79 @@ export class PopularityIngestService {
       );
     }
 
-    const payload = (await response.json()) as { items?: unknown };
-    const items = Array.isArray(payload.items) ? payload.items : [];
+    const payload = (await response.json()) as unknown;
+    const items = Array.isArray(payload) ? payload : [];
 
     return items
-      .map((item) => normalizePrimitive(item))
+      .map((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          return null;
+        }
+
+        const value = item as Record<string, unknown>;
+        const gameId = normalizeId(value.game_id);
+        const parsedType = toPositiveInteger(value.popularity_type);
+        const score = toFiniteNumber(value.value);
+
+        if (!gameId || !parsedType || score === null) {
+          return null;
+        }
+
+        return {
+          gameId,
+          popularityType: parsedType,
+          value: score
+        };
+      })
       .filter((item): item is PopularityPrimitiveItem => item !== null);
   }
 
-  private async upsertSignals(
-    rows: Array<{ gameId: string; popularityType: number; value: number }>
-  ): Promise<void> {
+  private async fetchGamesByIds(gameIds: string[]): Promise<Map<string, WorkerGameItem>> {
+    const map = new Map<string, WorkerGameItem>();
+    if (gameIds.length === 0) {
+      return map;
+    }
+
+    const token = await this.getAccessToken();
+
+    for (let index = 0; index < gameIds.length; index += IGDB_GAME_BATCH_SIZE) {
+      const batch = gameIds.slice(index, index + IGDB_GAME_BATCH_SIZE);
+      await this.throttle();
+
+      const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.options.twitchClientId,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'text/plain'
+        },
+        body: [
+          `where id = (${batch.join(',')});`,
+          'fields id,name,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name;',
+          `limit ${String(batch.length)};`
+        ].join(' ')
+      });
+
+      if (!response.ok) {
+        throw new Error(`Unable to fetch IGDB game metadata (${String(response.status)}).`);
+      }
+
+      const payload = (await response.json()) as unknown;
+      const rows = Array.isArray(payload) ? payload : [];
+
+      for (const raw of rows) {
+        const normalized = normalizeIgdbGame(raw as RawIgdbGame);
+        if (!normalized) {
+          continue;
+        }
+        map.set(normalized.igdbGameId, normalized);
+      }
+    }
+
+    return map;
+  }
+
+  private async upsertSignals(rows: PopularityPrimitiveItem[]): Promise<void> {
     for (const row of rows) {
       await this.pool.query(
         `
@@ -215,23 +338,19 @@ export class PopularityIngestService {
     return gameIds.filter((gameId) => !existing.has(gameId));
   }
 
-  private async insertMissingGames(gameIds: string[]): Promise<number> {
+  private async insertMissingGames(
+    gameIds: string[],
+    gameMap: Map<string, WorkerGameItem>
+  ): Promise<number> {
     let inserted = 0;
 
     for (const gameId of gameIds) {
-      const response = await fetchMetadataPathFromWorker(`/v1/games/${gameId}`);
-      if (!response.ok) {
-        continue;
-      }
-
-      const payload = (await response.json()) as { item?: unknown };
-      const item = normalizeWorkerGame(payload.item);
+      const item = gameMap.get(gameId);
       if (!item) {
         continue;
       }
 
-      const platformOptions = item.platformOptions.length > 0 ? item.platformOptions : [];
-      for (const platform of platformOptions) {
+      for (const platform of item.platformOptions) {
         await this.pool.query(
           `
           INSERT INTO games (igdb_game_id, platform_igdb_id, payload, updated_at)
@@ -277,12 +396,78 @@ export class PopularityIngestService {
 
     return result.rowCount ?? 0;
   }
+
+  private async getAccessToken(): Promise<string> {
+    const now = Date.now();
+
+    if (this.tokenCache && this.tokenCache.expiresAtMs > now + 30_000) {
+      return this.tokenCache.accessToken;
+    }
+
+    const tokenUrl = new URL('https://id.twitch.tv/oauth2/token');
+    tokenUrl.searchParams.set('client_id', this.options.twitchClientId);
+    tokenUrl.searchParams.set('client_secret', this.options.twitchClientSecret);
+    tokenUrl.searchParams.set('grant_type', 'client_credentials');
+
+    const response = await this.fetchWithTimeout(tokenUrl.toString(), {
+      method: 'POST'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Twitch token fetch failed with status ${String(response.status)}`);
+    }
+
+    const payload = (await response.json()) as TwitchTokenResponse;
+    const accessToken = typeof payload.access_token === 'string' ? payload.access_token.trim() : '';
+    const expiresIn = toFiniteNumber(payload.expires_in) ?? 0;
+
+    if (accessToken.length === 0) {
+      throw new Error('Twitch token response did not include access_token');
+    }
+
+    this.tokenCache = {
+      accessToken,
+      expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000))
+    };
+
+    return accessToken;
+  }
+
+  private async throttle(): Promise<void> {
+    const requestsPerSecond = Math.max(1, Math.floor(this.options.maxRequestsPerSecond));
+    const minIntervalMs = Math.ceil(1000 / requestsPerSecond);
+    const now = Date.now();
+    const waitMs = Math.max(0, this.nextRequestAtMs - now);
+
+    if (waitMs > 0) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, waitMs);
+      });
+    }
+
+    this.nextRequestAtMs = Math.max(now, this.nextRequestAtMs) + minIntervalMs;
+  }
+
+  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+    const timeoutMs = Math.max(1_000, this.options.requestTimeoutMs);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+
+    try {
+      return await this.fetchImpl(url, {
+        ...options,
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
-function dedupeSignals(
-  rows: Array<{ gameId: string; popularityType: number; value: number }>
-): Array<{ gameId: string; popularityType: number; value: number }> {
-  const byKey = new Map<string, { gameId: string; popularityType: number; value: number }>();
+function dedupeSignals(rows: PopularityPrimitiveItem[]): PopularityPrimitiveItem[] {
+  const byKey = new Map<string, PopularityPrimitiveItem>();
 
   for (const row of rows) {
     const key = `${row.gameId}:${String(row.popularityType)}`;
@@ -295,94 +480,45 @@ function dedupeSignals(
   return [...byKey.values()];
 }
 
-function normalizePrimitive(value: unknown): PopularityPrimitiveItem | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const item = value as Record<string, unknown>;
-  const popularityType =
-    typeof item.popularityType === 'number' && Number.isInteger(item.popularityType)
-      ? item.popularityType
-      : typeof item.popularityType === 'string'
-        ? Number.parseInt(item.popularityType, 10)
-        : Number.NaN;
-  const scoreValue =
-    typeof item.value === 'number'
-      ? item.value
-      : typeof item.value === 'string'
-        ? Number.parseFloat(item.value)
-        : Number.NaN;
-
-  if (!Number.isInteger(popularityType) || popularityType <= 0 || !Number.isFinite(scoreValue)) {
-    return null;
-  }
-
-  const game = normalizeWorkerGame(item.game);
-  if (!game) {
-    return null;
-  }
-
-  return {
-    popularityType,
-    value: scoreValue,
-    game
-  };
-}
-
-function normalizeWorkerGame(value: unknown): WorkerGameItem | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const item = value as Record<string, unknown>;
-  const igdbGameId = typeof item.igdbGameId === 'string' ? item.igdbGameId.trim() : '';
-  if (!/^\d+$/.test(igdbGameId)) {
+function normalizeIgdbGame(raw: RawIgdbGame): WorkerGameItem | null {
+  const igdbGameId = normalizeId(raw.id);
+  if (!igdbGameId) {
     return null;
   }
 
   const title =
-    typeof item.title === 'string' && item.title.trim().length > 0
-      ? item.title.trim()
-      : 'Unknown title';
+    typeof raw.name === 'string' && raw.name.trim().length > 0 ? raw.name.trim() : 'Unknown title';
 
-  const platformOptions = Array.isArray(item.platformOptions)
-    ? item.platformOptions
+  const platformOptions = Array.isArray(raw.platforms)
+    ? raw.platforms
         .map((platform) => {
-          if (!platform || typeof platform !== 'object' || Array.isArray(platform)) {
+          const id = toPositiveInteger(platform.id);
+          const name = typeof platform.name === 'string' ? platform.name.trim() : '';
+
+          if (!id || name.length === 0) {
             return null;
           }
-          const candidate = platform as Record<string, unknown>;
-          const id =
-            typeof candidate.id === 'number'
-              ? Math.trunc(candidate.id)
-              : typeof candidate.id === 'string'
-                ? Number.parseInt(candidate.id, 10)
-                : Number.NaN;
-          const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
-          if (!Number.isInteger(id) || id <= 0 || name.length === 0) {
-            return null;
-          }
+
           return { id, name };
         })
-        .filter((platform): platform is WorkerGamePlatformOption => platform !== null)
+        .filter((item): item is WorkerGamePlatformOption => item !== null)
     : [];
 
-  const platforms = Array.isArray(item.platforms)
-    ? item.platforms
-        .map((platform) => (typeof platform === 'string' ? platform.trim() : ''))
-        .filter((platform) => platform.length > 0)
-    : [];
+  const platforms = platformOptions.map((platform) => platform.name);
 
   return {
     igdbGameId,
     title,
-    coverUrl: typeof item.coverUrl === 'string' ? item.coverUrl : null,
-    releaseDate: typeof item.releaseDate === 'string' ? item.releaseDate : null,
-    releaseYear:
-      typeof item.releaseYear === 'number' && Number.isInteger(item.releaseYear)
-        ? item.releaseYear
-        : null,
+    coverUrl: buildCoverUrl(raw.cover?.image_id),
+    releaseDate: toIsoFromUnix(raw.first_release_date),
+    releaseYear: toReleaseYear(raw.first_release_date),
+    rating: toFiniteNumber(raw.rating),
+    totalRatingCount: toFiniteNumber(raw.total_rating_count),
+    hypes: toFiniteNumber(raw.hypes),
+    follows: toFiniteNumber(raw.follows),
+    parentGame: normalizeId(raw.parent_game),
+    versionParent: normalizeId(raw.version_parent),
+    gameType: normalizeGameType(raw.game_type?.type),
     platformOptions,
     platforms
   };
@@ -396,28 +532,101 @@ function buildGamePayload(
     igdbGameId: item.igdbGameId,
     externalId: item.igdbGameId,
     title: item.title,
-    coverUrl: item.coverUrl ?? null,
+    coverUrl: item.coverUrl,
     platform: platform.name,
     platformIgdbId: platform.id,
     platforms: item.platforms.length > 0 ? item.platforms : [platform.name],
     platformOptions: [{ id: platform.id, name: platform.name }],
-    releaseDate: item.releaseDate ?? null,
-    releaseYear: item.releaseYear ?? null,
-    first_release_date: toFirstReleaseDateUnix(item.releaseDate)
+    releaseDate: item.releaseDate,
+    releaseYear: item.releaseYear,
+    first_release_date: toUnixFromIso(item.releaseDate),
+    rating: item.rating,
+    total_rating_count: item.totalRatingCount,
+    totalRatingCount: item.totalRatingCount,
+    hypes: item.hypes,
+    follows: item.follows,
+    parent_game: item.parentGame,
+    parentGame: item.parentGame,
+    version_parent: item.versionParent,
+    versionParent: item.versionParent,
+    gameType: item.gameType ?? 'main_game'
   };
 }
 
-function toFirstReleaseDateUnix(releaseDate: string | null | undefined): number | null {
-  if (typeof releaseDate !== 'string' || releaseDate.trim().length === 0) {
+function toPositiveInteger(value: unknown): number | null {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeId(value: unknown): string | null {
+  const parsed = toPositiveInteger(value);
+  return parsed ? String(parsed) : null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : Number.NaN;
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toIsoFromUnix(value: unknown): string | null {
+  const unix = toPositiveInteger(value);
+  if (!unix) {
     return null;
   }
 
-  const unixMs = Date.parse(releaseDate);
-  if (!Number.isFinite(unixMs)) {
+  const date = new Date(unix * 1000);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function toReleaseYear(value: unknown): number | null {
+  const iso = toIsoFromUnix(value);
+  if (!iso) {
+    return null;
+  }
+  return new Date(iso).getUTCFullYear();
+}
+
+function toUnixFromIso(iso: string | null): number | null {
+  if (!iso) {
     return null;
   }
 
-  return Math.trunc(unixMs / 1000);
+  const timestampMs = Date.parse(iso);
+  return Number.isFinite(timestampMs) ? Math.trunc(timestampMs / 1000) : null;
+}
+
+function normalizeGameType(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
+  return normalized.length > 0 ? normalized : null;
+}
+
+function buildCoverUrl(imageId: unknown): string | null {
+  if (typeof imageId !== 'string') {
+    return null;
+  }
+
+  const trimmed = imageId.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  return `https://images.igdb.com/igdb/image/upload/t_cover_big/${trimmed}.jpg`;
 }
 
 function sqlNumericPayload(field: string): string {

@@ -8,9 +8,7 @@ import {
   MetacriticMatchCandidate,
   MetacriticScoreResult,
   ReviewMatchCandidate,
-  ReviewScoreResult,
-  PopularityGameResult,
-  PopularityTypeOption
+  ReviewScoreResult
 } from '../models/game.models';
 
 export interface GameSearchApi {
@@ -82,12 +80,6 @@ export interface GameSearchApi {
     platformIgdbId: number,
     title: string
   ): Observable<unknown>;
-  listPopularityTypes(): Observable<PopularityTypeOption[]>;
-  listPopularityGames(
-    popularityTypeId: number,
-    limit?: number,
-    offset?: number
-  ): Observable<PopularityGameResult[]>;
 }
 
 export const GAME_SEARCH_API = new InjectionToken<GameSearchApi>('GAME_SEARCH_API');

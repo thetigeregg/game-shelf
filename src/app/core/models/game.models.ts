@@ -125,20 +125,6 @@ export interface GameCatalogResult {
   releaseYear: number | null;
 }
 
-export interface PopularityTypeOption {
-  id: number;
-  name: string;
-  externalPopularitySource: number | null;
-}
-
-export interface PopularityGameResult {
-  game: GameCatalogResult;
-  popularityType: number;
-  externalPopularitySource: number | null;
-  value: number | null;
-  calculatedAt: string | null;
-}
-
 export type RecommendationTarget = 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
 export type RecommendationRuntimeMode = 'NEUTRAL' | 'SHORT' | 'LONG';
 export type RecommendationLaneKey =

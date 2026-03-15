@@ -27,12 +27,7 @@
   "dataGroups": [
     {
       "name": "api-read-cache",
-      "urls": [
-        "/api/v1/games/**",
-        "/api/v1/platforms",
-        "/api/v1/popularity/**",
-        "/api/v1/images/boxart/search**"
-      ],
+      "urls": ["/api/v1/games/**", "/api/v1/platforms", "/api/v1/images/boxart/search**"],
       "cacheConfig": {
         "strategy": "performance",
         "maxSize": 500,

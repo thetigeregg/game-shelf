@@ -13,8 +13,6 @@ import {
   MetacriticScoreResult,
   ReviewMatchCandidate,
   ReviewScoreResult,
-  PopularityGameResult,
-  PopularityTypeOption,
   RecommendationItem,
   RecommendationLanesResponse,
   RecommendationRebuildResponse,
@@ -109,14 +107,6 @@ interface MobyGamesGameResult {
   }> | null;
 }
 
-interface PopularityTypesResponse {
-  items: PopularityTypeOption[];
-}
-
-interface PopularityGamesResponse {
-  items: PopularityGameResult[];
-}
-
 interface RecommendationTopApiResponse {
   target?: unknown;
   runtimeMode?: unknown;
@@ -164,8 +154,6 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly hltbSearchUrl = `${environment.gameApiBaseUrl}/v1/hltb/search`;
   private readonly metacriticSearchUrl = `${environment.gameApiBaseUrl}/v1/metacritic/search`;
   private readonly mobygamesSearchUrl = `${environment.gameApiBaseUrl}/v1/mobygames/search`;
-  private readonly popularityTypesUrl = `${environment.gameApiBaseUrl}/v1/popularity/types`;
-  private readonly popularityPrimitivesUrl = `${environment.gameApiBaseUrl}/v1/popularity/primitives`;
   private readonly recommendationsTopUrl = `${environment.gameApiBaseUrl}/v1/recommendations/top`;
   private readonly recommendationsLanesUrl = `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
   private readonly recommendationsRebuildUrl = `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`;
@@ -814,68 +802,6 @@ export class IgdbProxyService implements GameSearchApi {
         return of([]);
       })
     );
-  }
-
-  listPopularityTypes(): Observable<PopularityTypeOption[]> {
-    const cooldownError = this.createCooldownErrorIfActive();
-
-    if (cooldownError) {
-      return throwError(() => cooldownError);
-    }
-
-    return this.httpClient.get<PopularityTypesResponse>(this.popularityTypesUrl).pipe(
-      map((response) => this.normalizePopularityTypes(response.items)),
-      catchError((error: unknown) => {
-        const rateLimitError = this.toRateLimitError(error);
-
-        if (rateLimitError) {
-          return throwError(() => rateLimitError);
-        }
-
-        return throwError(() => new Error('Unable to load popularity categories.'));
-      })
-    );
-  }
-
-  listPopularityGames(
-    popularityTypeId: number,
-    limit = 20,
-    offset = 0
-  ): Observable<PopularityGameResult[]> {
-    const normalizedPopularityTypeId =
-      Number.isInteger(popularityTypeId) && popularityTypeId > 0 ? popularityTypeId : null;
-
-    if (normalizedPopularityTypeId === null) {
-      return of([]);
-    }
-
-    const normalizedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 100) : 20;
-    const normalizedOffset = Number.isInteger(offset) ? Math.max(offset, 0) : 0;
-    const cooldownError = this.createCooldownErrorIfActive();
-
-    if (cooldownError) {
-      return throwError(() => cooldownError);
-    }
-
-    const params = new HttpParams({ encoder: IgdbProxyService.STRICT_HTTP_PARAM_ENCODER })
-      .set('popularityTypeId', String(normalizedPopularityTypeId))
-      .set('limit', String(normalizedLimit))
-      .set('offset', String(normalizedOffset));
-
-    return this.httpClient
-      .get<PopularityGamesResponse>(this.popularityPrimitivesUrl, { params })
-      .pipe(
-        map((response) => this.normalizePopularityGames(response.items)),
-        catchError((error: unknown) => {
-          const rateLimitError = this.toRateLimitError(error);
-
-          if (rateLimitError) {
-            return throwError(() => rateLimitError);
-          }
-
-          return throwError(() => new Error('Unable to load popular games.'));
-        })
-      );
   }
 
   getRecommendationsTop(params: {
@@ -2382,81 +2308,6 @@ export class IgdbProxyService implements GameSearchApi {
           .filter((entry) => Number.isInteger(entry) && entry > 0)
       )
     ];
-  }
-
-  private normalizePopularityTypes(
-    values: PopularityTypeOption[] | null | undefined
-  ): PopularityTypeOption[] {
-    if (!Array.isArray(values)) {
-      return [];
-    }
-
-    return values
-      .map((value) => {
-        const id = Number.isInteger(value.id) && value.id > 0 ? value.id : null;
-        const name = typeof value.name === 'string' ? value.name.trim() : '';
-        const externalPopularitySource =
-          typeof value.externalPopularitySource === 'number' &&
-          Number.isInteger(value.externalPopularitySource) &&
-          value.externalPopularitySource > 0
-            ? value.externalPopularitySource
-            : null;
-
-        return { id, name, externalPopularitySource };
-      })
-      .filter((value) => value.id !== null && value.name.length > 0)
-      .filter(
-        (value, index, all) => all.findIndex((candidate) => candidate.id === value.id) === index
-      )
-      .sort((left, right) =>
-        left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
-      )
-      .map((value) => ({
-        id: value.id as number,
-        name: value.name,
-        externalPopularitySource: value.externalPopularitySource
-      }));
-  }
-
-  private normalizePopularityGames(
-    values: PopularityGameResult[] | null | undefined
-  ): PopularityGameResult[] {
-    if (!Array.isArray(values)) {
-      return [];
-    }
-
-    return values
-      .map((value) => {
-        const game = this.normalizeResult(value.game);
-        const popularityType =
-          Number.isInteger(value.popularityType) && value.popularityType > 0
-            ? value.popularityType
-            : null;
-        const externalPopularitySource =
-          typeof value.externalPopularitySource === 'number' &&
-          Number.isInteger(value.externalPopularitySource) &&
-          value.externalPopularitySource > 0
-            ? value.externalPopularitySource
-            : null;
-        const popularityValue = this.normalizePopularityValue(value.value);
-        const calculatedAt = this.normalizeReleaseDate(value.calculatedAt ?? null);
-
-        return {
-          game,
-          popularityType,
-          externalPopularitySource,
-          value: popularityValue,
-          calculatedAt
-        };
-      })
-      .filter((value) => value.popularityType !== null && value.game.igdbGameId.length > 0)
-      .map((value) => ({
-        game: value.game,
-        popularityType: value.popularityType as number,
-        externalPopularitySource: value.externalPopularitySource,
-        value: value.value,
-        calculatedAt: value.calculatedAt
-      }));
   }
 
   private normalizePopularityValue(value: unknown): number | null {

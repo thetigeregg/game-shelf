@@ -263,3 +263,61 @@ void test('GET /v1/games/trending includes platformIgdbId when igdb id appears o
 
   await app.close();
 });
+
+void test('GET /v1/games/trending skips rows with invalid payload or non-finite score', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '500',
+        platform_igdb_id: 6,
+        popularity_score: '321.5',
+        payload: {
+          name: 'Valid Name Fallback',
+          firstReleaseDate: 1_700_000_000,
+          platform: 'PC',
+          platformIgdbId: 6
+        }
+      },
+      {
+        igdb_game_id: '501',
+        platform_igdb_id: 6,
+        popularity_score: '99.2',
+        payload: []
+      },
+      {
+        igdb_game_id: '502',
+        platform_igdb_id: 6,
+        popularity_score: 'NaN',
+        payload: {
+          title: 'Invalid score'
+        }
+      }
+    ]) as unknown as Pool,
+    { threshold: 50 }
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{
+      id: string;
+      name: string;
+      popularityScore: number;
+      platforms: Array<{ id: number; name: string }>;
+    }>;
+  };
+
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0]?.id, '500');
+  assert.equal(body.items[0]?.name, 'Valid Name Fallback');
+  assert.equal(body.items[0]?.popularityScore, 321.5);
+  assert.deepEqual(body.items[0]?.platforms, [{ id: 6, name: 'PC' }]);
+
+  await app.close();
+});

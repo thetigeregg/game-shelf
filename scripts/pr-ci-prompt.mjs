@@ -86,21 +86,15 @@ function findFailures(jobs) {
   const failures = [];
 
   for (const job of jobs) {
-    if (job.conclusion === 'failure') {
-      failures.push({
-        job: job.name,
-        step: 'Job failure'
-      });
-    }
+    if (!job.steps) continue;
 
-    if (job.steps) {
-      for (const step of job.steps) {
-        if (step.conclusion === 'failure') {
-          failures.push({
-            job: job.name,
-            step: step.name
-          });
-        }
+    for (const step of job.steps) {
+      if (step.conclusion === 'failure') {
+        failures.push({
+          job: job.name,
+          step: step.name,
+          jobId: job.databaseId
+        });
       }
     }
   }
@@ -110,29 +104,19 @@ function findFailures(jobs) {
   return failures;
 }
 
-function getLogsForJobs(runId, jobs) {
-  if (!Array.isArray(jobs) || jobs.length === 0) {
-    log('No jobs available for log extraction');
-    return '';
-  }
-
+function getLogsForFailures(runId, failures) {
   let logs = '';
 
-  for (const job of jobs) {
-    if (!job || job.status !== 'completed') {
-      log('Skipping job (not completed):', job?.name);
-      continue;
-    }
-
-    log('Fetching logs for job:', job.name);
+  for (const failure of failures) {
+    log('Fetching logs for failing job:', failure.job);
 
     try {
-      const jobLogs = runGh(['run', 'view', runId, '--job', job.databaseId, '--log']);
+      const jobLogs = runGh(['run', 'view', runId, '--job', failure.jobId, '--log']);
 
-      logs += `\n\n===== JOB: ${job.name} =====\n\n`;
+      logs += `\n\n===== JOB: ${failure.job} =====\n\n`;
       logs += jobLogs;
     } catch {
-      log('Logs unavailable for job:', job.name);
+      log('Logs unavailable for job:', failure.job);
     }
   }
 
@@ -160,7 +144,7 @@ function extractRelevantLogs(logs) {
 
   log(`Relevant log lines found: ${relevant.length}`);
 
-  return relevant.slice(0, 200);
+  return relevant.slice(0, 80);
 }
 
 function buildPrompt(prNumber, title, failures, logs) {
@@ -176,7 +160,7 @@ Resolve the CI failures described below.
 
 Guidelines:
 
-• Fix the root cause of the failures
+• Fix root causes
 • Do not suppress errors
 • Preserve project conventions
 
@@ -188,13 +172,13 @@ Guidelines:
     md += `
 No explicit failing steps were detected.
 
-However CI logs contain the following suspicious lines:
+However CI logs contain suspicious lines:
 
 \`\`\`
 ${relevant.join('\n')}
 \`\`\`
 
-Investigate and resolve the underlying issue.
+Investigate and resolve the issue.
 `;
   } else {
     let task = 1;
@@ -217,7 +201,7 @@ ${relevant.join('\n')}
 
 Required Action:
 
-Identify the root cause and fix the failure.
+Fix the failure so CI passes.
 
 ---
 
@@ -258,7 +242,7 @@ function main() {
 
   const failures = findFailures(jobs);
 
-  const logs = getLogsForJobs(run.databaseId, jobs);
+  const logs = getLogsForFailures(run.databaseId, failures);
 
   const prompt = buildPrompt(prNumber, pr.title, failures, logs);
 

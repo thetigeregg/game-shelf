@@ -114,7 +114,8 @@ void test('server route inventory remains audited and mutating routes require au
     './psprices-prices.ts',
     './manuals.ts',
     './cache-observability.ts',
-    './background-jobs-routes.ts'
+    './background-jobs-routes.ts',
+    './popularity/routes.ts'
   ];
   const routeMethodRegex = /app\.(get|post|put|patch|delete|options|head)\(\s*'([^']+)'/g;
   const routeObjectRegex = /app\.route\(\s*\{\s*method:\s*'([^']+)'\s*,\s*url:\s*'([^']+)'/g;
@@ -149,7 +150,10 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'GET', path: '/v1/background-jobs/stats' },
     { method: 'GET', path: '/v1/cache/stats' },
     { method: 'GET', path: '/v1/games/:id' },
+    { method: 'GET', path: '/v1/games/recent' },
     { method: 'GET', path: '/v1/games/search' },
+    { method: 'GET', path: '/v1/games/trending' },
+    { method: 'GET', path: '/v1/games/upcoming' },
     { method: 'GET', path: '/v1/health' },
     { method: 'GET', path: '/v1/hltb/search' },
     { method: 'GET', path: '/v1/images/boxart/search' },

@@ -49,9 +49,9 @@
     "task:start": "node scripts/task-start.mjs",
     "dev:cleanup": "node scripts/dev-cleanup.mjs",
     "dev:cleanup:auto": "node scripts/dev-cleanup.mjs --auto",
-    "pr:review": "sh -c 'node scripts/pr-review-prompt.mjs \"$1\" && (command -v code >/dev/null 2>&1 && code .pr-review-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --",
-    "pr:coverage": "sh -c 'node scripts/pr-coverage-prompt.mjs \"$1\" && (command -v code >/dev/null 2>&1 && code .pr-coverage-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --",
-    "pr:ci": "sh -c 'node scripts/pr-ci-prompt.mjs \"$1\" && (command -v code >/dev/null 2>&1 && code .pr-ci-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --"
+    "pr:review": "sh -c 'node scripts/pr-review-prompt.mjs \"$@\" && (command -v code >/dev/null 2>&1 && code .pr-review-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --",
+    "pr:coverage": "sh -c 'node scripts/pr-coverage-prompt.mjs \"$@\" && (command -v code >/dev/null 2>&1 && code .pr-coverage-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --",
+    "pr:ci": "sh -c 'node scripts/pr-ci-prompt.mjs \"$@\" && (command -v code >/dev/null 2>&1 && code .pr-ci-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --"
   },
   "private": true,
   "dependencies": {

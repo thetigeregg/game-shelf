@@ -20,7 +20,10 @@ import {
   RecommendationSimilarItem,
   RecommendationSimilarResponse,
   RecommendationTarget,
-  RecommendationTopResponse
+  RecommendationTopResponse,
+  PopularityFeedItem,
+  PopularityFeedResponse,
+  PopularityFeedType
 } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
@@ -158,6 +161,9 @@ export class IgdbProxyService implements GameSearchApi {
   private readonly recommendationsLanesUrl = `${environment.gameApiBaseUrl}/v1/recommendations/lanes`;
   private readonly recommendationsRebuildUrl = `${environment.gameApiBaseUrl}/v1/recommendations/rebuild`;
   private readonly recommendationsSimilarBaseUrl = `${environment.gameApiBaseUrl}/v1/recommendations/similar`;
+  private readonly gamesTrendingUrl = `${environment.gameApiBaseUrl}/v1/games/trending`;
+  private readonly gamesUpcomingUrl = `${environment.gameApiBaseUrl}/v1/games/upcoming`;
+  private readonly gamesRecentUrl = `${environment.gameApiBaseUrl}/v1/games/recent`;
   private readonly steamPricesUrl = `${environment.gameApiBaseUrl}/v1/steam/prices`;
   private readonly pspricesPricesUrl = `${environment.gameApiBaseUrl}/v1/psprices/prices`;
   private readonly httpClient = inject(HttpClient);
@@ -850,6 +856,33 @@ export class IgdbProxyService implements GameSearchApi {
         }),
         catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
       );
+  }
+
+  getPopularityFeed(feedType: PopularityFeedType): Observable<PopularityFeedItem[]> {
+    const cooldownError = this.createCooldownErrorIfActive();
+
+    if (cooldownError) {
+      return throwError(() => cooldownError);
+    }
+
+    const url =
+      feedType === 'upcoming'
+        ? this.gamesUpcomingUrl
+        : feedType === 'recent'
+          ? this.gamesRecentUrl
+          : this.gamesTrendingUrl;
+
+    return this.httpClient.get<PopularityFeedResponse>(url).pipe(
+      map((response) => this.normalizePopularityFeedResponse(response)),
+      catchError((error: unknown) => {
+        const rateLimitError = this.toRateLimitError(error);
+        if (rateLimitError) {
+          return throwError(() => rateLimitError);
+        }
+
+        return throwError(() => new Error('Unable to load popularity feed.'));
+      })
+    );
   }
 
   rebuildRecommendations(params: {
@@ -2324,6 +2357,87 @@ export class IgdbProxyService implements GameSearchApi {
     }
 
     return null;
+  }
+
+  private normalizePopularityFeedResponse(value: unknown): PopularityFeedItem[] {
+    if (typeof value !== 'object' || value === null) {
+      return [];
+    }
+
+    const record = value as Record<string, unknown>;
+    if (!Array.isArray(record['items'])) {
+      return [];
+    }
+
+    return record['items']
+      .map((item) => this.normalizePopularityFeedItem(item))
+      .filter((item): item is PopularityFeedItem => item !== null);
+  }
+
+  private normalizePopularityFeedItem(value: unknown): PopularityFeedItem | null {
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    const id = this.normalizeNumericId(record['id']);
+    const platformIgdbId = this.normalizePositiveInteger(record['platformIgdbId']);
+    const popularityScore = this.normalizePopularityValue(record['popularityScore']);
+
+    if (!id || platformIgdbId === null || popularityScore === null) {
+      return null;
+    }
+
+    const name = typeof record['name'] === 'string' ? record['name'].trim() : '';
+    if (name.length === 0) {
+      return null;
+    }
+
+    const firstReleaseDateRaw = this.normalizePopularityValue(record['firstReleaseDate']);
+    const firstReleaseDate =
+      firstReleaseDateRaw !== null &&
+      Number.isInteger(firstReleaseDateRaw) &&
+      firstReleaseDateRaw > 0
+        ? firstReleaseDateRaw
+        : null;
+
+    return {
+      id,
+      platformIgdbId,
+      name,
+      coverUrl:
+        typeof record['coverUrl'] === 'string' && record['coverUrl'].trim().length > 0
+          ? record['coverUrl'].trim()
+          : null,
+      rating: this.normalizePopularityValue(record['rating']),
+      popularityScore,
+      firstReleaseDate,
+      platforms: this.normalizePopularityFeedPlatforms(record['platforms'])
+    };
+  }
+
+  private normalizePopularityFeedPlatforms(value: unknown): { id: number; name: string }[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((entry): { id: number; name: string } | null => {
+        if (typeof entry !== 'object' || entry === null) {
+          return null;
+        }
+
+        const record = entry as Record<string, unknown>;
+        const id = this.normalizePositiveInteger(record['id']);
+        const name = typeof record['name'] === 'string' ? record['name'].trim() : '';
+
+        if (id === null || name.length === 0) {
+          return null;
+        }
+
+        return { id, name };
+      })
+      .filter((entry): entry is { id: number; name: string } => entry !== null);
   }
 
   private buildRecommendationQueryParams(params: {

@@ -45,12 +45,12 @@
     "audit:fix:all": "npm audit fix && npm --prefix server audit fix && npm --prefix worker audit fix && npm --prefix hltb-scraper audit fix && npm --prefix metacritic-scraper audit fix && npm --prefix psprices-scraper audit fix",
     "backup:restore:postgres": "./scripts/backup/restore-postgres.sh",
     "test:backup:ops": "./scripts/backup/test-backup-flow.sh",
-    "pr:summary:open": "node scripts/pr-summary.mjs && (command -v code >/dev/null 2>&1 && code .pr-summary-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-summary-prompt.md\")",
+    "pr:summary": "sh -c 'node scripts/pr-summary.mjs \"$1\" && (command -v code >/dev/null 2>&1 && code .pr-summary-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --",
     "task:start": "node scripts/task-start.mjs",
     "dev:cleanup": "node scripts/dev-cleanup.mjs",
     "dev:cleanup:auto": "node scripts/dev-cleanup.mjs --auto",
-    "pr:review": "node scripts/pr-review-prompt.mjs && (command -v code >/dev/null 2>&1 && code .pr-review-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-review-prompt.md\")",
-    "pr:coverage": "node scripts/pr-coverage-prompt.mjs && (command -v code >/dev/null 2>&1 && code .pr-coverage-prompt.md || echo \"VS Code CLI 'code' not found; skipping auto-open of .pr-coverage-prompt.md\")"
+    "pr:review": "sh -c 'node scripts/pr-review-prompt.mjs \"$1\" && (command -v code >/dev/null 2>&1 && code .pr-review-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --",
+    "pr:coverage": "sh -c 'node scripts/pr-coverage-prompt.mjs \"$1\" && (command -v code >/dev/null 2>&1 && code .pr-coverage-prompt.md || echo \"VS Code CLI code not found; skipping auto-open\")' --"
   },
   "private": true,
   "dependencies": {

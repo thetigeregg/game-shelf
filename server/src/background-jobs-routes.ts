@@ -142,6 +142,7 @@ function parseJobType(value: unknown): BackgroundJobType | null {
   const knownTypes: BackgroundJobType[] = [
     'recommendations_rebuild',
     'metadata_enrichment_run',
+    'igdb_popularity_ingest',
     'release_monitor_game',
     'discovery_enrichment_run',
     'hltb_cache_revalidate',

@@ -55,14 +55,6 @@ function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
     return Promise.resolve(createJsonResponse([]));
   }
 
-  if (url.includes('/v4/popularity_types')) {
-    return Promise.resolve(createJsonResponse([]));
-  }
-
-  if (url.includes('/v4/popularity_primitives')) {
-    return Promise.resolve(createJsonResponse([]));
-  }
-
   if (parsedUrl.hostname === 'thegamesdb.net') {
     return Promise.resolve(
       createJsonResponse({
@@ -91,10 +83,6 @@ function sampleUrlForServerProxyPath(path: string): string {
 
   if (normalizedPath === '/v1/images/boxart/search') {
     return `${normalizedPath}?q=halo`;
-  }
-
-  if (normalizedPath === '/v1/popularity/primitives') {
-    return `${normalizedPath}?popularityTypeId=1`;
   }
 
   return normalizedPath;

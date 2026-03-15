@@ -27,6 +27,7 @@ import { ensureMiddieRegistered } from './middleware.js';
 import { proxyMetadataToWorker } from './metadata.js';
 import { registerManualRoutes } from './manuals.js';
 import { registerNotificationRoutes } from './notifications.js';
+import { registerPopularityRoutes } from './popularity/routes.js';
 import { startReleaseMonitor } from './release-monitor.js';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
@@ -47,7 +48,8 @@ async function main(): Promise<void> {
     releaseMonitorEnabled: config.releaseMonitorEnabled,
     recommendationsSchedulerEnabled: config.recommendationsSchedulerEnabled,
     recommendationsDiscoveryEnabled: config.recommendationsDiscoveryEnabled,
-    recommendationsDiscoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled
+    recommendationsDiscoveryEnrichEnabled: config.recommendationsDiscoveryEnrichEnabled,
+    popularityIngestEnabled: config.popularityIngestEnabled
   });
   validateSecurityConfig();
   const pool = await createPool(config.postgresUrl);
@@ -381,6 +383,9 @@ async function main(): Promise<void> {
           maxAttempts: 3
         });
       }
+    });
+    await registerPopularityRoutes(app, pool, {
+      threshold: config.popularityScoreThreshold
     });
     await registerRecommendationRoutes(app, recommendationService);
 

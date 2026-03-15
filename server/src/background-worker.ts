@@ -8,6 +8,7 @@ import { createPool } from './db.js';
 import { MetadataEnrichmentIgdbClient } from './metadata-enrichment/igdb-client.js';
 import { MetadataEnrichmentRepository } from './metadata-enrichment/repository.js';
 import { MetadataEnrichmentService } from './metadata-enrichment/service.js';
+import { PopularityIngestService } from './popularity/ingest-service.js';
 import { processQueuedHltbCacheRevalidation } from './hltb-cache.js';
 import { processQueuedManualsCatalogRefresh } from './manuals.js';
 import { processQueuedMetacriticCacheRevalidation } from './metacritic-cache.js';
@@ -34,6 +35,7 @@ const RECOMMENDATION_TARGETS: RecommendationTarget[] = ['BACKLOG', 'WISHLIST', '
 const DISCOVERY_RUNTIME_MODES: RecommendationRuntimeMode[] = ['NEUTRAL', 'SHORT', 'LONG'];
 const STEAM_WINDOWS_PLATFORM_IGDB_ID = 6;
 const PSPRICES_PLATFORM_IGDB_IDS = new Set<number>([48, 167, 130, 508]);
+const POPULARITY_PRIMITIVE_LIMIT = 500;
 
 interface PricingRefreshCandidateRow extends QueryResultRow {
   igdb_game_id: string;
@@ -311,6 +313,10 @@ async function main(): Promise<void> {
       startupDelayMs: config.igdbMetadataEnrichStartupDelayMs
     }
   );
+  const popularityIngestService = new PopularityIngestService(pool, {
+    enabled: config.popularityIngestEnabled,
+    signalLimit: POPULARITY_PRIMITIVE_LIMIT
+  });
   const workerHost = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME : '';
   const workerId = `background-worker:${workerMode}:${workerHost}:${String(process.pid)}`;
   const recommendationConcurrency = readPositiveIntegerEnv('RECOMMENDATIONS_JOB_CONCURRENCY', 1);
@@ -318,6 +324,10 @@ async function main(): Promise<void> {
   const releaseMonitorConcurrency = readPositiveIntegerEnv('RELEASE_MONITOR_JOB_CONCURRENCY', 2);
   const discoveryEnrichmentConcurrency = readPositiveIntegerEnv(
     'DISCOVERY_ENRICHMENT_JOB_CONCURRENCY',
+    1
+  );
+  const popularityIngestConcurrency = readPositiveIntegerEnv(
+    'POPULARITY_INGEST_JOB_CONCURRENCY',
     1
   );
   const cacheRevalidationConcurrency = readPositiveIntegerEnv(
@@ -328,6 +338,10 @@ async function main(): Promise<void> {
   const metadataIntervalMinutes = readPositiveIntegerEnv(
     'METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES',
     60
+  );
+  const popularityIngestIntervalMinutes = readPositiveIntegerEnv(
+    'POPULARITY_INGEST_QUEUE_INTERVAL_MINUTES',
+    config.popularityIngestIntervalMinutes
   );
   const jobsRetentionDays = readPositiveIntegerEnv('BACKGROUND_JOBS_RETENTION_DAYS', 30);
   const jobsCleanupIntervalMinutes = readPositiveIntegerEnv(
@@ -366,6 +380,7 @@ async function main(): Promise<void> {
   let metadataStartupTimer: ReturnType<typeof setTimeout> | null = null;
   let recommendationSchedulerTimer: ReturnType<typeof setInterval> | null = null;
   let metadataTimer: ReturnType<typeof setInterval> | null = null;
+  let popularityIngestTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryEnrichmentTimer: ReturnType<typeof setInterval> | null = null;
   let backgroundJobsCleanupTimer: ReturnType<typeof setInterval> | null = null;
   let queueStatsTimer: ReturnType<typeof setInterval> | null = null;
@@ -386,6 +401,10 @@ async function main(): Promise<void> {
     if (metadataTimer) {
       clearInterval(metadataTimer);
       metadataTimer = null;
+    }
+    if (popularityIngestTimer) {
+      clearInterval(popularityIngestTimer);
+      popularityIngestTimer = null;
     }
     if (discoveryEnrichmentTimer) {
       clearInterval(discoveryEnrichmentTimer);
@@ -547,6 +566,33 @@ async function main(): Promise<void> {
       });
     } catch (error) {
       console.error('[background-worker] discovery_enrichment_enqueue_failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  };
+
+  const schedulePopularityIngestJob = async (): Promise<void> => {
+    if (shuttingDown || !config.popularityIngestEnabled) {
+      return;
+    }
+    try {
+      const enqueueResult = await jobs.enqueue({
+        jobType: 'igdb_popularity_ingest',
+        dedupeKey: 'igdb-popularity-ingest:run',
+        payload: {
+          requestedAt: new Date().toISOString(),
+          requestedBy: 'background-worker'
+        },
+        priority: 85,
+        maxAttempts: 3
+      });
+      console.info('[background-worker] popularity_ingest_enqueue', {
+        queued: !enqueueResult.deduped,
+        deduped: enqueueResult.deduped,
+        jobId: enqueueResult.jobId
+      });
+    } catch (error) {
+      console.error('[background-worker] popularity_ingest_enqueue_failed', {
         error: error instanceof Error ? error.message : String(error)
       });
     }
@@ -958,6 +1004,10 @@ async function main(): Promise<void> {
         const summary = await metadataEnrichmentService.runOnce();
         return { summary };
       }
+      case 'igdb_popularity_ingest': {
+        const summary = await popularityIngestService.runOnce();
+        return { summary };
+      }
       case 'release_monitor_game': {
         await releaseMonitorInternals.processQueuedReleaseMonitorGame(pool, job.payload);
         return { processed: true };
@@ -1137,6 +1187,7 @@ async function main(): Promise<void> {
 
   if (runGeneralWork) {
     startConsumers('metadata_enrichment_run', metadataConcurrency);
+    startConsumers('igdb_popularity_ingest', popularityIngestConcurrency);
     startConsumers('release_monitor_game', releaseMonitorConcurrency);
     startConsumers('discovery_enrichment_run', discoveryEnrichmentConcurrency);
     startConsumers('hltb_cache_revalidate', cacheRevalidationConcurrency);
@@ -1154,6 +1205,7 @@ async function main(): Promise<void> {
     metadataStartupTimer = setTimeout(
       () => {
         void scheduleMetadataJob();
+        void schedulePopularityIngestJob();
         void scheduleDiscoveryEnrichmentJob();
       },
       Math.max(0, config.igdbMetadataEnrichStartupDelayMs)
@@ -1169,6 +1221,12 @@ async function main(): Promise<void> {
         void scheduleDiscoveryEnrichmentJob();
       },
       discoveryIntervalMinutes * 60 * 1000
+    );
+    popularityIngestTimer = setInterval(
+      () => {
+        void schedulePopularityIngestJob();
+      },
+      Math.max(1, popularityIngestIntervalMinutes) * 60 * 1000
     );
     backgroundJobsCleanupTimer = setInterval(
       () => {
@@ -1214,11 +1272,14 @@ async function main(): Promise<void> {
     recommendationSchedulerEnabled: config.recommendationsSchedulerEnabled,
     recommendationConcurrency,
     metadataConcurrency,
+    popularityIngestConcurrency,
     releaseMonitorConcurrency,
     discoveryEnrichmentConcurrency,
     cacheRevalidationConcurrency,
     manualsCatalogConcurrency,
     metadataEnabled: config.igdbMetadataEnrichEnabled,
+    popularityIngestEnabled: config.popularityIngestEnabled,
+    popularityIngestIntervalMinutes,
     metadataIntervalMinutes,
     backgroundJobsRetentionDays: jobsRetentionDays,
     backgroundJobsCleanupIntervalMinutes: jobsCleanupIntervalMinutes,

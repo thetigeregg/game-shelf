@@ -344,7 +344,7 @@ async function main(): Promise<void> {
     60
   );
   const popularityIngestIntervalMinutes = readPositiveIntegerEnv(
-    'POPULARITY_INGEST_QUEUE_INTERVAL_MINUTES',
+    'POPULARITY_INGEST_INTERVAL_MINUTES',
     config.popularityIngestIntervalMinutes
   );
   const jobsRetentionDays = readPositiveIntegerEnv('BACKGROUND_JOBS_RETENTION_DAYS', 30);

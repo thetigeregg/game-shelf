@@ -77,6 +77,11 @@ interface ExistingGamePlatformRow extends QueryResultRow {
   platform_igdb_id: number;
 }
 
+interface MissingGamePlatform {
+  gameId: string;
+  platformId: number;
+}
+
 interface PopularityScoreRow extends QueryResultRow {
   popularity_score: string | number | null;
 }
@@ -190,8 +195,9 @@ export class PopularityIngestService {
       const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
       const gameMap = await this.fetchGamesByIds(uniqueGameIds, state);
 
-      const missingGameIds = await this.findMissingGameIds(gameMap, client);
-      const gamesInserted = await this.insertMissingGames(missingGameIds, gameMap, client);
+      const missingGamePlatforms = await this.findMissingGamePlatforms(gameMap, client);
+      const missingGameIds = [...new Set(missingGamePlatforms.map((pair) => pair.gameId))];
+      const gamesInserted = await this.insertMissingGames(missingGamePlatforms, gameMap, client);
       const scoresUpdated = await this.recomputeScores(uniqueGameIds, client);
 
       return {
@@ -246,12 +252,16 @@ export class PopularityIngestService {
     const payload = (await response.json()) as unknown;
     const items = Array.isArray(payload) ? payload : [];
 
-    return items
-      .map((item) => {
-        const candidate = item as PopularityTypeItem;
-        return Number.isInteger(candidate.id) && candidate.id > 0 ? candidate.id : null;
-      })
-      .filter((value): value is number => value !== null);
+    return [
+      ...new Set(
+        items
+          .map((item) => {
+            const candidate = item as PopularityTypeItem;
+            return Number.isInteger(candidate.id) && candidate.id > 0 ? candidate.id : null;
+          })
+          .filter((value): value is number => value !== null)
+      )
+    ];
   }
 
   private async fetchPopularityPrimitives(
@@ -399,10 +409,10 @@ export class PopularityIngestService {
     }
   }
 
-  private async findMissingGameIds(
+  private async findMissingGamePlatforms(
     gameMap: Map<string, WorkerGameItem>,
     queryable: Queryable
-  ): Promise<string[]> {
+  ): Promise<MissingGamePlatform[]> {
     if (gameMap.size === 0) {
       return [];
     }
@@ -421,40 +431,46 @@ export class PopularityIngestService {
       result.rows.map((row) => `${row.igdb_game_id}:${String(row.platform_igdb_id)}`)
     );
 
-    const missingGameIds: string[] = [];
+    const missingGamePlatforms: MissingGamePlatform[] = [];
     for (const [gameId, game] of gameMap) {
-      const hasMissingPlatform = game.platformOptions.some(
-        (platform) => !existingPairs.has(`${gameId}:${String(platform.id)}`)
-      );
+      for (const platform of game.platformOptions) {
+        if (existingPairs.has(`${gameId}:${String(platform.id)}`)) {
+          continue;
+        }
 
-      if (hasMissingPlatform) {
-        missingGameIds.push(gameId);
+        missingGamePlatforms.push({
+          gameId,
+          platformId: platform.id
+        });
       }
     }
 
-    return missingGameIds;
+    return missingGamePlatforms;
   }
 
   private async insertMissingGames(
-    gameIds: string[],
+    missingGamePlatforms: MissingGamePlatform[],
     gameMap: Map<string, WorkerGameItem>,
     queryable: Queryable
   ): Promise<number> {
     const pendingRows: Array<{ igdbGameId: string; platformId: number; payload: string }> = [];
 
-    for (const gameId of gameIds) {
-      const item = gameMap.get(gameId);
+    for (const pair of missingGamePlatforms) {
+      const item = gameMap.get(pair.gameId);
       if (!item) {
         continue;
       }
 
-      for (const platform of item.platformOptions) {
-        pendingRows.push({
-          igdbGameId: item.igdbGameId,
-          platformId: platform.id,
-          payload: JSON.stringify(buildGamePayload(item, platform))
-        });
+      const platform = item.platformOptions.find((option) => option.id === pair.platformId);
+      if (!platform) {
+        continue;
       }
+
+      pendingRows.push({
+        igdbGameId: item.igdbGameId,
+        platformId: platform.id,
+        payload: JSON.stringify(buildGamePayload(item, platform))
+      });
     }
 
     if (pendingRows.length === 0) {

@@ -8,86 +8,211 @@ function runGh(args) {
     return execFileSync('gh', args, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 1024 * 1024 * 10
+      maxBuffer: 1024 * 1024 * 20
     });
-  } catch (error) {
-    console.error(`Failed to run: gh ${args.join(' ')}`);
-
-    if (error.stdout) process.stdout.write(error.stdout);
-    if (error.stderr) process.stderr.write(error.stderr);
-
-    process.exit(error.status ?? 1);
+  } catch (err) {
+    console.error('GitHub CLI command failed:', args.join(' '));
+    if (err.stdout) process.stdout.write(err.stdout);
+    if (err.stderr) process.stderr.write(err.stderr);
+    process.exit(1);
   }
 }
 
-function getPRComments(prNumber) {
-  const json = runGh(['api', `repos/:owner/:repo/pulls/${prNumber}/comments`]);
-
-  return JSON.parse(json);
+function getRepoInfo() {
+  const url = runGh(['repo', 'view', '--json', 'nameWithOwner']);
+  const parsed = JSON.parse(url);
+  const [owner, repo] = parsed.nameWithOwner.split('/');
+  return { owner, repo };
 }
 
-function buildPrompt(prNumber, comments) {
-  if (!comments.length) {
-    return `
-No PR review comments found for PR #${prNumber}.
+function fetchReviewThreads(owner, repo, prNumber) {
+  const threads = [];
+
+  let cursor = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const query = `
+query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
+  repository(owner:$owner, name:$repo) {
+    pullRequest(number:$pr) {
+      reviewThreads(first:50, after:$cursor) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          isResolved
+          path
+          line
+          comments(first:10) {
+            nodes {
+              author { login }
+              body
+              diffHunk
+            }
+          }
+        }
+      }
+    }
+  }
+}
 `;
+
+    const result = runGh([
+      'api',
+      'graphql',
+      '-f',
+      `query=${query}`,
+      '-F',
+      `owner=${owner}`,
+      '-F',
+      `repo=${repo}`,
+      '-F',
+      `pr=${prNumber}`,
+      '-F',
+      `cursor=${cursor}`
+    ]);
+
+    const data = JSON.parse(result);
+
+    const page = data.data.repository.pullRequest.reviewThreads;
+
+    threads.push(...page.nodes);
+
+    hasNextPage = page.pageInfo.hasNextPage;
+    cursor = page.pageInfo.endCursor;
   }
 
-  const sections = comments.map((c) => {
-    const file = c.path ?? 'unknown';
-    const line = c.line ?? c.original_line ?? '?';
-    const user = c.user?.login ?? 'unknown';
-    const body = c.body ?? '';
-    const diff = c.diff_hunk ?? '';
+  return threads;
+}
 
-    return `
-## FILE: ${file}
-LINE: ${line}
+function filterThreads(threads, { copilotOnly }) {
+  return threads.filter((t) => {
+    if (t.isResolved) return false;
 
-Reviewer: ${user}
+    const last = t.comments.nodes[t.comments.nodes.length - 1];
+    if (!last) return false;
+
+    const author = last.author?.login || '';
+
+    if (copilotOnly) {
+      return author.includes('copilot') || author.includes('bot');
+    }
+
+    return true;
+  });
+}
+
+function groupByFile(threads) {
+  const map = new Map();
+
+  for (const t of threads) {
+    const last = t.comments.nodes[t.comments.nodes.length - 1];
+
+    const entry = {
+      line: t.line ?? '?',
+      reviewer: last.author?.login ?? 'unknown',
+      comment: last.body,
+      diff: last.diffHunk ?? ''
+    };
+
+    if (!map.has(t.path)) {
+      map.set(t.path, []);
+    }
+
+    map.get(t.path).push(entry);
+  }
+
+  return map;
+}
+
+function buildPrompt(prNumber, grouped) {
+  if (!grouped.size) {
+    return `No unresolved PR review comments for PR #${prNumber}.`;
+  }
+
+  let md = `
+You are addressing GitHub Pull Request review comments.
+
+Fix the issues described below.
+
+Guidelines:
+
+• Modify only the relevant code
+• Preserve project style and patterns
+• Avoid unrelated refactors
+• Inspect the referenced file if context is unclear
+
+Pull Request: #${prNumber}
+
+---
+
+`;
+
+  for (const [file, comments] of grouped.entries()) {
+    md += `\n# FILE: ${file}\n`;
+
+    for (const c of comments) {
+      md += `
+LINE: ${c.line}
+
+Reviewer: ${c.reviewer}
 
 Comment:
-${body}
+${c.comment}
 
 Diff Context:
 \`\`\`diff
-${diff}
+${c.diff}
 \`\`\`
 
 ---
 `;
-  });
+    }
+  }
 
-  return `
-You are addressing GitHub PR review comments.
-
-Apply fixes directly to the repository.
-
-Requirements:
-
-• Only modify code related to the comment
-• Preserve existing style
-• Do not introduce unrelated refactors
-• If a comment is unclear, inspect the referenced file
-
-Pull Request: #${prNumber}
-
-Review comments:
-
-${sections.join('\n')}
-`;
+  return md;
 }
 
-function main() {
-  const prNumber = process.argv[2];
+function parseArgs() {
+  const args = process.argv.slice(2);
 
-  if (!prNumber) {
-    console.error('Usage: npm run pr:review <PR_NUMBER>');
+  const options = {
+    prNumber: null,
+    copilotOnly: false
+  };
+
+  for (const arg of args) {
+    if (arg === '--copilot-only') {
+      options.copilotOnly = true;
+    } else if (!options.prNumber) {
+      options.prNumber = arg;
+    }
+  }
+
+  if (!options.prNumber) {
+    console.error('Usage: npm run pr:review <PR_NUMBER> [--copilot-only]');
     process.exit(1);
   }
 
-  const comments = getPRComments(prNumber);
-  const prompt = buildPrompt(prNumber, comments);
+  return options;
+}
+
+function main() {
+  const { prNumber, copilotOnly } = parseArgs();
+
+  const { owner, repo } = getRepoInfo();
+
+  console.log(`Fetching PR #${prNumber} review threads...`);
+
+  const threads = fetchReviewThreads(owner, repo, Number(prNumber));
+
+  const unresolved = filterThreads(threads, { copilotOnly });
+
+  const grouped = groupByFile(unresolved);
+
+  const prompt = buildPrompt(prNumber, grouped);
 
   fs.writeFileSync(OUTPUT_FILE, prompt);
 
@@ -96,7 +221,10 @@ PR review prompt generated:
 
 ${OUTPUT_FILE}
 
-Open it in your VSCode agent and ask it to resolve the comments.
+Unresolved threads: ${unresolved.length}
+Files affected: ${grouped.size}
+
+Feed this file to your VSCode agent.
 `);
 }
 

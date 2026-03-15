@@ -33,6 +33,8 @@ const ROUTE_RATE_LIMIT = {
   timeWindow: '1 minute'
 };
 
+const FEED_ROW_LIMIT = 50;
+
 export function registerPopularityRoutes(
   app: FastifyInstance,
   pool: Pool,
@@ -130,14 +132,14 @@ async function fetchFeedRows(
     ORDER BY popularity_score DESC
     LIMIT $4
     `,
-    [params.scoreThreshold, nowSec, cutoffRecentSec, 50]
+    [params.scoreThreshold, nowSec, cutoffRecentSec, FEED_ROW_LIMIT]
   );
 
   const items = result.rows
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
 
-  return items.slice(0, 50);
+  return items;
 }
 
 function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {

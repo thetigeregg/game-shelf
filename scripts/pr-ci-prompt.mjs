@@ -125,26 +125,23 @@ function getLogsForFailures(runId, failures) {
 
 function extractRelevantLogs(logs) {
   const lines = logs.split('\n');
-  const relevant = [];
 
-  for (const line of lines) {
-    if (
-      line.includes('ERROR') ||
-      line.includes('Error:') ||
-      line.includes('FAIL') ||
-      line.includes('failed') ||
-      line.includes('TS') ||
-      line.includes('eslint') ||
+  const errorIndex = lines.findIndex(
+    (line) =>
+      line.includes('does not meet') ||
       line.includes('Coverage for') ||
-      line.includes('does not meet')
-    ) {
-      relevant.push(line);
-    }
+      line.includes('FAIL') ||
+      line.includes('Error:')
+  );
+
+  if (errorIndex === -1) {
+    return lines.slice(-80);
   }
 
-  log(`Relevant log lines found: ${relevant.length}`);
+  const start = Math.max(0, errorIndex - 20);
+  const end = Math.min(lines.length, errorIndex + 20);
 
-  return relevant.slice(0, 80);
+  return lines.slice(start, end);
 }
 
 function buildPrompt(prNumber, title, failures, logs) {

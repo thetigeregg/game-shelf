@@ -411,19 +411,25 @@ export class PopularityIngestService {
 
     const result = await this.pool.query<PopularityScoreRow>(
       `
+      WITH target_game_ids AS (
+        SELECT DISTINCT UNNEST($1::text[]) AS game_id
+      ),
+      popularity_max AS (
+        SELECT t.game_id, COALESCE(MAX(gp.value), 0) AS max_value
+        FROM target_game_ids AS t
+        LEFT JOIN game_popularity AS gp ON gp.game_id = t.game_id
+        GROUP BY t.game_id
+      )
       UPDATE games AS g
       SET popularity_score = (
-        COALESCE((
-          SELECT MAX(gp.value)
-          FROM game_popularity AS gp
-          WHERE gp.game_id = g.igdb_game_id
-        ), 0) * 3
+        COALESCE(pm.max_value, 0) * 3
         + ${sqlNumericPayload('hypes')} * 2
         + ${sqlNumericPayload('follows')} * 1
         + ${sqlNumericPayload('rating')} * 5
         + LN(COALESCE(NULLIF(${sqlNumericPayload('total_rating_count')}, 0), NULLIF(${sqlNumericPayload('totalRatingCount')}, 0), 0) + 1) * 4
       )
-      WHERE g.igdb_game_id = ANY($1::text[])
+      FROM popularity_max AS pm
+      WHERE g.igdb_game_id = pm.game_id
       RETURNING popularity_score
       `,
       [gameIds]

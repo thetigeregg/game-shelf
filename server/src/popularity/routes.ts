@@ -113,15 +113,14 @@ async function fetchFeedRows(
         OR ${sqlNumericPayload('totalRatingCount')} >= 20
         OR ${sqlNumericPayload('hypes')} >= 10
         OR ${sqlNumericPayload('follows')} >= 200
-        OR popularity_score >= $2
       )
       AND COALESCE(NULLIF(BTRIM(payload->>'parent_game'), ''), NULLIF(BTRIM(payload->>'parentGame'), '')) IS NULL
       AND COALESCE(NULLIF(BTRIM(payload->>'version_parent'), ''), NULLIF(BTRIM(payload->>'versionParent'), '')) IS NULL
       AND COALESCE(NULLIF(BTRIM(payload->>'gameType'), ''), 'main_game') = 'main_game'
     ORDER BY popularity_score DESC
-    LIMIT $3
+    LIMIT $2
     `,
-    [params.scoreThreshold, params.scoreThreshold, scanLimit]
+    [params.scoreThreshold, scanLimit]
   );
 
   const items = result.rows

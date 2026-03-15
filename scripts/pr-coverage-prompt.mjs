@@ -20,30 +20,21 @@ function runGh(args) {
   }
 }
 
-function getRepoInfo() {
-  const result = runGh(['repo', 'view', '--json', 'nameWithOwner']);
-  const parsed = JSON.parse(result);
-  const [owner, repo] = parsed.nameWithOwner.split('/');
-  return { owner, repo };
-}
-
 function getPRFiles(prNumber) {
   const result = runGh(['pr', 'view', prNumber, '--json', 'files']);
 
   const parsed = JSON.parse(result);
-
   return parsed.files.map((f) => f.path);
 }
 
-function getWorkflowRunId(prNumber) {
-  const result = runGh(['run', 'list', '--json', 'databaseId,headBranch,event', '--limit', '20']);
+function getWorkflowRunId() {
+  const result = runGh(['run', 'list', '--json', 'databaseId,event', '--limit', '20']);
 
   const runs = JSON.parse(result);
-
   const prRun = runs.find((r) => r.event === 'pull_request');
 
   if (!prRun) {
-    throw new Error('Could not find workflow run for PR');
+    throw new Error('Could not find workflow run');
   }
 
   return prRun.databaseId;
@@ -53,8 +44,6 @@ function downloadCoverageArtifacts(runId) {
   if (!fs.existsSync(ARTIFACT_DIR)) {
     fs.mkdirSync(ARTIFACT_DIR);
   }
-
-  console.log('Downloading coverage artifacts...');
 
   runGh(['run', 'download', runId, '-n', 'coverage-reports', '-D', ARTIFACT_DIR]);
 }
@@ -94,9 +83,7 @@ function collectCoverage() {
   for (const file of files) {
     if (!file.endsWith('.info')) continue;
 
-    const filePath = path.join(ARTIFACT_DIR, file);
-
-    const parsed = parseLcov(filePath);
+    const parsed = parseLcov(path.join(ARTIFACT_DIR, file));
 
     for (const f in parsed) {
       if (!uncovered[f]) uncovered[f] = [];
@@ -112,7 +99,7 @@ function intersectWithPRFiles(uncovered, prFiles) {
   const tasks = {};
 
   for (const file in uncovered) {
-    const match = prFiles.find((f) => file.endsWith(f));
+    const match = prFiles.find((p) => file.endsWith(p));
 
     if (!match) continue;
 
@@ -120,6 +107,17 @@ function intersectWithPRFiles(uncovered, prFiles) {
   }
 
   return tasks;
+}
+
+function extractSnippet(file, lines) {
+  if (!fs.existsSync(file)) return '';
+
+  const content = fs.readFileSync(file, 'utf8').split('\n');
+
+  const start = Math.max(Math.min(...lines) - 3, 0);
+  const end = Math.min(Math.max(...lines) + 3, content.length);
+
+  return content.slice(start, end).join('\n');
 }
 
 function buildPrompt(prNumber, tasks) {
@@ -132,23 +130,24 @@ function buildPrompt(prNumber, tasks) {
 
 Pull Request: #${prNumber}
 
-Your task is to increase test coverage for the code modified in this PR.
+Increase test coverage for the modified code.
 
 Rules:
 
-• Add tests instead of modifying production logic
-• Cover uncovered branches where possible
+• Prefer writing tests instead of changing production logic
 • Follow existing test patterns
+• Cover error paths and conditional branches
 • Do not introduce unrelated refactors
 
 ---
-
 `;
 
   let taskNumber = 1;
 
   for (const file in tasks) {
     const lines = tasks[file];
+
+    const snippet = extractSnippet(file, lines);
 
     md += `
 ## Task ${taskNumber}
@@ -159,9 +158,15 @@ ${file}
 Uncovered lines:
 ${lines.join(', ')}
 
+Relevant Code:
+
+\`\`\`ts
+${snippet}
+\`\`\`
+
 Required Action:
 
-Write tests that execute the uncovered code paths listed above.
+Write tests that execute the uncovered code paths.
 
 ---
 
@@ -171,10 +176,9 @@ Write tests that execute the uncovered code paths listed above.
   }
 
   md += `
-
 # Final Step
 
-After writing the tests and verifying they pass:
+After completing the tests and verifying they pass:
 
 Generate the Conventional Commit message for the changes.
 
@@ -192,13 +196,11 @@ function main() {
     process.exit(1);
   }
 
-  const { owner, repo } = getRepoInfo();
-
-  console.log(`Preparing coverage tasks for PR #${prNumber}`);
+  console.log('Preparing coverage tasks...');
 
   const prFiles = getPRFiles(prNumber);
 
-  const runId = getWorkflowRunId(prNumber);
+  const runId = getWorkflowRunId();
 
   downloadCoverageArtifacts(runId);
 

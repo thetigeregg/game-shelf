@@ -294,7 +294,7 @@ function sqlUnixPayload(field: string): string {
 }
 
 function sqlIsoDatePayload(field: string): string {
-  return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$' THEN EXTRACT(EPOCH FROM (BTRIM(payload->>'${field}'))::timestamptz)::bigint ELSE NULL END`;
+  return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$' AND pg_input_is_valid(BTRIM(payload->>'${field}'), 'timestamptz') THEN EXTRACT(EPOCH FROM (BTRIM(payload->>'${field}'))::timestamptz)::bigint ELSE NULL END`;
 }
 
 function sqlFirstReleaseDatePayload(): string {

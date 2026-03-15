@@ -14,7 +14,6 @@ interface Queryable {
 }
 
 interface IngestRunState {
-  tokenCache: { accessToken: string; expiresAtMs: number } | null;
   nextRequestAtMs: number;
 }
 
@@ -112,6 +111,8 @@ export interface PopularityIngestServiceOptions {
 }
 
 export class PopularityIngestService {
+  private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
+
   constructor(
     private readonly pool: Pool,
     private readonly options: PopularityIngestServiceOptions,
@@ -132,7 +133,6 @@ export class PopularityIngestService {
     }
 
     const state: IngestRunState = {
-      tokenCache: null,
       nextRequestAtMs: 0
     };
     const client = await this.pool.connect();
@@ -232,7 +232,7 @@ export class PopularityIngestService {
       ];
     }
 
-    const token = await this.getAccessToken(state);
+    const token = await this.getAccessToken();
     await this.throttle(state);
 
     const response = await this.fetchWithTimeout('https://api.igdb.com/v4/popularity_types', {
@@ -269,7 +269,7 @@ export class PopularityIngestService {
     limit: number,
     state: IngestRunState
   ): Promise<PopularityPrimitiveItem[]> {
-    const token = await this.getAccessToken(state);
+    const token = await this.getAccessToken();
     await this.throttle(state);
 
     const normalizedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 500) : 500;
@@ -331,7 +331,7 @@ export class PopularityIngestService {
       return map;
     }
 
-    const token = await this.getAccessToken(state);
+    const token = await this.getAccessToken();
 
     for (let index = 0; index < gameIds.length; index += IGDB_GAME_BATCH_SIZE) {
       const batch = gameIds.slice(index, index + IGDB_GAME_BATCH_SIZE);
@@ -546,11 +546,11 @@ export class PopularityIngestService {
     return result.rowCount ?? 0;
   }
 
-  private async getAccessToken(state: IngestRunState): Promise<string> {
+  private async getAccessToken(): Promise<string> {
     const now = Date.now();
 
-    if (state.tokenCache && state.tokenCache.expiresAtMs > now + 30_000) {
-      return state.tokenCache.accessToken;
+    if (this.tokenCache && this.tokenCache.expiresAtMs > now + 30_000) {
+      return this.tokenCache.accessToken;
     }
 
     const tokenUrl = new URL('https://id.twitch.tv/oauth2/token');
@@ -574,7 +574,7 @@ export class PopularityIngestService {
       throw new Error('Twitch token response did not include access_token');
     }
 
-    state.tokenCache = {
+    this.tokenCache = {
       accessToken,
       expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000))
     };

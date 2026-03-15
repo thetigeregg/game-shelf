@@ -244,6 +244,55 @@ void test('GET /v1/games/trending includes platformIgdbId when igdb id appears o
   await app.close();
 });
 
+void test('GET /v1/games/trending dedupes duplicate rows by game id and platform id', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '900',
+        platform_igdb_id: 6,
+        popularity_score: '210.2',
+        payload: {
+          title: 'Duplicate Platform Entry',
+          first_release_date: 1_700_000_000,
+          platformOptions: [{ id: 6, name: 'PC' }]
+        }
+      },
+      {
+        igdb_game_id: '900',
+        platform_igdb_id: 6,
+        popularity_score: '209.1',
+        payload: {
+          title: 'Duplicate Platform Entry',
+          first_release_date: 1_700_000_000,
+          platformOptions: [{ id: 6, name: 'PC' }]
+        }
+      }
+    ]) as unknown as Pool,
+    { threshold: 50 }
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{
+      id: string;
+      platformIgdbId: number;
+    }>;
+  };
+
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0]?.id, '900');
+  assert.equal(body.items[0]?.platformIgdbId, 6);
+
+  await app.close();
+});
+
 void test('GET /v1/games/trending skips rows with invalid payload or non-finite score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(

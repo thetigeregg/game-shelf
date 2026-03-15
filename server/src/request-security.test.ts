@@ -159,8 +159,6 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'GET', path: '/v1/metacritic/search' },
     { method: 'GET', path: '/v1/mobygames/search' },
     { method: 'GET', path: '/v1/platforms' },
-    { method: 'GET', path: '/v1/popularity/primitives' },
-    { method: 'GET', path: '/v1/popularity/types' },
     { method: 'GET', path: '/v1/psprices/prices' },
     { method: 'GET', path: '/v1/steam/prices' },
     { method: 'POST', path: '/v1/background-jobs/replay' },

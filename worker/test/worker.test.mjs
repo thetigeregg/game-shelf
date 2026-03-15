@@ -15,10 +15,6 @@ function createFetchStub({
   igdbResponses = null,
   igdbPlatformsStatus = 200,
   igdbPlatformsBody = [],
-  igdbPopularityTypesStatus = 200,
-  igdbPopularityTypesBody = [],
-  igdbPopularityPrimitivesStatus = 200,
-  igdbPopularityPrimitivesBody = [],
   tokenStatus = 200,
   theGamesDbStatus = 200,
   theGamesDbBody = null
@@ -29,10 +25,6 @@ function createFetchStub({
     igdbBodies: [],
     igdbPlatforms: 0,
     igdbPlatformBodies: [],
-    igdbPopularityTypes: 0,
-    igdbPopularityTypeBodies: [],
-    igdbPopularityPrimitives: 0,
-    igdbPopularityPrimitiveBodies: [],
     theGamesDb: 0,
     theGamesDbUrls: []
   };
@@ -72,24 +64,6 @@ function createFetchStub({
       calls.igdbPlatforms += 1;
       calls.igdbPlatformBodies.push(typeof options.body === 'string' ? options.body : '');
       return new Response(JSON.stringify(igdbPlatformsBody), { status: igdbPlatformsStatus });
-    }
-
-    if (normalizedUrl === 'https://api.igdb.com/v4/popularity_types') {
-      calls.igdbPopularityTypes += 1;
-      calls.igdbPopularityTypeBodies.push(typeof options.body === 'string' ? options.body : '');
-      return new Response(JSON.stringify(igdbPopularityTypesBody), {
-        status: igdbPopularityTypesStatus
-      });
-    }
-
-    if (normalizedUrl === 'https://api.igdb.com/v4/popularity_primitives') {
-      calls.igdbPopularityPrimitives += 1;
-      calls.igdbPopularityPrimitiveBodies.push(
-        typeof options.body === 'string' ? options.body : ''
-      );
-      return new Response(JSON.stringify(igdbPopularityPrimitivesBody), {
-        status: igdbPopularityPrimitivesStatus
-      });
     }
 
     if (normalizedUrl.startsWith('https://api.thegamesdb.net/v1.1/Games/ByGameName')) {
@@ -442,104 +416,6 @@ test('returns IGDB platform filters and caches the platform response', async () 
     { id: 130, name: 'Nintendo Switch' },
     { id: 6, name: 'PC (Microsoft Windows)' }
   ]);
-});
-
-test('returns IGDB popularity types', async () => {
-  resetCaches();
-
-  const { stub, calls } = createFetchStub({
-    igdbPopularityTypesBody: [
-      { id: 1, name: 'Most visited games on IGDB', external_popularity_source: 121 },
-      { id: 2, name: 'Most played in the last 24h', external_popularity_source: 144 }
-    ]
-  });
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/popularity/types'),
-    env,
-    stub
-  );
-
-  const second = await handleRequest(
-    new Request('https://worker.example/v1/popularity/types'),
-    env,
-    stub
-  );
-
-  assert.equal(response.status, 200);
-  assert.equal(second.status, 200);
-  assert.equal(calls.token, 1);
-  assert.equal(calls.igdbPopularityTypes, 1);
-  assert.equal(
-    calls.igdbPopularityTypeBodies[0].includes('fields id,name,external_popularity_source;'),
-    true
-  );
-
-  const payload = await response.json();
-  assert.deepEqual(payload.items, [
-    { id: 1, name: 'Most visited games on IGDB', externalPopularitySource: 121 },
-    { id: 2, name: 'Most played in the last 24h', externalPopularitySource: 144 }
-  ]);
-});
-
-test('returns IGDB popularity primitives enriched with game metadata', async () => {
-  resetCaches();
-
-  const { stub, calls } = createFetchStub({
-    igdbPopularityPrimitivesBody: [
-      {
-        game_id: 42,
-        popularity_type: 7,
-        external_popularity_source: 81,
-        value: 987.65,
-        calculated_at: 1735689600
-      }
-    ],
-    igdbBody: [
-      {
-        id: 42,
-        name: 'Super Metroid',
-        first_release_date: 777600000,
-        cover: { image_id: 'super-metroid' },
-        platforms: [{ id: 19, name: 'SNES' }]
-      }
-    ]
-  });
-
-  const response = await handleRequest(
-    new Request(
-      'https://worker.example/v1/popularity/primitives?popularityTypeId=7&limit=20&offset=0'
-    ),
-    env,
-    stub
-  );
-
-  assert.equal(response.status, 200);
-  assert.equal(calls.igdbPopularityPrimitives, 1);
-  assert.equal(calls.igdb, 1);
-  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('sort value desc;'), true);
-  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('limit 20;'), true);
-  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('offset 0;'), true);
-
-  const payload = await response.json();
-  assert.equal(payload.items.length, 1);
-  assert.equal(payload.items[0].popularityType, 7);
-  assert.equal(payload.items[0].value, 987.65);
-  assert.equal(payload.items[0].game.igdbGameId, '42');
-  assert.equal(payload.items[0].game.title, 'Super Metroid');
-});
-
-test('returns 400 when popularityTypeId is missing for popularity primitives', async () => {
-  resetCaches();
-
-  const { stub } = createFetchStub({});
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/popularity/primitives'),
-    env,
-    stub
-  );
-
-  assert.equal(response.status, 400);
 });
 
 test('maps upstream errors to safe 502 response', async () => {
@@ -1012,29 +888,6 @@ test('rejects non-GET requests and unknown routes', async () => {
   assert.equal(unknownRoute.status, 404);
 });
 
-test('returns 400 for invalid popularityTypeId and handles popularity upstream rate limit', async () => {
-  resetCaches();
-
-  const { stub } = createFetchStub({
-    igdbPopularityPrimitivesStatus: 429
-  });
-
-  const invalidTypeId = await handleRequest(
-    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=abc'),
-    env,
-    stub
-  );
-  assert.equal(invalidTypeId.status, 400);
-
-  const rateLimited = await handleRequest(
-    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=7'),
-    env,
-    stub
-  );
-  assert.equal(rateLimited.status, 429);
-  assert.ok(Number(rateLimited.headers.get('Retry-After') ?? '0') >= 20);
-});
-
 test('returns 400 for invalid game id route and maps token fetch failures to 502', async () => {
   resetCaches();
 
@@ -1149,42 +1002,6 @@ test('returns 429 when IGDB platforms endpoint is rate limited', async () => {
   assert.ok(Number(response.headers.get('Retry-After') ?? '0') >= 20);
 });
 
-test('returns 502 when IGDB popularity types payload is invalid', async () => {
-  resetCaches();
-
-  const { stub } = createFetchStub({
-    igdbPopularityTypesBody: { invalid: true }
-  });
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/popularity/types'),
-    env,
-    stub
-  );
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.deepEqual(payload, { items: [] });
-});
-
-test('returns empty popularity primitives payload when upstream data is empty', async () => {
-  resetCaches();
-
-  const { stub, calls } = createFetchStub({
-    igdbPopularityPrimitivesBody: []
-  });
-
-  const response = await handleRequest(
-    new Request('https://worker.example/v1/popularity/primitives?popularityTypeId=7'),
-    env,
-    stub
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.deepEqual(payload, { items: [] });
-  assert.equal(calls.igdbPopularityPrimitives, 1);
-});
-
 test('returns 502 when Twitch credentials are missing for IGDB routes', async () => {
   resetCaches();
 
@@ -1201,35 +1018,12 @@ test('returns 502 when Twitch credentials are missing for IGDB routes', async ()
   assert.equal(response.status, 502);
 });
 
-test('handles popularity primitive query normalization for limit/offset bounds', async () => {
-  resetCaches();
-
-  const { stub, calls } = createFetchStub({
-    igdbPopularityPrimitivesBody: [],
-    igdbBody: []
-  });
-
-  const response = await handleRequest(
-    new Request(
-      'https://worker.example/v1/popularity/primitives?popularityTypeId=7&limit=999&offset=-12'
-    ),
-    env,
-    stub
-  );
-
-  assert.equal(response.status, 200);
-  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('limit 100;'), true);
-  assert.equal(calls.igdbPopularityPrimitiveBodies[0].includes('offset 0;'), true);
-});
-
 test('testable helpers normalize query/id/url utilities', () => {
-  const url = new URL('https://worker.example/test?platformIgdbId=130&popularityTypeId=7');
-  const invalidUrl = new URL('https://worker.example/test?platformIgdbId=abc&popularityTypeId=-2');
+  const url = new URL('https://worker.example/test?platformIgdbId=130');
+  const invalidUrl = new URL('https://worker.example/test?platformIgdbId=abc');
 
   assert.equal(__testables.normalizePlatformIgdbIdQuery(url), 130);
   assert.equal(__testables.normalizePlatformIgdbIdQuery(invalidUrl), null);
-  assert.equal(__testables.normalizePopularityTypeIdQuery(url), 7);
-  assert.equal(__testables.normalizePopularityTypeIdQuery(invalidUrl), null);
   assert.equal(__testables.resolveTheGamesDbPlatformId(130), 4971);
   assert.equal(__testables.resolveTheGamesDbPlatformId(-1), null);
 

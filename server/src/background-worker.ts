@@ -315,7 +315,11 @@ async function main(): Promise<void> {
   );
   const popularityIngestService = new PopularityIngestService(pool, {
     enabled: config.popularityIngestEnabled,
-    signalLimit: POPULARITY_PRIMITIVE_LIMIT
+    signalLimit: POPULARITY_PRIMITIVE_LIMIT,
+    twitchClientId: config.twitchClientId,
+    twitchClientSecret: config.twitchClientSecret,
+    requestTimeoutMs: config.recommendationsDiscoveryIgdbRequestTimeoutMs,
+    maxRequestsPerSecond: config.recommendationsDiscoveryIgdbMaxRequestsPerSecond
   });
   const workerHost = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME : '';
   const workerId = `background-worker:${workerMode}:${workerHost}:${String(process.pid)}`;

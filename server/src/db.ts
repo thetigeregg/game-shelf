@@ -25,11 +25,23 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS games_first_release_date_popularity_idx
   ON games (
     (
-      CASE
-        WHEN BTRIM(COALESCE(payload->>'first_release_date', '')) ~ '^[0-9]+$'
-        THEN (BTRIM(payload->>'first_release_date'))::bigint
-        ELSE NULL
-      END
+      COALESCE(
+        CASE
+          WHEN BTRIM(COALESCE(payload->>'first_release_date', '')) ~ '^[0-9]+$'
+          THEN (BTRIM(payload->>'first_release_date'))::bigint
+          ELSE NULL
+        END,
+        CASE
+          WHEN BTRIM(COALESCE(payload->>'firstReleaseDate', '')) ~ '^[0-9]+$'
+          THEN (BTRIM(payload->>'firstReleaseDate'))::bigint
+          ELSE NULL
+        END,
+        CASE
+          WHEN BTRIM(COALESCE(payload->>'releaseDate', '')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$'
+          THEN EXTRACT(EPOCH FROM (BTRIM(payload->>'releaseDate'))::timestamptz)::bigint
+          ELSE NULL
+        END
+      )
     )
   )
   WHERE popularity_score IS NOT NULL;

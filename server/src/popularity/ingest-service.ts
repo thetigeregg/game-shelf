@@ -1,4 +1,5 @@
 import type { Pool, QueryResult, QueryResultRow } from 'pg';
+import { PopularityRepository } from './repository.js';
 
 const IGDB_GAME_BATCH_SIZE = 100;
 const SIGNAL_UPSERT_BATCH_SIZE = 500;
@@ -114,12 +115,15 @@ export interface PopularityIngestServiceOptions {
 export class PopularityIngestService {
   private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
   private igdbRateLimitedUntilMs = 0;
+  private readonly repository: PopularityRepository;
 
   constructor(
     private readonly pool: Pool,
     private readonly options: PopularityIngestServiceOptions,
     private readonly fetchImpl: typeof fetch = fetch
-  ) {}
+  ) {
+    this.repository = new PopularityRepository(pool);
+  }
 
   async runOnce(): Promise<PopularityIngestSummary> {
     if (!this.options.enabled) {
@@ -141,104 +145,90 @@ export class PopularityIngestService {
     const state: IngestRunState = {
       nextRequestAtMs: 0
     };
-    const client = await this.pool.connect();
-    let lockAcquired = false;
-
-    try {
-      const lockResult = await client.query<{ acquired: boolean }>(
-        'SELECT pg_try_advisory_lock($1, $2) AS acquired',
-        [POPULARITY_INGEST_LOCK_NAMESPACE, POPULARITY_INGEST_LOCK_KEY]
-      );
-
-      lockAcquired = lockResult.rows[0]?.acquired ?? false;
-      if (!lockAcquired) {
-        return this.emptyEnabledSummary();
-      }
-
-      let typeIds: number[];
-      try {
-        typeIds = await this.resolvePopularityTypeIds(state);
-      } catch (error) {
-        if (error instanceof IgdbRateLimitError) {
-          return this.emptyEnabledSummary();
-        }
-        throw error;
-      }
-
-      if (typeIds.length === 0) {
-        return this.emptyEnabledSummary();
-      }
-
-      const signalRows: PopularityPrimitiveItem[] = [];
-      let throttledByRateLimit = false;
-      let fetchedTypeCount = 0;
-
-      for (const typeId of typeIds) {
-        let items: PopularityPrimitiveItem[];
+    const lock = await this.repository.withAdvisoryLock({
+      namespace: POPULARITY_INGEST_LOCK_NAMESPACE,
+      key: POPULARITY_INGEST_LOCK_KEY,
+      callback: async (client) => {
+        let typeIds: number[];
         try {
-          items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit, state);
+          typeIds = await this.resolvePopularityTypeIds(state);
         } catch (error) {
           if (error instanceof IgdbRateLimitError) {
-            throttledByRateLimit = true;
-            break;
+            return this.emptyEnabledSummary();
           }
           throw error;
         }
-        fetchedTypeCount += 1;
-        signalRows.push(...items);
-      }
 
-      if (signalRows.length === 0) {
+        if (typeIds.length === 0) {
+          return this.emptyEnabledSummary();
+        }
+
+        const signalRows: PopularityPrimitiveItem[] = [];
+        let throttledByRateLimit = false;
+        let fetchedTypeCount = 0;
+
+        for (const typeId of typeIds) {
+          let items: PopularityPrimitiveItem[];
+          try {
+            items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit, state);
+          } catch (error) {
+            if (error instanceof IgdbRateLimitError) {
+              throttledByRateLimit = true;
+              break;
+            }
+            throw error;
+          }
+          fetchedTypeCount += 1;
+          signalRows.push(...items);
+        }
+
+        if (signalRows.length === 0) {
+          return {
+            enabled: true,
+            fetchedTypes: throttledByRateLimit ? fetchedTypeCount : typeIds.length,
+            fetchedSignals: 0,
+            upsertedSignals: 0,
+            missingGamesDiscovered: 0,
+            gamesInserted: 0,
+            scoresUpdated: 0
+          };
+        }
+
+        const dedupedSignals = dedupeSignals(signalRows);
+        await this.upsertSignals(dedupedSignals, client);
+
+        const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
+        let gameMap = new Map<string, WorkerGameItem>();
+        try {
+          gameMap = await this.fetchGamesByIds(uniqueGameIds, state);
+        } catch (error) {
+          if (!(error instanceof IgdbRateLimitError)) {
+            throw error;
+          }
+        }
+
+        const missingGamePlatforms = await this.findMissingGamePlatforms(gameMap, client);
+        const missingGameIds = [...new Set(missingGamePlatforms.map((pair) => pair.gameId))];
+        const gamesInserted = await this.insertMissingGames(missingGamePlatforms, gameMap, client);
+        const scoresUpdated = await this.recomputeScores(uniqueGameIds, client);
+
         return {
           enabled: true,
-          fetchedTypes: throttledByRateLimit ? fetchedTypeCount : typeIds.length,
-          fetchedSignals: 0,
-          upsertedSignals: 0,
-          missingGamesDiscovered: 0,
-          gamesInserted: 0,
-          scoresUpdated: 0
+          fetchedTypes: fetchedTypeCount,
+          fetchedSignals: signalRows.length,
+          upsertedSignals: dedupedSignals.length,
+          missingGamesDiscovered: missingGameIds.length,
+          gamesInserted,
+          scoresUpdated
         };
       }
+    });
 
-      const dedupedSignals = dedupeSignals(signalRows);
-      await this.upsertSignals(dedupedSignals, client);
-
-      const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
-      let gameMap = new Map<string, WorkerGameItem>();
-      try {
-        gameMap = await this.fetchGamesByIds(uniqueGameIds, state);
-      } catch (error) {
-        if (!(error instanceof IgdbRateLimitError)) {
-          throw error;
-        }
-      }
-
-      const missingGamePlatforms = await this.findMissingGamePlatforms(gameMap, client);
-      const missingGameIds = [...new Set(missingGamePlatforms.map((pair) => pair.gameId))];
-      const gamesInserted = await this.insertMissingGames(missingGamePlatforms, gameMap, client);
-      const scoresUpdated = await this.recomputeScores(uniqueGameIds, client);
-
-      return {
-        enabled: true,
-        fetchedTypes: fetchedTypeCount,
-        fetchedSignals: signalRows.length,
-        upsertedSignals: dedupedSignals.length,
-        missingGamesDiscovered: missingGameIds.length,
-        gamesInserted,
-        scoresUpdated
-      };
-    } finally {
-      try {
-        if (lockAcquired) {
-          await client.query('SELECT pg_advisory_unlock($1, $2)', [
-            POPULARITY_INGEST_LOCK_NAMESPACE,
-            POPULARITY_INGEST_LOCK_KEY
-          ]);
-        }
-      } finally {
-        client.release();
-      }
+    if (!lock.acquired) {
+      return this.emptyEnabledSummary();
     }
+
+    return lock.value;
   }
 
   private async resolvePopularityTypeIds(state: IngestRunState): Promise<number[]> {

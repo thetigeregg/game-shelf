@@ -217,6 +217,8 @@ export interface AppConfig {
   recommendationsDiscoveryEnrichRearmRecentReleaseYears: number;
   popularityIngestEnabled: boolean;
   popularityIngestIntervalMinutes: number;
+  popularityIngestIgdbRequestTimeoutMs: number;
+  popularityIngestIgdbMaxRequestsPerSecond: number;
   popularityScoreThreshold: number;
   igdbMetadataEnrichEnabled: boolean;
   igdbMetadataEnrichBatchSize: number;
@@ -563,6 +565,14 @@ export const config: AppConfig = {
   ),
   popularityIngestEnabled: readBooleanEnv('POPULARITY_INGEST_ENABLED', true),
   popularityIngestIntervalMinutes: readIntegerEnv('POPULARITY_INGEST_INTERVAL_MINUTES', 30),
+  popularityIngestIgdbRequestTimeoutMs: readIntegerEnv(
+    'POPULARITY_INGEST_IGDB_REQUEST_TIMEOUT_MS',
+    readIntegerEnv('RECOMMENDATIONS_DISCOVERY_IGDB_REQUEST_TIMEOUT_MS', 15_000)
+  ),
+  popularityIngestIgdbMaxRequestsPerSecond: readIntegerEnv(
+    'POPULARITY_INGEST_IGDB_MAX_REQUESTS_PER_SECOND',
+    readIntegerEnv('RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND', 4)
+  ),
   popularityScoreThreshold: readNumberEnv('POPULARITY_SCORE_THRESHOLD', 50),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),

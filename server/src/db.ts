@@ -35,11 +35,6 @@ export const MIGRATIONS: string[] = [
           WHEN BTRIM(COALESCE(payload->>'firstReleaseDate', '')) ~ '^[0-9]+$'
           THEN (BTRIM(payload->>'firstReleaseDate'))::bigint
           ELSE NULL
-        END,
-        CASE
-          WHEN BTRIM(COALESCE(payload->>'releaseDate', '')) ~ '^\d{4}-\d{2}-\d{2}$'
-          THEN EXTRACT(EPOCH FROM (BTRIM(payload->>'releaseDate'))::date)::bigint
-          ELSE NULL
         END
       )
     )

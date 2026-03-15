@@ -18,7 +18,6 @@ const THE_GAMES_DB_SECONDARY_COUNTRY_ID = 0;
 const THE_GAMES_DB_PREFERRED_REGION_IDS = new Set([2]);
 const THE_GAMES_DB_SECONDARY_REGION_IDS = new Set([1]);
 const PLATFORM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const POPULARITY_TYPES_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const IGDB_CATEGORY_REMAKE = 8;
 const IGDB_CATEGORY_REMASTER = 9;
 
@@ -39,10 +38,6 @@ const igdbPlatformCache = {
   items: null,
   expiresAt: 0
 };
-const igdbPopularityTypeCache = {
-  items: null,
-  expiresAt: 0
-};
 const igdbRateLimitState = {
   cooldownUntilMs: 0
 };
@@ -55,8 +50,6 @@ export function resetCaches() {
   igdbSearchVariantCache.disabledVariants.clear();
   igdbPlatformCache.items = null;
   igdbPlatformCache.expiresAt = 0;
-  igdbPopularityTypeCache.items = null;
-  igdbPopularityTypeCache.expiresAt = 0;
   igdbRateLimitState.cooldownUntilMs = 0;
 }
 
@@ -92,17 +85,6 @@ function normalizePlatformIgdbIdQuery(url) {
   }
 
   return parsed;
-}
-
-function normalizePopularityTypeIdQuery(url) {
-  const raw = String(url.searchParams.get('popularityTypeId') ?? '').trim();
-
-  if (!/^\d+$/.test(raw)) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function normalizeLimitQuery(url, fallback) {
@@ -476,7 +458,6 @@ class UpstreamRateLimitError extends Error {
 
 export const __testables = {
   normalizePlatformIgdbIdQuery,
-  normalizePopularityTypeIdQuery,
   normalizeLimitQuery,
   normalizeOffsetQuery,
   normalizeIgdbReferenceId,
@@ -1342,237 +1323,6 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
   return items;
 }
 
-async function listPopularityTypes(env, token, fetchImpl, nowMs) {
-  const timeoutMs = getIgdbRequestTimeoutMs(env);
-  if (Array.isArray(igdbPopularityTypeCache.items) && igdbPopularityTypeCache.expiresAt > nowMs) {
-    return igdbPopularityTypeCache.items;
-  }
-
-  const body = ['fields id,name,external_popularity_source;', 'sort name asc;', 'limit 500;'].join(
-    ' '
-  );
-
-  const response = await fetchWithTimeout(
-    fetchImpl,
-    'https://api.igdb.com/v4/popularity_types',
-    {
-      method: 'POST',
-      headers: {
-        'Client-ID': env.TWITCH_CLIENT_ID,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain'
-      },
-      body
-    },
-    timeoutMs
-  );
-
-  if (response.status === 429) {
-    throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
-  }
-
-  if (!response.ok) {
-    throw new Error('IGDB popularity type request failed');
-  }
-
-  const payload = await response.json();
-
-  if (!Array.isArray(payload)) {
-    igdbPopularityTypeCache.items = [];
-    igdbPopularityTypeCache.expiresAt = nowMs + POPULARITY_TYPES_CACHE_TTL_MS;
-    return [];
-  }
-
-  const items = payload
-    .map((item) => ({
-      id: Number.isInteger(item?.id) && item.id > 0 ? item.id : null,
-      name: typeof item?.name === 'string' ? item.name.trim() : '',
-      externalPopularitySource:
-        Number.isInteger(item?.external_popularity_source) && item.external_popularity_source > 0
-          ? item.external_popularity_source
-          : null
-    }))
-    .filter((item) => item.id !== null && item.name.length > 0)
-    .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
-    .map((item) => ({
-      id: item.id,
-      name: item.name,
-      externalPopularitySource: item.externalPopularitySource
-    }));
-
-  igdbPopularityTypeCache.items = items;
-  igdbPopularityTypeCache.expiresAt = nowMs + POPULARITY_TYPES_CACHE_TTL_MS;
-  return items;
-}
-
-async function fetchIgdbGamesByIds(gameIds, env, token, fetchImpl, nowMs) {
-  const timeoutMs = getIgdbRequestTimeoutMs(env);
-  if (!Array.isArray(gameIds) || gameIds.length === 0) {
-    return [];
-  }
-
-  const uniqueIds = [
-    ...new Set(
-      gameIds
-        .map((value) => Number.parseInt(String(value ?? ''), 10))
-        .filter((value) => Number.isInteger(value) && value > 0)
-    )
-  ];
-
-  if (uniqueIds.length === 0) {
-    return [];
-  }
-
-  const body = [
-    `where id = (${uniqueIds.join(',')});`,
-    'fields id,name,storyline,summary,first_release_date,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
-    `limit ${uniqueIds.length};`
-  ].join(' ');
-
-  const response = await fetchWithTimeout(
-    fetchImpl,
-    'https://api.igdb.com/v4/games',
-    {
-      method: 'POST',
-      headers: {
-        'Client-ID': env.TWITCH_CLIENT_ID,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain'
-      },
-      body
-    },
-    timeoutMs
-  );
-
-  if (response.status === 429) {
-    throw new UpstreamRateLimitError(resolveRetryAfterSecondsFromHeaders(response.headers, nowMs));
-  }
-
-  if (!response.ok) {
-    throw new Error('IGDB popularity game request failed');
-  }
-
-  const payload = await response.json();
-  return Array.isArray(payload) ? payload : [];
-}
-
-async function listPopularityPrimitives(
-  popularityTypeId,
-  limit,
-  offset,
-  env,
-  token,
-  fetchImpl,
-  nowMs
-) {
-  const timeoutMs = getIgdbRequestTimeoutMs(env);
-  const normalizedPopularityTypeId =
-    Number.isInteger(popularityTypeId) && popularityTypeId > 0 ? popularityTypeId : null;
-
-  if (normalizedPopularityTypeId === null) {
-    return [];
-  }
-
-  const normalizedLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 100) : 20;
-  const normalizedOffset = Number.isInteger(offset) ? Math.max(offset, 0) : 0;
-
-  const primitivesBody = [
-    `where popularity_type = ${normalizedPopularityTypeId} & game_id != null;`,
-    'fields game_id,popularity_type,external_popularity_source,value,calculated_at;',
-    'sort value desc;',
-    `limit ${normalizedLimit};`,
-    `offset ${normalizedOffset};`
-  ].join(' ');
-
-  const primitivesResponse = await fetchWithTimeout(
-    fetchImpl,
-    'https://api.igdb.com/v4/popularity_primitives',
-    {
-      method: 'POST',
-      headers: {
-        'Client-ID': env.TWITCH_CLIENT_ID,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain'
-      },
-      body: primitivesBody
-    },
-    timeoutMs
-  );
-
-  if (primitivesResponse.status === 429) {
-    throw new UpstreamRateLimitError(
-      resolveRetryAfterSecondsFromHeaders(primitivesResponse.headers, nowMs)
-    );
-  }
-
-  if (!primitivesResponse.ok) {
-    throw new Error('IGDB popularity primitive request failed');
-  }
-
-  const primitivePayload = await primitivesResponse.json();
-  const primitives = Array.isArray(primitivePayload)
-    ? primitivePayload
-        .map((item) => ({
-          gameId: Number.isInteger(item?.game_id) && item.game_id > 0 ? item.game_id : null,
-          popularityType:
-            Number.isInteger(item?.popularity_type) && item.popularity_type > 0
-              ? item.popularity_type
-              : null,
-          externalPopularitySource:
-            Number.isInteger(item?.external_popularity_source) &&
-            item.external_popularity_source > 0
-              ? item.external_popularity_source
-              : null,
-          value: normalizeNumericValue(item?.value),
-          calculatedAt: normalizeIgdbUnixDatetime(item?.calculated_at)
-        }))
-        .filter((item) => item.gameId !== null && item.popularityType !== null)
-    : [];
-
-  if (primitives.length === 0) {
-    return [];
-  }
-
-  const rawGames = await fetchIgdbGamesByIds(
-    primitives.map((item) => item.gameId),
-    env,
-    token,
-    fetchImpl,
-    nowMs
-  );
-  const gamesById = new Map(
-    rawGames
-      .map((item) => {
-        const id = Number.isInteger(item?.id) && item.id > 0 ? item.id : null;
-
-        if (id === null) {
-          return null;
-        }
-
-        return [id, normalizeIgdbGame(item)];
-      })
-      .filter(Boolean)
-  );
-
-  return primitives
-    .map((item) => {
-      const game = gamesById.get(item.gameId);
-
-      if (!game) {
-        return null;
-      }
-
-      return {
-        game,
-        popularityType: item.popularityType,
-        externalPopularitySource: item.externalPopularitySource,
-        value: item.value,
-        calculatedAt: item.calculatedAt
-      };
-    })
-    .filter(Boolean);
-}
-
 async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
   const timeoutMs = getIgdbRequestTimeoutMs(env);
   const normalizedPlatformIgdbId =
@@ -1804,21 +1554,12 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const gameId = normalizeGameIdFromPath(url.pathname);
   const isGameSearchPath = url.pathname === '/v1/games/search';
   const isPlatformListPath = url.pathname === '/v1/platforms';
-  const isPopularityTypesPath = url.pathname === '/v1/popularity/types';
-  const isPopularityPrimitivesPath = url.pathname === '/v1/popularity/primitives';
   const isGameByIdPath = gameId !== null;
   const isBoxArtSearchRoute = isBoxArtSearchPath(url.pathname);
   const debugHttp = shouldLogHttp(env, url);
   const loggedFetch = createLoggedFetch(fetchImpl, debugHttp);
 
-  if (
-    !isGameSearchPath &&
-    !isPlatformListPath &&
-    !isPopularityTypesPath &&
-    !isPopularityPrimitivesPath &&
-    !isGameByIdPath &&
-    !isBoxArtSearchRoute
-  ) {
+  if (!isGameSearchPath && !isPlatformListPath && !isGameByIdPath && !isBoxArtSearchRoute) {
     return jsonResponse({ error: 'Not found' }, 404);
   }
 
@@ -1833,12 +1574,7 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
   const nowMs = now();
   const ipAddress =
     request.headers.get('CF-Connecting-IP') ?? request.headers.get('x-forwarded-for') ?? 'unknown';
-  const isIgdbRoute =
-    isGameSearchPath ||
-    isPlatformListPath ||
-    isPopularityTypesPath ||
-    isPopularityPrimitivesPath ||
-    isGameByIdPath;
+  const isIgdbRoute = isGameSearchPath || isPlatformListPath || isGameByIdPath;
 
   const localRetryAfterSeconds = getLocalRateLimitRetryAfterSeconds(ipAddress, nowMs);
 
@@ -1881,32 +1617,6 @@ export async function handleRequest(request, env, fetchImpl = fetch, now = () =>
 
     if (isPlatformListPath) {
       const items = await listIgdbPlatforms(env, token, loggedFetch, nowMs);
-      return jsonResponse({ items }, 200);
-    }
-
-    if (isPopularityTypesPath) {
-      const items = await listPopularityTypes(env, token, loggedFetch, nowMs);
-      return jsonResponse({ items }, 200);
-    }
-
-    if (isPopularityPrimitivesPath) {
-      const popularityTypeId = normalizePopularityTypeIdQuery(url);
-
-      if (popularityTypeId === null) {
-        return jsonResponse({ error: 'popularityTypeId must be a positive integer.' }, 400);
-      }
-
-      const limit = normalizeLimitQuery(url, 20);
-      const offset = normalizeOffsetQuery(url);
-      const items = await listPopularityPrimitives(
-        popularityTypeId,
-        limit,
-        offset,
-        env,
-        token,
-        loggedFetch,
-        nowMs
-      );
       return jsonResponse({ items }, 200);
     }
 

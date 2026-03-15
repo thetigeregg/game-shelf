@@ -1,9 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
 
 const OUTPUT_FILE = '.pr-ci-prompt.md';
-const LOG_DIR = '.ci-logs';
+const WORKFLOW_NAME = 'CI PR Checks';
+const DEBUG = true;
+
+function log(...args) {
+  if (DEBUG) console.log('[debug]', ...args);
+}
 
 function runGh(args) {
   try {
@@ -14,45 +18,130 @@ function runGh(args) {
     });
   } catch (err) {
     console.error('GitHub CLI command failed:', args.join(' '));
+    if (err.stdout) process.stdout.write(err.stdout);
+    if (err.stderr) process.stderr.write(err.stderr);
     process.exit(1);
   }
 }
 
-function getLatestRunForPR(prNumber) {
+function getPRInfo(prNumber) {
+  const result = runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid']);
+
+  const parsed = JSON.parse(result);
+  log('PR info:', parsed);
+  return parsed;
+}
+
+function getLatestCIRun(commitSha) {
   const result = runGh([
     'run',
     'list',
+    '--commit',
+    commitSha,
     '--json',
-    'databaseId,displayTitle,event,headBranch,conclusion',
+    'databaseId,workflowName,status,conclusion',
     '--limit',
     '20'
   ]);
 
   const runs = JSON.parse(result);
 
-  const prRun = runs.find((r) => r.displayTitle.includes(`#${prNumber}`));
+  log('Workflow runs:', runs);
 
-  if (!prRun) {
-    throw new Error('Could not find CI run for this PR.');
+  const ciRun = runs.find((r) => r.workflowName === WORKFLOW_NAME);
+
+  if (!ciRun) {
+    throw new Error(`Could not find workflow run named "${WORKFLOW_NAME}"`);
   }
 
-  return prRun.databaseId;
+  return ciRun;
 }
 
-function downloadLogs(runId) {
-  if (!fs.existsSync(LOG_DIR)) {
-    fs.mkdirSync(LOG_DIR);
+function getJobs(runId) {
+  const result = runGh(['run', 'view', runId, '--json', 'jobs']);
+
+  const parsed = JSON.parse(result);
+
+  if (!parsed || !Array.isArray(parsed.jobs)) {
+    log('Jobs missing or invalid');
+    return [];
   }
 
-  console.log('Downloading CI logs...');
+  log(`Jobs found: ${parsed.jobs.length}`);
 
-  runGh(['run', 'download', runId, '--log', '-D', LOG_DIR]);
+  for (const job of parsed.jobs) {
+    log('Job:', job.name, job.status, job.conclusion);
+
+    if (job.steps) {
+      for (const step of job.steps) {
+        log('  Step:', step.name, 'status:', step.status, 'conclusion:', step.conclusion);
+      }
+    }
+  }
+
+  return parsed.jobs;
 }
 
-function extractErrors(content) {
-  const lines = content.split('\n');
+function findFailures(jobs) {
+  const failures = [];
 
-  const errors = [];
+  for (const job of jobs) {
+    if (job.conclusion === 'failure') {
+      failures.push({
+        job: job.name,
+        step: 'Job failure'
+      });
+    }
+
+    if (job.steps) {
+      for (const step of job.steps) {
+        if (step.conclusion === 'failure') {
+          failures.push({
+            job: job.name,
+            step: step.name
+          });
+        }
+      }
+    }
+  }
+
+  log('Failures detected:', failures);
+
+  return failures;
+}
+
+function getLogsForJobs(runId, jobs) {
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    log('No jobs available for log extraction');
+    return '';
+  }
+
+  let logs = '';
+
+  for (const job of jobs) {
+    if (!job || job.status !== 'completed') {
+      log('Skipping job (not completed):', job?.name);
+      continue;
+    }
+
+    log('Fetching logs for job:', job.name);
+
+    try {
+      const jobLogs = runGh(['run', 'view', runId, '--job', job.databaseId, '--log']);
+
+      logs += `\n\n===== JOB: ${job.name} =====\n\n`;
+      logs += jobLogs;
+    } catch {
+      log('Logs unavailable for job:', job.name);
+    }
+  }
+
+  return logs;
+}
+
+function extractRelevantLogs(logs) {
+  const lines = logs.split('\n');
+  const relevant = [];
 
   for (const line of lines) {
     if (
@@ -61,85 +150,81 @@ function extractErrors(content) {
       line.includes('FAIL') ||
       line.includes('failed') ||
       line.includes('TS') ||
-      line.includes('eslint')
+      line.includes('eslint') ||
+      line.includes('Coverage for') ||
+      line.includes('does not meet')
     ) {
-      errors.push(line);
+      relevant.push(line);
     }
   }
 
-  return errors.slice(0, 200);
+  log(`Relevant log lines found: ${relevant.length}`);
+
+  return relevant.slice(0, 200);
 }
 
-function collectFailures() {
-  const files = fs.readdirSync(LOG_DIR);
-
-  const failures = [];
-
-  for (const file of files) {
-    const full = path.join(LOG_DIR, file);
-
-    const content = fs.readFileSync(full, 'utf8');
-
-    const errors = extractErrors(content);
-
-    if (errors.length) {
-      failures.push({
-        file,
-        errors
-      });
-    }
-  }
-
-  return failures;
-}
-
-function buildPrompt(prNumber, failures) {
-  if (!failures.length) {
-    return `No CI failures detected in logs for PR #${prNumber}.`;
-  }
+function buildPrompt(prNumber, title, failures, logs) {
+  const relevant = extractRelevantLogs(logs);
 
   let md = `
 # CI Failure Fix Tasks
 
 Pull Request: #${prNumber}
+Title: ${title}
 
-Your job is to resolve CI failures.
+Resolve the CI failures described below.
 
-Rules:
+Guidelines:
 
-• Fix the root cause of the errors
-• Do not suppress errors unless appropriate
+• Fix the root cause of the failures
+• Do not suppress errors
 • Preserve project conventions
-• Avoid unrelated refactors
 
 ---
 
 `;
 
-  let task = 1;
-
-  for (const f of failures) {
+  if (!failures.length) {
     md += `
-## Task ${task}
+No explicit failing steps were detected.
 
-CI Job Log:
-${f.file}
-
-Relevant Error Output:
+However CI logs contain the following suspicious lines:
 
 \`\`\`
-${f.errors.join('\n')}
+${relevant.join('\n')}
+\`\`\`
+
+Investigate and resolve the underlying issue.
+`;
+  } else {
+    let task = 1;
+
+    for (const failure of failures) {
+      md += `
+## Task ${task}
+
+Failing Job:
+${failure.job}
+
+Failing Step:
+${failure.step}
+
+Relevant Log Output:
+
+\`\`\`
+${relevant.join('\n')}
 \`\`\`
 
 Required Action:
 
-Identify the root cause of these failures and update the code to fix them.
+Identify the root cause and fix the failure.
 
 ---
 
 `;
 
-    task++;
+      task++;
+    }
   }
 
   md += `
@@ -147,8 +232,7 @@ Identify the root cause of these failures and update the code to fix them.
 
 After fixing the issues:
 
-1. Ensure the build passes locally if possible
-2. Generate the Conventional Commit message for the changes
+Generate the Conventional Commit message for the changes.
 `;
 
   return md;
@@ -164,13 +248,19 @@ function main() {
 
   console.log(`Preparing CI failure tasks for PR #${prNumber}`);
 
-  const runId = getLatestRunForPR(prNumber);
+  const pr = getPRInfo(prNumber);
 
-  downloadLogs(runId);
+  const run = getLatestCIRun(pr.headRefOid);
 
-  const failures = collectFailures();
+  console.log(`Using workflow run: ${run.databaseId}`);
 
-  const prompt = buildPrompt(prNumber, failures);
+  const jobs = getJobs(run.databaseId);
+
+  const failures = findFailures(jobs);
+
+  const logs = getLogsForJobs(run.databaseId, jobs);
+
+  const prompt = buildPrompt(prNumber, pr.title, failures, logs);
 
   fs.writeFileSync(OUTPUT_FILE, prompt);
 
@@ -179,7 +269,7 @@ CI prompt generated:
 
 ${OUTPUT_FILE}
 
-Failures detected: ${failures.length}
+Failing steps detected: ${failures.length}
 `);
 }
 

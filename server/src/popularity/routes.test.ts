@@ -190,7 +190,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   await app.close();
 });
 
-void test('GET /v1/games/trending includes platformIgdbId when igdb id appears on multiple platforms', async () => {
+void test('GET /v1/games/trending dedupes by igdb id across multiple platforms and keeps highest score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(
     app,
@@ -229,22 +229,19 @@ void test('GET /v1/games/trending includes platformIgdbId when igdb id appears o
     items: Array<{
       id: string;
       platformIgdbId: number;
+      popularityScore: number;
     }>;
   };
 
-  assert.equal(body.items.length, 2);
-  assert.deepEqual(
-    body.items.map((item) => ({ id: item.id, platformIgdbId: item.platformIgdbId })),
-    [
-      { id: '400', platformIgdbId: 6 },
-      { id: '400', platformIgdbId: 167 }
-    ]
-  );
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0]?.id, '400');
+  assert.equal(body.items[0]?.platformIgdbId, 6);
+  assert.equal(body.items[0]?.popularityScore, 200.1);
 
   await app.close();
 });
 
-void test('GET /v1/games/trending dedupes duplicate rows by game id and platform id', async () => {
+void test('GET /v1/games/trending dedupes duplicate rows by game id and keeps highest score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(
     app,
@@ -254,7 +251,7 @@ void test('GET /v1/games/trending dedupes duplicate rows by game id and platform
         platform_igdb_id: 6,
         popularity_score: '210.2',
         payload: {
-          title: 'Duplicate Platform Entry',
+          title: 'Duplicate Game Entry',
           first_release_date: 1_700_000_000,
           platformOptions: [{ id: 6, name: 'PC' }]
         }
@@ -264,7 +261,7 @@ void test('GET /v1/games/trending dedupes duplicate rows by game id and platform
         platform_igdb_id: 6,
         popularity_score: '209.1',
         payload: {
-          title: 'Duplicate Platform Entry',
+          title: 'Duplicate Game Entry',
           first_release_date: 1_700_000_000,
           platformOptions: [{ id: 6, name: 'PC' }]
         }
@@ -283,12 +280,14 @@ void test('GET /v1/games/trending dedupes duplicate rows by game id and platform
     items: Array<{
       id: string;
       platformIgdbId: number;
+      popularityScore: number;
     }>;
   };
 
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0]?.id, '900');
   assert.equal(body.items[0]?.platformIgdbId, 6);
+  assert.equal(body.items[0]?.popularityScore, 210.2);
 
   await app.close();
 });

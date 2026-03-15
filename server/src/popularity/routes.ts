@@ -147,23 +147,20 @@ async function fetchFeedRows(
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
 
-  return dedupeByGameAndPlatform(items);
+  return dedupeByGameId(items);
 }
 
-function dedupeByGameAndPlatform(items: PopularityFeedItem[]): PopularityFeedItem[] {
-  const seen = new Set<string>();
-  const deduped: PopularityFeedItem[] = [];
+function dedupeByGameId(items: PopularityFeedItem[]): PopularityFeedItem[] {
+  const byGameId = new Map<string, PopularityFeedItem>();
 
   for (const item of items) {
-    const key = `${item.id}:${String(item.platformIgdbId)}`;
-    if (seen.has(key)) {
-      continue;
+    const existing = byGameId.get(item.id);
+    if (!existing || item.popularityScore > existing.popularityScore) {
+      byGameId.set(item.id, item);
     }
-    seen.add(key);
-    deduped.push(item);
   }
 
-  return deduped;
+  return [...byGameId.values()].sort((left, right) => right.popularityScore - left.popularityScore);
 }
 
 function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {

@@ -19,6 +19,7 @@ interface PlatformOption {
 
 interface PopularityFeedItem {
   id: string;
+  platformIgdbId: number;
   name: string;
   coverUrl: string | null;
   rating: number | null;
@@ -120,7 +121,7 @@ async function fetchFeedRows(
     ORDER BY popularity_score DESC
     LIMIT $3
     `,
-    [params.feedType === 'trending' ? 0 : params.scoreThreshold, params.scoreThreshold, scanLimit]
+    [0, params.scoreThreshold, scanLimit]
   );
 
   const items = result.rows
@@ -165,10 +166,20 @@ function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {
   }
 
   const name = firstString(payload, ['title', 'name']) ?? 'Unknown title';
-  const platforms = normalizePlatformOptions(payload);
+  let platforms = normalizePlatformOptions(payload);
+  if (
+    platforms.length === 0 &&
+    Number.isInteger(row.platform_igdb_id) &&
+    row.platform_igdb_id > 0
+  ) {
+    const platformName = firstString(payload, ['platform', 'platformName']) ?? 'Unknown platform';
+    // Backward compatibility for rows where payload platform fields are missing.
+    platforms = [{ id: row.platform_igdb_id, name: platformName }];
+  }
 
   return {
     id: row.igdb_game_id,
+    platformIgdbId: row.platform_igdb_id,
     name,
     coverUrl: firstString(payload, ['coverUrl', 'cover_url']),
     rating: firstNumeric(payload, ['rating', 'reviewScore']),

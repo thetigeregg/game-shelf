@@ -583,3 +583,234 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
   assert.equal(summary.gamesInserted, 1);
   assert.equal(summary.scoresUpdated, 1);
 });
+
+void test('runOnce applies cooldown when popularity type fetch is rate limited', async () => {
+  const pool = new PoolMock((sql) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    throw new Error(`Unexpected SQL for popularity type rate limit test: ${sql}`);
+  });
+
+  let popularityTypesFetchCalls = 0;
+  const fetchMock: typeof fetch = (input) => {
+    const url = toRequestUrl(input);
+
+    if (url.includes('/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_types')) {
+      popularityTypesFetchCalls += 1;
+      return Promise.resolve(
+        new Response('rate limited', { status: 429, headers: { 'Retry-After': '120' } })
+      );
+    }
+
+    return Promise.reject(
+      new Error(`Unexpected fetch URL in popularity type rate limit test: ${url}`)
+    );
+  };
+
+  const service = new PopularityIngestService(pool as unknown as Pool, baseOptions(), fetchMock);
+
+  const firstSummary = await service.runOnce();
+  const secondSummary = await service.runOnce();
+
+  assert.equal(firstSummary.enabled, true);
+  assert.equal(firstSummary.fetchedTypes, 0);
+  assert.equal(firstSummary.fetchedSignals, 0);
+  assert.equal(secondSummary.enabled, true);
+  assert.equal(secondSummary.fetchedTypes, 0);
+  assert.equal(secondSummary.fetchedSignals, 0);
+  assert.equal(popularityTypesFetchCalls, 1);
+});
+
+void test('runOnce returns partial summary when primitive fetch is rate limited', async () => {
+  let signalsUpserted = 0;
+  const pool = new PoolMock((sql, params) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    if (normalized.includes('insert into game_popularity')) {
+      signalsUpserted += 1;
+      return queryResult([], 1);
+    }
+
+    if (
+      normalized.startsWith(
+        'select igdb_game_id, platform_igdb_id from games where igdb_game_id = any'
+      )
+    ) {
+      const gameIds = Array.isArray(params?.[0])
+        ? params[0].filter((value): value is string => typeof value === 'string')
+        : [];
+      return queryResult(
+        gameIds.map((gameId) => ({ igdb_game_id: gameId, platform_igdb_id: 6 }) as QueryResultRow)
+      );
+    }
+
+    if (normalized.includes('with target_game_ids as')) {
+      return queryResult([{ popularity_score: 77 } as QueryResultRow], 1);
+    }
+
+    throw new Error(`Unexpected SQL for primitive rate limit test: ${sql}`);
+  });
+
+  const fetchMock: typeof fetch = (input, init) => {
+    const url = toRequestUrl(input);
+
+    if (url.includes('/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_primitives')) {
+      const body = typeof init?.body === 'string' ? init.body : '';
+
+      if (body.includes('where popularity_type = 1')) {
+        return Promise.resolve(
+          new Response(JSON.stringify([{ game_id: 10, popularity_type: 1, value: 90 }]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          })
+        );
+      }
+
+      return Promise.resolve(
+        new Response('rate limited', { status: 429, headers: { 'Retry-After': '30' } })
+      );
+    }
+
+    if (url.endsWith('/v4/games')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 10,
+              name: 'Ten',
+              game_type: { type: 'main_game' },
+              platforms: [{ id: 6, name: 'PC' }]
+            }
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch URL in primitive rate limit test: ${url}`));
+  };
+
+  const service = new PopularityIngestService(
+    pool as unknown as Pool,
+    baseOptions({ sourceTypeIds: [1, 2] }),
+    fetchMock
+  );
+
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, true);
+  assert.equal(summary.fetchedTypes, 2);
+  assert.equal(summary.fetchedSignals, 1);
+  assert.equal(summary.upsertedSignals, 1);
+  assert.equal(summary.scoresUpdated, 1);
+  assert.equal(signalsUpserted, 1);
+});
+
+void test('runOnce keeps persisted signal results when game metadata fetch is rate limited', async () => {
+  const pool = new PoolMock((sql) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    if (normalized.includes('insert into game_popularity')) {
+      return queryResult([], 1);
+    }
+
+    if (normalized.includes('with target_game_ids as')) {
+      return queryResult([{ popularity_score: 33 } as QueryResultRow], 1);
+    }
+
+    throw new Error(`Unexpected SQL for game metadata rate limit test: ${sql}`);
+  });
+
+  const fetchMock: typeof fetch = (input) => {
+    const url = toRequestUrl(input);
+
+    if (url.includes('/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_primitives')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ game_id: 10, popularity_type: 7, value: 90 }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/games')) {
+      return Promise.resolve(
+        new Response('rate limited', { status: 429, headers: { 'Retry-After': '45' } })
+      );
+    }
+
+    return Promise.reject(
+      new Error(`Unexpected fetch URL for game metadata rate limit test: ${url}`)
+    );
+  };
+
+  const service = new PopularityIngestService(
+    pool as unknown as Pool,
+    baseOptions({ sourceTypeIds: [7] }),
+    fetchMock
+  );
+
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, true);
+  assert.equal(summary.fetchedTypes, 1);
+  assert.equal(summary.fetchedSignals, 1);
+  assert.equal(summary.upsertedSignals, 1);
+  assert.equal(summary.missingGamesDiscovered, 0);
+  assert.equal(summary.gamesInserted, 0);
+  assert.equal(summary.scoresUpdated, 1);
+});

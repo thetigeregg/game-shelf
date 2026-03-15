@@ -5,6 +5,7 @@ const SIGNAL_UPSERT_BATCH_SIZE = 500;
 const GAME_INSERT_BATCH_SIZE = 250;
 const POPULARITY_INGEST_LOCK_NAMESPACE = 77411;
 const POPULARITY_INGEST_LOCK_KEY = 1;
+const IGDB_RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
 
 interface Queryable {
   query<T extends QueryResultRow = QueryResultRow>(
@@ -112,6 +113,7 @@ export interface PopularityIngestServiceOptions {
 
 export class PopularityIngestService {
   private tokenCache: { accessToken: string; expiresAtMs: number } | null = null;
+  private igdbRateLimitedUntilMs = 0;
 
   constructor(
     private readonly pool: Pool,
@@ -132,6 +134,10 @@ export class PopularityIngestService {
       };
     }
 
+    if (Date.now() < this.igdbRateLimitedUntilMs) {
+      return this.emptyEnabledSummary();
+    }
+
     const state: IngestRunState = {
       nextRequestAtMs: 0
     };
@@ -146,41 +152,44 @@ export class PopularityIngestService {
 
       lockAcquired = lockResult.rows[0]?.acquired ?? false;
       if (!lockAcquired) {
-        return {
-          enabled: true,
-          fetchedTypes: 0,
-          fetchedSignals: 0,
-          upsertedSignals: 0,
-          missingGamesDiscovered: 0,
-          gamesInserted: 0,
-          scoresUpdated: 0
-        };
+        return this.emptyEnabledSummary();
       }
 
-      const typeIds = await this.resolvePopularityTypeIds(state);
+      let typeIds: number[];
+      try {
+        typeIds = await this.resolvePopularityTypeIds(state);
+      } catch (error) {
+        if (error instanceof IgdbRateLimitError) {
+          return this.emptyEnabledSummary();
+        }
+        throw error;
+      }
+
       if (typeIds.length === 0) {
-        return {
-          enabled: true,
-          fetchedTypes: 0,
-          fetchedSignals: 0,
-          upsertedSignals: 0,
-          missingGamesDiscovered: 0,
-          gamesInserted: 0,
-          scoresUpdated: 0
-        };
+        return this.emptyEnabledSummary();
       }
 
       const signalRows: PopularityPrimitiveItem[] = [];
+      let throttledByRateLimit = false;
 
       for (const typeId of typeIds) {
-        const items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit, state);
+        let items: PopularityPrimitiveItem[];
+        try {
+          items = await this.fetchPopularityPrimitives(typeId, this.options.signalLimit, state);
+        } catch (error) {
+          if (error instanceof IgdbRateLimitError) {
+            throttledByRateLimit = true;
+            break;
+          }
+          throw error;
+        }
         signalRows.push(...items);
       }
 
       if (signalRows.length === 0) {
         return {
           enabled: true,
-          fetchedTypes: typeIds.length,
+          fetchedTypes: throttledByRateLimit ? 0 : typeIds.length,
           fetchedSignals: 0,
           upsertedSignals: 0,
           missingGamesDiscovered: 0,
@@ -193,7 +202,14 @@ export class PopularityIngestService {
       await this.upsertSignals(dedupedSignals, client);
 
       const uniqueGameIds = [...new Set(dedupedSignals.map((row) => row.gameId))];
-      const gameMap = await this.fetchGamesByIds(uniqueGameIds, state);
+      let gameMap = new Map<string, WorkerGameItem>();
+      try {
+        gameMap = await this.fetchGamesByIds(uniqueGameIds, state);
+      } catch (error) {
+        if (!(error instanceof IgdbRateLimitError)) {
+          throw error;
+        }
+      }
 
       const missingGamePlatforms = await this.findMissingGamePlatforms(gameMap, client);
       const missingGameIds = [...new Set(missingGamePlatforms.map((pair) => pair.gameId))];
@@ -245,6 +261,10 @@ export class PopularityIngestService {
       body: 'fields id; sort id asc; limit 500;'
     });
 
+    if (response.status === 429) {
+      throw this.createIgdbRateLimitError(response, 'popularity types');
+    }
+
     if (!response.ok) {
       throw new Error(`Unable to fetch popularity types (${String(response.status)}).`);
     }
@@ -288,6 +308,13 @@ export class PopularityIngestService {
         `limit ${String(normalizedLimit)};`
       ].join(' ')
     });
+
+    if (response.status === 429) {
+      throw this.createIgdbRateLimitError(
+        response,
+        `popularity primitives for type ${String(popularityTypeId)}`
+      );
+    }
 
     if (!response.ok) {
       throw new Error(
@@ -350,6 +377,10 @@ export class PopularityIngestService {
           `limit ${String(batch.length)};`
         ].join(' ')
       });
+
+      if (response.status === 429) {
+        throw this.createIgdbRateLimitError(response, 'game metadata');
+      }
 
       if (!response.ok) {
         throw new Error(`Unable to fetch IGDB game metadata (${String(response.status)}).`);
@@ -613,6 +644,40 @@ export class PopularityIngestService {
       clearTimeout(timeoutId);
     }
   }
+
+  private emptyEnabledSummary(): PopularityIngestSummary {
+    return {
+      enabled: true,
+      fetchedTypes: 0,
+      fetchedSignals: 0,
+      upsertedSignals: 0,
+      missingGamesDiscovered: 0,
+      gamesInserted: 0,
+      scoresUpdated: 0
+    };
+  }
+
+  private createIgdbRateLimitError(response: Response, operation: string): IgdbRateLimitError {
+    const retryAfterMs = parseRetryAfterMs(response.headers.get('retry-after'));
+    const normalizedRetryAfterMs = Math.max(
+      1_000,
+      retryAfterMs ?? IGDB_RATE_LIMIT_COOLDOWN_FALLBACK_MS
+    );
+    this.igdbRateLimitedUntilMs = Math.max(
+      this.igdbRateLimitedUntilMs,
+      Date.now() + normalizedRetryAfterMs
+    );
+    return new IgdbRateLimitError(operation, normalizedRetryAfterMs);
+  }
+}
+
+class IgdbRateLimitError extends Error {
+  constructor(operation: string, retryAfterMs: number) {
+    super(
+      `IGDB rate limited while fetching ${operation}; retry after approximately ${String(retryAfterMs)}ms.`
+    );
+    this.name = 'IgdbRateLimitError';
+  }
 }
 
 function dedupeSignals(rows: PopularityPrimitiveItem[]): PopularityPrimitiveItem[] {
@@ -780,4 +845,26 @@ function buildCoverUrl(imageId: unknown): string | null {
 
 function sqlNumericPayload(field: string): string {
   return `CASE WHEN BTRIM(COALESCE(g.payload->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(g.payload->>'${field}'))::double precision ELSE 0 END`;
+}
+
+function parseRetryAfterMs(headerValue: string | null): number | null {
+  if (!headerValue) {
+    return null;
+  }
+
+  const trimmed = headerValue.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    return Number.parseInt(trimmed, 10) * 1000;
+  }
+
+  const retryAtMs = Date.parse(trimmed);
+  if (!Number.isFinite(retryAtMs)) {
+    return null;
+  }
+
+  return Math.max(0, retryAtMs - Date.now());
 }

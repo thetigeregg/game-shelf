@@ -57,10 +57,10 @@ After applying fixes:
 
 • All CI checks must pass
 • All review comments must be addressed
-+ Frontend build must succeed
-+ Linting must pass with no errors
-+ Frontend tests must pass with no failures
-+ Backend tests must pass with no failures
+• Frontend build must succeed
+• Linting must pass with no errors
+• Frontend tests must pass with no failures
+• Backend tests must pass with no failures
 
 Finally:
 

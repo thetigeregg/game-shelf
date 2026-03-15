@@ -215,6 +215,9 @@ export interface AppConfig {
   recommendationsDiscoveryEnrichBackoffMaxHours: number;
   recommendationsDiscoveryEnrichRearmAfterDays: number;
   recommendationsDiscoveryEnrichRearmRecentReleaseYears: number;
+  popularityIngestEnabled: boolean;
+  popularityIngestIntervalMinutes: number;
+  popularityScoreThreshold: number;
   igdbMetadataEnrichEnabled: boolean;
   igdbMetadataEnrichBatchSize: number;
   igdbMetadataEnrichMaxGamesPerRun: number;
@@ -558,6 +561,9 @@ export const config: AppConfig = {
     'RECOMMENDATIONS_DISCOVERY_ENRICH_REARM_RECENT_RELEASE_YEARS',
     DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
   ),
+  popularityIngestEnabled: readBooleanEnv('POPULARITY_INGEST_ENABLED', true),
+  popularityIngestIntervalMinutes: readIntegerEnv('POPULARITY_INGEST_INTERVAL_MINUTES', 30),
+  popularityScoreThreshold: readNumberEnv('POPULARITY_SCORE_THRESHOLD', 50),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),
   igdbMetadataEnrichMaxGamesPerRun: readIntegerEnv('IGDB_METADATA_ENRICH_MAX_GAMES_PER_RUN', 5000),

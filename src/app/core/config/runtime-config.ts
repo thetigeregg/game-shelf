@@ -105,6 +105,10 @@ export function isRecommendationsExploreEnabled(): boolean {
   return environment.featureFlags.recommendationsExploreEnabled;
 }
 
+export function isExploreEnabled(): boolean {
+  return isRecommendationsExploreEnabled();
+}
+
 export function isTasFeatureEnabled(): boolean {
   if (typeof window !== 'undefined') {
     const runtimeValue = parseBoolean(

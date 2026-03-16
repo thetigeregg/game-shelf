@@ -242,6 +242,11 @@ function normalizeText(value) {
     .trim();
 }
 
+function isCopilotReviewAuthor(author) {
+  const normalizedAuthor = String(author || '').toLowerCase();
+  return normalizedAuthor.includes('copilot') || normalizedAuthor.includes('bot');
+}
+
 function uniqueBy(items, makeKey) {
   const seen = new Set();
   const result = [];
@@ -256,14 +261,16 @@ function uniqueBy(items, makeKey) {
   return result;
 }
 
-function collectDiscussionReviewItems(comments, reviews) {
+function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false } = {}) {
   const results = [];
 
   for (const comment of comments) {
-    if (!includeReviewItem(comment.body, comment.author?.login)) continue;
+    const author = comment.author?.login || 'reviewer';
+    if (!includeReviewItem(comment.body, author)) continue;
+    if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
     results.push({
-      author: comment.author?.login || 'reviewer',
+      author,
       body: normalizeText(comment.body),
       file: comment.path || null,
       line: comment.line || null,
@@ -274,10 +281,12 @@ function collectDiscussionReviewItems(comments, reviews) {
 
   for (const review of reviews) {
     const body = formatReviewBody(review.body, review.state);
-    if (!includeReviewItem(review.body, review.author?.login, review.state)) continue;
+    const author = review.author?.login || 'reviewer';
+    if (!includeReviewItem(review.body, author, review.state)) continue;
+    if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
 
     results.push({
-      author: review.author?.login || 'reviewer',
+      author,
       body: normalizeText(body),
       file: null,
       line: null,
@@ -442,29 +451,41 @@ function getDiff(prNumber) {
   return { diff, warnings: [] };
 }
 
-function getLatestWorkflowRun(headRefName, workflowName) {
-  const result = runGh([
-    'run',
-    'list',
-    '--branch',
-    headRefName,
-    '--json',
-    'databaseId,workflowName,event,headBranch,status,conclusion,createdAt,updatedAt',
-    '--limit',
-    '50'
-  ]);
+function getLatestWorkflowRun(headRefName, workflowName, { allowFailure = false } = {}) {
+  const result = runGh(
+    [
+      'run',
+      'list',
+      '--branch',
+      headRefName,
+      '--json',
+      'databaseId,workflowName,event,headBranch,status,conclusion,createdAt,updatedAt',
+      '--limit',
+      '50'
+    ],
+    { allowFailure }
+  );
+
+  if (!result) {
+    return {
+      run: null,
+      inspectionFailed: true
+    };
+  }
 
   const runs = JSON.parse(result);
   debug('Workflow runs found:', runs.length);
 
-  return (
-    runs.find(
-      (run) =>
-        run.workflowName === workflowName &&
-        run.event === 'pull_request' &&
-        run.headBranch === headRefName
-    ) || null
-  );
+  return {
+    run:
+      runs.find(
+        (run) =>
+          run.workflowName === workflowName &&
+          run.event === 'pull_request' &&
+          run.headBranch === headRefName
+      ) || null,
+    inspectionFailed: false
+  };
 }
 
 function getJobs(runId) {
@@ -523,14 +544,20 @@ function collectCITasks(prData, checkAnalysis) {
   const tasks = [];
   let run = null;
 
-  try {
-    run = getLatestWorkflowRun(prData.headRefName, CI_WORKFLOW_NAME);
-  } catch (err) {
-    warnings.push(`Unable to inspect CI workflow runs: ${err.message}`);
+  const workflowRunData = getLatestWorkflowRun(prData.headRefName, CI_WORKFLOW_NAME, {
+    allowFailure: true
+  });
+
+  run = workflowRunData.run;
+
+  if (workflowRunData.inspectionFailed) {
+    warnings.push(
+      `Unable to inspect CI workflow runs for branch ${prData.headRefName}; workflow-based CI details may be incomplete.`
+    );
   }
 
   if (!run) {
-    if (checkAnalysis.ciFailures.length) {
+    if (checkAnalysis.ciFailures.length && !workflowRunData.inspectionFailed) {
       warnings.push(
         `A failing CI status was detected, but no pull_request workflow run named "${CI_WORKFLOW_NAME}" was found for branch ${prData.headRefName}.`
       );
@@ -1027,7 +1054,9 @@ function main() {
 
   const checkAnalysis = analyzeChecks(prData.checks);
 
-  const discussionReviewItems = collectDiscussionReviewItems(prData.comments, prData.reviews);
+  const discussionReviewItems = collectDiscussionReviewItems(prData.comments, prData.reviews, {
+    copilotOnly: OPTIONS.copilotOnly
+  });
 
   const reviewThreadData = fetchReviewThreads(repoInfo, Number(prNumber));
   warnings.push(...reviewThreadData.warnings);

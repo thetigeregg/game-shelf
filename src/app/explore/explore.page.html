@@ -32,117 +32,212 @@
   </ion-refresher>
 
   @if (recommendationFeatureEnabled) {
-    <ion-item lines="full">
-      <ion-icon slot="start" name="library" aria-hidden="true"></ion-icon>
-      <ion-select
-        label="Target"
-        interface="popover"
-        [value]="selectedTarget"
-        (ionChange)="onTargetChange($any($event).detail.value)"
+    <ion-item lines="none" class="explore-mode-item">
+      <ion-segment
+        [value]="selectedExploreMode"
+        (ionChange)="onExploreModeChange($any($event).detail.value)"
       >
-        @for (option of targetOptions; track option.value) {
-          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+        @for (option of exploreModeOptions; track option.value) {
+          <ion-segment-button [value]="option.value">
+            <ion-label>{{ option.label }}</ion-label>
+          </ion-segment-button>
         }
-      </ion-select>
+      </ion-segment>
     </ion-item>
 
-    <ion-item lines="full">
-      <ion-icon slot="start" name="time" aria-hidden="true"></ion-icon>
-      <ion-select
-        label="Runtime"
-        interface="popover"
-        [value]="selectedRuntimeMode"
-        (ionChange)="onRuntimeModeChange($any($event).detail.value)"
-      >
-        @for (option of runtimeModeOptions; track option.value) {
-          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
-        }
-      </ion-select>
-    </ion-item>
-
-    <ion-item lines="full">
-      <ion-icon slot="start" name="compass" aria-hidden="true"></ion-icon>
-      <ion-select
-        label="Lane"
-        interface="popover"
-        [value]="selectedLaneKey"
-        (ionChange)="onLaneChange($any($event).detail.value)"
-      >
-        @for (option of getLaneOptions(); track option.value) {
-          <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
-        }
-      </ion-select>
-    </ion-item>
-
-    <ion-item lines="none" class="lane-context">
-      <ion-label>
-        <p class="lane-context-copy">{{ getLaneDescription() }}</p>
-      </ion-label>
-    </ion-item>
-
-    @if (isLoadingRecommendations) {
-      <div class="loading-state">
-        <ion-spinner name="crescent"></ion-spinner>
-      </div>
-    }
-
-    @if (recommendationError.length > 0) {
-      <ion-item lines="none">
-        <ion-text color="danger">{{ recommendationError }}</ion-text>
-      </ion-item>
-    }
-
-    @if (!isLoadingRecommendations && getActiveLaneItems().length > 0) {
-      <ion-list lines="full">
-        @for (item of getActiveLaneItems(); track trackByRecommendationKey($index, item)) {
-          <ng-container
-            *ngTemplateOutlet="
-              recommendationRowTemplate;
-              context: {
-                title: getDisplayTitle(item),
-                coverUrl: getCoverUrl(item),
-                platformLabel: getPlatformLabel(item),
-                year: getReleaseYear(item),
-                badges: [getScoreBadge(item), getConfidenceBadge(item)],
-                headline: null,
-                bullets: getExplanationBullets(item),
-                showWhyThis: hasExplanationDetails(item),
-                kind: 'recommendation',
-                row: item
-              }
-            "
-          ></ng-container>
-        }
-      </ion-list>
-      <ion-infinite-scroll
-        [disabled]="!canLoadMoreRecommendations()"
-        threshold="15px"
-        (ionInfinite)="loadMoreRecommendations($event)"
-      >
-        <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
-      </ion-infinite-scroll>
-    }
-
-    @if (
-      !isLoadingRecommendations &&
-      recommendationError.length === 0 &&
-      getActiveLaneItems().length === 0
-    ) {
-      <ion-item lines="none">
-        <ion-icon
-          slot="start"
-          class="empty-state-icon"
-          [name]="getEmptyStateLaneIcon()"
-          aria-hidden="true"
-        ></ion-icon>
-        <ion-label>
-          <ion-text color="medium">{{ getEmptyStateMessage() }}</ion-text>
-          <p class="empty-state-hint">{{ getEmptyStateHint() }}</p>
-          @if (getEmptyStateTokenHint(); as tokenHint) {
-            <p class="empty-state-token-hint">{{ tokenHint }}</p>
+    @if (selectedExploreMode === 'recommendations') {
+      <ion-item lines="full">
+        <ion-icon slot="start" name="library" aria-hidden="true"></ion-icon>
+        <ion-select
+          label="Target"
+          interface="popover"
+          [value]="selectedTarget"
+          (ionChange)="onTargetChange($any($event).detail.value)"
+        >
+          @for (option of targetOptions; track option.value) {
+            <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
           }
+        </ion-select>
+      </ion-item>
+
+      <ion-item lines="full">
+        <ion-icon slot="start" name="time" aria-hidden="true"></ion-icon>
+        <ion-select
+          label="Runtime"
+          interface="popover"
+          [value]="selectedRuntimeMode"
+          (ionChange)="onRuntimeModeChange($any($event).detail.value)"
+        >
+          @for (option of runtimeModeOptions; track option.value) {
+            <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+
+      <ion-item lines="full">
+        <ion-icon slot="start" name="compass" aria-hidden="true"></ion-icon>
+        <ion-select
+          label="Lane"
+          interface="popover"
+          [value]="selectedLaneKey"
+          (ionChange)="onLaneChange($any($event).detail.value)"
+        >
+          @for (option of getLaneOptions(); track option.value) {
+            <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+
+      <ion-item lines="none" class="lane-context">
+        <ion-label>
+          <p class="lane-context-copy">{{ getLaneDescription() }}</p>
         </ion-label>
       </ion-item>
+
+      @if (isLoadingRecommendations) {
+        <div class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (recommendationError.length > 0) {
+        <ion-item lines="none">
+          <ion-text color="danger">{{ recommendationError }}</ion-text>
+        </ion-item>
+      }
+
+      @if (!isLoadingRecommendations && getActiveLaneItems().length > 0) {
+        <ion-list lines="full">
+          @for (item of getActiveLaneItems(); track trackByRecommendationKey($index, item)) {
+            <ng-container
+              *ngTemplateOutlet="
+                recommendationRowTemplate;
+                context: {
+                  title: getDisplayTitle(item),
+                  coverUrl: getCoverUrl(item),
+                  platformLabel: getPlatformLabel(item),
+                  year: getReleaseYear(item),
+                  badges: [getScoreBadge(item), getConfidenceBadge(item)],
+                  headline: null,
+                  bullets: getExplanationBullets(item),
+                  showWhyThis: hasExplanationDetails(item),
+                  kind: 'recommendation',
+                  row: item
+                }
+              "
+            ></ng-container>
+          }
+        </ion-list>
+        <ion-infinite-scroll
+          [disabled]="!canLoadMoreRecommendations()"
+          threshold="15px"
+          (ionInfinite)="loadMoreRecommendations($event)"
+        >
+          <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
+        </ion-infinite-scroll>
+      }
+
+      @if (
+        !isLoadingRecommendations &&
+        recommendationError.length === 0 &&
+        getActiveLaneItems().length === 0
+      ) {
+        <ion-item lines="none">
+          <ion-icon
+            slot="start"
+            class="empty-state-icon"
+            [name]="getEmptyStateLaneIcon()"
+            aria-hidden="true"
+          ></ion-icon>
+          <ion-label>
+            <ion-text color="medium">{{ getEmptyStateMessage() }}</ion-text>
+            <p class="empty-state-hint">{{ getEmptyStateHint() }}</p>
+            @if (getEmptyStateTokenHint(); as tokenHint) {
+              <p class="empty-state-token-hint">{{ tokenHint }}</p>
+            }
+          </ion-label>
+        </ion-item>
+      }
+    } @else {
+      <ion-item lines="full">
+        <ion-icon slot="start" name="sparkles" aria-hidden="true"></ion-icon>
+        <ion-select
+          label="Feed"
+          interface="popover"
+          [value]="selectedPopularityFeed"
+          (ionChange)="onPopularityFeedChange($any($event).detail.value)"
+        >
+          @for (option of popularityFeedOptions; track option.value) {
+            <ion-select-option [value]="option.value">{{ option.label }}</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+
+      @if (isLoadingPopularity) {
+        <div class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+      }
+
+      @if (popularityError.length > 0) {
+        <ion-item lines="none">
+          <ion-text color="danger">{{ popularityError }}</ion-text>
+        </ion-item>
+      }
+
+      @if (
+        !isLoadingPopularity &&
+        popularityError.length === 0 &&
+        getActivePopularityItems().length > 0
+      ) {
+        <ion-list lines="full">
+          @for (item of getActivePopularityItems(); track trackByPopularityKey($index, item)) {
+            <ng-container
+              *ngTemplateOutlet="
+                recommendationRowTemplate;
+                context: {
+                  title: getPopularityTitle(item),
+                  coverUrl: getPopularityCoverUrl(item),
+                  platformLabel: getPopularityPlatformLabel(item),
+                  year: getPopularityReleaseYear(item),
+                  badges: getPopularityBadges(item),
+                  headline: null,
+                  bullets: [],
+                  showWhyThis: false,
+                  kind: 'popularity',
+                  row: item
+                }
+              "
+            ></ng-container>
+          }
+        </ion-list>
+        <ion-infinite-scroll
+          [disabled]="!canLoadMorePopularity()"
+          threshold="15px"
+          (ionInfinite)="loadMorePopularity($event)"
+        >
+          <ion-infinite-scroll-content loadingSpinner="crescent"></ion-infinite-scroll-content>
+        </ion-infinite-scroll>
+      }
+
+      @if (
+        !isLoadingPopularity &&
+        popularityError.length === 0 &&
+        getActivePopularityItems().length === 0
+      ) {
+        <ion-item lines="none">
+          <ion-icon
+            slot="start"
+            class="empty-state-icon"
+            name="sparkles"
+            aria-hidden="true"
+          ></ion-icon>
+          <ion-label>
+            <ion-text color="medium">No popularity games available right now.</ion-text>
+            <p class="empty-state-hint">Try another popularity feed or refresh.</p>
+          </ion-label>
+        </ion-item>
+      }
     }
   } @else {
     <ion-item lines="none">
@@ -198,7 +293,7 @@
           [showPriceForNonWishlist]="selectedTarget === 'DISCOVERY'"
           [statusOptions]="statusOptions"
           [showAddToLibraryAction]="detailContext === 'explore'"
-          [showIgnoreAction]="detailContext === 'explore'"
+          [showIgnoreAction]="detailContext === 'explore' && !!activeDetailRecommendation"
           [isInLibrary]="isSelectedGameInLibrary"
           [isIgnored]="isActiveDetailIgnored"
           [isAddToLibraryLoading]="isAddToLibraryLoading"
@@ -303,7 +398,7 @@
       </div>
       <ion-label class="explore-row-label">
         <h2>{{ title }}</h2>
-        @if (getRecommendationRowPriceLabel(row); as rowPriceLabel) {
+        @if (kind !== 'popularity' && getRecommendationRowPriceLabel(row); as rowPriceLabel) {
           <div
             class="price-main-indicator"
             [class.price-main-indicator-discount]="isRecommendationRowPriceOnDiscount(row)"

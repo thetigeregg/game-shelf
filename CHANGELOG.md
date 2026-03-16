@@ -2162,3 +2162,70 @@
 - 3a8244d0 Merge pull request #220 from thetigeregg/feat/fix
 - c653a47f fix(api): split jsonb_build_object to respect PostgreSQL 100-argument limit
 
+## v1.3.0 - 2026-03-16
+- 6f23ffab Merge pull request #231 from thetigeregg/feat/scripts
+- a3438987 fix(scripts): make pr agent prompt cross-platform
+- 51d7f7f7 fix(scripts): honor copilot-only filtering in pr agent
+- 1edb3c28 fix(scripts): harden pr agent check and coverage handling
+- 063b3e4f feat(scripts): update
+- 0fc37ad8 feat(scripts): update prompt
+- 5b246907 feat(scripts): address regressions
+- 6950d7f5 fix(scripts): preserve latest actionable PR feedback in agent prompt
+- 59a8cda8 feat(scripts): update
+- 749155f2 fix(scripts): filter unresolved inline bot comments and fetch latest thread comment
+- fa3a2d5b fix(scripts): include unresolved review threads and harden gh error handling
+- 32b28379 feat(scripts): update script
+- 22bd3d16 feat(scripts): bolster script
+- 499ed486 refactor(scripts): harden pr-agent prompt CI diagnostics and failure reporting
+- 4de80db8 feat(scripts): add intentional failure test case
+- 02fb5fbc feat(scripts): remove deprecated PR prompt scripts and clean up .gitignore
+- 5e5b575d chore(scripts): update script
+- f1f2238c feat(scripts): drop low confidence comments
+- 4ddb1581 feat(scripts): add .pr-agent-prompt.md to .gitignore
+- 0429df47 feat(scripts): improve output
+- ec497c77 feat(scripts): add PR agent prompt generator command
+- a0fba42f Merge pull request #229 from thetigeregg/feat/bumps
+- 00ac6dde ci(workflow): bump create-github-app-token action to v3
+- 9a9d5aaf chore(deps): bump tiptap, commitlint, lint-staged, and express-rate-limit
+- f7f9d950 Merge pull request #221 from thetigeregg/feat/popularity
+- 06c785f5 chore: fix
+- 9b6f2b49 fix(popularity): align release-date index fallback and unify fix-prompt bullets
+- 447426bf fix(popularity): remove redundant feed slicing and centralize SQL row limit
+- 46013c37 chore: fix test
+- 1ba45f72 fix(popularity): centralize advisory lock handling and remove duplicate feed window filtering
+- ce0b4f5f fix(popularity): harden ingest summaries and release date parsing
+- d690b5e9 feat(pr-fix): enhance prompt with additional validation requirements for frontend and backend
+- 8f836f00 fix(server): decouple popularity ingest igdb config and handle igdb 429 cooldown
+- 861339fb test(popularity): raise backend branch coverage for ingest and feed edge cases
+- 3f719edb fix(scripts): harden PR run selection and isolate CI coverage artifacts
+- e7e64f47 chore: update gitignore
+- 17d64689 chore: update script
+- 9b5fcda9 chore: add debug
+- 99f24225 chore: add new script
+- a7196004 chore: update gitignore
+- 0445744d chore: update script
+- a9677ec3 chore: update script
+- 1668b792 chore: update script
+- 070e5ae6 fix(scripts): forward PR prompt args and select CI runs by PR branch
+- 949701a0 fix(server): align popularity release date SQL, index, and route query tests
+- bbd256de feat(pr-ci-prompt): add script to generate CI failure fix tasks for PRs
+- 22cb237d chore: add ci script
+- 4d8ebcb4 fix(popularity): persist ingest token cache and remove unused pr summary arg
+- c094f4b0 fix(server): address popularity feed SQL windowing and ingest pair insertion review feedback
+- 724d0731 fix(scripts): avoid null review cursor and match coverage run to PR branch
+- 7ecb6a0a fix(popularity): address PR review feedback for ingest locking, tests, routes
+- d7cbe0d4 chore: update scripts
+- 01d16cc1 chore: update script
+- 12db0edc feat(scripts): add PR coverage task prompt generator
+- 904e311d perf(server): batch missing game inserts in popularity ingest
+- b143ea35 chore: update script
+- b5399e5a chore: update gitignore
+- 07939848 feat(scripts): add PR review prompt script and npm runner
+- d91f55af feat(scripts): add pr review prompt generator script and npm alias
+- 39c9bef0 feat(scripts): add PR review prompt generator and npm command
+- dde7e0dc feat(scripts): add PR review prompt generator and npm command
+- fdd0c015 fix(popularity): enforce feed score threshold and backfill missing game-platform variants
+- a80422c7 fix(popularity): batch signal upserts and add platform-disambiguated feed items
+- 35ca2ba7 refactor(popularity): purge legacy popularity proxy paths and wire direct IGDB ingest
+- f8813cab feat(popularity): add IGDB popularity ingest and global discovery feeds
+

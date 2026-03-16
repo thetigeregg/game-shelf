@@ -2,34 +2,30 @@
   <ion-grid class="detail-layout-grid" fixed>
     <ion-row>
       <ion-col size="12" size-xl="6">
-        <swiper-container
-          class="detail-cover"
-          [attr.allow-touch-move]="mediaSlides.length > 1 ? 'true' : 'false'"
-          navigation="false"
-          [attr.pagination]="mediaSlides.length > 1 ? 'true' : 'false'"
-          pagination-dynamic-bullets="true"
-          pagination-dynamic-main-bullets="3"
-          zoom="true"
-          loop="false"
-          slides-per-view="1"
-          space-between="0"
+        <div
+          #swiperContainer
+          class="swiper detail-cover"
+          [class.detail-cover-single-slide]="mediaSlides.length <= 1"
         >
-          @for (slide of mediaSlides; track slide.key; let index = $index) {
-            <swiper-slide>
-              <!--
+          <div class="swiper-wrapper">
+            @for (slide of mediaSlides; track slide.key; let index = $index) {
+              <div class="swiper-slide">
+                <!--
                 Temporary compromise for intermittent partial/white screenshot renders:
                 eager-load only the first few slides (active + nearby), keep the rest lazy.
               -->
-              <app-detail-media-slide
-                [class.with-pagination]="mediaSlides.length > 1"
-                [src]="slide.src"
-                [alt]="displayTitle"
-                [loading]="shouldEagerLoadMediaSlide(index) ? 'eager' : 'lazy'"
-                [showPreloader]="index > 0"
-              ></app-detail-media-slide>
-            </swiper-slide>
-          }
-        </swiper-container>
+                <app-detail-media-slide
+                  [class.with-pagination]="mediaSlides.length > 1"
+                  [src]="slide.src"
+                  [alt]="displayTitle"
+                  [loading]="shouldEagerLoadMediaSlide(index) ? 'eager' : 'lazy'"
+                  [showPreloader]="index > 0"
+                ></app-detail-media-slide>
+              </div>
+            }
+          </div>
+          <div class="swiper-pagination"></div>
+        </div>
         @if (showAddToLibraryAction || showIgnoreAction) {
           <ion-toolbar class="detail-actions-toolbar">
             <ion-buttons slot="end">

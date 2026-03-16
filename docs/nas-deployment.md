@@ -120,6 +120,8 @@ Common stack env vars:
 - `RECOMMENDATIONS_REPEAT_PENALTY_STEP` (optional; default `0.2`)
 - `RECOMMENDATIONS_TUNING_MIN_RATED` (optional; default `8`)
 - `RECOMMENDATIONS_LANE_LIMIT` (optional; default `20`)
+- `POPULARITY_FEED_ROW_LIMIT` (optional; default `50`; API-only max rows fetched per popularity feed endpoint before mapping and dedupe)
+- `POPULARITY_SCORE_THRESHOLD` (optional; default `50`; API-only minimum persisted popularity score for feed eligibility)
 - `RECOMMENDATIONS_KEYWORDS_STRUCTURED_MAX` (optional; default `100`)
 - `RECOMMENDATIONS_KEYWORDS_EMBEDDING_MAX` (optional; default `40`)
 - `RECOMMENDATIONS_KEYWORDS_GLOBAL_MAX_RATIO` (optional; default `0.7`)
@@ -320,6 +322,8 @@ Key recommendation env vars in `.env`:
 - `RECOMMENDATIONS_REPEAT_PENALTY_STEP=0.2`
 - `RECOMMENDATIONS_TUNING_MIN_RATED=8`
 - `RECOMMENDATIONS_LANE_LIMIT=20`
+- `POPULARITY_FEED_ROW_LIMIT=50`
+- `POPULARITY_SCORE_THRESHOLD=50`
 
 3. Start the dev stack with worktree-safe commands:
 

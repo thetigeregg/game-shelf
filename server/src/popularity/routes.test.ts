@@ -23,6 +23,7 @@ class PoolMock {
 
 void test('GET /v1/games/trending returns mapped popularity feed items', async () => {
   const threshold = 37;
+  const rowLimit = 75;
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock([
     {
@@ -38,7 +39,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
       }
     }
   ]);
-  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold });
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit, threshold });
 
   const response = await app.inject({
     method: 'GET',
@@ -66,7 +67,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.ok(query.text.includes('AND TRUE'));
   assert.ok(query.text.includes('LIMIT $2'));
   assert.equal(query.params[0], threshold);
-  assert.equal(query.params[1], 50);
+  assert.equal(query.params[1], rowLimit);
 
   await app.close();
 });
@@ -86,7 +87,7 @@ void test('GET /v1/games/upcoming applies release window in SQL predicate', asyn
       }
     }
   ]);
-  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold: 50 });
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
@@ -125,7 +126,7 @@ void test('GET /v1/games/trending falls back to row platform id when payload pla
         }
       }
     ]) as unknown as Pool,
-    { threshold: 50 }
+    { rowLimit: 50, threshold: 50 }
   );
 
   const response = await app.inject({
@@ -164,7 +165,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
       }
     }
   ]);
-  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold: 50 });
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
@@ -217,7 +218,7 @@ void test('GET /v1/games/trending dedupes by igdb id across multiple platforms a
         }
       }
     ]) as unknown as Pool,
-    { threshold: 50 }
+    { rowLimit: 50, threshold: 50 }
   );
 
   const response = await app.inject({
@@ -268,7 +269,7 @@ void test('GET /v1/games/trending dedupes duplicate rows by game id and keeps hi
         }
       }
     ]) as unknown as Pool,
-    { threshold: 50 }
+    { rowLimit: 50, threshold: 50 }
   );
 
   const response = await app.inject({
@@ -324,7 +325,7 @@ void test('GET /v1/games/trending skips rows with invalid payload or non-finite 
         }
       }
     ]) as unknown as Pool,
-    { threshold: 50 }
+    { rowLimit: 50, threshold: 50 }
   );
 
   const response = await app.inject({

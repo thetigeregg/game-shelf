@@ -82,6 +82,37 @@ function analyzeChecks(checks) {
   return { ciFailures, coverageFailures, pending };
 }
 
+function isIgnoredAutomationAuthor(author) {
+  const authorLogin = (author || '').toLowerCase();
+
+  return authorLogin.includes('github-actions') || authorLogin.includes('codecov');
+}
+
+function getReviewStateLabel(state) {
+  switch (state) {
+    case 'APPROVED':
+      return 'Approved';
+    case 'CHANGES_REQUESTED':
+      return 'Changes requested';
+    case 'COMMENTED':
+      return 'Commented';
+    case 'DISMISSED':
+      return 'Dismissed';
+    case 'PENDING':
+      return 'Pending';
+    default:
+      return null;
+  }
+}
+
+function formatReviewBody(body, state) {
+  if (body) return body;
+
+  const stateLabel = getReviewStateLabel(state);
+
+  return stateLabel ? `Review state: ${stateLabel}` : '';
+}
+
 /*
   IMPORTANT CHANGE
 
@@ -89,15 +120,15 @@ function analyzeChecks(checks) {
   Copilot comments and suggestion blocks are valid review feedback.
 */
 
-function includeReviewItem(body, author) {
-  if (!body) return false;
-
+function includeReviewItem(body, author, state) {
   const authorLogin = (author || '').toLowerCase();
-  const b = body.toLowerCase();
+  const formattedBody = formatReviewBody(body, state);
+  const b = formattedBody.toLowerCase();
 
   // Ignore automation
-  if (authorLogin.includes('github-actions')) return false;
-  if (authorLogin.includes('codecov')) return false;
+  if (isIgnoredAutomationAuthor(authorLogin)) return false;
+
+  if (!formattedBody) return false;
 
   // Ignore Copilot PR summary posts
   if (
@@ -127,10 +158,13 @@ function filterReviewComments(comments, reviews) {
   }
 
   for (const r of reviews) {
-    if (includeReviewItem(r.body, r.author?.login)) {
+    const body = formatReviewBody(r.body, r.state);
+
+    if (includeReviewItem(r.body, r.author?.login, r.state)) {
       results.push({
         author: r.author?.login,
-        body: r.body
+        body,
+        state: r.state
       });
     }
   }
@@ -139,6 +173,7 @@ function filterReviewComments(comments, reviews) {
 }
 
 function getUnresolvedInlineReviewComments(repoInfo, pr) {
+  const warnings = [];
   const threads = [];
 
   let cursor = null;
@@ -158,7 +193,7 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
           path
           line
           originalLine
-          comments(first:10) {
+          comments(last:50) {
             nodes {
               author { login }
               body
@@ -189,13 +224,23 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
 
     const result = runGh(args, { allowFailure: true });
 
-    if (!result) return [];
+    if (!result) {
+      warnings.push(
+        'Review threads were unavailable, so inline review feedback may be incomplete.'
+      );
+      return { comments: [], warnings };
+    }
 
     const data = JSON.parse(result);
 
     const page = data?.data?.repository?.pullRequest?.reviewThreads;
 
-    if (!page) return [];
+    if (!page) {
+      warnings.push(
+        'Review threads were unavailable, so inline review feedback may be incomplete.'
+      );
+      return { comments: [], warnings };
+    }
 
     threads.push(...(page.nodes || []));
 
@@ -236,12 +281,22 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
 
   debug('Collected review comments:', results.length);
 
-  return results;
+  return { comments: results, warnings };
 }
 
 function getDiff(pr) {
   const diff = runGh(['pr', 'diff', pr], { allowFailure: true });
-  return diff || '';
+
+  if (!diff) {
+    return {
+      diff: '',
+      warnings: [
+        'Pull request diff was unavailable, so the generated prompt does not include diff context.'
+      ]
+    };
+  }
+
+  return { diff, warnings: [] };
 }
 
 function buildPrompt(data) {
@@ -254,7 +309,20 @@ Title: ${data.title}
 Resolve CI failures, coverage regressions, and review feedback.
 
 ---
+`;
 
+  if (data.warnings.length) {
+    md += `
+# Prompt Warnings
+
+`;
+
+    for (const warning of data.warnings)
+      md += `• ${warning}
+`;
+  }
+
+  md += `
 # Changed Files
 `;
 
@@ -318,26 +386,34 @@ function main() {
   const repoInfo = getRepoInfo();
 
   const prData = getPRData(pr);
+  const warnings = [];
 
   const discussionComments = filterReviewComments(prData.comments, prData.reviews);
 
-  const inlineComments = getUnresolvedInlineReviewComments(repoInfo, pr);
+  const inlineReviewData = getUnresolvedInlineReviewComments(repoInfo, pr);
+  warnings.push(...inlineReviewData.warnings);
 
-  const reviews = [...discussionComments, ...inlineComments];
+  const reviews = [...discussionComments, ...inlineReviewData.comments];
 
   const { ciFailures, coverageFailures, pending } = analyzeChecks(prData.checks);
 
-  const diff = getDiff(pr);
+  const diffData = getDiff(pr);
+  warnings.push(...diffData.warnings);
+
+  for (const warning of warnings) {
+    console.warn('Warning:', warning);
+  }
 
   const prompt = buildPrompt({
     pr,
     title: prData.title,
     files: prData.files,
-    diff,
+    diff: diffData.diff,
     ciFailures,
     coverageFailures,
     pending,
-    reviews
+    reviews,
+    warnings
   });
 
   fs.writeFileSync(OUTPUT_FILE, prompt);

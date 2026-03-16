@@ -205,7 +205,7 @@ Release notification preference defaults:
 - `POPULARITY_INGEST_INTERVAL_MINUTES` (consumed by `worker-general`; default `30`)
 - `POPULARITY_INGEST_IGDB_REQUEST_TIMEOUT_MS` (consumed by `worker-general`; default `15000`)
 - `POPULARITY_INGEST_IGDB_MAX_REQUESTS_PER_SECOND` (consumed by `worker-general`; default `4`)
-- `POPULARITY_FEED_ROW_LIMIT` (consumed by API routes; default `50`; max rows fetched per popularity feed endpoint before mapping and dedupe)
+- `POPULARITY_FEED_ROW_LIMIT` (consumed by API routes; default `50`; max `200`; values above the max are clamped before mapping and dedupe)
 - `POPULARITY_SCORE_THRESHOLD` (consumed by API routes; default `50`; minimum persisted popularity score required for feed eligibility)
 
 ### Non-secret env vars (metadata enrichment)

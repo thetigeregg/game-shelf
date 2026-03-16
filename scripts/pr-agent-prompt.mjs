@@ -11,6 +11,7 @@ function debug(...args) {
 
 function runGh(args, options = {}) {
   const { allowFailure = false } = options;
+
   debug('gh', args.join(' '));
 
   try {
@@ -21,34 +22,27 @@ function runGh(args, options = {}) {
     });
   } catch (err) {
     const command = `gh ${args.join(' ')}`;
-    const status = Number.isInteger(err?.status)
-      ? err.status
-      : Number.isInteger(err?.code)
-        ? err.code
-        : 1;
-    const stdout = err?.stdout ? String(err.stdout) : '';
-    const stderr = err?.stderr ? String(err.stderr) : '';
 
     if (allowFailure) {
-      debug('GitHub CLI command failed (allowed):', command);
-      if (stdout) debug('stdout:', stdout);
-      if (stderr) debug('stderr:', stderr);
+      debug('Command failed (allowed):', command);
       return null;
     }
 
     console.error('GitHub CLI command failed:', command);
-    if (stdout) process.stderr.write(`\n--- stdout ---\n${stdout}\n`);
-    if (stderr) process.stderr.write(`\n--- stderr ---\n${stderr}\n`);
-    process.exit(status);
+
+    if (err.stdout) process.stdout.write(err.stdout);
+    if (err.stderr) process.stderr.write(err.stderr);
+
+    process.exit(1);
   }
 }
 
 function getRepoInfo() {
-  const nameWithOwner = JSON.parse(
-    runGh(['repo', 'view', '--json', 'nameWithOwner'])
-  ).nameWithOwner;
-  const [owner, name] = nameWithOwner.split('/');
-  return { nameWithOwner, owner, name };
+  const result = JSON.parse(runGh(['repo', 'view', '--json', 'nameWithOwner']));
+
+  const [owner, repo] = result.nameWithOwner.split('/');
+
+  return { owner, repo };
 }
 
 function getPRData(pr) {
@@ -72,11 +66,7 @@ function analyzeChecks(checks) {
   const pending = [];
 
   for (const c of checks) {
-    debug('Check:', {
-      name: c.name,
-      status: c.status,
-      conclusion: c.conclusion
-    });
+    debug('Check:', c.name, c.status, c.conclusion);
 
     if (c.status !== 'COMPLETED') {
       pending.push(c.name);
@@ -84,112 +74,40 @@ function analyzeChecks(checks) {
     }
 
     if (c.conclusion === 'FAILURE') {
-      if (c.name.startsWith('codecov')) {
-        coverageFailures.push(c.name);
-      } else {
-        ciFailures.push(c.name);
-      }
+      if (c.name.startsWith('codecov')) coverageFailures.push(c.name);
+      else ciFailures.push(c.name);
     }
   }
 
   return { ciFailures, coverageFailures, pending };
 }
 
-function findWorkflowRun(sha) {
-  const runs = JSON.parse(
-    runGh([
-      'run',
-      'list',
-      '--commit',
-      sha,
-      '--json',
-      'databaseId,workflowName,status,conclusion,createdAt',
-      '--limit',
-      '20'
-    ])
-  );
+/*
+  IMPORTANT CHANGE
 
-  const ciRuns = runs
-    .filter((r) => r.workflowName === 'CI PR Checks')
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-  const selected = ciRuns[0];
-
-  debug('Selected workflow run:', selected);
-
-  return selected ? selected.databaseId : null;
-}
-
-function findFailedJobs(runId) {
-  const data = JSON.parse(runGh(['run', 'view', runId, '--json', 'jobs']));
-
-  const failures = [];
-
-  for (const job of data.jobs || []) {
-    if (!job.steps) continue;
-
-    for (const step of job.steps) {
-      if (step.conclusion === 'failure') {
-        failures.push({
-          job: job.name,
-          step: step.name,
-          id: job.databaseId
-        });
-      }
-    }
-  }
-
-  return failures;
-}
-
-function getFailureLogs(runId, jobs) {
-  let logs = '';
-
-  for (const j of jobs) {
-    try {
-      debug('Fetching logs for job:', j.job);
-
-      const jobLogs = runGh(['run', 'view', runId, '--job', j.id, '--log'], {
-        allowFailure: true
-      });
-      if (!jobLogs) continue;
-
-      logs += `\n\n===== ${j.job} / ${j.step} =====\n\n`;
-      logs += jobLogs;
-    } catch {
-      debug('Failed to fetch logs for job:', j.job);
-    }
-  }
-
-  return logs;
-}
-
-function extractRelevantLogs(logs) {
-  if (!logs) return [];
-
-  const lines = logs.split('\n');
-
-  const errorIndex = lines.findIndex(
-    (l) => l.includes('FAIL') || l.includes('Error:') || l.includes('Test Suites:')
-  );
-
-  if (errorIndex === -1) return lines.slice(-40);
-
-  return lines.slice(Math.max(0, errorIndex - 25), errorIndex + 25);
-}
+  Only filter true system bots.
+  Copilot comments and suggestion blocks are valid review feedback.
+*/
 
 function includeReviewItem(body, author) {
   if (!body) return false;
 
-  const b = body.toLowerCase();
   const authorLogin = (author || '').toLowerCase();
+  const b = body.toLowerCase();
 
-  if (authorLogin.includes('copilot')) return false;
+  // Ignore automation
   if (authorLogin.includes('github-actions')) return false;
   if (authorLogin.includes('codecov')) return false;
 
-  if (b.includes('low confidence')) return false;
-  if (b.includes('<details>')) return false;
+  // Ignore Copilot PR summary posts
+  if (
+    authorLogin.includes('copilot') &&
+    (b.includes('pull request overview') ||
+      b.includes('reviewed') ||
+      b.includes('summary per file'))
+  ) {
+    return false;
+  }
 
   return true;
 }
@@ -222,6 +140,7 @@ function filterReviewComments(comments, reviews) {
 
 function getUnresolvedInlineReviewComments(repoInfo, pr) {
   const threads = [];
+
   let cursor = null;
   let hasNextPage = true;
 
@@ -238,7 +157,8 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
           isResolved
           path
           line
-          comments(last:1) {
+          originalLine
+          comments(first:10) {
             nodes {
               author { login }
               body
@@ -251,71 +171,80 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
 }
 `;
 
-  try {
-    while (hasNextPage) {
-      const args = [
-        'api',
-        'graphql',
-        '-f',
-        `query=${query}`,
-        '-F',
-        `owner=${repoInfo.owner}`,
-        '-F',
-        `repo=${repoInfo.name}`,
-        '-F',
-        `pr=${pr}`
-      ];
+  while (hasNextPage) {
+    const args = [
+      'api',
+      'graphql',
+      '-f',
+      `query=${query}`,
+      '-F',
+      `owner=${repoInfo.owner}`,
+      '-F',
+      `repo=${repoInfo.repo}`,
+      '-F',
+      `pr=${pr}`
+    ];
 
-      if (cursor) {
-        args.push('-F', `cursor=${cursor}`);
-      }
+    if (cursor) args.push('-F', `cursor=${cursor}`);
 
-      const result = runGh(args, { allowFailure: true });
-      if (!result) return [];
+    const result = runGh(args, { allowFailure: true });
 
-      const data = JSON.parse(result);
-      const page = data?.data?.repository?.pullRequest?.reviewThreads;
-      if (!page) return [];
+    if (!result) return [];
 
-      threads.push(...(page.nodes || []));
-      hasNextPage = Boolean(page.pageInfo?.hasNextPage);
-      cursor = page.pageInfo?.endCursor || null;
-    }
-  } catch {
-    return [];
+    const data = JSON.parse(result);
+
+    const page = data?.data?.repository?.pullRequest?.reviewThreads;
+
+    if (!page) return [];
+
+    threads.push(...(page.nodes || []));
+
+    hasNextPage = Boolean(page.pageInfo?.hasNextPage);
+    cursor = page.pageInfo?.endCursor || null;
   }
 
-  const unresolved = threads.filter((thread) => !thread.isResolved);
+  const unresolved = threads.filter((t) => !t.isResolved);
 
-  return unresolved
-    .map((thread) => {
-      const comments = thread.comments?.nodes || [];
-      const lastComment = comments[0];
-      if (!lastComment?.body) return null;
-      if (!includeReviewItem(lastComment.body, lastComment.author?.login)) return null;
+  debug('Unresolved threads:', unresolved.length);
 
-      return {
-        author: lastComment.author?.login,
-        file: thread.path,
-        line: thread.line,
-        body: lastComment.body
-      };
-    })
-    .filter(Boolean);
+  const results = [];
+
+  for (const thread of unresolved) {
+    const comments = thread.comments?.nodes || [];
+
+    debug(
+      'Thread comments:',
+      comments.map((c) => c.author?.login)
+    );
+
+    const reviewerComment = [...comments]
+      .reverse()
+      .find((c) => includeReviewItem(c.body, c.author?.login));
+
+    if (!reviewerComment) {
+      debug('Filtered thread:', thread.path);
+      continue;
+    }
+
+    results.push({
+      author: reviewerComment.author?.login,
+      file: thread.path,
+      line: thread.line ?? thread.originalLine,
+      body: reviewerComment.body
+    });
+  }
+
+  debug('Collected review comments:', results.length);
+
+  return results;
 }
 
 function getDiff(pr) {
   const diff = runGh(['pr', 'diff', pr], { allowFailure: true });
-  if (!diff) {
-    return '';
-  }
-
-  return diff;
+  return diff || '';
 }
 
 function buildPrompt(data) {
-  const relevantLogs = extractRelevantLogs(data.logs);
-
   let md = `
 # Pull Request Agent Task
 
@@ -331,38 +260,26 @@ Resolve CI failures, coverage regressions, and review feedback.
 
   for (const f of data.files) md += `• ${f}\n`;
 
-  md += '\n---\n';
-
   if (data.ciFailures.length) {
-    md += `# CI Failures\n\n`;
+    md += `\n# CI Failures\n\n`;
 
     for (const f of data.ciFailures) md += `• ${f}\n`;
-
-    if (relevantLogs.length) {
-      md += `\n\`\`\`\n${relevantLogs.join('\n')}\n\`\`\`\n`;
-    }
-
-    md += '\n---\n';
   }
 
   if (data.coverageFailures.length) {
-    md += `# Coverage Failures\n\n`;
+    md += `\n# Coverage Failures\n\n`;
 
     for (const c of data.coverageFailures) md += `• ${c}\n`;
-
-    md += '\n---\n';
   }
 
   if (data.pending.length) {
-    md += `# Pending Checks\n\n`;
+    md += `\n# Pending Checks\n\n`;
 
     for (const p of data.pending) md += `• ${p}\n`;
-
-    md += '\n---\n';
   }
 
   if (data.reviews.length) {
-    md += `# Review Feedback\n`;
+    md += `\n# Review Feedback\n`;
 
     for (const r of data.reviews) {
       md += `
@@ -373,8 +290,6 @@ ${r.file ? `File: ${r.file}${r.line ? `:${r.line}` : ''}\n` : ''}
 ${r.body}
 `;
     }
-
-    md += '\n---\n';
   }
 
   md += `
@@ -383,18 +298,6 @@ ${r.body}
 \`\`\`diff
 ${data.diff}
 \`\`\`
-
----
-
-# Instructions for the Agent
-
-1. Fix CI failures first.
-2. Address coverage regressions.
-3. Address reviewer feedback.
-4. Ensure all checks pass.
-5. Preserve existing project conventions.
-
-Generate a Conventional Commit message for any changes.
 `;
 
   return md.trim() + '\n';
@@ -402,6 +305,7 @@ Generate a Conventional Commit message for any changes.
 
 function main() {
   const args = process.argv.slice(2).filter((a) => a !== '--debug');
+
   const pr = args[0];
 
   if (!pr) {
@@ -411,8 +315,9 @@ function main() {
 
   console.log(`Generating agent prompt for PR #${pr}`);
 
-  const prData = getPRData(pr);
   const repoInfo = getRepoInfo();
+
+  const prData = getPRData(pr);
 
   const discussionComments = filterReviewComments(prData.comments, prData.reviews);
 
@@ -421,18 +326,6 @@ function main() {
   const reviews = [...discussionComments, ...inlineComments];
 
   const { ciFailures, coverageFailures, pending } = analyzeChecks(prData.checks);
-
-  let logs = '';
-
-  if (ciFailures.length) {
-    const runId = findWorkflowRun(prData.sha);
-
-    if (runId) {
-      const jobs = findFailedJobs(runId);
-
-      logs = getFailureLogs(runId, jobs);
-    }
-  }
 
   const diff = getDiff(pr);
 
@@ -444,16 +337,13 @@ function main() {
     ciFailures,
     coverageFailures,
     pending,
-    reviews,
-    logs
+    reviews
   });
 
   fs.writeFileSync(OUTPUT_FILE, prompt);
 
   console.log(`
-Agent prompt generated:
-
-${OUTPUT_FILE}
+Agent prompt generated: ${OUTPUT_FILE}
 
 CI failures: ${ciFailures.length}
 Coverage failures: ${coverageFailures.length}

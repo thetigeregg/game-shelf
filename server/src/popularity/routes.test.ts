@@ -65,6 +65,9 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.equal(pool.queries.length, 1);
   const query = pool.queries[0];
   assert.ok(query.text.includes('AND TRUE'));
+  assert.ok(query.text.includes('ROW_NUMBER() OVER'));
+  assert.ok(query.text.includes('PARTITION BY igdb_game_id'));
+  assert.ok(query.text.includes('WHERE game_rank = 1'));
   assert.ok(query.text.includes('LIMIT $2'));
   assert.equal(query.params[0], threshold);
   assert.equal(query.params[1], rowLimit);
@@ -192,34 +195,10 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   await app.close();
 });
 
-void test('GET /v1/games/trending dedupes by igdb id across multiple platforms and keeps highest score', async () => {
+void test('GET /v1/games/trending dedupes by igdb id in SQL before applying the limit', async () => {
   const app = fastifyFactory({ logger: false });
-  await registerPopularityRoutes(
-    app,
-    new PoolMock([
-      {
-        igdb_game_id: '400',
-        platform_igdb_id: 6,
-        popularity_score: '200.1',
-        payload: {
-          title: 'Cross Platform Game',
-          first_release_date: 1_700_000_000,
-          platformOptions: [{ id: 6, name: 'PC' }]
-        }
-      },
-      {
-        igdb_game_id: '400',
-        platform_igdb_id: 167,
-        popularity_score: '199.9',
-        payload: {
-          title: 'Cross Platform Game',
-          first_release_date: 1_700_000_000,
-          platformOptions: [{ id: 167, name: 'PlayStation 5' }]
-        }
-      }
-    ]) as unknown as Pool,
-    { rowLimit: 50, threshold: 50 }
-  );
+  const pool = new PoolMock([]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
@@ -227,23 +206,18 @@ void test('GET /v1/games/trending dedupes by igdb id across multiple platforms a
   });
 
   assert.equal(response.statusCode, 200);
-  const body = JSON.parse(response.body) as {
-    items: Array<{
-      id: string;
-      platformIgdbId: number;
-      popularityScore: number;
-    }>;
-  };
-
-  assert.equal(body.items.length, 1);
-  assert.equal(body.items[0]?.id, '400');
-  assert.equal(body.items[0]?.platformIgdbId, 6);
-  assert.equal(body.items[0]?.popularityScore, 200.1);
+  assert.equal(pool.queries.length, 1);
+  const query = pool.queries[0];
+  assert.ok(query.text.includes('ROW_NUMBER() OVER'));
+  assert.ok(query.text.includes('PARTITION BY igdb_game_id'));
+  assert.ok(query.text.includes('ORDER BY popularity_score DESC, platform_igdb_id ASC'));
+  assert.ok(query.text.includes('WHERE game_rank = 1'));
+  assert.ok(query.text.includes('LIMIT $2'));
 
   await app.close();
 });
 
-void test('GET /v1/games/trending dedupes duplicate rows by game id and keeps highest score', async () => {
+void test('GET /v1/games/trending keeps post-query mapping filters for invalid rows', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(
     app,
@@ -253,20 +227,16 @@ void test('GET /v1/games/trending dedupes duplicate rows by game id and keeps hi
         platform_igdb_id: 6,
         popularity_score: '210.2',
         payload: {
-          title: 'Duplicate Game Entry',
+          title: 'Valid Game Entry',
           first_release_date: 1_700_000_000,
           platformOptions: [{ id: 6, name: 'PC' }]
         }
       },
       {
-        igdb_game_id: '900',
+        igdb_game_id: '901',
         platform_igdb_id: 6,
-        popularity_score: '209.1',
-        payload: {
-          title: 'Duplicate Game Entry',
-          first_release_date: 1_700_000_000,
-          platformOptions: [{ id: 6, name: 'PC' }]
-        }
+        popularity_score: 'NaN',
+        payload: { title: 'Invalid score' }
       }
     ]) as unknown as Pool,
     { rowLimit: 50, threshold: 50 }

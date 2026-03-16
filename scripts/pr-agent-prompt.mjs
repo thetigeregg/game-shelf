@@ -9,20 +9,46 @@ function debug(...args) {
   if (DEBUG) console.log('[debug]', ...args);
 }
 
-function runGh(args) {
+function runGh(args, options = {}) {
+  const { allowFailure = false } = options;
   debug('gh', args.join(' '));
 
   try {
     return execFileSync('gh', args, {
       encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
       maxBuffer: 1024 * 1024 * 50
     });
   } catch (err) {
-    console.error('GitHub CLI command failed:', args.join(' '));
-    if (err.stdout) process.stdout.write(err.stdout);
-    if (err.stderr) process.stderr.write(err.stderr);
-    process.exit(err.status || 1);
+    const command = `gh ${args.join(' ')}`;
+    const status = Number.isInteger(err?.status)
+      ? err.status
+      : Number.isInteger(err?.code)
+        ? err.code
+        : 1;
+    const stdout = err?.stdout ? String(err.stdout) : '';
+    const stderr = err?.stderr ? String(err.stderr) : '';
+
+    if (allowFailure) {
+      debug('GitHub CLI command failed (allowed):', command);
+      if (stdout) debug('stdout:', stdout);
+      if (stderr) debug('stderr:', stderr);
+      return null;
+    }
+
+    console.error('GitHub CLI command failed:', command);
+    if (stdout) process.stderr.write(`\n--- stdout ---\n${stdout}\n`);
+    if (stderr) process.stderr.write(`\n--- stderr ---\n${stderr}\n`);
+    process.exit(status);
   }
+}
+
+function getRepoInfo() {
+  const nameWithOwner = JSON.parse(
+    runGh(['repo', 'view', '--json', 'nameWithOwner'])
+  ).nameWithOwner;
+  const [owner, name] = nameWithOwner.split('/');
+  return { nameWithOwner, owner, name };
 }
 
 function getPRData(pr) {
@@ -123,7 +149,10 @@ function getFailureLogs(runId, jobs) {
     try {
       debug('Fetching logs for job:', j.job);
 
-      const jobLogs = runGh(['run', 'view', runId, '--job', j.id, '--log']);
+      const jobLogs = runGh(['run', 'view', runId, '--job', j.id, '--log'], {
+        allowFailure: true
+      });
+      if (!jobLogs) continue;
 
       logs += `\n\n===== ${j.job} / ${j.step} =====\n\n`;
       logs += jobLogs;
@@ -190,27 +219,96 @@ function filterReviewComments(comments, reviews) {
   return results;
 }
 
-function getInlineReviewComments(repo, pr) {
-  try {
-    const data = JSON.parse(runGh(['api', `repos/${repo}/pulls/${pr}/comments`]));
+function getUnresolvedInlineReviewComments(repoInfo, pr) {
+  const threads = [];
+  let cursor = null;
+  let hasNextPage = true;
 
-    return data.map((c) => ({
-      author: c.user?.login,
-      file: c.path,
-      line: c.line || c.original_line,
-      body: c.body
-    }));
+  const query = `
+query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
+  repository(owner:$owner, name:$repo) {
+    pullRequest(number:$pr) {
+      reviewThreads(first:50, after:$cursor) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          isResolved
+          path
+          line
+          comments(first:20) {
+            nodes {
+              author { login }
+              body
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+  try {
+    while (hasNextPage) {
+      const args = [
+        'api',
+        'graphql',
+        '-f',
+        `query=${query}`,
+        '-F',
+        `owner=${repoInfo.owner}`,
+        '-F',
+        `repo=${repoInfo.name}`,
+        '-F',
+        `pr=${pr}`
+      ];
+
+      if (cursor) {
+        args.push('-F', `cursor=${cursor}`);
+      }
+
+      const result = runGh(args, { allowFailure: true });
+      if (!result) return [];
+
+      const data = JSON.parse(result);
+      const page = data?.data?.repository?.pullRequest?.reviewThreads;
+      if (!page) return [];
+
+      threads.push(...(page.nodes || []));
+      hasNextPage = Boolean(page.pageInfo?.hasNextPage);
+      cursor = page.pageInfo?.endCursor || null;
+    }
   } catch {
     return [];
   }
+
+  const unresolved = threads.filter((thread) => !thread.isResolved);
+
+  return unresolved
+    .map((thread) => {
+      const comments = thread.comments?.nodes || [];
+      const lastComment = comments[comments.length - 1];
+      if (!lastComment?.body) return null;
+
+      return {
+        author: lastComment.author?.login,
+        file: thread.path,
+        line: thread.line,
+        body: lastComment.body
+      };
+    })
+    .filter(Boolean);
 }
 
 function getDiff(pr) {
-  try {
-    return runGh(['pr', 'diff', pr]);
-  } catch {
+  const diff = runGh(['pr', 'diff', pr], { allowFailure: true });
+  if (!diff) {
     return '';
   }
+
+  return diff;
 }
 
 function buildPrompt(data) {
@@ -268,6 +366,8 @@ Resolve CI failures, coverage regressions, and review feedback.
       md += `
 Reviewer: ${r.author || 'reviewer'}
 
+${r.file ? `File: ${r.file}${r.line ? `:${r.line}` : ''}\n` : ''}
+
 ${r.body}
 `;
     }
@@ -310,12 +410,11 @@ function main() {
   console.log(`Generating agent prompt for PR #${pr}`);
 
   const prData = getPRData(pr);
-
-  const repo = JSON.parse(runGh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
+  const repoInfo = getRepoInfo();
 
   const discussionComments = filterReviewComments(prData.comments, prData.reviews);
 
-  const inlineComments = getInlineReviewComments(repo, pr);
+  const inlineComments = getUnresolvedInlineReviewComments(repoInfo, pr);
 
   const reviews = [...discussionComments, ...inlineComments];
 

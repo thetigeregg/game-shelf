@@ -121,6 +121,9 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   private swiperInstance: SwiperClass | null = null;
   private swiperUpdateQueued = false;
+  private swiperRefreshRafId: number | null = null;
+  private swiperRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private swiperDestroyed = false;
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
 
   constructor() {
@@ -147,22 +150,28 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   ngAfterViewInit(): void {
+    if (this.swiperDestroyed) {
+      return;
+    }
+
     this.ensureSwiperInitialized();
     this.queueSwiperRefresh();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ('game' in changes) {
+    if (!this.swiperDestroyed && 'game' in changes) {
       this.queueSwiperRefresh();
     }
   }
 
   ngOnDestroy(): void {
+    this.swiperDestroyed = true;
+    this.cancelQueuedSwiperRefresh();
     this.destroySwiper();
   }
 
   private ensureSwiperInitialized(): void {
-    if (this.swiperInstance) {
+    if (this.swiperDestroyed || this.swiperInstance) {
       return;
     }
 
@@ -192,13 +201,17 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
   }
 
   private queueSwiperRefresh(): void {
-    if (this.swiperUpdateQueued) {
+    if (this.swiperDestroyed || this.swiperUpdateQueued) {
       return;
     }
 
     this.swiperUpdateQueued = true;
     this.runAfterRender(() => {
       this.swiperUpdateQueued = false;
+      if (this.swiperDestroyed) {
+        return;
+      }
+
       this.refreshSwiper();
     });
   }
@@ -220,13 +233,31 @@ export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnD
 
   private runAfterRender(callback: () => void): void {
     if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
+      this.swiperRefreshRafId = requestAnimationFrame(() => {
+        this.swiperRefreshRafId = null;
         callback();
       });
       return;
     }
 
-    setTimeout(callback, 0);
+    this.swiperRefreshTimeoutId = setTimeout(() => {
+      this.swiperRefreshTimeoutId = null;
+      callback();
+    }, 0);
+  }
+
+  private cancelQueuedSwiperRefresh(): void {
+    if (this.swiperRefreshRafId !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.swiperRefreshRafId);
+      this.swiperRefreshRafId = null;
+    }
+
+    if (this.swiperRefreshTimeoutId !== null) {
+      clearTimeout(this.swiperRefreshTimeoutId);
+      this.swiperRefreshTimeoutId = null;
+    }
+
+    this.swiperUpdateQueued = false;
   }
 
   private destroySwiper(): void {

@@ -657,17 +657,26 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       existingGamesRefreshCount += 1;
       const payload = typeof params?.[2] === 'string' ? params[2] : '';
       assert.ok(payload.includes('"title":"Resident Evil Requiem"'));
+      assert.ok(payload.includes('"coverUrl":null'));
       assert.ok(payload.includes('"releaseDate":"2026-02-27T00:00:00.000Z"'));
       assert.ok(payload.includes('"first_release_date":1772150400'));
+      assert.ok(payload.includes('"rating":89.06299654196357'));
       assert.ok(payload.includes('"total_rating_count":115'));
       assert.ok(payload.includes('"totalRatingCount":115'));
       assert.ok(payload.includes('"hypes":309'));
       assert.ok(payload.includes('"follows":null'));
+      assert.ok(payload.includes('"parent_game":null'));
+      assert.ok(payload.includes('"parentGame":null'));
+      assert.ok(payload.includes('"version_parent":null'));
+      assert.ok(payload.includes('"versionParent":null'));
       assert.ok(payload.includes('"gameType":"main_game"'));
       assert.ok(!payload.includes('"platform":"PC"'));
       assert.ok(!payload.includes('"platformIgdbId":6'));
       assert.ok(!payload.includes('"platformOptions"'));
       assert.ok(!payload.includes('"platforms"'));
+      assert.ok(!payload.includes('"summary"'));
+      assert.ok(!payload.includes('"storyline"'));
+      assert.ok(!payload.includes('"releaseYear"'));
       return queryResult([], 1);
     }
 

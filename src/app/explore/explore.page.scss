@@ -2,6 +2,14 @@
   margin-right: 0;
 }
 
+.explore-mode-item {
+  --inner-padding-end: 0;
+
+  ion-segment {
+    width: 100%;
+  }
+}
+
 .loading-state {
   display: flex;
   justify-content: center;

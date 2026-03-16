@@ -538,7 +538,7 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
       null
     )
   );
-  assert.equal(Math.round((yearFuture - now.getTime()) / oneDayMs), 30);
+  assert.equal(Math.round((yearFuture - now.getTime()) / oneDayMs), 15);
 
   const refreshSoonest = Date.parse(
     releaseMonitorInternals.computeNextCheckAt(
@@ -580,7 +580,99 @@ void test('computeNextCheckAt ignores refresh cadence when provider refresh is i
     )
   );
 
-  assert.equal(Math.round((nextCheckWithoutRefresh - now.getTime()) / oneDayMs), 365);
+  assert.equal(Math.round((nextCheckWithoutRefresh - now.getTime()) / oneDayMs), 15);
+});
+
+void test('computeNextCheckAt covers released and invalid-imprecise fallback branches', () => {
+  const now = new Date('2026-03-06T10:00:00.000Z');
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  const releasedLongAgo = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'day',
+        marker: '2025-12-01',
+        date: '2025-12-01',
+        year: 2025,
+        display: '2025-12-01'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+  assert.equal(Math.round((releasedLongAgo - now.getTime()) / oneDayMs), 365);
+
+  const invalidMonthTimestamp = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'month',
+        marker: null,
+        date: null,
+        year: null,
+        display: null
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+  assert.equal(Math.round((invalidMonthTimestamp - now.getTime()) / oneDayMs), 7);
+
+  const yearPast = Date.parse(
+    releaseMonitorInternals.computeNextCheckAt(
+      {
+        precision: 'year',
+        marker: '2024',
+        date: null,
+        year: 2024,
+        display: '2024'
+      },
+      now,
+      false,
+      null,
+      false,
+      null
+    )
+  );
+  assert.equal(Math.round((yearPast - now.getTime()) / oneDayMs), 365);
+});
+
+void test('resolvePlatformReleaseFromDates prefers the most precise valid match', () => {
+  const resolved = releaseMonitorInternals.resolvePlatformReleaseFromDates(
+    [
+      null,
+      { platformIgdbId: '167', precision: 'year', marker: '2026' },
+      { platformIgdbId: 167, precision: 'quarter', marker: '2026-Q4' },
+      { platformIgdbId: 167, precision: 'day', marker: '2026-11-19' },
+      { platformIgdbId: 167, precision: 'day', marker: '2026-11-19' },
+      { platformIgdbId: 167, precision: 'month', marker: null },
+      { platformIgdbId: 167, precision: 'banana', marker: '2026' },
+      { platformIgdbId: 167, precision: 'unknown', marker: null },
+      { platformIgdbId: 48, precision: 'day', marker: '2026-01-01' }
+    ],
+    167
+  );
+
+  assert.deepEqual(resolved, {
+    releaseMarker: '2026-11-19',
+    releasePrecision: 'day'
+  });
+});
+
+void test('resolvePlatformReleaseFromDates returns null when no valid platform match exists', () => {
+  assert.equal(releaseMonitorInternals.resolvePlatformReleaseFromDates('invalid', 167), null);
+  assert.equal(
+    releaseMonitorInternals.resolvePlatformReleaseFromDates(
+      [{ platformIgdbId: 48, precision: 'day', marker: '2026-01-01' }],
+      167
+    ),
+    null
+  );
 });
 
 void test('normalizers handle invalid marker and precision inputs', () => {

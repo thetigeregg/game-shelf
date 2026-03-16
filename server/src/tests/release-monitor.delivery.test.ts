@@ -761,6 +761,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
               id: 52189,
               name: 'A Better Title',
               first_release_date: 1_767_225_600,
+              release_dates: [{ category: 0, platform: 167, y: 2026, m: 1, d: 1 }],
               platforms: [{ id: 167, name: 'PlayStation 5' }]
             }
           ]),
@@ -852,8 +853,10 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
     assert.equal(stats.reviewRefreshAttempts, 1);
 
     assert.equal(pool.watchStateWrites, 1);
-    assert.equal(pool.client.payloadPatch?.['title'], 'A Better Title');
-    assert.equal(pool.client.syncEventPayload?.['title'], 'A Better Title');
+    assert.equal(pool.client.payloadPatch['title'], 'A Better Title');
+    assert.equal(pool.client.payloadPatch['releasePrecision'], 'day');
+    assert.equal(pool.client.payloadPatch['releaseMarker'], '2026-01-01');
+    assert.equal(pool.client.syncEventPayload['title'], 'A Better Title');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -889,6 +892,7 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
               id: 52189,
               name: 'Original Title',
               first_release_date: 1_767_225_600,
+              release_dates: [{ category: 0, platform: 167, y: 2026, m: 1, d: 1 }],
               platforms: [{ id: 167, name: 'PlayStation 5' }]
             }
           ]),

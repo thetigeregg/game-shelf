@@ -2260,3 +2260,13 @@
 - 491e82c6 fix(api): refresh existing popularity game payloads during ingest
 - 41cac9cd feat(api): make popularity feed row limit configurable
 
+## v1.5.1 - 2026-03-16
+- ff5dc24a Merge pull request #233 from thetigeregg/feat/popularity-ui
+- 8f8b779a fix(api): align owned list partial index predicate
+- d37142cf fix(api): optimize popularity feed dedupe query
+- 66d0eb13 fix(api): rewrite popularity feed dedupe with row ranking
+- 2e58f578 fix(api): preserve index-friendly popularity dedupe
+- d510a1e8 Merge branch 'main' into feat/popularity-ui
+- b6187e56 fix(popularity): exclude owned games from feed query
+- 6ef3fca6 fix(popularity): dedupe feed rows before applying limit
+

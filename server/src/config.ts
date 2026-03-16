@@ -219,6 +219,7 @@ export interface AppConfig {
   popularityIngestIntervalMinutes: number;
   popularityIngestIgdbRequestTimeoutMs: number;
   popularityIngestIgdbMaxRequestsPerSecond: number;
+  popularityFeedRowLimit: number;
   popularityScoreThreshold: number;
   igdbMetadataEnrichEnabled: boolean;
   igdbMetadataEnrichBatchSize: number;
@@ -281,6 +282,7 @@ function normalizeCountryCode(value: string): string | null {
 }
 
 const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
+const POPULARITY_FEED_ROW_LIMIT_MAX = 200;
 
 function readEmbeddingDimensionsEnv(name: string): number {
   const value = readIntegerEnv(name, EMBEDDING_DIMENSIONS_SCHEMA);
@@ -572,6 +574,10 @@ export const config: AppConfig = {
   popularityIngestIgdbMaxRequestsPerSecond: readIntegerEnv(
     'POPULARITY_INGEST_IGDB_MAX_REQUESTS_PER_SECOND',
     readIntegerEnv('RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND', 4)
+  ),
+  popularityFeedRowLimit: Math.min(
+    readIntegerEnv('POPULARITY_FEED_ROW_LIMIT', 50),
+    POPULARITY_FEED_ROW_LIMIT_MAX
   ),
   popularityScoreThreshold: readNumberEnv('POPULARITY_SCORE_THRESHOLD', 50),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),

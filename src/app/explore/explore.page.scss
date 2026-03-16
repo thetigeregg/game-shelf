@@ -87,6 +87,10 @@ ion-label p:not(.recommendation-headline) {
   border-bottom: 1px solid color-mix(in srgb, var(--ion-color-medium) 20%, transparent);
 }
 
+.segment-toolbar {
+  border-bottom: 1px solid color-mix(in srgb, var(--ion-color-medium) 20%, transparent);
+}
+
 .recommendation-chips {
   display: flex;
   flex-wrap: wrap;

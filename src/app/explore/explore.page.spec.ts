@@ -56,6 +56,8 @@ vi.mock('@ionic/angular/standalone', () => {
     IonAccordion: Dummy,
     IonAccordionGroup: Dummy,
     IonPopover: Dummy,
+    IonSegment: Dummy,
+    IonSegmentButton: Dummy,
     IonCard: Dummy,
     IonCardHeader: Dummy,
     IonCardTitle: Dummy
@@ -111,9 +113,23 @@ const mockLanesResponse = {
   }
 };
 
-describe('ExplorePage recommendations UX', () => {
+const mockPopularityFeedResponse = [
+  {
+    id: '500',
+    name: 'Popular Game',
+    platformIgdbId: 6,
+    popularityScore: 144.2,
+    coverUrl: 'https://example.com/pop-cover.jpg',
+    rating: 88,
+    firstReleaseDate: 1_700_100_000,
+    platforms: [{ id: 6, name: 'PC (Microsoft Windows)' }]
+  }
+];
+
+describe('ExplorePage explore modes UX', () => {
   const igdbProxyServiceMock = {
     getRecommendationLanes: vi.fn(),
+    getPopularityFeed: vi.fn(),
     rebuildRecommendations: vi.fn(),
     getGameById: vi.fn(),
     getRecommendationSimilar: vi.fn(),
@@ -181,6 +197,7 @@ describe('ExplorePage recommendations UX', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(of(mockLanesResponse));
+    igdbProxyServiceMock.getPopularityFeed.mockReturnValue(of(mockPopularityFeedResponse));
     igdbProxyServiceMock.rebuildRecommendations.mockReturnValue(
       of({ target: 'BACKLOG', runId: 2, status: 'SUCCESS' })
     );
@@ -235,7 +252,7 @@ describe('ExplorePage recommendations UX', () => {
 
   it('sets disabled state when recommendations feature flag is off', () => {
     const page = createPage();
-    Object.defineProperty(page, 'recommendationFeatureEnabled', {
+    Object.defineProperty(page, 'exploreEnabled', {
       value: false,
       configurable: true
     });
@@ -260,6 +277,107 @@ describe('ExplorePage recommendations UX', () => {
       runtimeMode: 'SHORT',
       limit: 200
     });
+  });
+
+  it('switches to popularity mode and fetches selected feed types', async () => {
+    const page = createPage();
+    page.ngOnInit();
+    await flushAsync();
+
+    await page.onExploreModeChange('popularity');
+
+    expect(page.selectedExploreMode).toBe('popularity');
+    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenCalledWith('trending');
+    expect(page.getActivePopularityItems()).toHaveLength(1);
+
+    await page.onPopularityFeedChange('upcoming');
+    expect(page.selectedPopularityFeed).toBe('upcoming');
+    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenLastCalledWith('upcoming');
+  });
+
+  it('exposes popularity empty-state conditions when feed returns no items', async () => {
+    igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(of([]));
+
+    const page = createPage();
+    page.ngOnInit();
+    await flushAsync();
+
+    await page.onExploreModeChange('popularity');
+
+    expect(page.isLoadingPopularity).toBe(false);
+    expect(page.popularityError).toBe('');
+    expect(page.getActivePopularityItems()).toHaveLength(0);
+    expect(page.canLoadMorePopularity()).toBe(false);
+  });
+
+  it('exposes popularity error-state conditions when feed request fails', async () => {
+    igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(
+      throwError(() => new Error('Popularity feed unavailable'))
+    );
+
+    const page = createPage();
+    page.ngOnInit();
+    await flushAsync();
+
+    await page.onExploreModeChange('popularity');
+
+    expect(page.isLoadingPopularity).toBe(false);
+    expect(page.popularityError).toBe('Popularity feed unavailable');
+    expect(page.getActivePopularityItems()).toHaveLength(0);
+  });
+
+  it('keeps the latest popularity detail selection when earlier catalog fetch resolves late', async () => {
+    const page = createPage() as unknown as {
+      openPopularityGameDetail: (item: {
+        id: string;
+        name: string;
+        platformIgdbId: number;
+        popularityScore: number;
+        coverUrl: string | null;
+        rating: number | null;
+        firstReleaseDate: number | null;
+        platforms: Array<{ id: number; name: string }>;
+      }) => Promise<void>;
+      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+      selectedGameDetail: { igdbGameId: string } | null;
+    };
+
+    const deferredResolves = new Map<string, (value: unknown) => void>();
+    vi.spyOn(page, 'fetchRecommendationCatalogResult').mockImplementation(
+      (igdbGameId: string) =>
+        new Promise((resolve) => {
+          deferredResolves.set(igdbGameId, resolve);
+        })
+    );
+
+    const firstCall = page.openPopularityGameDetail({
+      id: '910',
+      name: 'First',
+      platformIgdbId: 6,
+      popularityScore: 120,
+      coverUrl: null,
+      rating: null,
+      firstReleaseDate: null,
+      platforms: [{ id: 6, name: 'PC' }]
+    });
+    const secondCall = page.openPopularityGameDetail({
+      id: '920',
+      name: 'Second',
+      platformIgdbId: 6,
+      popularityScore: 121,
+      coverUrl: null,
+      rating: null,
+      firstReleaseDate: null,
+      platforms: [{ id: 6, name: 'PC' }]
+    });
+
+    deferredResolves.get('920')?.({ igdbGameId: '920', platformIgdbId: 6, platform: 'PC' });
+    await secondCall;
+    expect(page.selectedGameDetail?.igdbGameId).toBe('920');
+
+    deferredResolves.get('910')?.({ igdbGameId: '910', platformIgdbId: 6, platform: 'PC' });
+    await firstCall;
+    expect(page.selectedGameDetail?.igdbGameId).toBe('920');
   });
 
   it('uses cache and ignores invalid/same selection updates', async () => {
@@ -1293,7 +1411,7 @@ describe('ExplorePage recommendations UX', () => {
   it('covers recommendation refresh and display fallback helper branches', async () => {
     const page = createPage();
     const privatePage = page as unknown as {
-      refreshRecommendations: (event: Event) => Promise<void>;
+      refreshExplore: (event: Event) => Promise<void>;
       getDisplayTitle: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
       getPlatformLabel: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
       getReleaseYear: (item: (typeof mockLanesResponse.lanes.overall)[0]) => number | null;
@@ -1320,7 +1438,7 @@ describe('ExplorePage recommendations UX', () => {
     await flushAsync();
 
     const complete = vi.fn().mockResolvedValue(undefined);
-    await privatePage.refreshRecommendations({ target: { complete } } as unknown as Event);
+    await privatePage.refreshExplore({ target: { complete } } as unknown as Event);
     expect(complete).toHaveBeenCalledOnce();
 
     const row = mockLanesResponse.lanes.overall[0];

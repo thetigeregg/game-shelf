@@ -104,11 +104,19 @@ async function fetchFeedRows(
   const firstReleaseDateSql = sqlFirstReleaseDatePayload();
 
   let feedWindowPredicate = 'TRUE';
+  let limitPlaceholder = '$2';
+  let queryParams: number[] = [params.scoreThreshold];
   if (params.feedType === 'upcoming') {
     feedWindowPredicate = `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $2`;
+    queryParams = [params.scoreThreshold, nowSec];
+    limitPlaceholder = '$3';
   } else if (params.feedType === 'recent') {
     feedWindowPredicate = `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $3 AND ${firstReleaseDateSql} <= $2`;
+    queryParams = [params.scoreThreshold, nowSec, cutoffRecentSec];
+    limitPlaceholder = '$4';
   }
+
+  queryParams.push(FEED_ROW_LIMIT);
 
   const result = await pool.query<PopularityGameRow>(
     `
@@ -130,16 +138,29 @@ async function fetchFeedRows(
       AND COALESCE(NULLIF(BTRIM(payload->>'gameType'), ''), 'main_game') = 'main_game'
       AND ${feedWindowPredicate}
     ORDER BY popularity_score DESC
-    LIMIT $4
+    LIMIT ${limitPlaceholder}
     `,
-    [params.scoreThreshold, nowSec, cutoffRecentSec, FEED_ROW_LIMIT]
+    queryParams
   );
 
   const items = result.rows
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
 
-  return items;
+  return dedupeByGameId(items);
+}
+
+function dedupeByGameId(items: PopularityFeedItem[]): PopularityFeedItem[] {
+  const byGameId = new Map<string, PopularityFeedItem>();
+
+  for (const item of items) {
+    const existing = byGameId.get(item.id);
+    if (!existing || item.popularityScore > existing.popularityScore) {
+      byGameId.set(item.id, item);
+    }
+  }
+
+  return [...byGameId.values()].sort((left, right) => right.popularityScore - left.popularityScore);
 }
 
 function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {

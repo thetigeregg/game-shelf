@@ -22,6 +22,7 @@ class PoolMock {
 }
 
 void test('GET /v1/games/trending returns mapped popularity feed items', async () => {
+  const threshold = 37;
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock([
     {
@@ -37,7 +38,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
       }
     }
   ]);
-  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold: 50 });
+  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold });
 
   const response = await app.inject({
     method: 'GET',
@@ -63,10 +64,9 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.equal(pool.queries.length, 1);
   const query = pool.queries[0];
   assert.ok(query.text.includes('AND TRUE'));
-  assert.equal(query.params[0], 50);
-  assert.equal(query.params[3], 50);
-  assert.equal(typeof query.params[1], 'number');
-  assert.equal(typeof query.params[2], 'number');
+  assert.ok(query.text.includes('LIMIT $2'));
+  assert.equal(query.params[0], threshold);
+  assert.equal(query.params[1], 50);
 
   await app.close();
 });
@@ -103,10 +103,10 @@ void test('GET /v1/games/upcoming applies release window in SQL predicate', asyn
   const query = pool.queries[0];
   assert.ok(query.text.includes('IS NOT NULL AND'));
   assert.ok(query.text.includes('> $2'));
+  assert.ok(query.text.includes('LIMIT $3'));
   assert.equal(query.params[0], 50);
-  assert.equal(query.params[3], 50);
+  assert.equal(query.params[2], 50);
   assert.equal(typeof query.params[1], 'number');
-  assert.equal(typeof query.params[2], 'number');
 
   await app.close();
 });
@@ -181,6 +181,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   const query = pool.queries[0];
   assert.ok(query.text.includes('> $3'));
   assert.ok(query.text.includes('<= $2'));
+  assert.ok(query.text.includes('LIMIT $4'));
   assert.equal(query.params[0], 50);
   assert.equal(query.params[3], 50);
   assert.equal(typeof query.params[1], 'number');
@@ -190,7 +191,7 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
   await app.close();
 });
 
-void test('GET /v1/games/trending includes platformIgdbId when igdb id appears on multiple platforms', async () => {
+void test('GET /v1/games/trending dedupes by igdb id across multiple platforms and keeps highest score', async () => {
   const app = fastifyFactory({ logger: false });
   await registerPopularityRoutes(
     app,
@@ -229,17 +230,65 @@ void test('GET /v1/games/trending includes platformIgdbId when igdb id appears o
     items: Array<{
       id: string;
       platformIgdbId: number;
+      popularityScore: number;
     }>;
   };
 
-  assert.equal(body.items.length, 2);
-  assert.deepEqual(
-    body.items.map((item) => ({ id: item.id, platformIgdbId: item.platformIgdbId })),
-    [
-      { id: '400', platformIgdbId: 6 },
-      { id: '400', platformIgdbId: 167 }
-    ]
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0]?.id, '400');
+  assert.equal(body.items[0]?.platformIgdbId, 6);
+  assert.equal(body.items[0]?.popularityScore, 200.1);
+
+  await app.close();
+});
+
+void test('GET /v1/games/trending dedupes duplicate rows by game id and keeps highest score', async () => {
+  const app = fastifyFactory({ logger: false });
+  await registerPopularityRoutes(
+    app,
+    new PoolMock([
+      {
+        igdb_game_id: '900',
+        platform_igdb_id: 6,
+        popularity_score: '210.2',
+        payload: {
+          title: 'Duplicate Game Entry',
+          first_release_date: 1_700_000_000,
+          platformOptions: [{ id: 6, name: 'PC' }]
+        }
+      },
+      {
+        igdb_game_id: '900',
+        platform_igdb_id: 6,
+        popularity_score: '209.1',
+        payload: {
+          title: 'Duplicate Game Entry',
+          first_release_date: 1_700_000_000,
+          platformOptions: [{ id: 6, name: 'PC' }]
+        }
+      }
+    ]) as unknown as Pool,
+    { threshold: 50 }
   );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending'
+  });
+
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body) as {
+    items: Array<{
+      id: string;
+      platformIgdbId: number;
+      popularityScore: number;
+    }>;
+  };
+
+  assert.equal(body.items.length, 1);
+  assert.equal(body.items[0]?.id, '900');
+  assert.equal(body.items[0]?.platformIgdbId, 6);
+  assert.equal(body.items[0]?.popularityScore, 210.2);
 
   await app.close();
 });

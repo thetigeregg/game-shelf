@@ -904,6 +904,7 @@ function buildGameRefreshPayload(item: WorkerGameItem): Record<string, unknown> 
     title: item.title,
     coverUrl: item.coverUrl,
     releaseDate: item.releaseDate,
+    releaseYear: item.releaseYear,
     first_release_date: toUnixFromIso(item.releaseDate),
     rating: item.rating,
     total_rating_count: item.totalRatingCount,

@@ -676,7 +676,7 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       assert.ok(!payload.includes('"platforms"'));
       assert.ok(!payload.includes('"summary"'));
       assert.ok(!payload.includes('"storyline"'));
-      assert.ok(!payload.includes('"releaseYear"'));
+      assert.ok(payload.includes('"releaseYear":2026'));
       return queryResult([], 1);
     }
 

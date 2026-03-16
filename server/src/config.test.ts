@@ -14,6 +14,7 @@ void test('config clamps popularity feed row limit to a sane maximum', async () 
   const originalEnvFile = process.env.ENV_FILE;
   const originalPopularityFeedRowLimit = process.env.POPULARITY_FEED_ROW_LIMIT;
   process.env.ENV_FILE = envFile;
+  delete process.env.POPULARITY_FEED_ROW_LIMIT;
 
   try {
     const moduleUrl = pathToFileURL(path.resolve(process.cwd(), 'src/config.ts')).href;

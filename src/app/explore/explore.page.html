@@ -32,7 +32,7 @@
   </ion-refresher>
 
   @if (recommendationFeatureEnabled) {
-    <ion-item lines="none" class="explore-mode-item">
+    <ion-toolbar class="segment-toolbar">
       <ion-segment
         [value]="selectedExploreMode"
         (ionChange)="onExploreModeChange($any($event).detail.value)"
@@ -43,7 +43,7 @@
           </ion-segment-button>
         }
       </ion-segment>
-    </ion-item>
+    </ion-toolbar>
 
     @if (selectedExploreMode === 'recommendations') {
       <ion-item lines="full">

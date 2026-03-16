@@ -1,14 +1,20 @@
 import {
-  CUSTOM_ELEMENTS_SCHEMA,
+  AfterViewInit,
   Component,
+  ElementRef,
   EventEmitter,
   Input,
+  OnChanges,
+  OnDestroy,
   Output,
+  SimpleChanges,
+  ViewChild,
   inject
 } from '@angular/core';
 import {
   IonBadge,
   IonButton,
+  IonButtons,
   IonCol,
   IonGrid,
   IonIcon,
@@ -17,7 +23,8 @@ import {
   IonList,
   IonRow,
   IonSelect,
-  IonSelectOption
+  IonSelectOption,
+  IonToolbar
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
@@ -47,6 +54,8 @@ import {
   GameScreenshot,
   GameStatus
 } from '../../core/models/game.models';
+import SwiperClass from 'swiper';
+import { Pagination, Zoom } from 'swiper/modules';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import { detectReviewSourceFromUrl } from '../../core/utils/url-host.util';
 import { canOpenMetadataFilter } from './game-detail-metadata.utils';
@@ -61,7 +70,6 @@ type DetailMediaSlide = { key: string; src: string };
   templateUrl: './game-detail-content.component.html',
   styleUrls: ['./game-detail-content.component.scss'],
   standalone: true,
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [
     DetailMediaSlideComponent,
     IonGrid,
@@ -72,12 +80,14 @@ type DetailMediaSlide = { key: string; src: string };
     IonLabel,
     IonBadge,
     IonButton,
+    IonButtons,
     IonSelect,
     IonSelectOption,
-    IonIcon
+    IonIcon,
+    IonToolbar
   ]
 })
-export class GameDetailContentComponent {
+export class GameDetailContentComponent implements AfterViewInit, OnChanges, OnDestroy {
   private static readonly DEFAULT_PRICE_CURRENCY = 'CHF';
   private static readonly EAGER_MEDIA_SLIDE_COUNT = 3;
 
@@ -102,12 +112,15 @@ export class GameDetailContentComponent {
   @Output() publisherClick = new EventEmitter<void>();
   @Output() addToLibrary = new EventEmitter<void>();
   @Output() ignore = new EventEmitter<void>();
+  @ViewChild('swiperContainer') private swiperContainerRef?: ElementRef<HTMLElement>;
 
   detailTextExpanded = {
     summary: false,
     storyline: false
   };
 
+  private swiperInstance: SwiperClass | null = null;
+  private swiperUpdateQueued = false;
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
 
   constructor() {
@@ -131,6 +144,98 @@ export class GameDetailContentComponent {
       time,
       trophy
     });
+  }
+
+  ngAfterViewInit(): void {
+    this.ensureSwiperInitialized();
+    this.queueSwiperRefresh();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if ('game' in changes) {
+      this.queueSwiperRefresh();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroySwiper();
+  }
+
+  private ensureSwiperInitialized(): void {
+    if (this.swiperInstance) {
+      return;
+    }
+
+    const container = this.swiperContainerRef?.nativeElement;
+    if (!container) {
+      return;
+    }
+
+    this.swiperInstance = new SwiperClass(container, {
+      modules: [Pagination, Zoom],
+      slidesPerView: 1,
+      spaceBetween: 0,
+      loop: false,
+      watchOverflow: true,
+      zoom: true,
+      allowTouchMove: this.mediaSlides.length > 1,
+      observer: true,
+      observeParents: true,
+      observeSlideChildren: true,
+      pagination: {
+        el: '.swiper-pagination',
+        dynamicBullets: true,
+        dynamicMainBullets: 3,
+        clickable: false
+      }
+    });
+  }
+
+  private queueSwiperRefresh(): void {
+    if (this.swiperUpdateQueued) {
+      return;
+    }
+
+    this.swiperUpdateQueued = true;
+    this.runAfterRender(() => {
+      this.swiperUpdateQueued = false;
+      this.refreshSwiper();
+    });
+  }
+
+  private refreshSwiper(): void {
+    this.ensureSwiperInitialized();
+
+    const swiper = this.swiperInstance;
+    if (!swiper) {
+      return;
+    }
+
+    const hasMultipleSlides = this.mediaSlides.length > 1;
+    swiper.allowTouchMove = hasMultipleSlides;
+    swiper.update();
+    swiper.pagination.render();
+    swiper.pagination.update();
+  }
+
+  private runAfterRender(callback: () => void): void {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        callback();
+      });
+      return;
+    }
+
+    setTimeout(callback, 0);
+  }
+
+  private destroySwiper(): void {
+    if (!this.swiperInstance) {
+      return;
+    }
+
+    this.swiperInstance.destroy(true, true);
+    this.swiperInstance = null;
   }
 
   get showLibrarySections(): boolean {

@@ -159,7 +159,7 @@ export class ExplorePage implements OnInit {
   private static readonly PRICE_FORMATTER_LOCALE = 'de-CH';
   private static readonly PRICE_FORMATTERS = new Map<string, Intl.NumberFormat>();
 
-  readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
+  readonly exploreFeatureEnabled = isRecommendationsExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
     { value: 'BACKLOG', label: 'Backlog' },
     { value: 'WISHLIST', label: 'Wishlist' },
@@ -299,8 +299,8 @@ export class ExplorePage implements OnInit {
   }
 
   ngOnInit(): void {
-    if (!this.recommendationFeatureEnabled) {
-      this.recommendationError = 'Recommendations are disabled in this build.';
+    if (!this.exploreFeatureEnabled) {
+      this.recommendationError = 'Explore feature is disabled in this build.';
       this.recommendationErrorCode = 'REQUEST_FAILED';
       return;
     }
@@ -348,7 +348,7 @@ export class ExplorePage implements OnInit {
     void this.ensureVisibleDiscoveryPricingHydrated();
   }
 
-  async refreshRecommendations(event: Event): Promise<void> {
+  async refreshExplore(event: Event): Promise<void> {
     try {
       if (this.selectedExploreMode === 'popularity') {
         await this.loadPopularityFeed(true);
@@ -1230,7 +1230,7 @@ export class ExplorePage implements OnInit {
   }
 
   private async loadRecommendationLanes(forceRefresh: boolean): Promise<void> {
-    if (!this.recommendationFeatureEnabled) {
+    if (!this.exploreFeatureEnabled) {
       return;
     }
 
@@ -1293,7 +1293,7 @@ export class ExplorePage implements OnInit {
   }
 
   private async loadPopularityFeed(forceRefresh: boolean): Promise<void> {
-    if (!this.recommendationFeatureEnabled) {
+    if (!this.exploreFeatureEnabled) {
       return;
     }
 

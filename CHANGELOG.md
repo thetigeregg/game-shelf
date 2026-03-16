@@ -2276,3 +2276,8 @@
 - bdfde06c fix(api): use IGDB release_dates precision for release monitor
 - 9a6e2a2f fix(api): cap unreleased release monitor recheck window to 15 days
 
+## v1.5.3 - 2026-03-16
+- b9d1db11 Merge pull request #235 from thetigeregg/feat/popularity-ui
+- 0bf473e8 fix(ui): harden game detail swiper lifecycle and add carousel unit tests
+- 1d2776bb fix(ui): migrate game detail swiper to TypeScript init and refresh
+

@@ -87,7 +87,7 @@ function runGh(args, options = {}) {
 function getRepoInfo() {
   const result = JSON.parse(runGh(['repo', 'view', '--json', 'nameWithOwner']));
   const [owner, repo] = result.nameWithOwner.split('/');
-  return { owner, repo };
+  return { owner, repo, nameWithOwner: result.nameWithOwner };
 }
 
 function getPRData(prNumber) {
@@ -116,6 +116,7 @@ function analyzeChecks(checks) {
   const ciFailures = [];
   const coverageFailures = [];
   const pending = [];
+  const successes = [];
 
   for (const check of checks) {
     const normalized = {
@@ -136,7 +137,12 @@ function analyzeChecks(checks) {
       continue;
     }
 
-    if (normalized.conclusion === 'FAILURE') {
+    if (normalized.conclusion === 'SUCCESS') {
+      successes.push(normalized);
+      continue;
+    }
+
+    if (normalized.conclusion === 'FAILURE' || normalized.conclusion === 'TIMED_OUT') {
       if (/codecov|coverage/i.test(normalized.name)) {
         coverageFailures.push(normalized);
       } else {
@@ -145,7 +151,7 @@ function analyzeChecks(checks) {
     }
   }
 
-  return { ciFailures, coverageFailures, pending };
+  return { ciFailures, coverageFailures, pending, successes };
 }
 
 function isIgnoredAutomationAuthor(author) {
@@ -343,7 +349,9 @@ function buildInlineReviewTasks(threads, { copilotOnly = false } = {}) {
       const author = comment.author?.login || '';
       if (!includeReviewItem(comment.body, author)) return false;
       if (!copilotOnly) return true;
-      return author.toLowerCase().includes('copilot') || author.toLowerCase().includes('bot');
+
+      const normalized = author.toLowerCase();
+      return normalized.includes('copilot') || normalized.includes('bot');
     });
 
     if (!reviewerComment) continue;
@@ -423,23 +431,6 @@ function getLatestWorkflowRun(headRefName, workflowName) {
         run.headBranch === headRefName
     ) || null
   );
-}
-
-function getPullRequestRuns(headRefName) {
-  const result = runGh([
-    'run',
-    'list',
-    '--branch',
-    headRefName,
-    '--json',
-    'databaseId,workflowName,event,headBranch,status,conclusion,createdAt,updatedAt',
-    '--limit',
-    '50'
-  ]);
-
-  const runs = JSON.parse(result);
-
-  return runs.filter((run) => run.event === 'pull_request' && run.headBranch === headRefName);
 }
 
 function getJobs(runId) {
@@ -654,38 +645,24 @@ function extractSnippet(filePath, lines) {
 }
 
 function collectCoverageTasks(prData, preferredRunId = null) {
-  const warnings = [];
-  const candidateRuns = [];
-  const seen = new Set();
-
-  if (preferredRunId) {
-    candidateRuns.push({ databaseId: preferredRunId, workflowName: CI_WORKFLOW_NAME });
-    seen.add(String(preferredRunId));
-  }
-
-  for (const run of getPullRequestRuns(prData.headRefName)) {
-    const id = String(run.databaseId);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    candidateRuns.push(run);
-  }
-
-  let artifactDir = null;
-  let artifactRun = null;
-
-  for (const run of candidateRuns) {
-    artifactDir = downloadCoverageArtifact(run.databaseId);
-    if (!artifactDir) continue;
-    artifactRun = run;
-    break;
-  }
-
-  if (!artifactDir) {
+  if (!preferredRunId) {
     return {
       run: null,
       tasks: [],
       warnings: [
-        'Coverage artifacts were unavailable, so uncovered line tasks could not be generated.'
+        `Coverage artifact inspection was skipped because no "${CI_WORKFLOW_NAME}" workflow run was identified for this PR.`
+      ]
+    };
+  }
+
+  const artifactDir = downloadCoverageArtifact(preferredRunId);
+
+  if (!artifactDir) {
+    return {
+      run: { databaseId: preferredRunId, workflowName: CI_WORKFLOW_NAME },
+      tasks: [],
+      warnings: [
+        `Coverage artifact "${COVERAGE_ARTIFACT_NAME}" was not available on workflow run ${preferredRunId}.`
       ]
     };
   }
@@ -699,13 +676,19 @@ function collectCoverageTasks(prData, preferredRunId = null) {
     snippet: extractSnippet(filePath, intersected[filePath])
   }));
 
+  const warnings = [];
+
   if (!tasks.length) {
     warnings.push(
       'Coverage artifacts were downloaded, but no uncovered lines matched the files modified in this PR.'
     );
   }
 
-  return { run: artifactRun, tasks, warnings };
+  return {
+    run: { databaseId: preferredRunId, workflowName: CI_WORKFLOW_NAME },
+    tasks,
+    warnings
+  };
 }
 
 function bulletList(items) {
@@ -717,18 +700,72 @@ function formatCheckSummary(check) {
   return `${check.name}${suffix}`;
 }
 
+function buildCurrentStatus(data) {
+  const ciStatus =
+    data.checks.ciFailures.length > 0
+      ? `FAIL (${data.checks.ciFailures.length} failing check${data.checks.ciFailures.length === 1 ? '' : 's'})`
+      : data.checks.pending.length > 0
+        ? `PENDING (${data.checks.pending.length} running or queued check${data.checks.pending.length === 1 ? '' : 's'})`
+        : 'PASS';
+
+  const coverageStatus =
+    data.checks.coverageFailures.length > 0
+      ? `FAIL (${data.checks.coverageFailures.length} failing coverage check${data.checks.coverageFailures.length === 1 ? '' : 's'})`
+      : data.coverage.tasks.length > 0
+        ? `ACTION NEEDED (${data.coverage.tasks.length} changed file${data.coverage.tasks.length === 1 ? '' : 's'} with uncovered lines)`
+        : 'PASS';
+
+  const reviewCount = data.review.inline.length + data.review.general.length;
+  const reviewStatus =
+    reviewCount > 0
+      ? `ACTION NEEDED (${reviewCount} unresolved review item${reviewCount === 1 ? '' : 's'})`
+      : 'PASS';
+
+  let focus =
+    'Everything currently looks green. Verify the latest state and avoid unnecessary changes.';
+
+  if (data.checks.ciFailures.length > 0) {
+    focus = 'Focus first on fixing failing CI checks and the underlying root causes.';
+  } else if (data.coverage.tasks.length > 0 || data.checks.coverageFailures.length > 0) {
+    focus = 'Focus on adding or updating tests for changed code with coverage gaps.';
+  } else if (reviewCount > 0) {
+    focus = 'Focus only on resolving the remaining review feedback.';
+  } else if (data.checks.pending.length > 0) {
+    focus = 'Wait for pending checks to finish before assuming the PR is complete.';
+  }
+
+  return [
+    '# Current Status',
+    '',
+    `CI: ${ciStatus}`,
+    `Coverage: ${coverageStatus}`,
+    `Review feedback: ${reviewStatus}`,
+    '',
+    `Focus: ${focus}`
+  ].join('\n');
+}
+
 function buildPrompt(data) {
   const sections = [];
 
   sections.push(`# Pull Request Agent Task\n\nPR: #${data.pr}\nTitle: ${data.title}`);
 
+  sections.push(buildCurrentStatus(data));
+
   sections.push(
     [
-      '# Execution Order',
-      '1. Fix CI failures first.',
-      '2. Add or update tests for uncovered changed code.',
-      '3. Address unresolved review feedback.',
-      '4. Re-run validation before preparing the final commit message.'
+      '# Fix Strategy',
+      '',
+      'Work through the following priorities in order:',
+      '',
+      '1. Fix CI failures',
+      '2. Fix failing tests',
+      '3. Address uncovered code in changed files',
+      '4. Resolve unresolved review comments',
+      '5. Ensure linting and build succeed',
+      '',
+      'Always fix root causes rather than suppressing errors.',
+      'Avoid unrelated refactors.'
     ].join('\n')
   );
 
@@ -897,17 +934,32 @@ Address this review feedback in the PR updates and ensure the conversation is re
 
   sections.push(
     [
-      '# Final Validation',
+      '# Definition of Done',
       '',
-      'Before finishing:',
+      'The pull request is complete only when all of the following are satisfied:',
       '',
-      '• All CI checks must pass',
-      '• Coverage regressions for changed code must be addressed',
-      '• All unresolved review comments must be addressed',
-      '• Frontend build must succeed',
-      '• Linting must pass with no errors',
-      '• Frontend tests must pass with no failures',
-      '• Backend tests must pass with no failures',
+      '• All CI checks pass',
+      '• All review comments are addressed',
+      '• Frontend build succeeds',
+      '• Linting passes with no errors',
+      '• Frontend tests pass with no failures',
+      '• Backend tests pass with no failures',
+      '• Coverage does not regress for modified code',
+      '',
+      'Before finishing, verify locally:',
+      '',
+      '```bash',
+      'npm run lint',
+      'npm run test',
+      'npm run build',
+      '```',
+      '',
+      'If backend tests exist separately:',
+      '',
+      '```bash',
+      'cd server',
+      'npm run test',
+      '```',
       '',
       'Finally: generate the Conventional Commit message for the changes.'
     ].join('\n')

@@ -11,10 +11,18 @@ function debug(...args) {
 
 function runGh(args) {
   debug('gh', args.join(' '));
-  return execFileSync('gh', args, {
-    encoding: 'utf8',
-    maxBuffer: 1024 * 1024 * 50
-  });
+
+  try {
+    return execFileSync('gh', args, {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024 * 50
+    });
+  } catch (err) {
+    console.error('GitHub CLI command failed:', args.join(' '));
+    if (err.stdout) process.stdout.write(err.stdout);
+    if (err.stderr) process.stderr.write(err.stderr);
+    process.exit(err.status || 1);
+  }
 }
 
 function getPRData(pr) {
@@ -22,97 +30,14 @@ function getPRData(pr) {
     runGh(['pr', 'view', pr, '--json', 'title,headRefOid,files,comments,reviews,statusCheckRollup'])
   );
 
-  const files = (data.files || []).map((f) => f.path);
-
   return {
     title: data.title,
     sha: data.headRefOid,
-    files,
+    files: (data.files || []).map((f) => f.path),
     comments: data.comments || [],
     reviews: data.reviews || [],
     checks: data.statusCheckRollup || []
   };
-}
-
-function getInlineReviewComments(ownerRepo, pr) {
-  try {
-    const data = JSON.parse(runGh(['api', `repos/${ownerRepo}/pulls/${pr}/comments`]));
-
-    const results = [];
-
-    for (const c of data) {
-      const body = c.body?.trim();
-      const author = c.user?.login;
-
-      if (!body) continue;
-
-      const b = body.toLowerCase();
-
-      if (author?.includes('copilot')) continue;
-      if (author?.includes('codecov')) continue;
-      if (author?.includes('github-actions')) continue;
-
-      if (b.includes('low confidence')) continue;
-      if (b.includes('comments suppressed')) continue;
-      if (b.includes('<details>')) continue;
-
-      results.push({
-        author,
-        file: c.path,
-        line: c.line || c.original_line,
-        body
-      });
-    }
-
-    debug('Inline review comments:', results.length);
-
-    return results;
-  } catch (e) {
-    debug('Inline review fetch failed');
-    return [];
-  }
-}
-
-function filterReviewComments(comments, reviews) {
-  const results = [];
-
-  function include(body, author) {
-    if (!body) return false;
-
-    const b = body.toLowerCase();
-
-    if (author?.includes('copilot')) return false;
-    if (author?.includes('github-actions')) return false;
-    if (author?.includes('codecov')) return false;
-
-    if (b.includes('low confidence')) return false;
-    if (b.includes('comments suppressed')) return false;
-    if (b.includes('<details>')) return false;
-
-    return true;
-  }
-
-  for (const c of comments) {
-    if (include(c.body, c.author?.login)) {
-      results.push({
-        author: c.author?.login,
-        body: c.body,
-        file: c.path || '',
-        line: c.line || ''
-      });
-    }
-  }
-
-  for (const r of reviews) {
-    if (include(r.body, r.author?.login)) {
-      results.push({
-        author: r.author?.login,
-        body: r.body
-      });
-    }
-  }
-
-  return results;
 }
 
 function analyzeChecks(checks) {
@@ -158,13 +83,15 @@ function findWorkflowRun(sha) {
     ])
   );
 
-  const ciRun = runs.find((r) => r.workflowName === 'CI PR Checks');
+  const ciRuns = runs
+    .filter((r) => r.workflowName === 'CI PR Checks')
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  if (!ciRun) return null;
+  const selected = ciRuns[0];
 
-  debug('Selected workflow run:', ciRun);
+  debug('Selected workflow run:', selected);
 
-  return ciRun.databaseId;
+  return selected ? selected.databaseId : null;
 }
 
 function findFailedJobs(runId) {
@@ -173,11 +100,16 @@ function findFailedJobs(runId) {
   const failures = [];
 
   for (const job of data.jobs || []) {
-    if (job.conclusion === 'failure') {
-      failures.push({
-        job: job.name,
-        id: job.databaseId
-      });
+    if (!job.steps) continue;
+
+    for (const step of job.steps) {
+      if (step.conclusion === 'failure') {
+        failures.push({
+          job: job.name,
+          step: step.name,
+          id: job.databaseId
+        });
+      }
     }
   }
 
@@ -191,11 +123,13 @@ function getFailureLogs(runId, jobs) {
     try {
       debug('Fetching logs for job:', j.job);
 
-      const l = runGh(['run', 'view', runId, '--job', j.id, '--log']);
+      const jobLogs = runGh(['run', 'view', runId, '--job', j.id, '--log']);
 
-      logs += `\n\n===== ${j.job} =====\n\n`;
-      logs += l;
-    } catch {}
+      logs += `\n\n===== ${j.job} / ${j.step} =====\n\n`;
+      logs += jobLogs;
+    } catch {
+      debug('Failed to fetch logs for job:', j.job);
+    }
   }
 
   return logs;
@@ -206,42 +140,67 @@ function extractRelevantLogs(logs) {
 
   const lines = logs.split('\n');
 
-  const idx = lines.findIndex(
+  const errorIndex = lines.findIndex(
     (l) => l.includes('FAIL') || l.includes('Error:') || l.includes('Test Suites:')
   );
 
-  if (idx === -1) return lines.slice(-40);
+  if (errorIndex === -1) return lines.slice(-40);
 
-  return lines.slice(Math.max(0, idx - 25), idx + 25);
+  return lines.slice(Math.max(0, errorIndex - 25), errorIndex + 25);
 }
 
-function getCodecovCoverageRegression(ownerRepo, sha) {
-  try {
-    const data = JSON.parse(runGh(['api', `repos/${ownerRepo}/commits/${sha}/check-runs`]));
+function filterReviewComments(comments, reviews) {
+  const results = [];
 
-    const codecov = data.check_runs?.find((r) => r.name?.startsWith('codecov'));
+  function include(body, author) {
+    if (!body) return false;
 
-    if (!codecov?.output?.summary) return [];
+    const b = body.toLowerCase();
 
-    const summary = codecov.output.summary;
-    const lines = summary.split('\n');
+    if (author?.includes('copilot')) return false;
+    if (author?.includes('github-actions')) return false;
+    if (author?.includes('codecov')) return false;
 
-    const regressions = [];
+    if (b.includes('low confidence')) return false;
+    if (b.includes('<details>')) return false;
 
-    for (const line of lines) {
-      const match = line.match(/`(.+?)`\s*\|\s*-([\d.]+)%/);
+    return true;
+  }
 
-      if (match) {
-        regressions.push({
-          file: match[1],
-          drop: match[2]
-        });
-      }
+  for (const c of comments) {
+    if (include(c.body, c.author?.login)) {
+      results.push({
+        author: c.author?.login,
+        body: c.body,
+        file: c.path,
+        line: c.line
+      });
     }
+  }
 
-    return regressions;
-  } catch (e) {
-    debug('Codecov regression parse failed');
+  for (const r of reviews) {
+    if (include(r.body, r.author?.login)) {
+      results.push({
+        author: r.author?.login,
+        body: r.body
+      });
+    }
+  }
+
+  return results;
+}
+
+function getInlineReviewComments(repo, pr) {
+  try {
+    const data = JSON.parse(runGh(['api', `repos/${repo}/pulls/${pr}/comments`]));
+
+    return data.map((c) => ({
+      author: c.user?.login,
+      file: c.path,
+      line: c.line || c.original_line,
+      body: c.body
+    }));
+  } catch {
     return [];
   }
 }
@@ -255,26 +214,13 @@ function getDiff(pr) {
 }
 
 function buildPrompt(data) {
-  const {
-    pr,
-    title,
-    files,
-    diff,
-    ciFailures,
-    coverageFailures,
-    pending,
-    reviews,
-    logs,
-    coverageRegression
-  } = data;
-
-  const relevantLogs = extractRelevantLogs(logs);
+  const relevantLogs = extractRelevantLogs(data.logs);
 
   let md = `
 # Pull Request Agent Task
 
-PR: #${pr}
-Title: ${title}
+PR: #${data.pr}
+Title: ${data.title}
 
 Resolve CI failures, coverage regressions, and review feedback.
 
@@ -283,14 +229,14 @@ Resolve CI failures, coverage regressions, and review feedback.
 # Changed Files
 `;
 
-  for (const f of files) md += `• ${f}\n`;
+  for (const f of data.files) md += `• ${f}\n`;
 
   md += '\n---\n';
 
-  if (ciFailures.length) {
+  if (data.ciFailures.length) {
     md += `# CI Failures\n\n`;
 
-    for (const f of ciFailures) md += `• ${f}\n`;
+    for (const f of data.ciFailures) md += `• ${f}\n`;
 
     if (relevantLogs.length) {
       md += `\n\`\`\`\n${relevantLogs.join('\n')}\n\`\`\`\n`;
@@ -299,40 +245,26 @@ Resolve CI failures, coverage regressions, and review feedback.
     md += '\n---\n';
   }
 
-  if (coverageFailures.length) {
+  if (data.coverageFailures.length) {
     md += `# Coverage Failures\n\n`;
 
-    for (const c of coverageFailures) md += `• ${c}\n`;
+    for (const c of data.coverageFailures) md += `• ${c}\n`;
 
     md += '\n---\n';
   }
 
-  if (coverageRegression.length) {
-    md += `# Coverage Regression\n\n`;
-
-    for (const r of coverageRegression) {
-      md += `• ${r.file}  (-${r.drop}%)\n`;
-    }
-
-    md += `
-Add tests covering the new or modified logic in these files.
-
----
-`;
-  }
-
-  if (pending.length) {
+  if (data.pending.length) {
     md += `# Pending Checks\n\n`;
 
-    for (const p of pending) md += `• ${p}\n`;
+    for (const p of data.pending) md += `• ${p}\n`;
 
     md += '\n---\n';
   }
 
-  if (reviews.length) {
+  if (data.reviews.length) {
     md += `# Review Feedback\n`;
 
-    for (const r of reviews) {
+    for (const r of data.reviews) {
       md += `
 Reviewer: ${r.author || 'reviewer'}
 
@@ -347,7 +279,7 @@ ${r.body}
 # Pull Request Diff
 
 \`\`\`diff
-${diff}
+${data.diff}
 \`\`\`
 
 ---
@@ -379,11 +311,11 @@ function main() {
 
   const prData = getPRData(pr);
 
-  const repo = JSON.parse(runGh(['repo', 'view', '--json', 'nameWithOwner']));
+  const repo = JSON.parse(runGh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
 
   const discussionComments = filterReviewComments(prData.comments, prData.reviews);
 
-  const inlineComments = getInlineReviewComments(repo.nameWithOwner, pr);
+  const inlineComments = getInlineReviewComments(repo, pr);
 
   const reviews = [...discussionComments, ...inlineComments];
 
@@ -396,18 +328,9 @@ function main() {
 
     if (runId) {
       const jobs = findFailedJobs(runId);
+
       logs = getFailureLogs(runId, jobs);
     }
-  }
-
-  let coverageRegression = [];
-
-  if (coverageFailures.length) {
-    try {
-      const repo = JSON.parse(runGh(['repo', 'view', '--json', 'nameWithOwner']));
-
-      coverageRegression = getCodecovCoverageRegression(repo.nameWithOwner, prData.sha);
-    } catch {}
   }
 
   const diff = getDiff(pr);
@@ -421,8 +344,7 @@ function main() {
     coverageFailures,
     pending,
     reviews,
-    logs,
-    coverageRegression
+    logs
   });
 
   fs.writeFileSync(OUTPUT_FILE, prompt);

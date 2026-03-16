@@ -1092,6 +1092,11 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS games_owned_list_type_game_idx
   ON games (igdb_game_id)
   WHERE payload->>'listType' IN ('collection', 'wishlist');
+  `,
+  `
+  UPDATE release_watch_state
+  SET next_check_at = NOW(), updated_at = NOW()
+  WHERE last_seen_state = 'scheduled';
   `
 ];
 

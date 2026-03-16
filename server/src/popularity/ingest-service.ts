@@ -534,7 +534,7 @@ export class PopularityIngestService {
       pendingRows.push({
         igdbGameId: item.igdbGameId,
         platformId: platform.id,
-        payload: JSON.stringify(buildGamePayload(item, platform))
+        payload: JSON.stringify(buildGameRefreshPayload(item))
       });
     }
 
@@ -561,21 +561,32 @@ export class PopularityIngestService {
 
       await queryable.query(
         `
-        UPDATE games AS g
-        SET payload = g.payload || jsonb_strip_nulls(typed.payload),
-            updated_at = NOW()
-        FROM (
-          VALUES ${valueClauses.join(', ')}
-        ) AS v(igdb_game_id, platform_igdb_id, payload)
-        CROSS JOIN LATERAL (
+        WITH typed AS (
           SELECT
             v.igdb_game_id::text AS igdb_game_id,
             v.platform_igdb_id::integer AS platform_igdb_id,
-            v.payload::jsonb AS payload
-        ) AS typed
-        WHERE g.igdb_game_id = typed.igdb_game_id
-          AND g.platform_igdb_id = typed.platform_igdb_id
-          AND g.payload IS DISTINCT FROM (g.payload || jsonb_strip_nulls(typed.payload))
+            jsonb_strip_nulls(v.payload::jsonb) AS payload
+          FROM (
+            VALUES ${valueClauses.join(', ')}
+          ) AS v(igdb_game_id, platform_igdb_id, payload)
+        ),
+        merged AS (
+          SELECT
+            g.igdb_game_id,
+            g.platform_igdb_id,
+            g.payload || typed.payload AS payload
+          FROM games AS g
+          INNER JOIN typed
+            ON g.igdb_game_id = typed.igdb_game_id
+           AND g.platform_igdb_id = typed.platform_igdb_id
+          WHERE g.payload IS DISTINCT FROM (g.payload || typed.payload)
+        )
+        UPDATE games AS g
+        SET payload = merged.payload,
+            updated_at = NOW()
+        FROM merged
+        WHERE g.igdb_game_id = merged.igdb_game_id
+          AND g.platform_igdb_id = merged.platform_igdb_id
         `,
         values
       );
@@ -883,6 +894,28 @@ function buildGamePayload(
     similarGameIgdbIds: item.similarGameIds,
     developers: item.developers,
     publishers: item.publishers
+  };
+}
+
+function buildGameRefreshPayload(item: WorkerGameItem): Record<string, unknown> {
+  return {
+    title: item.title,
+    summary: item.summary,
+    storyline: item.storyline,
+    coverUrl: item.coverUrl,
+    releaseDate: item.releaseDate,
+    releaseYear: item.releaseYear,
+    first_release_date: toUnixFromIso(item.releaseDate),
+    rating: item.rating,
+    total_rating_count: item.totalRatingCount,
+    totalRatingCount: item.totalRatingCount,
+    hypes: item.hypes,
+    follows: item.follows,
+    parent_game: item.parentGame,
+    parentGame: item.parentGame,
+    version_parent: item.versionParent,
+    versionParent: item.versionParent,
+    gameType: item.gameType ?? 'main_game'
   };
 }
 

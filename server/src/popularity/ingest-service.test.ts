@@ -138,7 +138,10 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       ]);
     }
 
-    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+    if (
+      normalized.startsWith('with typed as (') &&
+      normalized.includes('update games as g set payload = merged.payload')
+    ) {
       return queryResult([], 2);
     }
 
@@ -274,7 +277,10 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       );
     }
 
-    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+    if (
+      normalized.startsWith('with typed as (') &&
+      normalized.includes('update games as g set payload = merged.payload')
+    ) {
       return queryResult([], 250);
     }
 
@@ -644,7 +650,10 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       return queryResult([{ igdb_game_id: '347668', platform_igdb_id: 6 } as QueryResultRow]);
     }
 
-    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+    if (
+      normalized.startsWith('with typed as (') &&
+      normalized.includes('update games as g set payload = merged.payload')
+    ) {
       existingGamesRefreshCount += 1;
       const payload = typeof params?.[2] === 'string' ? params[2] : '';
       assert.ok(payload.includes('"title":"Resident Evil Requiem"'));
@@ -653,7 +662,12 @@ void test('runOnce refreshes existing game payloads before recomputing scores', 
       assert.ok(payload.includes('"total_rating_count":115'));
       assert.ok(payload.includes('"totalRatingCount":115'));
       assert.ok(payload.includes('"hypes":309'));
+      assert.ok(payload.includes('"follows":null'));
       assert.ok(payload.includes('"gameType":"main_game"'));
+      assert.ok(!payload.includes('"platform":"PC"'));
+      assert.ok(!payload.includes('"platformIgdbId":6'));
+      assert.ok(!payload.includes('"platformOptions"'));
+      assert.ok(!payload.includes('"platforms"'));
       return queryResult([], 1);
     }
 
@@ -823,7 +837,10 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
       );
     }
 
-    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+    if (
+      normalized.startsWith('with typed as (') &&
+      normalized.includes('update games as g set payload = merged.payload')
+    ) {
       return queryResult([], 1);
     }
 

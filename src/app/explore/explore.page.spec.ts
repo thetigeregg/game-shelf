@@ -2206,4 +2206,54 @@ describe('ExplorePage explore modes UX', () => {
     resolveHydration?.();
     await Promise.all([firstRun, secondRun]);
   });
+
+  it('hydrates visible popularity catalog on load-more pagination', async () => {
+    const page = createPage() as unknown as {
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+      loadMorePopularity: (event: Event) => Promise<void>;
+    };
+
+    const hydrateSpy = vi
+      .spyOn(page, 'ensureVisiblePopularityCatalogHydrated')
+      .mockResolvedValue(undefined);
+    const complete = vi.fn().mockResolvedValue(undefined);
+
+    await page.loadMorePopularity({ target: { complete } } as unknown as Event);
+
+    expect(hydrateSpy).toHaveBeenCalledTimes(1);
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('single-flights visible popularity catalog hydration across overlapping calls', async () => {
+    const page = createPage() as unknown as {
+      activePopularityItems: Array<{ id: string; platformIgdbId: number }>;
+      visiblePopularityCount: number;
+      popularityCatalogHydrationAttempted: Set<string>;
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+      fetchRecommendationCatalogResult: (igdbGameId: string) => Promise<unknown>;
+    };
+
+    page.activePopularityItems = [{ id: '1300', platformIgdbId: 6 }];
+    page.visiblePopularityCount = 10;
+
+    let resolveHydration: (() => void) | null = null;
+    const hydrationPromise = new Promise<void>((resolve) => {
+      resolveHydration = resolve;
+    });
+
+    const fetchSpy = vi
+      .spyOn(page, 'fetchRecommendationCatalogResult')
+      .mockImplementation(() => hydrationPromise);
+
+    const firstRun = page.ensureVisiblePopularityCatalogHydrated();
+    const secondRun = page.ensureVisiblePopularityCatalogHydrated();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith('1300');
+
+    resolveHydration?.();
+    await Promise.all([firstRun, secondRun]);
+
+    expect(page.popularityCatalogHydrationAttempted.has('1300')).toBe(true);
+  });
 });

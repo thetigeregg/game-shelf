@@ -514,6 +514,14 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
     ) {
       const payload = typeof params?.[2] === 'string' ? params[2] : '';
       assert.ok(payload.includes('"gameType":"main_game"'));
+      assert.ok(payload.includes('"summary":"A detailed summary"'));
+      assert.ok(payload.includes('"storyline":"A detailed storyline"'));
+      assert.ok(payload.includes('"genres":["Action","Adventure"]'));
+      assert.ok(payload.includes('"collections":["Series Collection"]'));
+      assert.ok(payload.includes('"franchises":["Series Franchise"]'));
+      assert.ok(payload.includes('"similarGameIgdbIds":["22","33"]'));
+      assert.ok(payload.includes('"developers":["Studio One"]'));
+      assert.ok(payload.includes('"publishers":["Publisher Two"]'));
       return queryResult([], 1);
     }
 
@@ -552,8 +560,26 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
             {
               id: 10,
               name: 'New Game',
+              summary: 'A detailed summary',
+              storyline: 'A detailed storyline',
               first_release_date: 1_700_000_000,
-              platforms: [{ id: 6, name: 'PC' }]
+              platforms: [{ id: 6, name: 'PC' }],
+              genres: [{ name: 'Action' }, { name: 'Adventure' }],
+              collections: [{ name: 'Series Collection' }],
+              franchises: [{ name: 'Series Franchise' }],
+              similar_games: [22, 33],
+              involved_companies: [
+                {
+                  developer: true,
+                  publisher: false,
+                  company: { name: 'Studio One' }
+                },
+                {
+                  developer: false,
+                  publisher: true,
+                  company: { name: 'Publisher Two' }
+                }
+              ]
             }
           ]),
           {

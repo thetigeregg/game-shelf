@@ -248,6 +248,28 @@ export interface RecommendationSimilarResponse {
   items: RecommendationSimilarItem[];
 }
 
+export type PopularityFeedType = 'trending' | 'upcoming' | 'recent';
+
+export interface PopularityFeedPlatformOption {
+  id: number;
+  name: string;
+}
+
+export interface PopularityFeedItem {
+  id: string;
+  platformIgdbId: number;
+  name: string;
+  coverUrl: string | null;
+  rating: number | null;
+  popularityScore: number;
+  firstReleaseDate: number | null;
+  platforms: PopularityFeedPlatformOption[];
+}
+
+export interface PopularityFeedResponse {
+  items: PopularityFeedItem[];
+}
+
 export interface GameEntry {
   id?: number;
   igdbGameId: string;

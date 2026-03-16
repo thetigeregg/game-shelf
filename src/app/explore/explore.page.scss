@@ -2,14 +2,6 @@
   margin-right: 0;
 }
 
-.explore-mode-item {
-  --inner-padding-end: 0;
-
-  ion-segment {
-    width: 100%;
-  }
-}
-
 .loading-state {
   display: flex;
   justify-content: center;
@@ -92,6 +84,10 @@ ion-label p:not(.recommendation-headline) {
 }
 
 .lane-context {
+  border-bottom: 1px solid color-mix(in srgb, var(--ion-color-medium) 20%, transparent);
+}
+
+.segment-toolbar {
   border-bottom: 1px solid color-mix(in srgb, var(--ion-color-medium) 20%, transparent);
 }
 

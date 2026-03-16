@@ -26,30 +26,33 @@ function runGh(args) {
 }
 
 function getPRInfo(prNumber) {
-  const result = runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid']);
+  const result = runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid,headRefName']);
 
   const parsed = JSON.parse(result);
   log('PR info:', parsed);
   return parsed;
 }
 
-function getLatestCIRun(commitSha) {
+function getLatestCIRun(headRefName) {
   const result = runGh([
     'run',
     'list',
-    '--commit',
-    commitSha,
+    '--branch',
+    headRefName,
     '--json',
-    'databaseId,workflowName,status,conclusion',
+    'databaseId,workflowName,event,headBranch,status,conclusion',
     '--limit',
-    '20'
+    '50'
   ]);
 
   const runs = JSON.parse(result);
 
   log('Workflow runs:', runs);
 
-  const ciRun = runs.find((r) => r.workflowName === WORKFLOW_NAME);
+  const ciRun = runs.find(
+    (r) =>
+      r.workflowName === WORKFLOW_NAME && r.event === 'pull_request' && r.headBranch === headRefName
+  );
 
   if (!ciRun) {
     throw new Error(`Could not find workflow run named "${WORKFLOW_NAME}"`);
@@ -115,8 +118,6 @@ function getLogsForFailures(runId, failures) {
 }
 
 function extractRelevantLogs(logs) {
-  if (!logs) return [];
-
   const lines = logs.split('\n');
 
   const errorIndex = lines.findIndex(
@@ -139,7 +140,7 @@ function extractRelevantLogs(logs) {
 }
 
 function buildPrompt(prNumber, title, failures, logs) {
-  const relevant = extractRelevantLogs(logs) || [];
+  const relevant = extractRelevantLogs(logs);
 
   let md = `
 # CI Failure Fix Tasks
@@ -161,24 +162,16 @@ Guidelines:
 
   if (!failures.length) {
     md += `
-No explicit failing CI steps were detected.
-`;
+No explicit failing steps were detected.
 
-    if (relevant.length) {
-      md += `
-However CI logs contained potentially relevant lines:
+However CI logs contain suspicious lines:
 
 \`\`\`
 ${relevant.join('\n')}
 \`\`\`
-`;
-    } else {
-      md += `
-No obvious failure lines were detected in the CI logs.
 
-Investigate the CI workflow manually to determine the root cause.
+Investigate and resolve the issue.
 `;
-    }
   } else {
     let task = 1;
 
@@ -192,25 +185,12 @@ ${failure.job}
 Failing Step:
 ${failure.step}
 
-`;
-
-      if (relevant.length) {
-        md += `
 Relevant Log Output:
 
 \`\`\`
 ${relevant.join('\n')}
 \`\`\`
-`;
-      } else {
-        md += `
-Relevant Log Output:
 
-(No obvious failure lines detected in logs. Inspect the job output for details.)
-`;
-      }
-
-      md += `
 Required Action:
 
 Fix the failure so CI passes.
@@ -231,7 +211,7 @@ After fixing the issues:
 Generate the Conventional Commit message for the changes.
 `;
 
-  return md.trim() + '\n';
+  return md;
 }
 
 function main() {
@@ -246,7 +226,7 @@ function main() {
 
   const pr = getPRInfo(prNumber);
 
-  const run = getLatestCIRun(pr.headRefOid);
+  const run = getLatestCIRun(pr.headRefName);
 
   console.log(`Using workflow run: ${run.databaseId}`);
 

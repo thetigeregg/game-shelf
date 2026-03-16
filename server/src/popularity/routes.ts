@@ -9,6 +9,7 @@ interface PopularityGameRow extends QueryResultRow {
 }
 
 interface PopularityRouteOptions {
+  rowLimit: number;
   threshold: number;
 }
 
@@ -33,8 +34,6 @@ const ROUTE_RATE_LIMIT = {
   timeWindow: '1 minute'
 };
 
-const FEED_ROW_LIMIT = 50;
-
 export function registerPopularityRoutes(
   app: FastifyInstance,
   pool: Pool,
@@ -48,6 +47,7 @@ export function registerPopularityRoutes(
     },
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
+        rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
         feedType: 'trending'
@@ -64,6 +64,7 @@ export function registerPopularityRoutes(
     },
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
+        rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
         feedType: 'upcoming'
@@ -80,6 +81,7 @@ export function registerPopularityRoutes(
     },
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
+        rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
         feedType: 'recent'
@@ -94,6 +96,7 @@ export function registerPopularityRoutes(
 async function fetchFeedRows(
   pool: Pool,
   params: {
+    rowLimit: number;
     scoreThreshold: number;
     nowSec: number;
     feedType: 'trending' | 'upcoming' | 'recent';
@@ -116,7 +119,7 @@ async function fetchFeedRows(
     limitPlaceholder = '$4';
   }
 
-  queryParams.push(FEED_ROW_LIMIT);
+  queryParams.push(params.rowLimit);
 
   const result = await pool.query<PopularityGameRow>(
     `

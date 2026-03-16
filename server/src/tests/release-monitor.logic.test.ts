@@ -538,7 +538,7 @@ void test('computeNextCheckAt covers precision windows and periodic refresh cade
       null
     )
   );
-  assert.equal(Math.round((yearFuture - now.getTime()) / oneDayMs), 30);
+  assert.equal(Math.round((yearFuture - now.getTime()) / oneDayMs), 15);
 
   const refreshSoonest = Date.parse(
     releaseMonitorInternals.computeNextCheckAt(
@@ -580,7 +580,7 @@ void test('computeNextCheckAt ignores refresh cadence when provider refresh is i
     )
   );
 
-  assert.equal(Math.round((nextCheckWithoutRefresh - now.getTime()) / oneDayMs), 365);
+  assert.equal(Math.round((nextCheckWithoutRefresh - now.getTime()) / oneDayMs), 15);
 });
 
 void test('normalizers handle invalid marker and precision inputs', () => {

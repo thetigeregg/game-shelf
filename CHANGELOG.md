@@ -2247,3 +2247,16 @@
 - fbe30c85 fix(api): use contiguous SQL placeholders in popularity feed queries
 - a8357690 feat(api): add popularity feed client support for trending endpoints
 
+## v1.5.0 - 2026-03-16
+- 7429b7b8 Merge pull request #232 from thetigeregg/feat/popularity-ui
+- da977a8f fix(popularity): refresh release year in game payloads
+- f798dbda test(server): isolate config env clamp test
+- 720ad3f9 fix(server): isolate popularity config env test
+- 66e50504 fix(popularity): narrow existing payload refresh fields
+- bb7901bf fix(popularity): cache existing game refresh payloads
+- 0c219286 fix(popularity): document feed row limit clamp and isolate config test
+- 781837fd fix(popularity): narrow refresh payload updates and clamp feed row limit
+- 1bfa8435 chore: force push
+- 491e82c6 fix(api): refresh existing popularity game payloads during ingest
+- 41cac9cd feat(api): make popularity feed row limit configurable
+

@@ -252,7 +252,7 @@ describe('ExplorePage explore modes UX', () => {
 
   it('sets disabled state when recommendations feature flag is off', () => {
     const page = createPage();
-    Object.defineProperty(page, 'exploreFeatureEnabled', {
+    Object.defineProperty(page, 'exploreEnabled', {
       value: false,
       configurable: true
     });

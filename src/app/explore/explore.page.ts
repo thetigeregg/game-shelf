@@ -68,7 +68,7 @@ import {
   normalizeGameStatus,
   parseTagSelection
 } from '../features/game-list/game-list-detail-actions';
-import { isRecommendationsExploreEnabled } from '../core/config/runtime-config';
+import { isExploreEnabled } from '../core/config/runtime-config';
 import { completeIonInfiniteScroll } from '../core/utils/ion-infinite-scroll.utils';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
@@ -159,7 +159,7 @@ export class ExplorePage implements OnInit {
   private static readonly PRICE_FORMATTER_LOCALE = 'de-CH';
   private static readonly PRICE_FORMATTERS = new Map<string, Intl.NumberFormat>();
 
-  readonly exploreFeatureEnabled = isRecommendationsExploreEnabled();
+  readonly exploreEnabled = isExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
     { value: 'BACKLOG', label: 'Backlog' },
     { value: 'WISHLIST', label: 'Wishlist' },
@@ -299,7 +299,7 @@ export class ExplorePage implements OnInit {
   }
 
   ngOnInit(): void {
-    if (!this.exploreFeatureEnabled) {
+    if (!this.exploreEnabled) {
       this.recommendationError = 'Explore feature is disabled in this build.';
       this.recommendationErrorCode = 'REQUEST_FAILED';
       return;
@@ -1230,7 +1230,7 @@ export class ExplorePage implements OnInit {
   }
 
   private async loadRecommendationLanes(forceRefresh: boolean): Promise<void> {
-    if (!this.exploreFeatureEnabled) {
+    if (!this.exploreEnabled) {
       return;
     }
 
@@ -1293,7 +1293,7 @@ export class ExplorePage implements OnInit {
   }
 
   private async loadPopularityFeed(forceRefresh: boolean): Promise<void> {
-    if (!this.exploreFeatureEnabled) {
+    if (!this.exploreEnabled) {
       return;
     }
 

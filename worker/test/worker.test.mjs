@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { __testables, handleRequest, normalizeIgdbGame, resetCaches } from '../src/index.mjs';
+import {
+  __testables,
+  handleRequest,
+  normalizeIgdbGame,
+  normalizeIgdbReleaseDates,
+  resetCaches
+} from '../src/index.mjs';
 
 const env = {
   TWITCH_CLIENT_ID: 'client-id',
@@ -125,9 +131,29 @@ test('normalizeIgdbGame maps IGDB payload to app shape', () => {
     platformOptions: [{ id: null, name: 'Nintendo Switch' }],
     platform: 'Nintendo Switch',
     platformIgdbId: null,
+    releaseDates: [],
     releaseDate: '2017-10-20T00:00:00.000Z',
     releaseYear: 2017
   });
+});
+
+test('normalizeIgdbReleaseDates maps IGDB categories to markers and precision', () => {
+  const normalized = normalizeIgdbReleaseDates([
+    { category: 0, platform: 167, y: 2026, m: 11, d: 19 },
+    { category: 1, platform: 48, y: 2026, m: 11 },
+    { category: 2, platform: 6, y: 2027 },
+    { category: 3, platform: 130, y: 2028 },
+    { category: 7, platform: 169, y: 2029 },
+    { category: 0, platform: null, y: 2026, m: 1, d: 1 }
+  ]);
+
+  assert.deepEqual(normalized, [
+    { platformIgdbId: 167, precision: 'day', marker: '2026-11-19' },
+    { platformIgdbId: 48, precision: 'month', marker: '2026-11' },
+    { platformIgdbId: 6, precision: 'year', marker: '2027' },
+    { platformIgdbId: 130, precision: 'quarter', marker: '2028-Q1' },
+    { platformIgdbId: 169, precision: 'unknown', marker: null }
+  ]);
 });
 
 test('normalizeIgdbGame defaults missing game id to empty identifiers', () => {

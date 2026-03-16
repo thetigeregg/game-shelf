@@ -14,6 +14,7 @@ import { isProviderMatchLocked } from './provider-match-lock.js';
 
 const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_UNRELEASED_NEXT_CHECK_MS = 15 * ONE_DAY_MS;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
 
@@ -23,7 +24,7 @@ type ReleaseEventType =
   | 'release_date_removed'
   | 'release_day';
 type ReleaseState = 'unknown' | 'scheduled' | 'released';
-type ReleasePrecision = 'unknown' | 'year' | 'quarter' | 'month' | 'day';
+export type ReleasePrecision = 'unknown' | 'year' | 'quarter' | 'month' | 'day';
 
 interface DueGameRow {
   igdb_game_id: string;
@@ -65,6 +66,12 @@ interface ReleaseInfo {
   date: string | null;
   year: number | null;
   display: string | null;
+}
+
+interface PlatformReleaseDate {
+  platformIgdbId: number;
+  precision: ReleasePrecision;
+  marker: string | null;
 }
 
 interface MonitorStartResult {
@@ -399,6 +406,18 @@ async function processGameRow(
           title
         });
       }
+    }
+
+    const resolvedPlatformRelease = resolvePlatformReleaseFromDates(
+      mergedPayload['releaseDates'],
+      platformIgdbId
+    );
+    if (resolvedPlatformRelease !== null) {
+      mergedPayload = {
+        ...mergedPayload,
+        releaseMarker: resolvedPlatformRelease.releaseMarker,
+        releasePrecision: resolvedPlatformRelease.releasePrecision
+      };
     }
 
     const releaseAfter = deriveReleaseInfo({
@@ -916,6 +935,7 @@ function mergePayloadForRefresh(
     franchises: arrayOfStringsOrEmpty(refreshed['franchises']),
     genres: arrayOfStringsOrEmpty(refreshed['genres']),
     publishers: arrayOfStringsOrEmpty(refreshed['publishers']),
+    releaseDates: arrayOfReleaseDatesOrEmpty(refreshed['releaseDates']),
     releaseDate: stringOrNull(refreshed['releaseDate']),
     releaseMarker:
       stringOrNull(refreshed['releaseMarker']) ?? stringOrNull(existing['releaseMarker']),
@@ -924,6 +944,30 @@ function mergePayloadForRefresh(
       normalizeReleasePrecision(stringOrNull(existing['releasePrecision'])),
     releaseYear: integerOrNull(refreshed['releaseYear']),
     updatedAt: new Date().toISOString()
+  };
+}
+
+export function resolvePlatformReleaseFromDates(
+  value: unknown,
+  platformIgdbId: number
+): { releaseMarker: string | null; releasePrecision: ReleasePrecision } | null {
+  const matches = arrayOfReleaseDatesOrEmpty(value).filter(
+    (entry) => entry.platformIgdbId === platformIgdbId
+  );
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const bestMatch = matches.reduce((best, entry) => {
+    return getReleasePrecisionRank(entry.precision) > getReleasePrecisionRank(best.precision)
+      ? entry
+      : best;
+  });
+
+  return {
+    releaseMarker: bestMatch.marker,
+    releasePrecision: bestMatch.precision
   };
 }
 
@@ -1484,6 +1528,11 @@ function computeNextCheckAt(
     nextRefreshCheckMs = Math.min(nextRefreshCheckMs, nextMetacriticCheckMs);
   }
 
+  // Avoid long stale windows for unreleased games when IGDB refines dates.
+  if (deriveReleaseState(release, now) === 'scheduled') {
+    nextReleaseCheckMs = Math.min(nextReleaseCheckMs, nowMs + MAX_UNRELEASED_NEXT_CHECK_MS);
+  }
+
   return new Date(Math.min(nextReleaseCheckMs, nextRefreshCheckMs)).toISOString();
 }
 
@@ -1908,6 +1957,70 @@ function arrayOfStringsOrEmpty(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+function arrayOfReleaseDatesOrEmpty(value: unknown): PlatformReleaseDate[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => normalizePlatformReleaseDate(entry))
+    .filter((entry): entry is PlatformReleaseDate => entry !== null)
+    .filter((entry, index, items) => {
+      return (
+        items.findIndex(
+          (candidate) =>
+            candidate.platformIgdbId === entry.platformIgdbId &&
+            candidate.precision === entry.precision &&
+            candidate.marker === entry.marker
+        ) === index
+      );
+    });
+}
+
+function normalizePlatformReleaseDate(value: unknown): PlatformReleaseDate | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const platformIgdbId = integerOrNull(value['platformIgdbId']);
+  const precision = normalizeReleasePrecision(stringOrNull(value['precision']));
+  const marker = stringOrNull(value['marker']);
+
+  if (platformIgdbId === null || precision === null) {
+    return null;
+  }
+
+  if (precision !== 'unknown' && marker === null) {
+    return null;
+  }
+
+  return {
+    platformIgdbId,
+    precision,
+    marker
+  };
+}
+
+function getReleasePrecisionRank(precision: ReleasePrecision): number {
+  if (precision === 'day') {
+    return 4;
+  }
+
+  if (precision === 'month') {
+    return 3;
+  }
+
+  if (precision === 'quarter') {
+    return 2;
+  }
+
+  if (precision === 'year') {
+    return 1;
+  }
+
+  return 0;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -2162,6 +2275,7 @@ export const releaseMonitorInternals = {
   mergeReviewRefreshPayload,
   mergeMetacriticRefreshPayload,
   mergeMobygamesRefreshPayload,
+  resolvePlatformReleaseFromDates,
   readNotificationPreferences,
   reserveNotificationLog,
   finalizeNotificationLog,

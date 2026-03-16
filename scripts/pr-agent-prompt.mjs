@@ -12,14 +12,59 @@ function runGh(args) {
   });
 }
 
-function getPR(prNumber) {
-  return JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid']));
+function getPRData(prNumber) {
+  const data = JSON.parse(
+    runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid,files,comments,reviews'])
+  );
+
+  return {
+    title: data.title,
+    headSha: data.headRefOid,
+    files: data.files?.map((f) => f.path) ?? [],
+    comments: data.comments ?? [],
+    reviews: data.reviews ?? []
+  };
 }
 
-function getChangedFiles(prNumber) {
-  const data = JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'files']));
+function filterReviewComments(comments, reviews) {
+  const results = [];
 
-  return data.files?.map((f) => f.path) ?? [];
+  for (const c of comments) {
+    if (!c.body) continue;
+
+    const body = c.body.toLowerCase();
+    const author = c.author?.login ?? '';
+
+    if (author.includes('copilot')) continue;
+    if (author.includes('github-actions')) continue;
+
+    if (body.includes('low confidence')) continue;
+    if (body.includes('comments suppressed')) continue;
+    if (body.includes('<details>')) continue;
+
+    results.push({
+      author: c.author?.login ?? 'reviewer',
+      file: c.path ?? '',
+      line: c.line ?? '',
+      body: c.body.trim()
+    });
+  }
+
+  for (const r of reviews) {
+    if (!r.body) continue;
+
+    const body = r.body.trim();
+    if (!body) continue;
+
+    results.push({
+      author: r.author?.login ?? 'reviewer',
+      file: '',
+      line: '',
+      body
+    });
+  }
+
+  return results;
 }
 
 function getDiff(prNumber) {
@@ -28,34 +73,6 @@ function getDiff(prNumber) {
   } catch {
     return '';
   }
-}
-
-function getReviewComments(prNumber) {
-  const data = JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'reviews']));
-
-  if (!data.reviews) return [];
-
-  return data.reviews
-    .filter((r) => {
-      if (!r.body) return false;
-
-      const body = r.body.toLowerCase();
-      const author = r.author?.login ?? '';
-
-      if (author.includes('copilot')) return false;
-
-      if (body.includes('low confidence')) return false;
-
-      if (body.includes('comments suppressed')) return false;
-
-      if (body.includes('<details>')) return false;
-
-      return body.trim().length > 0;
-    })
-    .map((r) => ({
-      author: r.author?.login ?? 'reviewer',
-      body: r.body.trim()
-    }));
 }
 
 function getLatestCIRun(commitSha) {
@@ -116,7 +133,7 @@ function getFailureLogs(runId, failures) {
   return logs;
 }
 
-function extractErrorContext(logs) {
+function extractRelevantLogs(logs) {
   if (!logs) return [];
 
   const lines = logs.split('\n');
@@ -126,9 +143,9 @@ function extractErrorContext(logs) {
     'Error:',
     'Coverage for',
     'does not meet',
+    'Test Suites:',
     'eslint',
-    'TS',
-    'Test Suites:'
+    'TS'
   ];
 
   const idx = lines.findIndex((line) => patterns.some((p) => line.includes(p)));
@@ -141,20 +158,8 @@ function extractErrorContext(logs) {
   return lines.slice(start, end);
 }
 
-function detectCoverageIssues(logs) {
-  const match = logs.match(/Coverage.*?(\d+)%.*?(\d+)%/i);
-
-  if (!match) return null;
-
-  return {
-    actual: match[1],
-    required: match[2]
-  };
-}
-
 function buildPrompt({ prNumber, title, files, diff, failures, reviewComments, logs }) {
-  const relevantLogs = extractErrorContext(logs);
-  const coverage = detectCoverageIssues(logs);
+  const relevantLogs = extractRelevantLogs(logs);
 
   let md = `
 # Pull Request Agent Task
@@ -162,7 +167,7 @@ function buildPrompt({ prNumber, title, files, diff, failures, reviewComments, l
 Pull Request: #${prNumber}
 Title: ${title}
 
-Your goal is to resolve CI failures and review feedback.
+Resolve CI failures and address review feedback.
 
 ---
 
@@ -189,15 +194,6 @@ Failing Step: ${f.step}
 `;
     }
 
-    if (coverage) {
-      md += `
-Coverage Issue Detected
-
-Actual Coverage: ${coverage.actual}%
-Required Coverage: ${coverage.required}%
-`;
-    }
-
     if (relevantLogs.length) {
       md += `
 Relevant CI Log Snippet
@@ -219,6 +215,8 @@ ${relevantLogs.join('\n')}
     for (const r of reviewComments) {
       md += `
 Reviewer: ${r.author}
+File: ${r.file || 'unknown'}
+Line: ${r.line || 'unknown'}
 
 ${r.body}
 
@@ -231,8 +229,6 @@ ${r.body}
   md += `
 # Pull Request Diff
 
-Use this diff to understand the intended changes.
-
 \`\`\`diff
 ${diff}
 \`\`\`
@@ -242,10 +238,10 @@ ${diff}
 # Instructions for the Agent
 
 1. Fix CI failures
-2. Address review comments
-3. Modify only the relevant files
+2. Address reviewer feedback
+3. Modify only relevant files
 4. Ensure lint, tests, and coverage pass
-5. Preserve project coding conventions
+5. Preserve project conventions
 
 ---
 
@@ -267,13 +263,13 @@ function main() {
 
   console.log(`Generating agent prompt for PR #${prNumber}`);
 
-  const pr = getPR(prNumber);
+  const pr = getPRData(prNumber);
 
-  const files = getChangedFiles(prNumber);
+  const reviewComments = filterReviewComments(pr.comments, pr.reviews);
+
   const diff = getDiff(prNumber);
-  const reviewComments = getReviewComments(prNumber);
 
-  const run = getLatestCIRun(pr.headRefOid);
+  const run = getLatestCIRun(pr.headSha);
 
   let failures = [];
   let logs = '';
@@ -293,7 +289,7 @@ function main() {
   const prompt = buildPrompt({
     prNumber,
     title: pr.title,
-    files,
+    files: pr.files,
     diff,
     failures,
     reviewComments,
@@ -309,7 +305,7 @@ ${OUTPUT_FILE}
 
 CI failures: ${failures.length}
 Review comments: ${reviewComments.length}
-Files changed: ${files.length}
+Files changed: ${pr.files.length}
 `);
 }
 

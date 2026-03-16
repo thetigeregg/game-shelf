@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -88,6 +88,30 @@ function runGh(args, options = {}) {
 
     process.exit(1);
   }
+}
+
+function maybeOpenInVSCode(filePath) {
+  const commands = process.platform === 'win32' ? ['code.cmd', 'code.exe', 'code'] : ['code'];
+
+  for (const command of commands) {
+    const result = spawnSync(command, [filePath], {
+      stdio: 'ignore'
+    });
+
+    if (!result.error && result.status === 0) {
+      return;
+    }
+
+    if (result.error?.code === 'ENOENT') {
+      continue;
+    }
+
+    const failureReason = result.error?.message || `exit code ${result.status}`;
+    console.warn(`VS Code CLI launch failed for ${filePath}: ${failureReason}`);
+    return;
+  }
+
+  console.log('VS Code CLI code not found; skipping auto-open');
 }
 
 function getRepoInfo() {
@@ -1025,11 +1049,11 @@ Address this review feedback in the PR updates and ensure the conversation is re
       'npm run build',
       '```',
       '',
-      'If backend tests exist separately:',
+      'If the PR touches backend code, also verify locally:',
       '',
       '```bash',
-      'cd server',
-      'npm run test',
+      'npm run test:backend',
+      'npm run test:backend:coverage',
       '```',
       '',
       'Finally: generate the Conventional Commit message for the changes.'
@@ -1095,6 +1119,7 @@ function main() {
   });
 
   fs.writeFileSync(OUTPUT_FILE, prompt);
+  maybeOpenInVSCode(OUTPUT_FILE);
 
   console.log(`
 Agent prompt generated: ${OUTPUT_FILE}

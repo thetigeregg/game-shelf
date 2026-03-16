@@ -102,6 +102,11 @@ interface MissingGamePlatform {
   platformId: number;
 }
 
+interface ExistingGamePlatform {
+  gameId: string;
+  platformId: number;
+}
+
 interface PopularityScoreRow extends QueryResultRow {
   popularity_score: string | number | null;
 }
@@ -226,7 +231,11 @@ export class PopularityIngestService {
           }
         }
 
-        const missingGamePlatforms = await this.findMissingGamePlatforms(gameMap, client);
+        const { existingGamePlatforms, missingGamePlatforms } = await this.partitionGamePlatforms(
+          gameMap,
+          client
+        );
+        await this.refreshExistingGames(existingGamePlatforms, gameMap, client);
         const missingGameIds = [...new Set(missingGamePlatforms.map((pair) => pair.gameId))];
         const gamesInserted = await this.insertMissingGames(missingGamePlatforms, gameMap, client);
         const scoresUpdated = await this.recomputeScores(uniqueGameIds, client);
@@ -451,12 +460,18 @@ export class PopularityIngestService {
     }
   }
 
-  private async findMissingGamePlatforms(
+  private async partitionGamePlatforms(
     gameMap: Map<string, WorkerGameItem>,
     queryable: Queryable
-  ): Promise<MissingGamePlatform[]> {
+  ): Promise<{
+    existingGamePlatforms: ExistingGamePlatform[];
+    missingGamePlatforms: MissingGamePlatform[];
+  }> {
     if (gameMap.size === 0) {
-      return [];
+      return {
+        existingGamePlatforms: [],
+        missingGamePlatforms: []
+      };
     }
 
     const gameIds = [...gameMap.keys()];
@@ -473,10 +488,15 @@ export class PopularityIngestService {
       result.rows.map((row) => `${row.igdb_game_id}:${String(row.platform_igdb_id)}`)
     );
 
+    const existingGamePlatforms: ExistingGamePlatform[] = [];
     const missingGamePlatforms: MissingGamePlatform[] = [];
     for (const [gameId, game] of gameMap) {
       for (const platform of game.platformOptions) {
         if (existingPairs.has(`${gameId}:${String(platform.id)}`)) {
+          existingGamePlatforms.push({
+            gameId,
+            platformId: platform.id
+          });
           continue;
         }
 
@@ -487,7 +507,79 @@ export class PopularityIngestService {
       }
     }
 
-    return missingGamePlatforms;
+    return {
+      existingGamePlatforms,
+      missingGamePlatforms
+    };
+  }
+
+  private async refreshExistingGames(
+    existingGamePlatforms: ExistingGamePlatform[],
+    gameMap: Map<string, WorkerGameItem>,
+    queryable: Queryable
+  ): Promise<void> {
+    const pendingRows: Array<{ igdbGameId: string; platformId: number; payload: string }> = [];
+
+    for (const pair of existingGamePlatforms) {
+      const item = gameMap.get(pair.gameId);
+      if (!item) {
+        continue;
+      }
+
+      const platform = item.platformOptions.find((option) => option.id === pair.platformId);
+      if (!platform) {
+        continue;
+      }
+
+      pendingRows.push({
+        igdbGameId: item.igdbGameId,
+        platformId: platform.id,
+        payload: JSON.stringify(buildGamePayload(item, platform))
+      });
+    }
+
+    if (pendingRows.length === 0) {
+      return;
+    }
+
+    for (let offset = 0; offset < pendingRows.length; offset += GAME_INSERT_BATCH_SIZE) {
+      const batch = pendingRows.slice(offset, offset + GAME_INSERT_BATCH_SIZE);
+      const values: Array<string | number> = [];
+      const valueClauses: string[] = [];
+
+      for (let index = 0; index < batch.length; index += 1) {
+        const row = batch[index];
+        const base = index * 3;
+        const gameIdPlaceholder = String(base + 1);
+        const platformIdPlaceholder = String(base + 2);
+        const payloadPlaceholder = String(base + 3);
+        valueClauses.push(
+          `($${gameIdPlaceholder}, $${platformIdPlaceholder}, $${payloadPlaceholder}::jsonb)`
+        );
+        values.push(row.igdbGameId, row.platformId, row.payload);
+      }
+
+      await queryable.query(
+        `
+        UPDATE games AS g
+        SET payload = g.payload || jsonb_strip_nulls(typed.payload),
+            updated_at = NOW()
+        FROM (
+          VALUES ${valueClauses.join(', ')}
+        ) AS v(igdb_game_id, platform_igdb_id, payload)
+        CROSS JOIN LATERAL (
+          SELECT
+            v.igdb_game_id::text AS igdb_game_id,
+            v.platform_igdb_id::integer AS platform_igdb_id,
+            v.payload::jsonb AS payload
+        ) AS typed
+        WHERE g.igdb_game_id = typed.igdb_game_id
+          AND g.platform_igdb_id = typed.platform_igdb_id
+          AND g.payload IS DISTINCT FROM (g.payload || jsonb_strip_nulls(typed.payload))
+        `,
+        values
+      );
+    }
   }
 
   private async insertMissingGames(

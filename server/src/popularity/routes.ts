@@ -104,62 +104,50 @@ async function fetchFeedRows(
 ): Promise<PopularityFeedItem[]> {
   const nowSec = params.nowSec;
   const cutoffRecentSec = nowSec - 90 * 24 * 60 * 60;
-  const firstReleaseDateSql = sqlFirstReleaseDatePayload();
 
-  let feedWindowPredicate = 'TRUE';
   let limitPlaceholder = '$2';
   let queryParams: number[] = [params.scoreThreshold];
   if (params.feedType === 'upcoming') {
-    feedWindowPredicate = `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $2`;
     queryParams = [params.scoreThreshold, nowSec];
     limitPlaceholder = '$3';
   } else if (params.feedType === 'recent') {
-    feedWindowPredicate = `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $3 AND ${firstReleaseDateSql} <= $2`;
     queryParams = [params.scoreThreshold, nowSec, cutoffRecentSec];
     limitPlaceholder = '$4';
   }
 
   queryParams.push(params.rowLimit);
+  const gameFeedWindowPredicate = sqlFeedWindowPredicate('g', params.feedType);
+  const betterGameFeedWindowPredicate = sqlFeedWindowPredicate('better', params.feedType);
 
   const result = await pool.query<PopularityGameRow>(
     `
-    WITH ranked_games AS (
-      SELECT
-        igdb_game_id,
-        platform_igdb_id,
-        popularity_score,
-        payload,
-        ROW_NUMBER() OVER (
-          PARTITION BY igdb_game_id
-          ORDER BY popularity_score DESC, platform_igdb_id ASC
-        ) AS game_rank
-      FROM games g
-      WHERE g.popularity_score > $1
-        AND (
-          ${sqlNumericPayloadWithAlias('g', 'total_rating_count')} >= 20
-          OR ${sqlNumericPayloadWithAlias('g', 'totalRatingCount')} >= 20
-          OR ${sqlNumericPayloadWithAlias('g', 'hypes')} >= 10
-          OR ${sqlNumericPayloadWithAlias('g', 'follows')} >= 200
-        )
-        AND COALESCE(NULLIF(BTRIM(g.payload->>'parent_game'), ''), NULLIF(BTRIM(g.payload->>'parentGame'), '')) IS NULL
-        AND COALESCE(NULLIF(BTRIM(g.payload->>'version_parent'), ''), NULLIF(BTRIM(g.payload->>'versionParent'), '')) IS NULL
-        AND COALESCE(NULLIF(BTRIM(g.payload->>'gameType'), ''), 'main_game') = 'main_game'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM games owned
-          WHERE owned.igdb_game_id = g.igdb_game_id
-            AND (owned.payload->>'listType') IN ('collection', 'wishlist')
-        )
-        AND ${feedWindowPredicate}
-    )
     SELECT
-      igdb_game_id,
-      platform_igdb_id,
-      popularity_score,
-      payload
-    FROM ranked_games
-    WHERE game_rank = 1
-    ORDER BY popularity_score DESC
+      g.igdb_game_id,
+      g.platform_igdb_id,
+      g.popularity_score,
+      g.payload
+    FROM games g
+    WHERE ${sqlFeedCandidatePredicate('g', gameFeedWindowPredicate)}
+      AND NOT EXISTS (
+        SELECT 1
+        FROM games owned
+        WHERE owned.igdb_game_id = g.igdb_game_id
+          AND (owned.payload->>'listType') IN ('collection', 'wishlist')
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM games better
+        WHERE better.igdb_game_id = g.igdb_game_id
+          AND ${sqlFeedCandidatePredicate('better', betterGameFeedWindowPredicate)}
+          AND (
+            better.popularity_score > g.popularity_score
+            OR (
+              better.popularity_score = g.popularity_score
+              AND better.platform_igdb_id < g.platform_igdb_id
+            )
+          )
+      )
+    ORDER BY g.popularity_score DESC, g.platform_igdb_id ASC
     LIMIT ${limitPlaceholder}
     `,
     queryParams
@@ -301,22 +289,53 @@ function normalizeFirstReleaseDate(payload: Record<string, unknown>): number | n
   return Math.trunc(timestampMs / 1000);
 }
 
-function sqlNumericPayload(field: string): string {
-  return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(payload->>'${field}'))::double precision ELSE 0 END`;
+function sqlNumericPayload(field: string, payloadRef = 'payload'): string {
+  return sqlTypedNumericPayload(payloadRef, field);
 }
 
-function sqlNumericPayloadWithAlias(alias: string, field: string): string {
-  return `CASE WHEN BTRIM(COALESCE(${alias}.payload->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(${alias}.payload->>'${field}'))::double precision ELSE 0 END`;
+function sqlTypedNumericPayload(payloadRef: string, field: string): string {
+  return `CASE WHEN BTRIM(COALESCE(${payloadRef}->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(${payloadRef}->>'${field}'))::double precision ELSE 0 END`;
 }
 
-function sqlUnixPayload(field: string): string {
-  return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^\\d+$' THEN (BTRIM(payload->>'${field}'))::bigint ELSE NULL END`;
+function sqlFeedCandidatePredicate(alias: string, feedWindowPredicate: string): string {
+  return `${alias}.popularity_score > $1
+      AND (
+        ${sqlNumericPayload('total_rating_count', `${alias}.payload`)} >= 20
+        OR ${sqlNumericPayload('totalRatingCount', `${alias}.payload`)} >= 20
+        OR ${sqlNumericPayload('hypes', `${alias}.payload`)} >= 10
+        OR ${sqlNumericPayload('follows', `${alias}.payload`)} >= 200
+      )
+      AND COALESCE(NULLIF(BTRIM(${alias}.payload->>'parent_game'), ''), NULLIF(BTRIM(${alias}.payload->>'parentGame'), '')) IS NULL
+      AND COALESCE(NULLIF(BTRIM(${alias}.payload->>'version_parent'), ''), NULLIF(BTRIM(${alias}.payload->>'versionParent'), '')) IS NULL
+      AND COALESCE(NULLIF(BTRIM(${alias}.payload->>'gameType'), ''), 'main_game') = 'main_game'
+      AND ${feedWindowPredicate}`;
 }
 
-function sqlIsoDatePayload(field: string): string {
-  return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$' AND pg_input_is_valid(BTRIM(payload->>'${field}'), 'timestamptz') THEN EXTRACT(EPOCH FROM (BTRIM(payload->>'${field}'))::timestamptz)::bigint ELSE NULL END`;
+function sqlFeedWindowPredicate(
+  alias: string,
+  feedType: 'trending' | 'upcoming' | 'recent'
+): string {
+  const firstReleaseDateSql = sqlFirstReleaseDatePayload(`${alias}.payload`);
+
+  if (feedType === 'upcoming') {
+    return `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $2`;
+  }
+
+  if (feedType === 'recent') {
+    return `${firstReleaseDateSql} IS NOT NULL AND ${firstReleaseDateSql} > $3 AND ${firstReleaseDateSql} <= $2`;
+  }
+
+  return 'TRUE';
 }
 
-function sqlFirstReleaseDatePayload(): string {
-  return `COALESCE(${sqlUnixPayload('first_release_date')}, ${sqlUnixPayload('firstReleaseDate')}, ${sqlIsoDatePayload('releaseDate')})`;
+function sqlUnixPayload(payloadRef: string, field: string): string {
+  return `CASE WHEN BTRIM(COALESCE(${payloadRef}->>'${field}', '')) ~ '^\\d+$' THEN (BTRIM(${payloadRef}->>'${field}'))::bigint ELSE NULL END`;
+}
+
+function sqlIsoDatePayload(payloadRef: string, field: string): string {
+  return `CASE WHEN BTRIM(COALESCE(${payloadRef}->>'${field}', '')) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$' AND pg_input_is_valid(BTRIM(${payloadRef}->>'${field}'), 'timestamptz') THEN EXTRACT(EPOCH FROM (BTRIM(${payloadRef}->>'${field}'))::timestamptz)::bigint ELSE NULL END`;
+}
+
+function sqlFirstReleaseDatePayload(payloadRef = 'payload'): string {
+  return `COALESCE(${sqlUnixPayload(payloadRef, 'first_release_date')}, ${sqlUnixPayload(payloadRef, 'firstReleaseDate')}, ${sqlIsoDatePayload(payloadRef, 'releaseDate')})`;
 }

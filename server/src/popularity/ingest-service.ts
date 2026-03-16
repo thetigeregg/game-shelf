@@ -519,6 +519,7 @@ export class PopularityIngestService {
     queryable: Queryable
   ): Promise<void> {
     const pendingRows: Array<{ igdbGameId: string; platformId: number; payload: string }> = [];
+    const serializedPayloads = new Map<string, string>();
 
     for (const pair of existingGamePlatforms) {
       const item = gameMap.get(pair.gameId);
@@ -526,15 +527,16 @@ export class PopularityIngestService {
         continue;
       }
 
-      const platform = item.platformOptions.find((option) => option.id === pair.platformId);
-      if (!platform) {
-        continue;
+      let payload = serializedPayloads.get(pair.gameId);
+      if (!payload) {
+        payload = JSON.stringify(buildGameRefreshPayload(item));
+        serializedPayloads.set(pair.gameId, payload);
       }
 
       pendingRows.push({
         igdbGameId: item.igdbGameId,
-        platformId: platform.id,
-        payload: JSON.stringify(buildGameRefreshPayload(item))
+        platformId: pair.platformId,
+        payload
       });
     }
 

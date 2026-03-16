@@ -138,6 +138,10 @@ void test('runOnce resolves type ids, dedupes primitives, and recomputes scores 
       ]);
     }
 
+    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+      return queryResult([], 2);
+    }
+
     if (normalized.includes('with target_game_ids as')) {
       recomputeParams.push(params ?? []);
       return queryResult(
@@ -268,6 +272,10 @@ void test('runOnce batches signal upserts in 500-row chunks', async () => {
       return queryResult(
         gameIds.map((gameId) => ({ igdb_game_id: gameId, platform_igdb_id: 6 }) as QueryResultRow)
       );
+    }
+
+    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+      return queryResult([], 250);
     }
 
     if (normalized.includes('with target_game_ids as')) {
@@ -610,6 +618,126 @@ void test('runOnce inserts missing game platforms and updates scores', async () 
   assert.equal(summary.scoresUpdated, 1);
 });
 
+void test('runOnce refreshes existing game payloads before recomputing scores', async () => {
+  let existingGamesRefreshCount = 0;
+
+  const pool = new PoolMock((sql, params) => {
+    const normalized = normalizeSql(sql);
+
+    if (normalized.startsWith('select pg_try_advisory_lock')) {
+      return queryResult([{ acquired: true } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('select pg_advisory_unlock')) {
+      return queryResult([{ pg_advisory_unlock: true } as QueryResultRow]);
+    }
+
+    if (normalized.includes('insert into game_popularity')) {
+      return queryResult([], 1);
+    }
+
+    if (
+      normalized.startsWith(
+        'select igdb_game_id, platform_igdb_id from games where igdb_game_id = any'
+      )
+    ) {
+      return queryResult([{ igdb_game_id: '347668', platform_igdb_id: 6 } as QueryResultRow]);
+    }
+
+    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+      existingGamesRefreshCount += 1;
+      const payload = typeof params?.[2] === 'string' ? params[2] : '';
+      assert.ok(payload.includes('"title":"Resident Evil Requiem"'));
+      assert.ok(payload.includes('"releaseDate":"2026-02-27T00:00:00.000Z"'));
+      assert.ok(payload.includes('"first_release_date":1772150400'));
+      assert.ok(payload.includes('"total_rating_count":115'));
+      assert.ok(payload.includes('"totalRatingCount":115'));
+      assert.ok(payload.includes('"hypes":309'));
+      assert.ok(payload.includes('"gameType":"main_game"'));
+      return queryResult([], 1);
+    }
+
+    if (
+      normalized.includes('insert into games (igdb_game_id, platform_igdb_id, payload, updated_at)')
+    ) {
+      throw new Error(`Did not expect missing-game insert SQL in refresh test: ${sql}`);
+    }
+
+    if (normalized.includes('with target_game_ids as')) {
+      return queryResult([{ popularity_score: 1082.5 } as QueryResultRow], 1);
+    }
+
+    throw new Error(`Unexpected SQL for existing game refresh test: ${sql}`);
+  });
+
+  const fetchMock: typeof fetch = (input) => {
+    const url = toRequestUrl(input);
+
+    if (url.includes('/oauth2/token')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ access_token: 'token-1', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+    }
+
+    if (url.endsWith('/v4/popularity_primitives')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([{ game_id: 347668, popularity_type: 34, value: 0.043734385195718 }]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    if (url.endsWith('/v4/games')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              id: 347668,
+              name: 'Resident Evil Requiem',
+              first_release_date: 1_772_150_400,
+              total_rating_count: 115,
+              hypes: 309,
+              rating: 89.06299654196357,
+              game_type: { type: 'main_game' },
+              platforms: [{ id: 6, name: 'PC' }]
+            }
+          ]),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch URL for existing game refresh test: ${url}`));
+  };
+
+  const service = new PopularityIngestService(
+    pool as unknown as Pool,
+    baseOptions({ sourceTypeIds: [34], signalLimit: 1 }),
+    fetchMock
+  );
+
+  const summary = await service.runOnce();
+
+  assert.equal(summary.enabled, true);
+  assert.equal(summary.fetchedTypes, 1);
+  assert.equal(summary.fetchedSignals, 1);
+  assert.equal(summary.upsertedSignals, 1);
+  assert.equal(summary.missingGamesDiscovered, 0);
+  assert.equal(summary.gamesInserted, 0);
+  assert.equal(summary.scoresUpdated, 1);
+  assert.equal(existingGamesRefreshCount, 1);
+});
+
 void test('runOnce applies cooldown when popularity type fetch is rate limited', async () => {
   const pool = new PoolMock((sql) => {
     const normalized = normalizeSql(sql);
@@ -693,6 +821,10 @@ void test('runOnce returns partial summary when primitive fetch is rate limited'
       return queryResult(
         gameIds.map((gameId) => ({ igdb_game_id: gameId, platform_igdb_id: 6 }) as QueryResultRow)
       );
+    }
+
+    if (normalized.startsWith('update games as g set payload = g.payload || jsonb_strip_nulls')) {
+      return queryResult([], 1);
     }
 
     if (normalized.includes('with target_game_ids as')) {

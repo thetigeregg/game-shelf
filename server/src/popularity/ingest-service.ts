@@ -869,16 +869,22 @@ function normalizeNamedList(items: Array<{ name?: unknown }> | null | undefined)
   if (!Array.isArray(items)) {
     return [];
   }
-  return items
-    .map((item) => (typeof item.name === 'string' ? item.name.trim() : ''))
-    .filter((name) => name.length > 0);
+  return Array.from(
+    new Set(
+      items
+        .map((item) => (typeof item.name === 'string' ? item.name.trim() : ''))
+        .filter((name) => name.length > 0)
+    )
+  );
 }
 
 function normalizeSimilarGameIds(items: Array<unknown> | null | undefined): string[] {
   if (!Array.isArray(items)) {
     return [];
   }
-  return items.map((item) => normalizeId(item)).filter((id): id is string => id !== null);
+  return Array.from(
+    new Set(items.map((item) => normalizeId(item)).filter((id): id is string => id !== null))
+  );
 }
 
 function normalizeCompanyRole(
@@ -891,10 +897,14 @@ function normalizeCompanyRole(
   if (!Array.isArray(items)) {
     return [];
   }
-  return items
-    .filter((item) => item[role] === true)
-    .map((item) => (typeof item.company?.name === 'string' ? item.company.name.trim() : ''))
-    .filter((name) => name.length > 0);
+  return Array.from(
+    new Set(
+      items
+        .filter((item) => Boolean(item[role]))
+        .map((item) => (typeof item.company?.name === 'string' ? item.company.name.trim() : ''))
+        .filter((name) => name.length > 0)
+    )
+  );
 }
 
 function buildCoverUrl(imageId: unknown): string | null {

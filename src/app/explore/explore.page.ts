@@ -758,6 +758,7 @@ export class ExplorePage implements OnInit {
   }
 
   async openPopularityGameDetail(item: PopularityFeedItem): Promise<void> {
+    const requestedIdentityKey = this.buildIdentityKey(item.id, item.platformIgdbId);
     const local = this.getLocalGameByIdentity(item.id, item.platformIgdbId);
     const cachedCatalog = this.getRecommendationCatalogResult(item.id);
     const initialCatalog = cachedCatalog
@@ -790,7 +791,7 @@ export class ExplorePage implements OnInit {
       try {
         if (!initialCatalog) {
           const fetchedCatalog = await this.fetchRecommendationCatalogResult(item.id);
-          if (fetchedCatalog) {
+          if (fetchedCatalog && this.hasSelectedDetailIdentity(requestedIdentityKey)) {
             this.selectedGameDetail = this.withCatalogPlatformContext(
               fetchedCatalog,
               item.platformIgdbId
@@ -798,14 +799,20 @@ export class ExplorePage implements OnInit {
           }
         }
 
-        this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(
-          this.selectedGameDetail
-        );
+        if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
+          this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(
+            this.selectedGameDetail
+          );
+        }
       } catch (error) {
-        this.detailErrorMessage =
-          error instanceof Error ? error.message : 'Unable to load game details.';
+        if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
+          this.detailErrorMessage =
+            error instanceof Error ? error.message : 'Unable to load game details.';
+        }
       } finally {
-        this.isLoadingDetail = false;
+        if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
+          this.isLoadingDetail = false;
+        }
       }
       return;
     }
@@ -1630,6 +1637,22 @@ export class ExplorePage implements OnInit {
     return (
       this.localGameCacheByIdentity.get(this.buildIdentityKey(igdbGameId, platformIgdbId)) ?? null
     );
+  }
+
+  private hasSelectedDetailIdentity(expectedIdentityKey: string): boolean {
+    if (!this.selectedGameDetail) {
+      return false;
+    }
+
+    const { igdbGameId, platformIgdbId } = this.selectedGameDetail;
+    if (typeof igdbGameId !== 'string' || igdbGameId.length === 0) {
+      return false;
+    }
+    if (typeof platformIgdbId !== 'number' || !Number.isInteger(platformIgdbId)) {
+      return false;
+    }
+
+    return this.buildIdentityKey(igdbGameId, platformIgdbId) === expectedIdentityKey;
   }
 
   private buildIdentityKey(igdbGameId: string, platformIgdbId: number): string {

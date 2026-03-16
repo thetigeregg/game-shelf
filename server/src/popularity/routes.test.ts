@@ -22,6 +22,7 @@ class PoolMock {
 }
 
 void test('GET /v1/games/trending returns mapped popularity feed items', async () => {
+  const threshold = 37;
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock([
     {
@@ -37,7 +38,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
       }
     }
   ]);
-  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold: 50 });
+  await registerPopularityRoutes(app, pool as unknown as Pool, { threshold });
 
   const response = await app.inject({
     method: 'GET',
@@ -64,7 +65,7 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   const query = pool.queries[0];
   assert.ok(query.text.includes('AND TRUE'));
   assert.ok(query.text.includes('LIMIT $2'));
-  assert.equal(query.params[0], 50);
+  assert.equal(query.params[0], threshold);
   assert.equal(query.params[1], 50);
 
   await app.close();

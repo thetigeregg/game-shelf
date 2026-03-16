@@ -351,3 +351,20 @@ void test('GET /v1/games/trending skips rows with invalid payload or non-finite 
 
   await app.close();
 });
+
+void test('GET /v1/games/trending uses the configured row limit value passed to the route', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock([]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 200, threshold: 50 });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(pool.queries.length, 1);
+  assert.equal(pool.queries[0]?.params[1], 200);
+
+  await app.close();
+});

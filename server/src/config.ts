@@ -282,6 +282,7 @@ function normalizeCountryCode(value: string): string | null {
 }
 
 const EMBEDDING_DIMENSIONS_SCHEMA = 1536;
+const POPULARITY_FEED_ROW_LIMIT_MAX = 200;
 
 function readEmbeddingDimensionsEnv(name: string): number {
   const value = readIntegerEnv(name, EMBEDDING_DIMENSIONS_SCHEMA);
@@ -574,7 +575,10 @@ export const config: AppConfig = {
     'POPULARITY_INGEST_IGDB_MAX_REQUESTS_PER_SECOND',
     readIntegerEnv('RECOMMENDATIONS_DISCOVERY_IGDB_MAX_REQUESTS_PER_SECOND', 4)
   ),
-  popularityFeedRowLimit: readIntegerEnv('POPULARITY_FEED_ROW_LIMIT', 50),
+  popularityFeedRowLimit: Math.min(
+    readIntegerEnv('POPULARITY_FEED_ROW_LIMIT', 50),
+    POPULARITY_FEED_ROW_LIMIT_MAX
+  ),
   popularityScoreThreshold: readNumberEnv('POPULARITY_SCORE_THRESHOLD', 50),
   igdbMetadataEnrichEnabled: readBooleanEnv('IGDB_METADATA_ENRICH_ENABLED', true),
   igdbMetadataEnrichBatchSize: readIntegerEnv('IGDB_METADATA_ENRICH_BATCH_SIZE', 200),

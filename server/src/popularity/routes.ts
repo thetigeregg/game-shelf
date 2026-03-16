@@ -117,37 +117,44 @@ async function fetchFeedRows(
 
   queryParams.push(params.rowLimit);
   const gameFeedWindowPredicate = sqlFeedWindowPredicate('g', params.feedType);
-  const betterGameFeedWindowPredicate = sqlFeedWindowPredicate('better', params.feedType);
 
   const result = await pool.query<PopularityGameRow>(
     `
+    WITH candidate_games AS (
+      SELECT
+        g.igdb_game_id,
+        g.platform_igdb_id,
+        g.popularity_score,
+        g.payload
+      FROM games g
+      WHERE ${sqlFeedCandidatePredicate('g', gameFeedWindowPredicate)}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM games owned
+          WHERE owned.igdb_game_id = g.igdb_game_id
+            AND (owned.payload->>'listType') IN ('collection', 'wishlist')
+        )
+    ),
+    ranked_games AS (
+      SELECT
+        igdb_game_id,
+        platform_igdb_id,
+        popularity_score,
+        payload,
+        ROW_NUMBER() OVER (
+          PARTITION BY igdb_game_id
+          ORDER BY popularity_score DESC, platform_igdb_id ASC
+        ) AS game_rank
+      FROM candidate_games
+    )
     SELECT
-      g.igdb_game_id,
-      g.platform_igdb_id,
-      g.popularity_score,
-      g.payload
-    FROM games g
-    WHERE ${sqlFeedCandidatePredicate('g', gameFeedWindowPredicate)}
-      AND NOT EXISTS (
-        SELECT 1
-        FROM games owned
-        WHERE owned.igdb_game_id = g.igdb_game_id
-          AND (owned.payload->>'listType') IN ('collection', 'wishlist')
-      )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM games better
-        WHERE better.igdb_game_id = g.igdb_game_id
-          AND ${sqlFeedCandidatePredicate('better', betterGameFeedWindowPredicate)}
-          AND (
-            better.popularity_score > g.popularity_score
-            OR (
-              better.popularity_score = g.popularity_score
-              AND better.platform_igdb_id < g.platform_igdb_id
-            )
-          )
-      )
-    ORDER BY g.popularity_score DESC, g.platform_igdb_id ASC
+      igdb_game_id,
+      platform_igdb_id,
+      popularity_score,
+      payload
+    FROM ranked_games
+    WHERE game_rank = 1
+    ORDER BY popularity_score DESC, platform_igdb_id ASC
     LIMIT ${limitPlaceholder}
     `,
     queryParams

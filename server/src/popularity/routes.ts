@@ -123,23 +123,36 @@ async function fetchFeedRows(
 
   const result = await pool.query<PopularityGameRow>(
     `
+    WITH ranked_games AS (
+      SELECT
+        igdb_game_id,
+        platform_igdb_id,
+        popularity_score,
+        payload,
+        ROW_NUMBER() OVER (
+          PARTITION BY igdb_game_id
+          ORDER BY popularity_score DESC, platform_igdb_id ASC
+        ) AS game_rank
+      FROM games
+      WHERE popularity_score > $1
+        AND (
+          ${sqlNumericPayload('total_rating_count')} >= 20
+          OR ${sqlNumericPayload('totalRatingCount')} >= 20
+          OR ${sqlNumericPayload('hypes')} >= 10
+          OR ${sqlNumericPayload('follows')} >= 200
+        )
+        AND COALESCE(NULLIF(BTRIM(payload->>'parent_game'), ''), NULLIF(BTRIM(payload->>'parentGame'), '')) IS NULL
+        AND COALESCE(NULLIF(BTRIM(payload->>'version_parent'), ''), NULLIF(BTRIM(payload->>'versionParent'), '')) IS NULL
+        AND COALESCE(NULLIF(BTRIM(payload->>'gameType'), ''), 'main_game') = 'main_game'
+        AND ${feedWindowPredicate}
+    )
     SELECT
       igdb_game_id,
       platform_igdb_id,
       popularity_score,
       payload
-    FROM games
-    WHERE popularity_score > $1
-      AND (
-        ${sqlNumericPayload('total_rating_count')} >= 20
-        OR ${sqlNumericPayload('totalRatingCount')} >= 20
-        OR ${sqlNumericPayload('hypes')} >= 10
-        OR ${sqlNumericPayload('follows')} >= 200
-      )
-      AND COALESCE(NULLIF(BTRIM(payload->>'parent_game'), ''), NULLIF(BTRIM(payload->>'parentGame'), '')) IS NULL
-      AND COALESCE(NULLIF(BTRIM(payload->>'version_parent'), ''), NULLIF(BTRIM(payload->>'versionParent'), '')) IS NULL
-      AND COALESCE(NULLIF(BTRIM(payload->>'gameType'), ''), 'main_game') = 'main_game'
-      AND ${feedWindowPredicate}
+    FROM ranked_games
+    WHERE game_rank = 1
     ORDER BY popularity_score DESC
     LIMIT ${limitPlaceholder}
     `,
@@ -150,20 +163,7 @@ async function fetchFeedRows(
     .map((row) => toFeedItem(row))
     .filter((item): item is PopularityFeedItem => item !== null);
 
-  return dedupeByGameId(items);
-}
-
-function dedupeByGameId(items: PopularityFeedItem[]): PopularityFeedItem[] {
-  const byGameId = new Map<string, PopularityFeedItem>();
-
-  for (const item of items) {
-    const existing = byGameId.get(item.id);
-    if (!existing || item.popularityScore > existing.popularityScore) {
-      byGameId.set(item.id, item);
-    }
-  }
-
-  return [...byGameId.values()].sort((left, right) => right.popularityScore - left.popularityScore);
+  return items;
 }
 
 function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {

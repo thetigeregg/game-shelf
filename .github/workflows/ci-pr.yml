@@ -85,6 +85,16 @@ jobs:
       - name: UI tests
         run: npm run test:ui
 
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
@@ -106,17 +116,6 @@ jobs:
             server/coverage/lcov.info
             worker/coverage/lcov.info
           if-no-files-found: error
-
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: |
-            playwright-report
-            test-results
-          if-no-files-found: ignore
 
   docker_build_validation:
     name: Docker Build Validation

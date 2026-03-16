@@ -35,10 +35,6 @@ describe('DetailShortcutsFabComponent', () => {
     expect(addIconsMock).toHaveBeenCalledOnce();
   });
 
-  it('should fail intentionally', () => {
-    expect(true).toBe(false);
-  });
-
   it('emits shortcut and action events', () => {
     const component = new DetailShortcutsFabComponent();
     const shortcutSpy = vi.fn();

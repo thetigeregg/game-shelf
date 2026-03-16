@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -136,8 +137,11 @@ function analyzeChecks(checks) {
     }
 
     if (normalized.conclusion === 'FAILURE') {
-      if (/codecov|coverage/i.test(normalized.name)) coverageFailures.push(normalized);
-      else ciFailures.push(normalized);
+      if (/codecov|coverage/i.test(normalized.name)) {
+        coverageFailures.push(normalized);
+      } else {
+        ciFailures.push(normalized);
+      }
     }
   }
 
@@ -750,7 +754,7 @@ function buildPrompt(data) {
 
       for (const task of data.ci.tasks) {
         md += `
-\n## Task ${taskNumber}
+## Task ${taskNumber}
 
 Failing job:
 ${task.job}
@@ -760,16 +764,22 @@ ${task.step}
 
 Relevant log output:
 
-\`\`\`\n${task.relevantLogs.join('\n') || 'Logs unavailable.'}\n\`\`\`\n
+\`\`\`
+${task.relevantLogs.join('\n') || 'Logs unavailable.'}
+\`\`\`
+
 Required action:
 Fix the root cause so this CI failure passes without suppressing the check.
 `;
         taskNumber += 1;
       }
     } else {
-      md += `\n\nNo failing workflow steps were extracted, but these CI checks are failing:\n\n${bulletList(
-        data.checks.ciFailures.map(formatCheckSummary)
-      )}`;
+      md += `
+
+No failing workflow steps were extracted, but these CI checks are failing:
+
+${bulletList(data.checks.ciFailures.map(formatCheckSummary))}
+`;
     }
 
     sections.push(md.trim());
@@ -789,7 +799,7 @@ Fix the root cause so this CI failure passes without suppressing the check.
 
       for (const task of data.coverage.tasks) {
         md += `
-\n## Coverage Task ${taskNumber}
+## Coverage Task ${taskNumber}
 
 File:
 ${task.file}
@@ -799,16 +809,22 @@ ${task.lines.join(', ')}
 
 Relevant code:
 
-\`\`\`ts\n${task.snippet || '// Source file unavailable locally for snippet extraction.'}\n\`\`\`\n
+\`\`\`ts
+${task.snippet || '// Source file unavailable locally for snippet extraction.'}
+\`\`\`
+
 Required action:
 Add or update tests that execute these uncovered paths, including conditional and error branches where relevant.
 `;
         taskNumber += 1;
       }
     } else if (data.checks.coverageFailures.length) {
-      md += `\n\nCoverage-related checks are failing:\n\n${bulletList(
-        data.checks.coverageFailures.map(formatCheckSummary)
-      )}`;
+      md += `
+
+Coverage-related checks are failing:
+
+${bulletList(data.checks.coverageFailures.map(formatCheckSummary))}
+`;
     }
 
     sections.push(md.trim());
@@ -819,11 +835,11 @@ Add or update tests that execute these uncovered paths, including conditional an
     let taskNumber = 1;
 
     for (const [filePath, tasks] of data.review.inlineByFile.entries()) {
-      md += `\n\n## File: ${filePath}`;
+      md += `\n## File: ${filePath}\n`;
 
       for (const task of tasks) {
         md += `
-\n### Task ${taskNumber}
+### Task ${taskNumber}
 
 Location: ${task.file || filePath}${task.line ? `:${task.line}` : ''}
 
@@ -837,7 +853,10 @@ ${task.body}
           md += `
 Diff context:
 
-\`\`\`diff\n${task.diff}\n\`\`\`\n`;
+\`\`\`diff
+${task.diff}
+\`\`\`
+`;
         }
 
         md += `
@@ -849,11 +868,11 @@ Resolve the feedback in the referenced code without unrelated refactors.
     }
 
     if (data.review.general.length) {
-      md += '\n\n## General discussion / review summary feedback\n';
+      md += '\n## General discussion / review summary feedback\n';
 
       for (const note of data.review.general) {
         md += `
-\n### Task ${taskNumber}
+### Task ${taskNumber}
 
 Reviewer: ${note.author}
 

@@ -1087,6 +1087,11 @@ export const MIGRATIONS: string[] = [
         )
       )
     );
+  `,
+  `
+  CREATE INDEX IF NOT EXISTS games_owned_list_type_game_idx
+  ON games (igdb_game_id)
+  WHERE COALESCE(payload->>'listType', '') IN ('collection', 'wishlist');
   `
 ];
 

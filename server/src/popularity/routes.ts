@@ -134,26 +134,21 @@ async function fetchFeedRows(
           WHERE owned.igdb_game_id = g.igdb_game_id
             AND (owned.payload->>'listType') IN ('collection', 'wishlist')
         )
-    ),
-    ranked_games AS (
-      SELECT
-        igdb_game_id,
-        platform_igdb_id,
-        popularity_score,
-        payload,
-        ROW_NUMBER() OVER (
-          PARTITION BY igdb_game_id
-          ORDER BY popularity_score DESC, platform_igdb_id ASC
-        ) AS game_rank
-      FROM candidate_games
     )
     SELECT
       igdb_game_id,
       platform_igdb_id,
       popularity_score,
       payload
-    FROM ranked_games
-    WHERE game_rank = 1
+    FROM (
+      SELECT DISTINCT ON (igdb_game_id)
+        igdb_game_id,
+        platform_igdb_id,
+        popularity_score,
+        payload
+      FROM candidate_games
+      ORDER BY igdb_game_id, popularity_score DESC, platform_igdb_id ASC
+    ) deduped_games
     ORDER BY popularity_score DESC, platform_igdb_id ASC
     LIMIT ${limitPlaceholder}
     `,

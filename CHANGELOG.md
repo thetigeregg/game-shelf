@@ -2270,3 +2270,9 @@
 - b6187e56 fix(popularity): exclude owned games from feed query
 - 6ef3fca6 fix(popularity): dedupe feed rows before applying limit
 
+## v1.5.2 - 2026-03-16
+- d0dd1f00 Merge pull request #234 from thetigeregg/feat/popularity-ui
+- 2602ef62 test(api): cover release monitor precision branches
+- bdfde06c fix(api): use IGDB release_dates precision for release monitor
+- 9a6e2a2f fix(api): cap unreleased release monitor recheck window to 15 days
+

@@ -65,11 +65,11 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.equal(pool.queries.length, 1);
   const query = pool.queries[0];
   assert.ok(query.text.includes('AND TRUE'));
-  assert.ok(query.text.includes('ROW_NUMBER() OVER'));
-  assert.ok(query.text.includes('PARTITION BY igdb_game_id'));
+  assert.ok(query.text.includes('FROM games better'));
+  assert.ok(query.text.includes('better.igdb_game_id = g.igdb_game_id'));
   assert.ok(query.text.includes('AND NOT EXISTS'));
   assert.ok(query.text.includes("(owned.payload->>'listType') IN ('collection', 'wishlist')"));
-  assert.ok(query.text.includes('WHERE game_rank = 1'));
+  assert.ok(query.text.includes('better.popularity_score > g.popularity_score'));
   assert.ok(query.text.includes('LIMIT $2'));
   assert.equal(query.params[0], threshold);
   assert.equal(query.params[1], rowLimit);
@@ -210,10 +210,11 @@ void test('GET /v1/games/trending dedupes by igdb id in SQL before applying the 
   assert.equal(response.statusCode, 200);
   assert.equal(pool.queries.length, 1);
   const query = pool.queries[0];
-  assert.ok(query.text.includes('ROW_NUMBER() OVER'));
-  assert.ok(query.text.includes('PARTITION BY igdb_game_id'));
-  assert.ok(query.text.includes('ORDER BY popularity_score DESC, platform_igdb_id ASC'));
-  assert.ok(query.text.includes('WHERE game_rank = 1'));
+  assert.ok(query.text.includes('FROM games better'));
+  assert.ok(query.text.includes('better.igdb_game_id = g.igdb_game_id'));
+  assert.ok(query.text.includes('better.popularity_score > g.popularity_score'));
+  assert.ok(query.text.includes('better.platform_igdb_id < g.platform_igdb_id'));
+  assert.ok(query.text.includes('ORDER BY g.popularity_score DESC, g.platform_igdb_id ASC'));
   assert.ok(query.text.includes('LIMIT $2'));
 
   await app.close();

@@ -14,6 +14,7 @@ import { isProviderMatchLocked } from './provider-match-lock.js';
 
 const RELEASE_NOTIFICATION_EVENT_SALE_KEY = 'sale';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_UNRELEASED_NEXT_CHECK_MS = 15 * ONE_DAY_MS;
 const QUEUED_GAME_CONTEXT_CACHE_TTL_MS = 10_000;
 const DUE_SELECTION_SOURCE_ID = 'games_collection_or_wishlist_due';
 
@@ -1482,6 +1483,11 @@ function computeNextCheckAt(
       ? metacriticLastMs + metacriticIntervalMs
       : nowMs;
     nextRefreshCheckMs = Math.min(nextRefreshCheckMs, nextMetacriticCheckMs);
+  }
+
+  // Avoid long stale windows for unreleased games when IGDB refines dates.
+  if (deriveReleaseState(release, now) === 'scheduled') {
+    nextReleaseCheckMs = Math.min(nextReleaseCheckMs, nowMs + MAX_UNRELEASED_NEXT_CHECK_MS);
   }
 
   return new Date(Math.min(nextReleaseCheckMs, nextRefreshCheckMs)).toISOString();

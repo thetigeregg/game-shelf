@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const OUTPUT_FILE = '.pr-agent-prompt.md';
-const ARTIFACT_DIR = '.coverage-artifacts';
 const CI_WORKFLOW_NAME = 'CI PR Checks';
 const COVERAGE_ARTIFACT_NAME = 'coverage-reports';
 const MAX_DIFF_CHARS = 120000;
@@ -19,6 +19,7 @@ const LOG_TERMS = [
   'Unhandled',
   'Exception'
 ];
+const NORMALIZED_LOG_TERMS = LOG_TERMS.map((term) => term.toLowerCase());
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -26,7 +27,8 @@ function parseArgs(argv) {
   const options = {
     prNumber: null,
     debug: false,
-    copilotOnly: false
+    copilotOnly: false,
+    includeCoverage: false
   };
 
   for (const arg of args) {
@@ -34,13 +36,17 @@ function parseArgs(argv) {
       options.debug = true;
     } else if (arg === '--copilot-only') {
       options.copilotOnly = true;
+    } else if (arg === '--include-coverage') {
+      options.includeCoverage = true;
     } else if (!options.prNumber) {
       options.prNumber = arg;
     }
   }
 
   if (!options.prNumber) {
-    console.error('Usage: npm run pr:agent <PR_NUMBER> [--copilot-only] [--debug]');
+    console.error(
+      'Usage: npm run pr:agent <PR_NUMBER> [--copilot-only] [--include-coverage] [--debug]'
+    );
     process.exit(1);
   }
 
@@ -90,6 +96,34 @@ function getRepoInfo() {
   return { owner, repo, nameWithOwner: result.nameWithOwner };
 }
 
+function normalizeStatusChecks(statusCheckRollup) {
+  if (Array.isArray(statusCheckRollup)) return statusCheckRollup.filter(Boolean);
+
+  if (!statusCheckRollup || typeof statusCheckRollup !== 'object') {
+    return [];
+  }
+
+  const candidateCollections = [
+    statusCheckRollup.contexts,
+    statusCheckRollup.contexts?.nodes,
+    statusCheckRollup.nodes,
+    statusCheckRollup.edges,
+    statusCheckRollup.contexts?.edges
+  ];
+
+  for (const candidate of candidateCollections) {
+    if (!Array.isArray(candidate)) continue;
+
+    return candidate.map((item) => item?.node || item).filter(Boolean);
+  }
+
+  if ('status' in statusCheckRollup || 'conclusion' in statusCheckRollup) {
+    return [statusCheckRollup];
+  }
+
+  return [];
+}
+
 function getPRData(prNumber) {
   const data = JSON.parse(
     runGh([
@@ -108,7 +142,7 @@ function getPRData(prNumber) {
     files: (data.files || []).map((file) => file.path),
     comments: data.comments || [],
     reviews: data.reviews || [],
-    checks: data.statusCheckRollup || []
+    checks: normalizeStatusChecks(data.statusCheckRollup)
   };
 }
 
@@ -471,7 +505,10 @@ function getJobLog(runId, jobId) {
 
 function extractRelevantLogLines(logs) {
   const lines = String(logs || '').split('\n');
-  const errorIndex = lines.findIndex((line) => LOG_TERMS.some((term) => line.includes(term)));
+  const errorIndex = lines.findIndex((line) => {
+    const normalizedLine = line.toLowerCase();
+    return NORMALIZED_LOG_TERMS.some((term) => normalizedLine.includes(term));
+  });
 
   if (errorIndex === -1) return lines.slice(-40);
 
@@ -529,16 +566,8 @@ function collectCITasks(prData, checkAnalysis) {
   return { run, tasks, warnings };
 }
 
-function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
-}
-
 function downloadCoverageArtifact(runId) {
-  ensureDir(ARTIFACT_DIR);
-
-  const runArtifactDir = path.join(ARTIFACT_DIR, String(runId));
-  fs.rmSync(runArtifactDir, { recursive: true, force: true });
-  fs.mkdirSync(runArtifactDir, { recursive: true });
+  const runArtifactDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-agent-coverage-'));
 
   const result = runGh(
     ['run', 'download', String(runId), '-n', COVERAGE_ARTIFACT_NAME, '-D', runArtifactDir],
@@ -644,7 +673,18 @@ function extractSnippet(filePath, lines) {
   return content.slice(start, end).join('\n').trim();
 }
 
-function collectCoverageTasks(prData, preferredRunId = null) {
+function collectCoverageTasks(
+  prData,
+  { preferredRunId = null, includeCoverage = false, hasCoverageFailures = false } = {}
+) {
+  if (!includeCoverage && !hasCoverageFailures) {
+    return {
+      run: null,
+      tasks: [],
+      warnings: []
+    };
+  }
+
   if (!preferredRunId) {
     return {
       run: null,
@@ -667,28 +707,32 @@ function collectCoverageTasks(prData, preferredRunId = null) {
     };
   }
 
-  const uncovered = collectCoverage(artifactDir);
-  const intersected = intersectCoverageWithPRFiles(uncovered, prData.files);
+  try {
+    const uncovered = collectCoverage(artifactDir);
+    const intersected = intersectCoverageWithPRFiles(uncovered, prData.files);
 
-  const tasks = Object.keys(intersected).map((filePath) => ({
-    file: filePath,
-    lines: intersected[filePath],
-    snippet: extractSnippet(filePath, intersected[filePath])
-  }));
+    const tasks = Object.keys(intersected).map((filePath) => ({
+      file: filePath,
+      lines: intersected[filePath],
+      snippet: extractSnippet(filePath, intersected[filePath])
+    }));
 
-  const warnings = [];
+    const warnings = [];
 
-  if (!tasks.length) {
-    warnings.push(
-      'Coverage artifacts were downloaded, but no uncovered lines matched the files modified in this PR.'
-    );
+    if (!tasks.length) {
+      warnings.push(
+        'Coverage artifacts were downloaded, but no uncovered lines matched the files modified in this PR.'
+      );
+    }
+
+    return {
+      run: { databaseId: preferredRunId, workflowName: CI_WORKFLOW_NAME },
+      tasks,
+      warnings
+    };
+  } finally {
+    fs.rmSync(artifactDir, { recursive: true, force: true });
   }
-
-  return {
-    run: { databaseId: preferredRunId, workflowName: CI_WORKFLOW_NAME },
-    tasks,
-    warnings
-  };
 }
 
 function bulletList(items) {
@@ -995,7 +1039,11 @@ function main() {
   const ciData = collectCITasks(prData, checkAnalysis);
   warnings.push(...ciData.warnings);
 
-  const coverageData = collectCoverageTasks(prData, ciData.run?.databaseId || null);
+  const coverageData = collectCoverageTasks(prData, {
+    preferredRunId: ciData.run?.databaseId || null,
+    includeCoverage: OPTIONS.includeCoverage,
+    hasCoverageFailures: checkAnalysis.coverageFailures.length > 0
+  });
   warnings.push(...coverageData.warnings);
 
   const diffData = getDiff(prNumber);

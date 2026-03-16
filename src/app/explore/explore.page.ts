@@ -31,7 +31,9 @@ import {
   IonBadge,
   IonAccordion,
   IonAccordionGroup,
-  IonPopover
+  IonPopover,
+  IonSegment,
+  IonSegmentButton
 } from '@ionic/angular/standalone';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -43,6 +45,8 @@ import {
   GameStatus,
   GameVideo,
   ListType,
+  PopularityFeedItem,
+  PopularityFeedType,
   RecommendationItem,
   RecommendationLaneKey,
   RecommendationLanesResponse,
@@ -64,7 +68,7 @@ import {
   normalizeGameStatus,
   parseTagSelection
 } from '../features/game-list/game-list-detail-actions';
-import { isRecommendationsExploreEnabled } from '../core/config/runtime-config';
+import { isExploreEnabled } from '../core/config/runtime-config';
 import { completeIonInfiniteScroll } from '../core/utils/ion-infinite-scroll.utils';
 import { isValidYouTubeVideoId } from '../core/utils/youtube-video.util';
 import { addIcons } from 'ionicons';
@@ -136,6 +140,8 @@ interface RecommendationDisplayMetadata {
     IonAccordion,
     IonAccordionGroup,
     IonPopover,
+    IonSegment,
+    IonSegmentButton,
     NgTemplateOutlet,
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
@@ -153,7 +159,7 @@ export class ExplorePage implements OnInit {
   private static readonly PRICE_FORMATTER_LOCALE = 'de-CH';
   private static readonly PRICE_FORMATTERS = new Map<string, Intl.NumberFormat>();
 
-  readonly recommendationFeatureEnabled = isRecommendationsExploreEnabled();
+  readonly exploreEnabled = isExploreEnabled();
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
     { value: 'BACKLOG', label: 'Backlog' },
     { value: 'WISHLIST', label: 'Wishlist' },
@@ -174,14 +180,31 @@ export class ExplorePage implements OnInit {
     { value: 'popular', label: 'Popular' },
     { value: 'recent', label: 'Recent' }
   ];
+  readonly exploreModeOptions: Array<{
+    value: 'recommendations' | 'popularity';
+    label: string;
+  }> = [
+    { value: 'recommendations', label: 'Recommendations' },
+    { value: 'popularity', label: 'Popularity' }
+  ];
+  readonly popularityFeedOptions: Array<{ value: PopularityFeedType; label: string }> = [
+    { value: 'trending', label: 'Trending' },
+    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'recent', label: 'Recent' }
+  ];
 
+  selectedExploreMode: 'recommendations' | 'popularity' = 'recommendations';
   selectedTarget: RecommendationTarget = 'BACKLOG';
   selectedRuntimeMode: RecommendationRuntimeMode = 'NEUTRAL';
   selectedLaneKey: RecommendationLaneKey = 'overall';
+  selectedPopularityFeed: PopularityFeedType = 'trending';
   activeLanesResponse: RecommendationLanesResponse | null = null;
   isLoadingRecommendations = false;
   recommendationError = '';
   recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
+  isLoadingPopularity = false;
+  popularityError = '';
+  activePopularityItems: PopularityFeedItem[] = [];
   isGameDetailModalOpen = false;
   isLoadingDetail = false;
   detailErrorMessage = '';
@@ -193,6 +216,7 @@ export class ExplorePage implements OnInit {
   similarRecommendationsError = '';
   similarRecommendationItems: RecommendationSimilarItem[] = [];
   visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
+  visiblePopularityCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
   visibleSimilarRecommendationCount = ExplorePage.SIMILAR_PAGE_SIZE;
   isHeaderActionsPopoverOpen = false;
   headerActionsPopoverEvent: Event | undefined = undefined;
@@ -224,6 +248,7 @@ export class ExplorePage implements OnInit {
   private readonly libraryOwnedGameIds = new Set<string>();
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
+  private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
   private readonly discoveryPricingHydrationInFlight = new Set<string>();
   private readonly discoveryPricingHydrationAttempted = new Set<string>();
   private discoveryPricingHydrationRunPromise: Promise<void> | null = null;
@@ -274,8 +299,8 @@ export class ExplorePage implements OnInit {
   }
 
   ngOnInit(): void {
-    if (!this.recommendationFeatureEnabled) {
-      this.recommendationError = 'Recommendations are disabled in this build.';
+    if (!this.exploreEnabled) {
+      this.recommendationError = 'Explore feature is disabled in this build.';
       this.recommendationErrorCode = 'REQUEST_FAILED';
       return;
     }
@@ -323,12 +348,47 @@ export class ExplorePage implements OnInit {
     void this.ensureVisibleDiscoveryPricingHydrated();
   }
 
-  async refreshRecommendations(event: Event): Promise<void> {
+  async refreshExplore(event: Event): Promise<void> {
     try {
-      await this.loadRecommendationLanes(true);
+      if (this.selectedExploreMode === 'popularity') {
+        await this.loadPopularityFeed(true);
+      } else {
+        await this.loadRecommendationLanes(true);
+      }
     } finally {
       await this.completeRefresher(event);
     }
+  }
+
+  async onExploreModeChange(value: string | null | undefined): Promise<void> {
+    const parsed =
+      value === 'recommendations' || value === 'popularity' ? value : this.selectedExploreMode;
+
+    if (parsed === this.selectedExploreMode) {
+      return;
+    }
+
+    this.selectedExploreMode = parsed;
+
+    if (parsed === 'popularity') {
+      this.visiblePopularityCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
+      await this.loadPopularityFeed(false);
+      return;
+    }
+
+    this.visibleRecommendationCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
+    await this.loadRecommendationLanes(false);
+  }
+
+  async onPopularityFeedChange(value: string | null | undefined): Promise<void> {
+    const parsed = this.parsePopularityFeedType(value);
+    if (parsed === null || parsed === this.selectedPopularityFeed) {
+      return;
+    }
+
+    this.selectedPopularityFeed = parsed;
+    this.visiblePopularityCount = ExplorePage.RECOMMENDATION_PAGE_SIZE;
+    await this.loadPopularityFeed(false);
   }
 
   openHeaderActionsPopover(event: Event): void {
@@ -354,9 +414,22 @@ export class ExplorePage implements OnInit {
     return this.visibleRecommendationCount < this.getTotalActiveRecommendationCount();
   }
 
+  getActivePopularityItems(): PopularityFeedItem[] {
+    return this.activePopularityItems.slice(0, this.visiblePopularityCount);
+  }
+
+  canLoadMorePopularity(): boolean {
+    return this.visiblePopularityCount < this.activePopularityItems.length;
+  }
+
   async loadMoreRecommendations(event: Event): Promise<void> {
     this.visibleRecommendationCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
     await this.ensureVisibleDiscoveryPricingHydrated();
+    await completeIonInfiniteScroll(event);
+  }
+
+  async loadMorePopularity(event: Event): Promise<void> {
+    this.visiblePopularityCount += ExplorePage.RECOMMENDATION_PAGE_SIZE;
     await completeIonInfiniteScroll(event);
   }
 
@@ -595,12 +668,20 @@ export class ExplorePage implements OnInit {
     return `${item.igdbGameId}:${String(item.platformIgdbId)}`;
   }
 
+  trackByPopularityKey(_: number, item: PopularityFeedItem): string {
+    return `${item.id}:${String(item.platformIgdbId)}`;
+  }
+
   onRecommendationRowClick(
-    kind: 'recommendation' | 'similar',
-    row: RecommendationItem | RecommendationSimilarItem,
+    kind: 'recommendation' | 'similar' | 'popularity',
+    row: RecommendationItem | RecommendationSimilarItem | PopularityFeedItem,
     event: Event
   ): void {
-    if (this.isRecommendationHidden(row.igdbGameId)) {
+    if (
+      kind !== 'popularity' &&
+      'igdbGameId' in row &&
+      this.isRecommendationHidden(row.igdbGameId)
+    ) {
       return;
     }
 
@@ -609,7 +690,134 @@ export class ExplorePage implements OnInit {
       return;
     }
 
+    if (kind === 'popularity') {
+      void this.openPopularityGameDetail(row as PopularityFeedItem);
+      return;
+    }
+
     void this.openGameDetail(row as RecommendationItem);
+  }
+
+  getPopularityTitle(item: PopularityFeedItem): string {
+    const local = this.getLocalGameByIdentity(item.id, item.platformIgdbId);
+    if (local?.customTitle?.trim()) {
+      return local.customTitle.trim();
+    }
+    if (local?.title) {
+      return local.title;
+    }
+    const normalized = item.name.trim();
+    return normalized.length > 0 ? normalized : `Game #${item.id}`;
+  }
+
+  getPopularityCoverUrl(item: PopularityFeedItem): string {
+    const local = this.getLocalGameByIdentity(item.id, item.platformIgdbId);
+    if (local?.customCoverUrl || local?.coverUrl) {
+      return local.customCoverUrl ?? local.coverUrl ?? 'assets/icon/placeholder.png';
+    }
+    return item.coverUrl ?? 'assets/icon/placeholder.png';
+  }
+
+  getPopularityPlatformLabel(item: PopularityFeedItem): string {
+    if (Array.isArray(item.platforms) && item.platforms.length > 0) {
+      const labels = item.platforms
+        .map((platform) => this.getPlatformDisplayName(platform.name, platform.id))
+        .filter((name) => name.trim().length > 0);
+
+      if (labels.length > 0) {
+        return labels.join(' / ');
+      }
+    }
+
+    return `Platform ${String(item.platformIgdbId)}`;
+  }
+
+  getPopularityReleaseYear(item: PopularityFeedItem): number | null {
+    const firstReleaseDate = item.firstReleaseDate;
+    if (
+      typeof firstReleaseDate !== 'number' ||
+      !Number.isInteger(firstReleaseDate) ||
+      firstReleaseDate <= 0
+    ) {
+      return null;
+    }
+    const date = new Date(firstReleaseDate * 1000);
+    return Number.isNaN(date.getTime()) ? null : date.getUTCFullYear();
+  }
+
+  getPopularityBadges(item: PopularityFeedItem): RecommendationBadge[] {
+    const badges: RecommendationBadge[] = [
+      { text: `Popularity ${item.popularityScore.toFixed(1)}`, color: 'primary' }
+    ];
+
+    if (typeof item.rating === 'number' && Number.isFinite(item.rating)) {
+      badges.push({ text: `IGDB ${item.rating.toFixed(1)}`, color: 'success' });
+    }
+
+    return badges;
+  }
+
+  async openPopularityGameDetail(item: PopularityFeedItem): Promise<void> {
+    const requestedIdentityKey = this.buildIdentityKey(item.id, item.platformIgdbId);
+    const local = this.getLocalGameByIdentity(item.id, item.platformIgdbId);
+    const cachedCatalog = this.getRecommendationCatalogResult(item.id);
+    const initialCatalog = cachedCatalog
+      ? this.withCatalogPlatformContext(cachedCatalog, item.platformIgdbId)
+      : null;
+
+    this.isGameDetailModalOpen = true;
+    this.isVideosModalOpen = false;
+    this.isLoadingDetail = !local && !initialCatalog;
+    this.detailErrorMessage = '';
+    this.detailContext = local ? 'library' : 'explore';
+    this.isSelectedGameInLibrary = Boolean(local);
+    this.isAddToLibraryLoading = false;
+    this.activeDetailRecommendation = null;
+    this.similarRecommendationItems = [];
+    this.similarRecommendationsError = '';
+    this.isLoadingSimilar = false;
+    this.invalidateSimilarVisibility();
+    this.scrollDetailToTop();
+    this.selectedGameDetail = local
+      ? local
+      : (initialCatalog ??
+        this.createFallbackCatalogResult({
+          igdbGameId: item.id,
+          platformIgdbId: item.platformIgdbId,
+          title: this.getPopularityTitle(item)
+        }));
+
+    if (!local) {
+      try {
+        if (!initialCatalog) {
+          const fetchedCatalog = await this.fetchRecommendationCatalogResult(item.id);
+          if (fetchedCatalog && this.hasSelectedDetailIdentity(requestedIdentityKey)) {
+            this.selectedGameDetail = this.withCatalogPlatformContext(
+              fetchedCatalog,
+              item.platformIgdbId
+            );
+          }
+        }
+
+        if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
+          this.isSelectedGameInLibrary = await this.checkGameAlreadyInLibrary(
+            this.selectedGameDetail
+          );
+        }
+      } catch (error) {
+        if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
+          this.detailErrorMessage =
+            error instanceof Error ? error.message : 'Unable to load game details.';
+        }
+      } finally {
+        if (this.hasSelectedDetailIdentity(requestedIdentityKey)) {
+          this.isLoadingDetail = false;
+        }
+      }
+      return;
+    }
+
+    this.isLoadingDetail = false;
   }
 
   async openGameDetail(
@@ -1022,7 +1230,7 @@ export class ExplorePage implements OnInit {
   }
 
   private async loadRecommendationLanes(forceRefresh: boolean): Promise<void> {
-    if (!this.recommendationFeatureEnabled) {
+    if (!this.exploreEnabled) {
       return;
     }
 
@@ -1074,6 +1282,50 @@ export class ExplorePage implements OnInit {
       }
     } finally {
       this.isLoadingRecommendations = false;
+    }
+  }
+
+  private parsePopularityFeedType(value: unknown): PopularityFeedType | null {
+    if (value === 'trending' || value === 'upcoming' || value === 'recent') {
+      return value;
+    }
+    return null;
+  }
+
+  private async loadPopularityFeed(forceRefresh: boolean): Promise<void> {
+    if (!this.exploreEnabled) {
+      return;
+    }
+
+    const cached = this.popularityFeedCache.get(this.selectedPopularityFeed);
+    if (!forceRefresh && cached) {
+      this.activePopularityItems = cached;
+      this.popularityError = '';
+      return;
+    }
+
+    this.isLoadingPopularity = true;
+    this.popularityError = '';
+
+    try {
+      const [items, localGames] = await Promise.all([
+        firstValueFrom(this.igdbProxyService.getPopularityFeed(this.selectedPopularityFeed)),
+        this.gameShelfService.listLibraryGames()
+      ]);
+      this.activePopularityItems = items;
+      this.popularityFeedCache.set(this.selectedPopularityFeed, items);
+      this.replaceLocalGameCache(localGames);
+    } catch (error) {
+      if (error instanceof Error && error.message.trim().length > 0) {
+        this.popularityError = error.message;
+      } else {
+        this.popularityError = 'Unable to load popularity feed right now.';
+      }
+      if (!cached) {
+        this.activePopularityItems = [];
+      }
+    } finally {
+      this.isLoadingPopularity = false;
     }
   }
 
@@ -1385,6 +1637,22 @@ export class ExplorePage implements OnInit {
     return (
       this.localGameCacheByIdentity.get(this.buildIdentityKey(igdbGameId, platformIgdbId)) ?? null
     );
+  }
+
+  private hasSelectedDetailIdentity(expectedIdentityKey: string): boolean {
+    if (!this.selectedGameDetail) {
+      return false;
+    }
+
+    const { igdbGameId, platformIgdbId } = this.selectedGameDetail;
+    if (typeof igdbGameId !== 'string' || igdbGameId.length === 0) {
+      return false;
+    }
+    if (typeof platformIgdbId !== 'number' || !Number.isInteger(platformIgdbId)) {
+      return false;
+    }
+
+    return this.buildIdentityKey(igdbGameId, platformIgdbId) === expectedIdentityKey;
   }
 
   private buildIdentityKey(igdbGameId: string, platformIgdbId: number): string {

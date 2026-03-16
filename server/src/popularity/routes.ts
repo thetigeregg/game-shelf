@@ -133,17 +133,23 @@ async function fetchFeedRows(
           PARTITION BY igdb_game_id
           ORDER BY popularity_score DESC, platform_igdb_id ASC
         ) AS game_rank
-      FROM games
-      WHERE popularity_score > $1
+      FROM games g
+      WHERE g.popularity_score > $1
         AND (
-          ${sqlNumericPayload('total_rating_count')} >= 20
-          OR ${sqlNumericPayload('totalRatingCount')} >= 20
-          OR ${sqlNumericPayload('hypes')} >= 10
-          OR ${sqlNumericPayload('follows')} >= 200
+          ${sqlNumericPayloadWithAlias('g', 'total_rating_count')} >= 20
+          OR ${sqlNumericPayloadWithAlias('g', 'totalRatingCount')} >= 20
+          OR ${sqlNumericPayloadWithAlias('g', 'hypes')} >= 10
+          OR ${sqlNumericPayloadWithAlias('g', 'follows')} >= 200
         )
-        AND COALESCE(NULLIF(BTRIM(payload->>'parent_game'), ''), NULLIF(BTRIM(payload->>'parentGame'), '')) IS NULL
-        AND COALESCE(NULLIF(BTRIM(payload->>'version_parent'), ''), NULLIF(BTRIM(payload->>'versionParent'), '')) IS NULL
-        AND COALESCE(NULLIF(BTRIM(payload->>'gameType'), ''), 'main_game') = 'main_game'
+        AND COALESCE(NULLIF(BTRIM(g.payload->>'parent_game'), ''), NULLIF(BTRIM(g.payload->>'parentGame'), '')) IS NULL
+        AND COALESCE(NULLIF(BTRIM(g.payload->>'version_parent'), ''), NULLIF(BTRIM(g.payload->>'versionParent'), '')) IS NULL
+        AND COALESCE(NULLIF(BTRIM(g.payload->>'gameType'), ''), 'main_game') = 'main_game'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM games owned
+          WHERE owned.igdb_game_id = g.igdb_game_id
+            AND (owned.payload->>'listType') IN ('collection', 'wishlist')
+        )
         AND ${feedWindowPredicate}
     )
     SELECT
@@ -297,6 +303,10 @@ function normalizeFirstReleaseDate(payload: Record<string, unknown>): number | n
 
 function sqlNumericPayload(field: string): string {
   return `CASE WHEN BTRIM(COALESCE(payload->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(payload->>'${field}'))::double precision ELSE 0 END`;
+}
+
+function sqlNumericPayloadWithAlias(alias: string, field: string): string {
+  return `CASE WHEN BTRIM(COALESCE(${alias}.payload->>'${field}', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (BTRIM(${alias}.payload->>'${field}'))::double precision ELSE 0 END`;
 }
 
 function sqlUnixPayload(field: string): string {

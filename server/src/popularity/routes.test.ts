@@ -67,6 +67,8 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
   assert.ok(query.text.includes('AND TRUE'));
   assert.ok(query.text.includes('ROW_NUMBER() OVER'));
   assert.ok(query.text.includes('PARTITION BY igdb_game_id'));
+  assert.ok(query.text.includes('AND NOT EXISTS'));
+  assert.ok(query.text.includes("(owned.payload->>'listType') IN ('collection', 'wishlist')"));
   assert.ok(query.text.includes('WHERE game_rank = 1'));
   assert.ok(query.text.includes('LIMIT $2'));
   assert.equal(query.params[0], threshold);
@@ -213,6 +215,27 @@ void test('GET /v1/games/trending dedupes by igdb id in SQL before applying the 
   assert.ok(query.text.includes('ORDER BY popularity_score DESC, platform_igdb_id ASC'));
   assert.ok(query.text.includes('WHERE game_rank = 1'));
   assert.ok(query.text.includes('LIMIT $2'));
+
+  await app.close();
+});
+
+void test('GET /v1/games/trending excludes collection and wishlist games in SQL before applying the limit', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock([]);
+  await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/games/trending'
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(pool.queries.length, 1);
+  const query = pool.queries[0];
+  assert.ok(query.text.includes('FROM games owned'));
+  assert.ok(query.text.includes('owned.igdb_game_id = g.igdb_game_id'));
+  assert.ok(query.text.includes("(owned.payload->>'listType') IN ('collection', 'wishlist')"));
+  assert.ok(query.text.includes('AND NOT EXISTS'));
 
   await app.close();
 });

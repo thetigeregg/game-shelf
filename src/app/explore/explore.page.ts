@@ -418,11 +418,11 @@ export class ExplorePage implements OnInit {
   }
 
   getActivePopularityItems(): PopularityFeedItem[] {
-    return this.activePopularityItems.slice(0, this.visiblePopularityCount);
+    return this.getVisiblePopularityItems().slice(0, this.visiblePopularityCount);
   }
 
   canLoadMorePopularity(): boolean {
-    return this.visiblePopularityCount < this.activePopularityItems.length;
+    return this.visiblePopularityCount < this.getVisiblePopularityItems().length;
   }
 
   async loadMoreRecommendations(event: Event): Promise<void> {
@@ -2407,6 +2407,14 @@ export class ExplorePage implements OnInit {
     );
     this.cachedVisibleSimilarItemsRevision = this.similarVisibilityRevision;
     return this.cachedVisibleSimilarItems;
+  }
+
+  private getVisiblePopularityItems(): PopularityFeedItem[] {
+    if (this.libraryOwnedGameIds.size === 0) {
+      return this.activePopularityItems;
+    }
+
+    return this.activePopularityItems.filter((item) => !this.libraryOwnedGameIds.has(item.id));
   }
 
   private invalidateRecommendationVisibility(): void {

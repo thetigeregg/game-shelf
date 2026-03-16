@@ -953,6 +953,8 @@ describe('ExplorePage explore modes UX', () => {
       selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
       selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
       activeLanesResponse: typeof mockLanesResponse | null;
+      activePopularityItems: Array<{ id: string }>;
+      getActivePopularityItems: () => Array<{ id: string }>;
       getActiveLaneItems: () => Array<{ igdbGameId: string }>;
       localGameCacheByIdentity: Map<string, unknown>;
       libraryOwnedGameIds: Set<string>;
@@ -1046,6 +1048,9 @@ describe('ExplorePage explore modes UX', () => {
     });
     await page.addSelectedGameToLibrary();
     expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
+
+    page.activePopularityItems = [{ id: '300' }, { id: '301' }];
+    expect(page.getActivePopularityItems()).toEqual([{ id: '301' }]);
   });
 
   it('covers recommendation visibility helpers and hidden-stack navigation branches', () => {

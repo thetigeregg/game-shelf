@@ -83,6 +83,4 @@ nas-data/
 nas-secrets/
 /worktrees/
 .pr-summary-prompt.md
-.pr-review-prompt.md
-.pr-ci-prompt.md
-.pr-fix-prompt.md
+.pr-agent-prompt.md

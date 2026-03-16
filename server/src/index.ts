@@ -361,6 +361,7 @@ async function main(): Promise<void> {
       }
     });
     await registerPopularityRoutes(app, pool, {
+      rowLimit: config.popularityFeedRowLimit,
       threshold: config.popularityScoreThreshold
     });
     await registerRecommendationRoutes(app, recommendationService);

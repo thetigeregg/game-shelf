@@ -126,7 +126,7 @@ const mockPopularityFeedResponse = [
   }
 ];
 
-describe('ExplorePage recommendations UX', () => {
+describe('ExplorePage explore modes UX', () => {
   const igdbProxyServiceMock = {
     getRecommendationLanes: vi.fn(),
     getPopularityFeed: vi.fn(),
@@ -252,7 +252,7 @@ describe('ExplorePage recommendations UX', () => {
 
   it('sets disabled state when recommendations feature flag is off', () => {
     const page = createPage();
-    Object.defineProperty(page, 'recommendationFeatureEnabled', {
+    Object.defineProperty(page, 'exploreFeatureEnabled', {
       value: false,
       configurable: true
     });
@@ -1411,7 +1411,7 @@ describe('ExplorePage recommendations UX', () => {
   it('covers recommendation refresh and display fallback helper branches', async () => {
     const page = createPage();
     const privatePage = page as unknown as {
-      refreshRecommendations: (event: Event) => Promise<void>;
+      refreshExplore: (event: Event) => Promise<void>;
       getDisplayTitle: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
       getPlatformLabel: (item: (typeof mockLanesResponse.lanes.overall)[0]) => string;
       getReleaseYear: (item: (typeof mockLanesResponse.lanes.overall)[0]) => number | null;
@@ -1438,7 +1438,7 @@ describe('ExplorePage recommendations UX', () => {
     await flushAsync();
 
     const complete = vi.fn().mockResolvedValue(undefined);
-    await privatePage.refreshRecommendations({ target: { complete } } as unknown as Event);
+    await privatePage.refreshExplore({ target: { complete } } as unknown as Event);
     expect(complete).toHaveBeenCalledOnce();
 
     const row = mockLanesResponse.lanes.overall[0];

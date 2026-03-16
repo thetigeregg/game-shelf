@@ -12,6 +12,7 @@ void test('config clamps popularity feed row limit to a sane maximum', async () 
   fs.writeFileSync(envFile, 'POPULARITY_FEED_ROW_LIMIT=999\n', 'utf8');
 
   const originalEnvFile = process.env.ENV_FILE;
+  const originalPopularityFeedRowLimit = process.env.POPULARITY_FEED_ROW_LIMIT;
   process.env.ENV_FILE = envFile;
 
   try {
@@ -26,6 +27,11 @@ void test('config clamps popularity feed row limit to a sane maximum', async () 
       process.env.ENV_FILE = originalEnvFile;
     } else {
       delete process.env.ENV_FILE;
+    }
+    if (typeof originalPopularityFeedRowLimit === 'string') {
+      process.env.POPULARITY_FEED_ROW_LIMIT = originalPopularityFeedRowLimit;
+    } else {
+      delete process.env.POPULARITY_FEED_ROW_LIMIT;
     }
     fs.rmSync(tempDir, { recursive: true, force: true });
   }

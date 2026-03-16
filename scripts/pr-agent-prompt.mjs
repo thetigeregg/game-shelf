@@ -36,7 +36,22 @@ function getReviewComments(prNumber) {
   if (!data.reviews) return [];
 
   return data.reviews
-    .filter((r) => r.body?.trim())
+    .filter((r) => {
+      if (!r.body) return false;
+
+      const body = r.body.toLowerCase();
+      const author = r.author?.login ?? '';
+
+      if (author.includes('copilot')) return false;
+
+      if (body.includes('low confidence')) return false;
+
+      if (body.includes('comments suppressed')) return false;
+
+      if (body.includes('<details>')) return false;
+
+      return body.trim().length > 0;
+    })
     .map((r) => ({
       author: r.author?.login ?? 'reviewer',
       body: r.body.trim()

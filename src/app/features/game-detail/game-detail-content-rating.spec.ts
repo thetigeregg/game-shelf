@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+
+const swiperConstructorMock = vi.hoisted(() => vi.fn());
 
 vi.mock('ionicons', () => ({
   addIcons: vi.fn()
@@ -14,9 +16,11 @@ vi.mock('@ionic/angular/standalone', () => ({
   IonLabel: {},
   IonBadge: {},
   IonButton: {},
+  IonButtons: {},
   IonSelect: {},
   IonSelectOption: {},
-  IonIcon: {}
+  IonIcon: {},
+  IonToolbar: {}
 }));
 
 vi.mock('ionicons/icons', () => ({
@@ -40,9 +44,42 @@ vi.mock('ionicons/icons', () => ({
   trophy: {}
 }));
 
+vi.mock('swiper', () => ({
+  default: function SwiperMock(this: unknown, ...args: unknown[]) {
+    return swiperConstructorMock(...args) as SwiperInstanceMock;
+  }
+}));
+
+vi.mock('swiper/modules', () => ({
+  Pagination: {},
+  Zoom: {}
+}));
+
 import { GameDetailContentComponent } from './game-detail-content.component';
 import { PlatformCustomizationService } from '../../core/services/platform-customization.service';
 import type { GameEntry } from '../../core/models/game.models';
+
+type SwiperInstanceMock = {
+  allowTouchMove: boolean;
+  update: ReturnType<typeof vi.fn>;
+  pagination: {
+    render: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+  destroy: ReturnType<typeof vi.fn>;
+};
+
+function createSwiperInstance(): SwiperInstanceMock {
+  return {
+    allowTouchMove: false,
+    update: vi.fn(),
+    pagination: {
+      render: vi.fn(),
+      update: vi.fn()
+    },
+    destroy: vi.fn()
+  };
+}
 
 function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
   return {
@@ -63,20 +100,40 @@ function makeLibraryGame(overrides: Partial<GameEntry> = {}): GameEntry {
 
 describe('GameDetailContentComponent rating display', () => {
   beforeEach(() => {
+    swiperConstructorMock.mockReset();
+    swiperConstructorMock.mockImplementation(() => createSwiperInstance());
+
     TestBed.configureTestingModule({
       providers: [
         {
           provide: PlatformCustomizationService,
           useValue: {
-            getDisplayNameWithoutAlias: vi.fn((name: string) => name)
+            getDisplayNameWithoutAlias: vi.fn((name: string) => name),
+            getDisplayNameWithAliasSource: vi.fn((name: string) => name)
           }
         }
       ]
     });
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   function createComponent(): GameDetailContentComponent {
     return TestBed.runInInjectionContext(() => new GameDetailContentComponent());
+  }
+
+  function attachSwiperContainer(component: GameDetailContentComponent): void {
+    (
+      component as unknown as { swiperContainerRef: { nativeElement: HTMLElement } }
+    ).swiperContainerRef = {
+      nativeElement: document.createElement('div')
+    };
+  }
+
+  function getCreatedSwiper(): SwiperInstanceMock {
+    return swiperConstructorMock.mock.results[0]?.value as SwiperInstanceMock;
   }
 
   it('shows rating label without trailing zeros and edit action when rated', () => {
@@ -197,5 +254,79 @@ describe('GameDetailContentComponent rating display', () => {
     } finally {
       formatterSpy.mockRestore();
     }
+  });
+
+  it('initializes Swiper after view init and refreshes on game changes', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      coverUrl: 'https://img.example/cover.jpg'
+    });
+    attachSwiperContainer(component);
+
+    const requestAnimationFrameSpy = vi.fn((callback: FrameRequestCallback): number => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrameSpy);
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+    expect(swiperConstructorMock).not.toHaveBeenCalled();
+    component.ngAfterViewInit();
+
+    expect(swiperConstructorMock).toHaveBeenCalledTimes(1);
+    const swiper = getCreatedSwiper();
+    expect(swiper.allowTouchMove).toBe(false);
+    expect(swiper.update).toHaveBeenCalledTimes(1);
+    expect(swiper.pagination.render).toHaveBeenCalledTimes(1);
+    expect(swiper.pagination.update).toHaveBeenCalledTimes(1);
+
+    component.game = makeLibraryGame({
+      coverUrl: 'https://img.example/cover.jpg',
+      screenshots: [{ id: 2, imageId: 'shot-2', url: 'https://img.example/shot-2.jpg' }]
+    });
+    component.ngOnChanges({
+      game: {
+        currentValue: component.game,
+        previousValue: null,
+        firstChange: false,
+        isFirstChange: () => false
+      }
+    });
+
+    expect(swiper.allowTouchMove).toBe(true);
+    expect(swiper.update).toHaveBeenCalledTimes(2);
+    expect(swiper.pagination.render).toHaveBeenCalledTimes(2);
+    expect(swiper.pagination.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('destroys swiper and cancels queued refresh on destroy', () => {
+    const component = createComponent();
+    component.context = 'library';
+    component.game = makeLibraryGame({
+      coverUrl: 'https://img.example/cover.jpg'
+    });
+    attachSwiperContainer(component);
+
+    let queuedFrameCallback: FrameRequestCallback | null = null;
+    const requestAnimationFrameSpy = vi.fn((callback: FrameRequestCallback): number => {
+      queuedFrameCallback = callback;
+      return 42;
+    });
+    const cancelAnimationFrameSpy = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrameSpy);
+    vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrameSpy);
+
+    component.ngAfterViewInit();
+    const swiper = getCreatedSwiper();
+
+    component.ngOnDestroy();
+
+    expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(42);
+    expect(swiper.destroy).toHaveBeenCalledWith(true, true);
+
+    queuedFrameCallback?.(0);
+    expect(swiper.update).not.toHaveBeenCalled();
+    expect(swiperConstructorMock).toHaveBeenCalledTimes(1);
   });
 });

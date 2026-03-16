@@ -178,26 +178,27 @@ function extractRelevantLogs(logs) {
   return lines.slice(Math.max(0, errorIndex - 25), errorIndex + 25);
 }
 
+function includeReviewItem(body, author) {
+  if (!body) return false;
+
+  const b = body.toLowerCase();
+  const authorLogin = (author || '').toLowerCase();
+
+  if (authorLogin.includes('copilot')) return false;
+  if (authorLogin.includes('github-actions')) return false;
+  if (authorLogin.includes('codecov')) return false;
+
+  if (b.includes('low confidence')) return false;
+  if (b.includes('<details>')) return false;
+
+  return true;
+}
+
 function filterReviewComments(comments, reviews) {
   const results = [];
 
-  function include(body, author) {
-    if (!body) return false;
-
-    const b = body.toLowerCase();
-
-    if (author?.includes('copilot')) return false;
-    if (author?.includes('github-actions')) return false;
-    if (author?.includes('codecov')) return false;
-
-    if (b.includes('low confidence')) return false;
-    if (b.includes('<details>')) return false;
-
-    return true;
-  }
-
   for (const c of comments) {
-    if (include(c.body, c.author?.login)) {
+    if (includeReviewItem(c.body, c.author?.login)) {
       results.push({
         author: c.author?.login,
         body: c.body,
@@ -208,7 +209,7 @@ function filterReviewComments(comments, reviews) {
   }
 
   for (const r of reviews) {
-    if (include(r.body, r.author?.login)) {
+    if (includeReviewItem(r.body, r.author?.login)) {
       results.push({
         author: r.author?.login,
         body: r.body
@@ -237,7 +238,7 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
           isResolved
           path
           line
-          comments(first:20) {
+          comments(last:1) {
             nodes {
               author { login }
               body
@@ -289,8 +290,9 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
   return unresolved
     .map((thread) => {
       const comments = thread.comments?.nodes || [];
-      const lastComment = comments[comments.length - 1];
+      const lastComment = comments[0];
       if (!lastComment?.body) return null;
+      if (!includeReviewItem(lastComment.body, lastComment.author?.login)) return null;
 
       return {
         author: lastComment.author?.login,

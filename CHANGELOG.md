@@ -2229,3 +2229,21 @@
 - 35ca2ba7 refactor(popularity): purge legacy popularity proxy paths and wire direct IGDB ingest
 - f8813cab feat(popularity): add IGDB popularity ingest and global discovery feeds
 
+## v1.4.0 - 2026-03-16
+- 038f8f3e Merge pull request #230 from thetigeregg/feat/popularity-ui
+- 6ae96888 fix(explore): rename feature flag usage to explore-enabled naming
+- ee0b21ce Merge branch 'main' into feat/popularity-ui
+- 2881d2c7 refactor(explore): rename refresh handler and feature flag for mode-agnostic explore feeds
+- 2e32e330 Revert "fix(ci): harden PR CI prompt generation for missing failure logs"
+- c7da5969 fix(ci): harden PR CI prompt generation for missing failure logs
+- 5657c324 feat(popularity): dedupe ingest payload lists and harden popularity explore detail loading
+- 468d9578 Merge branch 'main' into feat/popularity-ui
+- 85e72dba style(explore): move discover mode segment into toolbar container
+- a9b38d11 ci(workflow): bump create-github-app-token action to v3
+- a5ac0c13 chore(deps): bump tiptap, commitlint, lint-staged, and express-rate-limit
+- bfcaeb71 feat(popularity): add discover popularity mode with detail-ready metadata
+- 1a1b829b fix(api): dedupe popularity feed by igdb game id keeping highest score
+- 7c6210ec fix(api): dedupe popularity feed items by game platform key
+- fbe30c85 fix(api): use contiguous SQL placeholders in popularity feed queries
+- a8357690 feat(api): add popularity feed client support for trending endpoints
+

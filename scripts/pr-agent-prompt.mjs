@@ -2,48 +2,71 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 
 const OUTPUT_FILE = '.pr-agent-prompt.md';
+const WORKFLOW_NAME = 'CI PR Checks';
 
 function runGh(args) {
-  return execFileSync('gh', args, { encoding: 'utf8' });
+  return execFileSync('gh', args, {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    maxBuffer: 1024 * 1024 * 50
+  });
 }
 
 function getPR(prNumber) {
-  return JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'title']));
+  return JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'title,headRefOid']));
 }
 
-function getReviewThreads(prNumber) {
-  const data = JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'reviewThreads']));
+function getChangedFiles(prNumber) {
+  const data = JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'files']));
 
-  const unresolved = data.reviewThreads?.filter((t) => !t.isResolved) ?? [];
-
-  return unresolved.map((t) => ({
-    path: t.comments[0]?.path,
-    body: t.comments[0]?.body
-  }));
+  return data.files?.map((f) => f.path) ?? [];
 }
 
-function getCIFailures(prNumber) {
-  const pr = JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'headRefOid']));
+function getDiff(prNumber) {
+  try {
+    return runGh(['pr', 'diff', prNumber]);
+  } catch {
+    return '';
+  }
+}
 
+function getReviewComments(prNumber) {
+  const data = JSON.parse(runGh(['pr', 'view', prNumber, '--json', 'reviews']));
+
+  if (!data.reviews) return [];
+
+  return data.reviews
+    .filter((r) => r.body?.trim())
+    .map((r) => ({
+      author: r.author?.login ?? 'reviewer',
+      body: r.body.trim()
+    }));
+}
+
+function getLatestCIRun(commitSha) {
   const runs = JSON.parse(
     runGh([
       'run',
       'list',
       '--commit',
-      pr.headRefOid,
+      commitSha,
       '--json',
-      'databaseId,workflowName,conclusion',
+      'databaseId,workflowName,status,conclusion',
       '--limit',
       '20'
     ])
   );
 
-  const ciRun = runs.find((r) => r.workflowName === 'CI PR Checks');
+  return runs.find((r) => r.workflowName === WORKFLOW_NAME);
+}
 
-  if (!ciRun) return [];
+function getJobs(runId) {
+  const result = JSON.parse(runGh(['run', 'view', runId, '--json', 'jobs']));
 
-  const jobs = JSON.parse(runGh(['run', 'view', ciRun.databaseId, '--json', 'jobs'])).jobs;
+  return result.jobs ?? [];
+}
 
+function detectFailures(jobs) {
   const failures = [];
 
   for (const job of jobs) {
@@ -53,7 +76,8 @@ function getCIFailures(prNumber) {
       if (step.conclusion === 'failure') {
         failures.push({
           job: job.name,
-          step: step.name
+          step: step.name,
+          jobId: job.databaseId
         });
       }
     }
@@ -62,27 +86,110 @@ function getCIFailures(prNumber) {
   return failures;
 }
 
-function buildPrompt(prNumber, title, ciFailures, reviewComments) {
+function getFailureLogs(runId, failures) {
+  let logs = '';
+
+  for (const failure of failures) {
+    try {
+      const jobLogs = runGh(['run', 'view', runId, '--job', failure.jobId, '--log']);
+
+      logs += '\n\n===== JOB: ' + failure.job + ' =====\n\n';
+      logs += jobLogs;
+    } catch {}
+  }
+
+  return logs;
+}
+
+function extractErrorContext(logs) {
+  if (!logs) return [];
+
+  const lines = logs.split('\n');
+
+  const patterns = [
+    'FAIL',
+    'Error:',
+    'Coverage for',
+    'does not meet',
+    'eslint',
+    'TS',
+    'Test Suites:'
+  ];
+
+  const idx = lines.findIndex((line) => patterns.some((p) => line.includes(p)));
+
+  if (idx === -1) return lines.slice(-40);
+
+  const start = Math.max(0, idx - 25);
+  const end = Math.min(lines.length, idx + 25);
+
+  return lines.slice(start, end);
+}
+
+function detectCoverageIssues(logs) {
+  const match = logs.match(/Coverage.*?(\d+)%.*?(\d+)%/i);
+
+  if (!match) return null;
+
+  return {
+    actual: match[1],
+    required: match[2]
+  };
+}
+
+function buildPrompt({ prNumber, title, files, diff, failures, reviewComments, logs }) {
+  const relevantLogs = extractErrorContext(logs);
+  const coverage = detectCoverageIssues(logs);
+
   let md = `
-# Pull Request Fix Tasks
+# Pull Request Agent Task
 
 Pull Request: #${prNumber}
 Title: ${title}
 
-Address the issues below so the PR can merge.
+Your goal is to resolve CI failures and review feedback.
 
 ---
+
+# Changed Files
 `;
 
-  if (ciFailures.length) {
+  if (files.length) {
+    for (const f of files) md += `• ${f}\n`;
+  } else {
+    md += 'No changed files detected.\n';
+  }
+
+  md += '\n---\n';
+
+  if (failures.length) {
     md += `
 # CI Failures
 `;
 
-    for (const f of ciFailures) {
+    for (const f of failures) {
       md += `
 Failing Job: ${f.job}
 Failing Step: ${f.step}
+`;
+    }
+
+    if (coverage) {
+      md += `
+Coverage Issue Detected
+
+Actual Coverage: ${coverage.actual}%
+Required Coverage: ${coverage.required}%
+`;
+    }
+
+    if (relevantLogs.length) {
+      md += `
+Relevant CI Log Snippet
+
+\`\`\`
+${relevantLogs.join('\n')}
+\`\`\`
 `;
     }
 
@@ -91,12 +198,12 @@ Failing Step: ${f.step}
 
   if (reviewComments.length) {
     md += `
-# PR Review Comments
+# Review Feedback
 `;
 
     for (const r of reviewComments) {
       md += `
-File: ${r.path}
+Reviewer: ${r.author}
 
 ${r.body}
 
@@ -107,14 +214,32 @@ ${r.body}
   }
 
   md += `
+# Pull Request Diff
+
+Use this diff to understand the intended changes.
+
+\`\`\`diff
+${diff}
+\`\`\`
+
+---
+
+# Instructions for the Agent
+
+1. Fix CI failures
+2. Address review comments
+3. Modify only the relevant files
+4. Ensure lint, tests, and coverage pass
+5. Preserve project coding conventions
+
+---
+
 # Final Step
 
-Fix the issues above.
-
-Then generate the Conventional Commit message for the changes.
+Generate the Conventional Commit message for the changes.
 `;
 
-  return md;
+  return md.trim() + '\n';
 }
 
 function main() {
@@ -129,10 +254,36 @@ function main() {
 
   const pr = getPR(prNumber);
 
-  const ciFailures = getCIFailures(prNumber);
-  const reviewComments = getReviewThreads(prNumber);
+  const files = getChangedFiles(prNumber);
+  const diff = getDiff(prNumber);
+  const reviewComments = getReviewComments(prNumber);
 
-  const prompt = buildPrompt(prNumber, pr.title, ciFailures, reviewComments);
+  const run = getLatestCIRun(pr.headRefOid);
+
+  let failures = [];
+  let logs = '';
+
+  if (run) {
+    console.log(`Using workflow run: ${run.databaseId}`);
+
+    const jobs = getJobs(run.databaseId);
+
+    failures = detectFailures(jobs);
+
+    if (failures.length) {
+      logs = getFailureLogs(run.databaseId, failures);
+    }
+  }
+
+  const prompt = buildPrompt({
+    prNumber,
+    title: pr.title,
+    files,
+    diff,
+    failures,
+    reviewComments,
+    logs
+  });
 
   fs.writeFileSync(OUTPUT_FILE, prompt);
 
@@ -141,8 +292,9 @@ Agent prompt generated:
 
 ${OUTPUT_FILE}
 
-CI failures: ${ciFailures.length}
+CI failures: ${failures.length}
 Review comments: ${reviewComments.length}
+Files changed: ${files.length}
 `);
 }
 

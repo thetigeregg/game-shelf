@@ -295,6 +295,43 @@ describe('ExplorePage explore modes UX', () => {
     expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenLastCalledWith('upcoming');
   });
 
+  it('does not block popularity mode load while catalog hydration runs', async () => {
+    const page = createPage() as unknown as {
+      ngOnInit: () => void;
+      onExploreModeChange: (mode: 'recommendations' | 'popularity') => Promise<void>;
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+      getActivePopularityItems: () => Array<{ id: string }>;
+      isLoadingPopularity: boolean;
+    };
+    page.ngOnInit();
+    await flushAsync();
+
+    let resolveHydration: (() => void) | null = null;
+    const hydrationPromise = new Promise<void>((resolve) => {
+      resolveHydration = resolve;
+    });
+    const hydrateSpy = vi
+      .spyOn(page, 'ensureVisiblePopularityCatalogHydrated')
+      .mockReturnValue(hydrationPromise);
+
+    const modeChangePromise = page.onExploreModeChange('popularity');
+
+    let modeChangeSettled = false;
+    void modeChangePromise.then(() => {
+      modeChangeSettled = true;
+    });
+
+    await flushAsync();
+
+    expect(hydrateSpy).toHaveBeenCalledTimes(1);
+    expect(modeChangeSettled).toBe(true);
+    expect(page.isLoadingPopularity).toBe(false);
+    expect(page.getActivePopularityItems()).toHaveLength(1);
+
+    resolveHydration?.();
+    await hydrationPromise;
+  });
+
   it('exposes popularity empty-state conditions when feed returns no items', async () => {
     igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(of([]));
 

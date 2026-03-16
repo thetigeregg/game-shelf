@@ -1311,7 +1311,7 @@ export class ExplorePage implements OnInit {
     if (!forceRefresh && cached) {
       this.activePopularityItems = cached;
       this.popularityError = '';
-      await this.ensureVisiblePopularityCatalogHydrated();
+      this.scheduleVisiblePopularityCatalogHydration();
       return;
     }
 
@@ -1326,7 +1326,7 @@ export class ExplorePage implements OnInit {
       this.activePopularityItems = items;
       this.popularityFeedCache.set(this.selectedPopularityFeed, items);
       this.replaceLocalGameCache(localGames);
-      await this.ensureVisiblePopularityCatalogHydrated();
+      this.scheduleVisiblePopularityCatalogHydration();
     } catch (error) {
       if (error instanceof Error && error.message.trim().length > 0) {
         this.popularityError = error.message;
@@ -1339,6 +1339,10 @@ export class ExplorePage implements OnInit {
     } finally {
       this.isLoadingPopularity = false;
     }
+  }
+
+  private scheduleVisiblePopularityCatalogHydration(): void {
+    void this.ensureVisiblePopularityCatalogHydrated().catch(() => undefined);
   }
 
   private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {

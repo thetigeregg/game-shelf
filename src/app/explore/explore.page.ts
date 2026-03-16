@@ -252,6 +252,8 @@ export class ExplorePage implements OnInit {
   private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
   private readonly popularityCatalogHydrationInFlight = new Set<string>();
   private readonly popularityCatalogHydrationAttempted = new Set<string>();
+  private popularityCatalogHydrationRunPromise: Promise<void> | null = null;
+  private popularityCatalogHydrationRerunRequested = false;
   private readonly discoveryPricingHydrationInFlight = new Set<string>();
   private readonly discoveryPricingHydrationAttempted = new Set<string>();
   private discoveryPricingHydrationRunPromise: Promise<void> | null = null;
@@ -1340,59 +1342,89 @@ export class ExplorePage implements OnInit {
   }
 
   private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {
-    const visibleItems = this.getActivePopularityItems();
-    if (visibleItems.length === 0) {
+    if (this.popularityCatalogHydrationRunPromise) {
+      this.popularityCatalogHydrationRerunRequested = true;
+      await this.popularityCatalogHydrationRunPromise;
       return;
     }
 
-    const candidateGameIds = new Set<string>();
-
-    for (const item of visibleItems) {
-      const igdbGameId = item.id.trim();
-      if (igdbGameId.length === 0) {
-        continue;
-      }
-
-      if (this.getLocalGameByIdentity(igdbGameId, item.platformIgdbId)) {
-        continue;
-      }
-
-      if (this.recommendationCatalogCache.has(igdbGameId)) {
-        continue;
-      }
-
-      if (this.popularityCatalogHydrationInFlight.has(igdbGameId)) {
-        continue;
-      }
-
-      if (this.popularityCatalogHydrationAttempted.has(igdbGameId)) {
-        continue;
-      }
-
-      candidateGameIds.add(igdbGameId);
+    this.popularityCatalogHydrationRunPromise = this.runVisiblePopularityCatalogHydration();
+    try {
+      await this.popularityCatalogHydrationRunPromise;
+    } finally {
+      this.popularityCatalogHydrationRunPromise = null;
     }
+  }
 
-    if (candidateGameIds.size === 0) {
-      return;
+  private async runVisiblePopularityCatalogHydration(): Promise<void> {
+    for (;;) {
+      this.popularityCatalogHydrationRerunRequested = false;
+
+      const visibleItems = this.getActivePopularityItems();
+      if (visibleItems.length === 0) {
+        return;
+      }
+
+      const candidateGameIds = new Set<string>();
+
+      for (const item of visibleItems) {
+        const igdbGameId = item.id.trim();
+        if (igdbGameId.length === 0) {
+          continue;
+        }
+
+        if (this.getLocalGameByIdentity(igdbGameId, item.platformIgdbId)) {
+          continue;
+        }
+
+        if (this.recommendationCatalogCache.has(igdbGameId)) {
+          continue;
+        }
+
+        if (this.popularityCatalogHydrationInFlight.has(igdbGameId)) {
+          continue;
+        }
+
+        if (this.popularityCatalogHydrationAttempted.has(igdbGameId)) {
+          continue;
+        }
+
+        candidateGameIds.add(igdbGameId);
+      }
+
+      if (candidateGameIds.size === 0) {
+        if (!this.isPopularityCatalogHydrationRerunRequested()) {
+          break;
+        }
+        continue;
+      }
+
+      const batchSize = ExplorePage.POPULARITY_CATALOG_HYDRATION_CONCURRENCY;
+      const ids = Array.from(candidateGameIds);
+
+      for (let index = 0; index < ids.length; index += batchSize) {
+        const batch = ids.slice(index, index + batchSize);
+        await Promise.all(
+          batch.map(async (igdbGameId) => {
+            this.popularityCatalogHydrationInFlight.add(igdbGameId);
+            try {
+              await this.fetchRecommendationCatalogResult(igdbGameId);
+            } finally {
+              this.popularityCatalogHydrationInFlight.delete(igdbGameId);
+              this.popularityCatalogHydrationAttempted.add(igdbGameId);
+            }
+          })
+        );
+      }
+
+      if (!this.isPopularityCatalogHydrationRerunRequested()) {
+        break;
+      }
     }
+  }
 
-    const batchSize = ExplorePage.POPULARITY_CATALOG_HYDRATION_CONCURRENCY;
-    const ids = Array.from(candidateGameIds);
-
-    for (let index = 0; index < ids.length; index += batchSize) {
-      const batch = ids.slice(index, index + batchSize);
-      await Promise.all(
-        batch.map(async (igdbGameId) => {
-          this.popularityCatalogHydrationInFlight.add(igdbGameId);
-          try {
-            await this.fetchRecommendationCatalogResult(igdbGameId);
-          } finally {
-            this.popularityCatalogHydrationInFlight.delete(igdbGameId);
-            this.popularityCatalogHydrationAttempted.add(igdbGameId);
-          }
-        })
-      );
-    }
+  private isPopularityCatalogHydrationRerunRequested(): boolean {
+    return this.popularityCatalogHydrationRerunRequested;
   }
 
   getEmptyStateMessage(): string {

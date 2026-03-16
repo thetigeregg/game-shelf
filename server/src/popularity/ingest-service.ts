@@ -32,6 +32,8 @@ interface PopularityPrimitiveItem {
 interface RawIgdbGame {
   id?: unknown;
   name?: unknown;
+  summary?: unknown;
+  storyline?: unknown;
   rating?: unknown;
   total_rating_count?: unknown;
   hypes?: unknown;
@@ -49,6 +51,15 @@ interface RawIgdbGame {
     id?: unknown;
     name?: unknown;
   }> | null;
+  genres?: Array<{ name?: unknown }> | null;
+  collections?: Array<{ name?: unknown }> | null;
+  franchises?: Array<{ name?: unknown }> | null;
+  similar_games?: Array<unknown> | null;
+  involved_companies?: Array<{
+    developer?: unknown;
+    publisher?: unknown;
+    company?: { name?: unknown } | null;
+  }> | null;
 }
 
 interface WorkerGamePlatformOption {
@@ -59,6 +70,8 @@ interface WorkerGamePlatformOption {
 interface WorkerGameItem {
   igdbGameId: string;
   title: string;
+  summary: string | null;
+  storyline: string | null;
   coverUrl: string | null;
   releaseDate: string | null;
   releaseYear: number | null;
@@ -71,6 +84,12 @@ interface WorkerGameItem {
   gameType: string | null;
   platformOptions: WorkerGamePlatformOption[];
   platforms: string[];
+  genres: string[];
+  collections: string[];
+  franchises: string[];
+  similarGameIds: string[];
+  developers: string[];
+  publishers: string[];
 }
 
 interface ExistingGamePlatformRow extends QueryResultRow {
@@ -365,7 +384,7 @@ export class PopularityIngestService {
         },
         body: [
           `where id = (${batch.join(',')});`,
-          'fields id,name,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name;',
+          'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher;',
           `limit ${String(batch.length)};`
         ].join(' ')
       });
@@ -715,6 +734,8 @@ function normalizeIgdbGame(raw: RawIgdbGame): WorkerGameItem | null {
   return {
     igdbGameId,
     title,
+    summary: normalizeOptionalText(raw.summary),
+    storyline: normalizeOptionalText(raw.storyline),
     coverUrl: buildCoverUrl(raw.cover?.image_id),
     releaseDate: toIsoFromUnix(raw.first_release_date),
     releaseYear: toReleaseYear(raw.first_release_date),
@@ -726,7 +747,13 @@ function normalizeIgdbGame(raw: RawIgdbGame): WorkerGameItem | null {
     versionParent: normalizeId(raw.version_parent),
     gameType: normalizeGameType(raw.game_type?.type),
     platformOptions,
-    platforms
+    platforms,
+    genres: normalizeNamedList(raw.genres),
+    collections: normalizeNamedList(raw.collections),
+    franchises: normalizeNamedList(raw.franchises),
+    similarGameIds: normalizeSimilarGameIds(raw.similar_games),
+    developers: normalizeCompanyRole(raw.involved_companies, 'developer'),
+    publishers: normalizeCompanyRole(raw.involved_companies, 'publisher')
   };
 }
 
@@ -738,6 +765,8 @@ function buildGamePayload(
     igdbGameId: item.igdbGameId,
     externalId: item.igdbGameId,
     title: item.title,
+    summary: item.summary,
+    storyline: item.storyline,
     coverUrl: item.coverUrl,
     platform: platform.name,
     platformIgdbId: platform.id,
@@ -755,7 +784,13 @@ function buildGamePayload(
     parentGame: item.parentGame,
     version_parent: item.versionParent,
     versionParent: item.versionParent,
-    gameType: item.gameType ?? 'main_game'
+    gameType: item.gameType ?? 'main_game',
+    genres: item.genres,
+    collections: item.collections,
+    franchises: item.franchises,
+    similarGameIgdbIds: item.similarGameIds,
+    developers: item.developers,
+    publishers: item.publishers
   };
 }
 
@@ -820,6 +855,46 @@ function normalizeGameType(value: unknown): string | null {
 
   const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeNamedList(items: Array<{ name?: unknown }> | null | undefined): string[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .map((item) => (typeof item.name === 'string' ? item.name.trim() : ''))
+    .filter((name) => name.length > 0);
+}
+
+function normalizeSimilarGameIds(items: Array<unknown> | null | undefined): string[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items.map((item) => normalizeId(item)).filter((id): id is string => id !== null);
+}
+
+function normalizeCompanyRole(
+  items:
+    | Array<{ developer?: unknown; publisher?: unknown; company?: { name?: unknown } | null }>
+    | null
+    | undefined,
+  role: 'developer' | 'publisher'
+): string[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .filter((item) => item[role] === true)
+    .map((item) => (typeof item.company?.name === 'string' ? item.company.name.trim() : ''))
+    .filter((name) => name.length > 0);
 }
 
 function buildCoverUrl(imageId: unknown): string | null {

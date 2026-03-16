@@ -56,6 +56,8 @@ vi.mock('@ionic/angular/standalone', () => {
     IonAccordion: Dummy,
     IonAccordionGroup: Dummy,
     IonPopover: Dummy,
+    IonSegment: Dummy,
+    IonSegmentButton: Dummy,
     IonCard: Dummy,
     IonCardHeader: Dummy,
     IonCardTitle: Dummy
@@ -114,6 +116,7 @@ const mockLanesResponse = {
 describe('ExplorePage recommendations UX', () => {
   const igdbProxyServiceMock = {
     getRecommendationLanes: vi.fn(),
+    getPopularityFeed: vi.fn(),
     rebuildRecommendations: vi.fn(),
     getGameById: vi.fn(),
     getRecommendationSimilar: vi.fn(),

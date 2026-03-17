@@ -15,7 +15,7 @@ import {
 
 function parseEnvInt(name, fallbackValue) {
   const parsed = Number.parseInt(process.env[name] ?? '', 10);
-  return Number.isFinite(parsed) ? parsed : fallbackValue;
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallbackValue;
 }
 
 function readEnvOrFile(name) {

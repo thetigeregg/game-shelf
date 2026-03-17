@@ -93,6 +93,21 @@ const linkRowDirectTextHtml = `
   </main>
 `;
 
+const pcTitleHtml = `
+  <div data-testid="search-results">
+    <div data-testid="search-result-item">
+      <a href="/game/pc-building-simulator/">
+        <img src="https://images.example/pc-building.jpg" alt="cover" />
+      </a>
+      <div data-testid="tag-list"><span>Game</span></div>
+      <h3 data-testid="product-title">PC Building Simulator</h3>
+      <div data-testid="product-release-date">Oct 10, 2018</div>
+      <div data-testid="product-platform">PC</div>
+      <div data-testid="product-metascore"><span>70</span></div>
+    </div>
+  </div>
+`;
+
 const noPlatformFalsePositiveHtml = `
   <main>
     <section>
@@ -188,6 +203,20 @@ test('extractMetacriticSearchResults keeps link-row titles when the row is the g
     metacriticScore: 81,
     metacriticUrl: 'https://www.metacritic.com/game/direct-text-adventure/',
     imageUrl: null,
+  });
+});
+
+test('extractMetacriticSearchResults keeps titles that legitimately start with PC', async () => {
+  const results = await parseHtml(pcTitleHtml);
+
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    title: 'PC Building Simulator',
+    releaseYear: 2018,
+    platform: 'PC',
+    metacriticScore: 70,
+    metacriticUrl: 'https://www.metacritic.com/game/pc-building-simulator/',
+    imageUrl: 'https://images.example/pc-building.jpg',
   });
 });
 

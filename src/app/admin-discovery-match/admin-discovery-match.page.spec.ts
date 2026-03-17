@@ -160,7 +160,10 @@ function createPageHarness(): {
   ]);
   setField(page, 'gameShelfService', gameShelfService);
   setField(page, 'adminMatchService', adminMatchService as unknown as AdminDiscoveryMatchService);
-  setField(page, 'adminAuth', { getToken: vi.fn(() => null), hasToken: vi.fn(() => false) });
+  setField(page, 'clientWriteAuth', {
+    getToken: vi.fn(() => 'device-token-1'),
+    hasToken: vi.fn(() => true),
+  });
   setField(page, 'toastController', { create: toastCreate });
   setField(page, 'activeDetail', createDetail());
   setField(page, 'activeModalProvider', 'hltb');

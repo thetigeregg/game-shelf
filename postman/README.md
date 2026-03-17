@@ -8,6 +8,7 @@ This folder is the source of truth for Game Shelf operational API checks.
   - Production ops collection (read-only observability + controlled admin probes).
   - Uses Postman Vault token variable: `{{vault:AUTH_TOKEN}}`.
   - Includes a `Discovery Match Admin` folder covering unmatched-list reads, match-state reads, manual match writes, permanent-miss reset, and targeted requeue endpoints.
+  - Discovery match requests use the same device write token header as the app, not a separate admin bearer token.
 
 ## Import
 
@@ -15,7 +16,7 @@ This folder is the source of truth for Game Shelf operational API checks.
 2. Import `postman/game-shelf.postman_collection.json`.
 3. Set `edgeBaseUrl` (for example: `https://your-prod-host`).
 4. Ensure your Vault secret `AUTH_TOKEN` exists.
-5. For discovery admin requests, update `sampleDiscoveryGameId`, `sampleDiscoveryPlatformIgdbId`, and related sample variables before sending write operations.
+5. For discovery match requests, set your Vault secret `CLIENT_WRITE_TOKEN` and update `sampleDiscoveryGameId`, `sampleDiscoveryPlatformIgdbId`, and related sample variables before sending write operations.
 
 ## Maintenance Rules (Living Doc)
 

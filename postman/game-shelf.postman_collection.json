@@ -619,8 +619,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               }
             ],
@@ -665,8 +665,8 @@
             "method": "GET",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               }
             ],
@@ -705,8 +705,8 @@
             "method": "PATCH",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               },
               {
@@ -746,8 +746,8 @@
             "method": "PATCH",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               },
               {
@@ -787,8 +787,8 @@
             "method": "PATCH",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               },
               {
@@ -828,8 +828,8 @@
             "method": "DELETE",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               }
             ],
@@ -856,8 +856,8 @@
             "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               },
               {
@@ -889,8 +889,8 @@
             "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               }
             ],
@@ -916,8 +916,8 @@
             "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{vault:AUTH_TOKEN}}",
+                "key": "X-Game-Shelf-Client-Token",
+                "value": "{{vault:CLIENT_WRITE_TOKEN}}",
                 "type": "text"
               },
               {

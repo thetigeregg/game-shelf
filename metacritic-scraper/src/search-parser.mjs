@@ -53,6 +53,24 @@ export function extractMetacriticSearchResults(config = {}) {
     }
   };
 
+  const normalizeCandidateImageUrlInPage = (rawImageUrl) => {
+    const imageUrl = String(rawImageUrl ?? '').trim();
+    if (imageUrl.length === 0) {
+      return null;
+    }
+
+    try {
+      const url = new URL(imageUrl, canonicalMetacriticOriginInPage);
+      if (/^\/provider\//i.test(url.pathname)) {
+        return null;
+      }
+
+      return /^https?:$/i.test(url.protocol) ? url.toString() : null;
+    } catch {
+      return null;
+    }
+  };
+
   const findCandidateContainerInPage = (link) => {
     let current = link;
     for (let depth = 0; depth < 7 && current; depth += 1) {
@@ -170,6 +188,24 @@ export function extractMetacriticSearchResults(config = {}) {
 
     const parsed = Number.parseInt(match[1], 10);
     return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
+  };
+
+  const extractCandidateImageUrlInPage = (element) => {
+    if (!element) {
+      return null;
+    }
+
+    const imageEl = element.querySelector('img');
+    if (!imageEl) {
+      return null;
+    }
+
+    const src =
+      String(imageEl.currentSrc ?? '').trim() ||
+      String(imageEl.getAttribute('src') ?? '').trim() ||
+      String(imageEl.getAttribute('data-src') ?? '').trim();
+
+    return normalizeCandidateImageUrlInPage(src);
   };
 
   const rows =
@@ -303,16 +339,8 @@ export function extractMetacriticSearchResults(config = {}) {
         const rawImageUrl =
           typeof imageEntry === 'string'
             ? imageEntry
-            : String(
-                imageEntry?.imageUrl ??
-                  imageEntry?.bucketPath ??
-                  imageEntry?.path ??
-                  imageEntry?.url ??
-                  ''
-              ).trim();
-        const normalizedImageUrl = rawImageUrl.startsWith('/provider/')
-          ? `${canonicalMetacriticOriginInPage}${rawImageUrl}`
-          : rawImageUrl;
+            : String(imageEntry?.imageUrl ?? imageEntry?.url ?? '').trim();
+        const normalizedImageUrl = normalizeCandidateImageUrlInPage(rawImageUrl);
 
         seenUrls.add(metacriticUrl);
         candidates.push({
@@ -321,7 +349,7 @@ export function extractMetacriticSearchResults(config = {}) {
           platform: platformNames[0] ? normalizePlatformTextInPage(platformNames[0]) : null,
           metacriticScore: parseMetacriticScoreInPage(candidate?.criticScoreSummary?.score),
           metacriticUrl,
-          imageUrl: normalizedImageUrl.length > 0 ? normalizedImageUrl : null,
+          imageUrl: normalizedImageUrl,
         });
       }
 
@@ -393,11 +421,9 @@ export function extractMetacriticSearchResults(config = {}) {
         );
         const scoreMatch = segment.match(/\/critic-reviews\/"\s*,\s*(\d{1,3})(?=\s*(?:,|\]))/);
         const parsedScore = scoreMatch ? Number.parseInt(scoreMatch[1], 10) : null;
-        const imagePathMatch = segment.match(/"((?:https:\/\/[^"\\]+|\/provider\/[^"\\]+))"/i);
+        const imagePathMatch = segment.match(/"(https:\/\/[^"\\]+)"/i);
         const imageValue = imagePathMatch?.[1] ?? '';
-        const imageUrl = imageValue.startsWith('/provider/')
-          ? `${canonicalMetacriticOriginInPage}${imageValue}`
-          : imageValue;
+        const imageUrl = normalizeCandidateImageUrlInPage(imageValue);
 
         seenPayloadUrls.add(metacriticUrl);
         payloadCandidates.push({
@@ -409,7 +435,7 @@ export function extractMetacriticSearchResults(config = {}) {
               ? parsedScore
               : null,
           metacriticUrl,
-          imageUrl: imageUrl.length > 0 ? imageUrl : null,
+          imageUrl,
         });
 
         payloadMatch = payloadEntryPattern.exec(scriptText);
@@ -456,6 +482,7 @@ export function extractMetacriticSearchResults(config = {}) {
   const payloadCandidates = extractPayloadCandidatesInPage();
 
   const parsed = [];
+  const genericTitles = new Set(['games', 'search results for " "']);
 
   for (const row of rows) {
     const nestedGameLinkEl = row.matches(gameLinkSelectorInPage)
@@ -478,7 +505,7 @@ export function extractMetacriticSearchResults(config = {}) {
 
     const titleEl = row.querySelector(titleSelectorInPage) || nestedGameLinkEl || row;
     const title = sanitizeCandidateTitleInPage(extractCandidateTitleTextInPage(titleEl));
-    if (!title) {
+    if (!title || genericTitles.has(title.toLowerCase())) {
       continue;
     }
 
@@ -517,8 +544,7 @@ export function extractMetacriticSearchResults(config = {}) {
       ? normalizePlatformTextInPage(platformEl.textContent ?? '')
       : detectPlatformInTextInPage(rowText);
 
-    const imageEl = row.querySelector('img');
-    const imageUrl = imageEl ? String(imageEl.getAttribute('src') ?? '').trim() : null;
+    const imageUrl = extractCandidateImageUrlInPage(row);
 
     parsed.push({
       title,
@@ -534,14 +560,9 @@ export function extractMetacriticSearchResults(config = {}) {
     return mergePayloadCandidatesInPage(parsed, payloadCandidates);
   }
 
-  if (payloadCandidates.length > 0) {
-    return payloadCandidates;
-  }
-
   // Fallback parsing (working up to: 2026-03-17).
   const fallbackLinks = Array.from(document.querySelectorAll(gameLinkSelectorInPage));
   const seenUrls = new Set();
-  const genericTitles = new Set(['games']);
 
   for (const link of fallbackLinks) {
     const url = normalizeMetacriticHrefInPage(link.getAttribute('href'));
@@ -590,8 +611,7 @@ export function extractMetacriticSearchResults(config = {}) {
       ? normalizePlatformTextInPage(platformEl.textContent ?? '')
       : detectPlatformInTextInPage(containerText);
 
-    const imageEl = container.querySelector('img');
-    const imageUrl = imageEl ? String(imageEl.getAttribute('src') ?? '').trim() : null;
+    const imageUrl = extractCandidateImageUrlInPage(container);
 
     seenUrls.add(url);
     parsed.push({
@@ -602,6 +622,10 @@ export function extractMetacriticSearchResults(config = {}) {
       metacriticUrl: url,
       imageUrl: imageUrl && imageUrl.length > 0 ? imageUrl : null,
     });
+  }
+
+  if (parsed.length === 0 && payloadCandidates.length > 0) {
+    return payloadCandidates;
   }
 
   return mergePayloadCandidatesInPage(parsed, payloadCandidates);

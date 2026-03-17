@@ -2433,3 +2433,34 @@
 - 658aa5f5 fix(lint-staged): update Prettier command to ignore unknown file types
 - 685b3aa3 fix(prettier): update configuration for improved formatting and overrides
 - f5f6a294 fix(lint): update lint-staged configuration to apply Prettier to all file types
+
+## v1.5.5 - 2026-03-17
+- 019cf813 Merge pull request #236 from thetigeregg/feat/popularity-ui
+- ca733892 test(explore): expand popularity hydration coverage
+- 7a6057a1 fix(tests): update explore page spec to correct array syntax
+- 1279c203 Merge branch 'main' into feat/popularity-ui
+- c53931f5 fix(explore): stop popularity hydration reruns after mode switch
+- a533f3b4 fix(explore): unblock popularity pagination hydration
+- 6b984a73 fix: pipeline
+- 9b5b62d6 fix: update pipeline
+- 2621077d fix(explore): stop popularity hydration after mode changes
+- 4fcfec9e fix(explore): cache visible popularity items
+- f2e4778e fix: always upload coverage
+- bb61b73b fix(explore): preserve popularity hydration reruns
+- 75eeb4ea fix: scss import
+- 875e07b7 fix(ci): adjust checkout step indentation in CI workflow
+- d1e942e1 Revert "fix(lint): update lint-staged configuration to apply Prettier to all file types"
+- 7d349cc0 Revert "fix(prettier): update configuration for improved formatting and overrides"
+- 51263102 Revert "fix(lint-staged): update Prettier command to ignore unknown file types"
+- c8064440 fix(lint-staged): update Prettier command to ignore unknown file types
+- a7fac27b fix(prettier): update configuration for improved formatting and overrides
+- 01a1f9cb fix(lint): update lint-staged configuration to apply Prettier to all file types
+- c7bd2a19 fix(ci): streamline coverage file uploads in Codecov action
+- 6b792822 fix(styles): replace deprecated Swiper Sass imports with CSS url imports
+- 936a9b0f ci(workflow): move Playwright failure artifact upload before coverage steps
+- 496df5e7 ci(workflow): run backup and UI checks before combined coverage upload
+- 863e3bec fix(explore): run popularity catalog hydration in background during feed load
+- 2c5f587d fix(explore): single-flight popularity catalog hydration and add overlap tests
+- 3972b029 fix(ui): hide newly added popularity games from popularity list
+- bb5870f7 fix(explore): prehydrate visible popularity catalog details before modal open
+

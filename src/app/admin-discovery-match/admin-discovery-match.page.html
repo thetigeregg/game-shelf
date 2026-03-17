@@ -194,14 +194,13 @@
           </ion-item>
 
           @if (activeModalProvider === 'hltb') {
-            <ion-item>
-              <ion-searchbar
-                [value]="hltbSearchQuery"
-                placeholder="Search HLTB candidates"
-                show-clear-button="focus"
-                (ionInput)="hltbSearchQuery = $any($event).detail.value || ''"
-              ></ion-searchbar>
-            </ion-item>
+            <ion-searchbar
+              [value]="hltbSearchQuery"
+              placeholder="Search HLTB candidates"
+              show-clear-button="focus"
+              (ionInput)="hltbSearchQuery = $any($event).detail.value || ''"
+            ></ion-searchbar>
+
             <div class="toolbar-row candidate-toolbar-row">
               <ion-button
                 size="small"
@@ -332,14 +331,12 @@
           }
 
           @if (activeModalProvider === 'review') {
-            <ion-item>
-              <ion-searchbar
-                [value]="reviewSearchQuery"
-                placeholder="Search review candidates"
-                show-clear-button="focus"
-                (ionInput)="reviewSearchQuery = $any($event).detail.value || ''"
-              ></ion-searchbar>
-            </ion-item>
+            <ion-searchbar
+              [value]="reviewSearchQuery"
+              placeholder="Search review candidates"
+              show-clear-button="focus"
+              (ionInput)="reviewSearchQuery = $any($event).detail.value || ''"
+            ></ion-searchbar>
             <div class="toolbar-row candidate-toolbar-row">
               <ion-button
                 size="small"
@@ -496,14 +493,13 @@
           }
 
           @if (activeModalProvider === 'pricing') {
-            <ion-item>
-              <ion-searchbar
-                [value]="pricingSearchQuery"
-                placeholder="Search PSPrices candidates"
-                show-clear-button="focus"
-                (ionInput)="pricingSearchQuery = $any($event).detail.value || ''"
-              ></ion-searchbar>
-            </ion-item>
+            <ion-searchbar
+              [value]="pricingSearchQuery"
+              placeholder="Search PSPrices candidates"
+              show-clear-button="focus"
+              (ionInput)="pricingSearchQuery = $any($event).detail.value || ''"
+            ></ion-searchbar>
+
             <div class="toolbar-row candidate-toolbar-row">
               <ion-button
                 size="small"
@@ -662,34 +658,6 @@
             </ion-item>
           }
 
-          <div class="toolbar-row modal-actions">
-            <ion-button
-              fill="outline"
-              color="secondary"
-              [disabled]="isSaving || isRequeueing"
-              (click)="requeueActiveGameEnrichment()"
-            >
-              @if (isRequeueing) {
-                <ion-spinner name="crescent" slot="start"></ion-spinner>
-              }
-              Requeue enrichment
-            </ion-button>
-            <ion-button color="primary" [disabled]="isSaving" (click)="saveActiveProvider()">
-              @if (isSaving) {
-                <ion-spinner name="crescent" slot="start"></ion-spinner>
-              }
-              Save
-            </ion-button>
-            <ion-button
-              fill="outline"
-              color="danger"
-              [disabled]="isSaving"
-              (click)="clearActiveProvider()"
-            >
-              Clear provider
-            </ion-button>
-          </div>
-
           @if (activeQueueStatusMessage) {
             <ion-item lines="none">
               <ion-label>
@@ -705,5 +673,37 @@
         </ion-list>
       }
     </ion-content>
+
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button
+            fill="outline"
+            color="secondary"
+            [disabled]="isSaving || isRequeueing"
+            (click)="requeueActiveGameEnrichment()"
+          >
+            @if (isRequeueing) {
+              <ion-spinner name="crescent" slot="start"></ion-spinner>
+            }
+            Requeue enrichment
+          </ion-button>
+          <ion-button color="primary" [disabled]="isSaving" (click)="saveActiveProvider()">
+            @if (isSaving) {
+              <ion-spinner name="crescent" slot="start"></ion-spinner>
+            }
+            Save
+          </ion-button>
+          <ion-button
+            fill="outline"
+            color="danger"
+            [disabled]="isSaving"
+            (click)="clearActiveProvider()"
+          >
+            Clear provider
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </ng-template>
 </ion-modal>

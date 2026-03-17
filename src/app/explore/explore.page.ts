@@ -1346,17 +1346,33 @@ export class ExplorePage implements OnInit {
   }
 
   private async ensureVisiblePopularityCatalogHydrated(): Promise<void> {
-    if (this.popularityCatalogHydrationRunPromise) {
-      this.popularityCatalogHydrationRerunRequested = true;
-      await this.popularityCatalogHydrationRunPromise;
-      return;
-    }
+    for (;;) {
+      const currentRun = this.popularityCatalogHydrationRunPromise;
+      if (currentRun) {
+        this.popularityCatalogHydrationRerunRequested = true;
+        await currentRun;
+        if (
+          this.popularityCatalogHydrationRunPromise !== null ||
+          this.isPopularityCatalogHydrationRerunRequested()
+        ) {
+          continue;
+        }
+        return;
+      }
 
-    this.popularityCatalogHydrationRunPromise = this.runVisiblePopularityCatalogHydration();
-    try {
-      await this.popularityCatalogHydrationRunPromise;
-    } finally {
-      this.popularityCatalogHydrationRunPromise = null;
+      const nextRun = this.runVisiblePopularityCatalogHydration();
+      this.popularityCatalogHydrationRunPromise = nextRun;
+      try {
+        await nextRun;
+      } finally {
+        if (this.popularityCatalogHydrationRunPromise === nextRun) {
+          this.popularityCatalogHydrationRunPromise = null;
+        }
+      }
+
+      if (!this.popularityCatalogHydrationRerunRequested) {
+        return;
+      }
     }
   }
 

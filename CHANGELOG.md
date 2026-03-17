@@ -2505,3 +2505,18 @@
 - ef8f6537 fix(metacritic-scraper): support current search DOM and add parser regression tests
 - 03be6618 fix(metacritic-scraper): restore search matching after DOM structure changes
 
+## v1.6.0 - 2026-03-17
+- 321d0d2b Merge pull request #247 from thetigeregg/feat/meta-year
+- d69519dc fix: revert
+- 3aeb8e75 Revert "ci(workflow): move Playwright failure artifact upload before coverage steps"
+- 8d806541 Revert "fix(ci): streamline coverage file uploads in Codecov action"
+- 2f69d6ae Revert "fix: always upload coverage"
+- e7065cdb Revert "fix: update pipeline"
+- a6d5305a Revert "fix: pipeline"
+- 4f5a756a test(metacritic-scraper): rename ranking test file
+- 39a5c4be fix(metacritic-scraper): defer Nuxt payload parsing and isolate ranking helper
+- 72fcb6f1 refactor(metacritic-scraper): remove ranking-specific search changes
+- ceab3c1b feat(metacritic-scraper): improve image URL normalization and update tests
+- 394e7b9c feat(rankCandidate): implement ordered token sequence matching and add tests
+- 2406cad2 feat(metacritic-scraper): enhance search result extraction with fallback for missing release years
+

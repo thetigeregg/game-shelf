@@ -2488,3 +2488,20 @@
 - d4b2ec11 fix(scripts): skip empty security reviews in PR prompt generation
 - 5057b4a8 fix(scripts): skip outdated and security bot review threads
 
+## v1.5.9 - 2026-03-17
+- d2ccd0bc Merge pull request #245 from thetigeregg/feat/meta
+- dfdf9e25 fix(metacritic-scraper): remove flaky search readiness waits
+- 6803dd7c fix(metacritic-scraper): align search readiness with link-first cards
+- dfd8f968 fix(metacritic-scraper): scope Metacritic results readiness selector
+- ab973513 fix(metacritic-scraper): reject non-positive scraper timeouts
+- 12b99507 fix(metacritic-scraper): guard title parsing and clamp timeouts
+- bf17f66d fix(metacritic-scraper): harden search readiness and timeout parsing
+- 4c25b59c fix(metacritic-scraper): resolve remaining parser review feedback
+- 97070590 fix(metacritic-scraper): inline parser defaults for browser evaluation
+- b2bd7b69 Merge branch 'main' into feat/meta
+- d37b5ce8 fix(metacritic-scraper): centralize search selectors and tighten readiness wait
+- 7fb3c9e4 style(metacritic-scraper): normalize search parser test string quotes
+- 530a4a6e fix(metacritic-scraper): harden Metacritic search parsing
+- ef8f6537 fix(metacritic-scraper): support current search DOM and add parser regression tests
+- 03be6618 fix(metacritic-scraper): restore search matching after DOM structure changes
+

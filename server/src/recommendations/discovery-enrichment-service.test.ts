@@ -446,6 +446,55 @@ void test('discovery enrichment records steam retry state on transient steam loo
   assert.equal(repository.updates[0]?.payload.steamEnrichedAt, undefined);
 });
 
+void test('discovery enrichment skips locked HLTB and review providers', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '111',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Locked Discovery Game',
+        platform: 'PlayStation 4',
+        listType: 'discovery',
+        hltbMatchLocked: true,
+        reviewMatchLocked: true,
+      },
+    },
+  ];
+
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.resolve(new Response('{}', { status: 200 }));
+  }) as typeof fetch;
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+    const result = await service.enrichNow({ limit: 10 });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 0,
+      skipped: 1,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(fetchCalls, 0);
+    assert.equal(repository.updates.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 void test('discovery enrichment skips steam retry when nextTryAt is still in the future', async () => {
   const repository = new RepositoryMock();
   repository.rows = [

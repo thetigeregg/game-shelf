@@ -2,6 +2,7 @@ export function extractMetacriticSearchResults() {
   // Current parsing path (2026-03-17): rely on /game/ links and nearby metadata blocks.
   const rowSelectorInPage =
     '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
+  const gameLinkSelectorInPage = 'a[href*="/game/"]';
   const scoreSelectorInPage =
     '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w';
   const platformSelectorInPage =
@@ -10,6 +11,16 @@ export function extractMetacriticSearchResults() {
     '[data-testid="product-release-date"], time, .c-finderProductCard_meta';
   const titleSelectorInPage =
     '[data-testid="product-title"], h3, h4, .c-finderProductCard_title, a.c-finderProductCard_container';
+  const canonicalMetacriticOriginInPage = 'https://www.metacritic.com';
+  const platformTailPatternInPage =
+    /(\s*(game\s*)?(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x(?:\s*[|/]\s*s)?|xbox series s|\bpc\b|windows)[\s\S]*)$/i;
+
+  const isAllowedMetacriticHostnameInPage = (rawHostname) => {
+    const hostname = String(rawHostname ?? '')
+      .toLowerCase()
+      .trim();
+    return hostname === 'www.metacritic.com' || hostname === 'metacritic.com';
+  };
 
   const normalizeMetacriticHrefInPage = (rawHref) => {
     const href = String(rawHref ?? '').trim();
@@ -17,15 +28,13 @@ export function extractMetacriticSearchResults() {
       return null;
     }
 
-    const absolute = href.startsWith('http') ? href : `https://www.metacritic.com${href}`;
-
     try {
-      const url = new URL(absolute);
-      if (!url.hostname.includes('metacritic.com') || !url.pathname.includes('/game/')) {
+      const url = new URL(href, canonicalMetacriticOriginInPage);
+      if (!isAllowedMetacriticHostnameInPage(url.hostname) || !url.pathname.startsWith('/game/')) {
         return null;
       }
 
-      return `${url.origin}${url.pathname}`;
+      return `${canonicalMetacriticOriginInPage}${url.pathname}`;
     } catch {
       return null;
     }
@@ -63,10 +72,19 @@ export function extractMetacriticSearchResults() {
     if (text.includes('xbox one')) {
       return 'Xbox One';
     }
-    if (text.includes('xbox series x') || text.includes('xbox series s')) {
+    const hasXboxSeriesXS = /\bxbox series x\s*(?:\||\/)\s*s\b/u.test(text);
+    const hasXboxSeriesX = /\bxbox series x\b/u.test(text);
+    const hasXboxSeriesS = /\bxbox series s\b/u.test(text);
+    if (hasXboxSeriesXS || (hasXboxSeriesX && hasXboxSeriesS)) {
+      return 'Xbox Series X|S';
+    }
+    if (hasXboxSeriesX) {
       return 'Xbox Series X';
     }
-    if (text.includes('pc') || text.includes('windows')) {
+    if (hasXboxSeriesS) {
+      return 'Xbox Series S';
+    }
+    if (/\bpc\b/u.test(text) || /\bwindows\b/u.test(text)) {
       return 'PC';
     }
     return null;
@@ -82,10 +100,7 @@ export function extractMetacriticSearchResults() {
       /\s*(game\s*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},\s+\d{4}[\s\S]*$/i,
       ''
     );
-    const withoutPlatformTail = withoutDateTail.replace(
-      /\s*(game\s*)?(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x|xbox series s|pc|windows)[\s\S]*$/i,
-      ''
-    );
+    const withoutPlatformTail = withoutDateTail.replace(platformTailPatternInPage, '');
 
     return withoutPlatformTail.replace(/\s+/g, ' ').trim();
   };
@@ -119,42 +134,35 @@ export function extractMetacriticSearchResults() {
   const parsed = [];
 
   for (const row of rows) {
-    const nestedGameLinkEl = row.matches('a[href*="/game/"]')
+    const nestedGameLinkEl = row.matches(gameLinkSelectorInPage)
       ? row
-      : row.querySelector('a[href*="/game/"]');
+      : row.querySelector(gameLinkSelectorInPage);
 
-    const hrefOnRow = String(row.getAttribute('href') ?? '').trim();
-    const hrefOnNested = String(nestedGameLinkEl?.getAttribute('href') ?? '').trim();
+    const urlOnRow = normalizeMetacriticHrefInPage(row.getAttribute('href'));
+    const urlOnNestedLink = normalizeMetacriticHrefInPage(nestedGameLinkEl?.getAttribute('href'));
     const resultTypeTag = String(
       row.querySelector('[data-testid="tag-list"] .c-tagList_button, [data-testid="tag-list"] span')
         ?.textContent ?? ''
     )
       .toLowerCase()
       .trim();
-    const isGameByHref =
-      hrefOnRow.startsWith('/game/') ||
-      hrefOnRow.includes('/game/') ||
-      hrefOnNested.startsWith('/game/') ||
-      hrefOnNested.includes('/game/');
+    const isGameByHref = Boolean(urlOnRow || urlOnNestedLink);
     const isGameByTag = resultTypeTag === 'game';
     if (!isGameByHref && !isGameByTag) {
       continue;
     }
 
     const titleEl =
-      row.querySelector(titleSelectorInPage) || row.querySelector('a[href*="/game/"]');
+      row.querySelector(titleSelectorInPage) || row.querySelector(gameLinkSelectorInPage);
     const title = titleEl ? sanitizeCandidateTitleInPage(titleEl.textContent ?? '') : '';
     if (!title) {
       continue;
     }
 
-    const linkEl = nestedGameLinkEl;
-    const href = linkEl ? String(linkEl.getAttribute('href') ?? '').trim() : '';
-    const url = href.startsWith('http')
-      ? href
-      : href.startsWith('/')
-        ? `https://www.metacritic.com${href}`
-        : null;
+    const url = urlOnNestedLink ?? urlOnRow;
+    if (!url) {
+      continue;
+    }
 
     const scoreEl =
       row.querySelector(scoreSelectorInPage) ??
@@ -204,7 +212,7 @@ export function extractMetacriticSearchResults() {
   }
 
   // Fallback parsing (working up to: 2026-03-17).
-  const fallbackLinks = Array.from(document.querySelectorAll('a[href*="/game/"]'));
+  const fallbackLinks = Array.from(document.querySelectorAll(gameLinkSelectorInPage));
   const seenUrls = new Set();
   const genericTitles = new Set(['games']);
 

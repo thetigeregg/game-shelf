@@ -101,6 +101,7 @@ export class AdminDiscoveryMatchPage {
   isManageModalOpen = false;
   isDetailLoading = false;
   isSaving = false;
+  isListRequeueing = false;
   isRequeueing = false;
   activeDetail: AdminDiscoveryDetailResponse | null = null;
   activeModalProvider: AdminDiscoveryMatchProvider = 'hltb';
@@ -257,6 +258,30 @@ export class AdminDiscoveryMatchPage {
         this.toErrorMessage(error, 'Unable to reset permanent misses.'),
         'danger'
       );
+    }
+  }
+
+  async requeueDiscoveryRun(): Promise<void> {
+    if (this.isListRequeueing) {
+      return;
+    }
+
+    this.isListRequeueing = true;
+    try {
+      const response = await firstValueFrom(this.adminMatchService.requeueEnrichmentRun());
+      await this.presentToast(
+        response.deduped
+          ? 'Discovery enrichment run is already queued.'
+          : 'Discovery enrichment run queued.',
+        'success'
+      );
+    } catch (error) {
+      await this.presentToast(
+        this.toErrorMessage(error, 'Unable to queue discovery enrichment run.'),
+        'danger'
+      );
+    } finally {
+      this.isListRequeueing = false;
     }
   }
 

@@ -252,6 +252,55 @@ void test('admin discovery unmatched route lists only unmatched discovery rows f
   }
 });
 
+void test('admin discovery list requeue route enqueues the global discovery job and dedupes repeated requests', async () => {
+  const app = fastifyFactory({ logger: false });
+  const pool = new PoolMock();
+  const originalRequireAuth = config.requireAuth;
+  const originalApiToken = config.apiToken;
+  config.requireAuth = true;
+  config.apiToken = 'test-admin-token';
+
+  try {
+    registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
+
+    const firstResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(firstResponse.statusCode, 200);
+    assert.deepEqual(JSON.parse(firstResponse.body), {
+      ok: true,
+      queued: true,
+      deduped: false,
+      jobId: 1000,
+    });
+
+    const secondResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/discovery/requeue-enrichment',
+      headers: {
+        authorization: 'Bearer test-admin-token',
+      },
+    });
+
+    assert.equal(secondResponse.statusCode, 200);
+    assert.deepEqual(JSON.parse(secondResponse.body), {
+      ok: true,
+      queued: false,
+      deduped: true,
+      jobId: 1000,
+    });
+  } finally {
+    config.requireAuth = originalRequireAuth;
+    config.apiToken = originalApiToken;
+    await app.close();
+  }
+});
+
 void test('admin discovery patch route persists HLTB match locks and clears retry state', async () => {
   const app = fastifyFactory({ logger: false });
   const pool = new PoolMock();

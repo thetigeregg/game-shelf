@@ -67,44 +67,60 @@ vi.mock('../features/game-detail/game-detail-content.component', () => ({
   GameDetailContentComponent: () => null,
 }));
 
-const mockLanesResponse = {
+const mockLaneItem = {
+  rank: 1,
+  igdbGameId: '100',
+  platformIgdbId: 6,
+  scoreTotal: 1.25,
+  scoreComponents: {
+    taste: 1,
+    novelty: 0,
+    runtimeFit: 0,
+    criticBoost: 0,
+    recencyBoost: 0,
+    semantic: 0,
+    exploration: 0,
+    diversityPenalty: 0,
+    repeatPenalty: 0,
+  },
+  explanations: {
+    headline: 'Fits your profile',
+    bullets: [],
+    matchedTokens: {
+      genres: [] as string[],
+      developers: [] as string[],
+      publishers: [] as string[],
+      franchises: [] as string[],
+      collections: [] as string[],
+      themes: [] as string[],
+      keywords: [] as string[],
+    },
+  },
+};
+
+type MockLaneItem = typeof mockLaneItem;
+type MockLanesResponse = {
+  target: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+  runtimeMode: 'NEUTRAL' | 'SHORT' | 'LONG';
+  runId: number;
+  generatedAt: string;
+  lanes: {
+    overall: MockLaneItem[];
+    hiddenGems: MockLaneItem[];
+    exploration: MockLaneItem[];
+    blended: MockLaneItem[];
+    popular: MockLaneItem[];
+    recent: MockLaneItem[];
+  };
+};
+
+const mockLanesResponse: MockLanesResponse = {
   target: 'BACKLOG' as const,
   runtimeMode: 'NEUTRAL' as const,
   runId: 1,
   generatedAt: '2026-03-03T12:00:00.000Z',
   lanes: {
-    overall: [
-      {
-        rank: 1,
-        igdbGameId: '100',
-        platformIgdbId: 6,
-        scoreTotal: 1.25,
-        scoreComponents: {
-          taste: 1,
-          novelty: 0,
-          runtimeFit: 0,
-          criticBoost: 0,
-          recencyBoost: 0,
-          semantic: 0,
-          exploration: 0,
-          diversityPenalty: 0,
-          repeatPenalty: 0,
-        },
-        explanations: {
-          headline: 'Fits your profile',
-          bullets: [],
-          matchedTokens: {
-            genres: [],
-            developers: [],
-            publishers: [],
-            franchises: [],
-            collections: [],
-            themes: [],
-            keywords: [],
-          },
-        },
-      },
-    ],
+    overall: [mockLaneItem],
     hiddenGems: [],
     exploration: [],
     blended: [],
@@ -306,7 +322,7 @@ describe('ExplorePage explore modes UX', () => {
     page.ngOnInit();
     await flushAsync();
 
-    let resolveHydration: (() => void) | null = null;
+    let resolveHydration: () => void = () => undefined;
     const hydrationPromise = new Promise<void>((resolve) => {
       resolveHydration = resolve;
     });
@@ -328,7 +344,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(page.isLoadingPopularity).toBe(false);
     expect(page.getActivePopularityItems()).toHaveLength(1);
 
-    resolveHydration?.();
+    resolveHydration();
     await hydrationPromise;
   });
 
@@ -648,7 +664,7 @@ describe('ExplorePage explore modes UX', () => {
 
   it('handles private helper branches for refresh, count, and library checks', async () => {
     const page = createPage() as unknown as {
-      activeLanesResponse: typeof mockLanesResponse | null;
+      activeLanesResponse: unknown;
       selectedLaneKey: 'overall';
       completeRefresher: (event: Event) => Promise<void>;
       getTotalActiveRecommendationCount: () => number;
@@ -749,6 +765,7 @@ describe('ExplorePage explore modes UX', () => {
       confirmIgnoreSelectedGameRecommendation: () => Promise<void>;
       ignoreSelectedGameRecommendation: (params?: { igdbGameId: string; title: string }) => void;
       isActiveDetailIgnored: boolean;
+      selectedGameDetail: { igdbGameId: string; title?: string; platformIgdbId: number } | null;
     };
     page.selectedTarget = 'DISCOVERY';
     page.ignoredRecommendationGameIds = new Set(['200']);
@@ -793,7 +810,7 @@ describe('ExplorePage explore modes UX', () => {
       title: 'Rated',
     };
 
-    page.selectedGameDetail = libraryGame;
+    page.selectedGameDetail = libraryGame as never;
     page.openDetailRatingModal();
     expect(page.isRatingModalOpen).toBe(true);
     expect(page.formatRatingPin(4.2)).toBe('4');
@@ -1754,6 +1771,7 @@ describe('ExplorePage explore modes UX', () => {
           coverUrl: string | null;
           platformLabel: string;
           releaseYear: number | null;
+          priceCurrency?: string | null;
           priceAmount?: number | null;
           priceRegularAmount?: number | null;
           priceDiscountPercent?: number | null;
@@ -2156,7 +2174,7 @@ describe('ExplorePage explore modes UX', () => {
 
     const existingKey = page.buildIdentityKey('910', 6);
     page.recommendationDisplayMetadata.set(existingKey, { title: 'Existing' });
-    const populateSpy = vi.fn(() => Promise.resolve(undefined));
+    const populateSpy = vi.fn((_grouped: Map<string, Set<number>>) => Promise.resolve(undefined));
     (
       page as unknown as { populateRecommendationDisplayMetadata: typeof populateSpy }
     ).populateRecommendationDisplayMetadata = populateSpy;
@@ -2167,7 +2185,7 @@ describe('ExplorePage explore modes UX', () => {
       { igdbGameId: '910', platformIgdbId: 167 },
     ]);
     expect(populateSpy).toHaveBeenCalledTimes(1);
-    const grouped = populateSpy.mock.calls[0]?.[0] as Map<string, Set<number>>;
+    const grouped = populateSpy.mock.calls[0]?.[0];
     expect(grouped.get('910')).toEqual(new Set([48, 167]));
 
     igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
@@ -2176,6 +2194,29 @@ describe('ExplorePage explore modes UX', () => {
     expect(
       page.getRecommendationRowPriceLabel({ igdbGameId: '911', platformIgdbId: 167 })
     ).toBeNull();
+  });
+
+  it('skips local similar items when collecting display metadata', async () => {
+    const page = createPage() as unknown as {
+      localGameCacheByIdentity: Map<string, unknown>;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      ensureSimilarDisplayMetadata: (
+        items: Array<{ igdbGameId: string; platformIgdbId: number }>
+      ) => Promise<void>;
+      populateRecommendationDisplayMetadata: (grouped: Map<string, Set<number>>) => Promise<void>;
+    };
+
+    page.localGameCacheByIdentity.set(page.buildIdentityKey('910', 6), {
+      igdbGameId: '910',
+      platformIgdbId: 6,
+    });
+    const populateSpy = vi
+      .spyOn(page, 'populateRecommendationDisplayMetadata')
+      .mockResolvedValue(undefined);
+
+    await page.ensureSimilarDisplayMetadata([{ igdbGameId: '910', platformIgdbId: 6 }]);
+
+    expect(populateSpy).not.toHaveBeenCalled();
   });
 
   it('passes recommendation title hints through PSPrices discovery hydration lookups', async () => {
@@ -2256,7 +2297,7 @@ describe('ExplorePage explore modes UX', () => {
       },
     };
 
-    let resolveHydration: (() => void) | null = null;
+    let resolveHydration: () => void = () => undefined;
     const hydrationPromise = new Promise<void>((resolve) => {
       resolveHydration = resolve;
     });
@@ -2267,8 +2308,182 @@ describe('ExplorePage explore modes UX', () => {
     const secondRun = page.ensureVisibleDiscoveryPricingHydrated();
 
     expect(hydrateSpy).toHaveBeenCalledTimes(1);
-    resolveHydration?.();
+    resolveHydration();
     await Promise.all([firstRun, secondRun]);
+  });
+
+  it('rechecks discovery hydration when a rerun is requested without candidates', async () => {
+    const page = createPage() as unknown as {
+      selectedTarget: 'BACKLOG' | 'WISHLIST' | 'DISCOVERY';
+      selectedLaneKey: 'overall' | 'hiddenGems' | 'exploration' | 'blended' | 'popular' | 'recent';
+      visibleRecommendationCount: number;
+      activeLanesResponse: unknown;
+      recommendationDisplayMetadata: Map<
+        string,
+        {
+          title: string;
+          coverUrl: string | null;
+          platformLabel: string;
+          releaseYear: number | null;
+          priceAmount?: number | null;
+          priceIsFree?: boolean | null;
+        }
+      >;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      runVisibleDiscoveryPricingHydration: () => Promise<void>;
+      hydrateDiscoveryPricingInBatches: (
+        items: Array<{ igdbGameId: string; platformIgdbId: number }>
+      ) => Promise<void>;
+      isDiscoveryPricingHydrationRerunRequested: () => boolean;
+    };
+
+    page.selectedTarget = 'DISCOVERY';
+    page.selectedLaneKey = 'overall';
+    page.visibleRecommendationCount = 10;
+    page.activeLanesResponse = {
+      ...mockLanesResponse,
+      target: 'DISCOVERY',
+      lanes: {
+        ...mockLanesResponse.lanes,
+        overall: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '1201', platformIgdbId: 6 }],
+      },
+    };
+    page.recommendationDisplayMetadata.set(page.buildIdentityKey('1201', 6), {
+      title: 'Cached price',
+      coverUrl: null,
+      platformLabel: 'PC',
+      releaseYear: 2024,
+      priceAmount: 19.99,
+      priceIsFree: false,
+    });
+
+    const hydrateSpy = vi
+      .spyOn(page, 'hydrateDiscoveryPricingInBatches')
+      .mockResolvedValue(undefined);
+    let rerunChecks = 0;
+    vi.spyOn(page, 'isDiscoveryPricingHydrationRerunRequested').mockImplementation(() => {
+      rerunChecks += 1;
+      page.selectedTarget = 'BACKLOG';
+      return true;
+    });
+
+    await page.runVisibleDiscoveryPricingHydration();
+
+    expect(hydrateSpy).not.toHaveBeenCalled();
+    expect(rerunChecks).toBe(1);
+  });
+
+  it('reuses cached popularity feed and schedules hydration without refetching', async () => {
+    const page = createPage() as unknown as {
+      selectedExploreMode: 'recommendations' | 'popularity';
+      popularityError: string;
+      isLoadingPopularity: boolean;
+      activePopularityItems: typeof mockPopularityFeedResponse;
+      popularityFeedCache: Map<string, typeof mockPopularityFeedResponse>;
+      loadPopularityFeed: (forceRefresh: boolean) => Promise<void>;
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+    };
+
+    const cachedFeed = [{ ...mockPopularityFeedResponse[0], id: '777' }];
+    page.selectedExploreMode = 'popularity';
+    page.popularityError = 'stale';
+    page.popularityFeedCache.set('trending', cachedFeed);
+    const hydrateSpy = vi
+      .spyOn(page, 'ensureVisiblePopularityCatalogHydrated')
+      .mockResolvedValue(undefined);
+    igdbProxyServiceMock.getPopularityFeed.mockClear();
+
+    await page.loadPopularityFeed(false);
+
+    expect(igdbProxyServiceMock.getPopularityFeed).not.toHaveBeenCalled();
+    expect(page.popularityError).toBe('');
+    expect(page.activePopularityItems).toEqual(cachedFeed);
+    expect(page.isLoadingPopularity).toBe(false);
+    expect(hydrateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('force refreshes popularity feed after clearing attempted hydration ids', async () => {
+    const page = createPage() as unknown as {
+      selectedExploreMode: 'recommendations' | 'popularity';
+      activePopularityItems: typeof mockPopularityFeedResponse;
+      popularityFeedCache: Map<string, typeof mockPopularityFeedResponse>;
+      popularityCatalogHydrationAttempted: Set<string>;
+      loadPopularityFeed: (forceRefresh: boolean) => Promise<void>;
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+    };
+
+    const refreshedFeed = [{ ...mockPopularityFeedResponse[0], id: '888' }];
+    page.selectedExploreMode = 'popularity';
+    page.popularityFeedCache.set('trending', [{ ...mockPopularityFeedResponse[0], id: 'old' }]);
+    page.popularityCatalogHydrationAttempted.add('stale');
+    const hydrateSpy = vi
+      .spyOn(page, 'ensureVisiblePopularityCatalogHydrated')
+      .mockResolvedValue(undefined);
+    igdbProxyServiceMock.getPopularityFeed.mockReturnValueOnce(of(refreshedFeed));
+
+    await page.loadPopularityFeed(true);
+
+    expect(igdbProxyServiceMock.getPopularityFeed).toHaveBeenCalledWith('trending');
+    expect(page.popularityCatalogHydrationAttempted.size).toBe(0);
+    expect(page.activePopularityItems).toEqual(refreshedFeed);
+    expect(hydrateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('exits popularity catalog hydration immediately outside popularity mode', async () => {
+    const page = createPage() as unknown as {
+      selectedExploreMode: 'recommendations' | 'popularity';
+      popularityCatalogHydrationRerunRequested: boolean;
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+      runVisiblePopularityCatalogHydration: () => Promise<void>;
+    };
+
+    page.selectedExploreMode = 'recommendations';
+    page.popularityCatalogHydrationRerunRequested = true;
+    const runSpy = vi
+      .spyOn(page, 'runVisiblePopularityCatalogHydration')
+      .mockResolvedValue(undefined);
+
+    await page.ensureVisiblePopularityCatalogHydrated();
+
+    expect(runSpy).not.toHaveBeenCalled();
+    expect(page.popularityCatalogHydrationRerunRequested).toBe(false);
+  });
+
+  it('skips non-actionable popularity hydration candidates', async () => {
+    const page = createPage() as unknown as {
+      selectedExploreMode: 'recommendations' | 'popularity';
+      activePopularityItems: typeof mockPopularityFeedResponse;
+      visiblePopularityCount: number;
+      localGameCacheByIdentity: Map<string, unknown>;
+      catalogCache: Map<string, unknown>;
+      popularityCatalogHydrationInFlight: Set<string>;
+      popularityCatalogHydrationAttempted: Set<string>;
+      buildIdentityKey: (igdbGameId: string, platformIgdbId: number) => string;
+      runVisiblePopularityCatalogHydration: () => Promise<void>;
+      fetchCatalogResult: (igdbGameId: string) => Promise<unknown>;
+    };
+
+    page.selectedExploreMode = 'popularity';
+    page.visiblePopularityCount = 10;
+    page.activePopularityItems = [
+      { ...mockPopularityFeedResponse[0], id: '   ' },
+      { ...mockPopularityFeedResponse[0], id: 'local' },
+      { ...mockPopularityFeedResponse[0], id: 'cached' },
+      { ...mockPopularityFeedResponse[0], id: 'in-flight' },
+      { ...mockPopularityFeedResponse[0], id: 'attempted' },
+    ];
+    page.localGameCacheByIdentity.set(page.buildIdentityKey('local', 6), {
+      igdbGameId: 'local',
+      platformIgdbId: 6,
+    });
+    page.catalogCache.set('cached', {});
+    page.popularityCatalogHydrationInFlight.add('in-flight');
+    page.popularityCatalogHydrationAttempted.add('attempted');
+    const fetchSpy = vi.spyOn(page, 'fetchCatalogResult').mockResolvedValue(null);
+
+    await page.runVisiblePopularityCatalogHydration();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('does not block popularity load-more while catalog hydration runs', async () => {
@@ -2277,7 +2492,7 @@ describe('ExplorePage explore modes UX', () => {
       loadMorePopularity: (event: Event) => Promise<void>;
     };
 
-    let resolveHydration: (() => void) | null = null;
+    let resolveHydration: () => void = () => undefined;
     const hydrationPromise = new Promise<void>((resolve) => {
       resolveHydration = resolve;
     });
@@ -2299,7 +2514,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(complete).toHaveBeenCalledTimes(1);
     expect(loadMoreSettled).toBe(true);
 
-    resolveHydration?.();
+    resolveHydration();
     await hydrationPromise;
   });
 
@@ -2317,7 +2532,7 @@ describe('ExplorePage explore modes UX', () => {
     page.activePopularityItems = [{ id: '1300', platformIgdbId: 6 }];
     page.visiblePopularityCount = 10;
 
-    let resolveHydration: (() => void) | null = null;
+    let resolveHydration: () => void = () => undefined;
     const hydrationPromise = new Promise<void>((resolve) => {
       resolveHydration = resolve;
     });
@@ -2332,7 +2547,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledWith('1300');
 
-    resolveHydration?.();
+    resolveHydration();
     await Promise.all([firstRun, secondRun]);
 
     expect(page.popularityCatalogHydrationAttempted.has('1300')).toBe(true);
@@ -2357,7 +2572,7 @@ describe('ExplorePage explore modes UX', () => {
     ];
     page.visiblePopularityCount = 10;
 
-    let resolveFirstBatch: (() => void) | null = null;
+    let resolveFirstBatch: () => void = () => undefined;
     const firstBatchPromise = new Promise<void>((resolve) => {
       resolveFirstBatch = resolve;
     });
@@ -2376,7 +2591,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(4);
 
     page.selectedExploreMode = 'recommendations';
-    resolveFirstBatch?.();
+    resolveFirstBatch();
 
     await hydrationPromise;
 
@@ -2395,7 +2610,7 @@ describe('ExplorePage explore modes UX', () => {
 
     page.selectedExploreMode = 'popularity';
 
-    let resolveCurrentRun: (() => void) | null = null;
+    let resolveCurrentRun: () => void = () => undefined;
     page.popularityCatalogHydrationRunPromise = new Promise<void>((resolve) => {
       resolveCurrentRun = resolve;
     });
@@ -2412,7 +2627,7 @@ describe('ExplorePage explore modes UX', () => {
     queueMicrotask(() => {
       page.popularityCatalogHydrationRunPromise = null;
     });
-    resolveCurrentRun?.();
+    resolveCurrentRun();
 
     await waitingCall;
 

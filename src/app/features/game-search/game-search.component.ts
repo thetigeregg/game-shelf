@@ -9,7 +9,7 @@ import {
   OnInit,
   Output,
   SimpleChanges,
-  inject
+  inject,
 } from '@angular/core';
 
 import {
@@ -22,7 +22,7 @@ import {
   IonList,
   IonSpinner,
   IonBadge,
-  IonButton
+  IonButton,
 } from '@ionic/angular/standalone';
 import { Subject, firstValueFrom, of } from 'rxjs';
 import {
@@ -32,13 +32,13 @@ import {
   finalize,
   switchMap,
   takeUntil,
-  tap
+  tap,
 } from 'rxjs/operators';
 import {
   GameCatalogPlatformOption,
   GameCatalogResult,
   GameType,
-  ListType
+  ListType,
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { PlatformOrderService } from '../../core/services/platform-order.service';
@@ -65,8 +65,8 @@ interface SelectedPlatform {
     IonList,
     IonSpinner,
     IonBadge,
-    IonButton
-  ]
+    IonButton,
+  ],
 })
 export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   @Input({ required: true }) listType!: ListType;
@@ -225,7 +225,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         ...resolvedForAdd,
         igdbGameId: result.igdbGameId,
         platform: platformSelection.name,
-        platformIgdbId: platformSelection.id
+        platformIgdbId: platformSelection.id,
       };
 
       const existingEntry = await this.gameShelfService.findGameByIdentity(
@@ -354,12 +354,12 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         type: 'radio',
         label: this.getPlatformDisplayName(platform.name, platform.id),
         value: String(index),
-        checked: index === selectedIndex
+        checked: index === selectedIndex,
       })),
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
         },
         {
           text: 'Add',
@@ -370,9 +370,9 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
             if (Number.isInteger(parsed) && parsed >= 0 && parsed < platforms.length) {
               selectedIndex = parsed;
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -406,7 +406,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
         })
         .map((option) => ({
           id: option.id as number,
-          name: option.name
+          name: option.name,
         }))
         .sort((left, right) =>
           this.platformOrderService.comparePlatformNames(left.name, right.name)
@@ -472,7 +472,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
       return {
         ...result,
         coverUrl: boxArtUrl,
-        coverSource: useIgdbCover ? 'igdb' : 'thegamesdb'
+        coverSource: useIgdbCover ? 'igdb' : 'thegamesdb',
       };
     } catch {
       return result;
@@ -498,7 +498,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
             this.searchPlatforms = [];
             this.platformErrorMessage = 'Unable to load platform filters.';
           });
-        }
+        },
       });
   }
 
@@ -523,7 +523,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
   private emitSearchState(): void {
     this.searchState$.next({
       query: this.query,
-      platformIgdbId: this.selectedSearchPlatformIgdbId
+      platformIgdbId: this.selectedSearchPlatformIgdbId,
     });
   }
 
@@ -546,7 +546,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     const alert = await this.alertController.create({
       header: 'Duplicate Game',
       message: `${title}${platformSuffix} is already in your game shelf.`,
-      buttons: ['OK']
+      buttons: ['OK'],
     });
 
     await alert.present();
@@ -556,7 +556,7 @@ export class GameSearchComponent implements OnInit, OnChanges, OnDestroy {
     const alert = await this.alertController.create({
       header: 'Platform Required',
       message: `A valid IGDB platform is required to add ${title}.`,
-      buttons: ['OK']
+      buttons: ['OK'],
     });
 
     await alert.present();

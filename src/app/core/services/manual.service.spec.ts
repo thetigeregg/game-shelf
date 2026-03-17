@@ -31,8 +31,8 @@ describe('ManualService', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         ManualService,
-        { provide: SYNC_OUTBOX_WRITER, useValue: outboxWriter }
-      ]
+        { provide: SYNC_OUTBOX_WRITER, useValue: outboxWriter },
+      ],
     });
 
     localStorage.clear();
@@ -50,7 +50,7 @@ describe('ManualService', () => {
         {
           igdbGameId: '100',
           platformIgdbId: 8,
-          title: 'God of War II'
+          title: 'God of War II',
         },
         'PlayStation 2__pid-8/God of War II.pdf'
       )
@@ -74,9 +74,9 @@ describe('ManualService', () => {
         fileName: 'God of War II.pdf',
         relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
         score: 1,
-        url: '/manuals/PlayStation%202__pid-8/God%20of%20War%20II.pdf'
+        url: '/manuals/PlayStation%202__pid-8/God%20of%20War%20II.pdf',
       },
-      candidates: []
+      candidates: [],
     });
 
     await expect(promise).resolves.toEqual({
@@ -87,11 +87,11 @@ describe('ManualService', () => {
         fileName: 'God of War II.pdf',
         relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
         score: 1,
-        url: '/manuals/PlayStation%202__pid-8/God%20of%20War%20II.pdf'
+        url: '/manuals/PlayStation%202__pid-8/God%20of%20War%20II.pdf',
       },
       candidates: [],
       unavailable: false,
-      reason: null
+      reason: null,
     });
   });
 
@@ -99,7 +99,7 @@ describe('ManualService', () => {
     service.setOverride(
       {
         igdbGameId: '100',
-        platformIgdbId: 8
+        platformIgdbId: 8,
       },
       'PlayStation 2__pid-8/God of War II.pdf'
     );
@@ -123,7 +123,7 @@ describe('ManualService', () => {
     service.setOverride(
       {
         igdbGameId: '100',
-        platformIgdbId: 8
+        platformIgdbId: 8,
       },
       'PlayStation 2__pid-8/God of War II.pdf'
     );
@@ -131,7 +131,7 @@ describe('ManualService', () => {
 
     service.clearOverride({
       igdbGameId: '100',
-      platformIgdbId: 8
+      platformIgdbId: 8,
     });
 
     expect(localStorage.getItem(MANUAL_OVERRIDES_STORAGE_KEY)).toBeNull();
@@ -151,7 +151,7 @@ describe('ManualService', () => {
       service.resolveManual({
         igdbGameId: '100',
         platformIgdbId: 8,
-        title: 'God of War II'
+        title: 'God of War II',
       })
     );
 
@@ -169,7 +169,7 @@ describe('ManualService', () => {
       status: 'none',
       candidates: [],
       unavailable: true,
-      reason: 'Unable to resolve manuals right now.'
+      reason: 'Unable to resolve manuals right now.',
     });
   });
 
@@ -178,7 +178,7 @@ describe('ManualService', () => {
       service.resolveManual({
         igdbGameId: '11393',
         platformIgdbId: 46,
-        title: 'Chaos;Child'
+        title: 'Chaos;Child',
       })
     );
 
@@ -190,7 +190,7 @@ describe('ManualService', () => {
     });
     req.flush({
       status: 'none',
-      candidates: []
+      candidates: [],
     });
 
     await expect(promise).resolves.toEqual({
@@ -198,7 +198,7 @@ describe('ManualService', () => {
       bestMatch: null,
       candidates: [],
       unavailable: false,
-      reason: null
+      reason: null,
     });
   });
 
@@ -206,7 +206,7 @@ describe('ManualService', () => {
     await expect(firstValueFrom(service.searchManuals(0, 'mario'))).resolves.toEqual({
       items: [],
       unavailable: false,
-      reason: null
+      reason: null,
     });
 
     httpMock.expectNone(`${environment.gameApiBaseUrl}/v1/manuals/search`);
@@ -229,9 +229,9 @@ describe('ManualService', () => {
           platformIgdbId: 8,
           fileName: 'God of War II.pdf',
           relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
-          score: 0.92
-        }
-      ]
+          score: 0.92,
+        },
+      ],
     });
 
     await expect(promise).resolves.toEqual({
@@ -243,9 +243,9 @@ describe('ManualService', () => {
           fileName: 'God of War II.pdf',
           relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
           score: 0.92,
-          url: '/manuals/PlayStation%202__pid-8/God%20of%20War%20II.pdf'
-        }
-      ]
+          url: '/manuals/PlayStation%202__pid-8/God%20of%20War%20II.pdf',
+        },
+      ],
     });
   });
 
@@ -264,7 +264,7 @@ describe('ManualService', () => {
     await expect(promise).resolves.toEqual({
       items: [],
       unavailable: true,
-      reason: 'Unable to search manuals right now.'
+      reason: 'Unable to search manuals right now.',
     });
   });
 
@@ -274,22 +274,22 @@ describe('ManualService', () => {
       JSON.stringify({
         '100::8': {
           relativePath: 'PlayStation 2__pid-8\\God of War II.pdf',
-          updatedAt: '2026-02-12T00:00:00.000Z'
+          updatedAt: '2026-02-12T00:00:00.000Z',
         },
         'bad::entry': {
-          relativePath: '../bad.pdf'
-        }
+          relativePath: '../bad.pdf',
+        },
       })
     );
 
     expect(
       service.getOverride({
         igdbGameId: '100',
-        platformIgdbId: 8
+        platformIgdbId: 8,
       })
     ).toEqual({
       relativePath: 'PlayStation 2__pid-8/God of War II.pdf',
-      updatedAt: '2026-02-12T00:00:00.000Z'
+      updatedAt: '2026-02-12T00:00:00.000Z',
     });
   });
 });

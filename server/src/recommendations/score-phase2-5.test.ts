@@ -29,7 +29,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -39,10 +39,10 @@ void test('phase2.5 scoring integrates new components with bounded penalties', (
     buildGame({ igdbGameId: 'h2', rating: 4.5 }),
     buildGame({ igdbGameId: 'h3', rating: 4 }),
     buildGame({ igdbGameId: 'h4', rating: 3.5 }),
-    buildGame({ igdbGameId: 'h5', rating: 3 })
+    buildGame({ igdbGameId: 'h5', rating: 3 }),
   ];
   const candidates: NormalizedGameRecord[] = [
-    buildGame({ igdbGameId: 'c1', status: 'wantToPlay' })
+    buildGame({ igdbGameId: 'c1', status: 'wantToPlay' }),
   ];
 
   const ranked = buildRankedScores({
@@ -56,14 +56,14 @@ void test('phase2.5 scoring integrates new components with bounded penalties', (
       tasteWeight: 1,
       semanticWeight: 2,
       criticWeight: 1,
-      runtimeWeight: 1
+      runtimeWeight: 1,
     },
     explorationWeight: 0.3,
     diversityPenaltyWeight: 0.5,
     similarityStructuredWeight: 0.6,
     similaritySemanticWeight: 0.4,
     repeatPenaltyStep: 0.2,
-    historyByGame: new Map([['c1::1', { recommendationCount: 2 }]])
+    historyByGame: new Map([['c1::1', { recommendationCount: 2 }]]),
   });
 
   assert.equal(ranked.length, 1);

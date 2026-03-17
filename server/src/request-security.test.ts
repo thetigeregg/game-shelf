@@ -22,7 +22,7 @@ void test('isAuthorizedMutatingRequest accepts API token bearer auth', () => {
       apiToken: 'api-secret',
       clientWriteTokens: ['device-a'],
       authorizationHeader: 'Bearer api-secret',
-      clientWriteTokenHeader: undefined
+      clientWriteTokenHeader: undefined,
     }),
     true
   );
@@ -35,7 +35,7 @@ void test('isAuthorizedMutatingRequest accepts client write token auth', () => {
       apiToken: 'api-secret',
       clientWriteTokens: ['device-a', 'device-b'],
       authorizationHeader: undefined,
-      clientWriteTokenHeader: 'device-b'
+      clientWriteTokenHeader: 'device-b',
     }),
     true
   );
@@ -48,7 +48,7 @@ void test('isAuthorizedMutatingRequest rejects missing or invalid auth when requ
       apiToken: 'api-secret',
       clientWriteTokens: ['device-a'],
       authorizationHeader: undefined,
-      clientWriteTokenHeader: undefined
+      clientWriteTokenHeader: undefined,
     }),
     false
   );
@@ -59,7 +59,7 @@ void test('isAuthorizedMutatingRequest rejects missing or invalid auth when requ
       apiToken: 'api-secret',
       clientWriteTokens: ['device-a'],
       authorizationHeader: 'Bearer wrong-secret',
-      clientWriteTokenHeader: 'wrong-device'
+      clientWriteTokenHeader: 'wrong-device',
     }),
     false
   );
@@ -72,7 +72,7 @@ void test('isAuthorizedMutatingRequest allows bypass when auth is not required',
       apiToken: '',
       clientWriteTokens: [],
       authorizationHeader: undefined,
-      clientWriteTokenHeader: undefined
+      clientWriteTokenHeader: undefined,
     }),
     true
   );
@@ -85,7 +85,7 @@ void test('isAuthorizedMutatingRequest handles normalized headers and empty conf
       apiToken: '   ',
       clientWriteTokens: ['device-a'],
       authorizationHeader: ['Bearer api-secret'],
-      clientWriteTokenHeader: ['device-a']
+      clientWriteTokenHeader: ['device-a'],
     }),
     true
   );
@@ -96,7 +96,7 @@ void test('isAuthorizedMutatingRequest handles normalized headers and empty conf
       apiToken: '',
       clientWriteTokens: ['device-a'],
       authorizationHeader: ['Token api-secret'],
-      clientWriteTokenHeader: ['   ']
+      clientWriteTokenHeader: ['   '],
     }),
     false
   );
@@ -115,7 +115,7 @@ void test('server route inventory remains audited and mutating routes require au
     './manuals.ts',
     './cache-observability.ts',
     './background-jobs-routes.ts',
-    './popularity/routes.ts'
+    './popularity/routes.ts',
   ];
   const routeMethodRegex = /app\.(get|post|put|patch|delete|options|head)\(\s*'([^']+)'/g;
   const routeObjectRegex = /app\.route\(\s*\{\s*method:\s*'([^']+)'\s*,\s*url:\s*'([^']+)'/g;
@@ -127,20 +127,20 @@ void test('server route inventory remains audited and mutating routes require au
     for (const match of source.matchAll(routeMethodRegex)) {
       discoveredRoutes.push({
         method: match[1].toUpperCase(),
-        path: match[2]
+        path: match[2],
       });
     }
 
     for (const match of source.matchAll(routeObjectRegex)) {
       discoveredRoutes.push({
         method: match[1].toUpperCase(),
-        path: match[2]
+        path: match[2],
       });
     }
   }
 
   const uniqueSortedRoutes = [
-    ...new Map(discoveredRoutes.map((item) => [`${item.method} ${item.path}`, item])).values()
+    ...new Map(discoveredRoutes.map((item) => [`${item.method} ${item.path}`, item])).values(),
   ].sort((left, right) =>
     `${left.method} ${left.path}`.localeCompare(`${right.method} ${right.path}`)
   );
@@ -169,7 +169,7 @@ void test('server route inventory remains audited and mutating routes require au
     { method: 'POST', path: '/v1/images/cache/purge' },
     { method: 'POST', path: '/v1/manuals/refresh' },
     { method: 'POST', path: '/v1/sync/pull' },
-    { method: 'POST', path: '/v1/sync/push' }
+    { method: 'POST', path: '/v1/sync/push' },
   ];
 
   assert.deepEqual(uniqueSortedRoutes, expectedRoutes);

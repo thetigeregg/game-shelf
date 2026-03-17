@@ -384,6 +384,7 @@ export function extractMetacriticSearchResults(config = {}) {
         continue;
       }
 
+      payloadEntryPattern.lastIndex = 0;
       let payloadMatch = payloadEntryPattern.exec(scriptText);
 
       while (payloadMatch) {
@@ -445,10 +446,34 @@ export function extractMetacriticSearchResults(config = {}) {
     return payloadCandidates;
   };
 
-  const mergePayloadCandidatesInPage = (
-    items,
-    payloadCandidates = extractPayloadCandidatesInPage()
-  ) => {
+  const getPayloadCandidatesInPage = (() => {
+    let payloadCandidates;
+
+    return () => {
+      if (payloadCandidates === undefined) {
+        payloadCandidates = extractPayloadCandidatesInPage();
+      }
+
+      return payloadCandidates;
+    };
+  })();
+
+  const shouldMergePayloadCandidatesInPage = (items) =>
+    items.length === 0 ||
+    items.some(
+      (item) =>
+        item.releaseYear === null ||
+        item.platform === null ||
+        item.metacriticScore === null ||
+        item.imageUrl === null
+    );
+
+  const mergePayloadCandidatesInPage = (items) => {
+    if (!shouldMergePayloadCandidatesInPage(items)) {
+      return items;
+    }
+
+    const payloadCandidates = getPayloadCandidatesInPage();
     if (payloadCandidates.length === 0) {
       return items;
     }
@@ -478,8 +503,6 @@ export function extractMetacriticSearchResults(config = {}) {
       };
     });
   };
-
-  const payloadCandidates = extractPayloadCandidatesInPage();
 
   const parsed = [];
   const genericTitles = new Set(['games', 'search results for " "']);
@@ -557,7 +580,7 @@ export function extractMetacriticSearchResults(config = {}) {
   }
 
   if (parsed.length > 0) {
-    return mergePayloadCandidatesInPage(parsed, payloadCandidates);
+    return mergePayloadCandidatesInPage(parsed);
   }
 
   // Fallback parsing (working up to: 2026-03-17).
@@ -624,9 +647,5 @@ export function extractMetacriticSearchResults(config = {}) {
     });
   }
 
-  if (parsed.length === 0 && payloadCandidates.length > 0) {
-    return payloadCandidates;
-  }
-
-  return mergePayloadCandidatesInPage(parsed, payloadCandidates);
+  return mergePayloadCandidatesInPage(parsed);
 }

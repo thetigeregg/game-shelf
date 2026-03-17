@@ -41,6 +41,7 @@ import { AdminApiAuthService } from '../core/services/admin-api-auth.service';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
+type QueueStatusTone = 'success' | 'warning' | 'danger';
 
 @Component({
   selector: 'app-admin-discovery-match',
@@ -98,12 +99,16 @@ export class AdminDiscoveryMatchPage {
   scannedCount = 0;
   isLoading = false;
   errorMessage: string | null = null;
+  listQueueStatusMessage: string | null = null;
+  listQueueStatusTone: QueueStatusTone = 'success';
   isManageModalOpen = false;
   isDetailLoading = false;
   isSaving = false;
   isListRequeueing = false;
   isRequeueing = false;
   activeDetail: AdminDiscoveryDetailResponse | null = null;
+  activeQueueStatusMessage: string | null = null;
+  activeQueueStatusTone: QueueStatusTone = 'success';
   activeModalProvider: AdminDiscoveryMatchProvider = 'hltb';
   hltbSearchQuery = '';
   hltbSearchResults: HltbMatchCandidate[] = [];
@@ -209,6 +214,7 @@ export class AdminDiscoveryMatchPage {
     this.items = [];
     this.scannedCount = 0;
     this.errorMessage = null;
+    this.clearListQueueStatus();
     await this.presentToast('Admin token cleared.');
   }
 
@@ -269,6 +275,12 @@ export class AdminDiscoveryMatchPage {
     this.isListRequeueing = true;
     try {
       const response = await firstValueFrom(this.adminMatchService.requeueEnrichmentRun());
+      this.setListQueueStatus(
+        response.deduped
+          ? 'Discovery enrichment run is already queued.'
+          : 'Discovery enrichment run queued.',
+        response.deduped ? 'warning' : 'success'
+      );
       await this.presentToast(
         response.deduped
           ? 'Discovery enrichment run is already queued.'
@@ -276,6 +288,10 @@ export class AdminDiscoveryMatchPage {
         'success'
       );
     } catch (error) {
+      this.setListQueueStatus(
+        this.toErrorMessage(error, 'Unable to queue discovery enrichment run.'),
+        'danger'
+      );
       await this.presentToast(
         this.toErrorMessage(error, 'Unable to queue discovery enrichment run.'),
         'danger'
@@ -313,6 +329,7 @@ export class AdminDiscoveryMatchPage {
     this.isSaving = false;
     this.isRequeueing = false;
     this.activeDetail = null;
+    this.clearActiveQueueStatus();
     this.resetCandidateSearchState();
   }
 
@@ -385,6 +402,12 @@ export class AdminDiscoveryMatchPage {
           this.activeDetail.platformIgdbId
         )
       );
+      this.setActiveQueueStatus(
+        response.deduped
+          ? 'Discovery enrichment is already queued.'
+          : 'Discovery enrichment queued.',
+        response.deduped ? 'warning' : 'success'
+      );
       await this.presentToast(
         response.deduped
           ? 'Discovery enrichment is already queued.'
@@ -392,6 +415,10 @@ export class AdminDiscoveryMatchPage {
         'success'
       );
     } catch (error) {
+      this.setActiveQueueStatus(
+        this.toErrorMessage(error, 'Unable to queue discovery enrichment.'),
+        'danger'
+      );
       await this.presentToast(
         this.toErrorMessage(error, 'Unable to queue discovery enrichment.'),
         'danger'
@@ -610,6 +637,26 @@ export class AdminDiscoveryMatchPage {
 
   private getProviderLabel(provider: AdminDiscoveryMatchProvider): string {
     return this.providerOptions.find((option) => option.value === provider)?.label ?? provider;
+  }
+
+  private setListQueueStatus(message: string, tone: QueueStatusTone): void {
+    this.listQueueStatusMessage = message;
+    this.listQueueStatusTone = tone;
+  }
+
+  private clearListQueueStatus(): void {
+    this.listQueueStatusMessage = null;
+    this.listQueueStatusTone = 'success';
+  }
+
+  private setActiveQueueStatus(message: string, tone: QueueStatusTone): void {
+    this.activeQueueStatusMessage = message;
+    this.activeQueueStatusTone = tone;
+  }
+
+  private clearActiveQueueStatus(): void {
+    this.activeQueueStatusMessage = null;
+    this.activeQueueStatusTone = 'success';
   }
 
   private async runHltbCandidateSearch(): Promise<void> {

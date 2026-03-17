@@ -115,6 +115,12 @@
       </ion-note>
     </div>
 
+    @if (listQueueStatusMessage) {
+      <ion-item lines="none">
+        <ion-label [color]="listQueueStatusTone">{{ listQueueStatusMessage }}</ion-label>
+      </ion-item>
+    }
+
     @if (errorMessage) {
       <ion-item lines="none">
         <ion-label color="danger">{{ errorMessage }}</ion-label>
@@ -698,6 +704,12 @@
               Clear provider
             </ion-button>
           </div>
+
+          @if (activeQueueStatusMessage) {
+            <ion-item lines="none">
+              <ion-label [color]="activeQueueStatusTone">{{ activeQueueStatusMessage }}</ion-label>
+            </ion-item>
+          }
         </ion-list>
       }
     </ion-content>

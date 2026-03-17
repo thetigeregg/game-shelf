@@ -174,8 +174,12 @@ function createPageHarness(): {
       matchState: createDetail().matchState,
     },
   ]);
+  setField(page, 'listQueueStatusMessage', null);
+  setField(page, 'listQueueStatusTone', 'success');
   setField(page, 'isListRequeueing', false);
   setField(page, 'isRequeueing', false);
+  setField(page, 'activeQueueStatusMessage', null);
+  setField(page, 'activeQueueStatusTone', 'success');
   setField(page, 'hltbSearchQuery', 'Chrono Trigger');
   setField(page, 'hltbSearchResults', []);
   setField(page, 'hltbSearchError', null);
@@ -346,6 +350,8 @@ describe('AdminDiscoveryMatchPage', () => {
     ).requeueActiveGameEnrichment();
 
     expect(adminMatchService.requeueEnrichment).toHaveBeenCalledWith('123', 48);
+    expect(page.activeQueueStatusMessage).toBe('Discovery enrichment queued.');
+    expect(page.activeQueueStatusTone).toBe('success');
     expect(toastCreate).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Discovery enrichment queued.', color: 'success' })
     );
@@ -358,6 +364,8 @@ describe('AdminDiscoveryMatchPage', () => {
     await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
 
     expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledTimes(1);
+    expect(page.listQueueStatusMessage).toBe('Discovery enrichment run is already queued.');
+    expect(page.listQueueStatusTone).toBe('warning');
     expect(toastCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Discovery enrichment run is already queued.',
@@ -365,5 +373,24 @@ describe('AdminDiscoveryMatchPage', () => {
       })
     );
     expect(page.isListRequeueing).toBe(false);
+  });
+
+  it('stores a danger status when list-level requeue fails', async () => {
+    const { page, adminMatchService } = createPageHarness();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    adminMatchService.requeueEnrichmentRun.mockReturnValue(
+      throwError(() => new Error('queue offline'))
+    );
+
+    try {
+      await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
+
+      expect(page.listQueueStatusMessage).toBe('queue offline');
+      expect(page.listQueueStatusTone).toBe('danger');
+      expect(page.isListRequeueing).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

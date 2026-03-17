@@ -131,6 +131,7 @@ function createPageHarness(): {
   };
   adminMatchService: {
     requeueEnrichment: ReturnType<typeof vi.fn>;
+    requeueEnrichmentRun: ReturnType<typeof vi.fn>;
   };
   toastCreate: ReturnType<typeof vi.fn>;
 } {
@@ -142,6 +143,7 @@ function createPageHarness(): {
   };
   const adminMatchService = {
     requeueEnrichment: vi.fn(() => of({ ok: true, queued: true, deduped: false, jobId: 55 })),
+    requeueEnrichmentRun: vi.fn(() => of({ ok: true, queued: false, deduped: true, jobId: 55 })),
   };
   const toastCreate = vi.fn(() =>
     Promise.resolve({ present: vi.fn(() => Promise.resolve(undefined)) })
@@ -162,6 +164,17 @@ function createPageHarness(): {
   setField(page, 'toastController', { create: toastCreate });
   setField(page, 'activeDetail', createDetail());
   setField(page, 'activeModalProvider', 'hltb');
+  setField(page, 'items', [
+    {
+      igdbGameId: '123',
+      platformIgdbId: 48,
+      title: 'Chrono Trigger',
+      platform: 'PlayStation',
+      releaseYear: 1999,
+      matchState: createDetail().matchState,
+    },
+  ]);
+  setField(page, 'isListRequeueing', false);
   setField(page, 'isRequeueing', false);
   setField(page, 'hltbSearchQuery', 'Chrono Trigger');
   setField(page, 'hltbSearchResults', []);
@@ -337,5 +350,20 @@ describe('AdminDiscoveryMatchPage', () => {
       expect.objectContaining({ message: 'Discovery enrichment queued.', color: 'success' })
     );
     expect(page.isRequeueing).toBe(false);
+  });
+
+  it('queues the list-level discovery enrichment run and reports deduped state', async () => {
+    const { page, adminMatchService, toastCreate } = createPageHarness();
+
+    await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
+
+    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledTimes(1);
+    expect(toastCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Discovery enrichment run is already queued.',
+        color: 'success',
+      })
+    );
+    expect(page.isListRequeueing).toBe(false);
   });
 });

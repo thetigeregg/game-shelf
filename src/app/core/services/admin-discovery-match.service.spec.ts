@@ -183,4 +183,24 @@ describe('AdminDiscoveryMatchService', () => {
       jobId: 41,
     });
   });
+
+  it('posts a list-level discovery enrichment requeue request', async () => {
+    const promise = firstValueFrom(service.requeueEnrichmentRun());
+
+    const req = httpMock.expectOne(
+      `${environment.gameApiBaseUrl}/v1/admin/discovery/requeue-enrichment`
+    );
+
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer admin-token-1');
+    expect(req.request.body).toEqual({});
+    req.flush({ ok: true, queued: false, deduped: true, jobId: 41 });
+
+    await expect(promise).resolves.toEqual({
+      ok: true,
+      queued: false,
+      deduped: true,
+      jobId: 41,
+    });
+  });
 });

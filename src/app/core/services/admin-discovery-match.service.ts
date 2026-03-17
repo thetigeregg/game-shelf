@@ -235,6 +235,16 @@ export class AdminDiscoveryMatchService {
     );
   }
 
+  requeueEnrichmentRun(): Observable<AdminDiscoveryRequeueResponse> {
+    return this.httpClient.post<AdminDiscoveryRequeueResponse>(
+      `${this.baseUrl}/requeue-enrichment`,
+      {},
+      {
+        headers: this.buildHeaders(),
+      }
+    );
+  }
+
   private buildHeaders(): HttpHeaders {
     const token = this.adminAuth.getToken();
     if (!token) {

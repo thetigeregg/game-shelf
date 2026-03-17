@@ -12,7 +12,7 @@ void test('generateEmbeddings returns empty array for empty input', async () => 
   const client = new OpenAiEmbeddingClient({
     apiKey: 'key',
     model: 'text-embedding-3-small',
-    dimensions: 3
+    dimensions: 3,
   });
   const result = await client.generateEmbeddings([]);
   assert.deepEqual(result, []);
@@ -22,7 +22,7 @@ void test('generateEmbeddings throws when api key is missing', async () => {
   const client = new OpenAiEmbeddingClient({
     apiKey: ' ',
     model: 'text-embedding-3-small',
-    dimensions: 3
+    dimensions: 3,
   });
   await assert.rejects(() => client.generateEmbeddings(['hello']), /OPENAI_API_KEY is required/);
 });
@@ -32,14 +32,14 @@ void test('generateEmbeddings throws for non-ok response and shortens body text'
     Promise.resolve(
       new Response('x'.repeat(1000), {
         status: 429,
-        statusText: 'Too Many Requests'
+        statusText: 'Too Many Requests',
       })
     )) as typeof fetch;
 
   const client = new OpenAiEmbeddingClient({
     apiKey: 'key',
     model: 'text-embedding-3-small',
-    dimensions: 3
+    dimensions: 3,
   });
   await assert.rejects(
     () => client.generateEmbeddings(['hello']),
@@ -52,14 +52,14 @@ void test('generateEmbeddings validates response entry count and embedding prese
   const client = new OpenAiEmbeddingClient({
     apiKey: 'key',
     model: 'text-embedding-3-small',
-    dimensions: 3
+    dimensions: 3,
   });
 
   globalThis.fetch = (() =>
     Promise.resolve(
       new Response(
         JSON.stringify({
-          data: [{ index: 0, embedding: [0, 0, 0] }]
+          data: [{ index: 0, embedding: [0, 0, 0] }],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
@@ -70,7 +70,7 @@ void test('generateEmbeddings validates response entry count and embedding prese
     Promise.resolve(
       new Response(
         JSON.stringify({
-          data: [{ index: 1, embedding: [0, 1, 0] }, { index: 0 }]
+          data: [{ index: 1, embedding: [0, 1, 0] }, { index: 0 }],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
@@ -83,8 +83,8 @@ void test('generateEmbeddings validates response entry count and embedding prese
         JSON.stringify({
           data: [
             { index: 0, embedding: [1, 0] },
-            { index: 1, embedding: [0, 1, 0] }
-          ]
+            { index: 1, embedding: [0, 1, 0] },
+          ],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
@@ -97,8 +97,8 @@ void test('generateEmbeddings validates response entry count and embedding prese
         JSON.stringify({
           data: [
             { index: 0, embedding: [1, Number.NaN, 0] },
-            { index: 1, embedding: [0, 1, 0] }
-          ]
+            { index: 1, embedding: [0, 1, 0] },
+          ],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
@@ -114,8 +114,8 @@ void test('generateEmbeddings returns vectors sorted by index', async () => {
         JSON.stringify({
           data: [
             { index: 1, embedding: [0, 1, 0] },
-            { index: 0, embedding: [1, 0, 0] }
-          ]
+            { index: 0, embedding: [1, 0, 0] },
+          ],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
@@ -124,12 +124,12 @@ void test('generateEmbeddings returns vectors sorted by index', async () => {
   const client = new OpenAiEmbeddingClient({
     apiKey: 'key',
     model: 'text-embedding-3-small',
-    dimensions: 3
+    dimensions: 3,
   });
   const vectors = await client.generateEmbeddings(['a', 'b']);
   assert.deepEqual(vectors, [
     [1, 0, 0],
-    [0, 1, 0]
+    [0, 1, 0],
   ]);
   restoreFetch();
 });
@@ -155,7 +155,7 @@ void test('generateEmbeddings aborts on request timeout', async () => {
     apiKey: 'key',
     model: 'text-embedding-3-small',
     dimensions: 3,
-    timeoutMs: 5
+    timeoutMs: 5,
   });
 
   await assert.rejects(

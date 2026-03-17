@@ -28,20 +28,20 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
-    ...overrides
+    ...overrides,
   };
 }
 
 void test('calculateDiversityPenalty applies negative penalty when overlap exists', () => {
   const candidate = {
     game: buildGame({ igdbGameId: '1' }),
-    tokenKeys: new Set(['genres:rpg', 'developers:foo'])
+    tokenKeys: new Set(['genres:rpg', 'developers:foo']),
   };
   const selected = [
     {
       game: buildGame({ igdbGameId: '2' }),
-      tokenKeys: new Set(['genres:rpg', 'developers:foo'])
-    }
+      tokenKeys: new Set(['genres:rpg', 'developers:foo']),
+    },
   ];
 
   const penalty = calculateDiversityPenalty({
@@ -49,11 +49,11 @@ void test('calculateDiversityPenalty applies negative penalty when overlap exist
     selected,
     semanticSimilarityByGame: new Map([
       ['1::1', 0.9],
-      ['2::1', 0.9]
+      ['2::1', 0.9],
     ]),
     diversityPenaltyWeight: 0.5,
     structuredWeight: 0.6,
-    semanticWeight: 0.4
+    semanticWeight: 0.4,
   });
 
   assert.equal(penalty < 0, true);

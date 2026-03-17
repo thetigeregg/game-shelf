@@ -72,7 +72,7 @@ class GamePoolMock {
         this.rowsByIdentity.set(key, { payload: merged });
         return Promise.resolve({
           rows: [{ previous_payload: existing, next_payload: merged }],
-          rowCount: 1
+          rowCount: 1,
         });
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
@@ -93,14 +93,14 @@ class GamePoolMock {
         rows: [
           {
             setting_key: 'game-shelf:notifications:release:enabled',
-            setting_value: 'true'
+            setting_value: 'true',
           },
           {
             setting_key: 'game-shelf:notifications:release:events',
-            setting_value: JSON.stringify({ sale: true })
-          }
+            setting_value: JSON.stringify({ sale: true }),
+          },
         ],
-        rowCount: 2
+        rowCount: 2,
       });
     }
 
@@ -174,12 +174,12 @@ void test('PSPrices route returns unsupported_platform outside supported IGDB pl
     fetchImpl: () => {
       fetchCalls += 1;
       return Promise.resolve(new Response('{}', { status: 200 }));
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=1&platformIgdbId=6'
+    url: '/v1/psprices/prices?igdbGameId=1&platformIgdbId=6',
   });
 
   assert.equal(response.statusCode, 200);
@@ -198,7 +198,7 @@ void test('PSPrices route returns 404 when game row does not exist', async () =>
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=999&platformIgdbId=167'
+    url: '/v1/psprices/prices?igdbGameId=999&platformIgdbId=167',
   });
 
   assert.equal(response.statusCode, 404);
@@ -212,7 +212,7 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('332273', 167, {
-    title: 'Monster Train 2'
+    title: 'Monster Train 2',
   });
   const requestUrls: string[] = [];
 
@@ -238,21 +238,21 @@ void test('PSPrices route fetches scraper result and persists normalized fields'
               regularPriceAmount: 69.9,
               discountPercent: 28,
               isFree: false,
-              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
-            }
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
   });
 
   assert.equal(response.statusCode, 200);
@@ -293,7 +293,7 @@ void test('PSPrices route falls back currency from region when scraper omits it'
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('332273', 167, {
-    title: 'Monster Train 2'
+    title: 'Monster Train 2',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -307,20 +307,20 @@ void test('PSPrices route falls back currency from region when scraper omits it'
               regularPriceAmount: 69.9,
               discountPercent: 28,
               isFree: false,
-              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
-            }
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
   });
 
   assert.equal(response.statusCode, 200);
@@ -341,7 +341,7 @@ void test('PSPrices route suppresses sync event writes for discovery rows', asyn
   const pool = new GamePoolMock();
   pool.seed('332273', 167, {
     listType: 'discovery',
-    title: 'Monster Train 2'
+    title: 'Monster Train 2',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -356,20 +356,20 @@ void test('PSPrices route suppresses sync event writes for discovery rows', asyn
               regularPriceAmount: 69.9,
               discountPercent: 28,
               isFree: false,
-              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
-            }
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
   });
 
   assert.equal(response.statusCode, 200);
@@ -395,7 +395,7 @@ void test('PSPrices route preserves existing unified price data when lookup is u
     psPricesRegularPriceAmount: 69.9,
     psPricesDiscountPercent: 28,
     psPricesIsFree: false,
-    psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+    psPricesUrl: 'https://psprices.com/region-ch/game/1234/monster-train-2',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -406,21 +406,21 @@ void test('PSPrices route preserves existing unified price data when lookup is u
             item: {
               title: 'Different Game Name',
               priceAmount: 19.9,
-              currency: 'CHF'
+              currency: 'CHF',
             },
-            candidates: []
+            candidates: [],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
   });
 
   assert.equal(response.statusCode, 200);
@@ -449,7 +449,7 @@ void test('PSPrices route reaches wishlist sale notification checks during disco
     priceAmount: 69.9,
     priceRegularAmount: 69.9,
     priceDiscountPercent: 0,
-    priceIsFree: false
+    priceIsFree: false,
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -464,20 +464,20 @@ void test('PSPrices route reaches wishlist sale notification checks during disco
               regularPriceAmount: 69.9,
               discountPercent: 28,
               isFree: false,
-              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
-            }
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167'
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167',
   });
 
   assert.equal(response.statusCode, 200);
@@ -502,7 +502,7 @@ void test('PSPrices route returns fresh cached result without scraper fetch', as
     psPricesRegularPriceAmount: null,
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
-    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet',
   });
   let fetchCalls = 0;
 
@@ -511,12 +511,12 @@ void test('PSPrices route returns fresh cached result without scraper fetch', as
     fetchImpl: () => {
       fetchCalls += 1;
       return Promise.resolve(new Response('{}', { status: 200 }));
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130'
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -544,16 +544,16 @@ void test('PSPrices fresh cache falls back currency from region when cached curr
     psPricesRegularPriceAmount: null,
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
-    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
-    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z')
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130'
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -580,7 +580,7 @@ void test('PSPrices route bypasses fresh cache when title override is provided',
     psPricesRegularPriceAmount: null,
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
-    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet',
   });
   let fetchCalls = 0;
 
@@ -601,21 +601,21 @@ void test('PSPrices route bypasses fresh cache when title override is provided',
               regularPriceAmount: 69.9,
               discountPercent: 28,
               isFree: false,
-              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
-            }
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
+            },
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&title=Monster%20Train%202'
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&title=Monster%20Train%202',
   });
 
   assert.equal(response.statusCode, 200);
@@ -644,7 +644,7 @@ void test('PSPrices route honors preferredPsPricesUrl query override and bypasse
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
     psPricesUrl: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
-    psPricesMatchQueryTitle: 'Night In The Woods'
+    psPricesMatchQueryTitle: 'Night In The Woods',
   });
   let fetchCalls = 0;
 
@@ -667,7 +667,7 @@ void test('PSPrices route honors preferredPsPricesUrl query override and bypasse
                 regularPriceAmount: null,
                 discountPercent: null,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods'
+                url: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
               },
               {
                 title: 'Night In The Woods',
@@ -676,24 +676,24 @@ void test('PSPrices route honors preferredPsPricesUrl query override and bypasse
                 regularPriceAmount: null,
                 discountPercent: null,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
     url:
       '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
-      encodeURIComponent('https://psprices.com/region-ch/game/5825037/night-in-the-woods')
+      encodeURIComponent('https://psprices.com/region-ch/game/5825037/night-in-the-woods'),
   });
 
   assert.equal(response.statusCode, 200);
@@ -725,7 +725,7 @@ void test('PSPrices route canonicalizes scheme-less preferredPsPricesUrl query o
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
     psPricesUrl: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
-    psPricesMatchQueryTitle: 'Night In The Woods'
+    psPricesMatchQueryTitle: 'Night In The Woods',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -746,7 +746,7 @@ void test('PSPrices route canonicalizes scheme-less preferredPsPricesUrl query o
                 regularPriceAmount: null,
                 discountPercent: null,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods'
+                url: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
               },
               {
                 title: 'Night In The Woods',
@@ -755,24 +755,24 @@ void test('PSPrices route canonicalizes scheme-less preferredPsPricesUrl query o
                 regularPriceAmount: null,
                 discountPercent: null,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
     url:
       '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
-      encodeURIComponent('//psprices.com/region-ch/game/5825037/night-in-the-woods')
+      encodeURIComponent('//psprices.com/region-ch/game/5825037/night-in-the-woods'),
   });
 
   assert.equal(response.statusCode, 200);
@@ -800,7 +800,7 @@ void test('PSPrices route canonicalizes www preferredPsPricesUrl hostnames', asy
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
     psPricesUrl: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
-    psPricesMatchQueryTitle: 'Night In The Woods'
+    psPricesMatchQueryTitle: 'Night In The Woods',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -817,23 +817,23 @@ void test('PSPrices route canonicalizes www preferredPsPricesUrl hostnames', asy
                 regularPriceAmount: null,
                 discountPercent: null,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
     url:
       '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
-      encodeURIComponent('https://www.psprices.com/region-ch/game/5825037/night-in-the-woods')
+      encodeURIComponent('https://www.psprices.com/region-ch/game/5825037/night-in-the-woods'),
   });
 
   assert.equal(response.statusCode, 200);
@@ -860,7 +860,7 @@ void test('PSPrices route ignores invalid external preferredPsPricesUrl override
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
     psPricesUrl: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
-    psPricesMatchQueryTitle: 'Night In The Woods'
+    psPricesMatchQueryTitle: 'Night In The Woods',
   });
   let fetchCalls = 0;
 
@@ -883,31 +883,31 @@ void test('PSPrices route ignores invalid external preferredPsPricesUrl override
                 regularPriceAmount: null,
                 discountPercent: null,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const invalidPreferredResponse = await app.inject({
     method: 'GET',
     url:
       '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&preferredPsPricesUrl=' +
-      encodeURIComponent('https://example.com/not-psprices')
+      encodeURIComponent('https://example.com/not-psprices'),
   });
   assert.equal(invalidPreferredResponse.statusCode, 200);
   assert.equal(invalidPreferredResponse.headers['x-gameshelf-psprices-cache'], 'HIT_FRESH');
 
   const plainResponse = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167'
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167',
   });
   assert.equal(plainResponse.statusCode, 200);
   assert.equal(plainResponse.headers['x-gameshelf-psprices-cache'], 'HIT_FRESH');
@@ -932,7 +932,7 @@ void test('PSPrices route clears persisted preferred url when a title override i
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
     psPricesUrl: 'https://psprices.com/region-ch/game/2632133/night-in-the-woods',
-    psPricesMatchQueryTitle: 'Night In The Woods'
+    psPricesMatchQueryTitle: 'Night In The Woods',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -954,24 +954,24 @@ void test('PSPrices route clears persisted preferred url when a title override i
                 regularPriceAmount: null,
                 discountPercent: null,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/9999999/night-in-the-woods-deluxe'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/9999999/night-in-the-woods-deluxe',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
       );
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
     url:
       '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=167&title=' +
-      encodeURIComponent('Night In The Woods Deluxe')
+      encodeURIComponent('Night In The Woods Deluxe'),
   });
 
   assert.equal(response.statusCode, 200);
@@ -1014,18 +1014,18 @@ void test('PSPrices fresh cache keeps match and candidates for includeCandidates
         discountPercent: null,
         isFree: false,
         url: 'https://psprices.com/region-ch/game/5263323/pokemon-violet',
-        score: 100
-      }
-    ]
+        score: 100,
+      },
+    ],
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
-    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z')
+    nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1037,7 +1037,7 @@ void test('PSPrices fresh cache keeps match and candidates for includeCandidates
     queryTitle: 'Pokemon Violet',
     matchedTitle: 'Pokemon Violet',
     score: 100,
-    confidence: 'high'
+    confidence: 'high',
   });
   assert.ok(Array.isArray(body['candidates']));
   assert.equal((body['candidates'] as unknown[]).length, 1);
@@ -1061,7 +1061,7 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
     psPricesRegularPriceAmount: null,
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
-    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet',
   });
   let fetchCalls = 0;
   const queuedPayloads: Record<string, unknown>[] = [];
@@ -1074,12 +1074,12 @@ void test('PSPrices route serves stale cache and schedules revalidation', async 
     fetchImpl: () => {
       fetchCalls += 1;
       return Promise.resolve(new Response('{}', { status: 200 }));
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130'
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1116,7 +1116,7 @@ void test('PSPrices route skips stale revalidation when psPrices match is locked
     psPricesRegularPriceAmount: null,
     psPricesDiscountPercent: null,
     psPricesIsFree: false,
-    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet'
+    psPricesUrl: 'https://psprices.com/region-ch/game/5263323/pokemon-violet',
   });
   const queuedPayloads: Record<string, unknown>[] = [];
 
@@ -1124,12 +1124,12 @@ void test('PSPrices route skips stale revalidation when psPrices match is locked
     nowProvider: () => Date.parse('2026-03-10T12:00:00.000Z'),
     enqueueRevalidationJob: (payload) => {
       queuedPayloads.push(payload as unknown as Record<string, unknown>);
-    }
+    },
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130'
+    url: '/v1/psprices/prices?igdbGameId=5263323&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1146,7 +1146,7 @@ void test('PSPrices route sets psPricesMatchLocked when title override is used',
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('332273', 167, {
-    title: 'Monster Train 2'
+    title: 'Monster Train 2',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1161,18 +1161,18 @@ void test('PSPrices route sets psPricesMatchLocked when title override is used',
               regularAmount: 69.9,
               discountPercent: 28,
               isFree: false,
-              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
             },
-            candidates: []
+            candidates: [],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&title=Monster%20Train%202'
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&title=Monster%20Train%202',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1187,7 +1187,7 @@ void test('PSPrices route prefers persisted psPricesUrl candidate over fuzzy tit
   const pool = new GamePoolMock();
   pool.seed('217550', 130, {
     title: 'Fire Emblem Engage',
-    psPricesUrl: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass'
+    psPricesUrl: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1201,27 +1201,27 @@ void test('PSPrices route prefers persisted psPricesUrl candidate over fuzzy tit
                 title: 'Fire Emblem Engage Standard Edition',
                 amount: 59.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/5581873/fire-emblem-engage-standard-edition'
+                url: 'https://psprices.com/region-ch/game/5581873/fire-emblem-engage-standard-edition',
               },
               {
                 title: 'Fire Emblem Engage Expansion Pass',
                 amount: 30,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130'
+    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1243,7 +1243,7 @@ void test('PSPrices route can return ranked candidates for manual picker workflo
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('332273', 167, {
-    title: 'Monster Train 2'
+    title: 'Monster Train 2',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1258,7 +1258,7 @@ void test('PSPrices route can return ranked candidates for manual picker workflo
               regularPriceAmount: 69.9,
               discountPercent: 28,
               isFree: false,
-              url: 'https://psprices.com/region-ch/game/1234/monster-train-2'
+              url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
             },
             candidates: [
               {
@@ -1269,7 +1269,7 @@ void test('PSPrices route can return ranked candidates for manual picker workflo
                 discountPercent: 28,
                 isFree: false,
                 url: 'https://psprices.com/region-ch/game/1234/monster-train-2',
-                imageUrl: 'https://cdn.psprices.com/monster-train-2.jpg'
+                imageUrl: 'https://cdn.psprices.com/monster-train-2.jpg',
               },
               {
                 title: 'Monster Train',
@@ -1278,21 +1278,21 @@ void test('PSPrices route can return ranked candidates for manual picker workflo
                 regularPriceAmount: 39.9,
                 discountPercent: 50,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/1233/monster-train'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/1233/monster-train',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=332273&platformIgdbId=167&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1312,7 +1312,7 @@ void test('PSPrices scoring treats standard edition as neutral for title confide
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('217550', 130, {
-    title: 'Fire Emblem Engage'
+    title: 'Fire Emblem Engage',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1326,33 +1326,33 @@ void test('PSPrices scoring treats standard edition as neutral for title confide
                 title: 'Fire Emblem Engage Fire Emblem Engage + Expansion Pass',
                 amount: 89.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/5817110/fire-emblem-engage-fire-emblem-engage-expansion-pass'
+                url: 'https://psprices.com/region-ch/game/5817110/fire-emblem-engage-fire-emblem-engage-expansion-pass',
               },
               {
                 title: 'Fire Emblem Engage Standard Edition',
                 amount: 59.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/5581873/fire-emblem-engage-standard-edition'
+                url: 'https://psprices.com/region-ch/game/5581873/fire-emblem-engage-standard-edition',
               },
               {
                 title: 'Fire Emblem Engage Expansion Pass',
                 amount: 30,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/7114397/fire-emblem-engage-expansion-pass',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130&title=Fire%20Emblem%20Engage&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130&title=Fire%20Emblem%20Engage&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1379,7 +1379,7 @@ void test('PSPrices scoring treats complete edition as neutral for title confide
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('777777', 167, {
-    title: 'Nioh 2'
+    title: 'Nioh 2',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1393,27 +1393,27 @@ void test('PSPrices scoring treats complete edition as neutral for title confide
                 title: 'Nioh 2 Complete Edition',
                 amount: 59.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7777777/nioh-2-complete-edition'
+                url: 'https://psprices.com/region-ch/game/7777777/nioh-2-complete-edition',
               },
               {
                 title: 'Nioh 2 Season Pass',
                 amount: 24.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7777778/nioh-2-season-pass'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/7777778/nioh-2-season-pass',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=777777&platformIgdbId=167&title=Nioh%202&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=777777&platformIgdbId=167&title=Nioh%202&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1436,7 +1436,7 @@ void test('PSPrices scoring treats roman and arabic sequel numerals as equivalen
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('119171', 167, {
-    title: "Baldur's Gate III"
+    title: "Baldur's Gate III",
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1451,28 +1451,28 @@ void test('PSPrices scoring treats roman and arabic sequel numerals as equivalen
                 amount: 69.9,
                 currency: 'CHF',
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/9999999/baldurs-gate-3'
+                url: 'https://psprices.com/region-ch/game/9999999/baldurs-gate-3',
               },
               {
                 title: "Baldur's Gate II",
                 amount: 39.9,
                 currency: 'CHF',
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/9999998/baldurs-gate-2'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/9999998/baldurs-gate-2',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=119171&platformIgdbId=167&title=Baldur%27s%20Gate%20III&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=119171&platformIgdbId=167&title=Baldur%27s%20Gate%20III&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1494,7 +1494,7 @@ void test('PSPrices scoring treats roman and arabic numerals equivalently for se
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('111111', 167, {
-    title: 'Resident Evil VII'
+    title: 'Resident Evil VII',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1509,28 +1509,28 @@ void test('PSPrices scoring treats roman and arabic numerals equivalently for se
                 amount: 19.9,
                 currency: 'CHF',
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7777001/resident-evil-7'
+                url: 'https://psprices.com/region-ch/game/7777001/resident-evil-7',
               },
               {
                 title: 'Resident Evil 6',
                 amount: 15.9,
                 currency: 'CHF',
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7777002/resident-evil-6'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/7777002/resident-evil-6',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=111111&platformIgdbId=167&title=Resident%20Evil%20VII&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=111111&platformIgdbId=167&title=Resident%20Evil%20VII&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1549,7 +1549,7 @@ void test('PSPrices scoring treats ampersand and and as equivalent', async () =>
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('999991', 167, {
-    title: 'Ratchet & Clank: Rift Apart'
+    title: 'Ratchet & Clank: Rift Apart',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1564,28 +1564,28 @@ void test('PSPrices scoring treats ampersand and and as equivalent', async () =>
                 amount: 49.9,
                 currency: 'CHF',
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/9999911/ratchet-and-clank-rift-apart'
+                url: 'https://psprices.com/region-ch/game/9999911/ratchet-and-clank-rift-apart',
               },
               {
                 title: 'Ratchet and Clank Collection',
                 amount: 19.9,
                 currency: 'CHF',
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/9999912/ratchet-and-clank-collection'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/9999912/ratchet-and-clank-collection',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=999991&platformIgdbId=167&title=Ratchet%20%26%20Clank%3A%20Rift%20Apart&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=999991&platformIgdbId=167&title=Ratchet%20%26%20Clank%3A%20Rift%20Apart&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1604,7 +1604,7 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
   const app = Fastify();
   const pool = new GamePoolMock();
   pool.seed('36952', 48, {
-    title: 'Wolfenstein II: The New Colossus'
+    title: 'Wolfenstein II: The New Colossus',
   });
 
   await registerPsPricesRoute(app, pool as unknown as Pool, {
@@ -1624,7 +1624,7 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
                 hasMostEngagingTag: true,
                 metacriticScore: 87,
                 openCriticScore: 86,
-                url: 'https://psprices.com/region-ch/game/2632691/wolfenstein-ii-the-new-colossus'
+                url: 'https://psprices.com/region-ch/game/2632691/wolfenstein-ii-the-new-colossus',
               },
               {
                 title: 'Wolfenstein II: The New Colossus',
@@ -1635,21 +1635,21 @@ void test('PSPrices scoring resolves duplicate title ties using metadata quality
                 collectionTagCount: 1,
                 hasMostEngagingTag: false,
                 openCriticScore: 86,
-                url: 'https://psprices.com/region-ch/game/2634364/wolfenstein-ii-the-new-colossus'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/2634364/wolfenstein-ii-the-new-colossus',
+              },
+            ],
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
           }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=36952&platformIgdbId=48&title=Wolfenstein%20II%3A%20The%20New%20Colossus&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=36952&platformIgdbId=48&title=Wolfenstein%20II%3A%20The%20New%20Colossus&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1686,72 +1686,72 @@ void test('PSPrices suffix taxonomy enforces baseline variant ordering for Diabl
                 title: 'Diablo IV — Erweiterungspaket',
                 amount: 79.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193028/diablo-iv-erweiterungspaket'
+                url: 'https://psprices.com/region-ch/game/7193028/diablo-iv-erweiterungspaket',
               },
               {
                 title: 'Diablo IV - Deluxe Edition',
                 amount: 69.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193021/diablo-iv-deluxe-edition'
+                url: 'https://psprices.com/region-ch/game/7193021/diablo-iv-deluxe-edition',
               },
               {
                 title: 'Diablo IV - Deluxe',
                 amount: 69.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193022/diablo-iv-deluxe'
+                url: 'https://psprices.com/region-ch/game/7193022/diablo-iv-deluxe',
               },
               {
                 title: 'Diablo IV - Ultimate Edition',
                 amount: 74.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193023/diablo-iv-ultimate-edition'
+                url: 'https://psprices.com/region-ch/game/7193023/diablo-iv-ultimate-edition',
               },
               {
                 title: 'Diablo IV - Complete Edition',
                 amount: 64.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193024/diablo-iv-complete-edition'
+                url: 'https://psprices.com/region-ch/game/7193024/diablo-iv-complete-edition',
               },
               {
                 title: 'Diablo IV - Complete',
                 amount: 64.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193025/diablo-iv-complete'
+                url: 'https://psprices.com/region-ch/game/7193025/diablo-iv-complete',
               },
               {
                 title: 'Diablo IV - Standard Edition',
                 amount: 59.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193020/diablo-iv-standard-edition'
+                url: 'https://psprices.com/region-ch/game/7193020/diablo-iv-standard-edition',
               },
               {
                 title: 'Diablo IV - Standard',
                 amount: 59.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193026/diablo-iv-standard'
+                url: 'https://psprices.com/region-ch/game/7193026/diablo-iv-standard',
               },
               {
                 title: 'Diablo IV',
                 amount: 59.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193027/diablo-iv'
+                url: 'https://psprices.com/region-ch/game/7193027/diablo-iv',
               },
               {
                 title: 'Diablo IV Collection',
                 amount: 89.9,
                 isFree: false,
-                url: 'https://psprices.com/region-ch/game/7193029/diablo-iv-collection'
-              }
-            ]
+                url: 'https://psprices.com/region-ch/game/7193029/diablo-iv-collection',
+              },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
 
   assert.equal(response.statusCode, 200);
@@ -1790,17 +1790,17 @@ void test('PSPrices treats missing Edition labels as same suffix class behavior'
               { title: 'Diablo IV - Standard Edition', amount: 59.9, isFree: false, url: 's-1' },
               { title: 'Diablo IV - Standard', amount: 59.9, isFree: false, url: 's-2' },
               { title: 'Diablo IV - Deluxe Edition', amount: 69.9, isFree: false, url: 'd-1' },
-              { title: 'Diablo IV - Deluxe', amount: 69.9, isFree: false, url: 'd-2' }
-            ]
+              { title: 'Diablo IV - Deluxe', amount: 69.9, isFree: false, url: 'd-2' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -1843,31 +1843,31 @@ void test('PSPrices ranks ultimate or gold above deluxe for strong core title ma
                 title: "Assassin's Creed Odyssey Deluxe Edition",
                 amount: 69.9,
                 isFree: false,
-                url: 'd'
+                url: 'd',
               },
               {
                 title: "Assassin's Creed Odyssey Ultimate Edition",
                 amount: 79.9,
                 isFree: false,
-                url: 'u'
+                url: 'u',
               },
               {
                 title: "Assassin's Creed Odyssey Gold Edition",
                 amount: 74.9,
                 isFree: false,
-                url: 'g'
+                url: 'g',
               },
-              { title: "Assassin's Creed Odyssey", amount: 59.9, isFree: false, url: 'b' }
-            ]
+              { title: "Assassin's Creed Odyssey", amount: 59.9, isFree: false, url: 'b' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130&title=Assassin%27s%20Creed%20Odyssey&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=217550&platformIgdbId=130&title=Assassin%27s%20Creed%20Odyssey&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -1901,17 +1901,17 @@ void test('PSPrices suppresses expansion style variants below deluxe for same co
               { title: 'Cyberpunk 2077 Expansion Pack', amount: 29.9, isFree: false, url: 'e' },
               { title: 'Cyberpunk 2077 Phantom Liberty', amount: 29.9, isFree: false, url: 'p' },
               { title: 'Cyberpunk 2077 Deluxe Edition', amount: 69.9, isFree: false, url: 'd' },
-              { title: 'Cyberpunk 2077', amount: 59.9, isFree: false, url: 'b' }
-            ]
+              { title: 'Cyberpunk 2077', amount: 59.9, isFree: false, url: 'b' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=1930&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=1930&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -1944,17 +1944,17 @@ void test('PSPrices keeps collection variants below closest single-game title', 
             candidates: [
               { title: 'BioShock Collection', amount: 19.9, isFree: false, url: 'c' },
               { title: 'BioShock Remastered', amount: 14.9, isFree: false, url: 'r' },
-              { title: 'BioShock', amount: 9.9, isFree: false, url: 'b' }
-            ]
+              { title: 'BioShock', amount: 9.9, isFree: false, url: 'b' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=91011&platformIgdbId=167&title=BioShock&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=91011&platformIgdbId=167&title=BioShock&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -1979,17 +1979,17 @@ void test('PSPrices classifier treats deluxe separators and parentheses consiste
               { title: 'Resident Evil 4: Deluxe Edition', amount: 59.9, isFree: false, url: 'd1' },
               { title: 'Resident Evil 4 - Deluxe Edition', amount: 59.9, isFree: false, url: 'd2' },
               { title: 'Resident Evil 4 (Deluxe Edition)', amount: 59.9, isFree: false, url: 'd3' },
-              { title: 'Resident Evil 4', amount: 49.9, isFree: false, url: 'b' }
-            ]
+              { title: 'Resident Evil 4', amount: 49.9, isFree: false, url: 'b' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=1200&platformIgdbId=167&title=Resident%20Evil%204&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=1200&platformIgdbId=167&title=Resident%20Evil%204&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2019,7 +2019,7 @@ void test('PSPrices keeps metadata tie-break behavior within same suffix class',
                 isFree: false,
                 gameId: '7001',
                 metadataQualityScore: 2,
-                url: 'b2'
+                url: 'b2',
               },
               {
                 title: 'Diablo IV',
@@ -2027,19 +2027,19 @@ void test('PSPrices keeps metadata tie-break behavior within same suffix class',
                 isFree: false,
                 gameId: '7002',
                 metadataQualityScore: 13,
-                url: 'b1'
+                url: 'b1',
               },
-              { title: 'Diablo IV Standard Edition', amount: 59.9, isFree: false, url: 's' }
-            ]
+              { title: 'Diablo IV Standard Edition', amount: 59.9, isFree: false, url: 's' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const body = parseJsonRecord(response.body);
@@ -2062,17 +2062,17 @@ void test('PSPrices prefers parseable gameId when other tie-break signals are eq
             item: null,
             candidates: [
               { title: 'Diablo IV', amount: 59.9, isFree: false, gameId: 'abc', url: null },
-              { title: 'Diablo IV', amount: 58.9, isFree: false, gameId: '7001', url: null }
-            ]
+              { title: 'Diablo IV', amount: 58.9, isFree: false, gameId: '7001', url: null },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991007&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991007&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const body = parseJsonRecord(response.body);
@@ -2098,24 +2098,24 @@ void test('PSPrices strong-core guardrail keeps stronger core match above weak s
                 title: 'Diablo III Standard Edition',
                 amount: 39.9,
                 isFree: false,
-                url: 'iii-standard'
+                url: 'iii-standard',
               },
               {
                 title: 'Diablo IV Expansion Pack',
                 amount: 29.9,
                 isFree: false,
-                url: 'iv-expansion'
-              }
-            ]
+                url: 'iv-expansion',
+              },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=125165&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const body = parseJsonRecord(response.body);
@@ -2141,19 +2141,19 @@ void test('PSPrices keeps high confidence for strong base vs standard ties', asy
                 title: 'Diablo IV - Standard Edition',
                 amount: 69.9,
                 isFree: false,
-                url: 'standard'
+                url: 'standard',
               },
-              { title: 'Diablo IV', amount: 59.9, isFree: false, url: 'base' }
-            ]
+              { title: 'Diablo IV', amount: 59.9, isFree: false, url: 'base' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991006&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991006&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
 
@@ -2185,24 +2185,24 @@ void test('PSPrices does not auto-promote high confidence for non-base equivalen
                 title: 'Diablo IV Deluxe Edition',
                 amount: 79.9,
                 isFree: false,
-                url: 'deluxe-a'
+                url: 'deluxe-a',
               },
               {
                 title: 'Diablo IV Digital Deluxe',
                 amount: 78.9,
                 isFree: false,
-                url: 'deluxe-b'
-              }
-            ]
+                url: 'deluxe-b',
+              },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991021&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991021&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
 
@@ -2232,20 +2232,20 @@ void test('PSPrices keeps platform markers neutral relative to edition ranking',
                 title: 'Hogwarts Legacy Nintendo Switch 2 Edition',
                 amount: 59.9,
                 isFree: false,
-                url: 's2'
+                url: 's2',
               },
               { title: 'Hogwarts Legacy PS5', amount: 59.9, isFree: false, url: 'ps5' },
-              { title: 'Hogwarts Legacy', amount: 49.9, isFree: false, url: 'base' }
-            ]
+              { title: 'Hogwarts Legacy', amount: 49.9, isFree: false, url: 'base' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991001&platformIgdbId=167&title=Hogwarts%20Legacy&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991001&platformIgdbId=167&title=Hogwarts%20Legacy&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2273,26 +2273,26 @@ void test('PSPrices applies platform neutrality alongside edition ordering', asy
                 title: 'Cyberpunk 2077 PS5 Deluxe Edition',
                 amount: 74.9,
                 isFree: false,
-                url: 'ps5-deluxe'
+                url: 'ps5-deluxe',
               },
               {
                 title: 'Cyberpunk 2077 Deluxe Edition',
                 amount: 69.9,
                 isFree: false,
-                url: 'deluxe'
+                url: 'deluxe',
               },
               { title: 'Cyberpunk 2077 PS5', amount: 59.9, isFree: false, url: 'ps5' },
-              { title: 'Cyberpunk 2077', amount: 49.9, isFree: false, url: 'base' }
-            ]
+              { title: 'Cyberpunk 2077', amount: 49.9, isFree: false, url: 'base' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991002&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991002&platformIgdbId=167&title=Cyberpunk%202077&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2320,18 +2320,18 @@ void test('PSPrices keeps strong confidence when platform marker precedes editio
                 title: 'Diablo IV PS5 Deluxe Edition',
                 amount: 69.9,
                 isFree: false,
-                url: 'ps5-deluxe'
-              }
-            ]
+                url: 'ps5-deluxe',
+              },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991020&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991020&platformIgdbId=167&title=Diablo%20IV&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
 
@@ -2360,17 +2360,17 @@ void test('PSPrices classifies platform upgrade variants as expansion-style cont
             candidates: [
               { title: "No Man's Sky PS5 Upgrade", amount: 9.9, isFree: false, url: 'upgrade' },
               { title: "No Man's Sky PS5", amount: 39.9, isFree: false, url: 'ps5' },
-              { title: "No Man's Sky", amount: 29.9, isFree: false, url: 'base' }
-            ]
+              { title: "No Man's Sky", amount: 29.9, isFree: false, url: 'base' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991003&platformIgdbId=167&title=No%20Man%27s%20Sky&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991003&platformIgdbId=167&title=No%20Man%27s%20Sky&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));
@@ -2397,19 +2397,19 @@ void test('PSPrices does not strip platform words when they are part of canonica
                 title: 'Nintendo Switch Sports Deluxe Edition',
                 amount: 59.9,
                 isFree: false,
-                url: 'deluxe'
+                url: 'deluxe',
               },
-              { title: 'Nintendo Switch Sports', amount: 49.9, isFree: false, url: 'base' }
-            ]
+              { title: 'Nintendo Switch Sports', amount: 49.9, isFree: false, url: 'base' },
+            ],
           }),
           { status: 200, headers: { 'content-type': 'application/json' } }
         )
-      )
+      ),
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/psprices/prices?igdbGameId=991004&platformIgdbId=130&title=Nintendo%20Switch%20Sports&includeCandidates=1'
+    url: '/v1/psprices/prices?igdbGameId=991004&platformIgdbId=130&title=Nintendo%20Switch%20Sports&includeCandidates=1',
   });
   assert.equal(response.statusCode, 200);
   const titles = readCandidateTitles(parseJsonRecord(response.body));

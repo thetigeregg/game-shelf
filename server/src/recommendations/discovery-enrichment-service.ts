@@ -2,7 +2,7 @@ import { RecommendationRepository } from './repository.js';
 import type { QueryResult, QueryResultRow } from 'pg';
 import {
   DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
-  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT,
 } from './discovery-enrichment-defaults.js';
 import type { IgdbMetadataRecord } from '../metadata-enrichment/types.js';
 
@@ -98,7 +98,7 @@ export class DiscoveryEnrichmentService {
         this.startupTimeoutHandle = null;
         void this.runOnce().catch((error: unknown) => {
           console.warn('[recommendations.discovery_enrichment] startup_run_failed', {
-            message: error instanceof Error ? error.message : String(error)
+            message: error instanceof Error ? error.message : String(error),
           });
         });
       },
@@ -109,7 +109,7 @@ export class DiscoveryEnrichmentService {
       () => {
         void this.runOnce().catch((error: unknown) => {
           console.warn('[recommendations.discovery_enrichment] interval_run_failed', {
-            message: error instanceof Error ? error.message : String(error)
+            message: error instanceof Error ? error.message : String(error),
           });
         });
       },
@@ -140,8 +140,8 @@ export class DiscoveryEnrichmentService {
       callback: (client) =>
         this.enrichNow({
           limit: this.options.maxGamesPerRun,
-          queryable: client
-        })
+          queryable: client,
+        }),
     });
 
     if (!lock.acquired) {
@@ -150,7 +150,7 @@ export class DiscoveryEnrichmentService {
 
     console.info('[recommendations.discovery_enrichment] completed', {
       ...lock.value,
-      completedAt: new Date(this.now()).toISOString()
+      completedAt: new Date(this.now()).toISOString(),
     });
     return lock.value;
   }
@@ -163,7 +163,7 @@ export class DiscoveryEnrichmentService {
       return {
         scanned: 0,
         updated: 0,
-        skipped: 0
+        skipped: 0,
       };
     }
 
@@ -175,7 +175,7 @@ export class DiscoveryEnrichmentService {
         nowIso: new Date(this.now()).toISOString(),
         maxAttempts: this.options.maxAttempts,
         rearmAfterDays: this.getRearmAfterDays(),
-        rearmRecentReleaseYears: this.getRearmRecentReleaseYears()
+        rearmRecentReleaseYears: this.getRearmRecentReleaseYears(),
       }
     );
 
@@ -192,7 +192,7 @@ export class DiscoveryEnrichmentService {
         client: queryable,
         igdbGameId: row.igdbGameId,
         platformIgdbId: row.platformIgdbId,
-        payload: next
+        payload: next,
       });
       updated += 1;
     }
@@ -239,7 +239,7 @@ export class DiscoveryEnrichmentService {
         releaseYear,
         rearmAfterDays,
         rearmRecentReleaseYears,
-        maxAttempts: this.options.maxAttempts
+        maxAttempts: this.options.maxAttempts,
       }),
       metacritic: maybeRearmProviderRetryState({
         state: retryState.metacritic,
@@ -247,7 +247,7 @@ export class DiscoveryEnrichmentService {
         releaseYear,
         rearmAfterDays,
         rearmRecentReleaseYears,
-        maxAttempts: this.options.maxAttempts
+        maxAttempts: this.options.maxAttempts,
       }),
       steam: maybeRearmProviderRetryState({
         state: retryState.steam,
@@ -255,22 +255,22 @@ export class DiscoveryEnrichmentService {
         releaseYear,
         rearmAfterDays,
         rearmRecentReleaseYears,
-        maxAttempts: this.options.maxAttempts
-      })
+        maxAttempts: this.options.maxAttempts,
+      }),
     };
     const shouldTryHltb =
       !hasHltb &&
       shouldAttemptProvider({
         state: nextRetryStateBase.hltb,
         nowMs,
-        maxAttempts: this.options.maxAttempts
+        maxAttempts: this.options.maxAttempts,
       });
     const shouldTryMetacritic =
       !hasCritic &&
       shouldAttemptProvider({
         state: nextRetryStateBase.metacritic,
         nowMs,
-        maxAttempts: this.options.maxAttempts
+        maxAttempts: this.options.maxAttempts,
       });
     const steamNeedsEnrichment =
       platformIgdbId === WINDOWS_IGDB_PLATFORM_ID &&
@@ -282,7 +282,7 @@ export class DiscoveryEnrichmentService {
       shouldAttemptProvider({
         state: nextRetryStateBase.steam,
         nowMs,
-        maxAttempts: this.options.maxAttempts
+        maxAttempts: this.options.maxAttempts,
       });
 
     if (!shouldTryHltb && !shouldTryMetacritic && !shouldTrySteam) {
@@ -291,7 +291,7 @@ export class DiscoveryEnrichmentService {
         current: nextRetryStateBase,
         needsHltb: !hasHltb,
         needsMetacritic: !hasCritic,
-        needsSteam: steamNeedsEnrichment
+        needsSteam: steamNeedsEnrichment,
       });
       applyRetryState(next, nextRetryState);
       return next;
@@ -303,7 +303,7 @@ export class DiscoveryEnrichmentService {
             this.buildLocalUrl('/v1/hltb/search', {
               q: title,
               ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
-              ...(platform ? { platform } : {})
+              ...(platform ? { platform } : {}),
             })
           )
         : Promise.resolve(null),
@@ -313,17 +313,17 @@ export class DiscoveryEnrichmentService {
               q: title,
               ...(releaseYear ? { releaseYear: String(releaseYear) } : {}),
               ...(platform ? { platform } : {}),
-              platformIgdbId: String(platformIgdbId)
+              platformIgdbId: String(platformIgdbId),
             })
           )
-        : Promise.resolve(null)
+        : Promise.resolve(null),
     ]);
 
     const next: Record<string, unknown> = { ...payload };
     const nextRetryState: DiscoveryEnrichmentRetryState = {
       hltb: nextRetryStateBase.hltb,
       metacritic: nextRetryStateBase.metacritic,
-      steam: nextRetryStateBase.steam
+      steam: nextRetryStateBase.steam,
     };
 
     const hltbItem = hltbResponse?.ok ? (hltbResponse.value?.item ?? null) : null;
@@ -352,7 +352,7 @@ export class DiscoveryEnrichmentService {
         success: foundHltb,
         maxAttempts: this.options.maxAttempts,
         backoffBaseMinutes: this.options.backoffBaseMinutes,
-        backoffMaxHours: this.options.backoffMaxHours
+        backoffMaxHours: this.options.backoffMaxHours,
       });
     }
 
@@ -375,7 +375,7 @@ export class DiscoveryEnrichmentService {
         success: foundCritic,
         maxAttempts: this.options.maxAttempts,
         backoffBaseMinutes: this.options.backoffBaseMinutes,
-        backoffMaxHours: this.options.backoffMaxHours
+        backoffMaxHours: this.options.backoffMaxHours,
       });
     }
 
@@ -383,7 +383,7 @@ export class DiscoveryEnrichmentService {
       const steamSucceeded = await this.applySteamEnrichment({
         igdbGameId,
         next,
-        nowIso
+        nowIso,
       });
       nextRetryState.steam = nextProviderRetryState({
         current: nextRetryStateBase.steam,
@@ -391,7 +391,7 @@ export class DiscoveryEnrichmentService {
         success: steamSucceeded,
         maxAttempts: this.options.maxAttempts,
         backoffBaseMinutes: this.options.backoffBaseMinutes,
-        backoffMaxHours: this.options.backoffMaxHours
+        backoffMaxHours: this.options.backoffMaxHours,
       });
     }
 
@@ -401,7 +401,7 @@ export class DiscoveryEnrichmentService {
         current: nextRetryState,
         needsHltb: !foundHltb,
         needsMetacritic: !foundCritic,
-        needsSteam: steamNeedsEnrichment
+        needsSteam: steamNeedsEnrichment,
       })
     );
 
@@ -466,9 +466,9 @@ export class DiscoveryEnrichmentService {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'x-gameshelf-discovery-enrichment': '1'
+          'x-gameshelf-discovery-enrichment': '1',
         },
-        signal: controller.signal
+        signal: controller.signal,
       });
       if (!response.ok) {
         return { ok: false, value: null };
@@ -530,7 +530,7 @@ function parseRetryState(value: unknown): DiscoveryEnrichmentRetryState {
   return {
     hltb: parseProviderRetryState(source.hltb),
     metacritic: parseProviderRetryState(source.metacritic),
-    steam: parseProviderRetryState(source.steam)
+    steam: parseProviderRetryState(source.steam),
   };
 }
 
@@ -597,7 +597,7 @@ function nextProviderRetryState(params: {
       attempts: 0,
       lastTriedAt: params.nowIso,
       nextTryAt: null,
-      permanentMiss: false
+      permanentMiss: false,
     };
   }
 
@@ -611,7 +611,7 @@ function nextProviderRetryState(params: {
       attempts,
       lastTriedAt: params.nowIso,
       nextTryAt: null,
-      permanentMiss: true
+      permanentMiss: true,
     };
   }
 
@@ -623,7 +623,7 @@ function nextProviderRetryState(params: {
     attempts,
     lastTriedAt: params.nowIso,
     nextTryAt,
-    permanentMiss: false
+    permanentMiss: false,
   };
 }
 
@@ -642,7 +642,7 @@ function buildNextRetryState(params: {
       : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
     steam: params.needsSteam
       ? params.current.steam
-      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false }
+      : { attempts: 0, lastTriedAt: null, nextTryAt: null, permanentMiss: false },
   };
 }
 
@@ -662,7 +662,7 @@ function applyRetryState(
   payload.enrichmentRetry = {
     ...(shouldKeepHltb ? { hltb: state.hltb } : {}),
     ...(shouldKeepMetacritic ? { metacritic: state.metacritic } : {}),
-    ...(shouldKeepSteam ? { steam: state.steam } : {})
+    ...(shouldKeepSteam ? { steam: state.steam } : {}),
   };
 }
 
@@ -703,7 +703,7 @@ function maybeRearmProviderRetryState(params: {
     attempts: 0,
     lastTriedAt: null,
     nextTryAt: null,
-    permanentMiss: false
+    permanentMiss: false,
   };
 }
 

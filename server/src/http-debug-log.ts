@@ -92,7 +92,7 @@ export function logUpstreamRequest(
     msg: 'upstream_http_request',
     method: options.method,
     url: sanitizeUrlForDebugLogs(options.url),
-    headers: sanitizeHeadersForDebugLogs(options.headers)
+    headers: sanitizeHeadersForDebugLogs(options.headers),
   });
 }
 
@@ -113,6 +113,6 @@ export async function logUpstreamResponse(
     method: options.method,
     url: sanitizeUrlForDebugLogs(options.url),
     status: options.response.status,
-    bodyPreview: await readResponsePreview(options.response)
+    bodyPreview: await readResponsePreview(options.response),
   });
 }

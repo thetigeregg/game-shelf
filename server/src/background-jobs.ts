@@ -190,7 +190,7 @@ export class BackgroundJobRepository {
     return {
       id: row.id,
       jobType: row.job_type,
-      payload
+      payload,
     };
   }
 
@@ -264,7 +264,7 @@ export class BackgroundJobRepository {
       oldestPendingSeconds:
         row.oldest_pending_seconds && Number.isFinite(Number.parseFloat(row.oldest_pending_seconds))
           ? Number.parseFloat(row.oldest_pending_seconds)
-          : null
+          : null,
     }));
   }
   async listFailed(params?: {
@@ -311,7 +311,7 @@ export class BackgroundJobRepository {
       payload:
         row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
           ? (row.payload as Record<string, unknown>)
-          : {}
+          : {},
     }));
   }
 
@@ -354,7 +354,7 @@ export class BackgroundJobRepository {
 
     return {
       requeuedCount: result.rowCount ?? 0,
-      jobIds: result.rows.map((row) => row.id)
+      jobIds: result.rows.map((row) => row.id),
     };
   }
 
@@ -391,7 +391,7 @@ export class BackgroundJobRepository {
 
     return {
       deletedCount: result.rowCount ?? 0,
-      jobIds: result.rows.map((row) => row.id)
+      jobIds: result.rows.map((row) => row.id),
     };
   }
 }

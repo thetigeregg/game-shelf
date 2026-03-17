@@ -2,7 +2,7 @@ export const METACRITIC_SEARCH_RESULTS_CONTAINER_SELECTOR = '[data-testid="searc
 export const METACRITIC_SEARCH_RESULT_ROW_SELECTOR =
   '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
 export const METACRITIC_SEARCH_RESULT_LINK_SELECTOR = 'a[href*="/game/"]';
-export const METACRITIC_SEARCH_RESULTS_READY_SELECTOR = `${METACRITIC_SEARCH_RESULTS_CONTAINER_SELECTOR}, ${METACRITIC_SEARCH_RESULT_ROW_SELECTOR}, ${METACRITIC_SEARCH_RESULT_LINK_SELECTOR}`;
+export const METACRITIC_SEARCH_RESULTS_READY_SELECTOR = `${METACRITIC_SEARCH_RESULT_ROW_SELECTOR}, ${METACRITIC_SEARCH_RESULTS_CONTAINER_SELECTOR} ${METACRITIC_SEARCH_RESULT_LINK_SELECTOR}`;
 
 export function extractMetacriticSearchResults(config = {}) {
   // Current parsing path (2026-03-17): rely on /game/ links and nearby metadata blocks.

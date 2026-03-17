@@ -274,26 +274,29 @@ export class AdminDiscoveryMatchPage {
 
     this.isListRequeueing = true;
     try {
-      const response = await firstValueFrom(this.adminMatchService.requeueEnrichmentRun());
+      const targetedKeys = this.items.map((item) => this.getGameKey(item));
+      const response = await firstValueFrom(
+        this.adminMatchService.requeueEnrichmentRun(targetedKeys)
+      );
       this.setListQueueStatus(
         response.deduped
-          ? 'Discovery enrichment run is already queued.'
-          : 'Discovery enrichment run queued.',
+          ? 'Targeted discovery enrichment is already queued.'
+          : 'Targeted discovery enrichment queued for the current results.',
         response.deduped ? 'warning' : 'success'
       );
       await this.presentToast(
         response.deduped
-          ? 'Discovery enrichment run is already queued.'
-          : 'Discovery enrichment run queued.',
+          ? 'Targeted discovery enrichment is already queued.'
+          : 'Targeted discovery enrichment queued for the current results.',
         'success'
       );
     } catch (error) {
       this.setListQueueStatus(
-        this.toErrorMessage(error, 'Unable to queue discovery enrichment run.'),
+        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
         'danger'
       );
       await this.presentToast(
-        this.toErrorMessage(error, 'Unable to queue discovery enrichment run.'),
+        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
         'danger'
       );
     } finally {
@@ -404,23 +407,23 @@ export class AdminDiscoveryMatchPage {
       );
       this.setActiveQueueStatus(
         response.deduped
-          ? 'Discovery enrichment is already queued.'
-          : 'Discovery enrichment queued.',
+          ? 'Targeted discovery enrichment is already queued.'
+          : 'Targeted discovery enrichment queued for this game.',
         response.deduped ? 'warning' : 'success'
       );
       await this.presentToast(
         response.deduped
-          ? 'Discovery enrichment is already queued.'
-          : 'Discovery enrichment queued.',
+          ? 'Targeted discovery enrichment is already queued.'
+          : 'Targeted discovery enrichment queued for this game.',
         'success'
       );
     } catch (error) {
       this.setActiveQueueStatus(
-        this.toErrorMessage(error, 'Unable to queue discovery enrichment.'),
+        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
         'danger'
       );
       await this.presentToast(
-        this.toErrorMessage(error, 'Unable to queue discovery enrichment.'),
+        this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
         'danger'
       );
     } finally {

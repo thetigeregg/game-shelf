@@ -51,6 +51,19 @@ class RepositoryMock {
     return Promise.resolve(this.rows.slice(0, limit));
   }
 
+  listDiscoveryRowsByGameKeys(gameKeys: string[]): Promise<
+    Array<{
+      igdbGameId: string;
+      platformIgdbId: number;
+      payload: Record<string, unknown>;
+    }>
+  > {
+    const allowed = new Set(gameKeys);
+    return Promise.resolve(
+      this.rows.filter((row) => allowed.has(`${row.igdbGameId}::${String(row.platformIgdbId)}`))
+    );
+  }
+
   updateGamePayload(params: {
     igdbGameId: string;
     platformIgdbId: number;
@@ -123,6 +136,83 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
     assert.equal(repository.updates[0]?.payload.hltbMainHours, 8.4);
     assert.equal(repository.updates[0]?.payload.metacriticScore, 88);
     assert.equal(repository.updates[0]?.payload.reviewSource, 'metacritic');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('discovery enrichment can target explicit game keys', async () => {
+  const repository = new RepositoryMock();
+  repository.rows = [
+    {
+      igdbGameId: '1520',
+      platformIgdbId: 6,
+      payload: {
+        title: 'Super Mario Bros.',
+        releaseYear: 1985,
+        platform: 'NES',
+        listType: 'discovery',
+      },
+    },
+    {
+      igdbGameId: '2000',
+      platformIgdbId: 48,
+      payload: {
+        title: 'Target Me',
+        releaseYear: 1999,
+        platform: 'PlayStation',
+        listType: 'discovery',
+      },
+    },
+  ];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: URL | RequestInfo): Promise<Response> => {
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes('/v1/hltb/search')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            item: { hltbMainHours: 12, hltbMainExtraHours: 15, hltbCompletionistHours: 20 },
+          }),
+          { status: 200 }
+        )
+      );
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          item: { metacriticScore: 91, metacriticUrl: 'https://www.metacritic.com/game/target' },
+        }),
+        { status: 200 }
+      )
+    );
+  };
+
+  try {
+    const service = new DiscoveryEnrichmentService(repository as never, {
+      enabled: true,
+      startupDelayMs: 0,
+      intervalMinutes: 30,
+      maxGamesPerRun: 50,
+      requestTimeoutMs: 1000,
+      apiBaseUrl: 'http://127.0.0.1:3000',
+      maxAttempts: 6,
+      backoffBaseMinutes: 60,
+      backoffMaxHours: 168,
+    });
+
+    const result = await service.enrichNow({ gameKeys: ['2000::48'] });
+
+    assert.deepEqual(result, {
+      scanned: 1,
+      updated: 1,
+      skipped: 0,
+    } satisfies DiscoveryEnrichmentSummary);
+    assert.equal(repository.updates.length, 1);
+    assert.equal(repository.updates[0]?.igdbGameId, '2000');
+    assert.equal(repository.updates[0]?.platformIgdbId, 48);
   } finally {
     globalThis.fetch = originalFetch;
   }

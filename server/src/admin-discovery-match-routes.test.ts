@@ -269,6 +269,9 @@ void test('admin discovery list requeue route enqueues the global discovery job 
       headers: {
         authorization: 'Bearer test-admin-token',
       },
+      payload: {
+        gameKeys: ['30::6', '31::48'],
+      },
     });
 
     assert.equal(firstResponse.statusCode, 200);

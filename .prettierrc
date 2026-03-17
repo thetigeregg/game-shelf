@@ -40,6 +40,12 @@
       "options": {
         "trailingComma": "none"
       }
+    },
+    {
+      "files": ["docker-compose*.yml", "compose*.yml"],
+      "options": {
+        "singleQuote": false
+      }
     }
   ]
 }

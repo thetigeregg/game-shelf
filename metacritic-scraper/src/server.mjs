@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { chromium } from 'playwright';
 import {
   extractMetacriticSearchResults,
+  METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
   METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
   METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
 } from './search-parser.mjs';
@@ -11,6 +12,11 @@ import {
   buildSearchTitleVariants,
   normalizeTitle,
 } from './search-utils.mjs';
+
+function parseEnvInt(name, fallbackValue) {
+  const parsed = Number.parseInt(process.env[name] ?? '', 10);
+  return Number.isFinite(parsed) ? parsed : fallbackValue;
+}
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -24,11 +30,8 @@ function readEnvOrFile(name) {
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '8789', 10);
 const apiToken = readEnvOrFile('METACRITIC_SCRAPER_TOKEN');
-const browserTimeoutMs = Number.parseInt(process.env.METACRITIC_SCRAPER_TIMEOUT_MS ?? '25000', 10);
-const browserIdleTtlMs = Number.parseInt(
-  process.env.METACRITIC_SCRAPER_BROWSER_IDLE_MS ?? '30000',
-  10
-);
+const browserTimeoutMs = parseEnvInt('METACRITIC_SCRAPER_TIMEOUT_MS', 25_000);
+const browserIdleTtlMs = parseEnvInt('METACRITIC_SCRAPER_BROWSER_IDLE_MS', 30_000);
 const debugLogsEnabled =
   String(process.env.DEBUG_METACRITIC_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 const igdbToMetacriticPlatformDisplayById = loadIgdbToMetacriticPlatformDisplayById();
@@ -409,6 +412,7 @@ async function searchMetacriticInBrowser(page, query) {
   }
 
   const items = await page.evaluate(extractMetacriticSearchResults, {
+    gameLinkSelector: METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
     rowSelector: METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
   });
 

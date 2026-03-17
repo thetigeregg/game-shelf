@@ -8,7 +8,7 @@ import {
   normalizeGameRating,
   normalizeGameStatus,
   normalizeTagIds,
-  parseTagSelection
+  parseTagSelection,
 } from './game-list-detail-actions';
 
 function makeGame(overrides: Partial<GameEntry> = {}): GameEntry {
@@ -24,7 +24,7 @@ function makeGame(overrides: Partial<GameEntry> = {}): GameEntry {
     listType: 'collection',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -58,13 +58,13 @@ describe('game-list-detail-actions', () => {
       name: 'JRPG',
       color: '#fff',
       createdAt: 'x',
-      updatedAt: 'x'
+      updatedAt: 'x',
     };
     expect(buildTagInput(tag, [5])).toEqual({
       type: 'checkbox',
       label: 'JRPG',
       value: '5',
-      checked: true
+      checked: true,
     });
     expect(buildTagInput({ ...tag, id: 0 }, [0]).value).toBe('-1');
 

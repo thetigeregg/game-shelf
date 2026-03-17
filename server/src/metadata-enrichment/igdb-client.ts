@@ -37,7 +37,7 @@ export class MetadataEnrichmentIgdbClient {
         gameIds
           .map((value) => Number.parseInt(value.trim(), 10))
           .filter((value) => Number.isInteger(value) && value > 0)
-      )
+      ),
     ];
 
     if (normalizedIds.length === 0) {
@@ -53,9 +53,9 @@ export class MetadataEnrichmentIgdbClient {
         'keywords.id,keywords.name',
         'screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height',
         'videos.id,videos.name,videos.video_id',
-        'external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform;'
+        'external_games.external_game_source,external_games.category,external_games.uid,external_games.url,external_games.platform;',
       ].join(','),
-      `limit ${String(normalizedIds.length)};`
+      `limit ${String(normalizedIds.length)};`,
     ].join(' ');
 
     const response = await this.fetchWithTimeout('https://api.igdb.com/v4/games', {
@@ -63,9 +63,9 @@ export class MetadataEnrichmentIgdbClient {
       headers: {
         'Client-ID': this.options.twitchClientId,
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain'
+        'Content-Type': 'text/plain',
       },
-      body
+      body,
     });
 
     if (!response.ok) {
@@ -91,12 +91,12 @@ export class MetadataEnrichmentIgdbClient {
         keywordIds: normalizeIdList((row as { keywords?: unknown }).keywords),
         screenshots: normalizeIgdbScreenshotList((row as { screenshots?: unknown }).screenshots, {
           limit: 20,
-          size: 't_screenshot_huge'
+          size: 't_screenshot_huge',
         }),
         videos: normalizeIgdbVideoList((row as { videos?: unknown }).videos, {
-          limit: 5
+          limit: 5,
         }),
-        steamAppId: normalizeSteamAppId((row as { external_games?: unknown }).external_games)
+        steamAppId: normalizeSteamAppId((row as { external_games?: unknown }).external_games),
       });
     }
 
@@ -115,7 +115,7 @@ export class MetadataEnrichmentIgdbClient {
     tokenUrl.searchParams.set('grant_type', 'client_credentials');
 
     const response = await this.fetchWithTimeout(tokenUrl.toString(), {
-      method: 'POST'
+      method: 'POST',
     });
 
     if (!response.ok) {
@@ -138,7 +138,7 @@ export class MetadataEnrichmentIgdbClient {
 
     this.tokenCache = {
       accessToken,
-      expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000))
+      expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000)),
     };
 
     return accessToken;
@@ -153,7 +153,7 @@ export class MetadataEnrichmentIgdbClient {
     try {
       return await this.fetchImpl(url, {
         ...options,
-        signal: controller.signal
+        signal: controller.signal,
       });
     } finally {
       clearTimeout(timeoutId);
@@ -191,7 +191,7 @@ function normalizeNameList(value: unknown): string[] {
           return typeof name === 'string' ? name.trim() : '';
         })
         .filter((entry) => entry.length > 0)
-    )
+    ),
   ];
 }
 
@@ -213,7 +213,7 @@ function normalizeIdList(value: unknown): number[] {
           return parsed ?? Number.NaN;
         })
         .filter((entry) => Number.isInteger(entry) && entry > 0)
-    )
+    ),
   ];
 }
 

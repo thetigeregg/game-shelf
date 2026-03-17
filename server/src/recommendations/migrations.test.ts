@@ -22,7 +22,7 @@ void test('runMigrations normalizes non-error throw values', async () => {
       }
       const nonErrorReason: unknown = 'migration_failed_as_string';
       return Promise.reject(nonErrorReason as Error);
-    }
+    },
   };
 
   await assert.rejects(
@@ -45,7 +45,7 @@ void test('createPool destroys client when migration unlock fails', async () => 
     },
     release(destroy?: boolean): void {
       releaseCalls.push(destroy ?? false);
-    }
+    },
   };
 
   Pool.prototype.connect = function connect(): Promise<typeof fakeClient> {

@@ -21,7 +21,7 @@ import {
   IonModal,
   IonDatetime,
   IonAccordionGroup,
-  IonAccordion
+  IonAccordion,
 } from '@ionic/angular/standalone';
 import {
   DEFAULT_GAME_LIST_FILTERS,
@@ -31,13 +31,13 @@ import {
   GameRatingFilterOption,
   GameStatusFilterOption,
   GameType,
-  ListType
+  ListType,
 } from '../../core/models/game.models';
 import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
-  normalizeStringList
+  normalizeStringList,
 } from '../../core/utils/game-filter-utils';
 import { isTasFeatureEnabled } from '../../core/config/runtime-config';
 
@@ -87,8 +87,8 @@ type FiltersPresentation = 'menu' | 'split';
     IonModal,
     IonDatetime,
     IonAccordionGroup,
-    IonAccordion
-  ]
+    IonAccordion,
+  ],
 })
 export class GameFiltersMenuComponent implements OnChanges {
   readonly noneTagFilterValue = '__none__';
@@ -99,7 +99,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     'completed',
     'paused',
     'dropped',
-    'replay'
+    'replay',
   ];
   readonly excludedStatusOptions: GameStatusFilterOption[] = this.statusOptions.filter(
     (status) => status !== 'none'
@@ -114,7 +114,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     { value: 'tag', label: 'Tag' },
     { value: 'genre', label: 'Genre' },
     { value: 'publisher', label: 'Publisher' },
-    { value: 'releaseYear', label: 'Release Year' }
+    { value: 'releaseYear', label: 'Release Year' },
   ];
   readonly tasEnabled = isTasFeatureEnabled();
 
@@ -150,7 +150,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalizedFilters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       ...this.filters,
-      sortField: normalizedSortField
+      sortField: normalizedSortField,
     };
     this.draftFilters = normalizedFilters;
     this.sortOption =
@@ -178,7 +178,7 @@ export class GameFiltersMenuComponent implements OnChanges {
 
     const [rawSortField, sortDirection] = value.split(':') as [
       GameListFilters['sortField'],
-      GameListFilters['sortDirection']
+      GameListFilters['sortDirection'],
     ];
     const sortField = rawSortField === 'metacritic' ? 'review' : rawSortField;
     if (sortField === 'price' && !this.showPriceSort) {
@@ -188,7 +188,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       sortField,
-      sortDirection
+      sortDirection,
     };
     this.updateFilters();
   }
@@ -203,7 +203,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      platform: normalized
+      platform: normalized,
     };
     this.updateFilters();
   }
@@ -212,7 +212,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      genres: normalized
+      genres: normalized,
     };
     this.updateFilters();
   }
@@ -221,7 +221,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      collections: normalized
+      collections: normalized,
     };
     this.updateFilters();
   }
@@ -230,7 +230,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeGameTypeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      gameTypes: normalized
+      gameTypes: normalized,
     };
     this.updateFilters();
   }
@@ -239,7 +239,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      tags: this.normalizeTagSelection(normalized)
+      tags: this.normalizeTagSelection(normalized),
     };
     this.updateFilters();
   }
@@ -248,7 +248,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      excludedPlatform: normalized
+      excludedPlatform: normalized,
     };
     this.updateFilters();
   }
@@ -257,7 +257,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      excludedGenres: normalized
+      excludedGenres: normalized,
     };
     this.updateFilters();
   }
@@ -266,7 +266,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeGameTypeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      excludedGameTypes: normalized
+      excludedGameTypes: normalized,
     };
     this.updateFilters();
   }
@@ -275,7 +275,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      excludedTags: this.normalizeTagSelection(normalized)
+      excludedTags: this.normalizeTagSelection(normalized),
     };
     this.updateFilters();
   }
@@ -286,7 +286,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeStatusSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      excludedStatuses: normalized
+      excludedStatuses: normalized,
     };
     this.updateFilters();
   }
@@ -297,7 +297,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeStatusSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      statuses: normalized
+      statuses: normalized,
     };
     this.updateFilters();
   }
@@ -308,7 +308,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     const normalized = this.normalizeRatingSelection(value);
     this.draftFilters = {
       ...this.draftFilters,
-      ratings: normalized
+      ratings: normalized,
     };
     this.updateFilters();
   }
@@ -316,7 +316,7 @@ export class GameFiltersMenuComponent implements OnChanges {
   onReleaseDateFromChange(value: string | string[] | null | undefined): void {
     this.draftFilters = {
       ...this.draftFilters,
-      releaseDateFrom: this.toDateOnly(value)
+      releaseDateFrom: this.toDateOnly(value),
     };
     this.updateFilters();
   }
@@ -324,7 +324,7 @@ export class GameFiltersMenuComponent implements OnChanges {
   onReleaseDateToChange(value: string | string[] | null | undefined): void {
     this.draftFilters = {
       ...this.draftFilters,
-      releaseDateTo: this.toDateOnly(value)
+      releaseDateTo: this.toDateOnly(value),
     };
     this.updateFilters();
   }
@@ -335,7 +335,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       hltbMainHoursMin: min,
-      hltbMainHoursMax: min !== null && max !== null && min > max ? min : max
+      hltbMainHoursMax: min !== null && max !== null && min > max ? min : max,
     };
     this.updateFilters();
   }
@@ -346,7 +346,7 @@ export class GameFiltersMenuComponent implements OnChanges {
     this.draftFilters = {
       ...this.draftFilters,
       hltbMainHoursMin: min !== null && max !== null && min > max ? max : min,
-      hltbMainHoursMax: max
+      hltbMainHoursMax: max,
     };
     this.updateFilters();
   }

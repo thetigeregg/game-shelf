@@ -13,7 +13,7 @@ const workerEnv: WorkerEnvLike = {
   TWITCH_CLIENT_ID: config.twitchClientId,
   TWITCH_CLIENT_SECRET: config.twitchClientSecret,
   THEGAMESDB_API_KEY: config.theGamesDbApiKey,
-  DEBUG_HTTP_LOGS: process.env.DEBUG_HTTP_LOGS ?? ''
+  DEBUG_HTTP_LOGS: process.env.DEBUG_HTTP_LOGS ?? '',
 };
 
 export async function proxyMetadataToWorker(
@@ -28,7 +28,7 @@ export async function fetchMetadataFromWorker(request: FastifyRequest): Promise<
   const requestUrl = new URL(request.url, 'http://game-shelf.local');
   const proxiedRequest = new Request(requestUrl.toString(), {
     method: request.method,
-    headers: request.headers as HeadersInit
+    headers: request.headers as HeadersInit,
   });
 
   return handleWorkerRequest(
@@ -56,7 +56,7 @@ export async function fetchMetadataPathFromWorker(
   }
 
   const proxiedRequest = new Request(requestUrl.toString(), {
-    method: 'GET'
+    method: 'GET',
   });
 
   return handleWorkerRequest(

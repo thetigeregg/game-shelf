@@ -55,7 +55,7 @@ export class RecommendationScheduler {
         const message = error instanceof Error ? error.message : String(error);
         console.error('[recommendations] scheduler_tick_failed', {
           target,
-          message
+          message,
         });
       }
     }

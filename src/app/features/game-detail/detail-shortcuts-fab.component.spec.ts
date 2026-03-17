@@ -9,12 +9,12 @@ vi.mock('@ionic/angular/standalone', () => {
     IonFab: Stub,
     IonFabButton: Stub,
     IonFabList: Stub,
-    IonIcon: Stub
+    IonIcon: Stub,
   };
 });
 
 vi.mock('ionicons', () => ({
-  addIcons: addIconsMock
+  addIcons: addIconsMock,
 }));
 
 vi.mock('ionicons/icons', () => ({
@@ -23,7 +23,7 @@ vi.mock('ionicons/icons', () => ({
   film: {},
   globe: {},
   logoGoogle: {},
-  logoYoutube: {}
+  logoYoutube: {},
 }));
 
 describe('DetailShortcutsFabComponent', () => {

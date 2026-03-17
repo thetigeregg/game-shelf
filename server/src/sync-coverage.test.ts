@@ -73,7 +73,7 @@ class CoverageSyncClient {
         entity_type: params[0] as SyncEventRow['entity_type'],
         operation: params[2] as SyncEventRow['operation'],
         payload: JSON.parse(toPrimitiveString(params[3]) || '{}'),
-        server_timestamp: new Date().toISOString()
+        server_timestamp: new Date().toISOString(),
       });
       return Promise.resolve({ rows: [] });
     }
@@ -181,14 +181,14 @@ void test('sync push returns 400 for invalid operations payloads', async () => {
   const notArray = await app.inject({
     method: 'POST',
     url: '/v1/sync/push',
-    payload: { operations: 'invalid' }
+    payload: { operations: 'invalid' },
   });
   assert.equal(notArray.statusCode, 400);
 
   const invalidEntry = await app.inject({
     method: 'POST',
     url: '/v1/sync/push',
-    payload: { operations: [{ opId: '', entityType: 'game', operation: 'upsert' }] }
+    payload: { operations: [{ opId: '', entityType: 'game', operation: 'upsert' }] },
   });
   assert.equal(invalidEntry.statusCode, 400);
 
@@ -200,7 +200,7 @@ void test('sync push covers applied, duplicate, and failed operation statuses', 
   pool.store.idempotency.set('dup-1', {
     opId: 'dup-1',
     status: 'applied',
-    normalizedPayload: { reused: true }
+    normalizedPayload: { reused: true },
   });
   const app = await createSyncApp(pool);
 
@@ -214,7 +214,7 @@ void test('sync push covers applied, duplicate, and failed operation statuses', 
           entityType: 'game',
           operation: 'upsert',
           payload: { igdbGameId: '1', platformIgdbId: 130 },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'ok-1',
@@ -225,19 +225,19 @@ void test('sync push covers applied, duplicate, and failed operation statuses', 
             platformIgdbId: 130,
             title: 'Game',
             platform: 'Switch',
-            notes: 'Line 1\r\nLine 2'
+            notes: 'Line 1\r\nLine 2',
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'bad-1',
           entityType: 'game',
           operation: 'delete',
           payload: { igdbGameId: 'missing-platform' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -266,59 +266,59 @@ void test('sync push covers tag/view/setting upsert and delete branches', async 
           entityType: 'tag',
           operation: 'upsert',
           payload: { id: 7, name: 'Tagged' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'tag-auto',
           entityType: 'tag',
           operation: 'upsert',
           payload: { name: 'Auto Tag' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'tag-delete',
           entityType: 'tag',
           operation: 'delete',
           payload: { id: 7 },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'view-explicit',
           entityType: 'view',
           operation: 'upsert',
           payload: { id: 9, name: 'Saved' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'view-auto',
           entityType: 'view',
           operation: 'upsert',
           payload: { name: 'Auto View' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'view-delete',
           entityType: 'view',
           operation: 'delete',
           payload: { id: 9 },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'setting-upsert',
           entityType: 'setting',
           operation: 'upsert',
           payload: { key: 'k', value: 123 },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'setting-delete',
           entityType: 'setting',
           operation: 'delete',
           payload: { key: 'k' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -340,14 +340,14 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
       entity_type: 'tag',
       operation: 'upsert',
       payload: { id: 1 },
-      server_timestamp: '2026-01-01T00:00:00.000Z'
+      server_timestamp: '2026-01-01T00:00:00.000Z',
     },
     {
       event_id: 2,
       entity_type: 'view',
       operation: 'delete',
       payload: { id: 2 },
-      server_timestamp: '2026-01-01T00:01:00.000Z'
+      server_timestamp: '2026-01-01T00:01:00.000Z',
     }
   );
   const app = await createSyncApp(pool);
@@ -355,7 +355,7 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
   const invalidCursor = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: 'invalid' }
+    payload: { cursor: 'invalid' },
   });
   assert.equal(invalidCursor.statusCode, 200);
   const invalidBody = parseJson(invalidCursor.body) as SyncPullResponseBody;
@@ -365,7 +365,7 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
   const unsafeLargeCursor = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: '9007199254740993' }
+    payload: { cursor: '9007199254740993' },
   });
   assert.equal(unsafeLargeCursor.statusCode, 200);
   const unsafeLargeBody = parseJson(unsafeLargeCursor.body) as SyncPullResponseBody;
@@ -375,7 +375,7 @@ void test('sync pull normalizes cursor and returns changes with last event id cu
   const withCursor = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: '2' }
+    payload: { cursor: '2' },
   });
   const withCursorBody = parseJson(withCursor.body) as SyncPullResponseBody;
   assert.equal(withCursorBody.cursor, '2');
@@ -391,14 +391,14 @@ void test('sync pull clamps cursor above latest event id', async () => {
     entity_type: 'setting',
     operation: 'upsert',
     payload: { key: 'k', value: 'v' },
-    server_timestamp: '2026-01-01T00:00:00.000Z'
+    server_timestamp: '2026-01-01T00:00:00.000Z',
   });
   const app = await createSyncApp(pool);
 
   const response = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: '999999' }
+    payload: { cursor: '999999' },
   });
   assert.equal(response.statusCode, 200);
   const body = parseJson(response.body) as SyncPullResponseBody;
@@ -416,14 +416,14 @@ void test('sync pull does not query max(event_id) on steady-state caught-up curs
     entity_type: 'setting',
     operation: 'upsert',
     payload: { key: 'k-1', value: 'v1' },
-    server_timestamp: '2026-01-01T00:00:00.000Z'
+    server_timestamp: '2026-01-01T00:00:00.000Z',
   });
   const app = await createSyncApp(pool);
 
   const first = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: '0' }
+    payload: { cursor: '0' },
   });
   assert.equal(first.statusCode, 200);
   const firstBody = parseJson(first.body) as SyncPullResponseBody;
@@ -433,7 +433,7 @@ void test('sync pull does not query max(event_id) on steady-state caught-up curs
   const second = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: '1' }
+    payload: { cursor: '1' },
   });
   assert.equal(second.statusCode, 200);
   const secondBody = parseJson(second.body) as SyncPullResponseBody;
@@ -451,14 +451,14 @@ void test('sync pull supports numeric cursor payloads', async () => {
     entity_type: 'tag',
     operation: 'upsert',
     payload: { id: 1 },
-    server_timestamp: '2026-01-01T00:00:00.000Z'
+    server_timestamp: '2026-01-01T00:00:00.000Z',
   });
   const app = await createSyncApp(pool);
 
   const response = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: 0 }
+    payload: { cursor: 0 },
   });
   assert.equal(response.statusCode, 200);
   const body = parseJson(response.body) as SyncPullResponseBody;
@@ -476,7 +476,7 @@ void test('sync pull clamps with valid bigint latest cursor', async () => {
   const response = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: '999999' }
+    payload: { cursor: '999999' },
   });
   assert.equal(response.statusCode, 200);
   const body = parseJson(response.body) as SyncPullResponseBody;
@@ -494,7 +494,7 @@ void test('sync pull treats out-of-range bigint latest cursor as zero', async ()
   const response = await app.inject({
     method: 'POST',
     url: '/v1/sync/pull',
-    payload: { cursor: '999999' }
+    payload: { cursor: '999999' },
   });
   assert.equal(response.statusCode, 200);
   const body = parseJson(response.body) as SyncPullResponseBody;
@@ -509,7 +509,7 @@ void test('sync push returns cursor 0 when only duplicate operations are process
   pool.store.idempotency.set('dup-only', {
     opId: 'dup-only',
     status: 'applied',
-    normalizedPayload: { preseeded: true }
+    normalizedPayload: { preseeded: true },
   });
   const app = await createSyncApp(pool);
 
@@ -523,10 +523,10 @@ void test('sync push returns cursor 0 when only duplicate operations are process
           entityType: 'game',
           operation: 'upsert',
           payload: { igdbGameId: '1', platformIgdbId: 130 },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -560,10 +560,10 @@ void test('sync push handles non-Error failures with default failed message', as
           entityType: 'game',
           operation: 'upsert',
           payload: { igdbGameId: '1', platformIgdbId: 130, title: 'G', platform: 'P' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -596,10 +596,10 @@ void test('sync push rollback path returns 500 when transaction-level query fail
           entityType: 'game',
           operation: 'upsert',
           payload: { igdbGameId: '55', platformIgdbId: 130, title: 'T', platform: 'P' },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 500);
@@ -625,10 +625,10 @@ void test('sync push rejects invalid entity type and operation type entries', as
           entityType: 'unknown',
           operation: 'upsert',
           payload: {},
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
   assert.equal(badEntityType.statusCode, 400);
 
@@ -642,10 +642,10 @@ void test('sync push rejects invalid entity type and operation type entries', as
           entityType: 'game',
           operation: 'patch',
           payload: {},
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
   assert.equal(badOperationType.statusCode, 400);
 
@@ -666,17 +666,17 @@ void test('sync push handles null and array payloads as failed operations', asyn
           entityType: 'game',
           operation: 'upsert',
           payload: null,
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'array-payload',
           entityType: 'game',
           operation: 'upsert',
           payload: [1, 2, 3],
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -705,12 +705,12 @@ void test('sync push handles string platformIgdbId in game payload', async () =>
             igdbGameId: '42',
             platformIgdbId: '130',
             title: 'StrPlatform',
-            platform: 'PC'
+            platform: 'PC',
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -739,9 +739,9 @@ void test('sync push handles mobyScore and mobygamesGameId edge cases', async ()
             title: 'ScoreGame',
             platform: 'PC',
             mobyScore: '7.5',
-            mobygamesGameId: '999'
+            mobygamesGameId: '999',
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'moby-score-out-of-range',
@@ -753,9 +753,9 @@ void test('sync push handles mobyScore and mobygamesGameId edge cases', async ()
             title: 'OutOfRange',
             platform: 'PC',
             mobyScore: 11,
-            mobygamesGameId: 0
+            mobygamesGameId: 0,
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
         },
         {
           opId: 'moby-score-null',
@@ -767,12 +767,12 @@ void test('sync push handles mobyScore and mobygamesGameId edge cases', async ()
             title: 'NullScore',
             platform: 'PC',
             mobyScore: null,
-            mobygamesGameId: null
+            mobygamesGameId: null,
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -797,10 +797,10 @@ void test('sync push handles operation without clientTimestamp', async () => {
           opId: 'no-timestamp',
           entityType: 'game',
           operation: 'upsert',
-          payload: { igdbGameId: '60', platformIgdbId: 130, title: 'NoTs', platform: 'PC' }
-        }
-      ]
-    }
+          payload: { igdbGameId: '60', platformIgdbId: 130, title: 'NoTs', platform: 'PC' },
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);
@@ -817,7 +817,7 @@ void test('sync push handles empty operations array', async () => {
   const response = await app.inject({
     method: 'POST',
     url: '/v1/sync/push',
-    payload: { operations: [] }
+    payload: { operations: [] },
   });
 
   assert.equal(response.statusCode, 200);
@@ -842,10 +842,10 @@ void test('sync push handles invalid float platformIgdbId', async () => {
           entityType: 'game',
           operation: 'upsert',
           payload: { igdbGameId: '70', platformIgdbId: 1.5 },
-          clientTimestamp: '2026-01-01T00:00:00.000Z'
-        }
-      ]
-    }
+          clientTimestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    },
   });
 
   assert.equal(response.statusCode, 200);

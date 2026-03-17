@@ -5,7 +5,7 @@ import type {
   GameListFilters,
   GameRating,
   GameStatus,
-  ListType
+  ListType,
 } from '../core/models/game.models';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
 
@@ -24,7 +24,7 @@ const VALID_GAME_TYPES: Array<NonNullable<GameCatalogResult['gameType']>> = [
   'port',
   'fork',
   'pack',
-  'update'
+  'update',
 ];
 
 export function parseStringArray(raw: string): string[] {
@@ -44,7 +44,7 @@ export function parseStringArray(raw: string): string[] {
         parsed
           .map((value) => (typeof value === 'string' ? value.trim() : ''))
           .filter((value) => value.length > 0)
-      )
+      ),
     ];
   } catch {
     return [];
@@ -66,7 +66,7 @@ export function parseGameIdArray(raw: string): string[] {
     return [
       ...new Set(
         parsed.map((value) => String(value ?? '').trim()).filter((value) => /^\d+$/.test(value))
-      )
+      ),
     ];
   } catch {
     return [];
@@ -152,7 +152,7 @@ export function parsePositiveIntegerArray(raw: string): number[] {
         parsed
           .map((value) => Number.parseInt(String(value), 10))
           .filter((value) => Number.isInteger(value) && value > 0)
-      )
+      ),
     ];
   } catch {
     return [];
@@ -356,7 +356,7 @@ export function parseFilters(
           ? parsedHltbMainHoursMin
           : parsedHltbMainHoursMax,
       releaseDateFrom: typeof parsed.releaseDateFrom === 'string' ? parsed.releaseDateFrom : null,
-      releaseDateTo: typeof parsed.releaseDateTo === 'string' ? parsed.releaseDateTo : null
+      releaseDateTo: typeof parsed.releaseDateTo === 'string' ? parsed.releaseDateTo : null,
     };
   } catch {
     return null;

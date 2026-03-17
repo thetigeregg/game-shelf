@@ -37,8 +37,8 @@ class PoolMock {
 void test('repository selects rows missing enrichment markers', async () => {
   const pool = new PoolMock({
     onQuery: () => ({
-      rows: [{ igdb_game_id: '1520', platform_igdb_id: 4, payload: { title: 'Game' } }]
-    })
+      rows: [{ igdb_game_id: '1520', platform_igdb_id: 4, payload: { title: 'Game' } }],
+    }),
   });
   const repository = new MetadataEnrichmentRepository(pool as never);
 
@@ -70,8 +70,8 @@ void test('repository wraps callback with advisory lock and unlock', async () =>
           }
           return Promise.resolve({ rows: [] });
         },
-        release: () => undefined
-      })
+        release: () => undefined,
+      }),
     }) as never
   );
 
@@ -95,7 +95,7 @@ void test('repository update writes sync event for changed game payload', async 
   await repository.updateGamePayload({
     igdbGameId: '1520',
     platformIgdbId: 6,
-    payloadPatch: { title: 'Mario', themes: ['Action'] }
+    payloadPatch: { title: 'Mario', themes: ['Action'] },
   });
 
   const sql = pool.queries[0]?.sql ?? '';
@@ -107,6 +107,6 @@ void test('repository update writes sync event for changed game payload', async 
   assert.deepEqual(pool.queries[0]?.params, [
     '1520',
     6,
-    JSON.stringify({ title: 'Mario', themes: ['Action'] })
+    JSON.stringify({ title: 'Mario', themes: ['Action'] }),
   ]);
 });

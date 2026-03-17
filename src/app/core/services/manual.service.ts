@@ -11,7 +11,7 @@ import {
   GameEntry,
   ManualCandidate,
   ManualOverrideMap,
-  ManualResolveResult
+  ManualResolveResult,
 } from '../models/game.models';
 
 interface ResolveManualApiResponse {
@@ -35,7 +35,7 @@ export class ManualService {
   private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
   private readonly httpClient = inject(HttpClient);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
-    optional: true
+    optional: true,
   });
   private readonly debugLogService = inject(DebugLogService);
   private readonly apiBaseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
@@ -55,7 +55,7 @@ export class ManualService {
       platformIgdbId: game.platformIgdbId,
       title: game.title,
       preferredRelativePath: preferredRelativePath ?? null,
-      query: params.toString()
+      query: params.toString(),
     });
 
     return this.httpClient.get<ResolveManualApiResponse>(this.resolveManualUrl, { params }).pipe(
@@ -66,7 +66,7 @@ export class ManualService {
           query: params.toString(),
           hasResponse: Boolean(response),
           status: safeResponse?.status ?? null,
-          unavailable: safeResponse?.unavailable === true
+          unavailable: safeResponse?.unavailable === true,
         });
       }),
       map((response) => this.normalizeResolveResponse(response)),
@@ -75,20 +75,20 @@ export class ManualService {
           status: result.status,
           unavailable: result.unavailable === true,
           reason: result.reason ?? null,
-          bestMatchRelativePath: result.bestMatch?.relativePath ?? null
+          bestMatchRelativePath: result.bestMatch?.relativePath ?? null,
         });
       }),
       catchError((error: unknown) => {
         this.debugLogService.error('manual.service.resolve.http_error', {
           url: this.resolveManualUrl,
           query: params.toString(),
-          error: normalizeHttpError(error)
+          error: normalizeHttpError(error),
         });
         return of({
           status: 'none' as const,
           candidates: [],
           unavailable: true,
-          reason: 'Unable to resolve manuals right now.'
+          reason: 'Unable to resolve manuals right now.',
         });
       })
     );
@@ -103,7 +103,7 @@ export class ManualService {
 
     if (normalizedPlatformId === null) {
       this.debugLogService.debug('manual.service.search.skipped_invalid_platform', {
-        platformIgdbId
+        platformIgdbId,
       });
       return of({ items: [], unavailable: false, reason: null });
     }
@@ -122,7 +122,7 @@ export class ManualService {
       apiBaseUrl: this.apiBaseUrl,
       platformIgdbId: normalizedPlatformId,
       query: normalizedQuery,
-      queryString: params.toString()
+      queryString: params.toString(),
     });
 
     return this.httpClient.get<SearchManualsApiResponse>(this.searchManualsUrl, { params }).pipe(
@@ -132,7 +132,7 @@ export class ManualService {
           url: this.searchManualsUrl,
           queryString: params.toString(),
           hasResponse: Boolean(response),
-          unavailable: safeResponse?.unavailable === true
+          unavailable: safeResponse?.unavailable === true,
         });
       }),
       map((response) => {
@@ -145,26 +145,26 @@ export class ManualService {
         return {
           items: this.normalizeCandidateList(response.items),
           unavailable,
-          reason
+          reason,
         };
       }),
       tap((result) => {
         this.debugLogService.debug('manual.service.search.normalized', {
           items: result.items.length,
           unavailable: result.unavailable,
-          reason: result.reason
+          reason: result.reason,
         });
       }),
       catchError((error: unknown) => {
         this.debugLogService.error('manual.service.search.http_error', {
           url: this.searchManualsUrl,
           queryString: params.toString(),
-          error: normalizeHttpError(error)
+          error: normalizeHttpError(error),
         });
         return of({
           items: [],
           unavailable: true,
-          reason: 'Unable to search manuals right now.'
+          reason: 'Unable to search manuals right now.',
         });
       })
     );
@@ -186,7 +186,7 @@ export class ManualService {
 
     return {
       relativePath: entry.relativePath.trim(),
-      updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : new Date().toISOString()
+      updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : new Date().toISOString(),
     };
   }
 
@@ -201,7 +201,7 @@ export class ManualService {
     const nextMap = this.readOverridesFromStorage();
     nextMap[key] = {
       relativePath: normalizedPath,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
     this.persistOverrides(nextMap);
   }
@@ -259,7 +259,7 @@ export class ManualService {
     const bestMatch = bestMatchRaw
       ? {
           ...bestMatchRaw,
-          source: source === 'override' ? ('override' as const) : ('fuzzy' as const)
+          source: source === 'override' ? ('override' as const) : ('fuzzy' as const),
         }
       : null;
 
@@ -271,7 +271,7 @@ export class ManualService {
       reason:
         typeof safeResponse.reason === 'string' && safeResponse.reason.trim().length > 0
           ? safeResponse.reason.trim()
-          : null
+          : null,
     };
   }
 
@@ -324,7 +324,7 @@ export class ManualService {
       fileName,
       relativePath,
       score,
-      url
+      url,
     };
   }
 
@@ -427,8 +427,8 @@ export class ManualService {
       operation: 'upsert',
       payload: {
         key: MANUAL_OVERRIDES_STORAGE_KEY,
-        value: serializedValue
-      }
+        value: serializedValue,
+      },
     });
   }
 
@@ -441,8 +441,8 @@ export class ManualService {
       entityType: 'setting',
       operation: 'delete',
       payload: {
-        key: MANUAL_OVERRIDES_STORAGE_KEY
-      }
+        key: MANUAL_OVERRIDES_STORAGE_KEY,
+      },
     });
   }
 

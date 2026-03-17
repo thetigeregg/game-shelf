@@ -12,7 +12,7 @@ import {
   SimpleChanges,
   ViewEncapsulation,
   ViewChild,
-  inject
+  inject,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -60,7 +60,7 @@ import {
   IonMenu,
   IonSplitPane,
   IonInfiniteScroll,
-  IonInfiniteScrollContent
+  IonInfiniteScrollContent,
 } from '@ionic/angular/standalone';
 import { Editor } from '@tiptap/core';
 import tiptapStarterKit from '@tiptap/starter-kit';
@@ -89,7 +89,7 @@ import {
   GameStatus,
   GameType,
   ListType,
-  ManualCandidate
+  ManualCandidate,
 } from '../../core/models/game.models';
 import { GameShelfService } from '../../core/services/game-shelf.service';
 import { ImageCacheService } from '../../core/services/image-cache.service';
@@ -111,13 +111,13 @@ import {
   createOpenedImagePickerState,
   dedupeHltbCandidates,
   dedupeReviewCandidates,
-  normalizeMetadataOptions
+  normalizeMetadataOptions,
 } from './game-list-detail-workflow';
 import {
   encodeCanvasAsDataUrl,
   getApproximateStringBytes,
   getCompressionOutputMimeType,
-  loadImageFromDataUrl
+  loadImageFromDataUrl,
 } from './game-list-image-utils';
 import { isValidYouTubeVideoId } from '../../core/utils/youtube-video.util';
 import {
@@ -127,7 +127,7 @@ import {
   normalizeGameRating,
   normalizeGameStatus,
   normalizeTagIds,
-  parseTagSelection
+  parseTagSelection,
 } from './game-list-detail-actions';
 import { formatRateLimitedUiError } from '../../core/utils/rate-limit-ui-error';
 import { AddToLibraryWorkflowService } from '../game-search/add-to-library-workflow.service';
@@ -142,12 +142,12 @@ import {
   MetadataFilterKind,
   MetadataFilterSelection,
   getMetadataSelectionTitle,
-  getMetadataSelectionValues
+  getMetadataSelectionValues,
 } from './metadata-filter.utils';
 import {
   normalizeEditorNotesComparable,
   normalizeEditorNotesValue,
-  toNotesEditorContent
+  toNotesEditorContent,
 } from './notes-editor.utils';
 import { normalizeHttpError } from '../../core/utils/normalize-http-error';
 import { completeIonInfiniteScroll } from '../../core/utils/ion-infinite-scroll.utils';
@@ -170,7 +170,7 @@ import {
   logoYoutube,
   chevronBack,
   documentText,
-  book
+  book,
 } from 'ionicons/icons';
 
 export interface GameListSelectionState {
@@ -270,8 +270,8 @@ type NotesToolbarAction =
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
     DetailVideosModalComponent,
-    SimilarGameRowComponent
-  ]
+    SimilarGameRowComponent,
+  ],
 })
 export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly BULK_METADATA_CONCURRENCY = 3;
@@ -301,7 +301,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     style: 'currency',
     currency: 'CHF',
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   });
   private static readonly SIMILAR_LIBRARY_PAGE_SIZE = 5;
   private static readonly SIMILAR_LIBRARY_FETCH_LIMIT = 50;
@@ -311,7 +311,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private static readonly SIMILAR_DISCOVERY_LOAD_TIMEOUT_MS = 10000;
   private static readonly MANUAL_SHORTCUT_PLATFORM_WHITELIST = new Set<number>([
     4, 59, 50, 62, 410, 61, 57, 123, 68, 67, 11, 12, 150, 86, 416, 20, 33, 24, 22, 21, 18, 19, 87,
-    5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120
+    5, 41, 30, 482, 78, 23, 29, 64, 32, 84, 80, 79, 7, 8, 9, 38, 35, 120,
   ]);
 
   readonly noneTagFilterValue = '__none__';
@@ -322,7 +322,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     { value: 'completed', label: 'Completed' },
     { value: 'paused', label: 'Paused' },
     { value: 'dropped', label: 'Dropped' },
-    { value: 'replay', label: 'Replay' }
+    { value: 'replay', label: 'Replay' },
   ];
 
   @Input({ required: true }) listType!: ListType;
@@ -423,7 +423,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   manualCatalogUnavailableReason: string | null = null;
   detailTextExpanded = {
     summary: false,
-    storyline: false
+    storyline: false,
   };
   fixMatchInitialQuery = '';
   fixMatchInitialPlatformIgdbId: number | null = null;
@@ -464,7 +464,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
   private readonly filters$ = new BehaviorSubject<GameListFilters>({
-    ...DEFAULT_GAME_LIST_FILTERS
+    ...DEFAULT_GAME_LIST_FILTERS,
   });
   private readonly searchQuery$ = new BehaviorSubject<string>('');
   private readonly groupBy$ = new BehaviorSubject<GameGroupByField>('none');
@@ -576,7 +576,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         allGames$,
         this.filters$,
         this.searchQuery$,
-        this.timePreferenceService.timePreference$
+        this.timePreferenceService.timePreference$,
       ]).pipe(
         map(([games, filters, searchQuery, timePreference]) =>
           this.applyFiltersAndSort(games, filters, searchQuery, timePreference)
@@ -647,7 +647,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const confirmed = await this.confirmDelete({
       header: 'Delete Game',
       message: `Delete ${this.getGameDisplayTitle(game)}?`,
-      confirmText: 'Delete'
+      confirmText: 'Delete',
     });
 
     if (!confirmed) {
@@ -751,7 +751,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const confirmed = await this.confirmDelete({
       header: 'Delete Selected Games',
       message: `Delete ${String(selectedGames.length)} selected game${selectedGames.length === 1 ? '' : 's'}?`,
-      confirmText: 'Delete'
+      confirmText: 'Delete',
     });
 
     if (!confirmed) {
@@ -761,7 +761,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.gameShelfService.removeGames(
       selectedGames.map((game) => ({
         igdbGameId: game.igdbGameId,
-        platformIgdbId: game.platformIgdbId
+        platformIgdbId: game.platformIgdbId,
       }))
     );
     this.clearSelectionMode();
@@ -781,7 +781,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.gameShelfService.moveGamesToList(
       selectedGames.map((game) => ({
         igdbGameId: game.igdbGameId,
-        platformIgdbId: game.platformIgdbId
+        platformIgdbId: game.platformIgdbId,
       })),
       targetList
     );
@@ -806,7 +806,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         type: 'radio' as const,
         label: option.label,
         value: option.value,
-        checked: false
+        checked: false,
       })),
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -815,16 +815,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
           role: 'destructive',
           handler: () => {
             nextStatus = null;
-          }
+          },
         },
         {
           text: 'Apply',
           role: 'confirm',
           handler: (value: string | null | undefined) => {
             nextStatus = normalizeGameStatus(value);
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -837,7 +837,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.gameShelfService.setGameStatusForGames(
       selectedGames.map((game) => ({
         igdbGameId: game.igdbGameId,
-        platformIgdbId: game.platformIgdbId
+        platformIgdbId: game.platformIgdbId,
       })),
       nextStatus
     );
@@ -871,9 +871,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
           role: 'confirm',
           handler: (value: string[] | string | null | undefined) => {
             nextTagIds = parseTagSelection(value);
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -886,7 +886,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     await this.gameShelfService.setGameTagsForGames(
       selectedGames.map((game) => ({
         igdbGameId: game.igdbGameId,
-        platformIgdbId: game.platformIgdbId
+        platformIgdbId: game.platformIgdbId,
       })),
       nextTagIds
     );
@@ -906,7 +906,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       {
         loadingPrefix: 'Refreshing metadata',
         concurrency: GameListComponent.BULK_METADATA_CONCURRENCY,
-        interItemDelayMs: 0
+        interItemDelayMs: 0,
       },
       (game) => this.gameShelfService.refreshGameMetadata(game.igdbGameId, game.platformIgdbId)
     );
@@ -961,7 +961,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         loadingPrefix: 'Updating HLTB data',
         concurrency: GameListComponent.BULK_HLTB_CONCURRENCY,
         interItemDelayMs: GameListComponent.BULK_HLTB_INTER_ITEM_DELAY_MS,
-        itemTimeoutMs: GameListComponent.BULK_HLTB_ITEM_TIMEOUT_MS
+        itemTimeoutMs: GameListComponent.BULK_HLTB_ITEM_TIMEOUT_MS,
       },
       (game) =>
         this.gameShelfService.refreshGameCompletionTimes(game.igdbGameId, game.platformIgdbId)
@@ -1003,7 +1003,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         loadingPrefix: 'Updating review data',
         concurrency: GameListComponent.BULK_METACRITIC_CONCURRENCY,
         interItemDelayMs: GameListComponent.BULK_METACRITIC_INTER_ITEM_DELAY_MS,
-        itemTimeoutMs: GameListComponent.BULK_METACRITIC_ITEM_TIMEOUT_MS
+        itemTimeoutMs: GameListComponent.BULK_METACRITIC_ITEM_TIMEOUT_MS,
       },
       (game) =>
         this.gameShelfService.refreshGameMetacriticScore(game.igdbGameId, game.platformIgdbId)
@@ -1053,7 +1053,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       {
         loadingPrefix: 'Updating pricing',
         concurrency: GameListComponent.BULK_PRICING_CONCURRENCY,
-        interItemDelayMs: 0
+        interItemDelayMs: 0,
       },
       (game) => this.refreshPricingForBulkGame(game)
     );
@@ -1157,7 +1157,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.notesAutosaveFailureCount = 0;
     this.ensureNotesEditor();
     this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
-      emitUpdate: false
+      emitUpdate: false,
     });
     this.isNoteDirty = false;
     this.isNotesOpen = true;
@@ -1302,7 +1302,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       gameKey: this.getGameKey(game),
       gameTitle: this.getGameDisplayTitle(game),
       listType: this.listType,
-      isDesktopDetailLayout: this.isDesktopDetailLayout
+      isDesktopDetailLayout: this.isDesktopDetailLayout,
     });
 
     const keepDesktopNotesPaneOpen = this.isDesktopDetailLayout && this.isNotesOpen;
@@ -1314,7 +1314,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       this.savedNoteValue = this.normalizeNotesValue(game.notes);
       this.noteDraft = this.savedNoteValue;
       this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
-        emitUpdate: false
+        emitUpdate: false,
       });
       this.isNoteDirty = false;
       this.isNotesOpen = true;
@@ -1344,7 +1344,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     void this.loadSimilarLibraryGamesForDetail(game);
     void this.resolveManualForGame(game);
     this.logManualDebug('detail.open.manual_resolution_queued', {
-      gameKey: this.getGameKey(game)
+      gameKey: this.getGameKey(game),
     });
     this.scrollDetailToTop();
   }
@@ -1524,7 +1524,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       coverUrl: this.getDetailCoverUrl(game),
       platforms: [displayPlatform.name],
       platform: displayPlatform.name,
-      platformOptions: [{ id: displayPlatform.igdbId, name: displayPlatform.name }]
+      platformOptions: [{ id: displayPlatform.igdbId, name: displayPlatform.name }],
     };
   }
 
@@ -1649,7 +1649,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
           gameKey: game ? this.getGameKey(game) : null,
           igdbGameId: game?.igdbGameId ?? null,
           platformIgdbId: game?.platformIgdbId ?? null,
-          attemptedSrc: target.currentSrc || target.src || null
+          attemptedSrc: target.currentSrc || target.src || null,
         });
       }
       target.src = 'assets/icon/placeholder.png';
@@ -1878,7 +1878,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const confirmed = await this.confirmDelete({
       header: 'Delete Game',
       message: `Delete ${this.getGameDisplayTitle(target)}?`,
-      confirmText: 'Delete'
+      confirmText: 'Delete',
     });
 
     if (!confirmed) {
@@ -1993,7 +1993,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         game.platformIgdbId,
         {
           title: title.length > 0 ? title : null,
-          platform: platformSelection
+          platform: platformSelection,
         }
       );
       this.applyUpdatedGame(updated);
@@ -2120,7 +2120,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isHltbUpdateLoading = true;
     const loading = await this.loadingController.create({
       message: 'Updating HLTB data...',
-      spinner: 'crescent'
+      spinner: 'crescent',
     });
     await loading.present();
 
@@ -2153,7 +2153,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.isReviewUpdateLoading = true;
     const loading = await this.loadingController.create({
       message: 'Updating review data...',
-      spinner: 'crescent'
+      spinner: 'crescent',
     });
     await loading.present();
 
@@ -2204,7 +2204,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     const loading = await this.loadingController.create({
       message: 'Updating pricing...',
-      spinner: 'crescent'
+      spinner: 'crescent',
     });
     await loading.present();
 
@@ -2297,7 +2297,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
             this.selectedGame?.igdbGameId
           )
         ),
-        this.delayReject<string[]>(10000, 'image_picker_search_timeout')
+        this.delayReject<string[]>(10000, 'image_picker_search_timeout'),
       ]);
 
       this.ngZone.run(() => {
@@ -2438,7 +2438,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
           releaseYear: candidate.releaseYear,
           platform: candidate.platform,
           preferredGameId: candidate.hltbGameId ?? null,
-          preferredUrl: candidate.hltbUrl ?? null
+          preferredUrl: candidate.hltbUrl ?? null,
         }
       );
       this.applyUpdatedGame(updated);
@@ -2552,7 +2552,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
           platform: candidate.platform,
           platformIgdbId: target.platformIgdbId,
           mobygamesGameId: candidate.mobygamesGameId ?? null,
-          preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null
+          preferredUrl: candidate.reviewUrl ?? candidate.metacriticUrl ?? null,
         }
       );
       this.applyUpdatedGame(updated);
@@ -2645,7 +2645,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         target.platformIgdbId,
         {
           title: candidate.title,
-          preferredUrl: candidate.url
+          preferredUrl: candidate.url,
         }
       );
       this.applyUpdatedGame(updated);
@@ -3295,7 +3295,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.selectionStateChange.emit({
       active: this.selectionModeActive,
       selectedCount: this.selectedGameKeys.size,
-      allDisplayedSelected: this.isAllDisplayedSelected()
+      allDisplayedSelected: this.isAllDisplayedSelected(),
     });
   }
 
@@ -3390,7 +3390,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         return new MouseEvent('click', {
           bubbles: true,
           clientX: Math.max(rect.left + 8, rect.right - 8),
-          clientY: rect.top + rect.height / 2
+          clientY: rect.top + rect.height / 2,
         });
       }
     }
@@ -3404,7 +3404,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         return new MouseEvent('click', {
           bubbles: true,
           clientX: Math.max(rect.left + 8, rect.right - 8),
-          clientY: rect.top + rect.height / 2
+          clientY: rect.top + rect.height / 2,
         });
       }
     }
@@ -3464,7 +3464,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     const normalizedLeft = this.normalizeTitleForSort(leftTitle);
     const normalizedRight = this.normalizeTitleForSort(rightTitle);
     const normalizedCompare = normalizedLeft.localeCompare(normalizedRight, undefined, {
-      sensitivity: 'base'
+      sensitivity: 'base',
     });
 
     if (normalizedCompare !== 0) {
@@ -3496,10 +3496,10 @@ export class GameListComponent implements OnChanges, OnDestroy {
       retryConfig: {
         maxAttempts: GameListComponent.BULK_MAX_ATTEMPTS,
         retryBaseDelayMs: GameListComponent.BULK_RETRY_BASE_DELAY_MS,
-        rateLimitFallbackCooldownMs: GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS
+        rateLimitFallbackCooldownMs: GameListComponent.BULK_RATE_LIMIT_FALLBACK_COOLDOWN_MS,
       },
       action,
-      delay: (ms: number) => this.delay(ms)
+      delay: (ms: number) => this.delay(ms),
     });
   }
 
@@ -3525,12 +3525,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
         type: 'radio',
         label: option,
         value: option,
-        checked: index === 0
+        checked: index === 0,
       })),
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
         },
         {
           text: 'Apply',
@@ -3538,9 +3538,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
             if (typeof selectedValue === 'string' && selectedValue.trim().length > 0) {
               this.applyMetadataFilterSelection(kind, selectedValue);
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -3589,18 +3589,18 @@ export class GameListComponent implements OnChanges, OnDestroy {
               target: this.getRecommendationTargetForListType(),
               igdbGameId: game.igdbGameId,
               platformIgdbId: game.platformIgdbId,
-              limit: GameListComponent.SIMILAR_LIBRARY_FETCH_LIMIT
+              limit: GameListComponent.SIMILAR_LIBRARY_FETCH_LIMIT,
             })
           ),
           this.delayReject<RecommendationSimilarResponse>(
             GameListComponent.SIMILAR_LIBRARY_LOAD_TIMEOUT_MS,
             'similar_library_recommendations_timeout'
-          )
+          ),
         ]),
         Promise.race([
           this.gameShelfService.listLibraryGames(),
-          this.delayReject<GameEntry[]>(10000, 'similar_library_load_timeout')
-        ])
+          this.delayReject<GameEntry[]>(10000, 'similar_library_load_timeout'),
+        ]),
       ]);
 
       if (requestId !== this.similarLibraryLoadRequestId) {
@@ -3623,7 +3623,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
           return {
             game,
             similarity: item.similarity,
-            reasons: item.reasons
+            reasons: item.reasons,
           } satisfies SimilarLibraryGameRow;
         })
         .filter((entry): entry is SimilarLibraryGameRow => entry !== null);
@@ -3681,13 +3681,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
             target: 'DISCOVERY',
             igdbGameId: game.igdbGameId,
             platformIgdbId: game.platformIgdbId,
-            limit: GameListComponent.SIMILAR_DISCOVERY_FETCH_LIMIT
+            limit: GameListComponent.SIMILAR_DISCOVERY_FETCH_LIMIT,
           })
         ),
         this.delayReject<RecommendationSimilarResponse>(
           GameListComponent.SIMILAR_DISCOVERY_LOAD_TIMEOUT_MS,
           'similar_discovery_load_timeout'
-        )
+        ),
       ]);
 
       if (requestId !== this.similarDiscoveryLoadRequestId) {
@@ -3713,7 +3713,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
           coverUrl: metadata?.coverUrl ?? null,
           subtitle: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
           similarity: item.similarity,
-          reasons: item.reasons
+          reasons: item.reasons,
         } satisfies SimilarDiscoveryGameRow;
       });
       this.visibleSimilarDiscoveryGamesCount = GameListComponent.SIMILAR_DISCOVERY_PAGE_SIZE;
@@ -3900,7 +3900,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     this.recommendationIgnoreService.ignoreGame({
       igdbGameId: detail.igdbGameId,
-      title: detail.title
+      title: detail.title,
     });
     this.closeSimilarDiscoveryDetailModal();
   }
@@ -3946,13 +3946,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
             target: 'DISCOVERY',
             igdbGameId,
             platformIgdbId,
-            limit: GameListComponent.SIMILAR_DISCOVERY_FETCH_LIMIT
+            limit: GameListComponent.SIMILAR_DISCOVERY_FETCH_LIMIT,
           })
         ),
         this.delayReject<RecommendationSimilarResponse>(
           GameListComponent.SIMILAR_DISCOVERY_LOAD_TIMEOUT_MS,
           'similar_discovery_detail_load_timeout'
-        )
+        ),
       ]);
 
       if (requestId !== this.similarDiscoveryDetailLoadRequestId) {
@@ -3981,7 +3981,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
             coverUrl: metadata?.coverUrl ?? null,
             subtitle: metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`,
             similarity: item.similarity,
-            reasons: item.reasons
+            reasons: item.reasons,
           } satisfies SimilarDiscoveryGameRow;
         });
     } catch (error) {
@@ -4100,7 +4100,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
                 title: catalog.title.trim().length > 0 ? catalog.title : `Game #${igdbGameId}`,
                 coverUrl: catalog.coverUrl,
                 platformLabel: this.resolveCatalogPlatformLabel(catalog, platformIgdbId),
-                releaseYear: catalog.releaseYear ?? null
+                releaseYear: catalog.releaseYear ?? null,
               }
             );
           }
@@ -4155,7 +4155,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     return {
       ...catalog,
       platformIgdbId,
-      platform: selectedPlatformName
+      platform: selectedPlatformName,
     };
   }
 
@@ -4178,7 +4178,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       message: 'Choose where to save this game.',
       inputs: [
         { type: 'radio', label: 'Collection', value: 'collection', checked: true },
-        { type: 'radio', label: 'Wishlist', value: 'wishlist', checked: false }
+        { type: 'radio', label: 'Wishlist', value: 'wishlist', checked: false },
       ],
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -4186,9 +4186,9 @@ export class GameListComponent implements OnChanges, OnDestroy {
           text: 'Add',
           handler: (value: unknown) => {
             selected = value === 'wishlist' ? 'wishlist' : 'collection';
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -4236,13 +4236,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
     if (customPlatformName.length > 0 && customPlatformIgdbId !== null) {
       return {
         name: customPlatformName,
-        igdbId: customPlatformIgdbId
+        igdbId: customPlatformIgdbId,
       };
     }
 
     return {
       name: game.platform,
-      igdbId: game.platformIgdbId
+      igdbId: game.platformIgdbId,
     };
   }
 
@@ -4315,7 +4315,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       message,
       duration: 1600,
       position: 'bottom',
-      color
+      color,
     });
 
     await toast.present();
@@ -4420,16 +4420,16 @@ export class GameListComponent implements OnChanges, OnDestroy {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
         },
         {
           text: 'Save',
           role: 'confirm',
           handler: (value: string[] | string | null | undefined) => {
             nextTagIds = parseTagSelection(value);
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -4642,7 +4642,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
             game.platformIgdbId,
             {
               title: candidate.title,
-              preferredUrl: candidate.url
+              preferredUrl: candidate.url,
             }
           );
         }
@@ -4656,12 +4656,12 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
   private async resolveManualForGame(game: GameEntry): Promise<void> {
     this.logManualDebug('manual.resolve.enter', {
-      gameKey: this.getGameKey(game)
+      gameKey: this.getGameKey(game),
     });
 
     if (!this.canShowManualButtonsForGame(game)) {
       this.logManualDebug('manual.resolve.skipped_not_eligible', {
-        gameKey: this.getGameKey(game)
+        gameKey: this.getGameKey(game),
       });
       if (this.selectedGame && this.getGameKey(this.selectedGame) === this.getGameKey(game)) {
         this.manualResolvedUrl = null;
@@ -4680,7 +4680,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     this.logManualDebug('manual.resolve.request', {
       gameKey: this.getGameKey(game),
       requestId,
-      hasOverride: Boolean(override?.relativePath)
+      hasOverride: Boolean(override?.relativePath),
     });
 
     try {
@@ -4692,7 +4692,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         this.logManualDebug('manual.resolve.stale_request', {
           gameKey: this.getGameKey(game),
           requestId,
-          currentRequestId: this.manualResolutionRequestId
+          currentRequestId: this.manualResolutionRequestId,
         });
         return;
       }
@@ -4700,7 +4700,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       if (!this.selectedGame || this.getGameKey(this.selectedGame) !== this.getGameKey(game)) {
         this.logManualDebug('manual.resolve.skipped_selected_game_mismatch', {
           gameKey: this.getGameKey(game),
-          selectedGameKey: this.selectedGame ? this.getGameKey(this.selectedGame) : null
+          selectedGameKey: this.selectedGame ? this.getGameKey(this.selectedGame) : null,
         });
         return;
       }
@@ -4712,7 +4712,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         status: result.status,
         unavailable: this.manualCatalogUnavailable,
         reason: this.manualCatalogUnavailableReason,
-        bestMatchRelativePath: result.bestMatch?.relativePath ?? null
+        bestMatchRelativePath: result.bestMatch?.relativePath ?? null,
       });
 
       if (result.bestMatch) {
@@ -4739,7 +4739,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
     } catch (error: unknown) {
       this.logManualDebug('manual.resolve.failed', {
         gameKey: this.getGameKey(game),
-        error: normalizeHttpError(error)
+        error: normalizeHttpError(error),
       });
       if (requestId !== this.manualResolutionRequestId) {
         return;
@@ -4765,13 +4765,13 @@ export class GameListComponent implements OnChanges, OnDestroy {
       buttons: [
         {
           text: 'Keep',
-          role: 'cancel'
+          role: 'cancel',
         },
         {
           text: 'Remove',
-          role: 'confirm'
-        }
-      ]
+          role: 'confirm',
+        },
+      ],
     });
 
     await alert.present();
@@ -4791,8 +4791,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
           type: 'radio' as const,
           label: option.label,
           value: option.value,
-          checked: currentStatus === option.value
-        }))
+          checked: currentStatus === option.value,
+        })),
       ],
       buttons: [
         {
@@ -4800,20 +4800,20 @@ export class GameListComponent implements OnChanges, OnDestroy {
           role: 'destructive',
           handler: () => {
             nextStatus = null;
-          }
+          },
         },
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
         },
         {
           text: 'Save',
           role: 'confirm',
           handler: (value: string | null | undefined) => {
             nextStatus = normalizeGameStatus(value);
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -4934,7 +4934,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
       if (!this.areNotesEquivalent(currentEditorNotes, persistedNotes)) {
         this.notesEditor?.commands.setContent(toNotesEditorContent(persistedNotes), {
-          emitUpdate: false
+          emitUpdate: false,
         });
       }
       this.notesAutosaveFailureCount = 0;
@@ -5020,8 +5020,8 @@ export class GameListComponent implements OnChanges, OnDestroy {
         'Auto-save is paused after repeated failures. Discard unsaved note changes and close?',
       buttons: [
         { text: 'Keep editing', role: 'cancel' },
-        { text: 'Discard', role: 'destructive' }
-      ]
+        { text: 'Discard', role: 'destructive' },
+      ],
     });
 
     await alert.present();
@@ -5032,7 +5032,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
   private resetNotesToLastSaved(): void {
     this.noteDraft = this.savedNoteValue;
     this.notesEditor?.commands.setContent(toNotesEditorContent(this.savedNoteValue), {
-      emitUpdate: false
+      emitUpdate: false,
     });
     this.isNoteDirty = false;
     this.notesAutosaveFailureCount = 0;
@@ -5076,7 +5076,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
         TaskItem.configure({ nested: true }),
         Details.configure({ persist: true }),
         DetailsSummary,
-        DetailsContent
+        DetailsContent,
       ],
       content: '<p></p>',
       onUpdate: ({ editor }) => {
@@ -5088,7 +5088,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       },
       onSelectionUpdate: () => {
         this.changeDetectorRef.markForCheck();
-      }
+      },
     });
   }
 
@@ -5111,14 +5111,14 @@ export class GameListComponent implements OnChanges, OnDestroy {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
         },
         {
           text: options.confirmText,
           role: 'confirm',
-          cssClass: 'alert-button-danger'
-        }
-      ]
+          cssClass: 'alert-button-danger',
+        },
+      ],
     });
 
     await alert.present();
@@ -5143,7 +5143,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
 
     return {
       name: selectedName,
-      igdbId: normalizedId
+      igdbId: normalizedId,
     };
   }
 
@@ -5308,7 +5308,7 @@ export class GameListComponent implements OnChanges, OnDestroy {
       logoYoutube,
       chevronBack,
       documentText,
-      book
+      book,
     });
   }
 }

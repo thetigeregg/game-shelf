@@ -1,6 +1,7 @@
 # Changelog
 
 ## v0.0.2 - 2026-02-19
+
 - 87ca15e Add automatic release bump workflow
 - 86ea3b6 Extend manual lookup aliasing
 - 17958d5 Extend manual lookup aliases
@@ -420,16 +421,19 @@
 - bc68d91 Initial commit
 
 ## v0.0.3 - 2026-02-19
+
 - a4c3f51 Add version display to settings page
 - 28b33a9 Update settings page with version
 - 776f3d3 Remove @capacitor/app dependency
 - a0b61af Display app version in settings
 
 ## v0.0.4 - 2026-02-19
+
 - 97d8489 Move pino-pretty to dependencies
 - 05685eb Move pino-pretty dependency
 
 ## v0.0.6 - 2026-02-19
+
 - 6b34fde Merge pull request #21 from thetigeregg/test
 - cd348ca Merge branch 'main' into test
 - 20b4fc1 Merge pull request #7 from thetigeregg/dependabot/github_actions/actions/setup-node-6
@@ -455,33 +459,39 @@
 - cf0a424 Enforce 80% coverage minimum
 
 ## v0.0.7 - 2026-02-19
+
 - ca22a2a Merge pull request #11 from thetigeregg/dependabot/github_actions/actions/create-github-app-token-2
 - 04ee9f4 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
 - 3bb4652 Merge branch 'main' into dependabot/github_actions/actions/create-github-app-token-2
 - 0b51990 chore(ci): bump actions/create-github-app-token from 1 to 2
 
 ## v0.0.8 - 2026-02-19
+
 - 330f6b8 Merge pull request #22 from thetigeregg/codex/deps
 - df49d37 Add dependabot docker major rules
 
 ## v0.0.9 - 2026-02-19
+
 - b97449a Merge pull request #6 from thetigeregg/dependabot/docker/edge/caddy-2.10-alpine
 - 9f2caae Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
 - c3530e8 Merge branch 'main' into dependabot/docker/edge/caddy-2.10-alpine
 - 0ec4272 chore(docker): bump caddy from 2.8-alpine to 2.10-alpine in /edge
 
 ## v0.0.10 - 2026-02-19
+
 - 07596a9 Merge pull request #13 from thetigeregg/dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
 - 9bf1d84 Merge branch 'main' into dependabot/npm_and_yarn/hltb-scraper/express-5.2.1
 - 54fe978 chore(deps): bump express from 4.22.1 to 5.2.1 in /hltb-scraper
 
 ## v0.0.11 - 2026-02-19
+
 - d75002d Merge pull request #14 from thetigeregg/dependabot/github_actions/actions/checkout-6
 - 4831b46 Merge branch 'main' into dependabot/github_actions/actions/checkout-6
 - 6e0c2c7 Merge branch 'main' into dependabot/github_actions/actions/checkout-6
 - 887b26f chore(ci): bump actions/checkout from 4 to 6
 
 ## v0.0.12 - 2026-02-19
+
 - 22d2197 Merge pull request #23 from thetigeregg/hltb-fix
 - 692e743 Merge branch 'main' into hltb-fix
 - 9aa2e9b Update backend test coverage command
@@ -493,24 +503,29 @@
 - 585cc19 chore: update appVersion to 0.0.9 in runtime config
 
 ## v0.0.13 - 2026-02-19
+
 - dff2ea9 Merge pull request #24 from thetigeregg/dep-rules
 - d0caf81 Update dependabot.yml to ignore specific dependency
 - f6e84bc chore(deps): ignore major version updates for @types/node
 
 ## v0.0.14 - 2026-02-19
+
 - 0e507cf Merge pull request #4 from thetigeregg/dependabot/npm_and_yarn/server/ajv-8.18.0
 - e0fcb7a Merge branch 'main' into dependabot/npm_and_yarn/server/ajv-8.18.0
 - 45da2aa Bump ajv from 8.17.1 to 8.18.0 in /server
 
 ## v0.0.15 - 2026-02-19
+
 - 70e4aa1 Merge pull request #12 from thetigeregg/dependabot/npm_and_yarn/server/dotenv-17.3.1
 - f390b92 chore(deps): bump dotenv from 16.6.1 to 17.3.1 in /server
 
 ## v0.0.16 - 2026-02-19
+
 - c791a92 Merge pull request #26 from thetigeregg/thetigeregg-patch-1
 - 506b541 Add MIT License to the project
 
 ## v0.0.17 - 2026-02-19
+
 - c5614fb Merge pull request #27 from thetigeregg/codex/backup-strategy
 - 93aa388 Merge pull request #30 from thetigeregg/copilot/sub-pr-27
 - b85e23e fix(scripts): derive BACKUP_HOST_DIR from docker compose config in test-backup-flow.sh
@@ -538,6 +553,7 @@
 - bfeec98 Document backup service setup
 
 ## v0.0.18 - 2026-02-19
+
 - e2c6f3f Merge pull request #31 from thetigeregg/codex/backup-strategy
 - 16f47d0 Merge pull request #34 from thetigeregg/copilot/sub-pr-31
 - 24e0a8a Apply suggestions from code review
@@ -553,20 +569,24 @@
 - feb838d Add backup image deployment docs
 
 ## v0.0.19 - 2026-02-19
+
 - 01a6740 Merge pull request #35 from thetigeregg/dependabot/npm_and_yarn/hono-4.12.0
 - 9c4461e chore(deps): update vitest and related dependencies in package-lock.json
 - 36671ba chore(deps): bump hono from 4.11.9 to 4.12.0
 
 ## v0.0.20 - 2026-02-19
+
 - 96658e8 Merge pull request #17 from thetigeregg/dependabot/npm_and_yarn/eslint-plugin-jsdoc-62.6.1
 - c65b476 chore(deps): update vitest and related dependencies in package-lock.json
 - 73795b8 chore(deps): bump eslint-plugin-jsdoc from 62.6.0 to 62.6.1
 
 ## v0.0.21 - 2026-02-19
+
 - 0d65a6d Merge pull request #46 from thetigeregg/codex/manual-match
 - 782f7dc Add manual bind clear option
 
 ## v0.0.22 - 2026-02-19
+
 - 1bf340d Merge pull request #43 from thetigeregg/alert-autofix-11
 - 3fab720 Refactor normalizeProxyImageUrl to construct canonical URLs with server-controlled host and path prefix
 - c995631 Fix image proxy forgery tests
@@ -582,10 +602,12 @@
 - c6b561c Potential fix for code scanning alert no. 11: Server-side request forgery
 
 ## v0.0.23 - 2026-02-20
+
 - 6fa87de Merge pull request #47 from thetigeregg/alert-autofix-10
 - 7b8c447 Potential fix for code scanning alert no. 10: Incomplete URL substring sanitization
 
 ## v0.1.0 - 2026-02-20
+
 - 1256f30 Merge pull request #48 from thetigeregg/alert-fix-22
 - 8ca2f85 Restore image cache purge rate limit
 - f3dc2ec Merge pull request #52 from thetigeregg/copilot/sub-pr-48-yet-again
@@ -604,6 +626,7 @@
 - f8f41d5 Add rate limiting to image cache
 
 ## v0.1.1 - 2026-02-20
+
 - 48595b8 Merge pull request #53 from thetigeregg/alert-autofix-2
 - 4bd58a3 Tune cache stats rate limits
 - 6ed3957 Adjust cache observability rate limi
@@ -618,6 +641,7 @@
 - f4c03f7 Potential fix for code scanning alert no. 2: Missing rate limiting
 
 ## v0.1.2 - 2026-02-20
+
 - 161e392 Merge pull request #54 from thetigeregg/angular-21
 - 3b88539 Merge branch 'main' into angular-21
 - c0f31f0 chore: refine versioning rules for Angular-related packages in .ncurc.cjs
@@ -626,10 +650,12 @@
 - 652be68 chore: upgrade Angular dependencies to version 21.x and adjust configurations
 
 ## v0.1.3 - 2026-02-20
+
 - 6d471e1 Merge pull request #55 from thetigeregg/hono-fix
 - 21affc2 chore: update hono package to version 4.12.0
 
 ## v0.1.4 - 2026-02-20
+
 - c8db52c Merge pull request #56 from thetigeregg/auth-fix
 - 0cdb786 Audit rate limiting for endpoints
 - f847eda Apply suggestions from code review
@@ -639,25 +665,30 @@
 - 5b7a340 Normalize request path for auth
 
 ## v0.1.5 - 2026-02-20
+
 - d54ed48 Merge pull request #57 from thetigeregg/img-c
 - e004df1 Add rate limiting to server routes
 - bde7baf Merge branch 'main' into img-c
 - a1016be Add rate limiting to image cache API
 
 ## v0.1.6 - 2026-02-20
+
 - ed89f22 Merge pull request #59 from thetigeregg/hltb-c
 - ea13022 Add rate limits to server routes
 
 ## v0.1.7 - 2026-02-20
+
 - 6cad856 Merge pull request #60 from thetigeregg/api
 - adec991 Prevent duplicate middie setup
 
 ## v0.1.8 - 2026-02-20
+
 - 6ed034f Merge pull request #61 from thetigeregg/dupe-ci
 - ee3d5ea Prevent duplicate CodeQL runs
 - b50d8fd Prevent duplicate CodeQL runs on
 
 ## v0.1.9 - 2026-02-20
+
 - 9f5191e Merge pull request #62 from thetigeregg/codex/vars
 - 4bbb169 Apply suggestions from code review
 - 3c9ab18 Review env var sweep before merge
@@ -680,6 +711,7 @@
 - 741373e Move compose secrets from env
 
 ## v0.1.10 - 2026-02-20
+
 - f3095cd Merge pull request #63 from thetigeregg/mans
 - f3a8368 Merge pull request #64 from thetigeregg/copilot/sub-pr-63
 - 4927a7e docs(nas-deployment): mark SECRETS_HOST_DIR as required for Portainer
@@ -688,6 +720,7 @@
 - 6434bf5 fix(docker-compose): standardize secrets directory path across services
 
 ## v0.1.11 - 2026-02-20
+
 - 84ba1a9 Merge pull request #65 from thetigeregg/fix
 - 42943dd Add periodic health snapshot
 - fb6da41 Update health rate limiter
@@ -698,6 +731,7 @@
 - c909b62 Fix js missing rate limiting issues
 
 ## v0.1.12 - 2026-02-21
+
 - af66dcf Merge pull request #69 from thetigeregg/cov
 - 2341384 Add fastify rate limit dependency
 - 4f70e1d Register rate-limit plugin
@@ -708,10 +742,12 @@
 - 434323b Fix rate limit for HLTB search
 
 ## v0.1.13 - 2026-02-21
+
 - 37fe429 Merge pull request #73 from thetigeregg/test
 - b17c9c6 Re-enable CodeQL
 
 ## v0.1.14 - 2026-02-21
+
 - f49661e Merge pull request #66 from thetigeregg/auth-fix
 - ce3c900 Add peer dependency flag to multiple packages in package-lock.json
 - 35a1153 Add validateSecurityConfig call
@@ -733,31 +769,37 @@
 - d3147ec Clarify auth headers for edge
 
 ## v0.1.15 - 2026-02-23
+
 - 0fe5e4f Merge pull request #74 from thetigeregg/dependabot/npm_and_yarn/types/node-22.19.11
 - f102875 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
 - bada9be chore(deps): bump @types/node from 22.19.10 to 22.19.11
 
 ## v0.1.16 - 2026-02-23
+
 - 55a4f10 Merge pull request #76 from thetigeregg/dependabot/npm_and_yarn/capacitor/cli-8.1.0
 - 6b66dd8 chore(deps): update @capacitor/core to 8.1.0 and @capacitor/status-bar to 8.0.1
 - 8748f40 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
 - a8d4d9e chore(deps): bump @capacitor/cli from 8.0.2 to 8.1.0
 
 ## v0.1.17 - 2026-02-23
+
 - e78b80a Merge pull request #77 from thetigeregg/dependabot/npm_and_yarn/zone.js-0.16.1
 - 1d846a4 chore(deps): add chokidar and readdirp as peer dependencies in multiple packages
 - 20528ba chore(deps): bump zone.js from 0.15.1 to 0.16.1
 
 ## v0.1.18 - 2026-02-23
+
 - c59efff Merge pull request #78 from thetigeregg/codex/move-device-write-token-to
 - 95c06d3 Relocate device write token section
 
 ## v0.1.19 - 2026-02-23
+
 - e3707b5 Merge pull request #79 from thetigeregg/codex/cov
 - 74d2e8d Merge branch 'main' into codex/cov
 - 74f854f Add Codecov uploads for monorepo
 
 ## v0.1.20 - 2026-02-23
+
 - ea85963 Merge pull request #80 from thetigeregg/codex/preserve-last-view-filters-on
 - a046d2a Add tests for invalid prefs handling
 - 2d2c9a3 Add wishlist filter persistence test
@@ -767,6 +809,7 @@
 - 9df18f4 Restore preserved list filters
 
 ## v0.1.21 - 2026-02-23
+
 - 55129d7 Merge pull request #81 from thetigeregg/codex/whitelist-platforms-for-buttons
 - 79fc09c Restrict manual buttons by platform
 - e10105f Merge branch 'main' into codex/whitelist-platforms-for-buttons
@@ -775,6 +818,7 @@
 - 8a9770c Whitelist platforms for buttons
 
 ## v0.1.22 - 2026-02-23
+
 - 41ea9cc Merge pull request #82 from thetigeregg/codex/document-game-detail-filtering
 - 7c8267b Add genre metadata filter coverage
 - 3738e7d Add genre metadata filtering
@@ -783,12 +827,14 @@
 - 8d414c9 Add genre filter navigation
 
 ## v0.1.23 - 2026-02-24
+
 - fc5b412 Merge pull request #83 from thetigeregg/deps
 - c73f620 Update package-lock.json
 - 059cfa4 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, and ajv to latest versions
 - 1169131 chore(deps): update Angular and ESLint dependencies to latest versions
 
 ## v0.1.24 - 2026-02-24
+
 - ac7b425 Merge pull request #84 from thetigeregg/codex/add-to-library-conditions
 - f035295 Merge branch 'main' into codex/add-to-library-conditions
 - 743a0b9 Display platforms on explore detail
@@ -796,10 +842,12 @@
 - 99f6561 Document explore game add button
 
 ## v0.1.25 - 2026-02-24
+
 - 681b7e1 Merge pull request #85 from thetigeregg/codex/add-drop-shadow-to-game
 - d7b0af6 Add game detail image shadow
 
 ## v0.1.26 - 2026-02-24
+
 - acec45e Merge pull request #86 from thetigeregg/codex/responsive-layout-support
 - 4f0e7cf Switch explore header to normal
 - 04b4bc1 Fix split pane smoke test
@@ -814,31 +862,37 @@
 - 242fcaf Plan desktop responsive layout
 
 ## v0.1.27 - 2026-02-24
+
 - 20c18e4 Merge pull request #87 from thetigeregg/codex/responsive-layout-support
 - 49cc006 Apply suggestions from code review
 - 1b331a2 Merge branch 'main' into codex/responsive-layout-support
 - 30b3528 Add mobile filters e2e coverage
 
 ## v0.1.28 - 2026-02-24
+
 - dcbadd4 Merge pull request #88 from thetigeregg/codex/hiding-manual-buttons
 - a59c2cb Hide manual buttons behind platform
 
 ## v0.1.29 - 2026-02-24
+
 - 7951ff3 Merge pull request #89 from thetigeregg/codex/fix-runtimeconfig-referenceerror
 - 4e8f4a9 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
 - 2256919 Fix runtime-config feature flag
 
 ## v0.1.30 - 2026-02-24
+
 - b6bb056 Merge pull request #90 from thetigeregg/codex/fix-runtimeconfig-referenceerror
 - fb97924 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
 - 329d179 Fix runtime config append error
 
 ## v0.1.31 - 2026-02-24
+
 - 325673a Merge pull request #91 from thetigeregg/codex/fix-runtimeconfig-referenceerror
 - f61b043 Merge branch 'main' into codex/fix-runtimeconfig-referenceerror
 - 5734c82 Fix runtime config stray n
 
 ## v0.1.32 - 2026-02-25
+
 - 21f53ec Merge pull request #92 from thetigeregg/codex/responsive-layout-support
 - 0c79b6d Add desktop and mobile e2e matrix
 - 154ea57 Limit desktop fullscreen modals
@@ -846,6 +900,7 @@
 - 50b1f95 Add desktop fullscreen modals
 
 ## v0.1.33 - 2026-02-26
+
 - f51d0f4 Merge pull request #93 from thetigeregg/codex/notes-system-for-games
 - cc91faf Update env feature flags
 - 1db4fb7 Prune coverage artifacts from git
@@ -957,10 +1012,12 @@
 - 5e608f7 Add per-game notes system
 
 ## v0.1.34 - 2026-02-26
+
 - 01387df Merge pull request #98 from thetigeregg/codex/prevent-notes-page-header-from
 - b598eac Fix notes page scrolling
 
 ## v0.1.35 - 2026-02-26
+
 - 3245dcf Merge pull request #97 from thetigeregg/codex/fix-notes-toolbar-button-newline
 - a88951f Add edge-case tests for notes normal
 - 23b7919 Remove i flag from regex
@@ -973,6 +1030,7 @@
 - fd55cb4 Revert notes sanitization fix
 
 ## v0.1.36 - 2026-02-26
+
 - 4175f3a Merge pull request #99 from thetigeregg/codex/fix-note-content-clearing-issue
 - 2dcb1a6 Sanitize notes normalization input
 - 5a7cf0a Fix empty note clearing bug
@@ -981,6 +1039,7 @@
 - 2e530ae Prevent empty notes from clearing
 
 ## v0.1.37 - 2026-02-26
+
 - 7e9a312 Merge pull request #100 from thetigeregg/codex/logerr
 - cbf3201 Increase coverage for sync/manual
 - aac1aea Normalize manual debug errors
@@ -993,6 +1052,7 @@
 - 05dee8f fix(debug): prevent XHR recursion and add sync/manual diagnostics
 
 ## v0.1.38 - 2026-02-27
+
 - 0a5981e Merge pull request #101 from thetigeregg/codex/adjust-collection-sort-options
 - 193ef1b Review missing coverage for filters
 - d1761ee Add title fallback sorting test
@@ -1000,12 +1060,14 @@
 - 9bdb8ed Add HLTB sort ordering option
 
 ## v0.1.39 - 2026-02-27
+
 - ecaf13d Merge pull request #103 from thetigeregg/deps
 - 11f5e94 Add repo-wide npm scripts
 - c833710 chore(deps): update @angular-devkit/core, @angular-devkit/schematics, ajv, and minimatch to latest versions
 - 1d6d7ff chore(deps): update Angular and Capacitor dependencies to latest versions
 
 ## v0.1.40 - 2026-02-27
+
 - 0a7dce3 Merge pull request #104 from thetigeregg/codex/add-exclusion-filters-accordion
 - 8115ac3 Generate PR title and summary
 - b0be461 Add exclusion filters accordion
@@ -1013,12 +1075,14 @@
 - 5eb88d8 Add exclusion filters accordion
 
 ## v0.1.41 - 2026-02-27
+
 - e611a1b Merge pull request #105 from thetigeregg/codex/fix-production-search-execution
 - dc5c539 Fix frontend game fetch response
 - 678ebdc Fix frontend contract response
 - 12547d1 Fix contract mismatch handling
 
 ## v0.1.42 - 2026-02-27
+
 - 72e9267 Merge pull request #106 from thetigeregg/codex/metacritic
 - 35b5b76 Add missing tests for coverage
 - 8f7fe00 Improve metacritic integration tests
@@ -1061,20 +1125,24 @@
 - 5bac7ed Add metacritic pipeline parity
 
 ## v0.1.43 - 2026-02-27
+
 - 1359a62 Merge pull request #107 from thetigeregg/codex/fix-build-fail-issue
 - b5c49b3 Add config copy to edge build
 
 ## v0.1.44 - 2026-02-27
+
 - 64eacdb Merge pull request #108 from thetigeregg/codex/fix-build-fail-issue
 - cbce0cf Merge branch 'main' into codex/fix-build-fail-issue
 - 0dc66ab Copy metacritic scraper src
 
 ## v0.1.45 - 2026-02-28
+
 - b3c7be8 Merge pull request #115 from thetigeregg/copilot/set-up-copilot-instructions
 - cb0e8a1 docs(copilot): set up comprehensive Copilot instructions
 - b166f8e Initial plan
 
 ## v0.2.0 - 2026-03-01
+
 - ece258f Merge pull request #109 from thetigeregg/codex/add-mobygames-api-support
 - 88d2240 Merge pull request #138 from thetigeregg/copilot/sub-pr-109-again
 - cc42703 fix(metadata-validator): pass mobygamesGameId and platformIgdbId through review candidate query
@@ -1206,12 +1274,14 @@
 - eeb46b0 Add MobyGames API integration
 
 ## v0.2.1 - 2026-03-01
+
 - b362c8c Merge pull request #139 from thetigeregg/copilot/review-rate-limiting-logic
 - 7765750 fix(api): revert overly conservative bulk metacritic constants; cooldown guard handles MobyGames 429s via retry
 - c551f4e fix(api): enforce rate-limit cooldown in lookupReviewScore and lookupReviewCandidates, respect MobyGames 12 req/min in bulk actions
 - db183bc Initial plan
 
 ## v0.2.2 - 2026-03-01
+
 - 25bcd92 Merge pull request #140 from thetigeregg/copilot/fix-mobygames-rate-limiting
 - 92dc2a5 fix(server): restore retry-after header in MobyGames 503 queue-full response using actual delay
 - e6dcb7b Update src/app/core/api/igdb-proxy.service.ts
@@ -1229,15 +1299,18 @@
 - fd5eb51 Initial plan
 
 ## v0.2.3 - 2026-03-02
+
 - 6e61ec6 Merge pull request #144 from thetigeregg/dependabot/github_actions/actions/upload-artifact-7
 - 8cb99a2 chore(ci): bump actions/upload-artifact from 4 to 7
 
 ## v0.2.4 - 2026-03-02
+
 - 30bff87 Merge pull request #143 from thetigeregg/dependabot/npm_and_yarn/server/types/pg-8.18.0
 - bc56385 Merge branch 'main' into dependabot/npm_and_yarn/server/types/pg-8.18.0
 - ce33122 chore(deps): bump @types/pg from 8.16.0 to 8.18.0 in /server
 
 ## v0.2.5 - 2026-03-02
+
 - e4103b4 Merge pull request #141 from thetigeregg/dependabot/npm_and_yarn/lint-staged-16.3.1
 - c4938c0 Merge branch 'main' into dependabot/npm_and_yarn/lint-staged-16.3.1
 - 7ca8879 chore(deps): add chokidar and readdirp as optional peer dependencies for @ionic/angular-toolkit
@@ -1245,18 +1318,21 @@
 - 9441f5e chore(deps): bump lint-staged from 16.2.7 to 16.3.1
 
 ## v0.2.6 - 2026-03-02
+
 - 60fc333 Merge pull request #145 from thetigeregg/dependabot/docker/edge/caddy-2.11-alpine
 - 4bb6f02 Merge branch 'main' into dependabot/docker/edge/caddy-2.11-alpine
 - a87ac97 Merge branch 'main' into dependabot/docker/edge/caddy-2.11-alpine
 - ac434c0 chore(docker): bump caddy from 2.10-alpine to 2.11-alpine in /edge
 
 ## v0.2.7 - 2026-03-02
+
 - 6b1657d Merge pull request #147 from thetigeregg/codex/429-toast
 - b406969 Fix rate-limit toast coloring
 - 9a936dd Clarify rate limit toast handling
 - 47967c4 Audit Metacritic rate handling
 
 ## v0.2.8 - 2026-03-02
+
 - cb66cb0 Merge pull request #148 from thetigeregg/codex/mobygames-platform-alias
 - fbf8f65 Merge branch 'main' into codex/mobygames-platform-alias
 - e7fc888 Update aliased platform mappings
@@ -1265,6 +1341,7 @@
 - 6cd8e60 Update platform alias lookups
 
 ## v1.0.1 - 2026-03-02
+
 - 8b4a20d Merge pull request #149 from thetigeregg/codex/add-timeadjusted-score-metric
 - 706f60e Reject zero hours in TAS score
 - 5e95faa Check TAS zero-hour validation
@@ -1282,6 +1359,7 @@
 - 3394470 Add TAS sort mode with config
 
 ## v1.0.2 - 2026-03-02
+
 - f794f39 Merge pull request #150 from thetigeregg/codex/allow-halfstep-user-ratings
 - e0b9762 Add Explore InRange coverage
 - 934f934 Audit explore branch changes
@@ -1293,6 +1371,7 @@
 - ad392f0 Allow half-step ratings
 
 ## v1.0.3 - 2026-03-04
+
 - fb306eb Merge pull request #151 from thetigeregg/codex/recommendations
 - c0398e9 Align diversity penalty default
 - 5af63af Align diversity penalty default
@@ -1391,6 +1470,7 @@
 - ba05508 Implement recommendation API
 
 ## v1.0.4 - 2026-03-04
+
 - 3a03b16 Merge pull request #152 from thetigeregg/codex/enable-worktreefriendly-dev-env
 - 30da5ac Ensure pulled sync failures rollback
 - cdeca6a Adjust write-token interceptor base
@@ -1413,15 +1493,18 @@
 - 3d8452e Document worktree-safe dev commands
 
 ## v1.0.5 - 2026-03-04
+
 - 383b255 Merge pull request #153 from thetigeregg/codex/chore-remove-tracked-nas-secrets
 - 7671149 Merge branch 'main' into codex/chore-remove-tracked-nas-secrets
 - 0ffd929 chore(secrets): stop tracking nas secret files
 
 ## v1.0.6 - 2026-03-04
+
 - 02c915e Merge pull request #154 from thetigeregg/codex/fixy
 - 9b55e16 Summarize Caddyfile proxy fix
 
 ## v1.0.7 - 2026-03-05
+
 - 2930b05 Merge pull request #157 from thetigeregg/codex/fixy
 - c027646 Clamp enrichment maxAttempts
 - 203f88c Align HLTB zero handling
@@ -1438,11 +1521,13 @@
 - 9d19e5e Add discovery enrich backoff limits
 
 ## v1.1.0 - 2026-03-05
+
 - 90be8e2 Merge pull request #160 from thetigeregg/bump
 - 3b7b7c2 feat: add audit fix command for all dependencies
 - 209f3c4 Run audit fix
 
 ## v1.1.1 - 2026-03-05
+
 - a93935b Merge pull request #161 from thetigeregg/codex/screenshots-videos
 - fefe3f8 Trim options size before use
 - 9a1dde5 Allow explicit nulls in sync upsert
@@ -1477,6 +1562,7 @@
 - 5809577 Add support for screenshots and videos in metadata enrichment
 
 ## v1.1.2 - 2026-03-05
+
 - 545981c Merge pull request #162 from thetigeregg/codex/screenshots-videos
 - 77555c0 Investigate ui test proxy errors
 - ce03b04 Rename upload step for raw coverage artifacts in CI workflow
@@ -1485,6 +1571,7 @@
 - 904a31f Update media normalization dedupe
 
 ## v1.1.3 - 2026-03-05
+
 - 07b43e3 Merge pull request #163 from thetigeregg/codex/pollution-fix
 - 78dcd26 Optimize game outbox filtering
 - 8b3b224 Optimize pending game checks
@@ -1507,11 +1594,13 @@
 - 69c0757 Count game discovery fingerprints
 
 ## v1.1.4 - 2026-03-05
+
 - a286458 Merge pull request #166 from thetigeregg/codex/fixr
 - 96cdd6d Merge branch 'main' into codex/fixr
 - 406876e Update dompurify to 3.3.2
 
 ## v1.1.5 - 2026-03-05
+
 - 50793da Force push
 - 2707002 Merge pull request #169 from thetigeregg/codex/discovery-excludes-owned-game
 - 7c7166d Force push
@@ -1521,14 +1610,17 @@
 - cb89b1e chore(deps): bump fastify from 5.7.4 to 5.8.1 in /server
 
 ## v1.1.6 - 2026-03-06
+
 - a7a5b05 Force push
 
 ## v1.1.7 - 2026-03-06
+
 - 781b17a Merge pull request #170 from thetigeregg/codex/discovery-game-retry-limit
 - f80d8ac Update package lock
 - f833119 Fix discovery query for Project Gorg
 
 ## v1.1.8 - 2026-03-06
+
 - dbafaec Merge pull request #171 from thetigeregg/codex/discovery-game-retry-limit
 - d85194a Reuse config helpers for discovery
 - a785be1 Refactor discovery config helpers
@@ -1549,16 +1641,19 @@
 - 762bb2f Add rearm logic for HLTB
 
 ## v1.1.9 - 2026-03-06
+
 - 1659584 Merge pull request #172 from thetigeregg/codex/convert-game-rating-modal-to
 - fcb1c8c Convert rating modal to sheets
 - 2ce1fe4 Convert game rating modal to sheet
 - ffc1760 Convert rating modal to sheet
 
 ## v1.1.10 - 2026-03-06
+
 - debc485 Merge pull request #174 from thetigeregg/dependabot/npm_and_yarn/server/express-rate-limit-8.2.2
 - 10906f5 chore(deps): bump express-rate-limit from 8.2.1 to 8.2.2 in /server
 
 ## v1.1.11 - 2026-03-07
+
 - b951892 Merge pull request #173 from thetigeregg/fcm
 - bd01423 Refactor alert enable handler
 - 9578077 Document notification routing incons
@@ -1687,12 +1782,14 @@
 - 40b7c87 Brainstorm new-game data updates
 
 ## v1.1.12 - 2026-03-07
+
 - aeea264 Merge pull request #177 from thetigeregg/fix
 - d5bbc65 Update dependencies
 - 1192442 Update packages
 - cc09b60 Fix audit issues
 
 ## v1.1.13 - 2026-03-08
+
 - 4fb846a Merge pull request #178 from thetigeregg/fix
 - 3f95c13 Document background worker env vars
 - 220f667 Fix drift integration test assertion
@@ -1731,6 +1828,7 @@
 - 36a4645 Offload recommendations CPU work
 
 ## v1.1.14 - 2026-03-08
+
 - 7a4039b Merge pull request #179 from thetigeregg/codex/investigate-production-issue
 - e121c03 Fix migration test and pool cleanup
 - 3b2fc94 Export MigrationUnlockError
@@ -1746,6 +1844,7 @@
 - 6a92d05 Fix prod peer flag removals
 
 ## v1.1.15 - 2026-03-08
+
 - 82d49cb Merge pull request #180 from thetigeregg/codex/investigate-production-issue
 - 99cfca7 Align background worker payload keys
 - 01fb083 Log request raw url and route
@@ -1759,6 +1858,7 @@
 - 2c1fc5c Add background worker lifecycle logs
 
 ## v1.1.16 - 2026-03-08
+
 - f9789dc Merge pull request #181 from thetigeregg/codex/add-prod-observability-endpoints
 - b8fc6c9 Adjust Postman manual tests
 - ace8323 Merge branch 'main' into codex/add-prod-observability-endpoints
@@ -1771,6 +1871,7 @@
 - 9706623 Add prod observability Postman
 
 ## v1.1.17 - 2026-03-08
+
 - 4638de7 Merge pull request #182 from thetigeregg/codex/perfs
 - 758de21 Add finalizeRunSuccess batch test
 - 9d4a801 Add tests for finalizeRunSuccess
@@ -1782,6 +1883,7 @@
 - f8864c9 Summarize recent request log
 
 ## v1.1.18 - 2026-03-09
+
 - 689e35a Merge pull request #183 from thetigeregg/codex/perfs
 - 34cdc1c Investigate coverage drop
 - 07f1301 Clarify background job test name
@@ -1796,26 +1898,31 @@
 - b242f92 Check running background job status
 
 ## v1.1.19 - 2026-03-09
+
 - 38453f8 Merge pull request #188 from thetigeregg/dependabot/github_actions/docker/login-action-4
 - ecab595 Merge branch 'main' into dependabot/github_actions/docker/login-action-4
 - 3d315e6 chore(ci): bump docker/login-action from 3 to 4
 
 ## v1.1.20 - 2026-03-09
+
 - 2e6207b Merge pull request #191 from thetigeregg/dependabot/github_actions/docker/setup-buildx-action-4
 - 6a1ddaa Merge branch 'main' into dependabot/github_actions/docker/setup-buildx-action-4
 - 598ef40 Merge branch 'main' into dependabot/github_actions/docker/setup-buildx-action-4
 - c9cba20 chore(ci): bump docker/setup-buildx-action from 3 to 4
 
 ## v1.1.21 - 2026-03-09
+
 - fdf04f2 Merge pull request #190 from thetigeregg/dependabot/github_actions/docker/build-push-action-7
 - 27ad35b chore(ci): bump docker/build-push-action from 6 to 7
 
 ## v1.1.22 - 2026-03-09
+
 - 9f10f06 Merge pull request #189 from thetigeregg/dependabot/github_actions/docker/metadata-action-6
 - 8047baa Merge branch 'main' into dependabot/github_actions/docker/metadata-action-6
 - e8068ab chore(ci): bump docker/metadata-action from 5 to 6
 
 ## v1.1.23 - 2026-03-09
+
 - cfe6710 Merge pull request #192 from thetigeregg/bump
 - 008d7bb chore: update @eslint/js to version 9.39.4 and add @angular/forms dependency
 - 742450e Merge branch 'main' into bump
@@ -1823,11 +1930,13 @@
 - 023b76b chore: update firebase dependency to version 12.10.0
 
 ## v1.1.24 - 2026-03-09
+
 - 7a43e39 Merge pull request #193 from thetigeregg/codex/scoring
 - ba37ae2 Remove IGDB review scores
 - 8138e11 Remove IGDB review scores
 
 ## v1.1.25 - 2026-03-09
+
 - be3f7d2 Merge pull request #194 from thetigeregg/codex/wroerk
 - 2ae8acc Address note
 - 6681e67 Address note
@@ -1837,6 +1946,7 @@
 - d8ae288 refactor(worker): split background worker into general and recommendations roles
 
 ## v1.1.26 - 2026-03-09
+
 - c2422f0 Merge pull request #195 from thetigeregg/codex/ignore-recs
 - 8d54d1a Update Similar Discovery empty state
 - 4df1615 Use RecommendationIgnoredEntry type
@@ -1861,11 +1971,13 @@
 - 3210e0e Add ignore button to discovery
 
 ## v1.1.27 - 2026-03-09
+
 - 23d7067 Merge pull request #196 from thetigeregg/codex/document-worktree-creation-hooks
 - dfa1bd8 Update .husky/post-checkout
 - 4777931 Verify new worktree hooks
 
 ## v1.1.28 - 2026-03-10
+
 - a7b9731 Merge pull request #197 from thetigeregg/codex/investigate-bulk-move-freeze
 - b3bb10c Simplify view creation transaction
 - 22050d4 Return created tag from transaction
@@ -1878,6 +1990,7 @@
 - 46edc72 Investigate bulk wishlist freeze
 
 ## v1.1.29 - 2026-03-11
+
 - 1fcf2bc Merge pull request #198 from thetigeregg/codex/itad
 - 05eec8c Restore storage spy after test
 - d015d40 Restore Notification global
@@ -1954,11 +2067,13 @@
 - ebcdacf Add Windows ITAD pricing enrichment
 
 ## v1.1.30 - 2026-03-11
+
 - 21d519f Merge pull request #200 from thetigeregg/codex/fix-edge-docker-build-failure
 - 5515652 Extract shared prod env writer
 - f2c700b Add edge Firebase env write step
 
 ## v1.1.31 - 2026-03-11
+
 - 904f5f6 Merge pull request #201 from thetigeregg/codex/add-helper-to-sync-env
 - 5bc6fc7 Preserve env example comments
 - 5d7438f Handle commented env keys
@@ -1973,12 +2088,14 @@
 - 32782a9 Add worktree env reconciliation
 
 ## v1.1.32 - 2026-03-12
+
 - ec72fd4 Merge pull request #203 from thetigeregg/codex/pricing
 - 72d63b0 Fix
 - 79a568b Fix package misalignment
 - a7e1e1b Update staleness logic for pricing
 
 ## v1.1.33 - 2026-03-12
+
 - 5983d67 Merge pull request #204 from thetigeregg/codex/recommend-env-vars-for-pricing
 - f30aaf1 Clarify bootstrap env handling
 - da1c818 Add bootstrap env warnings
@@ -1987,6 +2104,7 @@
 - cac2b66 Add tests for pricing freshness and enhance price validation logic
 
 ## v1.1.34 - 2026-03-12
+
 - 98d3fa2 Merge pull request #205 from thetigeregg/codex/verify-wishlist-pricing-via-docker
 - 63ad8f7 Adjust sync cursor typing
 - 4412e10 Add outbox recheck before replay
@@ -1997,10 +2115,12 @@
 - b969cb7 Explain sync pull cursor issues
 
 ## v1.1.35 - 2026-03-12
+
 - fb436b4 Merge pull request #207 from thetigeregg/codex/enable-dependabot-for-github-actions
 - f982e8b Add Node24 force env to workflows
 
 ## v1.1.36 - 2026-03-12
+
 - 544351b Merge pull request #208 from thetigeregg/codex/confirm-pricing-choice-persistence
 - 32dd5b0 Adjust PsPrices URL override
 - 4c2110b Rename finiteNumber helper
@@ -2019,6 +2139,7 @@
 - 8079f6e Persist custom override settings
 
 ## v1.1.37 - 2026-03-12
+
 - 92f5596 Merge pull request #206 from thetigeregg/codex/add-wishlist-sale-notification
 - b12607e Refine tie logic for high confidence
 - d730efc Coerce sale preference strings
@@ -2048,6 +2169,7 @@
 - 7cc27bc Add wishlist sale notification
 
 ## v1.1.38 - 2026-03-13
+
 - e732142 Merge pull request #209 from thetigeregg/codex/adjust-dark-pricing-color-contrast
 - e573acd Add contrast tokens to dark palette
 - 133a202 Restore button state and remove logs
@@ -2055,6 +2177,7 @@
 - 92b1797 Fix dark ionic pricing contrast
 
 ## v1.1.39 - 2026-03-13
+
 - b027e75 Merge pull request #210 from thetigeregg/codex/add-psprices-result-images
 - be18bfa Add PR diff summary
 - c5d0e7e Allow caching candidate-only hits
@@ -2071,6 +2194,7 @@
 - cb31554 Add psprices image handling
 
 ## v1.1.40 - 2026-03-13
+
 - 59faa97 Merge pull request #211 from thetigeregg/codex/verify-die-breaker-logic-on
 - 661b7ab Address coverage and review note
 - ce1b2a4 Fix recommended candidate logic
@@ -2082,6 +2206,7 @@
 - 3d95fd6 Highlight backend recommended match
 
 ## v1.2.0 - 2026-03-13
+
 - af9cc8d Merge pull request #213 from thetigeregg/cursor
 - 506095e chore(copilot): remove pre-push validation requirements from instructions
 - 7a58d60 Potential fix for pull request finding
@@ -2105,6 +2230,7 @@
 - d65921e chore: update commitlint configuration and add pre-push validation requirements
 
 ## v1.2.1 - 2026-03-13
+
 - 689c8ec1 Merge pull request #215 from thetigeregg/feat/chore
 - b7a1a3aa chore(scripts): use force delete for auto-cleanup branch removal
 - 5ed78c83 chore(scripts): harden current worktree detection in dev-cleanup
@@ -2120,6 +2246,7 @@
 - 5e4e9d88 chore: add dev cleanup script for repository maintenance
 
 ## v1.2.2 - 2026-03-14
+
 - 666bb4d3 Merge pull request #218 from thetigeregg/feat/bump
 - 2e7b4999 fix(scripts): harden main worktree sync checks for task start
 - 21010634 fix(scripts): handle checked-out main when fast-forwarding from origin/main
@@ -2129,6 +2256,7 @@
 - 9791ac75 build(deps): bump frontend and server package dependencies
 
 ## v1.2.3 - 2026-03-14
+
 - eb1a6c96 Merge pull request #212 from thetigeregg/codex/fixer
 - 21514ecc fix: test
 - 29de797f fix: test
@@ -2153,16 +2281,19 @@
 - 82bf97eb Mark fallback review recommended
 
 ## v1.2.4 - 2026-03-14
+
 - 2ec6f3ec Merge pull request #219 from thetigeregg/feat/bumpz
 - 7338b51f Merge branch 'main' into feat/bumpz
 - 82b76a35 test(core): replace deprecated toThrowError matcher in specs
 - 173adf41 chore(deps): bump Angular and tooling dependency versions
 
 ## v1.2.5 - 2026-03-14
+
 - 3a8244d0 Merge pull request #220 from thetigeregg/feat/fix
 - c653a47f fix(api): split jsonb_build_object to respect PostgreSQL 100-argument limit
 
 ## v1.3.0 - 2026-03-16
+
 - 6f23ffab Merge pull request #231 from thetigeregg/feat/scripts
 - a3438987 fix(scripts): make pr agent prompt cross-platform
 - 51d7f7f7 fix(scripts): honor copilot-only filtering in pr agent
@@ -2230,6 +2361,7 @@
 - f8813cab feat(popularity): add IGDB popularity ingest and global discovery feeds
 
 ## v1.4.0 - 2026-03-16
+
 - 038f8f3e Merge pull request #230 from thetigeregg/feat/popularity-ui
 - 6ae96888 fix(explore): rename feature flag usage to explore-enabled naming
 - ee0b21ce Merge branch 'main' into feat/popularity-ui
@@ -2248,6 +2380,7 @@
 - a8357690 feat(api): add popularity feed client support for trending endpoints
 
 ## v1.5.0 - 2026-03-16
+
 - 7429b7b8 Merge pull request #232 from thetigeregg/feat/popularity-ui
 - da977a8f fix(popularity): refresh release year in game payloads
 - f798dbda test(server): isolate config env clamp test
@@ -2261,6 +2394,7 @@
 - 41cac9cd feat(api): make popularity feed row limit configurable
 
 ## v1.5.1 - 2026-03-16
+
 - ff5dc24a Merge pull request #233 from thetigeregg/feat/popularity-ui
 - 8f8b779a fix(api): align owned list partial index predicate
 - d37142cf fix(api): optimize popularity feed dedupe query
@@ -2271,13 +2405,14 @@
 - 6ef3fca6 fix(popularity): dedupe feed rows before applying limit
 
 ## v1.5.2 - 2026-03-16
+
 - d0dd1f00 Merge pull request #234 from thetigeregg/feat/popularity-ui
 - 2602ef62 test(api): cover release monitor precision branches
 - bdfde06c fix(api): use IGDB release_dates precision for release monitor
 - 9a6e2a2f fix(api): cap unreleased release monitor recheck window to 15 days
 
 ## v1.5.3 - 2026-03-16
+
 - b9d1db11 Merge pull request #235 from thetigeregg/feat/popularity-ui
 - 0bf473e8 fix(ui): harden game detail swiper lifecycle and add carousel unit tests
 - 1d2776bb fix(ui): migrate game detail swiper to TypeScript init and refresh
-

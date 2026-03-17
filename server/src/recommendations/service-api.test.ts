@@ -6,7 +6,7 @@ import type {
   RankedRecommendationItem,
   RecommendationLaneCollection,
   RecommendationRunSummary,
-  RecommendationRuntimeMode
+  RecommendationRuntimeMode,
 } from './types.js';
 
 const NOW = Date.parse('2026-03-03T10:00:00.000Z');
@@ -48,7 +48,7 @@ function baseOptions() {
     discoveryPopularRefreshHours: 24,
     discoveryRecentRefreshHours: 6,
     discoveryIgdbRequestTimeoutMs: 15000,
-    discoveryIgdbMaxRequestsPerSecond: 4
+    discoveryIgdbMaxRequestsPerSecond: 4,
   };
 }
 
@@ -62,7 +62,7 @@ function sampleRun(overrides: Partial<RecommendationRunSummary> = {}): Recommend
     startedAt: new Date(NOW - 1_000).toISOString(),
     finishedAt: new Date(NOW).toISOString(),
     error: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -91,7 +91,7 @@ function sampleGame(): NormalizedGameRecord {
     developers: ['Nintendo'],
     publishers: ['Nintendo'],
     franchises: ['Mario'],
-    collections: ['Super Mario']
+    collections: ['Super Mario'],
   };
 }
 
@@ -110,7 +110,7 @@ function sampleItem(): RankedRecommendationItem {
       semantic: 0,
       exploration: 0,
       diversityPenalty: 0,
-      repeatPenalty: 0
+      repeatPenalty: 0,
     },
     explanations: {
       headline: 'h',
@@ -122,9 +122,9 @@ function sampleItem(): RankedRecommendationItem {
         franchises: [],
         collections: [],
         themes: [],
-        keywords: []
-      }
-    }
+        keywords: [],
+      },
+    },
   };
 }
 
@@ -139,7 +139,7 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
     exploration: [],
     blended: [],
     popular: [],
-    recent: []
+    recent: [],
   };
 
   const repository = {
@@ -174,9 +174,9 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
               franchises: [],
               collections: [],
               themes: [],
-              keywords: []
-            }
-          }
+              keywords: [],
+            },
+          },
         },
         {
           igdbGameId: '200',
@@ -194,9 +194,9 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
               franchises: [],
               collections: [],
               themes: [],
-              keywords: []
-            }
-          }
+              keywords: [],
+            },
+          },
         },
         {
           igdbGameId: '201',
@@ -214,16 +214,16 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
               franchises: [],
               collections: [],
               themes: [],
-              keywords: []
-            }
-          }
-        }
+              keywords: [],
+            },
+          },
+        },
       ]);
-    }
+    },
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   assert.equal(await service.resolveRuntimeMode('LONG'), 'LONG');
@@ -238,7 +238,7 @@ void test('service resolves runtime mode and read APIs with safe limits', async 
     igdbGameId: '100',
     platformIgdbId: 6,
     runtimeMode: 'LONG',
-    limit: 999
+    limit: 999,
   });
   assert.equal(similar.runtimeMode, 'LONG');
   assert.equal(similar.items.length, 2);
@@ -263,11 +263,11 @@ void test('service enqueues rebuild when stale or missing', async () => {
     }) => {
       queued.push(params);
       return Promise.resolve({ jobId: 44, deduped: false });
-    }
+    },
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const missing = await service.ensureRebuildQueuedIfStale('BACKLOG', 'stale-read');
@@ -282,11 +282,11 @@ void test('service does not enqueue rebuild when latest run is fresh', async () 
     getLatestSuccessfulRun: () => Promise.resolve(sampleRun()),
     enqueueRecommendationRebuildJob: () => {
       throw new Error('should_not_enqueue');
-    }
+    },
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const fresh = await service.ensureRebuildQueuedIfStale('BACKLOG', 'stale-read');
@@ -297,17 +297,17 @@ void test('service does not enqueue rebuild when latest run is fresh', async () 
 
 void test('service returns LOCKED when target lock cannot be acquired', async () => {
   const repository = {
-    withTargetLock: () => Promise.resolve({ acquired: false as const })
+    withTargetLock: () => Promise.resolve({ acquired: false as const }),
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const result = await service.rebuild({ target: 'BACKLOG' });
   assert.deepEqual(result, {
     target: 'BACKLOG',
-    status: 'LOCKED'
+    status: 'LOCKED',
   });
 });
 
@@ -315,29 +315,29 @@ void test('service skips scheduler rebuild during failure backoff', async () => 
   const repository = {
     withTargetLock: async (target: string, callback: (client: object) => Promise<unknown>) => ({
       acquired: true as const,
-      value: await callback({})
+      value: await callback({}),
     }),
     getLatestRun: () =>
       Promise.resolve(
         sampleRun({
           status: 'FAILED',
           startedAt: new Date(NOW - 5 * 60 * 1000).toISOString(),
-          finishedAt: new Date(NOW - 5 * 60 * 1000).toISOString()
+          finishedAt: new Date(NOW - 5 * 60 * 1000).toISOString(),
         })
-      )
+      ),
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const result = await service.rebuild({
     target: 'BACKLOG',
-    triggeredBy: 'scheduler'
+    triggeredBy: 'scheduler',
   });
   assert.deepEqual(result, {
     target: 'BACKLOG',
-    status: 'BACKOFF_SKIPPED'
+    status: 'BACKOFF_SKIPPED',
   });
 });
 
@@ -348,7 +348,7 @@ void test('service rebuild runs success path and supports stale checks', async (
   const repository = {
     withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
       acquired: true as const,
-      value: await callback({})
+      value: await callback({}),
     }),
     getLatestRun: () => Promise.resolve(null),
     listNormalizedGames: () => Promise.resolve([sampleGame()]),
@@ -365,31 +365,31 @@ void test('service rebuild runs success path and supports stale checks', async (
     markRunFailed: () => {
       assert.fail('markRunFailed should not be called in success path');
     },
-    getLatestSuccessfulRunForTarget: () => Promise.resolve(null)
+    getLatestSuccessfulRunForTarget: () => Promise.resolve(null),
   };
 
   const embeddingRepository = {
     listGameEmbeddings: () => Promise.resolve([]),
-    upsertGameEmbeddings: () => Promise.resolve(undefined)
+    upsertGameEmbeddings: () => Promise.resolve(undefined),
   };
   const embeddingClient = {
-    generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]])
+    generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]]),
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
     embeddingRepository: embeddingRepository as never,
     embeddingClient,
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const result = await service.rebuild({
     target: 'BACKLOG',
-    force: true
+    force: true,
   });
   assert.deepEqual(result, {
     target: 'BACKLOG',
     runId: 5,
-    status: 'SUCCESS'
+    status: 'SUCCESS',
   });
   assert.equal(createdRuns.length, 1);
   assert.equal(finalizeCalled, 1);
@@ -399,14 +399,14 @@ void test('service rebuild runs success path and supports stale checks', async (
     getLatestSuccessfulRun: () =>
       Promise.resolve(
         sampleRun({
-          finishedAt: new Date(NOW - 60_000).toISOString()
+          finishedAt: new Date(NOW - 60_000).toISOString(),
         })
-      )
+      ),
   };
   const freshService = new RecommendationService(freshRepository as never, baseOptions(), {
     embeddingRepository: embeddingRepository as never,
     embeddingClient,
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
   const staleResult = await freshService.rebuildIfStale('BACKLOG', 'scheduler');
   assert.equal(staleResult, null);
@@ -420,14 +420,14 @@ void test('service handles null top/lanes reads and stale-triggered rebuild path
     getLatestSuccessfulRun: () =>
       Promise.resolve(
         sampleRun({
-          finishedAt: new Date(NOW - 48 * 60 * 60 * 1000).toISOString()
+          finishedAt: new Date(NOW - 48 * 60 * 60 * 1000).toISOString(),
         })
       ),
-    withTargetLock: () => Promise.resolve({ acquired: false as const })
+    withTargetLock: () => Promise.resolve({ acquired: false as const }),
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   assert.equal(await service.getTopRecommendations('BACKLOG', 10, undefined), null);
@@ -435,7 +435,7 @@ void test('service handles null top/lanes reads and stale-triggered rebuild path
   const staleResult = await service.rebuildIfStale('BACKLOG', 'scheduler');
   assert.deepEqual(staleResult, {
     target: 'BACKLOG',
-    status: 'LOCKED'
+    status: 'LOCKED',
   });
 });
 
@@ -444,7 +444,7 @@ void test('service rebuild returns SKIPPED when input/settings hashes match late
   const repository = {
     withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
       acquired: true as const,
-      value: await callback({})
+      value: await callback({}),
     }),
     getLatestRun: () => Promise.resolve(null),
     listNormalizedGames: () => Promise.resolve([sampleGame()]),
@@ -454,28 +454,28 @@ void test('service rebuild returns SKIPPED when input/settings hashes match late
       latestSuccessful = sampleRun({
         id: 77,
         settingsHash: params.settingsHash,
-        inputHash: params.inputHash
+        inputHash: params.inputHash,
       });
       return Promise.resolve(77);
     },
     finalizeRunSuccess: () => Promise.resolve(undefined),
     markRunFailed: () => {
       assert.fail('markRunFailed should not be called');
-    }
+    },
   };
 
   const embeddingRepository = {
     listGameEmbeddings: () => Promise.resolve([]),
-    upsertGameEmbeddings: () => Promise.resolve(undefined)
+    upsertGameEmbeddings: () => Promise.resolve(undefined),
   };
   const embeddingClient = {
-    generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]])
+    generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]]),
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
     embeddingRepository: embeddingRepository as never,
     embeddingClient,
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const first = await service.rebuild({ target: 'BACKLOG', force: true });
@@ -486,7 +486,7 @@ void test('service rebuild returns SKIPPED when input/settings hashes match late
     target: 'BACKLOG',
     runId: 77,
     status: 'SKIPPED',
-    reusedRunId: 77
+    reusedRunId: 77,
   });
 });
 
@@ -497,7 +497,7 @@ void test('service rebuild skip check ignores recommendation history count churn
   const repository = {
     withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
       acquired: true as const,
-      value: await callback({})
+      value: await callback({}),
     }),
     getLatestRun: () => Promise.resolve(null),
     listNormalizedGames: () => Promise.resolve([sampleGame()]),
@@ -514,28 +514,28 @@ void test('service rebuild skip check ignores recommendation history count churn
       latestSuccessful = sampleRun({
         id: 88,
         settingsHash: params.settingsHash,
-        inputHash: params.inputHash
+        inputHash: params.inputHash,
       });
       return Promise.resolve(88);
     },
     finalizeRunSuccess: () => Promise.resolve(undefined),
     markRunFailed: () => {
       assert.fail('markRunFailed should not be called');
-    }
+    },
   };
 
   const embeddingRepository = {
     listGameEmbeddings: () => Promise.resolve([]),
-    upsertGameEmbeddings: () => Promise.resolve(undefined)
+    upsertGameEmbeddings: () => Promise.resolve(undefined),
   };
   const embeddingClient = {
-    generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]])
+    generateEmbeddings: () => Promise.resolve([[0.1, 0.2, 0.3]]),
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
     embeddingRepository: embeddingRepository as never,
     embeddingClient,
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const first = await service.rebuild({ target: 'BACKLOG', force: true });
@@ -546,7 +546,7 @@ void test('service rebuild skip check ignores recommendation history count churn
     target: 'BACKLOG',
     runId: 88,
     status: 'SKIPPED',
-    reusedRunId: 88
+    reusedRunId: 88,
   });
   assert.equal(createRunCalls, 1);
 });
@@ -556,7 +556,7 @@ void test('service rebuild marks run failed when embedding vectors are invalid',
   const repository = {
     withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
       acquired: true as const,
-      value: await callback({})
+      value: await callback({}),
     }),
     getLatestRun: () => Promise.resolve(null),
     listNormalizedGames: () => Promise.resolve([sampleGame()]),
@@ -569,30 +569,30 @@ void test('service rebuild marks run failed when embedding vectors are invalid',
     markRunFailed: () => {
       markRunFailedCalls += 1;
       return Promise.resolve();
-    }
+    },
   };
   const embeddingRepository = {
     listGameEmbeddings: () => Promise.resolve([]),
-    upsertGameEmbeddings: () => Promise.resolve(undefined)
+    upsertGameEmbeddings: () => Promise.resolve(undefined),
   };
   const embeddingClient = {
-    generateEmbeddings: () => Promise.resolve([[0.1, 0.2]])
+    generateEmbeddings: () => Promise.resolve([[0.1, 0.2]]),
   };
 
   const service = new RecommendationService(repository as never, baseOptions(), {
     embeddingRepository: embeddingRepository as never,
     embeddingClient,
-    nowProvider: () => NOW
+    nowProvider: () => NOW,
   });
 
   const result = await service.rebuild({
     target: 'BACKLOG',
-    force: true
+    force: true,
   });
   assert.deepEqual(result, {
     target: 'BACKLOG',
     runId: 44,
-    status: 'FAILED'
+    status: 'FAILED',
   });
   assert.equal(markRunFailedCalls, 1);
 });
@@ -600,7 +600,7 @@ void test('service rebuild marks run failed when embedding vectors are invalid',
 void test('service constructor can build default dependencies', () => {
   const service = new RecommendationService({} as never, {
     ...baseOptions(),
-    discoveryEnabled: true
+    discoveryEnabled: true,
   });
   assert.ok(service);
 });
@@ -619,7 +619,7 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
     platformIgdbId: 6,
     listType: 'collection',
     rating: 4.5,
-    status: 'wantToPlay'
+    status: 'wantToPlay',
   };
   const discoveryPopular: NormalizedGameRecord = {
     ...catalogGame,
@@ -628,7 +628,7 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
     listType: 'discovery',
     discoverySource: 'popular',
     rating: null,
-    status: null
+    status: null,
   };
   const discoveryRecent: NormalizedGameRecord = {
     ...catalogGame,
@@ -637,14 +637,14 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
     listType: 'discovery',
     discoverySource: 'recent',
     rating: null,
-    status: null
+    status: null,
   };
   const games = [ratedLibraryGame, discoveryPopular, discoveryRecent];
 
   const repository = {
     withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
       acquired: true as const,
-      value: await callback({})
+      value: await callback({}),
     }),
     getLatestRun: () => Promise.resolve(null),
     listNormalizedGames: () => Promise.resolve(games),
@@ -676,7 +676,7 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
     upsertSetting: (params: { settingKey: string; settingValue: string }) => {
       settingsWrites.push({ key: params.settingKey, value: params.settingValue });
       return Promise.resolve();
-    }
+    },
   };
 
   const discoveryClient = {
@@ -690,7 +690,7 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
       );
       const shared = {
         source: params.source,
-        sourceScore: params.source === 'popular' ? 0.9 : 0.8
+        sourceScore: params.source === 'popular' ? 0.9 : 0.8,
       } as const;
       return Promise.resolve([
         // Strict-excluded by IGDB game id because collection already has game 10 on another platform.
@@ -699,28 +699,28 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
           igdbGameId: params.source === 'popular' ? '21' : '31',
           platformIgdbId: 6,
           payload: {},
-          ...shared
-        }
+          ...shared,
+        },
       ]);
-    }
+    },
   };
 
   const discoveryEnrichmentService = {
     enrichNow: (_params: { limit: number }) => {
       enrichCalls += 1;
       return Promise.resolve({ scanned: 0, updated: 0, skipped: 0 });
-    }
+    },
   };
 
   const embeddingRepository = {
     listGameEmbeddings: () => Promise.resolve([]),
-    upsertGameEmbeddings: () => Promise.resolve(undefined)
+    upsertGameEmbeddings: () => Promise.resolve(undefined),
   };
   const embeddingClient = {
     generateEmbeddings: () =>
       Promise.resolve(
         games.map((_game, index) => [1 + index * 0.01, 0.5 + index * 0.01, 0.25 + index * 0.01])
-      )
+      ),
   };
 
   const service = new RecommendationService(
@@ -731,7 +731,7 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
       embeddingClient,
       discoveryClient: discoveryClient as never,
       discoveryEnrichmentService: discoveryEnrichmentService as never,
-      nowProvider: () => NOW
+      nowProvider: () => NOW,
     }
   );
 
@@ -739,7 +739,7 @@ void test('service discovery rebuild refreshes per-source pool, prunes, and enri
   assert.deepEqual(result, {
     target: 'DISCOVERY',
     runId: 55,
-    status: 'SUCCESS'
+    status: 'SUCCESS',
   });
   assert.equal(fetchedSources.length, 2);
   assert.ok(fetchedSources.some((value) => value.startsWith('popular:2000:6')));
@@ -770,7 +770,7 @@ void test('service discovery rebuild skips source refresh when markers are fresh
       platformIgdbId: 6,
       listType: 'collection',
       rating: 4.5,
-      status: null
+      status: null,
     },
     {
       ...sampleGame(),
@@ -779,14 +779,14 @@ void test('service discovery rebuild skips source refresh when markers are fresh
       listType: 'discovery',
       discoverySource: 'popular',
       rating: null,
-      status: null
-    }
+      status: null,
+    },
   ];
 
   const repository = {
     withTargetLock: async (_target: string, callback: (client: object) => Promise<unknown>) => ({
       acquired: true as const,
-      value: await callback({})
+      value: await callback({}),
     }),
     getLatestRun: () => Promise.resolve(null),
     listNormalizedGames: () => Promise.resolve(games),
@@ -804,21 +804,21 @@ void test('service discovery rebuild skips source refresh when markers are fresh
     },
     upsertDiscoveryGames: () => Promise.resolve(),
     pruneDiscoveryGamesBySource: () => Promise.resolve(),
-    upsertSetting: () => Promise.resolve()
+    upsertSetting: () => Promise.resolve(),
   };
   const discoveryClient = {
     fetchDiscoveryCandidatesBySource: () => {
       discoveryFetchCalls += 1;
       return Promise.resolve([]);
-    }
+    },
   };
   const embeddingRepository = {
     listGameEmbeddings: () => Promise.resolve([]),
-    upsertGameEmbeddings: () => Promise.resolve(undefined)
+    upsertGameEmbeddings: () => Promise.resolve(undefined),
   };
   const embeddingClient = {
     generateEmbeddings: () =>
-      Promise.resolve(games.map((_game, index) => [0.1 + index * 0.01, 0.2, 0.3]))
+      Promise.resolve(games.map((_game, index) => [0.1 + index * 0.01, 0.2, 0.3])),
   };
 
   const service = new RecommendationService(
@@ -828,7 +828,7 @@ void test('service discovery rebuild skips source refresh when markers are fresh
       embeddingRepository: embeddingRepository as never,
       embeddingClient,
       discoveryClient: discoveryClient as never,
-      nowProvider: () => NOW
+      nowProvider: () => NOW,
     }
   );
 

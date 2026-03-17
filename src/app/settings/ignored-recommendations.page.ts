@@ -9,12 +9,12 @@ import {
   IonLabel,
   IonList,
   IonTitle,
-  IonToolbar
+  IonToolbar,
 } from '@ionic/angular/standalone';
 import { AsyncPipe } from '@angular/common';
 import {
   RecommendationIgnoreService,
-  RecommendationIgnoredEntry
+  RecommendationIgnoredEntry,
 } from '../core/services/recommendation-ignore.service';
 
 @Component({
@@ -33,8 +33,8 @@ import {
     IonList,
     IonItem,
     IonLabel,
-    IonButton
-  ]
+    IonButton,
+  ],
 })
 export class IgnoredRecommendationsPage {
   private readonly recommendationIgnoreService = inject(RecommendationIgnoreService);

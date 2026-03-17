@@ -30,7 +30,7 @@ describe('DetailMediaSlideComponent', () => {
     const image = document.createElement('img');
     Object.defineProperty(image, 'currentSrc', {
       value: 'https://example.com/cover.jpg',
-      configurable: true
+      configurable: true,
     });
 
     component.onImageError({ target: image } as unknown as Event);
@@ -48,7 +48,7 @@ describe('DetailMediaSlideComponent', () => {
     const placeholder = document.createElement('img');
     Object.defineProperty(placeholder, 'currentSrc', {
       value: 'https://site/assets/icon/placeholder.png',
-      configurable: true
+      configurable: true,
     });
     component.onImageError({ target: placeholder } as unknown as Event);
     expect(placeholder.dataset.detailRetryAttempted).toBeUndefined();
@@ -61,7 +61,7 @@ describe('DetailMediaSlideComponent', () => {
     const dataImage = document.createElement('img');
     Object.defineProperty(dataImage, 'currentSrc', {
       value: 'data:image/png;base64,AAA',
-      configurable: true
+      configurable: true,
     });
     component.onImageError({ target: dataImage } as unknown as Event);
     expect(dataImage.src).toContain('assets/icon/placeholder.png');

@@ -102,7 +102,7 @@ const PSPRICES_PLATFORM_BY_IGDB_ID = new Map<number, string>([
   [48, 'PS4'],
   [167, 'PS5'],
   [130, 'Switch'],
-  [508, 'Switch2']
+  [508, 'Switch2'],
 ]);
 const PSPRICES_TITLE_MATCH_MIN_SCORE = 70;
 const PSPRICES_TITLE_MATCH_MIN_GAP = 8;
@@ -116,7 +116,7 @@ const PSPRICES_REGION_CURRENCY_BY_CODE = new Map<string, string>([
   ['us', 'USD'],
   ['gb', 'GBP'],
   ['jp', 'JPY'],
-  ['kr', 'KRW']
+  ['kr', 'KRW'],
 ]);
 const PSPRICES_SUFFIX_STANDARD_PATTERNS = [/\bstandard(?: edition)?\b/];
 const PSPRICES_SUFFIX_COMPLETE_PATTERNS = [/\bcomplete(?: edition)?\b/];
@@ -125,12 +125,12 @@ const PSPRICES_SUFFIX_ULTIMATE_PATTERNS = [
   /\bgold(?: edition)?\b/,
   /\bgoty\b/,
   /\bgame of the year(?: edition)?\b/,
-  /\blegendary(?: edition)?\b/
+  /\blegendary(?: edition)?\b/,
 ];
 const PSPRICES_SUFFIX_DELUXE_PATTERNS = [
   /\bdigital deluxe\b/,
   /\bsuper deluxe\b/,
-  /\bdeluxe(?: edition)?\b/
+  /\bdeluxe(?: edition)?\b/,
 ];
 const PSPRICES_SUFFIX_BUNDLE_PATTERNS = [/\bcollection\b/, /\bbundle\b/];
 const PSPRICES_SUFFIX_EXPANSION_PATTERNS = [
@@ -148,29 +148,29 @@ const PSPRICES_SUFFIX_EXPANSION_PATTERNS = [
   /\bstory pack\b/,
   /\bpack\b/,
   /\bepisode\b/,
-  /\bchapter\b/
+  /\bchapter\b/,
 ];
 const PSPRICES_PLATFORM_TRAILING_QUALIFIER_FRAGMENT =
   '(?:standard|complete|ultimate|gold|goty|game|of|the|year|legendary|digital|super|deluxe|collection|bundle|erweiterungspaket|expansion|dlc|add|on|addon|upgrade|next|gen|season|pass|story|pack|episode|chapter|edition|remastered|remake)';
 const PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS = [
-  buildPlatformSuffixBeforeQualifierPattern('ps5|ps4|playstation 5|playstation 4')
+  buildPlatformSuffixBeforeQualifierPattern('ps5|ps4|playstation 5|playstation 4'),
 ];
 const PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS = [
-  buildPlatformSuffixBeforeQualifierPattern('nintendo switch 2|switch 2|nintendo switch|switch')
+  buildPlatformSuffixBeforeQualifierPattern('nintendo switch 2|switch 2|nintendo switch|switch'),
 ];
 const PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS = [
   buildPlatformSuffixBeforeQualifierPattern(
     'xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox'
-  )
+  ),
 ];
 const PSPRICES_PLAYSTATION_SUFFIX_PATTERNS = [
-  /\b(?:ps5|ps4|playstation 5|playstation 4)(?: edition)?$/
+  /\b(?:ps5|ps4|playstation 5|playstation 4)(?: edition)?$/,
 ];
 const PSPRICES_SWITCH_SUFFIX_PATTERNS = [
-  /\b(?:nintendo switch 2|switch 2|nintendo switch|switch)(?: edition)?$/
+  /\b(?:nintendo switch 2|switch 2|nintendo switch|switch)(?: edition)?$/,
 ];
 const PSPRICES_XBOX_SUFFIX_PATTERNS = [
-  /\b(?:xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox)(?: edition)?$/
+  /\b(?:xbox one|xbox series x s|xbox series x|xbox series s|xbox series|series x s|series x|series s|xbox)(?: edition)?$/,
 ];
 const ROMAN_NUMERAL_VALUES: Record<string, number> = {
   I: 1,
@@ -179,7 +179,7 @@ const ROMAN_NUMERAL_VALUES: Record<string, number> = {
   L: 50,
   C: 100,
   D: 500,
-  M: 1000
+  M: 1000,
 };
 const ROMAN_NUMERAL_SYMBOLS: ReadonlyArray<readonly [number, string]> = [
   [1000, 'M'],
@@ -194,7 +194,7 @@ const ROMAN_NUMERAL_SYMBOLS: ReadonlyArray<readonly [number, string]> = [
   [9, 'IX'],
   [5, 'V'],
   [4, 'IV'],
-  [1, 'I']
+  [1, 'I'],
 ];
 
 export async function registerPsPricesRoute(
@@ -237,8 +237,8 @@ export async function registerPsPricesRoute(
     config: {
       rateLimit: {
         max: 60,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const query = request.query as Record<string, unknown>;
@@ -271,7 +271,7 @@ export async function registerPsPricesRoute(
           cached: false,
           bestPrice: null,
           match: null,
-          ...(includeCandidates ? { candidates: [] } : {})
+          ...(includeCandidates ? { candidates: [] } : {}),
         };
         reply.code(200).send(unsupportedPayload);
         return;
@@ -291,7 +291,7 @@ export async function registerPsPricesRoute(
           igdbGameId,
           platformIgdbId,
           platform: pspricesPlatform,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
         reply.code(502).send({ error: 'Unable to read game pricing state.' });
         return;
@@ -320,7 +320,7 @@ export async function registerPsPricesRoute(
           cached: false,
           bestPrice: null,
           match: null,
-          ...(includeCandidates ? { candidates: [] } : {})
+          ...(includeCandidates ? { candidates: [] } : {}),
         };
         reply.code(200).send(unavailablePayload);
         return;
@@ -353,7 +353,7 @@ export async function registerPsPricesRoute(
             cached: true,
             bestPrice: cachedSnapshot.snapshot,
             match: cachedSnapshot.match,
-            ...(includeCandidates ? { candidates: cachedSnapshot.candidates } : {})
+            ...(includeCandidates ? { candidates: cachedSnapshot.candidates } : {}),
           };
           reply.code(200).send(cachedPayload);
           return;
@@ -372,7 +372,7 @@ export async function registerPsPricesRoute(
                 platformIgdbId,
                 regionPath: config.pspricesRegionPath,
                 show: config.pspricesShow,
-                platform: pspricesPlatform
+                platform: pspricesPlatform,
               }),
               request,
               pool,
@@ -383,7 +383,7 @@ export async function registerPsPricesRoute(
               preferredPsPricesUrl,
               fetchImpl,
               scheduleBackgroundRefresh,
-              enqueueRevalidationJob: options.enqueueRevalidationJob
+              enqueueRevalidationJob: options.enqueueRevalidationJob,
             });
           }
 
@@ -403,7 +403,7 @@ export async function registerPsPricesRoute(
             cached: true,
             bestPrice: cachedSnapshot.snapshot,
             match: cachedSnapshot.match,
-            ...(includeCandidates ? { candidates: cachedSnapshot.candidates } : {})
+            ...(includeCandidates ? { candidates: cachedSnapshot.candidates } : {}),
           };
           reply.code(200).send(stalePayload);
           return;
@@ -417,7 +417,7 @@ export async function registerPsPricesRoute(
           platform: pspricesPlatform,
           regionPath: config.pspricesRegionPath,
           show: config.pspricesShow,
-          preferredUrl: preferredPsPricesUrl
+          preferredUrl: preferredPsPricesUrl,
         });
         const pspricesSnapshot = pspricesLookup.snapshot;
 
@@ -432,7 +432,7 @@ export async function registerPsPricesRoute(
             bestPrice: pspricesSnapshot,
             match: pspricesLookup.match,
             candidates: pspricesLookup.candidates,
-            matchLocked: hasLookupOverride ? true : undefined
+            matchLocked: hasLookupOverride ? true : undefined,
           });
           incrementPspricesPriceMetric('writes');
         } catch (error) {
@@ -442,7 +442,7 @@ export async function registerPsPricesRoute(
             igdbGameId,
             platformIgdbId,
             platform: pspricesPlatform,
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           });
         }
 
@@ -457,7 +457,7 @@ export async function registerPsPricesRoute(
           cached: false,
           bestPrice: pspricesSnapshot,
           match: pspricesLookup.match,
-          ...(includeCandidates ? { candidates: pspricesLookup.candidates } : {})
+          ...(includeCandidates ? { candidates: pspricesLookup.candidates } : {}),
         };
         reply.header('X-GameShelf-PSPrices-Cache', 'MISS');
         reply.code(200).send(responsePayload);
@@ -468,11 +468,11 @@ export async function registerPsPricesRoute(
           igdbGameId,
           platformIgdbId,
           platform: pspricesPlatform,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
         reply.code(502).send({ error: 'Unable to fetch PSPrices data.' });
       }
-    }
+    },
   });
 }
 
@@ -575,7 +575,7 @@ function buildPspricesPriceCacheKey(params: {
     String(params.platformIgdbId),
     params.regionPath.toLowerCase(),
     params.show.toLowerCase(),
-    params.platform.toLowerCase()
+    params.platform.toLowerCase(),
   ].join(':');
 }
 
@@ -630,7 +630,7 @@ function readPsPricesSnapshotFromPayload(
       regularAmount: normalizeNumberOrNull(payload['psPricesRegularPriceAmount']),
       discountPercent: normalizeNumberOrNull(payload['psPricesDiscountPercent']),
       isFree: normalizeBooleanOrNull(payload['psPricesIsFree']),
-      url: normalizeNonEmptyString(payload['psPricesUrl'])
+      url: normalizeNonEmptyString(payload['psPricesUrl']),
     },
     match:
       matchQueryTitle && matchConfidence
@@ -638,10 +638,10 @@ function readPsPricesSnapshotFromPayload(
             queryTitle: matchQueryTitle,
             matchedTitle: matchTitle,
             score: matchScore,
-            confidence: matchConfidence
+            confidence: matchConfidence,
           }
         : null,
-    candidates
+    candidates,
   };
 }
 
@@ -667,7 +667,7 @@ function schedulePspricesPriceRevalidation(params: {
     igdbGameId: params.igdbGameId,
     platformIgdbId: params.platformIgdbId,
     title: params.title,
-    psPricesUrl: params.preferredPsPricesUrl
+    psPricesUrl: params.preferredPsPricesUrl,
   };
 
   if (params.enqueueRevalidationJob) {
@@ -701,7 +701,7 @@ function schedulePspricesPriceRevalidation(params: {
         platform: pspricesPlatform,
         regionPath: config.pspricesRegionPath,
         show: config.pspricesShow,
-        preferredUrl: params.preferredPsPricesUrl
+        preferredUrl: params.preferredPsPricesUrl,
       });
 
       await persistPsPricesSnapshot(params.pool, {
@@ -713,7 +713,7 @@ function schedulePspricesPriceRevalidation(params: {
         platform: pspricesPlatform,
         bestPrice: pspricesLookup.snapshot,
         match: pspricesLookup.match,
-        candidates: pspricesLookup.candidates
+        candidates: pspricesLookup.candidates,
       });
       incrementPspricesPriceMetric('writes');
       incrementPspricesPriceMetric('revalidateSucceeded');
@@ -723,7 +723,7 @@ function schedulePspricesPriceRevalidation(params: {
         msg: 'psprices_revalidate_failed',
         igdbGameId: params.igdbGameId,
         platformIgdbId: params.platformIgdbId,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     } finally {
       revalidationInFlightByKey.delete(params.cacheKey);
@@ -756,7 +756,7 @@ async function fetchPsPricesSnapshot(
   endpoint.searchParams.set('includeCandidates', '1');
 
   const headers: Record<string, string> = {
-    Accept: 'application/json'
+    Accept: 'application/json',
   };
 
   if (config.pspricesScraperToken.length > 0) {
@@ -776,9 +776,9 @@ async function fetchPsPricesSnapshot(
         queryTitle: params.title,
         matchedTitle: null,
         score: null,
-        confidence: 'none'
+        confidence: 'none',
       },
-      candidates: []
+      candidates: [],
     };
   }
 
@@ -802,9 +802,9 @@ async function fetchPsPricesSnapshot(
         queryTitle: params.title,
         matchedTitle: null,
         score: null,
-        confidence: 'none'
+        confidence: 'none',
       },
-      candidates: []
+      candidates: [],
     };
   }
 
@@ -820,7 +820,7 @@ async function fetchPsPricesSnapshot(
         applyPsPricesSuffixShaping({
           coreScore,
           suffixClass,
-          strongCoreThreshold: PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD
+          strongCoreThreshold: PSPRICES_SUFFIX_RANK_STRONG_CORE_THRESHOLD,
         })
       );
       return {
@@ -830,7 +830,7 @@ async function fetchPsPricesSnapshot(
         suffixClass,
         suffixRank: resolvePsPricesSuffixRank(suffixClass),
         hasPlatformSuffix: candidateCore.hasPlatformSuffix,
-        hasContextPlatformSuffix: candidateCore.hasContextPlatformSuffix
+        hasContextPlatformSuffix: candidateCore.hasContextPlatformSuffix,
       } satisfies RankedPsPricesCandidate;
     })
     .sort((left, right) => compareRankedPsPricesCandidates(left, right));
@@ -849,12 +849,12 @@ async function fetchPsPricesSnapshot(
         queryTitle: params.title,
         matchedTitle: preferredMatch.candidate.title,
         score: round2(preferredMatch.score),
-        confidence: 'high'
+        confidence: 'high',
       },
       candidates: ranked.slice(0, 30).map((entry) => ({
         ...entry.candidate,
-        score: round2(entry.score)
-      }))
+        score: round2(entry.score),
+      })),
     };
   }
   const best = ranked[0];
@@ -874,12 +874,12 @@ async function fetchPsPricesSnapshot(
       queryTitle: params.title,
       matchedTitle: best.candidate.title,
       score: round2(best.score),
-      confidence: hasHighConfidenceMatch ? 'high' : 'low'
+      confidence: hasHighConfidenceMatch ? 'high' : 'low',
     },
     candidates: ranked.slice(0, 30).map((entry) => ({
       ...entry.candidate,
-      score: round2(entry.score)
-    }))
+      score: round2(entry.score),
+    })),
   };
 }
 
@@ -936,7 +936,7 @@ function normalizePsPricesCandidate(
     isFree,
     url,
     ...(imageUrl ? { imageUrl } : {}),
-    metadataQualityScore: resolveCandidateMetadataQualityScore(candidate)
+    metadataQualityScore: resolveCandidateMetadataQualityScore(candidate),
   };
 }
 
@@ -1087,7 +1087,7 @@ function normalizePsPricesCachedCandidate(
 
   return {
     ...normalized,
-    score
+    score,
   };
 }
 
@@ -1280,7 +1280,7 @@ function applyPsPricesSuffixShaping(args: {
     deluxe: 7,
     bundle: 10,
     expansion: 18,
-    other: 12
+    other: 12,
   };
   return Math.max(0, args.coreScore - penaltyByClass[args.suffixClass]);
 }
@@ -1294,7 +1294,7 @@ function resolvePsPricesSuffixRank(suffixClass: PsPricesSuffixClass): number {
     deluxe: 3,
     bundle: 4,
     expansion: 5,
-    other: 6
+    other: 6,
   };
   return rankByClass[suffixClass];
 }
@@ -1485,7 +1485,7 @@ function buildCoreTitleForScoring(
       coreTitle: platformStripped.coreTitle,
       suffixInspectionTitle: platformStripped.coreTitle,
       hasPlatformSuffix: platformStripped.hasPlatformSuffix,
-      hasContextPlatformSuffix: platformStripped.hasContextPlatformSuffix
+      hasContextPlatformSuffix: platformStripped.hasContextPlatformSuffix,
     };
   }
 
@@ -1493,7 +1493,7 @@ function buildCoreTitleForScoring(
     coreTitle: filteredTokens.join(' '),
     suffixInspectionTitle: platformStripped.coreTitle,
     hasPlatformSuffix: platformStripped.hasPlatformSuffix,
-    hasContextPlatformSuffix: platformStripped.hasContextPlatformSuffix
+    hasContextPlatformSuffix: platformStripped.hasContextPlatformSuffix,
   };
 }
 
@@ -1505,7 +1505,7 @@ function stripPlatformSuffixFromNormalizedTitle(
     return {
       coreTitle: normalizedTitle,
       hasPlatformSuffix: false,
-      hasContextPlatformSuffix: false
+      hasContextPlatformSuffix: false,
     };
   }
 
@@ -1531,7 +1531,7 @@ function stripPlatformSuffixFromNormalizedTitle(
   return {
     coreTitle: candidate,
     hasPlatformSuffix: removedAny,
-    hasContextPlatformSuffix: removedContext
+    hasContextPlatformSuffix: removedContext,
   };
 }
 
@@ -1548,7 +1548,7 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
     ...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
     ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
     ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
-    ...PSPRICES_XBOX_SUFFIX_PATTERNS
+    ...PSPRICES_XBOX_SUFFIX_PATTERNS,
   ];
 
   if (platformContext === 'playstation') {
@@ -1558,7 +1558,7 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
       ...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
       ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
       ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
-      ...PSPRICES_XBOX_SUFFIX_PATTERNS
+      ...PSPRICES_XBOX_SUFFIX_PATTERNS,
     ];
   }
   if (platformContext === 'switch') {
@@ -1568,7 +1568,7 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
       ...PSPRICES_XBOX_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
       ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
       ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
-      ...PSPRICES_XBOX_SUFFIX_PATTERNS
+      ...PSPRICES_XBOX_SUFFIX_PATTERNS,
     ];
   }
   if (platformContext === 'xbox') {
@@ -1578,7 +1578,7 @@ function resolvePlatformSuffixPatterns(platformContext: PlatformMarkerContext): 
       ...PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
       ...PSPRICES_XBOX_SUFFIX_PATTERNS,
       ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
-      ...PSPRICES_SWITCH_SUFFIX_PATTERNS
+      ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
     ];
   }
   return allPatterns;
@@ -1588,13 +1588,13 @@ function resolveContextPlatformSuffixPatterns(platformContext: PlatformMarkerCon
   if (platformContext === 'playstation') {
     return [
       ...PSPRICES_PLAYSTATION_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
-      ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS
+      ...PSPRICES_PLAYSTATION_SUFFIX_PATTERNS,
     ];
   }
   if (platformContext === 'switch') {
     return [
       ...PSPRICES_SWITCH_SUFFIX_BEFORE_QUALIFIER_PATTERNS,
-      ...PSPRICES_SWITCH_SUFFIX_PATTERNS
+      ...PSPRICES_SWITCH_SUFFIX_PATTERNS,
     ];
   }
   if (platformContext === 'xbox') {
@@ -1618,7 +1618,7 @@ async function fetchWithTimeout(
     return await fetchImpl(url, {
       method: 'GET',
       headers,
-      signal: controller.signal
+      signal: controller.signal,
     });
   } finally {
     clearTimeout(timeoutId);
@@ -1662,8 +1662,8 @@ async function persistPsPricesSnapshot(
       isFree: candidate.isFree,
       url: candidate.url,
       metadataQualityScore: candidate.metadataQualityScore ?? 0,
-      score: candidate.score
-    }))
+      score: candidate.score,
+    })),
   };
   if (typeof params.matchLocked === 'boolean') {
     patchPayload['psPricesMatchLocked'] = params.matchLocked;
@@ -1727,13 +1727,13 @@ async function persistPsPricesSnapshot(
         igdbGameId: params.igdbGameId,
         platformIgdbId: params.platformIgdbId,
         previousPayload,
-        nextPayload: updatedPayload
+        nextPayload: updatedPayload,
       });
     } catch (error) {
       console.error('[psprices] wishlist_sale_notification_failed', {
         igdbGameId: params.igdbGameId,
         platformIgdbId: params.platformIgdbId,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -1781,7 +1781,7 @@ export async function processQueuedPspricesPriceRevalidation(
     platform: pspricesPlatform,
     regionPath: config.pspricesRegionPath,
     show: config.pspricesShow,
-    preferredUrl: preferredPsPricesUrl
+    preferredUrl: preferredPsPricesUrl,
   });
 
   await persistPsPricesSnapshot(pool, {
@@ -1793,12 +1793,12 @@ export async function processQueuedPspricesPriceRevalidation(
     platform: pspricesPlatform,
     bestPrice: pspricesLookup.snapshot,
     match: pspricesLookup.match,
-    candidates: pspricesLookup.candidates
+    candidates: pspricesLookup.candidates,
   });
 }
 
 export const __pspricesTestables = {
   readPsPricesSnapshotFromPayload,
   buildPspricesPriceCacheKey,
-  schedulePspricesPriceRevalidation
+  schedulePspricesPriceRevalidation,
 };

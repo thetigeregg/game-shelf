@@ -12,7 +12,7 @@ const TOKEN_FAMILIES: TokenFamily[] = [
   'developers',
   'publishers',
   'franchises',
-  'collections'
+  'collections',
 ];
 
 export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null {
@@ -62,7 +62,7 @@ export function normalizeDbGameRow(row: DbGameRow): NormalizedGameRecord | null 
     developers: normalizeStringArray(payload['developers']),
     publishers: normalizeStringArray(payload['publishers']),
     franchises: normalizeStringArray(payload['franchises']),
-    collections: normalizeStringArray(payload['collections'])
+    collections: normalizeStringArray(payload['collections']),
   };
 }
 
@@ -86,7 +86,7 @@ export function buildTokenEntries(
       entries.push({
         family,
         key: `${family}:${key}`,
-        label
+        label,
       });
     }
   }
@@ -105,7 +105,7 @@ export function buildTokenEntries(
     entries.push({
       family: 'keywords',
       key: `keywords:${key}`,
-      label
+      label,
     });
   }
 
@@ -245,7 +245,7 @@ function normalizeRuntimeHours(payload: Record<string, unknown>): number | null 
   const candidates = [
     normalizeFiniteNumber(payload['hltbMainHours']),
     normalizeFiniteNumber(payload['hltbMainExtraHours']),
-    normalizeFiniteNumber(payload['hltbCompletionistHours'])
+    normalizeFiniteNumber(payload['hltbCompletionistHours']),
   ];
 
   for (const value of candidates) {
@@ -267,6 +267,6 @@ function normalizeStringArray(value: unknown): string[] {
       value
         .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
         .filter((entry) => entry.length > 0)
-    )
+    ),
   ];
 }

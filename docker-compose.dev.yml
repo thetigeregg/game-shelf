@@ -5,20 +5,20 @@ services:
       REQUIRE_AUTH: ${REQUIRE_AUTH:-false}
       MANUALS_PUBLIC_BASE_URL: ${MANUALS_PUBLIC_BASE_URL:-http://127.0.0.1:8080/manuals}
     ports:
-      - '127.0.0.1:${API_HOST_PORT:-3000}:3000'
+      - "127.0.0.1:${API_HOST_PORT:-3000}:3000"
 
   postgres:
     ports:
-      - '127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432'
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
 
   hltb-scraper:
     ports:
-      - '127.0.0.1:${HLTB_HOST_PORT:-8788}:8788'
+      - "127.0.0.1:${HLTB_HOST_PORT:-8788}:8788"
 
   metacritic-scraper:
     ports:
-      - '127.0.0.1:${METACRITIC_HOST_PORT:-8789}:8789'
+      - "127.0.0.1:${METACRITIC_HOST_PORT:-8789}:8789"
 
   psprices-scraper:
     ports:
-      - '127.0.0.1:${PSPRICES_HOST_PORT:-8790}:8790'
+      - "127.0.0.1:${PSPRICES_HOST_PORT:-8790}:8790"

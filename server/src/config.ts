@@ -5,7 +5,7 @@ import { config as loadDotenv } from 'dotenv';
 import { parseRecommendationRuntimeMode } from './recommendations/runtime.js';
 import {
   DISCOVERY_ENRICHMENT_REARM_AFTER_DAYS_DEFAULT,
-  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT
+  DISCOVERY_ENRICHMENT_REARM_RECENT_RELEASE_YEARS_DEFAULT,
 } from './recommendations/discovery-enrichment-defaults.js';
 
 const envFile = readEnvFilePath();
@@ -241,7 +241,7 @@ function readTokenList(name: string, fallbackSecretName: string): string[] {
         .split(/[\r\n,]+/)
         .map((value) => value.trim())
         .filter(Boolean)
-    )
+    ),
   ];
 }
 
@@ -304,7 +304,7 @@ export const config: AppConfig = {
     'http://localhost:8080',
     'http://127.0.0.1:8080',
     'http://localhost:8100',
-    'http://127.0.0.1:8100'
+    'http://127.0.0.1:8100',
   ]),
   postgresUrl: readRequiredSecretFile('DATABASE_URL', 'database_url'),
   apiToken: readSecretFile('API_TOKEN', 'api_token'),
@@ -587,5 +587,5 @@ export const config: AppConfig = {
   igdbMetadataEnrichRequestTimeoutMs: readIntegerEnv(
     'IGDB_METADATA_ENRICH_REQUEST_TIMEOUT_MS',
     15_000
-  )
+  ),
 };

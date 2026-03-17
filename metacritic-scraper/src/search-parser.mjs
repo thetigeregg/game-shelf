@@ -21,7 +21,9 @@ export function extractMetacriticSearchResults(config = {}) {
     '[data-testid="product-title"], h3, h4, .c-finderProductCard_title, a.c-finderProductCard_container';
   const canonicalMetacriticOriginInPage = 'https://www.metacritic.com';
   const platformTailPatternInPage =
-    /(\s*(game\s*)?(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x(?:\s*[|/]\s*s)?|xbox series s|\bpc\b|windows)[\s\S]*)$/i;
+    /(nintendo switch|playstation\s*5|playstation\s*4|ps5|ps4|xbox one|xbox series x(?:\s*[|/]\s*s)?|xbox series s|\bpc\b|windows)(?:\s*(?:[1-9]\d?|100|tbd))?\s*$/i;
+  const scoreTailPatternInPage = /\s*(?:[1-9]\d?|100|tbd)\s*$/i;
+  const metadataGameTailPatternInPage = /game\s*$/i;
 
   const isAllowedMetacriticHostnameInPage = (rawHostname) => {
     const hostname = String(rawHostname ?? '')
@@ -108,7 +110,25 @@ export function extractMetacriticSearchResults(config = {}) {
       /\s*(game\s*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},\s+\d{4}[\s\S]*$/i,
       ''
     );
-    const withoutPlatformTail = withoutDateTail.replace(platformTailPatternInPage, '');
+    const platformTailMatch = withoutDateTail.match(platformTailPatternInPage);
+    let withoutPlatformTail = withoutDateTail;
+
+    if (
+      platformTailMatch &&
+      typeof platformTailMatch.index === 'number' &&
+      platformTailMatch.index > 0
+    ) {
+      const prefix = withoutDateTail.slice(0, platformTailMatch.index);
+      const trimmedPrefix = prefix.trimEnd();
+      const hasTrailingScore = scoreTailPatternInPage.test(platformTailMatch[0]);
+      const hasGameMetadataMarker = metadataGameTailPatternInPage.test(trimmedPrefix);
+
+      if (hasTrailingScore || hasGameMetadataMarker) {
+        withoutPlatformTail = hasGameMetadataMarker
+          ? trimmedPrefix.replace(metadataGameTailPatternInPage, '')
+          : trimmedPrefix;
+      }
+    }
 
     return withoutPlatformTail.replace(/\s+/g, ' ').trim();
   };

@@ -987,6 +987,10 @@ export class SettingsPage {
     void this.router.navigateByUrl('/metadata-validator');
   }
 
+  openAdminDiscoveryMatches(): void {
+    void this.router.navigateByUrl('/admin/discovery-matches');
+  }
+
   openIgnoredRecommendations(): void {
     void this.router.navigateByUrl('/settings/ignored-recommendations');
   }

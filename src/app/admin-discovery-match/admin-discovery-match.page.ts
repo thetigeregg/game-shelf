@@ -100,6 +100,7 @@ export class AdminDiscoveryMatchPage {
   isLoading = false;
   errorMessage: string | null = null;
   listQueueStatusMessage: string | null = null;
+  listQueueStatusDetail: string | null = null;
   listQueueStatusTone: QueueStatusTone = 'success';
   isManageModalOpen = false;
   isDetailLoading = false;
@@ -108,6 +109,7 @@ export class AdminDiscoveryMatchPage {
   isRequeueing = false;
   activeDetail: AdminDiscoveryDetailResponse | null = null;
   activeQueueStatusMessage: string | null = null;
+  activeQueueStatusDetail: string | null = null;
   activeQueueStatusTone: QueueStatusTone = 'success';
   activeModalProvider: AdminDiscoveryMatchProvider = 'hltb';
   hltbSearchQuery = '';
@@ -282,6 +284,7 @@ export class AdminDiscoveryMatchPage {
         response.deduped
           ? 'Targeted discovery enrichment is already queued.'
           : 'Targeted discovery enrichment queued for the current results.',
+        this.describeTargetedRows(this.items),
         response.deduped ? 'warning' : 'success'
       );
       await this.presentToast(
@@ -293,6 +296,7 @@ export class AdminDiscoveryMatchPage {
     } catch (error) {
       this.setListQueueStatus(
         this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
+        this.describeTargetedRows(this.items),
         'danger'
       );
       await this.presentToast(
@@ -409,6 +413,7 @@ export class AdminDiscoveryMatchPage {
         response.deduped
           ? 'Targeted discovery enrichment is already queued.'
           : 'Targeted discovery enrichment queued for this game.',
+        this.describeActiveTarget(),
         response.deduped ? 'warning' : 'success'
       );
       await this.presentToast(
@@ -420,6 +425,7 @@ export class AdminDiscoveryMatchPage {
     } catch (error) {
       this.setActiveQueueStatus(
         this.toErrorMessage(error, 'Unable to queue targeted discovery enrichment.'),
+        this.describeActiveTarget(),
         'danger'
       );
       await this.presentToast(
@@ -642,24 +648,74 @@ export class AdminDiscoveryMatchPage {
     return this.providerOptions.find((option) => option.value === provider)?.label ?? provider;
   }
 
-  private setListQueueStatus(message: string, tone: QueueStatusTone): void {
+  private setListQueueStatus(message: string, detail: string | null, tone: QueueStatusTone): void {
     this.listQueueStatusMessage = message;
+    this.listQueueStatusDetail = detail;
     this.listQueueStatusTone = tone;
   }
 
   private clearListQueueStatus(): void {
     this.listQueueStatusMessage = null;
+    this.listQueueStatusDetail = null;
     this.listQueueStatusTone = 'success';
   }
 
-  private setActiveQueueStatus(message: string, tone: QueueStatusTone): void {
+  private setActiveQueueStatus(
+    message: string,
+    detail: string | null,
+    tone: QueueStatusTone
+  ): void {
     this.activeQueueStatusMessage = message;
+    this.activeQueueStatusDetail = detail;
     this.activeQueueStatusTone = tone;
   }
 
   private clearActiveQueueStatus(): void {
     this.activeQueueStatusMessage = null;
+    this.activeQueueStatusDetail = null;
     this.activeQueueStatusTone = 'success';
+  }
+
+  private describeTargetedRows(items: AdminDiscoveryListItem[]): string | null {
+    if (items.length === 0) {
+      return null;
+    }
+
+    const labels = items
+      .slice(0, 3)
+      .map((item) => this.describeRow(item))
+      .filter((label) => label.length > 0);
+
+    if (labels.length === 0) {
+      return `${String(items.length)} row${items.length === 1 ? '' : 's'} targeted.`;
+    }
+
+    const suffix =
+      items.length > labels.length ? `, +${String(items.length - labels.length)} more` : '';
+    return `${String(items.length)} row${items.length === 1 ? '' : 's'} targeted: ${labels.join(', ')}${suffix}`;
+  }
+
+  private describeActiveTarget(): string | null {
+    if (!this.activeDetail) {
+      return null;
+    }
+
+    return `Targeted row: ${this.describeRow(this.activeDetail)}`;
+  }
+
+  private describeRow(
+    item: Pick<AdminDiscoveryListItem, 'title' | 'platform' | 'releaseYear'>
+  ): string {
+    const title = item.title?.trim() || 'Untitled discovery game';
+    const platform = item.platform?.trim();
+    const year = item.releaseYear;
+
+    const meta = [
+      platform && platform.length > 0 ? platform : null,
+      year ? String(year) : null,
+    ].filter((value): value is string => value !== null);
+
+    return meta.length > 0 ? `${title} (${meta.join(', ')})` : title;
   }
 
   private async runHltbCandidateSearch(): Promise<void> {

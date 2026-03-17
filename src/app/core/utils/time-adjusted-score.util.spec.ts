@@ -5,7 +5,7 @@ import {
   normalizeCriticScore,
   resolveEffectiveHltbHours,
   resolveNormalizedCriticScoreForGame,
-  resolveTimeAdjustedScoreForGame
+  resolveTimeAdjustedScoreForGame,
 } from './time-adjusted-score.util';
 
 function makeGame(partial: Partial<GameEntry>): GameEntry {
@@ -27,7 +27,7 @@ function makeGame(partial: Partial<GameEntry>): GameEntry {
     reviewScore: partial.reviewScore ?? null,
     reviewSource: partial.reviewSource ?? null,
     metacriticScore: partial.metacriticScore ?? null,
-    mobyScore: partial.mobyScore ?? null
+    mobyScore: partial.mobyScore ?? null,
   };
 }
 
@@ -54,7 +54,7 @@ describe('time-adjusted-score.util', () => {
         makeGame({
           hltbMainHours: null,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: 15
+          hltbCompletionistHours: 15,
         })
       )
     ).toBe(15);
@@ -63,7 +63,7 @@ describe('time-adjusted-score.util', () => {
         makeGame({
           hltbMainHours: null,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null
+          hltbCompletionistHours: null,
         })
       )
     ).toBeNull();
@@ -75,7 +75,7 @@ describe('time-adjusted-score.util', () => {
         makeGame({
           hltbMainHours: 0,
           hltbMainExtraHours: 0,
-          hltbCompletionistHours: 6
+          hltbCompletionistHours: 6,
         })
       )
     ).toBe(6);
@@ -85,7 +85,7 @@ describe('time-adjusted-score.util', () => {
         makeGame({
           hltbMainHours: 0,
           hltbMainExtraHours: 0,
-          hltbCompletionistHours: 0
+          hltbCompletionistHours: 0,
         })
       )
     ).toBeNull();
@@ -110,7 +110,7 @@ describe('time-adjusted-score.util', () => {
         makeGame({
           reviewScore: null,
           metacriticScore: null,
-          hltbMainHours: 8
+          hltbMainHours: 8,
         }),
         20
       )
@@ -122,7 +122,7 @@ describe('time-adjusted-score.util', () => {
           reviewSource: 'metacritic',
           hltbMainHours: null,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null
+          hltbCompletionistHours: null,
         }),
         20
       )

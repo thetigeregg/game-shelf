@@ -7,7 +7,7 @@ import { fetchMetadataPathFromWorker } from './metadata.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
-  RELEASE_NOTIFICATIONS_ENABLED_KEY
+  RELEASE_NOTIFICATIONS_ENABLED_KEY,
 } from './notification-constants.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
@@ -137,7 +137,7 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
     intervalMs,
     batchSize: config.releaseMonitorBatchSize,
     hltbPeriodicRefreshDays: config.hltbPeriodicRefreshDays,
-    metacriticPeriodicRefreshDays: config.metacriticPeriodicRefreshDays
+    metacriticPeriodicRefreshDays: config.metacriticPeriodicRefreshDays,
   });
 
   const runOnce = async (): Promise<void> => {
@@ -174,7 +174,7 @@ export function startReleaseMonitor(pool: Pool): MonitorStartResult {
       if (currentRun) {
         await currentRun;
       }
-    }
+    },
   };
 }
 
@@ -183,7 +183,7 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
   console.info('[release-monitor] run_started', {
     startedAtIso: stats.startedAtIso,
     batchSize: config.releaseMonitorBatchSize,
-    dueSelectionSource: DUE_SELECTION_SOURCE_ID
+    dueSelectionSource: DUE_SELECTION_SOURCE_ID,
   });
   await runFcmTokenCleanupIfDue(pool, stats, runtimeState);
 
@@ -233,7 +233,7 @@ async function processDueGames(pool: Pool, runtimeState: MonitorRuntimeState): P
         console.warn('[release-monitor] lock_or_process_failed', {
           igdbGameId: row.igdb_game_id,
           platformIgdbId: row.platform_igdb_id,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -258,14 +258,14 @@ async function enqueueReleaseMonitorGameJob(pool: Pool, row: DueGameRow): Promis
     last_seen_state: row.last_seen_state,
     last_hltb_refresh_at: row.last_hltb_refresh_at,
     last_metacritic_refresh_at: row.last_metacritic_refresh_at,
-    last_notified_release_day: row.last_notified_release_day
+    last_notified_release_day: row.last_notified_release_day,
   };
   const queued = await jobs.enqueue({
     jobType: 'release_monitor_game',
     dedupeKey,
     payload,
     priority: 80,
-    maxAttempts: 5
+    maxAttempts: 5,
   });
   return !queued.deduped;
   /* node:coverage enable */
@@ -297,7 +297,7 @@ function parseDueGameRowFromPayload(payload: Record<string, unknown>): DueGameRo
     last_seen_state: stringOrNull(payload['last_seen_state']),
     last_hltb_refresh_at: stringOrNull(payload['last_hltb_refresh_at']),
     last_metacritic_refresh_at: stringOrNull(payload['last_metacritic_refresh_at']),
-    last_notified_release_day: stringOrNull(payload['last_notified_release_day'])
+    last_notified_release_day: stringOrNull(payload['last_notified_release_day']),
   };
   /* node:coverage enable */
 }
@@ -324,7 +324,7 @@ async function processQueuedReleaseMonitorGame(
   if (!locked && config.releaseMonitorDebugLogs) {
     console.info('[release-monitor] queued_game_lock_skipped', {
       igdbGameId: row.igdb_game_id,
-      platformIgdbId: row.platform_igdb_id
+      platformIgdbId: row.platform_igdb_id,
     });
   }
   /* node:coverage enable */
@@ -348,7 +348,7 @@ async function getQueuedGameContext(pool: Pool): Promise<QueuedGameContextCacheE
     const entry: QueuedGameContextCacheEntry = {
       loadedAtMs: Date.now(),
       preferences,
-      activeTokenSet
+      activeTokenSet,
     };
     queuedGameContextCache.set(pool, entry);
     return entry;
@@ -386,7 +386,7 @@ async function processGameRow(
     precision: normalizeReleasePrecision(row.last_known_release_precision),
     releaseDate:
       stringOrNull(row.last_known_release_date) ?? stringOrNull(originalPayload['releaseDate']),
-    releaseYear: integerOrNull(row.last_known_release_year ?? originalPayload['releaseYear'])
+    releaseYear: integerOrNull(row.last_known_release_year ?? originalPayload['releaseYear']),
   });
 
   let lastHltbRefreshAt = row.last_hltb_refresh_at;
@@ -403,7 +403,7 @@ async function processGameRow(
         console.debug('[release-monitor] igdb_refresh_empty', {
           igdbGameId: row.igdb_game_id,
           platformIgdbId,
-          title
+          title,
         });
       }
     }
@@ -416,7 +416,7 @@ async function processGameRow(
       mergedPayload = {
         ...mergedPayload,
         releaseMarker: resolvedPlatformRelease.releaseMarker,
-        releasePrecision: resolvedPlatformRelease.releasePrecision
+        releasePrecision: resolvedPlatformRelease.releasePrecision,
       };
     }
 
@@ -424,7 +424,7 @@ async function processGameRow(
       marker: stringOrNull(mergedPayload['releaseMarker']),
       precision: normalizeReleasePrecision(stringOrNull(mergedPayload['releasePrecision'])),
       releaseDate: stringOrNull(mergedPayload['releaseDate']),
-      releaseYear: integerOrNull(mergedPayload['releaseYear'])
+      releaseYear: integerOrNull(mergedPayload['releaseYear']),
     });
     const releaseStateAfter = deriveReleaseState(releaseAfter, now);
     const releaseStateBefore =
@@ -465,7 +465,7 @@ async function processGameRow(
       const refreshedHltb = await fetchHltbPayload({
         title: hltbRefreshQuery.title,
         releaseYear: hltbRefreshQuery.releaseYear,
-        platform: hltbRefreshQuery.platform
+        platform: hltbRefreshQuery.platform,
       });
 
       if (refreshedHltb) {
@@ -474,7 +474,7 @@ async function processGameRow(
           ...mergedPayload,
           hltbMainHours: finiteNumberOrNull(refreshedHltb.hltbMainHours),
           hltbMainExtraHours: finiteNumberOrNull(refreshedHltb.hltbMainExtraHours),
-          hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.hltbCompletionistHours)
+          hltbCompletionistHours: finiteNumberOrNull(refreshedHltb.hltbCompletionistHours),
         };
       }
       // Advance cadence on attempt (not just success) to avoid repeatedly
@@ -514,7 +514,7 @@ async function processGameRow(
           title: stringOrFallback(mergedPayload['title'], title),
           releaseBefore,
           releaseAfter,
-          now
+          now,
         });
 
     const sentEventTypes = new Set<ReleaseEventType>();
@@ -559,8 +559,8 @@ async function processGameRow(
           igdbGameId: row.igdb_game_id,
           platformIgdbId: String(platformIgdbId),
           releaseDate: event.releaseMarker ?? '',
-          route: '/tabs/wishlist'
-        }
+          route: '/tabs/wishlist',
+        },
       });
       stats.sendBatchSuccess += sendResult.successCount;
       stats.sendBatchFailure += sendResult.failureCount;
@@ -611,7 +611,7 @@ async function processGameRow(
       nextCheckAt,
       sentEventTypes,
       releaseBefore,
-      releaseStateBefore
+      releaseStateBefore,
     });
   } catch (error) {
     stats.gameFailures += 1;
@@ -647,7 +647,7 @@ async function processGameRow(
           releaseBefore.year,
           normalizeReleaseState(row.last_seen_state) ?? 'unknown',
           nextCheckAt,
-          error instanceof Error ? error.message : String(error)
+          error instanceof Error ? error.message : String(error),
         ]
       );
     } catch (persistenceError) {
@@ -655,14 +655,14 @@ async function processGameRow(
         igdbGameId: row.igdb_game_id,
         platformIgdbId: row.platform_igdb_id,
         error:
-          persistenceError instanceof Error ? persistenceError.message : String(persistenceError)
+          persistenceError instanceof Error ? persistenceError.message : String(persistenceError),
       });
     }
     if (config.releaseMonitorDebugLogs) {
       console.warn('[release-monitor] game_failed', {
         igdbGameId: row.igdb_game_id,
         platformIgdbId: row.platform_igdb_id,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -732,7 +732,7 @@ function resolveReviewRefreshQuery(
     reviewMatchMobygamesGameId:
       typeof reviewMatchMobygamesGameId === 'number' && reviewMatchMobygamesGameId > 0
         ? reviewMatchMobygamesGameId
-        : null
+        : null,
   };
 }
 
@@ -786,7 +786,7 @@ async function fetchHltbPayload(params: {
   const response = await fetchMetadataPathFromWorker('/v1/hltb/search', {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
-    platform: params.platform ?? undefined
+    platform: params.platform ?? undefined,
   });
   if (!response.ok) {
     return null;
@@ -810,7 +810,7 @@ async function fetchMetacriticPayload(params: {
     q: params.title,
     releaseYear: params.releaseYear ?? undefined,
     platform: params.platform ?? undefined,
-    platformIgdbId: params.platformIgdbId
+    platformIgdbId: params.platformIgdbId,
   });
   if (!response.ok) {
     return null;
@@ -830,7 +830,7 @@ async function fetchReviewPayload(params: {
   if (params.reviewMatchMobygamesGameId !== null) {
     const mobygames = await fetchMobygamesPayload({
       title: params.title,
-      reviewMatchMobygamesGameId: params.reviewMatchMobygamesGameId
+      reviewMatchMobygamesGameId: params.reviewMatchMobygamesGameId,
     });
     if (!mobygames) {
       return null;
@@ -841,7 +841,7 @@ async function fetchReviewPayload(params: {
       mobygamesGameId: mobygames.mobygamesGameId,
       mobyScore: mobygames.mobyScore,
       reviewScore: mobygames.reviewScore,
-      reviewUrl: mobygames.reviewUrl
+      reviewUrl: mobygames.reviewUrl,
     };
   }
 
@@ -849,7 +849,7 @@ async function fetchReviewPayload(params: {
     title: params.title,
     releaseYear: params.releaseYear,
     platform: params.platform,
-    platformIgdbId: params.platformIgdbId
+    platformIgdbId: params.platformIgdbId,
   });
   if (!metacritic) {
     return null;
@@ -858,7 +858,7 @@ async function fetchReviewPayload(params: {
   return {
     source: 'metacritic',
     metacriticScore: finiteNumberOrNull(metacritic.metacriticScore),
-    metacriticUrl: stringOrNull(metacritic.metacriticUrl)
+    metacriticUrl: stringOrNull(metacritic.metacriticUrl),
   };
 }
 
@@ -880,7 +880,7 @@ async function fetchMobygamesPayload(params: {
     id: params.reviewMatchMobygamesGameId,
     limit: 5,
     format: 'normal',
-    include: 'game_id,moby_url,moby_score,critic_score'
+    include: 'game_id,moby_url,moby_score,critic_score',
   });
   if (!response.ok) {
     return null;
@@ -912,7 +912,7 @@ async function fetchMobygamesPayload(params: {
     mobygamesGameId: integerOrNull(matched.game_id),
     mobyScore,
     reviewScore,
-    reviewUrl: stringOrNull(matched.moby_url)
+    reviewUrl: stringOrNull(matched.moby_url),
   };
 }
 
@@ -943,7 +943,7 @@ function mergePayloadForRefresh(
       normalizeReleasePrecision(stringOrNull(refreshed['releasePrecision'])) ??
       normalizeReleasePrecision(stringOrNull(existing['releasePrecision'])),
     releaseYear: integerOrNull(refreshed['releaseYear']),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -967,7 +967,7 @@ export function resolvePlatformReleaseFromDates(
 
   return {
     releaseMarker: bestMatch.marker,
-    releasePrecision: bestMatch.precision
+    releasePrecision: bestMatch.precision,
   };
 }
 
@@ -982,7 +982,7 @@ function mergeMetacriticRefreshPayload(
   const nextPayload: Record<string, unknown> = {
     ...existing,
     metacriticScore: normalizedMetacriticScore,
-    metacriticUrl: stringOrNull(refreshed.metacriticUrl)
+    metacriticUrl: stringOrNull(refreshed.metacriticUrl),
   };
 
   const existingReviewSource = stringOrNull(existing['reviewSource']);
@@ -1010,7 +1010,7 @@ function mergeMobygamesRefreshPayload(
   const nextPayload: Record<string, unknown> = {
     ...existing,
     mobygamesGameId: refreshed.mobygamesGameId,
-    mobyScore: refreshed.mobyScore
+    mobyScore: refreshed.mobyScore,
   };
 
   const existingReviewSource = stringOrNull(existing['reviewSource']);
@@ -1035,13 +1035,13 @@ function mergeReviewRefreshPayload(
       mobygamesGameId: refreshed.mobygamesGameId,
       mobyScore: refreshed.mobyScore,
       reviewScore: refreshed.reviewScore,
-      reviewUrl: refreshed.reviewUrl
+      reviewUrl: refreshed.reviewUrl,
     });
   }
 
   return mergeMetacriticRefreshPayload(existing, {
     metacriticScore: refreshed.metacriticScore,
-    metacriticUrl: refreshed.metacriticUrl
+    metacriticUrl: refreshed.metacriticUrl,
   });
 }
 
@@ -1138,11 +1138,11 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
       changed: coercePreferenceBoolean(parsed['changed'], true),
       removed: coercePreferenceBoolean(parsed['removed'], true),
       day: coercePreferenceBoolean(parsed['day'], true),
-      sale: coercePreferenceBoolean(parsed[RELEASE_NOTIFICATION_EVENT_SALE_KEY], true)
+      sale: coercePreferenceBoolean(parsed[RELEASE_NOTIFICATION_EVENT_SALE_KEY], true),
     };
     return {
       enabled,
-      events
+      events,
     };
   } catch {
     return { enabled, events: eventDefaults };
@@ -1191,7 +1191,7 @@ function buildReleaseEvents(args: {
       title: `${args.title}: Release date set`,
       body: `${args.title} now has a release timing (${afterDisplay}).`,
       eventKey: `release_date_set:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.precision}:${afterMarker}`,
-      releaseMarker: afterMarker
+      releaseMarker: afterMarker,
     });
   }
 
@@ -1209,7 +1209,7 @@ function buildReleaseEvents(args: {
       title: `${args.title}: Release date changed`,
       body: `${args.title} moved from ${beforeDisplay} to ${afterDisplay}.`,
       eventKey: `release_date_changed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}:${after.precision}:${afterMarker}`,
-      releaseMarker: afterMarker
+      releaseMarker: afterMarker,
     });
   }
 
@@ -1220,7 +1220,7 @@ function buildReleaseEvents(args: {
       title: `${args.title}: Release date removed`,
       body: `${args.title} no longer has a confirmed release date.`,
       eventKey: `release_date_removed:${args.igdbGameId}:${String(args.platformIgdbId)}:${before.precision}:${beforeMarker}`,
-      releaseMarker: null
+      releaseMarker: null,
     });
   }
 
@@ -1236,7 +1236,7 @@ function buildReleaseEvents(args: {
       title: `${args.title} releases today`,
       body: `${args.title} has reached its scheduled release date.`,
       eventKey: `release_day:${args.igdbGameId}:${String(args.platformIgdbId)}:${after.marker}`,
-      releaseMarker: after.marker
+      releaseMarker: after.marker,
     });
   }
 
@@ -1264,8 +1264,8 @@ async function reserveNotificationLog(
       JSON.stringify({
         title: event.title,
         body: event.body,
-        releaseDate: event.releaseMarker
-      })
+        releaseDate: event.releaseMarker,
+      }),
     ]
   );
 
@@ -1288,10 +1288,10 @@ async function finalizeNotificationLog(
       JSON.stringify({
         title: event.title,
         body: event.body,
-        releaseDate: event.releaseMarker
+        releaseDate: event.releaseMarker,
       }),
       sentCount,
-      eventKey
+      eventKey,
     ]
   );
 }
@@ -1340,7 +1340,7 @@ async function withGameLock(
     try {
       await client.query('SELECT pg_advisory_unlock(hashtext($1), $2)', [
         igdbGameId,
-        platformIgdbId
+        platformIgdbId,
       ]);
     } catch (error) {
       shouldDestroyClient = true;
@@ -1441,7 +1441,7 @@ async function upsertWatchState(
       updateSetAt,
       updateChangeAt,
       updateUnsetAt,
-      updateReleaseDay
+      updateReleaseDay,
     ]
   );
 
@@ -1456,7 +1456,7 @@ async function upsertWatchState(
       releaseStateBefore: args.releaseStateBefore,
       releaseStateAfter: args.releaseState,
       nextCheckAt: args.nextCheckAt,
-      sentEvents: [...args.sentEventTypes]
+      sentEvents: [...args.sentEventTypes],
     });
   }
 }
@@ -1664,7 +1664,7 @@ function deriveReleaseInfo(input: {
     marker: null,
     date: null,
     year: null,
-    display: null
+    display: null,
   };
 }
 
@@ -1682,7 +1682,7 @@ function normalizeReleaseInfoFromPrecision(
         marker: null,
         date: null,
         year: null,
-        display: null
+        display: null,
       };
     }
 
@@ -1691,7 +1691,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: day,
       date: day,
       year: integerOrNull(day.slice(0, 4)),
-      display: day
+      display: day,
     };
   }
 
@@ -1703,7 +1703,7 @@ function normalizeReleaseInfoFromPrecision(
         marker: null,
         date: null,
         year: null,
-        display: null
+        display: null,
       };
     }
     const monthValue = Number.parseInt(monthMatch[2], 10);
@@ -1713,7 +1713,7 @@ function normalizeReleaseInfoFromPrecision(
         marker: null,
         date: null,
         year: null,
-        display: null
+        display: null,
       };
     }
 
@@ -1722,7 +1722,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: `${monthMatch[1]}-${monthMatch[2]}`,
       date: null,
       year: integerOrNull(monthMatch[1]),
-      display: `${monthMatch[1]}-${monthMatch[2]}`
+      display: `${monthMatch[1]}-${monthMatch[2]}`,
     };
   }
 
@@ -1734,7 +1734,7 @@ function normalizeReleaseInfoFromPrecision(
         marker: null,
         date: null,
         year: null,
-        display: null
+        display: null,
       };
     }
 
@@ -1745,7 +1745,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: `${year}-Q${quarter}`,
       date: null,
       year: integerOrNull(year),
-      display: `Q${quarter} ${year}`
+      display: `Q${quarter} ${year}`,
     };
   }
 
@@ -1757,7 +1757,7 @@ function normalizeReleaseInfoFromPrecision(
         marker: null,
         date: null,
         year: null,
-        display: null
+        display: null,
       };
     }
 
@@ -1766,7 +1766,7 @@ function normalizeReleaseInfoFromPrecision(
       marker: yearMatch[1],
       date: null,
       year: integerOrNull(yearMatch[1]),
-      display: yearMatch[1]
+      display: yearMatch[1],
     };
   }
 
@@ -1775,7 +1775,7 @@ function normalizeReleaseInfoFromPrecision(
     marker: null,
     date: null,
     year: null,
-    display: null
+    display: null,
   };
 }
 
@@ -1997,7 +1997,7 @@ function normalizePlatformReleaseDate(value: unknown): PlatformReleaseDate | nul
   return {
     platformIgdbId,
     precision,
-    marker
+    marker,
   };
 }
 
@@ -2067,7 +2067,7 @@ function createMonitorRunStats(): MonitorRunStats {
     invalidTokensDeactivated: 0,
     tokenCleanupRan: false,
     tokensDeactivatedByCleanup: 0,
-    tokensPrunedByCleanup: 0
+    tokensPrunedByCleanup: 0,
   };
 }
 
@@ -2133,7 +2133,7 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
   if (capped) {
     console.warn('[release-monitor] active_tokens_capped', {
       maxActiveTokensPerRun: MAX_ACTIVE_TOKENS_PER_RUN,
-      loadedActiveTokens: activeTokenSet.size
+      loadedActiveTokens: activeTokenSet.size,
     });
   }
 
@@ -2201,14 +2201,14 @@ async function runFcmTokenCleanupIfDue(
     stats.tokensPrunedByCleanup = pruneResult.rowCount ?? 0;
   } catch (error) {
     console.warn('[release-monitor] token_cleanup_failed', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }
 
 function createMonitorRuntimeState(): MonitorRuntimeState {
   return {
-    nextFcmTokenCleanupAtMs: 0
+    nextFcmTokenCleanupAtMs: 0,
   };
 }
 
@@ -2222,7 +2222,7 @@ function evaluateRunHealth(stats: MonitorRunStats): Array<{ code: string; detail
   ) {
     warnings.push({
       code: 'send_failure_ratio_high',
-      detail: `failure_ratio=${sendFailureRatio.toFixed(3)} threshold=${config.releaseMonitorWarnSendFailureRatio.toFixed(3)}`
+      detail: `failure_ratio=${sendFailureRatio.toFixed(3)} threshold=${config.releaseMonitorWarnSendFailureRatio.toFixed(3)}`,
     });
   }
 
@@ -2234,14 +2234,14 @@ function evaluateRunHealth(stats: MonitorRunStats): Array<{ code: string; detail
   ) {
     warnings.push({
       code: 'invalid_token_ratio_high',
-      detail: `invalid_ratio=${invalidRatio.toFixed(3)} threshold=${config.releaseMonitorWarnInvalidTokenRatio.toFixed(3)}`
+      detail: `invalid_ratio=${invalidRatio.toFixed(3)} threshold=${config.releaseMonitorWarnInvalidTokenRatio.toFixed(3)}`,
     });
   }
 
   if (stats.gameFailures > 0) {
     warnings.push({
       code: 'game_failures_present',
-      detail: `game_failures=${String(stats.gameFailures)}`
+      detail: `game_failures=${String(stats.gameFailures)}`,
     });
   }
 
@@ -2285,5 +2285,5 @@ export const releaseMonitorInternals = {
   createMonitorRuntimeState,
   evaluateRunHealth,
   loadActiveTokenSet,
-  clearQueuedGameContextCache
+  clearQueuedGameContextCache,
 };

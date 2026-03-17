@@ -3,7 +3,7 @@ import { GameEntry } from '../../core/models/game.models';
 import {
   extractRetryAfterSeconds,
   isRateLimitedMessage,
-  isTransientNetworkMessage
+  isTransientNetworkMessage,
 } from '../../core/utils/rate-limit-ui-error';
 
 export interface BulkActionResult<T> {
@@ -38,7 +38,7 @@ export async function runBulkActionWithRetry<T>(params: {
   const loading = await loadingController.create({
     message: `${options.loadingPrefix} 0/${String(games.length)}...`,
     spinner: 'crescent',
-    backdropDismiss: false
+    backdropDismiss: false,
   });
   await loading.present();
 

@@ -92,14 +92,14 @@ export class ImageCacheService {
     this.debugLogService.trace('image_cache.resolve_start', {
       gameKey,
       variant,
-      sourceUrl: normalizedSourceUrl
+      sourceUrl: normalizedSourceUrl,
     });
 
     if (!normalizedSourceUrl) {
       this.debugLogService.trace('image_cache.resolve_placeholder', {
         gameKey,
         variant,
-        reason: 'missing_source_url'
+        reason: 'missing_source_url',
       });
       return 'assets/icon/placeholder.png';
     }
@@ -111,7 +111,7 @@ export class ImageCacheService {
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
         variant,
-        reason: 'thumb_variant'
+        reason: 'thumb_variant',
       });
       return normalizedSourceUrl;
     }
@@ -123,7 +123,7 @@ export class ImageCacheService {
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
         variant,
-        reason: 'pwa_blob_bypass'
+        reason: 'pwa_blob_bypass',
       });
       return normalizedSourceUrl;
     }
@@ -142,7 +142,7 @@ export class ImageCacheService {
           gameKey,
           variant,
           blobType: existing.blob instanceof Blob ? existing.blob.type : null,
-          blobSize: existing.blob instanceof Blob ? existing.blob.size : null
+          blobSize: existing.blob instanceof Blob ? existing.blob.size : null,
         });
         if (existing.id !== undefined) {
           await this.db.imageCache.delete(existing.id);
@@ -152,7 +152,7 @@ export class ImageCacheService {
           cacheKey,
           gameKey,
           variant,
-          blobSize: existing.blob.size
+          blobSize: existing.blob.size,
         });
         await this.touchEntry(existing);
         return this.toObjectUrl(existing);
@@ -169,7 +169,7 @@ export class ImageCacheService {
           gameKey,
           variant,
           status: response.status,
-          statusText: response.statusText
+          statusText: response.statusText,
         });
         return normalizedSourceUrl;
       }
@@ -182,7 +182,7 @@ export class ImageCacheService {
           gameKey,
           variant,
           blobType: blob instanceof Blob ? blob.type : null,
-          blobSize: blob instanceof Blob ? blob.size : null
+          blobSize: blob instanceof Blob ? blob.size : null,
         });
         return normalizedSourceUrl;
       }
@@ -196,7 +196,7 @@ export class ImageCacheService {
         blob,
         sizeBytes: blob.size,
         updatedAt: now,
-        lastAccessedAt: now
+        lastAccessedAt: now,
       };
 
       const limitBytes = this.getLimitMb() * 1024 * 1024;
@@ -208,7 +208,7 @@ export class ImageCacheService {
           gameKey,
           variant,
           sizeBytes: entry.sizeBytes,
-          limitBytes
+          limitBytes,
         });
         await this.enforceLimitBytes(limitBytes);
         const stored = await this.db.imageCache.where('cacheKey').equals(cacheKey).first();
@@ -218,7 +218,7 @@ export class ImageCacheService {
             cacheKey,
             gameKey,
             variant,
-            blobSize: stored.blob.size
+            blobSize: stored.blob.size,
           });
           return this.toObjectUrl(stored);
         }
@@ -227,19 +227,19 @@ export class ImageCacheService {
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
         variant,
-        reason: 'store_skipped_or_missing'
+        reason: 'store_skipped_or_missing',
       });
       return normalizedSourceUrl;
     } catch {
       this.logImageDiagnostic('image_cache_fetch_failed', {
         cacheKey,
         gameKey,
-        variant
+        variant,
       });
       this.debugLogService.trace('image_cache.resolve_direct', {
         gameKey,
         variant,
-        reason: 'fetch_failed'
+        reason: 'fetch_failed',
       });
       return normalizedSourceUrl;
     }
@@ -251,7 +251,7 @@ export class ImageCacheService {
     }
 
     await this.db.imageCache.update(entry.id, {
-      lastAccessedAt: new Date().toISOString()
+      lastAccessedAt: new Date().toISOString(),
     });
   }
 

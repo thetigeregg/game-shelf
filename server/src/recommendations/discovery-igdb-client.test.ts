@@ -11,7 +11,7 @@ void test('discovery popular query uses game_type and excludes deprecated catego
     if (url.includes('id.twitch.tv/oauth2/token')) {
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
-          status: 200
+          status: 200,
         })
       );
     }
@@ -36,13 +36,13 @@ void test('discovery popular query uses game_type and excludes deprecated catego
     twitchClientSecret: 'secret',
     requestTimeoutMs: 5_000,
     maxRequestsPerSecond: 20,
-    fetchImpl: fetchMock
+    fetchImpl: fetchMock,
   });
 
   await client.fetchDiscoveryCandidatesBySource({
     source: 'popular',
     poolSize: 1,
-    preferredPlatformIds: []
+    preferredPlatformIds: [],
   });
 
   assert.equal(gameRequests.length, 1);
@@ -63,7 +63,7 @@ void test('discovery recent query applies quality and release window filters', a
     if (url.includes('id.twitch.tv/oauth2/token')) {
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
-          status: 200
+          status: 200,
         })
       );
     }
@@ -88,13 +88,13 @@ void test('discovery recent query applies quality and release window filters', a
     twitchClientSecret: 'secret',
     requestTimeoutMs: 5_000,
     maxRequestsPerSecond: 20,
-    fetchImpl: fetchMock
+    fetchImpl: fetchMock,
   });
 
   await client.fetchDiscoveryCandidatesBySource({
     source: 'recent',
     poolSize: 1,
-    preferredPlatformIds: []
+    preferredPlatformIds: [],
   });
 
   assert.equal(gameRequests.length, 1);
@@ -114,7 +114,7 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
     if (url.includes('id.twitch.tv/oauth2/token')) {
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
-          status: 200
+          status: 200,
         })
       );
     }
@@ -124,10 +124,10 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
         new Response(
           JSON.stringify([
             { id: 1, type: 'Main Game' },
-            { id: 2, type: 'DLC' }
+            { id: 2, type: 'DLC' },
           ]),
           {
-            status: 200
+            status: 200,
           }
         )
       );
@@ -149,7 +149,7 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
               platforms: [
                 { id: 6, name: 'PC' },
                 { id: 6, name: 'PC duplicate' },
-                { id: 48, name: 'PS4' }
+                { id: 48, name: 'PS4' },
               ],
               genres: [{ name: 'Action' }, { name: 'Action' }],
               themes: [{ name: 'Fantasy' }],
@@ -158,11 +158,11 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
               franchises: [{ name: 'Franchise' }],
               involved_companies: [
                 { developer: true, company: { name: 'Dev' } },
-                { publisher: true, company: { name: 'Pub' } }
+                { publisher: true, company: { name: 'Pub' } },
               ],
               total_rating: 88,
-              total_rating_count: sourceScore
-            }
+              total_rating_count: sourceScore,
+            },
           ]),
           { status: 200 }
         )
@@ -177,13 +177,13 @@ void test('discovery source fetch normalizes payload rows and prioritizes prefer
     twitchClientSecret: 'secret',
     requestTimeoutMs: 5_000,
     maxRequestsPerSecond: 20,
-    fetchImpl: fetchMock
+    fetchImpl: fetchMock,
   });
 
   const rows = await client.fetchDiscoveryCandidatesBySource({
     source: 'popular',
     poolSize: 5,
-    preferredPlatformIds: [48]
+    preferredPlatformIds: [48],
   });
 
   assert.equal(rows.length, 2);
@@ -205,7 +205,7 @@ void test('discovery merged fetch dedupes by game/platform and picks highest sou
     if (url.includes('id.twitch.tv/oauth2/token')) {
       return Promise.resolve(
         new Response(JSON.stringify({ access_token: 'token', expires_in: 3600 }), {
-          status: 200
+          status: 200,
         })
       );
     }
@@ -227,8 +227,8 @@ void test('discovery merged fetch dedupes by game/platform and picks highest sou
                 name: 'Game',
                 platforms: [{ id: 6, name: 'PC' }],
                 total_rating_count: 500,
-                total_rating: 80
-              }
+                total_rating: 80,
+              },
             ]),
             { status: 200 }
           )
@@ -242,8 +242,8 @@ void test('discovery merged fetch dedupes by game/platform and picks highest sou
               id: 9,
               name: 'Game',
               platforms: [{ id: 6, name: 'PC' }],
-              first_release_date: 1_700_000_000
-            }
+              first_release_date: 1_700_000_000,
+            },
           ]),
           { status: 200 }
         )
@@ -258,12 +258,12 @@ void test('discovery merged fetch dedupes by game/platform and picks highest sou
     twitchClientSecret: 'secret',
     requestTimeoutMs: 5_000,
     maxRequestsPerSecond: 20,
-    fetchImpl: fetchMock
+    fetchImpl: fetchMock,
   });
 
   const rows = await client.fetchDiscoveryCandidates({
     poolSize: 10,
-    preferredPlatformIds: []
+    preferredPlatformIds: [],
   });
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.source, 'recent');
@@ -284,14 +284,14 @@ void test('discovery client throws for token and game endpoint failures', async 
     twitchClientSecret: 'secret',
     requestTimeoutMs: 5_000,
     maxRequestsPerSecond: 20,
-    fetchImpl: failingTokenFetch
+    fetchImpl: failingTokenFetch,
   });
   await assert.rejects(
     () =>
       tokenClient.fetchDiscoveryCandidatesBySource({
         source: 'popular',
         poolSize: 1,
-        preferredPlatformIds: []
+        preferredPlatformIds: [],
       }),
     /Twitch token fetch failed/
   );
@@ -320,14 +320,14 @@ void test('discovery client throws for token and game endpoint failures', async 
     twitchClientSecret: 'secret',
     requestTimeoutMs: 5_000,
     maxRequestsPerSecond: 20,
-    fetchImpl: failingGamesFetch
+    fetchImpl: failingGamesFetch,
   });
   await assert.rejects(
     () =>
       gamesClient.fetchDiscoveryCandidatesBySource({
         source: 'recent',
         poolSize: 1,
-        preferredPlatformIds: []
+        preferredPlatformIds: [],
       }),
     /IGDB discovery fetch failed/
   );

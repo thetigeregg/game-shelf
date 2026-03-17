@@ -5,7 +5,7 @@ import {
   getFirebaseWebConfig,
   isE2eFixturesEnabled,
   isMgcImportFeatureEnabled,
-  isTasFeatureEnabled
+  isTasFeatureEnabled,
 } from './runtime-config';
 
 describe('runtime-config', () => {
@@ -35,7 +35,7 @@ describe('runtime-config', () => {
     it('parses truthy string values: "true", "1", "yes", "on"', () => {
       for (const val of ['true', '1', 'yes', 'on', ' TRUE ', ' Yes ']) {
         window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-          featureFlags: { showMgcImport: val as unknown as boolean }
+          featureFlags: { showMgcImport: val as unknown as boolean },
         };
         expect(isMgcImportFeatureEnabled()).toBe(true);
       }
@@ -44,7 +44,7 @@ describe('runtime-config', () => {
     it('parses falsy string values: "false", "0", "no", "off"', () => {
       for (const val of ['false', '0', 'no', 'off', ' FALSE ']) {
         window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-          featureFlags: { showMgcImport: val as unknown as boolean }
+          featureFlags: { showMgcImport: val as unknown as boolean },
         };
         expect(isMgcImportFeatureEnabled()).toBe(false);
       }
@@ -52,7 +52,7 @@ describe('runtime-config', () => {
 
     it('falls back to environment default for unrecognized string values', () => {
       window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-        featureFlags: { showMgcImport: 'maybe' as unknown as boolean }
+        featureFlags: { showMgcImport: 'maybe' as unknown as boolean },
       };
       expect(isMgcImportFeatureEnabled()).toBe(false);
     });
@@ -81,7 +81,7 @@ describe('runtime-config', () => {
     it('parses "1" and "true" string values as true', () => {
       for (const val of ['1', 'true']) {
         window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-          featureFlags: { e2eFixtures: val as unknown as boolean }
+          featureFlags: { e2eFixtures: val as unknown as boolean },
         };
         expect(isE2eFixturesEnabled()).toBe(true);
       }
@@ -89,7 +89,7 @@ describe('runtime-config', () => {
 
     it('falls back to environment default for non-boolean, non-string values', () => {
       window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-        featureFlags: { e2eFixtures: 42 as unknown as boolean }
+        featureFlags: { e2eFixtures: 42 as unknown as boolean },
       };
       expect(isE2eFixturesEnabled()).toBe(false);
     });
@@ -154,8 +154,8 @@ describe('runtime-config', () => {
           apiKey: 'runtime-api-key',
           projectId: 'runtime-project',
           messagingSenderId: 'runtime-sender',
-          appId: 'runtime-app'
-        }
+          appId: 'runtime-app',
+        },
       };
 
       const config = getFirebaseWebConfig();
@@ -173,7 +173,7 @@ describe('runtime-config', () => {
 
     it('returns runtime vapid key when present', () => {
       window.__GAME_SHELF_RUNTIME_CONFIG__ = {
-        firebaseVapidKey: 'runtime-vapid'
+        firebaseVapidKey: 'runtime-vapid',
       };
 
       expect(getFirebaseVapidKey()).toBe('runtime-vapid');

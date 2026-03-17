@@ -2,7 +2,7 @@ import { DEFAULT_GAME_LIST_FILTERS } from '../../core/models/game.models';
 import {
   applyMetadataSelectionToFilters,
   getMetadataSelectionTitle,
-  getMetadataSelectionValues
+  getMetadataSelectionValues,
 } from './metadata-filter.utils';
 
 describe('game list metadata filter selection', () => {
@@ -15,7 +15,7 @@ describe('game list metadata filter selection', () => {
           developers: ['Dev'],
           franchises: ['Franchise'],
           genres: ['RPG'],
-          publishers: ['Pub']
+          publishers: ['Pub'],
         },
         'genre'
       )
@@ -27,13 +27,13 @@ describe('game list metadata filter selection', () => {
       applyMetadataSelectionToFilters(
         {
           kind: 'genre',
-          value: '  Action  '
+          value: '  Action  ',
         },
         DEFAULT_GAME_LIST_FILTERS
       )
     ).toEqual({
       ...DEFAULT_GAME_LIST_FILTERS,
-      genres: ['Action']
+      genres: ['Action'],
     });
   });
 });

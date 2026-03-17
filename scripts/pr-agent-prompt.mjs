@@ -60,6 +60,10 @@ function debug(...args) {
   if (DEBUG) console.log('[debug]', ...args);
 }
 
+function isActionableThread(thread) {
+  return !thread.isResolved && !thread.isOutdated;
+}
+
 function runGh(args, options = {}) {
   const { allowFailure = false } = options;
 
@@ -304,10 +308,19 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
   }
 
   for (const review of reviews) {
-    const body = formatReviewBody(review.body, review.state);
     const author = review.author?.login || 'reviewer';
+    const normalizedAuthor = author.toLowerCase();
     if (!includeReviewItem(review.body, author, review.state)) continue;
     if (copilotOnly && !isCopilotReviewAuthor(author)) continue;
+
+    if (
+      normalizedAuthor.includes('github-advanced-security') &&
+      (!review.body || review.body.trim().length === 0)
+    ) {
+      continue;
+    }
+
+    const body = formatReviewBody(review.body, review.state);
 
     results.push({
       author,
@@ -343,6 +356,7 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
         }
         nodes {
           isResolved
+          isOutdated
           path
           line
           originalLine
@@ -407,7 +421,7 @@ function buildInlineReviewTasks(threads, { copilotOnly = false } = {}) {
   const tasks = [];
 
   for (const thread of threads) {
-    if (thread.isResolved) continue;
+    if (!isActionableThread(thread)) continue;
 
     const comments = thread.comments?.nodes || [];
     if (!comments.length) continue;

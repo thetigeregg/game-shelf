@@ -8,7 +8,7 @@ import { config } from './config.js';
 import {
   logUpstreamRequest,
   logUpstreamResponse,
-  sanitizeUrlForDebugLogs
+  sanitizeUrlForDebugLogs,
 } from './http-debug-log.js';
 
 interface MetacriticCacheRow {
@@ -76,8 +76,8 @@ export async function registerMetacriticCachedRoute(
     config: {
       rateLimit: {
         max: config.metacriticSearchRateLimitMaxPerMinute,
-        timeWindow: '1 minute'
-      }
+        timeWindow: '1 minute',
+      },
     },
     handler: async (request, reply) => {
       const normalized = normalizeMetacriticQuery(request.url);
@@ -133,7 +133,7 @@ export async function registerMetacriticCachedRoute(
           cacheOutcome = 'BYPASS';
           request.log.warn({
             msg: 'metacritic_cache_read_failed',
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
@@ -151,7 +151,7 @@ export async function registerMetacriticCachedRoute(
 
       reply.header('X-GameShelf-METACRITIC-Cache', cacheOutcome);
       await sendWebResponse(reply, response);
-    }
+    },
   });
 }
 
@@ -187,7 +187,7 @@ function normalizeMetacriticQuery(rawUrl: string): NormalizedMetacriticQuery | n
       Number.isInteger(platformIgdbId) && (platformIgdbId as number) > 0
         ? (platformIgdbId as number)
         : null,
-    includeCandidates
+    includeCandidates,
   };
 }
 
@@ -197,7 +197,7 @@ function buildCacheKey(query: NormalizedMetacriticQuery): string {
     query.releaseYear,
     query.platform?.toLowerCase() ?? null,
     query.platformIgdbId,
-    query.includeCandidates
+    query.includeCandidates,
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -238,7 +238,7 @@ function scheduleMetacriticRevalidation(
     incrementMetacriticMetric('revalidateScheduled');
     enqueueRevalidationJob({
       cacheKey,
-      requestUrl: request.url
+      requestUrl: request.url,
     });
     return true;
   }
@@ -283,7 +283,7 @@ function scheduleMetacriticRevalidation(
       incrementMetacriticMetric('revalidateFailed');
       request.log.warn({
         msg: 'metacritic_cache_revalidate_failed',
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     } finally {
       revalidationInFlightByKey.delete(cacheKey);
@@ -330,7 +330,7 @@ export async function processQueuedMetacriticCacheRevalidation(
       normalizedQuery.releaseYear,
       normalizedQuery.platform,
       normalizedQuery.includeCandidates,
-      JSON.stringify(parsed)
+      JSON.stringify(parsed),
     ]
   );
 }
@@ -342,7 +342,7 @@ async function fetchMetacriticFromScraper(query: NormalizedMetacriticQuery): Pro
       JSON.stringify({ error: 'METACRITIC scraper base URL is not configured' }),
       {
         status: 503,
-        headers: { 'content-type': 'application/json' }
+        headers: { 'content-type': 'application/json' },
       }
     );
   }
@@ -376,7 +376,7 @@ async function fetchMetacriticFromScraper(query: NormalizedMetacriticQuery): Pro
   } catch {
     return new Response(JSON.stringify({ error: 'METACRITIC scraper request failed' }), {
       status: 502,
-      headers: { 'content-type': 'application/json' }
+      headers: { 'content-type': 'application/json' },
     });
   }
 }
@@ -404,7 +404,7 @@ async function persistMetacriticCacheEntry(
         normalizedQuery.releaseYear,
         normalizedQuery.platform,
         normalizedQuery.includeCandidates,
-        JSON.stringify(payload)
+        JSON.stringify(payload),
       ]
     );
     incrementMetacriticMetric('writes');
@@ -412,7 +412,7 @@ async function persistMetacriticCacheEntry(
     incrementMetacriticMetric('writeErrors');
     request.log.warn({
       msg: 'metacritic_cache_write_failed',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }
@@ -476,7 +476,7 @@ async function deleteMetacriticCacheEntry(
     incrementMetacriticMetric('writeErrors');
     request.log.warn({
       msg: 'metacritic_cache_delete_failed',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }
@@ -490,8 +490,8 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
       {
         status: 503,
         headers: {
-          'content-type': 'application/json'
-        }
+          'content-type': 'application/json',
+        },
       }
     );
   }
@@ -514,30 +514,30 @@ async function fetchMetadataFromWorker(request: FastifyRequest): Promise<Respons
     logUpstreamRequest(request, {
       method: 'GET',
       url: targetUrl.toString(),
-      headers
+      headers,
     });
     const response = await fetch(targetUrl.toString(), {
       method: 'GET',
-      headers
+      headers,
     });
     await logUpstreamResponse(request, {
       method: 'GET',
       url: targetUrl.toString(),
-      response
+      response,
     });
     return response;
   } catch (error) {
     request.log.warn({
       msg: 'metacritic_scraper_request_failed',
       url: sanitizeUrlForDebugLogs(targetUrl.toString()),
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
     return new Response(JSON.stringify({ error: 'METACRITIC scraper request failed' }), {
       status: 502,
       headers: {
-        'content-type': 'application/json'
-      }
+        'content-type': 'application/json',
+      },
     });
   }
 }
@@ -588,5 +588,5 @@ export const __metacriticCacheTestables = {
   getAgeSeconds,
   scheduleMetacriticRevalidation,
   persistMetacriticCacheEntry,
-  isCacheableMetacriticPayload
+  isCacheableMetacriticPayload,
 };

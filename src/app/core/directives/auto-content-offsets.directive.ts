@@ -2,7 +2,7 @@ import { AfterViewInit, Directive, ElementRef, NgZone, OnDestroy, inject } from 
 
 @Directive({
   selector: 'ion-content[appAutoContentOffsets]',
-  standalone: true
+  standalone: true,
 })
 export class AutoContentOffsetsDirective implements AfterViewInit, OnDestroy {
   private readonly hostRef = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -37,7 +37,7 @@ export class AutoContentOffsetsDirective implements AfterViewInit, OnDestroy {
       this.mutationObserver.observe(container, {
         childList: true,
         subtree: true,
-        attributes: true
+        attributes: true,
       });
     });
   }

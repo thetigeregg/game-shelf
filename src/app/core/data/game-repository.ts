@@ -9,7 +9,7 @@ import {
   GameRating,
   GameStatus,
   ListType,
-  Tag
+  Tag,
 } from '../models/game.models';
 
 export interface GameRepository {

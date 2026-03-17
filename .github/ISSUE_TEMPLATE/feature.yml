@@ -1,6 +1,6 @@
 name: Feature
 description: Request a feature
-labels: ['feat']
+labels: ["feat"]
 
 body:
   - type: textarea

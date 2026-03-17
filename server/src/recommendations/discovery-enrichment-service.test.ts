@@ -3,7 +3,7 @@ import test from 'node:test';
 import type { QueryResult, QueryResultRow } from 'pg';
 import {
   DiscoveryEnrichmentService,
-  DiscoveryEnrichmentSummary
+  DiscoveryEnrichmentSummary,
 } from './discovery-enrichment-service.js';
 
 interface Queryable {
@@ -36,7 +36,7 @@ class RepositoryMock {
     }
 
     const value = await params.callback({
-      query: () => Promise.resolve({ rows: [], rowCount: 0 } as QueryResult)
+      query: () => Promise.resolve({ rows: [], rowCount: 0 } as QueryResult),
     });
     return { acquired: true, value };
   }
@@ -71,9 +71,9 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
         title: 'Super Mario Bros.',
         releaseYear: 1985,
         platform: 'NES',
-        listType: 'discovery'
-      }
-    }
+        listType: 'discovery',
+      },
+    },
   ];
 
   const originalFetch = globalThis.fetch;
@@ -84,7 +84,7 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
       return Promise.resolve(
         new Response(
           JSON.stringify({
-            item: { hltbMainHours: 8.4, hltbMainExtraHours: 11.2, hltbCompletionistHours: 13.8 }
+            item: { hltbMainHours: 8.4, hltbMainExtraHours: 11.2, hltbCompletionistHours: 13.8 },
           }),
           { status: 200 }
         )
@@ -93,7 +93,7 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
     return Promise.resolve(
       new Response(
         JSON.stringify({
-          item: { metacriticScore: 88, metacriticUrl: 'https://www.metacritic.com/game/example' }
+          item: { metacriticScore: 88, metacriticUrl: 'https://www.metacritic.com/game/example' },
         }),
         { status: 200 }
       )
@@ -110,14 +110,14 @@ void test('discovery enrichment updates hltb and critic fields', async () => {
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     });
     const result = await service.enrichNow({ limit: 10 });
 
     assert.deepEqual(result, {
       scanned: 1,
       updated: 1,
-      skipped: 0
+      skipped: 0,
     } satisfies DiscoveryEnrichmentSummary);
     assert.equal(repository.updates.length, 1);
     assert.equal(repository.updates[0]?.payload.hltbMainHours, 8.4);
@@ -140,9 +140,9 @@ void test('discovery enrichment adds steam app id for Windows discovery rows', a
         listType: 'discovery',
         hltbMainHours: 1,
         reviewSource: 'metacritic',
-        reviewScore: 80
-      }
-    }
+        reviewScore: 80,
+      },
+    },
   ];
 
   let fetchCalls = 0;
@@ -165,11 +165,11 @@ void test('discovery enrichment adds steam app id for Windows discovery rows', a
               keywordIds: [],
               screenshots: [],
               videos: [],
-              steamAppId: 730
-            }
-          ]
+              steamAppId: 730,
+            },
+          ],
         ])
-      )
+      ),
   };
 
   try {
@@ -184,7 +184,7 @@ void test('discovery enrichment adds steam app id for Windows discovery rows', a
         apiBaseUrl: 'http://127.0.0.1:3000',
         maxAttempts: 6,
         backoffBaseMinutes: 60,
-        backoffMaxHours: 168
+        backoffMaxHours: 168,
       },
       () => Date.parse('2026-03-10T00:00:00.000Z'),
       steamMetadataClient
@@ -194,7 +194,7 @@ void test('discovery enrichment adds steam app id for Windows discovery rows', a
     assert.deepEqual(result, {
       scanned: 1,
       updated: 1,
-      skipped: 0
+      skipped: 0,
     } satisfies DiscoveryEnrichmentSummary);
     assert.equal(fetchCalls, 0);
     assert.equal(repository.updates.length, 1);
@@ -218,9 +218,9 @@ void test('discovery enrichment marks steam no_data when metadata has no steam a
         listType: 'discovery',
         hltbMainHours: 1,
         reviewSource: 'metacritic',
-        reviewScore: 80
-      }
-    }
+        reviewScore: 80,
+      },
+    },
   ];
 
   const steamMetadataClient = {
@@ -236,11 +236,11 @@ void test('discovery enrichment marks steam no_data when metadata has no steam a
               keywordIds: [],
               screenshots: [],
               videos: [],
-              steamAppId: null
-            }
-          ]
+              steamAppId: null,
+            },
+          ],
         ])
-      )
+      ),
   };
 
   const service = new DiscoveryEnrichmentService(
@@ -254,7 +254,7 @@ void test('discovery enrichment marks steam no_data when metadata has no steam a
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     },
     () => Date.parse('2026-03-10T00:00:00.000Z'),
     steamMetadataClient
@@ -264,7 +264,7 @@ void test('discovery enrichment marks steam no_data when metadata has no steam a
   assert.deepEqual(result, {
     scanned: 1,
     updated: 1,
-    skipped: 0
+    skipped: 0,
   } satisfies DiscoveryEnrichmentSummary);
   assert.equal(repository.updates.length, 1);
   assert.equal(
@@ -287,9 +287,9 @@ void test('discovery enrichment skips steam lookup for non-Windows discovery row
         listType: 'discovery',
         hltbMainHours: 10,
         reviewSource: 'metacritic',
-        reviewScore: 82
-      }
-    }
+        reviewScore: 82,
+      },
+    },
   ];
 
   let steamLookupCalls = 0;
@@ -297,7 +297,7 @@ void test('discovery enrichment skips steam lookup for non-Windows discovery row
     fetchGameMetadataByIds: () => {
       steamLookupCalls += 1;
       return Promise.resolve(new Map());
-    }
+    },
   };
 
   const service = new DiscoveryEnrichmentService(
@@ -311,7 +311,7 @@ void test('discovery enrichment skips steam lookup for non-Windows discovery row
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     },
     undefined,
     steamMetadataClient
@@ -321,7 +321,7 @@ void test('discovery enrichment skips steam lookup for non-Windows discovery row
   assert.deepEqual(result, {
     scanned: 1,
     updated: 0,
-    skipped: 1
+    skipped: 1,
   } satisfies DiscoveryEnrichmentSummary);
   assert.equal(steamLookupCalls, 0);
 });
@@ -338,9 +338,9 @@ void test('discovery enrichment skips steam lookup when igdb id is not strictly 
         listType: 'discovery',
         hltbMainHours: 1,
         reviewSource: 'metacritic',
-        reviewScore: 80
-      }
-    }
+        reviewScore: 80,
+      },
+    },
   ];
 
   let steamLookupCalls = 0;
@@ -348,7 +348,7 @@ void test('discovery enrichment skips steam lookup when igdb id is not strictly 
     fetchGameMetadataByIds: () => {
       steamLookupCalls += 1;
       return Promise.resolve(new Map());
-    }
+    },
   };
 
   const service = new DiscoveryEnrichmentService(
@@ -362,7 +362,7 @@ void test('discovery enrichment skips steam lookup when igdb id is not strictly 
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     },
     undefined,
     steamMetadataClient
@@ -372,7 +372,7 @@ void test('discovery enrichment skips steam lookup when igdb id is not strictly 
   assert.deepEqual(result, {
     scanned: 1,
     updated: 0,
-    skipped: 1
+    skipped: 1,
   } satisfies DiscoveryEnrichmentSummary);
   assert.equal(steamLookupCalls, 0);
 });
@@ -389,9 +389,9 @@ void test('discovery enrichment records steam retry state on transient steam loo
         listType: 'discovery',
         hltbMainHours: 1,
         reviewSource: 'metacritic',
-        reviewScore: 80
-      }
-    }
+        reviewScore: 80,
+      },
+    },
   ];
 
   let steamLookupCalls = 0;
@@ -399,7 +399,7 @@ void test('discovery enrichment records steam retry state on transient steam loo
     fetchGameMetadataByIds: () => {
       steamLookupCalls += 1;
       return Promise.reject(new Error('igdb temporary failure'));
-    }
+    },
   };
 
   const nowIso = '2026-03-10T00:00:00.000Z';
@@ -414,7 +414,7 @@ void test('discovery enrichment records steam retry state on transient steam loo
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     },
     () => Date.parse(nowIso),
     steamMetadataClient
@@ -424,7 +424,7 @@ void test('discovery enrichment records steam retry state on transient steam loo
   assert.deepEqual(result, {
     scanned: 1,
     updated: 1,
-    skipped: 0
+    skipped: 0,
   } satisfies DiscoveryEnrichmentSummary);
   assert.equal(steamLookupCalls, 1);
   const retry = repository.updates[0]?.payload.enrichmentRetry as
@@ -464,11 +464,11 @@ void test('discovery enrichment skips steam retry when nextTryAt is still in the
             attempts: 1,
             permanentMiss: false,
             lastTriedAt: '2026-03-10T00:00:00.000Z',
-            nextTryAt: '2026-03-10T02:00:00.000Z'
-          }
-        }
-      }
-    }
+            nextTryAt: '2026-03-10T02:00:00.000Z',
+          },
+        },
+      },
+    },
   ];
 
   let steamLookupCalls = 0;
@@ -476,7 +476,7 @@ void test('discovery enrichment skips steam retry when nextTryAt is still in the
     fetchGameMetadataByIds: () => {
       steamLookupCalls += 1;
       return Promise.resolve(new Map());
-    }
+    },
   };
 
   const service = new DiscoveryEnrichmentService(
@@ -490,7 +490,7 @@ void test('discovery enrichment skips steam retry when nextTryAt is still in the
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     },
     () => Date.parse('2026-03-10T01:00:00.000Z'),
     steamMetadataClient
@@ -500,7 +500,7 @@ void test('discovery enrichment skips steam retry when nextTryAt is still in the
   assert.deepEqual(result, {
     scanned: 1,
     updated: 1,
-    skipped: 0
+    skipped: 0,
   } satisfies DiscoveryEnrichmentSummary);
   assert.equal(steamLookupCalls, 0);
   const retry = repository.updates[0]?.payload.enrichmentRetry as
@@ -533,9 +533,9 @@ void test('discovery enrichment ignores non-provider reviewScore when deciding m
         platform: 'PC',
         listType: 'discovery',
         reviewScore: 91.2,
-        reviewSource: null
-      }
-    }
+        reviewSource: null,
+      },
+    },
   ];
 
   const originalFetch = globalThis.fetch;
@@ -551,7 +551,7 @@ void test('discovery enrichment ignores non-provider reviewScore when deciding m
       return Promise.resolve(
         new Response(
           JSON.stringify({
-            item: { metacriticScore: 86, metacriticUrl: 'https://www.metacritic.com/game/example' }
+            item: { metacriticScore: 86, metacriticUrl: 'https://www.metacritic.com/game/example' },
           }),
           { status: 200 }
         )
@@ -571,14 +571,14 @@ void test('discovery enrichment ignores non-provider reviewScore when deciding m
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     });
     const result = await service.enrichNow({ limit: 10 });
 
     assert.deepEqual(result, {
       scanned: 1,
       updated: 1,
-      skipped: 0
+      skipped: 0,
     } satisfies DiscoveryEnrichmentSummary);
     assert.equal(repository.updates.length, 1);
     assert.equal(repository.updates[0]?.payload.metacriticScore, 86);
@@ -602,7 +602,7 @@ void test('discovery enrichment runOnce returns null when lock is unavailable', 
     apiBaseUrl: 'http://127.0.0.1:3000',
     maxAttempts: 6,
     backoffBaseMinutes: 60,
-    backoffMaxHours: 168
+    backoffMaxHours: 168,
   });
 
   const result = await service.runOnce();
@@ -620,14 +620,14 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
     apiBaseUrl: 'http://127.0.0.1:3000',
     maxAttempts: 6,
     backoffBaseMinutes: 60,
-    backoffMaxHours: 168
+    backoffMaxHours: 168,
   });
 
   assert.equal(await disabledService.runOnce(), null);
   assert.deepEqual(await disabledService.enrichNow({ limit: 5 }), {
     scanned: 0,
     updated: 0,
-    skipped: 0
+    skipped: 0,
   });
 
   const repository = new RepositoryMock();
@@ -635,8 +635,8 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
     {
       igdbGameId: '1',
       platformIgdbId: 6,
-      payload: { title: 'x', listType: 'discovery' }
-    }
+      payload: { title: 'x', listType: 'discovery' },
+    },
   ];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (() => Promise.resolve(new Response(null, { status: 500 }))) as typeof fetch;
@@ -650,13 +650,13 @@ void test('discovery enrichment handles disabled mode and short-title rows', asy
       apiBaseUrl: 'http://127.0.0.1:3000',
       maxAttempts: 6,
       backoffBaseMinutes: 60,
-      backoffMaxHours: 168
+      backoffMaxHours: 168,
     });
     const result = await service.enrichNow({ limit: 10 });
     assert.deepEqual(result, {
       scanned: 1,
       updated: 0,
-      skipped: 1
+      skipped: 1,
     });
     assert.equal(repository.updates.length, 0);
   } finally {
@@ -675,7 +675,7 @@ void test('discovery enrichment start/stop guards interval lifecycle', () => {
     apiBaseUrl: 'http://127.0.0.1:3000',
     maxAttempts: 6,
     backoffBaseMinutes: 60,
-    backoffMaxHours: 168
+    backoffMaxHours: 168,
   });
 
   const originalSetTimeout = globalThis.setTimeout;
@@ -726,9 +726,9 @@ void test('discovery enrichment applies cooldown after failed attempt', async ()
         title: 'Never Match Game',
         releaseYear: 2001,
         platform: 'PC',
-        listType: 'discovery'
-      }
-    }
+        listType: 'discovery',
+      },
+    },
   ];
 
   let fetchCalls = 0;
@@ -752,7 +752,7 @@ void test('discovery enrichment applies cooldown after failed attempt', async ()
         apiBaseUrl: 'http://127.0.0.1:3000',
         maxAttempts: 6,
         backoffBaseMinutes: 60,
-        backoffMaxHours: 168
+        backoffMaxHours: 168,
       },
       () => nowMs
     );
@@ -768,8 +768,8 @@ void test('discovery enrichment applies cooldown after failed attempt', async ()
       {
         igdbGameId: '1',
         platformIgdbId: 6,
-        payload: firstPayload
-      }
+        payload: firstPayload,
+      },
     ];
     nowMs = baseNow + 30 * 60 * 1000;
 
@@ -791,9 +791,9 @@ void test('discovery enrichment marks permanent miss at max attempts and stops r
         title: 'No Match Forever',
         releaseYear: 2002,
         platform: 'PC',
-        listType: 'discovery'
-      }
-    }
+        listType: 'discovery',
+      },
+    },
   ];
 
   let fetchCalls = 0;
@@ -817,7 +817,7 @@ void test('discovery enrichment marks permanent miss at max attempts and stops r
         apiBaseUrl: 'http://127.0.0.1:3000',
         maxAttempts: 2,
         backoffBaseMinutes: 60,
-        backoffMaxHours: 168
+        backoffMaxHours: 168,
       },
       () => nowMs
     );
@@ -835,8 +835,8 @@ void test('discovery enrichment marks permanent miss at max attempts and stops r
       {
         igdbGameId: '2',
         platformIgdbId: 6,
-        payload: firstPayload
-      }
+        payload: firstPayload,
+      },
     ];
     nowMs = baseNow + 2 * 60 * 60 * 1000;
 
@@ -857,8 +857,8 @@ void test('discovery enrichment marks permanent miss at max attempts and stops r
       {
         igdbGameId: '2',
         platformIgdbId: 6,
-        payload: secondPayload
-      }
+        payload: secondPayload,
+      },
     ];
     nowMs = baseNow + 24 * 60 * 60 * 1000;
 
@@ -882,22 +882,22 @@ void test('discovery enrichment does not increment retry state on transient prov
         attempts: 1,
         lastTriedAt: '2026-01-01T00:00:00.000Z',
         nextTryAt: null,
-        permanentMiss: false
+        permanentMiss: false,
       },
       metacritic: {
         attempts: 1,
         lastTriedAt: '2026-01-01T00:00:00.000Z',
         nextTryAt: null,
-        permanentMiss: false
-      }
-    }
+        permanentMiss: false,
+      },
+    },
   };
   repository.rows = [
     {
       igdbGameId: '4',
       platformIgdbId: 6,
-      payload: initialPayload
-    }
+      payload: initialPayload,
+    },
   ];
 
   let fetchCalls = 0;
@@ -921,7 +921,7 @@ void test('discovery enrichment does not increment retry state on transient prov
         apiBaseUrl: 'http://127.0.0.1:3000',
         maxAttempts: 2,
         backoffBaseMinutes: 60,
-        backoffMaxHours: 168
+        backoffMaxHours: 168,
       },
       () => Date.parse('2026-01-01T02:00:00.000Z')
     );
@@ -935,8 +935,8 @@ void test('discovery enrichment does not increment retry state on transient prov
       {
         igdbGameId: '4',
         platformIgdbId: 6,
-        payload: initialPayload
-      }
+        payload: initialPayload,
+      },
     ];
 
     const second = await service.enrichNow({ limit: 10 });
@@ -958,9 +958,9 @@ void test('discovery enrichment increments retry state on 204 no-content respons
         title: 'No Content Game',
         releaseYear: 2005,
         platform: 'PC',
-        listType: 'discovery'
-      }
-    }
+        listType: 'discovery',
+      },
+    },
   ];
 
   let fetchCalls = 0;
@@ -982,7 +982,7 @@ void test('discovery enrichment increments retry state on 204 no-content respons
         apiBaseUrl: 'http://127.0.0.1:3000',
         maxAttempts: 6,
         backoffBaseMinutes: 60,
-        backoffMaxHours: 168
+        backoffMaxHours: 168,
       },
       () => Date.parse('2026-01-01T02:00:00.000Z')
     );
@@ -1019,17 +1019,17 @@ void test('discovery enrichment clears retry state after successful retry', asyn
             attempts: 2,
             lastTriedAt: '2026-01-01T00:00:00.000Z',
             nextTryAt: '2026-01-01T01:00:00.000Z',
-            permanentMiss: false
+            permanentMiss: false,
           },
           metacritic: {
             attempts: 2,
             lastTriedAt: '2026-01-01T00:00:00.000Z',
             nextTryAt: '2026-01-01T01:00:00.000Z',
-            permanentMiss: false
-          }
-        }
-      }
-    }
+            permanentMiss: false,
+          },
+        },
+      },
+    },
   ];
 
   const originalFetch = globalThis.fetch;
@@ -1040,7 +1040,7 @@ void test('discovery enrichment clears retry state after successful retry', asyn
       return Promise.resolve(
         new Response(
           JSON.stringify({
-            item: { hltbMainHours: 10.5 }
+            item: { hltbMainHours: 10.5 },
           }),
           { status: 200 }
         )
@@ -1049,7 +1049,7 @@ void test('discovery enrichment clears retry state after successful retry', asyn
     return Promise.resolve(
       new Response(
         JSON.stringify({
-          item: { metacriticScore: 79, metacriticUrl: 'https://www.metacritic.com/game/example' }
+          item: { metacriticScore: 79, metacriticUrl: 'https://www.metacritic.com/game/example' },
         }),
         { status: 200 }
       )
@@ -1068,7 +1068,7 @@ void test('discovery enrichment clears retry state after successful retry', asyn
         apiBaseUrl: 'http://127.0.0.1:3000',
         maxAttempts: 6,
         backoffBaseMinutes: 60,
-        backoffMaxHours: 168
+        backoffMaxHours: 168,
       },
       () => Date.parse('2026-01-01T02:00:00.000Z')
     );
@@ -1101,17 +1101,17 @@ void test('discovery enrichment rearms capped retry state for recent releases af
             attempts: 6,
             lastTriedAt: '2026-01-01T00:00:00.000Z',
             nextTryAt: null,
-            permanentMiss: true
+            permanentMiss: true,
           },
           metacritic: {
             attempts: 6,
             lastTriedAt: '2026-01-01T00:00:00.000Z',
             nextTryAt: null,
-            permanentMiss: true
-          }
-        }
-      }
-    }
+            permanentMiss: true,
+          },
+        },
+      },
+    },
   ];
 
   let fetchCalls = 0;
@@ -1135,7 +1135,7 @@ void test('discovery enrichment rearms capped retry state for recent releases af
         backoffBaseMinutes: 60,
         backoffMaxHours: 168,
         rearmAfterDays: 30,
-        rearmRecentReleaseYears: 1
+        rearmRecentReleaseYears: 1,
       },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );
@@ -1172,17 +1172,17 @@ void test('discovery enrichment rearms capped retry state when release year is m
             attempts: 6,
             lastTriedAt: '2026-01-01T00:00:00.000Z',
             nextTryAt: null,
-            permanentMiss: true
+            permanentMiss: true,
           },
           metacritic: {
             attempts: 6,
             lastTriedAt: '2026-01-01T00:00:00.000Z',
             nextTryAt: null,
-            permanentMiss: true
-          }
-        }
-      }
-    }
+            permanentMiss: true,
+          },
+        },
+      },
+    },
   ];
 
   let fetchCalls = 0;
@@ -1206,7 +1206,7 @@ void test('discovery enrichment rearms capped retry state when release year is m
         backoffBaseMinutes: 60,
         backoffMaxHours: 168,
         rearmAfterDays: 30,
-        rearmRecentReleaseYears: 1
+        rearmRecentReleaseYears: 1,
       },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );
@@ -1231,22 +1231,22 @@ void test('discovery enrichment keeps permanent miss for older releases outside 
         attempts: 6,
         lastTriedAt: '2026-01-01T00:00:00.000Z',
         nextTryAt: null,
-        permanentMiss: true
+        permanentMiss: true,
       },
       metacritic: {
         attempts: 6,
         lastTriedAt: '2026-01-01T00:00:00.000Z',
         nextTryAt: null,
-        permanentMiss: true
-      }
-    }
+        permanentMiss: true,
+      },
+    },
   };
   repository.rows = [
     {
       igdbGameId: '6',
       platformIgdbId: 6,
-      payload: oldPayload
-    }
+      payload: oldPayload,
+    },
   ];
 
   let fetchCalls = 0;
@@ -1270,7 +1270,7 @@ void test('discovery enrichment keeps permanent miss for older releases outside 
         backoffBaseMinutes: 60,
         backoffMaxHours: 168,
         rearmAfterDays: 30,
-        rearmRecentReleaseYears: 1
+        rearmRecentReleaseYears: 1,
       },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );
@@ -1300,17 +1300,17 @@ void test('discovery enrichment does not rearm before cooldown days elapse', asy
             attempts: 6,
             lastTriedAt: '2026-03-05T00:00:00.000Z',
             nextTryAt: null,
-            permanentMiss: true
+            permanentMiss: true,
           },
           metacritic: {
             attempts: 6,
             lastTriedAt: '2026-03-05T00:00:00.000Z',
             nextTryAt: null,
-            permanentMiss: true
-          }
-        }
-      }
-    }
+            permanentMiss: true,
+          },
+        },
+      },
+    },
   ];
 
   let fetchCalls = 0;
@@ -1334,7 +1334,7 @@ void test('discovery enrichment does not rearm before cooldown days elapse', asy
         backoffBaseMinutes: 60,
         backoffMaxHours: 168,
         rearmAfterDays: 30,
-        rearmRecentReleaseYears: 1
+        rearmRecentReleaseYears: 1,
       },
       () => Date.parse('2026-03-10T00:00:00.000Z')
     );

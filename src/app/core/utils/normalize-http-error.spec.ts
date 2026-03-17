@@ -13,7 +13,7 @@ describe('normalizeHttpError', () => {
         status: 502,
         statusText: 'Bad Gateway',
         url: 'http://localhost:3000/v1/manuals/resolve',
-        ok: false
+        ok: false,
       })
     ).toEqual({
       name: 'HttpErrorResponse',
@@ -21,7 +21,7 @@ describe('normalizeHttpError', () => {
       status: 502,
       statusText: 'Bad Gateway',
       url: 'http://localhost:3000/v1/manuals/resolve',
-      ok: false
+      ok: false,
     });
   });
 });

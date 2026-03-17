@@ -20,7 +20,7 @@ vi.mock('firebase/messaging', () => ({
   onMessage: (...args: unknown[]) => {
     onMessageMock(...args);
     return () => undefined;
-  }
+  },
 }));
 
 interface NotificationConstructorMock {
@@ -46,12 +46,12 @@ describe('NotificationService', () => {
         {
           provide: Router,
           useValue: {
-            navigateByUrl: vi.fn().mockResolvedValue(true)
-          }
+            navigateByUrl: vi.fn().mockResolvedValue(true),
+          },
         },
         { provide: Messaging, useValue: {} },
-        { provide: SYNC_OUTBOX_WRITER, useValue: null }
-      ]
+        { provide: SYNC_OUTBOX_WRITER, useValue: null },
+      ],
     });
 
     service = TestBed.inject(NotificationService);
@@ -77,7 +77,7 @@ describe('NotificationService', () => {
   it('returns denied when browser permission is not granted', async () => {
     setNotificationMock({
       permission: 'default',
-      requestPermission: () => Promise.resolve('denied')
+      requestPermission: () => Promise.resolve('denied'),
     });
 
     const result = await service.requestPermissionAndRegister();
@@ -88,7 +88,7 @@ describe('NotificationService', () => {
   it('fails registration when service worker registration cannot be resolved', async () => {
     setNotificationMock({
       permission: 'granted',
-      requestPermission: () => Promise.resolve('granted')
+      requestPermission: () => Promise.resolve('granted'),
     });
     environment.firebaseVapidKey = 'test-vapid-key';
 
@@ -113,7 +113,7 @@ describe('NotificationService', () => {
   it('fails registration when backend token save fails', async () => {
     setNotificationMock({
       permission: 'granted',
-      requestPermission: () => Promise.resolve('granted')
+      requestPermission: () => Promise.resolve('granted'),
     });
     environment.firebaseVapidKey = 'test-vapid-key';
 
@@ -131,7 +131,7 @@ describe('NotificationService', () => {
       'httpClient',
       'get'
     ).mockReturnValue({
-      post: () => throwError(() => new Error('backend down'))
+      post: () => throwError(() => new Error('backend down')),
     });
 
     const result = await (
@@ -148,7 +148,7 @@ describe('NotificationService', () => {
   it('stores token when backend registration succeeds', async () => {
     setNotificationMock({
       permission: 'granted',
-      requestPermission: () => Promise.resolve('granted')
+      requestPermission: () => Promise.resolve('granted'),
     });
     environment.firebaseVapidKey = 'test-vapid-key';
 
@@ -166,7 +166,7 @@ describe('NotificationService', () => {
       'httpClient',
       'get'
     ).mockReturnValue({
-      post: () => of({ ok: true })
+      post: () => of({ ok: true }),
     });
 
     const result = await (
@@ -197,14 +197,14 @@ describe('NotificationService', () => {
     isSupportedMock.mockResolvedValue(false);
     expect(await service.requestPermissionAndRegister()).toEqual({
       ok: false,
-      message: 'Notifications are not supported in this browser.'
+      message: 'Notifications are not supported in this browser.',
     });
 
     isSupportedMock.mockResolvedValue(true);
     delete (globalThis as { Notification?: unknown }).Notification;
     expect(await service.requestPermissionAndRegister()).toEqual({
       ok: false,
-      message: 'Notification API is unavailable.'
+      message: 'Notification API is unavailable.',
     });
   });
 
@@ -223,7 +223,7 @@ describe('NotificationService', () => {
       changed: true,
       removed: true,
       day: true,
-      sale: true
+      sale: true,
     });
 
     localStorage.setItem(
@@ -235,7 +235,7 @@ describe('NotificationService', () => {
       changed: true,
       removed: false,
       day: true,
-      sale: false
+      sale: false,
     });
 
     localStorage.setItem('game-shelf:notifications:release:events', '{bad-json');
@@ -244,7 +244,7 @@ describe('NotificationService', () => {
       changed: true,
       removed: true,
       day: true,
-      sale: true
+      sale: true,
     });
   });
 
@@ -256,7 +256,7 @@ describe('NotificationService', () => {
         changed: '0',
         removed: 'no',
         day: 0,
-        sale: 'false'
+        sale: 'false',
       })
     );
 
@@ -265,14 +265,14 @@ describe('NotificationService', () => {
       changed: false,
       removed: false,
       day: false,
-      sale: false
+      sale: false,
     });
   });
 
   it('persists disabled state when enable flow fails', async () => {
     vi.spyOn(service, 'requestPermissionAndRegister').mockResolvedValue({
       ok: false,
-      message: 'failed'
+      message: 'failed',
     });
     const result = await service.enableReleaseNotifications();
     expect(result.ok).toBe(false);
@@ -296,7 +296,7 @@ describe('NotificationService', () => {
   it('returns success when disable flow unregisters cleanly', async () => {
     vi.spyOn(service, 'unregisterCurrentDevice').mockResolvedValue({
       ok: true,
-      message: 'Notifications disabled on this device.'
+      message: 'Notifications disabled on this device.',
     });
     const result = await service.disableReleaseNotifications();
     expect(result.ok).toBe(true);
@@ -307,7 +307,7 @@ describe('NotificationService', () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     vi.spyOn(service, 'unregisterCurrentDevice').mockResolvedValue({
       ok: false,
-      message: 'failed'
+      message: 'failed',
     });
 
     const result = await service.disableReleaseNotifications();
@@ -327,7 +327,7 @@ describe('NotificationService', () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     setNotificationMock({
       permission: 'granted',
-      requestPermission: () => Promise.resolve('granted')
+      requestPermission: () => Promise.resolve('granted'),
     });
     const registerSpy = vi
       .spyOn(
@@ -347,7 +347,7 @@ describe('NotificationService', () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     setNotificationMock({
       permission: 'default',
-      requestPermission: () => Promise.resolve('default')
+      requestPermission: () => Promise.resolve('default'),
     });
 
     const result = await service.registerCurrentDeviceIfPermitted();
@@ -366,7 +366,7 @@ describe('NotificationService', () => {
       .mockRejectedValueOnce(new Error('bad sw'));
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: { getRegistration, register }
+      value: { getRegistration, register },
     });
 
     const method = (
@@ -423,7 +423,7 @@ describe('NotificationService', () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     setNotificationMock({
       permission: 'granted',
-      requestPermission: () => Promise.resolve('granted')
+      requestPermission: () => Promise.resolve('granted'),
     });
     const registerSpy = vi
       .spyOn(
@@ -479,7 +479,7 @@ describe('NotificationService', () => {
     localStorage.setItem('game-shelf:notifications:release:enabled', 'true');
     setNotificationMock({
       permission: 'granted',
-      requestPermission: () => Promise.resolve('granted')
+      requestPermission: () => Promise.resolve('granted'),
     });
     vi.spyOn(
       service as unknown as {
@@ -500,7 +500,7 @@ describe('NotificationService', () => {
   it('prompts for release notifications only when no preference is stored', async () => {
     setNotificationMock({
       permission: 'default',
-      requestPermission: () => Promise.resolve('default')
+      requestPermission: () => Promise.resolve('default'),
     });
     expect(await service.shouldPromptForReleaseNotifications()).toBe(true);
 
@@ -517,7 +517,7 @@ describe('NotificationService', () => {
       'httpClient',
       'get'
     ).mockReturnValue({
-      post: () => throwError(() => new Error('backend down'))
+      post: () => throwError(() => new Error('backend down')),
     });
 
     const result = await service.unregisterCurrentDevice();
@@ -535,7 +535,7 @@ describe('NotificationService', () => {
       'httpClient',
       'get'
     ).mockReturnValue({
-      post: () => of({ ok: true })
+      post: () => of({ ok: true }),
     });
     deleteTokenMock.mockRejectedValueOnce(new Error('fcm delete failed'));
 
@@ -548,7 +548,7 @@ describe('NotificationService', () => {
     const originalServiceWorker = navigator.serviceWorker;
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: {}
+      value: {},
     });
     const notificationInstance: { onclick: (() => void) | null } = { onclick: null };
     setForegroundNotificationMock(notificationInstance);
@@ -562,7 +562,7 @@ describe('NotificationService', () => {
       }
     ).showForegroundNotification({
       notification: { title: 'Title', body: 'Body' },
-      data: { route: '/tabs/wishlist' }
+      data: { route: '/tabs/wishlist' },
     });
 
     notificationInstance.onclick?.();
@@ -571,7 +571,7 @@ describe('NotificationService', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/tabs/wishlist');
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: originalServiceWorker
+      value: originalServiceWorker,
     });
   });
 
@@ -579,7 +579,7 @@ describe('NotificationService', () => {
     const originalServiceWorker = navigator.serviceWorker;
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: {}
+      value: {},
     });
     const notificationInstance: { onclick: (() => void) | null } = { onclick: null };
     setForegroundNotificationMock(notificationInstance);
@@ -594,7 +594,7 @@ describe('NotificationService', () => {
       }
     ).showForegroundNotification({
       notification: { title: 'Title', body: 'Body' },
-      data: { route: '/tabs/wishlist' }
+      data: { route: '/tabs/wishlist' },
     });
 
     notificationInstance.onclick?.();
@@ -603,7 +603,7 @@ describe('NotificationService', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/tabs/wishlist');
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: originalServiceWorker
+      value: originalServiceWorker,
     });
   });
 
@@ -611,18 +611,18 @@ describe('NotificationService', () => {
     const originalServiceWorker = navigator.serviceWorker;
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: {}
+      value: {},
     });
     const notificationConstructor = vi.fn(() => {
       throw new Error('notification constructor failed');
     }) as unknown as typeof Notification;
     Object.defineProperty(notificationConstructor, 'permission', {
       configurable: true,
-      get: () => 'granted'
+      get: () => 'granted',
     });
     Object.defineProperty(notificationConstructor, 'requestPermission', {
       configurable: true,
-      value: () => Promise.resolve('granted')
+      value: () => Promise.resolve('granted'),
     });
     globalThis.Notification = notificationConstructor;
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -636,13 +636,13 @@ describe('NotificationService', () => {
       }
     ).showForegroundNotification({
       notification: { title: 'Title', body: 'Body' },
-      data: {}
+      data: {},
     });
 
     expect(errorSpy).toHaveBeenCalled();
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
-      value: originalServiceWorker
+      value: originalServiceWorker,
     });
   });
 
@@ -652,11 +652,11 @@ describe('NotificationService', () => {
     const constructorWithDeniedPermission = notificationSpy as unknown as typeof Notification;
     Object.defineProperty(constructorWithDeniedPermission, 'permission', {
       configurable: true,
-      get: () => 'default'
+      get: () => 'default',
     });
     Object.defineProperty(constructorWithDeniedPermission, 'requestPermission', {
       configurable: true,
-      value: () => Promise.resolve('default')
+      value: () => Promise.resolve('default'),
     });
     try {
       globalThis.Notification = constructorWithDeniedPermission;
@@ -698,18 +698,18 @@ describe('NotificationService', () => {
       Object.defineProperty(navigator, 'serviceWorker', {
         configurable: true,
         value: {
-          getRegistration: vi.fn().mockResolvedValue({ showNotification })
-        }
+          getRegistration: vi.fn().mockResolvedValue({ showNotification }),
+        },
       });
       const fallbackConstructorSpy = vi.fn();
       const notificationConstructor = fallbackConstructorSpy as unknown as typeof Notification;
       Object.defineProperty(notificationConstructor, 'permission', {
         configurable: true,
-        get: () => 'granted'
+        get: () => 'granted',
       });
       Object.defineProperty(notificationConstructor, 'requestPermission', {
         configurable: true,
-        value: () => Promise.resolve('granted')
+        value: () => Promise.resolve('granted'),
       });
       globalThis.Notification = notificationConstructor;
 
@@ -722,7 +722,7 @@ describe('NotificationService', () => {
         }
       ).showForegroundNotification({
         notification: { title: 'Title', body: 'Body' },
-        data: { route: '/tabs/discover' }
+        data: { route: '/tabs/discover' },
       });
       await Promise.resolve();
 
@@ -731,7 +731,7 @@ describe('NotificationService', () => {
     } finally {
       Object.defineProperty(navigator, 'serviceWorker', {
         configurable: true,
-        value: originalServiceWorker
+        value: originalServiceWorker,
       });
       if (typeof originalNotification === 'undefined') {
         delete (globalThis as { Notification?: unknown }).Notification;
@@ -761,7 +761,7 @@ describe('NotificationService', () => {
     const enqueueOperation = vi.fn();
     const serviceWithOutbox = createService({
       withMessaging: true,
-      outboxWriter: { enqueueOperation }
+      outboxWriter: { enqueueOperation },
     });
 
     serviceWithOutbox.setReleaseNotificationsEnabled(true);
@@ -772,8 +772,8 @@ describe('NotificationService', () => {
         operation: 'upsert',
         payload: {
           key: 'game-shelf:notifications:release:enabled',
-          value: 'true'
-        }
+          value: 'true',
+        },
       })
     );
   });
@@ -786,11 +786,11 @@ function setNotificationMock(config: NotificationConstructorMock): void {
 
   Object.defineProperty(notificationConstructor, 'permission', {
     configurable: true,
-    get: () => config.permission
+    get: () => config.permission,
   });
   Object.defineProperty(notificationConstructor, 'requestPermission', {
     configurable: true,
-    value: config.requestPermission
+    value: config.requestPermission,
   });
 
   globalThis.Notification = notificationConstructor;
@@ -803,11 +803,11 @@ function setForegroundNotificationMock(instance: { onclick: (() => void) | null 
 
   Object.defineProperty(notificationConstructor, 'permission', {
     configurable: true,
-    get: () => 'granted'
+    get: () => 'granted',
   });
   Object.defineProperty(notificationConstructor, 'requestPermission', {
     configurable: true,
-    value: () => Promise.resolve('granted')
+    value: () => Promise.resolve('granted'),
   });
 
   globalThis.Notification = notificationConstructor;
@@ -816,7 +816,7 @@ function setForegroundNotificationMock(instance: { onclick: (() => void) | null 
 function setUserAgent(userAgent: string): void {
   Object.defineProperty(window.navigator, 'userAgent', {
     configurable: true,
-    value: userAgent
+    value: userAgent,
   });
 }
 
@@ -833,12 +833,12 @@ function createService(options: {
       {
         provide: Router,
         useValue: {
-          navigateByUrl: vi.fn().mockResolvedValue(true)
-        }
+          navigateByUrl: vi.fn().mockResolvedValue(true),
+        },
       },
       ...(options.withMessaging ? [{ provide: Messaging, useValue: {} }] : []),
-      { provide: SYNC_OUTBOX_WRITER, useValue: options.outboxWriter ?? null }
-    ]
+      { provide: SYNC_OUTBOX_WRITER, useValue: options.outboxWriter ?? null },
+    ],
   });
 
   return TestBed.inject(NotificationService);

@@ -139,7 +139,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
 
   await page.goto(endpoint.toString(), {
     waitUntil: 'domcontentloaded',
-    timeout: browserTimeoutMs
+    timeout: browserTimeoutMs,
   });
   await page.waitForTimeout(1000);
 
@@ -206,7 +206,7 @@ async function searchPsPricesInBrowser(page, query, platform, regionPath, show) 
           collectionTagCount: collectionLinks.length,
           hasMostEngagingTag: hasMostEngagingTag ? 'true' : 'false',
           metacriticScore: normalizeText(metacriticScoreElement?.textContent ?? ''),
-          openCriticScore: normalizeText(openCriticScoreElement?.textContent ?? '')
+          openCriticScore: normalizeText(openCriticScoreElement?.textContent ?? ''),
         };
       })
       .filter((item) => item !== null);
@@ -248,7 +248,7 @@ app.get('/v1/psprices/search', async (req, res) => {
     try {
       context = await browser.newContext({
         userAgent:
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       });
       const page = await context.newPage();
       const merged = [];
@@ -270,7 +270,7 @@ app.get('/v1/psprices/search', async (req, res) => {
       const ranked = merged
         .map((candidate) => ({
           candidate: normalizePsPricesCandidate(candidate),
-          score: getTitleSimilarityScore(query, candidate.title ?? '')
+          score: getTitleSimilarityScore(query, candidate.title ?? ''),
         }))
         .filter((entry) => entry.candidate !== null && entry.score >= 20)
         .sort((left, right) => right.score - left.score)
@@ -285,7 +285,7 @@ app.get('/v1/psprices/search', async (req, res) => {
           regionPath,
           show,
           candidateCount: ranked.length,
-          matched: item !== null
+          matched: item !== null,
         });
       }
 
@@ -303,7 +303,7 @@ app.get('/v1/psprices/search', async (req, res) => {
   } catch (error) {
     console.error('[psprices-scraper] request_failed', {
       query,
-      message: error instanceof Error ? error.message : String(error)
+      message: error instanceof Error ? error.message : String(error),
     });
     res.status(502).json({ error: 'Unable to fetch PSPrices data.' });
   }

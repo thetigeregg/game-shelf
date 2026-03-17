@@ -4,7 +4,7 @@ import {
   buildMetacriticSearchUrl,
   buildSearchTitleVariants,
   normalizeTitle,
-  parseMetacriticScore
+  parseMetacriticScore,
 } from './search-utils.mjs';
 
 test('normalizeTitle strips accents and punctuation', () => {
@@ -21,7 +21,7 @@ test('parseMetacriticScore handles valid, tbd, and invalid values', () => {
 test('buildSearchTitleVariants includes base and normalized title-cased variant', () => {
   assert.deepEqual(buildSearchTitleVariants('Animal Crossing: New Leaf'), [
     'Animal Crossing: New Leaf',
-    'Animal Crossing New Leaf'
+    'Animal Crossing New Leaf',
   ]);
 });
 

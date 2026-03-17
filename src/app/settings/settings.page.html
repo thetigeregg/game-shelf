@@ -50,9 +50,9 @@
         ></ion-input>
       </ion-item>
       <ion-item class="cache-usage-item">
-        <ion-label color="medium"
-          >Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB</ion-label
-        >
+        <ion-label color="medium">
+          Current usage: {{ imageCacheUsageMb }} MB / {{ imageCacheLimitMb }} MB
+        </ion-label>
       </ion-item>
       <ion-item button detail="false" (click)="purgeLocalImageCache()">
         <ion-icon slot="start" color="danger" name="trash"></ion-icon>
@@ -186,9 +186,9 @@
           <h2>Device Write Token</h2>
           <p>{{ clientWriteTokenConfigured ? 'Configured on this device' : 'Not configured' }}</p>
         </ion-label>
-        <ion-button fill="outline" size="small" slot="end" (click)="promptClientWriteToken()"
-          >Set</ion-button
-        >
+        <ion-button fill="outline" size="small" slot="end" (click)="promptClientWriteToken()">
+          Set
+        </ion-button>
         <ion-button
           fill="clear"
           color="danger"
@@ -196,8 +196,9 @@
           slot="end"
           [disabled]="!clientWriteTokenConfigured"
           (click)="clearClientWriteToken()"
-          >Clear</ion-button
         >
+          Clear
+        </ion-button>
       </ion-item>
     </ion-list>
 
@@ -268,9 +269,9 @@
 
     <ion-content>
       <ion-item lines="none">
-        <ion-label color="medium"
-          >Reorder platforms and set custom display names for UI labels.</ion-label
-        >
+        <ion-label color="medium">
+          Reorder platforms and set custom display names for UI labels.
+        </ion-label>
       </ion-item>
 
       @if (isPlatformOrderLoading) {
@@ -438,18 +439,23 @@
         </ion-list>
 
         <ion-item lines="none" class="mgc-page-toolbar">
-          <ion-button fill="outline" (click)="goToPreviousMgcPage()" [disabled]="mgcPageIndex === 0"
-            >Prev</ion-button
+          <ion-button
+            fill="outline"
+            (click)="goToPreviousMgcPage()"
+            [disabled]="mgcPageIndex === 0"
           >
-          <ion-label class="mgc-page-counter"
-            >Page {{ mgcPageIndex + 1 }} / {{ mgcPageCount }}</ion-label
-          >
+            Prev
+          </ion-button>
+          <ion-label class="mgc-page-counter">
+            Page {{ mgcPageIndex + 1 }} / {{ mgcPageCount }}
+          </ion-label>
           <ion-button
             fill="outline"
             (click)="goToNextMgcPage()"
             [disabled]="mgcPageIndex >= mgcPageCount - 1"
-            >Next</ion-button
           >
+            Next
+          </ion-button>
         </ion-item>
 
         <ion-item lines="none" class="mgc-page-toolbar">
@@ -515,9 +521,9 @@
             {{ mgcBlockedCount }} blocked
           </ion-title>
           <ion-buttons slot="end">
-            <ion-button fill="outline" (click)="closeMgcImport()" [disabled]="isApplyingMgcImport"
-              >Cancel</ion-button
-            >
+            <ion-button fill="outline" (click)="closeMgcImport()" [disabled]="isApplyingMgcImport">
+              Cancel
+            </ion-button>
             <ion-button [disabled]="!canApplyMgcImport" (click)="confirmApplyMgcImport()">
               {{ isApplyingMgcImport ? 'Importing...' : 'Import' }}
             </ion-button>

@@ -10,6 +10,6 @@ export function normalizeHttpError(error: unknown): Record<string, unknown> {
     status: typeof source['status'] === 'number' ? source['status'] : null,
     statusText: typeof source['statusText'] === 'string' ? source['statusText'] : null,
     url: typeof source['url'] === 'string' ? source['url'] : null,
-    ok: typeof source['ok'] === 'boolean' ? source['ok'] : null
+    ok: typeof source['ok'] === 'boolean' ? source['ok'] : null,
   };
 }

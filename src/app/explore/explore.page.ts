@@ -33,7 +33,7 @@ import {
   IonAccordionGroup,
   IonPopover,
   IonSegment,
-  IonSegmentButton
+  IonSegmentButton,
 } from '@ionic/angular/standalone';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -52,7 +52,7 @@ import {
   RecommendationLanesResponse,
   RecommendationRuntimeMode,
   RecommendationSimilarItem,
-  RecommendationTarget
+  RecommendationTarget,
 } from '../core/models/game.models';
 import { PlatformCustomizationService } from '../core/services/platform-customization.service';
 import { GameDetailContentComponent } from '../features/game-detail/game-detail-content.component';
@@ -66,7 +66,7 @@ import {
   buildTagInput,
   normalizeGameRating,
   normalizeGameStatus,
-  parseTagSelection
+  parseTagSelection,
 } from '../features/game-list/game-list-detail-actions';
 import { isExploreEnabled } from '../core/config/runtime-config';
 import { completeIonInfiniteScroll } from '../core/utils/ion-infinite-scroll.utils';
@@ -83,7 +83,7 @@ import {
   sparkles,
   star,
   starOutline,
-  time
+  time,
 } from 'ionicons/icons';
 
 interface RecommendationApiError extends Error {
@@ -146,8 +146,8 @@ interface RecommendationDisplayMetadata {
     GameDetailContentComponent,
     DetailShortcutsFabComponent,
     DetailVideosModalComponent,
-    SimilarGameRowComponent
-  ]
+    SimilarGameRowComponent,
+  ],
 })
 export class ExplorePage implements OnInit {
   private static readonly RECOMMENDATION_PAGE_SIZE = 10;
@@ -164,34 +164,34 @@ export class ExplorePage implements OnInit {
   readonly targetOptions: Array<{ value: RecommendationTarget; label: string }> = [
     { value: 'BACKLOG', label: 'Backlog' },
     { value: 'WISHLIST', label: 'Wishlist' },
-    { value: 'DISCOVERY', label: 'Discovery' }
+    { value: 'DISCOVERY', label: 'Discovery' },
   ];
   readonly runtimeModeOptions: Array<{ value: RecommendationRuntimeMode; label: string }> = [
     { value: 'SHORT', label: 'Short' },
     { value: 'NEUTRAL', label: 'Neutral' },
-    { value: 'LONG', label: 'Long' }
+    { value: 'LONG', label: 'Long' },
   ];
   readonly laneOptionsDefault: Array<{ value: RecommendationLaneKey; label: string }> = [
     { value: 'overall', label: 'Overall' },
     { value: 'hiddenGems', label: 'Hidden Gems' },
-    { value: 'exploration', label: 'Exploration' }
+    { value: 'exploration', label: 'Exploration' },
   ];
   readonly laneOptionsDiscovery: Array<{ value: RecommendationLaneKey; label: string }> = [
     { value: 'blended', label: 'Blended' },
     { value: 'popular', label: 'Popular' },
-    { value: 'recent', label: 'Recent' }
+    { value: 'recent', label: 'Recent' },
   ];
   readonly exploreModeOptions: Array<{
     value: 'recommendations' | 'popularity';
     label: string;
   }> = [
     { value: 'recommendations', label: 'Recommendations' },
-    { value: 'popularity', label: 'Popularity' }
+    { value: 'popularity', label: 'Popularity' },
   ];
   readonly popularityFeedOptions: Array<{ value: PopularityFeedType; label: string }> = [
     { value: 'trending', label: 'Trending' },
     { value: 'upcoming', label: 'Upcoming' },
-    { value: 'recent', label: 'Recent' }
+    { value: 'recent', label: 'Recent' },
   ];
 
   selectedExploreMode: 'recommendations' | 'popularity' = 'recommendations';
@@ -241,7 +241,7 @@ export class ExplorePage implements OnInit {
     { value: 'completed', label: 'Completed' },
     { value: 'paused', label: 'Paused' },
     { value: 'dropped', label: 'Dropped' },
-    { value: 'replay', label: 'Replay' }
+    { value: 'replay', label: 'Replay' },
   ];
 
   private readonly igdbProxyService = inject(IgdbProxyService);
@@ -291,7 +291,7 @@ export class ExplorePage implements OnInit {
       library,
       time,
       compass,
-      sparkles
+      sparkles,
     });
 
     this.recommendationIgnoreService.ignoredIds$
@@ -663,7 +663,7 @@ export class ExplorePage implements OnInit {
       .slice(0, 4)
       .map((bullet) => ({
         label: bullet.label,
-        delta: `${bullet.delta >= 0 ? '+' : ''}${bullet.delta.toFixed(2)}`
+        delta: `${bullet.delta >= 0 ? '+' : ''}${bullet.delta.toFixed(2)}`,
       }));
   }
 
@@ -768,7 +768,7 @@ export class ExplorePage implements OnInit {
 
   getPopularityBadges(item: PopularityFeedItem): RecommendationBadge[] {
     const badges: RecommendationBadge[] = [
-      { text: `Popularity ${item.popularityScore.toFixed(1)}`, color: 'primary' }
+      { text: `Popularity ${item.popularityScore.toFixed(1)}`, color: 'primary' },
     ];
 
     if (typeof item.rating === 'number' && Number.isFinite(item.rating)) {
@@ -805,7 +805,7 @@ export class ExplorePage implements OnInit {
         this.createFallbackCatalogResult({
           igdbGameId: item.id,
           platformIgdbId: item.platformIgdbId,
-          title: this.getPopularityTitle(item)
+          title: this.getPopularityTitle(item),
         }));
 
     if (!local) {
@@ -878,7 +878,7 @@ export class ExplorePage implements OnInit {
         this.createFallbackCatalogResult({
           igdbGameId: item.igdbGameId,
           platformIgdbId: item.platformIgdbId,
-          title: this.getDisplayTitle(item)
+          title: this.getDisplayTitle(item),
         }));
 
     if (!local) {
@@ -990,7 +990,7 @@ export class ExplorePage implements OnInit {
       params?.title ?? selected?.title.trim() ?? (active ? this.getDisplayTitle(active) : '');
     this.recommendationIgnoreService.ignoreGame({
       igdbGameId,
-      title: title.length > 0 ? title : `Game #${igdbGameId}`
+      title: title.length > 0 ? title : `Game #${igdbGameId}`,
     });
   }
 
@@ -1011,8 +1011,8 @@ export class ExplorePage implements OnInit {
       message: `Hide "${escapedTitle}" from recommendation lists?`,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
-        { text: 'Ignore', role: 'confirm' }
-      ]
+        { text: 'Ignore', role: 'confirm' },
+      ],
     });
 
     await alert.present();
@@ -1021,7 +1021,7 @@ export class ExplorePage implements OnInit {
     if (role === 'confirm') {
       this.ignoreSelectedGameRecommendation({
         igdbGameId,
-        title: displayTitle
+        title: displayTitle,
       });
     }
   }
@@ -1167,9 +1167,9 @@ export class ExplorePage implements OnInit {
           role: 'confirm',
           handler: (value: string[] | string | null | undefined) => {
             nextTagIds = parseTagSelection(value);
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -1277,10 +1277,10 @@ export class ExplorePage implements OnInit {
           this.igdbProxyService.getRecommendationLanes({
             target: this.selectedTarget,
             runtimeMode: this.selectedRuntimeMode,
-            limit: ExplorePage.RECOMMENDATION_FETCH_LIMIT
+            limit: ExplorePage.RECOMMENDATION_FETCH_LIMIT,
           })
         ),
-        this.gameShelfService.listLibraryGames()
+        this.gameShelfService.listLibraryGames(),
       ]);
 
       this.activeLanesResponse = response;
@@ -1336,7 +1336,7 @@ export class ExplorePage implements OnInit {
     try {
       const [items, localGames] = await Promise.all([
         firstValueFrom(this.igdbProxyService.getPopularityFeed(this.selectedPopularityFeed)),
-        this.gameShelfService.listLibraryGames()
+        this.gameShelfService.listLibraryGames(),
       ]);
       this.activePopularityItems = items;
       this.popularityFeedCache.set(this.selectedPopularityFeed, items);
@@ -1537,7 +1537,7 @@ export class ExplorePage implements OnInit {
 
     const metadata = this.getRecommendationDisplayMetadata({
       igdbGameId: item.igdbGameId,
-      platformIgdbId: item.platformIgdbId
+      platformIgdbId: item.platformIgdbId,
     });
     return metadata?.title ?? `Game #${item.igdbGameId}`;
   }
@@ -1550,7 +1550,7 @@ export class ExplorePage implements OnInit {
 
     const metadata = this.getRecommendationDisplayMetadata({
       igdbGameId: item.igdbGameId,
-      platformIgdbId: item.platformIgdbId
+      platformIgdbId: item.platformIgdbId,
     });
     return metadata?.coverUrl ?? 'assets/icon/placeholder.png';
   }
@@ -1561,7 +1561,7 @@ export class ExplorePage implements OnInit {
     if (!local) {
       const metadata = this.getRecommendationDisplayMetadata({
         igdbGameId: item.igdbGameId,
-        platformIgdbId: item.platformIgdbId
+        platformIgdbId: item.platformIgdbId,
       });
       return metadata?.platformLabel ?? `Platform ${String(item.platformIgdbId)}`;
     }
@@ -1595,7 +1595,7 @@ export class ExplorePage implements OnInit {
         semantic: item.reasons.semanticSimilarity,
         exploration: 0,
         diversityPenalty: 0,
-        repeatPenalty: 0
+        repeatPenalty: 0,
       },
       explanations: {
         headline: item.reasons.summary,
@@ -1607,9 +1607,9 @@ export class ExplorePage implements OnInit {
           franchises: item.reasons.sharedTokens.franchises,
           collections: item.reasons.sharedTokens.collections,
           themes: item.reasons.sharedTokens.themes,
-          keywords: item.reasons.sharedTokens.keywords
-        }
-      }
+          keywords: item.reasons.sharedTokens.keywords,
+        },
+      },
     };
 
     await this.openGameDetail(existing ?? fallback, { pushCurrentToStack: true });
@@ -1846,12 +1846,12 @@ export class ExplorePage implements OnInit {
       publishers: [],
       platforms: [],
       platformOptions: [
-        { id: params.platformIgdbId, name: `Platform ${String(params.platformIgdbId)}` }
+        { id: params.platformIgdbId, name: `Platform ${String(params.platformIgdbId)}` },
       ],
       platform: null,
       platformIgdbId: params.platformIgdbId,
       releaseDate: null,
-      releaseYear: null
+      releaseYear: null,
     };
   }
 
@@ -1866,7 +1866,7 @@ export class ExplorePage implements OnInit {
           runtimeMode: this.selectedRuntimeMode,
           igdbGameId: item.igdbGameId,
           platformIgdbId: item.platformIgdbId,
-          limit: ExplorePage.SIMILAR_FETCH_LIMIT
+          limit: ExplorePage.SIMILAR_FETCH_LIMIT,
         })
       );
 
@@ -1899,7 +1899,7 @@ export class ExplorePage implements OnInit {
       lanes.exploration,
       lanes.blended,
       lanes.popular,
-      lanes.recent
+      lanes.recent,
     ]) {
       const match =
         lane.find(
@@ -1919,21 +1919,21 @@ export class ExplorePage implements OnInit {
   } {
     const fallback = {
       code: 'REQUEST_FAILED' as const,
-      message: 'Unable to load recommendations right now.'
+      message: 'Unable to load recommendations right now.',
     };
 
     if (error instanceof HttpErrorResponse) {
       if (error.status === 404) {
         return {
           code: 'NOT_FOUND',
-          message: 'No recommendations available yet. Build recommendations to get started.'
+          message: 'No recommendations available yet. Build recommendations to get started.',
         };
       }
 
       if (error.status === 429) {
         return {
           code: 'RATE_LIMITED',
-          message: 'Recommendations are in cooldown. Try again later.'
+          message: 'Recommendations are in cooldown. Try again later.',
         };
       }
 
@@ -1946,21 +1946,21 @@ export class ExplorePage implements OnInit {
       if (typed.code === 'NOT_FOUND') {
         return {
           code: 'NOT_FOUND',
-          message: error.message
+          message: error.message,
         };
       }
 
       if (typed.code === 'RATE_LIMITED') {
         return {
           code: 'RATE_LIMITED',
-          message: error.message
+          message: error.message,
         };
       }
 
       if (error.message.trim().length > 0) {
         return {
           code: fallback.code,
-          message: error.message
+          message: error.message,
         };
       }
     }
@@ -2137,7 +2137,7 @@ export class ExplorePage implements OnInit {
               priceAmount: catalog.priceAmount ?? null,
               priceRegularAmount: catalog.priceRegularAmount ?? null,
               priceDiscountPercent: catalog.priceDiscountPercent ?? null,
-              priceIsFree: catalog.priceIsFree ?? null
+              priceIsFree: catalog.priceIsFree ?? null,
             });
           }
         })
@@ -2165,7 +2165,7 @@ export class ExplorePage implements OnInit {
           : this.parsePsPricesLookupResponse(
               await firstValueFrom(
                 this.igdbProxyService.lookupPsPrices(item.igdbGameId, item.platformIgdbId, {
-                  title: titleHint
+                  title: titleHint,
                 })
               )
             );
@@ -2184,7 +2184,7 @@ export class ExplorePage implements OnInit {
         priceAmount: result.amount,
         priceRegularAmount: result.regularAmount,
         priceDiscountPercent: result.discountPercent,
-        priceIsFree: result.isFree
+        priceIsFree: result.isFree,
       });
 
       this.invalidateRecommendationVisibility();
@@ -2245,7 +2245,7 @@ export class ExplorePage implements OnInit {
       priceAmount: metadata.priceAmount ?? null,
       priceRegularAmount: metadata.priceRegularAmount ?? null,
       priceDiscountPercent: metadata.priceDiscountPercent ?? null,
-      priceIsFree: metadata.priceIsFree ?? null
+      priceIsFree: metadata.priceIsFree ?? null,
     };
   }
 
@@ -2290,7 +2290,7 @@ export class ExplorePage implements OnInit {
       discountPercent: this.normalizePriceNumber(
         payload.bestPrice['discountPercent'] ?? payload.bestPrice['cut']
       ),
-      isFree
+      isFree,
     };
   }
 
@@ -2321,7 +2321,7 @@ export class ExplorePage implements OnInit {
       amount,
       regularAmount: this.normalizePriceNumber(payload.bestPrice['regularAmount']),
       discountPercent: this.normalizePriceNumber(payload.bestPrice['discountPercent']),
-      isFree
+      isFree,
     };
   }
 
@@ -2385,7 +2385,7 @@ export class ExplorePage implements OnInit {
       style: 'currency',
       currency: normalizedCurrency,
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     });
     ExplorePage.PRICE_FORMATTERS.set(normalizedCurrency, formatter);
     return formatter;
@@ -2419,7 +2419,7 @@ export class ExplorePage implements OnInit {
     return {
       ...catalog,
       platformIgdbId,
-      platform: selectedPlatformName
+      platform: selectedPlatformName,
     };
   }
 
@@ -2613,14 +2613,14 @@ export class ExplorePage implements OnInit {
           type: 'radio',
           label: 'Collection',
           value: 'collection',
-          checked: true
+          checked: true,
         },
         {
           type: 'radio',
           label: 'Wishlist',
           value: 'wishlist',
-          checked: false
-        }
+          checked: false,
+        },
       ],
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -2629,9 +2629,9 @@ export class ExplorePage implements OnInit {
           role: 'confirm',
           handler: (value: string) => {
             selected = value === 'wishlist' ? 'wishlist' : 'collection';
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -2706,7 +2706,7 @@ export class ExplorePage implements OnInit {
       message,
       duration: 1600,
       position: 'bottom',
-      color
+      color,
     });
 
     await toast.present();

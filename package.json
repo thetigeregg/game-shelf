@@ -1,6 +1,6 @@
 {
   "name": "game-shelf",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "author": "TigerEgg",
   "homepage": "https://github.com/thetigeregg/game-shelf",
   "scripts": {
@@ -132,7 +132,7 @@
   },
   "description": "A game library tracker with metadata enrichment, manual lookup, and import workflows.",
   "lint-staged": {
-    "*.{ts,js,mjs,cjs}": "npx eslint --fix",
-    "*.{ts,html,scss,json,js,mjs,cjs}": "prettier --write"
+    "*.{ts,js,mjs,cjs}": "eslint --fix",
+    "*.{ts,js,mjs,cjs,jsx,tsx,html,css,scss,md,mdx,json,yml,yaml}": "prettier --write"
   }
 }

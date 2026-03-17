@@ -24,7 +24,7 @@ import {
   IonFab,
   IonFabButton,
   IonFabList,
-  IonSplitPane
+  IonSplitPane,
 } from '@ionic/angular/standalone';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -33,15 +33,15 @@ import {
   GameGroupByField,
   GameListFilters,
   GameType,
-  ListType
+  ListType,
 } from '../core/models/game.models';
 import {
   GameListComponent,
-  GameListSelectionState
+  GameListSelectionState,
 } from '../features/game-list/game-list.component';
 import {
   MetadataFilterSelection,
-  applyMetadataSelectionToFilters
+  applyMetadataSelectionToFilters,
 } from '../features/game-list/metadata-filter.utils';
 import { GameSearchComponent } from '../features/game-search/game-search.component';
 import { GameFiltersMenuComponent } from '../features/game-filters-menu/game-filters-menu.component';
@@ -53,13 +53,13 @@ import {
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
   normalizeStringList,
-  normalizeTagFilterList
+  normalizeTagFilterList,
 } from '../core/utils/game-filter-utils';
 import {
   normalizeListPageGroupBy,
   normalizeListPageStoredFilters,
   parseListPagePreferences,
-  serializeListPagePreferences
+  serializeListPagePreferences,
 } from './list-page-preferences';
 import { DESKTOP_LAYOUT_MEDIA_QUERY } from '../core/layout/layout-mode';
 import { isTasFeatureEnabled } from '../core/config/runtime-config';
@@ -73,7 +73,7 @@ import {
   add,
   search,
   chevronUp,
-  arrowUp
+  arrowUp,
 } from 'ionicons/icons';
 
 type ListPageConfig = {
@@ -95,7 +95,7 @@ function buildConfig(listType: ListType): ListPageConfig {
       menuId: 'wishlist-filters-menu',
       pageTitle: 'Wishlist',
       preferenceStorageKey: 'game-shelf:preferences:wishlist',
-      searchPlaceholder: 'Search wishlist'
+      searchPlaceholder: 'Search wishlist',
     };
   }
 
@@ -105,7 +105,7 @@ function buildConfig(listType: ListType): ListPageConfig {
     menuId: 'collection-filters-menu',
     pageTitle: 'Collection',
     preferenceStorageKey: 'game-shelf:preferences:collection',
-    searchPlaceholder: 'Search collection'
+    searchPlaceholder: 'Search collection',
   };
 }
 
@@ -137,8 +137,8 @@ function buildConfig(listType: ListType): ListPageConfig {
     IonFab,
     IonFabButton,
     IonFabList,
-    IonSplitPane
-  ]
+    IonSplitPane,
+  ],
 })
 export class ListPageComponent {
   private static readonly SEARCH_DEBOUNCE_MS = 180;
@@ -152,7 +152,7 @@ export class ListPageComponent {
     { value: 'tag', label: 'Tag' },
     { value: 'genre', label: 'Genre' },
     { value: 'publisher', label: 'Publisher' },
-    { value: 'releaseYear', label: 'Release Year' }
+    { value: 'releaseYear', label: 'Release Year' },
   ];
   readonly listType: ListType;
   readonly preferenceStorageKey: string;
@@ -235,7 +235,7 @@ export class ListPageComponent {
       add,
       search,
       chevronUp,
-      arrowUp
+      arrowUp,
     });
   }
 
@@ -294,7 +294,7 @@ export class ListPageComponent {
       sortField: this.isValidSortField(filters.sortField)
         ? filters.sortField
         : DEFAULT_GAME_LIST_FILTERS.sortField,
-      sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc'
+      sortDirection: filters.sortDirection === 'desc' ? 'desc' : 'asc',
     };
     this.persistPreferences();
   }
@@ -315,7 +315,7 @@ export class ListPageComponent {
       this.filters = {
         ...this.filters,
         platform: normalizedSelection,
-        excludedPlatform: normalizedExcludedSelection
+        excludedPlatform: normalizedExcludedSelection,
       };
     }
   }
@@ -334,7 +334,7 @@ export class ListPageComponent {
       this.filters = {
         ...this.filters,
         genres: normalizedSelection,
-        excludedGenres: normalizedExcludedSelection
+        excludedGenres: normalizedExcludedSelection,
       };
     }
   }
@@ -348,7 +348,7 @@ export class ListPageComponent {
     if (normalizedSelection.length !== this.filters.collections.length) {
       this.filters = {
         ...this.filters,
-        collections: normalizedSelection
+        collections: normalizedSelection,
       };
     }
   }
@@ -369,7 +369,7 @@ export class ListPageComponent {
       this.filters = {
         ...this.filters,
         gameTypes: normalizedSelection,
-        excludedGameTypes: normalizedExcludedSelection
+        excludedGameTypes: normalizedExcludedSelection,
       };
     }
   }
@@ -390,7 +390,7 @@ export class ListPageComponent {
       this.filters = {
         ...this.filters,
         tags: normalizedSelection,
-        excludedTags: normalizedExcludedSelection
+        excludedTags: normalizedExcludedSelection,
       };
     }
   }
@@ -494,7 +494,7 @@ export class ListPageComponent {
     }
 
     this.filters = {
-      ...applyMetadataSelectionToFilters(selection, DEFAULT_GAME_LIST_FILTERS)
+      ...applyMetadataSelectionToFilters(selection, DEFAULT_GAME_LIST_FILTERS),
     };
     this.listSearchQueryInput = '';
     this.listSearchQuery = '';
@@ -546,8 +546,8 @@ export class ListPageComponent {
       state: {
         listType: this.listType,
         filters: this.filters,
-        groupBy: this.groupBy
-      }
+        groupBy: this.groupBy,
+      },
     });
   }
 
@@ -713,41 +713,41 @@ export class ListPageComponent {
           type: 'radio' as const,
           label: 'IGDB',
           value: 'igdb',
-          checked: true
+          checked: true,
         },
         {
           type: 'radio' as const,
           label: 'HLTB',
-          value: 'hltb'
+          value: 'hltb',
         },
         {
           type: 'radio' as const,
           label: 'Review',
-          value: 'review'
+          value: 'review',
         },
         ...(includePricing
           ? ([
               {
                 type: 'radio' as const,
                 label: 'Pricing',
-                value: 'pricing'
-              }
+                value: 'pricing',
+              },
             ] as const)
-          : [])
+          : []),
       ],
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel'
+          role: 'cancel',
         },
         {
           text: 'Refresh',
           role: 'confirm',
           handler: (value: string | null | undefined) => {
             selectedProvider = value ?? 'igdb';
-          }
-        }
-      ]
+          },
+        },
+      ],
     });
 
     await alert.present();
@@ -841,7 +841,7 @@ export class ListPageComponent {
       message,
       duration: 1500,
       position: 'bottom',
-      color
+      color,
     });
 
     await toast.present();
@@ -871,7 +871,7 @@ export class ListPageComponent {
         this.preferenceStorageKey,
         serializeListPagePreferences({
           filters: this.filters,
-          groupBy: this.groupBy
+          groupBy: this.groupBy,
         })
       );
     } catch {
@@ -917,7 +917,7 @@ export class ListPageComponent {
         relativeTo: this.route,
         queryParams: { applyView: null },
         queryParamsHandling: 'merge',
-        replaceUrl: true
+        replaceUrl: true,
       });
     }
   }

@@ -60,11 +60,11 @@ vi.mock('@ionic/angular/standalone', () => {
     IonSegmentButton: Dummy,
     IonCard: Dummy,
     IonCardHeader: Dummy,
-    IonCardTitle: Dummy
+    IonCardTitle: Dummy,
   };
 });
 vi.mock('../features/game-detail/game-detail-content.component', () => ({
-  GameDetailContentComponent: () => null
+  GameDetailContentComponent: () => null,
 }));
 
 const mockLanesResponse = {
@@ -88,7 +88,7 @@ const mockLanesResponse = {
           semantic: 0,
           exploration: 0,
           diversityPenalty: 0,
-          repeatPenalty: 0
+          repeatPenalty: 0,
         },
         explanations: {
           headline: 'Fits your profile',
@@ -100,17 +100,17 @@ const mockLanesResponse = {
             franchises: [],
             collections: [],
             themes: [],
-            keywords: []
-          }
-        }
-      }
+            keywords: [],
+          },
+        },
+      },
     ],
     hiddenGems: [],
     exploration: [],
     blended: [],
     popular: [],
-    recent: []
-  }
+    recent: [],
+  },
 };
 
 const mockPopularityFeedResponse = [
@@ -122,8 +122,8 @@ const mockPopularityFeedResponse = [
     coverUrl: 'https://example.com/pop-cover.jpg',
     rating: 88,
     firstReleaseDate: 1_700_100_000,
-    platforms: [{ id: 6, name: 'PC (Microsoft Windows)' }]
-  }
+    platforms: [{ id: 6, name: 'PC (Microsoft Windows)' }],
+  },
 ];
 
 describe('ExplorePage explore modes UX', () => {
@@ -134,15 +134,15 @@ describe('ExplorePage explore modes UX', () => {
     getGameById: vi.fn(),
     getRecommendationSimilar: vi.fn(),
     lookupSteamPrice: vi.fn(),
-    lookupPsPrices: vi.fn()
+    lookupPsPrices: vi.fn(),
   };
 
   const platformCustomizationMock = {
-    getDisplayNameWithoutAlias: vi.fn((name: string) => name)
+    getDisplayNameWithoutAlias: vi.fn((name: string) => name),
   };
 
   const addToLibraryWorkflowMock = {
-    addToLibrary: vi.fn()
+    addToLibrary: vi.fn(),
   };
 
   const gameShelfServiceMock = {
@@ -164,34 +164,34 @@ describe('ExplorePage explore modes UX', () => {
         rating: null,
         listType: 'collection',
         createdAt: '2026-03-03T00:00:00.000Z',
-        updatedAt: '2026-03-03T00:00:00.000Z'
-      }
+        updatedAt: '2026-03-03T00:00:00.000Z',
+      },
     ]),
     findGameByIdentity: vi.fn().mockResolvedValue(null),
     setGameStatus: vi.fn(),
     setGameRating: vi.fn(),
     listTags: vi.fn().mockResolvedValue([]),
     setGameTags: vi.fn(),
-    isGameOnDiscount: vi.fn().mockReturnValue(false)
+    isGameOnDiscount: vi.fn().mockReturnValue(false),
   };
 
   const recommendationIgnoreServiceMock = {
     ignoredIds$: of(new Set<string>()),
-    ignoreGame: vi.fn()
+    ignoreGame: vi.fn(),
   };
 
   const alertControllerMock = {
     create: vi.fn().mockResolvedValue({
       present: vi.fn().mockResolvedValue(undefined),
-      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' })
-    })
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' }),
+    }),
   };
 
   const toastControllerMock = {
-    create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) })
+    create: vi.fn().mockResolvedValue({ present: vi.fn().mockResolvedValue(undefined) }),
   };
   const routerMock = {
-    navigateByUrl: vi.fn().mockResolvedValue(true)
+    navigateByUrl: vi.fn().mockResolvedValue(true),
   };
 
   beforeEach(() => {
@@ -205,7 +205,7 @@ describe('ExplorePage explore modes UX', () => {
     igdbProxyServiceMock.getRecommendationSimilar.mockReturnValue(
       of({
         source: { igdbGameId: '100', platformIgdbId: 6 },
-        items: []
+        items: [],
       })
     );
     igdbProxyServiceMock.lookupSteamPrice.mockReturnValue(of({ status: 'unavailable' }));
@@ -221,8 +221,8 @@ describe('ExplorePage explore modes UX', () => {
         { provide: RecommendationIgnoreService, useValue: recommendationIgnoreServiceMock },
         { provide: AlertController, useValue: alertControllerMock },
         { provide: ToastController, useValue: toastControllerMock },
-        { provide: Router, useValue: routerMock }
-      ]
+        { provide: Router, useValue: routerMock },
+      ],
     });
   });
 
@@ -243,7 +243,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenCalledWith({
       target: 'BACKLOG',
       runtimeMode: 'NEUTRAL',
-      limit: 200
+      limit: 200,
     });
     expect(gameShelfServiceMock.listLibraryGames).toHaveBeenCalledTimes(1);
     expect(page.getActiveLaneItems()).toHaveLength(1);
@@ -254,7 +254,7 @@ describe('ExplorePage explore modes UX', () => {
     const page = createPage();
     Object.defineProperty(page, 'exploreEnabled', {
       value: false,
-      configurable: true
+      configurable: true,
     });
 
     page.ngOnInit();
@@ -275,7 +275,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(igdbProxyServiceMock.getRecommendationLanes).toHaveBeenLastCalledWith({
       target: 'WISHLIST',
       runtimeMode: 'SHORT',
-      limit: 200
+      limit: 200,
     });
   });
 
@@ -395,7 +395,7 @@ describe('ExplorePage explore modes UX', () => {
       coverUrl: null,
       rating: null,
       firstReleaseDate: null,
-      platforms: [{ id: 6, name: 'PC' }]
+      platforms: [{ id: 6, name: 'PC' }],
     });
     const secondCall = page.openPopularityGameDetail({
       id: '920',
@@ -405,7 +405,7 @@ describe('ExplorePage explore modes UX', () => {
       coverUrl: null,
       rating: null,
       firstReleaseDate: null,
-      platforms: [{ id: 6, name: 'PC' }]
+      platforms: [{ id: 6, name: 'PC' }],
     });
 
     deferredResolves.get('920')?.({ igdbGameId: '920', platformIgdbId: 6, platform: 'PC' });
@@ -447,15 +447,15 @@ describe('ExplorePage explore modes UX', () => {
     const manyItems = Array.from({ length: 25 }, (_, index) => ({
       ...mockLanesResponse.lanes.overall[0],
       rank: index + 1,
-      igdbGameId: String(1000 + index)
+      igdbGameId: String(1000 + index),
     }));
     igdbProxyServiceMock.getRecommendationLanes.mockReturnValue(
       of({
         ...mockLanesResponse,
         lanes: {
           ...mockLanesResponse.lanes,
-          overall: manyItems
-        }
+          overall: manyItems,
+        },
       })
     );
 
@@ -490,14 +490,14 @@ describe('ExplorePage explore modes UX', () => {
           franchises: [],
           collections: [],
           themes: [],
-          keywords: []
-        }
-      }
+          keywords: [],
+        },
+      },
     }));
     igdbProxyServiceMock.getRecommendationSimilar.mockReturnValue(
       of({
         source: { igdbGameId: '100', platformIgdbId: 6 },
-        items: similarItems
+        items: similarItems,
       })
     );
 
@@ -574,9 +574,9 @@ describe('ExplorePage explore modes UX', () => {
         bullets: [
           { type: 'taste', label: 'A', evidence: [], delta: 0.5 },
           { type: 'taste', label: '', evidence: [], delta: 0.4 },
-          { type: 'taste', label: 'B', evidence: [], delta: 0.001 }
-        ]
-      }
+          { type: 'taste', label: 'B', evidence: [], delta: 0.001 },
+        ],
+      },
     });
     expect(mapped).toEqual([{ label: 'A', delta: '+0.50' }]);
     expect(page.getHeadlineLines('One • Two; Three|Four')).toEqual(['One', 'Two', 'Three', 'Four']);
@@ -624,7 +624,7 @@ describe('ExplorePage explore modes UX', () => {
       platform: 'PC',
       platformIgdbId: 6,
       releaseDate: null,
-      releaseYear: null
+      releaseYear: null,
     };
 
     expect(page.resolveCatalogPlatformLabel(catalog, 6)).toBe('PC');
@@ -661,9 +661,9 @@ describe('ExplorePage explore modes UX', () => {
         ...mockLanesResponse.lanes,
         overall: [
           ...mockLanesResponse.lanes.overall,
-          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 }
-        ]
-      }
+          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 },
+        ],
+      },
     };
     page.selectedLaneKey = 'overall';
     expect(page.getTotalActiveRecommendationCount()).toBe(1);
@@ -678,7 +678,7 @@ describe('ExplorePage explore modes UX', () => {
         ...mockLanesResponse.lanes.overall[0],
         igdbGameId: '500',
         platformIgdbId: 6,
-        platformOptions: []
+        platformOptions: [],
       })
     ).toBe(false);
   });
@@ -718,9 +718,9 @@ describe('ExplorePage explore modes UX', () => {
             franchises: [],
             collections: [],
             themes: [],
-            keywords: []
-          }
-        }
+            keywords: [],
+          },
+        },
       },
       event
     );
@@ -790,7 +790,7 @@ describe('ExplorePage explore modes UX', () => {
       igdbGameId: '100',
       platformIgdbId: 6,
       listType: 'collection' as const,
-      title: 'Rated'
+      title: 'Rated',
     };
 
     page.selectedGameDetail = libraryGame;
@@ -847,7 +847,7 @@ describe('ExplorePage explore modes UX', () => {
       listType: 'collection',
       createdAt: '2026-03-03T00:00:00.000Z',
       updatedAt: '2026-03-03T00:00:00.000Z',
-      videos: [{ id: 1, name: 'Trailer', videoId: 'PIF_fqFZEuk', url: '' }]
+      videos: [{ id: 1, name: 'Trailer', videoId: 'PIF_fqFZEuk', url: '' }],
     };
 
     expect(page.detailVideos).toHaveLength(1);
@@ -872,7 +872,7 @@ describe('ExplorePage explore modes UX', () => {
       listType: 'collection',
       createdAt: '2026-03-03T00:00:00.000Z',
       updatedAt: '2026-03-03T00:00:00.000Z',
-      videos: [{ id: 1, name: 'Invalid', videoId: 'abc def', url: '' }]
+      videos: [{ id: 1, name: 'Invalid', videoId: 'abc def', url: '' }],
     };
 
     expect(page.detailVideos).toHaveLength(1);
@@ -911,10 +911,10 @@ describe('ExplorePage explore modes UX', () => {
             franchises: [],
             collections: [],
             themes: [],
-            keywords: []
-          }
-        }
-      }
+            keywords: [],
+          },
+        },
+      },
     ];
     page.closeGameDetailModal();
     expect(page.isGameDetailModalOpen).toBe(false);
@@ -943,13 +943,13 @@ describe('ExplorePage explore modes UX', () => {
       rating: null,
       listType: 'collection' as const,
       createdAt: '2026-03-03T00:00:00.000Z',
-      updatedAt: '2026-03-03T00:00:00.000Z'
+      updatedAt: '2026-03-03T00:00:00.000Z',
     };
     page.selectedGameDetail = libraryGame;
 
     gameShelfServiceMock.setGameStatus.mockResolvedValue({
       ...libraryGame,
-      status: 'playing'
+      status: 'playing',
     });
     await page.onDetailStatusChange('playing');
     expect(gameShelfServiceMock.setGameStatus).toHaveBeenCalledWith('100', 6, 'playing');
@@ -976,7 +976,7 @@ describe('ExplorePage explore modes UX', () => {
     gameShelfServiceMock.listTags.mockResolvedValue([{ id: 1, name: 'A', color: '#fff' }]);
     alertControllerMock.create.mockResolvedValueOnce({
       present: vi.fn().mockResolvedValue(undefined),
-      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' })
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' }),
     });
     await page.openDetailTags();
   });
@@ -1009,11 +1009,11 @@ describe('ExplorePage explore modes UX', () => {
       coverSource: 'none',
       platform: 'PC',
       platformIgdbId: 6,
-      platformOptions: [{ id: 6, name: 'PC' }]
+      platformOptions: [{ id: 6, name: 'PC' }],
     };
     vi.spyOn(page, 'pickListTypeForAdd').mockResolvedValue('collection');
     addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({
-      status: 'duplicate'
+      status: 'duplicate',
     });
 
     await page.addSelectedGameToLibrary();
@@ -1031,8 +1031,8 @@ describe('ExplorePage explore modes UX', () => {
         platformIgdbId: 6,
         listType: 'collection',
         createdAt: '2026-03-03T00:00:00.000Z',
-        updatedAt: '2026-03-03T00:00:00.000Z'
-      }
+        updatedAt: '2026-03-03T00:00:00.000Z',
+      },
     });
     await page.addSelectedGameToLibrary();
     expect(page.detailContext).toBe('library');
@@ -1048,10 +1048,10 @@ describe('ExplorePage explore modes UX', () => {
           {
             ...mockLanesResponse.lanes.overall[0],
             igdbGameId: '300',
-            platformIgdbId: 6
-          }
-        ]
-      }
+            platformIgdbId: 6,
+          },
+        ],
+      },
     };
     page.localGameCacheByIdentity.clear();
     page.libraryOwnedGameIds.clear();
@@ -1067,7 +1067,7 @@ describe('ExplorePage explore modes UX', () => {
       coverSource: 'none',
       platform: 'PC',
       platformIgdbId: 6,
-      platformOptions: [{ id: 6, name: 'PC' }]
+      platformOptions: [{ id: 6, name: 'PC' }],
     };
     addToLibraryWorkflowMock.addToLibrary.mockResolvedValue({
       status: 'added',
@@ -1080,8 +1080,8 @@ describe('ExplorePage explore modes UX', () => {
         platformIgdbId: 6,
         listType: 'collection',
         createdAt: '2026-03-03T00:00:00.000Z',
-        updatedAt: '2026-03-03T00:00:00.000Z'
-      }
+        updatedAt: '2026-03-03T00:00:00.000Z',
+      },
     });
     await page.addSelectedGameToLibrary();
     expect(page.getActiveLaneItems().some((item) => item.igdbGameId === '300')).toBe(false);
@@ -1140,13 +1140,13 @@ describe('ExplorePage explore modes UX', () => {
     page.similarRecommendationItems = [
       { igdbGameId: '100', platformIgdbId: 6 },
       { igdbGameId: '200', platformIgdbId: 6 },
-      { igdbGameId: '300', platformIgdbId: 6 }
+      { igdbGameId: '300', platformIgdbId: 6 },
     ] as never;
 
     expect(
       page.filterAlreadyInLibrarySimilarItems([
         { igdbGameId: '100' },
-        { igdbGameId: '300' }
+        { igdbGameId: '300' },
       ] as never)
     ).toEqual([{ igdbGameId: '300' }]);
 
@@ -1162,7 +1162,7 @@ describe('ExplorePage explore modes UX', () => {
     page.selectedTarget = 'DISCOVERY';
     page.detailNavigationStack = [
       { igdbGameId: '100', platformIgdbId: 6 },
-      { igdbGameId: '200', platformIgdbId: 6 }
+      { igdbGameId: '200', platformIgdbId: 6 },
     ];
     page.goBackInDetailNavigation();
     expect(openGameDetail).not.toHaveBeenCalled();
@@ -1192,7 +1192,7 @@ describe('ExplorePage explore modes UX', () => {
     page.selectedTarget = 'DISCOVERY';
     page.libraryOwnedGameIds.clear();
     expect(page.filterAlreadyInLibrarySimilarItems([{ igdbGameId: '1' }] as never)).toEqual([
-      { igdbGameId: '1' }
+      { igdbGameId: '1' },
     ]);
 
     page.ignoredRecommendationGameIds = new Set(['2']);
@@ -1235,8 +1235,8 @@ describe('ExplorePage explore modes UX', () => {
       target: 'DISCOVERY',
       lanes: {
         ...mockLanesResponse.lanes,
-        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '300', platformIgdbId: 6 }]
-      }
+        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '300', platformIgdbId: 6 }],
+      },
     };
     page.localGameCacheByIdentity.clear();
     page.libraryOwnedGameIds.clear();
@@ -1252,7 +1252,7 @@ describe('ExplorePage explore modes UX', () => {
       coverSource: 'none',
       platform: 'PC',
       platformIgdbId: 6,
-      platformOptions: [{ id: 6, name: 'PC' }]
+      platformOptions: [{ id: 6, name: 'PC' }],
     };
     vi.spyOn(page, 'pickListTypeForAdd').mockResolvedValue('collection');
     addToLibraryWorkflowMock.addToLibrary.mockResolvedValueOnce({ status: 'duplicate' });
@@ -1299,14 +1299,14 @@ describe('ExplorePage explore modes UX', () => {
         page.activeDetailRecommendation = { igdbGameId: '200', platformIgdbId: 48 };
         page.selectedGameDetail = { igdbGameId: '200', title: 'Beta', platformIgdbId: 48 };
         return Promise.resolve({ role: 'confirm' });
-      })
+      }),
     });
 
     await page.confirmIgnoreSelectedGameRecommendation();
 
     expect(recommendationIgnoreServiceMock.ignoreGame).toHaveBeenCalledWith({
       igdbGameId: '100',
-      title: 'Alpha'
+      title: 'Alpha',
     });
   });
 
@@ -1331,13 +1331,13 @@ describe('ExplorePage explore modes UX', () => {
       target: 'DISCOVERY',
       lanes: {
         ...mockLanesResponse.lanes,
-        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '900', platformIgdbId: 6 }]
-      }
+        blended: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '900', platformIgdbId: 6 }],
+      },
     };
     page.upsertLocalGameCache({
       igdbGameId: '900',
       platformIgdbId: 6,
-      title: 'Owned'
+      title: 'Owned',
     });
 
     expect(page.getActiveLaneItems()).toHaveLength(0);
@@ -1362,8 +1362,8 @@ describe('ExplorePage explore modes UX', () => {
         ...mockLanesResponse.lanes,
         blended: [],
         popular: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '901', platformIgdbId: 6 }],
-        recent: []
-      }
+        recent: [],
+      },
     };
 
     expect(page.getActiveLaneItems()).toHaveLength(0);
@@ -1410,8 +1410,8 @@ describe('ExplorePage explore modes UX', () => {
         ...mockLanesResponse.lanes,
         overall: [],
         hiddenGems: [],
-        exploration: []
-      }
+        exploration: [],
+      },
     };
     page.recommendationErrorCode = 'NOT_FOUND';
     expect(page.getEmptyStateMessage()).toContain('No materialized recommendations');
@@ -1428,12 +1428,12 @@ describe('ExplorePage explore modes UX', () => {
               matchedTokens: {
                 ...mockLanesResponse.lanes.overall[0].explanations.matchedTokens,
                 themes: ['Fantasy'],
-                keywords: ['turn-based combat']
-              }
-            }
-          }
-        ]
-      }
+                keywords: ['turn-based combat'],
+              },
+            },
+          },
+        ],
+      },
     };
     expect(page.getEmptyStateTokenHint()).toContain('Fantasy');
 
@@ -1453,9 +1453,9 @@ describe('ExplorePage explore modes UX', () => {
           franchises: [],
           collections: [],
           themes: [],
-          keywords: []
-        }
-      }
+          keywords: [],
+        },
+      },
     };
     expect(page.getSimilarContext(similar)).toContain('Platform 6');
     expect(page.getSimilarTitle(similar)).toContain('Game #77');
@@ -1517,7 +1517,7 @@ describe('ExplorePage explore modes UX', () => {
       title: 'Catalog Fallback Title',
       coverUrl: null,
       platformLabel: 'PlayStation 2',
-      releaseYear: 2002
+      releaseYear: 2002,
     });
 
     expect(privatePage.getDisplayTitle(row)).toBe('Catalog Fallback Title');
@@ -1531,8 +1531,8 @@ describe('ExplorePage explore modes UX', () => {
       ...mockLanesResponse,
       lanes: {
         ...mockLanesResponse.lanes,
-        overall: [row, { ...row, rank: 2, igdbGameId: '200' }]
-      }
+        overall: [row, { ...row, rank: 2, igdbGameId: '200' }],
+      },
     };
     privatePage.visibleRecommendationCount = 1;
     expect(privatePage.canLoadMoreRecommendations()).toBe(true);
@@ -1558,9 +1558,9 @@ describe('ExplorePage explore modes UX', () => {
         ...mockLanesResponse.lanes,
         overall: [
           mockLanesResponse.lanes.overall[0],
-          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 }
-        ]
-      }
+          { ...mockLanesResponse.lanes.overall[0], rank: 2, platformIgdbId: 9 },
+        ],
+      },
     };
     page.selectedLaneKey = 'overall';
     expect(page.getMergedPlatformLabels(mockLanesResponse.lanes.overall[0])).toBeTruthy();
@@ -1585,9 +1585,9 @@ describe('ExplorePage explore modes UX', () => {
             franchises: [],
             collections: [],
             themes: [],
-            keywords: []
-          }
-        }
+            keywords: [],
+          },
+        },
       },
       { stopPropagation } as unknown as Event
     );
@@ -1634,7 +1634,7 @@ describe('ExplorePage explore modes UX', () => {
       runtimeMode: 'NEUTRAL',
       igdbGameId: '100',
       platformIgdbId: 6,
-      limit: 50
+      limit: 50,
     });
     expect(scrollToTop).toHaveBeenCalledWith(0);
     expect(page.selectedGameDetail?.igdbGameId).toBe('100');
@@ -1653,14 +1653,14 @@ describe('ExplorePage explore modes UX', () => {
       page.collectPlatformIgdbIds({
         igdbGameId: '301',
         platformIgdbId: 0,
-        platformOptions: [{ id: 12 }, { id: 12 }, { id: 4.5 }, { id: -1 }, { id: 0 }]
+        platformOptions: [{ id: 12 }, { id: 12 }, { id: 4.5 }, { id: -1 }, { id: 0 }],
       })
     ).toEqual([12]);
     expect(
       page.collectPlatformIgdbIds({
         igdbGameId: '302',
         platformIgdbId: 6,
-        platformOptions: null
+        platformOptions: null,
       })
     ).toEqual([6]);
 
@@ -1673,7 +1673,7 @@ describe('ExplorePage explore modes UX', () => {
       page.checkGameAlreadyInLibrary({
         igdbGameId: '999',
         platformIgdbId: 6,
-        listType: 'collection'
+        listType: 'collection',
       })
     ).resolves.toBe(true);
 
@@ -1682,7 +1682,7 @@ describe('ExplorePage explore modes UX', () => {
       page.checkGameAlreadyInLibrary({
         igdbGameId: '501',
         platformIgdbId: 0,
-        platformOptions: []
+        platformOptions: [],
       })
     ).resolves.toBe(false);
 
@@ -1691,7 +1691,7 @@ describe('ExplorePage explore modes UX', () => {
       href: '',
       target: '',
       rel: '',
-      click: clickSpy
+      click: clickSpy,
     } as unknown as HTMLAnchorElement;
     const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchor);
     page.openExternalUrl('https://example.com/game');
@@ -1730,8 +1730,8 @@ describe('ExplorePage explore modes UX', () => {
         coverUrl: null,
         platformOptions: [
           { id: 6, name: 'PC' },
-          { id: 48, name: 'PS4' }
-        ]
+          { id: 48, name: 'PS4' },
+        ],
       })
     );
 
@@ -1781,7 +1781,7 @@ describe('ExplorePage explore modes UX', () => {
       priceAmount: 19.99,
       priceRegularAmount: 39.99,
       priceDiscountPercent: 50,
-      priceIsFree: false
+      priceIsFree: false,
     });
     gameShelfServiceMock.isGameOnDiscount.mockReturnValueOnce(true);
 
@@ -1819,7 +1819,7 @@ describe('ExplorePage explore modes UX', () => {
       coverUrl: null,
       platformLabel: 'PC',
       releaseYear: 2025,
-      priceAmount: 9.99
+      priceAmount: 9.99,
     });
 
     expect(
@@ -1865,7 +1865,7 @@ describe('ExplorePage explore modes UX', () => {
                 semantic: 0.1,
                 exploration: 0.1,
                 diversityPenalty: 0,
-                repeatPenalty: 0
+                repeatPenalty: 0,
               },
               explanations: {
                 headline: '',
@@ -1877,14 +1877,14 @@ describe('ExplorePage explore modes UX', () => {
                   franchises: [],
                   collections: [],
                   themes: [],
-                  keywords: []
-                }
-              }
-            }
+                  keywords: [],
+                },
+              },
+            },
           ],
           popular: [],
-          recent: []
-        }
+          recent: [],
+        },
       })
     );
     igdbProxyServiceMock.getGameById.mockReturnValueOnce(of(null));
@@ -1896,15 +1896,15 @@ describe('ExplorePage explore modes UX', () => {
           amount: 39.9,
           regularAmount: 79.9,
           discountPercent: 50,
-          isFree: false
-        }
+          isFree: false,
+        },
       })
     );
 
     await page.loadRecommendationLanes(true);
 
     expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('700', 167, {
-      title: null
+      title: null,
     });
     expect(page.getRecommendationRowPriceLabel({ igdbGameId: '700', platformIgdbId: 167 })).toBe(
       'EUR\xa039.90'
@@ -1949,7 +1949,7 @@ describe('ExplorePage explore modes UX', () => {
                 semantic: 0.1,
                 exploration: 0.1,
                 diversityPenalty: 0,
-                repeatPenalty: 0
+                repeatPenalty: 0,
               },
               explanations: {
                 headline: '',
@@ -1961,9 +1961,9 @@ describe('ExplorePage explore modes UX', () => {
                   franchises: [],
                   collections: [],
                   themes: [],
-                  keywords: []
-                }
-              }
+                  keywords: [],
+                },
+              },
             },
             {
               rank: 2,
@@ -1979,7 +1979,7 @@ describe('ExplorePage explore modes UX', () => {
                 semantic: 0.1,
                 exploration: 0.1,
                 diversityPenalty: 0,
-                repeatPenalty: 0
+                repeatPenalty: 0,
               },
               explanations: {
                 headline: '',
@@ -1991,14 +1991,14 @@ describe('ExplorePage explore modes UX', () => {
                   franchises: [],
                   collections: [],
                   themes: [],
-                  keywords: []
-                }
-              }
-            }
+                  keywords: [],
+                },
+              },
+            },
           ],
           popular: [],
-          recent: []
-        }
+          recent: [],
+        },
       })
     );
     igdbProxyServiceMock.getGameById.mockReturnValue(of(null));
@@ -2010,8 +2010,8 @@ describe('ExplorePage explore modes UX', () => {
           amount: 27.99,
           initialAmount: 39.99,
           cut: 30,
-          isFree: false
-        }
+          isFree: false,
+        },
       })
     );
 
@@ -2040,7 +2040,7 @@ describe('ExplorePage explore modes UX', () => {
     expect(
       page.parseSteamPriceLookupResponse({
         status: 'ok',
-        bestPrice: { amount: null, isFree: false }
+        bestPrice: { amount: null, isFree: false },
       })
     ).toBeNull();
     expect(
@@ -2050,7 +2050,7 @@ describe('ExplorePage explore modes UX', () => {
       amount: 0,
       regularAmount: null,
       discountPercent: null,
-      isFree: true
+      isFree: true,
     });
     expect(page.normalizePriceBoolean('true')).toBe(true);
     expect(page.normalizePriceBoolean('false')).toBe(false);
@@ -2114,7 +2114,7 @@ describe('ExplorePage explore modes UX', () => {
       title: 'Metadata Title',
       coverUrl: null,
       platformLabel: 'PC',
-      releaseYear: null
+      releaseYear: null,
     });
     expect(page.getRecommendationTitleHint({ igdbGameId: '900', platformIgdbId: 6 })).toBe(
       'Metadata Title'
@@ -2125,7 +2125,7 @@ describe('ExplorePage explore modes UX', () => {
       priceAmount: 12.5,
       priceRegularAmount: 20,
       priceDiscountPercent: 37.5,
-      priceIsFree: false
+      priceIsFree: false,
     });
     const localPricing = page.getRecommendationPricing({ igdbGameId: '900', platformIgdbId: 6 });
     expect(localPricing?.priceAmount).toBe(12.5);
@@ -2164,7 +2164,7 @@ describe('ExplorePage explore modes UX', () => {
     await page.ensureSimilarDisplayMetadata([
       { igdbGameId: '910', platformIgdbId: 6 },
       { igdbGameId: '910', platformIgdbId: 48 },
-      { igdbGameId: '910', platformIgdbId: 167 }
+      { igdbGameId: '910', platformIgdbId: 167 },
     ]);
     expect(populateSpy).toHaveBeenCalledTimes(1);
     const grouped = populateSpy.mock.calls[0]?.[0] as Map<string, Set<number>>;
@@ -2189,14 +2189,14 @@ describe('ExplorePage explore modes UX', () => {
     };
 
     page.recommendationDisplayMetadata.set(page.buildIdentityKey('912', 167), {
-      title: 'Night In The Woods'
+      title: 'Night In The Woods',
     });
     igdbProxyServiceMock.lookupPsPrices.mockReturnValueOnce(of({ status: 'unavailable' }));
 
     await page.hydrateDiscoveryPricingForItem({ igdbGameId: '912', platformIgdbId: 167 });
 
     expect(igdbProxyServiceMock.lookupPsPrices).toHaveBeenCalledWith('912', 167, {
-      title: 'Night In The Woods'
+      title: 'Night In The Woods',
     });
   });
 
@@ -2217,7 +2217,7 @@ describe('ExplorePage explore modes UX', () => {
 
       return {
         present: vi.fn().mockResolvedValue(undefined),
-        onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' })
+        onDidDismiss: vi.fn().mockResolvedValue({ role: 'confirm' }),
       };
     });
 
@@ -2227,7 +2227,7 @@ describe('ExplorePage explore modes UX', () => {
 
     alertControllerMock.create.mockResolvedValueOnce({
       present: vi.fn().mockResolvedValue(undefined),
-      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' })
+      onDidDismiss: vi.fn().mockResolvedValue({ role: 'cancel' }),
     });
     await expect(page.pickListTypeForAdd()).resolves.toBeNull();
   });
@@ -2252,8 +2252,8 @@ describe('ExplorePage explore modes UX', () => {
       target: 'DISCOVERY',
       lanes: {
         ...mockLanesResponse.lanes,
-        overall: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '1200', platformIgdbId: 6 }]
-      }
+        overall: [{ ...mockLanesResponse.lanes.overall[0], igdbGameId: '1200', platformIgdbId: 6 }],
+      },
     };
 
     let resolveHydration: (() => void) | null = null;

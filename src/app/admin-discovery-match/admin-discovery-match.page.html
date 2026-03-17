@@ -41,17 +41,20 @@
       </ion-select>
     </ion-item>
 
-    <ion-item>
-      <ion-searchbar
-        [value]="searchQuery"
-        placeholder="Search discovery titles"
-        show-clear-button="focus"
-        (ionInput)="searchQuery = $any($event).detail.value || ''"
-      ></ion-searchbar>
-    </ion-item>
+    <ion-searchbar
+      [value]="searchQuery"
+      placeholder="Search discovery titles"
+      show-clear-button="focus"
+      (ionInput)="searchQuery = $any($event).detail.value || ''"
+    ></ion-searchbar>
 
     <div class="toolbar-row">
-      <ion-button [disabled]="!hasAccessToken || isLoading" (click)="loadItems()">
+      <ion-button
+        [disabled]="!hasAccessToken || isLoading"
+        (click)="loadItems()"
+        size="small"
+        expand="block"
+      >
         @if (isLoading) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
         }
@@ -60,8 +63,10 @@
       <ion-button
         fill="outline"
         color="secondary"
+        expand="block"
         [disabled]="!hasAccessToken || isLoading || isListRequeueing || items.length === 0"
         (click)="requeueDiscoveryRun()"
+        size="small"
       >
         @if (isListRequeueing) {
           <ion-spinner name="crescent" slot="start"></ion-spinner>
@@ -70,7 +75,9 @@
       </ion-button>
       <ion-button
         fill="outline"
-        color="warning"
+        color="danger"
+        expand="block"
+        size="small"
         [disabled]="
           selectedProvider === 'pricing' || visiblePermanentMissKeys.length === 0 || isLoading
         "

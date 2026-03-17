@@ -4,10 +4,11 @@
 
 .toolbar-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  padding: 0 16px 12px;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+  padding: 0 12px 12px;
+  border-bottom: 0.55px solid rgba(var(--ion-color-medium-rgb), 0.3);
 }
 
 .game-row {

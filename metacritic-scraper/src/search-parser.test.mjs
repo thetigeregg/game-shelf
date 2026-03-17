@@ -48,6 +48,55 @@ const currentHtml = `
   </main>
 `;
 
+const payloadYearFallbackHtml = `
+  <main>
+    <section>
+      <article>
+        <div>
+          <a href="/game/super-mario-3d-world-plus-bowsers-fury/">
+            <img src="https://images.example/current.jpg" alt="cover" />
+            <h3>Super Mario 3D World + Bowser's FurygameNintendo Switch89</h3>
+          </a>
+        </div>
+        <div>
+          <span data-testid="product-metascore"><span>89</span></span>
+          <span>Nintendo Switch</span>
+        </div>
+      </article>
+    </section>
+    <script type="application/json" id="__NUXT_DATA__">
+      [{"id":1,"type":2,"typeId":3,"title":4,"slug":5,"images":6,"criticScoreSummary":7,"rating":8,"releaseDate":9,"premiereYear":10,"genres":11,"platforms":12},1300522978,"game-title",13,"Super Mario 3D World + Bowser's Fury","super-mario-3d-world-plus-bowsers-fury",[],{"url":14,"score":15},"E","2021-02-12",2021,[16],{"id":17,"name":18},"3D Platformer",[19],{"id":20,"name":21},"Nintendo Switch","/game/super-mario-3d-world-plus-bowsers-fury/critic-reviews/",89]
+    </script>
+  </main>
+`;
+
+const payloadOnlyHtml = `
+  <main>
+    <script type="application/json" id="__NUXT_DATA__">
+      [{"id":1,"type":2,"typeId":3,"title":4,"slug":5,"images":6,"criticScoreSummary":7,"rating":8,"releaseDate":9,"premiereYear":10,"genres":11,"platforms":12},1300522978,"game-title",13,"Super Mario 3D World + Bowser's Fury","super-mario-3d-world-plus-bowsers-fury",[13],{"url":14,"score":15},"E","2021-02-12",2021,[16],{"id":17,"name":18},"3D Platformer",[19],{"id":20,"name":21},"Nintendo Switch","https://www.metacritic.com/provider/6/3/6-1-853953-13.jpg","/game/super-mario-3d-world-plus-bowsers-fury/critic-reviews/",89]
+    </script>
+  </main>
+`;
+
+const payloadOnlyMultiRowHtml = `
+  <main>
+    <script type="application/json" id="__NUXT_DATA__">
+      [{"id":1626,"type":1627,"typeId":1628,"title":1629,"slug":1630,"images":1631,"criticScoreSummary":1642,"rating":1645,"releaseDate":1646,"premiereYear":1647,"genres":1648,"platforms":1651,"seasonCount":15,"description":1654},1300522978,"game-title",13,"Super Mario 3D World + Bowser's Fury","super-mario-3d-world-plus-bowsers-fury",[1632],{"id":1633,"filename":1634},"https://images.example/mario.jpg",{"url":1643,"score":1644},"/game/super-mario-3d-world-plus-bowsers-fury/critic-reviews/",89,"E","2021-02-12",2021,[1649],{"id":1263,"name":1650},"3D Platformer",[1652],{"id":1263,"name":1653},"Nintendo Switch","Mario description",{"id":1656,"type":1627,"typeId":1628,"title":1657,"slug":1658,"images":1659,"criticScoreSummary":1667,"rating":1645,"releaseDate":1670,"premiereYear":1671,"genres":1672,"platforms":1675,"seasonCount":15,"description":1678},1300482947,"game-title",13,"Mario & Luigi: Bowser's Inside Story + Bowser Jr.'s Journey","mario-and-luigi-bowsers-inside-story-plus-bowser",[1660],{"id":1661,"filename":1662},"https://images.example/bowser.jpg",{"url":1668,"score":1669},"/game/mario-and-luigi-bowsers-inside-story-plus-bowser/critic-reviews/",84,"E","2019-01-11",2019,[1673],{"id":1263,"name":1674},"JRPG",[1676],{"id":1263,"name":1677},"3DS","Bowser description"]
+    </script>
+  </main>
+`;
+
+const payloadRegexMultiScriptHtml = `
+  <main>
+    <script>
+      window.__NUXT_DATA__ = [0,"game-title",13,"First Quest","first-quest","2021-02-12",2021,[],{"name":"Genre"},"Genre",[],{"name":"Nintendo Switch"},"Nintendo Switch","https://images.example/first.jpg","/game/first-quest/critic-reviews/",91];
+    </script>
+    <script>
+      window.__NUXT_DATA__ = [0,"game-title",13,"Second Quest","second-quest","2022-03-10",2022,[],{"name":"Genre"},"Genre",[],{"name":"PC"},"PC","https://images.example/second.jpg","/game/second-quest/critic-reviews/",87];
+    </script>
+  </main>
+`;
+
 const hostileAbsoluteUrlHtml = `
   <div data-testid="search-results">
     <div data-testid="search-result-item">
@@ -186,6 +235,83 @@ test('extractMetacriticSearchResults parses current link-first layout without le
     metacriticScore: 89,
     metacriticUrl: 'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/',
     imageUrl: 'https://images.example/current.jpg',
+  });
+});
+
+test('extractMetacriticSearchResults fills a missing year from the Nuxt payload', async () => {
+  const results = await parseHtml(payloadYearFallbackHtml);
+
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    // prettier-ignore
+    title: 'Super Mario 3D World + Bowser\'s Fury',
+    releaseYear: 2021,
+    platform: 'Nintendo Switch',
+    metacriticScore: 89,
+    metacriticUrl: 'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/',
+    imageUrl: 'https://images.example/current.jpg',
+  });
+});
+
+test('extractMetacriticSearchResults falls back to the Nuxt payload when no result rows are rendered', async () => {
+  const results = await parseHtml(payloadOnlyHtml);
+
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    // prettier-ignore
+    title: 'Super Mario 3D World + Bowser\'s Fury',
+    releaseYear: 2021,
+    platform: 'Nintendo Switch',
+    metacriticScore: 89,
+    metacriticUrl: 'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/',
+    imageUrl: null,
+  });
+});
+
+test('extractMetacriticSearchResults keeps multiple payload rows with year and platform when no result rows are rendered', async () => {
+  const results = await parseHtml(payloadOnlyMultiRowHtml);
+
+  assert.equal(results.length, 2);
+  assert.deepEqual(results[0], {
+    // prettier-ignore
+    title: 'Super Mario 3D World + Bowser\'s Fury',
+    releaseYear: 2021,
+    platform: 'Nintendo Switch',
+    metacriticScore: 89,
+    metacriticUrl: 'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/',
+    imageUrl: 'https://images.example/mario.jpg',
+  });
+  assert.deepEqual(results[1], {
+    // prettier-ignore
+    title: 'Mario & Luigi: Bowser\'s Inside Story + Bowser Jr.\'s Journey',
+    releaseYear: 2019,
+    platform: '3DS',
+    metacriticScore: 84,
+    metacriticUrl:
+      'https://www.metacritic.com/game/mario-and-luigi-bowsers-inside-story-plus-bowser/',
+    imageUrl: 'https://images.example/bowser.jpg',
+  });
+});
+
+test('extractMetacriticSearchResults resets regex payload matching between multiple scripts', async () => {
+  const results = await parseHtml(payloadRegexMultiScriptHtml);
+
+  assert.equal(results.length, 2);
+  assert.deepEqual(results[0], {
+    title: 'First Quest',
+    releaseYear: 2021,
+    platform: 'Nintendo Switch',
+    metacriticScore: 91,
+    metacriticUrl: 'https://www.metacritic.com/game/first-quest/',
+    imageUrl: 'https://images.example/first.jpg',
+  });
+  assert.deepEqual(results[1], {
+    title: 'Second Quest',
+    releaseYear: 2022,
+    platform: 'PC',
+    metacriticScore: 87,
+    metacriticUrl: 'https://www.metacritic.com/game/second-quest/',
+    imageUrl: 'https://images.example/second.jpg',
   });
 });
 

@@ -9,7 +9,7 @@ import {
   parsePlatformIdFromFolderName,
   processQueuedManualsCatalogRefresh,
   registerManualRoutes,
-  scoreManualTitleMatch,
+  scoreManualTitleMatch
 } from './manuals.js';
 
 type MatchPayload = {
@@ -56,7 +56,7 @@ class SettingsPoolMock {
       }
       return Promise.resolve({
         rows: [{ setting_value: this.settingValue }],
-        rowCount: 1,
+        rowCount: 1
       });
     }
     return Promise.resolve({ rows: [], rowCount: 0 });
@@ -105,12 +105,12 @@ void test('resolve endpoint auto-matches when score and gap pass thresholds', as
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: fixture.rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?igdbGameId=100&platformIgdbId=8&title=God%20of%20War%20II',
+    url: '/v1/manuals/resolve?igdbGameId=100&platformIgdbId=8&title=God%20of%20War%20II'
   });
 
   assert.equal(response.statusCode, 200);
@@ -133,12 +133,12 @@ void test('resolve endpoint returns none for ambiguous title', async () => {
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?platformIgdbId=8&title=Resident',
+    url: '/v1/manuals/resolve?platformIgdbId=8&title=Resident'
   });
 
   assert.equal(response.statusCode, 200);
@@ -156,12 +156,12 @@ void test('search endpoint lists and ranks candidates by platform', async () => 
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: fixture.rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8&q=god%20war',
+    url: '/v1/manuals/search?platformIgdbId=8&q=god%20war'
   });
 
   assert.equal(response.statusCode, 200);
@@ -185,12 +185,12 @@ void test('resolve endpoint supports aliased platform ids using canonical manual
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?platformIgdbId=99&title=Super%20Mario%20Bros',
+    url: '/v1/manuals/resolve?platformIgdbId=99&title=Super%20Mario%20Bros'
   });
 
   assert.equal(response.statusCode, 200);
@@ -219,12 +219,12 @@ void test('search endpoint supports aliased platform ids using canonical manual 
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=51&q=zelda',
+    url: '/v1/manuals/search?platformIgdbId=51&q=zelda'
   });
 
   assert.equal(response.statusCode, 200);
@@ -246,18 +246,18 @@ void test('manual routes validate required platform id and unavailable catalogs'
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: path.join(os.tmpdir(), `missing-manuals-${String(Date.now())}`),
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const missingPlatform = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?title=Anything',
+    url: '/v1/manuals/resolve?title=Anything'
   });
   assert.equal(missingPlatform.statusCode, 400);
 
   const unavailable = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8&q=zelda',
+    url: '/v1/manuals/search?platformIgdbId=8&q=zelda'
   });
   assert.equal(unavailable.statusCode, 200);
   const unavailablePayload = parseJson(unavailable.body) as SearchPayload;
@@ -274,12 +274,12 @@ void test('manual resolve supports preferredRelativePath override and blank titl
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: rootDir,
-    manualsPublicBaseUrl: '/manuals/',
+    manualsPublicBaseUrl: '/manuals/'
   });
 
   const override = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?platformIgdbId=8&preferredRelativePath=PlayStation%202__pid-8%2FKingdom%20Hearts.pdf',
+    url: '/v1/manuals/resolve?platformIgdbId=8&preferredRelativePath=PlayStation%202__pid-8%2FKingdom%20Hearts.pdf'
   });
   assert.equal(override.statusCode, 200);
   const overridePayload = parseJson(override.body) as MatchPayload;
@@ -288,7 +288,7 @@ void test('manual resolve supports preferredRelativePath override and blank titl
 
   const blankTitle = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?platformIgdbId=8&title=',
+    url: '/v1/manuals/resolve?platformIgdbId=8&title='
   });
   assert.equal(blankTitle.statusCode, 200);
   const blankTitlePayload = parseJson(blankTitle.body) as MatchPayload;
@@ -307,12 +307,12 @@ void test('manual search returns sorted defaults and refresh supports force flag
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const search = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8',
+    url: '/v1/manuals/search?platformIgdbId=8'
   });
   assert.equal(search.statusCode, 200);
   const searchPayload = parseJson(search.body) as SearchPayload;
@@ -321,7 +321,7 @@ void test('manual search returns sorted defaults and refresh supports force flag
 
   const refresh = await app.inject({
     method: 'POST',
-    url: '/v1/manuals/refresh?force=true',
+    url: '/v1/manuals/refresh?force=true'
   });
   assert.equal(refresh.statusCode, 200);
   const refreshPayload = parseJson(refresh.body) as RefreshPayload;
@@ -341,12 +341,12 @@ void test('manual catalog cache requires force refresh to detect new files', asy
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const before = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8',
+    url: '/v1/manuals/search?platformIgdbId=8'
   });
   const beforePayload = parseJson(before.body) as SearchPayload;
   assert.equal(beforePayload.items.length, 1);
@@ -355,20 +355,20 @@ void test('manual catalog cache requires force refresh to detect new files', asy
 
   const cached = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8',
+    url: '/v1/manuals/search?platformIgdbId=8'
   });
   const cachedPayload = parseJson(cached.body) as SearchPayload;
   assert.equal(cachedPayload.items.length, 1);
 
   const forced = await app.inject({
     method: 'POST',
-    url: '/v1/manuals/refresh?force=1',
+    url: '/v1/manuals/refresh?force=1'
   });
   assert.equal(forced.statusCode, 200);
 
   const after = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8',
+    url: '/v1/manuals/search?platformIgdbId=8'
   });
   const afterPayload = parseJson(after.body) as SearchPayload;
   assert.equal(afterPayload.items.length, 2);
@@ -382,12 +382,12 @@ void test('manual routes set no-store cache headers', async () => {
   const app = Fastify();
   registerManualRoutes(app, {
     manualsDir: fixture.rootDir,
-    manualsPublicBaseUrl: '/manuals',
+    manualsPublicBaseUrl: '/manuals'
   });
 
   const resolve = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?platformIgdbId=8&title=God%20of%20War%20II',
+    url: '/v1/manuals/resolve?platformIgdbId=8&title=God%20of%20War%20II'
   });
   assert.equal(resolve.statusCode, 200);
   assert.equal(resolve.headers['cache-control'], 'no-store, no-cache, must-revalidate');
@@ -396,21 +396,21 @@ void test('manual routes set no-store cache headers', async () => {
 
   const search = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/search?platformIgdbId=8&q=god%20war',
+    url: '/v1/manuals/search?platformIgdbId=8&q=god%20war'
   });
   assert.equal(search.statusCode, 200);
   assert.equal(search.headers['cache-control'], 'no-store, no-cache, must-revalidate');
 
   const refresh = await app.inject({
     method: 'POST',
-    url: '/v1/manuals/refresh?force=1',
+    url: '/v1/manuals/refresh?force=1'
   });
   assert.equal(refresh.statusCode, 200);
   assert.equal(refresh.headers['cache-control'], 'no-store, no-cache, must-revalidate');
 
   const invalid = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?title=MissingPlatform',
+    url: '/v1/manuals/resolve?title=MissingPlatform'
   });
   assert.equal(invalid.statusCode, 400);
   assert.equal(invalid.headers['cache-control'], 'no-store, no-cache, must-revalidate');
@@ -432,12 +432,12 @@ void test('queue snapshot round-trip preserves trigram-based manual matching', a
     manualsDir: rootDir,
     manualsPublicBaseUrl: '/manuals',
     mode: 'queue',
-    queuePool: queuePool as never,
+    queuePool: queuePool as never
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/manuals/resolve?platformIgdbId=8&title=God%20of%20War%20II',
+    url: '/v1/manuals/resolve?platformIgdbId=8&title=God%20of%20War%20II'
   });
   assert.equal(response.statusCode, 200);
   const payload = parseJson(response.body) as MatchPayload;

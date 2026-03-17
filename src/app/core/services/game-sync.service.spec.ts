@@ -9,7 +9,7 @@ import { SyncEventsService } from './sync-events.service';
 import { PLATFORM_ORDER_STORAGE_KEY, PlatformOrderService } from './platform-order.service';
 import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
-  PlatformCustomizationService,
+  PlatformCustomizationService
 } from './platform-customization.service';
 import { OutboxRecord, SyncChangeEvent } from '../models/game.models';
 
@@ -74,7 +74,7 @@ describe('GameSyncService', () => {
       coverSource: 'igdb',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-      ...overrides,
+      ...overrides
     };
   }
 
@@ -87,8 +87,8 @@ describe('GameSyncService', () => {
         GameSyncService,
         SyncEventsService,
         PlatformOrderService,
-        PlatformCustomizationService,
-      ],
+        PlatformCustomizationService
+      ]
     });
 
     db = TestBed.inject(AppDb);
@@ -115,9 +115,9 @@ describe('GameSyncService', () => {
         listType: 'collection',
         notes: 'Line 1\r\nLine 2',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
       },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
     await servicePrivate.applyGameChange(change);
@@ -139,9 +139,9 @@ describe('GameSyncService', () => {
         listType: 'collection',
         notes: '',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
       },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
     await servicePrivate.applyGameChange(change);
@@ -156,7 +156,7 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ notes: '  <p><br></p>  ' }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
     await servicePrivate.applyGameChange(change);
@@ -170,7 +170,7 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ notes: '<p></p><p></p>' }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
     await servicePrivate.applyGameChange(change);
@@ -184,7 +184,7 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ notes: '  hello<script>alert(1)</script>  ' }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     };
 
     await servicePrivate.applyGameChange(change);
@@ -204,7 +204,7 @@ describe('GameSyncService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -212,7 +212,7 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'delete',
       payload: { igdbGameId: '123', platformIgdbId: 130 },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const removed = await db.games
@@ -232,7 +232,7 @@ describe('GameSyncService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -240,7 +240,7 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'delete',
       payload: { igdbGameId: '123', platformIgdbId: 'invalid' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stillThere = await db.games
@@ -262,9 +262,9 @@ describe('GameSyncService', () => {
         platform: '',
         listType: 'invalid',
         coverSource: 'invalid',
-        tagIds: [1, 1, 2, -3, 'bad'],
+        tagIds: [1, 1, 2, -3, 'bad']
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['777', 130]).first();
@@ -284,9 +284,9 @@ describe('GameSyncService', () => {
         igdbGameId: '194558',
         platformIgdbId: 6,
         listType: 'discovery',
-        discoverySource: 'recent',
+        discoverySource: 'recent'
       }),
-      serverTimestamp: '2026-03-05T14:15:00.000Z',
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games
@@ -308,7 +308,7 @@ describe('GameSyncService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-03-05T14:15:12.648Z',
-      updatedAt: '2026-03-05T14:15:12.648Z',
+      updatedAt: '2026-03-05T14:15:12.648Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -319,9 +319,9 @@ describe('GameSyncService', () => {
         igdbGameId: '194558',
         platformIgdbId: 6,
         listType: 'discovery',
-        discoverySource: 'recent',
+        discoverySource: 'recent'
       }),
-      serverTimestamp: '2026-03-05T14:15:00.000Z',
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games
@@ -344,7 +344,7 @@ describe('GameSyncService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     });
     await db.outbox.put({
       opId: 'pending-194558-6',
@@ -354,7 +354,7 @@ describe('GameSyncService', () => {
       clientTimestamp: now,
       createdAt: now,
       attemptCount: 0,
-      lastError: null,
+      lastError: null
     });
 
     await servicePrivate.applyGameChange({
@@ -365,9 +365,9 @@ describe('GameSyncService', () => {
         igdbGameId: '194558',
         platformIgdbId: 6,
         listType: 'discovery',
-        discoverySource: 'recent',
+        discoverySource: 'recent'
       }),
-      serverTimestamp: '2026-03-05T14:15:00.000Z',
+      serverTimestamp: '2026-03-05T14:15:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games
@@ -390,7 +390,7 @@ describe('GameSyncService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     });
     await db.outbox.put({
       opId: 'pending-194558-6-2',
@@ -400,7 +400,7 @@ describe('GameSyncService', () => {
       clientTimestamp: now,
       createdAt: now,
       attemptCount: 0,
-      lastError: null,
+      lastError: null
     });
 
     await servicePrivate.applyPulledChanges([
@@ -412,10 +412,10 @@ describe('GameSyncService', () => {
           igdbGameId: '194558',
           platformIgdbId: 6,
           listType: 'discovery',
-          discoverySource: 'recent',
+          discoverySource: 'recent'
         }),
-        serverTimestamp: '2026-01-01T00:00:00.000Z',
-      } as SyncChangeEvent,
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      } as SyncChangeEvent
     ]);
 
     const stored = await db.games
@@ -438,7 +438,7 @@ describe('GameSyncService', () => {
       releaseYear: null,
       listType: 'collection',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -449,9 +449,9 @@ describe('GameSyncService', () => {
         id: 218,
         igdbGameId: '1234',
         platformIgdbId: 130,
-        title: 'Pulled Game',
+        title: 'Pulled Game'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const localRow = await db.games
@@ -494,9 +494,9 @@ describe('GameSyncService', () => {
         status: 'invalid',
         gameType: 'invalid',
         coverUrl: 'not-a-url',
-        createdAt: 'not-a-date',
+        createdAt: 'not-a-date'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -542,19 +542,19 @@ describe('GameSyncService', () => {
           imageId: 'hjnzngnrtwr82jzmmkef',
           url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
           width: 1280,
-          height: 720,
-        },
+          height: 720
+        }
       ],
       videos: [
         {
           id: 3164,
           name: 'Next-gen Launch Trailer',
           videoId: 'PIF_fqFZEuk',
-          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk',
-        },
+          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+        }
       ],
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -562,9 +562,9 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({
-        title: 'Updated Title',
+        title: 'Updated Title'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -602,7 +602,7 @@ describe('GameSyncService', () => {
       reviewMatchLocked: true,
       psPricesMatchLocked: true,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -610,9 +610,9 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({
-        title: 'Updated Title',
+        title: 'Updated Title'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -657,7 +657,7 @@ describe('GameSyncService', () => {
       reviewMatchLocked: true,
       psPricesMatchLocked: true,
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -677,9 +677,9 @@ describe('GameSyncService', () => {
         reviewMatchPlatformIgdbId: 167,
         reviewMatchMobygamesGameId: null,
         reviewMatchLocked: false,
-        psPricesMatchLocked: false,
+        psPricesMatchLocked: false
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -705,9 +705,9 @@ describe('GameSyncService', () => {
       operation: 'upsert',
       payload: createBaseGame({
         hltbMatchGameId: 7003,
-        hltbMatchUrl: '  //howlongtobeat.com/game/7003  ',
+        hltbMatchUrl: '  //howlongtobeat.com/game/7003  '
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -729,7 +729,7 @@ describe('GameSyncService', () => {
       hltbMatchGameId: 7002,
       hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -737,9 +737,9 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({
-        title: 'Updated Title',
+        title: 'Updated Title'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -762,7 +762,7 @@ describe('GameSyncService', () => {
       screenshots: [{ id: 1, imageId: 'old', url: '', width: 1, height: 1 }],
       videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }],
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyGameChange({
@@ -772,14 +772,14 @@ describe('GameSyncService', () => {
       payload: createBaseGame({
         screenshots: [
           { id: '2', image_id: 'new-image', width: '1280', height: '720' },
-          { id: 2, image_id: 'new-image' },
+          { id: 2, image_id: 'new-image' }
         ],
         videos: [
           { id: '3', name: ' Trailer ', video_id: 'abc def' },
-          { id: 3, name: 'Duplicate', video_id: 'abc def' },
-        ],
+          { id: 3, name: 'Duplicate', video_id: 'abc def' }
+        ]
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -789,16 +789,16 @@ describe('GameSyncService', () => {
         imageId: 'new-image',
         url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/new-image.jpg',
         width: 1280,
-        height: 720,
-      },
+        height: 720
+      }
     ]);
     expect(stored?.videos).toEqual([
       {
         id: 3,
         name: 'Trailer',
         videoId: 'abc def',
-        url: 'https://www.youtube.com/watch?v=abc%20def',
-      },
+        url: 'https://www.youtube.com/watch?v=abc%20def'
+      }
     ]);
   });
 
@@ -808,9 +808,9 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({
-        rating: '4.5',
+        rating: '4.5'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -826,9 +826,9 @@ describe('GameSyncService', () => {
         customTitle: '  Custom Game  ',
         customPlatform: '  Custom Switch  ',
         customPlatformIgdbId: 999,
-        customCoverUrl: '  data:image/png;base64,AAA  ',
+        customCoverUrl: '  data:image/png;base64,AAA  '
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -849,9 +849,9 @@ describe('GameSyncService', () => {
         customTitle: 'Game',
         customPlatform: 'Switch',
         customPlatformIgdbId: 130,
-        customCoverUrl: 'https://not-allowed.example',
+        customCoverUrl: 'https://not-allowed.example'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -871,9 +871,9 @@ describe('GameSyncService', () => {
         reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
         reviewSource: 'mobygames',
         mobyScore: 8.8,
-        mobygamesGameId: 42,
+        mobygamesGameId: 42
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -895,9 +895,9 @@ describe('GameSyncService', () => {
         reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
         reviewSource: 'mobygames',
         mobyScore: 8.8,
-        mobygamesGameId: 42,
+        mobygamesGameId: 42
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -916,9 +916,9 @@ describe('GameSyncService', () => {
         reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
         reviewSource: 'mobygames',
         mobyScore: 7.5,
-        mobygamesGameId: 42,
+        mobygamesGameId: 42
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -936,9 +936,9 @@ describe('GameSyncService', () => {
         reviewScore: 8.8,
         reviewUrl: 'https://www.mobygames.com/game/42/sonic/',
         reviewSource: 'mobygames',
-        mobygamesGameId: 42,
+        mobygamesGameId: 42
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -955,9 +955,9 @@ describe('GameSyncService', () => {
       payload: createBaseGame({
         reviewScore: 91,
         reviewUrl: 'https://www.metacritic.com/game/some-game/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.games.where('[igdbGameId+platformIgdbId]').equals(['123', 130]).first();
@@ -975,7 +975,7 @@ describe('GameSyncService', () => {
       name: 'ToDelete',
       color: '#123456',
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
     await db.games.put({
       igdbGameId: '123',
@@ -989,7 +989,7 @@ describe('GameSyncService', () => {
       listType: 'collection',
       tagIds: [7, 8],
       createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.applyTagChange({
@@ -997,7 +997,7 @@ describe('GameSyncService', () => {
       entityType: 'tag',
       operation: 'delete',
       payload: { id: 7 },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const deletedTag = await db.tags.get(7);
@@ -1012,7 +1012,7 @@ describe('GameSyncService', () => {
       entityType: 'tag',
       operation: 'upsert',
       payload: { id: 5, name: '  ', color: '  ' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.tags.get(5);
@@ -1026,7 +1026,7 @@ describe('GameSyncService', () => {
       entityType: 'view',
       operation: 'upsert',
       payload: { id: 11, name: '  ', listType: 'bad', filters: null, groupBy: null },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const stored = await db.views.get(11);
@@ -1040,7 +1040,7 @@ describe('GameSyncService', () => {
       entityType: 'view',
       operation: 'delete',
       payload: { id: 11 },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
     const removed = await db.views.get(11);
     expect(removed).toBeUndefined();
@@ -1055,7 +1055,7 @@ describe('GameSyncService', () => {
       entityType: 'setting',
       operation: 'upsert',
       payload: { key: PLATFORM_ORDER_STORAGE_KEY, value: '["130"]' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
     expect(localStorage.getItem(PLATFORM_ORDER_STORAGE_KEY)).toBe('["130"]');
     expect(orderRefreshSpy).toHaveBeenCalled();
@@ -1065,7 +1065,7 @@ describe('GameSyncService', () => {
       entityType: 'setting',
       operation: 'upsert',
       payload: { key: PLATFORM_DISPLAY_NAMES_STORAGE_KEY, value: '{"130":"Switch"}' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
     expect(localStorage.getItem(PLATFORM_DISPLAY_NAMES_STORAGE_KEY)).toBe('{"130":"Switch"}');
     expect(displayRefreshSpy).toHaveBeenCalled();
@@ -1075,7 +1075,7 @@ describe('GameSyncService', () => {
       entityType: 'setting',
       operation: 'delete',
       payload: { key: PLATFORM_ORDER_STORAGE_KEY },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
     expect(localStorage.getItem(PLATFORM_ORDER_STORAGE_KEY)).toBeNull();
   });
@@ -1087,15 +1087,15 @@ describe('GameSyncService', () => {
         entityType: 'game',
         operation: 'upsert',
         payload: { a: 'x'.repeat(60) },
-        clientTimestamp: '2026-01-01T00:00:00.000Z',
+        clientTimestamp: '2026-01-01T00:00:00.000Z'
       },
       {
         opId: '2',
         entityType: 'game',
         operation: 'upsert',
         payload: { a: 'y'.repeat(60) },
-        clientTimestamp: '2026-01-01T00:00:00.000Z',
-      },
+        clientTimestamp: '2026-01-01T00:00:00.000Z'
+      }
     ];
 
     const batches = servicePrivate.buildPushOperationBatches(operations as OutboxRecord[], 140);
@@ -1137,14 +1137,14 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ igdbGameId: '', platformIgdbId: 130 }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
     await servicePrivate.applyGameChange({
       eventId: '15',
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ igdbGameId: 'abc', platformIgdbId: 0 }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const games = await db.games.toArray();
@@ -1157,7 +1157,7 @@ describe('GameSyncService', () => {
       entityType: 'tag',
       operation: 'delete',
       payload: { id: 'bad' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     await servicePrivate.applyTagChange({
@@ -1165,7 +1165,7 @@ describe('GameSyncService', () => {
       entityType: 'tag',
       operation: 'upsert',
       payload: { id: 0, name: 'ignored' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const tags = await db.tags.toArray();
@@ -1178,7 +1178,7 @@ describe('GameSyncService', () => {
       entityType: 'view',
       operation: 'delete',
       payload: { id: 'bad' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     await servicePrivate.applyViewChange({
@@ -1186,7 +1186,7 @@ describe('GameSyncService', () => {
       entityType: 'view',
       operation: 'upsert',
       payload: { id: 22, name: 'Wish', listType: 'wishlist' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     const view = await db.views.get(22);
@@ -1199,14 +1199,14 @@ describe('GameSyncService', () => {
       entityType: 'setting',
       operation: 'upsert',
       payload: { key: '   ', value: 'x' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
     await servicePrivate.applySettingChange({
       eventId: '21',
       entityType: 'setting',
       operation: 'delete',
       payload: { key: '   ' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     expect(localStorage.getItem('')).toBeNull();
@@ -1215,7 +1215,7 @@ describe('GameSyncService', () => {
   it('covers online detection branch and operation id fallback path', () => {
     const cryptoSpy = vi.spyOn(globalThis, 'crypto', 'get').mockReturnValue({} as Crypto);
     const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
-      onLine: false,
+      onLine: false
     } as Navigator);
 
     expect(servicePrivate.isOnline()).toBe(false);
@@ -1236,7 +1236,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '123',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     await servicePrivate.runDiscoveryPollutionRemediationIfNeeded();
@@ -1255,7 +1255,7 @@ describe('GameSyncService', () => {
         clientTimestamp: now,
         createdAt: now,
         attemptCount: 0,
-        lastError: null,
+        lastError: null
       },
       {
         opId: 'op-b',
@@ -1265,8 +1265,8 @@ describe('GameSyncService', () => {
         clientTimestamp: now,
         createdAt: now,
         attemptCount: 0,
-        lastError: null,
-      },
+        lastError: null
+      }
     ]);
 
     vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
@@ -1274,8 +1274,8 @@ describe('GameSyncService', () => {
         cursor: 'cursor-1',
         results: [
           { opId: 'op-a', status: 'applied' },
-          { opId: 'op-b', status: 'failed', message: 'boom' },
-        ],
+          { opId: 'op-b', status: 'failed', message: 'boom' }
+        ]
       })
     );
 
@@ -1293,7 +1293,7 @@ describe('GameSyncService', () => {
     vi.spyOn(servicePrivate.httpClient, 'post').mockReturnValue(
       of({
         cursor: 'next-cursor',
-        changes: [],
+        changes: []
       })
     );
 
@@ -1314,9 +1314,9 @@ describe('GameSyncService', () => {
             entityType: 'setting',
             operation: 'upsert',
             payload: { key: 'test-setting', value: 'on' },
-            serverTimestamp: '2026-01-01T00:00:00.000Z',
-          },
-        ],
+            serverTimestamp: '2026-01-01T00:00:00.000Z'
+          }
+        ]
       })
     );
 
@@ -1335,7 +1335,7 @@ describe('GameSyncService', () => {
       entityType: 'setting' as const,
       operation: 'upsert' as const,
       payload: { key: `k-${String(index + 1)}`, value: 'v1' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     }));
     const pageTwoChanges = [
       {
@@ -1343,8 +1343,8 @@ describe('GameSyncService', () => {
         entityType: 'setting' as const,
         operation: 'upsert' as const,
         payload: { key: 'k-1001', value: 'v2' },
-        serverTimestamp: '2026-01-01T00:00:00.000Z',
-      },
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      }
     ];
 
     const postSpy = vi
@@ -1352,13 +1352,13 @@ describe('GameSyncService', () => {
       .mockReturnValueOnce(
         of({
           cursor: 'cursor-1000',
-          changes: pageOneChanges,
+          changes: pageOneChanges
         })
       )
       .mockReturnValueOnce(
         of({
           cursor: 'cursor-1001',
-          changes: pageTwoChanges,
+          changes: pageTwoChanges
         })
       );
 
@@ -1379,7 +1379,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: 'invalid-cursor',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
     await servicePrivate.replayRecentChangesIfDue();
 
@@ -1391,7 +1391,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9007199254740993',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
@@ -1406,7 +1406,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '5000',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
@@ -1421,12 +1421,12 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
     await db.syncMeta.put({
       key: 'recentReplayLastAt',
       value: new Date().toISOString(),
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
@@ -1439,7 +1439,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
     await db.outbox.put({
       opId: 'pending-op-1',
@@ -1448,7 +1448,7 @@ describe('GameSyncService', () => {
       payload: { key: 'local-setting', value: 'local' },
       clientTimestamp: '2026-01-01T00:00:00.000Z',
       createdAt: '2026-01-01T00:00:00.000Z',
-      attemptCount: 0,
+      attemptCount: 0
     });
 
     const postSpy = vi.spyOn(servicePrivate.httpClient, 'post');
@@ -1462,7 +1462,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
@@ -1475,9 +1475,9 @@ describe('GameSyncService', () => {
             entityType: 'setting',
             operation: 'upsert',
             payload: { key: 'replay-setting', value: 'on' },
-            serverTimestamp: '2026-01-01T00:00:00.000Z',
-          },
-        ],
+            serverTimestamp: '2026-01-01T00:00:00.000Z'
+          }
+        ]
       })
     );
 
@@ -1499,7 +1499,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     const firstPage = Array.from({ length: 1000 }, (_, index) => ({
@@ -1507,7 +1507,7 @@ describe('GameSyncService', () => {
       entityType: 'setting' as const,
       operation: 'upsert' as const,
       payload: { key: `replay-race-a-${String(index)}`, value: 'a' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     }));
     const secondPage = [
       {
@@ -1515,8 +1515,8 @@ describe('GameSyncService', () => {
         entityType: 'setting' as const,
         operation: 'upsert' as const,
         payload: { key: 'replay-race-b', value: 'b' },
-        serverTimestamp: '2026-01-01T00:00:00.000Z',
-      },
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
+      }
     ];
 
     const postSpy = vi
@@ -1546,7 +1546,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     const fullPage = (startEventId: number): SyncChangeEvent[] =>
@@ -1555,7 +1555,7 @@ describe('GameSyncService', () => {
         entityType: 'setting',
         operation: 'upsert',
         payload: { key: `replay-max-${String(startEventId + index)}`, value: 'v' },
-        serverTimestamp: '2026-01-01T00:00:00.000Z',
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
       }));
 
     const postSpy = vi
@@ -1578,7 +1578,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: '9000',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     vi.spyOn(servicePrivate.httpClient, 'post').mockImplementation(() => {
@@ -1602,28 +1602,28 @@ describe('GameSyncService', () => {
       entityType: 'game',
       operation: 'upsert',
       payload: createBaseGame({ igdbGameId: 'dispatch-game' }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent;
     const tagChange = {
       eventId: '45',
       entityType: 'tag',
       operation: 'upsert',
       payload: { id: 5, name: 'Priority', color: '#ff0000' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent;
     const viewChange = {
       eventId: '46',
       entityType: 'view',
       operation: 'upsert',
       payload: { id: 11, name: 'My View', listType: 'wishlist' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent;
     const settingChange = {
       eventId: '47',
       entityType: 'setting',
       operation: 'upsert',
       payload: { key: 'dispatch-setting', value: 'on' },
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent;
 
     await servicePrivate.applyPulledChanges([gameChange, tagChange, viewChange, settingChange]);
@@ -1640,7 +1640,7 @@ describe('GameSyncService', () => {
     await db.syncMeta.put({
       key: 'cursor',
       value: 'cursor-before',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z'
     });
 
     const emitChangedSpy = vi.spyOn(servicePrivate.syncEvents, 'emitChanged');
@@ -1656,9 +1656,9 @@ describe('GameSyncService', () => {
             entityType: 'setting',
             operation: 'upsert',
             payload: { key: 'test-setting', value: 'on' },
-            serverTimestamp: '2026-01-01T00:00:00.000Z',
-          },
-        ],
+            serverTimestamp: '2026-01-01T00:00:00.000Z'
+          }
+        ]
       })
     );
 
@@ -1687,9 +1687,9 @@ describe('GameSyncService', () => {
         id: 999,
         igdbGameId: 'retry-test',
         platformIgdbId: 130,
-        title: 'Retry Game',
+        title: 'Retry Game'
       }),
-      serverTimestamp: '2026-01-01T00:00:00.000Z',
+      serverTimestamp: '2026-01-01T00:00:00.000Z'
     } as SyncChangeEvent);
 
     expect(putSpy).toHaveBeenCalledTimes(2);
@@ -1712,9 +1712,9 @@ describe('GameSyncService', () => {
           id: 1001,
           igdbGameId: 'throw-test',
           platformIgdbId: 130,
-          title: 'Throw Game',
+          title: 'Throw Game'
         }),
-        serverTimestamp: '2026-01-01T00:00:00.000Z',
+        serverTimestamp: '2026-01-01T00:00:00.000Z'
       } as SyncChangeEvent)
     ).rejects.toThrow('abort');
 
@@ -1757,7 +1757,7 @@ describe('GameSyncService', () => {
 
     servicePrivate.syncInFlight = false;
     const navigatorSpy = vi.spyOn(globalThis, 'navigator', 'get').mockReturnValue({
-      onLine: false,
+      onLine: false
     } as Navigator);
     await service.syncNow();
     expect(pushSpy).not.toHaveBeenCalled();

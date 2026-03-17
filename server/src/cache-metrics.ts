@@ -89,7 +89,7 @@ const metrics: CacheMetricSnapshot = {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   },
   metacritic: {
     hits: 0,
@@ -102,7 +102,7 @@ const metrics: CacheMetricSnapshot = {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   },
   hltb: {
     hits: 0,
@@ -115,7 +115,7 @@ const metrics: CacheMetricSnapshot = {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   },
   image: {
     hits: 0,
@@ -124,7 +124,7 @@ const metrics: CacheMetricSnapshot = {
     readErrors: 0,
     writeErrors: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
+    invalidRequests: 0
   },
   steamPrice: {
     hits: 0,
@@ -138,7 +138,7 @@ const metrics: CacheMetricSnapshot = {
     revalidateSucceeded: 0,
     revalidateFailed: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
+    invalidRequests: 0
   },
   pspricesPrice: {
     hits: 0,
@@ -152,8 +152,8 @@ const metrics: CacheMetricSnapshot = {
     revalidateSucceeded: 0,
     revalidateFailed: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
-  },
+    invalidRequests: 0
+  }
 };
 
 export function incrementHltbMetric(metric: keyof CacheMetricSnapshot['hltb']): void {
@@ -189,7 +189,7 @@ export function getCacheMetrics(): CacheMetricSnapshot {
     hltb: { ...metrics.hltb },
     image: { ...metrics.image },
     steamPrice: { ...metrics.steamPrice },
-    pspricesPrice: { ...metrics.pspricesPrice },
+    pspricesPrice: { ...metrics.pspricesPrice }
   };
 }
 
@@ -205,7 +205,7 @@ export function resetCacheMetrics(): void {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   };
   metrics.metacritic = {
     hits: 0,
@@ -218,7 +218,7 @@ export function resetCacheMetrics(): void {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   };
   metrics.hltb = {
     hits: 0,
@@ -231,7 +231,7 @@ export function resetCacheMetrics(): void {
     revalidateScheduled: 0,
     revalidateSkipped: 0,
     revalidateSucceeded: 0,
-    revalidateFailed: 0,
+    revalidateFailed: 0
   };
   metrics.image = {
     hits: 0,
@@ -240,7 +240,7 @@ export function resetCacheMetrics(): void {
     readErrors: 0,
     writeErrors: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
+    invalidRequests: 0
   };
   metrics.steamPrice = {
     hits: 0,
@@ -254,7 +254,7 @@ export function resetCacheMetrics(): void {
     revalidateSucceeded: 0,
     revalidateFailed: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
+    invalidRequests: 0
   };
   metrics.pspricesPrice = {
     hits: 0,
@@ -268,6 +268,6 @@ export function resetCacheMetrics(): void {
     revalidateSucceeded: 0,
     revalidateFailed: 0,
     upstreamErrors: 0,
-    invalidRequests: 0,
+    invalidRequests: 0
   };
 }

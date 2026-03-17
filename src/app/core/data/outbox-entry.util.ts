@@ -34,6 +34,6 @@ export function buildOutboxEntry(
     clientTimestamp,
     createdAt,
     attemptCount: 0,
-    lastError: null,
+    lastError: null
   };
 }

@@ -15,7 +15,7 @@ const PLATFORM_MANUAL_ALIAS_TO_CANONICAL: Record<number, number> = {
   58: 19,
   137: 37,
   159: 20,
-  510: 24,
+  510: 24
 };
 
 interface ManualCatalogEntry {
@@ -155,8 +155,8 @@ export function registerManualRoutes(
     config: {
       rateLimit: {
         max: 50,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       setNoStoreCacheHeaders(reply);
@@ -178,7 +178,7 @@ export function registerManualRoutes(
           status: 'none',
           candidates: [],
           unavailable: true,
-          reason: catalog.reason ?? 'Manual catalog unavailable.',
+          reason: catalog.reason ?? 'Manual catalog unavailable.'
         });
         return;
       }
@@ -203,9 +203,9 @@ export function registerManualRoutes(
             status: 'matched',
             bestMatch: {
               ...toCandidateResponse(preferred, normalizedManualsPublicBaseUrl, 1),
-              source: 'override',
+              source: 'override'
             },
-            candidates: [],
+            candidates: []
           });
           return;
         }
@@ -228,18 +228,18 @@ export function registerManualRoutes(
           status: 'matched',
           bestMatch: {
             ...toCandidateResponse(top.entry, normalizedManualsPublicBaseUrl, top.score),
-            source: 'fuzzy',
+            source: 'fuzzy'
           },
-          candidates,
+          candidates
         });
         return;
       }
 
       reply.send({
         status: 'none',
-        candidates,
+        candidates
       });
-    },
+    }
   });
 
   app.route({
@@ -248,8 +248,8 @@ export function registerManualRoutes(
     config: {
       rateLimit: {
         max: 50,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       setNoStoreCacheHeaders(reply);
@@ -269,7 +269,7 @@ export function registerManualRoutes(
         reply.send({
           items: [],
           unavailable: true,
-          reason: catalog.reason ?? 'Manual catalog unavailable.',
+          reason: catalog.reason ?? 'Manual catalog unavailable.'
         });
         return;
       }
@@ -294,7 +294,7 @@ export function registerManualRoutes(
         .slice(0, MAX_SEARCH_RESULTS)
         .map((item) => toCandidateResponse(item.entry, normalizedManualsPublicBaseUrl, item.score));
       reply.send({ items });
-    },
+    }
   });
 
   app.route({
@@ -303,8 +303,8 @@ export function registerManualRoutes(
     config: {
       rateLimit: {
         max: 50,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       setNoStoreCacheHeaders(reply);
@@ -318,9 +318,9 @@ export function registerManualRoutes(
         unavailable: catalog.unavailable,
         reason: catalog.reason,
         count: catalog.entries.length,
-        refreshedAt: new Date().toISOString(),
+        refreshedAt: new Date().toISOString()
       });
-    },
+    }
   });
 
   async function readCatalog(params: { force: boolean }): Promise<ManualCatalog> {
@@ -346,7 +346,7 @@ export function registerManualRoutes(
       return {
         entries: [],
         unavailable: true,
-        reason: 'manuals queue mode requires queuePool',
+        reason: 'manuals queue mode requires queuePool'
       };
     }
 
@@ -366,7 +366,7 @@ export function registerManualRoutes(
       options.enqueueCatalogRefreshJob({
         reason: params.force ? 'manual-refresh-endpoint' : 'manual-catalog-stale',
         requestedAt: new Date(now).toISOString(),
-        force: params.force,
+        force: params.force
       });
     }
 
@@ -379,7 +379,7 @@ export function registerManualRoutes(
     return {
       entries: [],
       unavailable: true,
-      reason: 'Manual catalog is warming up.',
+      reason: 'Manual catalog is warming up.'
     };
   }
 }
@@ -398,9 +398,7 @@ async function scanManualsDirectory(manualsDir: string): Promise<ManualCatalog> 
       entries: [],
       unavailable: true,
       reason:
-        error instanceof Error
-          ? error.message
-          : `Unable to access manuals directory: ${manualsDir}`,
+        error instanceof Error ? error.message : `Unable to access manuals directory: ${manualsDir}`
     };
   }
 
@@ -412,7 +410,7 @@ async function scanManualsDirectory(manualsDir: string): Promise<ManualCatalog> 
       left.relativePath.localeCompare(right.relativePath, undefined, { sensitivity: 'base' })
     ),
     unavailable: false,
-    reason: null,
+    reason: null
   };
 }
 
@@ -424,7 +422,7 @@ export async function processQueuedManualsCatalogRefresh(
   await writeManualCatalogSnapshot(pool, catalog, new Date().toISOString());
   return {
     count: catalog.entries.length,
-    unavailable: catalog.unavailable,
+    unavailable: catalog.unavailable
   };
 }
 
@@ -470,7 +468,7 @@ async function walkManuals(
       relativePath: normalizedRelativePath,
       normalizedTitle,
       tokens: normalizedTitle.split(' ').filter(Boolean),
-      trigrams: buildTrigrams(normalizedTitle),
+      trigrams: buildTrigrams(normalizedTitle)
     });
   }
 }
@@ -512,7 +510,7 @@ function rankEntriesByTitle(
       }
 
       return left.entry.fileName.localeCompare(right.entry.fileName, undefined, {
-        sensitivity: 'base',
+        sensitivity: 'base'
       });
     });
 }
@@ -633,7 +631,7 @@ function toCandidateResponse(
     fileName: entry.fileName,
     relativePath: entry.relativePath,
     score: Number(Math.max(0, Math.min(1, score)).toFixed(4)),
-    url: buildManualUrl(manualsPublicBaseUrl, entry.relativePath),
+    url: buildManualUrl(manualsPublicBaseUrl, entry.relativePath)
   };
 }
 
@@ -702,7 +700,7 @@ async function writeManualCatalogSnapshot(
 ): Promise<void> {
   const payload = JSON.stringify({
     builtAt,
-    catalog: serializeManualCatalogForSnapshot(catalog),
+    catalog: serializeManualCatalogForSnapshot(catalog)
   });
   await pool.query(
     `
@@ -737,7 +735,7 @@ function normalizeManualCatalogSnapshot(value: unknown): ManualCatalog | null {
   return {
     entries,
     unavailable: raw.unavailable === true,
-    reason: typeof raw.reason === 'string' ? raw.reason : null,
+    reason: typeof raw.reason === 'string' ? raw.reason : null
   };
 }
 
@@ -778,7 +776,7 @@ function normalizeManualCatalogEntrySnapshot(value: unknown): ManualCatalogEntry
     relativePath,
     normalizedTitle,
     tokens,
-    trigrams,
+    trigrams
   };
 }
 
@@ -801,10 +799,10 @@ function serializeManualCatalogForSnapshot(catalog: ManualCatalog): {
       relativePath: entry.relativePath,
       normalizedTitle: entry.normalizedTitle,
       tokens: entry.tokens,
-      trigrams: Array.from(entry.trigrams),
+      trigrams: Array.from(entry.trigrams)
     })),
     unavailable: catalog.unavailable,
-    reason: catalog.reason,
+    reason: catalog.reason
   };
 }
 

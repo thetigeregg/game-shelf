@@ -4,7 +4,7 @@ import { Component, Input } from '@angular/core';
   selector: 'app-detail-media-slide',
   templateUrl: './detail-media-slide.component.html',
   styleUrls: ['./detail-media-slide.component.scss'],
-  standalone: true,
+  standalone: true
 })
 export class DetailMediaSlideComponent {
   private static readonly PLACEHOLDER_SRC = 'assets/icon/placeholder.png';

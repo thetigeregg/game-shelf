@@ -8,7 +8,7 @@ function makeMediaQueryListMock(matches = false) {
   return {
     matches,
     addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
+    removeEventListener: vi.fn()
   };
 }
 
@@ -24,7 +24,7 @@ describe('ThemeService', () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       configurable: true,
-      value: vi.fn().mockReturnValue(mediaQueryListMock),
+      value: vi.fn().mockReturnValue(mediaQueryListMock)
     });
 
     service = new ThemeService();
@@ -150,7 +150,7 @@ describe('ThemeService', () => {
       Object.defineProperty(window, 'matchMedia', {
         writable: true,
         configurable: true,
-        value: undefined,
+        value: undefined
       });
       service = new ThemeService();
     });

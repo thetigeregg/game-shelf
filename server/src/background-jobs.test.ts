@@ -26,7 +26,7 @@ void test('background jobs enqueue inserts with defaults and trims dedupe key', 
   const result = await repository.enqueue({
     jobType: 'metadata_enrichment_run',
     payload: { a: 1 },
-    dedupeKey: '  key-1  ',
+    dedupeKey: '  key-1  '
   });
 
   assert.deepEqual(result, { jobId: 42, deduped: false });
@@ -52,7 +52,7 @@ void test('background jobs enqueue dedupes against existing pending/running job'
   const result = await repository.enqueue({
     jobType: 'release_monitor_game',
     payload: { game: 'x' },
-    dedupeKey: 'release:1:2',
+    dedupeKey: 'release:1:2'
   });
 
   assert.deepEqual(result, { jobId: 7, deduped: true });
@@ -73,7 +73,7 @@ void test('background jobs enqueue falls back to non-deduped insert', async () =
   const result = await repository.enqueue({
     jobType: 'recommendations_rebuild',
     payload: { target: 'BACKLOG' },
-    dedupeKey: 'recommendations:BACKLOG',
+    dedupeKey: 'recommendations:BACKLOG'
   });
 
   assert.deepEqual(result, { jobId: 99, deduped: false });
@@ -91,7 +91,7 @@ void test('background jobs claimNext returns null when no pending jobs', async (
 void test('background jobs claimNext normalizes invalid payloads to empty object', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 8, job_type: 'metadata_enrichment_run', payload: 'bad' }],
-    rowCount: 1,
+    rowCount: 1
   }));
   const repository = new BackgroundJobRepository(pool as never);
 
@@ -186,7 +186,7 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
             running_count: '1',
             failed_count: '3',
             succeeded_count: '10',
-            oldest_pending_seconds: '123.5',
+            oldest_pending_seconds: '123.5'
           },
           {
             job_type: 'metadata_enrichment_run',
@@ -194,10 +194,10 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
             running_count: '0',
             failed_count: '0',
             succeeded_count: '1',
-            oldest_pending_seconds: null,
-          },
+            oldest_pending_seconds: null
+          }
         ],
-        rowCount: 2,
+        rowCount: 2
       };
     }
     if (calls === 2) {
@@ -212,15 +212,15 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
             updated_at: '2026-01-01T00:00:00.000Z',
             finished_at: '2026-01-01T00:01:00.000Z',
             last_error: 'failed',
-            payload: { igdb_game_id: '1' },
-          },
+            payload: { igdb_game_id: '1' }
+          }
         ],
-        rowCount: 1,
+        rowCount: 1
       };
     }
     return {
       rows: [{ id: 5 }, { id: 6 }],
-      rowCount: 2,
+      rowCount: 2
     };
   });
   const repository = new BackgroundJobRepository(pool as never);
@@ -250,7 +250,7 @@ void test('background jobs stats, failed listing, and replay are mapped correctl
 void test('background jobs requeueStaleRunning re-queues stale running jobs to pending without resetting attempts', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 15 }, { id: 16 }],
-    rowCount: 2,
+    rowCount: 2
   }));
   const repository = new BackgroundJobRepository(pool as never);
 
@@ -258,7 +258,7 @@ void test('background jobs requeueStaleRunning re-queues stale running jobs to p
     maxAgeMinutes: 45,
     limit: 2,
     jobType: 'recommendations_rebuild',
-    recoveryError: 'stale lock recovered',
+    recoveryError: 'stale lock recovered'
   });
   assert.deepEqual(result, { requeuedCount: 2, jobIds: [15, 16] });
 
@@ -275,14 +275,14 @@ void test('background jobs requeueStaleRunning re-queues stale running jobs to p
 void test('background jobs requeueStaleRunning clamps defaults and falls back to default recovery reason when blank', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 31 }],
-    rowCount: 1,
+    rowCount: 1
   }));
   const repository = new BackgroundJobRepository(pool as never);
 
   const result = await repository.requeueStaleRunning({
     maxAgeMinutes: 0,
     limit: 999_999,
-    recoveryError: '  ',
+    recoveryError: '  '
   });
   assert.deepEqual(result, { requeuedCount: 1, jobIds: [31] });
 
@@ -297,13 +297,13 @@ void test('background jobs requeueStaleRunning clamps defaults and falls back to
 void test('background jobs purgeFinishedOlderThan deletes terminal rows with bounded inputs', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 11 }, { id: 12 }],
-    rowCount: 2,
+    rowCount: 2
   }));
   const repository = new BackgroundJobRepository(pool as never);
 
   const result = await repository.purgeFinishedOlderThan({
     retentionDays: 0,
-    limit: 999_999,
+    limit: 999_999
   });
   assert.deepEqual(result, { deletedCount: 2, jobIds: [11, 12] });
 

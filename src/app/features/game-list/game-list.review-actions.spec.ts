@@ -52,7 +52,7 @@ vi.mock('@ionic/angular/standalone', () => {
     IonMenu: Stub,
     IonSplitPane: Stub,
     IonInfiniteScroll: Stub,
-    IonInfiniteScrollContent: Stub,
+    IonInfiniteScrollContent: Stub
   };
 });
 
@@ -75,17 +75,17 @@ vi.mock('ionicons/icons', () => ({
   logoYoutube: {},
   chevronBack: {},
   documentText: {},
-  book: {},
+  book: {}
 }));
 vi.mock('ngx-tiptap', () => ({
   TiptapEditorDirective: class {
     value = true;
-  },
+  }
 }));
 vi.mock('@tiptap/core', () => ({
   Editor: class {
     value = true;
-  },
+  }
 }));
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }));
 vi.mock('@tiptap/extension-underline', () => ({ default: {} }));
@@ -93,7 +93,7 @@ vi.mock('@tiptap/extension-list', () => ({ TaskItem: {}, TaskList: {} }));
 vi.mock('@tiptap/extension-details', () => ({
   Details: {},
   DetailsContent: {},
-  DetailsSummary: {},
+  DetailsSummary: {}
 }));
 
 import { GameListComponent } from './game-list.component';
@@ -116,7 +116,7 @@ function createGame(partial: Partial<GameEntry> = {}): GameEntry {
     metacriticScore: partial.metacriticScore ?? null,
     priceAmount: partial.priceAmount ?? null,
     priceCurrency: partial.priceCurrency ?? null,
-    priceIsFree: partial.priceIsFree ?? null,
+    priceIsFree: partial.priceIsFree ?? null
   };
 }
 
@@ -133,12 +133,12 @@ describe('game-list review actions', () => {
     const games = Array.from({ length: 11 }, (_, index) => ({
       game: createGame({ igdbGameId: String(index + 1), platformIgdbId: 6 }),
       similarity: 0.8,
-      reasons: { summary: 'same series' },
+      reasons: { summary: 'same series' }
     }));
 
     Object.assign(page, {
       similarLibraryGames: games,
-      visibleSimilarLibraryGamesCount: 5,
+      visibleSimilarLibraryGamesCount: 5
     });
 
     expect(page.getVisibleSimilarLibraryGames()).toHaveLength(5);
@@ -157,12 +157,12 @@ describe('game-list review actions', () => {
     const unsupported = createGame({
       igdbGameId: '1',
       platformIgdbId: 999999,
-      title: 'Old Console',
+      title: 'Old Console'
     });
     const supported = createGame({ igdbGameId: '2', platformIgdbId: 6, title: 'PC Game' });
     const runBulkAction = vi.fn().mockResolvedValue([
       { game: unsupported, ok: true, value: createGame({ igdbGameId: '1', reviewScore: 91 }) },
-      { game: supported, ok: false, value: null },
+      { game: supported, ok: false, value: null }
     ]);
     const clearSelectionMode = vi.fn();
     const presentToast = vi.fn(() => Promise.resolve(undefined));
@@ -172,7 +172,7 @@ describe('game-list review actions', () => {
       selectedGameKeys: new Set(['1::999999', '2::6']),
       runBulkAction,
       clearSelectionMode,
-      presentToast,
+      presentToast
     });
 
     await (
@@ -198,7 +198,7 @@ describe('game-list review actions', () => {
     const second = createGame({ igdbGameId: '11', platformIgdbId: 6, title: 'Second' });
     const runBulkAction = vi.fn().mockResolvedValue([
       { game: first, ok: true, value: createGame({ igdbGameId: '10', reviewScore: 88 }) },
-      { game: second, ok: true, value: createGame({ igdbGameId: '11', reviewScore: null }) },
+      { game: second, ok: true, value: createGame({ igdbGameId: '11', reviewScore: null }) }
     ]);
     const clearSelectionMode = vi.fn();
     const presentToast = vi.fn(() => Promise.resolve(undefined));
@@ -208,7 +208,7 @@ describe('game-list review actions', () => {
       selectedGameKeys: new Set(['10::6', '11::6']),
       runBulkAction,
       clearSelectionMode,
-      presentToast,
+      presentToast
     });
 
     await (
@@ -237,7 +237,7 @@ describe('game-list review actions', () => {
       listType: 'collection',
       gameShelfService: { moveGamesToList },
       clearSelectionMode,
-      presentToast,
+      presentToast
     });
 
     await (
@@ -247,7 +247,7 @@ describe('game-list review actions', () => {
     expect(moveGamesToList).toHaveBeenCalledWith(
       [
         { igdbGameId: '10', platformIgdbId: 6 },
-        { igdbGameId: '11', platformIgdbId: 130 },
+        { igdbGameId: '11', platformIgdbId: 130 }
       ],
       'wishlist'
     );
@@ -272,14 +272,14 @@ describe('game-list review actions', () => {
       gameShelfService: { removeGames },
       confirmDelete: vi.fn().mockResolvedValue(true),
       clearSelectionMode,
-      presentToast,
+      presentToast
     });
 
     await (page as unknown as { deleteSelectedGames: () => Promise<void> }).deleteSelectedGames();
 
     expect(removeGames).toHaveBeenCalledWith([
       { igdbGameId: '20', platformIgdbId: 6 },
-      { igdbGameId: '21', platformIgdbId: 130 },
+      { igdbGameId: '21', platformIgdbId: 130 }
     ]);
     expect(clearSelectionMode).toHaveBeenCalledOnce();
     expect(presentToast).toHaveBeenCalledWith('2 games deleted.');
@@ -307,9 +307,9 @@ describe('game-list review actions', () => {
               const confirmButton = options.buttons.find((button) => button.role === 'confirm');
               confirmButton?.handler?.('completed');
               return Promise.resolve({ role: 'confirm' });
-            }),
+            })
           })
-      ),
+      )
     };
 
     Object.assign(page, {
@@ -317,12 +317,12 @@ describe('game-list review actions', () => {
       selectedGameKeys: new Set(['25::6', '26::130']),
       statusOptions: [
         { value: 'playing', label: 'Playing' },
-        { value: 'completed', label: 'Completed' },
+        { value: 'completed', label: 'Completed' }
       ],
       gameShelfService: { setGameStatusForGames },
       alertController,
       clearSelectionMode,
-      presentToast,
+      presentToast
     });
 
     await (
@@ -332,7 +332,7 @@ describe('game-list review actions', () => {
     expect(setGameStatusForGames).toHaveBeenCalledWith(
       [
         { igdbGameId: '25', platformIgdbId: 6 },
-        { igdbGameId: '26', platformIgdbId: 130 },
+        { igdbGameId: '26', platformIgdbId: 130 }
       ],
       'completed'
     );
@@ -354,15 +354,15 @@ describe('game-list review actions', () => {
         name: 'Favorite',
         color: '#ff0000',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z'
       },
       {
         id: 2,
         name: 'Backlog',
         color: '#00ff00',
         createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      },
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      }
     ]);
     const clearSelectionMode = vi.fn();
     const presentToast = vi.fn(() => Promise.resolve(undefined));
@@ -380,9 +380,9 @@ describe('game-list review actions', () => {
               const confirmButton = options.buttons.find((button) => button.role === 'confirm');
               confirmButton?.handler?.(['1', '2']);
               return Promise.resolve({ role: 'confirm' });
-            }),
+            })
           })
-      ),
+      )
     };
 
     Object.assign(page, {
@@ -391,7 +391,7 @@ describe('game-list review actions', () => {
       gameShelfService: { listTags, setGameTagsForGames },
       alertController,
       clearSelectionMode,
-      presentToast,
+      presentToast
     });
 
     await (
@@ -401,7 +401,7 @@ describe('game-list review actions', () => {
     expect(setGameTagsForGames).toHaveBeenCalledWith(
       [
         { igdbGameId: '30', platformIgdbId: 6 },
-        { igdbGameId: '31', platformIgdbId: 130 },
+        { igdbGameId: '31', platformIgdbId: 130 }
       ],
       [1, 2]
     );
@@ -417,7 +417,7 @@ describe('game-list review actions', () => {
     const target = createGame({ igdbGameId: '7', platformIgdbId: 999999, title: 'Saturn Title' });
     const loading = {
       present: vi.fn(() => Promise.resolve(undefined)),
-      dismiss: vi.fn(() => Promise.resolve(undefined)),
+      dismiss: vi.fn(() => Promise.resolve(undefined))
     };
     const refreshGameMetacriticScore = vi.fn(() =>
       Promise.resolve(createGame({ igdbGameId: '7', platformIgdbId: 999999, reviewScore: 84 }))
@@ -432,7 +432,7 @@ describe('game-list review actions', () => {
       gameShelfService: { refreshGameMetacriticScore },
       presentToast,
       applyUpdatedGame,
-      openReviewPickerModal: vi.fn(),
+      openReviewPickerModal: vi.fn()
     });
 
     await (
@@ -457,7 +457,7 @@ describe('game-list review actions', () => {
       igdbGameId: '88',
       platformIgdbId: 167,
       title: 'PS Game',
-      listType: 'wishlist',
+      listType: 'wishlist'
     });
     const openPricingPickerModal = vi.fn();
     const runPricingPickerSearch = vi.fn(() => Promise.resolve(undefined));
@@ -466,11 +466,11 @@ describe('game-list review actions', () => {
       selectedGame: target,
       isPricingPickerLoading: false,
       gameShelfService: {
-        isPricingSupportedPlatform: vi.fn(() => true),
+        isPricingSupportedPlatform: vi.fn(() => true)
       },
       openPricingPickerModal,
       runPricingPickerSearch,
-      presentToast: vi.fn(() => Promise.resolve(undefined)),
+      presentToast: vi.fn(() => Promise.resolve(undefined))
     });
 
     await (
@@ -490,11 +490,11 @@ describe('game-list review actions', () => {
       igdbGameId: '89',
       platformIgdbId: 6,
       title: 'Steam Game',
-      listType: 'wishlist',
+      listType: 'wishlist'
     });
     const loading = {
       present: vi.fn(() => Promise.resolve(undefined)),
-      dismiss: vi.fn(() => Promise.resolve(undefined)),
+      dismiss: vi.fn(() => Promise.resolve(undefined))
     };
     const refreshGamePricing = vi.fn(() =>
       Promise.resolve(createGame({ igdbGameId: '89', platformIgdbId: 6, priceAmount: 19.99 }))
@@ -509,10 +509,10 @@ describe('game-list review actions', () => {
       gameShelfService: {
         isPricingSupportedPlatform: vi.fn(() => true),
         refreshGamePricing,
-        hasUnifiedPriceData: vi.fn(() => true),
+        hasUnifiedPriceData: vi.fn(() => true)
       },
       applyUpdatedGame,
-      presentToast,
+      presentToast
     });
 
     await (
@@ -532,7 +532,7 @@ describe('game-list review actions', () => {
       igdbGameId: '10148',
       platformIgdbId: 167,
       title: 'Night In The Woods',
-      listType: 'wishlist',
+      listType: 'wishlist'
     });
     const updated = createGame({
       igdbGameId: '10148',
@@ -540,7 +540,7 @@ describe('game-list review actions', () => {
       title: 'Night In The Woods',
       listType: 'wishlist',
       priceAmount: 19.9,
-      priceCurrency: 'CHF',
+      priceCurrency: 'CHF'
     });
     const refreshGamePricingWithQuery = vi.fn(() => Promise.resolve(updated));
     const applyUpdatedGame = vi.fn();
@@ -552,12 +552,12 @@ describe('game-list review actions', () => {
       isPricingPickerLoading: false,
       gameShelfService: {
         refreshGamePricingWithQuery,
-        hasUnifiedPriceData: vi.fn(() => true),
+        hasUnifiedPriceData: vi.fn(() => true)
       },
       applyUpdatedGame,
       presentToast,
       closePricingPickerModal,
-      changeDetectorRef: { markForCheck: vi.fn() },
+      changeDetectorRef: { markForCheck: vi.fn() }
     });
 
     await page.applySelectedPricingCandidate({
@@ -568,12 +568,12 @@ describe('game-list review actions', () => {
       discountPercent: null,
       isFree: false,
       url: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
-      score: 100,
+      score: 100
     });
 
     expect(refreshGamePricingWithQuery).toHaveBeenCalledWith('10148', 167, {
       title: 'Night In The Woods',
-      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods',
+      preferredUrl: 'https://psprices.com/region-ch/game/5825037/night-in-the-woods'
     });
     expect(applyUpdatedGame).toHaveBeenCalledWith(updated);
     expect(closePricingPickerModal).toHaveBeenCalledOnce();
@@ -589,14 +589,14 @@ describe('game-list review actions', () => {
       igdbGameId: '10148',
       platformIgdbId: 167,
       title: 'Night In The Woods',
-      listType: 'wishlist',
+      listType: 'wishlist'
     });
     const updated = createGame({
       igdbGameId: '10148',
       platformIgdbId: 167,
       title: 'Night In The Woods',
       reviewScore: 88,
-      metacriticScore: 88,
+      metacriticScore: 88
     });
     const refreshGameMetacriticScoreWithQuery = vi.fn(() => Promise.resolve(updated));
     const applyUpdatedGame = vi.fn();
@@ -610,7 +610,7 @@ describe('game-list review actions', () => {
       applyUpdatedGame,
       presentToast,
       closeReviewPickerModal,
-      changeDetectorRef: { markForCheck: vi.fn() },
+      changeDetectorRef: { markForCheck: vi.fn() }
     });
 
     await page.applySelectedReviewCandidate({
@@ -621,7 +621,7 @@ describe('game-list review actions', () => {
       reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
       reviewSource: 'metacritic',
       metacriticScore: 88,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     });
 
     expect(refreshGameMetacriticScoreWithQuery).toHaveBeenCalledWith('10148', 167, {
@@ -630,7 +630,7 @@ describe('game-list review actions', () => {
       platform: 'PlayStation 5',
       platformIgdbId: 167,
       mobygamesGameId: null,
-      preferredUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      preferredUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     });
     expect(applyUpdatedGame).toHaveBeenCalledWith(updated);
     expect(closeReviewPickerModal).toHaveBeenCalledOnce();
@@ -646,7 +646,7 @@ describe('game-list review actions', () => {
       igdbGameId: '90',
       platformIgdbId: 6,
       title: 'Collection Steam Game',
-      listType: 'collection',
+      listType: 'collection'
     });
     const refreshGamePricing = vi.fn();
     const presentToast = vi.fn(() => Promise.resolve(undefined));
@@ -656,9 +656,9 @@ describe('game-list review actions', () => {
       isPricingPickerLoading: false,
       gameShelfService: {
         isPricingSupportedPlatform: vi.fn(() => true),
-        refreshGamePricing,
+        refreshGamePricing
       },
-      presentToast,
+      presentToast
     });
 
     await (
@@ -686,8 +686,8 @@ describe('game-list review actions', () => {
       listType: 'collection',
       runBulkAction,
       gameShelfService: {
-        isPricingSupportedPlatform: vi.fn(() => true),
-      },
+        isPricingSupportedPlatform: vi.fn(() => true)
+      }
     });
 
     await (
@@ -704,7 +704,7 @@ describe('game-list review actions', () => {
       similarDiscoveryDetail: GameCatalogResult | GameEntry | null;
     };
     const selected = createGame({
-      videos: [{ id: 1, name: 'Selected', videoId: 'PIF_fqFZEuk', url: '' }],
+      videos: [{ id: 1, name: 'Selected', videoId: 'PIF_fqFZEuk', url: '' }]
     });
     const discovery: GameCatalogResult = {
       igdbGameId: '2',
@@ -716,13 +716,13 @@ describe('game-list review actions', () => {
       platforms: ['Switch'],
       releaseDate: null,
       releaseYear: null,
-      videos: [{ id: 2, name: 'Discovery', videoId: 'Qf8JjQvYUFs', url: '' }],
+      videos: [{ id: 2, name: 'Discovery', videoId: 'Qf8JjQvYUFs', url: '' }]
     };
 
     Object.assign(page, {
       selectedGame: selected,
       isSimilarDiscoveryDetailModalOpen: true,
-      similarDiscoveryDetail: discovery,
+      similarDiscoveryDetail: discovery
     });
 
     expect(page.detailVideos[0]?.videoId).toBe('Qf8JjQvYUFs');
@@ -737,13 +737,13 @@ describe('game-list review actions', () => {
     };
     const selected = {
       ...createGame(),
-      videos: [{ id: 1, name: 'Invalid', videoId: 'abc def', url: '' }],
+      videos: [{ id: 1, name: 'Invalid', videoId: 'abc def', url: '' }]
     } as GameEntry;
 
     Object.assign(page, {
       selectedGame: selected,
       isSimilarDiscoveryDetailModalOpen: false,
-      similarDiscoveryDetail: null,
+      similarDiscoveryDetail: null
     });
 
     expect(page.detailVideos).toHaveLength(1);

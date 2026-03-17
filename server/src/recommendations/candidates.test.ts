@@ -28,7 +28,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     collections: [],
     themes: [],
     keywords: [],
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -41,7 +41,7 @@ void test('BACKLOG candidates include only null and wantToPlay statuses', () => 
     buildGame({ igdbGameId: '5', status: 'replay' }),
     buildGame({ igdbGameId: '6', status: 'completed' }),
     buildGame({ igdbGameId: '7', status: 'dropped' }),
-    buildGame({ igdbGameId: '8', listType: 'wishlist', status: 'wantToPlay' }),
+    buildGame({ igdbGameId: '8', listType: 'wishlist', status: 'wantToPlay' })
   ];
 
   const result = selectCandidates(games, 'BACKLOG');
@@ -59,7 +59,7 @@ void test('WISHLIST candidates exclude completed and dropped', () => {
     buildGame({ igdbGameId: '3', listType: 'wishlist', status: 'paused' }),
     buildGame({ igdbGameId: '4', listType: 'wishlist', status: 'completed' }),
     buildGame({ igdbGameId: '5', listType: 'wishlist', status: 'dropped' }),
-    buildGame({ igdbGameId: '6', listType: 'collection', status: null }),
+    buildGame({ igdbGameId: '6', listType: 'collection', status: null })
   ];
 
   const result = selectCandidates(games, 'WISHLIST');
@@ -79,7 +79,7 @@ void test('DISCOVERY candidates include discovery list and exclude active/comple
     buildGame({ igdbGameId: '5', listType: 'discovery', status: 'replay' }),
     buildGame({ igdbGameId: '6', listType: 'discovery', status: 'completed' }),
     buildGame({ igdbGameId: '7', listType: 'discovery', status: 'dropped' }),
-    buildGame({ igdbGameId: '8', listType: 'collection', status: null }),
+    buildGame({ igdbGameId: '8', listType: 'collection', status: null })
   ];
 
   const result = selectCandidates(games, 'DISCOVERY');

@@ -31,7 +31,7 @@ class NotificationLogPoolMock {
       this.logs.set(eventKey, {
         eventKey,
         payload: toStringOrFallback(params[4], '{}'),
-        sentCount: 0,
+        sentCount: 0
       });
 
       return Promise.resolve({ rows: [{ inserted: 1 }], rowCount: 1 });
@@ -91,7 +91,7 @@ class AdvisoryLockClientMock {
     if (normalizedSql.startsWith('select pg_try_advisory_lock')) {
       return Promise.resolve({
         rows: [{ locked: this.lockAvailable }],
-        rowCount: 1,
+        rowCount: 1
       });
     }
 
@@ -102,7 +102,7 @@ class AdvisoryLockClientMock {
       }
       return Promise.resolve({
         rows: [{ locked: true }],
-        rowCount: 1,
+        rowCount: 1
       });
     }
 
@@ -190,11 +190,11 @@ class ReleaseMonitorFlowPoolMock {
               changed: true,
               removed: true,
               day: true,
-              sale: true,
-            }),
-          },
+              sale: true
+            })
+          }
         ],
-        rowCount: 2,
+        rowCount: 2
       });
     }
 
@@ -306,7 +306,7 @@ function createRunStats() {
     invalidTokensDeactivated: 0,
     tokenCleanupRan: false,
     tokensDeactivatedByCleanup: 0,
-    tokensPrunedByCleanup: 0,
+    tokensPrunedByCleanup: 0
   };
 }
 
@@ -317,7 +317,7 @@ void test('notification reservation inserts once per event key', async () => {
     title: 'Game: Release date set',
     body: 'Game now has a release date.',
     eventKey: 'release_date_set:1:167:2026-11-19',
-    releaseMarker: '2026-11-19',
+    releaseMarker: '2026-11-19'
   } as const;
 
   const first = await releaseMonitorInternals.reserveNotificationLog(
@@ -345,7 +345,7 @@ void test('notification reservation can be finalized and is no longer removable 
     title: 'Game: Release date changed',
     body: 'Game moved dates.',
     eventKey: 'release_date_changed:1:167:2026-11-19:2026-12-01',
-    releaseMarker: '2026-12-01',
+    releaseMarker: '2026-12-01'
   } as const;
 
   await releaseMonitorInternals.reserveNotificationLog(pool as unknown as Pool, event, '1', 167);
@@ -457,7 +457,7 @@ void test('evaluateRunHealth warns when send failure and invalid token ratios ar
     ...createRunStats(),
     sendBatchSuccess: 10,
     sendBatchFailure: 20,
-    invalidTokensDeactivated: 4,
+    invalidTokensDeactivated: 4
   });
 
   assert.equal(
@@ -480,7 +480,7 @@ void test('processDueGames enqueues release monitor jobs for bootstrap rows', as
         platform: 'PlayStation 5',
         releaseDate: '2026-11-19',
         releaseYear: 2026,
-        listType: 'wishlist',
+        listType: 'wishlist'
       },
       watch_exists: false,
       last_known_release_marker: null,
@@ -490,8 +490,8 @@ void test('processDueGames enqueues release monitor jobs for bootstrap rows', as
       last_seen_state: null,
       last_hltb_refresh_at: null,
       last_metacritic_refresh_at: null,
-      last_notified_release_day: null,
-    },
+      last_notified_release_day: null
+    }
   ]);
 
   const runtimeState = releaseMonitorInternals.createMonitorRuntimeState();
@@ -511,7 +511,7 @@ void test('processDueGames continues when enqueue fails for one game', async () 
           platform: 'PlayStation 5',
           releaseDate: '2026-11-19',
           releaseYear: 2026,
-          listType: 'wishlist',
+          listType: 'wishlist'
         },
         watch_exists: false,
         last_known_release_marker: null,
@@ -521,7 +521,7 @@ void test('processDueGames continues when enqueue fails for one game', async () 
         last_seen_state: null,
         last_hltb_refresh_at: null,
         last_metacritic_refresh_at: null,
-        last_notified_release_day: null,
+        last_notified_release_day: null
       },
       {
         igdb_game_id: '92550',
@@ -530,7 +530,7 @@ void test('processDueGames continues when enqueue fails for one game', async () 
           title: 'Fable',
           platform: 'PlayStation 5',
           releaseYear: 2026,
-          listType: 'wishlist',
+          listType: 'wishlist'
         },
         watch_exists: false,
         last_known_release_marker: null,
@@ -540,8 +540,8 @@ void test('processDueGames continues when enqueue fails for one game', async () 
         last_seen_state: null,
         last_hltb_refresh_at: null,
         last_metacritic_refresh_at: null,
-        last_notified_release_day: null,
-      },
+        last_notified_release_day: null
+      }
     ],
     { enqueueFailuresRemaining: 1 }
   );
@@ -561,7 +561,7 @@ void test('enqueueReleaseMonitorGameJob dedupes per game-platform key', async ()
     payload: {
       title: 'Grand Theft Auto VI',
       platform: 'PlayStation 5',
-      listType: 'wishlist',
+      listType: 'wishlist'
     },
     watch_exists: false,
     last_known_release_marker: null,
@@ -571,7 +571,7 @@ void test('enqueueReleaseMonitorGameJob dedupes per game-platform key', async ()
     last_seen_state: null,
     last_hltb_refresh_at: null,
     last_metacritic_refresh_at: null,
-    last_notified_release_day: null,
+    last_notified_release_day: null
   };
 
   const pool = new ReleaseMonitorFlowPoolMock([row]);
@@ -604,7 +604,7 @@ class QueuedGamePoolMock {
       this.settingsReads += 1;
       return Promise.resolve({
         rows: [],
-        rowCount: 0,
+        rowCount: 0
       });
     }
 
@@ -640,7 +640,7 @@ class ProcessGameRowClientMock {
       this.payloadPatch = parsedPatch;
       return Promise.resolve({
         rows: [{ payload: parsedPatch }],
-        rowCount: 1,
+        rowCount: 1
       });
     }
 
@@ -702,9 +702,9 @@ void test('processQueuedReleaseMonitorGame validates payload and tolerates lock 
         title: 'Grand Theft Auto VI',
         platform: 'PlayStation 5',
         releaseYear: 2026,
-        listType: 'wishlist',
+        listType: 'wishlist'
       },
-      watch_exists: false,
+      watch_exists: false
     })
   );
 });
@@ -719,9 +719,9 @@ void test('processQueuedReleaseMonitorGame reuses short-lived cached settings an
       title: 'Grand Theft Auto VI',
       platform: 'PlayStation 5',
       releaseYear: 2026,
-      listType: 'wishlist',
+      listType: 'wishlist'
     },
-    watch_exists: false,
+    watch_exists: false
   };
 
   await releaseMonitorInternals.processQueuedReleaseMonitorGame(pool as unknown as Pool, payload);
@@ -743,11 +743,11 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
           JSON.stringify({
             access_token: 'test-token',
             expires_in: 3600,
-            token_type: 'bearer',
+            token_type: 'bearer'
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -762,12 +762,12 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
               name: 'A Better Title',
               first_release_date: 1_767_225_600,
               release_dates: [{ category: 0, platform: 167, y: 2026, m: 1, d: 1 }],
-              platforms: [{ id: 167, name: 'PlayStation 5' }],
-            },
+              platforms: [{ id: 167, name: 'PlayStation 5' }]
+            }
           ]),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -780,12 +780,12 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
             item: {
               hltbMainHours: 10,
               hltbMainExtraHours: 15,
-              hltbCompletionistHours: 24,
-            },
+              hltbCompletionistHours: 24
+            }
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -797,12 +797,12 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
           JSON.stringify({
             item: {
               metacriticScore: 88,
-              metacriticUrl: 'https://metacritic.example/game',
-            },
+              metacriticUrl: 'https://metacritic.example/game'
+            }
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -830,7 +830,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
           metacriticScore: 70,
           reviewSource: 'metacritic',
           reviewScore: 70,
-          reviewUrl: 'https://metacritic.example/old',
+          reviewUrl: 'https://metacritic.example/old'
         },
         watch_exists: true,
         last_known_release_marker: '2026',
@@ -840,7 +840,7 @@ void test('processGameRow refreshes unlocked HLTB/review metadata and persists a
         last_seen_state: 'released',
         last_hltb_refresh_at: null,
         last_metacritic_refresh_at: null,
-        last_notified_release_day: null,
+        last_notified_release_day: null
       },
       { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
       new Set<string>(),
@@ -874,11 +874,11 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
           JSON.stringify({
             access_token: 'test-token',
             expires_in: 3600,
-            token_type: 'bearer',
+            token_type: 'bearer'
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -893,12 +893,12 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
               name: 'Original Title',
               first_release_date: 1_767_225_600,
               release_dates: [{ category: 0, platform: 167, y: 2026, m: 1, d: 1 }],
-              platforms: [{ id: 167, name: 'PlayStation 5' }],
-            },
+              platforms: [{ id: 167, name: 'PlayStation 5' }]
+            }
           ]),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -913,13 +913,13 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
                 game_id: 9999,
                 moby_url: 'https://www.mobygames.com/game/9999',
                 moby_score: 8.1,
-                critic_score: 81,
-              },
-            ],
+                critic_score: 81
+              }
+            ]
           }),
           {
             status: 200,
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json' }
           }
         )
       );
@@ -946,7 +946,7 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
           reviewSource: 'opencritic',
           reviewScore: 92,
           reviewUrl: 'https://opencritic.example/game',
-          reviewMatchMobygamesGameId: 777,
+          reviewMatchMobygamesGameId: 777
         },
         watch_exists: true,
         last_known_release_marker: '2026',
@@ -956,7 +956,7 @@ void test('processGameRow treats explicit mobygames override id mismatch as revi
         last_seen_state: 'released',
         last_hltb_refresh_at: null,
         last_metacritic_refresh_at: null,
-        last_notified_release_day: null,
+        last_notified_release_day: null
       },
       { enabled: false, events: { set: true, changed: true, removed: true, day: true } },
       new Set<string>(),

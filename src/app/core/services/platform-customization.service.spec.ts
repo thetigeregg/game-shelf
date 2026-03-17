@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
-  PlatformCustomizationService,
+  PlatformCustomizationService
 } from './platform-customization.service';
 
 const PLATFORM_ALIAS_CASES: Array<{
@@ -14,23 +14,23 @@ const PLATFORM_ALIAS_CASES: Array<{
     source: 'Family Computer',
     id: 99,
     canonical: 'Nintendo Entertainment System',
-    canonicalId: 18,
+    canonicalId: 18
   },
   {
     source: 'Family Computer Disk System',
     id: 51,
     canonical: 'Nintendo Entertainment System',
-    canonicalId: 18,
+    canonicalId: 18
   },
   {
     source: 'Super Famicom',
     id: 58,
     canonical: 'Super Nintendo Entertainment System',
-    canonicalId: 19,
+    canonicalId: 19
   },
   { source: 'New Nintendo 3DS', id: 137, canonical: 'Nintendo 3DS', canonicalId: 37 },
   { source: 'Nintendo DSi', id: 159, canonical: 'Nintendo DS', canonicalId: 20 },
-  { source: 'e-Reader / Card-e Reader', id: 510, canonical: 'Game Boy Advance', canonicalId: 24 },
+  { source: 'e-Reader / Card-e Reader', id: 510, canonical: 'Game Boy Advance', canonicalId: 24 }
 ];
 
 describe('PlatformCustomizationService', () => {
@@ -38,7 +38,7 @@ describe('PlatformCustomizationService', () => {
     localStorage.clear();
 
     TestBed.configureTestingModule({
-      providers: [PlatformCustomizationService],
+      providers: [PlatformCustomizationService]
     });
   });
 
@@ -171,7 +171,7 @@ describe('PlatformCustomizationService', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [PlatformCustomizationService],
+      providers: [PlatformCustomizationService]
     });
 
     const second = TestBed.inject(PlatformCustomizationService);

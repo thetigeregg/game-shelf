@@ -6,14 +6,14 @@ import { normalizeNotesValueOrNull } from '../utils/notes-normalization.utils';
 export class HtmlSanitizerService {
   sanitizeHtml(html: string): string {
     return domPurify.sanitize(html, {
-      USE_PROFILES: { html: true },
+      USE_PROFILES: { html: true }
     });
   }
 
   sanitizeToPlainText(html: string): string {
     const clean = domPurify.sanitize(html, {
       ALLOWED_TAGS: [],
-      ALLOWED_ATTR: [],
+      ALLOWED_ATTR: []
     });
 
     const div = document.createElement('div');

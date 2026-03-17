@@ -12,7 +12,7 @@ import {
   RecommendationTarget,
   TasteMatch,
   TokenFamily,
-  TunedRecommendationWeights,
+  TunedRecommendationWeights
 } from './types.js';
 
 interface BaseScore {
@@ -61,7 +61,7 @@ export function buildRankedScores(params: {
     repeatPenaltyStep,
     historyByGame,
     structuredKeywordsByGame,
-    tokenFamilyWeight,
+    tokenFamilyWeight
   } = params;
 
   const baseScores = candidates.map((game) =>
@@ -76,7 +76,7 @@ export function buildRankedScores(params: {
       repeatPenaltyStep,
       historyByGame,
       structuredKeywordsByGame,
-      tokenFamilyWeight,
+      tokenFamilyWeight
     })
   );
   const remaining = [...baseScores];
@@ -93,24 +93,24 @@ export function buildRankedScores(params: {
         candidate: { game: entry.game, tokenKeys: entry.tokenKeys },
         selected: selected.map((ranked) => ({
           game: ranked.game,
-          tokenKeys: tokenSetForGame(ranked.game, structuredKeywordsByGame),
+          tokenKeys: tokenSetForGame(ranked.game, structuredKeywordsByGame)
         })),
         semanticSimilarityByGame,
         diversityPenaltyWeight,
         structuredWeight: similarityStructuredWeight,
-        semanticWeight: similaritySemanticWeight,
+        semanticWeight: similaritySemanticWeight
       });
       const components: RecommendationScoreComponents = {
         ...entry.baseComponents,
         novelty,
-        diversityPenalty,
+        diversityPenalty
       };
       const total = calculateTotalScore(components);
       const ranked: RankedScore = {
         game: entry.game,
         total,
         components,
-        tasteMatches: entry.tasteMatches,
+        tasteMatches: entry.tasteMatches
       };
 
       if (!best || compareRankedScores(ranked, best) < 0) {
@@ -139,12 +139,12 @@ export function buildRankedScores(params: {
       semantic: round4(item.components.semantic),
       exploration: round4(item.components.exploration),
       diversityPenalty: round4(item.components.diversityPenalty),
-      repeatPenalty: round4(item.components.repeatPenalty),
+      repeatPenalty: round4(item.components.repeatPenalty)
     },
     tasteMatches: item.tasteMatches.map((match) => ({
       ...match,
-      delta: round4(match.delta),
-    })),
+      delta: round4(match.delta)
+    }))
   }));
 }
 
@@ -172,7 +172,7 @@ function buildBaseScore(params: {
     repeatPenaltyStep,
     historyByGame,
     structuredKeywordsByGame,
-    tokenFamilyWeight,
+    tokenFamilyWeight
   } = params;
 
   const tokens = buildTokenEntries(game, { structuredKeywordsByGame });
@@ -205,14 +205,14 @@ function buildBaseScore(params: {
     semantic,
     exploration,
     diversityPenalty: 0,
-    repeatPenalty: computeRepeatPenalty(recommendationCount, repeatPenaltyStep),
+    repeatPenalty: computeRepeatPenalty(recommendationCount, repeatPenaltyStep)
   };
 
   return {
     game,
     tokenKeys,
     baseComponents,
-    tasteMatches: tasteEvaluation.matches,
+    tasteMatches: tasteEvaluation.matches
   };
 }
 
@@ -227,7 +227,7 @@ function evaluateTaste(
   if (profile.ratedGameCount < 5) {
     return {
       score: 0,
-      matches: [],
+      matches: []
     };
   }
 
@@ -247,7 +247,7 @@ function evaluateTaste(
       family: token.family,
       key: token.key,
       label: token.label,
-      delta,
+      delta
     });
 
     if (token.family === 'collections' && delta > 0) {
@@ -274,14 +274,14 @@ function evaluateTaste(
     if (delta > 0) {
       matches.push({
         ...match,
-        delta,
+        delta
       });
     }
   }
 
   return {
     score: clamp(score, -4, 4),
-    matches: matches.sort((left, right) => right.delta - left.delta).slice(0, 6),
+    matches: matches.sort((left, right) => right.delta - left.delta).slice(0, 6)
   };
 }
 
@@ -440,7 +440,7 @@ function compareRankedScores(left: RankedScore, right: RankedScore): number {
   }
 
   const titleComparison = left.game.title.localeCompare(right.game.title, 'en', {
-    sensitivity: 'base',
+    sensitivity: 'base'
   });
 
   if (titleComparison !== 0) {

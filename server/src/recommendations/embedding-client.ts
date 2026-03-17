@@ -52,14 +52,14 @@ export class OpenAiEmbeddingClient implements EmbeddingClient {
         method: 'POST',
         headers: {
           authorization: `Bearer ${this.apiKey}`,
-          'content-type': 'application/json',
+          'content-type': 'application/json'
         },
         body: JSON.stringify({
           model: this.model,
           input,
-          dimensions: this.dimensions,
+          dimensions: this.dimensions
         }),
-        signal: controller.signal,
+        signal: controller.signal
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

@@ -11,14 +11,14 @@ import {
   SyncChangeEvent,
   SyncPushResult,
   Tag,
-  isGameRating,
+  isGameRating
 } from '../models/game.models';
 import { environment } from '../../../environments/environment';
 import { SyncEventsService } from './sync-events.service';
 import { PlatformOrderService, PLATFORM_ORDER_STORAGE_KEY } from './platform-order.service';
 import {
   PlatformCustomizationService,
-  PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
+  PLATFORM_DISPLAY_NAMES_STORAGE_KEY
 } from './platform-customization.service';
 import { HtmlSanitizerService } from '../security/html-sanitizer.service';
 import { DebugLogService } from './debug-log.service';
@@ -84,7 +84,7 @@ export class GameSyncService implements SyncOutboxWriter {
     this.initialized = true;
     this.debugLogService.debug('sync.initialize.start', {
       baseUrl: this.baseUrl,
-      online: this.isOnline(),
+      online: this.isOnline()
     });
 
     if (typeof window !== 'undefined') {
@@ -103,7 +103,7 @@ export class GameSyncService implements SyncOutboxWriter {
     void this.runDiscoveryPollutionRemediationIfNeeded()
       .catch((error: unknown) => {
         this.debugLogService.error('sync.discovery_pollution_remediation_failed', {
-          error: normalizeHttpError(error),
+          error: normalizeHttpError(error)
         });
       })
       .finally(() => {
@@ -127,7 +127,7 @@ export class GameSyncService implements SyncOutboxWriter {
     this.debugLogService.debug('sync.outbox.enqueued', {
       opId: entry.opId,
       entityType: entry.entityType,
-      operation: entry.operation,
+      operation: entry.operation
     });
   }
 
@@ -150,7 +150,7 @@ export class GameSyncService implements SyncOutboxWriter {
       await this.pullChanges();
       await this.replayRecentChangesIfDue().catch((error: unknown) => {
         this.debugLogService.error('sync.pull.recent_replay_failed', {
-          error: normalizeHttpError(error),
+          error: normalizeHttpError(error)
         });
       });
       await this.setMeta(GameSyncService.META_LAST_SYNC_KEY, new Date().toISOString());
@@ -159,7 +159,7 @@ export class GameSyncService implements SyncOutboxWriter {
     } catch (error: unknown) {
       await this.setMeta(GameSyncService.META_CONNECTIVITY_KEY, 'degraded');
       this.debugLogService.error('sync.sync_now.failed', {
-        error: normalizeHttpError(error),
+        error: normalizeHttpError(error)
       });
     } finally {
       this.syncInFlight = false;
@@ -180,7 +180,7 @@ export class GameSyncService implements SyncOutboxWriter {
       entityType: entry.entityType,
       operation: entry.operation,
       payload: entry.payload,
-      clientTimestamp: entry.clientTimestamp,
+      clientTimestamp: entry.clientTimestamp
     }));
     const operationBatches = this.buildPushOperationBatches(
       operations,
@@ -193,13 +193,13 @@ export class GameSyncService implements SyncOutboxWriter {
       this.debugLogService.debug('sync.push.batch.request', { batchSize: batch.length });
       const response = await firstValueFrom(
         this.httpClient.post<SyncPushResponse>(`${this.baseUrl}/v1/sync/push`, {
-          operations: batch,
+          operations: batch
         })
       );
       this.debugLogService.debug('sync.push.batch.response', {
         batchSize: batch.length,
         results: Array.isArray(response.results) ? response.results.length : 0,
-        hasCursor: typeof response.cursor === 'string' && response.cursor.trim().length > 0,
+        hasCursor: typeof response.cursor === 'string' && response.cursor.trim().length > 0
       });
 
       const batchResults = Array.isArray(response.results) ? response.results : [];
@@ -218,7 +218,7 @@ export class GameSyncService implements SyncOutboxWriter {
     }
     this.debugLogService.debug('sync.push.complete', {
       acked: ackedIds.size,
-      failed: failedResults.length,
+      failed: failedResults.length
     });
 
     for (const failure of failedResults) {
@@ -231,7 +231,7 @@ export class GameSyncService implements SyncOutboxWriter {
       await this.db.outbox.put({
         ...existing,
         attemptCount: existing.attemptCount + 1,
-        lastError: failure.message ?? 'Failed to push operation.',
+        lastError: failure.message ?? 'Failed to push operation.'
       });
     }
   }
@@ -280,7 +280,7 @@ export class GameSyncService implements SyncOutboxWriter {
       this.debugLogService.debug('sync.pull.request', { hasCursor: Boolean(cursor), pagesPulled });
       const response = await firstValueFrom(
         this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
-          cursor: cursor ?? null,
+          cursor: cursor ?? null
         })
       );
       const changes = Array.isArray(response.changes) ? response.changes : [];
@@ -291,7 +291,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
       this.debugLogService.debug('sync.pull.response', {
         changes: changes.length,
-        hasCursor: responseCursor !== null,
+        hasCursor: responseCursor !== null
       });
 
       if (changes.length === 0) {
@@ -323,7 +323,7 @@ export class GameSyncService implements SyncOutboxWriter {
       this.syncEvents.emitChanged();
       this.debugLogService.debug('sync.pull.applied', {
         changes: totalAppliedChanges,
-        pagesPulled,
+        pagesPulled
       });
     }
   }
@@ -339,7 +339,7 @@ export class GameSyncService implements SyncOutboxWriter {
     const pendingOutboxCount = await this.db.outbox.count();
     if (pendingOutboxCount > 0) {
       this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
-        pendingOutboxCount,
+        pendingOutboxCount
       });
       return;
     }
@@ -369,7 +369,7 @@ export class GameSyncService implements SyncOutboxWriter {
         const pendingOutboxCountBeforeRequest = await this.db.outbox.count();
         if (pendingOutboxCountBeforeRequest > 0) {
           this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
-            pendingOutboxCount: pendingOutboxCountBeforeRequest,
+            pendingOutboxCount: pendingOutboxCountBeforeRequest
           });
           abortedDueToPendingOutbox = true;
           break;
@@ -377,12 +377,12 @@ export class GameSyncService implements SyncOutboxWriter {
 
         this.debugLogService.debug('sync.pull.recent_replay.request', {
           replayCursor,
-          pagesPulled,
+          pagesPulled
         });
 
         const response = await firstValueFrom(
           this.httpClient.post<SyncPullResponse>(`${this.baseUrl}/v1/sync/pull`, {
-            cursor: replayCursor,
+            cursor: replayCursor
           })
         );
         const changes = Array.isArray(response.changes) ? response.changes : [];
@@ -413,7 +413,7 @@ export class GameSyncService implements SyncOutboxWriter {
       const pendingOutboxCountBeforeApply = await this.db.outbox.count();
       if (pendingOutboxCountBeforeApply > 0) {
         this.debugLogService.debug('sync.pull.recent_replay.skipped_pending_outbox', {
-          pendingOutboxCount: pendingOutboxCountBeforeApply,
+          pendingOutboxCount: pendingOutboxCountBeforeApply
         });
         return;
       }
@@ -428,7 +428,7 @@ export class GameSyncService implements SyncOutboxWriter {
         this.syncEvents.emitChanged();
         this.debugLogService.debug('sync.pull.recent_replay.applied', {
           changes: totalAppliedChanges,
-          pagesPulled,
+          pagesPulled
         });
       }
     } finally {
@@ -472,7 +472,7 @@ export class GameSyncService implements SyncOutboxWriter {
               eventId: change.eventId,
               entityType: change.entityType,
               operation: change.operation,
-              error: normalizeHttpError(error),
+              error: normalizeHttpError(error)
             });
           }
         }
@@ -806,7 +806,7 @@ export class GameSyncService implements SyncOutboxWriter {
       listType: payload.listType === 'wishlist' ? 'wishlist' : 'collection',
       notes: this.normalizeNotes(payload.notes),
       createdAt,
-      updatedAt,
+      updatedAt
     };
 
     try {
@@ -825,7 +825,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
       await this.db.games.put({
         ...normalized,
-        id: undefined,
+        id: undefined
       });
     }
   }
@@ -1047,7 +1047,7 @@ export class GameSyncService implements SyncOutboxWriter {
     return [
       ...new Set(
         value.map((entry) => String(entry ?? '').trim()).filter((entry) => /^\d+$/.test(entry))
-      ),
+      )
     ];
   }
 
@@ -1061,7 +1061,7 @@ export class GameSyncService implements SyncOutboxWriter {
         value
           .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
           .filter((entry) => entry.length > 0)
-      ),
+      )
     ];
   }
 
@@ -1086,7 +1086,7 @@ export class GameSyncService implements SyncOutboxWriter {
             return Number.NaN;
           })
           .filter((entry) => Number.isInteger(entry) && entry > 0)
-      ),
+      )
     ];
   }
 
@@ -1106,7 +1106,7 @@ export class GameSyncService implements SyncOutboxWriter {
                 : Number.NaN
           )
           .filter((entry) => Number.isInteger(entry) && entry > 0)
-      ),
+      )
     ];
   }
 
@@ -1187,7 +1187,7 @@ export class GameSyncService implements SyncOutboxWriter {
 
         await this.db.games.update(game.id, {
           tagIds: nextTagIds,
-          updatedAt: now,
+          updatedAt: now
         });
       }
 
@@ -1214,7 +1214,7 @@ export class GameSyncService implements SyncOutboxWriter {
       createdAt:
         typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
       updatedAt:
-        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
+        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString()
     };
 
     await this.db.tags.put(normalized);
@@ -1245,7 +1245,7 @@ export class GameSyncService implements SyncOutboxWriter {
       createdAt:
         typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
       updatedAt:
-        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString(),
+        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString()
     };
 
     await this.db.views.put(normalized);
@@ -1352,7 +1352,7 @@ export class GameSyncService implements SyncOutboxWriter {
     const entry: SyncMetaEntry = {
       key,
       value,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.db.syncMeta.put(entry);
@@ -1372,12 +1372,12 @@ export class GameSyncService implements SyncOutboxWriter {
       await syncMetaTable.put({
         key: GameSyncService.META_CURSOR_KEY,
         value: '0',
-        updatedAt: now,
+        updatedAt: now
       });
       await syncMetaTable.put({
         key: DISCOVERY_POLLUTION_REMEDIATION_META_KEY,
         value: 'done',
-        updatedAt: now,
+        updatedAt: now
       });
     });
     this.debugLogService.info('sync.discovery_pollution_remediation_applied');

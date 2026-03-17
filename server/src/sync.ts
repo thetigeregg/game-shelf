@@ -5,7 +5,7 @@ import type {
   ClientSyncOperation,
   SyncEntityType,
   SyncOperationType,
-  SyncPushResult,
+  SyncPushResult
 } from './types.js';
 import { config } from './config.js';
 
@@ -49,8 +49,8 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     config: {
       rateLimit: {
         max: config.syncPushRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as PushBody;
@@ -77,7 +77,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
           if (existing.rows[0]) {
             results.push({
               ...existing.rows[0].result,
-              status: 'duplicate',
+              status: 'duplicate'
             });
             continue;
           }
@@ -94,7 +94,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
             const failed: SyncPushResult = {
               opId: operation.opId,
               status: 'failed',
-              message: error instanceof Error ? error.message : 'Failed to apply operation.',
+              message: error instanceof Error ? error.message : 'Failed to apply operation.'
             };
             results.push(failed);
 
@@ -116,7 +116,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       } finally {
         client.release();
       }
-    },
+    }
   });
 
   app.route({
@@ -125,8 +125,8 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
     config: {
       rateLimit: {
         max: config.syncPullRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       const body = (request.body ?? {}) as PullBody;
@@ -147,7 +147,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         entityType: row.entity_type,
         operation: row.operation,
         payload: row.payload,
-        serverTimestamp: row.server_timestamp,
+        serverTimestamp: row.server_timestamp
       }));
 
       if (changes.length > 0) {
@@ -155,7 +155,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
         latestKnownSyncEventId = Math.max(latestKnownSyncEventId, normalizeCursor(nextCursor));
         reply.send({
           cursor: nextCursor,
-          changes,
+          changes
         });
         return;
       }
@@ -163,7 +163,7 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
       if (cursor === 0 || cursor <= latestKnownSyncEventId) {
         reply.send({
           cursor: String(cursor),
-          changes,
+          changes
         });
         return;
       }
@@ -178,9 +178,9 @@ export async function registerSyncRoutes(app: FastifyInstance, pool: Pool): Prom
 
       reply.send({
         cursor: String(effectiveCursor),
-        changes: [],
+        changes: []
       });
-    },
+    }
   });
 }
 
@@ -212,7 +212,7 @@ async function applyGameOperation(
 
     await client.query('DELETE FROM games WHERE igdb_game_id = $1 AND platform_igdb_id = $2', [
       payload.igdbGameId,
-      payload.platformIgdbId,
+      payload.platformIgdbId
     ]);
     await appendSyncEvent(
       client,
@@ -225,7 +225,7 @@ async function applyGameOperation(
     return {
       opId: operation.opId,
       status: 'applied',
-      normalizedPayload: payload,
+      normalizedPayload: payload
     };
   }
 
@@ -304,7 +304,7 @@ async function applyGameOperation(
   return {
     opId: operation.opId,
     status: 'applied',
-    normalizedPayload,
+    normalizedPayload
   };
 }
 
@@ -319,7 +319,7 @@ async function applyTagOperation(
     return {
       opId: operation.opId,
       status: 'applied',
-      normalizedPayload: payload,
+      normalizedPayload: payload
     };
   }
 
@@ -354,7 +354,7 @@ async function applyTagOperation(
 
     await client.query('UPDATE tags SET payload = $1::jsonb WHERE id = $2', [
       JSON.stringify(normalizedPayload),
-      id,
+      id
     ]);
   }
 
@@ -363,7 +363,7 @@ async function applyTagOperation(
   return {
     opId: operation.opId,
     status: 'applied',
-    normalizedPayload,
+    normalizedPayload
   };
 }
 
@@ -378,7 +378,7 @@ async function applyViewOperation(
     return {
       opId: operation.opId,
       status: 'applied',
-      normalizedPayload: payload,
+      normalizedPayload: payload
     };
   }
 
@@ -413,7 +413,7 @@ async function applyViewOperation(
 
     await client.query('UPDATE views SET payload = $1::jsonb WHERE id = $2', [
       JSON.stringify(normalizedPayload),
-      id,
+      id
     ]);
   }
 
@@ -422,7 +422,7 @@ async function applyViewOperation(
   return {
     opId: operation.opId,
     status: 'applied',
-    normalizedPayload,
+    normalizedPayload
   };
 }
 
@@ -437,7 +437,7 @@ async function applySettingOperation(
     return {
       opId: operation.opId,
       status: 'applied',
-      normalizedPayload: payload,
+      normalizedPayload: payload
     };
   }
 
@@ -456,7 +456,7 @@ async function applySettingOperation(
   return {
     opId: operation.opId,
     status: 'applied',
-    normalizedPayload: payload,
+    normalizedPayload: payload
   };
 }
 
@@ -513,7 +513,7 @@ function normalizeOperations(value: unknown): ClientSyncOperation[] | null {
       entityType,
       operation: opType,
       payload: operation.payload,
-      clientTimestamp,
+      clientTimestamp
     });
   }
 
@@ -807,7 +807,7 @@ function normalizeGamePayload(
     ...(hasPriceRegularAmount ? { priceRegularAmount } : {}),
     ...(hasPriceDiscountPercent ? { priceDiscountPercent } : {}),
     ...(hasPriceIsFree ? { priceIsFree } : {}),
-    ...(hasPriceUrl ? { priceUrl } : {}),
+    ...(hasPriceUrl ? { priceUrl } : {})
   };
 }
 
@@ -848,7 +848,7 @@ function normalizeSettingPayload(value: unknown): { key: string; value: string }
 
   return {
     key,
-    value: settingValue,
+    value: settingValue
   };
 }
 

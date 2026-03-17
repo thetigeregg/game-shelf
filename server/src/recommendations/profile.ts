@@ -11,7 +11,7 @@ export const TOKEN_FAMILY_WEIGHT: Record<TokenFamily, number> = {
   developers: 1.1,
   genres: 1,
   publishers: 0.7,
-  keywords: 0.6,
+  keywords: 0.6
 };
 
 export function buildPreferenceProfile(games: NormalizedGameRecord[]): PreferenceProfile {
@@ -42,7 +42,7 @@ export function buildPreferenceProfile(games: NormalizedGameRecord[]): Preferenc
         label: token.label,
         sum: signal,
         count: 1,
-        weight: 0,
+        weight: 0
       });
     }
   }
@@ -53,7 +53,7 @@ export function buildPreferenceProfile(games: NormalizedGameRecord[]): Preferenc
 
   return {
     ratedGameCount: ratedGames.length,
-    weights: weightMap,
+    weights: weightMap
   };
 }
 

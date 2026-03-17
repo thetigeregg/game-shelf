@@ -10,7 +10,7 @@ export function normalizeTagIds(tagIds: number[] | undefined): number[] {
       tagIds
         .filter((tagId) => Number.isInteger(tagId) && tagId > 0)
         .map((tagId) => Math.trunc(tagId))
-    ),
+    )
   ];
 }
 

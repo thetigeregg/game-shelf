@@ -4,7 +4,7 @@ type ViewportMode = 'desktop' | 'mobile';
 
 const viewportByMode: Record<ViewportMode, { width: number; height: number }> = {
   desktop: { width: 1280, height: 900 },
-  mobile: { width: 390, height: 844 },
+  mobile: { width: 390, height: 844 }
 };
 
 function isBackendProxyUrl(url: string): boolean {
@@ -58,7 +58,7 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ cursor: new Date().toISOString(), changes: [] }),
+      body: JSON.stringify({ cursor: new Date().toISOString(), changes: [] })
     });
   });
 
@@ -70,8 +70,8 @@ test.beforeEach(async ({ page }) => {
       contentType: 'application/json',
       body: JSON.stringify({
         cursor: new Date().toISOString(),
-        results: operationIds.map((opId) => ({ opId, status: 'applied' })),
-      }),
+        results: operationIds.map((opId) => ({ opId, status: 'applied' }))
+      })
     });
   });
 
@@ -79,7 +79,7 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [] }),
+      body: JSON.stringify({ items: [] })
     });
   });
 
@@ -87,7 +87,7 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ lanes: [] }),
+      body: JSON.stringify({ lanes: [] })
     });
   });
 
@@ -95,7 +95,7 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ resolvedUrl: null }),
+      body: JSON.stringify({ resolvedUrl: null })
     });
   });
 });
@@ -268,7 +268,7 @@ async function expectNotesCloseBlockedToast(page: Page): Promise<void> {
 
         return page
           .locator('ion-toast', {
-            hasText: 'Notes have unsaved changes. Please wait for auto-save.',
+            hasText: 'Notes have unsaved changes. Please wait for auto-save.'
           })
           .isVisible()
           .catch(() => false);
@@ -535,13 +535,13 @@ test('restores persisted sort/group/filter controls after reload', async ({ page
           hltbMainHoursMin: 12.5,
           hltbMainHoursMax: null,
           releaseDateFrom: '2020-01-01',
-          releaseDateTo: null,
+          releaseDateTo: null
         },
         groupBy: 'genre',
         // Legacy top-level fields are written by the app and retained for compatibility.
         sortField: 'platform',
-        sortDirection: 'desc',
-      },
+        sortDirection: 'desc'
+      }
     }
   );
 
@@ -601,9 +601,9 @@ test('collection detail shows notes shortcut while wishlist detail hides it', as
       igdbGameId: '900001',
       platformIgdbId: 130,
       title: 'E2E Collection Game',
-      listType: 'collection',
+      listType: 'collection'
     },
-    { igdbGameId: '900002', platformIgdbId: 130, title: 'E2E Wishlist Game', listType: 'wishlist' },
+    { igdbGameId: '900002', platformIgdbId: 130, title: 'E2E Wishlist Game', listType: 'wishlist' }
   ]);
 
   await openFirstGameDetail(page, 'collection');
@@ -624,8 +624,8 @@ test('mobile notes modal blocks close while dirty and closes after autosave', as
       igdbGameId: '900011',
       platformIgdbId: 130,
       title: 'E2E Mobile Notes Game',
-      listType: 'collection',
-    },
+      listType: 'collection'
+    }
   ]);
   await openFirstGameDetail(page, 'collection');
   await openNotesFromDetail(page);
@@ -645,7 +645,7 @@ test('mobile notes modal blocks close while dirty and closes after autosave', as
 });
 
 test('desktop notes pane blocks notes/detail close while dirty and allows close after autosave', async ({
-  page,
+  page
 }) => {
   await page.setViewportSize(viewportByMode.desktop);
   await setE2eFixtureGames(page, [
@@ -653,8 +653,8 @@ test('desktop notes pane blocks notes/detail close while dirty and allows close 
       igdbGameId: '900021',
       platformIgdbId: 130,
       title: 'E2E Desktop Notes Game',
-      listType: 'collection',
-    },
+      listType: 'collection'
+    }
   ]);
   await openFirstGameDetail(page, 'collection');
   await openNotesFromDetail(page);
@@ -683,8 +683,8 @@ test('routes review refresh to Metacritic for supported platforms', async ({ pag
       platformIgdbId: 21,
       title: 'E2E Supported Review Route',
       platform: 'Wii',
-      listType: 'collection',
-    },
+      listType: 'collection'
+    }
   ]);
 
   let mobygamesRequestCount = 0;
@@ -698,9 +698,9 @@ test('routes review refresh to Metacritic for supported platforms', async ({ pag
       json: {
         item: {
           metacriticScore: 90,
-          metacriticUrl: 'https://www.metacritic.com/game/e2e-supported-review-route/',
-        },
-      },
+          metacriticUrl: 'https://www.metacritic.com/game/e2e-supported-review-route/'
+        }
+      }
     });
   });
 
@@ -725,8 +725,8 @@ test('routes review refresh to MobyGames for unsupported platforms', async ({ pa
       platformIgdbId: 29,
       title: 'E2E Unsupported Review Route',
       platform: 'Genesis',
-      listType: 'collection',
-    },
+      listType: 'collection'
+    }
   ]);
 
   let metacriticRequestCount = 0;
@@ -737,9 +737,9 @@ test('routes review refresh to MobyGames for unsupported platforms', async ({ pa
       json: {
         item: {
           metacriticScore: 0,
-          metacriticUrl: null,
-        },
-      },
+          metacriticUrl: null
+        }
+      }
     });
   });
   await page.route('**/v1/mobygames/search**', async (route) => {
@@ -752,10 +752,10 @@ test('routes review refresh to MobyGames for unsupported platforms', async ({ pa
             release_date: '1992-03-20',
             platforms: [{ name: 'Genesis' }],
             moby_score: 83,
-            moby_url: 'https://www.mobygames.com/game/910002/e2e-unsupported-review-route/',
-          },
-        ],
-      },
+            moby_url: 'https://www.mobygames.com/game/910002/e2e-unsupported-review-route/'
+          }
+        ]
+      }
     });
   });
 

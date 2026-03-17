@@ -14,8 +14,8 @@ export default fp(async function rateLimitPlugin(fastify: FastifyInstance) {
     addHeaders: {
       'x-ratelimit-limit': true,
       'x-ratelimit-remaining': true,
-      'x-ratelimit-reset': true,
-    },
+      'x-ratelimit-reset': true
+    }
   });
 });
 
@@ -24,9 +24,9 @@ export const DEFAULT_RATE_LIMIT = {
   config: {
     rateLimit: {
       max: 50,
-      timeWindow: '1 minute',
-    },
-  },
+      timeWindow: '1 minute'
+    }
+  }
 };
 
 // Stricter limit for sensitive routes
@@ -34,7 +34,7 @@ export const STRICT_RATE_LIMIT = {
   config: {
     rateLimit: {
       max: 10,
-      timeWindow: '1 minute',
-    },
-  },
+      timeWindow: '1 minute'
+    }
+  }
 };

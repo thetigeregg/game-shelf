@@ -10,7 +10,7 @@ function makeDebugLogStub(): DebugLogService {
     trace: () => {},
     warn: () => {},
     error: () => {},
-    info: () => {},
+    info: () => {}
   } as unknown as DebugLogService;
 }
 
@@ -24,8 +24,8 @@ describe('ImageCacheService', () => {
       providers: [
         ImageCacheService,
         AppDb,
-        { provide: DebugLogService, useValue: makeDebugLogStub() },
-      ],
+        { provide: DebugLogService, useValue: makeDebugLogStub() }
+      ]
     });
 
     service = TestBed.inject(ImageCacheService);

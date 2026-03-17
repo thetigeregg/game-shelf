@@ -10,7 +10,7 @@ class PoolMock {
       sql: string,
       params: unknown[] | undefined
     ) => { rows: unknown[]; rowCount?: number } = () => ({
-      rows: [],
+      rows: []
     })
   ) {}
 
@@ -19,7 +19,7 @@ class PoolMock {
     const result = this.handler(sql, params);
     return Promise.resolve({
       rows: result.rows,
-      rowCount: typeof result.rowCount === 'number' ? result.rowCount : result.rows.length,
+      rowCount: typeof result.rowCount === 'number' ? result.rowCount : result.rows.length
     });
   }
 
@@ -55,7 +55,7 @@ void test('enqueueRecommendationRebuildJob inserts, dedupes, and falls back', as
     target: 'BACKLOG',
     force: false,
     triggeredBy: 'scheduler',
-    reason: 'stale',
+    reason: 'stale'
   });
   assert.deepEqual(inserted, { jobId: 10, deduped: false });
 
@@ -63,7 +63,7 @@ void test('enqueueRecommendationRebuildJob inserts, dedupes, and falls back', as
     target: 'BACKLOG',
     force: false,
     triggeredBy: 'scheduler',
-    reason: 'stale',
+    reason: 'stale'
   });
   assert.deepEqual(deduped, { jobId: 11, deduped: true });
 
@@ -71,7 +71,7 @@ void test('enqueueRecommendationRebuildJob inserts, dedupes, and falls back', as
     target: 'WISHLIST',
     force: true,
     triggeredBy: 'manual',
-    reason: 'forced',
+    reason: 'forced'
   });
   assert.deepEqual(fallback, { jobId: 12, deduped: false });
 });
@@ -90,7 +90,7 @@ void test('completeBackgroundJob and failBackgroundJob execute update statements
 
 void test('recommendation repository includes capped rows eligible for rearm in discovery selection SQL', async () => {
   const pool = new PoolMock(() => ({
-    rows: [{ igdb_game_id: '26836', platform_igdb_id: 6, payload: { title: 'Project: Gorgon' } }],
+    rows: [{ igdb_game_id: '26836', platform_igdb_id: 6, payload: { title: 'Project: Gorgon' } }]
   }));
   const repository = new RecommendationRepository(pool as never);
 
@@ -98,7 +98,7 @@ void test('recommendation repository includes capped rows eligible for rearm in 
     nowIso: '2026-03-10T00:00:00.000Z',
     maxAttempts: 6,
     rearmAfterDays: 30,
-    rearmRecentReleaseYears: 1,
+    rearmRecentReleaseYears: 1
   });
 
   assert.equal(rows.length, 1);
@@ -128,9 +128,9 @@ void test('upsertDiscoveryGames preserves PSPrices provider keys with current fi
       {
         igdbGameId: '1',
         platformIgdbId: 130,
-        payload: { title: 'Pokemon Violet', listType: 'discovery' },
-      },
-    ],
+        payload: { title: 'Pokemon Violet', listType: 'discovery' }
+      }
+    ]
   });
 
   const query = pool.queries.find((entry) => entry.sql.includes('INSERT INTO games'));
@@ -163,9 +163,9 @@ void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-sp
             input_hash: 'i',
             started_at: '2026-03-01T00:00:00.000Z',
             finished_at: '2026-03-01T00:10:00.000Z',
-            error: null,
-          },
-        ],
+            error: null
+          }
+        ]
       };
     }
 
@@ -176,9 +176,9 @@ void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-sp
             similar_igdb_game_id: '200',
             similar_platform_igdb_id: 6,
             similarity: '0.91',
-            reasons: { summary: 'fallback' },
-          },
-        ],
+            reasons: { summary: 'fallback' }
+          }
+        ]
       };
     }
 
@@ -191,7 +191,7 @@ void test('readSimilarGames falls back to NEUTRAL similarity rows for runtime-sp
     platformIgdbId: 6,
     target: 'BACKLOG',
     runtimeMode: 'LONG',
-    limit: 5,
+    limit: 5
   });
 
   assert.equal(rows.length, 1);
@@ -215,7 +215,7 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
     query: (sql: string, params?: unknown[]) => {
       queries.push({ sql, params });
       return Promise.resolve({ rows: [], rowCount: 1 });
-    },
+    }
   };
 
   const buildRecommendationItem = (index: number) => ({
@@ -232,7 +232,7 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
       semantic: 0,
       exploration: 0,
       diversityPenalty: 0,
-      repeatPenalty: 0,
+      repeatPenalty: 0
     },
     explanations: {
       headline: 'h',
@@ -244,9 +244,9 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
         franchises: [],
         collections: [],
         themes: [],
-        keywords: [],
-      },
-    },
+        keywords: []
+      }
+    }
   });
   const recommendationItems = [buildRecommendationItem(0), buildRecommendationItem(1)];
 
@@ -256,13 +256,13 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
     exploration: [buildRecommendationItem(0)],
     blended: [buildRecommendationItem(1)],
     popular: [buildRecommendationItem(0)],
-    recent: [buildRecommendationItem(1)],
+    recent: [buildRecommendationItem(1)]
   });
   const historyUpdates = Array.from({ length: 501 }, (_, index) => ({
     target: 'BACKLOG' as const,
     runtimeMode: 'NEUTRAL' as const,
     igdbGameId: String(8000 + index),
-    platformIgdbId: 6,
+    platformIgdbId: 6
   }));
   const similarityEdges = Array.from({ length: 501 }, (_, index) => ({
     sourceIgdbGameId: String(100 + index),
@@ -282,9 +282,9 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
         franchises: [],
         collections: [],
         themes: [],
-        keywords: [],
-      },
-    },
+        keywords: []
+      }
+    }
   }));
 
   await repository.finalizeRunSuccess({
@@ -294,15 +294,15 @@ void test('finalizeRunSuccess writes batched recommendation artifacts and commit
     recommendationsByMode: {
       NEUTRAL: recommendationItems,
       SHORT: recommendationItems,
-      LONG: recommendationItems,
+      LONG: recommendationItems
     },
     lanesByMode: {
       NEUTRAL: makeLanes(),
       SHORT: makeLanes(),
-      LONG: makeLanes(),
+      LONG: makeLanes()
     },
     historyUpdates,
-    similarityEdges,
+    similarityEdges
   });
 
   assert.equal(queries[0]?.sql, 'BEGIN');
@@ -384,13 +384,13 @@ void test('markRunFailed updates run status and error message', async () => {
     query: (sql: string, params?: unknown[]) => {
       queries.push({ sql, params });
       return Promise.resolve({ rows: [], rowCount: 1 });
-    },
+    }
   };
 
   await repository.markRunFailed({
     client,
     runId: 77,
-    errorMessage: 'boom',
+    errorMessage: 'boom'
   });
 
   assert.equal(queries.length, 1);
@@ -401,14 +401,14 @@ void test('markRunFailed updates run status and error message', async () => {
 void test('failStaleRunningRuns marks old RUNNING rows as FAILED', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 16 }, { id: 17 }],
-    rowCount: 2,
+    rowCount: 2
   }));
   const repository = new RecommendationRepository(pool as never);
 
   const result = await repository.failStaleRunningRuns({
     maxAgeMinutes: 30,
     target: 'BACKLOG',
-    errorMessage: 'orphan recovery',
+    errorMessage: 'orphan recovery'
   });
 
   assert.deepEqual(result, { failedCount: 2, runIds: [16, 17] });
@@ -427,13 +427,13 @@ void test('failStaleRunningRuns marks old RUNNING rows as FAILED', async () => {
 void test('failStaleRunningRuns clamps defaults and supports null target filter', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 90 }],
-    rowCount: 1,
+    rowCount: 1
   }));
   const repository = new RecommendationRepository(pool as never);
 
   const result = await repository.failStaleRunningRuns({
     maxAgeMinutes: 0,
-    errorMessage: ' ',
+    errorMessage: ' '
   });
 
   assert.deepEqual(result, { failedCount: 1, runIds: [90] });
@@ -447,7 +447,7 @@ void test('failStaleRunningRuns clamps defaults and supports null target filter'
 void test('failStaleRunningRuns uses defaults when params are omitted', async () => {
   const pool = new PoolMock(() => ({
     rows: [{ id: 101 }],
-    rowCount: 1,
+    rowCount: 1
   }));
   const repository = new RecommendationRepository(pool as never);
 
@@ -474,9 +474,9 @@ void test('readTopRecommendations returns rows for DISCOVERY target', async () =
             input_hash: 'i',
             started_at: '2026-03-01T00:00:00.000Z',
             finished_at: '2026-03-01T00:10:00.000Z',
-            error: null,
-          },
-        ],
+            error: null
+          }
+        ]
       };
     }
 
@@ -497,7 +497,7 @@ void test('readTopRecommendations returns rows for DISCOVERY target', async () =
               semantic: 0,
               exploration: 0,
               diversityPenalty: 0,
-              repeatPenalty: 0,
+              repeatPenalty: 0
             },
             explanations: {
               headline: 'h',
@@ -509,11 +509,11 @@ void test('readTopRecommendations returns rows for DISCOVERY target', async () =
                 franchises: [],
                 collections: [],
                 themes: [],
-                keywords: [],
-              },
-            },
-          },
-        ],
+                keywords: []
+              }
+            }
+          }
+        ]
       };
     }
 
@@ -524,7 +524,7 @@ void test('readTopRecommendations returns rows for DISCOVERY target', async () =
   const result = await repository.readTopRecommendations({
     target: 'DISCOVERY',
     runtimeMode: 'NEUTRAL',
-    limit: 10,
+    limit: 10
   });
 
   assert.ok(result);

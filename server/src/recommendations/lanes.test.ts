@@ -18,7 +18,7 @@ function buildItem(overrides: Partial<RankedRecommendationItem>): RankedRecommen
       semantic: 0,
       exploration: 0,
       diversityPenalty: 0,
-      repeatPenalty: 0,
+      repeatPenalty: 0
     },
     explanations: {
       headline: 'x',
@@ -30,10 +30,10 @@ function buildItem(overrides: Partial<RankedRecommendationItem>): RankedRecommen
         franchises: [],
         collections: [],
         themes: [],
-        keywords: [],
-      },
+        keywords: []
+      }
     },
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -51,8 +51,8 @@ void test('buildRecommendationLanes returns clipped lanes', () => {
         semantic: 0.6,
         exploration: 0.1,
         diversityPenalty: 0,
-        repeatPenalty: 0,
-      },
+        repeatPenalty: 0
+      }
     }),
     buildItem({
       igdbGameId: '2',
@@ -67,9 +67,9 @@ void test('buildRecommendationLanes returns clipped lanes', () => {
         semantic: 0.1,
         exploration: 0.8,
         diversityPenalty: 0,
-        repeatPenalty: 0,
-      },
-    }),
+        repeatPenalty: 0
+      }
+    })
   ];
 
   const lanes = buildRecommendationLanes({ items, laneLimit: 1 });
@@ -86,7 +86,7 @@ void test('buildRecommendationLanes deduplicates same game across platforms', ()
   const items = [
     buildItem({ igdbGameId: '1', platformIgdbId: 6, rank: 1, scoreTotal: 3 }),
     buildItem({ igdbGameId: '1', platformIgdbId: 48, rank: 2, scoreTotal: 2.8 }),
-    buildItem({ igdbGameId: '2', platformIgdbId: 6, rank: 3, scoreTotal: 2.7 }),
+    buildItem({ igdbGameId: '2', platformIgdbId: 6, rank: 3, scoreTotal: 2.7 })
   ];
 
   const lanes = buildRecommendationLanes({ items, laneLimit: 3 });

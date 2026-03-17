@@ -13,14 +13,14 @@ import {
   GameRating,
   GameStatus,
   ListType,
-  Tag,
+  Tag
 } from '../models/game.models';
 import {
   normalizeGameRatingFilterList,
   normalizeGameStatusFilterList,
   normalizeGameTypeList,
   normalizeNonNegativeNumber,
-  normalizeStringList,
+  normalizeStringList
 } from '../utils/game-filter-utils';
 import { detectReviewSourceFromUrl } from '../utils/url-host.util';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from './sync-outbox-writer';
@@ -36,7 +36,7 @@ export class DexieGameRepository implements GameRepository {
   private readonly db = inject(AppDb);
   private readonly htmlSanitizer = inject(HtmlSanitizerService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
-    optional: true,
+    optional: true
   });
 
   async listByType(listType: ListType): Promise<GameEntry[]> {
@@ -224,7 +224,7 @@ export class DexieGameRepository implements GameRepository {
         status: this.normalizeStatus(existing.status),
         rating: this.normalizeRating(existing.rating),
         listType: targetList,
-        updatedAt: now,
+        updatedAt: now
       };
 
       await this.withOutboxTransaction([this.db.games], () =>
@@ -310,7 +310,7 @@ export class DexieGameRepository implements GameRepository {
       rating: null,
       listType: targetList,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     };
 
     return this.withOutboxTransaction([this.db.games], () =>
@@ -338,7 +338,7 @@ export class DexieGameRepository implements GameRepository {
       this.db.games
         .update(existingId, {
           listType: targetList,
-          updatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         })
         .then(() => this.exists(igdbGameId, platformIgdbId))
         .then((updated) => (updated ? this.queueGameUpsert(updated) : Promise.resolve()))
@@ -396,7 +396,7 @@ export class DexieGameRepository implements GameRepository {
       ...existing,
       coverUrl,
       coverSource,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
@@ -419,7 +419,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       status: this.normalizeStatus(status),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
@@ -442,7 +442,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       rating: this.normalizeRating(rating),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
@@ -465,7 +465,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       tagIds: this.normalizeTagIds(tagIds),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
@@ -488,7 +488,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       notes: this.normalizeNotes(notes),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
@@ -511,7 +511,7 @@ export class DexieGameRepository implements GameRepository {
     const updated: GameEntry = {
       ...existing,
       customCoverUrl: this.normalizeCustomCoverUrl(customCoverUrl),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
@@ -572,7 +572,7 @@ export class DexieGameRepository implements GameRepository {
       customTitle: nextCustomTitle,
       customPlatform: nextCustomPlatformName,
       customPlatformIgdbId: nextCustomPlatformIgdbId,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.games], () =>
@@ -597,7 +597,7 @@ export class DexieGameRepository implements GameRepository {
       const updatedByName: Tag = {
         ...existingByName,
         color: tag.color,
-        updatedAt: now,
+        updatedAt: now
       };
 
       await this.withOutboxTransaction([this.db.tags], () =>
@@ -614,7 +614,7 @@ export class DexieGameRepository implements GameRepository {
           ...existingById,
           name: normalizedName,
           color: tag.color,
-          updatedAt: now,
+          updatedAt: now
         };
 
         await this.withOutboxTransaction([this.db.tags], () =>
@@ -628,7 +628,7 @@ export class DexieGameRepository implements GameRepository {
       name: normalizedName,
       color: tag.color,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     };
     return this.withOutboxTransaction([this.db.tags], () =>
       this.db.tags.add(created).then((createdId) => {
@@ -656,13 +656,13 @@ export class DexieGameRepository implements GameRepository {
 
         await this.db.games.update(game.id, {
           tagIds: nextTagIds,
-          updatedAt: now,
+          updatedAt: now
         });
 
         await this.queueGameUpsert({
           ...game,
           tagIds: nextTagIds,
-          updatedAt: now,
+          updatedAt: now
         });
       }
     });
@@ -689,7 +689,7 @@ export class DexieGameRepository implements GameRepository {
       filters: this.normalizeViewFilters(view.filters),
       groupBy: this.normalizeGroupBy(view.groupBy),
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     };
     return this.withOutboxTransaction([this.db.views], () =>
       this.db.views.add(created).then((createdId) => {
@@ -720,7 +720,7 @@ export class DexieGameRepository implements GameRepository {
         updates.groupBy !== undefined
           ? this.normalizeGroupBy(updates.groupBy)
           : this.normalizeGroupBy(existing.groupBy),
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await this.withOutboxTransaction([this.db.views], () =>
@@ -745,7 +745,7 @@ export class DexieGameRepository implements GameRepository {
 
     const transactionTables: ReadonlyArray<RepositoryTransactionTable> = [
       ...tables,
-      this.db.outbox,
+      this.db.outbox
     ];
 
     return this.db
@@ -764,7 +764,7 @@ export class DexieGameRepository implements GameRepository {
     return this.enqueueOutboxEntry({
       entityType: 'game',
       operation: 'upsert',
-      payload: game,
+      payload: game
     });
   }
 
@@ -776,7 +776,7 @@ export class DexieGameRepository implements GameRepository {
     return this.enqueueOutboxEntry({
       entityType: 'game',
       operation: 'delete',
-      payload: { igdbGameId, platformIgdbId },
+      payload: { igdbGameId, platformIgdbId }
     });
   }
 
@@ -788,7 +788,7 @@ export class DexieGameRepository implements GameRepository {
     return this.enqueueOutboxEntry({
       entityType: 'tag',
       operation: 'upsert',
-      payload: tag,
+      payload: tag
     });
   }
 
@@ -800,7 +800,7 @@ export class DexieGameRepository implements GameRepository {
     return this.enqueueOutboxEntry({
       entityType: 'tag',
       operation: 'delete',
-      payload: { id },
+      payload: { id }
     });
   }
 
@@ -812,7 +812,7 @@ export class DexieGameRepository implements GameRepository {
     return this.enqueueOutboxEntry({
       entityType: 'view',
       operation: 'upsert',
-      payload: view,
+      payload: view
     });
   }
 
@@ -824,7 +824,7 @@ export class DexieGameRepository implements GameRepository {
     return this.enqueueOutboxEntry({
       entityType: 'view',
       operation: 'delete',
-      payload: { id },
+      payload: { id }
     });
   }
 
@@ -866,7 +866,7 @@ export class DexieGameRepository implements GameRepository {
     }
 
     return [
-      ...new Set(tagIds.filter((id) => Number.isInteger(id) && id > 0).map((id) => Math.trunc(id))),
+      ...new Set(tagIds.filter((id) => Number.isInteger(id) && id > 0).map((id) => Math.trunc(id)))
     ];
   }
 
@@ -880,7 +880,7 @@ export class DexieGameRepository implements GameRepository {
         values
           .map((value) => (typeof value === 'string' ? value.trim() : ''))
           .filter((value) => value.length > 0)
-      ),
+      )
     ];
   }
 
@@ -894,7 +894,7 @@ export class DexieGameRepository implements GameRepository {
         values
           .map((value) => (typeof value === 'string' ? value.trim() : ''))
           .filter((value) => /^\d+$/.test(value))
-      ),
+      )
     ];
   }
 
@@ -1619,7 +1619,7 @@ export class DexieGameRepository implements GameRepository {
           ? hltbMainHoursMin
           : hltbMainHoursMax,
       releaseDateFrom,
-      releaseDateTo,
+      releaseDateTo
     };
   }
 

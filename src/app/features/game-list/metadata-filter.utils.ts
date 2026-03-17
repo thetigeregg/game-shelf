@@ -1,7 +1,7 @@
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameEntry,
-  GameListFilters,
+  GameListFilters
 } from '../../core/models/game.models';
 
 export type MetadataFilterKind = 'series' | 'developer' | 'franchise' | 'genre' | 'publisher';
@@ -62,12 +62,12 @@ export function applyMetadataSelectionToFilters(
 
   if (normalized.length === 0) {
     return {
-      ...defaultFilters,
+      ...defaultFilters
     };
   }
 
   const nextFilters: GameListFilters = {
-    ...defaultFilters,
+    ...defaultFilters
   };
 
   if (selection.kind === 'series') {

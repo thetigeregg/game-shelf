@@ -17,7 +17,7 @@ class PoolMock {
     this.queries.push({ text, params });
     return Promise.resolve({
       rows: this.rows as T[],
-      rowCount: this.rows.length,
+      rowCount: this.rows.length
     } as QueryResult<T>);
   }
 }
@@ -42,7 +42,7 @@ function buildPopularityPayload(
     first_release_date: 1_700_000_000,
     totalRatingCount: 40,
     platformOptions: [{ id: platformIgdbId, name: platformName }],
-    listType,
+    listType
   };
 }
 
@@ -78,15 +78,15 @@ void test('GET /v1/games/trending returns mapped popularity feed items', async (
         coverUrl: 'https://example.com/cover.jpg',
         rating: 85,
         first_release_date: 1_700_000_000,
-        platformOptions: [{ id: 6, name: 'PC' }],
-      },
-    },
+        platformOptions: [{ id: 6, name: 'PC' }]
+      }
+    }
   ]);
   await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit, threshold });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/trending',
+    url: '/v1/games/trending'
   });
 
   assert.equal(response.statusCode, 200);
@@ -132,15 +132,15 @@ void test('GET /v1/games/upcoming applies release window in SQL predicate', asyn
       payload: {
         title: 'Future Game',
         first_release_date: nowSec + 10_000,
-        platformOptions: [{ id: 6, name: 'PC' }],
-      },
-    },
+        platformOptions: [{ id: 6, name: 'PC' }]
+      }
+    }
   ]);
   await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/upcoming',
+    url: '/v1/games/upcoming'
   });
 
   assert.equal(response.statusCode, 200);
@@ -171,16 +171,16 @@ void test('GET /v1/games/trending falls back to row platform id when payload pla
         platform_igdb_id: 167,
         popularity_score: '142.6',
         payload: {
-          title: 'Legacy Platform Game',
-        },
-      },
+          title: 'Legacy Platform Game'
+        }
+      }
     ]) as unknown as Pool,
     { rowLimit: 50, threshold: 50 }
   );
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/trending',
+    url: '/v1/games/trending'
   });
 
   assert.equal(response.statusCode, 200);
@@ -210,15 +210,15 @@ void test('GET /v1/games/recent returns only last 90 days', async () => {
       payload: {
         title: 'Recent Game',
         releaseDate: new Date((nowSec - 10_000) * 1000).toISOString(),
-        platformOptions: [{ id: 6, name: 'PC' }],
-      },
-    },
+        platformOptions: [{ id: 6, name: 'PC' }]
+      }
+    }
   ]);
   await registerPopularityRoutes(app, pool as unknown as Pool, { rowLimit: 50, threshold: 50 });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/recent',
+    url: '/v1/games/recent'
   });
 
   assert.equal(response.statusCode, 200);
@@ -248,7 +248,7 @@ void test('GET /v1/games/trending dedupes by igdb id in SQL before applying the 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/trending',
+    url: '/v1/games/trending'
   });
 
   assert.equal(response.statusCode, 200);
@@ -273,7 +273,7 @@ void test('GET /v1/games/trending excludes collection and wishlist games in SQL 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/trending',
+    url: '/v1/games/trending'
   });
 
   assert.equal(response.statusCode, 200);
@@ -308,41 +308,41 @@ void test(
         igdbGameId: '100',
         platformIgdbId: 20,
         popularityScore: 300,
-        payload: buildPopularityPayload('Tie Break Game', 20, 'Xbox Series X|S'),
+        payload: buildPopularityPayload('Tie Break Game', 20, 'Xbox Series X|S')
       });
       await insertGame(client, {
         igdbGameId: '100',
         platformIgdbId: 10,
         popularityScore: 300,
-        payload: buildPopularityPayload('Tie Break Game', 10, 'PC'),
+        payload: buildPopularityPayload('Tie Break Game', 10, 'PC')
       });
       await insertGame(client, {
         igdbGameId: '200',
         platformIgdbId: 30,
         popularityScore: 299,
-        payload: buildPopularityPayload('Owned Game Candidate', 30, 'PlayStation 5'),
+        payload: buildPopularityPayload('Owned Game Candidate', 30, 'PlayStation 5')
       });
       await insertGame(client, {
         igdbGameId: '200',
         platformIgdbId: 99,
         popularityScore: 1,
-        payload: buildPopularityPayload('Owned Game Library Copy', 99, 'Library', 'collection'),
+        payload: buildPopularityPayload('Owned Game Library Copy', 99, 'Library', 'collection')
       });
       await insertGame(client, {
         igdbGameId: '300',
         platformIgdbId: 40,
         popularityScore: 298,
-        payload: buildPopularityPayload('Fallback Valid Game', 40, 'Nintendo Switch'),
+        payload: buildPopularityPayload('Fallback Valid Game', 40, 'Nintendo Switch')
       });
 
       const queryablePool = {
-        query: client.query.bind(client),
+        query: client.query.bind(client)
       } as unknown as Pool;
       await registerPopularityRoutes(app, queryablePool, { rowLimit: 2, threshold: 50 });
 
       const response = await app.inject({
         method: 'GET',
-        url: '/v1/games/trending',
+        url: '/v1/games/trending'
       });
 
       assert.equal(response.statusCode, 200);
@@ -388,22 +388,22 @@ void test('GET /v1/games/trending keeps post-query mapping filters for invalid r
         payload: {
           title: 'Valid Game Entry',
           first_release_date: 1_700_000_000,
-          platformOptions: [{ id: 6, name: 'PC' }],
-        },
+          platformOptions: [{ id: 6, name: 'PC' }]
+        }
       },
       {
         igdb_game_id: '901',
         platform_igdb_id: 6,
         popularity_score: 'NaN',
-        payload: { title: 'Invalid score' },
-      },
+        payload: { title: 'Invalid score' }
+      }
     ]) as unknown as Pool,
     { rowLimit: 50, threshold: 50 }
   );
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/trending',
+    url: '/v1/games/trending'
   });
 
   assert.equal(response.statusCode, 200);
@@ -436,30 +436,30 @@ void test('GET /v1/games/trending skips rows with invalid payload or non-finite 
           name: 'Valid Name Fallback',
           firstReleaseDate: 1_700_000_000,
           platform: 'PC',
-          platformIgdbId: 6,
-        },
+          platformIgdbId: 6
+        }
       },
       {
         igdb_game_id: '501',
         platform_igdb_id: 6,
         popularity_score: '99.2',
-        payload: [],
+        payload: []
       },
       {
         igdb_game_id: '502',
         platform_igdb_id: 6,
         popularity_score: 'NaN',
         payload: {
-          title: 'Invalid score',
-        },
-      },
+          title: 'Invalid score'
+        }
+      }
     ]) as unknown as Pool,
     { rowLimit: 50, threshold: 50 }
   );
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/trending',
+    url: '/v1/games/trending'
   });
 
   assert.equal(response.statusCode, 200);
@@ -488,7 +488,7 @@ void test('GET /v1/games/trending uses the configured row limit value passed to 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/games/trending',
+    url: '/v1/games/trending'
   });
 
   assert.equal(response.statusCode, 200);

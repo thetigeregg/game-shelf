@@ -20,7 +20,7 @@ import {
   GameTag,
   ListType,
   Tag,
-  TagSummary,
+  TagSummary
 } from '../models/game.models';
 import { SyncEventsService } from './sync-events.service';
 import { PlatformOrderService } from './platform-order.service';
@@ -29,7 +29,7 @@ import { AppDb } from '../data/app-db';
 import { DebugLogService } from './debug-log.service';
 import {
   CLIENT_WRITE_TOKEN_HEADER_NAME,
-  ClientWriteAuthService,
+  ClientWriteAuthService
 } from './client-write-auth.service';
 import {
   hasCompletionTimes,
@@ -39,7 +39,7 @@ import {
   normalizeRating,
   normalizeTagColor,
   normalizeTagIds,
-  normalizeTheGamesDbUrl,
+  normalizeTheGamesDbUrl
 } from './game-shelf-normalization';
 
 interface SteamPriceLookupApi {
@@ -120,7 +120,7 @@ export class GameShelfService {
     'game-shelf:igdb-cover-migration:v2';
   private static readonly IGDB_ID_QUERY_PATTERN = /^igdb:\s*(\d+)$/i;
   private static readonly IGDB_COVER_PLATFORM_IGDB_IDS = new Set<number>([
-    6, 34, 39, 82, 163, 167, 472, 508,
+    6, 34, 39, 82, 163, 167, 472, 508
   ]);
   private static readonly IGDB_COVER_MIGRATION_PLATFORM_IGDB_IDS = new Set<number>([167, 508]);
   private static readonly IGDB_COVER_PLATFORM_NAMES = new Set<string>([
@@ -134,15 +134,15 @@ export class GameShelfService {
     'steamvr',
     'visionos',
     'playstation 5',
-    'nintendo switch 2',
+    'nintendo switch 2'
   ]);
   private static readonly PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([
-    48, 167, 130, 508,
+    48, 167, 130, 508
   ]);
   private static readonly STEAM_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([6]);
   private static readonly PRICE_SUPPORTED_PLATFORM_IGDB_IDS = new Set<number>([
     ...GameShelfService.STEAM_SUPPORTED_PLATFORM_IGDB_IDS,
-    ...GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS,
+    ...GameShelfService.PSPRICES_SUPPORTED_PLATFORM_IGDB_IDS
   ]);
   private readonly listRefresh$ = new Subject<void>();
   private readonly syncEvents = inject(SyncEventsService);
@@ -181,7 +181,7 @@ export class GameShelfService {
   async listLibraryGames(): Promise<GameEntry[]> {
     const [games, tags] = await Promise.all([
       this.repository.listAll(),
-      this.repository.listTags(),
+      this.repository.listTags()
     ]);
 
     return this.attachTags(games, tags);
@@ -241,7 +241,7 @@ export class GameShelfService {
           platform: candidate.platform,
           metacriticScore: candidate.reviewScore,
           metacriticUrl: candidate.reviewUrl,
-          ...(candidate.imageUrl ? { imageUrl: candidate.imageUrl } : {}),
+          ...(candidate.imageUrl ? { imageUrl: candidate.imageUrl } : {})
         }))
       )
     );
@@ -275,7 +275,7 @@ export class GameShelfService {
             reviewUrl: candidate.metacriticUrl,
             reviewSource: 'metacritic',
             mobyScore: null,
-            mobygamesGameId: null,
+            mobygamesGameId: null
           }))
         )
       );
@@ -289,11 +289,11 @@ export class GameShelfService {
       ...result,
       igdbGameId: normalizedGameId,
       platform: normalizedPlatform,
-      platformIgdbId: normalizedPlatformIgdbId,
+      platformIgdbId: normalizedPlatformIgdbId
     };
     const entry = await this.repository.upsertFromCatalog(
       {
-        ...normalizedCatalog,
+        ...normalizedCatalog
       },
       listType
     );
@@ -383,7 +383,7 @@ export class GameShelfService {
       mobyScore: null,
       mobygamesGameId: null,
       metacriticScore: null,
-      metacriticUrl: null,
+      metacriticUrl: null
     };
 
     const updated = await this.repository.upsertFromCatalog(
@@ -480,7 +480,7 @@ export class GameShelfService {
         platform: resolvedPlatform.platform,
         platformIgdbId: resolvedPlatform.platformIgdbId,
         coverUrl: existing.coverUrl,
-        coverSource: existing.coverSource,
+        coverSource: existing.coverSource
       },
       existing.listType
     );
@@ -493,14 +493,14 @@ export class GameShelfService {
     this.debugLogService.trace('game_shelf.hltb.refresh_start', {
       igdbGameId,
       platformIgdbId,
-      mode: 'default',
+      mode: 'default'
     });
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
     if (!existing) {
       this.debugLogService.trace('game_shelf.hltb.refresh_missing_game', {
         igdbGameId,
-        platformIgdbId,
+        platformIgdbId
       });
       throw new Error('Game entry no longer exists.');
     }
@@ -559,7 +559,7 @@ export class GameShelfService {
       igdbGameId,
       platformIgdbId,
       mode: 'query',
-      query,
+      query
     });
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
@@ -567,7 +567,7 @@ export class GameShelfService {
       this.debugLogService.trace('game_shelf.hltb.refresh_missing_game', {
         igdbGameId,
         platformIgdbId,
-        mode: 'query',
+        mode: 'query'
       });
       throw new Error('Game entry no longer exists.');
     }
@@ -690,7 +690,7 @@ export class GameShelfService {
         platform: existing.platform,
         platformIgdbId: existing.platformIgdbId,
         releaseDate: existing.releaseDate,
-        releaseYear: existing.releaseYear,
+        releaseYear: existing.releaseYear
       },
       existing.listType
     );
@@ -729,14 +729,14 @@ export class GameShelfService {
     this.debugLogService.trace('game_shelf.metacritic.refresh_start', {
       igdbGameId,
       platformIgdbId,
-      mode: 'default',
+      mode: 'default'
     });
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
     if (!existing) {
       this.debugLogService.trace('game_shelf.metacritic.refresh_missing_game', {
         igdbGameId,
-        platformIgdbId,
+        platformIgdbId
       });
       throw new Error('Game entry no longer exists.');
     }
@@ -811,7 +811,7 @@ export class GameShelfService {
       igdbGameId,
       platformIgdbId,
       mode: 'query',
-      query,
+      query
     });
     const existing = await this.repository.exists(igdbGameId, platformIgdbId);
 
@@ -819,7 +819,7 @@ export class GameShelfService {
       this.debugLogService.trace('game_shelf.metacritic.refresh_missing_game', {
         igdbGameId,
         platformIgdbId,
-        mode: 'query',
+        mode: 'query'
       });
       throw new Error('Game entry no longer exists.');
     }
@@ -876,18 +876,18 @@ export class GameShelfService {
       lookupReleaseYear: releaseYear,
       lookupPlatform: platform,
       preferredHltbGameId,
-      preferredHltbUrl,
+      preferredHltbUrl
     });
     const completionTimes = await firstValueFrom(
       this.searchApi.lookupCompletionTimes(title, releaseYear, platform, {
         preferredGameId: preferredHltbGameId,
-        preferredUrl: preferredHltbUrl,
+        preferredUrl: preferredHltbUrl
       })
     );
     this.debugLogService.trace('game_shelf.hltb.lookup_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       completionTimes,
-      hasCompletionTimes: completionTimes !== null,
+      hasCompletionTimes: completionTimes !== null
     });
 
     const updated = await this.repository.upsertFromCatalog(
@@ -930,7 +930,7 @@ export class GameShelfService {
         platform: existing.platform,
         platformIgdbId: existing.platformIgdbId,
         releaseDate: existing.releaseDate,
-        releaseYear: existing.releaseYear,
+        releaseYear: existing.releaseYear
       },
       existing.listType
     );
@@ -940,7 +940,7 @@ export class GameShelfService {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       updatedHltbMainHours: updated.hltbMainHours,
       updatedHltbMainExtraHours: updated.hltbMainExtraHours,
-      updatedHltbCompletionistHours: updated.hltbCompletionistHours,
+      updatedHltbCompletionistHours: updated.hltbCompletionistHours
     });
     return updated;
   }
@@ -962,7 +962,7 @@ export class GameShelfService {
       lookupPlatform: platform,
       lookupPlatformIgdbId: platformIgdbId,
       lookupMobyGameId: mobygamesGameId,
-      preferredReviewUrl,
+      preferredReviewUrl
     });
     const reviewLookup = (this.searchApi as Partial<GameSearchApi>).lookupReviewScore;
     const scoreResult: ReviewScoreResult | null =
@@ -996,7 +996,7 @@ export class GameShelfService {
                         reviewUrl: result.metacriticUrl,
                         reviewSource: 'metacritic',
                         mobyScore: null,
-                        mobygamesGameId: null,
+                        mobygamesGameId: null
                       }
                     : null
                 )
@@ -1005,7 +1005,7 @@ export class GameShelfService {
     this.debugLogService.trace('game_shelf.metacritic.lookup_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       scoreResult,
-      hasScoreResult: scoreResult !== null,
+      hasScoreResult: scoreResult !== null
     });
 
     const updated = await this.repository.upsertFromCatalog(
@@ -1056,7 +1056,7 @@ export class GameShelfService {
         platform: existing.platform,
         platformIgdbId: existing.platformIgdbId,
         releaseDate: existing.releaseDate,
-        releaseYear: existing.releaseYear,
+        releaseYear: existing.releaseYear
       },
       existing.listType
     );
@@ -1065,7 +1065,7 @@ export class GameShelfService {
     this.debugLogService.trace('game_shelf.metacritic.refresh_complete', {
       gameKey: `${existing.igdbGameId}::${String(existing.platformIgdbId)}`,
       updatedMetacriticScore: updated.metacriticScore,
-      updatedMetacriticUrl: updated.metacriticUrl,
+      updatedMetacriticUrl: updated.metacriticUrl
     });
     return updated;
   }
@@ -1380,7 +1380,7 @@ export class GameShelfService {
 
     const created = await this.repository.upsertTag({
       name: normalizedName,
-      color: normalizeTagColor(color),
+      color: normalizeTagColor(color)
     });
     this.listRefresh$.next();
     return created;
@@ -1396,7 +1396,7 @@ export class GameShelfService {
     const updated = await this.repository.upsertTag({
       id: tagId,
       name: normalizedName,
-      color: normalizeTagColor(color),
+      color: normalizeTagColor(color)
     });
     this.listRefresh$.next();
     return updated;
@@ -1421,7 +1421,7 @@ export class GameShelfService {
       name: name.trim(),
       listType,
       filters,
-      groupBy,
+      groupBy
     });
     this.listRefresh$.next();
     return created;
@@ -1545,7 +1545,7 @@ export class GameShelfService {
       const match = normalizedOptions.find((option) => option.name === refreshedPlatform);
       return {
         platform: refreshedPlatform,
-        platformIgdbId: match?.id ?? refreshedPlatformIgdbId ?? currentPlatformIgdbId,
+        platformIgdbId: match?.id ?? refreshedPlatformIgdbId ?? currentPlatformIgdbId
       };
     }
 
@@ -1553,7 +1553,7 @@ export class GameShelfService {
       const match = normalizedOptions.find((option) => option.name === currentPlatform);
       return {
         platform: currentPlatform,
-        platformIgdbId: match?.id ?? currentPlatformIgdbId,
+        platformIgdbId: match?.id ?? currentPlatformIgdbId
       };
     }
 
@@ -1563,14 +1563,14 @@ export class GameShelfService {
       if (match) {
         return {
           platform: match.name,
-          platformIgdbId: currentPlatformIgdbId,
+          platformIgdbId: currentPlatformIgdbId
         };
       }
     }
 
     return {
       platform: currentPlatform,
-      platformIgdbId: currentPlatformIgdbId,
+      platformIgdbId: currentPlatformIgdbId
     };
   }
 
@@ -1585,14 +1585,14 @@ export class GameShelfService {
             typeof option.id === 'number' && Number.isInteger(option.id) && option.id > 0
               ? option.id
               : null,
-          name: option.name,
+          name: option.name
         }))
         .filter((option) => typeof option.name === 'string' && option.name.length > 0);
     }
 
     return availablePlatforms.map((platform) => ({
       id: null,
-      name: platform,
+      name: platform
     }));
   }
 
@@ -1607,7 +1607,7 @@ export class GameShelfService {
       tagsById.set(tag.id, {
         id: tag.id,
         name: tag.name,
-        color: tag.color,
+        color: tag.color
       });
     });
 
@@ -1620,7 +1620,7 @@ export class GameShelfService {
       return {
         ...game,
         tagIds: gameTagIds,
-        tags: gameTags,
+        tags: gameTags
       };
     });
   }
@@ -1628,7 +1628,7 @@ export class GameShelfService {
   private async loadGamesWithTags(listType: ListType): Promise<GameEntry[]> {
     const [games, tags] = await Promise.all([
       this.repository.listByType(listType),
-      this.repository.listTags(),
+      this.repository.listTags()
     ]);
 
     return this.attachTags(games, tags);
@@ -1637,7 +1637,7 @@ export class GameShelfService {
   private async loadTagSummaries(): Promise<TagSummary[]> {
     const [tags, games] = await Promise.all([
       this.repository.listTags(),
-      this.repository.listAll(),
+      this.repository.listAll()
     ]);
     const usageCountByTag = new Map<number, number>();
 
@@ -1649,7 +1649,7 @@ export class GameShelfService {
 
     return tags.map((tag) => ({
       ...tag,
-      gameCount: tag.id ? (usageCountByTag.get(tag.id) ?? 0) : 0,
+      gameCount: tag.id ? (usageCountByTag.get(tag.id) ?? 0) : 0
     }));
   }
 
@@ -1733,9 +1733,9 @@ export class GameShelfService {
               metacriticUrl:
                 reviewScore.reviewSource === 'metacritic'
                   ? (reviewScore.reviewUrl ?? reviewScore.metacriticUrl ?? null)
-                  : (result.metacriticUrl ?? null),
+                  : (result.metacriticUrl ?? null)
             }
-          : {}),
+          : {})
       },
       listType
     );
@@ -1786,7 +1786,7 @@ export class GameShelfService {
           ? pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId)
           : pspricesApi.lookupPsPrices(igdbGameId, platformIgdbId, {
               title: titleOverride ?? null,
-              preferredUrl: preferredUrl ?? null,
+              preferredUrl: preferredUrl ?? null
             })
       )) as PsPricesLookupResult;
       return this.normalizePsPricesLookupResult(result);
@@ -1810,7 +1810,7 @@ export class GameShelfService {
       discountPercent: this.normalizePriceDiscountPercent(result.bestPrice.discountPercent),
       isFree: this.normalizePriceIsFree(result.bestPrice.isFree),
       url: this.normalizePriceUrl(result.bestPrice.url),
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: new Date().toISOString()
     };
   }
 
@@ -1827,7 +1827,7 @@ export class GameShelfService {
       discountPercent: this.normalizePriceDiscountPercent(result.bestPrice.discountPercent),
       isFree: this.normalizePriceIsFree(result.bestPrice.isFree),
       url: this.normalizePriceUrl(result.bestPrice.url),
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: new Date().toISOString()
     };
   }
 
@@ -1859,7 +1859,7 @@ export class GameShelfService {
             typeof candidate.score === 'number' && Number.isFinite(candidate.score)
               ? Math.round(candidate.score * 100) / 100
               : null,
-          ...(imageUrl ? { imageUrl } : {}),
+          ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0);
@@ -1872,7 +1872,7 @@ export class GameShelfService {
 
     return normalizedCandidates.map((candidate, index) => ({
       ...candidate,
-      isRecommended: index === recommendedIndex,
+      isRecommended: index === recommendedIndex
     }));
   }
 
@@ -1968,7 +1968,7 @@ export class GameShelfService {
       fetchedAt:
         typeof game.priceFetchedAt === 'string' && game.priceFetchedAt.trim().length > 0
           ? game.priceFetchedAt
-          : new Date().toISOString(),
+          : new Date().toISOString()
     };
   }
 
@@ -1996,7 +1996,7 @@ export class GameShelfService {
                 reviewUrl: result.metacriticUrl,
                 reviewSource: 'metacritic',
                 mobyScore: null,
-                mobygamesGameId: null,
+                mobygamesGameId: null
               }
             : null
         )
@@ -2022,7 +2022,7 @@ export class GameShelfService {
         urls
           .map((url) => normalizeTheGamesDbUrl(url))
           .filter((url): url is string => typeof url === 'string' && url.length > 0)
-      ),
+      )
     ];
 
     if (normalizedUrls.length === 0) {
@@ -2031,7 +2031,7 @@ export class GameShelfService {
 
     try {
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       };
       const clientWriteToken = this.clientWriteAuthService.getToken();
 
@@ -2042,7 +2042,7 @@ export class GameShelfService {
       await fetch(`${environment.gameApiBaseUrl}/v1/images/cache/purge`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ urls: normalizedUrls }),
+        body: JSON.stringify({ urls: normalizedUrls })
       });
     } catch {
       // Ignore server cache purge failures. Client cover migration still succeeds.

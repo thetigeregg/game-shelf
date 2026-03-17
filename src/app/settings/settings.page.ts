@@ -24,7 +24,7 @@ import {
   IonReorderGroup,
   IonReorder,
   IonInput,
-  IonToggle,
+  IonToggle
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -39,29 +39,29 @@ import {
   GameRating,
   GameStatus,
   ListType,
-  Tag,
+  Tag
 } from '../core/models/game.models';
 import {
   COLOR_SCHEME_STORAGE_KEY,
   ColorSchemePreference,
-  ThemeService,
+  ThemeService
 } from '../core/services/theme.service';
 import { GAME_REPOSITORY, GameRepository } from '../core/data/game-repository';
 import { GameShelfService } from '../core/services/game-shelf.service';
 import { ImageCacheService } from '../core/services/image-cache.service';
 import {
   PlatformOrderService,
-  PLATFORM_ORDER_STORAGE_KEY,
+  PLATFORM_ORDER_STORAGE_KEY
 } from '../core/services/platform-order.service';
 import {
   PlatformCustomizationService,
-  PLATFORM_DISPLAY_NAMES_STORAGE_KEY,
+  PLATFORM_DISPLAY_NAMES_STORAGE_KEY
 } from '../core/services/platform-customization.service';
 import { SYNC_OUTBOX_WRITER, SyncOutboxWriter } from '../core/data/sync-outbox-writer';
 import {
   formatRateLimitedUiError,
   isRateLimitedMessage,
-  isTransientNetworkMessage,
+  isTransientNetworkMessage
 } from '../core/utils/rate-limit-ui-error';
 import { coercePreferenceBoolean } from '../core/utils/preference-bool';
 import { normalizeNotesValueOrNull } from '../core/utils/notes-normalization.utils';
@@ -82,7 +82,7 @@ import {
   parseOptionalText,
   parsePositiveInteger,
   parsePositiveIntegerArray,
-  parseStringArray,
+  parseStringArray
 } from './settings-import-export.utils';
 import {
   getGameKey,
@@ -107,29 +107,29 @@ import {
   recomputeMgcDuplicateErrors,
   resolveGlobalCooldownWaitMs,
   resolveRateLimitRetryDelayMs,
-  resolveTransientRetryDelayMs,
+  resolveTransientRetryDelayMs
 } from './settings-mgc.utils';
 import { DebugLogService } from '../core/services/debug-log.service';
 import {
   NotificationService,
   RELEASE_NOTIFICATION_EVENTS_STORAGE_KEY,
   RELEASE_NOTIFICATIONS_ENABLED_STORAGE_KEY,
-  ReleaseNotificationEventsPreference,
+  ReleaseNotificationEventsPreference
 } from '../core/services/notification.service';
 import {
   getAppVersion,
   isMgcImportFeatureEnabled,
-  isTasFeatureEnabled,
+  isTasFeatureEnabled
 } from '../core/config/runtime-config';
 import { detectReviewSourceFromUrl } from '../core/utils/url-host.util';
 import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import {
   RECOMMENDATION_IGNORED_STORAGE_KEY,
-  RecommendationIgnoreService,
+  RecommendationIgnoreService
 } from '../core/services/recommendation-ignore.service';
 import {
   TimePreferenceService,
-  TIME_PREFERENCE_STORAGE_KEY,
+  TIME_PREFERENCE_STORAGE_KEY
 } from '../core/services/time-preference.service';
 import { addIcons } from 'ionicons';
 import {
@@ -144,7 +144,7 @@ import {
   layers,
   bug,
   key,
-  eyeOff,
+  eyeOff
 } from 'ionicons/icons';
 
 const LEGACY_PRIMARY_COLOR_STORAGE_KEY = 'game-shelf-primary-color';
@@ -302,7 +302,7 @@ const CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'key',
   'value',
   'createdAt',
-  'updatedAt',
+  'updatedAt'
 ];
 
 const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
@@ -328,7 +328,7 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
   'key',
   'value',
   'createdAt',
-  'updatedAt',
+  'updatedAt'
 ];
 
 @Component({
@@ -361,8 +361,8 @@ const REQUIRED_CSV_HEADERS: Array<keyof ExportCsvRow> = [
     IonReorderGroup,
     IonReorder,
     IonInput,
-    IonToggle,
-  ],
+    IonToggle
+  ]
 })
 export class SettingsPage {
   private static readonly IMAGE_CACHE_MIN_MB = 20;
@@ -372,7 +372,7 @@ export class SettingsPage {
   readonly colorSchemeOptions: Array<{ label: string; value: ColorSchemePreference }> = [
     { label: 'System', value: 'system' },
     { label: 'Light', value: 'light' },
-    { label: 'Dark', value: 'dark' },
+    { label: 'Dark', value: 'dark' }
   ];
   readonly appVersion = getAppVersion();
   readonly isMgcImportFeatureEnabled = isMgcImportFeatureEnabled();
@@ -387,7 +387,7 @@ export class SettingsPage {
     changed: true,
     removed: true,
     day: true,
-    sale: true,
+    sale: true
   };
   imageCacheLimitMb = 200;
   imageCacheUsageMb = 0;
@@ -432,7 +432,7 @@ export class SettingsPage {
   private readonly platformOrderService = inject(PlatformOrderService);
   private readonly platformCustomizationService = inject(PlatformCustomizationService);
   private readonly outboxWriter = inject<SyncOutboxWriter | null>(SYNC_OUTBOX_WRITER, {
-    optional: true,
+    optional: true
   });
   private readonly toastController = inject(ToastController);
   private readonly alertController = inject(AlertController);
@@ -464,7 +464,7 @@ export class SettingsPage {
       layers,
       bug,
       key,
-      eyeOff,
+      eyeOff
     });
   }
 
@@ -533,9 +533,9 @@ export class SettingsPage {
         '- Metacritic',
         '- MobyGames',
         '- Steam Store',
-        '- PSPrices',
+        '- PSPrices'
       ].join('\n'),
-      buttons: ['OK'],
+      buttons: ['OK']
     });
 
     await alert.present();
@@ -550,13 +550,13 @@ export class SettingsPage {
         {
           name: 'token',
           type: 'password',
-          placeholder: 'Device write token',
-        },
+          placeholder: 'Device write token'
+        }
       ],
       buttons: [
         { text: 'Cancel', role: 'cancel' },
-        { text: 'Save', role: 'confirm' },
-      ],
+        { text: 'Save', role: 'confirm' }
+      ]
     });
 
     await alert.present();
@@ -584,8 +584,8 @@ export class SettingsPage {
       message: 'Remove the stored write token from this device?',
       buttons: [
         { text: 'Cancel', role: 'cancel' },
-        { text: 'Clear', role: 'confirm', cssClass: 'alert-button-danger' },
-      ],
+        { text: 'Clear', role: 'confirm', cssClass: 'alert-button-danger' }
+      ]
     });
 
     await alert.present();
@@ -620,7 +620,7 @@ export class SettingsPage {
   ): void {
     this.releaseNotificationEvents = {
       ...this.releaseNotificationEvents,
-      [eventKey]: enabled,
+      [eventKey]: enabled
     };
     this.persistReleaseNotificationEvents();
   }
@@ -632,8 +632,8 @@ export class SettingsPage {
         'Delete all locally cached game images from this device? Images will be re-fetched when needed.',
       buttons: [
         { text: 'Cancel', role: 'cancel' },
-        { text: 'Purge', role: 'confirm', cssClass: 'alert-button-danger' },
-      ],
+        { text: 'Purge', role: 'confirm', cssClass: 'alert-button-danger' }
+      ]
     });
 
     await alert.present();
@@ -663,7 +663,7 @@ export class SettingsPage {
         const customName = key ? (displayNames[key] ?? '') : '';
         return {
           ...platform,
-          customName,
+          customName
         };
       });
       this.isPlatformOrderModalOpen = true;
@@ -691,7 +691,7 @@ export class SettingsPage {
     this.queueSettingDelete(PLATFORM_DISPLAY_NAMES_STORAGE_KEY);
     this.platformOrderItems = this.platformOrderItems.map((platform) => ({
       ...platform,
-      customName: '',
+      customName: ''
     }));
   }
 
@@ -774,29 +774,29 @@ export class SettingsPage {
           name: 'displayName',
           type: 'text',
           value: draftName,
-          placeholder: platform.name,
-        },
+          placeholder: platform.name
+        }
       ],
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Clear',
           role: 'destructive',
           handler: () => {
             draftName = '';
-          },
+          }
         },
         {
           text: 'Save',
           role: 'confirm',
           handler: (value: { displayName?: string } | undefined) => {
             draftName = (value?.displayName ?? '').trim();
-          },
-        },
-      ],
+          }
+        }
+      ]
     });
 
     await alert.present();
@@ -872,7 +872,7 @@ export class SettingsPage {
       await this.presentShareFile({
         content: csv,
         filename,
-        mimeType: 'text/csv;charset=utf-8',
+        mimeType: 'text/csv;charset=utf-8'
       });
       await this.presentToast('CSV export prepared.');
     } catch {
@@ -889,7 +889,7 @@ export class SettingsPage {
       await this.presentShareFile({
         content,
         filename,
-        mimeType: 'text/plain;charset=utf-8',
+        mimeType: 'text/plain;charset=utf-8'
       });
       await this.presentToast('Debug logs prepared.');
     } catch (error: unknown) {
@@ -904,8 +904,8 @@ export class SettingsPage {
       message: 'Delete all locally captured debug logs?',
       buttons: [
         { text: 'Cancel', role: 'cancel' },
-        { text: 'Clear', role: 'confirm', cssClass: 'alert-button-danger' },
-      ],
+        { text: 'Clear', role: 'confirm', cssClass: 'alert-button-danger' }
+      ]
     });
 
     await alert.present();
@@ -950,14 +950,14 @@ export class SettingsPage {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Remove',
           role: 'confirm',
-          cssClass: 'alert-button-danger',
-        },
-      ],
+          cssClass: 'alert-button-danger'
+        }
+      ]
     });
 
     await alert.present();
@@ -1046,14 +1046,14 @@ export class SettingsPage {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Remove',
           role: 'confirm',
-          cssClass: 'alert-button-danger',
-        },
-      ],
+          cssClass: 'alert-button-danger'
+        }
+      ]
     });
 
     await alert.present();
@@ -1125,7 +1125,7 @@ export class SettingsPage {
     this.debugLogService.info('mgc.resolve_page_start', {
       pageIndex: this.mgcPageIndex,
       pageSize: this.mgcPageSize,
-      unresolvedRows: rowsToResolve.length,
+      unresolvedRows: rowsToResolve.length
     });
 
     try {
@@ -1164,14 +1164,14 @@ export class SettingsPage {
       recomputeMgcDuplicateErrors(this.mgcRows, this.mgcExistingGameKeys);
       this.debugLogService.info('mgc.resolve_page_complete', {
         pageIndex: this.mgcPageIndex,
-        resolvedRows: rowsToResolve.length,
+        resolvedRows: rowsToResolve.length
       });
       await this.presentToast(
         `Resolved ${String(rowsToResolve.length)} row${rowsToResolve.length === 1 ? '' : 's'} on this page.`
       );
     } catch {
       this.debugLogService.error('mgc.resolve_page_failed', {
-        pageIndex: this.mgcPageIndex,
+        pageIndex: this.mgcPageIndex
       });
       await this.presentToast('Unable to resolve all rows on this page.', 'danger');
     } finally {
@@ -1242,7 +1242,7 @@ export class SettingsPage {
     this.mgcResolverError = '';
     this.debugLogService.debug('mgc.resolver_search_start', {
       query,
-      platformIgdbId: this.mgcResolverPlatformIgdbId,
+      platformIgdbId: this.mgcResolverPlatformIgdbId
     });
 
     try {
@@ -1298,13 +1298,13 @@ export class SettingsPage {
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Import',
-          role: 'confirm',
-        },
-      ],
+          role: 'confirm'
+        }
+      ]
     });
 
     await alert.present();
@@ -1329,7 +1329,7 @@ export class SettingsPage {
     return {
       'mgc-row-success': isMgcRowSuccess(row),
       'mgc-row-warning': isMgcRowWarning(row),
-      'mgc-row-error': isMgcRowError(row),
+      'mgc-row-error': isMgcRowError(row)
     };
   }
 
@@ -1486,7 +1486,7 @@ export class SettingsPage {
               platformIgdbId,
               {
                 title: gameRow.customTitle,
-                platform: gameRow.customPlatform,
+                platform: gameRow.customPlatform
               }
             );
             gameCustomMetadataApplied += 1;
@@ -1561,7 +1561,7 @@ export class SettingsPage {
 
       const [collectionViews, wishlistViews] = await Promise.all([
         this.repository.listViews('collection'),
-        this.repository.listViews('wishlist'),
+        this.repository.listViews('wishlist')
       ]);
       const usedViewNames = new Set(
         [...collectionViews, ...wishlistViews]
@@ -1608,7 +1608,7 @@ export class SettingsPage {
         tagsRenamed,
         viewsRenamed,
         failedRows,
-        skippedRows,
+        skippedRows
       });
     } catch {
       await this.presentToast('Unable to apply CSV import.', 'danger');
@@ -1647,7 +1647,7 @@ export class SettingsPage {
       `Tags auto-renamed: ${String(summary.tagsRenamed)}`,
       `Views auto-renamed: ${String(summary.viewsRenamed)}`,
       `Failed rows: ${String(summary.failedRows)}`,
-      `Skipped rows: ${String(summary.skippedRows)}`,
+      `Skipped rows: ${String(summary.skippedRows)}`
     ]);
   }
 
@@ -1739,7 +1739,7 @@ export class SettingsPage {
         error,
         duplicateError: null,
         candidates: [],
-        selected: null,
+        selected: null
       });
     }
 
@@ -1761,7 +1761,7 @@ export class SettingsPage {
     this.importLoadingMessage = 'Preparing import...';
     this.debugLogService.info('mgc.apply_start', {
       rows: this.mgcRows.length,
-      targetListType: this.mgcTargetListType,
+      targetListType: this.mgcTargetListType
     });
 
     try {
@@ -1838,7 +1838,7 @@ export class SettingsPage {
           resolvedCatalog = {
             ...selected,
             coverUrl: boxArt,
-            coverSource: useIgdbCover ? 'igdb' : 'thegamesdb',
+            coverSource: useIgdbCover ? 'igdb' : 'thegamesdb'
           };
           boxArtResolved += 1;
         }
@@ -1902,7 +1902,7 @@ export class SettingsPage {
         hltbResolved,
         hltbFailed,
         duplicateSkipped,
-        failed,
+        failed
       });
       this.presentMgcImportSummary({
         rowsSelected: rowsToImport.length,
@@ -1913,7 +1913,7 @@ export class SettingsPage {
         hltbResolved,
         hltbFailed,
         duplicateSkipped,
-        failed,
+        failed
       });
       this.closeMgcImport();
     } catch {
@@ -1946,7 +1946,7 @@ export class SettingsPage {
       `HLTB data resolved: ${String(summary.hltbResolved)}`,
       `HLTB lookup failures: ${String(summary.hltbFailed)}`,
       `Duplicates skipped: ${String(summary.duplicateSkipped)}`,
-      `Failed: ${String(summary.failed)}`,
+      `Failed: ${String(summary.failed)}`
     ]);
   }
 
@@ -1968,7 +1968,7 @@ export class SettingsPage {
     if (requiredTagNames.size === 0) {
       return {
         tagIdMap: await this.buildTagNameToIdMap(),
-        tagsCreated: 0,
+        tagsCreated: 0
       };
     }
 
@@ -1993,7 +1993,7 @@ export class SettingsPage {
 
     return {
       tagIdMap: await this.buildTagNameToIdMap(),
-      tagsCreated,
+      tagsCreated
     };
   }
 
@@ -2050,14 +2050,14 @@ export class SettingsPage {
     if (!selectedPlatform || typeof selectedPlatform.id !== 'number' || selectedPlatform.id <= 0) {
       return {
         ...row,
-        platformIgdbId: null,
+        platformIgdbId: null
       };
     }
 
     return {
       ...row,
       platform: selectedPlatform.name,
-      platformIgdbId: selectedPlatform.id,
+      platformIgdbId: selectedPlatform.id
     };
   }
 
@@ -2236,7 +2236,7 @@ export class SettingsPage {
           {
             title: selected.title,
             releaseYear: selected.releaseYear,
-            platform: selected.platform,
+            platform: selected.platform
           }
         );
 
@@ -2307,18 +2307,18 @@ export class SettingsPage {
         type: 'radio',
         label: option.name,
         value: String(index),
-        checked: index === 0,
+        checked: index === 0
       })),
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Select',
-          role: 'confirm',
-        },
-      ],
+          role: 'confirm'
+        }
+      ]
     });
 
     await alert.present();
@@ -2359,7 +2359,7 @@ export class SettingsPage {
       ) {
         return this.withSelectedPlatform(result, {
           id: result.platformIgdbId,
-          name: result.platform.trim(),
+          name: result.platform.trim()
         });
       }
 
@@ -2374,7 +2374,7 @@ export class SettingsPage {
     ) {
       return this.withSelectedPlatform(result, {
         id: result.platformIgdbId,
-        name: result.platform.trim(),
+        name: result.platform.trim()
       });
     }
 
@@ -2394,7 +2394,7 @@ export class SettingsPage {
       platform: platform.name,
       platformIgdbId: platform.id,
       platforms: [platform.name],
-      platformOptions: [{ id: platform.id, name: platform.name }],
+      platformOptions: [{ id: platform.id, name: platform.name }]
     };
   }
 
@@ -2506,7 +2506,7 @@ export class SettingsPage {
       this.repository.listAll(),
       this.repository.listTags(),
       this.repository.listViews('collection'),
-      this.repository.listViews('wishlist'),
+      this.repository.listViews('wishlist')
     ]);
 
     const tagById = new Map<number, Tag>();
@@ -2596,7 +2596,7 @@ export class SettingsPage {
         key: '',
         value: '',
         createdAt: game.createdAt,
-        updatedAt: game.updatedAt,
+        updatedAt: game.updatedAt
       });
     });
 
@@ -2648,7 +2648,7 @@ export class SettingsPage {
         key: '',
         value: '',
         createdAt: tag.createdAt,
-        updatedAt: tag.updatedAt,
+        updatedAt: tag.updatedAt
       });
     });
 
@@ -2700,7 +2700,7 @@ export class SettingsPage {
         key: '',
         value: '',
         createdAt: view.createdAt,
-        updatedAt: view.updatedAt,
+        updatedAt: view.updatedAt
       });
     });
 
@@ -2752,13 +2752,13 @@ export class SettingsPage {
         key,
         value,
         createdAt: '',
-        updatedAt: '',
+        updatedAt: ''
       });
     });
 
     const lines = [
       CSV_HEADERS.join(','),
-      ...rows.map((row) => CSV_HEADERS.map((header) => escapeCsvValue(row[header])).join(',')),
+      ...rows.map((row) => CSV_HEADERS.map((header) => escapeCsvValue(row[header])).join(','))
     ];
 
     return lines.join('\n');
@@ -2790,7 +2790,7 @@ export class SettingsPage {
     const pendingTagNames = new Set<string>();
     const [collectionViews, wishlistViews] = await Promise.all([
       this.repository.listViews('collection'),
-      this.repository.listViews('wishlist'),
+      this.repository.listViews('wishlist')
     ]);
     const existingViewNames = new Set(
       [...collectionViews, ...wishlistViews]
@@ -2852,8 +2852,8 @@ export class SettingsPage {
         parsed: {
           kind: 'setting',
           key: record.key,
-          value: record.value,
-        },
+          value: record.value
+        }
       };
     }
 
@@ -2883,8 +2883,8 @@ export class SettingsPage {
           kind: 'tag',
           tagId,
           name,
-          color,
-        },
+          color
+        }
       };
     }
 
@@ -2929,8 +2929,8 @@ export class SettingsPage {
           name,
           listType,
           groupBy,
-          filters,
-        },
+          filters
+        }
       };
     }
 
@@ -3145,7 +3145,7 @@ export class SettingsPage {
       platform,
       platformIgdbId,
       releaseDate: record.releaseDate.trim().length > 0 ? record.releaseDate.trim() : null,
-      releaseYear: parseOptionalNumber(record.releaseYear),
+      releaseYear: parseOptionalNumber(record.releaseYear)
     };
 
     const tagNames = parseStringArray(record.tags);
@@ -3170,8 +3170,8 @@ export class SettingsPage {
         customPlatform,
         customCoverUrl,
         tagNames,
-        tagIds,
-      },
+        tagIds
+      }
     };
   }
 
@@ -3183,7 +3183,7 @@ export class SettingsPage {
       summary: `${type.toUpperCase()} row ${String(rowNumber)}`,
       error,
       warning: null,
-      parsed: null,
+      parsed: null
     };
   }
 
@@ -3313,7 +3313,7 @@ export class SettingsPage {
       key: getValue('key'),
       value: getValue('value'),
       createdAt: getValue('createdAt'),
-      updatedAt: getValue('updatedAt'),
+      updatedAt: getValue('updatedAt')
     };
   }
 
@@ -3419,7 +3419,7 @@ export class SettingsPage {
             changed: coercePreferenceBoolean(parsed['changed'], true),
             removed: coercePreferenceBoolean(parsed['removed'], true),
             day: coercePreferenceBoolean(parsed['day'], true),
-            sale: coercePreferenceBoolean(parsed['sale'], true),
+            sale: coercePreferenceBoolean(parsed['sale'], true)
           });
         } catch {
           normalizedValue = JSON.stringify({
@@ -3427,7 +3427,7 @@ export class SettingsPage {
             changed: true,
             removed: true,
             day: true,
-            sale: true,
+            sale: true
           });
         }
 
@@ -3513,7 +3513,7 @@ export class SettingsPage {
       const customName = key ? (displayNames[key] ?? '') : '';
       return {
         ...platform,
-        customName,
+        customName
       };
     });
   }
@@ -3538,7 +3538,7 @@ export class SettingsPage {
     void this.outboxWriter.enqueueOperation({
       entityType: 'setting',
       operation: 'upsert',
-      payload: { key, value },
+      payload: { key, value }
     });
   }
 
@@ -3550,7 +3550,7 @@ export class SettingsPage {
     void this.outboxWriter.enqueueOperation({
       entityType: 'setting',
       operation: 'delete',
-      payload: { key },
+      payload: { key }
     });
   }
 
@@ -3635,7 +3635,7 @@ export class SettingsPage {
         if (canShareFiles) {
           try {
             await webNavigator.share({
-              files: [file],
+              files: [file]
             });
             return;
           } catch (error: unknown) {
@@ -3688,7 +3688,7 @@ export class SettingsPage {
       message,
       duration: 1800,
       position: 'bottom',
-      color,
+      color
     });
 
     await toast.present();

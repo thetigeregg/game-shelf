@@ -18,7 +18,7 @@ describe('DexieGameRepository', () => {
     platform: 'NES',
     platformIgdbId: 18,
     releaseDate: '1985-09-13T00:00:00.000Z',
-    releaseYear: 1985,
+    releaseYear: 1985
   };
 
   function requireValue<T>(value: T | null | undefined): T {
@@ -28,7 +28,7 @@ describe('DexieGameRepository', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, DexieGameRepository]
     });
 
     db = TestBed.inject(AppDb);
@@ -55,7 +55,7 @@ describe('DexieGameRepository', () => {
         ...mario,
         hltbMainHours: 12.1,
         hltbMainExtraHours: 18.4,
-        hltbCompletionistHours: 30.2,
+        hltbCompletionistHours: 30.2
       },
       'collection'
     );
@@ -63,7 +63,7 @@ describe('DexieGameRepository', () => {
     await repository.upsertFromCatalog(
       {
         ...mario,
-        title: 'Super Mario Bros. Updated',
+        title: 'Super Mario Bros. Updated'
       },
       'wishlist'
     );
@@ -79,7 +79,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         hltbMatchGameId: 7002,
-        hltbMatchUrl: '  //howlongtobeat.com/game/7002  ',
+        hltbMatchUrl: '  //howlongtobeat.com/game/7002  '
       },
       'collection'
     );
@@ -94,7 +94,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         hltbMatchGameId: 7002,
-        hltbMatchUrl: 'https://howlongtobeat.com/game/7002',
+        hltbMatchUrl: 'https://howlongtobeat.com/game/7002'
       },
       'collection'
     );
@@ -102,7 +102,7 @@ describe('DexieGameRepository', () => {
     await repository.upsertFromCatalog(
       {
         ...mario,
-        title: 'Super Mario Bros. Updated',
+        title: 'Super Mario Bros. Updated'
       },
       'wishlist'
     );
@@ -120,7 +120,7 @@ describe('DexieGameRepository', () => {
         themes: ['Platformer', 'Platformer'],
         themeIds: [1, 1, 2],
         keywords: ['Nintendo', 'Nintendo'],
-        keywordIds: [5, 5, 6],
+        keywordIds: [5, 5, 6]
       },
       'collection'
     );
@@ -145,17 +145,17 @@ describe('DexieGameRepository', () => {
             imageId: 'hjnzngnrtwr82jzmmkef',
             url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/hjnzngnrtwr82jzmmkef.jpg',
             width: 1280,
-            height: 720,
-          },
+            height: 720
+          }
         ],
         videos: [
           {
             id: 3164,
             name: 'Next-gen Launch Trailer',
             videoId: 'PIF_fqFZEuk',
-            url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk',
-          },
-        ],
+            url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+          }
+        ]
       },
       'collection'
     );
@@ -163,7 +163,7 @@ describe('DexieGameRepository', () => {
     await repository.upsertFromCatalog(
       {
         ...mario,
-        title: 'Super Mario Bros. Updated',
+        title: 'Super Mario Bros. Updated'
       },
       'collection'
     );
@@ -183,7 +183,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         screenshots: [{ id: 1, imageId: 'old-image', url: '', width: 1, height: 1 }],
-        videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }],
+        videos: [{ id: 1, name: 'Old', videoId: 'PIF_fqFZEuk', url: '' }]
       },
       'collection'
     );
@@ -193,12 +193,12 @@ describe('DexieGameRepository', () => {
         ...mario,
         screenshots: [
           { id: 2, image_id: ' next-image ', width: '1280', height: '720' } as never,
-          { id: 2, image_id: 'next-image' } as never,
+          { id: 2, image_id: 'next-image' } as never
         ],
         videos: [
           { id: 3, name: ' Trailer ', video_id: 'abc def' } as never,
-          { id: 3, name: 'Duplicate', video_id: 'abc def' } as never,
-        ],
+          { id: 3, name: 'Duplicate', video_id: 'abc def' } as never
+        ]
       },
       'collection'
     );
@@ -210,16 +210,16 @@ describe('DexieGameRepository', () => {
         imageId: 'next-image',
         url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/next-image.jpg',
         width: 1280,
-        height: 720,
-      },
+        height: 720
+      }
     ]);
     expect(stored?.videos).toEqual([
       {
         id: 3,
         name: 'Trailer',
         videoId: 'abc def',
-        url: 'https://www.youtube.com/watch?v=abc%20def',
-      },
+        url: 'https://www.youtube.com/watch?v=abc%20def'
+      }
     ]);
   });
 
@@ -228,7 +228,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         themeIds: [1, 2.7, 3],
-        keywordIds: [5, 6.1, 7],
+        keywordIds: [5, 6.1, 7]
       },
       'collection'
     );
@@ -307,7 +307,7 @@ describe('DexieGameRepository', () => {
 
     await repository.setGameTags('101', 18, [
       requireValue(multiplayer.id),
-      requireValue(backlog.id),
+      requireValue(backlog.id)
     ]);
 
     const stored = await repository.exists('101', 18);
@@ -370,7 +370,7 @@ describe('DexieGameRepository', () => {
 
     await repository.setGameCustomMetadata('101', 18, {
       title: 'My Mario',
-      platform: { name: 'Nintendo Switch', igdbId: 130 },
+      platform: { name: 'Nintendo Switch', igdbId: 130 }
     });
 
     const customized = await repository.exists('101', 18);
@@ -454,7 +454,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         metacriticScore: 87.6,
-        metacriticUrl: '//www.metacritic.com/game/super-mario-bros/',
+        metacriticUrl: '//www.metacritic.com/game/super-mario-bros/'
       },
       'collection'
     );
@@ -467,7 +467,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         metacriticScore: 101,
-        metacriticUrl: 'ftp://invalid',
+        metacriticUrl: 'ftp://invalid'
       },
       'collection'
     );
@@ -479,7 +479,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         metacriticScore: 95,
-        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/'
       },
       'collection'
     );
@@ -494,7 +494,7 @@ describe('DexieGameRepository', () => {
         ...mario,
         reviewScore: 88.2,
         reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       },
       'collection'
     );
@@ -507,7 +507,7 @@ describe('DexieGameRepository', () => {
         ...mario,
         reviewScore: 95,
         reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       },
       'collection'
     );
@@ -519,7 +519,7 @@ describe('DexieGameRepository', () => {
         ...mario,
         reviewScore: 101,
         reviewUrl: 'https://www.metacritic.com/game/super-mario-bros/',
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       },
       'collection'
     );
@@ -531,7 +531,7 @@ describe('DexieGameRepository', () => {
         ...mario,
         reviewScore: 0,
         reviewUrl: null,
-        reviewSource: null,
+        reviewSource: null
       },
       'collection'
     );
@@ -543,7 +543,7 @@ describe('DexieGameRepository', () => {
         ...mario,
         reviewScore: 100,
         reviewUrl: null,
-        reviewSource: null,
+        reviewSource: null
       },
       'collection'
     );
@@ -556,7 +556,7 @@ describe('DexieGameRepository', () => {
       {
         ...mario,
         metacriticScore: 92,
-        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/',
+        metacriticUrl: 'https://www.metacritic.com/game/super-mario-bros/'
       },
       'collection'
     );
@@ -579,7 +579,7 @@ describe('DexieGameRepository', () => {
         reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
         reviewSource: 'mobygames',
         metacriticScore: null,
-        metacriticUrl: null,
+        metacriticUrl: null
       },
       'collection'
     );
@@ -596,7 +596,7 @@ describe('DexieGameRepository', () => {
         reviewUrl: 'https://www.mobygames.com/game/super-mario-bros/',
         reviewSource: 'mobygames',
         metacriticScore: null,
-        metacriticUrl: null,
+        metacriticUrl: null
       },
       'collection'
     );
@@ -624,7 +624,7 @@ describe('DexieGameRepository', () => {
         reviewMatchQueryPlatform: 'NES',
         reviewMatchPlatformIgdbId: 18,
         reviewMatchMobygamesGameId: 1234,
-        reviewMatchLocked: false,
+        reviewMatchLocked: false
       },
       'collection'
     );
@@ -650,7 +650,7 @@ describe('DexieGameRepository', () => {
     const byId = await repository.upsertTag({
       id: created.id,
       name: 'Backlog Updated',
-      color: '#333333',
+      color: '#333333'
     });
     const tags = await repository.listTags();
 
@@ -675,9 +675,9 @@ describe('DexieGameRepository', () => {
         hltbMainHoursMin: 5,
         hltbMainHoursMax: 30,
         releaseDateFrom: '2024-01-01T00:00:00.000Z',
-        releaseDateTo: '2024-12-31T00:00:00.000Z',
+        releaseDateTo: '2024-12-31T00:00:00.000Z'
       },
-      groupBy: 'platform',
+      groupBy: 'platform'
     });
 
     const createdId = requireValue(created.id);
@@ -712,9 +712,9 @@ describe('DexieGameRepository', () => {
         hltbMainHoursMin: null,
         hltbMainHoursMax: null,
         releaseDateFrom: null,
-        releaseDateTo: null,
+        releaseDateTo: null
       },
-      groupBy: 'publisher',
+      groupBy: 'publisher'
     });
 
     expect(updated?.name).toBe('Renamed');
@@ -740,9 +740,9 @@ describe('DexieGameRepository', () => {
       listType: 'collection',
       filters: {
         ...DEFAULT_GAME_LIST_FILTERS,
-        sortField: 'unsupported' as never,
+        sortField: 'unsupported' as never
       },
-      groupBy: 'none',
+      groupBy: 'none'
     });
     expect(created.filters.sortField).toBe(DEFAULT_GAME_LIST_FILTERS.sortField);
   });
@@ -772,9 +772,9 @@ describe('DexieGameRepository', () => {
           hltbMainHoursMin: null,
           hltbMainHoursMax: null,
           releaseDateFrom: null,
-          releaseDateTo: null,
+          releaseDateTo: null
         },
-        groupBy: 'none',
+        groupBy: 'none'
       })
     ).rejects.toThrow('View name is required.');
   });
@@ -783,12 +783,12 @@ describe('DexieGameRepository', () => {
     const syncNow = vi.fn().mockResolvedValue(undefined);
     const writer: SyncOutboxWriter & { syncNow: () => Promise<void> } = {
       syncNow,
-      enqueueOperation: async () => Promise.resolve(),
+      enqueueOperation: async () => Promise.resolve()
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }],
+      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }]
     });
 
     const queuedDb = TestBed.inject(AppDb);
@@ -816,7 +816,7 @@ describe('DexieGameRepository', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, DexieGameRepository]
     });
     db = TestBed.inject(AppDb);
     repository = TestBed.inject(DexieGameRepository);
@@ -826,12 +826,12 @@ describe('DexieGameRepository', () => {
     const syncNow = vi.fn().mockResolvedValue(undefined);
     const writer: SyncOutboxWriter & { syncNow: () => Promise<void> } = {
       syncNow,
-      enqueueOperation: async () => Promise.resolve(),
+      enqueueOperation: async () => Promise.resolve()
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }],
+      providers: [AppDb, DexieGameRepository, { provide: SYNC_OUTBOX_WRITER, useValue: writer }]
     });
 
     const queuedDb = TestBed.inject(AppDb);
@@ -847,7 +847,7 @@ describe('DexieGameRepository', () => {
     await queuedDb.delete();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [AppDb, DexieGameRepository],
+      providers: [AppDb, DexieGameRepository]
     });
     db = TestBed.inject(AppDb);
     repository = TestBed.inject(DexieGameRepository);
@@ -873,7 +873,7 @@ describe('DexieGameRepository', () => {
     await repository.upsertFromCatalog(
       {
         ...mario,
-        steamAppId: 12345,
+        steamAppId: 12345
       },
       'collection'
     );
@@ -884,7 +884,7 @@ describe('DexieGameRepository', () => {
     await repository.upsertFromCatalog(
       {
         ...mario,
-        steamAppId: null,
+        steamAppId: null
       },
       'collection'
     );
@@ -898,7 +898,7 @@ describe('DexieGameRepository', () => {
 
     await repository.setGameCustomMetadata('101', 18, {
       title: null,
-      platform: { name: 'NES', igdbId: 18 },
+      platform: { name: 'NES', igdbId: 18 }
     });
 
     const stored = await repository.exists('101', 18);

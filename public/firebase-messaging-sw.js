@@ -4,7 +4,7 @@ const defaultConfig = {
   projectId: '',
   storageBucket: '',
   messagingSenderId: '',
-  appId: '',
+  appId: ''
 };
 // Emergency fallback only when runtime config cannot be loaded.
 // Keep this in sync with DEFAULT_FIREBASE_CDN_VERSION in
@@ -33,7 +33,7 @@ const runtimeBootstrap = (() => {
     if (!firebaseConfig || typeof firebaseConfig !== 'object') {
       return {
         firebaseConfig: defaultConfig,
-        firebaseCdnVersion: normalizeRuntimeString(runtime?.firebaseCdnVersion),
+        firebaseCdnVersion: normalizeRuntimeString(runtime?.firebaseCdnVersion)
       };
     }
 
@@ -48,14 +48,14 @@ const runtimeBootstrap = (() => {
           typeof firebaseConfig.messagingSenderId === 'string'
             ? firebaseConfig.messagingSenderId
             : '',
-        appId: typeof firebaseConfig.appId === 'string' ? firebaseConfig.appId : '',
+        appId: typeof firebaseConfig.appId === 'string' ? firebaseConfig.appId : ''
       },
-      firebaseCdnVersion: normalizeRuntimeString(runtime?.firebaseCdnVersion),
+      firebaseCdnVersion: normalizeRuntimeString(runtime?.firebaseCdnVersion)
     };
   } catch {
     return {
       firebaseConfig: defaultConfig,
-      firebaseCdnVersion: null,
+      firebaseCdnVersion: null
     };
   }
 })();
@@ -87,7 +87,7 @@ if (messaging) {
     const title = notification.title || 'Game Shelf';
     const options = {
       body: notification.body || '',
-      data: payload.data || {},
+      data: payload.data || {}
     };
     return self.registration.showNotification(title, options);
   });

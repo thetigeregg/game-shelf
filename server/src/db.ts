@@ -1097,7 +1097,7 @@ export const MIGRATIONS: string[] = [
   UPDATE release_watch_state
   SET next_check_at = NOW(), updated_at = NOW()
   WHERE last_seen_state = 'scheduled';
-  `,
+  `
 ];
 
 export class MigrationUnlockError extends Error {
@@ -1120,13 +1120,13 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
   const pool = new Pool({
     connectionString: databaseUrl,
     max: 12,
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis: 30_000
   });
   // Keep the API process alive when Postgres restarts and idle clients are terminated.
   pool.on('error', (error: Error) => {
     console.warn('[db] pool_client_error', {
       message: error.message,
-      code: (error as { code?: unknown }).code ?? null,
+      code: (error as { code?: unknown }).code ?? null
     });
   });
 
@@ -1151,7 +1151,7 @@ export async function createPool(databaseUrl: string): Promise<Pool> {
     } catch (poolEndError) {
       console.error('[db] pool_end_after_migration_failure_error', {
         message: poolEndError instanceof Error ? poolEndError.message : String(poolEndError),
-        originalMigrationError: { message: migrationError.message },
+        originalMigrationError: { message: migrationError.message }
       });
     }
 
@@ -1168,7 +1168,7 @@ export async function runMigrations(client: {
     value instanceof Error ? value : new Error(String(value));
   const startedAt = Date.now();
   console.info('[db] migrations_start', {
-    statementCount: MIGRATIONS.length,
+    statementCount: MIGRATIONS.length
   });
 
   // Use a stable, namespaced key hashed by Postgres to avoid hard-coded magic numbers
@@ -1207,7 +1207,7 @@ export async function runMigrations(client: {
         console.error('[db] migration_unlock_error', {
           message: normalizedUnlockError.message,
           originalMigrationError:
-            migrationError instanceof Error ? { message: migrationError.message } : migrationError,
+            migrationError instanceof Error ? { message: migrationError.message } : migrationError
         });
         throw new MigrationUnlockError(normalizedUnlockError, migrationError);
       }
@@ -1219,14 +1219,14 @@ export async function runMigrations(client: {
 
     console.info('[db] migrations_done', {
       statementCount: MIGRATIONS.length,
-      durationMs: Date.now() - startedAt,
+      durationMs: Date.now() - startedAt
     });
   } catch (error) {
     const normalizedError = toError(error);
     console.error('[db] migrations_failed', {
       statementCount: MIGRATIONS.length,
       durationMs: Date.now() - startedAt,
-      message: normalizedError.message,
+      message: normalizedError.message
     });
     throw normalizedError;
   }

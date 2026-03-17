@@ -39,7 +39,7 @@ function isHtmlWithoutMeaningfulContent(value: string): boolean {
   const sanitizedText = domPurify
     .sanitize(trimmed, {
       ALLOWED_TAGS: [],
-      ALLOWED_ATTR: [],
+      ALLOWED_ATTR: []
     })
     .trim();
 

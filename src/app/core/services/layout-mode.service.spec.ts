@@ -28,8 +28,8 @@ describe('LayoutModeService', () => {
         addEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
           mediaListeners.set(type, listener);
         }),
-        removeEventListener: vi.fn(),
-      })),
+        removeEventListener: vi.fn()
+      }))
     });
   });
 
@@ -89,7 +89,7 @@ describe('LayoutModeService', () => {
       Object.defineProperty(window, 'matchMedia', {
         writable: true,
         configurable: true,
-        value: undefined,
+        value: undefined
       });
     });
 

@@ -6,7 +6,7 @@ describe('TimePreferenceService', () => {
   beforeEach(() => {
     localStorage.clear();
     TestBed.configureTestingModule({
-      providers: [TimePreferenceService],
+      providers: [TimePreferenceService]
     });
   });
 
@@ -21,7 +21,7 @@ describe('TimePreferenceService', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [TimePreferenceService],
+      providers: [TimePreferenceService]
     });
 
     const reloaded = TestBed.inject(TimePreferenceService);

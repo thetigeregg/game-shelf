@@ -1,7 +1,7 @@
 import { IGDB_TO_THEGAMESDB_PLATFORM_ID } from './platform-id-map.mjs';
 import {
   normalizeIgdbScreenshotList,
-  normalizeIgdbVideoList,
+  normalizeIgdbVideoList
 } from '../../shared/igdb-media-normalization.mjs';
 
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
@@ -23,7 +23,7 @@ const IGDB_CATEGORY_REMASTER = 9;
 
 const tokenCache = {
   accessToken: null,
-  expiresAt: 0,
+  expiresAt: 0
 };
 
 const rateLimitCache = new Map();
@@ -32,14 +32,14 @@ const RATE_LIMIT_CACHE_MAX_SIZE = 5000;
 let rateLimitSweepCounter = 0;
 const igdbSearchVariantCache = {
   preferredVariantIndex: 0,
-  disabledVariants: new Set(),
+  disabledVariants: new Set()
 };
 const igdbPlatformCache = {
   items: null,
-  expiresAt: 0,
+  expiresAt: 0
 };
 const igdbRateLimitState = {
-  cooldownUntilMs: 0,
+  cooldownUntilMs: 0
 };
 
 export function resetCaches() {
@@ -58,8 +58,8 @@ function jsonResponse(body, status = 200, extraHeaders = {}) {
     status,
     headers: {
       'Content-Type': 'application/json',
-      ...extraHeaders,
-    },
+      ...extraHeaders
+    }
   });
 }
 
@@ -181,7 +181,7 @@ function createLoggedFetch(fetchImpl, debugHttpEnabled) {
     console.info('[http] request', {
       method,
       url: sanitizedUrl,
-      body: buildBodyPreview(options?.body),
+      body: buildBodyPreview(options?.body)
     });
 
     const response = await fetchImpl(url, options);
@@ -199,7 +199,7 @@ function createLoggedFetch(fetchImpl, debugHttpEnabled) {
       method,
       url: sanitizedUrl,
       status: response.status,
-      body: responsePreview,
+      body: responsePreview
     });
 
     return response;
@@ -227,7 +227,7 @@ function normalizeIgdbRankScore(game) {
     game?.total_rating_count,
     game?.rating_count,
     game?.hypes,
-    game?.aggregated_rating_count,
+    game?.aggregated_rating_count
   ];
 
   for (const value of candidates) {
@@ -305,7 +305,7 @@ function sortIgdbSearchResults(games) {
     id: normalizeIgdbReferenceId(game?.id),
     rankScore: normalizeIgdbRankScore(game),
     originalId: getOriginalGameId(game),
-    isRemakeOrRemaster: isRemakeOrRemaster(game?.game_type, game?.category),
+    isRemakeOrRemaster: isRemakeOrRemaster(game?.game_type, game?.category)
   }));
 
   const idSet = new Set(indexed.map((entry) => entry.id).filter(Boolean));
@@ -488,7 +488,7 @@ export const __testables = {
   findTheGamesDbBoxArtCandidates,
   getTheGamesDbRegionPreferenceScoreFromIds,
   getTheGamesDbRegionId,
-  getTheGamesDbCountryId,
+  getTheGamesDbCountryId
 };
 
 function escapeQuery(query) {
@@ -590,7 +590,7 @@ export function normalizeIgdbReleaseDates(values) {
         return {
           platformIgdbId,
           precision,
-          marker: null,
+          marker: null
         };
       }
 
@@ -601,7 +601,7 @@ export function normalizeIgdbReleaseDates(values) {
       return {
         platformIgdbId,
         precision,
-        marker,
+        marker
       };
     })
     .filter((value) => value !== null)
@@ -626,7 +626,7 @@ export function normalizeIgdbGame(game) {
           const id = Number.isFinite(platform?.id) ? Math.trunc(platform.id) : null;
           return {
             id: Number.isInteger(id) && id > 0 ? id : null,
-            name,
+            name
           };
         })
         .filter((platform) => platform.name.length > 0)
@@ -657,7 +657,7 @@ export function normalizeIgdbGame(game) {
   const keywordIds = normalizeIgdbNestedIds(game?.keywords);
   const screenshots = normalizeIgdbScreenshotList(game?.screenshots, {
     limit: 20,
-    size: 't_screenshot_huge',
+    size: 't_screenshot_huge'
   });
   const videos = normalizeIgdbVideoList(game?.videos, { limit: 5 });
   const steamAppId = normalizeSteamAppId(game?.external_games);
@@ -697,7 +697,7 @@ export function normalizeIgdbGame(game) {
     platformIgdbId: platformOptions.length === 1 ? platformOptions[0].id : null,
     releaseDates,
     releaseDate,
-    releaseYear,
+    releaseYear
   };
 }
 
@@ -799,7 +799,7 @@ function normalizeIgdbNamedCollection(values) {
       values
         .map((value) => (typeof value?.name === 'string' ? value.name.trim() : ''))
         .filter((value) => value.length > 0)
-    ),
+    )
   ];
 }
 
@@ -813,7 +813,7 @@ function normalizeIgdbReferenceIds(values) {
       values
         .map((value) => normalizeIgdbReferenceId(value))
         .filter((value) => typeof value === 'string' && value.length > 0)
-    ),
+    )
   ];
 }
 
@@ -830,7 +830,7 @@ function normalizeIgdbNestedIds(values) {
           return Number.isInteger(id) && id > 0 ? id : null;
         })
         .filter((value) => value !== null)
-    ),
+    )
   ];
 }
 
@@ -847,7 +847,7 @@ function normalizeIgdbCompanyNames(game, roleKey) {
           typeof company?.company?.name === 'string' ? company.company.name.trim() : ''
         )
         .filter((name) => name.length > 0)
-    ),
+    )
   ];
 }
 
@@ -884,7 +884,7 @@ async function fetchWithTimeout(fetchImpl, url, options, timeoutMs) {
   try {
     return await fetchImpl(url, {
       ...options,
-      signal: controller.signal,
+      signal: controller.signal
     });
   } finally {
     clearTimeout(timeoutId);
@@ -970,7 +970,7 @@ function getTheGamesDbPlatformText(game) {
     game?.platform_name,
     game?.platformName,
     game?.system,
-    game?.system_name,
+    game?.system_name
   ];
 
   return candidates
@@ -1076,7 +1076,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
       const countryId = getTheGamesDbCountryId(game);
       const regionPreferenceScore = getTheGamesDbRegionPreferenceScoreFromIds({
         regionId,
-        countryId,
+        countryId
       });
 
       return {
@@ -1086,7 +1086,7 @@ function findTheGamesDbBoxArtCandidates(payload, expectedTitle, preferredPlatfor
         regionPreferenceScore,
         countryId,
         regionId,
-        platformText: getTheGamesDbPlatformText(game),
+        platformText: getTheGamesDbPlatformText(game)
       };
     })
     .filter((entry) => entry.gameId.length > 0 && Number.isFinite(entry.score))
@@ -1265,7 +1265,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
         status: response.status,
         title,
         hasPlatformFilter: normalizedPlatformId !== null,
-        payload: payloadSnippet,
+        payload: payloadSnippet
       });
       return null;
     }
@@ -1275,7 +1275,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
     } catch {
       console.warn('[thegamesdb] invalid_json', {
         title,
-        hasPlatformFilter: normalizedPlatformId !== null,
+        hasPlatformFilter: normalizedPlatformId !== null
       });
       return null;
     }
@@ -1283,7 +1283,7 @@ async function fetchTheGamesDbBoxArtPayload(title, theGamesDbPlatformId, env, fe
     console.warn('[thegamesdb] request_exception', {
       title,
       hasPlatformFilter: normalizedPlatformId !== null,
-      message: error instanceof Error ? error.message : String(error),
+      message: error instanceof Error ? error.message : String(error)
     });
     return null;
   }
@@ -1301,7 +1301,7 @@ async function searchTheGamesDbBoxArtCandidates(title, platform, platformIgdbId,
   if (normalizedPlatformIgdbId !== null && mappedPlatformId === null) {
     console.warn('[thegamesdb] missing_platform_mapping', {
       igdbPlatformId: normalizedPlatformIgdbId,
-      platform: normalizedPlatform || null,
+      platform: normalizedPlatform || null
     });
   }
 
@@ -1387,7 +1387,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
   const body = [
     `where id = (${platformIds.join(',')});`,
     'fields id,name;',
-    `limit ${platformIds.length};`,
+    `limit ${platformIds.length};`
   ].join(' ');
 
   const response = await fetchWithTimeout(
@@ -1398,9 +1398,9 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
       headers: {
         'Client-ID': env.TWITCH_CLIENT_ID,
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
+        'Content-Type': 'text/plain'
       },
-      body,
+      body
     },
     timeoutMs
   );
@@ -1424,7 +1424,7 @@ async function listIgdbPlatforms(env, token, fetchImpl, nowMs) {
   const items = payload
     .map((item) => ({
       id: Number.isInteger(item?.id) && item.id > 0 ? item.id : null,
-      name: typeof item?.name === 'string' ? item.name.trim() : '',
+      name: typeof item?.name === 'string' ? item.name.trim() : ''
     }))
     .filter((item) => item.id !== null && item.name.length > 0)
     .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
@@ -1443,23 +1443,23 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
     {
       fields:
         'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,total_rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
-      sort: null,
+      sort: null
     },
     {
       fields:
         'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,rating_count,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
-      sort: null,
+      sort: null
     },
     {
       fields:
         'id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,game_type.type,parent_game,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name',
-      sort: null,
-    },
+      sort: null
+    }
   ];
   const requestHeaders = {
     'Client-ID': env.TWITCH_CLIENT_ID,
     Authorization: `Bearer ${token}`,
-    'Content-Type': 'text/plain',
+    'Content-Type': 'text/plain'
   };
   const queryCandidates = buildQueryFallbacks(query);
   const mergedResults = [];
@@ -1517,7 +1517,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
           {
             method: 'POST',
             headers: requestHeaders,
-            body,
+            body
           },
           timeoutMs
         );
@@ -1545,7 +1545,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
             variantIndex: variantIndex + 1,
             status: response.status,
             payload: payloadSnippet,
-            sort: variant.sort,
+            sort: variant.sort
           });
 
           if (response.status === 400 && payloadSnippet.toLowerCase().includes('invalid field')) {
@@ -1565,7 +1565,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
             queryAttempt: queryAttempt + 1,
             platformConstraintAttempt: platformConstraintAttempt + 1,
             platformConstraint,
-            variantIndex: variantIndex + 1,
+            variantIndex: variantIndex + 1
           });
           continue;
         }
@@ -1576,7 +1576,7 @@ async function searchIgdb(query, platformIgdbId, env, token, fetchImpl, nowMs) {
             queryAttempt: queryAttempt + 1,
             platformConstraintAttempt: platformConstraintAttempt + 1,
             platformConstraint,
-            variantIndex: variantIndex + 1,
+            variantIndex: variantIndex + 1
           });
           continue;
         }
@@ -1621,7 +1621,7 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
   const body = [
     `where id = ${gameId};`,
     'fields id,name,storyline,summary,first_release_date,release_dates.category,release_dates.date,release_dates.platform,release_dates.y,release_dates.m,release_dates.d,cover.image_id,platforms.id,platforms.name,game_type.type,similar_games,collections.name,franchises.name,genres.name,themes.id,themes.name,keywords.id,keywords.name,external_games.external_game_source,external_games.category,external_games.uid,external_games.url,screenshots.id,screenshots.image_id,screenshots.url,screenshots.width,screenshots.height,videos.id,videos.name,videos.video_id,involved_companies.developer,involved_companies.publisher,involved_companies.company.name;',
-    'limit 1;',
+    'limit 1;'
   ].join(' ');
 
   const response = await fetchWithTimeout(
@@ -1632,9 +1632,9 @@ async function fetchIgdbById(gameId, env, token, fetchImpl, nowMs) {
       headers: {
         'Client-ID': env.TWITCH_CLIENT_ID,
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain',
+        'Content-Type': 'text/plain'
       },
-      body,
+      body
     },
     timeoutMs
   );

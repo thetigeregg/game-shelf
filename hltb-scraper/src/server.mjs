@@ -284,7 +284,7 @@ function normalizeEntry(entry) {
     ),
     hltbMainHours: normalizeHours(entry.comp_main),
     hltbMainExtraHours: normalizeHours(entry.comp_plus),
-    hltbCompletionistHours: normalizeHours(entry.comp_100),
+    hltbCompletionistHours: normalizeHours(entry.comp_100)
   };
 
   if (
@@ -392,7 +392,7 @@ function findBestMatch(entries, expectedTitle, expectedReleaseYear, expectedPlat
     hltbMainExtraHours: best.hltbMainExtraHours,
     hltbCompletionistHours: best.hltbCompletionistHours,
     ...(best.hltbGameId !== null ? { hltbGameId: best.hltbGameId } : {}),
-    ...(best.hltbUrl !== null ? { hltbUrl: best.hltbUrl } : {}),
+    ...(best.hltbUrl !== null ? { hltbUrl: best.hltbUrl } : {})
   };
 }
 
@@ -453,7 +453,7 @@ function rankCandidateEntries(
       imageUrl: normalized.imageUrl,
       hltbMainHours: normalized.hltbMainHours,
       hltbMainExtraHours: normalized.hltbMainExtraHours,
-      hltbCompletionistHours: normalized.hltbCompletionistHours,
+      hltbCompletionistHours: normalized.hltbCompletionistHours
     });
   }
 
@@ -525,7 +525,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
             url,
             status,
             candidatesAdded,
-            sampleTitles,
+            sampleTitles
           });
         }
       } catch {
@@ -540,7 +540,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     // Load the shell first without collecting data so homepage preloads don't pollute candidates.
     await page.goto('https://howlongtobeat.com/', {
       waitUntil: 'domcontentloaded',
-      timeout: browserTimeoutMs,
+      timeout: browserTimeoutMs
     });
 
     const searchInput = page.locator('input[name="site-search"]').first();
@@ -561,7 +561,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
           source: 'next_data',
           url: page.url(),
           candidatesAdded: nextDataBatch.added,
-          sampleTitles: nextDataBatch.sampleTitles,
+          sampleTitles: nextDataBatch.sampleTitles
         });
       }
       page.off('response', responseListener);
@@ -570,7 +570,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
     if (capturedEntries.length === 0) {
       const directUrls = [
         `https://howlongtobeat.com/search?q=${encodeURIComponent(title)}`,
-        `https://howlongtobeat.com/?q=${encodeURIComponent(title)}`,
+        `https://howlongtobeat.com/?q=${encodeURIComponent(title)}`
       ];
 
       for (const directUrl of directUrls) {
@@ -588,7 +588,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
             source: 'next_data',
             url: page.url(),
             candidatesAdded: nextDataBatch.added,
-            sampleTitles: nextDataBatch.sampleTitles,
+            sampleTitles: nextDataBatch.sampleTitles
           });
         }
         page.off('response', responseListener);
@@ -621,7 +621,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
       rawCompletionist: entry?.comp_100 ?? null,
       normalizedMain: normalizeHours(entry?.comp_main),
       normalizedMainExtra: normalizeHours(entry?.comp_plus),
-      normalizedCompletionist: normalizeHours(entry?.comp_100),
+      normalizedCompletionist: normalizeHours(entry?.comp_100)
     }));
     const lastStatus =
       networkEvents.length > 0 ? networkEvents[networkEvents.length - 1].status : 0;
@@ -636,7 +636,7 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
         query: title,
         rawCandidates: capturedEntries.length,
         relevantCandidates: relevantEntries.length,
-        relevantSampleTitles,
+        relevantSampleTitles
       });
     }
 
@@ -649,8 +649,8 @@ async function searchHltbInBrowser(page, title, releaseYear, platform) {
         candidates: entriesForMatch.length,
         rawCandidates: capturedEntries.length,
         finalUrl: page.url(),
-        sampledTimes,
-      },
+        sampledTimes
+      }
     };
   } finally {
     page.off('response', responseListener);
@@ -688,7 +688,7 @@ app.get('/v1/hltb/search', async (req, res) => {
     const browser = await getSharedBrowser();
     const context = await browser.newContext({
       userAgent:
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
     });
     const page = await context.newPage();
     let item = null;
@@ -709,7 +709,7 @@ app.get('/v1/hltb/search', async (req, res) => {
           matched: result.item !== null,
           sampledTimes: result.diagnostic.sampledTimes,
           matchedItem: result.item,
-          finalUrl: result.diagnostic.finalUrl,
+          finalUrl: result.diagnostic.finalUrl
         });
       }
 
@@ -727,7 +727,7 @@ app.get('/v1/hltb/search', async (req, res) => {
   } catch (error) {
     console.error('[hltb-scraper] request_failed', {
       query,
-      message: error instanceof Error ? error.message : String(error),
+      message: error instanceof Error ? error.message : String(error)
     });
     res.status(502).json({ error: 'Unable to fetch HLTB data.' });
   }
@@ -772,7 +772,7 @@ function scheduleBrowserIdleClose() {
   browserIdleTimer = setTimeout(() => {
     closeSharedBrowser().catch((error) => {
       console.warn('[hltb-scraper] browser_close_failed', {
-        message: error instanceof Error ? error.message : String(error),
+        message: error instanceof Error ? error.message : String(error)
       });
     });
   }, browserIdleTtlMs);

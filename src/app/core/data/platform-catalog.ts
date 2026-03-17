@@ -87,12 +87,12 @@ export const PLATFORM_CATALOG: PlatformCatalogEntry[] = [
   {
     id: 440,
     name: 'Visual Memory Unit / Visual Memory System',
-    sort_order: 80,
+    sort_order: 80
   },
   { id: 39, name: 'iOS', sort_order: 81 },
   { id: 472, name: 'visionOS', sort_order: 82 },
   { id: 13, name: 'DOS', sort_order: 83 },
   { id: 6, name: 'PC (Microsoft Windows)', sort_order: 84 },
   { id: 82, name: 'Web browser', sort_order: 85 },
-  { id: 163, name: 'SteamVR', sort_order: 86 },
+  { id: 163, name: 'SteamVR', sort_order: 86 }
 ];

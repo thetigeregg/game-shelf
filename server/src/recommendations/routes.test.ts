@@ -14,12 +14,12 @@ function createServiceMock(
       Promise.resolve({
         queued: false,
         reason: 'fresh',
-        jobId: null,
+        jobId: null
       }),
     enqueueRebuild: () =>
       Promise.resolve({
         jobId: 101,
-        deduped: false,
+        deduped: false
       }),
     resolveRuntimeMode: (runtimeMode) => Promise.resolve(runtimeMode ?? 'NEUTRAL'),
     getTopRecommendations: (_target, _limit, runtimeMode) =>
@@ -32,7 +32,7 @@ function createServiceMock(
           inputHash: 'input',
           startedAt: '2026-01-01T00:00:00.000Z',
           finishedAt: '2026-01-01T00:01:00.000Z',
-          error: null,
+          error: null
         },
         runtimeMode: runtimeMode ?? 'NEUTRAL',
         items: [
@@ -50,7 +50,7 @@ function createServiceMock(
               semantic: 0.2,
               exploration: 0.2,
               diversityPenalty: -0.1,
-              repeatPenalty: -0.2,
+              repeatPenalty: -0.2
             },
             explanations: {
               headline: 'Matches your tastes',
@@ -59,8 +59,8 @@ function createServiceMock(
                   type: 'semantic',
                   label: 'Semantic match with games you rate highly',
                   evidence: ['semantic:embedding-cosine'],
-                  delta: 0.2,
-                },
+                  delta: 0.2
+                }
               ],
               matchedTokens: {
                 genres: [],
@@ -69,11 +69,11 @@ function createServiceMock(
                 franchises: [],
                 collections: [],
                 themes: [],
-                keywords: [],
-              },
-            },
-          },
-        ],
+                keywords: []
+              }
+            }
+          }
+        ]
       }),
     getRecommendationLanes: (_target, _limit, runtimeMode) =>
       Promise.resolve({
@@ -85,7 +85,7 @@ function createServiceMock(
           inputHash: 'input',
           startedAt: '2026-01-01T00:00:00.000Z',
           finishedAt: '2026-01-01T00:01:00.000Z',
-          error: null,
+          error: null
         },
         runtimeMode: runtimeMode ?? 'NEUTRAL',
         lanes: {
@@ -94,8 +94,8 @@ function createServiceMock(
           exploration: [],
           blended: [],
           popular: [],
-          recent: [],
-        },
+          recent: []
+        }
       }),
     rebuild: () =>
       Promise.resolve({ target: 'BACKLOG' as const, runId: 12, status: 'SUCCESS' as const }),
@@ -119,12 +119,12 @@ function createServiceMock(
                 franchises: [],
                 collections: ['Mario'],
                 themes: [],
-                keywords: [],
-              },
-            },
-          },
-        ],
-      }),
+                keywords: []
+              }
+            }
+          }
+        ]
+      })
   };
 
   return { ...base, ...overrides };
@@ -136,7 +136,7 @@ void test('GET /v1/recommendations/top returns latest recommendations', async ()
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/top?target=BACKLOG&runtimeMode=SHORT&limit=10',
+    url: '/v1/recommendations/top?target=BACKLOG&runtimeMode=SHORT&limit=10'
   });
 
   assert.equal(response.statusCode, 200);
@@ -164,7 +164,7 @@ void test('GET /v1/recommendations/top accepts DISCOVERY target', async () => {
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/top?target=DISCOVERY&runtimeMode=NEUTRAL&limit=5',
+    url: '/v1/recommendations/top?target=DISCOVERY&runtimeMode=NEUTRAL&limit=5'
   });
 
   assert.equal(response.statusCode, 200);
@@ -180,7 +180,7 @@ void test('GET /v1/recommendations/lanes returns lanes and resolves runtime fall
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG&limit=10',
+    url: '/v1/recommendations/lanes?target=BACKLOG&limit=10'
   });
 
   assert.equal(response.statusCode, 200);
@@ -216,29 +216,29 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
         Promise.resolve({
           queued: false,
           reason: 'fresh',
-          jobId: null,
+          jobId: null
         }),
       enqueueRebuild: () => {
         enqueueCalls += 1;
         return Promise.resolve({
           jobId: 333 + enqueueCalls,
-          deduped: false,
+          deduped: false
         });
       },
       getTopRecommendations: () => Promise.resolve(null),
-      getRecommendationLanes: () => Promise.resolve(null),
+      getRecommendationLanes: () => Promise.resolve(null)
     })
   );
 
   const invalidTopRuntime = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/top?target=BACKLOG&runtimeMode=FAST',
+    url: '/v1/recommendations/top?target=BACKLOG&runtimeMode=FAST'
   });
   assert.equal(invalidTopRuntime.statusCode, 400);
 
   const notFoundTop = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/top?target=BACKLOG&limit=invalid',
+    url: '/v1/recommendations/top?target=BACKLOG&limit=invalid'
   });
   assert.equal(notFoundTop.statusCode, 202);
   const notFoundTopBody = JSON.parse(notFoundTop.body) as { status?: string; jobId?: number };
@@ -247,13 +247,13 @@ void test('GET /v1/recommendations/top and /lanes validate runtime mode and queu
 
   const invalidLanesRuntime = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG&runtimeMode=FAST',
+    url: '/v1/recommendations/lanes?target=BACKLOG&runtimeMode=FAST'
   });
   assert.equal(invalidLanesRuntime.statusCode, 400);
 
   const notFoundLanes = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/lanes?target=BACKLOG',
+    url: '/v1/recommendations/lanes?target=BACKLOG'
   });
   assert.equal(notFoundLanes.statusCode, 202);
   const notFoundLanesBody = JSON.parse(notFoundLanes.body) as { status?: string; jobId?: number };
@@ -271,15 +271,15 @@ void test('POST /v1/recommendations/rebuild validates target and queues rebuild 
       enqueueRebuild: () =>
         Promise.resolve({
           jobId: 55,
-          deduped: true,
-        }),
+          deduped: true
+        })
     })
   );
 
   const invalid = await app.inject({
     method: 'POST',
     url: '/v1/recommendations/rebuild',
-    payload: {},
+    payload: {}
   });
 
   assert.equal(invalid.statusCode, 400);
@@ -287,7 +287,7 @@ void test('POST /v1/recommendations/rebuild validates target and queues rebuild 
   const queued = await app.inject({
     method: 'POST',
     url: '/v1/recommendations/rebuild',
-    payload: { target: 'BACKLOG' },
+    payload: { target: 'BACKLOG' }
   });
 
   assert.equal(queued.statusCode, 202);
@@ -304,14 +304,14 @@ void test('POST /v1/recommendations/rebuild queues force jobs', async () => {
   await registerRecommendationRoutes(
     app,
     createServiceMock({
-      enqueueRebuild: () => Promise.resolve({ jobId: 77, deduped: false }),
+      enqueueRebuild: () => Promise.resolve({ jobId: 77, deduped: false })
     })
   );
 
   const queued = await app.inject({
     method: 'POST',
     url: '/v1/recommendations/rebuild',
-    payload: { target: 'BACKLOG', force: true },
+    payload: { target: 'BACKLOG', force: true }
   });
   assert.equal(queued.statusCode, 202);
   const body = JSON.parse(queued.body) as { status?: string; jobId?: number };
@@ -327,33 +327,33 @@ void test('GET /v1/recommendations/similar requires platformIgdbId and returns i
 
   const invalid = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?target=BACKLOG',
+    url: '/v1/recommendations/similar/123?target=BACKLOG'
   });
 
   assert.equal(invalid.statusCode, 400);
 
   const invalidTarget = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?platformIgdbId=6',
+    url: '/v1/recommendations/similar/123?platformIgdbId=6'
   });
 
   assert.equal(invalidTarget.statusCode, 400);
 
   const invalidId = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/not-numeric?target=BACKLOG&platformIgdbId=6',
+    url: '/v1/recommendations/similar/not-numeric?target=BACKLOG&platformIgdbId=6'
   });
   assert.equal(invalidId.statusCode, 400);
 
   const invalidRuntime = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=FAST&platformIgdbId=6',
+    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=FAST&platformIgdbId=6'
   });
   assert.equal(invalidRuntime.statusCode, 400);
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=SHORT&platformIgdbId=6&limit=5',
+    url: '/v1/recommendations/similar/123?target=BACKLOG&runtimeMode=SHORT&platformIgdbId=6&limit=5'
   });
 
   assert.equal(response.statusCode, 200);

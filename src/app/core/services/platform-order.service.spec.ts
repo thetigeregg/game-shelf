@@ -6,7 +6,7 @@ describe('PlatformOrderService', () => {
     localStorage.clear();
 
     TestBed.configureTestingModule({
-      providers: [PlatformOrderService],
+      providers: [PlatformOrderService]
     });
   });
 
@@ -27,7 +27,7 @@ describe('PlatformOrderService', () => {
       service.sortPlatformNamesByCustomOrder([
         'PlayStation 5',
         'PC (Microsoft Windows)',
-        'Nintendo Switch',
+        'Nintendo Switch'
       ])
     ).toEqual(['Nintendo Switch', 'PC (Microsoft Windows)', 'PlayStation 5']);
   });
@@ -49,7 +49,7 @@ describe('PlatformOrderService', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [PlatformOrderService],
+      providers: [PlatformOrderService]
     });
 
     const second = TestBed.inject(PlatformOrderService);
@@ -72,12 +72,12 @@ describe('PlatformOrderService', () => {
     const sorted = service.sortPlatformOptionsByCustomOrder([
       { id: 2, name: 'PlayStation 5' },
       { id: 1, name: 'Nintendo Switch' },
-      { id: 2, name: 'PlayStation 5' },
+      { id: 2, name: 'PlayStation 5' }
     ]);
 
     expect(sorted).toEqual([
       { id: 1, name: 'Nintendo Switch' },
-      { id: 2, name: 'PlayStation 5' },
+      { id: 2, name: 'PlayStation 5' }
     ]);
   });
 
@@ -102,7 +102,7 @@ describe('PlatformOrderService', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [PlatformOrderService],
+      providers: [PlatformOrderService]
     });
 
     const service = TestBed.inject(PlatformOrderService);

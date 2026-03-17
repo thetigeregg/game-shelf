@@ -28,7 +28,7 @@ function buildGame(overrides: Partial<NormalizedGameRecord>): NormalizedGameReco
     publishers: [],
     franchises: [],
     collections: [],
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -38,7 +38,7 @@ void test('buildEmbeddingText includes themes and keywords sections', () => {
       title: 'Metroid',
       themes: ['Science fiction'],
       keywords: ['space opera'],
-      genres: ['Adventure'],
+      genres: ['Adventure']
     })
   );
 
@@ -50,10 +50,10 @@ void test('buildEmbeddingText supports keyword override list', () => {
   const text = buildEmbeddingText(
     buildGame({
       title: 'Metroid',
-      keywords: ['should-not-appear'],
+      keywords: ['should-not-appear']
     }),
     {
-      keywords: ['selected-keyword'],
+      keywords: ['selected-keyword']
     }
   );
 

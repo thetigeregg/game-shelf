@@ -4,7 +4,7 @@ import {
   normalizeListPageGroupBy,
   normalizeListPageStoredFilters,
   parseListPagePreferences,
-  serializeListPagePreferences,
+  serializeListPagePreferences
 } from './list-page-preferences';
 
 describe('list-page-preferences', () => {
@@ -28,7 +28,7 @@ describe('list-page-preferences', () => {
       JSON.stringify({
         sortField: 'platform',
         sortDirection: 'desc',
-        groupBy: 'platform',
+        groupBy: 'platform'
       }),
       '__none__'
     );
@@ -37,9 +37,9 @@ describe('list-page-preferences', () => {
       filters: {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'platform',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
-      groupBy: 'platform',
+      groupBy: 'platform'
     });
   });
 
@@ -63,7 +63,7 @@ describe('list-page-preferences', () => {
         hltbMainHoursMin: 25,
         hltbMainHoursMax: 10,
         releaseDateFrom: '2025-02-01T00:00:00.000Z',
-        releaseDateTo: 'invalid',
+        releaseDateTo: 'invalid'
       },
       '__none__'
     );
@@ -89,7 +89,7 @@ describe('list-page-preferences', () => {
       hltbMainHoursMin: 10,
       hltbMainHoursMax: 25,
       releaseDateFrom: '2025-02-01',
-      releaseDateTo: null,
+      releaseDateTo: null
     });
   });
 
@@ -105,9 +105,9 @@ describe('list-page-preferences', () => {
         sortField: 'releaseDate' as const,
         sortDirection: 'desc' as const,
         platform: ['Nintendo Switch'],
-        tags: ['__none__'],
+        tags: ['__none__']
       },
-      groupBy: 'genre' as const,
+      groupBy: 'genre' as const
     };
 
     const restored = parseListPagePreferences(serializeListPagePreferences(original), '__none__');
@@ -118,7 +118,7 @@ describe('list-page-preferences', () => {
     const normalized = normalizeListPageStoredFilters(
       {
         sortField: 'hltb',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       '__none__'
     );
@@ -131,7 +131,7 @@ describe('list-page-preferences', () => {
     const normalized = normalizeListPageStoredFilters(
       {
         sortField: 'tas',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       '__none__'
     );
@@ -145,7 +145,7 @@ describe('list-page-preferences', () => {
     const normalized = normalizeListPageStoredFilters(
       {
         sortField: 'tas',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       '__none__'
     );
@@ -158,7 +158,7 @@ describe('list-page-preferences', () => {
     const normalized = normalizeListPageStoredFilters(
       {
         sortField: 'metacritic',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       '__none__'
     );

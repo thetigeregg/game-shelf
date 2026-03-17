@@ -4,7 +4,7 @@ import type {
   GameEntry,
   HltbMatchCandidate,
   MetacriticMatchCandidate,
-  ReviewMatchCandidate,
+  ReviewMatchCandidate
 } from '../../core/models/game.models';
 import {
   createClosedHltbPickerState,
@@ -18,7 +18,7 @@ import {
   dedupeHltbCandidates,
   dedupeMetacriticCandidates,
   dedupeReviewCandidates,
-  normalizeMetadataOptions,
+  normalizeMetadataOptions
 } from './game-list-detail-workflow';
 
 function makeGame(overrides: Partial<GameEntry> = {}): GameEntry {
@@ -34,7 +34,7 @@ function makeGame(overrides: Partial<GameEntry> = {}): GameEntry {
     listType: 'collection',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -43,7 +43,7 @@ describe('game-list-detail-workflow', () => {
     expect(normalizeMetadataOptions(undefined)).toEqual([]);
     expect(normalizeMetadataOptions([' Action ', 'Action', '', '  ', 'RPG'])).toEqual([
       'Action',
-      'RPG',
+      'RPG'
     ]);
   });
 
@@ -56,7 +56,7 @@ describe('game-list-detail-workflow', () => {
       hltbUrl: 'https://howlongtobeat.com/game/1',
       hltbMainHours: 25,
       hltbMainExtraHours: 30,
-      hltbCompletionistHours: 40,
+      hltbCompletionistHours: 40
     };
     const duplicate = { ...first, hltbMainHours: 26 };
     const other = { ...first, hltbGameId: 2, hltbUrl: 'https://howlongtobeat.com/game/2' };
@@ -74,7 +74,7 @@ describe('game-list-detail-workflow', () => {
       hltbUrl: null,
       hltbMainHours: 25,
       hltbMainExtraHours: 30,
-      hltbCompletionistHours: 40,
+      hltbCompletionistHours: 40
     };
     const duplicate = { ...first, hltbMainHours: 26 };
 
@@ -90,7 +90,7 @@ describe('game-list-detail-workflow', () => {
       hltbUrl: null,
       hltbMainHours: 25,
       hltbMainExtraHours: 30,
-      hltbCompletionistHours: 40,
+      hltbCompletionistHours: 40
     };
     const duplicate = { ...first, hltbMainHours: 26 };
 
@@ -106,7 +106,7 @@ describe('game-list-detail-workflow', () => {
       hltbUrl: 'https://howlongtobeat.com/game/1',
       hltbMainHours: 25,
       hltbMainExtraHours: 30,
-      hltbCompletionistHours: 40,
+      hltbCompletionistHours: 40
     };
     const duplicate = { ...first, hltbMainHours: 26 };
 
@@ -120,7 +120,7 @@ describe('game-list-detail-workflow', () => {
       imagePickerResults: [],
       imagePickerError: null,
       isImagePickerLoading: false,
-      isImagePickerModalOpen: true,
+      isImagePickerModalOpen: true
     });
 
     expect(createClosedImagePickerState(7)).toEqual({
@@ -129,7 +129,7 @@ describe('game-list-detail-workflow', () => {
       imagePickerResults: [],
       imagePickerError: null,
       isImagePickerLoading: false,
-      isImagePickerModalOpen: false,
+      isImagePickerModalOpen: false
     });
   });
 
@@ -139,12 +139,12 @@ describe('game-list-detail-workflow', () => {
       isHltbPickerModalOpen: true,
       hasHltbPickerSearched: false,
       hltbPickerQuery: 'EarthBound',
-      hltbPickerTargetGame: game,
+      hltbPickerTargetGame: game
     });
     expect(createClosedHltbPickerState()).toMatchObject({
       isHltbPickerModalOpen: false,
       hltbPickerQuery: '',
-      hltbPickerTargetGame: null,
+      hltbPickerTargetGame: null
     });
   });
 
@@ -156,11 +156,11 @@ describe('game-list-detail-workflow', () => {
       reviewScore: null,
       reviewUrl: null,
       reviewSource: 'mobygames',
-      imageUrl: null,
+      imageUrl: null
     };
     const upgraded: ReviewMatchCandidate = {
       ...original,
-      imageUrl: 'https://example.com/front.jpg',
+      imageUrl: 'https://example.com/front.jpg'
     };
 
     const result = dedupeReviewCandidates([original, upgraded]);
@@ -175,12 +175,12 @@ describe('game-list-detail-workflow', () => {
       reviewScore: null,
       reviewUrl: null,
       reviewSource: 'mobygames',
-      imageUrl: null,
+      imageUrl: null
     };
     const withScore: ReviewMatchCandidate = {
       ...noScore,
       reviewScore: 85,
-      reviewUrl: 'https://example.com/review',
+      reviewUrl: 'https://example.com/review'
     };
 
     expect(dedupeReviewCandidates([noScore, withScore])).toEqual([withScore]);
@@ -195,11 +195,11 @@ describe('game-list-detail-workflow', () => {
       reviewScore: 85,
       reviewUrl: 'https://example.com/review-a',
       reviewSource: 'metacritic',
-      imageUrl: null,
+      imageUrl: null
     };
     const second: ReviewMatchCandidate = {
       ...first,
-      reviewUrl: 'https://example.com/review-b',
+      reviewUrl: 'https://example.com/review-b'
     };
 
     expect(dedupeReviewCandidates([first, second])).toEqual([first, second]);
@@ -213,12 +213,12 @@ describe('game-list-detail-workflow', () => {
       reviewScore: null,
       reviewUrl: 'https://example.com/review-a',
       reviewSource: 'metacritic',
-      imageUrl: null,
+      imageUrl: null
     };
     const urlLessUpgrade: ReviewMatchCandidate = {
       ...identified,
       reviewUrl: null,
-      imageUrl: 'https://example.com/front.jpg',
+      imageUrl: 'https://example.com/front.jpg'
     };
 
     expect(dedupeReviewCandidates([identified, urlLessUpgrade])).toEqual([identified]);
@@ -232,11 +232,11 @@ describe('game-list-detail-workflow', () => {
       reviewScore: 85,
       reviewUrl: null,
       reviewSource: 'metacritic',
-      imageUrl: null,
+      imageUrl: null
     };
     const withIdentity: ReviewMatchCandidate = {
       ...withoutIdentity,
-      reviewUrl: 'https://example.com/review-a',
+      reviewUrl: 'https://example.com/review-a'
     };
 
     expect(dedupeReviewCandidates([withoutIdentity, withIdentity])).toEqual([withIdentity]);
@@ -250,11 +250,11 @@ describe('game-list-detail-workflow', () => {
       reviewScore: 85,
       reviewUrl: null,
       reviewSource: 'metacritic',
-      imageUrl: null,
+      imageUrl: null
     };
     const second: ReviewMatchCandidate = {
       ...first,
-      platform: 'DS',
+      platform: 'DS'
     };
 
     expect(dedupeReviewCandidates([first, second])).toEqual([first, second]);
@@ -267,11 +267,11 @@ describe('game-list-detail-workflow', () => {
       platform: 'DS',
       metacriticScore: null,
       metacriticUrl: null,
-      imageUrl: null,
+      imageUrl: null
     };
     const upgraded: MetacriticMatchCandidate = {
       ...original,
-      imageUrl: 'https://example.com/ct.jpg',
+      imageUrl: 'https://example.com/ct.jpg'
     };
     expect(dedupeMetacriticCandidates([original, upgraded])).toEqual([upgraded]);
   });
@@ -281,23 +281,23 @@ describe('game-list-detail-workflow', () => {
     expect(createOpenedReviewPickerState(game)).toMatchObject({
       isReviewPickerModalOpen: true,
       reviewPickerQuery: 'Super Metroid',
-      reviewPickerTargetGame: game,
+      reviewPickerTargetGame: game
     });
     expect(createClosedReviewPickerState()).toMatchObject({
       isReviewPickerModalOpen: false,
       reviewPickerQuery: '',
-      reviewPickerTargetGame: null,
+      reviewPickerTargetGame: null
     });
 
     expect(createOpenedMetacriticPickerState(game)).toMatchObject({
       isMetacriticPickerModalOpen: true,
       metacriticPickerQuery: 'Super Metroid',
-      metacriticPickerTargetGame: game,
+      metacriticPickerTargetGame: game
     });
     expect(createClosedMetacriticPickerState()).toMatchObject({
       isMetacriticPickerModalOpen: false,
       metacriticPickerQuery: '',
-      metacriticPickerTargetGame: null,
+      metacriticPickerTargetGame: null
     });
   });
 });

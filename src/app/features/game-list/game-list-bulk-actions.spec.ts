@@ -16,7 +16,7 @@ function createGame(id: number): GameEntry {
     releaseYear: null,
     listType: 'collection',
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   };
 }
 
@@ -24,11 +24,11 @@ function createLoadingControllerStub(): LoadingController {
   const loading = {
     message: '',
     present: vi.fn(() => Promise.resolve(undefined)),
-    dismiss: vi.fn(() => Promise.resolve(undefined)),
+    dismiss: vi.fn(() => Promise.resolve(undefined))
   };
 
   return {
-    create: vi.fn(() => Promise.resolve(loading)),
+    create: vi.fn(() => Promise.resolve(loading))
   } as unknown as LoadingController;
 }
 
@@ -53,15 +53,15 @@ describe('runBulkActionWithRetry', () => {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
         interItemDelayMs: 0,
-        itemTimeoutMs: 25,
+        itemTimeoutMs: 25
       },
       retryConfig: {
         maxAttempts: 1,
         retryBaseDelayMs: 10,
-        rateLimitFallbackCooldownMs: 100,
+        rateLimitFallbackCooldownMs: 100
       },
       action,
-      delay: () => Promise.resolve(undefined),
+      delay: () => Promise.resolve(undefined)
     });
 
     await vi.advanceTimersByTimeAsync(60);
@@ -93,15 +93,15 @@ describe('runBulkActionWithRetry', () => {
       options: {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
-        interItemDelayMs: 0,
+        interItemDelayMs: 0
       },
       retryConfig: {
         maxAttempts: 3,
         retryBaseDelayMs: 250,
-        rateLimitFallbackCooldownMs: 1000,
+        rateLimitFallbackCooldownMs: 1000
       },
       action,
-      delay,
+      delay
     });
 
     expect(action).toHaveBeenCalledTimes(2);
@@ -122,15 +122,15 @@ describe('runBulkActionWithRetry', () => {
       options: {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
-        interItemDelayMs: 0,
+        interItemDelayMs: 0
       },
       retryConfig: {
         maxAttempts: 2,
         retryBaseDelayMs: 250,
-        rateLimitFallbackCooldownMs: 10000,
+        rateLimitFallbackCooldownMs: 10000
       },
       action,
-      delay,
+      delay
     });
 
     expect(action).toHaveBeenCalledTimes(2);
@@ -151,15 +151,15 @@ describe('runBulkActionWithRetry', () => {
       options: {
         loadingPrefix: 'Updating HLTB data',
         concurrency: 1,
-        interItemDelayMs: 0,
+        interItemDelayMs: 0
       },
       retryConfig: {
         maxAttempts: 3,
         retryBaseDelayMs: 250,
-        rateLimitFallbackCooldownMs: 1000,
+        rateLimitFallbackCooldownMs: 1000
       },
       action,
-      delay,
+      delay
     });
 
     expect(action).toHaveBeenCalledTimes(1);

@@ -147,7 +147,7 @@
                 </ion-badge>
               }
               @if (!isPricingSupported(game)) {
-                <ion-badge color="medium">Pricing: N/A</ion-badge>
+                <ion-badge color="medium"> Pricing: N/A </ion-badge>
               }
               @if (!isNonPcImageNotApplicable(game)) {
                 <ion-badge [color]="isNonPcTheGamesDbImagePresent(game) ? 'success' : 'warning'">
@@ -155,13 +155,13 @@
                 </ion-badge>
               }
               @if (isNonPcImageNotApplicable(game)) {
-                <ion-badge color="medium">Image: N/A (PC)</ion-badge>
+                <ion-badge color="medium"> Image: N/A (PC) </ion-badge>
               }
             </div>
           </ion-label>
           <div slot="end" class="row-actions" (click)="$event.stopPropagation()">
-            <ion-button fill="outline" (click)="refreshHltbForGame(game)">HLTB</ion-button>
-            <ion-button fill="outline" (click)="refreshReviewForGame(game)">Review</ion-button>
+            <ion-button fill="outline" (click)="refreshHltbForGame(game)"> HLTB </ion-button>
+            <ion-button fill="outline" (click)="refreshReviewForGame(game)"> Review </ion-button>
             <ion-button
               fill="outline"
               [disabled]="!isPricingSupported(game)"
@@ -265,7 +265,7 @@
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
-                    <span>· {{ candidate.platform }}</span>
+                    <span> · {{ candidate.platform }}</span>
                   }
                 </p>
                 <p>
@@ -367,7 +367,7 @@
                 <p>
                   {{ candidate.releaseYear || 'Unknown year' }}
                   @if (candidate.platform) {
-                    <span>· {{ candidate.platform }}</span>
+                    <span> · {{ candidate.platform }}</span>
                   }
                 </p>
                 <p>

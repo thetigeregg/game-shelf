@@ -8,13 +8,13 @@ export const environment = {
     projectId: '',
     storageBucket: '',
     messagingSenderId: '',
-    appId: '',
+    appId: ''
   },
   firebaseVapidKey: '',
   featureFlags: {
     showMgcImport: false,
     e2eFixtures: false,
     recommendationsExploreEnabled: true,
-    tasEnabled: false,
-  },
+    tasEnabled: false
+  }
 };

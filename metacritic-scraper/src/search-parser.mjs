@@ -1,7 +1,11 @@
-export function extractMetacriticSearchResults() {
+export const METACRITIC_SEARCH_RESULTS_CONTAINER_SELECTOR = '[data-testid="search-results"]';
+export const METACRITIC_SEARCH_RESULT_ROW_SELECTOR =
+  '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
+export const METACRITIC_SEARCH_RESULTS_READY_SELECTOR = `${METACRITIC_SEARCH_RESULTS_CONTAINER_SELECTOR}, ${METACRITIC_SEARCH_RESULT_ROW_SELECTOR}`;
+
+export function extractMetacriticSearchResults(config = {}) {
   // Current parsing path (2026-03-17): rely on /game/ links and nearby metadata blocks.
-  const rowSelectorInPage =
-    '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
+  const rowSelectorInPage = String(config.rowSelector ?? METACRITIC_SEARCH_RESULT_ROW_SELECTOR);
   const gameLinkSelectorInPage = 'a[href*="/game/"]';
   const scoreSelectorInPage =
     '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w';

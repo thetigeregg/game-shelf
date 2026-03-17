@@ -1,6 +1,7 @@
 import express from 'express';
 import fs from 'node:fs';
 import { chromium } from 'playwright';
+import { parsePositiveEnvInt } from './env-utils.mjs';
 import {
   extractMetacriticSearchResults,
   METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
@@ -12,11 +13,6 @@ import {
   buildSearchTitleVariants,
   normalizeTitle,
 } from './search-utils.mjs';
-
-function parseEnvInt(name, fallbackValue) {
-  const parsed = Number.parseInt(process.env[name] ?? '', 10);
-  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallbackValue;
-}
 
 function readEnvOrFile(name) {
   const filePath = String(process.env[`${name}_FILE`] ?? '').trim();
@@ -30,8 +26,8 @@ function readEnvOrFile(name) {
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '8789', 10);
 const apiToken = readEnvOrFile('METACRITIC_SCRAPER_TOKEN');
-const browserTimeoutMs = parseEnvInt('METACRITIC_SCRAPER_TIMEOUT_MS', 25_000);
-const browserIdleTtlMs = parseEnvInt('METACRITIC_SCRAPER_BROWSER_IDLE_MS', 30_000);
+const browserTimeoutMs = parsePositiveEnvInt('METACRITIC_SCRAPER_TIMEOUT_MS', 25_000);
+const browserIdleTtlMs = parsePositiveEnvInt('METACRITIC_SCRAPER_BROWSER_IDLE_MS', 30_000);
 const debugLogsEnabled =
   String(process.env.DEBUG_METACRITIC_SCRAPER_LOGS ?? '').toLowerCase() === 'true';
 const igdbToMetacriticPlatformDisplayById = loadIgdbToMetacriticPlatformDisplayById();

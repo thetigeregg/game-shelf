@@ -125,6 +125,15 @@ const noPlatformFalsePositiveHtml = `
   </main>
 `;
 
+const navLinkBeforeResultsHtml = `
+  <main>
+    <nav>
+      <a href="/game/navigation-only/">Navigation Link</a>
+    </nav>
+    <div data-testid="search-results"></div>
+  </main>
+`;
+
 test.before(async () => {
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage();
@@ -246,9 +255,20 @@ test('search selector exports keep browser wait and parser row selection aligned
     METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
     new RegExp(METACRITIC_SEARCH_RESULT_ROW_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   );
-  assert.match(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, /\[data-testid="search-results"\]/u);
   assert.match(
     METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
-    new RegExp(METACRITIC_SEARCH_RESULT_LINK_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    new RegExp(
+      `\\[data-testid="search-results"\\]\\s+${METACRITIC_SEARCH_RESULT_LINK_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+    )
   );
+});
+
+test('search readiness selector ignores navigation links outside the results container', async () => {
+  await page.setContent(navLinkBeforeResultsHtml, { waitUntil: 'domcontentloaded' });
+
+  const handle = await page
+    .waitForSelector(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, { timeout: 100 })
+    .catch(() => null);
+
+  assert.equal(handle, null);
 });

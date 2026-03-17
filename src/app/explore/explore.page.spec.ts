@@ -2293,4 +2293,36 @@ describe('ExplorePage explore modes UX', () => {
 
     expect(page.popularityCatalogHydrationAttempted.has('1300')).toBe(true);
   });
+
+  it('reruns popularity catalog hydration when a request lands after await and before cleanup', async () => {
+    const page = createPage() as unknown as {
+      popularityCatalogHydrationRunPromise: Promise<void> | null;
+      popularityCatalogHydrationRerunRequested: boolean;
+      ensureVisiblePopularityCatalogHydrated: () => Promise<void>;
+      runVisiblePopularityCatalogHydration: () => Promise<void>;
+    };
+
+    let resolveCurrentRun: (() => void) | null = null;
+    page.popularityCatalogHydrationRunPromise = new Promise<void>((resolve) => {
+      resolveCurrentRun = resolve;
+    });
+
+    const rerunSpy = vi
+      .spyOn(page, 'runVisiblePopularityCatalogHydration')
+      .mockImplementation(() => {
+        page.popularityCatalogHydrationRerunRequested = false;
+        return Promise.resolve();
+      });
+
+    const waitingCall = page.ensureVisiblePopularityCatalogHydrated();
+
+    queueMicrotask(() => {
+      page.popularityCatalogHydrationRunPromise = null;
+    });
+    resolveCurrentRun?.();
+
+    await waitingCall;
+
+    expect(rerunSpy).toHaveBeenCalledTimes(1);
+  });
 });

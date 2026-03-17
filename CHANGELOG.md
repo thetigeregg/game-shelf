@@ -2469,3 +2469,14 @@
 - f64fe145 Merge branch 'main' into feat/popularity-ui
 - 53fadc90 fix(styles): change swiper imports to use url() syntax
 
+## v1.5.7 - 2026-03-17
+- 0865a5ba Merge pull request #243 from thetigeregg/feat/bp
+- abd3ae85 Merge branch 'main' into feat/bp
+- a00a3b4c chore: update @angular-eslint and typescript-eslint
+- 9d1c49e3 chore: update @angular-eslint and typescript-eslint
+- 6984a7e7 Revert "chore: update @angular-eslint and typescript-eslint packages to latest versions"
+- 48864ae3 Merge branch 'main' into feat/bp
+- 239291e1 chore: update @angular-eslint and typescript-eslint packages to latest versions
+- 3cb527ed Revert "chore: update tiptap and angular-eslint dependencies to latest versions"
+- 97252e80 chore: update tiptap and angular-eslint dependencies to latest versions
+

@@ -77,6 +77,21 @@ const seriesSHtml = `
   </main>
 `;
 
+const linkRowDirectTextHtml = `
+  <main>
+    <section>
+      <article>
+        <a href="/game/direct-text-adventure/">
+          Direct Text Adventure
+          <span data-testid="product-metascore"><span>81</span></span>
+          <span>PC</span>
+          <time>Apr 4, 2024</time>
+        </a>
+      </article>
+    </section>
+  </main>
+`;
+
 const noPlatformFalsePositiveHtml = `
   <main>
     <section>
@@ -146,7 +161,7 @@ test('extractMetacriticSearchResults parses current link-first layout without le
   });
 });
 
-test('extractMetacriticSearchResults uses its internal default row selector in page.evaluate', async () => {
+test('extractMetacriticSearchResults falls back to link scanning when rowSelector is omitted', async () => {
   const results = await parseHtmlWithDefaultConfig(legacyHtml);
 
   assert.equal(results.length, 1);
@@ -154,6 +169,23 @@ test('extractMetacriticSearchResults uses its internal default row selector in p
     results[0].metacriticUrl,
     'https://www.metacritic.com/game/super-mario-3d-world-plus-bowsers-fury/'
   );
+});
+
+test('extractMetacriticSearchResults keeps link-row titles when the row is the game anchor', async () => {
+  await page.setContent(linkRowDirectTextHtml, { waitUntil: 'domcontentloaded' });
+  const results = await page.evaluate(extractMetacriticSearchResults, {
+    rowSelector: 'a[href*="/game/"]',
+  });
+
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    title: 'Direct Text Adventure',
+    releaseYear: 2024,
+    platform: 'PC',
+    metacriticScore: 81,
+    metacriticUrl: 'https://www.metacritic.com/game/direct-text-adventure/',
+    imageUrl: null,
+  });
 });
 
 test('extractMetacriticSearchResults rejects hostile absolute URLs outside Metacritic', async () => {

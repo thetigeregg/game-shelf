@@ -1,5 +1,6 @@
 import express from 'express';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { parsePositiveEnvInt } from './env-utils.mjs';
 import {
@@ -169,6 +170,34 @@ function normalizeTitleForMatching(value) {
     .join(' ');
 }
 
+function hasOrderedTokenSequence(expectedTokensList, candidateTokensList) {
+  if (!Array.isArray(expectedTokensList) || !Array.isArray(candidateTokensList)) {
+    return false;
+  }
+
+  if (expectedTokensList.length === 0 || candidateTokensList.length === 0) {
+    return false;
+  }
+
+  let candidateIndex = 0;
+  for (const expectedToken of expectedTokensList) {
+    while (
+      candidateIndex < candidateTokensList.length &&
+      candidateTokensList[candidateIndex] !== expectedToken
+    ) {
+      candidateIndex += 1;
+    }
+
+    if (candidateIndex >= candidateTokensList.length) {
+      return false;
+    }
+
+    candidateIndex += 1;
+  }
+
+  return true;
+}
+
 function hasAddonQualifier(rawTitle, normalizedTitle) {
   const raw = String(rawTitle ?? '').toLowerCase();
   const normalized = String(normalizedTitle ?? '');
@@ -272,7 +301,7 @@ function resolveExpectedPlatformAliases(expectedPlatform, expectedPlatformIgdbId
   return aliases;
 }
 
-function rankCandidate(
+export function rankCandidate(
   expectedTitle,
   expectedYear,
   expectedPlatform,
@@ -307,12 +336,6 @@ function rankCandidate(
     normalizedCandidate.includes(normalizedExpected)
   ) {
     score += 20;
-  }
-
-  const expectedHasAddonQualifier = hasAddonQualifier(expectedTitle, normalizedExpected);
-  const candidateHasAddonQualifier = hasAddonQualifier(candidate.title, normalizedCandidate);
-  if (expectedHasAddonQualifier !== candidateHasAddonQualifier) {
-    score -= candidateHasAddonQualifier ? 30 : 20;
   }
 
   const expectedHasVariant = hasVariantToken(normalizedExpected);
@@ -350,6 +373,33 @@ function rankCandidate(
     }
   }
   score += tokenOverlap * 8;
+
+  const allExpectedTokensPresent =
+    expectedTokensList.length >= 2 &&
+    expectedTokensList.every((token) => candidateTokens.has(token));
+  const hasOrderedExpectedTokenSequence =
+    expectedTokensList.length >= 2 &&
+    hasOrderedTokenSequence(expectedTokensList, candidateTokensList);
+
+  if (allExpectedTokensPresent) {
+    score += 24;
+  }
+
+  if (hasOrderedExpectedTokenSequence) {
+    score += 62;
+  }
+
+  const expectedHasAddonQualifier = hasAddonQualifier(expectedTitle, normalizedExpected);
+  const candidateHasAddonQualifier = hasAddonQualifier(candidate.title, normalizedCandidate);
+  if (expectedHasAddonQualifier !== candidateHasAddonQualifier) {
+    if (candidateHasAddonQualifier && hasOrderedExpectedTokenSequence) {
+      score -= 4;
+    } else if (candidateHasAddonQualifier && allExpectedTokensPresent) {
+      score -= 8;
+    } else {
+      score -= candidateHasAddonQualifier ? 30 : 20;
+    }
+  }
 
   if (expectedYear !== null && Number.isInteger(candidate.releaseYear)) {
     const delta = Math.abs(candidate.releaseYear - expectedYear);
@@ -533,9 +583,11 @@ app.get('/v1/metacritic/search', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`[metacritic-scraper] listening on http://localhost:${port}`);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  app.listen(port, () => {
+    console.log(`[metacritic-scraper] listening on http://localhost:${port}`);
+  });
+}
 
 async function getSharedBrowser() {
   if (browserIdleTimer !== null) {

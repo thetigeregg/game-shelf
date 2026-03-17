@@ -205,7 +205,15 @@ export class ExplorePage implements OnInit {
   recommendationErrorCode: 'NONE' | 'NOT_FOUND' | 'RATE_LIMITED' | 'REQUEST_FAILED' = 'NONE';
   isLoadingPopularity = false;
   popularityError = '';
-  activePopularityItems: PopularityFeedItem[] = [];
+  get activePopularityItems(): PopularityFeedItem[] {
+    return this._activePopularityItems;
+  }
+
+  set activePopularityItems(items: PopularityFeedItem[]) {
+    this._activePopularityItems = items;
+    this.invalidatePopularityVisibility();
+  }
+
   isGameDetailModalOpen = false;
   isLoadingDetail = false;
   detailErrorMessage = '';
@@ -250,6 +258,7 @@ export class ExplorePage implements OnInit {
   private readonly recommendationDisplayMetadata = new Map<string, RecommendationDisplayMetadata>();
   private readonly recommendationCatalogCache = new Map<string, GameCatalogResult>();
   private readonly popularityFeedCache = new Map<PopularityFeedType, PopularityFeedItem[]>();
+  private _activePopularityItems: PopularityFeedItem[] = [];
   private readonly popularityCatalogHydrationInFlight = new Set<string>();
   private readonly popularityCatalogHydrationAttempted = new Set<string>();
   private popularityCatalogHydrationRunPromise: Promise<void> | null = null;
@@ -260,10 +269,13 @@ export class ExplorePage implements OnInit {
   private discoveryPricingHydrationRerunRequested = false;
   private ignoredRecommendationGameIds = new Set<string>();
   private recommendationVisibilityRevision = 0;
+  private popularityVisibilityRevision = 0;
   private similarVisibilityRevision = 0;
   private cachedVisibleRecommendationItemsRevision = -1;
+  private cachedVisiblePopularityItemsRevision = -1;
   private cachedVisibleSimilarItemsRevision = -1;
   private cachedVisibleRecommendationItems: RecommendationItem[] = [];
+  private cachedVisiblePopularityItems: PopularityFeedItem[] = [];
   private cachedVisibleSimilarItems: RecommendationSimilarItem[] = [];
   @ViewChild('detailContent') private detailContent?: IonContent;
 
@@ -1641,6 +1653,7 @@ export class ExplorePage implements OnInit {
       this.libraryOwnedGameIds.add(entry.igdbGameId);
     }
     this.invalidateRecommendationVisibility();
+    this.invalidatePopularityVisibility();
     this.invalidateSimilarVisibility();
   }
 
@@ -1659,6 +1672,7 @@ export class ExplorePage implements OnInit {
 
     this.libraryOwnedGameIds.add(igdbGameId);
     this.invalidateRecommendationVisibility();
+    this.invalidatePopularityVisibility();
     this.invalidateSimilarVisibility();
   }
 
@@ -2462,15 +2476,29 @@ export class ExplorePage implements OnInit {
   }
 
   private getVisiblePopularityItems(): PopularityFeedItem[] {
-    if (this.libraryOwnedGameIds.size === 0) {
-      return this.activePopularityItems;
+    if (this.cachedVisiblePopularityItemsRevision === this.popularityVisibilityRevision) {
+      return this.cachedVisiblePopularityItems;
     }
 
-    return this.activePopularityItems.filter((item) => !this.libraryOwnedGameIds.has(item.id));
+    if (this.libraryOwnedGameIds.size === 0) {
+      this.cachedVisiblePopularityItems = this.activePopularityItems;
+      this.cachedVisiblePopularityItemsRevision = this.popularityVisibilityRevision;
+      return this.cachedVisiblePopularityItems;
+    }
+
+    this.cachedVisiblePopularityItems = this.activePopularityItems.filter(
+      (item) => !this.libraryOwnedGameIds.has(item.id)
+    );
+    this.cachedVisiblePopularityItemsRevision = this.popularityVisibilityRevision;
+    return this.cachedVisiblePopularityItems;
   }
 
   private invalidateRecommendationVisibility(): void {
     this.recommendationVisibilityRevision += 1;
+  }
+
+  private invalidatePopularityVisibility(): void {
+    this.popularityVisibilityRevision += 1;
   }
 
   private invalidateSimilarVisibility(): void {

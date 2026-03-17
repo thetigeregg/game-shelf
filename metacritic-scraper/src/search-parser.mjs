@@ -5,9 +5,7 @@ export const METACRITIC_SEARCH_RESULTS_READY_SELECTOR = `${METACRITIC_SEARCH_RES
 
 export function extractMetacriticSearchResults(config = {}) {
   // Current parsing path (2026-03-17): rely on /game/ links and nearby metadata blocks.
-  const defaultRowSelectorInPage =
-    '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
-  const rowSelectorInPage = String(config.rowSelector ?? defaultRowSelectorInPage);
+  const rowSelectorInPage = typeof config.rowSelector === 'string' ? config.rowSelector.trim() : '';
   const gameLinkSelectorInPage = 'a[href*="/game/"]';
   const scoreSelectorInPage =
     '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w';
@@ -111,6 +109,25 @@ export function extractMetacriticSearchResults(config = {}) {
     return withoutPlatformTail.replace(/\s+/g, ' ').trim();
   };
 
+  const extractCandidateTitleTextInPage = (element) => {
+    if (!element) {
+      return '';
+    }
+
+    const directText = Array.from(element.childNodes)
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent ?? '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (directText.length > 0) {
+      return directText;
+    }
+
+    return String(element.textContent ?? '').trim();
+  };
+
   const parseMetacriticScoreInPage = (rawValue) => {
     const text = String(rawValue ?? '')
       .toLowerCase()
@@ -128,7 +145,8 @@ export function extractMetacriticSearchResults(config = {}) {
     return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
   };
 
-  const rows = Array.from(document.querySelectorAll(rowSelectorInPage));
+  const rows =
+    rowSelectorInPage.length > 0 ? Array.from(document.querySelectorAll(rowSelectorInPage)) : [];
 
   const normalizePlatformTextInPage = (rawValue) =>
     String(rawValue ?? '')
@@ -158,9 +176,8 @@ export function extractMetacriticSearchResults(config = {}) {
       continue;
     }
 
-    const titleEl =
-      row.querySelector(titleSelectorInPage) || row.querySelector(gameLinkSelectorInPage);
-    const title = titleEl ? sanitizeCandidateTitleInPage(titleEl.textContent ?? '') : '';
+    const titleEl = row.querySelector(titleSelectorInPage) || nestedGameLinkEl || row;
+    const title = sanitizeCandidateTitleInPage(extractCandidateTitleTextInPage(titleEl));
     if (!title) {
       continue;
     }
@@ -230,7 +247,7 @@ export function extractMetacriticSearchResults(config = {}) {
 
     const container = findCandidateContainerInPage(link);
     const titleEl = container.querySelector(titleSelectorInPage) || link;
-    const title = sanitizeCandidateTitleInPage(titleEl?.textContent ?? '');
+    const title = sanitizeCandidateTitleInPage(extractCandidateTitleTextInPage(titleEl));
     if (!title || genericTitles.has(title.toLowerCase())) {
       continue;
     }

@@ -3,7 +3,9 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   extractMetacriticSearchResults,
+  METACRITIC_SEARCH_RESULT_FALLBACK_READY_SELECTOR,
   METACRITIC_SEARCH_RESULT_LINK_SELECTOR,
+  METACRITIC_SEARCH_RESULT_METADATA_SELECTOR,
   METACRITIC_SEARCH_RESULT_ROW_SELECTOR,
   METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
 } from './search-parser.mjs';
@@ -258,9 +260,24 @@ test('search selector exports keep browser wait and parser row selection aligned
   assert.match(
     METACRITIC_SEARCH_RESULTS_READY_SELECTOR,
     new RegExp(
-      `\\[data-testid="search-results"\\]\\s+${METACRITIC_SEARCH_RESULT_LINK_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+      `article:has\\(${METACRITIC_SEARCH_RESULT_LINK_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\):has\\(${METACRITIC_SEARCH_RESULT_METADATA_SELECTOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`
     )
   );
+});
+
+test('search readiness selector matches current link-first result cards', async () => {
+  await page.setContent(currentHtml, { waitUntil: 'domcontentloaded' });
+
+  const handle = await page.waitForSelector(METACRITIC_SEARCH_RESULTS_READY_SELECTOR, {
+    timeout: 100,
+  });
+
+  const matchedFallbackSelector = await handle.evaluate(
+    (node, selector) => node.matches(selector),
+    METACRITIC_SEARCH_RESULT_FALLBACK_READY_SELECTOR
+  );
+
+  assert.equal(matchedFallbackSelector, true);
 });
 
 test('search readiness selector ignores navigation links outside the results container', async () => {

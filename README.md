@@ -126,6 +126,7 @@ npm run build
 - Admin controls support filtering unmatched discovery rows by provider/state, loading full match state, manually saving or clearing HLTB/review/pricing matches, resetting visible permanent misses for HLTB or review, and requeueing targeted discovery enrichment for either one row or the current visible results.
 - Candidate search is built into the modal for HLTB, review, and pricing so operators can search upstream metadata and paste or apply a chosen match.
 - List-level and per-row requeue actions enqueue targeted discovery enrichment keyed by the visible discovery rows, which reduces unnecessary churn across unrelated discovery items.
+- Detailed behavior, state rules, and side effects are documented in [docs/discovery-match-admin.md](docs/discovery-match-admin.md).
 
 ## Testing and Quality
 

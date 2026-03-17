@@ -23,7 +23,7 @@ import {
   RecommendationTopResponse,
   PopularityFeedItem,
   PopularityFeedResponse,
-  PopularityFeedType,
+  PopularityFeedType
 } from '../models/game.models';
 import { GameSearchApi } from './game-search-api';
 import { PLATFORM_CATALOG } from '../data/platform-catalog';
@@ -312,7 +312,7 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedTitle.length < 2) {
       this.debugLogService.trace('igdb_proxy.hltb.lookup_skipped', {
         reason: 'title_too_short',
-        titleLength: normalizedTitle.length,
+        titleLength: normalizedTitle.length
       });
       return of(null);
     }
@@ -347,7 +347,7 @@ export class IgdbProxyService implements GameSearchApi {
       releaseYear: normalizedYear,
       platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
       preferredHltbGameId: normalizedPreferredGameId,
-      preferredHltbUrl: normalizedPreferredUrl,
+      preferredHltbUrl: normalizedPreferredUrl
     });
 
     return this.httpClient.get<HltbSearchResponse>(this.hltbSearchUrl, { params }).pipe(
@@ -375,7 +375,7 @@ export class IgdbProxyService implements GameSearchApi {
         this.debugLogService.trace('igdb_proxy.hltb.lookup_response', {
           hasItem: response.item !== null,
           normalized,
-          hasNormalizedResult: normalized !== null,
+          hasNormalizedResult: normalized !== null
         });
         return normalized;
       }),
@@ -400,7 +400,7 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedTitle.length < 2) {
       this.debugLogService.trace('igdb_proxy.hltb_candidates.lookup_skipped', {
         reason: 'title_too_short',
-        titleLength: normalizedTitle.length,
+        titleLength: normalizedTitle.length
       });
       return of([]);
     }
@@ -422,7 +422,7 @@ export class IgdbProxyService implements GameSearchApi {
     this.debugLogService.trace('igdb_proxy.hltb_candidates.lookup_request', {
       title: normalizedTitle,
       releaseYear: normalizedYear,
-      platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
+      platform: normalizedPlatform.length > 0 ? normalizedPlatform : null
     });
 
     return this.httpClient.get<HltbSearchResponse>(this.hltbSearchUrl, { params }).pipe(
@@ -430,7 +430,7 @@ export class IgdbProxyService implements GameSearchApi {
         const normalized = this.normalizeHltbCandidates(response.candidates ?? []);
         this.debugLogService.trace('igdb_proxy.hltb_candidates.lookup_response', {
           candidateCountRaw: Array.isArray(response.candidates) ? response.candidates.length : 0,
-          candidateCountNormalized: normalized.length,
+          candidateCountNormalized: normalized.length
         });
         return normalized;
       }),
@@ -478,7 +478,7 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedTitle.length < 2) {
       this.debugLogService.trace('igdb_proxy.metacritic.lookup_skipped', {
         reason: 'title_too_short',
-        titleLength: normalizedTitle.length,
+        titleLength: normalizedTitle.length
       });
       return of(null);
     }
@@ -532,7 +532,7 @@ export class IgdbProxyService implements GameSearchApi {
         platformName: normalizedPlatform,
         platformIgdbId: normalizedPlatformIgdbId,
         mobygamesGameId: normalizedMobyGameId,
-        limit: 20,
+        limit: 20
       });
       const mobygamesPlatformId = this.resolveMobyGamesPlatformIdForIgdbPlatform(
         normalizedPlatformIgdbId,
@@ -548,7 +548,7 @@ export class IgdbProxyService implements GameSearchApi {
           platformIgdbId: normalizedPlatformIgdbId,
           mobygamesGameId: normalizedMobyGameId,
           mobygamesPlatformId,
-          mobyDelayMs,
+          mobyDelayMs
         });
         const mobyRequest$ = this.httpClient
           .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
@@ -556,12 +556,12 @@ export class IgdbProxyService implements GameSearchApi {
             map((response) => {
               const normalized = this.normalizeMobygamesReviewScoreResult(response.games ?? null, {
                 preferredMobyPlatformId: mobygamesPlatformId,
-                preferredPlatformName: normalizedPlatform,
+                preferredPlatformName: normalizedPlatform
               });
               this.debugLogService.trace('igdb_proxy.mobygames.lookup_response', {
                 gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
                 normalized,
-                hasNormalizedResult: normalized !== null,
+                hasNormalizedResult: normalized !== null
               });
               return normalized;
             }),
@@ -605,7 +605,7 @@ export class IgdbProxyService implements GameSearchApi {
       title: normalizedTitle,
       releaseYear: normalizedYear,
       platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
-      platformIgdbId: normalizedPlatformIgdbId,
+      platformIgdbId: normalizedPlatformIgdbId
     });
 
     return this.httpClient.get<MetacriticSearchResponse>(this.metacriticSearchUrl, { params }).pipe(
@@ -629,7 +629,7 @@ export class IgdbProxyService implements GameSearchApi {
         this.debugLogService.trace('igdb_proxy.metacritic.lookup_response', {
           hasItem: response.item !== null,
           normalized,
-          hasNormalizedResult: normalized !== null,
+          hasNormalizedResult: normalized !== null
         });
         return normalized;
       }),
@@ -671,7 +671,7 @@ export class IgdbProxyService implements GameSearchApi {
     if (normalizedTitle.length < 2) {
       this.debugLogService.trace('igdb_proxy.metacritic_candidates.lookup_skipped', {
         reason: 'title_too_short',
-        titleLength: normalizedTitle.length,
+        titleLength: normalizedTitle.length
       });
       return of([]);
     }
@@ -709,7 +709,7 @@ export class IgdbProxyService implements GameSearchApi {
         query: normalizedTitle,
         platformName: normalizedPlatform,
         platformIgdbId: normalizedPlatformIgdbId,
-        limit: 100,
+        limit: 100
       });
       const mobygamesPlatformId = this.resolveMobyGamesPlatformIdForIgdbPlatform(
         normalizedPlatformIgdbId,
@@ -724,7 +724,7 @@ export class IgdbProxyService implements GameSearchApi {
           platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
           platformIgdbId: normalizedPlatformIgdbId,
           mobygamesPlatformId,
-          mobyDelayMs,
+          mobyDelayMs
         });
         const mobyRequest$ = this.httpClient
           .get<MobyGamesSearchResponse>(this.mobygamesSearchUrl, { params: mobygamesParams })
@@ -732,11 +732,11 @@ export class IgdbProxyService implements GameSearchApi {
             map((response) => {
               const normalized = this.normalizeMobygamesReviewCandidates(response.games ?? null, {
                 preferredMobyPlatformId: mobygamesPlatformId,
-                preferredPlatformName: normalizedPlatform,
+                preferredPlatformName: normalizedPlatform
               });
               this.debugLogService.trace('igdb_proxy.mobygames_candidates.lookup_response', {
                 gameCountRaw: Array.isArray(response.games) ? response.games.length : 0,
-                candidateCountNormalized: normalized.length,
+                candidateCountNormalized: normalized.length
               });
               return normalized;
             }),
@@ -780,7 +780,7 @@ export class IgdbProxyService implements GameSearchApi {
       title: normalizedTitle,
       releaseYear: normalizedYear,
       platform: normalizedPlatform.length > 0 ? normalizedPlatform : null,
-      platformIgdbId: normalizedPlatformIgdbId,
+      platformIgdbId: normalizedPlatformIgdbId
     });
 
     return this.httpClient.get<MetacriticSearchResponse>(this.metacriticSearchUrl, { params }).pipe(
@@ -792,7 +792,7 @@ export class IgdbProxyService implements GameSearchApi {
         );
         this.debugLogService.trace('igdb_proxy.metacritic_candidates.lookup_response', {
           candidateCountRaw: Array.isArray(response.candidates) ? response.candidates.length : 0,
-          candidateCountNormalized: normalized.length,
+          candidateCountNormalized: normalized.length
         });
         return normalized;
       }),
@@ -898,7 +898,7 @@ export class IgdbProxyService implements GameSearchApi {
     return this.httpClient
       .post<RecommendationRebuildApiResponse>(this.recommendationsRebuildUrl, {
         target: params.target,
-        ...(params.force === true ? { force: true } : {}),
+        ...(params.force === true ? { force: true } : {})
       })
       .pipe(
         map((response) => this.normalizeRecommendationRebuildResponse(response, params.target)),
@@ -949,7 +949,7 @@ export class IgdbProxyService implements GameSearchApi {
       map((response) =>
         this.normalizeRecommendationSimilarResponse(response, {
           igdbGameId: normalizedGameId,
-          platformIgdbId: normalizedPlatformIgdbId,
+          platformIgdbId: normalizedPlatformIgdbId
         })
       ),
       catchError((error: unknown) => throwError(() => this.toRecommendationError(error)))
@@ -1220,7 +1220,7 @@ export class IgdbProxyService implements GameSearchApi {
       platform: platforms.length === 1 ? platforms[0] : null,
       platformIgdbId: this.resolvePlatformIgdbId(result, platformOptions),
       releaseDate: this.normalizeReleaseDate(result.releaseDate),
-      releaseYear: Number.isInteger(result.releaseYear) ? result.releaseYear : null,
+      releaseYear: Number.isInteger(result.releaseYear) ? result.releaseYear : null
     };
   }
 
@@ -1405,7 +1405,7 @@ export class IgdbProxyService implements GameSearchApi {
       hltbMainExtraHours: this.normalizeCompletionHours(value.hltbMainExtraHours),
       hltbCompletionistHours: this.normalizeCompletionHours(value.hltbCompletionistHours),
       ...(normalizedHltbGameId !== null ? { hltbGameId: normalizedHltbGameId } : {}),
-      ...(normalizedHltbUrl !== null ? { hltbUrl: normalizedHltbUrl } : {}),
+      ...(normalizedHltbUrl !== null ? { hltbUrl: normalizedHltbUrl } : {})
     };
 
     if (
@@ -1458,7 +1458,7 @@ export class IgdbProxyService implements GameSearchApi {
           hltbCompletionistHours: this.normalizeCompletionHours(candidate.hltbCompletionistHours),
           ...(hltbGameId !== null ? { hltbGameId } : {}),
           ...(hltbUrl !== null ? { hltbUrl } : {}),
-          ...(imageUrl ? { imageUrl } : {}),
+          ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0)
@@ -1476,7 +1476,7 @@ export class IgdbProxyService implements GameSearchApi {
       })
       .map((candidate, index) => ({
         ...candidate,
-        isRecommended: index === 0,
+        isRecommended: index === 0
       }));
   }
 
@@ -1486,7 +1486,7 @@ export class IgdbProxyService implements GameSearchApi {
       hltbMainExtraHours: candidate.hltbMainExtraHours,
       hltbCompletionistHours: candidate.hltbCompletionistHours,
       ...(candidate.hltbGameId != null ? { hltbGameId: candidate.hltbGameId } : {}),
-      ...(candidate.hltbUrl != null ? { hltbUrl: candidate.hltbUrl } : {}),
+      ...(candidate.hltbUrl != null ? { hltbUrl: candidate.hltbUrl } : {})
     };
   }
 
@@ -1523,7 +1523,7 @@ export class IgdbProxyService implements GameSearchApi {
       reviewSource: source,
       mobyScore: null,
       metacriticScore: reviewScore,
-      metacriticUrl: reviewUrl,
+      metacriticUrl: reviewUrl
     };
 
     if (normalized.reviewScore === null && normalized.reviewUrl === null) {
@@ -1573,7 +1573,7 @@ export class IgdbProxyService implements GameSearchApi {
           mobyScore: null,
           metacriticScore: reviewScore,
           metacriticUrl: reviewUrl,
-          ...(imageUrl ? { imageUrl } : {}),
+          ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0)
@@ -1597,7 +1597,7 @@ export class IgdbProxyService implements GameSearchApi {
 
     return normalizedCandidates.map((candidate, index) => ({
       ...candidate,
-      isRecommended: index === recommendedIndex,
+      isRecommended: index === recommendedIndex
     }));
   }
 
@@ -1692,7 +1692,7 @@ export class IgdbProxyService implements GameSearchApi {
       mobyScore: best.mobyScore ?? null,
       mobygamesGameId: best.mobygamesGameId ?? null,
       metacriticScore: null,
-      metacriticUrl: null,
+      metacriticUrl: null
     };
   }
 
@@ -1737,7 +1737,7 @@ export class IgdbProxyService implements GameSearchApi {
           mobygamesGameId,
           metacriticScore: null,
           metacriticUrl: null,
-          ...(imageUrl ? { imageUrl } : {}),
+          ...(imageUrl ? { imageUrl } : {})
         };
       })
       .filter((candidate) => candidate.title.length > 0)
@@ -1764,7 +1764,7 @@ export class IgdbProxyService implements GameSearchApi {
 
     return [...byKey.values()].map((candidate, index) => ({
       ...candidate,
-      isRecommended: index === 0,
+      isRecommended: index === 0
     }));
   }
 
@@ -1777,7 +1777,7 @@ export class IgdbProxyService implements GameSearchApi {
 
     return {
       metacriticScore: this.normalizeMetacriticScore(result.reviewScore),
-      metacriticUrl: this.normalizeExternalUrl(result.reviewUrl),
+      metacriticUrl: this.normalizeExternalUrl(result.reviewUrl)
     };
   }
 
@@ -1789,7 +1789,7 @@ export class IgdbProxyService implements GameSearchApi {
       mobyScore: candidate.mobyScore ?? null,
       mobygamesGameId: candidate.mobygamesGameId ?? null,
       metacriticScore: candidate.metacriticScore ?? null,
-      metacriticUrl: candidate.metacriticUrl ?? null,
+      metacriticUrl: candidate.metacriticUrl ?? null
     };
   }
 
@@ -1801,7 +1801,7 @@ export class IgdbProxyService implements GameSearchApi {
       metacriticScore: this.normalizeMetacriticScore(candidate.reviewScore),
       metacriticUrl: this.normalizeExternalUrl(candidate.reviewUrl),
       isRecommended: candidate.isRecommended,
-      ...(candidate.imageUrl ? { imageUrl: candidate.imageUrl } : {}),
+      ...(candidate.imageUrl ? { imageUrl: candidate.imageUrl } : {})
     };
   }
 
@@ -2202,7 +2202,7 @@ export class IgdbProxyService implements GameSearchApi {
       return {
         name: value.name,
         message: value.message,
-        stack: value.stack,
+        stack: value.stack
       };
     }
 
@@ -2261,7 +2261,7 @@ export class IgdbProxyService implements GameSearchApi {
           .filter((item) => typeof item === 'string')
           .map((item) => item.trim())
           .filter((item) => item.startsWith('http://') || item.startsWith('https://'))
-      ),
+      )
     ];
   }
 
@@ -2307,7 +2307,7 @@ export class IgdbProxyService implements GameSearchApi {
           .filter((value) => typeof value === 'string')
           .map((value) => value.trim())
           .filter((value) => value.length > 0)
-      ),
+      )
     ];
   }
 
@@ -2319,7 +2319,7 @@ export class IgdbProxyService implements GameSearchApi {
     return [
       ...new Set(
         values.map((value) => String(value ?? '').trim()).filter((value) => /^\d+$/.test(value))
-      ),
+      )
     ];
   }
 
@@ -2339,7 +2339,7 @@ export class IgdbProxyService implements GameSearchApi {
                 : Number.NaN
           )
           .filter((entry) => Number.isInteger(entry) && entry > 0)
-      ),
+      )
     ];
   }
 
@@ -2412,7 +2412,7 @@ export class IgdbProxyService implements GameSearchApi {
       rating: this.normalizePopularityValue(record['rating']),
       popularityScore,
       firstReleaseDate,
-      platforms: this.normalizePopularityFeedPlatforms(record['platforms']),
+      platforms: this.normalizePopularityFeedPlatforms(record['platforms'])
     };
   }
 
@@ -2474,7 +2474,7 @@ export class IgdbProxyService implements GameSearchApi {
       runtimeMode: this.normalizeRecommendationRuntimeMode(value.runtimeMode) ?? 'NEUTRAL',
       runId: this.normalizePositiveInteger(value.runId) ?? 0,
       generatedAt: this.normalizeIsoDate(value.generatedAt),
-      items: this.normalizeRecommendationItems(value.items),
+      items: this.normalizeRecommendationItems(value.items)
     };
   }
 
@@ -2505,8 +2505,8 @@ export class IgdbProxyService implements GameSearchApi {
         exploration,
         blended: blended.length > 0 ? blended : overall,
         popular: popular.length > 0 ? popular : hiddenGems,
-        recent: recent.length > 0 ? recent : exploration,
-      },
+        recent: recent.length > 0 ? recent : exploration
+      }
     };
   }
 
@@ -2528,7 +2528,7 @@ export class IgdbProxyService implements GameSearchApi {
       target: this.normalizeRecommendationTarget(value.target, fallbackTarget),
       runId: this.normalizePositiveInteger(value.runId) ?? 0,
       status,
-      reusedRunId: this.normalizePositiveInteger(value.reusedRunId) ?? null,
+      reusedRunId: this.normalizePositiveInteger(value.reusedRunId) ?? null
     };
   }
 
@@ -2589,8 +2589,7 @@ export class IgdbProxyService implements GameSearchApi {
             exploration: this.normalizePopularityValue(scoreComponentsRaw?.['exploration']) ?? 0,
             diversityPenalty:
               this.normalizePopularityValue(scoreComponentsRaw?.['diversityPenalty']) ?? 0,
-            repeatPenalty:
-              this.normalizePopularityValue(scoreComponentsRaw?.['repeatPenalty']) ?? 0,
+            repeatPenalty: this.normalizePopularityValue(scoreComponentsRaw?.['repeatPenalty']) ?? 0
           },
           explanations: {
             headline:
@@ -2606,7 +2605,7 @@ export class IgdbProxyService implements GameSearchApi {
                       .map((evidence) => (typeof evidence === 'string' ? evidence.trim() : ''))
                       .filter((evidence) => evidence.length > 0)
                   : [],
-                delta: this.normalizePopularityValue(bullet.delta) ?? 0,
+                delta: this.normalizePopularityValue(bullet.delta) ?? 0
               }))
               .filter((bullet) => bullet.label.length > 0),
             matchedTokens: {
@@ -2626,9 +2625,9 @@ export class IgdbProxyService implements GameSearchApi {
               themes: this.normalizeTextList(matchedTokensRaw?.['themes'] as string[] | undefined),
               keywords: this.normalizeTextList(
                 matchedTokensRaw?.['keywords'] as string[] | undefined
-              ),
-            },
-          },
+              )
+            }
+          }
         };
       })
       .filter((item): item is RecommendationItem => item !== null);
@@ -2649,9 +2648,9 @@ export class IgdbProxyService implements GameSearchApi {
         igdbGameId: this.normalizeNumericId(sourceRaw['igdbGameId']) || fallbackSource.igdbGameId,
         platformIgdbId:
           this.normalizePositiveInteger(sourceRaw['platformIgdbId']) ??
-          fallbackSource.platformIgdbId,
+          fallbackSource.platformIgdbId
       },
-      items: this.normalizeRecommendationSimilarItems(value.items),
+      items: this.normalizeRecommendationSimilarItems(value.items)
     };
   }
 
@@ -2708,9 +2707,9 @@ export class IgdbProxyService implements GameSearchApi {
                 sharedTokensRaw['collections'] as string[] | undefined
               ),
               themes: this.normalizeTextList(sharedTokensRaw['themes'] as string[] | undefined),
-              keywords: this.normalizeTextList(sharedTokensRaw['keywords'] as string[] | undefined),
-            },
-          },
+              keywords: this.normalizeTextList(sharedTokensRaw['keywords'] as string[] | undefined)
+            }
+          }
         };
       })
       .filter((item): item is RecommendationSimilarItem => item !== null);
@@ -2952,7 +2951,7 @@ export class IgdbProxyService implements GameSearchApi {
         if (this.mobyGamesNextSlotMs === slotMs + IgdbProxyService.MOBYGAMES_MIN_INTERVAL_MS) {
           this.mobyGamesNextSlotMs = slotMs;
         }
-      },
+      }
     };
   }
 }

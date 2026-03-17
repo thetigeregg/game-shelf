@@ -132,6 +132,6 @@ export function normalizeCandidate(raw) {
     collectionTagCount,
     hasMostEngagingTag,
     metacriticScore,
-    openCriticScore,
+    openCriticScore
   };
 }

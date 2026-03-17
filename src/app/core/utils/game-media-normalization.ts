@@ -43,7 +43,7 @@ export function normalizeGameScreenshots(
       imageId,
       url: `https://images.igdb.com/igdb/image/upload/t_screenshot_huge/${imageId}.jpg`,
       width: parsePositiveInteger((value as { width?: unknown }).width),
-      height: parsePositiveInteger((value as { height?: unknown }).height),
+      height: parsePositiveInteger((value as { height?: unknown }).height)
     });
 
     if (normalized.length >= maxItems) {
@@ -92,7 +92,7 @@ export function normalizeGameVideos(values: unknown, options?: { maxItems?: numb
       id,
       name: normalizedName.length > 0 ? normalizedName : null,
       videoId,
-      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
     });
 
     if (normalized.length >= maxItems) {

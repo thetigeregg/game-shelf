@@ -17,7 +17,7 @@ const LOG_TERMS = [
   'AssertionError',
   'ERR!',
   'Unhandled',
-  'Exception',
+  'Exception'
 ];
 const NORMALIZED_LOG_TERMS = LOG_TERMS.map((term) => term.toLowerCase());
 
@@ -28,7 +28,7 @@ function parseArgs(argv) {
     prNumber: null,
     debug: false,
     copilotOnly: false,
-    includeCoverage: false,
+    includeCoverage: false
   };
 
   for (const arg of args) {
@@ -69,7 +69,7 @@ function runGh(args, options = {}) {
     return execFileSync('gh', args, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 1024 * 1024 * 50,
+      maxBuffer: 1024 * 1024 * 50
     });
   } catch (err) {
     const command = `gh ${args.join(' ')}`;
@@ -95,7 +95,7 @@ function maybeOpenInVSCode(filePath) {
 
   for (const command of commands) {
     const result = spawnSync(command, [filePath], {
-      stdio: 'ignore',
+      stdio: 'ignore'
     });
 
     if (!result.error && result.status === 0) {
@@ -132,7 +132,7 @@ function normalizeStatusChecks(statusCheckRollup) {
     statusCheckRollup.contexts?.nodes,
     statusCheckRollup.nodes,
     statusCheckRollup.edges,
-    statusCheckRollup.contexts?.edges,
+    statusCheckRollup.contexts?.edges
   ];
 
   for (const candidate of candidateCollections) {
@@ -155,7 +155,7 @@ function getPRData(prNumber) {
       'view',
       prNumber,
       '--json',
-      'title,headRefOid,headRefName,files,comments,reviews,statusCheckRollup',
+      'title,headRefOid,headRefName,files,comments,reviews,statusCheckRollup'
     ])
   );
 
@@ -166,7 +166,7 @@ function getPRData(prNumber) {
     files: (data.files || []).map((file) => file.path),
     comments: data.comments || [],
     reviews: data.reviews || [],
-    checks: normalizeStatusChecks(data.statusCheckRollup),
+    checks: normalizeStatusChecks(data.statusCheckRollup)
   };
 }
 
@@ -185,7 +185,7 @@ function analyzeChecks(checks) {
       workflowName: check.workflowName || null,
       startedAt: check.startedAt || null,
       completedAt: check.completedAt || null,
-      rawType: check.__typename || null,
+      rawType: check.__typename || null
     };
 
     debug('Check:', normalized);
@@ -299,7 +299,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
       file: comment.path || null,
       line: comment.line || null,
       state: null,
-      source: 'discussion',
+      source: 'discussion'
     });
   }
 
@@ -315,7 +315,7 @@ function collectDiscussionReviewItems(comments, reviews, { copilotOnly = false }
       file: null,
       line: null,
       state: review.state || null,
-      source: 'review-summary',
+      source: 'review-summary'
     });
   }
 
@@ -371,7 +371,7 @@ query($owner:String!, $repo:String!, $pr:Int!, $cursor:String) {
       '-F',
       `repo=${repoInfo.repo}`,
       '-F',
-      `pr=${prNumber}`,
+      `pr=${prNumber}`
     ];
 
     if (cursor) args.push('-F', `cursor=${cursor}`);
@@ -429,7 +429,7 @@ function buildInlineReviewTasks(threads, { copilotOnly = false } = {}) {
       author: reviewerComment.author?.login || 'reviewer',
       body: normalizeText(reviewerComment.body),
       diff: normalizeText(reviewerComment.diffHunk),
-      source: 'inline-review',
+      source: 'inline-review'
     });
   }
 
@@ -458,8 +458,8 @@ function getDiff(prNumber) {
     return {
       diff: '',
       warnings: [
-        'Pull request diff was unavailable, so the generated prompt does not include diff context.',
-      ],
+        'Pull request diff was unavailable, so the generated prompt does not include diff context.'
+      ]
     };
   }
 
@@ -467,8 +467,8 @@ function getDiff(prNumber) {
     return {
       diff: diff.slice(0, MAX_DIFF_CHARS),
       warnings: [
-        `Pull request diff was truncated to ${MAX_DIFF_CHARS} characters to keep the prompt manageable.`,
-      ],
+        `Pull request diff was truncated to ${MAX_DIFF_CHARS} characters to keep the prompt manageable.`
+      ]
     };
   }
 
@@ -485,7 +485,7 @@ function getLatestWorkflowRun(headRefName, workflowName, { allowFailure = false 
       '--json',
       'databaseId,workflowName,event,headBranch,status,conclusion,createdAt,updatedAt',
       '--limit',
-      '50',
+      '50'
     ],
     { allowFailure }
   );
@@ -493,7 +493,7 @@ function getLatestWorkflowRun(headRefName, workflowName, { allowFailure = false 
   if (!result) {
     return {
       run: null,
-      inspectionFailed: true,
+      inspectionFailed: true
     };
   }
 
@@ -508,7 +508,7 @@ function getLatestWorkflowRun(headRefName, workflowName, { allowFailure = false 
           run.event === 'pull_request' &&
           run.headBranch === headRefName
       ) || null,
-    inspectionFailed: false,
+    inspectionFailed: false
   };
 }
 
@@ -534,7 +534,7 @@ function findFailedSteps(jobs) {
       failures.push({
         job: job.name || 'Unnamed job',
         step: step.name || 'Unnamed step',
-        jobId: job.databaseId,
+        jobId: job.databaseId
       });
     }
   }
@@ -544,7 +544,7 @@ function findFailedSteps(jobs) {
 
 function getJobLog(runId, jobId) {
   return runGh(['run', 'view', String(runId), '--job', String(jobId), '--log'], {
-    allowFailure: true,
+    allowFailure: true
   });
 }
 
@@ -569,7 +569,7 @@ function collectCITasks(prData, checkAnalysis) {
   let run = null;
 
   const workflowRunData = getLatestWorkflowRun(prData.headRefName, CI_WORKFLOW_NAME, {
-    allowFailure: true,
+    allowFailure: true
   });
 
   run = workflowRunData.run;
@@ -610,7 +610,7 @@ function collectCITasks(prData, checkAnalysis) {
     tasks.push({
       ...failure,
       relevantLogs,
-      logAvailable: Boolean(rawLogs),
+      logAvailable: Boolean(rawLogs)
     });
   }
 
@@ -732,7 +732,7 @@ function collectCoverageTasks(
     return {
       run: null,
       tasks: [],
-      warnings: [],
+      warnings: []
     };
   }
 
@@ -741,8 +741,8 @@ function collectCoverageTasks(
       run: null,
       tasks: [],
       warnings: [
-        `Coverage artifact inspection was skipped because no "${CI_WORKFLOW_NAME}" workflow run was identified for this PR.`,
-      ],
+        `Coverage artifact inspection was skipped because no "${CI_WORKFLOW_NAME}" workflow run was identified for this PR.`
+      ]
     };
   }
 
@@ -753,8 +753,8 @@ function collectCoverageTasks(
       run: { databaseId: preferredRunId, workflowName: CI_WORKFLOW_NAME },
       tasks: [],
       warnings: [
-        `Coverage artifact "${COVERAGE_ARTIFACT_NAME}" was not available on workflow run ${preferredRunId}.`,
-      ],
+        `Coverage artifact "${COVERAGE_ARTIFACT_NAME}" was not available on workflow run ${preferredRunId}.`
+      ]
     };
   }
 
@@ -765,7 +765,7 @@ function collectCoverageTasks(
     const tasks = Object.keys(intersected).map((filePath) => ({
       file: filePath,
       lines: intersected[filePath],
-      snippet: extractSnippet(filePath, intersected[filePath]),
+      snippet: extractSnippet(filePath, intersected[filePath])
     }));
 
     const warnings = [];
@@ -779,7 +779,7 @@ function collectCoverageTasks(
     return {
       run: { databaseId: preferredRunId, workflowName: CI_WORKFLOW_NAME },
       tasks,
-      warnings,
+      warnings
     };
   } finally {
     fs.rmSync(artifactDir, { recursive: true, force: true });
@@ -836,7 +836,7 @@ function buildCurrentStatus(data) {
     `Coverage: ${coverageStatus}`,
     `Review feedback: ${reviewStatus}`,
     '',
-    `Focus: ${focus}`,
+    `Focus: ${focus}`
   ].join('\n');
 }
 
@@ -860,7 +860,7 @@ function buildPrompt(data) {
       '5. Ensure linting and build succeed',
       '',
       'Always fix root causes rather than suppressing errors.',
-      'Avoid unrelated refactors.',
+      'Avoid unrelated refactors.'
     ].join('\n')
   );
 
@@ -1056,7 +1056,7 @@ Address this review feedback in the PR updates and ensure the conversation is re
       'npm run test:backend:coverage',
       '```',
       '',
-      'Finally: generate the Conventional Commit message for the changes.',
+      'Finally: generate the Conventional Commit message for the changes.'
     ].join('\n')
   );
 
@@ -1079,14 +1079,14 @@ function main() {
   const checkAnalysis = analyzeChecks(prData.checks);
 
   const discussionReviewItems = collectDiscussionReviewItems(prData.comments, prData.reviews, {
-    copilotOnly: OPTIONS.copilotOnly,
+    copilotOnly: OPTIONS.copilotOnly
   });
 
   const reviewThreadData = fetchReviewThreads(repoInfo, Number(prNumber));
   warnings.push(...reviewThreadData.warnings);
 
   const inlineReviewTasks = buildInlineReviewTasks(reviewThreadData.threads, {
-    copilotOnly: OPTIONS.copilotOnly,
+    copilotOnly: OPTIONS.copilotOnly
   });
 
   const ciData = collectCITasks(prData, checkAnalysis);
@@ -1095,7 +1095,7 @@ function main() {
   const coverageData = collectCoverageTasks(prData, {
     preferredRunId: ciData.run?.databaseId || null,
     includeCoverage: OPTIONS.includeCoverage,
-    hasCoverageFailures: checkAnalysis.coverageFailures.length > 0,
+    hasCoverageFailures: checkAnalysis.coverageFailures.length > 0
   });
   warnings.push(...coverageData.warnings);
 
@@ -1114,8 +1114,8 @@ function main() {
     review: {
       inline: inlineReviewTasks,
       inlineByFile: groupReviewTasksByFile(inlineReviewTasks),
-      general: discussionReviewItems,
-    },
+      general: discussionReviewItems
+    }
   });
 
   fs.writeFileSync(OUTPUT_FILE, prompt);

@@ -49,7 +49,7 @@ export class AddToLibraryWorkflowService {
       ...resolvedForAdd,
       igdbGameId: result.igdbGameId,
       platform: platformSelection.name,
-      platformIgdbId: platformSelection.id,
+      platformIgdbId: platformSelection.id
     };
 
     const entry = await this.gameShelfService.addGame(resolvedCatalog, listType);
@@ -89,12 +89,12 @@ export class AddToLibraryWorkflowService {
         type: 'radio',
         label: this.getPlatformDisplayName(platform.name, platform.id),
         value: String(index),
-        checked: index === selectedIndex,
+        checked: index === selectedIndex
       })),
       buttons: [
         {
           text: 'Cancel',
-          role: 'cancel',
+          role: 'cancel'
         },
         {
           text: 'Add',
@@ -105,9 +105,9 @@ export class AddToLibraryWorkflowService {
             if (Number.isInteger(parsed) && parsed >= 0 && parsed < platforms.length) {
               selectedIndex = parsed;
             }
-          },
-        },
-      ],
+          }
+        }
+      ]
     });
 
     await alert.present();
@@ -141,7 +141,7 @@ export class AddToLibraryWorkflowService {
         })
         .map((option) => ({
           id: option.id as number,
-          name: option.name,
+          name: option.name
         }))
         .sort((left, right) =>
           this.platformOrderService.comparePlatformNames(left.name, right.name)
@@ -177,7 +177,7 @@ export class AddToLibraryWorkflowService {
       return {
         ...result,
         coverUrl: boxArtUrl,
-        coverSource: useIgdbCover ? 'igdb' : 'thegamesdb',
+        coverSource: useIgdbCover ? 'igdb' : 'thegamesdb'
       };
     } catch {
       return result;
@@ -189,7 +189,7 @@ export class AddToLibraryWorkflowService {
       message,
       duration: 1600,
       position: 'bottom',
-      color: 'primary',
+      color: 'primary'
     });
 
     await toast.present();
@@ -200,7 +200,7 @@ export class AddToLibraryWorkflowService {
     const alert = await this.alertController.create({
       header: 'Duplicate Game',
       message: `${title}${platformSuffix} is already in your game shelf.`,
-      buttons: ['OK'],
+      buttons: ['OK']
     });
 
     await alert.present();
@@ -210,7 +210,7 @@ export class AddToLibraryWorkflowService {
     const alert = await this.alertController.create({
       header: 'Platform Required',
       message: `A valid IGDB platform is required to add ${title}.`,
-      buttons: ['OK'],
+      buttons: ['OK']
     });
 
     await alert.present();

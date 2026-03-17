@@ -18,24 +18,24 @@ interface UnregisterBody {
 
 const REGISTER_RATE_LIMIT = {
   max: 30,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 } as const;
 
 const UNREGISTER_RATE_LIMIT = {
   max: 30,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 } as const;
 
 const TEST_RATE_LIMIT = {
   max: 5,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 } as const;
 
 const TEST_ENDPOINT_MAX_ACTIVE_TOKENS = 5_000;
 
 const OBSERVABILITY_RATE_LIMIT = {
   max: 10,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 } as const;
 
 export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): void {
@@ -43,8 +43,8 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
     '/v1/notifications/observability',
     {
       config: {
-        rateLimit: OBSERVABILITY_RATE_LIMIT,
-      },
+        rateLimit: OBSERVABILITY_RATE_LIMIT
+      }
     },
     async (_request, reply) => {
       if (!config.notificationsObservabilityEndpointEnabled) {
@@ -94,7 +94,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
       const recentEvents = eventStatsResult.rows.map((row) => ({
         eventType: row.event_type,
         eventCount: Number.parseInt(row.event_count, 10) || 0,
-        sentTotal: Number.parseInt(row.sent_total, 10) || 0,
+        sentTotal: Number.parseInt(row.sent_total, 10) || 0
       }));
 
       reply.send({
@@ -103,9 +103,9 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
           active: Number.parseInt(tokenStatsResult.rows[0]?.active_tokens ?? '0', 10) || 0,
           inactive: Number.parseInt(tokenStatsResult.rows[0]?.inactive_tokens ?? '0', 10) || 0,
           invalidatedLast24h:
-            Number.parseInt(recentInvalidResult.rows[0]?.invalidated_last_24h ?? '0', 10) || 0,
+            Number.parseInt(recentInvalidResult.rows[0]?.invalidated_last_24h ?? '0', 10) || 0
         },
-        events: recentEvents,
+        events: recentEvents
       });
     }
   );
@@ -114,8 +114,8 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
     '/v1/notifications/fcm/register',
     {
       config: {
-        rateLimit: REGISTER_RATE_LIMIT,
-      },
+        rateLimit: REGISTER_RATE_LIMIT
+      }
     },
     async (request, reply) => {
       const body = (request.body ?? {}) as RegisterBody;
@@ -166,8 +166,8 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
     '/v1/notifications/fcm/unregister',
     {
       config: {
-        rateLimit: UNREGISTER_RATE_LIMIT,
-      },
+        rateLimit: UNREGISTER_RATE_LIMIT
+      }
     },
     async (request, reply) => {
       const body = (request.body ?? {}) as UnregisterBody;
@@ -195,8 +195,8 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
     '/v1/notifications/test',
     {
       config: {
-        rateLimit: TEST_RATE_LIMIT,
-      },
+        rateLimit: TEST_RATE_LIMIT
+      }
     },
     async (_request, reply) => {
       if (!config.notificationsTestEndpointEnabled) {
@@ -223,8 +223,8 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
         body: `Sent at ${new Date().toISOString()}`,
         data: {
           eventType: 'test',
-          route: '/tabs/wishlist',
-        },
+          route: '/tabs/wishlist'
+        }
       });
 
       if (sendResult.invalidTokens.length > 0) {
@@ -240,7 +240,7 @@ export function registerNotificationRoutes(app: FastifyInstance, pool: Pool): vo
 
       reply.send({
         ok: true,
-        ...sendResult,
+        ...sendResult
       });
     }
   );
@@ -255,7 +255,7 @@ function isNotificationAdminAuthorized(
     apiToken: config.apiToken,
     clientWriteTokens: [],
     authorizationHeader: request.headers.authorization,
-    clientWriteTokenHeader: undefined,
+    clientWriteTokenHeader: undefined
   });
 
   if (!authorized) {

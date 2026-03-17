@@ -1,7 +1,7 @@
 import {
   DEFAULT_GAME_LIST_FILTERS,
   GameEntry,
-  GameListFilters,
+  GameListFilters
 } from '../../core/models/game.models';
 import { GameListFilteringEngine } from './game-list-filtering';
 
@@ -50,7 +50,7 @@ function makeGame(
     priceCurrency: partial.priceCurrency ?? null,
     priceSource: partial.priceSource ?? null,
     priceFetchedAt: partial.priceFetchedAt ?? null,
-    priceUrl: partial.priceUrl ?? null,
+    priceUrl: partial.priceUrl ?? null
   };
 }
 
@@ -79,7 +79,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       excludedTags: [' RPG ', noneTagFilterValue, 'RPG'],
       excludedStatuses: ['playing', 'none'],
       hltbMainHoursMin: 20,
-      hltbMainHoursMax: 10,
+      hltbMainHoursMax: 10
     });
 
     expect(normalized.platform).toEqual(['Switch']);
@@ -95,12 +95,12 @@ describe('GameListFilteringEngine UI behavior', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'A', hltbMainHours: 6 }),
       makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'B', hltbMainHours: null }),
-      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'C', hltbMainHours: 15 }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'C', hltbMainHours: 15 })
     ];
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       hltbMainHoursMin: 5,
-      hltbMainHoursMax: 10,
+      hltbMainHoursMax: 10
     };
 
     const result = engine.applyFiltersAndSort(games, filters, '');
@@ -116,7 +116,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'Main+Extra',
         hltbMainHours: null,
-        hltbMainExtraHours: 11,
+        hltbMainExtraHours: 11
       }),
       makeGame({
         igdbGameId: '3',
@@ -124,7 +124,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         title: 'Completionist',
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: 8,
+        hltbCompletionistHours: 8
       }),
       makeGame({
         igdbGameId: '4',
@@ -132,13 +132,13 @@ describe('GameListFilteringEngine UI behavior', () => {
         title: 'Missing',
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null,
-      }),
+        hltbCompletionistHours: null
+      })
     ];
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       hltbMainHoursMin: 8,
-      hltbMainHoursMax: 10,
+      hltbMainHoursMax: 10
     };
 
     const result = engine.applyFiltersAndSort(games, filters, '');
@@ -152,13 +152,13 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'Tagged',
-        tags: [{ id: 1, name: 'Action', color: '#fff' }],
+        tags: [{ id: 1, name: 'Action', color: '#fff' }]
       }),
-      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Untagged', tags: [] }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Untagged', tags: [] })
     ];
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
-      tags: [noneTagFilterValue],
+      tags: [noneTagFilterValue]
     };
 
     const result = engine.applyFiltersAndSort(games, filters, '');
@@ -170,7 +170,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     const malformedRating = makeGame({
       igdbGameId: '1',
       platformIgdbId: 130,
-      title: 'Malformed Rating',
+      title: 'Malformed Rating'
     });
     (malformedRating as unknown as { rating: unknown }).rating = '2.5x';
 
@@ -178,12 +178,12 @@ describe('GameListFilteringEngine UI behavior', () => {
       igdbGameId: '2',
       platformIgdbId: 130,
       title: 'Valid Rating',
-      rating: 2.5,
+      rating: 2.5
     });
 
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
-      ratings: [2.5],
+      ratings: [2.5]
     };
 
     const result = engine.applyFiltersAndSort([malformedRating, validRating], filters, '');
@@ -196,9 +196,9 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'With Series',
-        collections: ['Zelda'],
+        collections: ['Zelda']
       }),
-      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Without Series', collections: [] }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Without Series', collections: [] })
     ];
 
     const grouped = engine.buildGroupedView(games, 'collection');
@@ -219,9 +219,9 @@ describe('GameListFilteringEngine UI behavior', () => {
         collections: ['Series A', 'Series A', 'Series B'],
         tags: [
           { id: 1, name: 'Favorite', color: '#fff' },
-          { id: 2, name: ' Favorite ', color: '#000' },
+          { id: 2, name: ' Favorite ', color: '#000' }
         ],
-        gameType: 'main_game',
+        gameType: 'main_game'
       }),
       makeGame({
         igdbGameId: '2',
@@ -231,8 +231,8 @@ describe('GameListFilteringEngine UI behavior', () => {
         genres: ['RPG'],
         collections: ['Series B'],
         tags: [{ id: 3, name: 'Backlog', color: '#aaa' }],
-        gameType: 'expansion',
-      }),
+        gameType: 'expansion'
+      })
     ];
 
     expect(engine.extractPlatforms(games)).toEqual(['Nintendo Switch', 'PC (Microsoft Windows)']);
@@ -248,21 +248,21 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 99,
         title: 'JP Game',
-        platform: 'Family Computer',
+        platform: 'Family Computer'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 18,
         title: 'US Game',
-        platform: 'Nintendo Entertainment System',
-      }),
+        platform: 'Nintendo Entertainment System'
+      })
     ];
 
     expect(engine.extractPlatforms(games)).toEqual(['Nintendo Entertainment System']);
 
     const normalizedFilters = engine.normalizeFilters({
       ...DEFAULT_GAME_LIST_FILTERS,
-      platform: ['Family Computer'],
+      platform: ['Family Computer']
     });
 
     expect(normalizedFilters.platform).toEqual(['Nintendo Entertainment System']);
@@ -277,19 +277,19 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 58,
         title: 'JP SNES',
-        platform: 'Super Famicom',
+        platform: 'Super Famicom'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 19,
         title: 'US SNES',
-        platform: 'Super Nintendo Entertainment System',
-      }),
+        platform: 'Super Nintendo Entertainment System'
+      })
     ];
 
     const grouped = engine.buildGroupedView(games, 'platform');
     expect(grouped.sections.map((section) => section.title)).toEqual([
-      'Super Nintendo Entertainment System',
+      'Super Nintendo Entertainment System'
     ]);
     expect(grouped.sections[0].games.map((game) => game.title)).toEqual(['JP SNES', 'US SNES']);
   });
@@ -300,26 +300,26 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 51,
         title: 'Disk System Game',
-        platform: 'Family Computer Disk System',
+        platform: 'Family Computer Disk System'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 18,
         title: 'NES Game',
-        platform: 'Nintendo Entertainment System',
+        platform: 'Nintendo Entertainment System'
       }),
       makeGame({
         igdbGameId: '3',
         platformIgdbId: 510,
         title: 'e-Reader Game',
-        platform: 'e-Reader / Card-e Reader',
+        platform: 'e-Reader / Card-e Reader'
       }),
       makeGame({
         igdbGameId: '4',
         platformIgdbId: 24,
         title: 'GBA Game',
-        platform: 'Game Boy Advance',
-      }),
+        platform: 'Game Boy Advance'
+      })
     ];
 
     expect(engine.extractPlatforms(games).sort()).toEqual(
@@ -338,14 +338,14 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 510,
         title: 'Card-e Game',
-        platform: 'e-Reader',
+        platform: 'e-Reader'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 24,
         title: 'GBA Game',
-        platform: 'Game Boy Advance',
-      }),
+        platform: 'Game Boy Advance'
+      })
     ];
 
     expect(engine.extractPlatforms(games).sort()).toEqual(['e-Reader', 'Game Boy Advance'].sort());
@@ -357,7 +357,7 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     const normalizedFilters = engine.normalizeFilters({
       ...DEFAULT_GAME_LIST_FILTERS,
-      platform: ['e-Reader'],
+      platform: ['e-Reader']
     });
     expect(normalizedFilters.platform).toEqual(['e-Reader']);
 
@@ -371,21 +371,21 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 137,
         title: 'New 3DS Game',
-        platform: 'New Nintendo 3DS',
+        platform: 'New Nintendo 3DS'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 37,
         title: '3DS Game',
-        platform: 'Nintendo 3DS',
+        platform: 'Nintendo 3DS'
       }),
       makeGame({
         igdbGameId: '3',
         platformIgdbId: 159,
         title: 'DSi Game',
-        platform: 'Nintendo DSi',
+        platform: 'Nintendo DSi'
       }),
-      makeGame({ igdbGameId: '4', platformIgdbId: 20, title: 'DS Game', platform: 'Nintendo DS' }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 20, title: 'DS Game', platform: 'Nintendo DS' })
     ];
 
     expect(engine.extractPlatforms(games).sort()).toEqual(['Nintendo 3DS', 'Nintendo DS'].sort());
@@ -404,26 +404,26 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'Switch Game',
-        platform: 'Nintendo Switch',
+        platform: 'Nintendo Switch'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 6,
         title: 'PC Game',
-        platform: 'PC (Microsoft Windows)',
+        platform: 'PC (Microsoft Windows)'
       }),
       makeGame({
         igdbGameId: '3',
         platformIgdbId: 167,
         title: 'PS5 Game',
-        platform: 'PlayStation 5',
-      }),
+        platform: 'PlayStation 5'
+      })
     ];
 
     expect(engine.extractPlatforms(games)).toEqual([
       'PC (Microsoft Windows)',
       'Nintendo Switch',
-      'PlayStation 5',
+      'PlayStation 5'
     ]);
   });
 
@@ -435,16 +435,16 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'Mario',
-        platform: 'Nintendo Switch',
+        platform: 'Nintendo Switch'
       }),
-      makeGame({ igdbGameId: '2', platformIgdbId: 167, title: 'Astro', platform: 'PlayStation 5' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 167, title: 'Astro', platform: 'PlayStation 5' })
     ];
 
     expect(engine.extractPlatforms(games)).toEqual(['PlayStation 5', 'Switch']);
 
     const normalizedFilters = engine.normalizeFilters({
       ...DEFAULT_GAME_LIST_FILTERS,
-      platform: ['Switch'],
+      platform: ['Switch']
     });
 
     const filtered = engine.applyFiltersAndSort(games, normalizedFilters, '');
@@ -457,12 +457,12 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Nintendo Entertainment System',
       'Super Famicom',
       'Super Nintendo Entertainment System',
-      'Nintendo 64',
+      'Nintendo 64'
     ]);
     engine.setPlatformDisplayNames({
       '99': 'Famicom',
       '18': 'NES',
-      '19': 'SNES',
+      '19': 'SNES'
     });
 
     const games: GameEntry[] = [
@@ -470,27 +470,27 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 99,
         title: 'JP NES',
-        platform: 'Family Computer',
+        platform: 'Family Computer'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 18,
         title: 'US NES',
-        platform: 'Nintendo Entertainment System',
+        platform: 'Nintendo Entertainment System'
       }),
       makeGame({
         igdbGameId: '3',
         platformIgdbId: 58,
         title: 'JP SNES',
-        platform: 'Super Famicom',
+        platform: 'Super Famicom'
       }),
       makeGame({
         igdbGameId: '4',
         platformIgdbId: 19,
         title: 'US SNES',
-        platform: 'Super Nintendo Entertainment System',
+        platform: 'Super Nintendo Entertainment System'
       }),
-      makeGame({ igdbGameId: '5', platformIgdbId: 4, title: 'N64', platform: 'Nintendo 64' }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 4, title: 'N64', platform: 'Nintendo 64' })
     ];
 
     expect(engine.extractPlatforms(games)).toEqual(['NES', 'SNES', 'Nintendo 64']);
@@ -499,13 +499,13 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(grouped.sections.map((section) => section.title)).toEqual([
       'NES',
       'SNES',
-      'Nintendo 64',
+      'Nintendo 64'
     ]);
   });
 
   it('keeps aliased source custom names from splitting canonical destination grouping', () => {
     engine.setPlatformDisplayNames({
-      '510': 'e-Reader',
+      '510': 'e-Reader'
     });
 
     const games: GameEntry[] = [
@@ -513,14 +513,14 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 510,
         title: 'Card-e Game',
-        platform: 'e-Reader / Card-e Reader',
+        platform: 'e-Reader / Card-e Reader'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 24,
         title: 'GBA Game',
-        platform: 'Game Boy Advance',
-      }),
+        platform: 'Game Boy Advance'
+      })
     ];
 
     expect(engine.extractPlatforms(games)).toEqual(['Game Boy Advance']);
@@ -530,7 +530,7 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     const normalizedFilters = engine.normalizeFilters({
       ...DEFAULT_GAME_LIST_FILTERS,
-      platform: ['e-Reader'],
+      platform: ['e-Reader']
     });
     expect(normalizedFilters.platform).toEqual(['Game Boy Advance']);
 
@@ -552,7 +552,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         publishers: ['Pub A'],
         gameType: 'main_game',
         status: 'playing',
-        rating: 4,
+        rating: 4
       }),
       makeGame({
         igdbGameId: '2',
@@ -566,8 +566,8 @@ describe('GameListFilteringEngine UI behavior', () => {
         publishers: ['Pub B'],
         gameType: 'expansion',
         status: 'completed',
-        rating: 5,
-      }),
+        rating: 5
+      })
     ];
 
     const filters: GameListFilters = {
@@ -580,7 +580,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       publishers: ['Pub A'],
       gameTypes: ['main_game'],
       statuses: ['playing'],
-      ratings: [4],
+      ratings: [4]
     };
 
     const result = engine.applyFiltersAndSort(games, filters, '');
@@ -596,7 +596,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         tags: [{ id: 1, name: 'Backlog', color: '#fff' }],
         genres: ['Action'],
         status: 'playing',
-        gameType: 'main_game',
+        gameType: 'main_game'
       }),
       makeGame({
         igdbGameId: '2',
@@ -605,7 +605,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         tags: [],
         genres: ['RPG'],
         status: null,
-        gameType: 'expansion',
+        gameType: 'expansion'
       }),
       makeGame({
         igdbGameId: '3',
@@ -615,8 +615,8 @@ describe('GameListFilteringEngine UI behavior', () => {
         genres: ['Strategy'],
         status: 'completed',
         gameType: 'season',
-        platform: 'PC (Microsoft Windows)',
-      }),
+        platform: 'PC (Microsoft Windows)'
+      })
     ];
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
@@ -624,7 +624,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       excludedGenres: ['Action'],
       excludedStatuses: ['playing'],
       excludedTags: ['Backlog'],
-      excludedGameTypes: ['expansion'],
+      excludedGameTypes: ['expansion']
     };
 
     const result = engine.applyFiltersAndSort(games, filters, '');
@@ -638,20 +638,20 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'No Status No Tags',
         status: null,
-        tags: [],
+        tags: []
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Playing With Tag',
         status: 'playing',
-        tags: [{ id: 1, name: 'Backlog', color: '#fff' }],
-      }),
+        tags: [{ id: 1, name: 'Backlog', color: '#fff' }]
+      })
     ];
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       excludedStatuses: ['none', 'playing'],
-      excludedTags: [noneTagFilterValue, 'Backlog'],
+      excludedTags: [noneTagFilterValue, 'Backlog']
     };
     const normalizedFilters = engine.normalizeFilters(filters);
 
@@ -666,21 +666,21 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'No Data',
         status: null,
-        rating: null,
+        rating: null
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Has Data',
         status: 'playing',
-        rating: 3,
-      }),
+        rating: 3
+      })
     ];
 
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       statuses: ['none'],
-      ratings: ['none'],
+      ratings: ['none']
     };
 
     const result = engine.applyFiltersAndSort(games, filters, '');
@@ -693,21 +693,21 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'Half Step Match',
-        rating: 4.5,
+        rating: 4.5
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Whole Step',
-        rating: 4,
-      }),
+        rating: 4
+      })
     ];
 
     const result = engine.applyFiltersAndSort(
       games,
       {
         ...DEFAULT_GAME_LIST_FILTERS,
-        ratings: [4.5],
+        ratings: [4.5]
       },
       ''
     );
@@ -720,21 +720,21 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'Super Mario',
-        releaseDate: '2020-01-10T00:00:00.000Z',
+        releaseDate: '2020-01-10T00:00:00.000Z'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Metroid Prime',
-        releaseDate: '2022-05-15T00:00:00.000Z',
+        releaseDate: '2022-05-15T00:00:00.000Z'
       }),
-      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Zelda', releaseDate: null }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Zelda', releaseDate: null })
     ];
 
     const filters: GameListFilters = {
       ...DEFAULT_GAME_LIST_FILTERS,
       releaseDateFrom: '2020-01-01',
-      releaseDateTo: '2021-12-31',
+      releaseDateTo: '2021-12-31'
     };
 
     const result = engine.applyFiltersAndSort(games, filters, '  mario  ');
@@ -744,7 +744,7 @@ describe('GameListFilteringEngine UI behavior', () => {
   it('matches search queries with diacritic-insensitive normalization', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'Pokémon Emerald' }),
-      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Metroid Prime' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Metroid Prime' })
     ];
 
     const result = engine.applyFiltersAndSort(games, DEFAULT_GAME_LIST_FILTERS, 'pokemon');
@@ -755,14 +755,14 @@ describe('GameListFilteringEngine UI behavior', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'The Last Game' }),
       makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'A Better Game' }),
-      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Final Game' }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'Final Game' })
     ];
 
     const result = engine.applyFiltersAndSort(games, DEFAULT_GAME_LIST_FILTERS, '');
     expect(result.map((game) => game.title)).toEqual([
       'A Better Game',
       'Final Game',
-      'The Last Game',
+      'The Last Game'
     ]);
   });
 
@@ -770,7 +770,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'B Game', platform: 'Switch' }),
       makeGame({ igdbGameId: '2', platformIgdbId: 6, title: 'C Game', platform: 'PC' }),
-      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'A Game', platform: 'Switch' }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'A Game', platform: 'Switch' })
     ];
 
     const result = engine.applyFiltersAndSort(
@@ -778,7 +778,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'platform',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -786,7 +786,7 @@ describe('GameListFilteringEngine UI behavior', () => {
     expect(result.map((game) => `${game.platform}:${game.title}`)).toEqual([
       'PC:C Game',
       'Switch:B Game',
-      'Switch:A Game',
+      'Switch:A Game'
     ]);
   });
 
@@ -799,7 +799,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'Main+Extra',
         hltbMainHours: 0,
-        hltbMainExtraHours: 12,
+        hltbMainExtraHours: 12
       }),
       makeGame({
         igdbGameId: '4',
@@ -807,9 +807,9 @@ describe('GameListFilteringEngine UI behavior', () => {
         title: 'Completionist',
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: 15,
+        hltbCompletionistHours: 15
       }),
-      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Zero Main', hltbMainHours: 0 }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Zero Main', hltbMainHours: 0 })
     ];
 
     const asc = engine.applyFiltersAndSort(
@@ -817,7 +817,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'hltb',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -826,7 +826,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Zero Main',
       'Main',
       'Main+Extra',
-      'Completionist',
+      'Completionist'
     ]);
 
     const desc = engine.applyFiltersAndSort(
@@ -834,7 +834,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'hltb',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       ''
     );
@@ -843,7 +843,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Main+Extra',
       'Main',
       'Zero Main',
-      'No HLTB',
+      'No HLTB'
     ]);
   });
 
@@ -852,7 +852,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       makeGame({ igdbGameId: '1', platformIgdbId: 6, title: 'No Price' }),
       makeGame({ igdbGameId: '2', platformIgdbId: 6, title: 'Priced High', priceAmount: 59.9 }),
       makeGame({ igdbGameId: '3', platformIgdbId: 6, title: 'Priced Low', priceAmount: 19.9 }),
-      makeGame({ igdbGameId: '4', platformIgdbId: 6, title: 'Free', priceIsFree: true }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 6, title: 'Free', priceIsFree: true })
     ];
 
     const asc = engine.applyFiltersAndSort(
@@ -860,7 +860,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'price',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -868,7 +868,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Free',
       'Priced Low',
       'Priced High',
-      'No Price',
+      'No Price'
     ]);
 
     const desc = engine.applyFiltersAndSort(
@@ -876,7 +876,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'price',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       ''
     );
@@ -884,7 +884,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Priced High',
       'Priced Low',
       'Free',
-      'No Price',
+      'No Price'
     ]);
   });
 
@@ -895,9 +895,9 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'Bravo',
         hltbMainHours: null,
-        hltbMainExtraHours: 10,
+        hltbMainExtraHours: 10
       }),
-      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Alpha', hltbMainHours: 10 }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Alpha', hltbMainHours: 10 })
     ];
 
     const sortedEqualNumeric = engine.applyFiltersAndSort(
@@ -905,7 +905,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'hltb',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -913,7 +913,7 @@ describe('GameListFilteringEngine UI behavior', () => {
 
     const equalMissing: GameEntry[] = [
       makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'B Missing', hltbMainHours: null }),
-      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'A Missing', hltbMainHours: null }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'A Missing', hltbMainHours: null })
     ];
 
     const sortedEqualMissing = engine.applyFiltersAndSort(
@@ -921,7 +921,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'hltb',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -937,9 +937,9 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '4',
         platformIgdbId: 130,
         title: 'Invalid',
-        metacriticScore: 101,
+        metacriticScore: 101
       }),
-      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Low', metacriticScore: 45 }),
+      makeGame({ igdbGameId: '5', platformIgdbId: 130, title: 'Low', metacriticScore: 45 })
     ];
 
     const asc = engine.applyFiltersAndSort(
@@ -947,7 +947,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'metacritic',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -958,7 +958,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'metacritic',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       ''
     );
@@ -967,12 +967,12 @@ describe('GameListFilteringEngine UI behavior', () => {
     const equalScores = engine.applyFiltersAndSort(
       [
         makeGame({ igdbGameId: '6', platformIgdbId: 130, title: 'Beta', metacriticScore: 70 }),
-        makeGame({ igdbGameId: '7', platformIgdbId: 130, title: 'Alpha', metacriticScore: 70 }),
+        makeGame({ igdbGameId: '7', platformIgdbId: 130, title: 'Alpha', metacriticScore: 70 })
       ],
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'metacritic',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -987,7 +987,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'Moby High',
         reviewScore: 8.8,
-        reviewSource: 'mobygames',
+        reviewSource: 'mobygames'
       }),
       // Metacritic score on 0–100 scale
       makeGame({
@@ -995,7 +995,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'Meta Mid',
         reviewScore: 70,
-        reviewSource: 'metacritic',
+        reviewSource: 'metacritic'
       }),
       // MobyGames score on 0–100 scale (already normalized)
       makeGame({
@@ -1003,10 +1003,10 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'Moby Norm',
         reviewScore: 88,
-        reviewSource: 'mobygames',
+        reviewSource: 'mobygames'
       }),
       // No review score
-      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'No Score' }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'No Score' })
     ];
 
     const desc = engine.applyFiltersAndSort(
@@ -1014,7 +1014,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'metacritic',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       ''
     );
@@ -1023,7 +1023,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Moby High',
       'Moby Norm',
       'Meta Mid',
-      'No Score',
+      'No Score'
     ]);
 
     const asc = engine.applyFiltersAndSort(
@@ -1031,7 +1031,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'metacritic',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -1039,7 +1039,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Meta Mid',
       'Moby High',
       'Moby Norm',
-      'No Score',
+      'No Score'
     ]);
   });
 
@@ -1052,7 +1052,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         title: 'Low Critic',
         reviewScore: 10,
         reviewSource: 'mobygames',
-        mobyScore: 1.0,
+        mobyScore: 1.0
       }),
       // moby_score=8.0 on 0–10 scale; reviewScore matches mobyScore → scales to 80
       makeGame({
@@ -1061,15 +1061,15 @@ describe('GameListFilteringEngine UI behavior', () => {
         title: 'High Moby',
         reviewScore: 8.0,
         reviewSource: 'mobygames',
-        mobyScore: 8.0,
+        mobyScore: 8.0
       }),
       makeGame({
         igdbGameId: '3',
         platformIgdbId: 130,
         title: 'Mid Normal',
         reviewScore: 50,
-        reviewSource: 'metacritic',
-      }),
+        reviewSource: 'metacritic'
+      })
     ];
 
     const desc = engine.applyFiltersAndSort(
@@ -1077,7 +1077,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'metacritic',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       ''
     );
@@ -1094,15 +1094,15 @@ describe('GameListFilteringEngine UI behavior', () => {
         title: 'Fallback',
         reviewScore: null,
         reviewSource: 'mobygames',
-        metacriticScore: 75,
+        metacriticScore: 75
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Normal',
         reviewScore: 80,
-        reviewSource: 'metacritic',
-      }),
+        reviewSource: 'metacritic'
+      })
     ];
 
     const desc = engine.applyFiltersAndSort(
@@ -1110,7 +1110,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'metacritic',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       ''
     );
@@ -1126,7 +1126,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         title: 'Main',
         reviewScore: 80,
         reviewSource: 'metacritic',
-        hltbMainHours: 10,
+        hltbMainHours: 10
       }),
       makeGame({
         igdbGameId: '2',
@@ -1135,7 +1135,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         reviewScore: 80,
         reviewSource: 'metacritic',
         hltbMainHours: null,
-        hltbMainExtraHours: 5,
+        hltbMainExtraHours: 5
       }),
       makeGame({
         igdbGameId: '3',
@@ -1145,7 +1145,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         reviewSource: 'metacritic',
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: 2,
+        hltbCompletionistHours: 2
       }),
       makeGame({
         igdbGameId: '4',
@@ -1154,7 +1154,7 @@ describe('GameListFilteringEngine UI behavior', () => {
         reviewScore: 8.5,
         reviewSource: 'mobygames',
         mobyScore: 8.5,
-        hltbMainHours: 10,
+        hltbMainHours: 10
       }),
       makeGame({
         igdbGameId: '5',
@@ -1164,15 +1164,15 @@ describe('GameListFilteringEngine UI behavior', () => {
         reviewSource: 'metacritic',
         hltbMainHours: null,
         hltbMainExtraHours: null,
-        hltbCompletionistHours: null,
+        hltbCompletionistHours: null
       }),
       makeGame({
         igdbGameId: '6',
         platformIgdbId: 130,
         title: 'No Score',
         reviewScore: null,
-        hltbMainHours: 10,
-      }),
+        hltbMainHours: 10
+      })
     ];
 
     const desc = engine.applyFiltersAndSort(
@@ -1180,7 +1180,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'tas',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       '',
       20
@@ -1191,7 +1191,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Main+Extra',
       'Main',
       'No Hours',
-      'No Score',
+      'No Score'
     ]);
 
     const asc = engine.applyFiltersAndSort(
@@ -1199,7 +1199,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'tas',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       '',
       20
@@ -1210,7 +1210,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Moby',
       'Completionist',
       'No Hours',
-      'No Score',
+      'No Score'
     ]);
   });
 
@@ -1224,7 +1224,7 @@ describe('GameListFilteringEngine UI behavior', () => {
           title: 'Beta',
           reviewScore: 80,
           reviewSource: 'metacritic',
-          hltbMainHours: 10,
+          hltbMainHours: 10
         }),
         makeGame({
           igdbGameId: '2',
@@ -1232,13 +1232,13 @@ describe('GameListFilteringEngine UI behavior', () => {
           title: 'Alpha',
           reviewScore: 80,
           reviewSource: 'metacritic',
-          hltbMainHours: 10,
-        }),
+          hltbMainHours: 10
+        })
       ],
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'tas',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       '',
       20
@@ -1253,15 +1253,15 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'Old',
-        createdAt: '2020-01-01T00:00:00.000Z',
+        createdAt: '2020-01-01T00:00:00.000Z'
       }),
       makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'Invalid', createdAt: 'not-a-date' }),
       makeGame({
         igdbGameId: '3',
         platformIgdbId: 130,
         title: 'New',
-        createdAt: '2023-01-01T00:00:00.000Z',
-      }),
+        createdAt: '2023-01-01T00:00:00.000Z'
+      })
     ];
 
     const result = engine.applyFiltersAndSort(
@@ -1269,7 +1269,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'createdAt',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -1284,14 +1284,14 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Early',
-        releaseDate: '2000-01-01T00:00:00.000Z',
+        releaseDate: '2000-01-01T00:00:00.000Z'
       }),
       makeGame({
         igdbGameId: '3',
         platformIgdbId: 130,
         title: 'Late',
-        releaseDate: '2020-01-01T00:00:00.000Z',
-      }),
+        releaseDate: '2020-01-01T00:00:00.000Z'
+      })
     ];
 
     const asc = engine.applyFiltersAndSort(
@@ -1299,7 +1299,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'releaseDate',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -1310,7 +1310,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'releaseDate',
-        sortDirection: 'desc',
+        sortDirection: 'desc'
       },
       ''
     );
@@ -1324,15 +1324,15 @@ describe('GameListFilteringEngine UI behavior', () => {
         platformIgdbId: 130,
         title: 'Tagged',
         releaseYear: 2020,
-        tags: [{ id: 1, name: 'Tag A', color: '#fff' }],
+        tags: [{ id: 1, name: 'Tag A', color: '#fff' }]
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Untagged',
         releaseYear: null,
-        tags: [],
-      }),
+        tags: []
+      })
     ];
 
     const byTag = engine.buildGroupedView(games, 'tag');
@@ -1345,7 +1345,7 @@ describe('GameListFilteringEngine UI behavior', () => {
   it('returns non-grouped view when groupBy is none', () => {
     const games: GameEntry[] = [
       makeGame({ igdbGameId: '1', platformIgdbId: 130, title: 'A' }),
-      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'B' }),
+      makeGame({ igdbGameId: '2', platformIgdbId: 130, title: 'B' })
     ];
 
     const grouped = engine.buildGroupedView(games, 'none');
@@ -1360,16 +1360,16 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '1',
         platformIgdbId: 130,
         title: 'The Same',
-        createdAt: '2020-01-01T00:00:00.000Z',
+        createdAt: '2020-01-01T00:00:00.000Z'
       }),
       makeGame({
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Same',
-        createdAt: '2020-01-01T00:00:00.000Z',
+        createdAt: '2020-01-01T00:00:00.000Z'
       }),
       makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'B Invalid', createdAt: 'bad-date' }),
-      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'A Invalid', createdAt: 'bad-date' }),
+      makeGame({ igdbGameId: '4', platformIgdbId: 130, title: 'A Invalid', createdAt: 'bad-date' })
     ];
 
     const result = engine.applyFiltersAndSort(
@@ -1377,7 +1377,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'createdAt',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );
@@ -1386,7 +1386,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       'Same',
       'The Same',
       'B Invalid',
-      'A Invalid',
+      'A Invalid'
     ]);
   });
 
@@ -1397,9 +1397,9 @@ describe('GameListFilteringEngine UI behavior', () => {
         igdbGameId: '2',
         platformIgdbId: 130,
         title: 'Has Date',
-        releaseDate: '2021-01-01T00:00:00.000Z',
+        releaseDate: '2021-01-01T00:00:00.000Z'
       }),
-      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'No Date A', releaseDate: null }),
+      makeGame({ igdbGameId: '3', platformIgdbId: 130, title: 'No Date A', releaseDate: null })
     ];
 
     const result = engine.applyFiltersAndSort(
@@ -1407,7 +1407,7 @@ describe('GameListFilteringEngine UI behavior', () => {
       {
         ...DEFAULT_GAME_LIST_FILTERS,
         sortField: 'releaseDate',
-        sortDirection: 'asc',
+        sortDirection: 'asc'
       },
       ''
     );

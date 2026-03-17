@@ -3,7 +3,7 @@ import { sendFcmMulticast, type FcmSendResult } from './fcm.js';
 import {
   MAX_ACTIVE_TOKENS_PER_RUN,
   RELEASE_NOTIFICATION_EVENTS_KEY,
-  RELEASE_NOTIFICATIONS_ENABLED_KEY,
+  RELEASE_NOTIFICATIONS_ENABLED_KEY
 } from './notification-constants.js';
 import { coercePreferenceBoolean } from './preference-bool.js';
 
@@ -81,7 +81,7 @@ export async function maybeSendWishlistSaleNotification(
     platformIgdbId: params.platformIgdbId,
     title: titleValue,
     snapshot: after,
-    fetchedAt: normalizeNonEmptyString(params.nextPayload['priceFetchedAt']),
+    fetchedAt: normalizeNonEmptyString(params.nextPayload['priceFetchedAt'])
   });
 
   const reserved = await reserveNotificationLog(
@@ -131,8 +131,8 @@ export async function maybeSendWishlistSaleNotification(
           event.payload.priceDiscountPercent !== null
             ? String(event.payload.priceDiscountPercent)
             : '',
-        priceCurrency: event.payload.priceCurrency ?? '',
-      },
+        priceCurrency: event.payload.priceCurrency ?? ''
+      }
     });
 
     if (sendResult.successCount <= 0) {
@@ -151,7 +151,7 @@ export async function maybeSendWishlistSaleNotification(
       console.error('[price-sale-notifications] post_send_persistence_failed', {
         eventKey: event.eventKey,
         successCount: sentCount,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     }
     throw error;
@@ -180,7 +180,7 @@ async function deactivateInvalidTokensBestEffort(
     console.error('[price-sale-notifications] invalid_token_deactivation_failed', {
       eventKey,
       invalidTokenCount: invalidTokens.length,
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
@@ -208,7 +208,7 @@ function deriveSaleSnapshot(payload: Record<string, unknown>): SaleSnapshot {
     discountPercent,
     isFree,
     currency,
-    onSale,
+    onSale
   };
 }
 
@@ -232,7 +232,7 @@ function buildSaleNotificationEvent(args: {
     args.snapshot.currency ?? 'na',
     args.snapshot.amount !== null ? String(args.snapshot.amount) : 'na',
     args.snapshot.regularAmount !== null ? String(args.snapshot.regularAmount) : 'na',
-    discountPercent !== null ? String(discountPercent) : 'na',
+    discountPercent !== null ? String(discountPercent) : 'na'
   ].join(':');
 
   return {
@@ -244,8 +244,8 @@ function buildSaleNotificationEvent(args: {
       priceAmount: args.snapshot.amount,
       priceRegularAmount: args.snapshot.regularAmount,
       priceDiscountPercent: discountPercent,
-      priceCurrency: args.snapshot.currency,
-    },
+      priceCurrency: args.snapshot.currency
+    }
   };
 }
 
@@ -283,7 +283,7 @@ function formatDisplayPrice(amount: number | null, currency: string | null): str
     try {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency,
+        currency
       }).format(amount);
     } catch {
       return `${currency} ${amount.toFixed(2)}`;
@@ -311,8 +311,8 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
     return {
       enabled,
       events: {
-        sale: true,
-      },
+        sale: true
+      }
     };
   }
 
@@ -321,15 +321,15 @@ async function readNotificationPreferences(pool: Pool): Promise<NotificationPref
     return {
       enabled,
       events: {
-        sale: coercePreferenceBoolean(parsed['sale'], true),
-      },
+        sale: coercePreferenceBoolean(parsed['sale'], true)
+      }
     };
   } catch {
     return {
       enabled,
       events: {
-        sale: true,
-      },
+        sale: true
+      }
     };
   }
 }
@@ -358,7 +358,7 @@ async function loadActiveTokenSet(pool: Pool): Promise<Set<string>> {
   if (loadedRowCount > MAX_ACTIVE_TOKENS_PER_RUN) {
     console.warn('[price-sale-notifications] active_tokens_capped', {
       maxActiveTokensPerRun: MAX_ACTIVE_TOKENS_PER_RUN,
-      loadedActiveTokens: set.size,
+      loadedActiveTokens: set.size
     });
   }
 
@@ -386,8 +386,8 @@ async function reserveNotificationLog(
       JSON.stringify({
         title: event.title,
         body: event.body,
-        ...event.payload,
-      }),
+        ...event.payload
+      })
     ]
   );
 
@@ -409,10 +409,10 @@ async function finalizeNotificationLog(
       JSON.stringify({
         title: event.title,
         body: event.body,
-        ...event.payload,
+        ...event.payload
       }),
       sentCount,
-      event.eventKey,
+      event.eventKey
     ]
   );
 }
@@ -472,5 +472,5 @@ function booleanOrNull(value: unknown): boolean | null {
 export const __saleNotificationTestables = {
   deriveSaleSnapshot,
   inferDiscountPercent,
-  formatDisplayPrice,
+  formatDisplayPrice
 };

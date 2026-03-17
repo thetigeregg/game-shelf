@@ -79,12 +79,12 @@ void test('sync push normalizes game notes line endings', async () => {
             title: 'Game',
             platform: 'Switch',
             listType: 'collection',
-            notes: 'Line 1\r\nLine 2',
+            notes: 'Line 1\r\nLine 2'
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
   });
 
   assert.equal(response.statusCode, 200);
@@ -121,12 +121,12 @@ void test('sync push normalizes unified pricing fields in game payload', async (
             priceRegularAmount: -1,
             priceDiscountPercent: '120',
             priceIsFree: 'true',
-            priceUrl: '//store.example.com/game/124',
+            priceUrl: '//store.example.com/game/124'
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
   });
 
   assert.equal(response.statusCode, 200);
@@ -164,12 +164,12 @@ void test('sync push only includes steamAppId when provided in payload', async (
             platformIgdbId: 130,
             title: 'Game',
             platform: 'Switch',
-            listType: 'collection',
+            listType: 'collection'
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
   });
 
   assert.equal(omittedResponse.statusCode, 200);
@@ -194,12 +194,12 @@ void test('sync push only includes steamAppId when provided in payload', async (
             title: 'Game',
             platform: 'Switch',
             listType: 'collection',
-            steamAppId: null,
+            steamAppId: null
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
   });
 
   assert.equal(explicitNullResponse.statusCode, 200);
@@ -227,10 +227,10 @@ void test('sync push returns merged game payload from upsert result', async () =
                 themes: ['Action'],
                 keywords: ['aliens'],
                 screenshots: [{ id: 1, imageId: 'abc' }],
-                videos: [{ id: 2, videoId: 'vid' }],
-              },
-            },
-          ],
+                videos: [{ id: 2, videoId: 'vid' }]
+              }
+            }
+          ]
         });
       }
       return super.query(sql, params);
@@ -260,12 +260,12 @@ void test('sync push returns merged game payload from upsert result', async () =
             platformIgdbId: 130,
             title: 'Game',
             platform: 'Switch',
-            listType: 'collection',
+            listType: 'collection'
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
   });
 
   assert.equal(response.statusCode, 200);
@@ -314,12 +314,12 @@ void test('sync game upsert SQL preserves unified pricing fields on conflict', a
             platformIgdbId: 6,
             title: 'Pricing SQL Check',
             platform: 'PC',
-            listType: 'wishlist',
+            listType: 'wishlist'
           },
-          clientTimestamp: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    },
+          clientTimestamp: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }
   });
 
   assert.equal(response.statusCode, 200);

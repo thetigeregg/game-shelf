@@ -94,8 +94,8 @@ export async function registerSteamPricesRoute(
     config: {
       rateLimit: {
         max: 60,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       const query = request.query as Record<string, unknown>;
@@ -130,7 +130,7 @@ export async function registerSteamPricesRoute(
           cc,
           steamAppId: null,
           cached: false,
-          bestPrice: null,
+          bestPrice: null
         };
         reply.code(200).send(unsupportedPayload);
         return;
@@ -149,7 +149,7 @@ export async function registerSteamPricesRoute(
           msg: 'steam_prices_read_failed',
           igdbGameId,
           platformIgdbId,
-          error: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : String(error)
         });
         reply.code(502).send({ error: 'Unable to read game pricing state.' });
         return;
@@ -169,7 +169,7 @@ export async function registerSteamPricesRoute(
           cc,
           steamAppId: null,
           cached: false,
-          bestPrice: null,
+          bestPrice: null
         };
         reply.code(200).send(missingPayload);
         return;
@@ -197,7 +197,7 @@ export async function registerSteamPricesRoute(
             cc,
             steamAppId,
             cached: true,
-            bestPrice: cachedSnapshot.snapshot,
+            bestPrice: cachedSnapshot.snapshot
           };
           reply.code(200).send(cachedPayload);
           return;
@@ -217,7 +217,7 @@ export async function registerSteamPricesRoute(
             steamAppId,
             fetchImpl,
             scheduleBackgroundRefresh,
-            enqueueRevalidationJob: options.enqueueRevalidationJob,
+            enqueueRevalidationJob: options.enqueueRevalidationJob
           });
 
           reply.header('X-GameShelf-Steam-Price-Cache', 'HIT_STALE');
@@ -233,7 +233,7 @@ export async function registerSteamPricesRoute(
             cc,
             steamAppId,
             cached: true,
-            bestPrice: cachedSnapshot.snapshot,
+            bestPrice: cachedSnapshot.snapshot
           };
           reply.code(200).send(stalePayload);
           return;
@@ -251,7 +251,7 @@ export async function registerSteamPricesRoute(
               payload,
               cc,
               steamAppId,
-              bestPrice: steamSnapshot,
+              bestPrice: steamSnapshot
             });
             incrementSteamPriceMetric('writes');
           } catch (error) {
@@ -262,7 +262,7 @@ export async function registerSteamPricesRoute(
               platformIgdbId,
               steamAppId,
               cc,
-              error: error instanceof Error ? error.message : String(error),
+              error: error instanceof Error ? error.message : String(error)
             });
           }
         }
@@ -275,7 +275,7 @@ export async function registerSteamPricesRoute(
           cc,
           steamAppId,
           cached: false,
-          bestPrice: steamSnapshot,
+          bestPrice: steamSnapshot
         };
         reply.header('X-GameShelf-Steam-Price-Cache', 'MISS');
         reply.code(200).send(responsePayload);
@@ -287,11 +287,11 @@ export async function registerSteamPricesRoute(
           platformIgdbId,
           steamAppId,
           cc,
-          error: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : String(error)
         });
         reply.code(502).send({ error: 'Unable to fetch Steam prices.' });
       }
-    },
+    }
   });
 }
 
@@ -305,7 +305,7 @@ function buildSteamPriceCacheKey(params: {
     params.igdbGameId,
     String(params.platformIgdbId),
     params.cc.toUpperCase(),
-    String(params.steamAppId),
+    String(params.steamAppId)
   ].join(':');
 }
 
@@ -436,8 +436,8 @@ function readSteamSnapshotFromPayload(
       initialAmount,
       discountPercent,
       isFree,
-      url,
-    },
+      url
+    }
   };
 }
 
@@ -463,7 +463,7 @@ function scheduleSteamPriceRevalidation(params: {
     igdbGameId: params.igdbGameId,
     platformIgdbId: params.platformIgdbId,
     cc: params.cc,
-    steamAppId: params.steamAppId,
+    steamAppId: params.steamAppId
   };
 
   if (params.enqueueRevalidationJob) {
@@ -498,7 +498,7 @@ function scheduleSteamPriceRevalidation(params: {
         payload: params.payload,
         cc: params.cc,
         steamAppId: params.steamAppId,
-        bestPrice: steamSnapshot,
+        bestPrice: steamSnapshot
       });
       incrementSteamPriceMetric('writes');
       incrementSteamPriceMetric('revalidateSucceeded');
@@ -510,7 +510,7 @@ function scheduleSteamPriceRevalidation(params: {
         platformIgdbId: params.platformIgdbId,
         steamAppId: params.steamAppId,
         cc: params.cc,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     } finally {
       revalidationInFlightByKey.delete(params.cacheKey);
@@ -583,7 +583,7 @@ async function fetchSteamPriceSnapshot(
     initialAmount: isFree === true ? 0 : initialAmount,
     discountPercent: isFree === true ? 0 : discountPercent,
     isFree,
-    url: buildSteamAppUrl(steamAppId),
+    url: buildSteamAppUrl(steamAppId)
   };
 }
 
@@ -619,9 +619,9 @@ async function fetchWithTimeout(
     return await fetchImpl(url, {
       method: 'GET',
       headers: {
-        Accept: 'application/json',
+        Accept: 'application/json'
       },
-      signal: controller.signal,
+      signal: controller.signal
     });
   } finally {
     clearTimeout(timeoutId);
@@ -645,7 +645,7 @@ async function persistSteamSnapshot(
     steamAppId: params.steamAppId,
     steamPriceCountry: params.cc,
     steamPriceFetchedAt: fetchedAt,
-    steamPriceSource: 'steam_store',
+    steamPriceSource: 'steam_store'
   };
   if (preserveExisting) {
     patchPayload['steamPriceUrl'] =
@@ -708,13 +708,13 @@ async function persistSteamSnapshot(
         igdbGameId: params.igdbGameId,
         platformIgdbId: params.platformIgdbId,
         previousPayload,
-        nextPayload: updatedPayload,
+        nextPayload: updatedPayload
       });
     } catch (error) {
       console.error('[steam] wishlist_sale_notification_failed', {
         igdbGameId: params.igdbGameId,
         platformIgdbId: params.platformIgdbId,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
@@ -749,7 +749,7 @@ export async function processQueuedSteamPriceRevalidation(
     payload: gamePayload,
     cc,
     steamAppId,
-    bestPrice: steamSnapshot,
+    bestPrice: steamSnapshot
   });
 }
 
@@ -760,5 +760,5 @@ export const __steamPriceTestables = {
   fetchSteamPriceSnapshot,
   extractSteamAppRecord,
   scheduleSteamPriceRevalidation,
-  buildSteamPriceCacheKey,
+  buildSteamPriceCacheKey
 };

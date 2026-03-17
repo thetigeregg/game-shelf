@@ -3,7 +3,7 @@ import {
   AlertController,
   IonApp,
   IonRouterOutlet,
-  ToastController,
+  ToastController
 } from '@ionic/angular/standalone';
 import { ThemeService } from './core/services/theme.service';
 import { GameSyncService } from './core/services/game-sync.service';
@@ -19,7 +19,7 @@ const LAST_SEEN_APP_VERSION_STORAGE_KEY = 'game_shelf_last_seen_app_version';
   templateUrl: 'app.component.html',
   styleUrls: ['app.component.scss'],
   standalone: true,
-  imports: [IonApp, IonRouterOutlet],
+  imports: [IonApp, IonRouterOutlet]
 })
 export class AppComponent {
   private readonly themeService = inject(ThemeService);
@@ -69,16 +69,16 @@ export class AppComponent {
           role: 'cancel',
           handler: () => {
             this.notificationService.setReleaseNotificationsEnabled(false);
-          },
+          }
         },
         {
           text: 'Enable',
           role: 'confirm',
           handler: () => {
             void this.enableReleaseNotificationsFromPrompt();
-          },
-        },
-      ],
+          }
+        }
+      ]
     });
 
     await alert.present();
@@ -103,7 +103,7 @@ export class AppComponent {
     const alert = await this.alertController.create({
       header: 'App Updated',
       message,
-      buttons: ['OK'],
+      buttons: ['OK']
     });
 
     await alert.present();
@@ -118,7 +118,7 @@ export class AppComponent {
       message,
       color,
       duration: 3500,
-      position: 'bottom',
+      position: 'bottom'
     });
 
     await toast.present();

@@ -39,7 +39,7 @@ function buildExpectedCacheKey(params: {
     params.genre?.toLowerCase() ?? null,
     params.group?.toLowerCase() ?? null,
     params.format,
-    params.include?.toLowerCase() ?? null,
+    params.include?.toLowerCase() ?? null
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -83,7 +83,7 @@ class MobyGamesPoolMock {
       const nowMs = this.options.now ? this.options.now() : Date.now();
       this.rowsByKey.set(key, {
         response_json: payload,
-        updated_at: new Date(nowMs).toISOString(),
+        updated_at: new Date(nowMs).toISOString()
       });
       return Promise.resolve({ rows: [] });
     }
@@ -138,14 +138,14 @@ void test('MOBYGAMES cache stores on miss and serves on hit', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ games: [{ game_id: 1, title: 'Okami' }] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       });
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Okami&platform=9&limit=5',
+    url: '/v1/mobygames/search?q=Okami&platform=9&limit=5'
   });
   assert.equal(first.statusCode, 200);
   assert.equal(first.headers['x-gameshelf-mobygames-cache'], 'MISS');
@@ -153,7 +153,7 @@ void test('MOBYGAMES cache stores on miss and serves on hit', async () => {
 
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=okami&platform=9&limit=5',
+    url: '/v1/mobygames/search?q=okami&platform=9&limit=5'
   });
   assert.equal(second.statusCode, 200);
   assert.equal(second.headers['x-gameshelf-mobygames-cache'], 'HIT_FRESH');
@@ -178,18 +178,18 @@ void test('MOBYGAMES cache bypasses cache when query is too short', async () => 
       fetchCalls += 1;
       return new Response(JSON.stringify({ games: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       });
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=a',
+    url: '/v1/mobygames/search?q=a'
   });
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=a',
+    url: '/v1/mobygames/search?q=a'
   });
 
   assert.equal(first.statusCode, 200);
@@ -212,14 +212,14 @@ void test('MOBYGAMES cache is fail-open when cache read throws', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ games: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       });
-    },
+    }
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Super%20Metroid',
+    url: '/v1/mobygames/search?q=Super%20Metroid'
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'BYPASS');
@@ -243,18 +243,18 @@ void test('MOBYGAMES cache does not store empty games payloads', async () => {
       fetchCalls += 1;
       return new Response(JSON.stringify({ games: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       });
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15&limit=100',
+    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15&limit=100'
   });
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15&limit=100',
+    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15&limit=100'
   });
 
   assert.equal(first.statusCode, 200);
@@ -282,22 +282,22 @@ void test('MOBYGAMES response forwarding strips upstream encoding headers for JS
           headers: {
             'content-type': 'application/json; charset=utf-8',
             'content-encoding': 'br',
-            'content-length': '9999',
-          },
+            'content-length': '9999'
+          }
         })
-      ),
+      )
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15',
+    url: '/v1/mobygames/search?q=Chrono%20Trigger&platform=15'
   });
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
   assert.equal(response.headers['content-encoding'], undefined);
   assert.deepEqual(JSON.parse(response.body), {
-    games: [{ game_id: 4501, title: 'Chrono Trigger' }],
+    games: [{ game_id: 4501, title: 'Chrono Trigger' }]
   });
 
   await app.close();
@@ -307,7 +307,7 @@ void test('MOBYGAMES default fetch returns 503 when API key is missing', async (
   await withEnv(
     {
       MOBYGAMES_API_BASE_URL: 'https://api.mobygames.com/v2',
-      MOBYGAMES_API_KEY_FILE: undefined,
+      MOBYGAMES_API_KEY_FILE: undefined
     },
     async () => {
       resetCacheMetrics();
@@ -318,7 +318,7 @@ void test('MOBYGAMES default fetch returns 503 when API key is missing', async (
 
       const response = await app.inject({
         method: 'GET',
-        url: '/v1/mobygames/search?q=Okami',
+        url: '/v1/mobygames/search?q=Okami'
       });
 
       assert.equal(response.statusCode, 503);
@@ -343,7 +343,7 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
     return Promise.resolve(
       new Response(JSON.stringify({ games: [{ game_id: 1, title: 'Okami' }] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       })
     );
   }) as typeof fetch;
@@ -353,7 +353,7 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
     await withEnv(
       {
         MOBYGAMES_API_BASE_URL: 'https://api.mobygames.com/v2',
-        MOBYGAMES_API_KEY_FILE: keyPath,
+        MOBYGAMES_API_KEY_FILE: keyPath
       },
       async () => {
         resetCacheMetrics();
@@ -364,7 +364,7 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
 
         const response = await app.inject({
           method: 'GET',
-          url: '/v1/mobygames/search?q=Okami&platform=9&limit=10&offset=0&include=game_id,title,moby_url&fuzzy=true',
+          url: '/v1/mobygames/search?q=Okami&platform=9&limit=10&offset=0&include=game_id,title,moby_url&fuzzy=true'
         });
 
         assert.equal(response.statusCode, 200);
@@ -386,7 +386,7 @@ void test('MOBYGAMES default fetch forwards API key and query params', async () 
           genre: null,
           group: null,
           format: null,
-          include: 'game_id,title,moby_url',
+          include: 'game_id,title,moby_url'
         });
         assert.equal(typeof expectedCacheKey, 'string');
 
@@ -418,7 +418,7 @@ void test('MOBYGAMES stale revalidation serves stale and refreshes cache in back
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
 
@@ -435,18 +435,18 @@ void test('MOBYGAMES stale revalidation serves stale and refreshes cache in back
       return Promise.resolve(
         new Response(JSON.stringify({ games: [{ game_id: 99, title: 'Sonic (updated)' }] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
     },
     scheduleBackgroundRefresh: (task) => {
       backgroundTask = task;
-    },
+    }
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Sonic&platform=9',
+    url: '/v1/mobygames/search?q=Sonic&platform=9'
   });
 
   assert.equal(response.statusCode, 200);
@@ -486,7 +486,7 @@ void test('MOBYGAMES stale revalidation skips when already in-flight', async () 
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
 
@@ -501,12 +501,12 @@ void test('MOBYGAMES stale revalidation skips when already in-flight', async () 
       Promise.resolve(
         new Response(JSON.stringify({ games: [{ game_id: 7, title: 'Mega Man' }] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       ),
     scheduleBackgroundRefresh: (task) => {
       capturedTasks.push(task);
-    },
+    }
   });
 
   const first = await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Mega%20Man' });
@@ -544,7 +544,7 @@ void test('MOBYGAMES stale revalidation handles non-ok upstream response', async
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
 
@@ -558,7 +558,7 @@ void test('MOBYGAMES stale revalidation handles non-ok upstream response', async
     fetchMetadata: () => Promise.resolve(new Response('upstream error', { status: 503 })),
     scheduleBackgroundRefresh: (task) => {
       backgroundTask = task;
-    },
+    }
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Castlevania' });
@@ -589,7 +589,7 @@ void test('MOBYGAMES stale revalidation handles null JSON payload', async () => 
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
 
@@ -604,12 +604,12 @@ void test('MOBYGAMES stale revalidation handles null JSON payload', async () => 
       Promise.resolve(
         new Response('not-json!', {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       ),
     scheduleBackgroundRefresh: (task) => {
       backgroundTask = task;
-    },
+    }
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Metroid' });
@@ -640,7 +640,7 @@ void test('MOBYGAMES stale revalidation handles uncacheable payload (empty games
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
 
@@ -655,12 +655,12 @@ void test('MOBYGAMES stale revalidation handles uncacheable payload (empty games
       Promise.resolve(
         new Response(JSON.stringify({ games: [] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       ),
     scheduleBackgroundRefresh: (task) => {
       backgroundTask = task;
-    },
+    }
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Contra' });
@@ -691,7 +691,7 @@ void test('MOBYGAMES stale revalidation handles fetch exception', async () => {
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: stalePayload, updated_at: staleTimestamp });
 
@@ -705,7 +705,7 @@ void test('MOBYGAMES stale revalidation handles fetch exception', async () => {
     fetchMetadata: () => Promise.reject(new Error('network_error')),
     scheduleBackgroundRefresh: (task) => {
       backgroundTask = task;
-    },
+    }
   });
 
   await app.inject({ method: 'GET', url: '/v1/mobygames/search?q=Ghosts' });
@@ -730,20 +730,20 @@ void test('MOBYGAMES write error is handled gracefully', async () => {
       Promise.resolve(
         new Response(JSON.stringify({ games: [{ game_id: 10, title: 'Street Fighter' }] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
-      ),
+      )
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Street%20Fighter&platform=11',
+    url: '/v1/mobygames/search?q=Street%20Fighter&platform=11'
   });
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['x-gameshelf-mobygames-cache'], 'MISS');
   assert.deepEqual(JSON.parse(response.body), {
-    games: [{ game_id: 10, title: 'Street Fighter' }],
+    games: [{ game_id: 10, title: 'Street Fighter' }]
   });
 
   const metrics = getCacheMetrics();
@@ -766,7 +766,7 @@ void test('MOBYGAMES invalid cached payload is deleted and fresh response served
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: invalidPayload, updated_at: new Date().toISOString() });
 
@@ -779,15 +779,15 @@ void test('MOBYGAMES invalid cached payload is deleted and fresh response served
       return Promise.resolve(
         new Response(JSON.stringify({ games: [{ game_id: 11, title: 'Pac-Man' }] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
-    },
+    }
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Pac-Man',
+    url: '/v1/mobygames/search?q=Pac-Man'
   });
 
   assert.equal(response.statusCode, 200);
@@ -810,7 +810,7 @@ void test('MOBYGAMES delete error for invalid cached payload is handled graceful
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, { response_json: invalidPayload, updated_at: new Date().toISOString() });
 
@@ -821,14 +821,14 @@ void test('MOBYGAMES delete error for invalid cached payload is handled graceful
       Promise.resolve(
         new Response(JSON.stringify({ games: [{ game_id: 12, title: 'Dig Dug' }] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
-      ),
+      )
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Dig%20Dug',
+    url: '/v1/mobygames/search?q=Dig%20Dug'
   });
 
   assert.equal(response.statusCode, 200);
@@ -850,14 +850,14 @@ void test('MOBYGAMES sendWebResponse forwards binary content type', async () => 
       Promise.resolve(
         new Response(Buffer.from([0xff, 0xd8, 0xff]), {
           status: 200,
-          headers: { 'content-type': 'image/jpeg' },
+          headers: { 'content-type': 'image/jpeg' }
         })
-      ),
+      )
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Binary%20Game&platform=3',
+    url: '/v1/mobygames/search?q=Binary%20Game&platform=3'
   });
 
   assert.equal(response.statusCode, 200);
@@ -879,19 +879,19 @@ void test('MOBYGAMES upstream non-ok response is not cached', async () => {
       return Promise.resolve(
         new Response(JSON.stringify({ error: 'not found' }), {
           status: 404,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Missing%20Game&platform=5',
+    url: '/v1/mobygames/search?q=Missing%20Game&platform=5'
   });
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Missing%20Game&platform=5',
+    url: '/v1/mobygames/search?q=Missing%20Game&platform=5'
   });
 
   assert.equal(first.statusCode, 404);
@@ -917,11 +917,11 @@ void test('MOBYGAMES cache returns MISS when cached entry has invalid updated_at
     genre: null,
     group: null,
     format: null,
-    include: null,
+    include: null
   });
   pool.seed(cacheKey, {
     response_json: { games: [{ game_id: 50, title: 'Doom' }] },
-    updated_at: 'not-a-valid-date',
+    updated_at: 'not-a-valid-date'
   });
 
   const app = Fastify();
@@ -935,15 +935,15 @@ void test('MOBYGAMES cache returns MISS when cached entry has invalid updated_at
       return Promise.resolve(
         new Response(JSON.stringify({ games: [{ game_id: 50, title: 'Doom (fresh)' }] }), {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
-    },
+    }
   });
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Doom',
+    url: '/v1/mobygames/search?q=Doom'
   });
 
   assert.equal(response.statusCode, 200);
@@ -968,19 +968,19 @@ void test('MOBYGAMES cache does not persist when upstream response body is inval
       return Promise.resolve(
         new Response('this is not json {{{', {
           status: 200,
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json' }
         })
       );
-    },
+    }
   });
 
   const first = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Quake',
+    url: '/v1/mobygames/search?q=Quake'
   });
   const second = await app.inject({
     method: 'GET',
-    url: '/v1/mobygames/search?q=Quake',
+    url: '/v1/mobygames/search?q=Quake'
   });
 
   assert.equal(first.statusCode, 200);
@@ -1067,7 +1067,7 @@ void test('MOBYGAMES upstream returns 503 when queue delay exceeds max', async (
     return Promise.resolve(
       new Response(JSON.stringify({ games: [] }), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json' }
       })
     );
   }) as typeof fetch;
@@ -1080,7 +1080,7 @@ void test('MOBYGAMES upstream returns 503 when queue delay exceeds max', async (
     await withEnv(
       {
         MOBYGAMES_API_BASE_URL: 'https://api.mobygames.com/v2',
-        MOBYGAMES_API_KEY_FILE: keyPath,
+        MOBYGAMES_API_KEY_FILE: keyPath
       },
       async () => {
         __mobygamesCacheTestables.resetMobyGamesThrottle();
@@ -1100,7 +1100,7 @@ void test('MOBYGAMES upstream returns 503 when queue delay exceeds max', async (
 
         const response = await app.inject({
           method: 'GET',
-          url: '/v1/mobygames/search?q=Okami&platform=9&limit=5',
+          url: '/v1/mobygames/search?q=Okami&platform=9&limit=5'
         });
 
         assert.equal(response.statusCode, 503);

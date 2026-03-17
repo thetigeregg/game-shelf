@@ -32,8 +32,8 @@ void test('normalizeDbGameRow returns normalized record for valid payload', () =
       developers: ['Nintendo'],
       publishers: ['Nintendo'],
       franchises: ['Zelda'],
-      collections: ['The Legend of Zelda'],
-    },
+      collections: ['The Legend of Zelda']
+    }
   });
 
   assert.ok(normalized);
@@ -54,7 +54,7 @@ void test('normalizeDbGameRow rejects invalid payloads and list types', () => {
     normalizeDbGameRow({
       igdb_game_id: '1',
       platform_igdb_id: 6,
-      payload: { listType: 'invalid' },
+      payload: { listType: 'invalid' }
     }),
     null
   );
@@ -85,8 +85,8 @@ void test('normalizeDbGameRow applies defensive fallbacks and nulling', () => {
       developers: ['Dev'],
       publishers: [],
       franchises: [],
-      collections: [],
-    },
+      collections: []
+    }
   });
 
   assert.ok(normalized);
@@ -133,11 +133,11 @@ void test('buildTokenEntries dedupes and supports structured keyword overrides',
     developers: ['Nintendo'],
     publishers: [],
     franchises: [],
-    collections: [],
+    collections: []
   };
 
   const structuredKeywordsByGame = new Map<string, string[]>([
-    ['100::6', ['Structured', 'Structured', ' ']],
+    ['100::6', ['Structured', 'Structured', ' ']]
   ]);
 
   const entries = buildTokenEntries(game, { structuredKeywordsByGame });
@@ -146,7 +146,7 @@ void test('buildTokenEntries dedupes and supports structured keyword overrides',
     'developers:nintendo',
     'genres:action',
     'keywords:structured',
-    'themes:fantasy',
+    'themes:fantasy'
   ]);
 });
 

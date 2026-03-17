@@ -11,7 +11,7 @@ describe('IgdbProxyService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), IgdbProxyService],
+      providers: [provideHttpClient(), provideHttpClientTesting(), IgdbProxyService]
     });
 
     localStorage.clear();
@@ -42,16 +42,16 @@ describe('IgdbProxyService', () => {
           platforms: ['PlayStation 3', 'Xbox 360'],
           platform: null,
           releaseDate: '2006-11-14T00:00:00.000Z',
-          releaseYear: 2006,
-        },
-      ],
+          releaseYear: 2006
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
         igdbGameId: '6231',
-        title: 'Sonic the Hedgehog',
-      }),
+        title: 'Sonic the Hedgehog'
+      })
     ]);
   });
 
@@ -75,9 +75,9 @@ describe('IgdbProxyService', () => {
           platforms: ['Nintendo Switch'],
           platform: 'Nintendo Switch',
           releaseDate: '2017-10-27T00:00:00.000Z',
-          releaseYear: 2017,
-        },
-      ],
+          releaseYear: 2017
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -105,8 +105,8 @@ describe('IgdbProxyService', () => {
         platform: 'Nintendo Switch',
         platformIgdbId: null,
         releaseDate: '2017-10-27T00:00:00.000Z',
-        releaseYear: 2017,
-      },
+        releaseYear: 2017
+      }
     ]);
   });
 
@@ -128,9 +128,9 @@ describe('IgdbProxyService', () => {
           platforms: ['NES'],
           platform: 'NES',
           releaseDate: '1986-02-21T00:00:00.000Z',
-          releaseYear: 1986,
-        },
-      ],
+          releaseYear: 1986
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -138,8 +138,8 @@ describe('IgdbProxyService', () => {
         themes: ['Fantasy'],
         themeIds: [10, 11],
         keywords: ['Hyrule'],
-        keywordIds: [99, 100],
-      }),
+        keywordIds: [99, 100]
+      })
     ]);
   });
 
@@ -164,9 +164,9 @@ describe('IgdbProxyService', () => {
           platforms: ['Nintendo Switch'],
           platform: 'Nintendo Switch',
           releaseDate: '2017-10-27T00:00:00.000Z',
-          releaseYear: 2017,
-        },
-      ],
+          releaseYear: 2017
+        }
+      ]
     });
 
     await expect(promise).resolves.toHaveLength(1);
@@ -187,7 +187,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '9' }),
+        headers: new HttpHeaders({ 'Retry-After': '9' })
       }
     );
     await expect(withRetryAfter).rejects.toThrow('Rate limit exceeded. Retry after 9s.');
@@ -209,8 +209,8 @@ describe('IgdbProxyService', () => {
         platforms: ['Nintendo Switch', 'Wii U'],
         platform: null,
         releaseDate: '2017-10-27T00:00:00.000Z',
-        releaseYear: 2017,
-      },
+        releaseYear: 2017
+      }
     });
 
     await expect(promise).resolves.toEqual({
@@ -235,12 +235,12 @@ describe('IgdbProxyService', () => {
       platforms: ['Nintendo Switch', 'Wii U'],
       platformOptions: [
         { id: null, name: 'Nintendo Switch' },
-        { id: null, name: 'Wii U' },
+        { id: null, name: 'Wii U' }
       ],
       platform: null,
       platformIgdbId: null,
       releaseDate: '2017-10-27T00:00:00.000Z',
-      releaseYear: 2017,
+      releaseYear: 2017
     });
   });
 
@@ -258,13 +258,13 @@ describe('IgdbProxyService', () => {
         platformIgdbId: 130,
         screenshots: [
           { id: 10, image_id: 'abc', width: '1280', height: '720' },
-          { id: 10, image_id: 'abc' },
+          { id: 10, image_id: 'abc' }
         ],
         videos: [
           { id: 20, name: ' Trailer ', video_id: 'PIF_fqFZEuk' },
-          { id: 20, name: 'Duplicate', video_id: 'PIF_fqFZEuk' },
-        ],
-      },
+          { id: 20, name: 'Duplicate', video_id: 'PIF_fqFZEuk' }
+        ]
+      }
     });
 
     await expect(promise).resolves.toMatchObject({
@@ -275,17 +275,17 @@ describe('IgdbProxyService', () => {
           imageId: 'abc',
           url: 'https://images.igdb.com/igdb/image/upload/t_screenshot_huge/abc.jpg',
           width: 1280,
-          height: 720,
-        },
+          height: 720
+        }
       ],
       videos: [
         {
           id: 20,
           name: 'Trailer',
           videoId: 'PIF_fqFZEuk',
-          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk',
-        },
-      ],
+          url: 'https://www.youtube.com/watch?v=PIF_fqFZEuk'
+        }
+      ]
     });
   });
 
@@ -308,8 +308,8 @@ describe('IgdbProxyService', () => {
         priceRegularAmount: '79.9',
         priceDiscountPercent: '50',
         priceIsFree: 'false',
-        priceUrl: 'https://psprices.com/region-ch/game/123/example',
-      },
+        priceUrl: 'https://psprices.com/region-ch/game/123/example'
+      }
     });
 
     await expect(promise).resolves.toMatchObject({
@@ -322,7 +322,7 @@ describe('IgdbProxyService', () => {
       priceRegularAmount: 79.9,
       priceDiscountPercent: 50,
       priceIsFree: false,
-      priceUrl: 'https://psprices.com/region-ch/game/123/example',
+      priceUrl: 'https://psprices.com/region-ch/game/123/example'
     });
   });
 
@@ -351,7 +351,7 @@ describe('IgdbProxyService', () => {
         { id: 130, name: 'Nintendo Switch' },
         { id: 6, name: 'PC (Microsoft Windows)' },
         { id: 167, name: 'PlayStation 5' },
-        { id: 169, name: 'Xbox Series X|S' },
+        { id: 169, name: 'Xbox Series X|S' }
       ])
     );
   });
@@ -370,13 +370,13 @@ describe('IgdbProxyService', () => {
         'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
         '   https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg   ',
         'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
-        '/relative/path.jpg',
-      ],
+        '/relative/path.jpg'
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
-      'https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg',
+      'https://cdn.thegamesdb.net/images/original/box/front/mario-2.jpg'
     ]);
   });
 
@@ -392,11 +392,11 @@ describe('IgdbProxyService', () => {
     });
 
     req.flush({
-      items: ['https://cdn.thegamesdb.net/images/original/box/front/mario.jpg'],
+      items: ['https://cdn.thegamesdb.net/images/original/box/front/mario.jpg']
     });
 
     await expect(promise).resolves.toEqual([
-      'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg',
+      'https://cdn.thegamesdb.net/images/original/box/front/mario.jpg'
     ]);
   });
 
@@ -420,7 +420,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '15' }),
+        headers: new HttpHeaders({ 'Retry-After': '15' })
       }
     );
     await expect(promise).rejects.toThrow('Rate limit exceeded. Retry after 15s.');
@@ -451,14 +451,14 @@ describe('IgdbProxyService', () => {
           platformOptions: [
             { id: 130, name: 'Switch' },
             { id: 130, name: 'Switch' },
-            { id: null, name: '' },
+            { id: null, name: '' }
           ],
           platform: 'Switch',
           platformIgdbId: 130,
           releaseDate: 'not-a-date',
-          releaseYear: 2024,
-        },
-      ],
+          releaseYear: 2024
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -486,8 +486,8 @@ describe('IgdbProxyService', () => {
         platform: 'Switch',
         platformIgdbId: 130,
         releaseDate: null,
-        releaseYear: 2024,
-      },
+        releaseYear: 2024
+      }
     ]);
   });
 
@@ -508,8 +508,8 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 13.04,
         hltbGameId: 9001,
-        hltbUrl: 'https://howlongtobeat.com/game/9001',
-      },
+        hltbUrl: 'https://howlongtobeat.com/game/9001'
+      }
     });
 
     await expect(promise).resolves.toEqual({
@@ -517,7 +517,7 @@ describe('IgdbProxyService', () => {
       hltbMainExtraHours: 10,
       hltbCompletionistHours: 13,
       hltbGameId: 9001,
-      hltbUrl: 'https://howlongtobeat.com/game/9001',
+      hltbUrl: 'https://howlongtobeat.com/game/9001'
     });
   });
 
@@ -544,14 +544,14 @@ describe('IgdbProxyService', () => {
       item: {
         hltbMainHours: 40.4,
         hltbMainExtraHours: 52.2,
-        hltbCompletionistHours: 70.6,
-      },
+        hltbCompletionistHours: 70.6
+      }
     });
 
     await expect(promise).resolves.toEqual({
       hltbMainHours: 40.4,
       hltbMainExtraHours: 52.2,
-      hltbCompletionistHours: 70.6,
+      hltbCompletionistHours: 70.6
     });
   });
 
@@ -579,7 +579,7 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/9001',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 13.04,
+          hltbCompletionistHours: 13.04
         },
         {
           title: 'Super Metroid',
@@ -589,7 +589,7 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/9001',
           hltbMainHours: 7.53,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 13.04,
+          hltbCompletionistHours: 13.04
         },
         {
           title: '',
@@ -597,9 +597,9 @@ describe('IgdbProxyService', () => {
           platform: null,
           hltbMainHours: null,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null,
-        },
-      ],
+          hltbCompletionistHours: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -612,8 +612,8 @@ describe('IgdbProxyService', () => {
         hltbMainHours: 7.5,
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 13,
-        isRecommended: true,
-      },
+        isRecommended: true
+      }
     ]);
   });
 
@@ -636,7 +636,7 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 12,
         hltbGameId: 7001,
-        hltbUrl: 'https://howlongtobeat.com/game/7001',
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
       },
       candidates: [
         {
@@ -647,7 +647,7 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7001',
           hltbMainHours: 8,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 12,
+          hltbCompletionistHours: 12
         },
         {
           title: 'Night In The Woods',
@@ -657,9 +657,9 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: 9,
           hltbMainExtraHours: 11,
-          hltbCompletionistHours: 13,
-        },
-      ],
+          hltbCompletionistHours: 13
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
@@ -667,7 +667,7 @@ describe('IgdbProxyService', () => {
       hltbMainExtraHours: 11,
       hltbCompletionistHours: 13,
       hltbGameId: 7002,
-      hltbUrl: 'https://howlongtobeat.com/game/7002',
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
     });
   });
 
@@ -701,7 +701,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '3' }),
+        headers: new HttpHeaders({ 'Retry-After': '3' })
       }
     );
     await expect(lookupPromise).rejects.toThrow('Rate limit exceeded. Retry after 3s.');
@@ -721,7 +721,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '3' }),
+        headers: new HttpHeaders({ 'Retry-After': '3' })
       }
     );
     await expect(candidatePromise).rejects.toThrow('Rate limit exceeded. Retry after 3s.');
@@ -741,13 +741,13 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 92.4,
-        metacriticUrl: 'https://www.metacritic.com/game/okami/',
-      },
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
     });
 
     await expect(promise).resolves.toEqual({
       metacriticScore: 92,
-      metacriticUrl: 'https://www.metacritic.com/game/okami/',
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
     });
   });
 
@@ -765,12 +765,12 @@ describe('IgdbProxyService', () => {
     metacriticReq.flush({
       item: {
         metacriticScore: 92,
-        metacriticUrl: 'https://www.metacritic.com/game/okami/',
-      },
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
+      }
     });
     await expect(metacriticPromise).resolves.toEqual({
       metacriticScore: 92,
-      metacriticUrl: 'https://www.metacritic.com/game/okami/',
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
     });
     httpMock.expectNone(
       (request) => request.url === `${environment.gameApiBaseUrl}/v1/mobygames/search`
@@ -796,13 +796,13 @@ describe('IgdbProxyService', () => {
           release_date: '1992-03-20',
           platforms: [{ platform_name: 'Genesis' }],
           moby_score: 88,
-          moby_url: 'https://www.mobygames.com/game/123/shining-force/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+        }
+      ]
     });
     await expect(mobyPromise).resolves.toEqual({
       metacriticScore: 88,
-      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+      metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
     });
     httpMock.expectNone((request) => {
       return (
@@ -845,7 +845,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '4' }),
+        headers: new HttpHeaders({ 'Retry-After': '4' })
       }
     );
     await expect(scorePromise).rejects.toThrow('Rate limit exceeded. Retry after 4s.');
@@ -882,13 +882,13 @@ describe('IgdbProxyService', () => {
             platforms: [{ name: 'Genesis' }],
             critic_score: null,
             moby_score: 88.2,
-            moby_url: 'https://www.mobygames.com/game/123/shining-force/',
-          },
-        ],
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
+          }
+        ]
       });
       await expect(scorePromise).resolves.toEqual({
         metacriticScore: 88,
-        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
+        metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/'
       });
 
       // Advance the proactive throttle so the second MobyGames call fires
@@ -917,28 +917,28 @@ describe('IgdbProxyService', () => {
               {
                 images: [
                   {
-                    thumbnail_url: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp',
-                  },
-                ],
-              },
+                    thumbnail_url: 'https://cdn.mobygames.com/covers/shining-force-thumb.webp'
+                  }
+                ]
+              }
             ],
-            moby_url: 'https://www.mobygames.com/game/123/shining-force/',
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
           },
           {
             title: 'Shining Force',
             release_date: '1992',
             platforms: [{ platform_name: 'Genesis' }],
             critic_score: 87.1,
-            moby_url: 'https://www.mobygames.com/game/123/shining-force/',
+            moby_url: 'https://www.mobygames.com/game/123/shining-force/'
           },
           {
             title: 'Shining Force CD',
             release_date: null,
             platforms: [{ name: 'Sega CD' }],
             moby_score: 80.2,
-            moby_url: 'https://www.mobygames.com/game/456/shining-force-cd/',
-          },
-        ],
+            moby_url: 'https://www.mobygames.com/game/456/shining-force-cd/'
+          }
+        ]
       });
 
       await expect(candidatesPromise).resolves.toEqual([
@@ -948,7 +948,7 @@ describe('IgdbProxyService', () => {
           platform: 'Genesis',
           metacriticScore: 88,
           metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
-          isRecommended: true,
+          isRecommended: true
         },
         {
           title: 'Shining Force CD',
@@ -956,8 +956,8 @@ describe('IgdbProxyService', () => {
           platform: 'Sega CD',
           metacriticScore: 80,
           metacriticUrl: 'https://www.mobygames.com/game/456/shining-force-cd/',
-          isRecommended: false,
-        },
+          isRecommended: false
+        }
       ]);
     } finally {
       vi.useRealTimers();
@@ -984,14 +984,14 @@ describe('IgdbProxyService', () => {
           platforms: [{ platform_name: 'SNES' }],
           critic_score: null,
           moby_score: 8.6,
-          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
     });
 
     await expect(scorePromise).resolves.toEqual({
       metacriticScore: 86,
-      metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
+      metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/'
     });
   });
 
@@ -1015,9 +1015,9 @@ describe('IgdbProxyService', () => {
           platforms: [{ platform_name: 'SNES' }],
           critic_score: null,
           moby_score: 8.6,
-          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
     });
 
     await expect(scorePromise).resolves.toEqual({
@@ -1027,7 +1027,7 @@ describe('IgdbProxyService', () => {
       mobyScore: 8.6,
       mobygamesGameId: null,
       metacriticScore: null,
-      metacriticUrl: null,
+      metacriticUrl: null
     });
   });
 
@@ -1051,9 +1051,9 @@ describe('IgdbProxyService', () => {
           platforms: [{ platform_name: 'SNES' }],
           critic_score: null,
           moby_score: 8.6,
-          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
     });
 
     await expect(scorePromise).resolves.toEqual({
@@ -1063,7 +1063,7 @@ describe('IgdbProxyService', () => {
       mobyScore: 8.6,
       mobygamesGameId: null,
       metacriticScore: null,
-      metacriticUrl: null,
+      metacriticUrl: null
     });
   });
 
@@ -1083,7 +1083,7 @@ describe('IgdbProxyService', () => {
       {
         platformIgdbId: 51,
         platformName: 'Family Computer Disk System',
-        expectedMobyPlatformId: 22,
+        expectedMobyPlatformId: 22
       },
       { platformIgdbId: 58, platformName: 'Super Famicom', expectedMobyPlatformId: 15 },
       { platformIgdbId: 137, platformName: 'New Nintendo 3DS', expectedMobyPlatformId: 101 },
@@ -1093,7 +1093,7 @@ describe('IgdbProxyService', () => {
       {
         platformIgdbId: null,
         platformName: 'Family Computer Disk System',
-        expectedMobyPlatformId: 22,
+        expectedMobyPlatformId: 22
       },
       { platformIgdbId: null, platformName: 'Super Famicom', expectedMobyPlatformId: 15 },
       { platformIgdbId: null, platformName: 'New Nintendo 3DS', expectedMobyPlatformId: 101 },
@@ -1101,8 +1101,8 @@ describe('IgdbProxyService', () => {
       {
         platformIgdbId: null,
         platformName: 'e-Reader / Card-e Reader',
-        expectedMobyPlatformId: 12,
-      },
+        expectedMobyPlatformId: 12
+      }
     ];
 
     for (const testCase of aliasCases) {
@@ -1138,15 +1138,15 @@ describe('IgdbProxyService', () => {
           covers: [
             {
               platforms: [81],
-              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/wrong-platform.webp' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/wrong-platform.webp' }]
             },
             {
               platforms: [16],
-              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/genesis.webp' }],
-            },
-          ],
-        },
-      ],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/genesis.webp' }]
+            }
+          ]
+        }
+      ]
     });
 
     await expect(candidatesPromise).resolves.toEqual([
@@ -1157,15 +1157,15 @@ describe('IgdbProxyService', () => {
         metacriticScore: 88,
         metacriticUrl: 'https://www.mobygames.com/game/123/shining-force/',
         isRecommended: true,
-        imageUrl: 'https://cdn.mobygames.com/covers/genesis.webp',
-      },
+        imageUrl: 'https://cdn.mobygames.com/covers/genesis.webp'
+      }
     ]);
   });
 
   it('prefers the selected HLTB candidate identity when a preferred HLTB url is provided', async () => {
     const promise = firstValueFrom(
       service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
-        preferredUrl: '  https://howlongtobeat.com/game/7002  ',
+        preferredUrl: '  https://howlongtobeat.com/game/7002  '
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -1183,7 +1183,7 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 12,
         hltbGameId: 7001,
-        hltbUrl: 'https://howlongtobeat.com/game/7001',
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
       },
       candidates: [
         {
@@ -1194,7 +1194,7 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7001',
           hltbMainHours: 8,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 12,
+          hltbCompletionistHours: 12
         },
         {
           title: 'Night In The Woods',
@@ -1204,9 +1204,9 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: 9,
           hltbMainExtraHours: 11,
-          hltbCompletionistHours: 13,
-        },
-      ],
+          hltbCompletionistHours: 13
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
@@ -1214,14 +1214,14 @@ describe('IgdbProxyService', () => {
       hltbMainExtraHours: 11,
       hltbCompletionistHours: 13,
       hltbGameId: 7002,
-      hltbUrl: 'https://howlongtobeat.com/game/7002',
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
     });
   });
 
   it('falls back to the normal HLTB item when preferred candidates are omitted from the response', async () => {
     const promise = firstValueFrom(
       service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
-        preferredUrl: 'https://howlongtobeat.com/game/7002',
+        preferredUrl: 'https://howlongtobeat.com/game/7002'
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -1238,8 +1238,8 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 12,
         hltbGameId: 7001,
-        hltbUrl: 'https://howlongtobeat.com/game/7001',
-      },
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
+      }
     });
 
     await expect(promise).resolves.toEqual({
@@ -1247,14 +1247,14 @@ describe('IgdbProxyService', () => {
       hltbMainExtraHours: 10,
       hltbCompletionistHours: 12,
       hltbGameId: 7001,
-      hltbUrl: 'https://howlongtobeat.com/game/7001',
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
     });
   });
 
   it('matches preferred HLTB candidates when only one identity field is present', async () => {
     const byIdPromise = firstValueFrom(
       service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
-        preferredGameId: 7002,
+        preferredGameId: 7002
       })
     );
     const byIdRequest = httpMock.expectOne((request) => {
@@ -1267,7 +1267,7 @@ describe('IgdbProxyService', () => {
       item: {
         hltbMainHours: 8,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 12,
+        hltbCompletionistHours: 12
       },
       candidates: [
         {
@@ -1277,7 +1277,7 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7001',
           hltbMainHours: 8,
           hltbMainExtraHours: 10,
-          hltbCompletionistHours: 12,
+          hltbCompletionistHours: 12
         },
         {
           title: 'Night In The Woods',
@@ -1286,21 +1286,21 @@ describe('IgdbProxyService', () => {
           hltbGameId: 7002,
           hltbMainHours: 9,
           hltbMainExtraHours: 11,
-          hltbCompletionistHours: 13,
-        },
-      ],
+          hltbCompletionistHours: 13
+        }
+      ]
     });
 
     await expect(byIdPromise).resolves.toEqual({
       hltbMainHours: 9,
       hltbMainExtraHours: 11,
       hltbCompletionistHours: 13,
-      hltbGameId: 7002,
+      hltbGameId: 7002
     });
 
     const byUrlPromise = firstValueFrom(
       service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
-        preferredUrl: 'https://howlongtobeat.com/game/7003',
+        preferredUrl: 'https://howlongtobeat.com/game/7003'
       })
     );
     const byUrlRequest = httpMock.expectOne((request) => {
@@ -1313,7 +1313,7 @@ describe('IgdbProxyService', () => {
       item: {
         hltbMainHours: 8,
         hltbMainExtraHours: 10,
-        hltbCompletionistHours: 12,
+        hltbCompletionistHours: 12
       },
       candidates: [
         {
@@ -1323,7 +1323,7 @@ describe('IgdbProxyService', () => {
           hltbGameId: 7003,
           hltbMainHours: 9,
           hltbMainExtraHours: 11,
-          hltbCompletionistHours: 13,
+          hltbCompletionistHours: 13
         },
         {
           title: 'Night In The Woods',
@@ -1332,16 +1332,16 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7003',
           hltbMainHours: 10,
           hltbMainExtraHours: 12,
-          hltbCompletionistHours: 14,
-        },
-      ],
+          hltbCompletionistHours: 14
+        }
+      ]
     });
 
     await expect(byUrlPromise).resolves.toEqual({
       hltbMainHours: 10,
       hltbMainExtraHours: 12,
       hltbCompletionistHours: 14,
-      hltbUrl: 'https://howlongtobeat.com/game/7003',
+      hltbUrl: 'https://howlongtobeat.com/game/7003'
     });
   });
 
@@ -1360,14 +1360,14 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
         gameId: '7002',
-        gameUrl: '//howlongtobeat.com/game/7002',
+        gameUrl: '//howlongtobeat.com/game/7002'
       })
     ).toEqual({
       hltbMainHours: 9,
       hltbMainExtraHours: null,
       hltbCompletionistHours: null,
       hltbGameId: 7002,
-      hltbUrl: 'https://howlongtobeat.com/game/7002',
+      hltbUrl: 'https://howlongtobeat.com/game/7002'
     });
 
     expect(
@@ -1376,7 +1376,7 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,
         gameId: '7002',
-        gameUrl: '//howlongtobeat.com/game/7002',
+        gameUrl: '//howlongtobeat.com/game/7002'
       })
     ).toBeNull();
 
@@ -1391,7 +1391,7 @@ describe('IgdbProxyService', () => {
           hltbCompletionistHours: 13,
           gameId: '7002',
           gameUrl: '//howlongtobeat.com/game/7002',
-          coverUrl: '//howlongtobeat.com/games/7002.jpg',
+          coverUrl: '//howlongtobeat.com/games/7002.jpg'
         },
         {
           title: 'Night In The Woods',
@@ -1401,7 +1401,7 @@ describe('IgdbProxyService', () => {
           hltbMainExtraHours: 11,
           hltbCompletionistHours: 13,
           hltbGameId: 7002,
-          hltbUrl: 'https://howlongtobeat.com/game/7002',
+          hltbUrl: 'https://howlongtobeat.com/game/7002'
         },
         {
           title: 'Night In The Woods',
@@ -1411,8 +1411,8 @@ describe('IgdbProxyService', () => {
           hltbMainExtraHours: 12,
           hltbCompletionistHours: 14,
           id: '7003',
-          url: 'https://howlongtobeat.com/game/7003',
-        },
+          url: 'https://howlongtobeat.com/game/7003'
+        }
       ])
     ).toEqual([
       {
@@ -1425,7 +1425,7 @@ describe('IgdbProxyService', () => {
         hltbGameId: 7002,
         hltbUrl: 'https://howlongtobeat.com/game/7002',
         imageUrl: 'https://howlongtobeat.com/games/7002.jpg',
-        isRecommended: true,
+        isRecommended: true
       },
       {
         title: 'Night In The Woods',
@@ -1436,8 +1436,8 @@ describe('IgdbProxyService', () => {
         hltbCompletionistHours: 14,
         hltbGameId: 7003,
         hltbUrl: 'https://howlongtobeat.com/game/7003',
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
 
     expect(
@@ -1446,14 +1446,14 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 12,
         hltbCompletionistHours: 14,
         hltbGameId: 7003,
-        hltbUrl: 'https://howlongtobeat.com/game/7003',
+        hltbUrl: 'https://howlongtobeat.com/game/7003'
       })
     ).toEqual({
       hltbMainHours: 10,
       hltbMainExtraHours: 12,
       hltbCompletionistHours: 14,
       hltbGameId: 7003,
-      hltbUrl: 'https://howlongtobeat.com/game/7003',
+      hltbUrl: 'https://howlongtobeat.com/game/7003'
     });
 
     expect(privateService.normalizeHltbGameId('abc')).toBeNull();
@@ -1465,7 +1465,7 @@ describe('IgdbProxyService', () => {
   it('falls back to the normal HLTB item when the preferred candidate has no completion time data', async () => {
     const promise = firstValueFrom(
       service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
-        preferredGameId: 7002,
+        preferredGameId: 7002
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -1483,7 +1483,7 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 12,
         hltbGameId: 7001,
-        hltbUrl: 'https://howlongtobeat.com/game/7001',
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
       },
       candidates: [
         {
@@ -1494,9 +1494,9 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: null,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null,
-        },
-      ],
+          hltbCompletionistHours: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
@@ -1504,14 +1504,14 @@ describe('IgdbProxyService', () => {
       hltbMainExtraHours: 10,
       hltbCompletionistHours: 12,
       hltbGameId: 7001,
-      hltbUrl: 'https://howlongtobeat.com/game/7001',
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
     });
   });
 
   it('returns null when a preferred HLTB candidate exists but neither it nor the item has usable times', async () => {
     const promise = firstValueFrom(
       service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
-        preferredGameId: 7002,
+        preferredGameId: 7002
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -1536,9 +1536,9 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: null,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null,
-        },
-      ],
+          hltbCompletionistHours: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toBeNull();
@@ -1548,7 +1548,7 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(
       service.lookupCompletionTimes('Night In The Woods', 2017, 'PC', {
         preferredGameId: 9999,
-        preferredUrl: 'https://howlongtobeat.com/game/9999',
+        preferredUrl: 'https://howlongtobeat.com/game/9999'
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -1567,7 +1567,7 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 10,
         hltbCompletionistHours: 12,
         hltbGameId: 7001,
-        hltbUrl: 'https://howlongtobeat.com/game/7001',
+        hltbUrl: 'https://howlongtobeat.com/game/7001'
       },
       candidates: [
         {
@@ -1578,9 +1578,9 @@ describe('IgdbProxyService', () => {
           hltbUrl: 'https://howlongtobeat.com/game/7002',
           hltbMainHours: 9,
           hltbMainExtraHours: 11,
-          hltbCompletionistHours: 13,
-        },
-      ],
+          hltbCompletionistHours: 13
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
@@ -1588,7 +1588,7 @@ describe('IgdbProxyService', () => {
       hltbMainExtraHours: 10,
       hltbCompletionistHours: 12,
       hltbGameId: 7001,
-      hltbUrl: 'https://howlongtobeat.com/game/7001',
+      hltbUrl: 'https://howlongtobeat.com/game/7001'
     });
   });
 
@@ -1611,22 +1611,22 @@ describe('IgdbProxyService', () => {
           release_date: '1995-03-11',
           platforms: [
             { platform_id: 14, platform_name: 'PlayStation' },
-            { platform_id: 15, platform_name: 'SNES' },
+            { platform_id: 15, platform_name: 'SNES' }
           ],
           moby_score: 95,
           moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
           covers: [
             {
               platforms: [{ platform_name: 'Nintendo DS' }],
-              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-ds.webp' }],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-ds.webp' }]
             },
             {
               platforms: [{ platform_id: 15, platform_name: 'SNES' }],
-              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-snes.webp' }],
-            },
-          ],
-        },
-      ],
+              images: [{ thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-snes.webp' }]
+            }
+          ]
+        }
+      ]
     });
 
     await expect(candidatesPromise).resolves.toEqual([
@@ -1637,8 +1637,8 @@ describe('IgdbProxyService', () => {
         metacriticScore: 95,
         metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
         isRecommended: true,
-        imageUrl: 'https://cdn.mobygames.com/covers/chrono-snes.webp',
-      },
+        imageUrl: 'https://cdn.mobygames.com/covers/chrono-snes.webp'
+      }
     ]);
   });
 
@@ -1666,20 +1666,20 @@ describe('IgdbProxyService', () => {
             {
               images: [
                 {
-                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-nintendo-ds.webp',
-                },
-              ],
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-nintendo-ds.webp'
+                }
+              ]
             },
             {
               images: [
                 {
-                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-snes.webp',
-                },
-              ],
-            },
-          ],
-        },
-      ],
+                  thumbnail_url: 'https://cdn.mobygames.com/covers/chrono-trigger-snes.webp'
+                }
+              ]
+            }
+          ]
+        }
+      ]
     });
 
     await expect(candidatesPromise).resolves.toEqual([
@@ -1689,8 +1689,8 @@ describe('IgdbProxyService', () => {
         platform: 'SNES',
         metacriticScore: 95,
         metacriticUrl: 'https://www.mobygames.com/game/4501/chrono-trigger/',
-        isRecommended: true,
-      },
+        isRecommended: true
+      }
     ]);
   });
 
@@ -1714,14 +1714,14 @@ describe('IgdbProxyService', () => {
           release_date: '2006-04-20',
           platforms: [{ name: 'Wii' }],
           moby_score: 91,
-          moby_url: 'https://www.mobygames.com/game/okami/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/okami/'
+        }
+      ]
     });
 
     await expect(scorePromise).resolves.toEqual({
       metacriticScore: 91,
-      metacriticUrl: 'https://www.mobygames.com/game/okami/',
+      metacriticUrl: 'https://www.mobygames.com/game/okami/'
     });
   });
 
@@ -1733,7 +1733,7 @@ describe('IgdbProxyService', () => {
       mobyScore: null,
       mobygamesGameId: null,
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     };
     const reviewSpy = vi.spyOn(service, 'lookupReviewScore').mockReturnValue(of(reviewResult));
 
@@ -1757,7 +1757,7 @@ describe('IgdbProxyService', () => {
     );
     expect(result).toEqual({
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     });
   });
 
@@ -1774,7 +1774,7 @@ describe('IgdbProxyService', () => {
         mobyScore: 88,
         mobygamesGameId: 1234,
         metacriticScore: 91,
-        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
       })
     ).toEqual({
       reviewScore: 91,
@@ -1783,7 +1783,7 @@ describe('IgdbProxyService', () => {
       mobyScore: 88,
       mobygamesGameId: 1234,
       metacriticScore: 91,
-      metacriticUrl: 'https://www.metacritic.com/game/okami/',
+      metacriticUrl: 'https://www.metacritic.com/game/okami/'
     });
   });
 
@@ -1800,7 +1800,7 @@ describe('IgdbProxyService', () => {
         mobyScore: 83,
         mobygamesGameId: 123,
         metacriticScore: null,
-        metacriticUrl: null,
+        metacriticUrl: null
       })
     ).toEqual({
       reviewScore: 83,
@@ -1809,7 +1809,7 @@ describe('IgdbProxyService', () => {
       mobyScore: 83,
       mobygamesGameId: 123,
       metacriticScore: null,
-      metacriticUrl: null,
+      metacriticUrl: null
     });
   });
 
@@ -1826,7 +1826,7 @@ describe('IgdbProxyService', () => {
         mobyScore: null,
         mobygamesGameId: null,
         metacriticScore: null,
-        metacriticUrl: null,
+        metacriticUrl: null
       })
     ).toEqual({
       reviewScore: null,
@@ -1835,7 +1835,7 @@ describe('IgdbProxyService', () => {
       mobyScore: null,
       mobygamesGameId: null,
       metacriticScore: null,
-      metacriticUrl: null,
+      metacriticUrl: null
     });
   });
 
@@ -1850,12 +1850,12 @@ describe('IgdbProxyService', () => {
         hltbMainExtraHours: 12,
         hltbCompletionistHours: 14,
         hltbGameId: null,
-        hltbUrl: null,
+        hltbUrl: null
       })
     ).toEqual({
       hltbMainHours: 10,
       hltbMainExtraHours: 12,
-      hltbCompletionistHours: 14,
+      hltbCompletionistHours: 14
     });
   });
 
@@ -1874,7 +1874,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 93,
-        metacriticUrl: 'https://www.metacritic.com/game/okami/',
+        metacriticUrl: 'https://www.metacritic.com/game/okami/'
       },
       candidates: [
         {
@@ -1883,16 +1883,16 @@ describe('IgdbProxyService', () => {
           platform: ' Wii ',
           metacriticScore: 93.2,
           metacriticUrl: '//www.metacritic.com/game/okami/',
-          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
+          coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
         },
         {
           title: 'Okami',
           releaseYear: 2006,
           platform: 'Wii',
           metacriticScore: 93,
-          metacriticUrl: 'https://www.metacritic.com/game/okami/',
-        },
-      ],
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -1903,8 +1903,8 @@ describe('IgdbProxyService', () => {
         metacriticScore: 93,
         metacriticUrl: 'https://www.metacritic.com/game/okami/',
         isRecommended: true,
-        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
-      },
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
+      }
     ]);
   });
 
@@ -1929,7 +1929,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
       },
       candidates: [
         {
@@ -1937,14 +1937,14 @@ describe('IgdbProxyService', () => {
           releaseYear: 2017,
           platform: 'PlayStation 5',
           reviewScore: 86,
-          reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-candidate/',
-        },
-      ],
+          reviewUrl: 'https://www.metacritic.com/game/night-in-the-woods-candidate/'
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
     });
   });
 
@@ -1969,13 +1969,13 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
-      },
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
+      }
     });
 
     await expect(promise).resolves.toEqual({
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
     });
   });
 
@@ -2006,14 +2006,14 @@ describe('IgdbProxyService', () => {
           reviewScore: 86,
           reviewUrl: null,
           metacriticScore: 86,
-          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
-        },
-      ],
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
       metacriticScore: 86,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     });
   });
 
@@ -2038,7 +2038,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
       },
       candidates: [
         {
@@ -2048,14 +2048,14 @@ describe('IgdbProxyService', () => {
           reviewScore: 86,
           reviewUrl: null,
           metacriticScore: 86,
-          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
-        },
-      ],
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
       metacriticScore: 86,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     });
   });
 
@@ -2081,7 +2081,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
       },
       candidates: [
         {
@@ -2089,21 +2089,21 @@ describe('IgdbProxyService', () => {
           releaseYear: 2017,
           platform: 'PlayStation 5',
           metacriticScore: 87,
-          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
         },
         {
           title: 'Night In The Woods',
           releaseYear: 2017,
           platform: 'PlayStation 5',
           metacriticScore: 88,
-          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
-        },
-      ],
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
       metacriticScore: 88,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
     });
   });
 
@@ -2129,7 +2129,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 87,
-        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+        metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
       },
       candidates: [
         {
@@ -2137,14 +2137,14 @@ describe('IgdbProxyService', () => {
           releaseYear: 2017,
           platform: 'PlayStation 5',
           metacriticScore: 88,
-          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/',
-        },
-      ],
+          metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods-alt/'
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
       metacriticScore: 87,
-      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/',
+      metacriticUrl: 'https://www.metacritic.com/game/night-in-the-woods/'
     });
   });
 
@@ -2162,7 +2162,7 @@ describe('IgdbProxyService', () => {
     scoreFallbackReq.flush({
       item: {
         metacriticScore: 88,
-        metacriticUrl: null,
+        metacriticUrl: null
       },
       candidates: [
         {
@@ -2170,16 +2170,16 @@ describe('IgdbProxyService', () => {
           releaseYear: 2006,
           platform: 'Wii',
           metacriticScore: 88,
-          metacriticUrl: null,
+          metacriticUrl: null
         },
         {
           title: 'Okamiden',
           releaseYear: 2011,
           platform: 'Nintendo DS',
           metacriticScore: 80,
-          metacriticUrl: null,
-        },
-      ],
+          metacriticUrl: null
+        }
+      ]
     });
     await expect(scoreFallbackPromise).resolves.toEqual([
       {
@@ -2188,7 +2188,7 @@ describe('IgdbProxyService', () => {
         platform: 'Wii',
         metacriticScore: 88,
         metacriticUrl: null,
-        isRecommended: true,
+        isRecommended: true
       },
       {
         title: 'Okamiden',
@@ -2196,8 +2196,8 @@ describe('IgdbProxyService', () => {
         platform: 'Nintendo DS',
         metacriticScore: 80,
         metacriticUrl: null,
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
 
     const tiedScoreFallbackPromise = firstValueFrom(
@@ -2213,7 +2213,7 @@ describe('IgdbProxyService', () => {
     tiedScoreFallbackReq.flush({
       item: {
         metacriticScore: 88,
-        metacriticUrl: null,
+        metacriticUrl: null
       },
       candidates: [
         {
@@ -2221,16 +2221,16 @@ describe('IgdbProxyService', () => {
           releaseYear: 2006,
           platform: 'Wii',
           metacriticScore: 88,
-          metacriticUrl: null,
+          metacriticUrl: null
         },
         {
           title: 'Okami HD',
           releaseYear: 2012,
           platform: 'PlayStation 3',
           metacriticScore: 88,
-          metacriticUrl: null,
-        },
-      ],
+          metacriticUrl: null
+        }
+      ]
     });
     await expect(tiedScoreFallbackPromise).resolves.toEqual([
       {
@@ -2239,7 +2239,7 @@ describe('IgdbProxyService', () => {
         platform: 'Wii',
         metacriticScore: 88,
         metacriticUrl: null,
-        isRecommended: true,
+        isRecommended: true
       },
       {
         title: 'Okami HD',
@@ -2247,8 +2247,8 @@ describe('IgdbProxyService', () => {
         platform: 'PlayStation 3',
         metacriticScore: 88,
         metacriticUrl: null,
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
 
     const indexFallbackPromise = firstValueFrom(
@@ -2264,7 +2264,7 @@ describe('IgdbProxyService', () => {
     indexFallbackReq.flush({
       item: {
         metacriticScore: null,
-        metacriticUrl: null,
+        metacriticUrl: null
       },
       candidates: [
         {
@@ -2272,16 +2272,16 @@ describe('IgdbProxyService', () => {
           releaseYear: 2006,
           platform: 'Wii',
           metacriticScore: 91,
-          metacriticUrl: 'https://www.metacritic.com/game/okami/',
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
         },
         {
           title: 'Okamiden',
           releaseYear: 2011,
           platform: 'Nintendo DS',
           metacriticScore: 80,
-          metacriticUrl: 'https://www.metacritic.com/game/okamiden/',
-        },
-      ],
+          metacriticUrl: 'https://www.metacritic.com/game/okamiden/'
+        }
+      ]
     });
     await expect(indexFallbackPromise).resolves.toEqual([
       {
@@ -2290,7 +2290,7 @@ describe('IgdbProxyService', () => {
         platform: 'Wii',
         metacriticScore: 91,
         metacriticUrl: 'https://www.metacritic.com/game/okami/',
-        isRecommended: true,
+        isRecommended: true
       },
       {
         title: 'Okamiden',
@@ -2298,8 +2298,8 @@ describe('IgdbProxyService', () => {
         platform: 'Nintendo DS',
         metacriticScore: 80,
         metacriticUrl: 'https://www.metacritic.com/game/okamiden/',
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
   });
 
@@ -2318,7 +2318,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       item: {
         metacriticScore: 99,
-        metacriticUrl: 'https://www.metacritic.com/game/missing/',
+        metacriticUrl: 'https://www.metacritic.com/game/missing/'
       },
       candidates: [
         {
@@ -2326,16 +2326,16 @@ describe('IgdbProxyService', () => {
           releaseYear: 2006,
           platform: 'Wii',
           metacriticScore: 91,
-          metacriticUrl: 'https://www.metacritic.com/game/okami/',
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
         },
         {
           title: 'Okamiden',
           releaseYear: 2011,
           platform: 'Nintendo DS',
           metacriticScore: 80,
-          metacriticUrl: 'https://www.metacritic.com/game/okamiden/',
-        },
-      ],
+          metacriticUrl: 'https://www.metacritic.com/game/okamiden/'
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
@@ -2345,7 +2345,7 @@ describe('IgdbProxyService', () => {
         platform: 'Wii',
         metacriticScore: 91,
         metacriticUrl: 'https://www.metacritic.com/game/okami/',
-        isRecommended: true,
+        isRecommended: true
       },
       {
         title: 'Okamiden',
@@ -2353,8 +2353,8 @@ describe('IgdbProxyService', () => {
         platform: 'Nintendo DS',
         metacriticScore: 80,
         metacriticUrl: 'https://www.metacritic.com/game/okamiden/',
-        isRecommended: false,
-      },
+        isRecommended: false
+      }
     ]);
   });
 
@@ -2385,8 +2385,8 @@ describe('IgdbProxyService', () => {
     scoreReq.flush({
       item: {
         metacriticScore: null,
-        metacriticUrl: 'ftp://invalid',
-      },
+        metacriticUrl: 'ftp://invalid'
+      }
     });
     await expect(scorePromise).resolves.toBeNull();
 
@@ -2420,16 +2420,16 @@ describe('IgdbProxyService', () => {
           releaseYear: 2006,
           platform: 'Wii',
           metacriticScore: 93,
-          metacriticUrl: 'https://www.metacritic.com/game/okami/',
+          metacriticUrl: 'https://www.metacritic.com/game/okami/'
         },
         {
           title: 'Okami',
           releaseYear: 2006,
           platform: 'Wii',
           metacriticScore: 200,
-          metacriticUrl: null,
-        },
-      ],
+          metacriticUrl: null
+        }
+      ]
     });
     await expect(candidatePromise).resolves.toEqual([]);
   });
@@ -2461,7 +2461,7 @@ describe('IgdbProxyService', () => {
           coverSource: 'igdb',
           platform: 'Switch',
           releaseDate: null,
-          releaseYear: null,
+          releaseYear: null
         },
         {
           igdbGameId: '2',
@@ -2470,21 +2470,21 @@ describe('IgdbProxyService', () => {
           coverSource: 'igdb',
           platform: 'Switch',
           releaseDate: null,
-          releaseYear: null,
-        },
-      ],
+          releaseYear: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           igdbGameId: '1',
-          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash.jpg',
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash.jpg'
         }),
         expect.objectContaining({
           igdbGameId: '2',
-          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash2.jpg',
-        }),
+          coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big_2x/hash2.jpg'
+        })
       ])
     );
   });
@@ -2510,7 +2510,7 @@ describe('IgdbProxyService', () => {
           coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
           hltbMainHours: 15,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null,
+          hltbCompletionistHours: null
         },
         {
           title: 'Okami',
@@ -2521,22 +2521,22 @@ describe('IgdbProxyService', () => {
           coverUrl: '//images.igdb.com/igdb/image/upload/t_thumb/hash-2.jpg',
           hltbMainHours: 16,
           hltbMainExtraHours: null,
-          hltbCompletionistHours: null,
-        },
-      ],
+          hltbCompletionistHours: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
         title: 'Okami',
         hltbGameId: 9001,
-        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg',
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash.jpg'
       }),
       expect.objectContaining({
         title: 'Okami',
         hltbGameId: 9002,
-        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash-2.jpg',
-      }),
+        imageUrl: 'https://images.igdb.com/igdb/image/upload/t_thumb/hash-2.jpg'
+      })
     ]);
   });
 
@@ -2550,7 +2550,7 @@ describe('IgdbProxyService', () => {
       JSON.stringify([
         { id: 130, name: ' Nintendo Switch ' },
         { id: 130, name: 'Nintendo Switch Duplicate' },
-        { id: null, name: 'Invalid' },
+        { id: null, name: 'Invalid' }
       ])
     );
 
@@ -2573,7 +2573,7 @@ describe('IgdbProxyService', () => {
         {
           status: 429,
           statusText: 'Too Many Requests',
-          headers: new HttpHeaders({ 'Retry-After': 'Thu, 12 Feb 2026 00:00:10 GMT' }),
+          headers: new HttpHeaders({ 'Retry-After': 'Thu, 12 Feb 2026 00:00:10 GMT' })
         }
       );
 
@@ -2604,7 +2604,7 @@ describe('IgdbProxyService', () => {
         {
           status: 429,
           statusText: 'Too Many Requests',
-          headers: new HttpHeaders({ 'Retry-After': 'not-a-date' }),
+          headers: new HttpHeaders({ 'Retry-After': 'not-a-date' })
         }
       );
 
@@ -2627,16 +2627,16 @@ describe('IgdbProxyService', () => {
           similarGameIgdbIds: ['10', ' 11 ', 'bad', 12, null, '10'],
           platform: 'PS2',
           releaseDate: null,
-          releaseYear: null,
-        },
-      ],
+          releaseYear: null
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual([
       expect.objectContaining({
         igdbGameId: '300',
-        similarGameIgdbIds: ['10', '11', '12'],
-      }),
+        similarGameIgdbIds: ['10', '11', '12']
+      })
     ]);
   });
 
@@ -2678,9 +2678,9 @@ describe('IgdbProxyService', () => {
           release_date: '1994-10-20',
           platforms: [{ platform_id: 15, platform_name: 'SNES' }],
           moby_score: 9.1,
-          moby_url: 'https://www.mobygames.com/game/1597/final-fantasy-iii/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/1597/final-fantasy-iii/'
+        }
+      ]
     });
 
     const result = await scorePromise;
@@ -2702,9 +2702,9 @@ describe('IgdbProxyService', () => {
           release_date: 'March 11, 1995',
           platforms: [{ platform_name: 'SNES' }],
           moby_score: 9.5,
-          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/4501/chrono-trigger/'
+        }
+      ]
     });
 
     const results = await candidatesPromise;
@@ -2726,9 +2726,9 @@ describe('IgdbProxyService', () => {
           release_date: '1984',
           platforms: null,
           moby_score: 7.0,
-          moby_url: 'https://www.mobygames.com/game/9999/unknown-game/',
-        },
-      ],
+          moby_url: 'https://www.mobygames.com/game/9999/unknown-game/'
+        }
+      ]
     });
 
     const results = await candidatesPromise;
@@ -2748,7 +2748,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '10' }),
+        headers: new HttpHeaders({ 'Retry-After': '10' })
       }
     );
     await expect(firstRequest).rejects.toThrow('Rate limit exceeded. Retry after 10s.');
@@ -2772,7 +2772,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '8' }),
+        headers: new HttpHeaders({ 'Retry-After': '8' })
       }
     );
     await expect(firstRequest).rejects.toThrow('Rate limit exceeded. Retry after 8s.');
@@ -2921,7 +2921,7 @@ describe('IgdbProxyService', () => {
         {
           status: 429,
           statusText: 'Too Many Requests',
-          headers: new HttpHeaders({ 'Retry-After': '10' }),
+          headers: new HttpHeaders({ 'Retry-After': '10' })
         }
       );
       await expect(firstPromise).rejects.toThrow('Rate limit exceeded. Retry after 10s.');
@@ -2975,7 +2975,7 @@ describe('IgdbProxyService', () => {
       service.getRecommendationLanes({
         target: 'BACKLOG',
         runtimeMode: 'SHORT',
-        limit: 15,
+        limit: 15
       })
     );
 
@@ -2999,8 +2999,8 @@ describe('IgdbProxyService', () => {
         exploration: [],
         blended: [],
         popular: [],
-        recent: [],
-      },
+        recent: []
+      }
     });
 
     await expect(promise).resolves.toEqual({
@@ -3014,8 +3014,8 @@ describe('IgdbProxyService', () => {
         exploration: [],
         blended: [],
         popular: [],
-        recent: [],
-      },
+        recent: []
+      }
     });
   });
 
@@ -3024,7 +3024,7 @@ describe('IgdbProxyService', () => {
       service.getRecommendationsTop({
         target: 'BACKLOG',
         runtimeMode: 'LONG',
-        limit: 999,
+        limit: 999
       })
     );
 
@@ -3042,7 +3042,7 @@ describe('IgdbProxyService', () => {
       runtimeMode: 'LONG',
       runId: '13',
       generatedAt: 'invalid-date',
-      items: [{}],
+      items: [{}]
     });
 
     await expect(promise).resolves.toEqual({
@@ -3050,7 +3050,7 @@ describe('IgdbProxyService', () => {
       runtimeMode: 'LONG',
       runId: 13,
       generatedAt: '1970-01-01T00:00:00.000Z',
-      items: [],
+      items: []
     });
   });
 
@@ -3067,7 +3067,7 @@ describe('IgdbProxyService', () => {
       target: 'WISHLIST',
       runId: 9,
       status: 'SUCCESS',
-      reusedRunId: null,
+      reusedRunId: null
     });
   });
 
@@ -3080,7 +3080,7 @@ describe('IgdbProxyService', () => {
       target: 'BACKLOG',
       runId: 21,
       status: 'QUEUED',
-      reusedRunId: null,
+      reusedRunId: null
     });
   });
 
@@ -3093,7 +3093,7 @@ describe('IgdbProxyService', () => {
       target: 'BACKLOG',
       runId: 0,
       status: 'FAILED',
-      reusedRunId: null,
+      reusedRunId: null
     });
   });
 
@@ -3108,7 +3108,7 @@ describe('IgdbProxyService', () => {
       service.getRecommendationSimilar({
         target: 'BACKLOG',
         igdbGameId: '1',
-        platformIgdbId: 6,
+        platformIgdbId: 6
       })
     );
 
@@ -3149,7 +3149,7 @@ describe('IgdbProxyService', () => {
       service.getRecommendationSimilar({
         target: 'BACKLOG',
         igdbGameId: '42',
-        platformIgdbId: 6,
+        platformIgdbId: 6
       })
     );
     const similarReq = httpMock.expectOne(
@@ -3167,7 +3167,7 @@ describe('IgdbProxyService', () => {
       service.getRecommendationSimilar({
         target: 'BACKLOG',
         igdbGameId: 'abc',
-        platformIgdbId: 0,
+        platformIgdbId: 0
       })
     );
 
@@ -3181,7 +3181,7 @@ describe('IgdbProxyService', () => {
         target: 'BACKLOG',
         igdbGameId: '11549',
         platformIgdbId: 37,
-        limit: 3,
+        limit: 3
       })
     );
 
@@ -3197,7 +3197,7 @@ describe('IgdbProxyService', () => {
     req.flush({
       source: {
         igdbGameId: '11549',
-        platformIgdbId: 37,
+        platformIgdbId: 37
       },
       items: [
         {
@@ -3216,18 +3216,18 @@ describe('IgdbProxyService', () => {
               franchises: ['Mario'],
               collections: ['Super Mario'],
               themes: ['Fantasy'],
-              keywords: ['multiple endings'],
-            },
-          },
-        },
-      ],
+              keywords: ['multiple endings']
+            }
+          }
+        }
+      ]
     });
 
     await expect(promise).resolves.toEqual({
       runtimeMode: 'NEUTRAL',
       source: {
         igdbGameId: '11549',
-        platformIgdbId: 37,
+        platformIgdbId: 37
       },
       items: [
         {
@@ -3246,11 +3246,11 @@ describe('IgdbProxyService', () => {
               franchises: ['Mario'],
               collections: ['Super Mario'],
               themes: ['Fantasy'],
-              keywords: ['multiple endings'],
-            },
-          },
-        },
-      ],
+              keywords: ['multiple endings']
+            }
+          }
+        }
+      ]
     });
   });
 
@@ -3279,14 +3279,14 @@ describe('IgdbProxyService', () => {
         target: 'BACKLOG',
         status: 'QUEUED',
         reason: 'missing',
-        error: 'No recommendations available yet. Rebuild has been queued.',
+        error: 'No recommendations available yet. Rebuild has been queued.'
       },
       { status: 202, statusText: 'Accepted' }
     );
 
     await expect(promise).rejects.toMatchObject({
       message: 'No recommendations available yet. Build recommendations to get started.',
-      code: 'NOT_FOUND',
+      code: 'NOT_FOUND'
     });
   });
 
@@ -3300,14 +3300,14 @@ describe('IgdbProxyService', () => {
         target: 'BACKLOG',
         status: 'QUEUED',
         reason: 'missing',
-        error: 'No recommendations available yet. Rebuild has been queued.',
+        error: 'No recommendations available yet. Rebuild has been queued.'
       },
       { status: 202, statusText: 'Accepted' }
     );
 
     await expect(promise).rejects.toMatchObject({
       message: 'No recommendations available yet. Build recommendations to get started.',
-      code: 'NOT_FOUND',
+      code: 'NOT_FOUND'
     });
   });
 
@@ -3330,7 +3330,7 @@ describe('IgdbProxyService', () => {
 
     await expect(promise).rejects.toMatchObject({
       message: 'Invalid recommendation query.',
-      code: 'INVALID_REQUEST',
+      code: 'INVALID_REQUEST'
     });
   });
 
@@ -3343,7 +3343,7 @@ describe('IgdbProxyService', () => {
 
     await expect(promise).rejects.toMatchObject({
       message: 'Unable to load recommendations right now.',
-      code: 'REQUEST_FAILED',
+      code: 'REQUEST_FAILED'
     });
   });
 
@@ -3387,7 +3387,7 @@ describe('IgdbProxyService', () => {
     const lookupPromise = firstValueFrom(
       service.lookupPsPrices('960', 130, {
         title: '  Nioh 2  ',
-        preferredUrl: '  https://psprices.com/region-ch/game/123  ',
+        preferredUrl: '  https://psprices.com/region-ch/game/123  '
       })
     );
     const lookupReq = httpMock.expectOne((request) => {
@@ -3406,7 +3406,7 @@ describe('IgdbProxyService', () => {
       firstValueFrom(service.lookupPsPricesCandidates('960', 130, 'x'))
     ).resolves.toEqual({
       status: 'unavailable',
-      candidates: [],
+      candidates: []
     });
     httpMock.expectNone(
       (request) => request.url === `${environment.gameApiBaseUrl}/v1/psprices/prices`
@@ -3427,7 +3427,7 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(
       service.lookupPsPrices('960', 130, {
         title: '  Nioh 2  ',
-        preferredUrl: '   ',
+        preferredUrl: '   '
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -3446,7 +3446,7 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(
       service.lookupPsPrices('960', 130, {
         title: 'Nioh 2',
-        preferredUrl: 'not a valid url',
+        preferredUrl: 'not a valid url'
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -3465,7 +3465,7 @@ describe('IgdbProxyService', () => {
     const promise = firstValueFrom(
       service.lookupPsPrices('960', 130, {
         title: 'Nioh 2',
-        preferredUrl: 42 as unknown as string,
+        preferredUrl: 42 as unknown as string
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -3483,7 +3483,7 @@ describe('IgdbProxyService', () => {
   it('normalizes scheme-less preferred PSPrices urls before dispatching lookup requests', async () => {
     const promise = firstValueFrom(
       service.lookupPsPrices('10148', 167, {
-        preferredUrl: '  //psprices.com/region-ch/game/123  ',
+        preferredUrl: '  //psprices.com/region-ch/game/123  '
       })
     );
     const req = httpMock.expectOne((request) => {
@@ -3509,7 +3509,7 @@ describe('IgdbProxyService', () => {
       {
         status: 429,
         statusText: 'Too Many Requests',
-        headers: new HttpHeaders({ 'Retry-After': '9' }),
+        headers: new HttpHeaders({ 'Retry-After': '9' })
       }
     );
 
@@ -3558,7 +3558,7 @@ describe('IgdbProxyService', () => {
 
     expect(privateService.toRecommendationError(new Error('boom'))).toMatchObject({
       message: 'Unable to load recommendations right now.',
-      code: 'REQUEST_FAILED',
+      code: 'REQUEST_FAILED'
     });
 
     const existingError = privateService.createRecommendationApiError('NOT_FOUND', 'existing');

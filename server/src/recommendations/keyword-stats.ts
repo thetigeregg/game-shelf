@@ -86,7 +86,7 @@ export function buildKeywordSelection(params: {
   return {
     embeddingKeywordsByGame,
     structuredKeywordsByGame,
-    stats,
+    stats
   };
 }
 
@@ -110,7 +110,7 @@ function buildKeywordStats(
       } else {
         stats.set(keyword, {
           globalCount: 1,
-          libraryCount: game.listType === 'collection' ? 1 : 0,
+          libraryCount: game.listType === 'collection' ? 1 : 0
         });
       }
     }

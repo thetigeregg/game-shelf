@@ -6,7 +6,7 @@ import {
   GameListView,
   SyncEntityType,
   SyncOperationType,
-  Tag,
+  Tag
 } from '../models/game.models';
 
 @Injectable({ providedIn: 'root' })
@@ -22,23 +22,23 @@ export class AppDb extends Dexie {
     super('game-shelf-db');
 
     this.version(1).stores({
-      games: '++id,&externalId,listType,title,createdAt,updatedAt',
+      games: '++id,&externalId,listType,title,createdAt,updatedAt'
     });
 
     this.version(2).stores({
-      games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
+      games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt'
     });
 
     this.version(3).stores({
       games: '++id,&externalId,listType,title,platformIgdbId,createdAt,updatedAt',
-      tags: '++id,&name,createdAt,updatedAt',
+      tags: '++id,&name,createdAt,updatedAt'
     });
 
     this.version(4)
       .stores({
         games:
           '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
-        tags: '++id,&name,createdAt,updatedAt',
+        tags: '++id,&name,createdAt,updatedAt'
       })
       .upgrade((tx) => {
         return tx
@@ -87,7 +87,7 @@ export class AppDb extends Dexie {
       games:
         '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
       tags: '++id,&name,createdAt,updatedAt',
-      views: '++id,listType,name,updatedAt,createdAt',
+      views: '++id,listType,name,updatedAt,createdAt'
     });
 
     this.version(6).stores({
@@ -95,7 +95,7 @@ export class AppDb extends Dexie {
         '++id,&[igdbGameId+platformIgdbId],igdbGameId,platformIgdbId,listType,title,platform,createdAt,updatedAt',
       tags: '++id,&name,createdAt,updatedAt',
       views: '++id,listType,name,updatedAt,createdAt',
-      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
+      imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes'
     });
 
     this.version(7).stores({
@@ -105,7 +105,7 @@ export class AppDb extends Dexie {
       views: '++id,listType,name,updatedAt,createdAt',
       imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
       outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
-      syncMeta: '&key,updatedAt',
+      syncMeta: '&key,updatedAt'
     });
 
     this.version(8)
@@ -116,7 +116,7 @@ export class AppDb extends Dexie {
         views: '++id,listType,name,updatedAt,createdAt',
         imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
         outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
-        syncMeta: '&key,updatedAt',
+        syncMeta: '&key,updatedAt'
       })
       .upgrade((tx) => {
         return tx
@@ -160,7 +160,7 @@ export class AppDb extends Dexie {
         views: '++id,listType,name,updatedAt,createdAt',
         imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
         outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
-        syncMeta: '&key,updatedAt',
+        syncMeta: '&key,updatedAt'
       })
       .upgrade((tx) => {
         const mobyUrlPattern = /mobygames\.com\/game\/(\d+)\b/i;
@@ -201,7 +201,7 @@ export class AppDb extends Dexie {
         views: '++id,listType,name,updatedAt,createdAt',
         imageCache: '++id,&cacheKey,gameKey,variant,lastAccessedAt,updatedAt,sizeBytes',
         outbox: '&opId,entityType,operation,createdAt,clientTimestamp,attemptCount',
-        syncMeta: '&key,updatedAt',
+        syncMeta: '&key,updatedAt'
       })
       .upgrade((tx) => {
         return tx

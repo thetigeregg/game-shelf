@@ -40,7 +40,7 @@ export class MetadataEnrichmentRepository {
     } finally {
       await client.query('SELECT pg_advisory_unlock($1, $2)', [
         METADATA_ENRICHMENT_LOCK_NAMESPACE,
-        METADATA_ENRICHMENT_LOCK_KEY,
+        METADATA_ENRICHMENT_LOCK_KEY
       ]);
       client.release();
     }
@@ -77,7 +77,7 @@ export class MetadataEnrichmentRepository {
       payload:
         row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
           ? (row.payload as Record<string, unknown>)
-          : {},
+          : {}
     }));
   }
 

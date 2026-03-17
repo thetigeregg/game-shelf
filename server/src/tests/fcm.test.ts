@@ -26,23 +26,23 @@ void test('sendFcmMulticast handles empty and unconfigured token flows', async (
     const emptyResult = await sendFcmMulticast(['', '  '], {
       title: 't',
       body: 'b',
-      data: { route: '/tabs/wishlist' },
+      data: { route: '/tabs/wishlist' }
     });
     assert.deepEqual(emptyResult, {
       successCount: 0,
       failureCount: 0,
-      invalidTokens: [],
+      invalidTokens: []
     });
 
     const noConfigResult = await sendFcmMulticast(['token-1', 'token-1', 'token-2'], {
       title: 't',
       body: 'b',
-      data: { eventType: 'test' },
+      data: { eventType: 'test' }
     });
     assert.deepEqual(noConfigResult, {
       successCount: 0,
       failureCount: 2,
-      invalidTokens: [],
+      invalidTokens: []
     });
   } finally {
     resetFcmStateForTests();
@@ -61,7 +61,7 @@ void test('sendFcmMulticast surfaces invalid Firebase service account JSON once 
         sendFcmMulticast(['token-1'], {
           title: 't',
           body: 'b',
-          data: { eventType: 'test' },
+          data: { eventType: 'test' }
         }),
       (error: unknown) => {
         assert.equal(error instanceof Error, true);
@@ -87,7 +87,7 @@ void test('sendFcmMulticast continues rejecting after an initial parse failure',
       sendFcmMulticast(['token-1'], {
         title: 't',
         body: 'b',
-        data: { eventType: 'test' },
+        data: { eventType: 'test' }
       })
     );
 
@@ -95,7 +95,7 @@ void test('sendFcmMulticast continues rejecting after an initial parse failure',
       sendFcmMulticast(['token-2'], {
         title: 't',
         body: 'b',
-        data: { eventType: 'test' },
+        data: { eventType: 'test' }
       })
     );
   } finally {

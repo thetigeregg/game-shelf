@@ -14,7 +14,7 @@ export class PlatformCustomizationService {
     'super famicom': 'Super Nintendo Entertainment System',
     'new nintendo 3ds': 'Nintendo 3DS',
     'nintendo dsi': 'Nintendo DS',
-    'e-reader / card-e reader': 'Game Boy Advance',
+    'e-reader / card-e reader': 'Game Boy Advance'
   };
   private readonly platformNameById = PLATFORM_CATALOG.reduce((map, entry) => {
     const platformId =
@@ -44,7 +44,7 @@ export class PlatformCustomizationService {
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const { aliasedName: aliasedFallback, aliasWasApplied } = this.resolveAlias({
       displayName: fallback,
-      platformId,
+      platformId
     });
 
     if (aliasWasApplied) {
@@ -91,7 +91,7 @@ export class PlatformCustomizationService {
     const platformId = this.normalizePlatformIgdbId(platformIgdbId);
     const { aliasedName: aliasedFallback, aliasWasApplied } = this.resolveAlias({
       displayName: fallback,
-      platformId,
+      platformId
     });
 
     if (fallback.length === 0 && !aliasWasApplied) {

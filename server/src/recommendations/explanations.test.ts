@@ -13,22 +13,22 @@ void test('explanation bullets preserve component deltas', () => {
       semantic: 0.6,
       exploration: 0.2,
       diversityPenalty: -0.1,
-      repeatPenalty: -0.2,
+      repeatPenalty: -0.2
     },
     tasteMatches: [
       {
         family: 'collections',
         key: 'collections:mario',
         label: 'Mario',
-        delta: 0.9,
+        delta: 0.9
       },
       {
         family: 'genres',
         key: 'genres:platformer',
         label: 'Platformer',
-        delta: 0.3,
-      },
-    ],
+        delta: 0.3
+      }
+    ]
   });
 
   assert.equal(explanation.headline.length > 0, true);

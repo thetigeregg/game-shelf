@@ -9,7 +9,7 @@ import {
   IonHeader,
   IonModal,
   IonTitle,
-  IonToolbar,
+  IonToolbar
 } from '@ionic/angular/standalone';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { GameVideo } from '../../core/models/game.models';
@@ -37,8 +37,8 @@ interface DetailVideoViewModel {
     IonContent,
     IonCard,
     IonCardHeader,
-    IonCardTitle,
-  ],
+    IonCardTitle
+  ]
 })
 export class DetailVideosModalComponent implements OnChanges {
   private readonly domSanitizer = inject(DomSanitizer);
@@ -69,7 +69,7 @@ export class DetailVideosModalComponent implements OnChanges {
         return {
           key,
           videoId,
-          title,
+          title
         };
       })
       .filter((video) => video.videoId.length > 0 && isValidYouTubeVideoId(video.videoId))
@@ -93,7 +93,7 @@ export class DetailVideosModalComponent implements OnChanges {
           key: video.key,
           title,
           watchUrl,
-          embedUrl,
+          embedUrl
         } satisfies DetailVideoViewModel;
       })
       .filter((video): video is DetailVideoViewModel => video !== null);

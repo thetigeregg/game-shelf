@@ -46,7 +46,7 @@ export function normalizeIgdbScreenshotList(value, options = {}) {
       imageId,
       url: `https://images.igdb.com/igdb/image/upload/${size}/${imageId}.jpg`,
       width: parsePositiveInteger(entry.width),
-      height: parsePositiveInteger(entry.height),
+      height: parsePositiveInteger(entry.height)
     });
 
     if (normalized.length >= limit) {
@@ -90,7 +90,7 @@ export function normalizeIgdbVideoList(value, options = {}) {
       id,
       name: name.length > 0 ? name : null,
       videoId,
-      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
     });
 
     if (normalized.length >= limit) {

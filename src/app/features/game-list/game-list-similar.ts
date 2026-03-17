@@ -10,7 +10,7 @@ export function normalizeSimilarGameIds(value: string[] | undefined): string[] {
       value
         .map((item) => (typeof item === 'string' ? item.trim() : ''))
         .filter((item) => /^\d+$/.test(item))
-    ),
+    )
   ];
 }
 

@@ -7,8 +7,8 @@ function createJsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
     headers: {
-      'content-type': 'application/json',
-    },
+      'content-type': 'application/json'
+    }
   });
 }
 
@@ -27,7 +27,7 @@ function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
     return Promise.resolve(
       createJsonResponse({
         access_token: 'stub-token',
-        expires_in: 3600,
+        expires_in: 3600
       })
     );
   }
@@ -42,8 +42,8 @@ function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
             id: 1,
             name: 'Stub Game',
             first_release_date: 0,
-            platforms: [],
-          },
+            platforms: []
+          }
         ])
       );
     }
@@ -63,10 +63,10 @@ function fetchStub(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
           boxart: {
             base_url: {
               small: '',
-              thumb: '',
-            },
-          },
-        },
+              thumb: ''
+            }
+          }
+        }
       })
     );
   }
@@ -91,7 +91,7 @@ function sampleUrlForServerProxyPath(path: string): string {
 void test('all server metadata proxy routes are implemented by worker handler', async () => {
   const indexSource = await readFile(new URL('./index.ts', import.meta.url), 'utf8');
   const proxyGetMatches = [
-    ...indexSource.matchAll(/app\.get\('([^']+)',\s*proxyMetadataToWorker\);/g),
+    ...indexSource.matchAll(/app\.get\('([^']+)',\s*proxyMetadataToWorker\);/g)
   ].map((match) => match[1]);
   const routeBlocks = [...indexSource.matchAll(/app\.route\(\{[\s\S]*?\}\);/g)];
   const proxyRouteMatches = routeBlocks
@@ -109,12 +109,12 @@ void test('all server metadata proxy routes are implemented by worker handler', 
   const workerEnv = {
     TWITCH_CLIENT_ID: 'stub-client',
     TWITCH_CLIENT_SECRET: 'stub-secret',
-    THEGAMESDB_API_KEY: 'stub-gamesdb',
+    THEGAMESDB_API_KEY: 'stub-gamesdb'
   };
 
   for (const path of proxyPaths) {
     const request = new Request(`http://game-shelf.local${sampleUrlForServerProxyPath(path)}`, {
-      method: 'GET',
+      method: 'GET'
     });
 
     const response = await handleRequest(request, workerEnv, fetchStub, () => Date.now());

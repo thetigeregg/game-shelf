@@ -31,7 +31,7 @@ interface PopularityFeedItem {
 
 const ROUTE_RATE_LIMIT = {
   max: 50,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 };
 
 export function registerPopularityRoutes(
@@ -43,51 +43,51 @@ export function registerPopularityRoutes(
     method: 'GET',
     url: '/v1/games/trending',
     config: {
-      rateLimit: ROUTE_RATE_LIMIT,
+      rateLimit: ROUTE_RATE_LIMIT
     },
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
-        feedType: 'trending',
+        feedType: 'trending'
       });
       reply.send({ items });
-    },
+    }
   });
 
   app.route({
     method: 'GET',
     url: '/v1/games/upcoming',
     config: {
-      rateLimit: ROUTE_RATE_LIMIT,
+      rateLimit: ROUTE_RATE_LIMIT
     },
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
-        feedType: 'upcoming',
+        feedType: 'upcoming'
       });
       reply.send({ items });
-    },
+    }
   });
 
   app.route({
     method: 'GET',
     url: '/v1/games/recent',
     config: {
-      rateLimit: ROUTE_RATE_LIMIT,
+      rateLimit: ROUTE_RATE_LIMIT
     },
     handler: async (_request, reply) => {
       const items = await fetchFeedRows(pool, {
         rowLimit: options.rowLimit,
         scoreThreshold: options.threshold,
         nowSec: Math.trunc(Date.now() / 1000),
-        feedType: 'recent',
+        feedType: 'recent'
       });
       reply.send({ items });
-    },
+    }
   });
 
   return Promise.resolve();
@@ -197,7 +197,7 @@ function toFeedItem(row: PopularityGameRow): PopularityFeedItem | null {
     rating: firstNumeric(payload, ['rating', 'reviewScore']),
     popularityScore: score,
     firstReleaseDate: normalizeFirstReleaseDate(payload),
-    platforms,
+    platforms
   };
 }
 

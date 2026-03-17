@@ -9,7 +9,7 @@ import {
   isDebugHttpLogsEnabled,
   logUpstreamRequest,
   logUpstreamResponse,
-  sanitizeUrlForDebugLogs,
+  sanitizeUrlForDebugLogs
 } from './http-debug-log.js';
 
 interface MobyGamesCacheRow {
@@ -92,8 +92,8 @@ export async function registerMobyGamesCachedRoute(
     config: {
       rateLimit: {
         max: config.mobygamesSearchRateLimitMaxPerMinute,
-        timeWindow: '1 minute',
-      },
+        timeWindow: '1 minute'
+      }
     },
     handler: async (request, reply) => {
       const normalized = normalizeMobyGamesQuery(request.url);
@@ -145,7 +145,7 @@ export async function registerMobyGamesCachedRoute(
                   normalized,
                   cachedRow.response_json,
                   {
-                    revalidateScheduled: scheduled,
+                    revalidateScheduled: scheduled
                   }
                 );
                 reply.header('X-GameShelf-MOBYGAMES-Cache', 'HIT_STALE');
@@ -164,7 +164,7 @@ export async function registerMobyGamesCachedRoute(
           cacheOutcome = 'BYPASS';
           request.log.warn({
             msg: 'mobygames_cache_read_failed',
-            error: error instanceof Error ? error.message : String(error),
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       }
@@ -173,7 +173,7 @@ export async function registerMobyGamesCachedRoute(
         cacheOutcome = 'BYPASS';
         incrementMobygamesMetric('bypasses');
         logMobygamesCacheDecision(request, 'BYPASS', null, null, {
-          reason: 'query_too_short',
+          reason: 'query_too_short'
         });
       } else {
         incrementMobygamesMetric('misses');
@@ -191,7 +191,7 @@ export async function registerMobyGamesCachedRoute(
 
       reply.header('X-GameShelf-MOBYGAMES-Cache', cacheOutcome);
       await sendWebResponse(reply, response);
-    },
+    }
   });
 }
 
@@ -217,7 +217,7 @@ function logMobygamesCacheDecision(
     format: normalized?.format ?? null,
     include: normalized?.include ?? null,
     ...describeMobygamesPayload(payload),
-    ...extra,
+    ...extra
   });
 }
 
@@ -225,7 +225,7 @@ function describeMobygamesPayload(payload: unknown): Record<string, unknown> {
   if (!payload || typeof payload !== 'object') {
     return {
       gameCount: null,
-      firstTitle: null,
+      firstTitle: null
     };
   }
 
@@ -240,7 +240,7 @@ function describeMobygamesPayload(payload: unknown): Record<string, unknown> {
 
   return {
     gameCount: games.length,
-    firstTitle,
+    firstTitle
   };
 }
 
@@ -271,7 +271,7 @@ function normalizeMobyGamesQuery(rawUrl: string): NormalizedMobyGamesQuery | nul
     genre: genreValue === null ? null : String(genreValue),
     group: groupValue === null ? null : String(groupValue),
     format,
-    include,
+    include
   };
 }
 
@@ -325,7 +325,7 @@ function buildCacheKey(query: NormalizedMobyGamesQuery): string {
     query.genre?.toLowerCase() ?? null,
     query.group?.toLowerCase() ?? null,
     query.format,
-    query.include?.toLowerCase() ?? null,
+    query.include?.toLowerCase() ?? null
   ]);
 
   return crypto.createHash('sha256').update(payload).digest('hex');
@@ -366,7 +366,7 @@ function scheduleMobyGamesRevalidation(
     incrementMobygamesMetric('revalidateScheduled');
     enqueueRevalidationJob({
       cacheKey,
-      requestUrl: request.url,
+      requestUrl: request.url
     });
     return true;
   }
@@ -411,7 +411,7 @@ function scheduleMobyGamesRevalidation(
       incrementMobygamesMetric('revalidateFailed');
       request.log.warn({
         msg: 'mobygames_cache_revalidate_failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     } finally {
       revalidationInFlightByKey.delete(cacheKey);
@@ -481,7 +481,7 @@ async function persistMobyGamesCacheEntry(
     incrementMobygamesMetric('writeErrors');
     request.log.warn({
       msg: 'mobygames_cache_write_failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
@@ -506,7 +506,7 @@ async function deleteMobyGamesCacheEntry(
     incrementMobygamesMetric('writeErrors');
     request.log.warn({
       msg: 'mobygames_cache_delete_failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
@@ -542,8 +542,8 @@ async function fetchMetadataFromMobyGames(
     return new Response(JSON.stringify({ games: [] }), {
       status: 200,
       headers: {
-        'content-type': 'application/json',
-      },
+        'content-type': 'application/json'
+      }
     });
   }
 
@@ -562,8 +562,8 @@ async function fetchMetadataFromMobyGamesQuery(
     return new Response(JSON.stringify({ error: 'MobyGames API base URL is not configured' }), {
       status: 503,
       headers: {
-        'content-type': 'application/json',
-      },
+        'content-type': 'application/json'
+      }
     });
   }
 
@@ -571,8 +571,8 @@ async function fetchMetadataFromMobyGamesQuery(
     return new Response(JSON.stringify({ error: 'MobyGames API key is not configured' }), {
       status: 503,
       headers: {
-        'content-type': 'application/json',
-      },
+        'content-type': 'application/json'
+      }
     });
   }
 
@@ -597,25 +597,25 @@ async function fetchMetadataFromMobyGamesQuery(
           status: 503,
           headers: {
             'content-type': 'application/json',
-            'retry-after': String(Math.ceil(delayMs / 1000)),
-          },
+            'retry-after': String(Math.ceil(delayMs / 1000))
+          }
         }
       );
     }
     if (request) {
       logUpstreamRequest(request, {
         method: 'GET',
-        url: targetUrl.toString(),
+        url: targetUrl.toString()
       });
     }
     const response = await fetch(targetUrl.toString(), {
-      method: 'GET',
+      method: 'GET'
     });
     if (request) {
       await logUpstreamResponse(request, {
         method: 'GET',
         url: targetUrl.toString(),
-        response,
+        response
       });
     }
     return response;
@@ -624,15 +624,15 @@ async function fetchMetadataFromMobyGamesQuery(
       request.log.warn({
         msg: 'mobygames_request_failed',
         url: sanitizeUrlForDebugLogs(targetUrl.toString()),
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
     }
 
     return new Response(JSON.stringify({ error: 'MobyGames request failed' }), {
       status: 502,
       headers: {
-        'content-type': 'application/json',
-      },
+        'content-type': 'application/json'
+      }
     });
   }
 }
@@ -645,7 +645,7 @@ function resolveMobyGamesCredentials(): MobyGamesCredentials {
 
   return {
     baseUrl,
-    apiKey,
+    apiKey
   };
 }
 
@@ -726,5 +726,5 @@ export const __mobygamesCacheTestables = {
   MOBYGAMES_MAX_QUEUE_DELAY_MS,
   resetMobyGamesThrottle: (): void => {
     mobyGamesNextSlotMs = 0;
-  },
+  }
 };

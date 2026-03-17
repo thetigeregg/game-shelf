@@ -20,7 +20,7 @@ void test('config clamps popularity feed row limit to a sane maximum', () => {
       ...process.env,
       DOTENV_CONFIG_QUIET: 'true',
       ENV_FILE: envFile,
-      NODE_ENV: 'test',
+      NODE_ENV: 'test'
     };
     delete env.POPULARITY_FEED_ROW_LIMIT;
 
@@ -36,12 +36,12 @@ void test('config clamps popularity feed row limit to a sane maximum', () => {
             `${configModuleUrl}?case=popularity-row-limit-clamp`
           )});
           process.stdout.write(JSON.stringify(imported.config.popularityFeedRowLimit));
-        `,
+        `
       ],
       {
         cwd: serverRootDir,
         env,
-        encoding: 'utf8',
+        encoding: 'utf8'
       }
     );
 

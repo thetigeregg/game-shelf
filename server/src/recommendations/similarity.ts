@@ -5,7 +5,7 @@ import {
   SimilarityEdge,
   SimilarityReasons,
   TokenEntry,
-  TokenFamily,
+  TokenFamily
 } from './types.js';
 
 interface GameTokenIndex {
@@ -21,7 +21,7 @@ const TOKEN_FAMILIES: TokenFamily[] = [
   'keywords',
   'developers',
   'genres',
-  'publishers',
+  'publishers'
 ];
 
 export function buildSimilarityGraph(params: {
@@ -57,8 +57,8 @@ export function buildSimilarityGraph(params: {
       series: 0.2,
       developers: 0.1,
       publishers: 0.1,
-      keywords: 0.05,
-    },
+      keywords: 0.05
+    }
   } = params;
 
   const indexByKey = new Map<string, GameTokenIndex>();
@@ -68,7 +68,7 @@ export function buildSimilarityGraph(params: {
     indexByKey.set(key, {
       game,
       byKey: new Map(tokens.map((token) => [token.key, token])),
-      embedding: embeddingsByGame.get(key) ?? null,
+      embedding: embeddingsByGame.get(key) ?? null
     });
   }
 
@@ -107,7 +107,7 @@ export function buildSimilarityGraph(params: {
         target: target.byKey,
         structuredSimilarity,
         semanticSimilarity,
-        blendedSimilarity,
+        blendedSimilarity
       });
 
       candidates.push({
@@ -116,7 +116,7 @@ export function buildSimilarityGraph(params: {
         similarIgdbGameId: target.game.igdbGameId,
         similarPlatformIgdbId: target.game.platformIgdbId,
         similarity: round4(blendedSimilarity),
-        reasons,
+        reasons
       });
     }
 
@@ -276,7 +276,7 @@ function buildReasons(params: {
     franchises: [],
     collections: [],
     themes: [],
-    keywords: [],
+    keywords: []
   };
 
   for (const [key, token] of source) {
@@ -304,7 +304,7 @@ function buildReasons(params: {
     structuredSimilarity: round4(structuredSimilarity),
     semanticSimilarity: round4(semanticSimilarity),
     blendedSimilarity: round4(blendedSimilarity),
-    sharedTokens,
+    sharedTokens
   };
 }
 

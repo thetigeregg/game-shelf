@@ -18,17 +18,17 @@ interface ReplayFailedJobsBody {
 
 const STATS_RATE_LIMIT = {
   max: 10,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 } as const;
 
 const FAILED_LIST_RATE_LIMIT = {
   max: 10,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 } as const;
 
 const REPLAY_RATE_LIMIT = {
   max: 5,
-  timeWindow: '1 minute',
+  timeWindow: '1 minute'
 } as const;
 
 export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): void {
@@ -38,8 +38,8 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
     '/v1/background-jobs/stats',
     {
       config: {
-        rateLimit: STATS_RATE_LIMIT,
-      },
+        rateLimit: STATS_RATE_LIMIT
+      }
     },
     async (_request, reply) => {
       const stats = await repository.getTypeStats();
@@ -48,13 +48,13 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
           pending: accumulator.pending + item.pending,
           running: accumulator.running + item.running,
           failed: accumulator.failed + item.failed,
-          succeeded: accumulator.succeeded + item.succeeded,
+          succeeded: accumulator.succeeded + item.succeeded
         }),
         {
           pending: 0,
           running: 0,
           failed: 0,
-          succeeded: 0,
+          succeeded: 0
         }
       );
       const oldestPendingSeconds =
@@ -67,7 +67,7 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
         timestamp: new Date().toISOString(),
         totals,
         oldestPendingSeconds,
-        byType: stats,
+        byType: stats
       });
     }
   );
@@ -76,8 +76,8 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
     '/v1/background-jobs/failed',
     {
       config: {
-        rateLimit: FAILED_LIST_RATE_LIMIT,
-      },
+        rateLimit: FAILED_LIST_RATE_LIMIT
+      }
     },
     async (request, reply) => {
       if (!isBackgroundJobAdminAuthorized(request, reply)) {
@@ -91,12 +91,12 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
       const failed = await repository.listFailed({
         jobType,
         failedBeforeIso: failedBefore,
-        limit,
+        limit
       });
 
       reply.send({
         count: failed.length,
-        items: failed,
+        items: failed
       });
     }
   );
@@ -105,8 +105,8 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
     '/v1/background-jobs/replay',
     {
       config: {
-        rateLimit: REPLAY_RATE_LIMIT,
-      },
+        rateLimit: REPLAY_RATE_LIMIT
+      }
     },
     async (request, reply) => {
       if (!isBackgroundJobAdminAuthorized(request, reply)) {
@@ -120,12 +120,12 @@ export function registerBackgroundJobRoutes(app: FastifyInstance, pool: Pool): v
       const result = await repository.requeueFailed({
         jobType,
         failedBeforeIso: failedBefore,
-        limit,
+        limit
       });
 
       reply.send({
         ok: true,
-        ...result,
+        ...result
       });
     }
   );
@@ -150,7 +150,7 @@ function parseJobType(value: unknown): BackgroundJobType | null {
     'mobygames_cache_revalidate',
     'steam_price_revalidate',
     'psprices_price_revalidate',
-    'manuals_catalog_refresh',
+    'manuals_catalog_refresh'
   ];
   return knownTypes.includes(normalized as BackgroundJobType)
     ? (normalized as BackgroundJobType)
@@ -191,7 +191,7 @@ function isBackgroundJobAdminAuthorized(
     apiToken: config.apiToken,
     clientWriteTokens: [],
     authorizationHeader: request.headers.authorization,
-    clientWriteTokenHeader: undefined,
+    clientWriteTokenHeader: undefined
   });
 
   if (!authorized) {

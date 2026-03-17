@@ -10,7 +10,7 @@ function runGit(args) {
     return execFileSync('git', args, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      maxBuffer: 1024 * 1024 * 10,
+      maxBuffer: 1024 * 1024 * 10
     });
   } catch (error) {
     console.error(`Failed to run command: git ${args.join(' ')}`);

@@ -7,7 +7,7 @@ import {
   mkdirSync,
   readFileSync,
   statSync,
-  writeFileSync,
+  writeFileSync
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -90,7 +90,7 @@ const ports = {
   POSTGRES_HOST_PORT: 5432 + portOffset,
   HLTB_HOST_PORT: 8788 + portOffset,
   METACRITIC_HOST_PORT: 8789 + portOffset,
-  PSPRICES_HOST_PORT: 8790 + portOffset,
+  PSPRICES_HOST_PORT: 8790 + portOffset
 };
 
 const localEnvPath = path.resolve(cwd, '.env');
@@ -110,7 +110,7 @@ const corsOrigin = [
   `http://127.0.0.1:${ports.FRONTEND_PORT}`,
   `http://localhost:${ports.FRONTEND_PORT}`,
   `http://127.0.0.1:${ports.EDGE_HOST_PORT}`,
-  `http://localhost:${ports.EDGE_HOST_PORT}`,
+  `http://localhost:${ports.EDGE_HOST_PORT}`
 ].join(',');
 
 const sharedEnv = {
@@ -119,7 +119,7 @@ const sharedEnv = {
   COMPOSE_PROJECT_NAME: projectName,
   ...ports,
   CORS_ORIGIN: corsOrigin,
-  MANUALS_PUBLIC_BASE_URL: `http://127.0.0.1:${ports.EDGE_HOST_PORT}/manuals`,
+  MANUALS_PUBLIC_BASE_URL: `http://127.0.0.1:${ports.EDGE_HOST_PORT}/manuals`
 };
 
 function defaultSeedPath() {
@@ -133,7 +133,7 @@ function run(command, commandArgs, env = sharedEnv) {
   const result = spawnSync(command, commandArgs, {
     cwd,
     env,
-    stdio: 'inherit',
+    stdio: 'inherit'
   });
   if (result.error) {
     console.error(result.error.message);
@@ -149,7 +149,7 @@ function runCapture(command, commandArgs, env = sharedEnv) {
     cwd,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
-    encoding: 'utf8',
+    encoding: 'utf8'
   });
 
   if (result.error) {
@@ -178,7 +178,7 @@ function hasBash() {
   const result = spawnSync('bash', ['-lc', 'true'], {
     cwd,
     env: sharedEnv,
-    stdio: 'ignore',
+    stdio: 'ignore'
   });
   return !result.error && result.status === 0;
 }
@@ -252,7 +252,7 @@ function listMissingDependencyDirs() {
     { packageDir: path.resolve(cwd, 'worker') },
     { packageDir: path.resolve(cwd, 'hltb-scraper') },
     { packageDir: path.resolve(cwd, 'metacritic-scraper') },
-    { packageDir: path.resolve(cwd, 'psprices-scraper') },
+    { packageDir: path.resolve(cwd, 'psprices-scraper') }
   ];
 
   return dependencyPackages
@@ -311,7 +311,7 @@ function buildNvmAwareInstallCommand(installScript = 'i:all') {
     '    echo "Warning: .nvmrc found but nvm.sh was not found; continuing with current Node."',
     '  fi',
     'fi',
-    `npm run ${installScript}`,
+    `npm run ${installScript}`
   ].join('\n');
 }
 
@@ -329,7 +329,7 @@ function runStack(action) {
       'api',
       'worker-general',
       'worker-recommendations',
-      'edge',
+      'edge'
     ]);
     return;
   }
@@ -356,7 +356,7 @@ function runStack(action) {
       'postgres',
       'hltb-scraper',
       'metacritic-scraper',
-      'psprices-scraper',
+      'psprices-scraper'
     ]);
     return;
   }
@@ -373,7 +373,7 @@ function runStack(action) {
       'postgres',
       'hltb-scraper',
       'metacritic-scraper',
-      'psprices-scraper',
+      'psprices-scraper'
     ]);
     return;
   }
@@ -397,14 +397,14 @@ function runFrontend() {
       target: `http://127.0.0.1:${ports.API_HOST_PORT}`,
       secure: false,
       changeOrigin: true,
-      logLevel: 'warn',
+      logLevel: 'warn'
     },
     '/manuals': {
       target: `http://127.0.0.1:${ports.EDGE_HOST_PORT}`,
       secure: false,
       changeOrigin: true,
-      logLevel: 'warn',
-    },
+      logLevel: 'warn'
+    }
   };
 
   writeFileSync(proxyPath, `${JSON.stringify(proxyConfig, null, 2)}\n`, 'utf8');
@@ -417,7 +417,7 @@ function runFrontend() {
     '--port',
     String(ports.FRONTEND_PORT),
     '--proxy-config',
-    proxyPath,
+    proxyPath
   ];
 
   if (existsSync(localEnvironmentPath)) {
@@ -477,7 +477,7 @@ function dbSeedRefresh() {
     {
       cwd,
       env: sharedEnv,
-      stdio: 'ignore',
+      stdio: 'ignore'
     }
   );
   if (dumpLooksValid.status !== 0) {
@@ -568,7 +568,7 @@ function runDb(command, opts) {
 
 function parseOptions(values) {
   const options = {
-    force: false,
+    force: false
   };
 
   for (const value of values) {

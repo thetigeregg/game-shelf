@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   normalizeEditorNotesComparable,
   normalizeEditorNotesValue,
-  toNotesEditorContent,
+  toNotesEditorContent
 } from './notes-editor.utils';
 
 describe('notes-editor utils', () => {

@@ -16,7 +16,7 @@ function makeGame(overrides: Partial<GameEntry> = {}): GameEntry {
     listType: 'collection',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -31,7 +31,7 @@ describe('game-list-similar', () => {
     const dsVariant = makeGame({
       igdbGameId: '10',
       platformIgdbId: 37,
-      title: 'Chrono Trigger DS',
+      title: 'Chrono Trigger DS'
     });
     const earthbound = makeGame({ igdbGameId: '11', title: 'EarthBound' });
     const superMetroid = makeGame({ igdbGameId: '12', title: 'Super Metroid' });
@@ -41,13 +41,13 @@ describe('game-list-similar', () => {
       currentGame: current,
       libraryGames: [current, dsVariant, earthbound, superMetroid, whitespaceId],
       similarIds: ['11', '10'],
-      compareTitles: (left, right) => left.localeCompare(right),
+      compareTitles: (left, right) => left.localeCompare(right)
     });
 
     expect(result.map((game) => game.title)).toEqual([
       'Chrono Trigger DS',
       'EarthBound',
-      'EarthBound Copy',
+      'EarthBound Copy'
     ]);
   });
 });

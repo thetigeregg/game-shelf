@@ -22,11 +22,11 @@ class SaleNotificationPoolMock {
     this.settingRows.length = 0;
     this.settingRows.push({
       setting_key: 'game-shelf:notifications:release:enabled',
-      setting_value: String(enabled),
+      setting_value: String(enabled)
     });
     this.settingRows.push({
       setting_key: 'game-shelf:notifications:release:events',
-      setting_value: JSON.stringify({ sale: saleEnabled }),
+      setting_value: JSON.stringify({ sale: saleEnabled })
     });
   }
 
@@ -137,7 +137,7 @@ void test('sends notification for wishlist transition from not-on-sale to on-sal
         priceAmount: 59.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
@@ -147,14 +147,14 @@ void test('sends notification for wishlist transition from not-on-sale to on-sal
         priceDiscountPercent: 33,
         priceIsFree: false,
         priceCurrency: 'USD',
-        priceFetchedAt: '2026-03-12T10:00:00.000Z',
-      },
+        priceFetchedAt: '2026-03-12T10:00:00.000Z'
+      }
     },
     {
       sendMulticast: (_tokens, payload) => {
         sends.push(payload);
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -182,7 +182,7 @@ void test('skips notification when game is already on sale', async () => {
         priceAmount: 49.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 16,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
@@ -190,14 +190,14 @@ void test('skips notification when game is already on sale', async () => {
         priceAmount: 39.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 33,
-        priceIsFree: false,
-      },
+        priceIsFree: false
+      }
     },
     {
       sendMulticast: () => {
         sendCount += 1;
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -221,21 +221,21 @@ void test('skips notification for non-wishlist or free games', async () => {
         priceAmount: 59.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'collection',
         priceAmount: 49.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 16,
-        priceIsFree: false,
-      },
+        priceIsFree: false
+      }
     },
     {
       sendMulticast: () => {
         sendCount += 1;
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -249,21 +249,21 @@ void test('skips notification for non-wishlist or free games', async () => {
         priceAmount: null,
         priceRegularAmount: null,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
         priceAmount: 0,
         priceRegularAmount: 19.99,
         priceDiscountPercent: 100,
-        priceIsFree: true,
-      },
+        priceIsFree: true
+      }
     },
     {
       sendMulticast: () => {
         sendCount += 1;
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -288,7 +288,7 @@ void test('skips notification when transitioning into wishlist while already on 
         priceAmount: 59.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
@@ -296,14 +296,14 @@ void test('skips notification when transitioning into wishlist while already on 
         priceAmount: 39.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 33,
-        priceIsFree: false,
-      },
+        priceIsFree: false
+      }
     },
     {
       sendMulticast: () => {
         sendCount += 1;
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -327,21 +327,21 @@ void test('skips notification when disabled or no active tokens', async () => {
         priceAmount: 59.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
         priceAmount: 39.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 33,
-        priceIsFree: false,
-      },
+        priceIsFree: false
+      }
     },
     {
       sendMulticast: () => {
         sendCount += 1;
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -356,21 +356,21 @@ void test('skips notification when disabled or no active tokens', async () => {
         priceAmount: 59.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
         priceAmount: 39.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 33,
-        priceIsFree: false,
-      },
+        priceIsFree: false
+      }
     },
     {
       sendMulticast: () => {
         sendCount += 1;
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -386,21 +386,21 @@ void test('skips notification when disabled or no active tokens', async () => {
         priceAmount: 59.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
         priceAmount: 39.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 33,
-        priceIsFree: false,
-      },
+        priceIsFree: false
+      }
     },
     {
       sendMulticast: () => {
         sendCount += 1;
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -425,21 +425,21 @@ void test('treats string and numeric falsey sale preferences as disabled', async
           priceAmount: 59.99,
           priceRegularAmount: 59.99,
           priceDiscountPercent: 0,
-          priceIsFree: false,
+          priceIsFree: false
         },
         nextPayload: {
           listType: 'wishlist',
           priceAmount: 39.99,
           priceRegularAmount: 59.99,
           priceDiscountPercent: 33,
-          priceIsFree: false,
-        },
+          priceIsFree: false
+        }
       },
       {
         sendMulticast: () => {
           sendCount += 1;
           return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-        },
+        }
       }
     );
   }
@@ -464,7 +464,7 @@ void test('detects sale via regular/current delta when discount percent is missi
         priceAmount: 69.99,
         priceRegularAmount: 69.99,
         priceDiscountPercent: null,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
@@ -474,14 +474,14 @@ void test('detects sale via regular/current delta when discount percent is missi
         priceDiscountPercent: null,
         priceIsFree: false,
         priceCurrency: 'USD',
-        priceFetchedAt: '2026-03-12T12:00:00.000Z',
-      },
+        priceFetchedAt: '2026-03-12T12:00:00.000Z'
+      }
     },
     {
       sendMulticast: (_tokens, payload) => {
         sends.push(payload);
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -508,7 +508,7 @@ void test('releases reservation when sendMulticast throws', async () => {
           priceAmount: 69.99,
           priceRegularAmount: 69.99,
           priceDiscountPercent: 0,
-          priceIsFree: false,
+          priceIsFree: false
         },
         nextPayload: {
           listType: 'wishlist',
@@ -518,11 +518,11 @@ void test('releases reservation when sendMulticast throws', async () => {
           priceDiscountPercent: 43,
           priceIsFree: false,
           priceCurrency: 'CHF',
-          priceFetchedAt: '2026-03-12T12:30:00.000Z',
-        },
+          priceFetchedAt: '2026-03-12T12:30:00.000Z'
+        }
       },
       {
-        sendMulticast: () => Promise.reject(new Error('send_failed')),
+        sendMulticast: () => Promise.reject(new Error('send_failed'))
       }
     ),
     /send_failed/
@@ -548,7 +548,7 @@ void test('deactivates invalid tokens when send has zero successes', async () =>
         priceAmount: 69.99,
         priceRegularAmount: 69.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
@@ -558,12 +558,12 @@ void test('deactivates invalid tokens when send has zero successes', async () =>
         priceDiscountPercent: 43,
         priceIsFree: false,
         priceCurrency: 'CHF',
-        priceFetchedAt: '2026-03-12T12:40:00.000Z',
-      },
+        priceFetchedAt: '2026-03-12T12:40:00.000Z'
+      }
     },
     {
       sendMulticast: () =>
-        Promise.resolve({ successCount: 0, failureCount: 1, invalidTokens: ['token-a'] }),
+        Promise.resolve({ successCount: 0, failureCount: 1, invalidTokens: ['token-a'] })
     }
   );
 
@@ -586,7 +586,7 @@ void test('loads active tokens only for dedupe reservation winner', async () => 
       priceAmount: 49.99,
       priceRegularAmount: 49.99,
       priceDiscountPercent: 0,
-      priceIsFree: false,
+      priceIsFree: false
     },
     nextPayload: {
       listType: 'wishlist',
@@ -596,22 +596,22 @@ void test('loads active tokens only for dedupe reservation winner', async () => 
       priceDiscountPercent: 40,
       priceIsFree: false,
       priceCurrency: 'USD',
-      priceFetchedAt: '2026-03-12T13:00:00.000Z',
-    },
+      priceFetchedAt: '2026-03-12T13:00:00.000Z'
+    }
   };
 
   await maybeSendWishlistSaleNotification(pool as unknown as Pool, params, {
     sendMulticast: () => {
       sendCount += 1;
       return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-    },
+    }
   });
 
   await maybeSendWishlistSaleNotification(pool as unknown as Pool, params, {
     sendMulticast: () => {
       sendCount += 1;
       return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-    },
+    }
   });
 
   assert.equal(sendCount, 1);
@@ -635,7 +635,7 @@ void test('uses preloaded active tokens when provided', async () => {
         priceAmount: 49.99,
         priceRegularAmount: 49.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
@@ -645,8 +645,8 @@ void test('uses preloaded active tokens when provided', async () => {
         priceDiscountPercent: 40,
         priceIsFree: false,
         priceCurrency: 'USD',
-        priceFetchedAt: '2026-03-12T13:05:00.000Z',
-      },
+        priceFetchedAt: '2026-03-12T13:05:00.000Z'
+      }
     },
     {
       activeTokens: ['token-preloaded'],
@@ -654,7 +654,7 @@ void test('uses preloaded active tokens when provided', async () => {
         sendCount += 1;
         assert.deepEqual(tokens, ['token-preloaded']);
         return Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] });
-      },
+      }
     }
   );
 
@@ -687,7 +687,7 @@ void test('warns when active token load exceeds cap', async () => {
           priceAmount: 59.99,
           priceRegularAmount: 59.99,
           priceDiscountPercent: 0,
-          priceIsFree: false,
+          priceIsFree: false
         },
         nextPayload: {
           listType: 'wishlist',
@@ -697,12 +697,12 @@ void test('warns when active token load exceeds cap', async () => {
           priceDiscountPercent: 33,
           priceIsFree: false,
           priceCurrency: 'USD',
-          priceFetchedAt: '2026-03-12T13:10:00.000Z',
-        },
+          priceFetchedAt: '2026-03-12T13:10:00.000Z'
+        }
       },
       {
         sendMulticast: () =>
-          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] }),
+          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] })
       }
     );
   } finally {
@@ -744,7 +744,7 @@ void test('does not warn when active token load equals cap exactly', async () =>
           priceAmount: 59.99,
           priceRegularAmount: 59.99,
           priceDiscountPercent: 0,
-          priceIsFree: false,
+          priceIsFree: false
         },
         nextPayload: {
           listType: 'wishlist',
@@ -754,12 +754,12 @@ void test('does not warn when active token load equals cap exactly', async () =>
           priceDiscountPercent: 33,
           priceIsFree: false,
           priceCurrency: 'USD',
-          priceFetchedAt: '2026-03-12T13:15:00.000Z',
-        },
+          priceFetchedAt: '2026-03-12T13:15:00.000Z'
+        }
       },
       {
         sendMulticast: () =>
-          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] }),
+          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] })
       }
     );
   } finally {
@@ -794,7 +794,7 @@ void test('keeps reservation when persistence fails after successful send', asyn
           priceAmount: 59.99,
           priceRegularAmount: 59.99,
           priceDiscountPercent: 0,
-          priceIsFree: false,
+          priceIsFree: false
         },
         nextPayload: {
           listType: 'wishlist',
@@ -804,12 +804,12 @@ void test('keeps reservation when persistence fails after successful send', asyn
           priceDiscountPercent: 33,
           priceIsFree: false,
           priceCurrency: 'USD',
-          priceFetchedAt: '2026-03-12T13:20:00.000Z',
-        },
+          priceFetchedAt: '2026-03-12T13:20:00.000Z'
+        }
       },
       {
         sendMulticast: () =>
-          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] }),
+          Promise.resolve({ successCount: 1, failureCount: 0, invalidTokens: [] })
       }
     ),
     /finalize_failed/
@@ -835,7 +835,7 @@ void test('releases reservation when active token load fails after reservation',
         priceAmount: 59.99,
         priceRegularAmount: 59.99,
         priceDiscountPercent: 0,
-        priceIsFree: false,
+        priceIsFree: false
       },
       nextPayload: {
         listType: 'wishlist',
@@ -845,8 +845,8 @@ void test('releases reservation when active token load fails after reservation',
         priceDiscountPercent: 33,
         priceIsFree: false,
         priceCurrency: 'USD',
-        priceFetchedAt: '2026-03-12T13:25:00.000Z',
-      },
+        priceFetchedAt: '2026-03-12T13:25:00.000Z'
+      }
     }),
     /token_select_failed/
   );

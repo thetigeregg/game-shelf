@@ -1,6 +1,6 @@
 export const METACRITIC_SEARCH_RESULTS_CONTAINER_SELECTOR = '[data-testid="search-results"]';
 export const METACRITIC_SEARCH_RESULT_ROW_SELECTOR =
-  '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
+  '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard, article:has(a[href*="/game/"]):has([data-testid="product-metascore"], [data-testid="critic-score"], [data-testid="product-release-date"], time)';
 export const METACRITIC_SEARCH_RESULT_LINK_SELECTOR = 'a[href*="/game/"]';
 export const METACRITIC_SEARCH_RESULT_METADATA_SELECTOR =
   '[data-testid="product-metascore"], [data-testid="critic-score"], [data-testid="product-platform"], [data-testid="platform"], [data-testid="product-release-date"], time, [data-testid*="result"]';
@@ -68,7 +68,7 @@ export function extractMetacriticSearchResults(config = {}) {
       current = current.parentElement;
     }
 
-    return link.parentElement ?? link;
+    return null;
   };
 
   const detectPlatformInTextInPage = (rawValue) => {
@@ -182,6 +182,279 @@ export function extractMetacriticSearchResults(config = {}) {
       .replace(/\s+/g, ' ')
       .trim();
 
+  const decodePayloadStringInPage = (rawValue) => {
+    const quoted = `"${String(rawValue ?? '')}"`;
+
+    try {
+      return JSON.parse(quoted);
+    } catch {
+      return String(rawValue ?? '');
+    }
+  };
+
+  const extractPayloadCandidatesInPage = () => {
+    const extractStructuredPayloadCandidatesInPage = (scriptText) => {
+      let flatData;
+
+      try {
+        flatData = JSON.parse(scriptText);
+      } catch {
+        return [];
+      }
+
+      if (!Array.isArray(flatData)) {
+        return [];
+      }
+
+      const resolvedCache = new Map();
+      const resolving = new Set();
+
+      const resolvePayloadRefInPage = (value) => {
+        if (
+          typeof value !== 'number' ||
+          !Number.isInteger(value) ||
+          value < 0 ||
+          value >= flatData.length
+        ) {
+          return value;
+        }
+
+        if (resolvedCache.has(value)) {
+          return resolvedCache.get(value);
+        }
+
+        if (resolving.has(value)) {
+          return null;
+        }
+
+        resolving.add(value);
+        const raw = flatData[value];
+        let resolved;
+
+        if (Array.isArray(raw)) {
+          resolved = raw.map((entry) => resolvePayloadRefInPage(entry));
+        } else if (raw && typeof raw === 'object') {
+          resolved = Object.fromEntries(
+            Object.entries(raw).map(([key, entry]) => [key, resolvePayloadRefInPage(entry)])
+          );
+        } else {
+          resolved = raw;
+        }
+
+        resolving.delete(value);
+        resolvedCache.set(value, resolved);
+        return resolved;
+      };
+
+      const candidates = [];
+      const seenUrls = new Set();
+
+      for (let index = 0; index < flatData.length; index += 1) {
+        const rawEntry = flatData[index];
+        if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
+          continue;
+        }
+
+        if (
+          !('title' in rawEntry) ||
+          !('slug' in rawEntry) ||
+          !('criticScoreSummary' in rawEntry) ||
+          !('releaseDate' in rawEntry) ||
+          !('platforms' in rawEntry)
+        ) {
+          continue;
+        }
+
+        const candidate = resolvePayloadRefInPage(index);
+        const title = sanitizeCandidateTitleInPage(candidate?.title);
+        const criticUrl = String(candidate?.criticScoreSummary?.url ?? '').trim();
+        const metacriticUrl = normalizeMetacriticHrefInPage(
+          criticUrl.replace(/\/critic-reviews\/$/i, '/')
+        );
+
+        if (!title || !metacriticUrl || seenUrls.has(metacriticUrl)) {
+          continue;
+        }
+
+        const releaseDate = String(candidate?.releaseDate ?? '').trim();
+        const releaseDateYearMatch = releaseDate.match(/\b(19|20)\d{2}\b/);
+        const releaseYearCandidate =
+          typeof candidate?.premiereYear === 'number'
+            ? candidate.premiereYear
+            : releaseDateYearMatch
+              ? Number.parseInt(releaseDateYearMatch[0], 10)
+              : null;
+        const platformNames = Array.isArray(candidate?.platforms)
+          ? candidate.platforms
+              .map((platformEntry) => {
+                if (typeof platformEntry === 'string') {
+                  return platformEntry;
+                }
+
+                if (platformEntry && typeof platformEntry === 'object') {
+                  return String(platformEntry.name ?? '').trim();
+                }
+
+                return '';
+              })
+              .filter((name) => name.length > 0)
+          : [];
+        const imageEntry = Array.isArray(candidate?.images) ? candidate.images[0] : null;
+        const rawImageUrl =
+          typeof imageEntry === 'string'
+            ? imageEntry
+            : String(
+                imageEntry?.imageUrl ??
+                  imageEntry?.bucketPath ??
+                  imageEntry?.path ??
+                  imageEntry?.url ??
+                  ''
+              ).trim();
+        const normalizedImageUrl = rawImageUrl.startsWith('/provider/')
+          ? `${canonicalMetacriticOriginInPage}${rawImageUrl}`
+          : rawImageUrl;
+
+        seenUrls.add(metacriticUrl);
+        candidates.push({
+          title,
+          releaseYear: Number.isInteger(releaseYearCandidate) ? releaseYearCandidate : null,
+          platform: platformNames[0] ? normalizePlatformTextInPage(platformNames[0]) : null,
+          metacriticScore: parseMetacriticScoreInPage(candidate?.criticScoreSummary?.score),
+          metacriticUrl,
+          imageUrl: normalizedImageUrl.length > 0 ? normalizedImageUrl : null,
+        });
+      }
+
+      return candidates;
+    };
+
+    const payloadEntryPattern =
+      /(?:\}\s*,\s*)?\d+\s*,\s*"game-title"\s*,\s*13\s*,\s*"((?:[^"\\]|\\.)+)"\s*,\s*"((?:[^"\\]|\\.)+)"([\s\S]*?)(?=(?:\}\s*,\s*)?\d+\s*,\s*"game-title"\s*,\s*13\s*,|$)/g;
+    const payloadScripts = Array.from(document.querySelectorAll('script'))
+      .map((script) => String(script.textContent ?? ''))
+      .filter((text) => text.includes('"game-title"') && text.includes('/critic-reviews/'));
+
+    if (payloadScripts.length === 0) {
+      return [];
+    }
+
+    const payloadCandidates = [];
+    const seenPayloadUrls = new Set();
+
+    for (const scriptText of payloadScripts) {
+      const structuredCandidates = extractStructuredPayloadCandidatesInPage(scriptText);
+      for (const structuredCandidate of structuredCandidates) {
+        if (seenPayloadUrls.has(structuredCandidate.metacriticUrl)) {
+          continue;
+        }
+
+        seenPayloadUrls.add(structuredCandidate.metacriticUrl);
+        payloadCandidates.push(structuredCandidate);
+      }
+
+      if (structuredCandidates.length > 0) {
+        continue;
+      }
+
+      let payloadMatch = payloadEntryPattern.exec(scriptText);
+
+      while (payloadMatch) {
+        const rawTitle = decodePayloadStringInPage(payloadMatch[1]);
+        const rawSlug = decodePayloadStringInPage(payloadMatch[2]);
+        const segment = String(payloadMatch[3] ?? '');
+        const criticPathMatch = segment.match(/"((?:\/game\/[^"\\]+)\/critic-reviews\/)"/i);
+        const derivedPath = criticPathMatch
+          ? criticPathMatch[1].replace(/\/critic-reviews\/$/i, '/')
+          : `/game/${rawSlug.replace(/^\/+|\/+$/g, '')}/`;
+        const metacriticUrl = normalizeMetacriticHrefInPage(derivedPath);
+
+        if (!metacriticUrl || seenPayloadUrls.has(metacriticUrl)) {
+          payloadMatch = payloadEntryPattern.exec(scriptText);
+          continue;
+        }
+
+        const title = sanitizeCandidateTitleInPage(rawTitle);
+        if (!title) {
+          payloadMatch = payloadEntryPattern.exec(scriptText);
+          continue;
+        }
+
+        const releaseDateAndYearMatch = segment.match(
+          /"(\d{4})(?:-\d{2}-\d{2})?"\s*,\s*(\d{4})(?=\s*,\s*\[)/
+        );
+        const fallbackIsoYearMatch = segment.match(/"(\d{4})-\d{2}-\d{2}"/);
+        const releaseYearValue = releaseDateAndYearMatch?.[2] ?? fallbackIsoYearMatch?.[1] ?? null;
+        const parsedReleaseYear = releaseYearValue ? Number.parseInt(releaseYearValue, 10) : null;
+        const trailingSegment = releaseDateAndYearMatch
+          ? segment.slice(releaseDateAndYearMatch.index + releaseDateAndYearMatch[0].length)
+          : segment;
+        const platformMatch = trailingSegment.match(
+          /\[[^\]]*\]\s*,\s*\{[^}]*"name"[^}]*\}\s*,\s*"[^"]*"\s*,\s*\[[^\]]*\]\s*,\s*\{[^}]*"name"[^}]*\}\s*,\s*"([^"]+)"/
+        );
+        const scoreMatch = segment.match(/\/critic-reviews\/"\s*,\s*(\d{1,3})(?=\s*(?:,|\]))/);
+        const parsedScore = scoreMatch ? Number.parseInt(scoreMatch[1], 10) : null;
+        const imagePathMatch = segment.match(/"((?:https:\/\/[^"\\]+|\/provider\/[^"\\]+))"/i);
+        const imageValue = imagePathMatch?.[1] ?? '';
+        const imageUrl = imageValue.startsWith('/provider/')
+          ? `${canonicalMetacriticOriginInPage}${imageValue}`
+          : imageValue;
+
+        seenPayloadUrls.add(metacriticUrl);
+        payloadCandidates.push({
+          title,
+          releaseYear: Number.isInteger(parsedReleaseYear) ? parsedReleaseYear : null,
+          platform: platformMatch ? normalizePlatformTextInPage(platformMatch[1]) : null,
+          metacriticScore:
+            Number.isInteger(parsedScore) && parsedScore >= 1 && parsedScore <= 100
+              ? parsedScore
+              : null,
+          metacriticUrl,
+          imageUrl: imageUrl.length > 0 ? imageUrl : null,
+        });
+
+        payloadMatch = payloadEntryPattern.exec(scriptText);
+      }
+    }
+
+    return payloadCandidates;
+  };
+
+  const mergePayloadCandidatesInPage = (
+    items,
+    payloadCandidates = extractPayloadCandidatesInPage()
+  ) => {
+    if (payloadCandidates.length === 0) {
+      return items;
+    }
+
+    const payloadByUrl = new Map(
+      payloadCandidates
+        .filter((candidate) => typeof candidate.metacriticUrl === 'string')
+        .map((candidate) => [candidate.metacriticUrl, candidate])
+    );
+
+    if (items.length === 0) {
+      return payloadCandidates;
+    }
+
+    return items.map((item) => {
+      const payloadCandidate = payloadByUrl.get(item.metacriticUrl);
+      if (!payloadCandidate) {
+        return item;
+      }
+
+      return {
+        ...item,
+        releaseYear: item.releaseYear ?? payloadCandidate.releaseYear ?? null,
+        platform: item.platform ?? payloadCandidate.platform ?? null,
+        metacriticScore: item.metacriticScore ?? payloadCandidate.metacriticScore ?? null,
+        imageUrl: item.imageUrl ?? payloadCandidate.imageUrl ?? null,
+      };
+    });
+  };
+
+  const payloadCandidates = extractPayloadCandidatesInPage();
+
   const parsed = [];
 
   for (const row of rows) {
@@ -258,7 +531,11 @@ export function extractMetacriticSearchResults(config = {}) {
   }
 
   if (parsed.length > 0) {
-    return parsed;
+    return mergePayloadCandidatesInPage(parsed, payloadCandidates);
+  }
+
+  if (payloadCandidates.length > 0) {
+    return payloadCandidates;
   }
 
   // Fallback parsing (working up to: 2026-03-17).
@@ -273,6 +550,10 @@ export function extractMetacriticSearchResults(config = {}) {
     }
 
     const container = findCandidateContainerInPage(link);
+    if (!container) {
+      continue;
+    }
+
     const titleEl = container.querySelector(titleSelectorInPage) || link;
     const title = sanitizeCandidateTitleInPage(extractCandidateTitleTextInPage(titleEl));
     if (!title || genericTitles.has(title.toLowerCase())) {
@@ -323,5 +604,5 @@ export function extractMetacriticSearchResults(config = {}) {
     });
   }
 
-  return parsed;
+  return mergePayloadCandidatesInPage(parsed, payloadCandidates);
 }

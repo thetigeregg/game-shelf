@@ -5,7 +5,9 @@ export const METACRITIC_SEARCH_RESULTS_READY_SELECTOR = `${METACRITIC_SEARCH_RES
 
 export function extractMetacriticSearchResults(config = {}) {
   // Current parsing path (2026-03-17): rely on /game/ links and nearby metadata blocks.
-  const rowSelectorInPage = String(config.rowSelector ?? METACRITIC_SEARCH_RESULT_ROW_SELECTOR);
+  const defaultRowSelectorInPage =
+    '[data-testid="search-result-item"], [data-testid="search-results"] [data-testid="result-item"], .c-finderProductCard';
+  const rowSelectorInPage = String(config.rowSelector ?? defaultRowSelectorInPage);
   const gameLinkSelectorInPage = 'a[href*="/game/"]';
   const scoreSelectorInPage =
     '[data-testid="product-metascore"] span, [data-testid="critic-score"] span, .c-siteReviewScore span, .metascore_w';

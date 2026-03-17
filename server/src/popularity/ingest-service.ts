@@ -158,7 +158,7 @@ export class PopularityIngestService {
         upsertedSignals: 0,
         missingGamesDiscovered: 0,
         gamesInserted: 0,
-        scoresUpdated: 0
+        scoresUpdated: 0,
       };
     }
 
@@ -167,7 +167,7 @@ export class PopularityIngestService {
     }
 
     const state: IngestRunState = {
-      nextRequestAtMs: 0
+      nextRequestAtMs: 0,
     };
     const lock = await this.repository.withAdvisoryLock({
       namespace: POPULARITY_INGEST_LOCK_NAMESPACE,
@@ -214,7 +214,7 @@ export class PopularityIngestService {
             upsertedSignals: 0,
             missingGamesDiscovered: 0,
             gamesInserted: 0,
-            scoresUpdated: 0
+            scoresUpdated: 0,
           };
         }
 
@@ -247,9 +247,9 @@ export class PopularityIngestService {
           upsertedSignals: dedupedSignals.length,
           missingGamesDiscovered: missingGameIds.length,
           gamesInserted,
-          scoresUpdated
+          scoresUpdated,
         };
-      }
+      },
     });
 
     if (!lock.acquired) {
@@ -264,7 +264,7 @@ export class PopularityIngestService {
       return [
         ...new Set(
           this.options.sourceTypeIds.filter((value) => Number.isInteger(value) && value > 0)
-        )
+        ),
       ];
     }
 
@@ -276,9 +276,9 @@ export class PopularityIngestService {
       headers: {
         'Client-ID': this.options.twitchClientId,
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain'
+        'Content-Type': 'text/plain',
       },
-      body: 'fields id; sort id asc; limit 500;'
+      body: 'fields id; sort id asc; limit 500;',
     });
 
     if (response.status === 429) {
@@ -300,7 +300,7 @@ export class PopularityIngestService {
             return Number.isInteger(candidate.id) && candidate.id > 0 ? candidate.id : null;
           })
           .filter((value): value is number => value !== null)
-      )
+      ),
     ];
   }
 
@@ -319,14 +319,14 @@ export class PopularityIngestService {
       headers: {
         'Client-ID': this.options.twitchClientId,
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'text/plain'
+        'Content-Type': 'text/plain',
       },
       body: [
         `where popularity_type = ${String(popularityTypeId)} & game_id != null;`,
         'fields game_id,popularity_type,value;',
         'sort value desc;',
-        `limit ${String(normalizedLimit)};`
-      ].join(' ')
+        `limit ${String(normalizedLimit)};`,
+      ].join(' '),
     });
 
     if (response.status === 429) {
@@ -363,7 +363,7 @@ export class PopularityIngestService {
         return {
           gameId,
           popularityType: parsedType,
-          value: score
+          value: score,
         };
       })
       .filter((item): item is PopularityPrimitiveItem => item !== null);
@@ -389,13 +389,13 @@ export class PopularityIngestService {
         headers: {
           'Client-ID': this.options.twitchClientId,
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'text/plain'
+          'Content-Type': 'text/plain',
         },
         body: [
           `where id = (${batch.join(',')});`,
           'fields id,name,summary,storyline,rating,total_rating_count,hypes,follows,first_release_date,parent_game,version_parent,game_type.type,cover.image_id,platforms.id,platforms.name,genres.name,collections.name,franchises.name,similar_games,involved_companies.company.name,involved_companies.developer,involved_companies.publisher;',
-          `limit ${String(batch.length)};`
-        ].join(' ')
+          `limit ${String(batch.length)};`,
+        ].join(' '),
       });
 
       if (response.status === 429) {
@@ -470,7 +470,7 @@ export class PopularityIngestService {
     if (gameMap.size === 0) {
       return {
         existingGamePlatforms: [],
-        missingGamePlatforms: []
+        missingGamePlatforms: [],
       };
     }
 
@@ -495,21 +495,21 @@ export class PopularityIngestService {
         if (existingPairs.has(`${gameId}:${String(platform.id)}`)) {
           existingGamePlatforms.push({
             gameId,
-            platformId: platform.id
+            platformId: platform.id,
           });
           continue;
         }
 
         missingGamePlatforms.push({
           gameId,
-          platformId: platform.id
+          platformId: platform.id,
         });
       }
     }
 
     return {
       existingGamePlatforms,
-      missingGamePlatforms
+      missingGamePlatforms,
     };
   }
 
@@ -536,7 +536,7 @@ export class PopularityIngestService {
       pendingRows.push({
         igdbGameId: item.igdbGameId,
         platformId: pair.platformId,
-        payload
+        payload,
       });
     }
 
@@ -616,7 +616,7 @@ export class PopularityIngestService {
       pendingRows.push({
         igdbGameId: item.igdbGameId,
         platformId: platform.id,
-        payload: JSON.stringify(buildGamePayload(item, platform))
+        payload: JSON.stringify(buildGamePayload(item, platform)),
       });
     }
 
@@ -706,7 +706,7 @@ export class PopularityIngestService {
     tokenUrl.searchParams.set('grant_type', 'client_credentials');
 
     const response = await this.fetchWithTimeout(tokenUrl.toString(), {
-      method: 'POST'
+      method: 'POST',
     });
 
     if (!response.ok) {
@@ -723,7 +723,7 @@ export class PopularityIngestService {
 
     this.tokenCache = {
       accessToken,
-      expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000))
+      expiresAtMs: now + Math.max(60_000, Math.trunc(expiresIn * 1000)),
     };
 
     return accessToken;
@@ -754,7 +754,7 @@ export class PopularityIngestService {
     try {
       return await this.fetchImpl(url, {
         ...options,
-        signal: controller.signal
+        signal: controller.signal,
       });
     } finally {
       clearTimeout(timeoutId);
@@ -769,7 +769,7 @@ export class PopularityIngestService {
       upsertedSignals: 0,
       missingGamesDiscovered: 0,
       gamesInserted: 0,
-      scoresUpdated: 0
+      scoresUpdated: 0,
     };
   }
 
@@ -858,7 +858,7 @@ function normalizeIgdbGame(raw: RawIgdbGame): WorkerGameItem | null {
     franchises: normalizeNamedList(raw.franchises),
     similarGameIds: normalizeSimilarGameIds(raw.similar_games),
     developers: normalizeCompanyRole(raw.involved_companies, 'developer'),
-    publishers: normalizeCompanyRole(raw.involved_companies, 'publisher')
+    publishers: normalizeCompanyRole(raw.involved_companies, 'publisher'),
   };
 }
 
@@ -895,7 +895,7 @@ function buildGamePayload(
     franchises: item.franchises,
     similarGameIgdbIds: item.similarGameIds,
     developers: item.developers,
-    publishers: item.publishers
+    publishers: item.publishers,
   };
 }
 
@@ -915,7 +915,7 @@ function buildGameRefreshPayload(item: WorkerGameItem): Record<string, unknown> 
     parentGame: item.parentGame,
     version_parent: item.versionParent,
     versionParent: item.versionParent,
-    gameType: item.gameType ?? 'main_game'
+    gameType: item.gameType ?? 'main_game',
   };
 }
 

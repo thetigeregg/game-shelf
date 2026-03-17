@@ -219,6 +219,7 @@ Release notification preference defaults:
 - `METADATA_ENRICHMENT_QUEUE_INTERVAL_MINUTES` (consumed by `worker-general`; default `60`)
 
 Scope note:
+
 - IGDB metadata enrichment is intentionally limited to `games.payload.listType = 'wishlist'`.
 - Discovery rows use the separate discovery enrichment pipeline (`RECOMMENDATIONS_DISCOVERY_ENRICH_*`).
 

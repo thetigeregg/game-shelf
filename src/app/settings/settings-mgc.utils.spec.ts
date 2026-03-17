@@ -17,7 +17,7 @@ import {
   recomputeMgcDuplicateErrors,
   resolveGlobalCooldownWaitMs,
   resolveRateLimitRetryDelayMs,
-  resolveTransientRetryDelayMs
+  resolveTransientRetryDelayMs,
 } from './settings-mgc.utils';
 
 function row(overrides: Partial<MgcImportRow> = {}): MgcImportRow {
@@ -37,7 +37,7 @@ function row(overrides: Partial<MgcImportRow> = {}): MgcImportRow {
     duplicateError: null,
     candidates: [],
     selected: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -45,7 +45,7 @@ describe('settings-mgc.utils', () => {
   it('evaluates row status helpers', () => {
     const multipleSelected = row({
       status: 'multiple',
-      selected: { igdbGameId: '1', platformIgdbId: 19 } as never
+      selected: { igdbGameId: '1', platformIgdbId: 19 } as never,
     });
     expect(isMgcAutoSelectedMultiple(multipleSelected)).toBe(true);
     expect(isMgcRowReady(multipleSelected)).toBe(true);
@@ -97,7 +97,7 @@ describe('settings-mgc.utils', () => {
         updatedAt: 'x',
         hltbMainHours: 0,
         hltbMainExtraHours: 0,
-        hltbCompletionistHours: 1
+        hltbCompletionistHours: 1,
       })
     ).toBe(true);
   });
@@ -109,7 +109,7 @@ describe('settings-mgc.utils', () => {
       getMgcRowGameKey(
         row({
           status: 'resolved',
-          selected: { igdbGameId: '123', platformIgdbId: 19 } as never
+          selected: { igdbGameId: '123', platformIgdbId: 19 } as never,
         })
       )
     ).toBe('123::19');
@@ -117,7 +117,7 @@ describe('settings-mgc.utils', () => {
       getMgcRowGameKey(
         row({
           status: 'resolved',
-          selected: { igdbGameId: 'abc', platformIgdbId: 19 } as never
+          selected: { igdbGameId: 'abc', platformIgdbId: 19 } as never,
         })
       )
     ).toBeNull();
@@ -127,19 +127,19 @@ describe('settings-mgc.utils', () => {
     const rowA = row({
       id: 1,
       status: 'resolved',
-      selected: { igdbGameId: '10', platformIgdbId: 19 } as never
+      selected: { igdbGameId: '10', platformIgdbId: 19 } as never,
     });
     const rowB = row({
       id: 2,
       rowNumber: 2,
       status: 'resolved',
-      selected: { igdbGameId: '10', platformIgdbId: 19 } as never
+      selected: { igdbGameId: '10', platformIgdbId: 19 } as never,
     });
     const rowC = row({
       id: 3,
       rowNumber: 3,
       status: 'resolved',
-      selected: { igdbGameId: '11', platformIgdbId: 19 } as never
+      selected: { igdbGameId: '11', platformIgdbId: 19 } as never,
     });
 
     recomputeMgcDuplicateErrors([rowA, rowB, rowC], new Set(['11::19']));

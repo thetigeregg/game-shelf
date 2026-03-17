@@ -3,8 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      '@ionic/core/loader': '@ionic/core/loader/index.js'
-    }
+      '@ionic/core/loader': '@ionic/core/loader/index.js',
+    },
   },
   test: {
     globals: true,
@@ -13,8 +13,8 @@ export default defineConfig({
     include: ['src/**/*.spec.ts'],
     server: {
       deps: {
-        inline: ['@ionic/angular', '@ionic/angular/standalone', '@ionic/core']
-      }
+        inline: ['@ionic/angular', '@ionic/angular/standalone', '@ionic/core'],
+      },
     },
     coverage: {
       provider: 'v8',
@@ -33,14 +33,14 @@ export default defineConfig({
         // async fetch/blob/IndexedDB logic requires extensive browser mocking
         // and is more reliably covered by integration/E2E tests
         'src/app/features/game-search/add-to-library-workflow.service.ts',
-        'src/app/core/services/image-cache.service.ts'
+        'src/app/core/services/image-cache.service.ts',
       ],
       thresholds: {
         statements: 80,
         branches: 80,
         functions: 80,
-        lines: 80
-      }
-    }
-  }
+        lines: 80,
+      },
+    },
+  },
 });

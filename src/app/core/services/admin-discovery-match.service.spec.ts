@@ -184,8 +184,8 @@ describe('AdminDiscoveryMatchService', () => {
     });
   });
 
-  it('posts a list-level discovery enrichment requeue request', async () => {
-    const promise = firstValueFrom(service.requeueEnrichmentRun());
+  it('posts a list-level targeted discovery enrichment requeue request', async () => {
+    const promise = firstValueFrom(service.requeueEnrichmentRun(['123::48', '456::6']));
 
     const req = httpMock.expectOne(
       `${environment.gameApiBaseUrl}/v1/admin/discovery/requeue-enrichment`
@@ -193,7 +193,7 @@ describe('AdminDiscoveryMatchService', () => {
 
     expect(req.request.method).toBe('POST');
     expect(req.request.headers.get('Authorization')).toBe('Bearer admin-token-1');
-    expect(req.request.body).toEqual({});
+    expect(req.request.body).toEqual({ gameKeys: ['123::48', '456::6'] });
     req.flush({ ok: true, queued: false, deduped: true, jobId: 41 });
 
     await expect(promise).resolves.toEqual({

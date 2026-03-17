@@ -61,6 +61,10 @@ interface ClearPermanentMissBody {
   gameKeys?: unknown;
 }
 
+interface RequeueDiscoveryEnrichmentBody {
+  gameKeys?: unknown;
+}
+
 interface ProviderRetryState {
   attempts: number;
   lastTriedAt: string | null;
@@ -143,8 +147,12 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         return;
       }
 
+      const body = (request.body ?? {}) as RequeueDiscoveryEnrichmentBody;
+      const requestedKeys = parseGameKeys(body.gameKeys);
+
       const enqueueResult = await enqueueDiscoveryEnrichmentRun(backgroundJobs, {
         requestedBy: 'admin-discovery-match-list',
+        gameKeys: requestedKeys === null ? undefined : [...requestedKeys],
       });
 
       reply.send({
@@ -294,6 +302,7 @@ export function registerAdminDiscoveryMatchRoutes(app: FastifyInstance, pool: Po
         requestedBy: 'admin-discovery-match',
         igdbGameId: game.igdbGameId,
         platformIgdbId: game.platformIgdbId,
+        gameKeys: [`${game.igdbGameId}::${String(game.platformIgdbId)}`],
       });
 
       reply.send({
@@ -371,14 +380,20 @@ function enqueueDiscoveryEnrichmentRun(
     requestedBy: string;
     igdbGameId?: string;
     platformIgdbId?: number;
+    gameKeys?: string[];
   }
 ): Promise<{ jobId: number; deduped: boolean }> {
+  const normalizedGameKeys =
+    Array.isArray(params.gameKeys) && params.gameKeys.length > 0
+      ? [...new Set(params.gameKeys.map((key) => key.trim()).filter((key) => key.length > 0))]
+      : null;
   return backgroundJobs.enqueue({
     jobType: 'discovery_enrichment_run',
     dedupeKey: 'discovery-enrichment:run',
     payload: {
       requestedAt: new Date().toISOString(),
       requestedBy: params.requestedBy,
+      ...(normalizedGameKeys !== null ? { gameKeys: normalizedGameKeys } : {}),
       ...(typeof params.igdbGameId === 'string' ? { igdbGameId: params.igdbGameId } : {}),
       ...(typeof params.platformIgdbId === 'number'
         ? { platformIgdbId: params.platformIgdbId }

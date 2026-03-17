@@ -6,6 +6,7 @@ import {
 } from './discovery-enrichment-defaults.js';
 import type { IgdbMetadataRecord } from '../metadata-enrichment/types.js';
 import { isProviderMatchLocked } from '../provider-match-lock.js';
+import { buildGameKey } from './semantic.js';
 
 const ENRICHMENT_LOCK_NAMESPACE = 77321;
 const ENRICHMENT_LOCK_KEY = 1;
@@ -159,6 +160,7 @@ export class DiscoveryEnrichmentService {
   async enrichNow(params?: {
     limit?: number;
     queryable?: Queryable;
+    gameKeys?: string[];
   }): Promise<DiscoveryEnrichmentSummary> {
     if (!this.options.enabled) {
       return {
@@ -169,16 +171,20 @@ export class DiscoveryEnrichmentService {
     }
 
     const queryable = params?.queryable;
-    const rows = await this.repository.listDiscoveryRowsMissingEnrichment(
-      params?.limit ?? this.options.maxGamesPerRun,
-      queryable,
-      {
-        nowIso: new Date(this.now()).toISOString(),
-        maxAttempts: this.options.maxAttempts,
-        rearmAfterDays: this.getRearmAfterDays(),
-        rearmRecentReleaseYears: this.getRearmRecentReleaseYears(),
-      }
-    );
+    const normalizedGameKeys = this.normalizeGameKeys(params?.gameKeys);
+    const rows =
+      normalizedGameKeys !== null
+        ? await this.repository.listDiscoveryRowsByGameKeys(normalizedGameKeys, queryable)
+        : await this.repository.listDiscoveryRowsMissingEnrichment(
+            params?.limit ?? this.options.maxGamesPerRun,
+            queryable,
+            {
+              nowIso: new Date(this.now()).toISOString(),
+              maxAttempts: this.options.maxAttempts,
+              rearmAfterDays: this.getRearmAfterDays(),
+              rearmRecentReleaseYears: this.getRearmRecentReleaseYears(),
+            }
+          );
 
     let updated = 0;
     let skipped = 0;
@@ -199,6 +205,30 @@ export class DiscoveryEnrichmentService {
     }
 
     return { scanned: rows.length, updated, skipped };
+  }
+
+  private normalizeGameKeys(value: string[] | undefined): string[] | null {
+    if (!Array.isArray(value)) {
+      return null;
+    }
+
+    const normalized = [...new Set(value.map((key) => key.trim()).filter((key) => key.length > 0))];
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    return normalized.filter((key) => {
+      const separatorIndex = key.lastIndexOf('::');
+      if (separatorIndex <= 0) {
+        return false;
+      }
+      const igdbGameId = key.slice(0, separatorIndex).trim();
+      const platformRaw = key.slice(separatorIndex + 2).trim();
+      if (igdbGameId.length === 0 || !/^\d+$/.test(platformRaw)) {
+        return false;
+      }
+      return buildGameKey(igdbGameId, Number.parseInt(platformRaw, 10)) === key;
+    });
   }
 
   private async enrichPayload(

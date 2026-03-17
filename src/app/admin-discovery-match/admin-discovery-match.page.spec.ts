@@ -350,10 +350,15 @@ describe('AdminDiscoveryMatchPage', () => {
     ).requeueActiveGameEnrichment();
 
     expect(adminMatchService.requeueEnrichment).toHaveBeenCalledWith('123', 48);
-    expect(page.activeQueueStatusMessage).toBe('Discovery enrichment queued.');
+    expect(page.activeQueueStatusMessage).toBe(
+      'Targeted discovery enrichment queued for this game.'
+    );
     expect(page.activeQueueStatusTone).toBe('success');
     expect(toastCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Discovery enrichment queued.', color: 'success' })
+      expect.objectContaining({
+        message: 'Targeted discovery enrichment queued for this game.',
+        color: 'success',
+      })
     );
     expect(page.isRequeueing).toBe(false);
   });
@@ -363,12 +368,12 @@ describe('AdminDiscoveryMatchPage', () => {
 
     await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
 
-    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledTimes(1);
-    expect(page.listQueueStatusMessage).toBe('Discovery enrichment run is already queued.');
+    expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith(['123::48']);
+    expect(page.listQueueStatusMessage).toBe('Targeted discovery enrichment is already queued.');
     expect(page.listQueueStatusTone).toBe('warning');
     expect(toastCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Discovery enrichment run is already queued.',
+        message: 'Targeted discovery enrichment is already queued.',
         color: 'success',
       })
     );
@@ -386,6 +391,7 @@ describe('AdminDiscoveryMatchPage', () => {
     try {
       await (page as { requeueDiscoveryRun: () => Promise<void> }).requeueDiscoveryRun();
 
+      expect(adminMatchService.requeueEnrichmentRun).toHaveBeenCalledWith(['123::48']);
       expect(page.listQueueStatusMessage).toBe('queue offline');
       expect(page.listQueueStatusTone).toBe('danger');
       expect(page.isListRequeueing).toBe(false);

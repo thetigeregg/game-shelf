@@ -79,6 +79,22 @@ export function stringOrEmpty(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+export function readDiscoveryEnrichmentGameKeys(payload: Record<string, unknown>): string[] | null {
+  const value = payload['gameKeys'];
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = [
+    ...new Set(
+      value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item.length > 0)
+    ),
+  ];
+  return normalized.length > 0 ? normalized : null;
+}
+
 export function shouldRunPricingRefreshPhase(params: {
   enabled: boolean;
   trigger: 'startup' | 'interval';
@@ -1017,7 +1033,14 @@ async function main(): Promise<void> {
         return { processed: true };
       }
       case 'discovery_enrichment_run': {
-        const summary = await discoveryEnrichmentService.runOnce();
+        const gameKeys = readDiscoveryEnrichmentGameKeys(job.payload);
+        const summary =
+          gameKeys === null
+            ? await discoveryEnrichmentService.runOnce()
+            : await discoveryEnrichmentService.enrichNow({
+                limit: Math.max(gameKeys.length, 1),
+                gameKeys,
+              });
         return { summary };
       }
       case 'hltb_cache_revalidate': {

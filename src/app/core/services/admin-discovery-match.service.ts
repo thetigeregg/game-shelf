@@ -235,10 +235,10 @@ export class AdminDiscoveryMatchService {
     );
   }
 
-  requeueEnrichmentRun(): Observable<AdminDiscoveryRequeueResponse> {
+  requeueEnrichmentRun(gameKeys?: string[]): Observable<AdminDiscoveryRequeueResponse> {
     return this.httpClient.post<AdminDiscoveryRequeueResponse>(
       `${this.baseUrl}/requeue-enrichment`,
-      {},
+      Array.isArray(gameKeys) && gameKeys.length > 0 ? { gameKeys } : {},
       {
         headers: this.buildHeaders(),
       }

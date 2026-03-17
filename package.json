@@ -133,6 +133,6 @@
   "description": "A game library tracker with metadata enrichment, manual lookup, and import workflows.",
   "lint-staged": {
     "*.{ts,js,mjs,cjs}": "npx eslint --fix",
-    "*": "prettier --write --ignore-unknown"
+    "*": "prettier --write"
   }
 }

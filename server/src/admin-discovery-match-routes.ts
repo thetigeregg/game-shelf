@@ -3,7 +3,7 @@ import type { Pool, QueryResultRow } from 'pg';
 import { BackgroundJobRepository } from './background-jobs.js';
 import { config } from './config.js';
 import { isProviderMatchLocked } from './provider-match-lock.js';
-import { isAuthorizedMutatingRequest } from './request-security.js';
+import { CLIENT_WRITE_TOKEN_HEADER_NAME, isAuthorizedMutatingRequest } from './request-security.js';
 
 type DiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
 type DiscoveryMatchStateStatus = 'matched' | 'missing' | 'retrying' | 'permanentMiss';
@@ -1048,9 +1048,9 @@ function isAdminAuthorized(
   const authorized = isAuthorizedMutatingRequest({
     requireAuth: config.requireAuth,
     apiToken: config.apiToken,
-    clientWriteTokens: [],
+    clientWriteTokens: config.clientWriteTokens,
     authorizationHeader: request.headers.authorization,
-    clientWriteTokenHeader: undefined,
+    clientWriteTokenHeader: request.headers[CLIENT_WRITE_TOKEN_HEADER_NAME],
   });
 
   if (!authorized) {

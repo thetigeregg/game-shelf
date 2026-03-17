@@ -37,7 +37,7 @@ import {
   AdminDiscoveryMatchService,
   AdminDiscoveryMatchStateStatus,
 } from '../core/services/admin-discovery-match.service';
-import { AdminApiAuthService } from '../core/services/admin-api-auth.service';
+import { ClientWriteAuthService } from '../core/services/client-write-auth.service';
 import { formatRateLimitedUiError } from '../core/utils/rate-limit-ui-error';
 
 type ReviewSource = 'metacritic' | 'mobygames';
@@ -91,7 +91,6 @@ export class AdminDiscoveryMatchPage {
     { value: 'mobygames', label: 'MobyGames' },
   ];
 
-  tokenDraft = '';
   selectedProvider: AdminDiscoveryMatchProvider = 'hltb';
   selectedState: AdminDiscoveryMatchStateStatus | 'all' = 'all';
   searchQuery = '';
@@ -167,21 +166,20 @@ export class AdminDiscoveryMatchPage {
   };
 
   private readonly adminMatchService = inject(AdminDiscoveryMatchService);
-  private readonly adminAuth = inject(AdminApiAuthService);
+  private readonly clientWriteAuth = inject(ClientWriteAuthService);
   private readonly gameShelfService = inject(GameShelfService);
   private readonly toastController = inject(ToastController);
 
   constructor() {
-    this.tokenDraft = this.adminAuth.getToken() ?? '';
-    if (this.adminAuth.hasToken()) {
+    if (this.clientWriteAuth.hasToken()) {
       queueMicrotask(() => {
         void this.loadItems();
       });
     }
   }
 
-  get hasAdminToken(): boolean {
-    return this.adminAuth.hasToken();
+  get hasAccessToken(): boolean {
+    return this.clientWriteAuth.hasToken();
   }
 
   get visiblePermanentMissKeys(): string[] {
@@ -195,29 +193,6 @@ export class AdminDiscoveryMatchPage {
       this.providerOptions.find((option) => option.value === this.selectedProvider)?.label ??
       'Provider'
     );
-  }
-
-  async saveAdminToken(): Promise<void> {
-    this.adminAuth.setToken(this.tokenDraft);
-    this.tokenDraft = this.adminAuth.getToken() ?? '';
-    await this.presentToast(this.hasAdminToken ? 'Admin token saved.' : 'Admin token cleared.');
-    if (this.hasAdminToken) {
-      await this.loadItems();
-    } else {
-      this.items = [];
-      this.scannedCount = 0;
-      this.errorMessage = null;
-    }
-  }
-
-  async clearAdminToken(): Promise<void> {
-    this.adminAuth.clearToken();
-    this.tokenDraft = '';
-    this.items = [];
-    this.scannedCount = 0;
-    this.errorMessage = null;
-    this.clearListQueueStatus();
-    await this.presentToast('Admin token cleared.');
   }
 
   async loadItems(): Promise<void> {
@@ -946,6 +921,11 @@ export class AdminDiscoveryMatchPage {
     if (error instanceof Error && error.message.trim().length > 0) {
       return error.message;
     }
+
+    if (!this.hasAccessToken) {
+      return 'Set a device write token in Settings to use discovery match controls.';
+    }
+
     return fallback;
   }
 

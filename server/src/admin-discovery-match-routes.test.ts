@@ -142,8 +142,10 @@ void test('admin discovery routes reject unauthorized requests', async () => {
   const app = fastifyFactory({ logger: false });
   const originalRequireAuth = config.requireAuth;
   const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
 
   try {
     registerAdminDiscoveryMatchRoutes(app, new PoolMock() as unknown as Pool);
@@ -157,6 +159,7 @@ void test('admin discovery routes reject unauthorized requests', async () => {
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
     await app.close();
   }
 });
@@ -166,8 +169,10 @@ void test('admin discovery unmatched route lists only unmatched discovery rows f
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
   const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
 
   pool.seed({
     igdbGameId: '1',
@@ -225,7 +230,7 @@ void test('admin discovery unmatched route lists only unmatched discovery rows f
       method: 'GET',
       url: '/v1/admin/discovery/matches/unmatched?provider=hltb&limit=10',
       headers: {
-        authorization: 'Bearer test-admin-token',
+        'x-game-shelf-client-token': 'device-token-1',
       },
     });
 
@@ -248,6 +253,7 @@ void test('admin discovery unmatched route lists only unmatched discovery rows f
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
     await app.close();
   }
 });
@@ -257,8 +263,10 @@ void test('admin discovery list requeue route enqueues a targeted discovery job 
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
   const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
 
   try {
     registerAdminDiscoveryMatchRoutes(app, pool as unknown as Pool);
@@ -300,6 +308,7 @@ void test('admin discovery list requeue route enqueues a targeted discovery job 
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
     await app.close();
   }
 });
@@ -309,8 +318,10 @@ void test('admin discovery patch route persists HLTB match locks and clears retr
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
   const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
 
   pool.seed({
     igdbGameId: '9',
@@ -366,6 +377,7 @@ void test('admin discovery patch route persists HLTB match locks and clears retr
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
     await app.close();
   }
 });
@@ -375,8 +387,10 @@ void test('admin discovery clear permanent miss route resets selected review ret
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
   const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
 
   pool.seed({
     igdbGameId: '21',
@@ -450,6 +464,7 @@ void test('admin discovery clear permanent miss route resets selected review ret
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
     await app.close();
   }
 });
@@ -459,8 +474,10 @@ void test('admin discovery requeue enrichment route enqueues the discovery job a
   const pool = new PoolMock();
   const originalRequireAuth = config.requireAuth;
   const originalApiToken = config.apiToken;
+  const originalClientWriteTokens = config.clientWriteTokens;
   config.requireAuth = true;
   config.apiToken = 'test-admin-token';
+  config.clientWriteTokens = ['device-token-1'];
 
   pool.seed({
     igdbGameId: '30',
@@ -510,6 +527,7 @@ void test('admin discovery requeue enrichment route enqueues the discovery job a
   } finally {
     config.requireAuth = originalRequireAuth;
     config.apiToken = originalApiToken;
+    config.clientWriteTokens = originalClientWriteTokens;
     await app.close();
   }
 });

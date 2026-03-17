@@ -3,7 +3,10 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { StrictHttpParameterCodec } from '../api/strict-http-parameter-codec';
-import { AdminApiAuthService } from './admin-api-auth.service';
+import {
+  CLIENT_WRITE_TOKEN_HEADER_NAME,
+  ClientWriteAuthService,
+} from './client-write-auth.service';
 
 export type AdminDiscoveryMatchProvider = 'hltb' | 'review' | 'pricing';
 export type AdminDiscoveryMatchStateStatus = 'matched' | 'missing' | 'retrying' | 'permanentMiss';
@@ -141,7 +144,7 @@ export interface AdminDiscoveryRequeueResponse {
 export class AdminDiscoveryMatchService {
   private static readonly STRICT_HTTP_PARAM_ENCODER = new StrictHttpParameterCodec();
   private readonly httpClient = inject(HttpClient);
-  private readonly adminAuth = inject(AdminApiAuthService);
+  private readonly clientWriteAuth = inject(ClientWriteAuthService);
   private readonly apiBaseUrl = this.normalizeBaseUrl(environment.gameApiBaseUrl);
   private readonly baseUrl = `${this.apiBaseUrl}/v1/admin/discovery`;
 
@@ -246,13 +249,13 @@ export class AdminDiscoveryMatchService {
   }
 
   private buildHeaders(): HttpHeaders {
-    const token = this.adminAuth.getToken();
+    const token = this.clientWriteAuth.getToken();
     if (!token) {
       return new HttpHeaders();
     }
 
     return new HttpHeaders({
-      Authorization: `Bearer ${token}`,
+      [CLIENT_WRITE_TOKEN_HEADER_NAME]: token,
     });
   }
 
